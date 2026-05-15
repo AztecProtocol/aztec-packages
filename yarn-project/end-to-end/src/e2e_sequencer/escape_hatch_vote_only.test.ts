@@ -20,6 +20,7 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const OPEN_THE_HATCH = true;
@@ -61,18 +62,19 @@ describe('e2e_escape_hatch_vote_only', () => {
     });
 
     const context = await setup(1, {
+      ...PIPELINING_SETUP_OPTS,
       anvilAccounts: 10,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
       validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)),
       governanceProposerRoundSize: ROUND_SIZE,
       governanceProposerQuorum: QUORUM_SIZE,
+      // Override PIPELINING_SETUP_OPTS slot durations for the longer cadence this test needs.
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       // Keep pruning far away for this test.
       aztecProofSubmissionEpochs: 15, // needed so ACTIVE_DURATION=2 is a valid EscapeHatch config
-      minTxsPerBlock: 0,
       enforceTimeTable: true,
       automineL1Setup: true,
       // Pipelining opts — exercise the §6 B5 fix (tryVoteWhenEscapeHatchOpen signing/submitting for targetSlot).

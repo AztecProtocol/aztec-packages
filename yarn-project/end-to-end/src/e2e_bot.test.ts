@@ -36,6 +36,14 @@ describe('e2e_bot', () => {
 
   beforeAll(async () => {
     const [botAccount] = await getInitialTestAccountsData();
+    // TODO(palla/pipelining): re-opt-in once public-call simulation handles `inboxLag`. Under
+    // pipelining with `inboxLag=2`, `AztecNodeService.simulatePublicCalls` queries
+    // `getL1ToL2Messages(proposedCheckpoint+1)` at checkpoint boundaries and throws
+    // `L1ToL2MessagesNotReadyError` because that checkpoint isn't yet sealed on L1 (see
+    // server.ts:1508 + message_store.ts:233). This breaks the bridge/amm/cross-chain bot flows.
+    // The `transaction-bot` cluster additionally needs the bot's `minFeePadding` bumped to
+    // `PIPELINED_FEE_PADDING` (the bot overrides the wallet padding via
+    // `wallet.setMinFeePadding(config.minFeePadding)` in `bot/src/factory.ts:60`).
     const setupResult = await setup(0, { initialFundedAccounts: [botAccount] });
     ({
       teardown,
@@ -292,13 +300,13 @@ describe('e2e_bot', () => {
       expect(block).toBeDefined();
       const l2ToL1Msgs = block!.body.txEffects.flatMap(e => e.l2ToL1Msgs).filter(m => !m.isZero());
       expect(l2ToL1Msgs.length).toBeGreaterThanOrEqual(1);
-    }, 120_000);
+    }, 300_000);
 
     it('replenishes the seeding pipeline across ticks', async () => {
       // Tick 2: the first tick consumed one message. This tick should seed a
       // replacement and still have a ready message to consume.
       const result = await bot.run();
       expect(result).toBeDefined();
-    }, 120_000);
+    }, 300_000);
   });
 });

@@ -452,25 +452,37 @@ describe('SequencerPublisher', () => {
     it('stops rotating once txTimeoutAt elapses mid-rotation', async () => {
       // First forward throws; getNextPublisher rotates to a new publisher; but by then the
       // deadline has elapsed and the rotation loop should bail before the second forward call.
-      const futureTimeout = new Date(Date.now() + 100); // will elapse during the await below
-      forwardSpy.mockImplementationOnce(async () => {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        throw new Error('RPC error on first');
-      });
-      getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
+      // Use jest fake timers to control `Date.now()` deterministically — the rotation loop
+      // checks the deadline via `new Date() > txConfig.txTimeoutAt`, so faking the system clock
+      // is the cleanest way to model "deadline elapses mid-rotation" without racing wall-clock
+      // setTimeout against CI host speed.
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'] });
+      try {
+        jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+        const futureTimeout = new Date(Date.now() + 1000);
+        forwardSpy.mockImplementationOnce(() => {
+          // Simulate enough wall-clock advance during the forward to push past the deadline,
+          // so the loop's next deadline check bails before the second attempt.
+          jest.setSystemTime(Date.now() + 5000);
+          return Promise.reject(new Error('RPC error on first'));
+        });
+        getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
 
-      await rotatingPublisher.enqueueProposeCheckpoint(
-        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(testSignatureContext),
-        Signature.empty(),
-        { txTimeoutAt: futureTimeout },
-      );
-      const result = await rotatingPublisher.sendRequests();
+        await rotatingPublisher.enqueueProposeCheckpoint(
+          new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+          CommitteeAttestationsAndSigners.empty(testSignatureContext),
+          Signature.empty(),
+          { txTimeoutAt: futureTimeout },
+        );
+        const result = await rotatingPublisher.sendRequests();
 
-      expect(result).toBeUndefined();
-      // forward was attempted exactly once (the first publisher); rotation was aborted before
-      // the second attempt because the deadline had passed.
-      expect(forwardSpy).toHaveBeenCalledTimes(1);
+        expect(result).toBeUndefined();
+        // forward was attempted exactly once (the first publisher); rotation was aborted before
+        // the second attempt because the deadline had passed.
+        expect(forwardSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('does not rotate when forward throws MulticallForwarderRevertedError (on-chain failure)', async () => {

@@ -7,12 +7,18 @@ import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token
 import { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
+
 import { expectMapping } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {
+  // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run at the
+  // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
+  jest.setTimeout(900_000);
+
   let wallet: TestWallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
@@ -25,6 +31,12 @@ describe('e2e_fees private_payment', () => {
   const t = new FeesTest('private_payment');
 
   beforeAll(async () => {
+    // TODO(kill-non-pipelined): runs under legacy until §6 B7 (simulator + inboxLag mismatch in
+    // AztecNodeService.simulatePublicCalls) is fixed. Under pipelining with `inboxLag=2`,
+    // `simulatePublicCalls` queries `getL1ToL2Messages(proposedCheckpoint+1)` at checkpoint
+    // boundaries and throws `L1ToL2MessagesNotReadyError`. Same root cause as e2e_bot
+    // (un-opt-in commit e32ea4fb60) and e2e_fees/failures (eb542676f8); all 6 tests in this
+    // suite hit it via `getBananaPublicBalanceFn` -> `.simulate(...)`.
     await t.setup();
     await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
@@ -106,17 +118,28 @@ describe('e2e_fees private_payment', () => {
 
     const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();
     const { sequencerBlockRewards } = await t.getBlockRewards();
+    const provenCheckpointBefore = await t.rollupContract.getProvenCheckpointNumber();
 
     const receipt = await localTx.send({ timeout: 300, interval: 10 });
     await t.cheatCodes.rollup.advanceToNextEpoch();
 
     await waitForProven(aztecNode, receipt, { provenTimeout: 300 });
 
+    // Under pipelining, multiple empty checkpoints can land and prove between the snapshot and waitForProven;
+    // each one contributes a block reward to the coinbase, so multiply by the actual proven-checkpoint delta.
+    const provenCheckpointAfter = await t.rollupContract.getProvenCheckpointNumber();
+    const newlyProvenCheckpoints = BigInt(provenCheckpointAfter - provenCheckpointBefore);
+
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
-    const expectedProverFee = await t.getProverFee(receipt.blockNumber!);
+    const expectedProverFee = await t.getCommittedProverFee(receipt.blockNumber!);
+    const expectedBurn = await t.getCommittedBurn(receipt.blockNumber!);
     await expect(t.getCoinbaseSequencerRewards()).resolves.toEqual(
-      sequencerRewardsBefore + sequencerBlockRewards + receipt.transactionFee! - expectedProverFee,
+      sequencerRewardsBefore +
+        newlyProvenCheckpoints * sequencerBlockRewards +
+        receipt.transactionFee! -
+        expectedBurn -
+        expectedProverFee,
     );
     const feeAmount = receipt.transactionFee!;
 

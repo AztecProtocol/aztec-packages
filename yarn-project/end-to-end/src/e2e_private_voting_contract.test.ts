@@ -5,6 +5,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_voting_contract', () => {
@@ -23,7 +24,7 @@ describe('e2e_voting_contract', () => {
       wallet,
       logger,
       accounts: [owner],
-    } = await setup(1));
+    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
 
     ({ contract: votingContract } = await PrivateVotingContract.deploy(wallet, owner).send({ from: owner }));
 
