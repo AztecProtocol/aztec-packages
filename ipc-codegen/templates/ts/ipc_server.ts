@@ -7,7 +7,7 @@ import * as net from 'node:net';
 import * as fs from 'node:fs';
 import { Decoder, Encoder } from 'msgpackr';
 
-const encoder = new Encoder({ useRecords: false });
+const encoder = new Encoder({ useRecords: false, variableMapSize: true });
 const decoder = new Decoder({ useRecords: false });
 
 export type DispatchFn = (commandName: string, payload: any) => Promise<[string, any]>;

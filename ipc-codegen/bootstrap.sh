@@ -49,9 +49,21 @@ function build {
     echo "Skipping C++ echo build — msgpack-c not present at ../barretenberg/cpp/build/_deps/"
   fi
 
-  # Pre-bake golden fixtures from the Rust reference so the per-language
-  # golden tests are pure deserialization (no shared write-then-read).
+  # NB: the golden msgpack fixtures under examples/echo-schema/golden/ are
+  # COMMITTED and FROZEN — they're the binding wire-format contract. Don't
+  # regenerate them here. If a deliberate wire-format change requires
+  # refreshing them, run `./bootstrap.sh update_goldens` and commit the diff.
+}
+
+function update_goldens {
+  echo_header "ipc-codegen update_goldens"
+  # Rebuild the rust generate_golden binary first.
+  (cd examples/rust/echo && cargo build --quiet --bin generate_golden)
   examples/rust/echo/target/debug/generate_golden --output-dir examples/echo-schema/golden
+  echo ""
+  echo "Goldens refreshed. Review the diff carefully — these are the wire-format"
+  echo "contract, and any byte-level change is a breaking change for external"
+  echo "implementations of the schema."
 }
 
 function test_cmds {

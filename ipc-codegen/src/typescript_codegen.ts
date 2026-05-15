@@ -390,7 +390,7 @@ import { BBApiException } from '../../bbapi_exception.js';
 ${imports}
 
 async function msgpackCall(backend: IMsgpackBackendAsync, input: any[]) {
-  const inputBuffer = new Encoder({ useRecords: false }).pack(input);
+  const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
   const encodedResult = await backend.call(inputBuffer);
   return new Decoder({ useRecords: false }).unpack(encodedResult);
 }
@@ -423,7 +423,7 @@ import { BBApiException } from '../../bbapi_exception.js';
 ${imports}
 
 function msgpackCall(backend: IMsgpackBackendSync, input: any[]) {
-  const inputBuffer = new Encoder({ useRecords: false }).pack(input);
+  const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
   const encodedResult = backend.call(inputBuffer);
   return new Decoder({ useRecords: false }).unpack(encodedResult);
 }

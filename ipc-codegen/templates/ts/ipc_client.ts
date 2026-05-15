@@ -6,7 +6,7 @@
 import * as net from 'node:net';
 import { Decoder, Encoder } from 'msgpackr';
 
-const encoder = new Encoder({ useRecords: false });
+const encoder = new Encoder({ useRecords: false, variableMapSize: true });
 const decoder = new Decoder({ useRecords: false });
 
 export class IpcClient {
