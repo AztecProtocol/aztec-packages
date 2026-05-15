@@ -213,6 +213,13 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   it.each(['private', 'public'] as const)(
     'can consume L1 to L2 message in %s after inbox drifts away from the rollup',
     async (scope: 'private' | 'public') => {
+      // Reset the L1 proof window by marking the current pending tip as proven. The e2e fixture
+      // runs L1 on interval mining, so the watcher's auto-prove loop never starts (it gates on
+      // `isAutoMining`). That means L1's prune deadline has been anchored to chain genesis the
+      // whole setup, and would otherwise fire mid-test before we finish mining the 4 drift
+      // checkpoints below.
+      await t.context.watcher.markAsProven();
+
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
       const [checkpointedProvenBlock] = await aztecNode.getBlocks(lastProven, 1, {
@@ -247,7 +254,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           (await aztecNode.getBlockNumber().then(b => b === lastProven || b === lastProven + 1)) ||
           (await tryAdvanceBlock()),
         'wait for prune',
-        40,
+        180,
       );
 
       // Check that there is no witness yet
