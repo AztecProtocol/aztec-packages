@@ -3,7 +3,7 @@
 
 use echo_wire_compat::generated::echo_server::Handler;
 use echo_wire_compat::generated::echo_types::*;
-use echo_wire_compat::generated::error::{EchoError, Result};
+use echo_wire_compat::generated::error::{IpcError, Result};
 use echo_wire_compat::generated::ipc_server;
 use std::cell::RefCell;
 
@@ -67,5 +67,5 @@ fn main() -> Result<()> {
         };
 
         rmp_serde::to_vec_named(&response).unwrap_or_default()
-    }).map_err(|e| EchoError::Io(e))
+    }).map_err(|e| IpcError::Io(e))
 }

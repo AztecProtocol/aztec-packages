@@ -6,13 +6,6 @@ examples/zig/*/.zig-cache/
 examples/zig/*/zig-out/
 examples/ts/*/node_modules/
 
-# Generated bindings under examples — regenerated each build by bootstrap.sh,
-# never committed. Scaffolding files (backend.rs, error.rs, uds_backend.rs,
-# *.zig backends) ARE committed because they're one-time-copied templates the
-# example customizes by hand.
-examples/cpp/*/generated/
-examples/ts/*/generated/
-examples/rust/*/src/generated/echo_*.rs
-examples/rust/*/src/generated/ipc_server.rs
-examples/zig/*/generated/echo_*.zig
-examples/zig/*/generated/ipc_server.zig
+# All files under any generated/ directory are produced by bootstrap.sh build
+# (either codegen output or one-time-copied templates) and are never committed.
+**/generated/

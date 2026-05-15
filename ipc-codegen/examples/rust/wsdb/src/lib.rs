@@ -18,4 +18,4 @@ pub mod generated {
 }
 
 pub use generated::backend::Backend;
-pub use generated::error::{BarretenbergError, Result};
+pub use generated::error::{IpcError, Result};

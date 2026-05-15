@@ -24,7 +24,7 @@
 //! ```
 
 use super::backend::Backend;
-use super::error::{BarretenbergError, Result};
+use super::error::{IpcError, Result};
 use std::ptr;
 
 // C API exported by Barretenberg
@@ -90,7 +90,7 @@ impl Backend for FfiBackend {
         }
 
         if output_ptr.is_null() {
-            return Err(BarretenbergError::Backend(
+            return Err(IpcError::Backend(
                 "bbapi returned null pointer".to_string(),
             ));
         }
@@ -100,7 +100,7 @@ impl Backend for FfiBackend {
             unsafe {
                 libc::free(output_ptr as *mut libc::c_void);
             }
-            return Err(BarretenbergError::Backend(
+            return Err(IpcError::Backend(
                 "bbapi returned empty response".to_string(),
             ));
         }

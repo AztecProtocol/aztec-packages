@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum BarretenbergError {
+pub enum IpcError {
     #[error("Serialization error: {0}")]
     Serialization(String),
 
@@ -29,4 +29,4 @@ pub enum BarretenbergError {
     Wasm(String),
 }
 
-pub type Result<T> = std::result::Result<T, BarretenbergError>;
+pub type Result<T> = std::result::Result<T, IpcError>;

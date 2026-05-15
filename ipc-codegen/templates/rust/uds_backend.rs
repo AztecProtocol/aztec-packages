@@ -5,7 +5,7 @@
 //! Same wire format as C++/TS/Zig IPC clients.
 
 use super::backend::Backend;
-use super::error::{BarretenbergError, Result};
+use super::error::{IpcError, Result};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -22,7 +22,7 @@ impl UdsBackend {
     /// * `socket_path` - Path to the Unix domain socket (e.g. "/tmp/bb.sock")
     pub fn connect(socket_path: impl AsRef<Path>) -> Result<Self> {
         let stream = UnixStream::connect(socket_path.as_ref()).map_err(|e| {
-            BarretenbergError::Ipc(format!(
+            IpcError::Ipc(format!(
                 "Failed to connect to {}: {}",
                 socket_path.as_ref().display(),
                 e
@@ -35,13 +35,13 @@ impl UdsBackend {
         let len = data.len() as u32;
         self.stream
             .write_all(&len.to_le_bytes())
-            .map_err(|e| BarretenbergError::Ipc(format!("Failed to write length: {}", e)))?;
+            .map_err(|e| IpcError::Ipc(format!("Failed to write length: {}", e)))?;
         self.stream
             .write_all(data)
-            .map_err(|e| BarretenbergError::Ipc(format!("Failed to write data: {}", e)))?;
+            .map_err(|e| IpcError::Ipc(format!("Failed to write data: {}", e)))?;
         self.stream
             .flush()
-            .map_err(|e| BarretenbergError::Ipc(format!("Failed to flush: {}", e)))?;
+            .map_err(|e| IpcError::Ipc(format!("Failed to flush: {}", e)))?;
         Ok(())
     }
 
@@ -49,12 +49,12 @@ impl UdsBackend {
         let mut len_buf = [0u8; 4];
         self.stream
             .read_exact(&mut len_buf)
-            .map_err(|e| BarretenbergError::Ipc(format!("Failed to read length: {}", e)))?;
+            .map_err(|e| IpcError::Ipc(format!("Failed to read length: {}", e)))?;
         let len = u32::from_le_bytes(len_buf) as usize;
         let mut data = vec![0u8; len];
         self.stream
             .read_exact(&mut data)
-            .map_err(|e| BarretenbergError::Ipc(format!("Failed to read data: {}", e)))?;
+            .map_err(|e| IpcError::Ipc(format!("Failed to read data: {}", e)))?;
         Ok(data)
     }
 }
