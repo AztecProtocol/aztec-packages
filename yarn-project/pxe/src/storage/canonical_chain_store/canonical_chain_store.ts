@@ -1,6 +1,8 @@
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
+import { type Anchor } from '../foundation/anchor.js';
+
 export class CanonicalChainStore {
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
@@ -84,5 +86,14 @@ export class CanonicalChainStore {
         await this.#canonicalHashes.delete(h);
       }
     }
+  }
+
+  /**
+   * The canonicality predicate: is the row at this anchor part of the current canonical chain?
+   * True iff the canonical hash recorded at `anchor.blockNumber` equals `anchor.blockHash`.
+   * False when the height is unset — e.g. retracted by a chain-pruned and not yet re-synced.
+   */
+  isCanonical(anchor: Anchor): Promise<boolean> {
+    return Promise.resolve(this.#mem.get(anchor.blockNumber) === anchor.blockHash);
   }
 }

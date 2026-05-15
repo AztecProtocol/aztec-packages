@@ -88,4 +88,14 @@ describe('canonical chain map', () => {
     await expect(chain.hashAt(104)).resolves.toEqual('0xb');
     await expect(chain.hashAt(105)).resolves.toEqual('0xc');
   });
+
+  it('isCanonical is true only when the anchor hash matches the map', async () => {
+    await chain.set(105, '0xaaa');
+    await expect(chain.isCanonical({ blockNumber: 105, blockHash: '0xaaa' })).resolves.toBe(true);
+    await expect(chain.isCanonical({ blockNumber: 105, blockHash: '0xbbb' })).resolves.toBe(false);
+  });
+
+  it('isCanonical is false when the height has no entry (unset / retracted)', async () => {
+    await expect(chain.isCanonical({ blockNumber: 999, blockHash: '0xaaa' })).resolves.toBe(false);
+  });
 });
