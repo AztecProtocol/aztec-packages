@@ -210,7 +210,10 @@ function execute-examples {
 }
 
 function test_cmds {
-  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
+  # Default 600s was tight against the cumulative docs runner; under #23253 merge-train load
+  # SIGTERM tipped example_swap mid-`wait-for-proven` poll. Match the compose/web3signer/ha
+  # bumps from #23275 and give it 20m.
+  echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=20m docs/examples/bootstrap.sh execute"
 }
 
 function test {
