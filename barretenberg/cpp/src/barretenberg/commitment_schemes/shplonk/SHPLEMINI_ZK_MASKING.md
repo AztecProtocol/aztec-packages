@@ -250,60 +250,138 @@ same masked Gemini data. Therefore the verifier sees a transcript distributed
 independently of the unmasked witness contribution, except with negligible
 probability from the bad set defined above.
 
-## IPA Variant
+## Lemma 2 (IPA)
 
-The analogous IPA support under consideration is
-
-$$
-S_{\mathrm{ipa}} \;=\; \{N - 4,\ N - 3,\ N - 2,\ N - 1\}
-\,\cup\, \bigcup_{q=1}^{d-1} \{2^q - 2,\ 2^q - 1,\ 2^q,\ 2^q + 1\},
-$$
-
-with entries outside $[0,N-1]$ and duplicates removed. The intended leakage
-model views every IPA group message algebraically in the basis
+For IPA, assume the opened polynomial has the full dyadic size $N=2^d$ and
+$d\ge4$. Work in the algebraic group model for IPA: every group message is
+represented by its coefficients in the independent basis
 $\{G_0,\ldots,G_{N-1},U\}$ of CRS generators and the IPA auxiliary generator.
 
-The rank claim to prove is that the full Gemini + Shplonk + IPA leakage map
-from the coefficients $(c_s)_{s\in S_{\mathrm{ipa}}}$ has rank
-$|S_{\mathrm{ipa}}|$ outside a proper algebraic bad set of Fiat-Shamir
-challenges. The randomized test `shplemini_zk_mask_rank.test.cpp` checks this
-claim for representative dyadic sizes, but this note does not yet contain the
-complete analytical proof.
+The support is shifted by one relative to the IPA cut coordinates because
+Shplonk maps a monomial $X^s$ to a quotient with leading term $X^{s-1}$.
+Define the terminal block
 
-The first part of the proof is straightforward: Shplonk is triangular on
-coefficients. For $s>0$,
+$$
+B_3=\{1,2,3,4,5,6,7,8\},
+$$
+
+and, for $4\le m\le d$,
+
+$$
+B_m=\{2^{m-1}+1,\ 2^{m-1}+2,\ 2^m-2,\ 2^m-1\}.
+$$
+
+Use
+
+$$
+S_{\mathrm{ipa}}=B_3\cup B_4\cup\cdots\cup B_d,
+$$
+
+and let $V=\mathrm{span}\{E_s:s\in S_{\mathrm{ipa}}\}$.
+
+Assume the Fiat-Shamir challenges avoid the bad set consisting of Shplonk
+denominator-zero events, zero IPA round challenges, and the vanishing of the
+finite determinants described below. Then the Gemini + Shplonk + IPA
+transcript is zero-knowledge.
+
+### Proof
+
+The proof follows the same three-part structure as the KZG proof.
+
+**1. Transcript projection.** Define a projected transcript space
+$\mathcal{T}_{\mathrm{IPA}\circ\mathrm{Gem}}$ as follows. For each
+$4\le m\le d$, keep from the IPA round at length $2^m$ the four
+CRS-generator coordinates in the $R$ message corresponding to the positions
+listed in $C_m$ below. For the terminal block $B_3$, keep the constant-size
+set of IPA transcript coordinates used by the terminal minor. Let
+
+$$
+\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}:V\to
+\mathcal{T}_{\mathrm{IPA}\circ\mathrm{Gem}}
+$$
+
+be the composed leakage map from the mask coefficients through Gemini,
+Shplonk, and the IPA transcript, followed by this projection. Full rank of
+this projection implies full rank of the actual transcript leakage.
+
+**2. Rank of the composed map.** We show that
+$\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}$ has rank $|S_{\mathrm{ipa}}|$.
+
+The Shplonk part of the composed map is triangular in the monomial basis. For
+$s>0$,
 
 $$
 \frac{X^s-z^s}{X-z}=\sum_{i=0}^{s-1}z^{s-1-i}X^i,
 $$
 
-so the $E_s$ column has a leading coefficient at degree $s-1$. This proves
-independence in the coefficient basis of the polynomial sent to IPA.
+so the column of $E_s$ has leading coefficient $1$ in IPA coordinate $s-1$.
+Lower-degree terms only affect later pieces of the filtration below.
 
-The remaining proof obligation is to compose this shifted coefficient basis
-with the IPA transcript leakage. The earlier dyadic-cut intuition applies to
-IPA coordinates, but after Shplonk the leading coordinate for $E_s$ is
-$s-1$, not $s$. A complete proof must therefore either shift the support
-definition accordingly or state the filtration directly in terms of the
-Shplonk image coordinates. Until that indexing is made explicit, the IPA
-argument should be treated as a rank claim supported by tests rather than as a
-proved lemma.
+Order the blocks by decreasing $m$ and define
 
-## Checks before implementation
+$$
+V_m=\mathrm{span}(B_d\cup B_{d-1}\cup\cdots\cup B_m)
+\qquad(4\le m\le d),
+$$
 
-Before replacing the full random polynomial, add tests that:
+with $V_3=V$ and $V_{d+1}=\{0\}$. For $m\ge4$, the quotient
+$V_m/V_{m+1}$ is spanned by the four exponents in $B_m$. Their Shplonk
+leading coordinates are
 
-1. Build the matrix $B$ for many random samples of $(u, r, \tau)$ and verify
-   rank $2d$ for the selected fixed support.
-2. Prove and verify ordinary Shplemini tests with the sparse mask.
-3. Tamper independently with:
-   - `Gemini:masking_poly_comm`,
-   - one `Gemini:FOLD_i`,
-   - one `Gemini:a_i`,
-   - `Shplonk:Q`,
-   - `KZG:W`,
+$$
+C_m=B_m-1=\{2^{m-1},\ 2^{m-1}+1,\ 2^m-3,\ 2^m-2\}.
+$$
 
-   and verify rejection.
-4. Include at least one ZK flavor with `RepeatedCommitmentsData`, since the
-   verifier offsets assume the masking commitment is the first unshifted PCS
-   entity after `Shplonk:Q`.
+Consider the IPA round that splits a vector of length $2^m$. Modulo
+$V_{m+1}$, all earlier blocks have already been removed from both source and
+target. The coordinates in $C_m$ lie in the upper half. The $R$ message
+contains
+
+$$
+R=\langle a_{\mathrm{high}},G_{\mathrm{low}}\rangle
+  +\langle a_{\mathrm{high}},b_{\mathrm{low}}\rangle U.
+$$
+
+Thus the four leading coordinates in $C_m$ appear in four distinct
+CRS-generator coordinates of $R$. Previous IPA folds multiply them by products
+of non-zero round challenges. After quotienting the target by
+$\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}(V_{m+1})$, the lower-degree Shplonk
+terms from higher blocks are gone. Therefore, on the quotient, the local
+matrix is the product of:
+
+1. a triangular Shplonk block with diagonal entries $1$; and
+2. a diagonal or permutation-diagonal IPA block with non-zero entries.
+
+Hence the induced map
+
+$$
+V_m/V_{m+1}\longrightarrow
+\mathcal{T}_{\mathrm{IPA}\circ\mathrm{Gem}}/
+\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}(V_{m+1})
+$$
+
+has rank $4$.
+
+The terminal quotient $V_3/V_4$ is the constant-size block $B_3$. On this
+quotient, Shplonk maps $E_1,\ldots,E_8$ triangularly onto IPA coordinates
+$0,\ldots,7$ with diagonal entries $1$. The length-$8$ IPA transcript has a
+fixed $8\times8$ minor on CRS-generator coordinates whose determinant is a
+non-zero polynomial in the IPA round challenges. This proves that the
+terminal quotient has rank $8$ outside the zero locus of that determinant.
+
+Summing the quotient ranks gives
+
+$$
+\mathrm{rank}(\Psi_{\mathrm{IPA}\circ\mathrm{Gem}})=|S_{\mathrm{ipa}}|
+$$
+
+outside the algebraic bad set where a Shplonk denominator, an IPA challenge,
+or one of the selected determinant factors vanishes.
+
+**3. Simulate.** The random coefficients on $S_{\mathrm{ipa}}$ induce a
+uniform mask over $\mathrm{image}(\Psi_{\mathrm{IPA}\circ\mathrm{Gem}})$. A
+simulator samples a uniform point in this image, solves the full-rank linear
+system for the sparse coefficients, and derives the remaining Gemini,
+Shplonk, and IPA transcript entries consistently from those coefficients. The
+projected transcript, and therefore the full transcript, is distributed
+independently of the unmasked witness contribution except on the bad set.
