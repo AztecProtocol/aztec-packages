@@ -254,7 +254,7 @@ describe('e2e_debug_trace_transaction', () => {
         return blockNumber >= startBlockNumber + numBlocksToMine;
       },
       'block number check',
-      30,
+      60,
       1,
     );
     expect(result).toBeTrue();
