@@ -238,5 +238,5 @@ To add a new command to a service:
 - Schema export: `barretenberg/cpp/src/barretenberg/serialize/msgpack_impl/schema_impl.hpp`
 - Schema naming: `barretenberg/cpp/src/barretenberg/serialize/msgpack_impl/schema_name.hpp`
 - NamedUnion: `barretenberg/cpp/src/barretenberg/common/named_union.hpp`
-- Schema visitor (IR compiler): `barretenberg/ts/src/cbind/schema_visitor.ts`
-- Service codegen orchestrator: `barretenberg/ts/src/cbind/service_codegen.ts`
+- Schema visitor (IR compiler): `ipc-codegen/src/schema_visitor.ts`
+- CLI entry point: `ipc-codegen/src/generate.ts`
