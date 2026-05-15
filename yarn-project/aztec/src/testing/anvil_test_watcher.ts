@@ -136,8 +136,15 @@ export class AnvilTestWatcher {
       this.logger.warn(`L1 is ahead of wall time. Syncing wall time to L1 time`);
       this.dateProvider.setTime(l1Time);
     } else if (l1Time + Number(this.l2SlotDuration) * 1000 < wallTime) {
-      this.logger.warn(`L1 is more than 1 L2 slot behind wall time. Warping to wall time`);
-      await this.cheatcodes.warp(Math.ceil(wallTime / 1000));
+      // Warp L1 to the slot boundary at-or-before wall time. Rounding to a slot boundary (rather than
+      // `ceil(wallTime / 1000)`) keeps this loop's target aligned with `warpTimeIfNeeded`'s
+      // `nextSlotTimestamp` target, avoiding a race where the two loops pick timestamps a fraction of
+      // a second apart and one of them is then rejected by anvil as non-monotonic.
+      const wallSec = Math.floor(wallTime / 1000);
+      const targetSlot = await this.rollup.read.getSlotAt([BigInt(wallSec)]);
+      const targetTimestamp = Number(await this.rollup.read.getTimestampForSlot([targetSlot]));
+      this.logger.warn(`L1 is more than 1 L2 slot behind wall time. Warping to slot ${targetSlot} boundary`);
+      await this.warpToTimestamp(targetTimestamp);
     }
   }
 
@@ -151,8 +158,9 @@ export class AnvilTestWatcher {
 
       if (BigInt(currentSlot) === checkpointLog.slotNumber) {
         // The current slot has been filled, we should jump to the next slot.
-        await this.warpToTimestamp(nextSlotTimestamp);
-        this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
+        if (await this.warpToTimestamp(nextSlotTimestamp)) {
+          this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
+        }
         return;
       }
 
@@ -180,9 +188,10 @@ export class AnvilTestWatcher {
           }
 
           if (realNow - this.unfilledSlotFirstSeen.realTime > 2000) {
-            await this.warpToTimestamp(nextSlotTimestamp);
+            if (await this.warpToTimestamp(nextSlotTimestamp)) {
+              this.logger.info(`Slot ${currentSlot} was missed with pending txs, jumped to next slot`);
+            }
             this.unfilledSlotFirstSeen = undefined;
-            this.logger.info(`Slot ${currentSlot} was missed with pending txs, jumped to next slot`);
           }
 
           return;
@@ -192,19 +201,33 @@ export class AnvilTestWatcher {
       // Fallback: warp when the dateProvider time has passed the next slot timestamp.
       const currentTimestamp = this.dateProvider?.now() ?? Date.now();
       if (currentTimestamp > nextSlotTimestamp * 1000) {
-        await this.warpToTimestamp(nextSlotTimestamp);
-        this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
+        if (await this.warpToTimestamp(nextSlotTimestamp)) {
+          this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
+        }
       }
     } catch {
       this.logger.error('mineIfSlotFilled failed');
     }
   }
 
-  private async warpToTimestamp(timestamp: number) {
+  /**
+   * Warps L1 to `timestamp`, unless L1 is already at or past it. Returns true when a warp actually
+   * happened, false when skipped or on error. Callers use the return value to gate success logs.
+   */
+  private async warpToTimestamp(timestamp: number): Promise<boolean> {
     try {
+      // Anvil rejects evm_setNextBlockTimestamp values <= the current block's timestamp. The two
+      // watcher loops can race and pick targets a fraction of a second apart; skip here rather than
+      // letting the second one error out noisily.
+      const lastTimestamp = await this.cheatcodes.lastBlockTimestamp();
+      if (timestamp <= lastTimestamp) {
+        return false;
+      }
       await this.cheatcodes.warp(timestamp, { resetBlockInterval: true });
+      return true;
     } catch (e) {
       this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
+      return false;
     }
   }
 }

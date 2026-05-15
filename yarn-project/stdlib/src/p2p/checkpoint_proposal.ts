@@ -161,7 +161,7 @@ export class CheckpointProposal extends Gossipable {
     checkpointHeader: CheckpointHeader,
     archiveRoot: Fr,
     feeAssetPriceModifier: bigint,
-    lastBlockInfo: CheckpointLastBlockData | undefined,
+    lastBlockProposal: BlockProposal | undefined,
     payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
   ): Promise<CheckpointProposal> {
     // Sign the checkpoint payload with CHECKPOINT_PROPOSAL duty type
@@ -175,35 +175,19 @@ export class CheckpointProposal extends Gossipable {
 
     const checkpointContext: SigningContext = {
       slot: checkpointHeader.slotNumber,
-      blockNumber: lastBlockInfo?.blockHeader?.globalVariables.blockNumber ?? BlockNumber(0),
+      blockNumber: lastBlockProposal?.blockNumber ?? BlockNumber(0),
       dutyType: DutyType.CHECKPOINT_PROPOSAL,
     };
 
-    if (lastBlockInfo) {
-      // Sign block proposal before signing checkpoint proposal to ensure HA protection
-      const lastBlockProposal = await BlockProposal.createProposalFromSigner(
-        lastBlockInfo.blockHeader,
-        lastBlockInfo.indexWithinCheckpoint,
-        checkpointHeader.inHash,
-        archiveRoot,
-        lastBlockInfo.txHashes,
-        lastBlockInfo.txs,
-        payloadSigner,
-      );
-
-      const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
-
-      return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature, {
-        blockHeader: lastBlockInfo.blockHeader,
-        indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-        txHashes: lastBlockInfo.txHashes,
-        signature: lastBlockProposal.signature,
-        signedTxs: lastBlockProposal.signedTxs,
-      });
-    }
-
     const checkpointSignature = await payloadSigner(checkpointHash, checkpointContext);
-    return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, checkpointSignature);
+
+    return new CheckpointProposal(
+      checkpointHeader,
+      archiveRoot,
+      feeAssetPriceModifier,
+      checkpointSignature,
+      lastBlockProposal,
+    );
   }
 
   /**

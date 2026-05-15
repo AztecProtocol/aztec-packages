@@ -6,7 +6,6 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
@@ -18,6 +17,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -66,6 +66,7 @@ import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
+import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
 import { MessageContextService } from './messages/message_context_service.js';
 import {
@@ -78,14 +79,24 @@ import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_stor
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
+import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
+import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
   eventSelector: EventSelector;
+};
+
+/** Options for PXE.proveTx. */
+export type ProveTxOpts = {
+  /** Addresses whose private state and keys are accessible during private execution. */
+  scopes: AztecAddress[];
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
+  senderForTags?: AztecAddress;
 };
 
 /** Options for PXE.profileTx. */
@@ -96,6 +107,8 @@ export type ProfileTxOpts = {
   skipProofGeneration?: boolean;
   /** Addresses whose private state and keys are accessible during private execution. */
   scopes: AztecAddress[];
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
+  senderForTags?: AztecAddress;
 };
 
 /** Options for PXE.simulateTx. */
@@ -112,6 +125,8 @@ export type SimulateTxOpts = {
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AztecAddress[];
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
+  senderForTags?: AztecAddress;
 };
 
 /** Options for PXE.executeUtility. */
@@ -138,6 +153,8 @@ export type PXECreateArgs = {
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
   loggerOrSuffix?: string | Logger;
+  /** Optional hooks to observe and influence contract execution. */
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -160,6 +177,7 @@ export class PXE {
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
     private messageContextService: MessageContextService,
+    private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -168,6 +186,7 @@ export class PXE {
     private jobQueue: SerialQueue,
     private jobCoordinator: JobCoordinator,
     public debug: PXEDebugUtils,
+    private hooks: ExecutionHooks | undefined,
   ) {}
 
   /**
@@ -185,6 +204,7 @@ export class PXE {
     protocolContractsProvider,
     config,
     loggerOrSuffix,
+    hooks,
   }: PXECreateArgs) {
     // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
     const bindings: LoggerBindings | undefined =
@@ -198,17 +218,19 @@ export class PXE {
     const info = await node.getNodeInfo();
 
     const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
-    const addressStore = new AddressStore(store);
-    const privateEventStore = new PrivateEventStore(store);
-    const contractStore = new ContractStore(store);
-    const noteStore = new NoteStore(store);
-    const anchorBlockStore = new AnchorBlockStore(store);
-    const senderTaggingStore = new SenderTaggingStore(store);
-    const senderAddressBookStore = new SenderAddressBookStore(store);
-    const recipientTaggingStore = new RecipientTaggingStore(store);
-    const capsuleStore = new CapsuleStore(store);
-    const keyStore = new KeyStore(store);
-    const tipsStore = new L2TipsKVStore(store, 'pxe');
+    const {
+      addressStore,
+      privateEventStore,
+      contractStore,
+      noteStore,
+      anchorBlockStore,
+      senderTaggingStore,
+      senderAddressBookStore,
+      recipientTaggingStore,
+      capsuleStore,
+      keyStore,
+      l2TipsStore,
+    } = openPxeStores(store);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
@@ -223,7 +245,7 @@ export class PXE {
       anchorBlockStore,
       noteStore,
       privateEventStore,
-      tipsStore,
+      l2TipsStore,
       contractSyncService,
       config,
       bindings,
@@ -258,6 +280,7 @@ export class PXE {
       privateEventStore,
       contractSyncService,
       messageContextService,
+      l2TipsStore,
       simulator,
       proverEnabled,
       proofCreator,
@@ -266,6 +289,7 @@ export class PXE {
       jobQueue,
       jobCoordinator,
       debugUtils,
+      hooks,
     );
 
     debugUtils.setPXEHelpers(
@@ -292,6 +316,7 @@ export class PXE {
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: BenchmarkedNodeFactory.create(this.node),
+      l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
@@ -300,6 +325,7 @@ export class PXE {
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
       messageContextService: this.messageContextService,
+      hooks: this.hooks,
     });
   }
 
@@ -362,17 +388,24 @@ export class PXE {
 
   // Executes the entrypoint private function, as well as all nested private
   // functions that might arise.
-  async #executePrivate(
-    contractFunctionSimulator: ContractFunctionSimulator,
-    txRequest: TxExecutionRequest,
-    scopes: AztecAddress[],
-    jobId: string,
-  ): Promise<PrivateExecutionResult> {
+  async #executePrivate({
+    contractFunctionSimulator,
+    txRequest,
+    anchorBlockHeader,
+    scopes,
+    jobId,
+    senderForTags,
+  }: {
+    contractFunctionSimulator: ContractFunctionSimulator;
+    txRequest: TxExecutionRequest;
+    anchorBlockHeader: BlockHeader;
+    scopes: AztecAddress[];
+    jobId: string;
+    senderForTags?: AztecAddress;
+  }): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-
       await this.contractSyncService.ensureContractSynced(
         contractAddress,
         functionSelector,
@@ -389,6 +422,7 @@ export class PXE {
         anchorBlockHeader,
         scopes,
         jobId,
+        senderForTags,
       });
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
@@ -477,11 +511,10 @@ export class PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
+    anchorBlockHeader: BlockHeader,
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
-    const anchorBlockHash = await anchorBlockHeader.hash();
-    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHash);
+    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHeader);
     const kernelTraceProver = new PrivateKernelExecutionProver(
       kernelOracle,
       proofCreator,
@@ -575,8 +608,8 @@ export class PXE {
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
       // Wipe the entire sync cache: the new sender's tagged logs could contain notes/events for any contract, so
-      // all contracts must re-sync to discover them.
-      this.contractSyncService.wipe();
+      // all contracts must re-sync to discover them. Queued to avoid wiping while a job is in flight.
+      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
     } else {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
     }
@@ -660,7 +693,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
@@ -707,7 +742,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
 
       currentInstance.currentContractClassId = contractClass.id;
       await Promise.all([
@@ -736,7 +773,7 @@ export class PXE {
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  public proveTx(txRequest: TxExecutionRequest, scopes: AztecAddress[]): Promise<TxProvingResult> {
+  public proveTx(txRequest: TxExecutionRequest, { scopes, senderForTags }: ProveTxOpts): Promise<TxProvingResult> {
     let privateExecutionResult: PrivateExecutionResult;
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
@@ -745,16 +782,24 @@ export class PXE {
       try {
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
+        privateExecutionResult = await this.#executePrivate({
+          contractFunctionSimulator,
+          txRequest,
+          anchorBlockHeader,
+          scopes,
+          jobId,
+          senderForTags,
+        });
 
         const {
           publicInputs,
           chonkProof,
           executionSteps,
           timings: { proving } = {},
-        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, anchorBlockHeader, {
           simulate: false,
           skipFeeEnforcement: false,
           profileMode: 'none',
@@ -784,23 +829,20 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
-        // While not strictly necessary to store tagging cache contents in the DB since we sync tagging indexes from
-        // chain before sending new logs, the sync can only see logs already included in blocks. If we send another
-        // transaction before this one is included in a block from this PXE, and that transaction contains a log with
-        // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
-        // storing the tags here prevents linkage of txs sent from the same PXE.
-        const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
-        if (taggingIndexRangesUsedInTheTx.length > 0) {
-          // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
-          const txHash = (await txProvingResult.toTx()).txHash;
-
-          await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
-          this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
-            taggingIndexRangesUsedInTheTx,
-          });
-        } else {
-          this.log.debug(`No tagging index ranges used in the tx`);
-        }
+        // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
+        // (which would link them) without having to rely on this tx being mined (and us seeing the indices being used
+        // onchain).
+        // Note that this must happen _after_ proving as it requires the proof's public inputs, from which the kernels
+        // may have removed some logs due to note-nullifier squashing - this may lead to range of tagging indices we've
+        // actually used to being reduced.
+        await persistSenderTaggingIndexRangesForTx(
+          this.senderTaggingStore,
+          privateExecutionResult.entrypoint.taggingIndexRanges,
+          publicInputs,
+          () => txProvingResult.getTxHash(),
+          jobId,
+          this.log,
+        );
 
         return txProvingResult;
       } catch (err: any) {
@@ -817,7 +859,7 @@ export class PXE {
    */
   public profileTx(
     txRequest: TxExecutionRequest,
-    { profileMode, skipProofGeneration = true, scopes }: ProfileTxOpts,
+    { profileMode, skipProofGeneration = true, scopes, senderForTags }: ProfileTxOpts,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async jobId => {
@@ -837,15 +879,24 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
+        const privateExecutionResult = await this.#executePrivate({
+          contractFunctionSimulator,
+          txRequest,
+          anchorBlockHeader,
+          scopes,
+          jobId,
+          senderForTags,
+        });
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
           this.proofCreator,
           privateExecutionResult,
+          anchorBlockHeader,
           {
             simulate: skipProofGeneration,
             skipFeeEnforcement: false,
@@ -913,6 +964,7 @@ export class PXE {
       skipKernels = true,
       overrides,
       scopes,
+      senderForTags,
     }: SimulateTxOpts,
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -935,6 +987,7 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.blockStateSynchronizer.sync();
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
@@ -954,7 +1007,14 @@ export class PXE {
         }
 
         // Execution of private functions only; no proving, and no kernel logic.
-        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, scopes, jobId);
+        const privateExecutionResult = await this.#executePrivate({
+          contractFunctionSimulator,
+          txRequest,
+          anchorBlockHeader,
+          scopes,
+          jobId,
+          senderForTags,
+        });
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];
@@ -967,11 +1027,17 @@ export class PXE {
           ));
         } else {
           // Kernel logic, plus proving of all private functions and kernels.
-          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-            simulate: true,
-            skipFeeEnforcement,
-            profileMode: 'none',
-          }));
+          ({ publicInputs, executionSteps } = await this.#prove(
+            txRequest,
+            this.proofCreator,
+            privateExecutionResult,
+            anchorBlockHeader,
+            {
+              simulate: true,
+              skipFeeEnforcement,
+              profileMode: 'none',
+            },
+          ));
         }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -1172,7 +1238,8 @@ export class PXE {
   /**
    * Stops the PXE's job queue.
    */
-  public stop(): Promise<void> {
-    return this.jobQueue.end();
+  public async stop(): Promise<void> {
+    await this.jobQueue.end();
+    await this.blockStateSynchronizer.stop();
   }
 }

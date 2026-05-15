@@ -1,5 +1,5 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { schemas } from '../schemas/schemas.js';
@@ -34,6 +34,10 @@ export class Tag {
 
   equals(other: Tag): boolean {
     return this.value.equals(other.value);
+  }
+
+  static random(): Tag {
+    return new Tag(Fr.random());
   }
 
   static get schema(): ZodFor<Tag> {

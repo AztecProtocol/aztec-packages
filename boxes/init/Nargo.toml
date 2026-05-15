@@ -1,6 +1,2 @@
-[package]
-name = "init"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../noir-projects/aztec-nr/aztec" }
+[workspace]
+members = ["contract", "test"]

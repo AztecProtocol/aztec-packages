@@ -72,7 +72,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **Proposer Quorum** | 600/1000 | 60/100 |
 | **Voting Delay** | 3 days | 12 hours |
 | **Voting Duration** | 7 days | 24 hours |
-| **Execution Delay** | 7 days | 12 hours |
+| **Execution Delay** | 30 days | 12 hours |
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
 
@@ -90,7 +90,7 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 
 ### Ignition (Mainnet - Phase 1)
 
-Ignition is the Aztec **mainnet** in its first operational phase, focusing on establishing governance and network infrastructure.
+Ignition is the Aztec **mainnet** in its first operational phase, focusing on establishing governance and network infrastructure. Ignition is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
 
 #### Overview
 

@@ -46,20 +46,28 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 
 ## Basic test structure
 
+Tests live in the same crate as your contract. `aztec new` creates a single-crate project, and the convention is to place `#[test]` functions in a `mod tests` block alongside the contract (or in submodules of the crate):
+
 ```rust
-use crate::MyContract;
-use aztec::{
-    protocol::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
-};
+use aztec::macros::aztec;
 
-#[test]
-unconstrained fn test_basic_flow() {
-    // 1. Create test environment
-    let mut env = TestEnvironment::new();
+#[aztec]
+pub contract MyContract {
+    // ...contract functions...
+}
 
-    // 2. Create accounts
-    let owner = env.create_light_account();
+mod tests {
+    use super::MyContract;
+    use aztec::test::helpers::test_environment::TestEnvironment;
+
+    #[test]
+    unconstrained fn test_basic_flow() {
+        // 1. Create test environment
+        let mut env = TestEnvironment::new();
+
+        // 2. Create accounts
+        let _owner = env.create_light_account();
+    }
 }
 ```
 
@@ -67,18 +75,19 @@ unconstrained fn test_basic_flow() {
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
-- See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/v4.1.0-rc.2/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr)
+- See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/mainnet/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
 
 :::
 
 :::tip Organizing test files
-You can organize tests in separate files:
+For larger test suites, split tests into submodules of your crate rather than keeping them all inside `main.nr`:
 
-- Create `src/test.nr` with `mod utils;` to import helper functions
-- Split tests into modules like `src/test/transfer_tests.nr`, `src/test/auth_tests.nr`
-- Import the test module in `src/main.nr` with `mod test;`
-- Share setup functions in `src/test/utils.nr`
-  :::
+- Create modules like `src/transfer_tests.nr`, `src/auth_tests.nr`
+- Declare them from `src/main.nr` with `mod transfer_tests;`, `mod auth_tests;`
+- Share setup functions in `src/test_utils.nr`
+
+See the [aztec-standards token contract](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract) for a worked example of this layout.
+:::
 
 ## Deploying contracts
 

@@ -33,7 +33,8 @@ Therefore it is recommended to read the `aztec-nr` [guide on authwitnesses](../a
 
 The authwit system supports different intent types depending on your use case:
 
-- **`CallIntent`**: Use when authorizing a specific contract function call. Contains `{ caller, action }` where `action` is a `ContractFunctionInteraction`.
+- **`CallIntent`**: Use when authorizing a specific contract function call. Contains `{ caller, call }` where `call` is a `FunctionCall`, typically obtained with `await interaction.getFunctionCall()`.
+- **`ContractFunctionInteractionCallIntent`**: Convenience form that takes the interaction directly. Contains `{ caller, action }` where `action` is a `ContractFunctionInteraction`; internally resolved to a `FunctionCall` before signing.
 - **`IntentInnerHash`**: Use when authorizing arbitrary data. Contains `{ consumer, innerHash }` where `consumer` is the contract that will verify the authwit.
 
 ## Create private authwits

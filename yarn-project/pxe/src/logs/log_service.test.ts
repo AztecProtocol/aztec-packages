@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { Tag } from '@aztec/stdlib/logs';
 import { makeBlockHeader, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
@@ -49,6 +50,7 @@ describe('LogService', () => {
       logService = new LogService(
         aztecNode,
         anchorBlockHeader,
+        mock<L2TipsProvider>(),
         keyStore,
         recipientTaggingStore,
         senderAddressBookStore,
@@ -144,6 +146,41 @@ describe('LogService', () => {
       await expect(logService.fetchLogsByTag(contractAddress, [validRequest, invalidRequest])).rejects.toThrow(
         /Got a log retrieval request from/,
       );
+    });
+
+    it('batches multiple requests into single RPC calls', async () => {
+      const tag1 = Tag.random();
+      const tag2 = Tag.random();
+      const tag3 = Tag.random();
+
+      const publicLog1 = randomTxScopedPrivateL2Log();
+      const privateLog2 = randomTxScopedPrivateL2Log();
+
+      aztecNode.getPublicLogsByTagsFromContract.mockResolvedValue([[publicLog1], [], []]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[], [privateLog2], []]);
+
+      const requests = [
+        new LogRetrievalRequest(contractAddress, tag1),
+        new LogRetrievalRequest(contractAddress, tag2),
+        new LogRetrievalRequest(contractAddress, tag3),
+      ];
+
+      const responses = await logService.fetchLogsByTag(contractAddress, requests);
+
+      expect(responses).toHaveLength(3);
+      expect(responses[0]).toEqual(expect.objectContaining({ txHash: publicLog1.txHash }));
+      expect(responses[1]).toEqual(expect.objectContaining({ txHash: privateLog2.txHash }));
+      expect(responses[2]).toBeNull();
+
+      expect(aztecNode.getPublicLogsByTagsFromContract).toHaveBeenCalledTimes(1);
+      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns empty array for empty requests', async () => {
+      const responses = await logService.fetchLogsByTag(contractAddress, []);
+      expect(responses).toEqual([]);
+      expect(aztecNode.getPublicLogsByTagsFromContract).not.toHaveBeenCalled();
+      expect(aztecNode.getPrivateLogsByTags).not.toHaveBeenCalled();
     });
   });
 });

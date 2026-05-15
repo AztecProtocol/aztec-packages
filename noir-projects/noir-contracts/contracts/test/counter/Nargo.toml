@@ -1,0 +1,2 @@
+[workspace]
+members = ["counter_contract", "counter_test"]

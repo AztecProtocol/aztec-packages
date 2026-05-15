@@ -277,12 +277,9 @@ describe('HA Full Setup', () => {
 
     // Deploy a contract to trigger block building
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const sender = ownerAddress;
-
-    logger.info(`Deploying contract from ${sender}`);
-    const { receipt } = await deployer.deploy(ownerAddress, sender, 1).send({
+    logger.info(`Deploying contract from ${ownerAddress}`);
+    const { receipt } = await deployer.deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) }).send({
       from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
       wait: { returnReceipt: true },
     });
 
@@ -399,9 +396,8 @@ describe('HA Full Setup', () => {
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, 42).send({
+    const { receipt } = await deployer.deploy([ownerAddress, 42], { salt: Fr.random() }).send({
       from: ownerAddress,
-      contractAddressSalt: Fr.random(),
       wait: { returnReceipt: true },
     });
     expect(receipt.blockNumber).toBeDefined();
@@ -515,9 +511,8 @@ describe('HA Full Setup', () => {
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const { receipt } = await deployer.deploy(ownerAddress, ownerAddress, i + 100).send({
+      const { receipt } = await deployer.deploy([ownerAddress, i + 100], { salt: new Fr(BigInt(i + 100)) }).send({
         from: ownerAddress,
-        contractAddressSalt: new Fr(BigInt(i + 100)),
         wait: { returnReceipt: true },
       });
 

@@ -8,7 +8,7 @@ import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { EventSelector } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -161,6 +161,40 @@ describe('PXE', () => {
     const artifact = randomContractArtifact();
     const instance = await randomContractInstanceWithAddress();
     await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
+  });
+
+  it('does not call registerContractFunctionSignatures for contracts without public functions', async () => {
+    const { artifact, instance } = await randomDeployedContract();
+    node.registerContractFunctionSignatures.mockClear();
+
+    await pxe.registerContract({ artifact, instance });
+
+    expect(node.registerContractFunctionSignatures).not.toHaveBeenCalled();
+  });
+
+  it('calls registerContractFunctionSignatures for contracts with public functions', async () => {
+    const artifact = randomContractArtifact();
+    artifact.functions = [
+      {
+        name: 'my_public_fn',
+        functionType: FunctionType.PUBLIC,
+        isOnlySelf: false,
+        isStatic: false,
+        isInitializer: false,
+        parameters: [],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.from(''),
+        debugSymbols: '',
+      },
+    ];
+    const contractClass = await getContractClassFromArtifact(artifact);
+    const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
+    node.registerContractFunctionSignatures.mockClear();
+
+    await pxe.registerContract({ artifact, instance });
+
+    expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
 
   // These tests are meant to quickly exercise PXE as a

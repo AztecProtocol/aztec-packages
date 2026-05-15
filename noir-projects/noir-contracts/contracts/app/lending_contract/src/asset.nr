@@ -1,7 +1,4 @@
-use aztec::protocol::{
-    address::AztecAddress,
-    traits::{Deserialize, FromField, Packable, Serialize, ToField},
-};
+use aztec::protocol::{address::AztecAddress, traits::{Deserialize, FromField, Packable, Serialize, ToField}};
 use std::meta::derive;
 
 /// Struct to be used to represent "totals". Generally, there should be one per Asset.
@@ -12,7 +9,6 @@ use std::meta::derive;
 ///
 /// Note: Right now we are wasting so many writes. If changing last_updated_ts we will end
 /// up rewriting all the values.
-// docs:start:custom_struct_in_storage
 #[derive(Deserialize, Serialize)]
 pub struct Asset {
     pub interest_accumulator: u128,
@@ -40,7 +36,6 @@ impl Packable for Asset {
         Self { interest_accumulator, last_updated_ts, loan_to_value, oracle }
     }
 }
-// docs:end:custom_struct_in_storage
 
 mod test {
     use super::{Asset, AztecAddress, FromField, Packable};

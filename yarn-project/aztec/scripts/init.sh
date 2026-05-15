@@ -1,35 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NARGO=${NARGO:-nargo}
 script_path=$(realpath $(dirname "$0"))
 
-for arg in "$@"; do
-  if [ "$arg" == "--help" ] || [ "$arg" == "-h" ]; then
-    cat << 'EOF'
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --help|-h)
+      cat << 'EOF'
 Aztec Init - Create a new Aztec Noir project in the current directory
 
-Usage: aztec init [OPTIONS]
+Usage: aztec init
 
 Options:
-  --name <NAME>  Name of the package [default: current directory name]
-  --lib          Use a library template
   -h, --help     Print help
 
-This command creates a new Aztec Noir project in the current directory using nargo
-and automatically adds the Aztec.nr dependency to your Nargo.toml file.
+This command creates a new Aztec Noir project in the current directory with
+a workspace containing a Counter contract example with tests. The Counter
+demonstrates private state, private functions, and utility reads.
 
+Use 'aztec new <name>' to create a blank contract project, or to add another
+contract to an existing workspace.
 EOF
-    exit 0
-  fi
-  if [ "$arg" == "--lib" ]; then
-    is_contract=0
-  fi
+      exit 0
+      ;;
+    *)
+      echo "Error: unexpected argument '$1'"
+      echo "Usage: aztec init"
+      echo "Run 'aztec init --help' for more information"
+      exit 1
+      ;;
+  esac
 done
 
-echo "Initializing Noir project..."
-$NARGO init "$@"
+package_name="$(basename $(pwd))"
 
-if [ "${is_contract:-1}" -eq 1 ]; then
-  $script_path/setup_project.sh
-fi
+echo "Initializing Aztec contract project..."
+$script_path/setup_workspace.sh "$package_name" counter

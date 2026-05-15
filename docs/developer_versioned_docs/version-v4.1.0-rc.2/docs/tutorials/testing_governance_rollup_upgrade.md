@@ -359,9 +359,12 @@ aztec get-l1-addresses \
 
 ```bash
 aztec debug-rollup \
+  --rollup $NEW_ROLLUP_ADDRESS \
   --l1-rpc-urls $L1_RPC_URL \
   -c $L1_CHAIN_ID
 ```
+
+The `--rollup` flag is required; without it the command may fail trying to resolve the default rollup address.
 
 ---
 

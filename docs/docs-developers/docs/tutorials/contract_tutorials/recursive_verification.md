@@ -51,7 +51,7 @@ This pattern transforms arbitrarily large computations into fixed-size proof ver
 The recursive verification pattern follows this data flow:
 
 1. **Circuit Definition**: Write a Noir circuit that defines the computation you want to prove
-2. **Compilation**: Compile the circuit with `nargo compile` to produce bytecode
+2. **Compilation**: Compile the circuit with `aztec-nargo compile` (or your own `nargo compile` install) to produce bytecode
 3. **Proof Generation**: Execute the circuit offchain and generate an UltraHonk proof using [Barretenberg](https://github.com/AztecProtocol/barretenberg)
 4. **Onchain Verification**: Submit the proof to an Aztec contract that verifies it using the stored [verification key](../../resources/glossary.md#verification-key) hash
 
@@ -106,10 +106,10 @@ Start by writing a simple circuit that proves two field values are not equal. Th
 
 ### Create the Circuit Project
 
-Use `nargo new` to generate the project structure:
+Use `aztec-nargo new` to generate the project structure (the Aztec installer ships `nargo` as `aztec-nargo`; substitute your own `nargo` if its version matches `aztec-nargo --version`):
 
 ```bash
-nargo new circuit
+aztec-nargo new circuit
 ```
 
 This creates the following structure:
@@ -163,7 +163,7 @@ Update `circuit/Nargo.toml` (see [Noir crates and packages](https://noir-lang.or
 
 ```bash
 cd circuit
-nargo compile
+aztec-nargo compile
 ```
 
 This generates `target/hello_circuit.json` containing:
@@ -176,15 +176,15 @@ The TypeScript code uses the ABI to correctly format inputs during witness gener
 ### Test the Circuit
 
 ```bash
-nargo test
+aztec-nargo test
 ```
 
 Expected output:
 
 ```text
-[hello_circuit] Running 1 test functions
-[hello_circuit] Testing test_main... ok
-[hello_circuit] All tests passed
+[hello_circuit] Running 1 test function
+[hello_circuit] Testing test_main ... ok
+[hello_circuit] 1 test passed
 ```
 
 **Tip**: Circuit tests run without generating proofs, making them fast for development. Use them to verify your circuit logic before the more expensive proof generation step.
@@ -205,11 +205,13 @@ The contract demonstrates several important patterns:
 
 ### Create the Contract Project
 
-Use `aztec init` to generate the contract project structure:
+Use `aztec new` to generate the contract project structure:
 
 ```bash
-aztec init --contract contract
+aztec new --name ValueNotEqual contract
 ```
+
+The `aztec new` wrapper stops parsing arguments at the first positional, so `--name` must come **before** the `contract` path — otherwise the flag is silently dropped and the Nargo package ends up named `contract`. The Nargo package name (`--name`) is independent of the Noir contract name declared inside `main.nr`; the artifact filename downstream is driven by the contract name.
 
 This creates:
 
@@ -222,7 +224,7 @@ contract/
 
 ### Contract Configuration
 
-Update `contract/Nargo.toml` with the required dependencies:
+Update `contract/contract/Nargo.toml` with the required dependencies:
 
 ```toml
 [package]
@@ -235,7 +237,7 @@ aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "#include_az
 bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
-**Key differences from the circuit's Nargo.toml**:
+**Key differences from the circuit's Nargo.toml** (in `contract/contract/Nargo.toml`):
 
 - `type = "contract"` (not `"bin"`)
 - Depends on `aztec` for Aztec-specific features
@@ -243,7 +245,7 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 
 ### Contract Structure
 
-Replace the contents of `contract/src/main.nr` with:
+Replace the contents of `contract/contract/src/main.nr` with:
 
 #include_code full_contract /docs/examples/contracts/recursive_verification_contract/src/main.nr rust
 
@@ -375,7 +377,7 @@ Create the following files in your project root directory.
   "name": "recursive-verification-tutorial",
   "type": "module",
   "scripts": {
-    "ccc": "cd contract && aztec compile && aztec codegen target -o ../artifacts",
+    "ccc": "cd contract && aztec compile && aztec codegen target -o contract/artifacts",
     "data": "tsx scripts/generate_data.ts",
     "recursion": "tsx index.ts"
   },
@@ -446,7 +448,7 @@ yarn ccc
 This generates:
 
 - `contract/target/ValueNotEqual.json` - Contract artifact (bytecode, ABI, etc.)
-- `artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
+- `contract/contract/artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
 
 ### Proof Generation Script
 
@@ -544,7 +546,7 @@ Expected output:
 Proof verification: SUCCESS
 Using deflattenFields to convert proof...
 VK size: 115
-Proof size: 508
+Proof size: 500
 Public inputs: 1
 Done
 ```
@@ -667,7 +669,7 @@ If you want to run all commands at once, or if you're starting fresh, here's the
 yarn install
 
 # Compile the Noir circuit
-cd circuit && nargo compile && cd ..
+cd circuit && aztec-nargo compile && cd ..
 
 # Compile the Aztec contract and generate TypeScript bindings
 yarn ccc

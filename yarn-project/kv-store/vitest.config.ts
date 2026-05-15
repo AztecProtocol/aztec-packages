@@ -16,15 +16,6 @@ export default defineConfig({
   define: {
     'process.env': {},
   },
-  resolve: {
-    alias: {
-      // Browser stubs for modules that pull in Barretenberg WASM.
-      '@aztec/foundation/eth-address': path.resolve(__dirname, 'browser-stubs/eth-address.js'),
-      '@aztec/foundation/log': path.resolve(__dirname, 'browser-stubs/foundation-log.js'),
-      buffer: path.resolve(__dirname, 'browser-stubs/buffer.js'),
-      util: path.resolve(__dirname, 'browser-stubs/util.js'),
-    },
-  },
   optimizeDeps: {
     include: [
       'chai',
@@ -38,43 +29,84 @@ export default defineConfig({
       'colorette',
       'detect-node',
       'pino',
-      'msgpackr',
+      'msgpackr/index-no-eval',
       'pako',
       'idb-keyval',
       'comlink',
     ],
+    // sqlite3mc-wasm ships its own .wasm asset loader; let Vite serve it as a static asset
+    // rather than pre-bundling, per the upstream docs' recommendation.
+    exclude: ['@aztec/sqlite3mc-wasm'],
   },
   test: {
     globals: true,
-    reporters: ['verbose'],
-    include: ['./src/indexeddb/**/*.test.ts'],
+    // Bench suites do full-population + N-iteration work; default 30s is too tight.
+    testTimeout: process.env.VITE_BENCH === '1' ? 300_000 : 30_000,
     // Run test files sequentially to avoid race conditions in browser module loading
     fileParallelism: false,
-    browser: {
-      enabled: true,
-      provider: playwright(),
-      headless: true,
-      instances: [
-        {
-          browser: 'chromium',
-          launch: {
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--disable-software-rasterizer',
-            ],
-            timeout: 30_000,
-          },
-          context: {
-            actionTimeout: 10_000,
+    teardownTimeout: 10_000,
+    globalSetup: './vitest.global-setup.ts',
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          include: [
+            './src/lmdb/**/*.test.ts',
+            './src/lmdb-v2/**/*.test.ts',
+            './src/stores/**/*.test.ts',
+            './src/interfaces/**/*.test.ts',
+          ],
+        },
+      },
+      {
+        extends: true,
+        resolve: {
+          alias: {
+            // Browser stubs for modules that pull in Barretenberg WASM.
+            '@aztec/foundation/eth-address': path.resolve(__dirname, 'browser-stubs/eth-address.js'),
+            '@aztec/foundation/log': path.resolve(__dirname, 'browser-stubs/foundation-log.js'),
+            buffer: path.resolve(__dirname, 'browser-stubs/buffer.js'),
+            util: path.resolve(__dirname, 'browser-stubs/util.js'),
           },
         },
-      ],
-    },
-    testTimeout: 30000,
-    teardownTimeout: 10000,
-    globalSetup: './vitest.global-setup.ts',
+        test: {
+          name: 'browser',
+          include: [
+            './src/indexeddb/**/*.test.ts',
+            './src/sqlite-opfs/**/*.test.ts',
+            // Benchmarks self-skip unless VITE_BENCH=1; include so they're discoverable.
+            './src/bench/indexeddb/**/*.test.ts',
+            './src/bench/sqlite-opfs/**/*.test.ts',
+            './src/bench/sqlite-opfs-encrypted/**/*.test.ts',
+          ],
+          reporters: ['verbose'],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            headless: true,
+            instances: [
+              {
+                browser: 'chromium',
+                launch: {
+                  args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
+                  ],
+                  timeout: 30_000,
+                },
+                context: {
+                  actionTimeout: 10_000,
+                },
+              },
+            ],
+          },
+        },
+      },
+    ],
   },
 });

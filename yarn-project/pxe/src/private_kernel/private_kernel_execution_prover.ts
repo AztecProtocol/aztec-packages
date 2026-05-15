@@ -1,3 +1,4 @@
+import { uniqueBy } from '@aztec/foundation/collection';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
@@ -22,17 +23,20 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
+  type UpdatedClassIdHints,
 } from '@aztec/stdlib/kernel';
 import { ChonkProof, ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
+  collectNested,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
+import { computeTxExpirationTimestamp } from './hints/compute_tx_expiration_timestamp.js';
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/private_kernel_reset_private_inputs_builder.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
@@ -107,6 +111,8 @@ export class PrivateKernelExecutionProver {
     const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
     const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
 
+    const updatedClassIdHintsMap = await this.prefetchUpdatedClassIdHints(executionResult);
+
     while (executionStack.length) {
       if (!firstIteration) {
         let resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
@@ -160,7 +166,7 @@ export class PrivateKernelExecutionProver {
         },
       });
 
-      const privateCallData = await this.createPrivateCallData(currentExecution);
+      const privateCallData = await this.createPrivateCallData(currentExecution, updatedClassIdHintsMap);
 
       if (firstIteration) {
         const witgenTimer = new Timer();
@@ -267,15 +273,9 @@ export class PrivateKernelExecutionProver {
     // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
 
-    // Use the aggregated expirationTimestamp set throughout the tx execution.
-    // TODO: Call `computeTxExpirationTimestamp` to round the value down and reduce precision, improving privacy.
-    const expirationTimestampUpperBound = previousKernelData.publicInputs.expirationTimestamp;
-    const anchorBlockTimestamp = previousKernelData.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp;
-    if (expirationTimestampUpperBound <= anchorBlockTimestamp) {
-      throw new Error(
-        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${expirationTimestampUpperBound}.`,
-      );
-    }
+    // Round the aggregated expirationTimestamp down to reduce precision and avoid leaking which private
+    // functions were called via their exact expiration offsets.
+    const expirationTimestampUpperBound = computeTxExpirationTimestamp(previousKernelData.publicInputs);
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
@@ -406,7 +406,28 @@ export class PrivateKernelExecutionProver {
     );
   }
 
-  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
+  /** Prefetches updated class id hints for all unique contracts in the execution tree in parallel. */
+  private async prefetchUpdatedClassIdHints(
+    executionResult: PrivateExecutionResult,
+  ): Promise<Map<string, UpdatedClassIdHints>> {
+    const allAddresses = collectNested([executionResult.entrypoint], exec => [
+      exec.publicInputs.callContext.contractAddress,
+    ]);
+    const uniqueAddresses = uniqueBy(allAddresses, a => a.toString());
+    return new Map<string, UpdatedClassIdHints>(
+      await Promise.all(
+        uniqueAddresses.map(
+          async addr =>
+            [addr.toString(), await this.oracle.getUpdatedClassIdHints(addr)] as [string, UpdatedClassIdHints],
+        ),
+      ),
+    );
+  }
+
+  private async createPrivateCallData(
+    { publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult,
+    updatedClassIdHintsMap: Map<string, UpdatedClassIdHints>,
+  ) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
@@ -422,7 +443,7 @@ export class PrivateKernelExecutionProver {
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
-    const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
+    const updatedClassIdHints = updatedClassIdHintsMap.get(contractAddress.toString())!;
 
     return PrivateCallData.from({
       publicInputs,

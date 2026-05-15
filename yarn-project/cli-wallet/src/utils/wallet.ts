@@ -100,7 +100,7 @@ export class CLIWallet extends BaseWallet {
     increasedFee: InteractionFeeOptions,
   ): Promise<TxProvingResult> {
     const cancellationTxRequest = await this.createCancellationTxExecutionRequest(from, txNonce, increasedFee);
-    return await this.pxe.proveTx(cancellationTxRequest, this.scopesFrom(from));
+    return await this.pxe.proveTx(cancellationTxRequest, { scopes: this.scopesFrom(from), senderForTags: from });
   }
 
   override async getAccountFromAddress(address: AztecAddress) {
@@ -235,7 +235,7 @@ export class CLIWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, additionalScopes } = opts;
+    const { from, feeOptions, additionalScopes, sendMessagesAs } = opts;
     const scopes = this.scopesFrom(from, additionalScopes);
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
@@ -273,6 +273,7 @@ export class CLIWallet extends BaseWallet {
       skipTxValidation: true,
       overrides,
       scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
