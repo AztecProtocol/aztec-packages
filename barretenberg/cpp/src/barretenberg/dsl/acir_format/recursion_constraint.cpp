@@ -250,6 +250,9 @@ void process_hn_recursion_constraints(
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
+        if (!builder.is_write_vk_mode()) {
+            throw_or_abort("process_hn_recursion_constraints: ivc_base is null but builder is not in write_vk_mode");
+        }
         auto mock_ivc = create_mock_chonk_from_constraints(hn_recursion_data.first);
         process_with_ivc(mock_ivc);
     } else {

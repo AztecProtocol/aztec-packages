@@ -22,7 +22,6 @@ namespace bb {
 using NativeCurve = curve::BN254;
 using NativeG1 = NativeCurve::AffineElement;
 
-static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
 
 template <typename Curve, typename = void> struct BuilderTypeHelper {

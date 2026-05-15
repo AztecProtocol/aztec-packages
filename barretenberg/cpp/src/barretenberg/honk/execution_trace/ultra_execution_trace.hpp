@@ -15,7 +15,7 @@
 
 namespace bb {
 
-using UltraTraceBlock = ExecutionTraceBlock<fr, 4>;
+using UltraTraceBlock = ExecutionTraceBlock<fr, /*NUM_WIRES_=*/NUM_WIRES>;
 
 /**
  * @brief Defines the circuit block types for the Ultra arithmetization

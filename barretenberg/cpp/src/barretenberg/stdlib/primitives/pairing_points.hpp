@@ -34,8 +34,6 @@ template <typename Curve> struct PairingPoints {
 
     uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
-    Group& P0() { return _points[0]; }
-    Group& P1() { return _points[1]; }
     const Group& P0() const { return _points[0]; }
     const Group& P1() const { return _points[1]; }
 
@@ -196,14 +194,14 @@ template <typename Curve> struct PairingPoints {
         // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             // Goblin: batch_mul with constant scalar 1 uses add instead of mul
-            P0() = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
-            P1() = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });
+            _points[0] = Group::batch_mul({ P0(), other.P0() }, { 1, recursion_separator });
+            _points[1] = Group::batch_mul({ P1(), other.P1() }, { 1, recursion_separator });
         } else {
             // Ultra: 128-bit scalar mul to save gates
             Group point_to_aggregate = other.P0().scalar_mul(recursion_separator, 128);
-            P0() += point_to_aggregate;
+            _points[0] += point_to_aggregate;
             point_to_aggregate = other.P1().scalar_mul(recursion_separator, 128);
-            P1() += point_to_aggregate;
+            _points[1] += point_to_aggregate;
         }
 
         // Merge the tags in the builder
@@ -246,8 +244,8 @@ template <typename Curve> struct PairingPoints {
     void fix_witness()
     {
         BB_ASSERT(this->has_data_, "Calling fix_witness on empty pairing points.");
-        P0().fix_witness();
-        P1().fix_witness();
+        _points[0].fix_witness();
+        _points[1].fix_witness();
     }
 
     /**

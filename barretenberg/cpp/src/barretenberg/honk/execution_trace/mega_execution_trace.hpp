@@ -17,7 +17,7 @@
 
 namespace bb {
 
-using MegaTraceBlock = ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4>;
+using MegaTraceBlock = ExecutionTraceBlock<fr, /*NUM_WIRES_ */ NUM_WIRES>;
 
 /**
  * @brief A container indexed by the types of the blocks in the execution trace.

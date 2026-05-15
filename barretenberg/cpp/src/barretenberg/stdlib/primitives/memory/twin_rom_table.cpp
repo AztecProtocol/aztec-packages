@@ -20,14 +20,7 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
 {
     // get the builder context
     for (const auto& entry : table_entries) {
-        if (entry[0].get_context() != nullptr) {
-            context = entry[0].get_context();
-            break;
-        }
-        if (entry[1].get_context() != nullptr) {
-            context = entry[1].get_context();
-            break;
-        }
+        context = validate_context(context, entry[0].get_context(), entry[1].get_context());
     }
 
     // We do not initialize the table yet. The input entries might all be constant,

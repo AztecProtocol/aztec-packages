@@ -76,6 +76,8 @@ element<C, Fq, Fr, G>::element(const Fq& x_in,
     , _y(y_in)
     , _is_infinity(is_infinity.normalize())
 {
+    BB_ASSERT(!(_x.is_constant() && _y.is_constant() && !_is_infinity.is_constant()),
+              "biggroup: constant coordinates with non-constant infinity flag");
     if (assert_on_curve) {
         validate_on_curve();
     }

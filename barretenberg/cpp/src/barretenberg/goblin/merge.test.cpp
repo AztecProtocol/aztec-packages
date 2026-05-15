@@ -608,7 +608,6 @@ class MergeTranscriptTests : public ::testing::Test {
     static TranscriptManifest construct_merge_manifest()
     {
         TranscriptManifest manifest_expected;
-        constexpr size_t NUM_WIRES = 4;
 
         // Size calculations
         size_t frs_per_Fr = 1;                                                      // Native field element
@@ -645,7 +644,7 @@ class MergeTranscriptTests : public ::testing::Test {
         }
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES_EVAL", frs_per_Fr);
 
-        for (size_t idx = 0; idx < 13; ++idx) {
+        for (size_t idx = 0; idx < (3 * NUM_WIRES) + 1; ++idx) {
             manifest_expected.add_challenge(round, "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
         }
 
