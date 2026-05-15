@@ -1505,12 +1505,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // the world state tree so simulation can take them into account. We detect if the next block would
     // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
     // which means the next block would be the first block of the next checkpoint.
-    const nextCheckpointMessages: Fr[] | undefined =
-      l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
-        ? await this.l1ToL2MessageSource.getL1ToL2Messages(
-            CheckpointNumber((l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1),
-          )
-        : undefined;
+    // Under proposer pipelining with non-trivial `inboxLag`, the next checkpoint's L1->L2 messages
+    // may not yet be sealed on L1 — the archiver throws `L1ToL2MessagesNotReadyError`. We treat
+    // that as a best-effort signal and simulate without those messages: a tx that depends on a
+    // not-yet-sealed message may simulate incorrectly. Block production will use sealed messages
+    // when available; simulation is best-effort until then. The alternative (throwing) makes
+    // every public-call simulation at a checkpoint boundary deterministically fail under
+    // pipelining, which is worse.
+    const nextCheckpointNumber = CheckpointNumber(
+      (l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1,
+    );
+    let nextCheckpointMessages: Fr[] | undefined;
+    if (l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number) {
+      try {
+        nextCheckpointMessages = await this.l1ToL2MessageSource.getL1ToL2Messages(nextCheckpointNumber);
+      } catch (err) {
+        if (err instanceof Error && err.name === 'L1ToL2MessagesNotReadyError') {
+          this.log.debug(
+            `Skipping next-checkpoint L1->L2 messages for simulation: inbox not yet sealed for checkpoint ${nextCheckpointNumber}`,
+            { txHash, checkpointNumber: nextCheckpointNumber },
+          );
+          nextCheckpointMessages = undefined;
+        } else {
+          throw err;
+        }
+      }
+    }
 
     // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
     await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
