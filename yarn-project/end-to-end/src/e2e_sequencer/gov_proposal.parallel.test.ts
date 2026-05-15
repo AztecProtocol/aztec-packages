@@ -202,7 +202,13 @@ describe('e2e_gov_proposal', () => {
   it('should vote even when unable to build blocks', async () => {
     const monitor = new ChainMonitor(rollup, dateProvider).start();
 
-    // Break the blob client so no new blocks are synced
+    // Break the blob client AND the in-process proposer→archiver shortcut so no new blocks are synced.
+    // Under pipelining the proposer pushes its own built block straight into the local archiver via
+    // syncProposedBlockToArchiver (checkpoint_proposal_job.ts), so disabling the blob client alone is
+    // insufficient — the tx would still be observed locally as `checkpointed` and the test's premise
+    // ("tx should time out because the node cannot sync it back") would not hold. Disabling both paths
+    // forces the node to rely on the blob client for sync, which is the legacy assumption.
+    await aztecNodeAdmin!.setConfig({ skipPushProposedBlocksToArchiver: true });
     ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled(true);
     await sleep(1000);
     const lastBlockSynced = await aztecNode!.getBlockNumber();
