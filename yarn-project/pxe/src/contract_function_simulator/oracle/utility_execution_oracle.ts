@@ -685,7 +685,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ).map(LogRetrievalRequest.fromFields);
 
     const logService = this.#createLogService();
-    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(contractAddress, logRetrievalRequests);
+    const logRetrievalResponses = await logService.fetchLogsByTag(contractAddress, logRetrievalRequests);
 
     // Requests are cleared once we're done.
     await this.capsuleService.setCapsuleArray(
@@ -695,6 +695,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.jobId,
       scope,
     );
+
+    // The deprecated v1 oracle expects Option<LogRetrievalResponse> (at most one per tag).
+    const maybeLogRetrievalResponses = logRetrievalResponses.map(logs => logs[0] ?? null);
 
     // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
     await this.capsuleService.setCapsuleArray(
@@ -712,9 +715,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       .map(LogRetrievalRequest.fromFields);
     const logService = this.#createLogService();
 
-    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+    const logRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
 
-    return this.ephemeralArrayService.newArray(maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption));
+    // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
+    const innerSlots = logRetrievalResponses.map(responses =>
+      this.ephemeralArrayService.newArray(responses.map(r => r.toFields())),
+    );
+
+    return this.ephemeralArrayService.newArray(innerSlots.map(slot => [slot]));
   }
 
   // Deprecated, only kept for backwards compatibility until Alpha v5 rolls out.

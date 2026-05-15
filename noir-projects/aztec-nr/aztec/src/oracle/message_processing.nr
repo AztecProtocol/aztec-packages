@@ -42,10 +42,13 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     scope: AztecAddress,
 ) {}
 
-/// Fetches logs by tag from an ephemeral request array and returns a response ephemeral array.
+/// Fetches all logs matching each request's tag and returns an ephemeral array of slots.
+///
+/// Each element in the returned array is a `Field` slot that identifies an inner `EphemeralArray<LogRetrievalResponse>`
+/// containing all matching logs for the request at the same index (which may be empty if no logs were found).
 pub(crate) unconstrained fn get_logs_by_tag(
     requests: EphemeralArray<LogRetrievalRequest>,
-) -> EphemeralArray<Option<LogRetrievalResponse>> {
+) -> EphemeralArray<Field> {
     let response_slot = get_logs_by_tag_v2_oracle(requests.slot);
     EphemeralArray::at(response_slot)
 }
