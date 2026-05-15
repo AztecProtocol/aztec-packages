@@ -12,6 +12,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult, type TxReceipt } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -78,7 +79,10 @@ describe('e2e_deploy_contract contract class registration', () => {
     });
   });
 
-  const testDeployingAnInstance = (how: string, deployFn: (toDeploy: ContractInstanceWithAddress) => Promise<number>) =>
+  const testDeployingAnInstance = (
+    how: string,
+    deployFn: (toDeploy: ContractInstanceWithAddress) => Promise<BlockNumber>,
+  ) =>
     describe(`deploying a contract instance ${how}`, () => {
       let instance: ContractInstanceWithAddress;
       let initArgs: StatefulContractCtorArgs;
@@ -121,7 +125,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       };
 
       describe('using a private constructor', () => {
-        let publishBlockNumber: number;
+        let publishBlockNumber: BlockNumber;
         beforeAll(async () => {
           const result = await publishInstance();
           ({ instance, initArgs, contract } = result);

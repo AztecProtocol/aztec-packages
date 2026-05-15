@@ -43,7 +43,7 @@ describe('e2e_block_building', () => {
 
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
-  let sequencer: TestSequencerClient;
+  let _sequencer: TestSequencerClient;
   let watcher: AnvilTestWatcher;
   let teardown: () => Promise<void>;
 
@@ -69,7 +69,7 @@ describe('e2e_block_building', () => {
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
       }));
-      sequencer = sequencerClient! as TestSequencerClient;
+      _sequencer = sequencerClient! as TestSequencerClient;
     });
 
     beforeEach(async () => {

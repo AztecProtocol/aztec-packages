@@ -133,7 +133,7 @@ describe('e2e_ordering', () => {
       ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
-        const receipt = await child.methods[method]().send({ from: defaultAccountAddress });
+        const { receipt } = await child.methods[method]().send({ from: defaultAccountAddress });
 
         // Logs are emitted in the expected order
         await expectLogsFromBlockToBe(expectedOrder, receipt.blockNumber!);

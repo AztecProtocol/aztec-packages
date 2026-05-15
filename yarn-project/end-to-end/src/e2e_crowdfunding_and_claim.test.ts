@@ -48,7 +48,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingSecretKey: Fr;
   let crowdfundingPublicKeys: PublicKeys;
   let cheatCodes: CheatCodes;
-  let aztecNode: AztecNode & AztecNodeDebug;
+  let _aztecNode: AztecNode & AztecNodeDebug;
   let deadline: number; // end of crowdfunding period
 
   let uintNote!: any;
@@ -59,7 +59,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       teardown,
       logger,
       wallet,
-      aztecNode,
+      aztecNode: _aztecNode,
       accounts: [operatorAddress, donor1Address, donor2Address],
     } = await setup(3, { ...PIPELINING_SETUP_OPTS }));
 
