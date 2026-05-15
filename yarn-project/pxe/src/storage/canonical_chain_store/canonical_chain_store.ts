@@ -3,6 +3,11 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type Anchor } from '../foundation/anchor.js';
 
+/** The slice of the node interface CanonicalChainStore needs to rebuild its map. */
+export type CanonicalChainSource = {
+  getBlocks(from: number, limit: number): Promise<Array<{ number: number; hash(): Promise<{ toString(): string }> }>>;
+};
+
 export class CanonicalChainStore {
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
@@ -95,5 +100,19 @@ export class CanonicalChainStore {
    */
   isCanonical(anchor: Anchor): Promise<boolean> {
     return Promise.resolve(this.#mem.get(anchor.blockNumber) === anchor.blockHash);
+  }
+
+  /**
+   * Rebuild the map for the inclusive height range [from, to] by fetching canonical blocks from
+   * the node. Used on startup to fill whatever the persisted map lacks — everything, if empty.
+   */
+  async hydrateFromNode(node: CanonicalChainSource, from: number, to: number): Promise<void> {
+    if (to < from) {
+      return;
+    }
+    const blocks = await node.getBlocks(from, to - from + 1);
+    for (const block of blocks) {
+      await this.set(block.number, (await block.hash()).toString());
+    }
   }
 }

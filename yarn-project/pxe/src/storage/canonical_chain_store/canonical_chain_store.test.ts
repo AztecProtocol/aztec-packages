@@ -98,4 +98,23 @@ describe('canonical chain map', () => {
   it('isCanonical is false when the height has no entry (unset / retracted)', async () => {
     await expect(chain.isCanonical({ blockNumber: 999, blockHash: '0xaaa' })).resolves.toBe(false);
   });
+
+  it('hydrateFromNode fills the map from node-provided blocks', async () => {
+    // Minimal stub of the node's getBlocks: returns blocks 10..12 with deterministic hashes.
+    const nodeStub = {
+      getBlocks: (from: number, limit: number) =>
+        Promise.resolve(
+          Array.from({ length: limit }, (_unused, i) => ({
+            number: from + i,
+            hash: () => Promise.resolve({ toString: () => `0xhash${from + i}` }),
+          })),
+        ),
+    };
+
+    await chain.hydrateFromNode(nodeStub as any, 10, 12);
+
+    await expect(chain.hashAt(10)).resolves.toEqual('0xhash10');
+    await expect(chain.hashAt(11)).resolves.toEqual('0xhash11');
+    await expect(chain.hashAt(12)).resolves.toEqual('0xhash12');
+  });
 });
