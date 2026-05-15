@@ -18,8 +18,6 @@ Full migration instructions for every breaking change below live in [`docs/docs-
 
 ## Breaking Changes
 
-- **`kv-store` on SQLite-wasm over OPFS** ([#22658](https://github.com/AztecProtocol/aztec-packages/pull/22658)): The PXE / wallet key-value store now runs on SQLite compiled to WebAssembly over OPFS in the browser, with a page-level-encrypted SQLite backend for stricter browser environments ([#22759](https://github.com/AztecProtocol/aztec-packages/pull/22759), [#23089](https://github.com/AztecProtocol/aztec-packages/pull/23089)). Persistence layout and serialization change — wipe and resync existing PXE stores when upgrading.
-
 - **`aztec init` / `aztec new` counter template** ([#22751](https://github.com/AztecProtocol/aztec-packages/pull/22751)): `aztec init` / `aztec new` now scaffold a *counter* template instead of the previous default. Any tooling or docs that relied on the prior scaffold contents must be updated.
 
 - **Shared protocol-circuit utilities in the history module** (`refactor!` cherry-pick `8f805bb8d3`): The `aztec-nr` history module now consumes shared protocol-circuit utilities. Direct consumers of internal history-module helpers must adapt — see migration notes.
@@ -30,6 +28,7 @@ Full migration instructions for every breaking change below live in [`docs/docs-
 
 ### PXE / Wallet
 
+- **New opt-in SQLite kv-store backend** ([#22658](https://github.com/AztecProtocol/aztec-packages/pull/22658), [#22759](https://github.com/AztecProtocol/aztec-packages/pull/22759), [#23089](https://github.com/AztecProtocol/aztec-packages/pull/23089), [#23231](https://github.com/AztecProtocol/aztec-packages/pull/23231)): A new SQLite-on-WASM-over-OPFS implementation of the PXE / wallet kv-store ships alongside the existing LMDB and IndexedDB backends, with a page-level-encrypted variant for stricter browser environments. The new backend is **opt-in** at wallet construction time; existing PXE stores continue to work unchanged on LMDB / IndexedDB. SQLite is expected to become the recommended default in v5, with IndexedDB deprecated thereafter.
 - **Cross-contract utility call hooks and auth** ([#23007](https://github.com/AztecProtocol/aztec-packages/pull/23007), [#23064](https://github.com/AztecProtocol/aztec-packages/pull/23064), [#22822](https://github.com/AztecProtocol/aztec-packages/pull/22822)): PXE gains execution hooks for authorizing cross-contract utility calls, and TXE supports authorizing them in Noir tests. Nested utility-function calls are now supported end-to-end.
 - **Sync performance** ([#23129](https://github.com/AztecProtocol/aztec-packages/pull/23129), [#23131](https://github.com/AztecProtocol/aztec-packages/pull/23131), [#23123](https://github.com/AztecProtocol/aztec-packages/pull/23123), [#23130](https://github.com/AztecProtocol/aztec-packages/pull/23130), [#23100](https://github.com/AztecProtocol/aztec-packages/pull/23100), [#23088](https://github.com/AztecProtocol/aztec-packages/pull/23088), [#23048](https://github.com/AztecProtocol/aztec-packages/pull/23048), [#22988](https://github.com/AztecProtocol/aztec-packages/pull/22988), [#22525](https://github.com/AztecProtocol/aztec-packages/pull/22525)): A series of refactors batches nullifier sync across scopes, batches log RPC calls, prefetches updated class-id hints per contract, short-circuits block-header lookups at the anchor block, and parallelizes per-scope contract syncs.
 - **Tag-as-sender optimization** ([#23239](https://github.com/AztecProtocol/aztec-packages/pull/23239)): Faster `get_next_app_tag_as_sender` lookups.
@@ -79,7 +78,6 @@ Full list in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Upgrade notes
 
-- **PXE persistence is incompatible** with prior versions — wipe and resync any existing PXE stores before bringing nodes back up.
 - The breaking changes above are documented under the `## 4.3.0-rc.1` section of `docs/docs-developers/docs/resources/migration_notes.md`.
 
 ---

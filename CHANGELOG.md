@@ -6,7 +6,6 @@
 ### ⚠ BREAKING CHANGES
 
 * **aztec:** add counter template for aztec init ([#22751](https://github.com/AztecProtocol/aztec-packages/issues/22751)) ([b8a80af](https://github.com/AztecProtocol/aztec-packages/commit/b8a80af860a4247cff3faf73ad923d9b7010f00d))
-* kv-store on SQLite-wasm over OPFS ([#22658](https://github.com/AztecProtocol/aztec-packages/issues/22658)) ([ee0ec5b](https://github.com/AztecProtocol/aztec-packages/commit/ee0ec5b47fd4db1d78603e6b0a433d6ce7a58a2f))
 * use shared protocol circuit utilities in history module ([f089442](https://github.com/AztecProtocol/aztec-packages/commit/f089442d325c81647e2bf05e1ab3598354d30330))
 
 
