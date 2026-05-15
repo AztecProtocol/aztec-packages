@@ -1,9 +1,4 @@
-import {
-  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-  MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
-  MAX_PROCESSABLE_L2_GAS,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -56,13 +51,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
-import {
-  FALLBACK_TEARDOWN_DA_GAS_LIMIT,
-  FALLBACK_TEARDOWN_L2_GAS_LIMIT,
-  Gas,
-  GasFees,
-  GasSettings,
-} from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeCalldataHash, computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
@@ -329,6 +318,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     additionalScopes: AztecAddress[] = [],
     jobId: string,
     authorizedUtilityCallTargets: AztecAddress[],
+    gasSettings: GasSettings,
   ) {
     this.logger.verbose(
       `Executing external function ${await this.contractStore.getDebugFunctionName(targetContractAddress, functionSelector)}@${targetContractAddress} isStaticCall=${isStaticCall}`,
@@ -363,10 +353,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const msgSender = from ?? AztecAddress.NULL_MSG_SENDER;
     const callContext = new CallContext(msgSender, targetContractAddress, functionSelector, isStaticCall);
-
-    const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
-    const teardownGasLimits = new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT);
-    const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
@@ -563,18 +549,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
+    gasSettings: GasSettings,
   ) {
     this.logger.verbose(
       `Executing public function ${await this.contractStore.getDebugFunctionName(targetContractAddress, FunctionSelector.fromField(calldata[0]))}@${targetContractAddress} isStaticCall=${isStaticCall}`,
     );
 
     const blockNumber = await this.getNextBlockNumber();
-
-    const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
-
-    const teardownGasLimits = new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT);
-
-    const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
