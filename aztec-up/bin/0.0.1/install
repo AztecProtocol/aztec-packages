@@ -64,7 +64,7 @@ function timeout {
     # Prefer coreutils `timeout` when available. Absolute path avoids re-entering this function.
     /usr/bin/timeout "$@"
   elif perl -e1 2>/dev/null; then
-    # Fall back to perl's `alarm` when /usr/bin/timeout is missing (e.g. stock macOS).
+    # Fall back to perl's `alarm` when /usr/bin/timeout is missing.
     local duration=$1
     shift
     perl -e "alarm $duration; exec @ARGV" -- "$@"
