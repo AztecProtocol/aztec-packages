@@ -281,6 +281,7 @@ rustc
 sendl
 SENDL
 serde
+serializability
 Shamir
 sharedsecret
 shcedule
@@ -438,3 +439,4 @@ reentrancy
 variadic
 Wonderland
 indistinguishability
+nightlies
