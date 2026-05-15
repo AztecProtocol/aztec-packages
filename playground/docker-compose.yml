@@ -27,7 +27,6 @@ services:
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       P2P_MIN_TX_POOL_AGE_MS: 0
-      SEQ_ENABLE_PROPOSER_PIPELINING: 'true'
     healthcheck:
       test: ['CMD', 'curl', '-fSs', 'http://127.0.0.1:8080/status']
       interval: 3s
