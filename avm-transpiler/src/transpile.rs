@@ -1285,7 +1285,7 @@ fn handle_black_box_function(
             result,
         } => avm_instrs.push(AvmInstruction {
             opcode: AvmOpcode::ECADD,
-            // The result (SIXTH operand) is indirect (addressing mode).
+            // The result (FOURTH operand) is indirect (addressing mode).
             addressing_mode: Some(
                 AddressingModeBuilder::default()
                     .direct_operand(p1_x_offset)
