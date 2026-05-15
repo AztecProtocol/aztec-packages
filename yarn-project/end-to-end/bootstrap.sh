@@ -53,6 +53,9 @@ function test_cmds {
       e2e_p2p/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
+      e2e_cross_chain_messaging/l1_to_l2)
+        test_prefix="$prefix:TIMEOUT=20m"
+        ;;
     esac
 
     # Check if this is a .parallel.test.ts file

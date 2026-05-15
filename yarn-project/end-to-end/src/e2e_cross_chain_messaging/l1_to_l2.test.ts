@@ -28,7 +28,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   beforeEach(async () => {
     t = new CrossChainMessagingTest(
       'l1_to_l2',
-      { minTxsPerBlock: 1 },
+      // 12s/4s pipelined slot cadence so setup fits in the 300s jest hook; 30x wallet fee padding
+      // because pipelining lets the per-L2-gas fee evolve up to ~20x between PXE snapshot and
+      // inclusion. Both mirror the defaults injected by setup.ts on PR #23150.
+      { minTxsPerBlock: 1, aztecSlotDuration: 12, ethereumSlotDuration: 4, walletMinFeePadding: 30 },
       { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4, inboxLag: 2 },
     );
     await t.setup();
@@ -56,6 +59,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     if (newBlock === block) {
       throw new Error(`Failed to advance block ${block}`);
     }
+    // Under interval mining `AnvilTestWatcher.markAsProven` does not auto-fire; without an explicit
+    // prove call here, L1's `aztecProofSubmissionEpochs=2` window (96s with pipelined 12s slots)
+    // expires mid-test and triggers a chain prune that drops in-flight wallet txs.
+    await t.context.watcher.markAsProven();
     return newBlock;
   };
 
@@ -143,7 +150,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         return isReady;
       },
       `wait for rollup to reach msg checkpoint ${msgCheckpoint}`,
-      120,
+      240,
     );
   };
 
@@ -196,7 +203,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // which is not nullified
       await sendConsumeMsgTx(actualMessage2Index);
     },
-    120_000,
+    300_000,
   );
 
   // Inbox checkpoint number can drift on two scenarios: if the rollup reorgs and rolls back its own
@@ -206,6 +213,13 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   it.each(['private', 'public'] as const)(
     'can consume L1 to L2 message in %s after inbox drifts away from the rollup',
     async (scope: 'private' | 'public') => {
+      // Reset the L1 proof window by marking the current pending tip as proven. The e2e fixture
+      // runs L1 on interval mining, so the watcher's auto-prove loop never starts (it gates on
+      // `isAutoMining`). That means L1's prune deadline has been anchored to chain genesis the
+      // whole setup, and would otherwise fire mid-test before we finish mining the 4 drift
+      // checkpoints below.
+      await t.context.watcher.markAsProven();
+
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
       const [checkpointedProvenBlock] = await aztecNode.getBlocks(lastProven, 1, {
@@ -240,7 +254,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
           (await aztecNode.getBlockNumber().then(b => b === lastProven || b === lastProven + 1)) ||
           (await tryAdvanceBlock()),
         'wait for prune',
-        40,
+        180,
       );
 
       // Check that there is no witness yet
@@ -284,5 +298,6 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         await consume().send({ from: user1Address });
       }
     },
+    300_000,
   );
 });
