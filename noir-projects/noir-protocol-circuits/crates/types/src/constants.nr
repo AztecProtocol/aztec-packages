@@ -1230,8 +1230,8 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 27 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
 // Dynamic L2 GAS
-pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
-pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 3;
+pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 6;
+pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
 pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 pub global AVM_EMITPUBLICLOG_DYN_L2_GAS: u32 = 3;
