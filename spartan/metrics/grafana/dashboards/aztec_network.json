@@ -248,11 +248,11 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\",aztec_status=\"\"}, \"aztec_status\", \"Pending chain\", \"aztec_status\", \"^$\"))",
+          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\",aztec_status=\"proposed\"}, \"aztec_status\", \"Proposed chain\", \"aztec_status\", \"^proposed$\")) or max by (aztec_status) (label_replace(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\",aztec_status=\"\"}, \"aztec_status\", \"Proposed chain\", \"aztec_status\", \"^$\"))",
           "instant": true,
           "legendFormat": "{{aztec_status}}",
           "range": false,
@@ -261,28 +261,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\",aztec_status=\"proven\"}, \"aztec_status\", \"Proven chain\", \"aztec_status\", \"^proven$\"))",
-          "hide": false,
-          "instant": true,
-          "legendFormat": "{{aztec_status}}",
-          "range": false,
-          "refId": "E"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
             "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max by (aztec_status) (label_replace(aztec_archiver_l1_block_height{k8s_namespace_name=\"$namespace\"}, \"aztec_status\", \"l1\", \"aztec_status\", \"^$\"))",
+          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\",aztec_status=\"checkpointed\"}, \"aztec_status\", \"Checkpointed chain\", \"aztec_status\", \"^checkpointed$\")) or max by (aztec_status) (label_replace(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\",aztec_status=\"\"}, \"aztec_status\", \"Checkpointed chain\", \"aztec_status\", \"^$\"))",
           "hide": false,
           "instant": true,
-          "legendFormat": "L1",
+          "legendFormat": "{{aztec_status}}",
           "range": false,
           "refId": "B"
         },
@@ -292,25 +278,13 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "max(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"\"}) - max(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"proven\"})",
+          "exemplar": false,
+          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\",aztec_status=\"proven\"}, \"aztec_status\", \"Proven chain\", \"aztec_status\", \"^proven$\"))",
           "hide": false,
-          "instant": false,
-          "legendFormat": "Pending chain depth",
-          "range": true,
+          "instant": true,
+          "legendFormat": "{{aztec_status}}",
+          "range": false,
           "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "max(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\"}) or vector(0)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Total re-orgs",
-          "range": true,
-          "refId": "D"
         }
       ],
       "title": "Current Block Heights",
@@ -2592,14 +2566,46 @@
             "uid": "${data_source}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "max by(service_name, aztec_status) (aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=~\"proposed|proven\"})",
+          "editorMode": "code",
+          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=\"proposed\"}, \"aztec_status\", \"Proposed chain\", \"aztec_status\", \"^proposed$\")) or max by (aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=\"\"}, \"aztec_status\", \"Proposed chain\", \"aztec_status\", \"^$\"))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "{{aztec_status}}",
           "range": true,
           "refId": "A",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=\"checkpointed\"}, \"aztec_status\", \"Checkpointed chain\", \"aztec_status\", \"^checkpointed$\")) or max by (aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=\"\"}, \"aztec_status\", \"Checkpointed chain\", \"aztec_status\", \"^$\"))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "{{aztec_status}}",
+          "range": true,
+          "refId": "B",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "max by (aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=\"proven\"}, \"aztec_status\", \"Proven chain\", \"aztec_status\", \"^proven$\"))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "{{aztec_status}}",
+          "range": true,
+          "refId": "C",
           "useBackend": false
         }
       ],
@@ -2669,8 +2675,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 75
+        "x": 0,
+        "y": 83
       },
       "id": 11,
       "options": {
@@ -2774,7 +2780,7 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 83
       },
       "id": 24,
@@ -2813,6 +2819,107 @@
         }
       ],
       "title": "Archiver Sync Duration (P95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepBefore",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 75
+      },
+      "id": 41,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max by(k8s_pod_name) (aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"proposed\"}) or max by(k8s_pod_name) (aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"\"})",
+          "instant": false,
+          "legendFormat": "{{k8s_pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Proposed Chains by Pod",
       "type": "timeseries"
     }
   ],
