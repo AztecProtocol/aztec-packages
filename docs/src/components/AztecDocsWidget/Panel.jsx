@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { AztecMark, Icons } from "./Icons";
 import Hero from "./Hero";
 import { UserBubble, AssistantBody } from "./Message";
@@ -57,6 +57,16 @@ export default function Panel({
       : shareState === "fail"
         ? "Share failed"
         : "Share";
+
+  const taRef = useRef(null);
+  // Auto-grow the textarea to fit its content. The inline `max-height`
+  // caps it at 10 lines; past that the textarea scrolls instead.
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
+  }, [input]);
 
   return (
     <div
@@ -362,21 +372,36 @@ export default function Panel({
               border: `1px solid ${isInk ? "rgba(242,238,225,0.25)" : "var(--azw-ink-tint-1)"}`,
             }}
           >
-            <input
+            <textarea
+              ref={taRef}
               value={input}
               onChange={(e) => onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  onSend();
+                }
+              }}
               placeholder="Ask about Aztec —"
               disabled={streaming}
+              rows={1}
               style={{
                 flex: 1,
+                minWidth: 0,
                 padding: "11px 12px",
                 background: "transparent",
                 border: "none",
                 outline: "none",
+                resize: "none",
                 color: panelFg,
                 fontFamily: "var(--azw-font-sans)",
                 fontSize: 13.5,
+                lineHeight: 1.5,
                 letterSpacing: "-0.01em",
+                boxSizing: "border-box",
+                maxHeight: "calc(10 * 1.5em + 22px)",
+                overflowY: "auto",
+                overflowWrap: "anywhere",
               }}
             />
             <button
