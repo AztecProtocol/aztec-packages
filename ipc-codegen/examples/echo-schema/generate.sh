@@ -12,7 +12,7 @@ SCHEMA="$DIR/schema.json"
 
 echo "Generating echo types from $SCHEMA"
 
-$NODE "$GEN" --schema "$SCHEMA" --lang cpp  --server --client --uds --out "$EXAMPLES/cpp/echo/generated" --prefix Echo --cpp-namespace echo --cpp-include-dir echo
+$NODE "$GEN" --schema "$SCHEMA" --lang cpp  --server --client --uds --out "$EXAMPLES/cpp/echo/generated" --prefix Echo --cpp-namespace echo
 $NODE "$GEN" --schema "$SCHEMA" --lang ts   --server --client --uds --out "$EXAMPLES/ts/echo/generated"  --prefix Echo
 $NODE "$GEN" --schema "$SCHEMA" --lang rust --server --client --uds --out "$EXAMPLES/rust/echo/src/generated" --prefix Echo
 $NODE "$GEN" --schema "$SCHEMA" --lang zig  --server --client --uds --out "$EXAMPLES/zig/echo/generated"  --prefix Echo

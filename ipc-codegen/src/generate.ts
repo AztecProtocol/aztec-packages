@@ -22,17 +22,17 @@
  * Zero npm dependencies — runs with Node.js 22+ via --experimental-strip-types.
  */
 
-import { createHash } from 'crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { execSync } from 'child_process';
-import { dirname, join, resolve } from 'path';
-import { fileURLToPath } from 'url';
-import { SchemaVisitor, type CompiledSchema } from './schema_visitor.ts';
-import { TypeScriptCodegen } from './typescript_codegen.ts';
-import { RustCodegen } from './rust_codegen.ts';
-import { ZigCodegen } from './zig_codegen.ts';
-import { CppCodegen } from './cpp_codegen.ts';
-import { toSnakeCase } from './naming.ts';
+import { createHash } from "crypto";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { execSync } from "child_process";
+import { dirname, join, resolve } from "path";
+import { fileURLToPath } from "url";
+import { SchemaVisitor, type CompiledSchema } from "./schema_visitor.ts";
+import { TypeScriptCodegen } from "./typescript_codegen.ts";
+import { RustCodegen } from "./rust_codegen.ts";
+import { ZigCodegen } from "./zig_codegen.ts";
+import { CppCodegen } from "./cpp_codegen.ts";
+import { toSnakeCase } from "./naming.ts";
 
 // @ts-ignore
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -60,29 +60,66 @@ interface Args {
 
 function parseArgs(argv: string[]): Args {
   const args: Args = {
-    schema: '', lang: '', out: '', prefix: '',
-    server: false, client: false, skeleton: '',
-    cppNamespace: '', cppWireNamespace: 'wire', cppIncludeDir: '',
-    uds: false, ffi: false,
-    curveConstants: false, stripMethodPrefix: false,
+    schema: "",
+    lang: "",
+    out: "",
+    prefix: "",
+    server: false,
+    client: false,
+    skeleton: "",
+    cppNamespace: "",
+    cppWireNamespace: "wire",
+    cppIncludeDir: "",
+    uds: false,
+    ffi: false,
+    curveConstants: false,
+    stripMethodPrefix: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
-      case '--schema': args.schema = argv[++i]; break;
-      case '--lang': args.lang = argv[++i]; break;
-      case '--out': args.out = argv[++i]; break;
-      case '--prefix': args.prefix = argv[++i]; break;
-      case '--server': args.server = true; break;
-      case '--client': args.client = true; break;
-      case '--skeleton': args.skeleton = argv[++i]; break;
-      case '--cpp-namespace': args.cppNamespace = argv[++i]; break;
-      case '--cpp-wire-namespace': args.cppWireNamespace = argv[++i]; break;
-      case '--cpp-include-dir': args.cppIncludeDir = argv[++i]; break;
-      case '--uds': args.uds = true; break;
-      case '--ffi': args.ffi = true; break;
-      case '--curve-constants': args.curveConstants = true; break;
-      case '--strip-method-prefix': args.stripMethodPrefix = true; break;
+      case "--schema":
+        args.schema = argv[++i];
+        break;
+      case "--lang":
+        args.lang = argv[++i];
+        break;
+      case "--out":
+        args.out = argv[++i];
+        break;
+      case "--prefix":
+        args.prefix = argv[++i];
+        break;
+      case "--server":
+        args.server = true;
+        break;
+      case "--client":
+        args.client = true;
+        break;
+      case "--skeleton":
+        args.skeleton = argv[++i];
+        break;
+      case "--cpp-namespace":
+        args.cppNamespace = argv[++i];
+        break;
+      case "--cpp-wire-namespace":
+        args.cppWireNamespace = argv[++i];
+        break;
+      case "--cpp-include-dir":
+        args.cppIncludeDir = argv[++i];
+        break;
+      case "--uds":
+        args.uds = true;
+        break;
+      case "--ffi":
+        args.ffi = true;
+        break;
+      case "--curve-constants":
+        args.curveConstants = true;
+        break;
+      case "--strip-method-prefix":
+        args.stripMethodPrefix = true;
+        break;
       default:
         console.error(`Unknown flag: ${argv[i]}`);
         process.exit(1);
@@ -118,11 +155,14 @@ Optional:
 // ---------------------------------------------------------------------------
 
 function computeSchemaHash(schemaJson: string): string {
-  return createHash('sha256').update(schemaJson).digest('hex');
+  return createHash("sha256").update(schemaJson).digest("hex");
 }
 
-function loadSchema(schemaPath: string): { compiled: CompiledSchema; schemaHash: string } {
-  const rawJson = readFileSync(schemaPath, 'utf-8').trim();
+function loadSchema(schemaPath: string): {
+  compiled: CompiledSchema;
+  schemaHash: string;
+} {
+  const rawJson = readFileSync(schemaPath, "utf-8").trim();
   const schema = JSON.parse(rawJson);
   const visitor = new SchemaVisitor();
   const compiled = visitor.visit(schema.commands, schema.responses);
@@ -132,8 +172,8 @@ function loadSchema(schemaPath: string): { compiled: CompiledSchema; schemaHash:
 
 /** Detect common prefix from command names (e.g. WsdbGetTreeInfo, WsdbCreateFork → Wsdb) */
 function detectPrefix(compiled: CompiledSchema): string {
-  const names = compiled.commands.map(c => c.name);
-  if (names.length === 0) return '';
+  const names = compiled.commands.map((c) => c.name);
+  if (names.length === 0) return "";
   let prefix = names[0];
   for (const name of names.slice(1)) {
     while (prefix && !name.startsWith(prefix)) {
@@ -141,10 +181,10 @@ function detectPrefix(compiled: CompiledSchema): string {
     }
   }
   const words = prefix.match(/[A-Z][a-z]*/g) || [];
-  let result = '';
+  let result = "";
   for (const word of words) {
     const candidate = result + word;
-    if (names.every(n => n.startsWith(candidate))) {
+    if (names.every((n) => n.startsWith(candidate))) {
       result = candidate;
     } else {
       break;
@@ -158,9 +198,9 @@ function detectPrefix(compiled: CompiledSchema): string {
 // ---------------------------------------------------------------------------
 
 function copyTemplate(lang: string, filename: string, outDir: string) {
-  const templatePath = join(__dirname, '..', 'templates', lang, filename);
+  const templatePath = join(__dirname, "..", "templates", lang, filename);
   const destPath = join(outDir, filename);
-  writeFileSync(destPath, readFileSync(templatePath, 'utf-8'));
+  writeFileSync(destPath, readFileSync(templatePath, "utf-8"));
   console.log(`  ${destPath} (template)`);
 }
 
@@ -181,7 +221,7 @@ function copyTemplateOnce(lang: string, filename: string, outDir: string) {
 function formatCpp(files: string[]) {
   if (files.length === 0) return;
   try {
-    execSync(`clang-format-20 -i ${files.join(' ')}`, { stdio: 'ignore' });
+    execSync(`clang-format-20 -i ${files.join(" ")}`, { stdio: "ignore" });
   } catch {
     // clang-format-20 may not be available
   }
@@ -199,7 +239,9 @@ function generate(args: Args) {
   const { compiled, schemaHash } = loadSchema(absSchema);
   const prefix = args.prefix || detectPrefix(compiled);
 
-  console.log(`Schema: ${absSchema} (${compiled.commands.length} commands, prefix=${prefix})`);
+  console.log(
+    `Schema: ${absSchema} (${compiled.commands.length} commands, prefix=${prefix})`,
+  );
 
   function writeFile(name: string, content: string) {
     const path = join(absOut, name);
@@ -212,17 +254,19 @@ function generate(args: Args) {
   const cppFiles: string[] = [];
 
   switch (args.lang) {
-    case 'ts': {
-      const gen = new TypeScriptCodegen({ stripMethodPrefix: args.stripMethodPrefix ? prefix : undefined });
-      writeFile('api_types.ts', gen.generateTypes(compiled, schemaHash));
+    case "ts": {
+      const gen = new TypeScriptCodegen({
+        stripMethodPrefix: args.stripMethodPrefix ? prefix : undefined,
+      });
+      writeFile("api_types.ts", gen.generateTypes(compiled, schemaHash));
       if (args.server) {
-        writeFile('server.ts', gen.generateServerApi(compiled));
-        copyTemplate('ts', 'ipc_server.ts', absOut);
+        writeFile("server.ts", gen.generateServerApi(compiled));
+        copyTemplate("ts", "ipc_server.ts", absOut);
       }
       if (args.client) {
-        writeFile('async.ts', gen.generateAsyncApi(compiled));
-        writeFile('sync.ts', gen.generateSyncApi(compiled));
-        copyTemplate('ts', 'ipc_client.ts', absOut);
+        writeFile("async.ts", gen.generateAsyncApi(compiled));
+        writeFile("sync.ts", gen.generateSyncApi(compiled));
+        copyTemplate("ts", "ipc_client.ts", absOut);
       }
       if (args.curveConstants) {
         generateCurveConstants(absOut);
@@ -231,7 +275,11 @@ function generate(args: Args) {
       if (args.skeleton) {
         const skelDir = resolve(args.skeleton);
         mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+        const writeSkeleton = (
+          name: string,
+          content: string,
+          opts?: { executable?: boolean },
+        ) => {
           const path = join(skelDir, name);
           if (existsSync(path)) {
             console.log(`  ${path} (exists, skipped)`);
@@ -239,44 +287,66 @@ function generate(args: Args) {
           }
           writeFileSync(path, content);
           if (opts?.executable) {
-            try { execSync(`chmod +x ${path}`); } catch {}
+            try {
+              execSync(`chmod +x ${path}`);
+            } catch {}
           }
           console.log(`  ${path} (skeleton)`);
         };
-        writeSkeleton(`${toSnakeCase(prefix)}_handlers.ts`, gen.generateHandlerStubs(compiled, prefix));
-        writeSkeleton('main.ts', gen.generateMain(compiled, prefix));
-        writeSkeleton('package.json', gen.generateBuildFile(prefix));
-        writeSkeleton('.gitignore', gen.generateGitignore());
-        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema, prefix), { executable: true });
+        writeSkeleton(
+          `${toSnakeCase(prefix)}_handlers.ts`,
+          gen.generateHandlerStubs(compiled, prefix),
+        );
+        writeSkeleton("main.ts", gen.generateMain(compiled, prefix));
+        writeSkeleton("package.json", gen.generateBuildFile(prefix));
+        writeSkeleton(".gitignore", gen.generateGitignore());
+        writeSkeleton(
+          "generate.sh",
+          gen.generateGenerateScript(args.schema, prefix),
+          { executable: true },
+        );
       }
       break;
     }
-    case 'rust': {
+    case "rust": {
       const gen = new RustCodegen({ prefix });
-      writeFile(`${toSnakeCase(prefix)}_types.rs`, gen.generateTypes(compiled, schemaHash));
+      writeFile(
+        `${toSnakeCase(prefix)}_types.rs`,
+        gen.generateTypes(compiled, schemaHash),
+      );
       if (args.server) {
-        writeFile(`${toSnakeCase(prefix)}_server.rs`, gen.generateServer(compiled));
-        copyTemplate('rust', 'ipc_server.rs', absOut);
+        writeFile(
+          `${toSnakeCase(prefix)}_server.rs`,
+          gen.generateServer(compiled),
+        );
+        copyTemplate("rust", "ipc_server.rs", absOut);
       }
       if (args.client) {
-        writeFile(`${toSnakeCase(prefix)}_client.rs`, gen.generateApi(compiled));
+        writeFile(
+          `${toSnakeCase(prefix)}_client.rs`,
+          gen.generateApi(compiled),
+        );
       }
       // Backend templates (copied once, not overwritten)
       if (args.uds || args.ffi) {
-        copyTemplateOnce('rust', 'backend.rs', absOut);
-        copyTemplateOnce('rust', 'error.rs', absOut);
+        copyTemplateOnce("rust", "backend.rs", absOut);
+        copyTemplateOnce("rust", "error.rs", absOut);
       }
       if (args.uds) {
-        copyTemplateOnce('rust', 'uds_backend.rs', absOut);
+        copyTemplateOnce("rust", "uds_backend.rs", absOut);
       }
       if (args.ffi) {
-        copyTemplateOnce('rust', 'ffi_backend.rs', absOut);
+        copyTemplateOnce("rust", "ffi_backend.rs", absOut);
       }
       // Skeleton (one-time handler stubs + main + build files)
       if (args.skeleton) {
         const skelDir = resolve(args.skeleton);
         mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+        const writeSkeleton = (
+          name: string,
+          content: string,
+          opts?: { executable?: boolean },
+        ) => {
           const path = join(skelDir, name);
           if (existsSync(path)) {
             console.log(`  ${path} (exists, skipped)`);
@@ -284,43 +354,63 @@ function generate(args: Args) {
           }
           writeFileSync(path, content);
           if (opts?.executable) {
-            try { execSync(`chmod +x ${path}`); } catch {}
+            try {
+              execSync(`chmod +x ${path}`);
+            } catch {}
           }
           console.log(`  ${path} (skeleton)`);
         };
-        writeSkeleton(`${toSnakeCase(prefix)}_handlers.rs`, gen.generateHandlerStubs(compiled));
-        writeSkeleton('main.rs', gen.generateMain(compiled));
-        writeSkeleton('Cargo.toml', gen.generateBuildFile(compiled));
-        writeSkeleton('.gitignore', gen.generateGitignore());
-        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema), { executable: true });
+        writeSkeleton(
+          `${toSnakeCase(prefix)}_handlers.rs`,
+          gen.generateHandlerStubs(compiled),
+        );
+        writeSkeleton("main.rs", gen.generateMain(compiled));
+        writeSkeleton("Cargo.toml", gen.generateBuildFile(compiled));
+        writeSkeleton(".gitignore", gen.generateGitignore());
+        writeSkeleton("generate.sh", gen.generateGenerateScript(args.schema), {
+          executable: true,
+        });
       }
       break;
     }
-    case 'zig': {
+    case "zig": {
       const gen = new ZigCodegen({ prefix, clientName: `${prefix}Client` });
-      writeFile(`${toSnakeCase(prefix)}_types.zig`, gen.generateTypes(compiled, schemaHash));
+      writeFile(
+        `${toSnakeCase(prefix)}_types.zig`,
+        gen.generateTypes(compiled, schemaHash),
+      );
       if (args.server) {
-        writeFile(`${toSnakeCase(prefix)}_server.zig`, gen.generateServer(compiled));
-        copyTemplate('zig', 'ipc_server.zig', absOut);
+        writeFile(
+          `${toSnakeCase(prefix)}_server.zig`,
+          gen.generateServer(compiled),
+        );
+        copyTemplate("zig", "ipc_server.zig", absOut);
       }
       if (args.client) {
-        writeFile(`${toSnakeCase(prefix)}_client.zig`, gen.generateClient(compiled));
+        writeFile(
+          `${toSnakeCase(prefix)}_client.zig`,
+          gen.generateClient(compiled),
+        );
       }
       // Backend templates (copied once, not overwritten)
       if (args.uds || args.ffi) {
-        copyTemplateOnce('zig', 'backend.zig', absOut);
+        copyTemplateOnce("zig", "backend.zig", absOut);
       }
       if (args.uds) {
-        copyTemplateOnce('zig', 'uds_backend.zig', absOut);
+        copyTemplateOnce("zig", "uds_backend.zig", absOut);
       }
       if (args.ffi) {
-        copyTemplateOnce('zig', 'ffi_backend.zig', absOut);
+        copyTemplateOnce("zig", "ffi_backend.zig", absOut);
       }
       // Skeleton (one-time handler stubs + main + build files)
       if (args.skeleton) {
         const skelDir = resolve(args.skeleton);
         mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+        const writeSkeleton = (
+          name: string,
+          content: string,
+          opts?: { executable?: boolean },
+        ) => {
           const path = join(skelDir, name);
           if (existsSync(path)) {
             console.log(`  ${path} (exists, skipped)`);
@@ -328,47 +418,83 @@ function generate(args: Args) {
           }
           writeFileSync(path, content);
           if (opts?.executable) {
-            try { execSync(`chmod +x ${path}`); } catch {}
+            try {
+              execSync(`chmod +x ${path}`);
+            } catch {}
           }
           console.log(`  ${path} (skeleton)`);
         };
-        writeSkeleton(`${toSnakeCase(prefix)}_handlers.zig`, gen.generateHandlerStubs(compiled));
-        writeSkeleton('main.zig', gen.generateMain(compiled));
-        writeSkeleton('build.zig', gen.generateBuildFile(compiled));
-        writeSkeleton('build.zig.zon', gen.generateBuildZon(compiled));
-        writeSkeleton('.gitignore', gen.generateGitignore());
-        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema), { executable: true });
+        writeSkeleton(
+          `${toSnakeCase(prefix)}_handlers.zig`,
+          gen.generateHandlerStubs(compiled),
+        );
+        writeSkeleton("main.zig", gen.generateMain(compiled));
+        writeSkeleton("build.zig", gen.generateBuildFile(compiled));
+        writeSkeleton("build.zig.zon", gen.generateBuildZon(compiled));
+        writeSkeleton(".gitignore", gen.generateGitignore());
+        writeSkeleton("generate.sh", gen.generateGenerateScript(args.schema), {
+          executable: true,
+        });
       }
       break;
     }
-    case 'cpp': {
+    case "cpp": {
       const ns = args.cppNamespace || prefix.toLowerCase();
       const wireNs = args.cppWireNamespace;
       const gen = new CppCodegen({
         namespace: ns,
         prefix,
-        executeHeader: '',
-        commandsHeader: '',
+        executeHeader: "",
+        commandsHeader: "",
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
       });
 
-      cppFiles.push(writeFile(`${toSnakeCase(prefix)}_types.hpp`, gen.generateStandaloneTypes(compiled)));
+      cppFiles.push(
+        writeFile(
+          `${toSnakeCase(prefix)}_types.hpp`,
+          gen.generateStandaloneTypes(compiled),
+        ),
+      );
+      if (args.server || args.client) {
+        // Bundled msgpack adaptor — keeps the generated client/server free of
+        // any framework-specific msgpack includes.
+        copyTemplate("cpp", "msgpack_struct_map_impl.hpp", absOut);
+      }
       if (args.server) {
-        cppFiles.push(writeFile(`${toSnakeCase(prefix)}_ipc_server.hpp`, gen.generateServerHeader(compiled)));
-        copyTemplate('cpp', 'ipc_server.hpp', absOut);
+        cppFiles.push(
+          writeFile(
+            `${toSnakeCase(prefix)}_ipc_server.hpp`,
+            gen.generateServerHeader(compiled),
+          ),
+        );
+        copyTemplate("cpp", "ipc_server.hpp", absOut);
       }
       if (args.client) {
-        cppFiles.push(writeFile(`${toSnakeCase(prefix)}_ipc_client.hpp`, gen.generateHeader(compiled, schemaHash)));
-        cppFiles.push(writeFile(`${toSnakeCase(prefix)}_ipc_client.cpp`, gen.generateImpl(compiled)));
-        copyTemplate('cpp', 'ipc_client.hpp', absOut);
+        cppFiles.push(
+          writeFile(
+            `${toSnakeCase(prefix)}_ipc_client.hpp`,
+            gen.generateHeader(compiled, schemaHash),
+          ),
+        );
+        cppFiles.push(
+          writeFile(
+            `${toSnakeCase(prefix)}_ipc_client.cpp`,
+            gen.generateImpl(compiled),
+          ),
+        );
+        copyTemplate("cpp", "ipc_client.hpp", absOut);
       }
 
       // Skeleton (one-time handler stubs + main + build files)
       if (args.skeleton) {
         const skelDir = resolve(args.skeleton);
         mkdirSync(skelDir, { recursive: true });
-        const writeSkeleton = (name: string, content: string, opts?: { executable?: boolean }) => {
+        const writeSkeleton = (
+          name: string,
+          content: string,
+          opts?: { executable?: boolean },
+        ) => {
           const path = join(skelDir, name);
           if (existsSync(path)) {
             console.log(`  ${path} (exists, skipped)`);
@@ -376,50 +502,64 @@ function generate(args: Args) {
           }
           writeFileSync(path, content);
           if (opts?.executable) {
-            try { execSync(`chmod +x ${path}`); } catch {}
+            try {
+              execSync(`chmod +x ${path}`);
+            } catch {}
           }
           console.log(`  ${path} (skeleton)`);
-          if (path.endsWith('.cpp') || path.endsWith('.hpp')) {
+          if (path.endsWith(".cpp") || path.endsWith(".hpp")) {
             cppFiles.push(path);
           }
         };
-        writeSkeleton(`${toSnakeCase(prefix)}_handlers.cpp`, gen.generateHandlerStubs(compiled));
-        writeSkeleton('main.cpp', gen.generateMain(compiled));
-        writeSkeleton('CMakeLists.txt', gen.generateBuildFile(compiled));
-        writeSkeleton('.gitignore', gen.generateGitignore());
-        writeSkeleton('generate.sh', gen.generateGenerateScript(args.schema), { executable: true });
+        writeSkeleton(
+          `${toSnakeCase(prefix)}_handlers.cpp`,
+          gen.generateHandlerStubs(compiled),
+        );
+        writeSkeleton("main.cpp", gen.generateMain(compiled));
+        writeSkeleton("CMakeLists.txt", gen.generateBuildFile(compiled));
+        writeSkeleton(".gitignore", gen.generateGitignore());
+        writeSkeleton("generate.sh", gen.generateGenerateScript(args.schema), {
+          executable: true,
+        });
       }
 
       formatCpp(cppFiles);
       break;
     }
     default:
-      console.error(`Unknown language: ${args.lang}. Available: ts, rust, zig, cpp`);
+      console.error(
+        `Unknown language: ${args.lang}. Available: ts, rust, zig, cpp`,
+      );
       process.exit(1);
   }
 
-  console.log('Done.');
+  console.log("Done.");
 }
 
 // ---------------------------------------------------------------------------
 // Curve constants (special case for bb)
 // ---------------------------------------------------------------------------
 
-function hexToBigInt(hex: string): bigint { return BigInt('0x' + hex); }
+function hexToBigInt(hex: string): bigint {
+  return BigInt("0x" + hex);
+}
 
 function hexToByteList(hex: string): string {
   const bytes: number[] = [];
-  for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.substring(i, i + 2), 16));
-  return `new Uint8Array([${bytes.join(', ')}])`;
+  for (let i = 0; i < hex.length; i += 2)
+    bytes.push(parseInt(hex.substring(i, i + 2), 16));
+  return `new Uint8Array([${bytes.join(", ")}])`;
 }
 
 function serializeCoordinate(coord: string | string[]): string {
-  return Array.isArray(coord) ? `[${coord.map(c => hexToByteList(c)).join(', ')}]` : hexToByteList(coord);
+  return Array.isArray(coord)
+    ? `[${coord.map((c) => hexToByteList(c)).join(", ")}]`
+    : hexToByteList(coord);
 }
 
 function generateCurveConstants(outputDir: string) {
-  const constantsPath = join(__dirname, '../schemas/bb_curve_constants.json');
-  const constants = JSON.parse(readFileSync(constantsPath, 'utf-8'));
+  const constantsPath = join(__dirname, "../schemas/bb_curve_constants.json");
+  const constants = JSON.parse(readFileSync(constantsPath, "utf-8"));
   const content = `// AUTOGENERATED FILE - DO NOT EDIT
 export const BN254_FR_MODULUS = ${hexToBigInt(constants.bn254_fr_modulus)}n;
 export const BN254_FQ_MODULUS = ${hexToBigInt(constants.bn254_fq_modulus)}n;
@@ -436,8 +576,8 @@ export const SECP256R1_FQ_MODULUS = ${hexToBigInt(constants.secp256r1_fq_modulus
 export const SECP256R1_G1_GENERATOR = { x: ${serializeCoordinate(constants.secp256r1_g1_generator.x)}, y: ${serializeCoordinate(constants.secp256r1_g1_generator.y)} } as const;
 `;
   mkdirSync(outputDir, { recursive: true });
-  writeFileSync(join(outputDir, 'curve_constants.ts'), content);
-  console.log(`  ${join(outputDir, 'curve_constants.ts')}`);
+  writeFileSync(join(outputDir, "curve_constants.ts"), content);
+  console.log(`  ${join(outputDir, "curve_constants.ts")}`);
 }
 
 // ---------------------------------------------------------------------------
