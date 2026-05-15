@@ -55,7 +55,7 @@ function echo_yellow {
 }
 
 function timeout {
-  if [ "${CI:-0}" = "1" ] || [ "${CI:-0}" = "true" ]; then
+  if { [ "${CI:-0}" = "1" ] || [ "${CI:-0}" = "true" ]; } && [ -x /usr/bin/timeout ]; then
     /usr/bin/timeout "$@"
   else
     shift
