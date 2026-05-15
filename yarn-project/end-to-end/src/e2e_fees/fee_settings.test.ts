@@ -82,15 +82,19 @@ describe('e2e_fees fee settings', () => {
       const before = await aztecNode.getCurrentMinFees();
       t.logger.info(`Initial L2 min fees are ${inspect(before)}`, { minFees: before.toInspect() });
 
-      // Read current L1 base fee and bump to ~3x; this keeps the resulting L2 fee bump within the
-      // ~6x window the test assertions require (bump must be >1x to make the no-padding tx fail
-      // and <6x for `DEFAULT_MIN_FEE_PADDING=5` to still cover it). The oracle rotation deadband
-      // (`LIFETIME - LAG = 3` L2 slots between successful rotations, see FeeLib.sol:170) means
-      // our `updateL1GasFeeOracle` call may be rejected if a recent sequencer propose already
-      // rotated it; we retry on every iteration so eventually one of them lands.
+      // Bump next L1 block base fee to ~3x current with a 0.1 gwei floor. Two constraints shape
+      // the target: (1) the L2 fee bump must land in (1.1x, 6x) of `before` so the magnitude
+      // assertions in the callers hold (>10% rise; under DEFAULT_MIN_FEE_PADDING=5's 6x cap),
+      // and (2) the L2 rotation compares the new oracle `post` against the previously snapshotted
+      // value — anvil's natural EIP-1559 decay between rotations means "3x current L1" can be
+      // *below* the previous snapshot if decay has been aggressive, in which case the L2 fee
+      // would drop. The 0.1 gwei floor guarantees the new snapshot exceeds typical decayed values.
+      // The oracle rotation deadband (`LIFETIME - LAG = 3` L2 slots between successful rotations,
+      // see FeeLib.sol:170) silently no-ops `updateL1GasFeeOracle` until the window opens, so we
+      // retry on every iteration until one of them lands and produces a rise.
       const latestL1Block = await cheatCodes.eth.publicClient.getBlock();
       const currentL1BaseFee = latestL1Block.baseFeePerGas ?? 1_000_000_000n;
-      const targetL1BaseFee = currentL1BaseFee * 3n;
+      const targetL1BaseFee = currentL1BaseFee * 3n > 100_000_000n ? currentL1BaseFee * 3n : 100_000_000n;
       t.logger.info(`Targeting L1 base fee ${targetL1BaseFee} (current ${currentL1BaseFee})`);
 
       return await retryUntil(
@@ -178,9 +182,12 @@ describe('e2e_fees fee settings', () => {
         ),
       ).toBe(true);
 
-      // Now bump the L2 fees organically (L1 base fee spike) before we actually send them
+      // Now bump the L2 fees organically (L1 base fee spike) before we actually send them.
+      // Require the bump to be at least 10% — a "any-positive-rise" check is satisfied by 1 wei
+      // and doesn't prove a meaningful fee shift was handled.
       const bumpedMinFees = await inflateL2FeesViaL1BaseFee();
       expect(stableMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
+      expect(bumpedMinFees.feePerL2Gas).toBeGreaterThan((stableMinFees.feePerL2Gas * 11n) / 10n);
       expect(stableMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
 
       // And check that the no-padding does not get mined, but the default padding is good enough
@@ -204,6 +211,7 @@ describe('e2e_fees fee settings', () => {
 
       const bumpedMinFees = await inflateL2FeesViaL1BaseFee();
       expect(lowerMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
+      expect(bumpedMinFees.feePerL2Gas).toBeGreaterThan((lowerMinFees.feePerL2Gas * 11n) / 10n);
       expect(higherMinFees.feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
       expect(lowerMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
 
@@ -222,16 +230,21 @@ describe('e2e_fees fee settings', () => {
     // resuming normal block production. This test exercises that path end-to-end: bump once, then
     // verify the chain advances and a fresh tx still mines.
     it('recovers after a governance fee-config bump invalidates a pipelined checkpoint', async () => {
-      // Take a fresh checkpoint baseline so we measure progress strictly post-bump.
+      // Take a fresh checkpoint baseline so we measure progress strictly post-bump, and capture
+      // the slot of `checkpointBefore` so we can assert below that at least one L2 slot was
+      // skipped between the bump and recovery — that's the positive signal that a pipelined
+      // header was actually dropped, distinguishing the A-1057 recovery path from a chain that
+      // silently absorbed the governance write without exercising the failure case.
       const checkpointBefore = await aztecNode.getBlockNumber('checkpointed');
+      const slotBefore = (await aztecNode.getCheckpoint(CheckpointNumber(checkpointBefore)))!.header.slotNumber;
 
-      t.logger.info(`Bumping provingCostPerMana with checkpointed=${checkpointBefore}`);
+      t.logger.info(`Bumping provingCostPerMana at checkpointed=${checkpointBefore} (slot ${slotBefore})`);
       await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
 
       // At most a couple of pipelined headers were built against the pre-bump config; allow up to
-      // 6 slot windows (i.e. 6 retry windows of one slot each) before insisting the chain has made
-      // forward progress past the bump. With pipelining + minTxsPerBlock=0 an idle chain still
-      // emits empty checkpoints, so the `checkpointed` tip must strictly advance.
+      // 6 slot windows before insisting the chain has made forward progress past the bump. With
+      // pipelining + minTxsPerBlock=0 an idle chain still emits empty checkpoints, so the
+      // `checkpointed` tip must strictly advance.
       const RECOVERY_TARGET = CheckpointNumber(checkpointBefore + 3);
       const RECOVERY_BUDGET_SECONDS = AZTEC_SLOT_DURATION * 6;
       await retryUntil(
@@ -240,6 +253,21 @@ describe('e2e_fees fee settings', () => {
         RECOVERY_BUDGET_SECONDS,
         1,
       );
+
+      // Healthy pipelining produces one checkpoint per L2 slot, so an advance of 3 checkpoints
+      // covers exactly 3 slots. If a pipelined header was invalidated and dropped (the A-1057
+      // path), the recovery span will cover at least one extra slot. A passing assertion here
+      // proves the test exercised the invalidation+recovery flow rather than landing the bump
+      // outside the vulnerable window.
+      const slotAfter = (await aztecNode.getCheckpoint(RECOVERY_TARGET))!.header.slotNumber;
+      const slotSpan = slotAfter - slotBefore;
+      t.logger.info(`Recovery spanned ${slotSpan} slots for ${RECOVERY_TARGET - checkpointBefore} checkpoints`, {
+        slotBefore,
+        slotAfter,
+        checkpointBefore,
+        recoveryTarget: RECOVERY_TARGET,
+      });
+      expect(slotSpan).toBeGreaterThan(RECOVERY_TARGET - checkpointBefore);
 
       // Fresh tx prepared against the post-bump fee snapshot still mines under default padding.
       const tx = await proveTx(undefined);
