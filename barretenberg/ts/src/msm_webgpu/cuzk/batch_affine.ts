@@ -665,13 +665,7 @@ export const smvp_batch_affine_gpu = async (
   // brand-new context), that guarantee doesn't hold. One clearBuffer
   // here costs ~one dispatch's worth of latency vs MAX_ROUNDS=256
   // clears under the prior policy.
-  if (profiler !== undefined) {
-    profiler.bracket(commandEncoder, 'clear_pair_counter', () => {
-      commandEncoder.clearBuffer(pair_counter_sb, 0, counter_clear_bytes);
-    });
-  } else {
-    commandEncoder.clearBuffer(pair_counter_sb, 0, counter_clear_bytes);
-  }
+  commandEncoder.clearBuffer(pair_counter_sb, 0, counter_clear_bytes);
 
   // Pre-seed dispatch_args with round 0's schedule arg triple. Round 0
   // schedule must run full size — there's no previous round whose
@@ -697,7 +691,7 @@ export const smvp_batch_affine_gpu = async (
 
   // Per-stage profiling budgets (kept in sync with PROFILE_*_ROUNDS
   // exports above). The Profiler is constructed in submission.ts with
-  // capacity=1200 — well below Dawn's ~4096-per-QuerySet hard cap that
+  // capacity=1100 — well below Dawn's ~4096-per-QuerySet hard cap that
   // wedges the device when exceeded.
   //
   //   * All four round-loop families (`ba_schedule`, `ba_inverse`,
@@ -709,10 +703,9 @@ export const smvp_batch_affine_gpu = async (
   //
   //   * Slot tally at worst case (N=2^20): 256 ba_schedule + 256
   //     ba_inverse + 256 ba_apply + 256 ba_dispatch_args = 1024
-  //     round-loop. Plus ~12 fixed (decompose, transpose_*, ba_init,
-  //     ba_finalize_×3, bpr_1, bpr_2, subtask_reduce, + a handful of
-  //     bracket() markers for clearBuffer) = ~1036. Capacity=1200
-  //     leaves ~160 slots of margin.
+  //     round-loop. Plus ~9 fixed (decompose, transpose_*, ba_init,
+  //     ba_finalize_×3, bpr_1, bpr_2, subtask_reduce) = ~1033.
+  //     Capacity=1100 leaves ~67 slots of margin.
   for (let round = 0; round < MAX_ROUNDS; round++) {
     // pair_counter starts each round at zero — guaranteed by the
     // previous round's dispatch_args atomicStore(pair_counter, 0u),

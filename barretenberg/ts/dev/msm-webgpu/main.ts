@@ -616,6 +616,7 @@ function rollupLabel(label: string): string {
 
 interface AggregatedProfile {
   perStage: Map<string, number>;
+  perRegion: Map<string, number>;
   gpuWallMs: number | null;
   profiledSumMs: number | null;
   untimestampedMs: number | null;
@@ -628,22 +629,35 @@ interface AggregatedProfile {
 function aggregateCaptures(captures: ProfileCapture[]): AggregatedProfile | null {
   if (captures.length === 0) return null;
   // Per-rep stage sums (rolled up across subtasks/rounds), medianised
-  // across reps.
+  // across reps. Region entries are tracked separately — they overlap
+  // their inner stages and would distort the per-stage totals.
   const perRepByStage = new Map<string, number[]>();
+  const perRepByRegion = new Map<string, number[]>();
   for (const c of captures) {
     if (!c.profile) continue;
-    const repTotals = new Map<string, number>();
-    for (const { label, ms } of c.profile) {
-      const k = rollupLabel(label);
-      repTotals.set(k, (repTotals.get(k) ?? 0) + ms);
+    const repStageTotals = new Map<string, number>();
+    const repRegionTotals = new Map<string, number>();
+    for (const e of c.profile) {
+      const k = rollupLabel(e.label);
+      if (e.kind === 'region') {
+        repRegionTotals.set(k, (repRegionTotals.get(k) ?? 0) + e.ms);
+      } else {
+        repStageTotals.set(k, (repStageTotals.get(k) ?? 0) + e.ms);
+      }
     }
-    for (const [k, v] of repTotals) {
+    for (const [k, v] of repStageTotals) {
       if (!perRepByStage.has(k)) perRepByStage.set(k, []);
       perRepByStage.get(k)!.push(v);
+    }
+    for (const [k, v] of repRegionTotals) {
+      if (!perRepByRegion.has(k)) perRepByRegion.set(k, []);
+      perRepByRegion.get(k)!.push(v);
     }
   }
   const perStage = new Map<string, number>();
   for (const [k, samples] of perRepByStage) perStage.set(k, median(samples));
+  const perRegion = new Map<string, number>();
+  for (const [k, samples] of perRepByRegion) perRegion.set(k, median(samples));
 
   const fld = (pick: (c: ProfileCapture) => number | undefined): number | null => {
     const xs: number[] = [];
@@ -667,6 +681,7 @@ function aggregateCaptures(captures: ProfileCapture[]): AggregatedProfile | null
 
   return {
     perStage,
+    perRegion,
     gpuWallMs: fld(c => c.gpu_readback?.gpu_compute_wall),
     profiledSumMs: fld(c => c.gpu_readback?.profiled_passes_sum),
     untimestampedMs: fld(c => c.gpu_readback?.untimestamped),
@@ -696,10 +711,12 @@ function renderBreakdownTable(entries: { logN: number; captures: ProfileCapture[
   if (aggregates.every(({ agg }) => agg === null)) return '';
 
   const seenStages = new Set<string>();
+  const seenRegions = new Set<string>();
   const seenCpuPhases = new Set<string>();
   for (const { agg } of aggregates) {
     if (!agg) continue;
     for (const k of agg.perStage.keys()) seenStages.add(k);
+    for (const k of agg.perRegion.keys()) seenRegions.add(k);
     for (const k of agg.cpuPhases.keys()) seenCpuPhases.add(k);
   }
   const orderedStages: string[] = [
@@ -746,6 +763,54 @@ function renderBreakdownTable(entries: { logN: number; captures: ProfileCapture[
     })
     .join('');
 
+  const regionRows = Array.from(seenRegions)
+    .map(region => {
+      const cells = aggregates
+        .map(({ agg }) => {
+          if (!agg) return `<td>—</td>`;
+          return `<td>${fmtPctCell(agg.perRegion.get(region), agg.gpuWallMs)}</td>`;
+        })
+        .join('');
+      return `<tr><td>[region] ${region}</td>${cells}</tr>`;
+    })
+    .join('');
+
+  // `inter_pass_overhead` = encoder_all − Σ(inner stages). This is the
+  // Dawn-side barrier/state-change cost between consecutive compute
+  // passes — invisible to `timestampWrites`, only inferable from the
+  // outer-region delta.
+  const interPassRow = (() => {
+    const cells = aggregates
+      .map(({ agg }) => {
+        if (!agg) return `<td>—</td>`;
+        const region = agg.perRegion.get('encoder_all');
+        const stagesSum = agg.profiledSumMs;
+        if (region === undefined || stagesSum === null) return `<td>—</td>`;
+        const v = Math.max(0, region - stagesSum);
+        return `<td>${fmtPctCell(v, agg.gpuWallMs)}</td>`;
+      })
+      .join('');
+    return `<tr><td><b>inter_pass_overhead</b><br/><span class="samples">encoder_all − Σ stages</span></td>${cells}</tr>`;
+  })();
+
+  // `post_encoder_tail` = gpu_compute_wall − encoder_all. The work
+  // that runs in the same encoder *after* the outer region closes:
+  // `profiler.resolve()` (resolveQuerySet + 12.8 KB copy) plus the
+  // staging copies inside `read_from_gpu`.
+  const postTailRow = (() => {
+    const cells = aggregates
+      .map(({ agg }) => {
+        if (!agg) return `<td>—</td>`;
+        const region = agg.perRegion.get('encoder_all');
+        const wall = agg.gpuWallMs;
+        if (region === undefined || wall === null) return `<td>—</td>`;
+        const v = Math.max(0, wall - region);
+        return `<td>${fmtPctCell(v, wall)}</td>`;
+      })
+      .join('');
+    return `<tr><td><b>post_encoder_tail</b><br/><span class="samples">wall − encoder_all</span></td>${cells}</tr>`;
+  })();
+
   return `
   <h3>GPU per-pass breakdown (median ms; subtasks/rounds summed within each rep)</h3>
   <table>
@@ -754,6 +819,9 @@ function renderBreakdownTable(entries: { logN: number; captures: ProfileCapture[
     ${sumRow('profiled passes (Σ)', a => a.profiledSumMs, true)}
     ${sumRow('untimestamped', a => a.untimestampedMs, true)}
     ${sumRow('GPU compute wall', a => a.gpuWallMs)}
+    ${regionRows}
+    ${interPassRow}
+    ${postTailRow}
     ${sumRow('readback_total', a => a.readbackMs)}
     ${sumRow('mapasync_overhead', a => a.mapasyncMs)}
   </table>

@@ -280,6 +280,8 @@ export const execute_pipeline_indirect = (
  * today), the profiler silently no-ops: `stage()` returns undefined and
  * `report()` returns null, so call sites remain safe.
  */
+export type ProfileEntryKind = 'stage' | 'region';
+
 export class Profiler {
   private enabled: boolean;
   private querySet: GPUQuerySet | null = null;
@@ -288,6 +290,7 @@ export class Profiler {
   private readonly capacity: number;
   private used = 0;
   private labels: string[] = [];
+  private kinds: ProfileEntryKind[] = [];
 
   constructor(device: GPUDevice, capacity = 64) {
     this.capacity = capacity;
@@ -321,57 +324,13 @@ export class Profiler {
     const beginIndex = this.used * 2;
     const endIndex = beginIndex + 1;
     this.labels.push(label);
+    this.kinds.push('stage');
     this.used += 1;
     return {
       querySet: this.querySet,
       beginningOfPassWriteIndex: beginIndex,
       endOfPassWriteIndex: endIndex,
     };
-  }
-
-  /**
-   * Time a region of encoder commands that are NOT compute passes — e.g.
-   * `clearBuffer`, `copyBufferToBuffer`, `resolveQuerySet`. WebGPU only
-   * accepts `timestampWrites` on compute/render passes, so we sandwich
-   * `fn()` between two empty compute passes that each write exactly one
-   * timestamp. The slot pair (begin = end-of-first-marker,
-   * end = begin-of-second-marker) brackets `fn()`'s GPU work and
-   * `report()` picks it up like any other stage.
-   *
-   * The empty passes themselves cost ~submicrosecond per the spec, so
-   * the measured ms is dominated by `fn()`. If the device lacks
-   * `timestamp-query` or the profiler is over capacity, `fn()` still
-   * runs — only the timing is skipped.
-   */
-  bracket(commandEncoder: GPUCommandEncoder, label: string, fn: () => void): void {
-    if (!this.enabled || this.querySet === null) {
-      fn();
-      return;
-    }
-    if (this.used >= this.capacity) {
-      console.warn(`Profiler capacity ${this.capacity} exceeded; skipping bracket "${label}"`);
-      fn();
-      return;
-    }
-    const beginIndex = this.used * 2;
-    const endIndex = beginIndex + 1;
-    this.labels.push(label);
-    this.used += 1;
-    const before = commandEncoder.beginComputePass({
-      timestampWrites: {
-        querySet: this.querySet,
-        endOfPassWriteIndex: beginIndex,
-      },
-    });
-    before.end();
-    fn();
-    const after = commandEncoder.beginComputePass({
-      timestampWrites: {
-        querySet: this.querySet,
-        beginningOfPassWriteIndex: endIndex,
-      },
-    });
-    after.end();
   }
 
   // Must be called on the same command encoder as the profiled passes, before
@@ -390,7 +349,7 @@ export class Profiler {
     commandEncoder.copyBufferToBuffer(this.resolveBuffer, 0, this.readBuffer, 0, this.used * 2 * 8);
   }
 
-  async report(): Promise<{ label: string; ms: number }[] | null> {
+  async report(): Promise<{ label: string; ms: number; kind: ProfileEntryKind }[] | null> {
     if (!this.enabled || this.readBuffer === null || this.used === 0) {
       return null;
     }
@@ -399,10 +358,29 @@ export class Profiler {
     const raw = this.readBuffer.getMappedRange(0, byteCount).slice(0);
     this.readBuffer.unmap();
     const data = new BigUint64Array(raw);
-    const out: { label: string; ms: number }[] = [];
+    const out: { label: string; ms: number; kind: ProfileEntryKind }[] = [];
+    // Derive the encoder-wide span from the raw timestamps as we go:
+    // min(begin_ts) over all stages = GPU time the first stage started;
+    // max(end_ts) = GPU time the last stage ended. Their difference is
+    // the wall span of GPU-encoded work from first profiled pass to
+    // last, including every inter-pass barrier in between. This is
+    // computed from the SAME timestamp pairs we already use for
+    // per-stage durations — no synthetic empty-pass markers (the
+    // empty-pass-with-only-one-timestamp pattern gets elided by Dawn
+    // and returns zero, so this derived span is the trustworthy path).
+    let minBegin: bigint | null = null;
+    let maxEnd: bigint | null = null;
     for (let i = 0; i < this.used; i++) {
-      const ns = Number(data[i * 2 + 1] - data[i * 2]);
-      out.push({ label: this.labels[i], ms: ns / 1e6 });
+      const b = data[i * 2];
+      const e = data[i * 2 + 1];
+      if (minBegin === null || b < minBegin) minBegin = b;
+      if (maxEnd === null || e > maxEnd) maxEnd = e;
+      const ns = Number(e - b);
+      out.push({ label: this.labels[i], ms: ns / 1e6, kind: this.kinds[i] });
+    }
+    if (minBegin !== null && maxEnd !== null) {
+      const spanNs = Number(maxEnd - minBegin);
+      out.push({ label: 'encoder_all', ms: spanNs / 1e6, kind: 'region' });
     }
     return out;
   }

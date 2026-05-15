@@ -27,6 +27,7 @@ import {
   execute_pipeline,
   Profiler,
   CpuTimer,
+  type ProfileEntryKind,
 } from './cuzk/gpu.js';
 import { GpuContext } from './cuzk/gpu_context.js';
 import { CachedBases, precompute_bn254_bases } from './cuzk/cached_bases.js';
@@ -126,7 +127,7 @@ const createAffinePoint = (x: bigint, y: bigint, z: bigint): G1 => ({ x, y, z })
  * console.
  */
 export interface ProfileCapture {
-  profile: { label: string; ms: number }[] | null;
+  profile: { label: string; ms: number; kind: ProfileEntryKind }[] | null;
   cpu_phases?: {
     phases: { label: string; ms: number }[];
     total_wall_ms: number;
@@ -583,19 +584,24 @@ const compute_curve_msm = async (
 
   // Per-pass GPU profiler. No-ops if "timestamp-query" isn't supported.
   //
-  // Capacity = 1200 (= 2400 timestamps per QuerySet) is well below Dawn's
-  // ~4096 cap that wedges the device when exceeded. This gives enough
-  // slots to profile EVERY round of EVERY family in the batch-affine
-  // SMVP loop at worst case (MAX_ROUNDS = 256 at N=2^20), plus the
-  // per-round `ba_dispatch_args` kernel and the `bracket()` markers
-  // around the encoder's `clearBuffer` calls.
+  // Capacity = 1100 (= 2200 timestamps per QuerySet) is well below
+  // Dawn's ~4096 cap that wedges the device when exceeded. Sized to
+  // profile EVERY round of EVERY family in the batch-affine SMVP loop
+  // at worst case (MAX_ROUNDS = 256 at N=2^20) plus the per-round
+  // `ba_dispatch_args` kernel.
+  //
+  // The `encoder_all` row in the report is NOT a separate slot — it's
+  // derived inside `Profiler.report()` from `max(end_ts) − min(begin_ts)`
+  // over all stage timestamps, which captures the full encoder span
+  // and quantifies Dawn inter-pass barrier overhead without paying for
+  // synthetic empty-pass markers (those get elided by Dawn).
   //
   // Slot tally (worst case, N=2^20, batch-affine SMVP):
-  //   ~12 fixed (decompose, transpose_*, ba_init, ba_finalize_×3,
-  //              bpr_1, bpr_2, subtask_reduce, + 3 clearBuffer brackets)
+  //   ~9 fixed (decompose, transpose_*, ba_init, ba_finalize_×3,
+  //             bpr_1, bpr_2, subtask_reduce)
   //   + 256 ba_schedule + 256 ba_inverse + 256 ba_apply
   //   + 256 ba_dispatch_args
-  //   = ~1036 — under 1200 with ~160 slots of margin.
+  //   = ~1033 — under 1100 with ~67 slots of margin.
   //
   // Why every round of ba_apply / ba_schedule, not just samples:
   //   The previous PROFILE_APPLY_ROUNDS=8 / PROFILE_SCHEDULE_ROUNDS=8
@@ -604,7 +610,7 @@ const compute_curve_msm = async (
   //   family row look 30× cheaper than its true total. Sampling every
   //   round makes the family-row sums correctly reflect total cost so
   //   optimization-priority decisions stop flying blind.
-  const profiler = new Profiler(device, 1200);
+  const profiler = new Profiler(device, 1100);
 
   // When debug_trace is requested, we stage-copy intermediate buffers to
   // MAP_READ-usable staging buffers. They accumulate into debug_stagings
@@ -658,9 +664,7 @@ const compute_curve_msm = async (
       const xpose_key = `${curveConfig.id}:xpose:${num_subtasks}:${num_columns}:${input_size}`;
       fused_col_ptr_sb = context!.acquirePersistentBuffer(`${xpose_key}:col_ptr`, num_subtasks * (num_columns + 1) * 4);
       // Decompose kernel atomicAdds into this — must start at zero.
-      profiler.bracket(commandEncoder, 'clear_fused_col_ptr', () => {
-        commandEncoder.clearBuffer(fused_col_ptr_sb!);
-      });
+      commandEncoder.clearBuffer(fused_col_ptr_sb);
     }
 
     scalar_chunks_sb = await decompose_scalars_only_gpu(
@@ -776,7 +780,6 @@ const compute_curve_msm = async (
       fused_col_ptr_sb !== undefined ? undefined : profiler.stage('transpose_count'),
       profiler.stage('transpose_scan'),
       profiler.stage('transpose_scatter'),
-      profiler,
     );
     all_csc_col_ptr_sb = out.all_csc_col_ptr_sb;
     all_csc_val_idxs_sb = out.all_csc_val_idxs_sb;
@@ -1251,10 +1254,12 @@ const compute_curve_msm = async (
   const profile = await profiler.report();
   // Sum the per-pass ms regardless of log_result — both the console
   // dump (gated below) and the structured profile_capture downstream
-  // need this value to compute the readback breakdown.
+  // need this value to compute the readback breakdown. Region entries
+  // (e.g. `encoder_all`) are excluded: they overlap and would
+  // double-count their inner stages.
   let gpu_profiled_total_ms: number | undefined;
   if (profile) {
-    gpu_profiled_total_ms = profile.reduce((acc, e) => acc + e.ms, 0);
+    gpu_profiled_total_ms = profile.reduce((acc, e) => acc + (e.kind === 'region' ? 0 : e.ms), 0);
   }
   if (profile && log_result) {
     log_profile_report(profile, curveConfig.id, input_size);
@@ -1538,16 +1543,25 @@ const SAMPLED_FAMILY_BUDGETS: Record<string, number> = {
 //
 // Returns the sum of all profiled-pass durations so the caller can pass
 // it into log_cpu_phase_report for the gpu_compute_wall decomposition.
-const log_profile_report = (entries: { label: string; ms: number }[], curveId: string, input_size: number): number => {
+const log_profile_report = (
+  entries: { label: string; ms: number; kind: ProfileEntryKind }[],
+  curveId: string,
+  input_size: number,
+): number => {
   const groups = new Map<string, { count: number; sum: number }>();
+  const regions: { label: string; ms: number }[] = [];
   let total = 0;
-  for (const { label, ms } of entries) {
-    const family = label.split('[', 1)[0];
+  for (const e of entries) {
+    if (e.kind === 'region') {
+      regions.push({ label: e.label, ms: e.ms });
+      continue;
+    }
+    const family = e.label.split('[', 1)[0];
     const g = groups.get(family) ?? { count: 0, sum: 0 };
     g.count += 1;
-    g.sum += ms;
+    g.sum += e.ms;
     groups.set(family, g);
-    total += ms;
+    total += e.ms;
   }
   const rows = Array.from(groups.entries())
     .map(([family, { count, sum }]) => ({ family, count, sum }))
@@ -1563,6 +1577,12 @@ const log_profile_report = (entries: { label: string; ms: number }[], curveId: s
     );
   }
   console.log(`  ${'total (passes)'.padEnd(23)} ${total.toFixed(2).padStart(7)} ms`);
+  for (const { label, ms } of regions) {
+    const innerSum = total > 0 ? (100 * ms) / total : 0;
+    console.log(
+      `  ${('[region] ' + label).padEnd(23)} ${ms.toFixed(2).padStart(7)} ms  (overlaps inner stages; inner_sum/region = ${innerSum.toFixed(1)}%)`,
+    );
+  }
   return total;
 };
 
@@ -1904,7 +1924,6 @@ export const transpose_gpu_parallel = async (
   timestampWritesCount?: GPUComputePassTimestampWrites,
   timestampWritesScan?: GPUComputePassTimestampWrites,
   timestampWritesScatter?: GPUComputePassTimestampWrites,
-  profiler?: Profiler,
 ): Promise<{
   all_csc_col_ptr_sb: GPUBuffer;
   all_csc_val_idxs_sb: GPUBuffer;
@@ -1929,21 +1948,9 @@ export const transpose_gpu_parallel = async (
   // it again here.
   if (context !== undefined) {
     if (prepopulated_col_ptr_sb === undefined) {
-      if (profiler !== undefined) {
-        profiler.bracket(commandEncoder, 'clear_xpose_col_ptr', () => {
-          commandEncoder.clearBuffer(all_csc_col_ptr_sb);
-        });
-      } else {
-        commandEncoder.clearBuffer(all_csc_col_ptr_sb);
-      }
+      commandEncoder.clearBuffer(all_csc_col_ptr_sb);
     }
-    if (profiler !== undefined) {
-      profiler.bracket(commandEncoder, 'clear_xpose_curr', () => {
-        commandEncoder.clearBuffer(all_curr_sb);
-      });
-    } else {
-      commandEncoder.clearBuffer(all_curr_sb);
-    }
+    commandEncoder.clearBuffer(all_curr_sb);
   }
 
   const params_bytes = numbers_to_u8s_for_gpu([num_rows, num_columns, input_size]);
