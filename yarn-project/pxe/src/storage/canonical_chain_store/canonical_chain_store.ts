@@ -65,4 +65,24 @@ export class CanonicalChainStore {
     }
     return Promise.resolve(max);
   }
+
+  /** Retract every entry strictly above `height` (the reorg common-ancestor). */
+  async clearAbove(height: number): Promise<void> {
+    for (const h of [...this.#mem.keys()]) {
+      if (h > height) {
+        this.#mem.delete(h);
+        await this.#canonicalHashes.delete(h);
+      }
+    }
+  }
+
+  /** Drop every entry strictly below `height` (map-side GC, past finality). */
+  async pruneBelow(height: number): Promise<void> {
+    for (const h of [...this.#mem.keys()]) {
+      if (h < height) {
+        this.#mem.delete(h);
+        await this.#canonicalHashes.delete(h);
+      }
+    }
+  }
 }

@@ -58,4 +58,34 @@ describe('canonical chain map', () => {
     await reopened.load();
     await expect(reopened.hashAt(105)).resolves.toEqual('0xaaa');
   });
+
+  it('clearAbove removes entries strictly above the given height', async () => {
+    await chain.set(103, '0xa');
+    await chain.set(104, '0xb');
+    await chain.set(105, '0xc');
+    await chain.set(106, '0xd');
+    await chain.clearAbove(104);
+    await expect(chain.hashAt(103)).resolves.toEqual('0xa');
+    await expect(chain.hashAt(104)).resolves.toEqual('0xb');
+    await expect(chain.hashAt(105)).resolves.toBeUndefined();
+    await expect(chain.hashAt(106)).resolves.toBeUndefined();
+  });
+
+  it('clearAbove survives a reload (KV is updated, not just memory)', async () => {
+    await chain.set(105, '0xc');
+    await chain.clearAbove(104);
+    const reopened = new CanonicalChainStore(store);
+    await reopened.load();
+    await expect(reopened.hashAt(105)).resolves.toBeUndefined();
+  });
+
+  it('pruneBelow removes entries strictly below the given height', async () => {
+    await chain.set(103, '0xa');
+    await chain.set(104, '0xb');
+    await chain.set(105, '0xc');
+    await chain.pruneBelow(104);
+    await expect(chain.hashAt(103)).resolves.toBeUndefined();
+    await expect(chain.hashAt(104)).resolves.toEqual('0xb');
+    await expect(chain.hashAt(105)).resolves.toEqual('0xc');
+  });
 });
