@@ -1,0 +1,1109 @@
+/**
+ * C++ IPC Client Code Generator
+ *
+ * Generates a C++ IPC client from a CompiledSchema. The generated client:
+ *   - Connects to a server over Unix Domain Socket via ipc::IpcClient
+ *   - Wraps each command in a NamedUnion, serializes with msgpack, sends, receives, deserializes
+ *   - Has one method per command, returning the typed response
+ *
+ * Usage:
+ *   const gen = new CppCodegen({ namespace: 'bb::cdb', prefix: 'Cdb' });
+ *   const header = gen.generateHeader(schema);
+ *   const impl = gen.generateImpl(schema);
+ */
+
+import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.ts';
+import { toSnakeCase } from './naming.ts';
+
+export interface CppCodegenOptions {
+  /** C++ namespace for generated code, e.g. 'bb::cdb' */
+  namespace: string;
+  /** Prefix for command/response types, e.g. 'Cdb' */
+  prefix: string;
+  /** Header path for the *_execute.hpp file that defines Command/CommandResponse NamedUnions */
+  executeHeader: string;
+  /** Header path for the *_commands.hpp file that defines the command structs */
+  commandsHeader: string;
+  /**
+   * External types: types that already exist in barretenberg headers.
+   * Map from type name → header include path.
+   * These types will be #included instead of generated.
+   */
+  externals?: Record<string, string>;
+  /**
+   * Using-namespace declarations to add at the top of generated commands file.
+   * E.g. ['bb::world_state', 'bb::crypto::merkle_tree']
+   */
+  usingNamespaces?: string[];
+  /**
+   * Additional headers to include in generated commands file.
+   */
+  additionalIncludes?: string[];
+  /**
+   * Override for the generated output directory include path.
+   * Used when commandsHeader doesn't point to the generated/ directory
+   * (e.g. bb keeps hand-written commands but generates server dispatch).
+   */
+  generatedIncludeDir?: string;
+  /**
+   * Sub-namespace for wire types (e.g. 'wire' → types in ns::wire).
+   * When set, standalone types are wrapped in this sub-namespace,
+   * and the server dispatch deserializes into wire types then converts to domain types.
+   */
+  wireNamespace?: string;
+}
+
+export class CppCodegen {
+  constructor(private opts: CppCodegenOptions) {}
+
+  /** Convert a command name to a C++ method name (snake_case without prefix) */
+  private methodName(commandName: string): string {
+    // Strip prefix: "CdbGetContractInstance" -> "GetContractInstance" -> "get_contract_instance"
+    const withoutPrefix = commandName.startsWith(this.opts.prefix)
+      ? commandName.slice(this.opts.prefix.length)
+      : commandName;
+    return toSnakeCase(withoutPrefix);
+  }
+
+  /** Check if the response has fields (non-void return) */
+  private hasResponseFields(command: Command, schema: CompiledSchema): boolean {
+    const resp = schema.responses.get(command.responseType);
+    return !!resp && resp.fields.length > 0;
+  }
+
+  /** Generate the method signature using command struct types directly */
+  private generateMethodSignature(command: Command, schema: CompiledSchema, className?: string): string {
+    const method = this.methodName(command.name);
+    const hasFields = this.hasResponseFields(command, schema);
+    // Wire types use top-level response names (BbFooResponse).
+    // Command types with nested Response use Cmd::Response.
+    const retType = hasFields
+      ? (this.opts.wireNamespace ? command.responseType : `${command.name}::Response`)
+      : 'void';
+
+    // If the command has fields, take the whole command struct by value
+    const params = command.fields.length > 0 ? `${command.name} cmd` : '';
+
+    const prefix = className ? `${className}::` : '';
+    const constSuffix = !this.isWriteCommand(command) ? ' const' : '';
+
+    return `${retType} ${prefix}${method}(${params})${constSuffix}`;
+  }
+
+  /** Check if a command modifies state (non-const) */
+  private isWriteCommand(command: Command): boolean {
+    const name = command.name.toLowerCase();
+    return name.includes('add') || name.includes('create') ||
+      name.includes('commit') || name.includes('revert') ||
+      name.includes('register') || name.includes('shutdown') ||
+      name.includes('delete') || name.includes('sync') ||
+      name.includes('rollback') || name.includes('unwind');
+  }
+
+  /** Generate the header file */
+  generateHeader(schema: CompiledSchema, schemaHash?: string): string {
+    const { namespace: ns, prefix } = this.opts;
+    const wireNs = this.opts.wireNamespace;
+    const className = `${prefix}IpcClient`;
+
+    const methods = schema.commands.map(cmd => {
+      const sig = this.generateMethodSignature(cmd, schema);
+      return `    ${sig};`;
+    }).join('\n');
+
+    const hashConstant = schemaHash
+      ? `\n/** Schema version hash for compatibility checking */\nstatic constexpr const char SCHEMA_HASH[] = "${schemaHash}";\n`
+      : '';
+
+    // When wireNamespace is set, include wire types and bring them into scope
+    const wireInclude = wireNs
+      ? `#include "${this.generatedDir()}/${toSnakeCase(prefix)}_types.hpp"\n`
+      : '';
+    const wireUsing = wireNs
+      ? `using namespace ${wireNs};\n`
+      : '';
+
+    const typesInclude = `${this.generatedDir()}/${toSnakeCase(prefix)}_types.hpp`;
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+#pragma once
+
+#include "${typesInclude}"
+#include "${this.generatedDir()}/ipc_client.hpp"
+// clang-format on
+
+#include <memory>
+#include <string>
+
+namespace ${ns} {
+${wireUsing}${hashConstant}
+/**
+ * @brief Auto-generated IPC client.
+ *
+ * Each method sends a msgpack-serialized command to the server over UDS
+ * and returns the typed response. All methods block until the response arrives.
+ */
+class ${className} {
+  public:
+    explicit ${className}(const std::string& socket_path);
+    ~${className}();
+
+    ${className}(const ${className}&) = delete;
+    ${className}& operator=(const ${className}&) = delete;
+
+${methods}
+
+  private:
+    template <typename Cmd, typename Resp>
+    Resp send(Cmd&& cmd) const;
+
+    mutable std::unique_ptr<::ipc::IpcClient> client_;
+};
+
+} // namespace ${ns}
+`;
+  }
+
+  /** Generate the implementation file — string-based serialization, no NamedUnion */
+  generateImpl(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const className = `${prefix}IpcClient`;
+    const errorType = schema.errorTypeName || `${prefix}ErrorResponse`;
+
+    const methods = schema.commands.map(cmd => {
+      return this.generateMethodImpl(cmd, schema, className);
+    }).join('\n');
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+
+#include "${this.headerIncludePath()}"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
+
+#include <stdexcept>
+#include <string>
+
+namespace ${ns} {
+
+${className}::${className}(const std::string& socket_path)
+    : client_(std::make_unique<::ipc::IpcClient>(socket_path.c_str()))
+{}
+
+${className}::~${className}() = default;
+
+template <typename Cmd, typename Resp>
+Resp ${className}::send(Cmd&& cmd) const
+{
+    // Serialize as [[CommandName, {payload}]]
+    msgpack::sbuffer send_buffer;
+    msgpack::packer<msgpack::sbuffer> pk(send_buffer);
+    pk.pack_array(1);
+    pk.pack_array(2);
+    pk.pack(std::string(Cmd::MSGPACK_SCHEMA_NAME));
+    pk.pack(std::forward<Cmd>(cmd));
+
+    // Send request, receive response
+    std::vector<uint8_t> request_bytes(send_buffer.data(), send_buffer.data() + send_buffer.size());
+    auto response_bytes = client_->call(request_bytes);
+
+    if (response_bytes.empty()) {
+        throw std::runtime_error("Empty response from server");
+    }
+
+    // Parse response: [ResponseName, {payload}]
+    auto unpacked = msgpack::unpack(
+        reinterpret_cast<const char*>(response_bytes.data()), response_bytes.size());
+    auto obj = unpacked.get();
+
+    if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2 ||
+        obj.via.array.ptr[0].type != msgpack::type::STR) {
+        throw std::runtime_error("Invalid response format from server");
+    }
+
+    std::string resp_name(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
+    if (resp_name == "${errorType}") {
+        std::string message;
+        auto& payload = obj.via.array.ptr[1];
+        // Extract message field from the error map
+        if (payload.type == msgpack::type::MAP) {
+            for (uint32_t i = 0; i < payload.via.map.size; ++i) {
+                auto& kv = payload.via.map.ptr[i];
+                if (kv.key.type == msgpack::type::STR) {
+                    std::string key(kv.key.via.str.ptr, kv.key.via.str.size);
+                    if (key == "message" && kv.val.type == msgpack::type::STR) {
+                        message = std::string(kv.val.via.str.ptr, kv.val.via.str.size);
+                    }
+                }
+            }
+        }
+        throw std::runtime_error("Server error: " + message);
+    }
+
+    Resp result;
+    obj.via.array.ptr[1].convert(result);
+    return result;
+}
+
+${methods}
+} // namespace ${ns}
+`;
+  }
+
+  /** Generate a single method implementation */
+  private generateMethodImpl(command: Command, schema: CompiledSchema, className: string): string {
+    const sig = this.generateMethodSignature(command, schema, className);
+    const hasFields = this.hasResponseFields(command, schema);
+    const respType = this.opts.wireNamespace ? command.responseType : `${command.name}::Response`;
+
+    const cmdExpr = command.fields.length > 0 ? 'std::move(cmd)' : `${command.name}{}`;
+
+    if (!hasFields) {
+      return `${sig}
+{
+    send<${command.name}, ${respType}>(${cmdExpr});
+}
+`;
+    }
+
+    return `${sig}
+{
+    return send<${command.name}, ${respType}>(${cmdExpr});
+}
+`;
+  }
+
+  /** Get the generated/ directory include path */
+  private generatedDir(): string {
+    if (this.opts.generatedIncludeDir) {
+      return this.opts.generatedIncludeDir;
+    }
+    return this.opts.commandsHeader.substring(0, this.opts.commandsHeader.lastIndexOf('/'));
+  }
+
+  /** Compute the include path for the generated client header */
+  private headerIncludePath(): string {
+    return `${this.generatedDir()}/${toSnakeCase(this.opts.prefix)}_ipc_client.hpp`;
+  }
+
+  // -----------------------------------------------------------------------
+  // Standalone types (no barretenberg dependencies)
+  // -----------------------------------------------------------------------
+
+  /** Generate standalone C++ types with MSGPACK_DEFINE_MAP — no barretenberg deps */
+  generateStandaloneTypes(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+
+    // Map schema types to C++ types
+    const mapType = (type: import('./schema_visitor.ts').Type): string => {
+      switch (type.kind) {
+        case 'primitive':
+          switch (type.primitive) {
+            case 'bool': return 'bool';
+            case 'u8': return 'uint8_t';
+            case 'u16': return 'uint16_t';
+            case 'u32': return 'uint32_t';
+            case 'u64': return 'uint64_t';
+            case 'f64': return 'double';
+            case 'string': return 'std::string';
+            case 'bytes': return 'std::vector<uint8_t>';
+            case 'fr': return 'Fr';  // std::array<uint8_t, 32>
+            case 'field2': return 'std::array<Fr, 2>';
+            case 'enum_u32': return 'uint32_t';
+            case 'map_u32_pair': return 'std::unordered_map<uint32_t, std::pair<std::vector<uint8_t>, uint64_t>>';
+          }
+          break;
+        case 'vector': return `std::vector<${mapType(type.element!)}>`;
+        case 'array': return `std::array<${mapType(type.element!)}, ${type.size}>`;
+        case 'optional': return `std::optional<${mapType(type.element!)}>`;
+        case 'struct': return type.struct!.name;
+      }
+      return 'void';
+    };
+
+    const allStructs = [...schema.structs.values(), ...schema.responses.values()];
+    const structs = allStructs.map(s => {
+      const fields = s.fields.map(f => `    ${mapType(f.type)} ${f.name};`).join('\n');
+      const fieldNames = s.fields.map(f => f.name).join(', ');
+      const schemaName = `    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${s.name}";`;
+      const serialization = fieldNames
+        ? `    SERIALIZATION_FIELDS(${fieldNames})`
+        : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
+      return `struct ${s.name} {\n${schemaName}\n${fields}\n${serialization}\n    bool operator==(const ${s.name}&) const = default;\n};`;
+    }).join('\n\n');
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+// Standalone types for ${prefix} service.
+#pragma once
+
+#include <array>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+// ---------------------------------------------------------------------------
+// Self-contained serialization macro.
+// Defines a msgpack() method that enumerates field name/value pairs.
+// Works with msgpack packers (serialization) and schema reflectors.
+// If barretenberg's SERIALIZATION_FIELDS is already available, use it instead.
+// ---------------------------------------------------------------------------
+#ifndef SERIALIZATION_FIELDS
+#define _SF_E1(x) #x, x
+#define _SF_E2(x, ...) #x, x, _SF_E1(__VA_ARGS__)
+#define _SF_E3(x, ...) #x, x, _SF_E2(__VA_ARGS__)
+#define _SF_E4(x, ...) #x, x, _SF_E3(__VA_ARGS__)
+#define _SF_E5(x, ...) #x, x, _SF_E4(__VA_ARGS__)
+#define _SF_E6(x, ...) #x, x, _SF_E5(__VA_ARGS__)
+#define _SF_E7(x, ...) #x, x, _SF_E6(__VA_ARGS__)
+#define _SF_E8(x, ...) #x, x, _SF_E7(__VA_ARGS__)
+#define _SF_E9(x, ...) #x, x, _SF_E8(__VA_ARGS__)
+#define _SF_E10(x, ...) #x, x, _SF_E9(__VA_ARGS__)
+#define _SF_E11(x, ...) #x, x, _SF_E10(__VA_ARGS__)
+#define _SF_E12(x, ...) #x, x, _SF_E11(__VA_ARGS__)
+#define _SF_E13(x, ...) #x, x, _SF_E12(__VA_ARGS__)
+#define _SF_E14(x, ...) #x, x, _SF_E13(__VA_ARGS__)
+#define _SF_E15(x, ...) #x, x, _SF_E14(__VA_ARGS__)
+#define _SF_E16(x, ...) #x, x, _SF_E15(__VA_ARGS__)
+#define _SF_E17(x, ...) #x, x, _SF_E16(__VA_ARGS__)
+#define _SF_E18(x, ...) #x, x, _SF_E17(__VA_ARGS__)
+#define _SF_E19(x, ...) #x, x, _SF_E18(__VA_ARGS__)
+#define _SF_E20(x, ...) #x, x, _SF_E19(__VA_ARGS__)
+#define _SF_CNT(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,N,...) N
+#define _SF_NUM(...) _SF_CNT(__VA_ARGS__,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)
+#define _SF_CAT(a, b) a##b
+#define _SF_SEL(n) _SF_CAT(_SF_E, n)
+#define _SF_NVP(...) _SF_SEL(_SF_NUM(__VA_ARGS__))(__VA_ARGS__)
+#define SERIALIZATION_FIELDS(...) \\
+    template <typename _PackFn> void msgpack(_PackFn pack_fn) { pack_fn(_SF_NVP(__VA_ARGS__)); }
+#endif
+
+/// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
+using Fr = std::array<uint8_t, 32>;
+
+namespace ${ns}${this.opts.wireNamespace ? '::' + this.opts.wireNamespace : ''} {
+
+${structs}
+
+} // namespace ${ns}${this.opts.wireNamespace ? '::' + this.opts.wireNamespace : ''}
+`;
+  }
+
+  /** Generate standalone server dispatch (no barretenberg deps) */
+  generateStandaloneServer(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const errorType = schema.errorTypeName || `${prefix}ErrorResponse`;
+
+    const dispatchCases = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        return `        if (cmd_name == "${c.name}") {
+            ${c.name} cmd; cmd_payload.convert(cmd);
+            auto resp = handle_${toSnakeCase(c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name)}(cmd);
+            pk.pack_array(2); pk.pack(std::string("${c.responseType}")); pk.pack(resp);
+        }`;
+      }).join(' else ');
+
+    const stubs = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        const method = toSnakeCase(c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name);
+        return `// TODO: implement ${c.name}
+inline ${c.responseType} handle_${method}(const ${c.name}& /*cmd*/) {
+    throw std::runtime_error("not implemented: ${c.name}");
+}`;
+      }).join('\n\n');
+
+    const shutdownName = schema.commands.find(c => c.name.endsWith('Shutdown'))?.name || `${prefix}Shutdown`;
+    const shutdownResp = shutdownName + 'Response';
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+// ${prefix} server dispatch — standalone, no barretenberg dependencies.
+// Implement the handle_* functions to build your ${prefix} service.
+#pragma once
+
+#include "types_gen.hpp"
+#include "${this.generatedDir()}/ipc_server.hpp"
+#include <stdexcept>
+
+namespace ${ns} {
+
+// ---------------------------------------------------------------------------
+// Dispatch: routes commands to handler functions
+// ---------------------------------------------------------------------------
+
+inline std::vector<uint8_t> dispatch(const std::vector<uint8_t>& payload) {
+    auto oh = msgpack::unpack(reinterpret_cast<const char*>(payload.data()), payload.size());
+    auto obj = oh.get();
+    auto& inner = obj.via.array.ptr[0];
+    std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
+    auto& cmd_payload = inner.via.array.ptr[1];
+
+    msgpack::sbuffer resp_buf;
+    msgpack::packer<msgpack::sbuffer> pk(resp_buf);
+
+    try {
+        if (cmd_name == "${shutdownName}") {
+            pk.pack_array(2); pk.pack(std::string("${shutdownResp}")); pk.pack_map(0);
+        } else ${dispatchCases} else {
+            pk.pack_array(2); pk.pack(std::string("${errorType}"));
+            pk.pack_map(1); pk.pack(std::string("message")); pk.pack(std::string("unknown command: ") + cmd_name);
+        }
+    } catch (const std::exception& e) {
+        resp_buf.clear();
+        msgpack::packer<msgpack::sbuffer> epk(resp_buf);
+        epk.pack_array(2); epk.pack(std::string("${errorType}"));
+        epk.pack_map(1); epk.pack(std::string("message")); epk.pack(std::string(e.what()));
+    }
+
+    return std::vector<uint8_t>(resp_buf.data(), resp_buf.data() + resp_buf.size());
+}
+
+/// Start the server on the given socket path.
+inline void serve(const char* socket_path) {
+    ipc::serve(socket_path, dispatch);
+}
+
+// ---------------------------------------------------------------------------
+// Handler stubs — implement these to build your ${prefix} service.
+// ---------------------------------------------------------------------------
+
+${stubs}
+
+} // namespace ${ns}
+`;
+  }
+
+  /** Generate standalone client wrapper (no barretenberg deps) */
+  generateStandaloneClient(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const errorType = schema.errorTypeName || `${prefix}ErrorResponse`;
+
+    const methods = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        const method = toSnakeCase(c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name);
+        const hasFields = c.fields.length > 0;
+        const param = hasFields ? `const ${c.name}& cmd` : '';
+        const packCmd = hasFields ? 'cmd' : `${c.name}{}`;
+        return `    ${c.responseType} ${method}(${param}) {
+        msgpack::sbuffer buf;
+        msgpack::packer<msgpack::sbuffer> pk(buf);
+        pk.pack_array(1); pk.pack_array(2); pk.pack(std::string("${c.name}")); pk.pack(${packCmd});
+        auto resp = client_.call(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
+        auto oh = msgpack::unpack(reinterpret_cast<const char*>(resp.data()), resp.size());
+        auto obj = oh.get();
+        std::string resp_name(obj.via.array.ptr[0].via.str.ptr, obj.via.array.ptr[0].via.str.size);
+        if (resp_name == "${errorType}") throw std::runtime_error("server error");
+        ${c.responseType} result; obj.via.array.ptr[1].convert(result);
+        return result;
+    }`;
+      }).join('\n\n');
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+// ${prefix} typed IPC client — standalone, no barretenberg dependencies.
+#pragma once
+
+#include "types_gen.hpp"
+#include "${this.generatedDir()}/ipc_client.hpp"
+#include <stdexcept>
+
+namespace ${ns} {
+
+class ${prefix}Client {
+  public:
+    explicit ${prefix}Client(const char* socket_path) : client_(socket_path) {}
+
+${methods}
+
+    void shutdown() {
+        msgpack::sbuffer buf;
+        msgpack::packer<msgpack::sbuffer> pk(buf);
+        pk.pack_array(1); pk.pack_array(2); pk.pack(std::string("${prefix}Shutdown")); pk.pack_map(0);
+        client_.call(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
+    }
+
+  private:
+    ipc::IpcClient client_;
+};
+
+} // namespace ${ns}
+`;
+  }
+
+  // -----------------------------------------------------------------------
+  // Barretenberg commands generation (uses native bb types, has execute())
+  // -----------------------------------------------------------------------
+
+  /**
+   * Map an IR type to a barretenberg C++ type.
+   * Uses native types (bb::fr, MerkleTreeId, StateReference) instead of
+   * standalone equivalents (Fr, uint32_t, std::unordered_map<...>).
+   */
+  private mapTypeBb(type: import('./schema_visitor.ts').Type): string {
+    const externals = this.opts.externals || {};
+
+    switch (type.kind) {
+      case 'primitive':
+        switch (type.primitive) {
+          case 'bool': return 'bool';
+          case 'u8': return 'uint8_t';
+          case 'u16': return 'uint16_t';
+          case 'u32': return 'uint32_t';
+          case 'u64': return 'uint64_t';
+          case 'f64': return 'double';
+          case 'string': return 'std::string';
+          case 'bytes': return 'std::vector<uint8_t>';
+          case 'fr': return 'bb::fr';
+          case 'field2': return 'std::array<bb::fr, 2>';
+          case 'enum_u32':
+            // Preserve original enum name if available
+            return type.originalName || 'uint32_t';
+          case 'map_u32_pair':
+            // StateReference is the only map type we've seen
+            return 'StateReference';
+        }
+        break;
+      case 'vector': return `std::vector<${this.mapTypeBb(type.element!)}>`;
+      case 'array': return `std::array<${this.mapTypeBb(type.element!)}, ${type.size}>`;
+      case 'optional': return `std::optional<${this.mapTypeBb(type.element!)}>`;
+      case 'struct': return type.struct!.name;
+    }
+    return 'void';
+  }
+
+  /**
+   * Generate barretenberg-specific commands header.
+   *
+   * This generates command structs that use native barretenberg types
+   * (bb::fr, MerkleTreeId, etc.) and include execute() declarations.
+   * External types (NullifierLeafValue, WorldStateRevision, etc.) are
+   * imported via #include instead of being generated.
+   */
+  generateCommands(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const externals = this.opts.externals || {};
+
+    // Collect unique include paths from externals
+    const externalIncludes = new Set<string>();
+    for (const header of Object.values(externals)) {
+      externalIncludes.add(header);
+    }
+    for (const inc of this.opts.additionalIncludes || []) {
+      externalIncludes.add(inc);
+    }
+
+    const includeLines = [...externalIncludes].sort().map(h => `#include "${h}"`).join('\n');
+    const usingLines = (this.opts.usingNamespaces || []).map(ns => `using namespace ${ns};`).join('\n');
+
+    // Generate non-external struct types (only SiblingPathAndIndex-like types
+    // that are NOT commands/responses and NOT external)
+    const helperStructs: string[] = [];
+    for (const [name, struct] of schema.structs) {
+      if (name.startsWith(prefix)) continue; // Commands are generated below
+      if (externals[name]) continue; // External — imported via #include
+      // Generate this helper struct
+      const fields = struct.fields.map(f => `    ${this.mapTypeBb(f.type)} ${f.name};`).join('\n');
+      const fieldNames = struct.fields.map(f => f.name).join(', ');
+      const serialization = fieldNames
+        ? `    SERIALIZATION_FIELDS(${fieldNames});`
+        : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
+      helperStructs.push(
+        `struct ${name} {\n    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${name}";\n${fields}\n${serialization}\n    bool operator==(const ${name}&) const = default;\n};`
+      );
+    }
+    for (const [name, struct] of schema.responses) {
+      if (name.startsWith(prefix)) continue; // Responses generated nested inside commands
+      if (externals[name]) continue;
+      // Non-prefixed response types (shouldn't normally happen)
+    }
+
+    // Generate command structs with nested Response and execute()
+    const commandStructs = schema.commands.map(cmd => {
+      const respStruct = schema.responses.get(cmd.responseType);
+
+      // Command fields
+      const cmdFields = cmd.fields.map(f => `    ${this.mapTypeBb(f.type)} ${f.name};`).join('\n');
+      const cmdFieldNames = cmd.fields.map(f => f.name).join(', ');
+      const cmdSerialization = cmdFieldNames
+        ? `    SERIALIZATION_FIELDS(${cmdFieldNames});`
+        : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
+
+      // Response fields
+      let responseBlock: string;
+      if (respStruct && respStruct.fields.length > 0) {
+        const respFields = respStruct.fields.map(f => `        ${this.mapTypeBb(f.type)} ${f.name};`).join('\n');
+        const respFieldNames = respStruct.fields.map(f => f.name).join(', ');
+        responseBlock = `    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "${cmd.responseType}";
+${respFields}
+        SERIALIZATION_FIELDS(${respFieldNames});
+        bool operator==(const Response&) const = default;
+    };`;
+      } else {
+        responseBlock = `    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "${cmd.responseType}";
+        template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };`;
+      }
+
+      return `struct ${cmd.name} {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${cmd.name}";
+${responseBlock}
+${cmdFields}
+    Response execute(${prefix}Request& request) &&;
+${cmdSerialization}
+    bool operator==(const ${cmd.name}&) const = default;
+};`;
+    }).join('\n\n');
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+#pragma once
+
+${includeLines}
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace ${ns} {
+
+${usingLines}
+
+// Forward declaration
+struct ${prefix}Request;
+
+${helperStructs.join('\n\n')}${helperStructs.length > 0 ? '\n\n' : ''}// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
+
+${commandStructs}
+
+} // namespace ${ns}
+`;
+  }
+
+  // -----------------------------------------------------------------------
+  // Server-side code generation (uses standalone ipc_server.hpp template)
+  // -----------------------------------------------------------------------
+
+  /** Generate the server dispatch — header-only, template<typename Ctx> */
+  generateServerHeader(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const errorTypeName = schema.errorTypeName || `${prefix}ErrorResponse`;
+    const typesHeader = `${toSnakeCase(prefix)}_types.hpp`;
+
+    // Handler declarations — template<typename Ctx>
+    const handlerDecls = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        const method = toSnakeCase(c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name);
+        return `template<typename Ctx>\nwire::${c.responseType} handle_${method}(Ctx& ctx, wire::${c.name}&& cmd);`;
+      }).join('\n\n');
+
+    // Handler entries for dispatch map
+    const handlerEntries = schema.commands.map(cmd => {
+      const isShutdown = cmd.name.endsWith('Shutdown');
+      const method = toSnakeCase(cmd.name.startsWith(prefix) ? cmd.name.slice(prefix.length) : cmd.name);
+
+      if (isShutdown) {
+        return `            { "${cmd.name}", []([[maybe_unused]] Ctx& ctx, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
+                msgpack::sbuffer buf;
+                msgpack::packer<msgpack::sbuffer> pk(buf);
+                pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack_map(0);
+                THROW ::ipc::ShutdownRequested(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
+            } }`;
+      }
+
+      const deserialize = cmd.fields.length > 0
+        ? `wire::${cmd.name} wire_cmd; payload.convert(wire_cmd);`
+        : `wire::${cmd.name} wire_cmd;`;
+
+      return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
+                ${deserialize}
+                auto wire_resp = handle_${method}(ctx, std::move(wire_cmd));
+                msgpack::sbuffer buf;
+                msgpack::packer<msgpack::sbuffer> pk(buf);
+                pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(wire_resp);
+                return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
+            } }`;
+    }).join(',\n');
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+// Header-only server dispatch — template<typename Ctx> for service context.
+#pragma once
+
+#include "${typesHeader}"
+#include "ipc_server.hpp"
+
+// msgpack headers needed for dispatch implementation.
+// Includers within barretenberg must include try_catch_shim.hpp before this header.
+#ifndef THROW
+#define THROW throw
+#define RETHROW throw
+#endif
+#include <msgpack.hpp>
+
+#include <atomic>
+#include <functional>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+namespace ${ns} {
+
+// Wire types are in the 'wire' sub-namespace (from ${typesHeader})
+// Handler declarations — implement these in your handler file.
+// Template specializations must be visible before make_handler() is instantiated.
+
+${handlerDecls}
+
+// ---------------------------------------------------------------------------
+// Dispatch — template on service context type
+// ---------------------------------------------------------------------------
+
+namespace detail {
+
+inline std::vector<uint8_t> make_error(const std::string& message)
+{
+    msgpack::sbuffer buf;
+    msgpack::packer<msgpack::sbuffer> pk(buf);
+    pk.pack_array(2);
+    pk.pack(std::string("${errorTypeName}"));
+    pk.pack_map(1);
+    pk.pack(std::string("message"));
+    pk.pack(message);
+    return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
+}
+
+} // namespace detail
+
+template<typename Ctx>
+::ipc::Handler make_${toSnakeCase(prefix)}_handler(Ctx& ctx)
+{
+    using HandlerFn = std::function<std::vector<uint8_t>(Ctx&, const msgpack::object&)>;
+    static const std::unordered_map<std::string, HandlerFn> table = {
+${handlerEntries},
+    };
+
+    return [&ctx](const std::vector<uint8_t>& raw_request) -> std::vector<uint8_t> {
+        auto unpacked = msgpack::unpack(
+            reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
+        auto obj = unpacked.get();
+
+        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
+            std::cerr << "Error: Expected array of size 1\\n";
+            return {};
+        }
+
+        auto& inner = obj.via.array.ptr[0];
+        if (inner.type != msgpack::type::ARRAY || inner.via.array.size != 2 ||
+            inner.via.array.ptr[0].type != msgpack::type::STR) {
+            std::cerr << "Error: Expected [CommandName, {payload}]\\n";
+            return {};
+        }
+
+        std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
+        auto& cmd_payload = inner.via.array.ptr[1];
+
+        auto it = table.find(cmd_name);
+        if (it == table.end()) {
+            return detail::make_error("unknown command: " + cmd_name);
+        }
+#ifdef BB_NO_EXCEPTIONS
+        return it->second(ctx, cmd_payload);
+#else
+        try {
+            return it->second(ctx, cmd_payload);
+        } catch (const ::ipc::ShutdownRequested&) {
+            throw;
+        } catch (const std::exception& e) {
+            std::cerr << "Error processing " << cmd_name << ": " << e.what() << '\\n';
+            return detail::make_error(e.what());
+        }
+#endif
+    };
+}
+
+template<typename Ctx>
+void serve(const char* socket_path, Ctx& ctx, std::atomic<bool>* shutdown_flag = nullptr)
+{
+    ::ipc::serve(socket_path, make_${toSnakeCase(prefix)}_handler(ctx), shutdown_flag);
+}
+
+} // namespace ${ns}
+`;
+  }
+
+  /** Generate the server dispatch implementation — map-based O(1) lookup */
+  generateServerImpl(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const requestType = `${prefix}Request`;
+    const errorTypeName = schema.errorTypeName || `${prefix}ErrorResponse`;
+
+    const serverHeaderPath = `${this.generatedDir()}/${toSnakeCase(prefix)}_ipc_server.hpp`;
+
+    // Generate handler lambdas for each command
+    const wireNs = this.opts.wireNamespace;
+    const handlerEntries = schema.commands.map(cmd => {
+      const isShutdown = cmd.name.endsWith('Shutdown');
+
+      // When wireNamespace is set: deserialize wire type, call handle_xxx() which returns wire response
+      // When not set: wire types ARE domain types, call cmd.execute(request) directly
+      const method = toSnakeCase(cmd.name.startsWith(prefix) ? cmd.name.slice(prefix.length) : cmd.name);
+      let body: string;
+
+      if (wireNs) {
+        if (isShutdown) {
+          // Shutdown: no handler call, just serialize empty response and throw
+          body = `msgpack::sbuffer buf;
+            msgpack::packer<msgpack::sbuffer> pk(buf);
+            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack_map(0);`;
+        } else {
+          const wireType = `${wireNs}::${cmd.name}`;
+          const deserialize = cmd.fields.length > 0
+            ? `${wireType} wire_cmd; payload.convert(wire_cmd);`
+            : `${wireType} wire_cmd;`;
+          body = `${deserialize}
+            auto wire_resp = handle_${method}(request, std::move(wire_cmd));
+            msgpack::sbuffer buf;
+            msgpack::packer<msgpack::sbuffer> pk(buf);
+            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(wire_resp);`;
+        }
+      } else {
+        const deserialize = cmd.fields.length > 0
+          ? `${cmd.name} cmd; payload.convert(cmd);`
+          : `${cmd.name} cmd;`;
+        body = `${deserialize}
+            auto resp = std::move(cmd).execute(request);
+            msgpack::sbuffer buf;
+            msgpack::packer<msgpack::sbuffer> pk(buf);
+            pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(resp);`;
+      }
+
+      if (isShutdown) {
+        return `        { "${cmd.name}", []([[maybe_unused]] ${requestType}& request, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
+            ${body}
+            throw ::ipc::ShutdownRequested(std::vector<uint8_t>(buf.data(), buf.data() + buf.size()));
+        } }`;
+      }
+      return `        { "${cmd.name}", [](${requestType}& request, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
+            ${body}
+            return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
+        } }`;
+    }).join(',\n');
+
+    // Include wire types header when wire/domain split is used
+    const wireTypesInclude = wireNs
+      ? `#include "${this.generatedDir()}/${toSnakeCase(prefix)}_types.hpp"\n`
+      : '';
+
+    return `// AUTOGENERATED FILE - DO NOT EDIT
+
+#include "${serverHeaderPath}"
+${wireTypesInclude}#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
+
+#include <functional>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
+namespace ${ns} {
+
+using CommandHandler = std::function<std::vector<uint8_t>(${requestType}&, const msgpack::object&)>;
+
+static const std::unordered_map<std::string, CommandHandler>& get_dispatch_table()
+{
+    static const std::unordered_map<std::string, CommandHandler> table = {
+${handlerEntries},
+    };
+    return table;
+}
+
+static std::vector<uint8_t> make_error(const std::string& message)
+{
+    msgpack::sbuffer buf;
+    msgpack::packer<msgpack::sbuffer> pk(buf);
+    pk.pack_array(2);
+    pk.pack(std::string("${errorTypeName}"));
+    pk.pack_map(1);
+    pk.pack(std::string("message"));
+    pk.pack(message);
+    return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
+}
+
+::ipc::Handler make_${toSnakeCase(prefix)}_handler(${requestType}& request)
+{
+    return [&request](const std::vector<uint8_t>& raw_request) -> std::vector<uint8_t> {
+        // Parse: [[CommandName, {payload}]]
+        auto unpacked = msgpack::unpack(
+            reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
+        auto obj = unpacked.get();
+
+        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
+            std::cerr << "Error: Expected array of size 1\\n";
+            return {};
+        }
+
+        auto& inner = obj.via.array.ptr[0];
+        if (inner.type != msgpack::type::ARRAY || inner.via.array.size != 2 ||
+            inner.via.array.ptr[0].type != msgpack::type::STR) {
+            std::cerr << "Error: Expected [CommandName, {payload}]\\n";
+            return {};
+        }
+
+        std::string cmd_name(inner.via.array.ptr[0].via.str.ptr, inner.via.array.ptr[0].via.str.size);
+        auto& cmd_payload = inner.via.array.ptr[1];
+
+        try {
+            auto& table = get_dispatch_table();
+            auto it = table.find(cmd_name);
+            if (it == table.end()) {
+                return make_error("unknown command: " + cmd_name);
+            }
+            return it->second(request, cmd_payload);
+        } catch (const ::ipc::ShutdownRequested&) {
+            throw;
+        } catch (const std::exception& e) {
+            std::cerr << "Error processing " << cmd_name << ": " << e.what() << '\\n';
+            return make_error(e.what());
+        }
+    };
+}
+
+} // namespace ${ns}
+`;
+  }
+
+  // -----------------------------------------------------------------------
+  // Skeleton generation (one-time handler stubs + main)
+  // -----------------------------------------------------------------------
+
+  /** Generate handler stub implementations that throw "not implemented" */
+  generateHandlerStubs(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const typesHeader = `${toSnakeCase(prefix)}_ipc_server.hpp`;
+    const ctxName = `${prefix}Context`;
+
+    const stubs = schema.commands
+      .filter(c => !c.name.endsWith('Shutdown'))
+      .map(c => {
+        const method = toSnakeCase(c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name);
+        return `template<>
+wire::${c.responseType} handle_${method}(${ctxName}& /*ctx*/, wire::${c.name}&& /*cmd*/)
+{
+    throw std::runtime_error("not implemented: ${c.name}");
+}`;
+      }).join('\n\n');
+
+    return `// Handler stubs — implement your service logic here.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+#include "generated/${typesHeader}"
+#include <stdexcept>
+
+struct ${ctxName} {
+    // Add your shared state here (database connection, etc.)
+};
+
+namespace ${ns} {
+
+${stubs}
+
+// Explicit template instantiation — must be at the bottom after all handlers.
+template ::ipc::Handler make_${toSnakeCase(prefix)}_handler(${ctxName}& ctx);
+
+} // namespace ${ns}
+`;
+  }
+
+  /** Generate a main.cpp entry point for a standalone service */
+  generateMain(schema: CompiledSchema): string {
+    const { namespace: ns, prefix } = this.opts;
+    const ctxName = `${prefix}Context`;
+
+    return `// Entry point for ${prefix} service.
+// This file is generated ONCE. Edit freely — it will not be overwritten.
+#include "generated/${toSnakeCase(prefix)}_ipc_server.hpp"
+#include "${toSnakeCase(prefix)}_handlers.cpp"
+
+#include <atomic>
+#include <csignal>
+#include <iostream>
+
+static std::atomic<bool> shutdown_flag{ false };
+
+int main(int argc, char* argv[])
+{
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <socket_path>\\n";
+        return 1;
+    }
+
+    ${ctxName} ctx{};
+    std::signal(SIGTERM, [](int) { shutdown_flag.store(true); });
+    std::signal(SIGINT, [](int) { shutdown_flag.store(true); });
+
+    std::cerr << "${prefix} server starting on " << argv[1] << "\\n";
+    ::ipc::serve(argv[1], ${ns}::make_${toSnakeCase(prefix)}_handler(ctx), &shutdown_flag);
+    return 0;
+}
+`;
+  }
+
+  /** Generate CMakeLists.txt for a standalone service */
+  generateBuildFile(schema: CompiledSchema): string {
+    const { prefix } = this.opts;
+    const snakePrefix = toSnakeCase(prefix);
+
+    return `cmake_minimum_required(VERSION 3.20)
+project(${snakePrefix}_service CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Generated IPC code
+file(GLOB GENERATED_SOURCES generated/*.cpp generated/*.hpp)
+
+add_executable(${snakePrefix}
+    main.cpp
+    \${GENERATED_SOURCES}
+)
+
+target_include_directories(${snakePrefix} PRIVATE \${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(${snakePrefix} PRIVATE pthread)
+`;
+  }
+
+  /** Generate .gitignore for the skeleton project */
+  generateGitignore(): string {
+    return `# Generated IPC code — do not edit, re-run generate.sh instead
+generated/
+build/
+`;
+  }
+
+  /** Generate a shell script to re-run codegen */
+  generateGenerateScript(schemaPath: string): string {
+    const { prefix, namespace: ns } = this.opts;
+    return `#!/usr/bin/env bash
+# Re-generate IPC types, server, and client from schema.
+# Run from the project root directory.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SCHEMA="${schemaPath}"
+
+node --experimental-strip-types "$(dirname "$SCRIPT_DIR")/codegen/src/generate.ts" \\
+  --schema "$SCHEMA" \\
+  --lang cpp \\
+  --out "$SCRIPT_DIR/generated" \\
+  --prefix ${prefix} \\
+  --cpp-namespace ${ns} \\
+  --server
+`;
+  }
+}
+

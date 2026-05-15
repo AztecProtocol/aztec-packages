@@ -9,7 +9,8 @@ cmake-build-debug
 *_opt.pil
 bench-out
 
-# Generated code from msgpack schema (run `yarn generate` in ts/)
+# Generated code (produced by ipc-codegen, not committed)
+**/generated/
+# Legacy generated paths from the cbind pipeline (kept for any leftover from migration)
 rust/barretenberg-rs/src/generated_types.rs
 rust/barretenberg-rs/src/api.rs
-ts/src/cbind/generated/

@@ -1,0 +1,52 @@
+{
+  "commands": ["named_union", [
+    ["EchoBytes", {
+      "__typename": "EchoBytes",
+      "data": ["vector", ["unsigned char"]]
+    }],
+    ["EchoFields", {
+      "__typename": "EchoFields",
+      "a": "unsigned int",
+      "b": "unsigned long",
+      "name": "string"
+    }],
+    ["EchoNested", {
+      "__typename": "EchoNested",
+      "inner": {
+        "__typename": "EchoInner",
+        "values": ["vector", [["vector", ["unsigned char"]]]],
+        "flag": ["optional", ["bool"]]
+      }
+    }],
+    ["EchoShutdown", {
+      "__typename": "EchoShutdown"
+    }]
+  ]],
+  "responses": ["named_union", [
+    ["EchoBytesResponse", {
+      "__typename": "EchoBytesResponse",
+      "data": ["vector", ["unsigned char"]]
+    }],
+    ["EchoFieldsResponse", {
+      "__typename": "EchoFieldsResponse",
+      "a": "unsigned int",
+      "b": "unsigned long",
+      "name": "string"
+    }],
+    ["EchoNestedResponse", {
+      "__typename": "EchoNestedResponse",
+      "inner": {
+        "__typename": "EchoInner",
+        "values": ["vector", [["vector", ["unsigned char"]]]],
+        "flag": ["optional", ["bool"]]
+      }
+    }],
+    ["EchoShutdownResponse", {
+      "__typename": "EchoShutdownResponse"
+    }],
+    ["EchoErrorResponse", {
+      "__typename": "EchoErrorResponse",
+      "message": "string"
+    }]
+  ]]
+}

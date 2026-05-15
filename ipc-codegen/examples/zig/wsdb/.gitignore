@@ -1,0 +1,3 @@
+src/generated/
+.zig-cache/
+zig-out/

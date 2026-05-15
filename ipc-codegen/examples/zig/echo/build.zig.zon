@@ -1,0 +1,19 @@
+.{
+    .name = .echo_zig,
+    .version = "0.1.0",
+    .fingerprint = 0x15539c02bc3573e2,
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+        .zig_msgpack = .{
+            .url = "https://github.com/zigcc/zig-msgpack/archive/refs/heads/main.tar.gz",
+            .hash = "zig_msgpack-0.0.14-evvueIkqBQA7F_-8hpmPYvAjmg9MOWJLm6p8sb0HnGem",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "echo_server.zig",
+        "echo_client.zig",
+        "generated",
+    },
+}

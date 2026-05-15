@@ -1,0 +1,8 @@
+{
+  "name": "echo-wire-compat-ts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "msgpackr": "^1.10.0"
+  }
+}
