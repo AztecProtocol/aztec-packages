@@ -228,7 +228,6 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
-        slashPrunePenalty: 0n,
         slashDataWithholdingPenalty: 0n,
         slashInactivityPenalty: 0n,
         slashBroadcastedInvalidBlockPenalty: 0n,
