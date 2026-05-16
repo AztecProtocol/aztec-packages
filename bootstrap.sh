@@ -168,7 +168,8 @@ if [ "${1:-}" = "install_deps" ]; then
 fi
 
 ### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
-source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source_bootstrap"
 
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}

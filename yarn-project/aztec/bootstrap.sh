@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source_bootstrap"
 
 repo_root=$(git rev-parse --show-toplevel)
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
