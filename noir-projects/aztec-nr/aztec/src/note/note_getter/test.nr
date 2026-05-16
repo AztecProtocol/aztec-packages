@@ -8,6 +8,7 @@ use crate::{
         note_getter_options::{NoteGetterOptions, PropertySelector, Sort, SortOrder},
     },
     oracle::random::random,
+    protocol::{address::AztecAddress, traits::FromField},
     test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote},
     utils::comparison::Comparator,
 };
@@ -17,8 +18,6 @@ fn sort_criterion(index: u8, order: u8) -> Option<Sort> {
         Sort::new(PropertySelector { index, offset: 0, length: 32 }, order),
     )
 }
-
-use crate::protocol::{address::AztecAddress, traits::FromField};
 
 global storage_slot: Field = 42;
 global owner: AztecAddress = AztecAddress::from_field(50);
