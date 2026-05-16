@@ -6,7 +6,7 @@ repo_root=$root
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 
-if semver check $REF_NAME; then
+if [[ "$REF_NAME" =~ ^v?[0-9]+\. ]] && semver check "$REF_NAME"; then
   # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
   export COMMIT_TAG=$REF_NAME
 fi
@@ -27,7 +27,7 @@ function get_hash {
         awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
   )
 
-  if semver check $REF_NAME; then
+  if [[ "$REF_NAME" =~ ^v?[0-9]+\. ]] && semver check "$REF_NAME"; then
     # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
     hash+=$REF_NAME
   fi
