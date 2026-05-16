@@ -37,7 +37,3 @@ if [ -z "${CI_FULL:-}" ]; then
   fi
 fi
 export CI_SCENARIO_TEST="${CI_SCENARIO_TEST:-0}"
-
-if [ -z "${COMMIT_HASH:-}" ]; then
-  export COMMIT_HASH=$(git rev-parse HEAD)
-fi

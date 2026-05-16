@@ -259,7 +259,8 @@ function bench_10tps {
   gcp_auth
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
-  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${COMMIT_HASH:0:10}}"
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${commit_hash:0:10}}"
   bench_10tps_cmds | parallelize 1
 
   local metadata="/tmp/n_tps_timing_data.json"
