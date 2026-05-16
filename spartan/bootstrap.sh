@@ -5,6 +5,25 @@ function hash {
   hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
 }
 
+function test_cmds {
+  :
+}
+
+function test {
+  :
+}
+
+case "$cmd" in
+  "hash")
+    echo $(hash)
+    exit
+    ;;
+  test|test_cmds)
+    $cmd
+    exit
+    ;;
+esac
+
 dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
 
 source ./scripts/source_env_basic.sh
@@ -75,14 +94,6 @@ function gke {
       exit 1
     fi
   fi
-}
-
-function test_cmds {
-  :
-}
-
-function test {
-  :
 }
 
 # Test sets for network scenario tests (split across two EC2 instances).
@@ -443,10 +454,7 @@ case "$cmd" in
     kubectl delete networkchaos --all --all-namespaces
     network_shaping "$namespace" "$chaos_values"
     ;;
-  "hash")
-    echo $(hash)
-    ;;
-  test|test_cmds|gke|build|gcp_auth)
+  gke|build|gcp_auth)
     $cmd
     ;;
   "test-kind-upgrade-rollup")
