@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <array>
 #include <optional>

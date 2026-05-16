@@ -1,0 +1,2 @@
+- Do not change optimization levels for compile-time improvements; keep work focused on structural C++ changes backed by compiler profiling.
+- Do not alter test code for compile-time improvements; use test builds only as a proxy for `ninja bb` compile time.

@@ -14,7 +14,7 @@
 //
 #pragma once
 
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -405,16 +405,6 @@ class RollupIO {
      * @brief Add default public inputs when they are not present
      *
      */
-    static void add_default(Builder& builder)
-    {
-        RollupIO inputs;
-        inputs.pairing_inputs = PairingInputs::construct_default();
-        auto [stdlib_opening_claim, ipa_proof] =
-            IPA<grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
-        inputs.ipa_claim = stdlib_opening_claim;
-        inputs.set_public();
-
-        builder.ipa_proof = ipa_proof;
-    };
+    static void add_default(Builder& builder);
 };
 } // namespace bb::stdlib::recursion::honk

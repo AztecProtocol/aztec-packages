@@ -5,6 +5,7 @@
 // =====================
 
 #include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 
 namespace acir_format {
 

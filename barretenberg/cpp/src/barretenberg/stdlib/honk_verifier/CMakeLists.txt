@@ -3,5 +3,6 @@ barretenberg_module(
     transcript
     stdlib_poseidon2
     stdlib_circuit_builders
+    stdlib_special_public_inputs
     boomerang_value_detection
 )

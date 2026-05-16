@@ -7,14 +7,12 @@
 #pragma once
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
-#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/eq_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "sumcheck_round.hpp"
 #include <memory>
 

@@ -2,6 +2,7 @@
 
 // Establish concepts for testing flavor attributes
 #include "barretenberg/common/type_traits.hpp"
+#include "barretenberg/flavor/flavor_fwd.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <string>
 namespace bb {
