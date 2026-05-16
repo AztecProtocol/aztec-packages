@@ -201,7 +201,11 @@ function test_cmds {
   local cmd_env
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # Skip benchmarks here.
-    [[ "$test" == *.bench.test.ts ]] && continue
+    case "$test" in
+      *.bench.test.ts)
+        continue
+        ;;
+    esac
 
     prefix=$hash
     cmd_env=""
@@ -220,13 +224,17 @@ function test_cmds {
     esac
 
     # Boost some tests resources.
-    if [[ "$test" == *testbench* ]]; then
-      prefix+=":CPUS=10:MEM=16g"
-    elif [[ "$test" == *avm_proving_tests* || "$test" == *rollup_ivc_integration* || "$test" == *avm_integration* ]]; then
-      prefix+=":CPUS=16:MEM=16g"
-    elif [[ "$test" == ivc-integration/* ]]; then
-      prefix+=":CPUS=8"
-    fi
+    case "$test" in
+      *testbench*)
+        prefix+=":CPUS=10:MEM=16g"
+        ;;
+      *avm_proving_tests*|*rollup_ivc_integration*|*avm_integration*)
+        prefix+=":CPUS=16:MEM=16g"
+        ;;
+      ivc-integration/*)
+        prefix+=":CPUS=8"
+        ;;
+    esac
 
     # Add debug logging for tests that require a bit more info
     case "$test" in
@@ -242,14 +250,16 @@ function test_cmds {
     esac
 
     # Enable real proofs in prover-client integration tests only on CI full.
-    if [[ "$test" == prover-client/src/test/* ]]; then
-      if [ "$CI_FULL" -eq 1 ]; then
-        prefix+=":CPUS=16:MEM=96g"
-        cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
-      else
-        cmd_env+=" FAKE_PROOFS=1"
-      fi
-    fi
+    case "$test" in
+      prover-client/src/test/*)
+        if [ "$CI_FULL" -eq 1 ]; then
+          prefix+=":CPUS=16:MEM=96g"
+          cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
+        else
+          cmd_env+=" FAKE_PROOFS=1"
+        fi
+        ;;
+    esac
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
   done
