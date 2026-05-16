@@ -96,20 +96,43 @@ function compile-solidity {
 
   mkdir -p "$OUTPUT_DIR"
 
-  # Compile using the local foundry.toml with proper remappings
+  # Compile using the local foundry.toml with proper remappings.
+  # forge fetches solc from binaries.soliditylang.org on first use; transient
+  # DNS/TLS failures there have caused silent partial builds (the loop kept going
+  # and compile-solidity returned success while an example's artifacts were never
+  # written). Track per-subdir failures and surface them so run_step retries.
+  local failed_subdirs=()
   (
     cd "$SOLIDITY_DIR"
     for subdir in */; do
       if [ -d "$subdir" ] && ls "$subdir"/*.sol >/dev/null 2>&1; then
         local subdir_name=$(basename "$subdir")
         echo_stderr "Compiling $subdir_name..."
-        forge build \
-          --contracts "$subdir" \
-          --out "$OUTPUT_DIR/$subdir_name" \
-          --no-cache
+        local attempt
+        for attempt in 1 2 3; do
+          if forge build \
+              --contracts "$subdir" \
+              --out "$OUTPUT_DIR/$subdir_name" \
+              --no-cache; then
+            break
+          fi
+          if [ "$attempt" -lt 3 ]; then
+            echo_stderr "forge build for $subdir_name failed (attempt $attempt/3), retrying in $((attempt * 5))s..."
+            sleep $((attempt * 5))
+          else
+            echo_stderr "ERROR: forge build for $subdir_name failed after 3 attempts"
+            echo "$subdir_name" >> "$OUTPUT_DIR/.failed"
+          fi
+        done
       fi
     done
   )
+  if [ -f "$OUTPUT_DIR/.failed" ]; then
+    while IFS= read -r name; do failed_subdirs+=("$name"); done < "$OUTPUT_DIR/.failed"
+    rm -f "$OUTPUT_DIR/.failed"
+    echo_stderr "ERROR: Solidity compilation failed for: ${failed_subdirs[*]}"
+    return 1
+  fi
 
   echo_stderr "Solidity artifacts written to $OUTPUT_DIR"
 }
