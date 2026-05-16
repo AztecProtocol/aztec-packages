@@ -169,16 +169,14 @@ function test_cmds {
   # Test bb aztec_process command
   echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
 
-  # Fairies want to run these tests on every PR
-  if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
-    i=0
+  local i=0
+  if [ "${NO_CACHE:-0}" -eq 1 ] || [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
       port=$((14730 + (i++ % ${NUM_TXES:-1})))
       echo "disabled-cache noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
     done
   else
     local -A cache
-    i=0
     $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
       port=$((14730 + (i++ % ${NUM_TXES:-1})))
       [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)

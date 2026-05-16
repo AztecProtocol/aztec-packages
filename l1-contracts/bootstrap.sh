@@ -46,16 +46,10 @@ function build_src {
   # Download solc binary
   download_solc
 
-  # Deps install
-  npm_install_deps
-
   local artifact=l1-contracts-src-$hash.tar.gz
   if ! cache_download $artifact; then
     # Clean
     rm -rf broadcast cache out serve
-
-    # Install
-    forge install
 
     # Ensure libraries are at the correct version
     git submodule update --init --recursive ./lib
