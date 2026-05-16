@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source"
 
 function bootstrap_all {
   # To run bb we need a crs.
