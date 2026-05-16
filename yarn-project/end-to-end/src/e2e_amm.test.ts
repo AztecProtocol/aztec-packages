@@ -41,12 +41,17 @@ describe('AMM', () => {
   const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
   beforeAll(async () => {
+    // Anchor the PXE to the checkpointed tip rather than the proposed tip. Under pipelining the
+    // proposed tip can be pruned when a slot ends without a checkpoint landing on L1 (e.g. when a
+    // time warp races `Sequencer.work`'s two epoch-cache reads and the wait-for-parent gate ends up
+    // pointing at the wrong slot). The checkpointed tip is L1-confirmed and cannot be pruned, so
+    // inflight setup txs survive the race.
     ({
       teardown,
       wallet,
       accounts: [adminAddress, liquidityProviderAddress, otherLiquidityProviderAddress, swapperAddress],
       logger,
-    } = await setup(4, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(4, { ...PIPELINING_SETUP_OPTS }, { syncChainTip: 'checkpointed' }));
 
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
