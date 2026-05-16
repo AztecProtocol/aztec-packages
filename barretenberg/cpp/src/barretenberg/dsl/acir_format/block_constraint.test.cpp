@@ -38,21 +38,21 @@ TEST(BlockConstraintMemOpEncoding, ReadFlagFalseDecodesAsRead)
 
     ASSERT_EQ(block.trace.size(), 1);
     EXPECT_EQ(block.trace[0].access_type, AccessType::Read);
-    EXPECT_EQ(block.trace[0].index.index, 1);
-    EXPECT_EQ(block.trace[0].value.index, 2);
+    EXPECT_EQ(block.trace[0].index, 1);
+    EXPECT_EQ(block.trace[0].value, 2);
 }
 
 TEST(BlockConstraintMemOpEncoding, AccessTypeEncodesToReadFlag)
 {
     const MemOp read_op{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(1),
-        .value = WitnessOrConstant<bb::fr>::from_index(2),
+        .index = 1,
+        .value = 2,
     };
     const MemOp write_op{
         .access_type = AccessType::Write,
-        .index = WitnessOrConstant<bb::fr>::from_index(3),
-        .value = WitnessOrConstant<bb::fr>::from_index(4),
+        .index = 3,
+        .value = 4,
     };
 
     EXPECT_FALSE(mem_op_to_acir_mem_op(read_op).read);
