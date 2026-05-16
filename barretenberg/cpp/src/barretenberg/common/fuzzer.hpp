@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include <cstring>
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage, google-runtime-int)
 #define PARENS ()
