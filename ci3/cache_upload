@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
-NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 if [ "$#" -lt 2 ]; then
-  echo_stderr "Usage: $0 <my-artifact.tar.gz> <binary_paths_to_tar_gz_and_upload...>"
+  echo "Usage: $0 <my-artifact.tar.gz> <binary_paths_to_tar_gz_and_upload...>" >&2
   exit 1
 fi
 
 if [[ "$1" == *"disabled-cache"* ]]; then
-  echo_stderr "Skipping upload of $1 due to uncommitted changes/files."
+  echo "Skipping upload of $1 due to uncommitted changes/files." >&2
   exit 0
 fi
+
+if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
+  echo "Skipping upload because CI=0 and S3_FORCE_UPLOAD not set." >&2
+  exit 0
+fi
+
+if [[ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]]; then
+  echo "Skipping upload because NO_CACHE_UPLOAD=1." >&2
+  exit 0
+fi
+
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 # Name, intended to have .tar.gz ending
 name="$1"
 # Now $@ = our binary path args
 shift 1
-
-if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
-  echo_stderr "Skipping upload because CI=0 and S3_FORCE_UPLOAD not set."
-  exit 0
-fi
-
-if [[ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]]; then
-  echo_stderr "Skipping upload because NO_CACHE_UPLOAD=1."
-  exit 0
-fi
 
 # In SSM/instance-profile mode, AWS CLI falls back to IMDS for credentials.
 if [[ "${CI_SSM_MODE:-0}" -eq 0 ]]; then
