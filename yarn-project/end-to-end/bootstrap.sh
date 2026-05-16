@@ -67,7 +67,7 @@ function test_cmds {
       # Extract individual test names and create a command for each
       while IFS= read -r test_name; do
         # Create a safe name for the individual test (replace spaces with underscores)
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        local safe_test_name=${test_name// /_}
         local full_name="${name}_${safe_test_name}"
         local dump_avm=""
         [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$full_name"
