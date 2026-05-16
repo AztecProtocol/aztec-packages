@@ -99,6 +99,7 @@
     "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.5",
     "jest": "^30.0.0",
+    "playwright-core": "^1.59.1",
     "prettier": "^3.5.3",
     "ts-jest": "^29.4.0",
     "ts-loader": "^9.4.2",
