@@ -5,6 +5,11 @@ export CRS_PATH=$HOME/.bb-crs
 export RAYON_NUM_THREADS=1
 
 function get_tests_tar {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo "barretenberg-acir-tests-disabled-cache.tar.gz"
+    return
+  fi
+
   echo "barretenberg-acir-tests-$(hash_str \
     $(../../noir/bootstrap.sh hash) \
     $(cache_content_hash \
@@ -15,6 +20,11 @@ function get_tests_tar {
 }
 
 function get_tests_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str \
     $(../../noir/bootstrap.sh hash) \
     $(../cpp/bootstrap.sh hash) \

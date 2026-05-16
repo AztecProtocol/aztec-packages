@@ -6,6 +6,11 @@ export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
 export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
 
 function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str \
     $(../noir/bootstrap.sh hash) \
     $(cache_content_hash \

@@ -2,6 +2,11 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash)
 }
 

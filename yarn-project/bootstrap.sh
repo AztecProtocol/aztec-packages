@@ -2,6 +2,11 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 function hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str \
     $(../noir/bootstrap.sh hash) \
     $(../barretenberg/bootstrap.sh hash) \
