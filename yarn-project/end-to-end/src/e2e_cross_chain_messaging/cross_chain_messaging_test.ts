@@ -117,11 +117,6 @@ export class CrossChainMessagingTest {
     this.deployL1ContractsValues = this.context.deployL1ContractsValues;
     this.aztecNodeAdmin = this.context.aztecNodeService;
 
-    if (this.requireEpochProven) {
-      // Turn off the watcher to prevent it from keep marking blocks as proven.
-      this.context.watcher.setIsMarkingAsProven(false);
-    }
-
     // Deploy 3 accounts
     this.logger.info('Applying 3_accounts setup');
     const { deployedAccounts } = await deployAccounts(

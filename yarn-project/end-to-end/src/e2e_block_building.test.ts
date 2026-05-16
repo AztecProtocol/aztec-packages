@@ -6,7 +6,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { TxStatus } from '@aztec/aztec.js/tx';
 import { ContractInitializationStatus } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
@@ -44,7 +44,6 @@ describe('e2e_block_building', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let _sequencer: TestSequencerClient;
-  let watcher: AnvilTestWatcher;
   let teardown: () => Promise<void>;
 
   afterEach(() => {
@@ -628,7 +627,6 @@ describe('e2e_block_building', () => {
         logger,
         wallet,
         cheatCodes,
-        watcher,
         accounts: [ownerAddress],
       } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
 
@@ -642,8 +640,6 @@ describe('e2e_block_building', () => {
       while ((await aztecNode.getBlockNumber('proven')) < bn) {
         await sleep(1000);
       }
-
-      watcher.setIsMarkingAsProven(false);
     });
 
     afterEach(() => teardown());

@@ -17,7 +17,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/aztec/testing';
+import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes, CheckpointAutoProver } from '@aztec/aztec/testing';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -187,8 +187,6 @@ export type SetupOptions = {
   /** Whether to disable the anvil test watcher (can still be manually started) */
   disableAnvilTestWatcher?: boolean;
   anvilTestWatcherOpts?: AnvilTestWatcherOpts;
-  /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
-  automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
@@ -258,6 +256,8 @@ export type EndToEndContext = {
   ethCheatCodes: EthCheatCodes;
   /** The anvil test watcher. */
   watcher: AnvilTestWatcher;
+  /** Auto-prover that calls markAsProven after each checkpoint when testOnlyAutoProveAfterPublish is true. */
+  checkpointAutoProver: CheckpointAutoProver | undefined;
   /** Allows tweaking current system time, used by the epoch cache only. */
   dateProvider: TestDateProvider;
   /** Telemetry client */
@@ -429,9 +429,8 @@ export async function setup(
       genesisTimestamp,
     );
 
-    const wasAutomining = await ethCheatCodes.isAutoMining();
-    const enableAutomine = opts.automineL1Setup && !wasAutomining && isAnvilTestChain(chain.id);
-    if (enableAutomine) {
+    const isAnvilChain = isAnvilTestChain(chain.id);
+    if (isAnvilChain) {
       await ethCheatCodes.setAutomine(true);
     }
 
@@ -464,7 +463,7 @@ export async function setup(
     Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
-    if (enableAutomine) {
+    if (isAnvilChain) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
     }
@@ -487,7 +486,10 @@ export async function setup(
       dateProvider,
       opts.anvilTestWatcherOpts,
     );
-    if (!opts.disableAnvilTestWatcher) {
+    // Watcher is only needed on the sandbox path. Anvil e2e tests use interval mining + cheat-code
+    // atomic dateProvider sync + CheckpointAutoProver instead.
+    const disableWatcher = opts.disableAnvilTestWatcher ?? isAnvilChain;
+    if (!disableWatcher) {
       await watcher.start();
     }
 
@@ -611,6 +613,17 @@ export async function setup(
 
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
 
+    let checkpointAutoProver: CheckpointAutoProver | undefined = undefined;
+    if (opts.testOnlyAutoProveAfterPublish && isAnvilChain && !opts.startProverNode && sequencerClient) {
+      checkpointAutoProver = new CheckpointAutoProver({
+        sequencer: sequencerClient.getSequencer(),
+        l2BlockSource: aztecNodeService.getBlockSource(),
+        rollupCheatCodes: cheatCodes.rollup,
+        log: logger,
+      });
+      checkpointAutoProver.start();
+    }
+
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
       (opts.initialValidators && opts.initialValidators.length > 0)
@@ -657,6 +670,7 @@ export async function setup(
 
     const teardown = async () => {
       try {
+        await checkpointAutoProver?.stop();
         await tryStop(wallet, logger);
         await tryStop(aztecNodeService, logger);
         await tryStop(proverNode, logger);
@@ -708,6 +722,7 @@ export async function setup(
       wallet,
       accounts,
       watcher,
+      checkpointAutoProver,
       acvmConfig,
       bbConfig,
       directoryToCleanup,

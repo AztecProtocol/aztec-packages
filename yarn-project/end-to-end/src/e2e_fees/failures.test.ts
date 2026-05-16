@@ -48,11 +48,9 @@ describe('e2e_fees failures', () => {
     aztecNode = t.aztecNode;
 
     // Prove up until the current state by just marking it as proven.
-    // Then turn off the watcher to prevent it from keep proving
     await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
-    t.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {

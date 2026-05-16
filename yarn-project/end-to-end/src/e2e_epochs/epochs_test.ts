@@ -150,7 +150,6 @@ export class EpochsTestContext {
     const context = await setup(
       useHardcodedAccount ? 0 : (opts.numberOfAccounts ?? 0),
       {
-        automineL1Setup: true,
         checkIntervalMs: 50,
         archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
         worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,

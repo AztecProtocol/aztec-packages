@@ -26,8 +26,6 @@ describe('e2e_genesis_timestamp', () => {
       },
       { syncChainTip: 'proven' },
     );
-
-    context.watcher.setIsMarkingAsProven(false);
   });
 
   afterEach(() => context.teardown());

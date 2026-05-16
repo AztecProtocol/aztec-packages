@@ -228,8 +228,6 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         onlyCheckpointed: true,
       });
       log.warn(`Stopping proof submission at checkpoint ${checkpointedProvenBlock.checkpointNumber} to allow drift`);
-      t.context.watcher.setIsMarkingAsProven(false);
-
       // Mine several checkpoints to ensure drift
       log.warn(`Mining blocks to allow drift`);
       await timesAsync(4, advanceCheckpoint);
