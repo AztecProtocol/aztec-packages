@@ -7,6 +7,11 @@ if semver check $REF_NAME; then
 fi
 
 function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   local hash
   # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
   # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.

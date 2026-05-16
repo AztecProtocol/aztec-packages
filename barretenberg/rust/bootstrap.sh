@@ -4,6 +4,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Hash depends on ts because ts generates the Rust bindings.
 function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
 }
 

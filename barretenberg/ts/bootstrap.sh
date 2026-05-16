@@ -7,6 +7,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 # with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
 # that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
 function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str \
     $(../cpp/bootstrap.sh hash) \
     $(cache_content_hash .rebuild_patterns) \
