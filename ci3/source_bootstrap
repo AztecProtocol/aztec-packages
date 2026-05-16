@@ -18,7 +18,7 @@ source "$root/ci3/source"
 
 # Silence parallel citation message before commands that may run parallel.
 case "$cmd" in
-  hash|test_cmds|bench_cmds)
+  hash|*_cmds)
     ;;
   *)
     if [ ! -f "$HOME/.parallel/will-cite" ]; then
