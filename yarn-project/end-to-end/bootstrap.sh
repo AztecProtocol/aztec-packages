@@ -25,8 +25,7 @@ function build {
 # Helper function to extract test names from a test file
 function extract_test_names {
   local test_file="$1"
-  grep -oP "(it|test)\s*\(\s*['\"].*?['\"]" "$test_file" | \
-    sed -E "s/(it|test)\s*\(\s*['\"](.+)['\"]/\2/"
+  grep -oP "(it|test)\s*\(\s*['\"]\K.*?(?=['\"])" "$test_file"
 }
 
 function test_cmds {
