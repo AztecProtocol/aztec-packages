@@ -10,9 +10,14 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    // TODO(kill-non-pipelined): re-enable pipelining once B1 (world-state fork lifecycle) is
-    // fixed — BlacklistTokenContractTest.applyBaseSetup runs two 86400s warps which time out
-    // mineBlock under pipelining. See PIPELINING_GOTCHAS.md.
+    // TODO(palla/pipelining): blocked on B7 (simulator + inboxLag mismatch in
+    // `AztecNodeService.simulatePublicCalls`). The huge-warp path itself works fine under
+    // pipelining when paired with `cheatCodes.rollup.markAsProven()` before the warp + a retry on
+    // `aztecNode.mineBlock` (see PIPELINING_GOTCHAS.md "Notes from Agent D" for the 5-iteration
+    // investigation). But every `simulate()` call after the warp throws `L1ToL2MessagesNotReadyError:
+    // Cannot get L1 to L2 messages for checkpoint N: inbox tree in progress is N, messages not yet
+    // sealed`, which is the same B7 source bug blocking `e2e_bot`, `e2e_avm_simulator`, and the
+    // owner-handled fees tests. Re-attempt this opt-in once B7 is fixed.
     await t.setup();
     // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
     await t.applyMint();

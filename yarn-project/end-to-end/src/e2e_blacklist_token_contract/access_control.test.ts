@@ -6,6 +6,10 @@ describe('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
   beforeAll(async () => {
+    // TODO(palla/pipelining): blocked on B7 — see PIPELINING_GOTCHAS.md "Notes from Agent D".
+    // access_control has 4x repeated huge warps so it's the worst case for the warp path, but
+    // the warp itself is no longer the issue once B1+markAsProven+mineBlock-retry is applied —
+    // the test fails on the first simulate() call after the warp because of B7.
     await t.setup();
   });
 

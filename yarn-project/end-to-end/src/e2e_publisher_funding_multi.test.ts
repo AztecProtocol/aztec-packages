@@ -83,6 +83,16 @@ describe('e2e_publisher_funding_multi', () => {
     ];
 
     let sequencerClient: SequencerClient | undefined;
+    // TODO(palla/pipelining): un-opt-in from PIPELINING_SETUP_OPTS — under pipelining the first
+    // funding cycle works (~T+120s: low balances detected, `Funded 2 publishers` logged), but the
+    // second `RunningPromise.triggerFundingIfNeeded` cycle never fires. The poll loop logs
+    // `PublisherManager initialized`, `Funded 2 publishers`, and then is silent until teardown.
+    // Confirmed locally with ANVIL_PORT=8553 on merge-train/spartan (Agent D, 2026-05-15) — same
+    // symptom Agent B documented. The expected next cycle at T+240s would have detected the
+    // organically depleted publishers (each at ~1.75 ETH < 2 ETH threshold) and funded again, but
+    // the RunningPromise has gone silent. Looks like a `RunningPromise` / funder-loop interaction
+    // bug in `publisher_manager.ts`'s `loadStateAndResumeMonitoring` path — see notes in
+    // PIPELINING_GOTCHAS.md "Notes from Agent D — publisher_funding + blacklist".
     ({
       teardown,
       logger,

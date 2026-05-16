@@ -20,6 +20,7 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
+import { jest } from '@jest/globals';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -30,6 +31,12 @@ const COMMITTEE_SIZE = VALIDATOR_COUNT - 2;
 const PUBLISHER_COUNT = 2;
 
 describe('e2e_multi_validator_node', () => {
+  // Each test deploys a contract and waits for it to be proven. Under pipelining with
+  // `minTxsPerBlock=1` and no test-driven empty checkpoints, the chain advances at wall-clock
+  // pace (12s per L2 slot); reaching the end of the deploy epoch plus a prover round exceeds
+  // the default 300s jest test timeout.
+  jest.setTimeout(15 * 60 * 1000);
+
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;
@@ -196,8 +203,22 @@ describe('e2e_multi_validator_node', () => {
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender()!.toString());
+    const signers = attestations.map(att => att.getSender()!.toString().toLowerCase());
+    const withdrawnValidators = [validatorAddresses[VALIDATOR_COUNT - 1], validatorAddresses[VALIDATOR_COUNT - 2]].map(
+      a => a.toLowerCase(),
+    );
 
-    expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, COMMITTEE_SIZE)));
+    // The test's motivation: validators that initiated withdraw must not produce attestations,
+    // even if they're still in the committee at attestation time (the active validator set is
+    // computed `lagInEpochsForValidatorSet` epochs before the committee, so initiate-withdraw
+    // doesn't necessarily eject them by then). The original assertion pinned the committee to
+    // `validators[0..COMMITTEE_SIZE]`, but committee selection is randomized over the active
+    // set — the resulting subset is non-deterministic.
+    const withdrawnSigners = signers.filter(s => withdrawnValidators.includes(s));
+    expect(withdrawnSigners).toEqual([]);
+
+    // Every signer must be one of the original validator keys.
+    const validatorAddressesLower = validatorAddresses.map(a => a.toLowerCase());
+    expect(signers.every(s => validatorAddressesLower.includes(s))).toBe(true);
   });
 });
