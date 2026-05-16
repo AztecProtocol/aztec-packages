@@ -214,14 +214,12 @@ function test_cmds {
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
     case "$test" in
-      prover-node*|p2p*|ethereum*|aztec*|prover-client/src/test*|stdlib/src/l1-contracts*|ivc-integration/src/chonk_browser*|blob-client/src/server*)
-        prefix+=":ISOLATE=1:NAME=$test"
-        ;;
-    esac
-
-    case "$test" in
       ivc-integration/src/chonk_browser*)
+        prefix+=":ISOLATE=1:NAME=$test"
         prefix+=":NET=1"
+        ;;
+      prover-node*|p2p*|ethereum*|aztec*|prover-client/src/test*|stdlib/src/l1-contracts*|blob-client/src/server*)
+        prefix+=":ISOLATE=1:NAME=$test"
         ;;
     esac
 
