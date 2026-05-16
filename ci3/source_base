@@ -2,7 +2,11 @@
 # Should work on old versions of bash.
 
 # Enter our script directory, allowing usage of scripts from any directory.
-[ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
+if [ -z "${NO_CD:-}" ]; then
+  script_dir=${0%/*}
+  [ "$script_dir" = "$0" ] && script_dir=.
+  cd "$script_dir"
+fi
 
 # We export so we can use from exported functions.
 export root=${root:-$(git rev-parse --show-toplevel)}
