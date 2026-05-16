@@ -120,6 +120,15 @@ function compile_all_projects {
   get_projects | compile_project
 }
 
+function upload_compile_all_cache {
+  local artifact=$1
+  if [[ "$artifact" == *"disabled-cache"* ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    cache_upload "$artifact" .
+  else
+    cache_upload "$artifact" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+  fi
+}
+
 function compile_all {
   set -euo pipefail
   local hash=$(hash)
@@ -163,11 +172,11 @@ function compile_all {
   cat joblog.txt
 
   if [ "$CI" -eq 1 ]; then
-    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+    upload_compile_all_cache "yarn-project-$hash.tar.gz"
   fi
 }
 
-export -f compile_project format lint get_projects compile_all hash
+export -f compile_project format lint get_projects compile_all hash upload_compile_all_cache
 
 function build {
   echo_header "yarn-project build"

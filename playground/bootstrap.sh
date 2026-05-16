@@ -13,6 +13,15 @@ function get_test_hash {
   fi
 }
 
+function upload_build_cache {
+  local artifact=$1
+  if [[ "$artifact" == *"disabled-cache"* ]] || [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    cache_upload "$artifact" .
+  else
+    cache_upload "$artifact" $(git ls-files --others --ignored --exclude-standard | grep -vE '^"?node_modules/')
+  fi
+}
+
 function build {
   echo_header "playground build"
   npm_install_deps
@@ -20,7 +29,7 @@ function build {
   local hash=$(get_hash)
   if ! cache_download playground-$hash.tar.gz; then
     denoise 'yarn build'
-    cache_upload playground-$hash.tar.gz $(git ls-files --others --ignored --exclude-standard | grep -vE '^"?node_modules/')
+    upload_build_cache playground-$hash.tar.gz
   fi
 }
 
