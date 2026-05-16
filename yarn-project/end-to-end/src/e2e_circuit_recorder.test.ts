@@ -3,7 +3,7 @@ import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
 import fs from 'fs/promises';
 import path from 'path';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { FAST_E2E_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 /**
@@ -17,7 +17,7 @@ describe('Circuit Recorder', () => {
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
 
     // Run setup which deploys an account contract and runs kernels
-    const { teardown } = await setup(1, { ...PIPELINING_SETUP_OPTS });
+    const { teardown } = await setup(1, { ...FAST_E2E_SETUP_OPTS });
 
     // Check recording directory exists
     const dirExists = await fs.stat(RECORD_DIR).then(

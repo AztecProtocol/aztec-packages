@@ -4,7 +4,7 @@ import { StaticChildContract } from '@aztec/noir-test-contracts.js/StaticChild';
 import { StaticParentContract } from '@aztec/noir-test-contracts.js/StaticParent';
 
 import {
-  PIPELINING_SETUP_OPTS,
+  FAST_E2E_SETUP_OPTS,
   STATIC_CALL_STATE_MODIFICATION_ERROR,
   STATIC_CONTEXT_ASSERTION_ERROR,
 } from './fixtures/fixtures.js';
@@ -23,7 +23,7 @@ describe('e2e_static_calls', () => {
       teardown,
       wallet,
       accounts: [owner],
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...FAST_E2E_SETUP_OPTS }));
     sender = owner;
     ({ contract: parentContract } = await StaticParentContract.deploy(wallet).send({ from: owner }));
     ({ contract: childContract } = await StaticChildContract.deploy(wallet).send({ from: owner }));

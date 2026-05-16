@@ -5,7 +5,7 @@ import { NFTContract } from '@aztec/noir-contracts.js/NFT';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { FAST_E2E_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
@@ -31,7 +31,7 @@ describe('NFT', () => {
 
   beforeAll(async () => {
     let accounts: AztecAddress[];
-    ({ teardown, wallet, accounts } = await setup(4, { ...PIPELINING_SETUP_OPTS }));
+    ({ teardown, wallet, accounts } = await setup(4, { ...FAST_E2E_SETUP_OPTS }));
     [adminAddress, minterAddress, user1Address, user2Address] = accounts;
 
     ({ contract: nftContract } = await NFTContract.deploy(wallet, adminAddress, 'FROG', 'FRG').send({

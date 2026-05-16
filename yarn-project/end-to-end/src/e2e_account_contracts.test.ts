@@ -17,7 +17,7 @@ import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { FAST_E2E_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
 import { AztecNodeProxy } from './test-wallet/utils.js';
@@ -62,7 +62,7 @@ const itShouldBehaveLikeAnAccountContract = (
       };
 
       ({ logger, teardown, aztecNode } = await setup(0, {
-        ...PIPELINING_SETUP_OPTS,
+        ...FAST_E2E_SETUP_OPTS,
         initialFundedAccounts: [accountData],
       }));
       wallet = await TestWalletInternals.create(aztecNode);
