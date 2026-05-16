@@ -57,7 +57,7 @@ struct VerifyRequest {
     uint64_t request_id = 0;
     uint32_t vk_index = 0; // Index into the VK list provided at start
     ChonkProof proof;
-    std::chrono::steady_clock::time_point enqueue_time;
+    std::chrono::steady_clock::time_point enqueue_time{};
 };
 
 #ifndef __wasm__

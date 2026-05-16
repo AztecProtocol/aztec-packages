@@ -211,7 +211,10 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
         is_small_table ? multitable_bits - bits_covered_by_previous_tables_in_multitable : BITS_PER_TABLE;
     const auto table_size = static_cast<size_t>(1ULL << table_bits);
 
-    BasicTable table{ .id = id, .table_index = basic_table_index, .use_twin_keys = false };
+    BasicTable table;
+    table.id = id;
+    table.table_index = basic_table_index;
+    table.use_twin_keys = false;
 
     const auto& basic_table = fixed_base_tables()[multitable_index][table_index];
 
