@@ -7,12 +7,18 @@
 # These are used when iterating on build infrastructure:
 # - AZTEC_CACHE_NO_SCRIPTS: Don't include any shell files (namely bootstrap.sh) in cache patterns.
 # - AZTEC_CACHE_COMMIT: Compute the content hash for artifacts from an earlier commit.
-NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 if [[ "$#" = 0 ]]; then
-  echo "Error: No arguments provided."
+  echo "Error: No arguments provided." >&2
   exit 1
 fi
+
+if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo "disabled-cache"
+  exit 0
+fi
+
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
 PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
