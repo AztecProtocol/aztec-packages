@@ -198,40 +198,48 @@ function test_cmds {
   # kv-store: per-file fan-out handled by kv-store/bootstrap.sh test_cmds.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # Skip benchmarks here.
-    [[ "$test" =~ \.bench\.test\.ts$ ]] && continue
+    [[ "$test" == *.bench.test.ts ]] && continue
 
     local prefix=$hash
     local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
-      prefix+=":ISOLATE=1:NAME=$test"
-    fi
+    case "$test" in
+      prover-node*|p2p*|ethereum*|aztec*|prover-client/src/test*|stdlib/src/l1-contracts*|ivc-integration/src/chonk_browser*|blob-client/src/server*)
+        prefix+=":ISOLATE=1:NAME=$test"
+        ;;
+    esac
 
-    if [[ "$test" =~ ^ivc-integration/src/chonk_browser ]]; then
-      prefix+=":NET=1"
-    fi
+    case "$test" in
+      ivc-integration/src/chonk_browser*)
+        prefix+=":NET=1"
+        ;;
+    esac
 
     # Boost some tests resources.
-    if [[ "$test" =~ testbench ]]; then
+    if [[ "$test" == *testbench* ]]; then
       prefix+=":CPUS=10:MEM=16g"
-    elif [[ "$test" =~ avm_proving_tests || "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
+    elif [[ "$test" == *avm_proving_tests* || "$test" == *rollup_ivc_integration* || "$test" == *avm_integration* ]]; then
       prefix+=":CPUS=16:MEM=16g"
-    elif [[ "$test" =~ ^ivc-integration/ ]]; then
+    elif [[ "$test" == ivc-integration/* ]]; then
       prefix+=":CPUS=8"
     fi
 
     # Add debug logging for tests that require a bit more info
-    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
-      cmd_env+=" LOG_LEVEL=debug"
-    elif [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
-    elif [[ "$test" =~ e2e_p2p ]]; then
-      cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
-    fi
+    case "$test" in
+      p2p/src/client/p2p_client.test.ts|p2p/src/services/discv5/discv5_service.test.ts|p2p/src/client/p2p_client.integration.test.ts)
+        cmd_env+=" LOG_LEVEL=debug"
+        ;;
+      *rollup_ivc_integration*|*avm_integration*)
+        cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
+        ;;
+      *e2e_p2p*)
+        cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
+        ;;
+    esac
 
     # Enable real proofs in prover-client integration tests only on CI full.
-    if [[ "$test" =~ ^prover-client/src/test/ ]]; then
+    if [[ "$test" == prover-client/src/test/* ]]; then
       if [ "$CI_FULL" -eq 1 ]; then
         prefix+=":CPUS=16:MEM=96g"
         cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
