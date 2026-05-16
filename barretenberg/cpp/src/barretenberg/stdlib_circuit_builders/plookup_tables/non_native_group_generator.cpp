@@ -90,7 +90,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_xlo_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc xlo OOB");
     return { ecc_generator_table<G1>::generator_xlo_table[index].first,
              ecc_generator_table<G1>::generator_xlo_table[index].second };
 }
@@ -102,7 +102,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_xhi_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc xhi OOB");
     return { ecc_generator_table<G1>::generator_xhi_table[index].first,
              ecc_generator_table<G1>::generator_xhi_table[index].second };
 }
@@ -115,7 +115,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xlo_endo_values(const std::ar
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc xlo_endo OOB");
     return { ecc_generator_table<G1>::generator_endo_xlo_table[index].first,
              ecc_generator_table<G1>::generator_endo_xlo_table[index].second };
 }
@@ -128,7 +128,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xhi_endo_values(const std::ar
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc xhi_endo OOB");
     return { ecc_generator_table<G1>::generator_endo_xhi_table[index].first,
              ecc_generator_table<G1>::generator_endo_xhi_table[index].second };
 }
@@ -140,7 +140,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_ylo_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc ylo OOB");
     return { ecc_generator_table<G1>::generator_ylo_table[index].first,
              ecc_generator_table<G1>::generator_ylo_table[index].second };
 }
@@ -152,7 +152,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_yhi_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc yhi OOB");
     return { ecc_generator_table<G1>::generator_yhi_table[index].first,
              ecc_generator_table<G1>::generator_yhi_table[index].second };
 }
@@ -165,7 +165,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xyprime_values(const std::arr
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc xyprime OOB");
     return { ecc_generator_table<G1>::generator_xyprime_table[index].first,
              ecc_generator_table<G1>::generator_xyprime_table[index].second };
 }
@@ -178,7 +178,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xyprime_endo_values(const std
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
-    BB_ASSERT(index < TABLE_SIZE, "ecc generator table key out of range");
+    BB_ASSERT(index < TABLE_SIZE, "ecc xyprime_endo OOB");
     return { ecc_generator_table<G1>::generator_endo_xyprime_table[index].first,
              ecc_generator_table<G1>::generator_endo_xyprime_table[index].second };
 }
