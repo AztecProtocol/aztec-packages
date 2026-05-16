@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
 
 # nargo binary path relative to the crate root (this directory)
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}

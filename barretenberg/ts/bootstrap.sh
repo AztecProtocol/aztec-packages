@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
 
 # We mix if we're a release into the hash, as releases have all architectures built.
 # Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds

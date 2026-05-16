@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
 
 # Hash depends on ts because ts generates the Rust bindings.
 function get_hash {

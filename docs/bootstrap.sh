@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
 
 repo_root=$(git rev-parse --show-toplevel)
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}

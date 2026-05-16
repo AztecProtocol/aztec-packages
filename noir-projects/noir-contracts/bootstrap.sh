@@ -16,7 +16,7 @@
 # - Just ask me (charlie) for guidance if you're suffering.
 # - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
 
 # entrypoint for docs
 if [ -n "${DOCS_WORKING_DIR:-}" ]; then

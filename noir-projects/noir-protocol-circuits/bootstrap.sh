@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Look at noir-contracts bootstrap.sh for some tips r.e. bash.
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
 
 # entrypoint for mock circuits
 if [ -n "${NOIR_PROTOCOL_CIRCUITS_WORKING_DIR:-}" ]; then

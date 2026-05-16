@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
 
 if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
   echo "AVM_TRANSPILER=0, skipping."
