@@ -25,10 +25,16 @@ if [[ "$PATH" != *"$ci3:" ]]; then
 fi
 
 if [ -z "${AZTEC_OS:-}" ]; then
-  case "$(uname -s)" in
-    Linux) export AZTEC_OS=linux ;;
-    Darwin) export AZTEC_OS=macos ;;
-    *) export AZTEC_OS=unknown ;;
+  case "$OSTYPE" in
+    linux*) export AZTEC_OS=linux ;;
+    darwin*) export AZTEC_OS=macos ;;
+    *)
+      case "$(uname -s)" in
+        Linux) export AZTEC_OS=linux ;;
+        Darwin) export AZTEC_OS=macos ;;
+        *) export AZTEC_OS=unknown ;;
+      esac
+      ;;
   esac
 fi
 
