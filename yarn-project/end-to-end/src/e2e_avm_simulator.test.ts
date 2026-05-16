@@ -9,6 +9,7 @@ import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 600_000;
@@ -22,17 +23,12 @@ describe('e2e_avm_simulator', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    // TODO(kill-non-pipelined): runs under legacy until §6 B7 (simulator + inboxLag mismatch in
-    // AztecNodeService.simulatePublicCalls) is fixed. Test uses `.simulate(...)` heavily and
-    // observed Rollup__InvalidArchive cascade ~12min into the run, consistent with archiver/L1
-    // drift triggered by pipelined simulate path. Same un-opt-in pattern as e2e_bot
-    // (commit e32ea4fb60) and e2e_fees/failures (commit eb542676f8).
     ({
       teardown,
       wallet,
       aztecNode,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...PIPELINING_SETUP_OPTS, aztecProofSubmissionEpochs: 640 }));
     await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
   });
 
