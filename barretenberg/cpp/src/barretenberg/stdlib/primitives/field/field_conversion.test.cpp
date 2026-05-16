@@ -1,6 +1,7 @@
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/test_utils.hpp"
 #include <gtest/gtest.h>
 

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wc99-designator"
 // This is a global variable, so that the execution handling class could alter it and signal to the input tester that
