@@ -50,7 +50,7 @@ export class Barretenberg extends AsyncApi {
       // Explicit backend required - no fallback
       const backend = await createAsyncBackend(options.backend, options, logger);
       if (!options.skipSrsInit && (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)) {
-        await backend.initSRSChonk();
+        await backend.initSRSChonk(options.maxCircuitSize);
       }
       return backend;
     }
@@ -62,7 +62,7 @@ export class Barretenberg extends AsyncApi {
         logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
         const backend = await createAsyncBackend(BackendType.Wasm, options, logger);
         if (!options.skipSrsInit) {
-          await backend.initSRSChonk();
+          await backend.initSRSChonk(options.maxCircuitSize);
         }
         return backend;
       }
@@ -70,7 +70,7 @@ export class Barretenberg extends AsyncApi {
       logger(`In browser, using WASM over worker backend.`);
       const backend = await createAsyncBackend(BackendType.WasmWorker, options, logger);
       if (!options.skipSrsInit) {
-        await backend.initSRSChonk();
+        await backend.initSRSChonk(options.maxCircuitSize);
       }
       return backend;
     }

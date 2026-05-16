@@ -67,4 +67,21 @@ export type BackendOptions = {
    * don't need proving/verification capabilities.
    */
   skipSrsInit?: boolean;
+
+  /**
+   * @description Maximum circuit size (as a power of 2) for SRS initialization.
+   * Controls how many BN254 G1 points are loaded into the CRS.
+   * Default: 2^20 (1,048,576) on desktop, 2^18 (262,144) on iOS.
+   *
+   * Increase this if your circuits exceed the default. For Chonk/ClientIVC proving
+   * with multiple circuits, the op queue grows across accumulated circuits and may
+   * require a larger SRS (e.g. 2 ** 21).
+   *
+   * Only affects WASM backends — native backends grow the SRS dynamically.
+   *
+   * @example
+   * // For large Chonk circuits:
+   * const api = await Barretenberg.new({ maxCircuitSize: 2 ** 21 });
+   */
+  maxCircuitSize?: number;
 };
