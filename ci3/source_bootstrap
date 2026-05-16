@@ -10,6 +10,10 @@ if (( BASH_VERSINFO[0] < 5 )); then
 fi
 
 root=${root:-$(git rev-parse --show-toplevel)}
+cmd=${1:-}
+[ -n "$cmd" ] && shift
+export BOOTSTRAP_CMD=$cmd
+
 source "$root/ci3/source"
 
 # Silence parallel citation message.
@@ -17,9 +21,6 @@ if [ ! -f "$HOME/.parallel/will-cite" ]; then
   mkdir -p "$HOME/.parallel"
   touch "$HOME/.parallel/will-cite"
 fi
-
-cmd=${1:-}
-[ -n "$cmd" ] && shift
 
 case "$cmd" in
   release)
