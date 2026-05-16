@@ -93,6 +93,15 @@ export class ShaderManager {
   public num_limbs_f32_22: number;
   public n0_f32_22: bigint;
   public p_limbs_f32_22_str: string;
+  // Pre-rendered u32 Montgomery product source used as the
+  // `montgomery_product_funcs` mustache partial by every MSM shader that
+  // needs a base-field multiply. Defaults to the Karatsuba + Yuval body
+  // (see `renderKaratYuvalMont`), which benches ~27% faster than the
+  // runtime-loop CIOS at n=2^20, k=100 on Apple GPU. Both bodies expose
+  // the same `fn montgomery_product(x, y) -> BigInt` symbol and the same
+  // `get_p` / `conditional_reduce` helpers, so swapping the partial is
+  // a drop-in change at every callsite.
+  public mont_product_src: string;
   public curveConfig: CurveConfig;
   public recompile = '';
 
@@ -138,6 +147,11 @@ export class ShaderManager {
     this.num_limbs_f32_22 = params_f32_22.num_words;
     this.n0_f32_22 = params_f32_22.n0;
     this.p_limbs_f32_22_str = gen_p_limbs_f32(this.p, this.num_limbs_f32_22, 22);
+
+    // Render the Karatsuba+Yuval Mont body once. This is the default
+    // u32 multiplier used by every MSM shader that includes the
+    // `montgomery_product_funcs` mustache partial.
+    this.mont_product_src = this.renderKaratYuvalMont();
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -199,7 +213,7 @@ export class ShaderManager {
         bigint_funcs,
         field_funcs,
         barrett_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         extract_word_from_bytes_le_funcs,
       },
     );
@@ -236,7 +250,7 @@ export class ShaderManager {
         bigint_funcs,
         field_funcs,
         barrett_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         extract_word_from_bytes_le_funcs,
       },
     );
@@ -268,7 +282,7 @@ export class ShaderManager {
         bigint_funcs,
         field_funcs,
         barrett_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         fr_pow_funcs,
       },
     );
@@ -354,7 +368,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
         ec_funcs: ec_bn254_funcs,
       },
@@ -379,7 +393,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
         fr_pow_funcs,
       },
@@ -405,7 +419,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
         fr_pow_funcs,
       },
@@ -446,7 +460,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
       },
     );
@@ -470,7 +484,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
       },
     );
@@ -497,7 +511,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
         fr_pow_funcs,
         ec_funcs: ec_bn254_funcs,
@@ -525,7 +539,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
       },
     );
@@ -551,7 +565,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
       },
     );
@@ -575,7 +589,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
       },
     );
@@ -630,7 +644,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
         ec_funcs: ec_bn254_funcs,
       },
@@ -657,7 +671,7 @@ export class ShaderManager {
       {
         structs,
         bigint_funcs,
-        montgomery_product_funcs,
+        montgomery_product_funcs: this.mont_product_src,
         field_funcs,
         ec_funcs: ec_bn254_funcs,
       },
@@ -674,9 +688,12 @@ export class ShaderManager {
   ): string {
     const structs_src = mustache.render(structs, { num_words: this.num_words });
     const bigint_src = mustache.render(bigint_funcs, {});
+    // 'karat' reuses the pre-rendered class-level default; 'cios' renders
+    // the original mitschabaude template inline so the bench can compare
+    // both bodies even though karat is the production default.
     const mont_src =
       variant === 'karat'
-        ? this.renderKaratYuvalMont()
+        ? this.mont_product_src
         : mustache.render(montgomery_product_funcs, {
             num_words: this.num_words,
             word_size: this.word_size,
