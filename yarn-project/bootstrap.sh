@@ -196,13 +196,15 @@ function test_cmds {
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
-  # kv-store: per-file fan-out handled by kv-store/bootstrap.sh test_cmds.
+  # kv-store: per-file fan-out emitted below.
+  local prefix
+  local cmd_env
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # Skip benchmarks here.
     [[ "$test" == *.bench.test.ts ]] && continue
 
-    local prefix=$hash
-    local cmd_env=""
+    prefix=$hash
+    cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
     case "$test" in
