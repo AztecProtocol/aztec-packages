@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-export hash=$(cache_content_hash .rebuild_patterns)
+function get_hash {
+  cache_content_hash .rebuild_patterns
+}
 
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
 # We append the hash as a comment. This ensures the test harness and cache and skip future runs.
 function test_cmds {
+  local hash
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    hash=disabled-cache
+  else
+    hash=$(get_hash)
+  fi
+
   if [ $(arch) == "amd64" ]; then
     echo -e "$hash barretenberg/bbup/run_test.sh 0.72.1"
   fi
@@ -21,7 +30,7 @@ function test {
 
 case "$cmd" in
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"
