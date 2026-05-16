@@ -22,6 +22,7 @@ NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
 PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
+repo_root=${REPO_PATH:-$root}
 
 rebuild_patterns=()
 for arg in "$@"; do
@@ -38,7 +39,7 @@ for arg in "$@"; do
       echo_stderr "Error: Directory '$arg' does not exist."
       exit 1
     fi
-    arg=$(realpath --relative-to="$(git rev-parse --show-toplevel)" "$arg")
+    arg=$(realpath --relative-to="$repo_root" "$arg")
     rebuild_patterns+="$arg"$'\n'
   fi
 done
@@ -48,7 +49,7 @@ GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
 AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
 
 # use git repo root because that is where our patterns are focused
-cd "${REPO_PATH:-$(git rev-parse --show-toplevel)}"
+cd "$repo_root"
 
 diff="$({
   git diff --name-only

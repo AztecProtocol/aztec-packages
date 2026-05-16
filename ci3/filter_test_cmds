@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 # Inject MAKEFILE_TARGET into hash prefix if set (strip -tests suffix).
 # This allows bisect_flake and grind_test to do targeted builds.

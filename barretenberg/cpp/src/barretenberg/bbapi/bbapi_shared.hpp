@@ -7,23 +7,31 @@
  * including circuit input types and proof system settings.
  */
 
-#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
 #endif
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
+
+namespace acir_format {
+struct AcirFormat;
+}
+
+namespace bb {
+class IVCBase;
+}
 
 namespace bb::bbapi {
 
@@ -182,7 +190,7 @@ struct BBApiRequest {
     // Name of the last loaded circuit
     std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate
-    std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
+    std::shared_ptr<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
     // Policy for handling verification keys during accumulation

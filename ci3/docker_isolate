@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Isolate the network stack etc using docker.
 # Carefully set things so we can use our git repo mounted as-is.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 cmd=$1
 export CPUS=${CPUS:-2}

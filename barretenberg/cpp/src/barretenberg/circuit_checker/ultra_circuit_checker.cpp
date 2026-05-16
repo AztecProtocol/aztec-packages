@@ -1,10 +1,21 @@
 #include "ultra_circuit_checker.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <unordered_set>
 
 namespace bb {
+
+bool CircuitChecker::check(const UltraCircuitBuilder& builder)
+{
+    return UltraCircuitChecker::check(builder);
+}
+
+bool CircuitChecker::check(const MegaCircuitBuilder& builder)
+{
+    return UltraCircuitChecker::check(builder);
+}
 
 template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>()
 {

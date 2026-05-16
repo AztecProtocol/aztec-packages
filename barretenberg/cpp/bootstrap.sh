@@ -123,21 +123,37 @@ function write_gtest_inventory {
   local inventory=$build_dir/.aztec-gtest-tests
   local tmp=$inventory.tmp
   local ctest_file
-  local ctest_base
-  local bin_name
+  local ctest_files=()
 
   [ -d "$build_dir" ] || return
-  : > "$tmp"
-  while IFS='|' read -r bin_name ctest_file; do
-    list_tests_from_ctest "$ctest_file" | while read -r test; do
-      printf '%s\t%s\n' "$bin_name" "$test"
-    done
-  done < <(
-    while IFS= read -r ctest_file; do
-      ctest_base=${ctest_file##*/}
-      printf '%s|%s\n' "${ctest_base%%\[*}" "$ctest_file"
-    done < <(find "$build_dir" -type f -name '*_tests[[]*[]]_tests.cmake') | sort
-  ) >> "$tmp"
+  while IFS= read -r -d '' ctest_file; do
+    ctest_files+=("$ctest_file")
+  done < <(find "$build_dir" -type f -name '*_tests[[]*[]]_tests.cmake' -print0 | sort -z)
+
+  if [ "${#ctest_files[@]}" -gt 0 ]; then
+    awk '
+      FNR == 1 {
+        bin = FILENAME
+        sub(/^.*\//, "", bin)
+        sub(/\[.*/, "", bin)
+      }
+      /--gtest_filter=/ {
+        line = $0
+        while (match(line, /--gtest_filter=/)) {
+          line = substr(line, RSTART + RLENGTH)
+          test = line
+          sub(/\].*/, "", test)
+          sub(/[" )].*/, "", test)
+          if (test != "" && test !~ /DISABLED_/) {
+            print bin "\t" test
+          }
+          line = substr(line, length(test) + 1)
+        }
+      }
+    ' "${ctest_files[@]}" > "$tmp"
+  else
+    : > "$tmp"
+  fi
 
   if [ -s "$tmp" ]; then
     mv "$tmp" "$inventory"
@@ -314,61 +330,67 @@ function build {
   fi
 }
 
+function emit_native_test_cmd {
+  local bin_name=$1
+  local test=$2
+
+  # Skip heavy recursion tests in debug builds — they take 400-600s+ and the same
+  # code paths are already exercised (with assertions) by faster tests in the suite.
+  # Keep WithoutPredicate/1.GenerateVKFromConstraints (241s) so that the debug-only
+  # native_verification_debug path in honk_recursion_constraint.cpp is still exercised.
+  # None of the other skipped suites exercise unique debug-only (#ifndef NDEBUG) code paths.
+  if [[ "$native_preset" == *debug* ]] && [[ "$test" =~ ^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest|AvmRecursionInnerCircuitTests|AvmRecursionConstraintTest|AvmRecursiveTests\.TwoLayer|PaddingVariants/AvmRecursiveTestsParameterized\.TwoLayer|BoomerangTwoLayerAvmRecursiveVerifierTests|ECCVMRecursiveTests|GoblinRecursiveVerifierTests|GoblinAvmRecursiveVerifierTests|BoomerangGoblinRecursiveVerifierTests|BoomerangGoblinAvmRecursiveVerifierTests) ]]; then
+    if [[ "$test" != "HonkRecursionConstraintTestWithoutPredicate/1.GenerateVKFromConstraints" ]]; then
+      return
+    fi
+  fi
+
+  local prefix=$hash
+  # A little extra resource for these tests.
+  # IPARecursiveTests fails with 2 threads.
+  if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
+    prefix="$prefix:CPUS=4:MEM=8g"
+  fi
+  echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
+}
+
 function test_cmds_native {
   # E.g. build, build-debug or build-coverage
   cd $native_build_dir
 
-  declare -A inventory_tests=()
-  local inv_bin
-  local inv_test
-  if [ -f .aztec-gtest-tests ]; then
-    while IFS=$'\t' read -r inv_bin inv_test; do
-      inventory_tests["$inv_bin"]+="$inv_test"$'\n'
+  local bin_name
+  local test
+  if [ -s .aztec-gtest-tests ]; then
+    while IFS=$'\t' read -r bin_name test; do
+      [ -n "$bin_name" ] && [ -n "$test" ] || continue
+      emit_native_test_cmd "$bin_name" "$test"
     done < .aztec-gtest-tests
-  fi
+  else
+    declare -A discovered_tests=()
+    local bin
+    local ctest_file
+    local ctest_base
+    while IFS= read -r ctest_file; do
+      ctest_base=${ctest_file##*/}
+      discovered_tests["${ctest_base%%\[*}"]=$ctest_file
+    done < <(find . -type f -name '*_tests[[]*[]]_tests.cmake')
 
-  declare -A discovered_tests=()
-  local ctest_file
-  local ctest_base
-  while IFS= read -r ctest_file; do
-    ctest_base=${ctest_file##*/}
-    discovered_tests["${ctest_base%%\[*}"]=$ctest_file
-  done < <(find . -type f -name '*_tests[[]*[]]_tests.cmake')
+    for bin in ./bin/*_tests; do
+      bin_name=${bin##*/}
 
-  for bin in ./bin/*_tests; do
-    local bin_name=${bin##*/}
-
-    {
-      if [ -n "${inventory_tests[$bin_name]:-}" ]; then
-        printf '%s' "${inventory_tests[$bin_name]}"
-      elif [ -n "${discovered_tests[$bin_name]:-}" ]; then
-        list_tests_from_ctest "${discovered_tests[$bin_name]}"
-      else
-        $bin --gtest_list_tests | \
-          awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
-          grep -v 'DISABLED_'
-      fi
-    } | \
-      while read -r test; do
-        # Skip heavy recursion tests in debug builds — they take 400-600s+ and the same
-        # code paths are already exercised (with assertions) by faster tests in the suite.
-        # Keep WithoutPredicate/1.GenerateVKFromConstraints (241s) so that the debug-only
-        # native_verification_debug path in honk_recursion_constraint.cpp is still exercised.
-        # None of the other skipped suites exercise unique debug-only (#ifndef NDEBUG) code paths.
-        if [[ "$native_preset" == *debug* ]] && [[ "$test" =~ ^(HonkRecursionConstraintTest|ChonkRecursionConstraintTest|AvmRecursionInnerCircuitTests|AvmRecursionConstraintTest|AvmRecursiveTests\.TwoLayer|PaddingVariants/AvmRecursiveTestsParameterized\.TwoLayer|BoomerangTwoLayerAvmRecursiveVerifierTests|ECCVMRecursiveTests|GoblinRecursiveVerifierTests|GoblinAvmRecursiveVerifierTests|BoomerangGoblinRecursiveVerifierTests|BoomerangGoblinAvmRecursiveVerifierTests) ]]; then
-          if [[ "$test" != "HonkRecursionConstraintTestWithoutPredicate/1.GenerateVKFromConstraints" ]]; then
-            continue
-          fi
+      {
+        if [ -n "${discovered_tests[$bin_name]:-}" ]; then
+          list_tests_from_ctest "${discovered_tests[$bin_name]}"
+        else
+          $bin --gtest_list_tests | \
+            awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
+            grep -v 'DISABLED_'
         fi
-        local prefix=$hash
-        # A little extra resource for these tests.
-        # IPARecursiveTests fails with 2 threads.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|HonkRecursionConstraintTest|ChonkRecursionConstraintTest) ]]; then
-          prefix="$prefix:CPUS=4:MEM=8g"
-        fi
-        echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
+      } | while read -r test; do
+        emit_native_test_cmd "$bin_name" "$test"
       done || (echo "Failed to list tests in $bin" && exit 1)
-  done
+    done
+  fi
 
   # The pinned IVC inputs / VKs live in the public repo; the private fork
   # carries divergent circuits so the check is expected to fail there.
