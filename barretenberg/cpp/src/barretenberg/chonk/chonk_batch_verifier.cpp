@@ -184,6 +184,8 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
                 } catch (const std::exception& e) {
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
+                        .ipa_claim = {},
+                        .ipa_proof = {},
                         .all_checks_passed = false,
                         .error_message = std::string("reduce_to_ipa_claim threw: ") + e.what(),
                         .enqueue_time = req.enqueue_time,
@@ -192,6 +194,8 @@ std::vector<ChonkBatchVerifier::ReduceResult> ChonkBatchVerifier::parallel_reduc
                 } catch (...) {
                     results[idx] = ReduceResult{
                         .request_id = req.request_id,
+                        .ipa_claim = {},
+                        .ipa_proof = {},
                         .all_checks_passed = false,
                         .error_message = "reduce_to_ipa_claim threw unknown exception",
                         .enqueue_time = req.enqueue_time,
@@ -293,6 +297,7 @@ void ChonkBatchVerifier::emit_ok(const std::vector<ReduceResult>& results,
         on_result_(VerifyResult{
             .request_id = rr.request_id,
             .status = static_cast<uint8_t>(VerifyStatus::OK),
+            .error_message = "",
             .time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start),
             .time_in_verify_ms = rr.reduce_ms + ipa_ms,
             .batch_failure_count = depth,
