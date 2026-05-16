@@ -226,8 +226,24 @@ function test_cmds {
         prefix+=":ISOLATE=1:NAME=$test"
         prefix+=":NET=1"
         ;;
-      prover-node*|p2p*|ethereum*|aztec*|prover-client/src/test*|stdlib/src/l1-contracts*|blob-client/src/server*)
+      prover-client/src/test*)
         prefix+=":ISOLATE=1:NAME=$test"
+        if [ "$CI_FULL" -eq 1 ]; then
+          prefix+=":CPUS=16:MEM=96g"
+          cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
+        else
+          cmd_env+=" FAKE_PROOFS=1"
+        fi
+        ;;
+      p2p/src/client/p2p_client.test.ts|p2p/src/services/discv5/discv5_service.test.ts|p2p/src/client/p2p_client.integration.test.ts)
+        prefix+=":ISOLATE=1:NAME=$test"
+        cmd_env+=" LOG_LEVEL=debug"
+        ;;
+      prover-node*|p2p*|ethereum*|aztec*|stdlib/src/l1-contracts*|blob-client/src/server*)
+        prefix+=":ISOLATE=1:NAME=$test"
+        ;;
+      *e2e_p2p*)
+        cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
         ;;
     esac
 
@@ -245,28 +261,6 @@ function test_cmds {
         ;;
       ivc-integration/*)
         prefix+=":CPUS=8"
-        ;;
-    esac
-
-    # Add debug logging for tests that require a bit more info
-    case "$test" in
-      p2p/src/client/p2p_client.test.ts|p2p/src/services/discv5/discv5_service.test.ts|p2p/src/client/p2p_client.integration.test.ts)
-        cmd_env+=" LOG_LEVEL=debug"
-        ;;
-      *e2e_p2p*)
-        cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
-        ;;
-    esac
-
-    # Enable real proofs in prover-client integration tests only on CI full.
-    case "$test" in
-      prover-client/src/test/*)
-        if [ "$CI_FULL" -eq 1 ]; then
-          prefix+=":CPUS=16:MEM=96g"
-          cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
-        else
-          cmd_env+=" FAKE_PROOFS=1"
-        fi
         ;;
     esac
 
