@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(../bootstrap.sh hash)
-
 function bench {
   mkdir -p bench-out
 
