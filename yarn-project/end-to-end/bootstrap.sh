@@ -29,22 +29,20 @@ function extract_test_names {
     sed -E "s/(it|test)\s*\(\s*['\"](.+)['\"]/\2/"
 }
 
-# Helper to generate DUMP_AVM_INPUTS_TO_DIR env var setting for a test (empty if not dumping)
-function set_dump_avm {
-  [ -n "${DUMP_AVM_INPUTS_TO_DIR:-}" ] && echo "DUMP_AVM_INPUTS_TO_DIR=${DUMP_AVM_INPUTS_TO_DIR}/$1"
-}
-
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local hash=$(get_test_hash)
   local prefix="$hash:ISOLATE=1"
+  local dump_avm_base=${DUMP_AVM_INPUTS_TO_DIR:-}
 
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
-  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
+  local dump_avm=""
+  [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/e2e_block_building"
+  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $dump_avm $run_test_script simple e2e_block_building"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
@@ -71,11 +69,15 @@ function test_cmds {
         # Create a safe name for the individual test (replace spaces with underscores)
         local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
         local full_name="${name}_${safe_test_name}"
-        echo "$test_prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
+        local dump_avm=""
+        [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$full_name"
+        echo "$test_prefix:NAME=$full_name $dump_avm $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
     else
       # Regular test file - run the whole file
-      echo "$test_prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
+      local dump_avm=""
+      [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$name"
+      echo "$test_prefix:NAME=$name $dump_avm $run_test_script simple $test"
     fi
   done
 
