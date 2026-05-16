@@ -93,7 +93,9 @@ function compile {
   # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/).
   # Pass only contract packages so circuits in the shared docs workspace are not
   # treated as contract artifacts by the noir-contracts bootstrap.
-  DOCS_WORKING_DIR="$(cd .. && pwd)" \
+  BB_HASH=$(get_bb_hash) \
+    NOIR_HASH=$(get_noir_hash) \
+    DOCS_WORKING_DIR="$(cd .. && pwd)" \
     $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
 }
 

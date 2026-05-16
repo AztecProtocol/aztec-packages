@@ -27,10 +27,25 @@ export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 
-export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
-export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
-export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
+export BB=${BB:-$root/barretenberg/cpp/build/bin/bb}
+export NARGO=${NARGO:-$root/noir/noir-repo/target/release/nargo}
+
+function get_bb_hash {
+  if [ -z "${BB_HASH:-}" ]; then
+    BB_HASH=$($root/barretenberg/cpp/bootstrap.sh hash)
+    export BB_HASH
+  fi
+  echo "$BB_HASH"
+}
+
+function get_noir_hash {
+  if [ -z "${NOIR_HASH:-}" ]; then
+    NOIR_HASH=$($root/noir/bootstrap.sh hash)
+    export NOIR_HASH
+  fi
+  echo "$NOIR_HASH"
+}
+export -f get_bb_hash get_noir_hash
 
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
@@ -39,11 +54,12 @@ export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(mem
 # $1 is the contract name, $2 is the folder name (e.g. "contracts" or "examples")
 function get_contract_hash {
   local contract_path=$(get_contract_path "$1" "$2")
+  local noir_hash=$(get_noir_hash)
 
   if [ "$2" = "examples" ]; then
     # Called from docs
     hash_str \
-      $NOIR_HASH \
+      $noir_hash \
       $(cache_content_hash \
         ../avm-transpiler/.rebuild_patterns \
         ../barretenberg/cpp/.rebuild_patterns \
@@ -54,7 +70,7 @@ function get_contract_hash {
   else
     # Called from noir-contracts
     hash_str \
-      $NOIR_HASH \
+      $noir_hash \
       $(cache_content_hash \
         ../../avm-transpiler/.rebuild_patterns \
         ../../barretenberg/cpp/.rebuild_patterns \
@@ -137,7 +153,9 @@ export -f compile
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
-  echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
+  local bb_hash=$(get_bb_hash)
+  get_noir_hash >/dev/null
+  echo_stderr "Compiling contracts (bb-hash: $bb_hash)..."
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then
     folder_name="examples"
@@ -159,6 +177,13 @@ function build {
 }
 
 function test_cmds {
+  local bb_hash
+  if [ "${NO_CACHE:-0}" -eq 1 ] || [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+    bb_hash=disabled-cache
+  else
+    bb_hash=$(get_bb_hash)
+  fi
+
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then
     folder_name="examples"
@@ -167,7 +192,7 @@ function test_cmds {
   fi
 
   # Test bb aztec_process command
-  echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
+  echo "$bb_hash noir-projects/scripts/test_aztec_process.sh"
 
   local i=0
   if [ "${NO_CACHE:-0}" -eq 1 ] || [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
