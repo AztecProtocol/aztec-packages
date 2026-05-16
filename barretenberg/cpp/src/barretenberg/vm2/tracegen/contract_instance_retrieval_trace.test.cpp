@@ -28,6 +28,7 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
         .current_contract_class_id = FF(0xdeadbeefULL),
         .original_contract_class_id = FF(0xcafebabeULL),
         .initialization_hash = FF(0x11111111ULL),
+        .immutables_hash = FF(0x22222222ULL),
         .public_keys =
             PublicKeys{
                 .nullifier_key = { FF(0x100), FF(0x101) },
@@ -98,6 +99,7 @@ TEST(ContractInstanceRetrievalTraceGenTest, SingleEvent)
                       ROW_FIELD_EQ(contract_instance_retrieval_current_class_id, 0xdeadbeefULL),
                       ROW_FIELD_EQ(contract_instance_retrieval_original_class_id, 0xcafebabeULL),
                       ROW_FIELD_EQ(contract_instance_retrieval_init_hash, 0x11111111ULL),
+                      ROW_FIELD_EQ(contract_instance_retrieval_immutables_hash, 0x22222222ULL),
 
                       // Public keys
                       ROW_FIELD_EQ(contract_instance_retrieval_nullifier_key_x, 0x100),

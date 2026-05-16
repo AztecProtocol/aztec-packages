@@ -32,6 +32,7 @@ pub contract ContractInstanceRegistry {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
+        immutables_hash: Field,
         public_keys: PublicKeys,
         deployer: AztecAddress,
     }
@@ -39,7 +40,7 @@ pub contract ContractInstanceRegistry {
     // Custom serialization is required because we don't want to waste one field for the `is_infinite` flag of public
     // key points (public key points will never be the infinity point).
     impl ContractInstancePublished {
-        fn serialize_non_standard(self) -> [Field; 15] {
+        fn serialize_non_standard(self) -> [Field; 16] {
             [
                 self.CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
                 self.address.to_field(),
@@ -47,6 +48,7 @@ pub contract ContractInstanceRegistry {
                 self.salt,
                 self.contract_class_id.to_field(),
                 self.initialization_hash,
+                self.immutables_hash,
                 self.public_keys.npk_m.serialize()[0],
                 self.public_keys.npk_m.serialize()[1],
                 self.public_keys.ivpk_m.serialize()[0],
@@ -77,7 +79,8 @@ pub contract ContractInstanceRegistry {
 
     /// Publishes a new contract instance.
     ///
-    /// The caller provides deployment parameters (salt, class_id, init_hash, public_keys, universal_deploy).
+    /// The caller provides deployment parameters (salt, class_id, init_hash, immutables_hash, public_keys,
+    /// universal_deploy).
     /// The `universal_deploy` flag controls whether the deployer address is bound into the contract address:
     /// when true, deployer is zero (anyone can deploy the same instance); when false, deployer is the caller.
     ///
@@ -95,6 +98,7 @@ pub contract ContractInstanceRegistry {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
+        immutables_hash: Field,
         public_keys: PublicKeys,
         universal_deploy: bool,
     ) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
@@ -103,7 +107,9 @@ pub contract ContractInstanceRegistry {
         // body, I have removed that check.
         assert_compatible_oracle_version();
 
-        let serialized_params: [Field; 16] = [salt, contract_class_id.to_field(), initialization_hash]
+        // 4 prefix fields (salt, class_id, init_hash, immutables_hash) + 12 public-key fields + 1 universal_deploy
+        // flag.
+        let serialized_params: [Field; 17] = [salt, contract_class_id.to_field(), initialization_hash, immutables_hash]
             .concat(public_keys.serialize())
             .concat([universal_deploy.to_field()]);
 
@@ -146,17 +152,15 @@ pub contract ContractInstanceRegistry {
             address,
             public_keys,
             initialization_hash,
+            immutables_hash,
             salt,
             deployer,
-            version: 1,
+            version: 2,
         };
         let payload = event.serialize_non_standard();
         debug_log_format("ContractInstancePublished: {}", payload);
-        // We pad the payload with [0] to match the length required by emit_private_log. Since the log is not
-        // encrypted, padding with zero rather than a random value is acceptable (we don't care about privacy here).
-        let padded_log = payload.concat([0]);
         let length = payload.len();
-        context.emit_private_log(padded_log, length);
+        context.emit_private_log(payload, length);
 
         // MACRO CODE START
         context.finish()
@@ -307,6 +311,7 @@ pub contract ContractInstanceRegistry {
         pub _salt: Field,
         pub _contract_class_id: ContractClassId,
         pub _initialization_hash: Field,
+        pub _immutables_hash: Field,
         pub _public_keys: PublicKeys,
         pub _universal_deploy: bool,
     }

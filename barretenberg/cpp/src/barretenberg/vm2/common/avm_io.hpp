@@ -135,6 +135,7 @@ struct ContractInstanceHint {
     ContractClassId current_contract_class_id;
     ContractClassId original_contract_class_id;
     FF initialization_hash;
+    FF immutables_hash;
     PublicKeysHint public_keys;
 
     bool operator==(const ContractInstanceHint& other) const = default;
@@ -146,6 +147,7 @@ struct ContractInstanceHint {
                               current_contract_class_id,
                               original_contract_class_id,
                               initialization_hash,
+                              immutables_hash,
                               public_keys);
 };
 

@@ -240,9 +240,10 @@ describe('ArchiverApiSchema', () => {
       originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
+      immutablesHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),
-      version: 1,
+      version: 2,
     });
   });
 
@@ -554,9 +555,10 @@ class MockArchiver implements ArchiverApi {
       originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
-      version: 1,
+      version: 2,
     };
   }
   getContractClassIds(): Promise<Fr[]> {

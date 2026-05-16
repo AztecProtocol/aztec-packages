@@ -62,6 +62,7 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_original_class_id,
                   event.contract_instance.original_contract_class_id },
                 { C::contract_instance_retrieval_init_hash, event.contract_instance.initialization_hash },
+                { C::contract_instance_retrieval_immutables_hash, event.contract_instance.immutables_hash },
 
                 // Public keys (hinted)
                 { C::contract_instance_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },

@@ -32,7 +32,7 @@ describe('ContractInstanceTxValidator', () => {
 
   /**
    * Builds a PrivateLog encoding a ContractInstancePublishedEvent.
-   * Layout: [tag, address, version, salt, contractClassId, initializationHash, ...publicKeys(8 fields), deployer]
+   * Layout: [tag, address, version, salt, contractClassId, initializationHash, immutablesHash, ...publicKeys(8 fields), deployer]
    */
   async function buildContractInstanceLog(opts?: { address?: AztecAddress }): Promise<PrivateLog> {
     const salt = Fr.random();
@@ -40,13 +40,15 @@ describe('ContractInstanceTxValidator', () => {
     const initializationHash = Fr.random();
     const publicKeys = await PublicKeys.random();
     const deployer = await AztecAddress.random();
+    const immutablesHash = Fr.random();
 
     const instance = {
-      version: 1 as const,
+      version: 2 as const,
       salt,
       currentContractClassId: contractClassId,
       originalContractClassId: contractClassId,
       initializationHash,
+      immutablesHash,
       publicKeys,
       deployer,
     };
@@ -66,10 +68,11 @@ describe('ContractInstanceTxValidator', () => {
     const emittedFields: Fr[] = [
       CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG,
       address.toField(),
-      new Fr(1), // version
+      new Fr(2), // version
       salt,
       contractClassId,
       initializationHash,
+      immutablesHash,
       ...publicKeysFields,
       deployer.toField(),
     ];
