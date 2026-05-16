@@ -228,8 +228,12 @@ function test_cmds {
       *testbench*)
         prefix+=":CPUS=10:MEM=16g"
         ;;
-      *avm_proving_tests*|*rollup_ivc_integration*|*avm_integration*)
+      *avm_proving_tests*)
         prefix+=":CPUS=16:MEM=16g"
+        ;;
+      *rollup_ivc_integration*|*avm_integration*)
+        prefix+=":CPUS=16:MEM=16g"
+        cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
         ;;
       ivc-integration/*)
         prefix+=":CPUS=8"
@@ -240,9 +244,6 @@ function test_cmds {
     case "$test" in
       p2p/src/client/p2p_client.test.ts|p2p/src/services/discv5/discv5_service.test.ts|p2p/src/client/p2p_client.integration.test.ts)
         cmd_env+=" LOG_LEVEL=debug"
-        ;;
-      *rollup_ivc_integration*|*avm_integration*)
-        cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
         ;;
       *e2e_p2p*)
         cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
