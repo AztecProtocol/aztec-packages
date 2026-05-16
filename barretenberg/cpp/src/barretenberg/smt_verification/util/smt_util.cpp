@@ -1,5 +1,7 @@
 #include "smt_util.hpp"
 
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
 /**
  * @brief Converts a string of an arbitrary base to fr.
  * Note: there should be no prefix

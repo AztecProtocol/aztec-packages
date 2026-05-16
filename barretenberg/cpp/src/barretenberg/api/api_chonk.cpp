@@ -33,10 +33,9 @@ namespace { // anonymous namespace
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response =
-        bbapi::ChonkComputeVk{ .circuit = { .name = "", .bytecode = std::move(bytecode) },
-                               .use_zk_flavor = flags.use_zk_flavor }
-            .execute();
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .name = "", .bytecode = std::move(bytecode) },
+                                           .use_zk_flavor = flags.use_zk_flavor }
+                        .execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
