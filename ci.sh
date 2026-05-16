@@ -37,6 +37,7 @@ function print_usage {
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "compat-e2e"            "Spin up an EC2 instance and run backwards compat e2e tests."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
+  echo_cmd "update-chonk-inputs"   "Spin up an EC2 instance to refresh the pinned chonk IVC inputs."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
   echo_cmd "shell-host"            "Drop into a shell in the current running build host."
@@ -125,6 +126,15 @@ case "$cmd" in
     export CI_DASHBOARD="prs"
     export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
+    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  update-chonk-inputs)
+    # Heavy mode: regenerate the pinned chonk IVC inputs end-to-end and upload
+    # the new pin artifact to the cache. Invoked by
+    # .github/workflows/update-chonk-inputs.yml.
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=90
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   barretenberg-debug)

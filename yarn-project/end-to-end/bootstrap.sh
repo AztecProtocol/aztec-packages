@@ -131,25 +131,52 @@ function bench_cmds {
   done
 }
 
-# Builds all benchmark fixtures (chonk IVC captures + UltraHonk circuit inputs).
-function build_bench {
-  rm -rf bench-out && mkdir -p bench-out
-
-  # Build chonk IVC captures
+# Capture fresh chonk IVC inputs from the e2e flows. Heavy; only run when we
+# explicitly want to refresh the pinned tarball (i.e., UPDATE_CHONK_INPUTS=1
+# or there is no pinned tarball available yet).
+function _capture_chonk_inputs {
   export CAPTURE_IVC_FOLDER=$bench_fixtures_dir
   export BENCHMARK_CONFIG=key_flows
   export LOG_LEVEL=error
   export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
-  rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
-  if ! cache_download bb-chonk-captures-$hash.tar.gz; then
-    parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
-      client_flows/account_deployments \
-      client_flows/deployments \
-      client_flows/bridging \
-      client_flows/transfers \
-      client_flows/amm \
-      client_flows/storage_proof
-    cache_upload bb-chonk-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
+  parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    client_flows/account_deployments \
+    client_flows/deployments \
+    client_flows/bridging \
+    client_flows/transfers \
+    client_flows/amm \
+    client_flows/storage_proof
+}
+
+# Builds all benchmark fixtures (chonk IVC captures + UltraHonk circuit inputs).
+#
+# Chonk inputs are pinned to a fixed S3 tarball (see
+# barretenberg/cpp/scripts/pinned_chonk_inputs.sh). Default mode downloads the
+# pinned tarball and validates it — fast (~seconds) and completes well before
+# the bench targets need it. The slow e2e capture only runs when
+# UPDATE_CHONK_INPUTS=1 is set, in which case we regen, upload to S3, and
+# rewrite the pin in the helper script. The `/update-chonk-inputs` GitHub
+# workflow toggles that flag and pushes the resulting pin update back to the PR.
+function build_bench {
+  rm -rf bench-out && mkdir -p bench-out
+
+  # Source the pinned-inputs helper (defines pinned_chonk_inputs_dir,
+  # download_pinned_chonk_inputs, upload_and_pin_chonk_inputs).
+  source "$root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
+  local inputs_dir
+  inputs_dir="$(pinned_chonk_inputs_dir)"
+
+  if [[ "${UPDATE_CHONK_INPUTS:-0}" == "1" ]]; then
+    echo_header "build_bench: regenerating chonk inputs (UPDATE_CHONK_INPUTS=1)"
+    _capture_chonk_inputs
+    local new_hash
+    new_hash=$(upload_and_pin_chonk_inputs "$inputs_dir")
+    echo "Chonk inputs pinned at ${new_hash}."
+  else
+    echo_header "build_bench: downloading pinned chonk inputs"
+    download_pinned_chonk_inputs "$inputs_dir"
+    check_pinned_chonk_inputs "$inputs_dir"
   fi
 
   # Build UltraHonk circuit benchmark inputs (bytecode + witness pairs)
