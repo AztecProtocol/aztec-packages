@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
+function get_hash {
+  hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
 
 # Bare aliases ("nightly", "latest") resolve to this major version.
 DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
@@ -51,6 +61,7 @@ EOF
     export PATH="/tmp/verdaccio-pkg/bin:$PATH"
   fi
 
+  local hash=$(get_hash)
   local base_hash=$(cache_content_hash ^aztec-up/Dockerfile.base)
   if ! cache_download aztec-up-test-base-image-$base_hash.zst; then
     docker build -t aztecprotocol/aztec-up-test-base -f Dockerfile.base .
@@ -106,6 +117,7 @@ EOF
 }
 
 function test_cmds {
+  local hash=$(get_test_hash)
   for test in amm_flow bridge_and_claim basic_install counter_contract default_scaffold no_shadow_user_bins; do
     echo "$hash:TIMEOUT=15m aztec-up/scripts/run_test.sh $test"
   done

@@ -5,12 +5,22 @@ export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
 export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
 export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
 
-hash=$(hash_str \
-  $(../noir/bootstrap.sh hash) \
-  $(cache_content_hash \
-    .rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns))
+function get_hash {
+  hash_str \
+    $(../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      .rebuild_patterns \
+      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+      ../barretenberg/*/.rebuild_patterns)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
 
 function build_box {
   cd boxes/$1
@@ -25,6 +35,7 @@ function build {
   echo_header "boxes build"
   npm_install_deps
 
+  local hash=$(get_hash)
   if ! cache_download boxes-$hash.tar.gz; then
     denoise 'yarn build'
     cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist,src/contracts/target,contracts/target}
@@ -37,6 +48,7 @@ function test {
 }
 
 function test_cmds {
+  local hash=$(get_test_hash)
   for box in react vite vanilla; do
     echo "$hash:ISOLATE=1:NET=1:CPUS=4 ./boxes/scripts/run_test.sh $box chromium"
   done
@@ -111,7 +123,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"
