@@ -3,9 +3,10 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "lmdb.h"
 #include <cstdint>
-#include <iostream>
 #include <optional>
+#include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 namespace bb::lmdblib {
 using Key = std::vector<uint8_t>;

@@ -1,5 +1,9 @@
 #include "process.hpp"
+#include <cerrno>
 #include <cstring>
+#include <stdexcept>
+#include <sys/wait.h>
+#include <unistd.h>
 
 Process::Process(const std::string& command)
 {
