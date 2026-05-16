@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(../bootstrap.sh hash)
+if [ "${NO_CACHE:-0}" -eq 1 ]; then
+  hash=disabled-cache
+else
+  hash=$(../bootstrap.sh hash)
+fi
 
 function test_cmds {
   # Node tests (mocha): files outside the browser-test and bench dirs.
