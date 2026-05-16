@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source_bootstrap"
 
 if [ "${AVM:-1}" -eq "1" ]; then
   export native_preset=${NATIVE_PRESET:-clang20}

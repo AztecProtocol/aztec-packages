@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source_bootstrap"
 
 function download_solc {
   # Read solc path from foundry.toml and extract version (e.g., "./solc-0.8.27" -> "0.8.27")

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source_bootstrap"
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}

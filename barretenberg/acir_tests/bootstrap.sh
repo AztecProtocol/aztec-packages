@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source_bootstrap"
 
 export CRS_PATH=$HOME/.bb-crs
 export RAYON_NUM_THREADS=1

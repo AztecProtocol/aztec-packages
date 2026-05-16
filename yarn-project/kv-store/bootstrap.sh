@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-source "${root:-$(git rev-parse --show-toplevel)}/ci3/source_bootstrap"
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source_bootstrap"
 
 if [ "${NO_CACHE:-0}" -eq 1 ]; then
   hash=disabled-cache
