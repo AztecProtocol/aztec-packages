@@ -2,7 +2,7 @@
 root=${root:-$(git rev-parse --show-toplevel)}
 source "$root/ci3/source_bootstrap"
 
-repo_root=$(git rev-parse --show-toplevel)
+repo_root=$root
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export PROFILER_PATH=${PROFILER_PATH:-$repo_root/noir/noir-repo/target/release/noir-profiler}
