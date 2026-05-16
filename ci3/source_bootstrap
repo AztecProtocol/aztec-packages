@@ -12,8 +12,10 @@ fi
 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Silence parallel citation message.
-mkdir -p $HOME/.parallel
-touch $HOME/.parallel/will-cite
+if [ ! -f "$HOME/.parallel/will-cite" ]; then
+  mkdir -p "$HOME/.parallel"
+  touch "$HOME/.parallel/will-cite"
+fi
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift
