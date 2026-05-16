@@ -3,7 +3,10 @@ set -euo pipefail
 
 script_dir=${BASH_SOURCE[0]%/*}
 [ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
-root=${root:-$(cd "$script_dir/../../.." && pwd)}
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../../..} ;;
+  *) root=${root:-$PWD/$script_dir/../../..} ;;
+esac
 source "$root/ci3/source_bootstrap"
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
