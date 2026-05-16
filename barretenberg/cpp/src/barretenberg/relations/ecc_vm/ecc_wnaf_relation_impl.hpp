@@ -4,6 +4,8 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+#pragma once
+
 #include "ecc_wnaf_relation.hpp"
 
 namespace bb {

@@ -4,6 +4,8 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+#pragma once
+
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
