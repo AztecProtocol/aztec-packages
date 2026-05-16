@@ -18,7 +18,7 @@ import {
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { FAST_E2E_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
@@ -43,7 +43,7 @@ describe('Keys', () => {
       wallet,
       accounts: [defaultAccountAddress],
       initialFundedAccounts,
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...FAST_E2E_SETUP_OPTS }));
 
     ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 
