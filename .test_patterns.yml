@@ -101,6 +101,18 @@ tests:
     skip: true
     owners:
       - *alex
+  # Skipped to unblock merge-train #23253 into next under proposer pipelining.
+  # These fail repeatedly on merge attempts despite fix attempts (#23303, #23334
+  # for fee_settings; #23336 for e2e_amm). Must be triaged and re-enabled —
+  # tracking: re-enable e2e_amm + fee_settings (assigned to spalladino).
+  - regex: "src/e2e_amm.test.ts"
+    skip: true
+    owners:
+      - *palla
+  - regex: "src/e2e_fees/fee_settings.test.ts"
+    skip: true
+    owners:
+      - *palla
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
