@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
 # Use ci3 script base.
 script_dir=${BASH_SOURCE[0]%/*}
 [ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
