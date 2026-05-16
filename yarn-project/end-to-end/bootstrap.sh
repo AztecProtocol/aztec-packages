@@ -55,6 +55,19 @@ function test_cmds {
   local test_name
   local safe_test_name
   local full_name
+  local parallel_tests=()
+  declare -A parallel_test_names=()
+  for test in "${tests[@]}"; do
+    [[ "$test" == *.parallel.test.ts ]] && parallel_tests+=("$test")
+  done
+  if [ ${#parallel_tests[@]} -gt 0 ]; then
+    local extracted_test
+    local extracted_file
+    while IFS= read -r extracted_test; do
+      extracted_file=${extracted_test%%:*}
+      parallel_test_names[$extracted_file]+="${extracted_test#*:}"$'\n'
+    done < <(grep -H -oP "(it|test)\s*\(\s*['\"]\K.*?(?=['\"])" "${parallel_tests[@]}")
+  fi
   for test in "${tests[@]}"; do
     name=${test#*e2e_}
     name=e2e_${name%.test.ts}
@@ -71,13 +84,14 @@ function test_cmds {
     if [[ "$test" == *.parallel.test.ts ]]; then
       # Extract individual test names and create a command for each
       while IFS= read -r test_name; do
+        [ -n "$test_name" ] || continue
         # Create a safe name for the individual test (replace spaces with underscores)
         safe_test_name=${test_name// /_}
         full_name="${name}_${safe_test_name}"
         dump_avm=""
         [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$full_name"
         echo "$test_prefix:NAME=$full_name $dump_avm $run_test_script simple $test \"$test_name\""
-      done < <(extract_test_names "$test")
+      done <<< "${parallel_test_names[$test]-}"
     else
       # Regular test file - run the whole file
       dump_avm=""
