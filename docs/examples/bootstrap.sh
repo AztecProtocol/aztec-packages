@@ -3,7 +3,7 @@ root=${root:-$(git rev-parse --show-toplevel)}
 source "$root/ci3/source_bootstrap"
 
 # Get repo root for absolute paths
-REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_ROOT=$root
 
 export BB=${BB:-"$REPO_ROOT/barretenberg/cpp/build/bin/bb"}
 export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
