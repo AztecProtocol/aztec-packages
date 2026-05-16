@@ -96,17 +96,36 @@ function compile-solidity {
 
   mkdir -p "$OUTPUT_DIR"
 
-  # Compile using the local foundry.toml with proper remappings
+  # forge build downloads solc from binaries.soliditylang.org on first use,
+  # which has hit transient DNS / connect failures in CI. Retry with backoff
+  # so a flaky network does not fail the merge train.
+  local max_attempts=5
+  local attempt
+  local backoff
   (
     cd "$SOLIDITY_DIR"
     for subdir in */; do
       if [ -d "$subdir" ] && ls "$subdir"/*.sol >/dev/null 2>&1; then
         local subdir_name=$(basename "$subdir")
         echo_stderr "Compiling $subdir_name..."
-        forge build \
-          --contracts "$subdir" \
-          --out "$OUTPUT_DIR/$subdir_name" \
-          --no-cache
+        attempt=1
+        backoff=5
+        while true; do
+          if forge build \
+              --contracts "$subdir" \
+              --out "$OUTPUT_DIR/$subdir_name" \
+              --no-cache; then
+            break
+          fi
+          if (( attempt >= max_attempts )); then
+            echo_stderr "forge build for $subdir_name failed after $attempt attempts"
+            return 1
+          fi
+          echo_stderr "forge build for $subdir_name failed (attempt $attempt/$max_attempts), retrying in ${backoff}s..."
+          sleep "$backoff"
+          attempt=$((attempt + 1))
+          backoff=$((backoff * 2))
+        done
       fi
     done
   )
