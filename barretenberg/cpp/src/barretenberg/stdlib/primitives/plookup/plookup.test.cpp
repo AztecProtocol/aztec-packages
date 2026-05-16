@@ -523,3 +523,23 @@ TEST(PlookupTests, MixedConstantVariableInputs)
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
+
+// Regression: the eight SECP256K1 generator MultiTables previously declared slice_sizes = 512
+// while the basic tables only have 256 rows, so a key in [256, 511] would slip past the
+// slice bound in slice_input_using_variable_bases and OOB-index generator_*_table.
+TEST(PlookupTests, Secp256k1GeneratorSliceSizeBound)
+{
+    const std::array<MultiTableId, 8> ids{
+        MultiTableId::SECP256K1_XLO,      MultiTableId::SECP256K1_XHI,          MultiTableId::SECP256K1_YLO,
+        MultiTableId::SECP256K1_YHI,      MultiTableId::SECP256K1_XYPRIME,      MultiTableId::SECP256K1_XLO_ENDO,
+        MultiTableId::SECP256K1_XHI_ENDO, MultiTableId::SECP256K1_XYPRIME_ENDO,
+    };
+    for (const auto id : ids) {
+        // Last valid key.
+        EXPECT_NO_THROW(plookup::get_lookup_accumulators(id, bb::fr(255), bb::fr(0), false));
+        // First out-of-range key — used to silently OOB-read.
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(256), bb::fr(0), false), std::runtime_error);
+        // Mid-range OOB witness from the auditor's PoC.
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(300), bb::fr(0), false), std::runtime_error);
+    }
+}
