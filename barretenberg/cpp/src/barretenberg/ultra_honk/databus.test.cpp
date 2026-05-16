@@ -5,11 +5,11 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
+#include "barretenberg/ultra_honk/mega_circuit_test_helper.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -48,7 +48,7 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     {
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         auto builder = MegaCircuitBuilder{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        MegaCircuitTestHelper::construct_simple_circuit(builder);
         return builder;
     }
 
