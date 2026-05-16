@@ -100,6 +100,52 @@ function cmake_build {
   cmake --build --preset "$preset" "$@"
 }
 
+function list_tests_from_ctest {
+  awk '
+    /--gtest_filter=/ {
+      line = $0
+      while (match(line, /--gtest_filter=/)) {
+        line = substr(line, RSTART + RLENGTH)
+        test = line
+        sub(/\].*/, "", test)
+        sub(/[" )].*/, "", test)
+        if (test != "" && test !~ /DISABLED_/) {
+          print test
+        }
+        line = substr(line, length(test) + 1)
+      }
+    }
+  ' "$1"
+}
+
+function write_gtest_inventory {
+  local build_dir=$1
+  local inventory=$build_dir/.aztec-gtest-tests
+  local tmp=$inventory.tmp
+  local ctest_file
+  local ctest_base
+  local bin_name
+
+  [ -d "$build_dir" ] || return
+  : > "$tmp"
+  while IFS='|' read -r bin_name ctest_file; do
+    list_tests_from_ctest "$ctest_file" | while read -r test; do
+      printf '%s\t%s\n' "$bin_name" "$test"
+    done
+  done < <(
+    while IFS= read -r ctest_file; do
+      ctest_base=${ctest_file##*/}
+      printf '%s|%s\n' "${ctest_base%%\[*}" "$ctest_file"
+    done < <(find "$build_dir" -type f -name '*_tests[[]*[]]_tests.cmake') | sort
+  ) >> "$tmp"
+
+  if [ -s "$tmp" ]; then
+    mv "$tmp" "$inventory"
+  else
+    rm -f "$tmp" "$inventory"
+  fi
+}
+
 # Returns cache paths for a preset's build outputs.
 # If preset has explicit targets: finds those specific files in bin/ and lib/.
 # Otherwise: returns existing {bin,lib} dirs (catch-all).
@@ -121,6 +167,7 @@ function preset_cache_paths {
         2>/dev/null
     done
   fi
+  [ -f "$build_dir/.aztec-gtest-tests" ] && echo "$build_dir/.aztec-gtest-tests"
 }
 
 # Cache-aware build: download from cache or build + upload, then inject versions.
@@ -131,6 +178,7 @@ function build_preset {
   local build_dir=$(scripts/preset-build-dir $preset)
   if ! cache_download barretenberg-$preset-$hash.zst; then
     cmake_build $preset
+    write_gtest_inventory "$build_dir"
     cache_upload barretenberg-$preset-$hash.zst $(preset_cache_paths $preset $build_dir)
   fi
   inject_bb_versions $build_dir/bin
@@ -252,7 +300,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-x86_64-android/lib libbb-external.a
 }
 
-export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
+export -f cmake_build list_tests_from_ctest write_gtest_inventory preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
 
 function build {
   echo_header "bb cpp build"
@@ -270,12 +318,37 @@ function test_cmds_native {
   # E.g. build, build-debug or build-coverage
   cd $native_build_dir
 
-  for bin in ./bin/*_tests; do
-    local bin_name=$(basename $bin)
+  declare -A inventory_tests=()
+  local inv_bin
+  local inv_test
+  if [ -f .aztec-gtest-tests ]; then
+    while IFS=$'\t' read -r inv_bin inv_test; do
+      inventory_tests["$inv_bin"]+="$inv_test"$'\n'
+    done < .aztec-gtest-tests
+  fi
 
-    $bin --gtest_list_tests | \
-      awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
-      grep -v 'DISABLED_' | \
+  declare -A discovered_tests=()
+  local ctest_file
+  local ctest_base
+  while IFS= read -r ctest_file; do
+    ctest_base=${ctest_file##*/}
+    discovered_tests["${ctest_base%%\[*}"]=$ctest_file
+  done < <(find . -type f -name '*_tests[[]*[]]_tests.cmake')
+
+  for bin in ./bin/*_tests; do
+    local bin_name=${bin##*/}
+
+    {
+      if [ -n "${inventory_tests[$bin_name]:-}" ]; then
+        printf '%s' "${inventory_tests[$bin_name]}"
+      elif [ -n "${discovered_tests[$bin_name]:-}" ]; then
+        list_tests_from_ctest "${discovered_tests[$bin_name]}"
+      else
+        $bin --gtest_list_tests | \
+          awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
+          grep -v 'DISABLED_'
+      fi
+    } | \
       while read -r test; do
         # Skip heavy recursion tests in debug builds — they take 400-600s+ and the same
         # code paths are already exercised (with assertions) by faster tests in the suite.
