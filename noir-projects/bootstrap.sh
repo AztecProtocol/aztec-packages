@@ -50,7 +50,11 @@ case "$cmd" in
     build
     ;;
   "hash")
-    hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+    if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+      echo disabled-cache
+    else
+      hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+    fi
     ;;
   *)
     default_cmd_handler "$@"
