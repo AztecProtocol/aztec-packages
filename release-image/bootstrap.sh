@@ -139,10 +139,11 @@ function release {
 
   # We strip leading 'v' so that this is a valid semver.
   tag=${REF_NAME#v}
-  docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$tag-$(arch)
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  docker tag aztecprotocol/aztec:$commit_hash aztecprotocol/aztec:$tag-$(arch)
   do_or_dryrun docker push aztecprotocol/aztec:$tag-$(arch)
 
-  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent:$tag-$(arch)
+  docker tag aztecprotocol/aztec-prover-agent:$commit_hash aztecprotocol/aztec-prover-agent:$tag-$(arch)
   do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$tag-$(arch)
 
   # If doing a release in CI, update the remote manifest if we're the arm build.
@@ -182,8 +183,9 @@ function push {
     exit 1
   fi
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
-  do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH
-  do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$COMMIT_HASH
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  do_or_dryrun docker push aztecprotocol/aztec:$commit_hash
+  do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$commit_hash
 }
 
 function push_pr {
@@ -194,11 +196,12 @@ function push_pr {
     exit 1
   fi
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
-  docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztecdev:$COMMIT_HASH
-  do_or_dryrun docker push aztecprotocol/aztecdev:$COMMIT_HASH
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  docker tag aztecprotocol/aztec:$commit_hash aztecprotocol/aztecdev:$commit_hash
+  do_or_dryrun docker push aztecprotocol/aztecdev:$commit_hash
   # Best-effort: push prover-agent image if available.
-  if docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH 2>/dev/null; then
-    do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH || echo "Warning: failed to push prover-agent-dev image, continuing."
+  if docker tag aztecprotocol/aztec-prover-agent:$commit_hash aztecprotocol/aztec-prover-agent-dev:$commit_hash 2>/dev/null; then
+    do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$commit_hash || echo "Warning: failed to push prover-agent-dev image, continuing."
   else
     echo "Warning: prover-agent image not found locally, skipping push."
   fi
