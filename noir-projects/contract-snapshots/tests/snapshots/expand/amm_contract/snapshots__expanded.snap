@@ -2444,17 +2444,22 @@ pub contract AMM {
     }
 
     #[contract_library_method]
-    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
-        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
-            aztec::hash::hash_args(serialized_args)
-        });
+    unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
         let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
         let self_address: AztecAddress = context.this_address();
         let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
         let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
         let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
         aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
+    }
+
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
+            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
+            aztec::hash::hash_args(serialized_args)
+        });
+        __aztec_nr_internals__create_public_self_from_context(context)
     }
 
     unconstrained fn __aztec_nr_internals___add_liquidity(config: Config, refund_token0_partial_note: PartialUintNote, refund_token1_partial_note: PartialUintNote, liquidity_partial_note: PartialUintNote, amount0_max: u128, amount1_max: u128, amount0_min: u128, amount1_min: u128) {
@@ -2547,15 +2552,18 @@ pub contract AMM {
         aztec::macros::functions::initialization_utils::mark_as_initialized_from_public_initializer(self.context);
     }
 
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_utility_self() -> aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> {
+        let context: aztec::context::UtilityContext = aztec::context::UtilityContext::new();
+        let storage: Storage<aztec::context::UtilityContext> = Storage::<aztec::context::UtilityContext>::init(context);
+        let self_address: AztecAddress = context.this_address();
+        let call_self: CallSelfUtility = CallSelfUtility { address: self_address};
+        aztec::contract_self::contract_self_utility::ContractSelfUtility::<Storage<aztec::context::UtilityContext>, CallSelfUtility>::new(context, storage, call_self)
+    }
+
     unconstrained fn __aztec_nr_internals__get_amount_in_for_exact_out(balance_in: u128, balance_out: u128, amount_out: u128) -> pub u128 {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> = {
-            let context: aztec::context::UtilityContext = aztec::context::UtilityContext::new();
-            let storage: Storage<aztec::context::UtilityContext> = Storage::<aztec::context::UtilityContext>::init(context);
-            let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelfUtility = CallSelfUtility { address: self_address};
-            aztec::contract_self::contract_self_utility::ContractSelfUtility::<Storage<aztec::context::UtilityContext>, CallSelfUtility>::new(context, storage, call_self)
-        };
+        let mut self: aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> = __aztec_nr_internals__create_utility_self();
         aztec::macros::functions::initialization_utils::assert_is_initialized_utility(self.context);
         {
             get_amount_in(amount_out, balance_in, balance_out)
@@ -2564,13 +2572,7 @@ pub contract AMM {
 
     unconstrained fn __aztec_nr_internals__get_amount_out_for_exact_in(balance_in: u128, balance_out: u128, amount_in: u128) -> pub u128 {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> = {
-            let context: aztec::context::UtilityContext = aztec::context::UtilityContext::new();
-            let storage: Storage<aztec::context::UtilityContext> = Storage::<aztec::context::UtilityContext>::init(context);
-            let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelfUtility = CallSelfUtility { address: self_address};
-            aztec::contract_self::contract_self_utility::ContractSelfUtility::<Storage<aztec::context::UtilityContext>, CallSelfUtility>::new(context, storage, call_self)
-        };
+        let mut self: aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> = __aztec_nr_internals__create_utility_self();
         aztec::macros::functions::initialization_utils::assert_is_initialized_utility(self.context);
         {
             get_amount_out(amount_in, balance_in, balance_out)
