@@ -83,7 +83,7 @@ TYPED_TEST(Sha256Test, BlockNistVectorOne)
     }
 
     check_circuit_and_gate_count(builder, 6703);
-    EXPECT_EQ(builder.get_tables_size(), 35992);
+    EXPECT_EQ(builder.get_tables_size(), 33944);
 }
 
 /**
@@ -152,7 +152,7 @@ TYPED_TEST(Sha256Test, BlockNistVectorTwo)
     }
 
     check_circuit_and_gate_count(builder, 10649);
-    EXPECT_EQ(builder.get_tables_size(), 35992);
+    EXPECT_EQ(builder.get_tables_size(), 33944);
 }
 
 /**
@@ -224,7 +224,7 @@ TYPED_TEST(Sha256Test, BlockConstantHinitWitnessInput)
     }
 
     check_circuit_and_gate_count(builder, 6652);
-    EXPECT_EQ(builder.get_tables_size(), 35992);
+    EXPECT_EQ(builder.get_tables_size(), 33944);
 }
 
 /**
@@ -259,7 +259,7 @@ TYPED_TEST(Sha256Test, BlockWitnessHinitConstantInput)
     }
 
     check_circuit_and_gate_count(builder, 5523);
-    EXPECT_EQ(builder.get_tables_size(), 15120);
+    EXPECT_EQ(builder.get_tables_size(), 13072);
 }
 
 /**
@@ -303,7 +303,7 @@ TYPED_TEST(Sha256Test, BlockMixedConstantsAndWitnesses)
     }
 
     check_circuit_and_gate_count(builder, 6644);
-    EXPECT_EQ(builder.get_tables_size(), 35992);
+    EXPECT_EQ(builder.get_tables_size(), 33944);
 }
 
 /**
