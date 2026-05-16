@@ -134,4 +134,25 @@ WASM_EXPORT void bb_native_pippenger_bn254(
     }
 }
 
+// TODO: bb_native_field_mul_bench_bn254 (WASM field-mul micro-bench).
+//
+// To pair with the WebGPU field-mul bench in
+// `barretenberg/ts/dev/msm-webgpu/scripts/bench-field-mul.mjs`, add an
+// export mirroring this signature pattern:
+//
+//   WASM_EXPORT void bb_native_field_mul_bench_bn254(
+//       const uint8_t* pairs,    // n * 64 LE bytes: [a_0[32] || b_0[32] || ...]
+//       uint32_t n,
+//       uint32_t k,              // chained mult count, host-cap <= 100
+//       uint32_t num_threads,    // 0 = runtime default
+//       uint8_t* outputs)        // n * 32 LE bytes: a_i after k rounds of a*=b
+//
+// Body: read each (a, b) into Curve::BaseField via read_uint256_le, loop
+// k iterations of `a = a * b` per pair (Mont form internally; the
+// non-Mont I/O lets the JS host reference compute on the same canonical
+// values), write final `a` back via write_uint256_le. Parallelise the
+// outer pair loop with parallel_for + saved_concurrency dance same as
+// bb_native_pippenger_bn254. Rebuild barretenberg.wasm.gz via
+// `cd barretenberg/cpp && cmake --build --preset wasm-threads --target barretenberg.wasm.gz`.
+
 #endif // BBERG_WEBGPU_MSM_HOOK

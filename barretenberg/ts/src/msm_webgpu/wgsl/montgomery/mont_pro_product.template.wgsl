@@ -19,36 +19,39 @@ fn get_p() -> BigInt {
 
 // An optimised variant of the Montgomery product algorithm from
 // https://github.com/mitschabaude/montgomery#13-x-30-bit-multiplication
+//
+// Per outer iter:
+//   t   = s[0] + xi*y[0]
+//   qi  = (N0 * (t & MASK)) & MASK
+//   c   = (t + qi*p[0]) >> WORD_SIZE
+//   s[0] = s[1] + xi*y[1] + qi*p[1] + c
+//   s[j-1] = s[j] + xi*y[j] + qi*p[j]   for j in [2, N-1]
+//
+// xi is hoisted to a `let` once per outer iter; the original code re-read
+// `(*x).limbs[i]` from the pointer N+1 times per iter. The mitschabaude
+// post-loop `s[N-2] = xi*y[N-1] + qi*p[N-1]` is dropped: the final inner
+// iter (j=N-1) writes the same value because s[N-1] is never written and
+// stays at zero throughout.
 fn montgomery_product(x: ptr<function, BigInt>, y: ptr<function, BigInt>) -> BigInt {
     var s: BigInt;
     var p = get_p();
 
     for (var i = 0u; i < NUM_WORDS; i ++) {
-        var t = s.limbs[0] + (*x).limbs[i] * (*y).limbs[0];
-
-        var tprime = t & MASK;
-
-        var qi = (N0 * tprime) & MASK;
-
-        var c = (t + qi * p.limbs[0]) >> WORD_SIZE;
-
-        s.limbs[0] = s.limbs[1] + (*x).limbs[i] * (*y).limbs[1] + qi * p.limbs[1] + c;
-
-        // Since nSafe = 32 when NUM_WORDS = 20, we can perform the following
-        // iterations without performing a carry.
+        let xi: u32 = (*x).limbs[i];
+        let t: u32 = s.limbs[0] + xi * (*y).limbs[0];
+        let qi: u32 = (N0 * (t & MASK)) & MASK;
+        let c: u32 = (t + qi * p.limbs[0]) >> WORD_SIZE;
+        s.limbs[0] = s.limbs[1] + xi * (*y).limbs[1] + qi * p.limbs[1] + c;
         for (var j = 2u; j < NUM_WORDS; j ++) {
-            s.limbs[j - 1u] = s.limbs[j] + (*x).limbs[i] * (*y).limbs[j] + qi * p.limbs[j];
+            s.limbs[j - 1u] = s.limbs[j] + xi * (*y).limbs[j] + qi * p.limbs[j];
         }
-
-        s.limbs[NUM_WORDS - 2u] = (*x).limbs[i] * (*y).limbs[NUM_WORDS - 1u] + qi * p.limbs[NUM_WORDS - 1u];
     }
 
-    // To paraphrase mitschabaude: a last round of carries to ensure that each
-    // limb is at most WORD_SIZE bits
-    var c = 0u;
+    // Final carry pass — ensures every limb fits WORD_SIZE bits.
+    var carry = 0u;
     for (var i = 0u; i < NUM_WORDS; i ++) {
-        var v = s.limbs[i] + c;
-        c = v >> WORD_SIZE;
+        let v = s.limbs[i] + carry;
+        carry = v >> WORD_SIZE;
         s.limbs[i] = v & MASK;
     }
 

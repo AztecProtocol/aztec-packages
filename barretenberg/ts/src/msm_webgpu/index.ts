@@ -13,7 +13,17 @@ export {
 } from "./msm.js";
 export type { ProfileCapture } from "./msm.js";
 
+// f32-Montgomery (23-bit limb) parallel pipeline.
+export {
+  compute_bn254_msm_f32,
+  compute_bn254_msm_batch_affine_f32,
+  CachedBasesF32,
+  precompute_bn254_bases_f32,
+  precompute_bn254_bases_f32_from_compressed,
+} from "./msm_f32.js";
+
 export { GpuContext } from "./cuzk/gpu_context.js";
+export { ShaderManager } from "./cuzk/shader_manager.js";
 export { CachedBases, precompute_bn254_bases } from "./cuzk/cached_bases.js";
 export { BN254_CURVE_CONFIG } from "./cuzk/curve_config.js";
 export type { CurveConfig } from "./cuzk/curve_config.js";

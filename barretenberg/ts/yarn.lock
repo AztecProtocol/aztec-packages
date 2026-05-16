@@ -31,6 +31,7 @@ __metadata:
     msgpackr: "npm:^1.11.2"
     mustache: "npm:^4.2.0"
     pako: "npm:^2.1.0"
+    playwright-core: "npm:^1.59.1"
     prettier: "npm:^3.5.3"
     ts-jest: "npm:^29.4.0"
     ts-loader: "npm:^9.4.2"
@@ -4794,6 +4795,15 @@ __metadata:
   dependencies:
     find-up: "npm:^4.0.0"
   checksum: 10/9863e3f35132bf99ae1636d31ff1e1e3501251d480336edb1c211133c8d58906bed80f154a1d723652df1fda91e01c7442c2eeaf9dc83157c7ae89087e43c8d6
+  languageName: node
+  linkType: hard
+
+"playwright-core@npm:^1.59.1":
+  version: 1.59.1
+  resolution: "playwright-core@npm:1.59.1"
+  bin:
+    playwright-core: cli.js
+  checksum: 10/d27857a6701587c2a9bfa26fed9a5d8c617a392299b99b187f2ddc198d012a1e296449806bc907220debea938152677e8b4d91d304ed00645f762f778de3abec
   languageName: node
   linkType: hard
 

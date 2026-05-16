@@ -211,6 +211,35 @@ export const gen_wgsl_limbs_code = (
   return r;
 };
 
+// f32 variant of gen_wgsl_limbs_code: emits `<n>.0` literals instead of `<n>u`.
+// Used by the FMA-Montgomery (23-bit f32 limb) path. Does its own
+// little-endian limb extraction because `to_words_le` returns a
+// Uint16Array, which truncates any word_size > 16.
+export const gen_wgsl_limbs_code_f32 = (
+  val: bigint,
+  var_name: string,
+  num_words: number,
+  word_size: number,
+): string => {
+  const mask = (BigInt(1) << BigInt(word_size)) - BigInt(1);
+  let r = "";
+  let v = val;
+  for (let i = 0; i < num_words; i++) {
+    const limb = Number(v & mask);
+    r += `    ${var_name}.limbs[${i}]` + " = " + limb.toString() + ".0;\n";
+    v >>= BigInt(word_size);
+  }
+  return r;
+};
+
+export const gen_p_limbs_f32 = (
+  p: bigint,
+  num_words: number,
+  word_size: number,
+): string => {
+  return gen_wgsl_limbs_code_f32(p, "p", num_words, word_size);
+};
+
 export const gen_barrett_domb_m_limbs = (
   m: bigint,
   num_words: number,

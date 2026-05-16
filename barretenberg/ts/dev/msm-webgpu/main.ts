@@ -28,16 +28,73 @@ import { bn254 } from '@noble/curves/bn254';
 
 import {
   CachedBases,
+  CachedBasesF32,
   compute_bn254_msm_batch_affine,
+  compute_bn254_msm_batch_affine_f32,
   GpuContext,
   precompute_bn254_bases,
+  precompute_bn254_bases_f32,
   type ProfileCapture,
 } from '../../src/msm_webgpu/index.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
-import { runAllWgslUnitTests } from './wgsl_unit_tests.js';
+import { runAllWgslUnitTests, testMontgomeryParity } from './wgsl_unit_tests.js';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
+
+// Harness-only hook (HARNESS HOOK). Used by `scripts/bench-headless.mjs`
+// to drive the page from Node via Playwright without scraping the DOM
+// HTML. Exposes a writable state machine + a serialisable results bag.
+// Safe no-op when running interactively — nothing inside the page reads
+// from `window.__harness` other than these write points.
+interface HarnessSample {
+  ms: number;
+  // hex strings (avoid BigInt across the page<->harness boundary)
+  x: string;
+  y: string;
+}
+interface HarnessRow {
+  logN: number;
+  webgpu: HarnessSample[];
+  wasmSt: HarnessSample[];
+  wasmMt: HarnessSample[];
+  crossOk: boolean | null;
+}
+interface HarnessState {
+  state: 'boot' | 'srs-loading' | 'srs-ready' | 'running' | 'done' | 'error';
+  mode: 'sanity' | 'run' | 'bench' | 'sweep' | null;
+  f32: boolean;
+  logN: number | null;
+  mtThreads: number | null;
+  error: string | null;
+  rows: HarnessRow[];
+  // Free-form log mirror — only the levels we care about for the harness
+  // summary (cross-check FAILED, errors). The full log is also visible via
+  // page.on('console') from Playwright.
+  errors: string[];
+}
+const __harness: HarnessState = {
+  state: 'boot',
+  mode: null,
+  f32: false,
+  logN: null,
+  mtThreads: null,
+  error: null,
+  rows: [],
+  errors: [],
+};
+(window as unknown as { __harness: HarnessState }).__harness = __harness;
+function harnessRow(logN: number): HarnessRow {
+  let row = __harness.rows.find(r => r.logN === logN);
+  if (!row) {
+    row = { logN, webgpu: [], wasmSt: [], wasmMt: [], crossOk: null };
+    __harness.rows.push(row);
+  }
+  return row;
+}
+function toHex(v: bigint): string {
+  return '0x' + v.toString(16);
+}
 
 const $log = document.getElementById('log') as HTMLDivElement;
 const $progress = document.getElementById('srs-progress') as HTMLDivElement;
@@ -53,6 +110,18 @@ const $nDisplay = document.getElementById('n-display') as HTMLSpanElement;
 const $mtThreads = document.getElementById('mt-threads') as HTMLInputElement;
 const $hwThreads = document.getElementById('hw-threads') as HTMLSpanElement;
 const $noble = document.getElementById('noble') as HTMLInputElement;
+// A/B switch for the f32-Montgomery (FMA) WebGPU path. When checked, the
+// WebGPU column routes through `compute_bn254_msm_batch_affine_f32` and
+// the matching `precompute_bn254_bases_f32`. Default off — the u32 path
+// remains the production baseline until step 5 locks in f32. Honoured
+// also via `?f32=1` in the URL so links can pin a mode for sharing.
+const $useF32 = document.getElementById('use-f32') as HTMLInputElement | null;
+const F32_QUERY = /[?&]f32=1\b/.test(window.location.search);
+if ($useF32 !== null && F32_QUERY) $useF32.checked = true;
+function isF32PathEnabled(): boolean {
+  if ($useF32 !== null) return $useF32.checked;
+  return F32_QUERY;
+}
 const $results = document.getElementById('results') as HTMLDivElement;
 
 // See pippenger_wasm.ts header for why the WebGPU floor (2^16) is also
@@ -124,6 +193,13 @@ let gpuContext: GpuContext | null = null;
 let cachedBases: CachedBases | null = null;
 let cachedBasesLogN: number | null = null;
 let webgpuWarmedUp = false;
+// Parallel f32 state. Held alongside `cachedBases` so the A/B switch
+// flip doesn't re-precompute when toggled; both share the same
+// `gpuContext`. Each tracks its own warm-up flag so flipping the
+// switch the first time still pays one f32 shader-JIT cost.
+let cachedBasesF32: CachedBasesF32 | null = null;
+let cachedBasesF32LogN: number | null = null;
+let webgpuF32WarmedUp = false;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
 // this between reps / sizes so Stop becomes effective at the next yield.
@@ -480,11 +556,58 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<{ ctx: GpuContext
   return { ctx: gpuContext, bases: cachedBases };
 }
 
+async function ensureWebGpuWarmedF32(
+  inputs: TestInputs,
+): Promise<{ ctx: GpuContext; bases: CachedBasesF32 }> {
+  const logN = Math.log2(inputs.n);
+  if (gpuContext === null) {
+    log('info', '[gpu-warm/f32] creating persistent GpuContext (one-time)');
+    const t0 = performance.now();
+    gpuContext = await GpuContext.create();
+    log('ok', `[gpu-warm/f32] context ready in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
+  if (cachedBasesF32 === null || cachedBasesF32LogN !== logN) {
+    if (cachedBasesF32 !== null) {
+      log('info', `[gpu-warm/f32] logN changed (${cachedBasesF32LogN} → ${logN}); freeing old f32 bases`);
+      cachedBasesF32.destroy();
+      cachedBasesF32 = null;
+      cachedBasesF32LogN = null;
+      webgpuF32WarmedUp = false;
+    }
+    log('info', `[gpu-warm/f32] precomputing f32-Mont SRS bases for ${inputs.n.toLocaleString()} points`);
+    const t0 = performance.now();
+    cachedBasesF32 = await precompute_bn254_bases_f32(gpuContext, inputs.pointsBuf as unknown as Buffer);
+    cachedBasesF32LogN = logN;
+    log('ok', `[gpu-warm/f32] precompute done in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
+  if (!webgpuF32WarmedUp) {
+    log('info', '[gpu-warm/f32] warm-up dispatch (shader JIT, command buffer)…');
+    const t0 = performance.now();
+    await compute_bn254_msm_batch_affine_f32(gpuContext, cachedBasesF32, inputs.scalarsBuf as unknown as Buffer);
+    webgpuF32WarmedUp = true;
+    log('ok', `[gpu-warm/f32] warm-up done in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
+  return { ctx: gpuContext, bases: cachedBasesF32 };
+}
+
 async function runWebGpuOnce(
   inputs: TestInputs,
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
   if (!('gpu' in navigator)) {
     throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
+  }
+  // f32 A/B switch. The f32 entry point doesn't yet plumb the
+  // ProfileCapture out-param (step 5 wires it); for now return an empty
+  // capture so the per-stage breakdown table renders with placeholders
+  // when the f32 path is selected.
+  if (isF32PathEnabled()) {
+    const { ctx, bases } = await ensureWebGpuWarmedF32(inputs);
+    log('info', `[gpu/f32] dispatch n=${inputs.n.toLocaleString()}`);
+    const t0 = performance.now();
+    const gpu = await compute_bn254_msm_batch_affine_f32(ctx, bases, inputs.scalarsBuf as unknown as Buffer);
+    const ms = performance.now() - t0;
+    log('info', `[gpu/f32] returned in ${ms.toFixed(1)} ms`);
+    return { ms, xy: gpu, capture: { profile: null } };
   }
   const { ctx, bases } = await ensureWebGpuWarmed(inputs);
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
@@ -930,29 +1053,41 @@ $run.addEventListener('click', async () => {
   $log.innerHTML = '';
   abortRequested = false;
   setBusy(true, 'running…');
+  __harness.state = 'running';
+  __harness.mode = 'run';
+  __harness.f32 = isF32PathEnabled();
+  __harness.mtThreads = readMtThreads();
+  __harness.rows = [];
+  __harness.error = null;
   try {
     const logN = readLogN();
+    __harness.logN = logN;
     const checkNoble = $noble.checked && logN === NOBLE_REFERENCE_LOGN;
     const inputs = await generateInputs(logN, checkNoble);
     await yieldToBrowser();
 
     const gpu = await runWebGpuOnce(inputs);
     log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+    harnessRow(logN).webgpu.push({ ms: gpu.ms, x: toHex(gpu.xy.x), y: toHex(gpu.xy.y) });
     await yieldToBrowser();
 
     throwIfAborted();
     const st = await runWasmOnce(inputs, 'st');
+    harnessRow(logN).wasmSt.push({ ms: st.ms, x: toHex(st.xy.x), y: toHex(st.xy.y) });
     await yieldToBrowser();
 
     throwIfAborted();
     const mt = await runWasmOnce(inputs, 'mt');
+    harnessRow(logN).wasmMt.push({ ms: mt.ms, x: toHex(mt.xy.x), y: toHex(mt.xy.y) });
     await yieldToBrowser();
 
     const cross = pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
+    harnessRow(logN).crossOk = cross;
     if (cross) {
       log('ok', `[cross-check] WebGPU, WASM ST, WASM MT all agree`);
     } else {
       log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, st=${st.xy.x}, mt=${mt.xy.x}`);
+      __harness.errors.push(`[run] cross-check disagreement at logN=${logN}`);
     }
     if (checkNoble && inputs.points && inputs.scalars) {
       const noble = referenceMsm(inputs.points, inputs.scalars);
@@ -961,11 +1096,15 @@ $run.addEventListener('click', async () => {
         log('ok', `[noble] matches GPU at log₂(n) = ${logN}`);
       } else {
         log('err', `[noble] mismatch: noble.x=${noble.x}, gpu.x=${gpu.xy.x}`);
+        __harness.errors.push(`[run] noble mismatch at logN=${logN}`);
       }
     }
+    __harness.state = 'done';
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[run] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+    __harness.state = 'error';
+    __harness.error = err instanceof Error ? err.message : String(err);
   } finally {
     setBusy(false);
   }
@@ -976,13 +1115,24 @@ $runBench.addEventListener('click', async () => {
   $results.classList.remove('visible');
   abortRequested = false;
   setBusy(true, 'benchmarking…');
+  __harness.state = 'running';
+  __harness.mode = 'bench';
+  __harness.f32 = isF32PathEnabled();
+  __harness.mtThreads = readMtThreads();
+  __harness.rows = [];
+  __harness.error = null;
   try {
     const logN = readLogN();
+    __harness.logN = logN;
+    const row = harnessRow(logN);
     const inputs = await generateInputs(logN, false);
     const gpuSamples: number[] = [];
     const stSamples: number[] = [];
     const mtSamples: number[] = [];
     const gpuCaptures: ProfileCapture[] = [];
+    let firstGpuXy: { x: bigint; y: bigint } | null = null;
+    let firstMtXy: { x: bigint; y: bigint } | null = null;
+    let firstStXy: { x: bigint; y: bigint } | null = null;
     for (let i = 0; i < SWEEP_REPS; i++) {
       throwIfAborted();
       log('info', `[bench] iter ${i + 1}/${SWEEP_REPS}`);
@@ -995,8 +1145,24 @@ $runBench.addEventListener('click', async () => {
       gpuCaptures.push(gpu.capture);
       stSamples.push(st.ms);
       mtSamples.push(mt.ms);
+      row.webgpu.push({ ms: gpu.ms, x: toHex(gpu.xy.x), y: toHex(gpu.xy.y) });
+      row.wasmSt.push({ ms: st.ms, x: toHex(st.xy.x), y: toHex(st.xy.y) });
+      row.wasmMt.push({ ms: mt.ms, x: toHex(mt.xy.x), y: toHex(mt.xy.y) });
+      if (i === 0) {
+        firstGpuXy = gpu.xy;
+        firstStXy = st.xy;
+        firstMtXy = mt.xy;
+        row.crossOk = pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
+        if (!row.crossOk) {
+          log('err', `[bench] cross-check FAILED at logN=${logN}`);
+          __harness.errors.push(`[bench] cross-check disagreement at logN=${logN}`);
+        }
+      }
       log('info', `  gpu=${gpu.ms.toFixed(1)}, st=${st.ms.toFixed(1)}, mt=${mt.ms.toFixed(1)}`);
     }
+    // Silence the unused-locals lint when noble is off; the binding makes
+    // the values trivially accessible if a debugger pauses here.
+    void firstGpuXy; void firstStXy; void firstMtXy;
     log(
       'ok',
       `[bench] medians: gpu=${median(gpuSamples).toFixed(1)}, ` +
@@ -1006,9 +1172,12 @@ $runBench.addEventListener('click', async () => {
     // benched. Same renderer the sweep uses, just with one column.
     $results.innerHTML = renderBreakdownTable([{ logN, captures: gpuCaptures }]);
     $results.classList.add('visible');
+    __harness.state = 'done';
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[bench] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+    __harness.state = 'error';
+    __harness.error = err instanceof Error ? err.message : String(err);
   } finally {
     setBusy(false);
   }
@@ -1019,6 +1188,13 @@ $runSweep.addEventListener('click', async () => {
   $results.classList.remove('visible');
   abortRequested = false;
   setBusy(true, 'sweeping…');
+  __harness.state = 'running';
+  __harness.mode = 'sweep';
+  __harness.f32 = isF32PathEnabled();
+  __harness.mtThreads = readMtThreads();
+  __harness.rows = [];
+  __harness.error = null;
+  __harness.logN = null;
 
   const mtThreads = readMtThreads();
   const nobleEnabled = $noble.checked;
@@ -1093,14 +1269,20 @@ $runSweep.addEventListener('click', async () => {
         row.webgpu.push(gpu);
         row.wasmSt.push(st);
         row.wasmMt.push(mt);
+        const hrow = harnessRow(row.logN);
+        hrow.webgpu.push({ ms: gpu.ms, x: toHex(gpu.xy.x), y: toHex(gpu.xy.y) });
+        hrow.wasmSt.push({ ms: st.ms, x: toHex(st.xy.x), y: toHex(st.xy.y) });
+        hrow.wasmMt.push({ ms: mt.ms, x: toHex(mt.xy.x), y: toHex(mt.xy.y) });
         if (i === 0) {
           row.crossOk = pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
+          hrow.crossOk = row.crossOk;
           if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
           if (!row.crossOk) {
             log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
             log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
             log('err', `         st.x =${st.xy.x.toString(16)}`);
             log('err', `         mt.x =${mt.xy.x.toString(16)}`);
+            __harness.errors.push(`[sweep] cross-check disagreement at logN=${row.logN}`);
           }
         }
         renderSweepTable(rows);
@@ -1114,9 +1296,12 @@ $runSweep.addEventListener('click', async () => {
       logMemSnapshot(`after log₂(n)=${row.logN}`);
     }
     log('ok', `[sweep] done — see comparison table above.`);
+    __harness.state = 'done';
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[sweep] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+    __harness.state = 'error';
+    __harness.error = err instanceof Error ? err.message : String(err);
   } finally {
     setBusy(false);
   }
@@ -1191,6 +1376,13 @@ $runSanity.addEventListener('click', async () => {
   $log.innerHTML = '';
   abortRequested = false;
   setBusy(true, 'sanity check…');
+  __harness.state = 'running';
+  __harness.mode = 'sanity';
+  __harness.f32 = isF32PathEnabled();
+  __harness.mtThreads = readMtThreads();
+  __harness.rows = [];
+  __harness.error = null;
+  __harness.logN = 16;
   try {
     log('info', '[sanity] WebGPU-only smoke test, log₂(n)=16, no WASM, no noble');
     logMemSnapshot('sanity-start');
@@ -1247,14 +1439,41 @@ $runSanity.addEventListener('click', async () => {
     log('info', `[sanity] gpu.x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
     logMemSnapshot('sanity-end');
     log('ok', `[sanity] PASS in ${gpu.ms.toFixed(0)} ms`);
+    harnessRow(16).webgpu.push({ ms: gpu.ms, x: toHex(gpu.xy.x), y: toHex(gpu.xy.y) });
+
+    // In-shader parity for the 13-bit u32 and 23-bit f32 Montgomery
+    // products. Catches regressions in the f32 path before they surface
+    // as MSM result divergence post step-4 limb swap.
+    await yieldToBrowser();
+    const parity = await testMontgomeryParity(64);
+    if (parity.ok) {
+      log('ok', `[sanity] parity (montgomery 13-bit u32 vs 23-bit f32): ${parity.detail ?? 'OK'}`);
+    } else {
+      log('err', `[sanity] FAIL: parity (montgomery 13-bit u32 vs 23-bit f32)`);
+      if (parity.detail) {
+        for (const line of parity.detail.split('\n')) log('err', `       ${line}`);
+      }
+    }
+
     // Single-capture breakdown — same renderer the sweep / bench use,
     // with one column. Useful as a one-click "where is my time going"
     // view after a fresh page reload.
     $results.innerHTML = renderBreakdownTable([{ logN: 16, captures: [gpu.capture] }]);
     $results.classList.add('visible');
+    if (!parity.ok) {
+      __harness.errors.push('[sanity] montgomery parity FAIL');
+      if (parity.detail) {
+        for (const line of parity.detail.split('\n')) {
+          __harness.errors.push(`[parity-detail] ${line}`);
+        }
+      }
+    }
+    __harness.state = 'done';
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[sanity] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+    __harness.state = 'error';
+    __harness.error = err instanceof Error ? err.message : String(err);
   } finally {
     setBusy(false);
   }
@@ -1263,6 +1482,9 @@ $runSanity.addEventListener('click', async () => {
 $runUnitTests.addEventListener('click', async () => {
   $log.innerHTML = '';
   setBusy(true, 'running unit tests…');
+  __harness.mode = 'sanity';
+  __harness.state = 'running';
+  __harness.errors = [];
   try {
     log('info', '[wgsl-unit-tests] running primitive shader tests…');
     const results = await runAllWgslUnitTests();
@@ -1276,12 +1498,21 @@ $runUnitTests.addEventListener('click', async () => {
         if (r.detail) {
           for (const line of r.detail.split('\n')) log('err', `       ${line}`);
         }
+        __harness.errors.push(`[unit-fail] ${r.name}`);
+        if (r.detail) {
+          for (const line of r.detail.split('\n')) {
+            __harness.errors.push(`[unit-detail] ${line}`);
+          }
+        }
       }
     }
     log(allOk ? 'ok' : 'err', `[wgsl-unit-tests] ${results.filter(r => r.ok).length}/${results.length} passed`);
+    __harness.state = 'done';
   } catch (err) {
     log('err', `[exception] ${err instanceof Error ? err.message : String(err)}`);
     if (err instanceof Error && err.stack) log('err', err.stack);
+    __harness.state = 'error';
+    __harness.error = err instanceof Error ? err.message : String(err);
   } finally {
     setBusy(false);
   }
@@ -1377,6 +1608,7 @@ function hideProgress(): void {
 // so it's safe to run unconditionally at page load.
 (async () => {
   setBusy(true, 'loading SRS…');
+  __harness.state = 'srs-loading';
   try {
     srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
       if (event.kind === 'info') {
@@ -1388,6 +1620,7 @@ function hideProgress(): void {
       }
     });
     log('ok', `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
+    __harness.state = 'srs-ready';
     log(
       'info',
       `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
@@ -1397,6 +1630,8 @@ function hideProgress(): void {
     log('err', `[boot] ${err instanceof Error ? err.message : String(err)}`);
     if (err instanceof Error && err.stack) log('err', err.stack);
     hideProgress();
+    __harness.state = 'error';
+    __harness.error = err instanceof Error ? err.message : String(err);
   } finally {
     setBusy(false);
   }
