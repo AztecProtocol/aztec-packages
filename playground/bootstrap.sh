@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
+function get_hash {
+  hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
 
 function build {
   echo_header "playground build"
   npm_install_deps
 
+  local hash=$(get_hash)
   if ! cache_download playground-$hash.tar.gz; then
     denoise 'yarn build'
     cache_upload playground-$hash.tar.gz $(git ls-files --others --ignored --exclude-standard | grep -vE '^"?node_modules/')
@@ -19,6 +30,7 @@ function test {
 }
 
 function test_cmds {
+  local hash=$(get_test_hash)
   for browser in chromium firefox; do
     echo "$hash:TIMEOUT=900s playground/scripts/run_test.sh $browser"
   done
@@ -49,7 +61,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"
