@@ -68,14 +68,18 @@ export const privateKernelResetDimensionNames: DimensionName[] = [
   'PRIVATE_LOG_SILOING',
 ];
 
-export interface DimensionConfig {
-  variants: number[];
-  standalone: number[];
+export interface ResetCatalogEntry {
+  name: string;
+  dimensions: number[];
+  // Measured gate count (circuit_size) of the compiled variant. Populated by the codegen step
+  // that runs `bb gates` on each compiled reset artifact; used by the selector to pick the
+  // cheapest variant that covers the requested dimensions.
   cost: number;
 }
 
 // Must match the config in noir-projects/noir-protocol-circuits/private_kernel_reset_config.json
 export interface PrivateKernelResetDimensionsConfig {
-  dimensions: { [K in DimensionName]: DimensionConfig };
-  specialCases: number[][];
+  dimensions: { [K in DimensionName]: object };
+  inner: ResetCatalogEntry[];
+  final: ResetCatalogEntry[];
 }

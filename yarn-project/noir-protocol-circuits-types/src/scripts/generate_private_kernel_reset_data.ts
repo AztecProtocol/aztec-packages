@@ -155,9 +155,20 @@ function checkDimensionNames(config: PrivateKernelResetDimensionsConfig) {
   }
 }
 
-function checkMaxDimensions(dimensionsList: number[][]) {
+function checkVariantsCovered(dimensionsList: number[][]) {
+  if (!dimensionsList.length) {
+    throw new Error('private_kernel_reset_dimensions.json contains no variants');
+  }
+  dimensionsList.forEach(dimensions => {
+    if (dimensions.some((v, i) => v > maxDimensions[i])) {
+      throw new Error(
+        `Variant dimensions exceed protocol maxima: variant=[${dimensions.join(',')}] max=[${maxDimensions.join(',')}]`,
+      );
+    }
+  });
+  // Guarantee that the selector can always find a fall-through for any input within protocol maxima.
   if (!dimensionsList.some(dimensions => dimensions.every((v, i) => v === maxDimensions[i]))) {
-    throw new Error(`Max dimensions is not defined in the config. Expected: [${maxDimensions.join(',')}]`);
+    throw new Error(`Catalog must contain a variant matching protocol maxima: [${maxDimensions.join(',')}]`);
   }
 }
 
@@ -184,7 +195,7 @@ const main = async () => {
     await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
   ) as number[][];
 
-  checkMaxDimensions(dimensionsList);
+  checkVariantsCovered(dimensionsList);
 
   checkVkTreeSize(dimensionsList.length);
 
