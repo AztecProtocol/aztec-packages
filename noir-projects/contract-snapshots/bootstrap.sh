@@ -24,7 +24,7 @@ function test {
 }
 
 function test_cmds {
-    if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+    if [ "${NO_CACHE:-0}" -eq 1 ] || [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
       hash=disabled-cache
     else
       hash=$(hash_str \
