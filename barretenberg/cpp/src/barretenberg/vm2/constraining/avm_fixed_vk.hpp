@@ -17,7 +17,7 @@ class AvmHardCodedVKAndHash {
     using FF = bb::curve::BN254::ScalarField;
 
     // Precomputed VK hash (hash of all commitments below).
-    static FF vk_hash() { return FF(uint256_t("0x23a03c6f87c465dbecc386b091e8123a8936597b5b0749f276d042a8964bd390")); }
+    static FF vk_hash() { return FF(uint256_t("0x153c7fcc6b4d41c6e66f43b95aeea43979a734a1fc25edbc27ad30bf8462a192")); }
 
     static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
@@ -135,6 +135,10 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x0000000000000000000000000000000000000000000000000000000000000002")), // precomputed_is_deployer
             Commitment(
+                uint256_t("0x210bedcbb97a2e72905c082dd087be36c29c67e85b47de07b639e28a7dd78c76"),
+                uint256_t(
+                    "0x18d1e431b83aa3ab2f6904bbbc452fee3472c01c0ceaf6d2fe6e37c4ff79e265")), // precomputed_is_immutables_hash
+            Commitment(
                 uint256_t("0x020ad6e43ccd48a6a39e43897cc85187bd364919be8a3b82d4809715cfe489db"),
                 uint256_t(
                     "0x21a79ebae2ea3d92b49c521407d2600ac061146f2c188c6c6a33c598179e4543")), // precomputed_is_init_hash
@@ -171,9 +175,9 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x23268ad7678b97fba97cc3e75da6cff9a3659c3b8a49046cce4062820e5c1116")), // precomputed_is_tree_padding
             Commitment(
-                uint256_t("0x210cdba7d0dae8d84cdd77a912060188657a0628905c0531fa63138ec3cbc9ea"),
+                uint256_t("0x00c43726f75b6fda0de22ce0e0dfab6bcc7a05ff95a96b289424c5f733670d96"),
                 uint256_t(
-                    "0x264f0d3eab260e5a20bdc5324e1ddcb3a0c0d811bb4a23b983417fd8c280486a")), // precomputed_is_valid_member_enum
+                    "0x2f9b6e0b4e2c01968de5c32482aa7d1d0a09d7178ec93bad7858f96e64f0b48d")), // precomputed_is_valid_member_enum
             Commitment(
                 uint256_t("0x057e5478fbad129bb84bfb618f6e7a747812510b4f6f70bd84d4688f760ecb62"),
                 uint256_t(

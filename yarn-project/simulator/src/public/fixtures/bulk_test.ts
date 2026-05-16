@@ -38,6 +38,7 @@ export async function bulkTest(
     /*expectedDeployer=*/ expectContractInstance.deployer,
     /*expectedClassId=*/ expectContractInstance.currentContractClassId,
     /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
+    /*expectedImmutablesHash=*/ expectContractInstance.immutablesHash,
     /*skip_strictly_limited_side_effects=*/ false,
   ];
 
@@ -128,6 +129,7 @@ export async function megaBulkTest(
     /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
     /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
     /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
+    /*expectedImmutablesHash=*/ expectContractInstance.immutablesHash.toField(),
     // Must skip strictly limited side effects (logs, messages) so we can spam the bulk test several times.
     /*skip_strictly_limited_side_effects=*/ true,
   ];

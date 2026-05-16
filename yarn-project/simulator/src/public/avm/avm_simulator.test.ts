@@ -929,10 +929,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           ),
         });
         const contractInstanceWithAddress = contractInstance.withAddress(address);
-        // mock once per enum value (deployer, classId, initializationHash)
+        // mock once per enum value (deployer, classId, initializationHash, immutablesHash)
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
+        mockGetContractInstance(contractsDB, contractInstanceWithAddress);
+        mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));
         mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));
         mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));
         mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));

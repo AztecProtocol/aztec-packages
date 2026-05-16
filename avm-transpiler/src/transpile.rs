@@ -1634,6 +1634,7 @@ fn handle_get_contract_instance(
         DEPLOYER,
         CLASS_ID,
         INIT_HASH,
+        IMMUTABLES_HASH,
     }
 
     assert_eq!(inputs.len(), 1);
@@ -1643,6 +1644,7 @@ fn handle_get_contract_instance(
         "aztec_avm_getContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
         "aztec_avm_getContractInstanceClassId" => ContractInstanceMember::CLASS_ID,
         "aztec_avm_getContractInstanceInitializationHash" => ContractInstanceMember::INIT_HASH,
+        "aztec_avm_getContractInstanceImmutablesHash" => ContractInstanceMember::IMMUTABLES_HASH,
         _ => panic!("Transpiler doesn't know how to process function {:?}", function),
     };
 
