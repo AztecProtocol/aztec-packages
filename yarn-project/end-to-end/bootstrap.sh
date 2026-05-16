@@ -23,12 +23,6 @@ function build {
   cache_load_image postgres:16-alpine
 }
 
-# Helper function to extract test names from a test file
-function extract_test_names {
-  local test_file="$1"
-  grep -oP "(it|test)\s*\(\s*['\"]\K.*?(?=['\"])" "$test_file"
-}
-
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local hash=$(get_test_hash)
@@ -310,16 +304,36 @@ function compat_test_cmds {
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|prover_*|kernelless_simulation).test.ts
   )
+  local parallel_tests=()
+  declare -A parallel_test_names=()
+  local test
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
+    [[ "$test" == *.parallel.test.ts ]] && parallel_tests+=("$test")
+  done
+  if [ ${#parallel_tests[@]} -gt 0 ]; then
+    local extracted_test
+    local extracted_file
+    while IFS= read -r extracted_test; do
+      extracted_file=${extracted_test%%:*}
+      parallel_test_names[$extracted_file]+="${extracted_test#*:}"$'\n'
+    done < <(grep -H -oP "(it|test)\s*\(\s*['\"]\K.*?(?=['\"])" "${parallel_tests[@]}")
+  fi
+
+  local name
+  local test_name
+  local safe_test_name
+  local full_name
+  for test in "${tests[@]}"; do
+    name=${test#*e2e_}
     name=e2e_${name%.test.ts}
 
     if [[ "$test" == *.parallel.test.ts ]]; then
       while IFS= read -r test_name; do
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
-        local full_name="compat_${version}_${name}_${safe_test_name}"
+        [ -n "$test_name" ] || continue
+        safe_test_name=${test_name// /_}
+        full_name="compat_${version}_${name}_${safe_test_name}"
         echo "$prefix:NAME=$full_name $compat_env $run_test_script simple $test \"$test_name\""
-      done < <(extract_test_names "$test")
+      done <<< "${parallel_test_names[$test]-}"
     else
       echo "$prefix:NAME=compat_${version}_${name} $compat_env $run_test_script simple $test"
     fi
