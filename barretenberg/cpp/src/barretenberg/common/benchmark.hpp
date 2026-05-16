@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/env/hardware_concurrency.hpp"
 #include <cstdlib>

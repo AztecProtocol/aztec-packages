@@ -1,6 +1,8 @@
 // To be provided by the environment.
 // For a WASM build, this is provided by the JavaScript environment.
 // For a native build, this is provided in this module.
+#pragma once
+
 #include "barretenberg/common/wasm_export.hpp"
 #include <cstddef>
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <cstdint>
