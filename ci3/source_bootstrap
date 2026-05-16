@@ -9,7 +9,8 @@ if (( BASH_VERSINFO[0] < 5 )); then
   exit 1
 fi
 
-source $(git rev-parse --show-toplevel)/ci3/source
+root=${root:-$(git rev-parse --show-toplevel)}
+source "$root/ci3/source"
 
 # Silence parallel citation message.
 if [ ! -f "$HOME/.parallel/will-cite" ]; then
