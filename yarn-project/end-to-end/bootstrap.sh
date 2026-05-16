@@ -50,12 +50,17 @@ function test_cmds {
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building).test.ts
   )
+  local name
+  local test_prefix
+  local test_name
+  local safe_test_name
+  local full_name
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
+    name=${test#*e2e_}
     name=e2e_${name%.test.ts}
 
     # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
-    local test_prefix="$prefix"
+    test_prefix="$prefix"
     case "$name" in
       e2e_p2p/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
@@ -67,15 +72,15 @@ function test_cmds {
       # Extract individual test names and create a command for each
       while IFS= read -r test_name; do
         # Create a safe name for the individual test (replace spaces with underscores)
-        local safe_test_name=${test_name// /_}
-        local full_name="${name}_${safe_test_name}"
-        local dump_avm=""
+        safe_test_name=${test_name// /_}
+        full_name="${name}_${safe_test_name}"
+        dump_avm=""
         [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$full_name"
         echo "$test_prefix:NAME=$full_name $dump_avm $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
     else
       # Regular test file - run the whole file
-      local dump_avm=""
+      dump_avm=""
       [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$name"
       echo "$test_prefix:NAME=$name $dump_avm $run_test_script simple $test"
     fi
