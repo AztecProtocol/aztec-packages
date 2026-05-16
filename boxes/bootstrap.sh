@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
-export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
-export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
+function export_tool_paths {
+  export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
+  export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
+  export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
+}
 
 function get_hash {
   if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
@@ -28,6 +30,7 @@ function get_test_hash {
 }
 
 function build_box {
+  export_tool_paths
   cd boxes/$1
   yarn build
 }
@@ -39,6 +42,7 @@ function test_box {
 function build {
   echo_header "boxes build"
   npm_install_deps
+  export_tool_paths
 
   local hash=$(get_hash)
   if ! cache_download boxes-$hash.tar.gz; then
