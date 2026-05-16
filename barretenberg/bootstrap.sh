@@ -15,6 +15,11 @@ function bootstrap_all {
 }
 
 function hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str \
     $(cache_content_hash ^barretenberg) \
     $(./cpp/bootstrap.sh hash) # yes, cpp src gets hashed twice, but this second call also takes DISABLE_AVM into account
