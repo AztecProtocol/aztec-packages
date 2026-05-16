@@ -13,6 +13,11 @@ function get_test_hash {
   fi
 }
 
+function cache_upload_will_skip {
+  local artifact=$1
+  [[ "$artifact" == *"disabled-cache"* ]] || [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]
+}
+
 function prepare_crs {
   echo_header "prepare crs for prover-agent image"
   local crs_src=${CRS_PATH:-$HOME/.bb-crs}
@@ -88,10 +93,15 @@ function build {
   fi
 
   local hash=$(get_hash)
-  if ! cache_download release-image-base-$hash.zst; then
+  local base_artifact=release-image-base-$hash.zst
+  if ! cache_download $base_artifact; then
     denoise "cd .. && docker build -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
-    docker save aztecprotocol/release-image-base:latest > release-image-base
-    cache_upload release-image-base-$hash.zst release-image-base
+    if cache_upload_will_skip "$base_artifact"; then
+      cache_upload "$base_artifact" .
+    else
+      docker save aztecprotocol/release-image-base:latest > release-image-base
+      cache_upload "$base_artifact" release-image-base
+    fi
   else
     docker load < release-image-base
   fi

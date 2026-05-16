@@ -13,6 +13,11 @@ function get_test_hash {
   fi
 }
 
+function cache_upload_will_skip {
+  local artifact=$1
+  [[ "$artifact" == *"disabled-cache"* ]] || [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]
+}
+
 # Bare aliases ("nightly", "latest") resolve to this major version.
 DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
 
@@ -63,15 +68,21 @@ EOF
 
   local hash=$(get_hash)
   local base_hash=$(cache_content_hash ^aztec-up/Dockerfile.base)
-  if ! cache_download aztec-up-test-base-image-$base_hash.zst; then
+  local base_artifact=aztec-up-test-base-image-$base_hash.zst
+  if ! cache_download $base_artifact; then
     docker build -t aztecprotocol/aztec-up-test-base -f Dockerfile.base .
-    docker save aztecprotocol/aztec-up-test-base:latest > aztec-up-test-base-image
-    cache_upload aztec-up-test-base-image-$base_hash.zst aztec-up-test-base-image
+    if cache_upload_will_skip "$base_artifact"; then
+      cache_upload "$base_artifact" .
+    else
+      docker save aztecprotocol/aztec-up-test-base:latest > aztec-up-test-base-image
+      cache_upload "$base_artifact" aztec-up-test-base-image
+    fi
   else
     docker load < aztec-up-test-base-image
   fi
 
-  if ! cache_download aztec-up-test-image-$hash.zst; then
+  local test_artifact=aztec-up-test-image-$hash.zst
+  if ! cache_download $test_artifact; then
     rm -rf verdaccio-storage
     verdaccio --config /tmp/verdaccio-config.yaml --listen 4873 &>/dev/null &
     verdaccio_pid=$!
@@ -108,9 +119,13 @@ EOF
     rm -rf /tmp/npm-prime
 
     docker build -t aztecprotocol/aztec-up-test .
-    docker save aztecprotocol/aztec-up-test:latest > aztec-up-test-image
 
-    cache_upload aztec-up-test-image-$hash.zst aztec-up-test-image
+    if cache_upload_will_skip "$test_artifact"; then
+      cache_upload "$test_artifact" .
+    else
+      docker save aztecprotocol/aztec-up-test:latest > aztec-up-test-image
+      cache_upload "$test_artifact" aztec-up-test-image
+    fi
   else
     docker load < aztec-up-test-image
   fi
