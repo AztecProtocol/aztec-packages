@@ -2,6 +2,7 @@ import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
+import { FAST_E2E_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
@@ -11,7 +12,7 @@ describe('e2e_token_contract transfer private', () => {
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup();
+    await t.setup({ ...FAST_E2E_SETUP_OPTS });
     ({ asset, adminAddress, wallet, account1Address, tokenSim } = t);
   });
 

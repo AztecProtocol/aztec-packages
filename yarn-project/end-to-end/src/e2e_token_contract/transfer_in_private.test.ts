@@ -2,7 +2,7 @@ import { computeAuthWitMessageHash, computeInnerAuthWitHashFromAction } from '@a
 import { Fr } from '@aztec/aztec.js/fields';
 
 import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
-import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
+import { DUPLICATE_NULLIFIER_ERROR, FAST_E2E_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
@@ -12,7 +12,7 @@ describe('e2e_token_contract transfer private', () => {
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup();
+    await t.setup({ ...FAST_E2E_SETUP_OPTS });
     ({ asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t);
   });
 

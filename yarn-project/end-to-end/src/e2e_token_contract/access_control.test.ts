@@ -1,3 +1,4 @@
+import { FAST_E2E_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract access control', () => {
@@ -5,7 +6,7 @@ describe('e2e_token_contract access control', () => {
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    await t.setup();
+    await t.setup({ ...FAST_E2E_SETUP_OPTS });
   });
 
   afterAll(async () => {

@@ -1,6 +1,7 @@
 import { ImportTestContract } from '@aztec/noir-test-contracts.js/ImportTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
+import { FAST_E2E_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual', () => {
@@ -10,7 +11,7 @@ describe('e2e_nested_contract manual', () => {
   let { wallet, logger, defaultAccountAddress } = t;
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...FAST_E2E_SETUP_OPTS });
     ({ wallet, logger, defaultAccountAddress } = t);
   });
 
