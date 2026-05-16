@@ -164,7 +164,7 @@ template <class Curve> class CommitmentKey {
         }
     };
 
-    CommitBatch start_batch() { return CommitBatch{ this, {}, {} }; }
+    CommitBatch start_batch() { return CommitBatch{ .key = this, .wires = {}, .labels = {}, .tail_polys = {} }; }
 };
 
 } // namespace bb

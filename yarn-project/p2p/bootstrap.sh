@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
-
-hash=$(../bootstrap.sh hash)
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 function bench {
   mkdir -p bench-out

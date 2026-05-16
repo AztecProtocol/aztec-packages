@@ -47,7 +47,8 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     }
 
     request.loaded_circuit_name = circuit.name;
-    request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    request.loaded_circuit_constraints =
+        std::make_shared<acir_format::AcirFormat>(acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)));
     request.loaded_circuit_vk = circuit.verification_key;
 
     info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
@@ -62,16 +63,15 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
-    if (!request.loaded_circuit_constraints.has_value()) {
+    if (!request.loaded_circuit_constraints) {
         throw_or_abort("No circuit loaded. Call ChonkLoad first.");
     }
 
     acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_vector(std::move(witness));
-    acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
+    acir_format::AcirProgram program{ std::move(*request.loaded_circuit_constraints), std::move(witness_data) };
 
     // Clear loaded state immediately after moving out of it. This ensures that if any subsequent
-    // step throws, the request won't appear to still have a valid circuit loaded (the optional
-    // would be in a moved-from state, which is technically has_value()==true but poisoned).
+    // step throws, the request won't appear to still have a valid circuit loaded.
     auto loaded_vk = std::move(request.loaded_circuit_vk);
     auto circuit_name = std::move(request.loaded_circuit_name);
     request.loaded_circuit_constraints.reset();

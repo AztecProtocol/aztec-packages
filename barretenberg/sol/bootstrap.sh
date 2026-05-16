@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 export CRS_PATH="../cpp/srs_db"
 
-export hash=$(cache_content_hash \
-  ^barretenberg/sol/ \
-  ../cpp/.rebuild_patterns
-)
+function get_hash {
+    cache_content_hash \
+      ^barretenberg/sol/ \
+      ../cpp/.rebuild_patterns
+}
 
 
 function test {
@@ -15,6 +27,12 @@ function test {
 }
 
 function test_cmds {
+    local hash
+    if [ "${NO_CACHE:-0}" -eq 1 ]; then
+        hash=disabled-cache
+    else
+        hash=$(get_hash)
+    fi
     test_cmds_internal | awk "{ print \"$hash \" \$0 }"
 }
 
@@ -25,6 +43,7 @@ function test_cmds_internal {
 function build_sol {
     echo_header "barretenberg/sol building sol"
 
+    local hash=$(get_hash)
     local artifact=barretenberg-sol-$hash.zst
     if ! cache_download $artifact; then
 
@@ -66,6 +85,12 @@ function build {
 }
 
 function bench_cmds {
+  local hash
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    hash=disabled-cache
+  else
+    hash=$(get_hash)
+  fi
   echo "$hash barretenberg/sol/bootstrap.sh bench"
 }
 
@@ -123,7 +148,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"

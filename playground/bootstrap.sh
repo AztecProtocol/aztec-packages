@@ -1,15 +1,51 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
 
-hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
+
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
+
+function upload_build_cache {
+  local artifact=$1
+  if [[ "$artifact" == *"disabled-cache"* ]] || [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    cache_upload "$artifact" .
+  else
+    cache_upload "$artifact" $(git ls-files --others --ignored --exclude-standard | grep -vE '^"?node_modules/')
+  fi
+}
 
 function build {
   echo_header "playground build"
   npm_install_deps
 
+  local hash=$(get_hash)
   if ! cache_download playground-$hash.tar.gz; then
     denoise 'yarn build'
-    cache_upload playground-$hash.tar.gz $(git ls-files --others --ignored --exclude-standard | grep -vE '^"?node_modules/')
+    upload_build_cache playground-$hash.tar.gz
   fi
 }
 
@@ -19,6 +55,7 @@ function test {
 }
 
 function test_cmds {
+  local hash=$(get_test_hash)
   for browser in chromium firefox; do
     echo "$hash:TIMEOUT=900s playground/scripts/run_test.sh $browser"
   done
@@ -49,7 +86,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"

@@ -1,9 +1,7 @@
-#include <array>
-#include <iostream>
-#include <memory>
+#pragma once
+
 #include <string>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <sys/types.h>
 
 class Process {
   private:

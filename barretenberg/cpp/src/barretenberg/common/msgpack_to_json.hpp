@@ -1,3 +1,5 @@
+#pragma once
+
 #include "msgpack/object_fwd_decl.hpp"
 
 namespace bb {

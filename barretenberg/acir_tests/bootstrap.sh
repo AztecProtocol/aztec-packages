@@ -1,25 +1,58 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 export CRS_PATH=$HOME/.bb-crs
 export RAYON_NUM_THREADS=1
 
-tests_tar=barretenberg-acir-tests-$(hash_str \
-  $(../../noir/bootstrap.sh hash) \
-  $(cache_content_hash \
-    ./.rebuild_patterns \
-    ../cpp/.rebuild_patterns \
-    ../noir/ \
-    )).tar.gz
+function get_tests_tar {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo "barretenberg-acir-tests-disabled-cache.tar.gz"
+    return
+  fi
 
-tests_hash=$(hash_str \
-  $(../../noir/bootstrap.sh hash) \
-  $(../cpp/bootstrap.sh hash) \
-  $(cache_content_hash \
-    ^barretenberg/acir_tests/ \
-    ./.rebuild_patterns \
-    ../ts/.rebuild_patterns \
-    ../noir/))
+  echo "barretenberg-acir-tests-$(hash_str \
+    $(../../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ./.rebuild_patterns \
+      ../cpp/.rebuild_patterns \
+      ../noir/ \
+      )).tar.gz"
+}
+
+function get_tests_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  hash_str \
+    $(../../noir/bootstrap.sh hash) \
+    $(../cpp/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ^barretenberg/acir_tests/ \
+      ./.rebuild_patterns \
+      ../ts/.rebuild_patterns \
+      ../noir/)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_tests_hash
+  fi
+}
 
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
@@ -100,6 +133,7 @@ function compile {
 function build {
   echo_header "acir_tests build"
 
+  local tests_tar=$(get_tests_tar)
   if ! cache_download $tests_tar; then
     rm -rf acir_tests
     denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
@@ -135,12 +169,14 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
+  local tests_hash=$(get_test_hash)
+
   # NOTE: chonk commands are tested in yarn-project/end-to-end bench due to circular dependencies.
   # Locally, you can do ./bootstrap.sh bench_ivc to run the 'tests' (benches with validation)
 
   # non_recursive_tests include all of the non recursive test programs
-  local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof|double_verify_root_rollup_honk_proof')
+  local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d 2>/dev/null | \
+    grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof|double_verify_root_rollup_honk_proof' || true)
   local scripts=$(realpath --relative-to=$root scripts)
 
   local sol_prefix="$tests_hash:ISOLATE=1"
@@ -231,7 +267,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $tests_hash
+    get_tests_hash
     ;;
   *)
     default_cmd_handler "$@"

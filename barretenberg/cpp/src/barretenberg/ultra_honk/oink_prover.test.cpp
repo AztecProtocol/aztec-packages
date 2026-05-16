@@ -1,6 +1,5 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
-#include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/ultra_honk/mega_circuit_test_helper.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
@@ -29,7 +28,7 @@ class OinkTests : public ::testing::Test {
 TEST_F(OinkTests, OinkProverIsDeterministic)
 {
     Builder circuit;
-    GoblinMockCircuits::construct_simple_circuit(circuit);
+    MegaCircuitTestHelper::construct_simple_circuit(circuit);
     auto prover_instance = std::make_shared<ProverInstance>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
 
@@ -75,7 +74,7 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
 TEST_F(OinkTests, OinkProverCommitments)
 {
     Builder circuit;
-    GoblinMockCircuits::construct_simple_circuit(circuit);
+    MegaCircuitTestHelper::construct_simple_circuit(circuit);
     auto prover_instance = std::make_shared<ProverInstance>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);

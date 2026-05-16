@@ -1,21 +1,48 @@
 #!/usr/bin/env bash
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
 # Use ci3 script base.
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 # We mix if we're a release into the hash, as releases have all architectures built.
 # Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds
 # with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
 # that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
-hash=$(hash_str \
-  $(../cpp/bootstrap.sh hash) \
-  $(cache_content_hash .rebuild_patterns) \
-  $(semver check $REF_NAME && echo 1 || echo 0) \
-  ${AVM_TRANSPILER:-1})
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  hash_str \
+    $(../cpp/bootstrap.sh hash) \
+    $(cache_content_hash .rebuild_patterns) \
+    $(semver check $REF_NAME && echo 1 || echo 0) \
+    ${AVM_TRANSPILER:-1}
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
 
 function build {
   echo_header "bb.js build"
   npm_install_deps
 
+  local hash=$(get_hash)
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
@@ -39,6 +66,7 @@ function build {
 }
 
 function test_cmds {
+  local hash=$(get_test_hash)
   cd dest/node
   for test in **/*.test.js; do
     # Skip benchmarks here.
@@ -54,6 +82,7 @@ function test_cmds {
 }
 
 function bench_cmds {
+  local hash=$(get_test_hash)
   echo "$hash:CPUS=4 barretenberg/ts/scripts/run_test.sh poseidon.bench.test.js"
 }
 
@@ -76,7 +105,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo "$hash"
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"

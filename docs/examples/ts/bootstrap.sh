@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../../..} ;;
+  *) root=${root:-$PWD/$script_dir/../../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-export REPO_ROOT=$(git rev-parse --show-toplevel)
+export REPO_ROOT=$root
 export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
 export BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
 

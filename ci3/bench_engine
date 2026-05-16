@@ -2,7 +2,12 @@
 # Uses strict scheduling to run benchmarks in parallel on their own cpus.
 # For benchmarks that can't be parallelized, runs them one at a time to avoid resource contention.
 # Isolates benchmark CPUs from OS and pins all other processes to non-bench CPUs to avoid interference.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
+export COMMIT_MSG=${COMMIT_MSG:-$(git log -1 --pretty=format:"%s")}
+export COMMIT_AUTHOR=${COMMIT_AUTHOR:-$(git log -1 --pretty=format:"%an")}
+export COMMIT_HASH=${COMMIT_HASH:-$(git rev-parse HEAD)}
+export CURRENT_VERSION=${CURRENT_VERSION:-$(jq -r '."."' $root/.release-please-manifest.json)}
 
 bench_cmds_file=$1
 

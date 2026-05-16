@@ -2,13 +2,13 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/mega_circuit_test_helper.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -91,7 +91,7 @@ TYPED_TEST(MegaHonkTests, Basic)
     using Flavor = TypeParam;
     typename Flavor::CircuitBuilder builder;
 
-    GoblinMockCircuits::construct_simple_circuit(builder);
+    MegaCircuitTestHelper::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof
     bool honk_verified = this->construct_and_verify_honk_proof(builder);
@@ -116,7 +116,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor, DefaultIO>;
 
-    GoblinMockCircuits::construct_simple_circuit(builder);
+    MegaCircuitTestHelper::construct_simple_circuit(builder);
 
     auto builder_copy = builder;
 
@@ -180,7 +180,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 
     // Construct a simple circuit and make a copy of it
     Builder builder;
-    GoblinMockCircuits::construct_simple_circuit(builder);
+    MegaCircuitTestHelper::construct_simple_circuit(builder);
     auto builder_copy = builder;
 
     // Construct two identical proving keys
@@ -239,7 +239,7 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 
         // Determine the baseline dyadic size (with ECC ops + finalization overhead, no extra user gates)
         Builder baseline_builder;
-        GoblinMockCircuits::construct_simple_circuit(baseline_builder);
+        MegaCircuitTestHelper::construct_simple_circuit(baseline_builder);
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
@@ -249,7 +249,7 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         bool found_jump = false;
         for (size_t num_extra_gates = 0; num_extra_gates <= baseline_dyadic; num_extra_gates++) {
             Builder builder;
-            GoblinMockCircuits::construct_simple_circuit(builder);
+            MegaCircuitTestHelper::construct_simple_circuit(builder);
             if (num_extra_gates > 0) {
                 MockCircuits::add_arithmetic_gates(builder, num_extra_gates);
             }
@@ -267,7 +267,7 @@ TYPED_TEST(MegaHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 
                 // Prove and verify at the tightest packing (right before the jump)
                 Builder tight_builder;
-                GoblinMockCircuits::construct_simple_circuit(tight_builder);
+                MegaCircuitTestHelper::construct_simple_circuit(tight_builder);
                 MockCircuits::add_arithmetic_gates(tight_builder, num_extra_gates - 1);
                 bool verified = this->construct_and_verify_honk_proof(tight_builder);
                 EXPECT_TRUE(verified);
@@ -297,7 +297,7 @@ TYPED_TEST(MegaHonkTests, WitnessPolynomialsMasked)
         using Builder = typename Flavor::CircuitBuilder;
 
         Builder builder;
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        MegaCircuitTestHelper::construct_simple_circuit(builder);
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
 
         auto check_masked = [](const auto& poly, const std::string& label) {

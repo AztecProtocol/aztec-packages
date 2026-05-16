@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 function process_batch {
   set -euo pipefail

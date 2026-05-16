@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include <benchmark/benchmark.h>

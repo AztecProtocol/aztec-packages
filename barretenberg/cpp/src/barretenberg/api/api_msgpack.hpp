@@ -5,11 +5,13 @@
 #include <memory>
 #include <string>
 
-#ifndef __wasm__
-#include "barretenberg/ipc/ipc_server.hpp"
-#endif
-
 namespace bb {
+
+#ifndef __wasm__
+namespace ipc {
+class IpcServer;
+}
+#endif
 
 /**
  * @brief Process msgpack API commands from an input stream
