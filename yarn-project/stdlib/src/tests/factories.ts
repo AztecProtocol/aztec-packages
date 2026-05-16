@@ -1255,6 +1255,7 @@ export async function makeContractInstanceFromClassId(
     originalContractClassId: classId,
     salt,
     initializationHash,
+    immutablesHash,
     deployer,
   });
   const address = await computeAddress(publicKeys, partialAddress);

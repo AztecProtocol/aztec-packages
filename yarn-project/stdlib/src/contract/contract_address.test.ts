@@ -29,10 +29,11 @@ describe('ContractAddress', () => {
       initializationHash: new Fr(1),
       salt: new Fr(2),
       deployer: AztecAddress.fromField(new Fr(4)),
+      immutablesHash: new Fr(3),
     };
     const result = await computeSaltedInitializationHash(mockInstance);
     expect(result.toString()).toMatchInlineSnapshot(
-      `"0x2175c2437c52b1bfae8eed40f2e9968546a7053272f94f3937c52ed7e0018349"`,
+      `"0x093c5f7e0d5a56a1fce27bb347233fd1884db1ff78573c5b9b2de9d3fe8babe1"`,
     );
   });
 
@@ -82,7 +83,7 @@ describe('ContractAddress', () => {
     const logger = createLogger('stdlib:contract_address:test');
     logger.info(`Computed contract address from instance in ${ms}ms`);
     expect(address.toString()).toMatchInlineSnapshot(
-      `"0x260f462e7ae7b7031cdb5e41a691a265d7debe6863d8a12887b97f5f8e5d7727"`,
+      `"0x16eaa1f1db213008081de6fe519997910e2805740ea5e8d5b0c2e2462550c8c3"`,
     );
   });
 });

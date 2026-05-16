@@ -132,7 +132,13 @@ pub contract ContractInstanceRegistry {
             context.maybe_msg_sender().unwrap()
         };
 
-        let partial_address = PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
+        let partial_address = PartialAddress::compute(
+            contract_class_id,
+            salt,
+            initialization_hash,
+            deployer,
+            immutables_hash,
+        );
 
         // Validate public key points lie on the Grumpkin curve and are non-0 to prevent AVM DoS attacks.
         public_keys.validate_on_curve();

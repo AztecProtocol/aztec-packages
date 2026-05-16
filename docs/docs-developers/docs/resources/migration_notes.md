@@ -9,6 +9,32 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Contracts] `ContractInstance` gains `immutablesHash`, address derivation changes
+
+`ContractInstance` now has a new `immutablesHash: Fr` field that commits to a contract's immutable storage values. The field is folded into the salted initialization hash, so contract addresses are impacted:
+
+```
+salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash])
+```
+
+**You may need to act if:**
+
+- You hardcode contract addresses computed from instance fields outside the SDK. Recompute them under the new derivation.
+- You parse the `ContractInstancePublished` private log directly. The event payload grows from 15 to 16 fields, with `immutables_hash` inserted between `initialization_hash` and the public-keys block:
+
+  ```
+  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(8), deployer]
+  ```
+
+- You call `ContractInstanceRegistry.publish_for_public_execution` directly. The function now takes 6 arguments instead of 5, with `immutables_hash` inserted between `initialization_hash` and `public_keys`:
+
+  ```diff
+  - publish_for_public_execution(salt, contract_class_id, initialization_hash,                  public_keys, universal_deploy)
+  + publish_for_public_execution(salt, contract_class_id, initialization_hash, immutables_hash, public_keys, universal_deploy)
+  ```
+
+The `aztec.js` `publishInstance` helper handles this automatically.
+
 ### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
 
 `attempt_note_discovery` is now crate-private. Custom message handlers (implementations of `CustomMessageHandler`) that previously called it directly should call `process_private_note_msg` instead, which runs the standard private note message decoding and discovery pipeline.
@@ -42,6 +68,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 ```
 
 **Impact**: Custom message handlers that reused the standard note message processing pipeline must switch to `process_private_note_msg`. Contracts using only built-in private note handling are unaffected.
+=======
 
 ### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
 

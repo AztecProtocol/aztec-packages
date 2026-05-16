@@ -15,10 +15,11 @@ namespace bb::avm2::simulation {
  * If the address has already been derived, an event has already been emitted and we skip
  * repeating the computation and emission. Otherwise, we compute the address from the instance
  * members using the poseidon2, scalar_mul, and ecc traces, which is given as:
- *   1. salted_init_hash  = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
+ *   1. salted_init_hash  = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr,
+ *                                    immutables_hash)
  *   2. partial_address   = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
  *   3. public_keys_hash  = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH, [...public_keys.to_fields()])
- *   4. preaddress        = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address)
+ *   4. preaddress        = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
  *   5. preaddress_public_key = preaddress * G1  (Grumpkin scalar multiplication)
  *   6. address           = (preaddress_public_key + incoming_viewing_key).x  (Grumpkin EC add)
  *  and we add the output to the local cache.
@@ -44,8 +45,11 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
     // First time seeing this address - do the actual derivation.
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[SALTED_INITIALIZATION_HASH_POSEIDON2_i] in
     // address_derivation.pil.
-    FF salted_initialization_hash = poseidon2.hash(
-        { DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer });
+    FF salted_initialization_hash = poseidon2.hash({ DOM_SEP__SALTED_INITIALIZATION_HASH,
+                                                     instance.salt,
+                                                     instance.initialization_hash,
+                                                     instance.deployer,
+                                                     instance.immutables_hash });
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PARTIAL_ADDRESS_POSEIDON2] in
     // address_derivation.pil.
     FF partial_address =
@@ -65,7 +69,7 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
     // address_derivation.pil.
     FF public_keys_hash = poseidon2.hash(public_key_hash_vec);
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PREADDRESS_POSEIDON2] in address_derivation.pil.
-    FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
 
     // Note: the below ecc calls assume points are on the curve. We know preaddress_public_key is (by definition),
     // but it may be possible that incoming_viewing_key is not.

@@ -9,7 +9,7 @@ use crate::{
         DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
         DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOB_CHALLENGE_Z, DOM_SEP__BLOB_GAMMA_ACC,
         DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC,
-        DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONTRACT_ADDRESS_V1,
+        DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONTRACT_ADDRESS_V2,
         DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY,
         DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FUNCTION_ARGS,
         DOM_SEP__INITIALIZATION_NULLIFIER, DOM_SEP__INITIALIZER,
@@ -194,7 +194,7 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__TSK_M, "tsk_m");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_KEYS_HASH, "public_keys_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PARTIAL_ADDRESS, "partial_address");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__CONTRACT_ADDRESS_V1, "contract_address_v1");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__CONTRACT_ADDRESS_V2, "contract_address_v2");
     tester.assert_dom_sep_matches_derived(DOM_SEP__BLOCK_HEADER_HASH, "block_header_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__TX_REQUEST, "tx_request");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_TX_HASH, "public_tx_hash");

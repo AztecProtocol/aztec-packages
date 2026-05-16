@@ -29,6 +29,7 @@ export type ContractInstantiationData = {
   salt: Fr;
   publicKeys?: PublicKeys;
   deployer?: AztecAddress;
+  immutablesHash?: Fr;
 };
 
 export class SerializableContractInstance {
@@ -136,12 +137,13 @@ export async function getContractInstanceFromInstantiationParams(
         )
       : await computeInitializationHash(constructorArtifact, args);
   const publicKeys = opts.publicKeys ?? PublicKeys.default();
+  const immutablesHash = opts.immutablesHash ?? Fr.ZERO;
 
   const instance: ContractInstance = {
     currentContractClassId: contractClass.id,
     originalContractClassId: contractClass.id,
     initializationHash,
-    immutablesHash: Fr.ZERO, // Default to zero until immutables exposed in ContractInstantiationData
+    immutablesHash,
     publicKeys,
     salt: opts.salt,
     deployer,

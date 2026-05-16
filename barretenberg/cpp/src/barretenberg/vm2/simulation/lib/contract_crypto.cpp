@@ -95,12 +95,13 @@ FF compute_contract_address(const ContractInstance& contract_instance)
     FF salted_initialization_hash = poseidon2::hash({ DOM_SEP__SALTED_INITIALIZATION_HASH,
                                                       contract_instance.salt,
                                                       contract_instance.initialization_hash,
-                                                      contract_instance.deployer });
+                                                      contract_instance.deployer,
+                                                      contract_instance.immutables_hash });
     FF partial_address = poseidon2::hash(
         { DOM_SEP__PARTIAL_ADDRESS, contract_instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(contract_instance.public_keys);
-    FF h = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    FF h = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
     // This is safe since BN254_Fr < GRUMPKIN_Fr so we know there is no modulo reduction
     grumpkin::fr h_fq = grumpkin::fr(h);
     BB_ASSERT(contract_instance.public_keys.incoming_viewing_key.on_curve(),

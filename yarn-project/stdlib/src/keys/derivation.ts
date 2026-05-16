@@ -44,12 +44,12 @@ export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
 }
 
 export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
-  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
+  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V2);
 }
 
 export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): Promise<AztecAddress> {
   // Given public keys and a partial address, we can compute our address in the following steps.
-  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
+  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V2);
   // 2. addressPoint = (preaddress * G) + ivpk_m
   // 3. address = addressPoint.x
   const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);

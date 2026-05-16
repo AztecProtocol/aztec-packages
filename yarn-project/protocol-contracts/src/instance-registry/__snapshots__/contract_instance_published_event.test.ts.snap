@@ -2,18 +2,18 @@
 
 exports[`ContractInstancePublishedEvent parses an event as emitted by the ClassInstanceRegistry 1`] = `
 ContractInstancePublishedEvent {
-  "address": "0x2bb66eecb55d0bedc419a4e64aed5abeade190ae14e2389d1a1e48557c3ca198",
-  "contractClassId": "0x08362e21dff8d231f5f32dbb916c8678d1af578362b3b6c42100cb86b701315e",
+  "address": "0x1623e556088171b0d1a9eb6737e24601fcf747ec6df56cf149ed81edf7bd0a19",
+  "contractClassId": "0x135e3e6dff88ef7e69c592472939cddff00850a0886c416e47720573cf94db4c",
   "deployer": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "immutablesHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "initializationHash": "0x0e262f35d3a2042eafab58c04c02bc2e5d197cabad610b57468d8979dac35e2b",
+  "initializationHash": "0x0e194c360bc3d5c5fe1b2619f35e6fe4312757f518c2c8ea644a5dc0d28e619b",
   "publicKeys": PublicKeys {
-    "masterIncomingViewingPublicKey": "0x1ac862ba6831bc9cd0978435cbed95ef2c5f3f40f3a79c1da890d0aac611333a09fda70ea850221f661151b876121a6a535e2965c1a36ecfb349cce03fb64e87",
-    "masterNullifierPublicKey": "0x062dde7d04277d872d2ed897a4b030b94103aa29ee1a21315a7d5be1e63f5d332043a22dd03b6f5af765ac9659613582530dea9995a11b59e7a41a55aae675f4",
-    "masterOutgoingViewingPublicKey": "0x1896d678640fd7a14df0e2f9ce47eda4b60220371f1150a3f0a798b6c6bff2f802282762f0b1e4bfe0d9af06e4863bdd4ebe1e7d842fd6014fd7359d7986cd04",
-    "masterTaggingPublicKey": "0x1531ed18f020e636fa7dcdb319ed39c11c206a03a17fdc49ffedac2534bf16a62c17960bf273be0f74f78d6d2eead430b8f3d77e3462de2d248492c8af9d2c12",
+    "masterIncomingViewingPublicKey": "0x0efbc35e2456ec513ec98d565decb7a37da609539408e911b2de34426c18df7c11881e07f9cefcf0501d333244bdc094ee6b2b437d6a8ed70d2770bd12cf1cd5",
+    "masterNullifierPublicKey": "0x22bc8d8e793542b69653d5b3df03fb73de4101874a4c61dc1a2b2f818cebc2bd10f2fd537077dc56a3caf260dfc91af26220d63f6ce54fbe66a31f0d500743be",
+    "masterOutgoingViewingPublicKey": "0x0d907a1c8feb64141b7ff41080c0afefa9bfe5b8ce18bb4a7b89ad541ab0bda40305362fa4b3eb8864ff86423d06d8db7618c5b0f9157be28ba5f30d5f2da2d2",
+    "masterTaggingPublicKey": "0x233289eca0699f870caeacb51b3e74b697eb620f1dcc6968fc1c59a56149c38a09bf00e859f74118df4ab038ba03a185673b965d38473d97b0f9f8e2785c1f68",
   },
-  "salt": "0x02f0a6e3da584ea3692fe2a2751ff5e7b0124bea3c707c649747b543fe0fa38a",
+  "salt": "0x13f984b9e77230f2fd9af7ca9e5ccf182f6c89a59922907157b9e6788387ebc8",
   "version": 2,
 }
 `;

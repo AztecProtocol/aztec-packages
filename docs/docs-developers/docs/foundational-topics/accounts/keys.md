@@ -129,7 +129,7 @@ where:
   public_keys_hash = hash(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
   partial_address = hash(contract_class_id, salted_initialization_hash)
   contract_class_id = hash(artifact_hash, fn_tree_root, public_bytecode_commitment)
-  salted_initialization_hash = hash(deployer_address, salt, constructor_hash)
+  salted_initialization_hash = hash(salt, constructor_hash, deployer_address, immutables_hash)
 ```
 
 The final address is derived as `address = (pre_address * G + Ivpk_m).x` - only the x-coordinate of the resulting elliptic curve point.

@@ -472,6 +472,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
             { C::address_derivation_deployer_addr, contract_instance_data.deployer },
             { C::address_derivation_class_id, contract_instance_data.original_contract_class_id },
             { C::address_derivation_init_hash, contract_instance_data.initialization_hash },
+            { C::address_derivation_immutables_hash, contract_instance_data.immutables_hash },
             { C::address_derivation_nullifier_key_x, contract_instance_data.public_keys.nullifier_key.x },
             { C::address_derivation_nullifier_key_y, contract_instance_data.public_keys.nullifier_key.y },
             { C::address_derivation_incoming_viewing_key_x, contract_instance_data.public_keys.incoming_viewing_key.x },
@@ -547,10 +548,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
                   // For address derivation lookup
                   { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::address_derivation_address, contract_address },
-                  { C::address_derivation_salt, 0 },          // zero since nullifier doesn't exist
-                  { C::address_derivation_deployer_addr, 0 }, // zero since nullifier doesn't exist
-                  { C::address_derivation_class_id, 0 },      // zero since nullifier doesn't exist
-                  { C::address_derivation_init_hash, 0 },     // zero since nullifier doesn't exist
+                  { C::address_derivation_salt, 0 },            // zero since nullifier doesn't exist
+                  { C::address_derivation_deployer_addr, 0 },   // zero since nullifier doesn't exist
+                  { C::address_derivation_class_id, 0 },        // zero since nullifier doesn't exist
+                  { C::address_derivation_init_hash, 0 },       // zero since nullifier doesn't exist
+                  { C::address_derivation_immutables_hash, 0 }, // zero since nullifier doesn't exist
                   { C::address_derivation_nullifier_key_x, 0 },
                   { C::address_derivation_nullifier_key_y, 0 },
                   { C::address_derivation_incoming_viewing_key_x, 0 },
@@ -628,10 +630,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenAddressZero)
                   // For address derivation lookup
                   { C::address_derivation_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::address_derivation_address, contract_address },
-                  { C::address_derivation_salt, 0 },          // zero since nullifier doesn't exist
-                  { C::address_derivation_deployer_addr, 0 }, // zero since nullifier doesn't exist
-                  { C::address_derivation_class_id, 0 },      // zero since nullifier doesn't exist
-                  { C::address_derivation_init_hash, 0 },     // zero since nullifier doesn't exist
+                  { C::address_derivation_salt, 0 },            // zero since nullifier doesn't exist
+                  { C::address_derivation_deployer_addr, 0 },   // zero since nullifier doesn't exist
+                  { C::address_derivation_class_id, 0 },        // zero since nullifier doesn't exist
+                  { C::address_derivation_init_hash, 0 },       // zero since nullifier doesn't exist
+                  { C::address_derivation_immutables_hash, 0 }, // zero since nullifier doesn't exist
                   { C::address_derivation_nullifier_key_x, 0 },
                   { C::address_derivation_nullifier_key_y, 0 },
                   { C::address_derivation_incoming_viewing_key_x, 0 },
@@ -722,6 +725,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
                 { C::address_derivation_deployer_addr, contract_instance_data.deployer },
                 { C::address_derivation_class_id, contract_instance_data.original_contract_class_id },
                 { C::address_derivation_init_hash, contract_instance_data.initialization_hash },
+                { C::address_derivation_immutables_hash, contract_instance_data.immutables_hash },
                 { C::address_derivation_nullifier_key_x, contract_instance_data.public_keys.nullifier_key.x },
                 { C::address_derivation_nullifier_key_y, contract_instance_data.public_keys.nullifier_key.y },
                 { C::address_derivation_incoming_viewing_key_x,
