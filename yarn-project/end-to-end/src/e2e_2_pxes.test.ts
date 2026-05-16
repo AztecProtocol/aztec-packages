@@ -9,7 +9,7 @@ import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 
 import { expect, jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { FAST_E2E_SETUP_OPTS } from './fixtures/fixtures.js';
 import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
@@ -53,7 +53,7 @@ describe('e2e_2_pxes', () => {
       accounts: [accountAAddress],
       logger,
       teardown: teardownA,
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS, numberOfInitialFundedAccounts: 3 }));
+    } = await setup(1, { ...FAST_E2E_SETUP_OPTS, numberOfInitialFundedAccounts: 3 }));
 
     ({
       wallet: walletB,

@@ -134,10 +134,11 @@ describe('CheckpointAutoProver', () => {
 
     // The archiver tip advances to 3 immediately, so each checkpoint's wait resolves right away.
     getL2Tips.mockResolvedValue(makeTips(3));
-    markAsProven.mockImplementation(async (n?: CheckpointNumber) => {
+    markAsProven.mockImplementation((n?: CheckpointNumber) => {
       if (n !== undefined) {
         promotedAt.push(n);
       }
+      return Promise.resolve();
     });
 
     prover.start();

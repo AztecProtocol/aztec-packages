@@ -12,7 +12,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { afterAll, jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { FAST_E2E_SETUP_OPTS } from './fixtures/fixtures.js';
 import type { EndToEndContext } from './fixtures/setup.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
@@ -81,7 +81,7 @@ describe('e2e_lending_contract', () => {
   };
 
   beforeAll(async () => {
-    const ctx = await setup(1, { ...PIPELINING_SETUP_OPTS });
+    const ctx = await setup(1, { ...FAST_E2E_SETUP_OPTS });
     ({
       teardown,
       logger,
