@@ -52,7 +52,7 @@ export -f prepare_crs
 
 function build_prover_agent_image {
   set -euo pipefail
-  local tag=$(git rev-parse HEAD)
+  local tag=${COMMIT_HASH:-$(git rev-parse HEAD)}
 
   if ! docker image inspect aztecprotocol/aztec:$tag &>/dev/null; then
     echo "Base image aztecprotocol/aztec:$tag not found. Run 'release-image/bootstrap.sh' first."
@@ -70,17 +70,18 @@ export -f build_prover_agent_image
 function build_image {
   set -euo pipefail
   cd ..
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
   if semver check $REF_NAME; then
     # We are a tagged release. Use the version from the tag.
     # We strip leading 'v' so that this is a valid semver.
     local version=${REF_NAME#v}
   else
     # Otherwise, use the commit hash as the version.
-    local version=$(git rev-parse HEAD)
+    local version=$commit_hash
   fi
   local previous_ids=$(docker images aztecprotocol/aztec --format "{{.ID}}" | uniq)
-  docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$(git rev-parse HEAD) .
-  docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+  docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$commit_hash .
+  docker tag aztecprotocol/aztec:$commit_hash aztecprotocol/aztec:latest
 
   # In CI, dump all files under /usr/src.
   if [ "$CI" -eq 1 ]; then

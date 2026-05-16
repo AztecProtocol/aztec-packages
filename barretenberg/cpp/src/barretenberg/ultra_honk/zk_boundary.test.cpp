@@ -13,7 +13,6 @@
  */
 #include <gtest/gtest.h>
 
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"

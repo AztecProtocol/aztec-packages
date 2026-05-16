@@ -1,4 +1,3 @@
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "failure_test_utils.hpp"
 #include "ultra_honk.test.hpp"

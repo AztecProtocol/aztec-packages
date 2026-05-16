@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/proof_length.hpp"

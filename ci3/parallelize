@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # For running test cmds that are pathed relative to the repo root.
 # Commands are read from stdin.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
+export COMMIT_MSG=${COMMIT_MSG:-$(git log -1 --pretty=format:"%s")}
+export COMMIT_AUTHOR=${COMMIT_AUTHOR:-$(git log -1 --pretty=format:"%an")}
+export COMMIT_HASH=${COMMIT_HASH:-$(git rev-parse HEAD)}
+export CURRENT_VERSION=${CURRENT_VERSION:-$(jq -r '."."' $root/.release-please-manifest.json)}
 
 [ "${STRICT_SCHEDULING:-0}" -eq 1 ] && exec parallelize_strict "$@"
 
