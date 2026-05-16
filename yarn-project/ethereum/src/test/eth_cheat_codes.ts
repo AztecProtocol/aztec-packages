@@ -101,6 +101,7 @@ export class EthCheatCodes {
    */
   public async mine(numberOfBlocks: number | bigint = 1): Promise<void> {
     await this.doMine(Number(numberOfBlocks));
+    await this.syncDateProvider();
     this.logger.warn(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
@@ -118,6 +119,7 @@ export class EthCheatCodes {
   public async evmMine(): Promise<void> {
     try {
       await this.doRpcCall('evm_mine', []);
+      await this.syncDateProvider();
       this.logger.warn(`Mined 1 L1 block with evm_mine`);
     } catch (err) {
       throw new Error(`Error mining: ${err}`);
@@ -517,6 +519,7 @@ export class EthCheatCodes {
       }
     });
 
+    await this.syncDateProvider();
     this.logger.warn(`Mined ${blockCount} empty L1 ${pluralize('block', blockCount)}`);
   }
 

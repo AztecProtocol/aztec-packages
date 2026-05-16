@@ -235,8 +235,7 @@ describe('e2e_p2p_reex', () => {
         }
 
         // Start a fresh slot and resume proposals
-        const [ts] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-        t.ctx.dateProvider.setTime(Number(ts) * 1000);
+        await t.ctx.cheatCodes.rollup.advanceToNextSlot();
 
         await resumeProposals();
 

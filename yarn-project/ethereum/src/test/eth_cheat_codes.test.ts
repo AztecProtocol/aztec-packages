@@ -2,7 +2,7 @@ import { Blob } from '@aztec/blob-lib';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import { type Hex, encodeFunctionData, getContract } from 'viem';
@@ -209,6 +209,51 @@ describe('EthCheatCodes', () => {
       expect(txReceipt.status).toEqual('success');
       expect(tx.blobVersionedHashes?.length).toBeGreaterThan(0);
       expect(tx.maxFeePerBlobGas).toBeGreaterThan(0);
+    });
+  });
+
+  describe('dateProvider sync', () => {
+    let testDateProvider: TestDateProvider;
+    let cheatCodesWithTestDateProvider: EthCheatCodes;
+
+    beforeEach(() => {
+      testDateProvider = new TestDateProvider();
+      cheatCodesWithTestDateProvider = new EthCheatCodes([rpcUrl], testDateProvider);
+    });
+
+    it('mine() syncs dateProvider to latest block timestamp', async () => {
+      const before = await cheatCodesWithTestDateProvider.lastBlockTimestamp();
+      await cheatCodesWithTestDateProvider.mine(3);
+      const after = await cheatCodesWithTestDateProvider.lastBlockTimestamp();
+      expect(after).toBeGreaterThanOrEqual(before);
+      expect(testDateProvider.now()).toBeGreaterThanOrEqual(after * 1000);
+      expect(testDateProvider.now()).toBeLessThan((after + 5) * 1000);
+    });
+
+    it('evmMine() syncs dateProvider to latest block timestamp', async () => {
+      const before = await cheatCodesWithTestDateProvider.lastBlockTimestamp();
+      await cheatCodesWithTestDateProvider.evmMine();
+      const after = await cheatCodesWithTestDateProvider.lastBlockTimestamp();
+      expect(after).toBeGreaterThanOrEqual(before);
+      expect(testDateProvider.now()).toBeGreaterThanOrEqual(after * 1000);
+      expect(testDateProvider.now()).toBeLessThan((after + 5) * 1000);
+    });
+
+    it('warp() syncs dateProvider to the warped timestamp', async () => {
+      const current = await cheatCodesWithTestDateProvider.lastBlockTimestamp();
+      const target = current + 1000;
+      await cheatCodesWithTestDateProvider.warp(target);
+      expect(testDateProvider.now()).toBeGreaterThanOrEqual(target * 1000);
+      expect(testDateProvider.now()).toBeLessThan((target + 5) * 1000);
+    });
+
+    it('mineEmptyBlock() syncs dateProvider to latest block timestamp', async () => {
+      const before = await cheatCodesWithTestDateProvider.lastBlockTimestamp();
+      await cheatCodesWithTestDateProvider.mineEmptyBlock();
+      const after = await cheatCodesWithTestDateProvider.lastBlockTimestamp();
+      expect(after).toBeGreaterThanOrEqual(before);
+      expect(testDateProvider.now()).toBeGreaterThanOrEqual(after * 1000);
+      expect(testDateProvider.now()).toBeLessThan((after + 5) * 1000);
     });
   });
 

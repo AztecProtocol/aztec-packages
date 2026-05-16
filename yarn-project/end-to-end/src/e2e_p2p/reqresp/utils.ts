@@ -122,7 +122,6 @@ export async function runReqrespTxTest(params: {
 
   t.logger.info('Starting fresh slot');
   const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-  t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
   const startSlotTimestamp = BigInt(timestamp);
 
   const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes(t, startSlotTimestamp);

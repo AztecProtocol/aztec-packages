@@ -160,9 +160,7 @@ describe('e2e_p2p_network', () => {
     }
 
     // Wait for the validators to be added to the rollup
-    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(
-      EpochNumber(t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet + 1),
-    );
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet + 1));
 
     // Changes have now taken effect
     const attesters = await rollupWrapper.getAttesters();
@@ -177,10 +175,6 @@ describe('e2e_p2p_network', () => {
         account: t.baseAccount,
       }),
     });
-
-    // Set the system time in the node, only after we have warped the time and waited for a block
-    // Time is only set in the NEXT block
-    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
 
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
