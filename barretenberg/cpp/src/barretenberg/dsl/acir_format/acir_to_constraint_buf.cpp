@@ -821,10 +821,11 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
         block.type = BlockType::RAM;
     }
 
-    WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_index(mem_op.op.index.value);
-    WitnessOrConstant<bb::fr> value = WitnessOrConstant<bb::fr>::from_index(mem_op.op.value.value);
-
-    MemOp acir_mem_op = MemOp{ .access_type = access_type, .index = index, .value = value };
+    MemOp acir_mem_op = MemOp{
+        .access_type = access_type,
+        .index = mem_op.op.index.value,
+        .value = mem_op.op.value.value,
+    };
     block.trace.push_back(acir_mem_op);
 }
 
