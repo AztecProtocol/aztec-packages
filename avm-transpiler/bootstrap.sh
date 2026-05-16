@@ -7,17 +7,27 @@ if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
   exit 0
 fi
 
-hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+  fi
+}
 
-export GIT_COMMIT=$(git -C ../noir/noir-repo rev-parse HEAD)
-export SOURCE_DATE_EPOCH=0
-export GIT_DIRTY=false
+function ensure_build_metadata {
+  export GIT_COMMIT=$(git -C ../noir/noir-repo rev-parse HEAD)
+  export SOURCE_DATE_EPOCH=0
+  export GIT_DIRTY=false
+}
 export RUSTFLAGS="-Dwarnings"
 
 function build_native {
   echo_header "avm-transpiler build_native"
+  local hash=$(get_hash)
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
+    ensure_build_metadata
     # Serialize cargo/rustup operations to avoid race conditions with noir build
     # which may run in parallel and share the same RUSTUP_HOME/CARGO_HOME.
     (
@@ -35,8 +45,10 @@ function build_cross {
   local target=$1
   echo_header "avm-transpiler build_cross $target"
 
+  local hash=$(get_hash)
   cross_compile_artifact=avm-transpiler-cross-$target-$hash.tar.gz
   if ! cache_download $cross_compile_artifact; then
+    ensure_build_metadata
     # We build libraries to be linked by barretenberg
     # For now we only use the zig build for macOS targets
 
@@ -94,7 +106,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"
