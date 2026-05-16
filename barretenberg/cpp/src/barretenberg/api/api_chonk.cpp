@@ -2,7 +2,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/json_output.hpp"
 #include "barretenberg/api/log.hpp"
-#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
