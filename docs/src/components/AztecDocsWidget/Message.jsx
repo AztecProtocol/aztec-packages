@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { AztecMark, Icons } from "./Icons";
 import { REMARK_PLUGINS, repairInlineTables } from "./markdown";
+import { copyToClipboard } from "./share";
 
 export function UserBubble({ text, tokens }) {
   const { accentColor } = tokens;
@@ -42,6 +43,7 @@ export function AssistantBody({
   showFeedback,
 }) {
   const { isInk, accentColor, panelFg, panelFg2 } = tokens;
+  const canCopy = !thinking && typeof text === "string" && text.length > 0;
   const feedbackBtn = (kind) => {
     const Icon = kind === "like" ? Icons.thumbUp : Icons.thumbDown;
     const active = feedback === kind;
@@ -122,6 +124,11 @@ export function AssistantBody({
             </>
           ) : (
             "Aztec Assistant"
+          )}
+          {canCopy && (
+            <span style={{ marginLeft: "auto" }}>
+              <CopyMarkdownButton text={text} isInk={isInk} fg2={panelFg2} />
+            </span>
           )}
         </div>
         <div
@@ -243,5 +250,41 @@ export function AssistantBody({
         )}
       </div>
     </div>
+  );
+}
+
+// Copies the raw markdown text of the bot reply so backticks, headers,
+// and lists survive a paste. Falls back to a hidden textarea +
+// document.execCommand for browsers without the async Clipboard API.
+function CopyMarkdownButton({ text, isInk, fg2 }) {
+  const [state, setState] = useState("idle");
+  const onClick = async () => {
+    const ok = await copyToClipboard(text);
+    setState(ok ? "ok" : "fail");
+    window.setTimeout(() => setState("idle"), 1800);
+  };
+  const label =
+    state === "ok" ? "Copied" : state === "fail" ? "Copy failed" : "Copy";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Copy raw markdown of the response"
+      title="Copy raw markdown (preserves formatting)"
+      style={{
+        font: "inherit",
+        letterSpacing: "inherit",
+        textTransform: "inherit",
+        padding: "1px 7px",
+        background:
+          state === "ok" ? "var(--azw-chartreuse-tint-2)" : "transparent",
+        color: state === "ok" ? "var(--azw-ink)" : fg2,
+        border: `1px solid ${isInk ? "rgba(242,238,225,0.25)" : "var(--azw-ink-tint-1)"}`,
+        cursor: "pointer",
+        lineHeight: 1.4,
+      }}
+    >
+      {label}
+    </button>
   );
 }
