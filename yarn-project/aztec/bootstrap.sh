@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 script_dir=${BASH_SOURCE[0]%/*}
 [ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
-root=${root:-$(cd "$script_dir/../.." && pwd)}
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
 source "$root/ci3/source_bootstrap"
 
 repo_root=$root
+repo_root=${repo_root%/yarn-project/aztec/../..}
+repo_root=${repo_root%/.}
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export PROFILER_PATH=${PROFILER_PATH:-$repo_root/noir/noir-repo/target/release/noir-profiler}
