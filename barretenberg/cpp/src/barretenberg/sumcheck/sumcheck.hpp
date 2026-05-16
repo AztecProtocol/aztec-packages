@@ -763,6 +763,26 @@ template <typename Flavor> class SumcheckProver {
     }
 };
 
+template <typename Flavor>
+SumcheckOutput<Flavor> prove_sumcheck(size_t multivariate_n,
+                                      typename Flavor::ProverPolynomials& prover_polynomials,
+                                      const std::shared_ptr<typename Flavor::Transcript>& transcript,
+                                      const typename Flavor::FF& alpha,
+                                      const std::vector<typename Flavor::FF>& gate_challenges,
+                                      const RelationParameters<typename Flavor::FF>& relation_parameters,
+                                      size_t virtual_log_n);
+
+template <typename Flavor>
+SumcheckOutput<Flavor> prove_zk_sumcheck(size_t multivariate_n,
+                                         typename Flavor::ProverPolynomials& prover_polynomials,
+                                         const std::shared_ptr<typename Flavor::Transcript>& transcript,
+                                         const typename Flavor::FF& alpha,
+                                         const std::vector<typename Flavor::FF>& gate_challenges,
+                                         const RelationParameters<typename Flavor::FF>& relation_parameters,
+                                         size_t virtual_log_n,
+                                         ZKSumcheckData<Flavor>& zk_sumcheck_data)
+    requires Flavor::HasZK;
+
 /*! \brief Implementation of the sumcheck Verifier for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
  pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multilinear
  polynomials \f$P_1, \ldots, P_N \f$.
@@ -943,6 +963,13 @@ template <typename Flavor> class SumcheckVerifier {
                                        .round_univariate_evaluations = round.get_round_univariate_evaluations() };
     };
 };
+
+template <typename Flavor>
+SumcheckOutput<Flavor> verify_sumcheck(const std::shared_ptr<typename Flavor::Transcript>& transcript,
+                                       const typename Flavor::FF& alpha,
+                                       size_t virtual_log_n,
+                                       const RelationParameters<typename Flavor::FF>& relation_parameters,
+                                       const std::vector<typename Flavor::FF>& gate_challenges);
 
 template <typename FF, size_t N> std::array<FF, N> initialize_relation_separator(const FF& alpha)
 {

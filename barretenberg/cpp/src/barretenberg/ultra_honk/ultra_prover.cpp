@@ -104,23 +104,28 @@ template <typename Flavor> void UltraProver_<Flavor>::execute_sumcheck_iop()
 {
     BB_BENCH_NAME("sumcheck.prove");
 
-    using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = prover_instance->dyadic_size();
-    Sumcheck sumcheck(polynomial_size,
-                      prover_instance->polynomials,
-                      transcript,
-                      prover_instance->alpha,
-                      prover_instance->gate_challenges,
-                      prover_instance->relation_parameters,
-                      virtual_log_n);
 
     if constexpr (Flavor::HasZK) {
         // Generate libra univariates for ALL rounds (real + virtual) so that the ZK and non-ZK
         // virtual round paths are unified. The libra contributes to every round uniformly.
         zk_sumcheck_data = ZKData(virtual_log_n, transcript, commitment_key);
-        sumcheck_output = sumcheck.prove(zk_sumcheck_data);
+        sumcheck_output = prove_zk_sumcheck<Flavor>(polynomial_size,
+                                                    prover_instance->polynomials,
+                                                    transcript,
+                                                    prover_instance->alpha,
+                                                    prover_instance->gate_challenges,
+                                                    prover_instance->relation_parameters,
+                                                    virtual_log_n,
+                                                    zk_sumcheck_data);
     } else {
-        sumcheck_output = sumcheck.prove();
+        sumcheck_output = prove_sumcheck<Flavor>(polynomial_size,
+                                                 prover_instance->polynomials,
+                                                 transcript,
+                                                 prover_instance->alpha,
+                                                 prover_instance->gate_challenges,
+                                                 prover_instance->relation_parameters,
+                                                 virtual_log_n);
     }
 }
 

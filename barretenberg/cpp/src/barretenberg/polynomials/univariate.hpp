@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <span>
 #include <vector>
@@ -16,6 +17,197 @@
 #include "barretenberg/polynomials/univariate_coefficient_basis.hpp"
 
 namespace bb {
+
+class Bn254FqParams;
+class Bn254FrParams;
+
+template <class Fr> void extend_univariate_evaluations(std::span<Fr> result, std::span<const Fr> evaluations)
+{
+    BB_ASSERT_GTE(result.size(), evaluations.size());
+    if (evaluations.empty()) {
+        return;
+    }
+
+    std::copy(evaluations.begin(), evaluations.end(), result.begin());
+    if (result.size() == evaluations.size()) {
+        return;
+    }
+
+    std::array<Fr, 64> differences;
+    std::array<Fr, 64> tail_differences;
+    BB_ASSERT_LTE(evaluations.size(), differences.size());
+    std::copy(evaluations.begin(), evaluations.end(), differences.begin());
+
+    // Extend equally spaced evaluations via finite differences. This keeps the template surface small while preserving
+    // the existing interpolation semantics for the integer domain 0, 1, ...
+    const size_t source_length = evaluations.size();
+    tail_differences[0] = evaluations[source_length - 1];
+    for (size_t level = 1; level < source_length; ++level) {
+        for (size_t idx = source_length - 1; idx >= level; --idx) {
+            differences[idx] -= differences[idx - 1];
+        }
+        tail_differences[level] = differences[source_length - 1];
+    }
+
+    for (size_t idx = source_length; idx < result.size(); ++idx) {
+        for (size_t level = source_length - 1; level > 0; --level) {
+            tail_differences[level - 1] += tail_differences[level];
+        }
+        result[idx] = tail_differences[0];
+    }
+}
+
+template <class Fr> void add_assign_univariate_evaluations(std::span<Fr> lhs, std::span<const Fr> rhs)
+{
+    BB_ASSERT_EQ(lhs.size(), rhs.size());
+    for (size_t idx = 0; idx < lhs.size(); ++idx) {
+        lhs[idx] += rhs[idx];
+    }
+}
+
+template <class Fr> void sub_assign_univariate_evaluations(std::span<Fr> lhs, std::span<const Fr> rhs)
+{
+    BB_ASSERT_EQ(lhs.size(), rhs.size());
+    for (size_t idx = 0; idx < lhs.size(); ++idx) {
+        lhs[idx] -= rhs[idx];
+    }
+}
+
+template <class Fr> void mul_assign_univariate_evaluations(std::span<Fr> lhs, std::span<const Fr> rhs)
+{
+    BB_ASSERT_EQ(lhs.size(), rhs.size());
+    for (size_t idx = 0; idx < lhs.size(); ++idx) {
+        lhs[idx] *= rhs[idx];
+    }
+}
+
+template <class Fr> void sqr_univariate_evaluations(std::span<Fr> values)
+{
+    for (auto& value : values) {
+        value.self_sqr();
+    }
+}
+
+template <class Fr> void add_assign_univariate_evaluations(std::span<Fr> values, const Fr& scalar)
+{
+    for (auto& value : values) {
+        value += scalar;
+    }
+}
+
+template <class Fr> void sub_assign_univariate_evaluations(std::span<Fr> values, const Fr& scalar)
+{
+    for (auto& value : values) {
+        value -= scalar;
+    }
+}
+
+template <class Fr> void mul_assign_univariate_evaluations(std::span<Fr> values, const Fr& scalar)
+{
+    for (auto& value : values) {
+        value *= scalar;
+    }
+}
+
+template <class Fr> void negate_univariate_evaluations(std::span<Fr> values)
+{
+    for (auto& value : values) {
+        value = -value;
+    }
+}
+
+void extend_univariate_evaluations(std::span<field<Bn254FrParams>> result,
+                                   std::span<const field<Bn254FrParams>> evaluations);
+void add_assign_univariate_evaluations(std::span<field<Bn254FrParams>> lhs, std::span<const field<Bn254FrParams>> rhs);
+void sub_assign_univariate_evaluations(std::span<field<Bn254FrParams>> lhs, std::span<const field<Bn254FrParams>> rhs);
+void mul_assign_univariate_evaluations(std::span<field<Bn254FrParams>> lhs, std::span<const field<Bn254FrParams>> rhs);
+void sqr_univariate_evaluations(std::span<field<Bn254FrParams>> values);
+void add_assign_univariate_evaluations(std::span<field<Bn254FrParams>> values, const field<Bn254FrParams>& scalar);
+void sub_assign_univariate_evaluations(std::span<field<Bn254FrParams>> values, const field<Bn254FrParams>& scalar);
+void mul_assign_univariate_evaluations(std::span<field<Bn254FrParams>> values, const field<Bn254FrParams>& scalar);
+void negate_univariate_evaluations(std::span<field<Bn254FrParams>> values);
+
+void extend_univariate_evaluations(std::span<field<Bn254FqParams>> result,
+                                   std::span<const field<Bn254FqParams>> evaluations);
+void add_assign_univariate_evaluations(std::span<field<Bn254FqParams>> lhs, std::span<const field<Bn254FqParams>> rhs);
+void sub_assign_univariate_evaluations(std::span<field<Bn254FqParams>> lhs, std::span<const field<Bn254FqParams>> rhs);
+void mul_assign_univariate_evaluations(std::span<field<Bn254FqParams>> lhs, std::span<const field<Bn254FqParams>> rhs);
+void sqr_univariate_evaluations(std::span<field<Bn254FqParams>> values);
+void add_assign_univariate_evaluations(std::span<field<Bn254FqParams>> values, const field<Bn254FqParams>& scalar);
+void sub_assign_univariate_evaluations(std::span<field<Bn254FqParams>> values, const field<Bn254FqParams>& scalar);
+void mul_assign_univariate_evaluations(std::span<field<Bn254FqParams>> values, const field<Bn254FqParams>& scalar);
+void negate_univariate_evaluations(std::span<field<Bn254FqParams>> values);
+
+template <class Fr, size_t RESULT_LENGTH, size_t SOURCE_LENGTH>
+void extend_univariate_evaluations(std::array<Fr, RESULT_LENGTH>& result,
+                                   const std::array<Fr, SOURCE_LENGTH>& evaluations)
+{
+    extend_univariate_evaluations(std::span<Fr>(result), std::span<const Fr>(evaluations.data(), evaluations.size()));
+}
+
+template <class Fr, size_t LENGTH>
+void add_assign_univariate_evaluations(std::array<Fr, LENGTH>& lhs, const std::array<Fr, LENGTH>& rhs)
+{
+    add_assign_univariate_evaluations(std::span<Fr>(lhs), std::span<const Fr>(rhs.data(), rhs.size()));
+}
+
+template <class Fr, size_t LENGTH>
+void add_assign_univariate_evaluations(std::array<Fr, LENGTH>& lhs, std::span<const Fr, LENGTH> rhs)
+{
+    add_assign_univariate_evaluations(std::span<Fr>(lhs), std::span<const Fr>(rhs.data(), rhs.size()));
+}
+
+template <class Fr, size_t LENGTH>
+void sub_assign_univariate_evaluations(std::array<Fr, LENGTH>& lhs, const std::array<Fr, LENGTH>& rhs)
+{
+    sub_assign_univariate_evaluations(std::span<Fr>(lhs), std::span<const Fr>(rhs.data(), rhs.size()));
+}
+
+template <class Fr, size_t LENGTH>
+void sub_assign_univariate_evaluations(std::array<Fr, LENGTH>& lhs, std::span<const Fr, LENGTH> rhs)
+{
+    sub_assign_univariate_evaluations(std::span<Fr>(lhs), std::span<const Fr>(rhs.data(), rhs.size()));
+}
+
+template <class Fr, size_t LENGTH>
+void mul_assign_univariate_evaluations(std::array<Fr, LENGTH>& lhs, const std::array<Fr, LENGTH>& rhs)
+{
+    mul_assign_univariate_evaluations(std::span<Fr>(lhs), std::span<const Fr>(rhs.data(), rhs.size()));
+}
+
+template <class Fr, size_t LENGTH>
+void mul_assign_univariate_evaluations(std::array<Fr, LENGTH>& lhs, std::span<const Fr, LENGTH> rhs)
+{
+    mul_assign_univariate_evaluations(std::span<Fr>(lhs), std::span<const Fr>(rhs.data(), rhs.size()));
+}
+
+template <class Fr, size_t LENGTH> void sqr_univariate_evaluations(std::array<Fr, LENGTH>& values)
+{
+    sqr_univariate_evaluations(std::span<Fr>(values));
+}
+
+template <class Fr, size_t LENGTH>
+void add_assign_univariate_evaluations(std::array<Fr, LENGTH>& values, const Fr& scalar)
+{
+    add_assign_univariate_evaluations(std::span<Fr>(values), scalar);
+}
+
+template <class Fr, size_t LENGTH>
+void sub_assign_univariate_evaluations(std::array<Fr, LENGTH>& values, const Fr& scalar)
+{
+    sub_assign_univariate_evaluations(std::span<Fr>(values), scalar);
+}
+
+template <class Fr, size_t LENGTH>
+void mul_assign_univariate_evaluations(std::array<Fr, LENGTH>& values, const Fr& scalar)
+{
+    mul_assign_univariate_evaluations(std::span<Fr>(values), scalar);
+}
+
+template <class Fr, size_t LENGTH> void negate_univariate_evaluations(std::array<Fr, LENGTH>& values)
+{
+    negate_univariate_evaluations(std::span<Fr>(values));
+}
 
 /**
  * @brief A view of a univariate, also used to truncate univariates.
@@ -155,30 +347,22 @@ template <class Fr, size_t domain_end> class Univariate {
 
     Univariate& operator+=(const Univariate& other)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] += other.evaluations[i];
-        }
+        add_assign_univariate_evaluations(evaluations, other.evaluations);
         return *this;
     }
     Univariate& operator-=(const Univariate& other)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] -= other.evaluations[i];
-        }
+        sub_assign_univariate_evaluations(evaluations, other.evaluations);
         return *this;
     }
     Univariate& operator*=(const Univariate& other)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] *= other.evaluations[i];
-        }
+        mul_assign_univariate_evaluations(evaluations, other.evaluations);
         return *this;
     }
     Univariate& self_sqr()
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i].self_sqr();
-        }
+        sqr_univariate_evaluations(evaluations);
         return *this;
     }
     Univariate operator+(const Univariate& other) const
@@ -197,9 +381,7 @@ template <class Fr, size_t domain_end> class Univariate {
     Univariate operator-() const
     {
         Univariate res(*this);
-        for (auto& eval : res.evaluations) {
-            eval = -eval;
-        }
+        negate_univariate_evaluations(res.evaluations);
         return res;
     }
 
@@ -220,24 +402,18 @@ template <class Fr, size_t domain_end> class Univariate {
     // Operations between Univariate and scalar
     Univariate& operator+=(const Fr& scalar)
     {
-        for (auto& eval : evaluations) {
-            eval += scalar;
-        }
+        add_assign_univariate_evaluations(evaluations, scalar);
         return *this;
     }
 
     Univariate& operator-=(const Fr& scalar)
     {
-        for (auto& eval : evaluations) {
-            eval -= scalar;
-        }
+        sub_assign_univariate_evaluations(evaluations, scalar);
         return *this;
     }
     Univariate& operator*=(const Fr& scalar)
     {
-        for (auto& eval : evaluations) {
-            eval *= scalar;
-        }
+        mul_assign_univariate_evaluations(evaluations, scalar);
         return *this;
     }
 
@@ -265,25 +441,19 @@ template <class Fr, size_t domain_end> class Univariate {
     // Operations between Univariate and UnivariateView
     Univariate& operator+=(const UnivariateView<Fr, domain_end>& view)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] += view.evaluations[i];
-        }
+        add_assign_univariate_evaluations(evaluations, view.evaluations);
         return *this;
     }
 
     Univariate& operator-=(const UnivariateView<Fr, domain_end>& view)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] -= view.evaluations[i];
-        }
+        sub_assign_univariate_evaluations(evaluations, view.evaluations);
         return *this;
     }
 
     Univariate& operator*=(const UnivariateView<Fr, domain_end>& view)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] *= view.evaluations[i];
-        }
+        mul_assign_univariate_evaluations(evaluations, view.evaluations);
         return *this;
     }
 
@@ -336,140 +506,17 @@ template <class Fr, size_t domain_end> class Univariate {
      * evaluations {f(domain_end),..., f(extended_domain_end -1)} and return the Univariate represented by
      * {f(0),..., f(extended_domain_end -1)}
      *
-     * @details Write v_i = f(x_i) on the domain {x_0, ..., x_{domain_end-1}}. To efficiently
-     * compute the needed values of f, we use the barycentric formula
-     *      - f(x) = B(x) Σ_{i=0}^{domain_end-1} v_i / (d_i*(x-x_i))
-     * where
-     *      - B(x) = Π_{i=0}^{domain_end-1} (x-x_i)
-     *      - d_i  = Π_{j ∈ {0, ..., domain_end-1}, j≠i} (x_i-x_j) for i ∈ {0, ..., domain_end-1}
-     *
-     * When the domain size is two, extending f = v0(1-X) + v1X to a new value involves just one addition
-     * and a subtraction: setting Δ = v1-v0, the values of f(X) are f(0)=v0, f(1)= v0 + Δ, v2 = f(1) + Δ, v3
-     * = f(2) + Δ...
+     * @details The input domain is equally spaced, so finite differences extend the evaluations without constructing
+     * a per-domain barycentric table.
      *
      */
     template <size_t EXTENDED_DOMAIN_END> Univariate<Fr, EXTENDED_DOMAIN_END> extend_to() const
     {
         static constexpr size_t EXTENDED_LENGTH = EXTENDED_DOMAIN_END;
-        using Data = BarycentricData<Fr, LENGTH, EXTENDED_LENGTH>;
         static_assert(EXTENDED_LENGTH >= LENGTH);
 
         Univariate<Fr, EXTENDED_LENGTH> result;
-
-        std::copy(evaluations.begin(), evaluations.end(), result.evaluations.begin());
-
-        if constexpr (LENGTH == 2) {
-            // f = b x + c
-            // f(0) = c
-            // f(1) = b + c
-            // Hence, b = f(1) - f(0)
-            // f(i + 1) = f(i) + b
-            Fr delta = value_at(1) - value_at(0);
-            static_assert(EXTENDED_LENGTH != 0);
-            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
-                result.value_at(idx + 1) = result.value_at(idx) + delta;
-            }
-        } else if constexpr (LENGTH == 3) {
-            static constexpr Fr inverse_two = Fr(2).invert();
-            // f = a x^2 + b x + c
-            // f(0) = c
-            // f(1) = a + b + c
-            // f(2) = 4a + 2b + c
-            // f(2) + f(0) - 2f(1) = 2a
-            // Hence, a = (f(2) + f(0) - 2f(1)) / 2
-            // b = f(1) - a - f(0)
-            // f(i+1) = f(i) + 2a * i + b + a
-            // Cost note: after computing a,b, extending several points costs a few adds per point (no
-            // inversions), vs the generic barycentric path.
-            Fr a = (value_at(2) + value_at(0)) * inverse_two - value_at(1);
-            Fr b = value_at(1) - a - value_at(0);
-            Fr a2 = a + a;
-            Fr a_mul = a2;
-            // compute 2a * domain_end - 2
-            for (size_t i = 0; i < domain_end - 2; i++) {
-                a_mul += a2;
-            }
-            Fr extra = a_mul + a + b;
-            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
-                result.value_at(idx + 1) = result.value_at(idx) + extra;
-                extra += a2;
-            }
-        } else if constexpr (LENGTH == 4) {
-            static constexpr Fr inverse_six = Fr(6).invert(); // computed at compile time for efficiency
-
-            // To compute a barycentric extension, we can compute the coefficients of the univariate.
-            // We have the evaluation of the polynomial at the domain (which is assumed to be 0, 1, 2, 3).
-            // Therefore, we have the 4 linear equations from plugging into f(x) = ax^3 + bx^2 + cx + d:
-            //          a*0 + b*0 + c*0 + d = f(0)
-            //          a*1 + b*1 + c*1 + d = f(1)
-            //          a*2^3 + b*2^2 + c*2 + d = f(2)
-            //          a*3^3 + b*3^2 + c*3 + d = f(3)
-            // These equations can be rewritten as a matrix equation M * [a, b, c, d] = [f(0), f(1), f(2),
-            // f(3)], where M is:
-            //          0,  0,  0,  1
-            //          1,  1,  1,  1
-            //          2^3, 2^2, 2,  1
-            //          3^3, 3^2, 3,  1
-            // We can invert this matrix in order to compute a, b, c, d:
-            //      -1/6,	1/2,	-1/2,	1/6
-            //      1,	    -5/2,	2,	    -1/2
-            //      -11/6,	3,	    -3/2,	1/3
-            //      1,	    0,	    0,	    0
-            // To compute these values, we can multiply everything by 6 and multiply by inverse_six at the
-            // end for each coefficient The resulting computation here does 18 field adds, 6 subtracts, 3
-            // muls to compute a, b, c, and d.
-            Fr zero_times_3 = value_at(0) + value_at(0) + value_at(0);
-            Fr zero_times_6 = zero_times_3 + zero_times_3;
-            Fr zero_times_12 = zero_times_6 + zero_times_6;
-            Fr one_times_3 = value_at(1) + value_at(1) + value_at(1);
-            Fr one_times_6 = one_times_3 + one_times_3;
-            Fr two_times_3 = value_at(2) + value_at(2) + value_at(2);
-            Fr three_times_2 = value_at(3) + value_at(3);
-            Fr three_times_3 = three_times_2 + value_at(3);
-
-            Fr one_minus_two_times_3 = one_times_3 - two_times_3;
-            Fr one_minus_two_times_6 = one_minus_two_times_3 + one_minus_two_times_3;
-            Fr one_minus_two_times_12 = one_minus_two_times_6 + one_minus_two_times_6;
-            Fr a = (one_minus_two_times_3 + value_at(3) - value_at(0)) * inverse_six; // compute a in 1 muls and 4 adds
-            Fr b = (zero_times_6 - one_minus_two_times_12 - one_times_3 - three_times_3) * inverse_six;
-            Fr c = (value_at(0) - zero_times_12 + one_minus_two_times_12 + one_times_6 + two_times_3 + three_times_2) *
-                   inverse_six;
-
-            // Then, outside of the a, b, c, d computation, we need to do some extra precomputation
-            // This work is 3 field muls, 8 adds
-            Fr a_plus_b = a + b;
-            Fr a_plus_b_times_2 = a_plus_b + a_plus_b;
-            size_t start_idx_sqr = (domain_end - 1) * (domain_end - 1);
-            size_t idx_sqr_three = start_idx_sqr + start_idx_sqr + start_idx_sqr;
-            Fr idx_sqr_three_times_a = Fr(idx_sqr_three) * a;
-            Fr x_a_term = Fr(6 * (domain_end - 1)) * a;
-            Fr three_a = a + a + a;
-            Fr six_a = three_a + three_a;
-
-            Fr three_a_plus_two_b = a_plus_b_times_2 + a;
-            Fr linear_term = Fr(domain_end - 1) * three_a_plus_two_b + (a_plus_b + c);
-            // For each new evaluation, we do only 6 field additions and 0 muls.
-            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
-                result.value_at(idx + 1) = result.value_at(idx) + idx_sqr_three_times_a + linear_term;
-
-                idx_sqr_three_times_a += x_a_term + three_a;
-                x_a_term += six_a;
-
-                linear_term += three_a_plus_two_b;
-            }
-        } else {
-            for (size_t k = domain_end; k != EXTENDED_DOMAIN_END; ++k) {
-                result.value_at(k) = 0;
-                // compute each term v_j / (d_j*(x-x_j)) of the sum
-                for (size_t j = 0; j != domain_end; ++j) {
-                    Fr term = value_at(j);
-                    term *= Data::precomputed_denominator_inverses[LENGTH * k + j];
-                    result.value_at(k) += term;
-                }
-                // scale the sum by the value of of B(x)
-                result.value_at(k) *= Data::full_numerator_values[k];
-            }
-        }
+        extend_univariate_evaluations(result.evaluations, evaluations);
         return result;
     }
 
@@ -623,9 +670,7 @@ template <class Fr, size_t domain_end> class UnivariateView {
     Univariate<Fr, domain_end> operator-() const
     {
         Univariate<Fr, domain_end> res(*this);
-        for (auto& eval : res.evaluations) {
-            eval = -eval;
-        }
+        negate_univariate_evaluations(res.evaluations);
         return res;
     }
 

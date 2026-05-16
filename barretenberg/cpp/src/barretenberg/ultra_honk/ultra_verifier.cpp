@@ -141,8 +141,6 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         commitments.gemini_masking_poly = verifier_instance->gemini_masking_commitment;
     }
 
-    // Construct the sumcheck verifier
-    SumcheckVerifier<Flavor> sumcheck(transcript, verifier_instance->alpha, log_n);
     // Receive commitments to Libra masking polynomials for ZKFlavors
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
 
@@ -150,8 +148,11 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     // Run the sumcheck verifier
-    SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(verifier_instance->relation_parameters, verifier_instance->gate_challenges);
+    SumcheckOutput<Flavor> sumcheck_output = verify_sumcheck<Flavor>(transcript,
+                                                                     verifier_instance->alpha,
+                                                                     log_n,
+                                                                     verifier_instance->relation_parameters,
+                                                                     verifier_instance->gate_challenges);
     // Get the claimed evaluation of the Libra polynomials for ZKFlavors
     if constexpr (Flavor::HasZK) {
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
