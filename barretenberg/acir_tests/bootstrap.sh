@@ -164,8 +164,8 @@ function test_cmds {
   # Locally, you can do ./bootstrap.sh bench_ivc to run the 'tests' (benches with validation)
 
   # non_recursive_tests include all of the non recursive test programs
-  local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof|double_verify_root_rollup_honk_proof')
+  local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d 2>/dev/null | \
+    grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof|double_verify_root_rollup_honk_proof' || true)
   local scripts=$(realpath --relative-to=$root scripts)
 
   local sol_prefix="$tests_hash:ISOLATE=1"
