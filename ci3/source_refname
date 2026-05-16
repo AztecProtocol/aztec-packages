@@ -32,7 +32,7 @@ fi
 
 if [ -z "${CI_FULL:-}" ]; then
   export CI_FULL=0
-  if [ "$CI" -eq 1 ] && { semver check "$REF_NAME" || [ "$REF_NAME" == "master" ]; }; then
+  if [ "$CI" -eq 1 ] && { [ "$REF_NAME" == "master" ] || { [[ "$REF_NAME" =~ ^v?[0-9]+\. ]] && semver check "$REF_NAME"; }; }; then
     export CI_FULL=1
   fi
 fi
