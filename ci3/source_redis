@@ -4,7 +4,7 @@
 export CI_REDIS=${CI_REDIS:-localhost}
 metadata_cmd=0
 case "${BOOTSTRAP_CMD:-}" in
-  hash|test_cmds|bench_cmds)
+  hash|*_cmds)
     metadata_cmd=1
     ;;
 esac
