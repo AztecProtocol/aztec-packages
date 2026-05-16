@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Look at noir-contracts bootstrap.sh for some tips r.e. bash.
-root=${root:-$(git rev-parse --show-toplevel)}
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+root=${root:-$(cd "$script_dir/../.." && pwd)}
 source "$root/ci3/source_bootstrap"
 
 # entrypoint for mock circuits

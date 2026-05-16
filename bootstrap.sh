@@ -168,7 +168,9 @@ if [ "${1:-}" = "install_deps" ]; then
 fi
 
 ### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
-root=${root:-$(git rev-parse --show-toplevel)}
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+root=${root:-$(cd "$script_dir" && pwd)}
 source "$root/ci3/source_bootstrap"
 
 # Enable abbreviated output by default.

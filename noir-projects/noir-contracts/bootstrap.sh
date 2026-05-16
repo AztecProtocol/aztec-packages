@@ -16,7 +16,9 @@
 # - Just ask me (charlie) for guidance if you're suffering.
 # - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
-root=${root:-$(git rev-parse --show-toplevel)}
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+root=${root:-$(cd "$script_dir/../.." && pwd)}
 source "$root/ci3/source_bootstrap"
 
 # entrypoint for docs
