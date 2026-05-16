@@ -55,6 +55,14 @@ export class MockEpochCache implements EpochCacheInterface {
     return this.getEpochAndSlotInNextL1Slot();
   }
 
+  getCurrentAndTargetEpochAndSlotInNextL1Slot(): {
+    current: EpochAndSlot & { nowSeconds: bigint };
+    target: EpochAndSlot & { nowSeconds: bigint };
+  } {
+    const current = this.getEpochAndSlotInNextL1Slot();
+    return { current, target: current };
+  }
+
   isProposerPipeliningEnabled(): boolean {
     return false;
   }

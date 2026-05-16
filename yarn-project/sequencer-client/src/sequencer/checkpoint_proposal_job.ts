@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -398,8 +398,14 @@ export class CheckpointProposalJob implements Traceable {
   protected async waitForValidParentCheckpointOnL1(): Promise<boolean> {
     const parentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 1);
 
-    // Wait until archiver has synced L1 past the parent's slot (slotNow)
-    if (!(await this.waitForSyncedL2SlotNumber(this.slotNow))) {
+    // Wait until archiver has synced L1 past the slot where the parent checkpoint should have
+    // landed. Under pipelining the parent is built during `targetSlot - 1`, regardless of when
+    // this job was constructed — keying off `targetSlot - 1` is robust even if `slotNow` is stale
+    // (which it can be if the date-provider was mutated between the two epoch-cache reads in
+    // `Sequencer.work`, breaking the `targetSlot = slot + offset` invariant).
+    const offset = this.epochCache.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
+    const parentExpectedSlot = SlotNumber(this.targetSlot - offset);
+    if (!(await this.waitForSyncedL2SlotNumber(parentExpectedSlot))) {
       return false;
     }
 

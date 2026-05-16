@@ -315,6 +315,10 @@ export function createMockEpochCache(): EpochCacheInterface {
       ts: 0n,
       nowSeconds: 0n,
     }),
+    getCurrentAndTargetEpochAndSlotInNextL1Slot: () => {
+      const zero = { epoch: EpochNumber.ZERO, slot: SlotNumber.ZERO, ts: 0n, nowSeconds: 0n };
+      return { current: zero, target: zero };
+    },
     isInCommittee: () => Promise.resolve(false),
     getRegisteredValidators: () => Promise.resolve([]),
     filterInCommittee: () => Promise.resolve([]),

@@ -68,6 +68,18 @@ export interface EpochCacheInterface {
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
   /** Returns epoch/slot info for the next L1 slot with pipeline offset applied. */
   getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
+  /**
+   * Returns both the current and pipeline-target slot/epoch from a single date-provider read. Use
+   * this instead of separate `getEpochAndSlotInNextL1Slot` + `getTargetEpochAndSlotInNextL1Slot`
+   * calls when both values must be consistent — back-to-back reads can otherwise see different
+   * clock values if the underlying date provider is mutated externally (e.g. the
+   * `AnvilTestWatcher`'s periodic sync to anvil's L1 timestamp), breaking the
+   * `targetSlot = slot + pipeliningOffset` invariant.
+   */
+  getCurrentAndTargetEpochAndSlotInNextL1Slot(): {
+    current: EpochAndSlot & { nowSeconds: bigint };
+    target: EpochAndSlot & { nowSeconds: bigint };
+  };
   isProposerPipeliningEnabled(): boolean;
   pipeliningOffset(): number;
   isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean>;
@@ -238,6 +250,24 @@ export class EpochCache implements EpochCacheInterface {
     const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
     const targetSlot = SlotNumber(result.slot + offset);
     return { ...result, slot: targetSlot, epoch: getEpochAtSlot(targetSlot, this.l1constants) };
+  }
+
+  public getCurrentAndTargetEpochAndSlotInNextL1Slot(): {
+    current: EpochAndSlot & { nowSeconds: bigint };
+    target: EpochAndSlot & { nowSeconds: bigint };
+  } {
+    const current = this.getEpochAndSlotInNextL1Slot();
+    if (!this.isProposerPipeliningEnabled()) {
+      return { current, target: current };
+    }
+    const targetSlot = SlotNumber(current.slot + PROPOSER_PIPELINING_SLOT_OFFSET);
+    const target = {
+      slot: targetSlot,
+      epoch: getEpochAtSlot(targetSlot, this.l1constants),
+      ts: getTimestampForSlot(targetSlot, this.l1constants),
+      nowSeconds: current.nowSeconds,
+    };
+    return { current, target };
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {

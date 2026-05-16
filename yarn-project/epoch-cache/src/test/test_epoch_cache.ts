@@ -183,6 +183,25 @@ export class TestEpochCache implements EpochCacheInterface {
     return { ...result, slot: targetSlot, epoch: getEpochAtSlot(targetSlot, this.l1Constants) };
   }
 
+  getCurrentAndTargetEpochAndSlotInNextL1Slot(): {
+    current: EpochAndSlot & { nowSeconds: bigint };
+    target: EpochAndSlot & { nowSeconds: bigint };
+  } {
+    const current = this.getEpochAndSlotInNextL1Slot();
+    const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
+    if (offset === 0) {
+      return { current, target: current };
+    }
+    const targetSlot = SlotNumber(current.slot + offset);
+    const target = {
+      slot: targetSlot,
+      epoch: getEpochAtSlot(targetSlot, this.l1Constants),
+      ts: getTimestampRangeForEpoch(getEpochAtSlot(targetSlot, this.l1Constants), this.l1Constants)[0],
+      nowSeconds: current.nowSeconds,
+    };
+    return { current, target };
+  }
+
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}` {
     // Simple encoding for testing purposes
     return `0x${epoch.toString(16).padStart(64, '0')}${slot.toString(16).padStart(64, '0')}${seed.toString(16).padStart(64, '0')}`;

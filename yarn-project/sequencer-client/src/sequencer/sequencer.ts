@@ -214,8 +214,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
-    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+    // Read the date provider once so `targetSlot = slot + pipeliningOffset` always holds. Separate
+    // back-to-back reads can disagree if the `TestDateProvider` is re-anchored to anvil's L1 clock
+    // by the `AnvilTestWatcher` between them (observed in merge-queue-heavy CI, where the resulting
+    // `targetSlot = slot + 2` makes `CheckpointProposalJob.waitForValidParentCheckpointOnL1` key
+    // off the wrong slot and discard pipelined work that would otherwise have landed).
+    const { current, target } = this.epochCache.getCurrentAndTargetEpochAndSlotInNextL1Slot();
+    const { slot, ts, nowSeconds, epoch } = current;
+    const { slot: targetSlot, epoch: targetEpoch } = target;
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
     const checkpointProposalJob = await this.prepareCheckpointProposal(
