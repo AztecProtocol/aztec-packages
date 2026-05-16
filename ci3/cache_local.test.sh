@@ -204,6 +204,18 @@ test_inaccessible_cache_dir_falls_through() {
   fi
 }
 
+test_content_hash_no_cache_no_upload_fast_path() {
+  log "\nTest 9: cache_content_hash fast path for no-cache/no-upload"
+
+  local output
+  output=$(NO_CACHE=1 NO_CACHE_UPLOAD=1 "$script_dir/cache_content_hash" "^ci3")
+  if [[ "$output" == "disabled-cache" ]]; then
+    pass "cache_content_hash skips work when cache download and upload are disabled"
+  else
+    fail "cache_content_hash did not return disabled-cache (got: $output)"
+  fi
+}
+
 main() {
   log "=== Local Cache Test Suite ===\n"
 
@@ -217,6 +229,7 @@ main() {
   test_roundtrip
   test_disabled_cache_skips_local
   test_inaccessible_cache_dir_falls_through
+  test_content_hash_no_cache_no_upload_fast_path
 
   log "\n=== Results ==="
   echo -e "\033[32mPassed: $passed\033[0m"

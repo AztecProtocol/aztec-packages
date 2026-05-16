@@ -8,7 +8,7 @@
  * and the batch verifier service (start/queue/stop lifecycle).
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -16,7 +16,6 @@
 #ifndef __wasm__
 #include "barretenberg/chonk/batch_verifier_types.hpp"
 #include "barretenberg/chonk/chonk_batch_verifier.hpp"
-#include "barretenberg/chonk/chonk_proof.hpp"
 #include <condition_variable>
 #include <mutex>
 #include <queue>

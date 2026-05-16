@@ -3,10 +3,8 @@
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
 # Exit 0 if exists, exit 1 if not found or cache disabled.
 
-NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
-
 if [ "$#" -lt 1 ]; then
-  echo_stderr "Usage: $0 <tar.gz_file_to_check>"
+  echo "Usage: $0 <tar.gz_file_to_check>" >&2
   exit 1
 fi
 
@@ -17,6 +15,8 @@ fi
 if [ "${NO_CACHE:-0}" -eq 1 ]; then
   exit 1
 fi
+
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 tar_file="$1"
 

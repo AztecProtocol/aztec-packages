@@ -21,7 +21,24 @@ if [ -z "${REF_NAME:-}" ]; then
     REF_NAME="${GITHUB_REF#refs/heads/}"   # Extract branch name
     REF_NAME="${REF_NAME#refs/tags/}"      # Extract tag name
   else
-    REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
+    git_dir="$root/.git"
+    if [ -f "$git_dir" ]; then
+      IFS= read -r git_dir_line < "$git_dir" || git_dir_line=
+      if [[ "$git_dir_line" == gitdir:\ * ]]; then
+        git_dir=${git_dir_line#gitdir: }
+        [[ "$git_dir" == /* ]] || git_dir="$root/$git_dir"
+      fi
+    fi
+
+    if IFS= read -r head < "$git_dir/HEAD"; then
+      case "$head" in
+        "ref: refs/heads/"*) REF_NAME="${head#ref: refs/heads/}" ;;
+        "ref: refs/tags/"*) REF_NAME="${head#ref: refs/tags/}" ;;
+        "ref: "*) REF_NAME="${head#ref: }" ;;
+      esac
+    fi
+
+    [ -n "${REF_NAME:-}" ] || REF_NAME=$(git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
     REF_NAME="${REF_NAME#heads/}"
   fi
 
@@ -32,24 +49,8 @@ fi
 
 if [ -z "${CI_FULL:-}" ]; then
   export CI_FULL=0
-  if [ "$CI" -eq 1 ] && { semver check "$REF_NAME" || [ "$REF_NAME" == "master" ]; }; then
+  if [ "$CI" -eq 1 ] && { [ "$REF_NAME" == "master" ] || { [[ "$REF_NAME" =~ ^v?[0-9]+\. ]] && semver check "$REF_NAME"; }; }; then
     export CI_FULL=1
   fi
 fi
 export CI_SCENARIO_TEST="${CI_SCENARIO_TEST:-0}"
-
-if [ -z "${COMMIT_HASH:-}" ]; then
-  export COMMIT_HASH=$(git rev-parse HEAD)
-fi
-
-if [ -z "${COMMIT_MSG:-}" ]; then
-  export COMMIT_MSG=$(git log -1 --pretty=format:"%s")
-fi
-
-if [ -z "${COMMIT_AUTHOR:-}" ]; then
-  export COMMIT_AUTHOR="$(git log -1 --pretty=format:"%an")"
-fi
-
-if [ -z "${CURRENT_VERSION:-}" ]; then
-  export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
-fi

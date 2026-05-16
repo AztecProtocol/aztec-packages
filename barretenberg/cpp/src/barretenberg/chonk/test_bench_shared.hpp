@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/bb_bench.hpp"

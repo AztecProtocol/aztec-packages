@@ -13,7 +13,15 @@
 #
 # Returns: exit code from test
 
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
+if [ -z "${CURRENT_VERSION:-}" ]; then
+  export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
+fi
+
+if [ -z "${COMMIT_HASH:-}" ]; then
+  export COMMIT_HASH=$(git rev-parse HEAD)
+fi
 
 full_cmd="$1"
 

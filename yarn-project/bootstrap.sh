@@ -1,11 +1,35 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 function hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str \
     $(../noir/bootstrap.sh hash) \
     $(../barretenberg/bootstrap.sh hash) \
     $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    hash
+  fi
 }
 
 function compile_project {
@@ -112,6 +136,15 @@ function compile_all_projects {
   get_projects | compile_project
 }
 
+function upload_compile_all_cache {
+  local artifact=$1
+  if [[ "$artifact" == *"disabled-cache"* ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    cache_upload "$artifact" .
+  else
+    cache_upload "$artifact" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+  fi
+}
+
 function compile_all {
   set -euo pipefail
   local hash=$(hash)
@@ -155,11 +188,11 @@ function compile_all {
   cat joblog.txt
 
   if [ "$CI" -eq 1 ]; then
-    cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+    upload_compile_all_cache "yarn-project-$hash.tar.gz"
   fi
 }
 
-export -f compile_project format lint get_projects compile_all hash
+export -f compile_project format lint get_projects compile_all hash upload_compile_all_cache
 
 function build {
   echo_header "yarn-project build"
@@ -169,63 +202,87 @@ function build {
 }
 
 function test_cmds {
-  local hash=$(hash)
+  local hash=$(get_test_hash)
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
-  # kv-store: per-file fan-out handled by kv-store/bootstrap.sh test_cmds.
+  # kv-store: per-file fan-out emitted below.
+  local prefix
+  local cmd_env
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # Skip benchmarks here.
-    [[ "$test" =~ \.bench\.test\.ts$ ]] && continue
+    case "$test" in
+      *.bench.test.ts)
+        continue
+        ;;
+    esac
 
-    local prefix=$hash
-    local cmd_env=""
+    prefix=$hash
+    cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
-    if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test|stdlib/src/l1-contracts|ivc-integration/src/chonk_browser|blob-client/src/server) ]]; then
-      prefix+=":ISOLATE=1:NAME=$test"
-    fi
-
-    if [[ "$test" =~ ^ivc-integration/src/chonk_browser ]]; then
-      prefix+=":NET=1"
-    fi
+    case "$test" in
+      ivc-integration/src/chonk_browser*)
+        prefix+=":ISOLATE=1:NAME=$test"
+        prefix+=":NET=1"
+        ;;
+      prover-client/src/test*)
+        prefix+=":ISOLATE=1:NAME=$test"
+        if [ "$CI_FULL" -eq 1 ]; then
+          prefix+=":CPUS=16:MEM=96g"
+          cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
+        else
+          cmd_env+=" FAKE_PROOFS=1"
+        fi
+        ;;
+      p2p/src/client/p2p_client.test.ts|p2p/src/services/discv5/discv5_service.test.ts|p2p/src/client/p2p_client.integration.test.ts)
+        prefix+=":ISOLATE=1:NAME=$test"
+        cmd_env+=" LOG_LEVEL=debug"
+        ;;
+      prover-node*|p2p*|ethereum*|aztec*|stdlib/src/l1-contracts*|blob-client/src/server*)
+        prefix+=":ISOLATE=1:NAME=$test"
+        ;;
+      *e2e_p2p*)
+        cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
+        ;;
+    esac
 
     # Boost some tests resources.
-    if [[ "$test" =~ testbench ]]; then
-      prefix+=":CPUS=10:MEM=16g"
-    elif [[ "$test" =~ avm_proving_tests || "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      prefix+=":CPUS=16:MEM=16g"
-    elif [[ "$test" =~ ^ivc-integration/ ]]; then
-      prefix+=":CPUS=8"
-    fi
-
-    # Add debug logging for tests that require a bit more info
-    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
-      cmd_env+=" LOG_LEVEL=debug"
-    elif [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
-    elif [[ "$test" =~ e2e_p2p ]]; then
-      cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
-    fi
-
-    # Enable real proofs in prover-client integration tests only on CI full.
-    if [[ "$test" =~ ^prover-client/src/test/ ]]; then
-      if [ "$CI_FULL" -eq 1 ]; then
-        prefix+=":CPUS=16:MEM=96g"
-        cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
-      else
-        cmd_env+=" FAKE_PROOFS=1"
-      fi
-    fi
+    case "$test" in
+      *testbench*)
+        prefix+=":CPUS=10:MEM=16g"
+        ;;
+      *avm_proving_tests*)
+        prefix+=":CPUS=16:MEM=16g"
+        ;;
+      *rollup_ivc_integration*|*avm_integration*)
+        prefix+=":CPUS=16:MEM=16g"
+        cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
+        ;;
+      ivc-integration/*)
+        prefix+=":CPUS=8"
+        ;;
+    esac
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
   done
 
   # kv-store: per-file fan-out (mocha for node tests, vitest for browser tests).
-  kv-store/bootstrap.sh test_cmds
+  for test in kv-store/src/**/!(indexeddb|sqlite-opfs|bench)/*.test.ts; do
+    echo "$hash yarn-project/kv-store/scripts/run_test.sh ${test#kv-store/}"
+  done
+  for test in kv-store/src/indexeddb/*.test.ts kv-store/src/sqlite-opfs/*.test.ts; do
+    echo "$hash:ISOLATE=1 yarn-project/kv-store/scripts/run_test.sh ${test#kv-store/}"
+  done
 
   # Aztec CLI tests
-  aztec/bootstrap.sh test_cmds
+  local repo_root=$root
+  repo_root=${repo_root%/yarn-project/..}
+  repo_root=${repo_root%/.}
+  local nargo=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
+  local bb=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
+  local profiler_path=${PROFILER_PATH:-$repo_root/noir/noir-repo/target/release/noir-profiler}
+  echo "$hash:ISOLATE=1:NAME=aztec/cli NARGO=$nargo BB=$bb PROFILER_PATH=$profiler_path yarn-project/scripts/run_test.sh aztec/src/cli"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^(v[0-9]+(-next)?|backport-to-v[0-9]+-(staging|next))$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
@@ -239,7 +296,7 @@ function test {
 }
 
 function bench_cmds {
-  local hash=$(hash)
+  local hash=$(get_test_hash)
   echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"

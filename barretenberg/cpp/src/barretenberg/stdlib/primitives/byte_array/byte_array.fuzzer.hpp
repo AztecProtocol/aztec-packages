@@ -4,6 +4,8 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+#pragma once
+
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #pragma clang diagnostic push

@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
-repo_root=$(git rev-parse --show-toplevel)
+repo_root=$root
+repo_root=${repo_root%/yarn-project/aztec/../..}
+repo_root=${repo_root%/.}
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export PROFILER_PATH=${PROFILER_PATH:-$repo_root/noir/noir-repo/target/release/noir-profiler}
 
-hash=$(../bootstrap.sh hash)
+if [ "${NO_CACHE:-0}" -eq 1 ]; then
+  hash=disabled-cache
+else
+  hash=$(../bootstrap.sh hash)
+fi
 
 function test_cmds {
   # All CLI tests share test/mixed-workspace/target so they must run sequentially

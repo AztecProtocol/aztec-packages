@@ -1,25 +1,48 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
 
-repo_root=$(git rev-parse --show-toplevel)
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
+
+repo_root=$root
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
-export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 
-# We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
-# We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
-hash=$(
-  cache_content_hash \
-    .rebuild_patterns \
-    $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
-      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
-)
-
-if semver check $REF_NAME; then
+if [[ "$REF_NAME" =~ ^v?[0-9]+\. ]] && semver check "$REF_NAME"; then
   # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
-  hash+=$REF_NAME
   export COMMIT_TAG=$REF_NAME
 fi
+
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  local hash
+  # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
+  # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
+  hash=$(
+    cache_content_hash \
+      .rebuild_patterns \
+      $(find docs docs-developers docs-operate docs-participate developer_versioned_docs network_versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+        awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
+  )
+
+  if [[ "$REF_NAME" =~ ^v?[0-9]+\. ]] && semver check "$REF_NAME"; then
+    # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
+    hash+=$REF_NAME
+  fi
+  echo "$hash"
+}
 
 function build_docs {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
@@ -28,6 +51,7 @@ function build_docs {
   fi
   echo_header "build docs"
   npm_install_deps
+  local hash=$(get_hash)
   if cache_download docs-$hash.tar.gz; then
     return
   fi
@@ -41,7 +65,12 @@ function test_cmds {
     return
   fi
 
-  local test_hash=$hash
+  local test_hash
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    test_hash=disabled-cache
+  else
+    test_hash=$(get_hash)
+  fi
   echo "$test_hash cd docs && yarn spellcheck"
 
   # Delegate to examples for their test commands
@@ -89,7 +118,7 @@ case "$cmd" in
     check_references
     ;;
   "hash")
-    echo "$hash"
+    get_hash
     ;;
   "compile")
     build_examples compile "$@"
