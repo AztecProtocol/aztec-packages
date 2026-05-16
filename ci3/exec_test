@@ -15,6 +15,10 @@
 
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
+if [ -z "${CURRENT_VERSION:-}" ]; then
+  export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
+fi
+
 full_cmd="$1"
 
 [ -z "$full_cmd" ] && exit 0

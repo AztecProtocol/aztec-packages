@@ -41,7 +41,3 @@ export CI_SCENARIO_TEST="${CI_SCENARIO_TEST:-0}"
 if [ -z "${COMMIT_HASH:-}" ]; then
   export COMMIT_HASH=$(git rev-parse HEAD)
 fi
-
-if [ -z "${CURRENT_VERSION:-}" ]; then
-  export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
-fi
