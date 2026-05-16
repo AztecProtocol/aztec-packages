@@ -45,6 +45,37 @@ export const PIPELINING_SETUP_OPTS = {
   walletMinFeePadding: PIPELINED_FEE_PADDING,
 } as const;
 
+/**
+ * Fast e2e setup preset that opts a test into proposer pipelining with the smallest possible
+ * timing constants. Use this for single-sequencer, non-block-building tests.
+ *
+ *     await setup(N, { ...FAST_E2E_SETUP_OPTS });
+ *
+ * Extends PIPELINING_SETUP_OPTS with:
+ * - `l1PublishingTime: 4`: L1 tx is expected to land inside one Ethereum slot.
+ * - `testOnlyAutoProveAfterPublish: true`: opts in to the test fixture's CheckpointAutoProver
+ *   (wired in step 4 of the plan; safe to set in step 1 because it just sets a config value),
+ *   removing the need for AnvilTestWatcher's markAsProven loop.
+ *
+ * Auto-tuning applied by `normalizeCheckpointTimingConfig` (stdlib/src/timetable/index.ts):
+ * because ethereumSlotDuration < 8, p2pPropagationTime = 0, checkpointAssembleTime = 0.5,
+ * checkpointInitializationTime = 0.5, minExecutionTime = 1. `blockDurationMs` remains unset,
+ * so the sequencer runs in single-block-per-slot mode:
+ *
+ *   minimumBuildSlotWork       = init + 2*minExec    = 0.5 + 2   = 2.5s
+ *   initializeDeadline         = aztecSlotDuration - minimumBuildSlotWork  = 9.5s
+ *   checkpointFinalizationTime = assemble + 2*p2p + publish = 0.5 + 0 + 4 = 4.5s
+ *   maxAllowed (single block)  = aztecSlotDuration - checkpointFinalizationTime = 7.5s
+ *   available at slot start    = (7.5 - 0) / 2  = 3.75s  (split: exec vs re-exec)
+ *
+ * The pipelined publish deadline is `2 * aztecSlotDuration - l1PublishingTime` = 20s into build slot.
+ */
+export const FAST_E2E_SETUP_OPTS = {
+  ...PIPELINING_SETUP_OPTS,
+  l1PublishingTime: 4,
+  testOnlyAutoProveAfterPublish: true,
+} as const;
+
 /** Returns worst-case predicted min fees with padding applied, mirroring the BaseWallet pattern. */
 export async function getPaddedMaxFeesPerGas(node: AztecNode, padding = DEFAULT_MIN_FEE_PADDING): Promise<GasFees> {
   const predicted = await node.getPredictedMinFees();

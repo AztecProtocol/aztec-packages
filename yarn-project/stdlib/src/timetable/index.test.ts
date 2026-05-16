@@ -104,4 +104,29 @@ describe('timetable validation', () => {
 
     expect(timing.calculateMaxBlocksPerSlot()).toBe(1);
   });
+
+  it('derives single-block fast-config timing matching FAST_E2E_SETUP_OPTS', () => {
+    // Replicates FAST_E2E_SETUP_OPTS values (defined in end-to-end; not imported to avoid a cycle).
+    const timing = createCheckpointTimingModel({
+      aztecSlotDuration: 12,
+      ethereumSlotDuration: 4,
+      l1PublishingTime: 4,
+      pipelining: true,
+      // blockDuration intentionally unset — single-block-per-slot mode
+    });
+
+    // ethereumSlotDuration < 8 triggers normalizeCheckpointTimingConfig auto-tuning
+    expect(timing.p2pPropagationTime).toBe(0);
+    expect(timing.checkpointAssembleTime).toBe(0.5);
+    expect(timing.checkpointInitializationTime).toBe(0.5);
+    expect(timing.minExecutionTime).toBe(1);
+    // checkpointFinalizationTime = assemble + 2*p2p + publish = 0.5 + 0 + 4 = 4.5
+    expect(timing.checkpointFinalizationTime).toBeCloseTo(4.5);
+    // initializeDeadline = aztecSlotDuration - minimumBuildSlotWork = 12 - 2.5 = 9.5
+    expect(timing.initializeDeadline).toBeCloseTo(9.5);
+    // checkpointPublishingDeadline = 2 * aztecSlotDuration - l1PublishingTime = 20
+    expect(timing.checkpointPublishingDeadline).toBeCloseTo(20);
+    // blockDuration unset → single-block mode
+    expect(timing.calculateMaxBlocksPerSlot()).toBe(1);
+  });
 });

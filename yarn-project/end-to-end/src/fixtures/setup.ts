@@ -215,6 +215,13 @@ export type SetupOptions = {
   skipInitialSequencer?: boolean;
   /** Options forwarded to PXE creation (e.g. execution hooks). */
   pxeCreationOptions?: PXECreationOptions;
+  /**
+   * When true, the fixture constructs a CheckpointAutoProver that calls
+   * `RollupCheatCodes.markAsProven` after each published checkpoint, replacing
+   * AnvilTestWatcher's markAsProven loop. Wired in step 4 of the plan; safe to
+   * set in step 1 because it just stores a config value until the helper is hooked up.
+   */
+  testOnlyAutoProveAfterPublish?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
