@@ -6,7 +6,23 @@ if [ "${AVM:-1}" -eq "1" ]; then
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
-export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+
+function get_hash {
+  hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+}
+
+case "$cmd" in
+  test|test_cmds|bench|bench_cmds)
+    if [ "${NO_CACHE:-0}" -eq 1 ]; then
+      export hash=disabled-cache
+    else
+      export hash=$(get_hash)
+    fi
+    ;;
+  *)
+    export hash=$(get_hash)
+    ;;
+esac
 export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # Injects version number into a given bb binary.
@@ -397,7 +413,7 @@ case "$cmd" in
     test
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"
