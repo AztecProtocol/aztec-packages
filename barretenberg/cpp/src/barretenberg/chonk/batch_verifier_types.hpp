@@ -40,7 +40,10 @@ struct VerifyResult {
     {
         return { .request_id = id,
                  .status = static_cast<uint8_t>(VerifyStatus::FAILED),
-                 .error_message = std::move(msg) };
+                 .error_message = std::move(msg),
+                 .time_in_queue_ms = 0,
+                 .time_in_verify_ms = 0,
+                 .batch_failure_count = 0 };
     }
 
     SERIALIZATION_FIELDS(request_id, status, error_message, time_in_queue_ms, time_in_verify_ms, batch_failure_count);
