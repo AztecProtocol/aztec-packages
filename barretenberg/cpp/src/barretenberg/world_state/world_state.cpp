@@ -202,6 +202,19 @@ Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
     }
     return it->second;
 }
+
+Fork::SharedPtr WorldState::retrieve_and_remove_fork(const uint64_t& forkId)
+{
+    std::unique_lock lock(mtx);
+    auto it = _forks.find(forkId);
+    if (it == _forks.end()) {
+        throw std::runtime_error("Fork not found");
+    }
+    Fork::SharedPtr fork = it->second;
+    _forks.erase(it);
+    return fork;
+}
+
 uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumber)
 {
     block_number_t blockNumberForFork = 0;
@@ -244,13 +257,76 @@ void WorldState::delete_fork(const uint64_t& forkId)
     if (forkId == 0) {
         throw std::runtime_error("Unable to delete canonical fork");
     }
-    // Retrieving the shared pointer here means we throw if the fork is not available, it also means we are not under a
-    // lock when we destroy the object
-    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Fork::SharedPtr fork;
     {
         std::unique_lock lock(mtx);
-        _forks.erase(forkId);
+        auto it = _forks.find(forkId);
+        if (it == _forks.end()) {
+            // Idempotent: a previously-allocated fork may have already been removed
+            // (e.g. consumed by commit_fork). Only throw for fork ids that never existed.
+            if (forkId >= _forkId) {
+                throw std::runtime_error("Fork not found");
+            }
+            return;
+        }
+        fork = it->second;
+        _forks.erase(it);
     }
+}
+
+WorldStateStatusFull WorldState::commit_fork(const uint64_t& forkId)
+{
+    if (forkId == CANONICAL_FORK_ID) {
+        throw std::runtime_error("Cannot commit the canonical fork");
+    }
+    validate_trees_are_equally_synched();
+
+    // Validate tip hasn't moved since fork was created before removing the fork from the map,
+    // so a failed validation leaves the fork intact and the caller can inspect or delete it.
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    auto archiveMeta = get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+    if (archiveMeta.meta.unfinalizedBlockHeight != fork->_blockNumber) {
+        throw std::runtime_error("Can't commit fork: canonical tip has moved from " +
+                                 std::to_string(fork->_blockNumber) + " to " +
+                                 std::to_string(archiveMeta.meta.unfinalizedBlockHeight));
+    }
+
+    // Atomically retrieve and remove so no concurrent caller can obtain a reference.
+    // The local shared_ptr keeps the fork alive for the duration of this method.
+    fork = retrieve_and_remove_fork(forkId);
+
+    // Rollback canonical to clear any uncommitted state
+    rollback();
+
+    // Save pruning-related meta from canonical before the fork overwrites it.
+    // The fork's cached meta may have stale oldestHistoricBlock/finalizedBlockHeight
+    // from when it was created, so commit_block would overwrite LMDB with stale values.
+    std::array<TreeMeta, NUM_TREES> canonicalMeta;
+    get_all_tree_info(WorldStateRevision::committed(), canonicalMeta);
+
+    // Clear fork flags so commit_block() is allowed on fork stores
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit([](auto&& wrapper) { wrapper.tree->clear_initialized_from_block(); }, tree);
+    }
+
+    // Sync the fork's cached meta with canonical pruning state before committing.
+    // The fork's cached meta may have stale oldestHistoricBlock/finalizedBlockHeight.
+    for (auto& entry : fork->_trees) {
+        std::visit([&](auto&& wrapper) { wrapper.tree->sync_pruning_meta(canonicalMeta[entry.first]); }, entry.second);
+    }
+
+    // Commit fork trees to LMDB
+    WorldStateStatusFull status;
+    auto [success, message] = commit(fork, status);
+    if (!success) {
+        throw std::runtime_error("Failed to commit fork: " + message);
+    }
+
+    // Rollback canonical so it re-reads the updated LMDB state
+    rollback();
+
+    populate_status_summary(status);
+    return status;
 }
 
 Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
@@ -531,8 +607,12 @@ void WorldState::update_archive(const StateReference& block_state_ref,
 
 std::pair<bool, std::string> WorldState::commit(WorldStateStatusFull& status)
 {
+    return commit(retrieve_fork(CANONICAL_FORK_ID), status);
+}
+
+std::pair<bool, std::string> WorldState::commit(Fork::SharedPtr fork, WorldStateStatusFull& status)
+{
     // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     std::atomic_bool success = true;
     std::string message;
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));

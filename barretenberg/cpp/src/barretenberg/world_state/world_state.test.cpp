@@ -908,6 +908,221 @@ TEST_F(WorldStateTest, BuildsABlockInAFork)
     EXPECT_EQ(fork_state_ref, ws.get_state_reference(WorldStateRevision::committed()));
 }
 
+TEST_F(WorldStateTest, CommitForkHappyPath)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    auto fork_id = ws.create_fork(0);
+
+    // Build a block on the fork (same pattern as BuildsABlockInAFork)
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, fork_id);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, fork_id);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, fork_id);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, fork_id);
+
+    auto fork_state_ref = ws.get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
+    ws.update_archive(fork_state_ref, { 1 }, fork_id);
+
+    // Commit the fork
+    WorldStateStatusFull status = ws.commit_fork(fork_id);
+    EXPECT_EQ(status.summary.unfinalizedBlockNumber, 1);
+
+    // Verify canonical committed state has the new leaves
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 0, fr(43));
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, 128, NullifierLeafValue(129));
+    assert_leaf_value(
+        ws, WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE, 128, PublicDataLeafValue(129, 1));
+
+    // Verify state reference matches
+    EXPECT_EQ(fork_state_ref, ws.get_state_reference(WorldStateRevision::committed()));
+}
+
+TEST_F(WorldStateTest, CommitForkThenCreateNewForkAtAdvancedTip)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    // Build and commit block 1
+    auto fork1 = ws.create_fork(0);
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, fork1);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, fork1);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, fork1);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, fork1);
+    auto state_ref1 = ws.get_state_reference(WorldStateRevision{ .forkId = fork1, .includeUncommitted = true });
+    ws.update_archive(state_ref1, { 1 }, fork1);
+    WorldStateStatusFull status1 = ws.commit_fork(fork1);
+    EXPECT_EQ(status1.summary.unfinalizedBlockNumber, 1);
+
+    // Create new fork at latest — should be at block 1
+    auto fork2 = ws.create_fork(std::nullopt);
+
+    // Build and commit block 2
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 44 }, fork2);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 45 }, fork2);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 130 } }, 0, fork2);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 130, 2 } }, 0, fork2);
+    auto state_ref2 = ws.get_state_reference(WorldStateRevision{ .forkId = fork2, .includeUncommitted = true });
+    ws.update_archive(state_ref2, { 2 }, fork2);
+    WorldStateStatusFull status2 = ws.commit_fork(fork2);
+    EXPECT_EQ(status2.summary.unfinalizedBlockNumber, 2);
+
+    // Verify both blocks' leaves are visible in canonical
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 0, fr(42));
+    assert_leaf_value(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 1, fr(44));
+}
+
+TEST_F(WorldStateTest, CommitForkRejectsWhenTipMoved)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    // Build block 1 using a temporary fork to get correct state references
+    auto tmp_fork = ws.create_fork(0);
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, tmp_fork);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, tmp_fork);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, tmp_fork);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, tmp_fork);
+    auto state_ref1 = ws.get_state_reference(WorldStateRevision{ .forkId = tmp_fork, .includeUncommitted = true });
+    ws.delete_fork(tmp_fork);
+    ws.sync_block(state_ref1, fr(1), { 42 }, { 43 }, { NullifierLeafValue(129) }, { { PublicDataLeafValue(129, 1) } });
+
+    // Create fork at block 1 — this is the fork we'll try to commit later
+    auto fork_id = ws.create_fork(1);
+
+    // Build and sync block 2 to advance canonical tip
+    auto tmp_fork2 = ws.create_fork(1);
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 44 }, tmp_fork2);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 45 }, tmp_fork2);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 130 } }, 0, tmp_fork2);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 130, 2 } }, 0, tmp_fork2);
+    auto state_ref2 = ws.get_state_reference(WorldStateRevision{ .forkId = tmp_fork2, .includeUncommitted = true });
+    ws.delete_fork(tmp_fork2);
+    ws.sync_block(state_ref2, fr(2), { 44 }, { 45 }, { NullifierLeafValue(130) }, { { PublicDataLeafValue(130, 2) } });
+
+    // commit_fork should reject because tip moved from 1 to 2
+    EXPECT_THROW(ws.commit_fork(fork_id), std::runtime_error);
+
+    // Verify canonical is still at block 2, not corrupted
+    auto archive_info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+    EXPECT_EQ(archive_info.meta.unfinalizedBlockHeight, 2);
+}
+
+TEST_F(WorldStateTest, CommitForkRejectsCanonicalForkId)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    EXPECT_THROW(ws.commit_fork(CANONICAL_FORK_ID), std::runtime_error);
+}
+
+TEST_F(WorldStateTest, CommitForkRejectsInvalidForkId)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    EXPECT_THROW(ws.commit_fork(99999), std::runtime_error);
+}
+
+TEST_F(WorldStateTest, CommitForkCanonicalReadsReflectData)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    auto fork_id = ws.create_fork(0);
+
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, fork_id);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, fork_id);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, fork_id);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, fork_id);
+    auto fork_state_ref = ws.get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
+    ws.update_archive(fork_state_ref, { 1 }, fork_id);
+
+    ws.commit_fork(fork_id);
+
+    // Verify leaves are searchable from canonical
+    assert_leaf_exists(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, fr(42), true);
+    assert_leaf_exists(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, fr(43), true);
+    assert_leaf_exists(
+        ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, NullifierLeafValue(129), true);
+    assert_leaf_exists(
+        ws, WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE, PublicDataLeafValue(129, 1), true);
+
+    // Verify tree sizes advanced
+    assert_tree_size(ws, WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE, 1);
+    assert_tree_size(ws, WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE, 1);
+    assert_tree_size(ws, WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE, 129);
+    assert_tree_size(ws, WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE, 129);
+}
+
+TEST_F(WorldStateTest, CommitForkDestroysFork)
+{
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+    auto fork_id = ws.create_fork(0);
+
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, fork_id);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, fork_id);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, fork_id);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, fork_id);
+    auto fork_state_ref = ws.get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
+    ws.update_archive(fork_state_ref, { 1 }, fork_id);
+
+    ws.commit_fork(fork_id);
+
+    // Fork is destroyed — operations on it should fail, but delete_fork is idempotent for
+    // previously-allocated ids so it silently succeeds. A never-allocated id still throws.
+    EXPECT_NO_THROW(ws.delete_fork(fork_id));
+    EXPECT_THROW(ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 99 }, fork_id), std::runtime_error);
+    EXPECT_THROW(ws.delete_fork(fork_id + 1000), std::runtime_error);
+}
+
+TEST_F(WorldStateTest, CommitForkDoesNotRollBackOldestHistoricBlock)
+{
+    // Reproduces: fork is created, then blocks are pruned on canonical BEFORE commit_fork.
+    // Without the fix, commit_fork overwrites oldestHistoricBlock with the stale fork value,
+    // causing subsequent remove_historical_blocks to fail with "Failed to read block data".
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    // Sync blocks 1..4 via sync_block
+    for (uint32_t i = 1; i <= 4; i++) {
+        auto tmp = ws.create_fork(i - 1);
+        ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { fr(i * 10) }, tmp);
+        ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { fr(i * 10 + 1) }, tmp);
+        ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 128 + i } }, 0, tmp);
+        ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 128 + i, i } }, 0, tmp);
+        auto sr = ws.get_state_reference(WorldStateRevision{ .forkId = tmp, .includeUncommitted = true });
+        ws.delete_fork(tmp);
+        ws.sync_block(sr,
+                      fr(i),
+                      { fr(i * 10) },
+                      { fr(i * 10 + 1) },
+                      { NullifierLeafValue(128 + i) },
+                      { { PublicDataLeafValue(128 + i, i) } });
+    }
+
+    // Finalize block 2 so we can prune
+    ws.set_finalized_blocks(2);
+
+    // Create fork at block 4 BEFORE pruning — fork captures oldestHistoricBlock = 1
+    auto fork_id = ws.create_fork(4);
+    ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { fr(50) }, fork_id);
+    ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { fr(51) }, fork_id);
+    ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 133 } }, 0, fork_id);
+    ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 133, 5 } }, 0, fork_id);
+    auto fork_sr = ws.get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
+    ws.update_archive(fork_sr, { 5 }, fork_id);
+
+    // Prune blocks 1..2 AFTER fork was created — canonical advances oldestHistoricBlock to 2
+    ws.remove_historical_blocks(2);
+    auto info_after_prune = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+    EXPECT_EQ(info_after_prune.meta.oldestHistoricBlock, 2);
+
+    // commit_fork — must NOT roll back oldestHistoricBlock from 2 to 1
+    ws.commit_fork(fork_id);
+
+    auto info_after_commit = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+    EXPECT_EQ(info_after_commit.meta.unfinalizedBlockHeight, 5);
+    EXPECT_EQ(info_after_commit.meta.oldestHistoricBlock, 2);
+
+    // Finalize block 4 and prune — should NOT throw "Failed to read block data"
+    ws.set_finalized_blocks(4);
+    EXPECT_NO_THROW(ws.remove_historical_blocks(4));
+
+    auto info_final = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+    EXPECT_EQ(info_final.meta.oldestHistoricBlock, 4);
+}
+
 TEST_F(WorldStateTest, GetBlockForIndex)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);

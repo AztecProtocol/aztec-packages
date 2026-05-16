@@ -24,14 +24,14 @@ import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
-import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { type MerkleTreeWriteOperations, tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { type BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, type CheckpointGlobalVariables, Tx } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
-import { NativeWorldStateService } from '@aztec/world-state/native';
+import { NativeWorldStateService, WorldStateMessageType } from '@aztec/world-state/native';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -217,13 +217,14 @@ describe('ValidatorClient Integration', () => {
   /** Builds a new block proposal with the given txs and l1-to-l2 messages */
   const buildBlockProposal = async (
     checkpointBuilder: CheckpointBuilder,
+    fork: MerkleTreeWriteOperations,
     blockNumber: BlockNumber,
     cpNumber: CheckpointNumber,
     txs: Tx[] = [],
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
     const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {
+    const { block, usedTxs } = await checkpointBuilder.buildBlock(fork, txs, blockNumber, timestamp, {
       isBuildingProposal: true,
       maxBlocksPerCheckpoint: 1,
       perBlockAllocationMultiplier: 1.2,
@@ -316,7 +317,7 @@ describe('ValidatorClient Integration', () => {
     for (let i = 0; i < blockCount; i++) {
       const blockNumber = BlockNumber(startBlockNumber + i);
       const txs = await getTxsForBlock(blockNumber, blocks);
-      const block = await buildBlockProposal(builder, blockNumber, checkpointNumber, txs, l1ToL2Messages);
+      const block = await buildBlockProposal(builder, fork, blockNumber, checkpointNumber, txs, l1ToL2Messages);
       blocks.push(block);
     }
 
@@ -395,6 +396,31 @@ describe('ValidatorClient Integration', () => {
   });
 
   describe('happy path', () => {
+    it('uses COMMIT_FORK instead of SYNC_BLOCK when validating blocks', async () => {
+      const blockCount = 5;
+      const { blocks } = await buildCheckpoint(
+        CheckpointNumber(1),
+        slotNumber,
+        emptyL1ToL2Messages,
+        emptyPreviousCheckpointOutHashes,
+        BlockNumber(1),
+        blockCount,
+        () => buildTxs(2),
+      );
+
+      // Spy on the attestor's native world state to track message types sent to C++
+      const instance = (attestor.worldStateDb as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await attestorValidateBlocks(blocks);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0] as WorldStateMessageType);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.COMMIT_FORK)).toHaveLength(blockCount);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.SYNC_BLOCK)).toHaveLength(0);
+
+      callSpy.mockRestore();
+    });
+
     it('validates multiple blocks and attests to checkpoint', async () => {
       const { blocks, proposal } = await buildCheckpoint(
         CheckpointNumber(1),

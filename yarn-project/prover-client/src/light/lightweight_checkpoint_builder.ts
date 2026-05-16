@@ -47,7 +47,6 @@ export class LightweightCheckpointBuilder {
     public feeAssetPriceModifier: bigint,
     public readonly l1ToL2Messages: Fr[],
     private readonly previousCheckpointOutHashes: Fr[],
-    public readonly db: MerkleTreeWriteOperations,
     bindings?: LoggerBindings,
   ) {
     this.logger = createLogger('checkpoint-builder', {
@@ -76,7 +75,6 @@ export class LightweightCheckpointBuilder {
       feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
-      db,
       bindings,
     );
   }
@@ -93,7 +91,6 @@ export class LightweightCheckpointBuilder {
     feeAssetPriceModifier: bigint,
     l1ToL2Messages: Fr[],
     previousCheckpointOutHashes: Fr[],
-    db: MerkleTreeWriteOperations,
     existingBlocks: L2Block[],
     bindings?: LoggerBindings,
   ): Promise<LightweightCheckpointBuilder> {
@@ -103,7 +100,6 @@ export class LightweightCheckpointBuilder {
       feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
-      db,
       bindings,
     );
 
@@ -163,6 +159,7 @@ export class LightweightCheckpointBuilder {
    * this is called after tx processing, if that's not the case, then set `insertTxsEffects` to true.
    */
   public async addBlock(
+    db: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
     txs: ProcessedTx[],
     opts: { insertTxsEffects?: boolean; expectedEndState?: StateReference } = {},
@@ -176,7 +173,7 @@ export class LightweightCheckpointBuilder {
     }
 
     if (isFirstBlock) {
-      const [msGetInitialArchive, initialArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+      const [msGetInitialArchive, initialArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, db));
       this.lastArchives.push(initialArchive);
       timings.getInitialArchive = msGetInitialArchive;
     }
@@ -190,13 +187,13 @@ export class LightweightCheckpointBuilder {
       );
       let msInsertSideEffects = 0;
       for (const tx of txs) {
-        const [ms] = await elapsed(() => insertSideEffects(tx, this.db));
+        const [ms] = await elapsed(() => insertSideEffects(tx, db));
         msInsertSideEffects += ms;
       }
       timings.insertSideEffects = msInsertSideEffects;
     }
 
-    const [msGetEndState, endState] = await elapsed(() => this.db.getStateReference());
+    const [msGetEndState, endState] = await elapsed(() => db.getStateReference());
     timings.getEndState = msGetEndState;
 
     if (opts.expectedEndState && !endState.equals(opts.expectedEndState)) {
@@ -215,8 +212,8 @@ export class LightweightCheckpointBuilder {
 
     header.state.validate();
 
-    await this.db.updateArchive(header);
-    const [msUpdateArchive, newArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db));
+    await db.updateArchive(header);
+    const [msUpdateArchive, newArchive] = await elapsed(() => getTreeSnapshot(MerkleTreeId.ARCHIVE, db));
     timings.updateArchive = msUpdateArchive;
     this.lastArchives.push(newArchive);
 
@@ -308,7 +305,6 @@ export class LightweightCheckpointBuilder {
       this.feeAssetPriceModifier,
       [...this.l1ToL2Messages],
       [...this.previousCheckpointOutHashes],
-      this.db,
       this.logger.getBindings(),
     );
     clone.lastArchives = [...this.lastArchives];

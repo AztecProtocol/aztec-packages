@@ -33,6 +33,7 @@ import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
+  type MerkleTreeWriteOperations,
   type SequencerConfig,
   WorldStateRunningState,
   type WorldStateSyncStatus,
@@ -267,6 +268,10 @@ describe('sequencer', () => {
         },
       } satisfies WorldStateSynchronizerStatus),
     });
+    const mockFork = mock<MerkleTreeWriteOperations>({
+      [Symbol.asyncDispose]: mockFn().mockReturnValue(Promise.resolve()) as () => Promise<void>,
+    });
+    worldState.fork.mockResolvedValue(mockFork);
 
     // Create fake CheckpointsBuilder and CheckpointBuilder
     // Uses blockProvider to return the current `block` variable (set per-test)

@@ -71,6 +71,7 @@ export class MockCheckpointBuilder implements ICheckpointBlockBuilder {
   }
 
   async buildBlock(
+    _fork: MerkleTreeWriteOperations,
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,

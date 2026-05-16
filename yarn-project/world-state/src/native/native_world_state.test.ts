@@ -33,7 +33,7 @@ import { join } from 'path';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
-import type { WorldStateStatusSummary } from './message.js';
+import { WorldStateMessageType, type WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
 
 jest.setTimeout(60_000);
@@ -220,8 +220,8 @@ describe('NativeWorldState', () => {
 
       await timesAsync(5, async i => {
         const fork = await ws.fork();
-        const { block, messages } = await mockBlock(BlockNumber(i + 1), 2, fork);
-        await ws.handleL2BlockAndMessages(block, messages);
+        const { block: b, messages: m } = await mockBlock(BlockNumber(i + 2), 2, fork);
+        await ws.handleL2BlockAndMessages(b, m);
         await fork.close();
       });
 
@@ -297,14 +297,22 @@ describe('NativeWorldState', () => {
         publicDataTreeMapSizeKb: 1024,
       };
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-      const initialFork = await ws.fork();
 
-      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 8, initialFork);
-      const { block: block2, messages: messages2 } = await mockBlock(BlockNumber(2), 8, initialFork);
-      const { block: block3, messages: messages3 } = await mockBlock(BlockNumber(3), 8, initialFork);
+      const fork1 = await ws.fork();
+      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 8, fork1);
+      await fork1.close();
 
       // The first block should succeed
       await expect(ws.handleL2BlockAndMessages(block1, messages1)).resolves.toBeDefined();
+
+      // Build blocks 2 and 3 on separate forks at the advanced tip
+      const fork2 = await ws.fork();
+      const { block: block2, messages: messages2 } = await mockBlock(BlockNumber(2), 16, fork2);
+      await fork2.close();
+
+      const fork3 = await ws.fork();
+      const { block: block3, messages: messages3 } = await mockBlock(BlockNumber(3), 16, fork3);
+      await fork3.close();
 
       // The trees should be synched at block 1
       const goodSummary = await ws.getStatusSummary();
@@ -315,11 +323,10 @@ describe('NativeWorldState', () => {
         treesAreSynched: true,
       } as WorldStateStatusSummary);
 
-      // The second block should fail
+      // The second block should fail (DB too small)
       await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow();
 
-      // The summary should indicate that the unfinalized block number (that of the archive tree) is 2
-      // But it should also tell us that the trees are not synched
+      // The archive tree committed (small) but other trees failed → permanently out of sync
       const badSummary = await ws.getStatusSummary();
       expect(badSummary).toEqual({
         unfinalizedBlockNumber: BlockNumber(2),
@@ -328,11 +335,10 @@ describe('NativeWorldState', () => {
         treesAreSynched: false,
       } as WorldStateStatusSummary);
 
-      // Commits should always fail now, the trees are in an inconsistent state
+      // Further syncs fail because trees are out of sync
       await expect(ws.handleL2BlockAndMessages(block2, messages2)).rejects.toThrow('World state trees are out of sync');
       await expect(ws.handleL2BlockAndMessages(block3, messages3)).rejects.toThrow('World state trees are out of sync');
 
-      // Creating another world state instance should fail
       await ws.close();
     });
 
@@ -953,13 +959,13 @@ describe('NativeWorldState', () => {
     });
 
     it('handles invalid blocks', async () => {
-      const fork = await ws.fork();
-
-      // Insert a few blocks
+      // Insert a few blocks, each on its own fork
       for (let i = 0; i < 4; i++) {
         const blockNumber = i + 1;
         const provenBlock = blockNumber - 2;
+        const fork = await ws.fork();
         const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
+        await fork.close();
         const status = await ws.handleL2BlockAndMessages(block, messages);
 
         expect(status.summary.unfinalizedBlockNumber).toBe(blockNumber);
@@ -977,7 +983,9 @@ describe('NativeWorldState', () => {
 
       // Now build an invalid block, see that it is rejected and that we can then insert the correct block
       {
-        const { block: block, messages } = await mockBlock(BlockNumber(5), 1, fork);
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(5), 1, fork);
+        await fork.close();
         const invalidBlock = L2Block.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
@@ -996,7 +1004,9 @@ describe('NativeWorldState', () => {
 
       // Now we push another invalid block, see that it is rejected and check we can unwind to the last proven block
       {
-        const { block: block, messages } = await mockBlock(BlockNumber(6), 1, fork);
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(6), 1, fork);
+        await fork.close();
         const invalidBlock = L2Block.fromBuffer(block.toBuffer());
         invalidBlock.header.state.partial.nullifierTree.root = Fr.random();
 
@@ -1080,7 +1090,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const ws = await NativeWorldStateService.tmp();
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -1088,7 +1098,7 @@ describe('NativeWorldState', () => {
       const publicWrites: Buffer[] = [];
       for (let i = 0; i < numBlocks; i++) {
         const fork = await ws.fork();
-        ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
+        ({ block, messages } = await mockBlock(BlockNumber(i + 1), txsPerBlock, fork));
         noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
         nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
         publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
@@ -1151,7 +1161,7 @@ describe('NativeWorldState', () => {
       const txsPerBlock = 2;
       for (let i = 0; i < numBlocks; i++) {
         const fork = await ws.fork();
-        ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
+        ({ block, messages } = await mockBlock(BlockNumber(i + 1), txsPerBlock, fork));
         noteHashes = block.body.txEffects[0].noteHashes.length;
         nullifiers = block.body.txEffects[0].nullifiers.length;
         publicTree = block.body.txEffects[0].publicDataWrites.length;
@@ -1207,7 +1217,7 @@ describe('NativeWorldState', () => {
       const statuses = [];
       for (let i = 0; i < 2; i++) {
         const fork = await ws.fork();
-        ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
+        ({ block, messages } = await mockBlock(BlockNumber(i + 1), 2, fork));
         await fork.close();
         const status = await ws.handleL2BlockAndMessages(block, messages);
         statuses.push(status);
@@ -2020,6 +2030,258 @@ describe('NativeWorldState', () => {
       await compareState(fork, newDepth2Paths, true);
 
       await fork.close();
+    });
+  });
+
+  describe('registerForkForBlock', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    it('handleL2BlockAndMessages commits a registered fork', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      const forkStateRef = await fork.getStateReference();
+
+      // Register the fork, then sync — should commit the fork instead of recalculating
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const committedStateRef = await ws.getCommitted().getStateReference();
+      expect(committedStateRef).toEqual(forkStateRef);
+    });
+
+    it('commit then create new fork at advanced tip', async () => {
+      // Build and commit block 1 via registerFork + handleL2BlockAndMessages
+      const fork1 = await ws.fork();
+      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 1, fork1);
+      ws.registerForkForBlock(block1.archive.root, (fork1 as any).forkId);
+      await ws.handleL2BlockAndMessages(block1, messages1);
+
+      // Create new fork at latest (should be at block 1)
+      const fork2 = await ws.fork();
+      const { block: block2, messages: messages2 } = await mockBlock(BlockNumber(2), 1, fork2);
+      ws.registerForkForBlock(block2.archive.root, (fork2 as any).forkId);
+      await ws.handleL2BlockAndMessages(block2, messages2);
+
+      // Verify canonical is at block 2
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalizedBlockNumber).toEqual(2);
+    });
+
+    it('falls back to SYNC_BLOCK when no fork is registered', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+      await fork.close();
+
+      // No registerForkForBlock call — handleL2BlockAndMessages should use SYNC_BLOCK
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalizedBlockNumber).toEqual(1);
+    });
+
+    it('fork is destroyed after commit via handleL2BlockAndMessages', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      // Fork should be destroyed — operations on it should fail
+      await expect(fork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).rejects.toThrow('Fork not found');
+    });
+
+    it('uses COMMIT_FORK and not SYNC_BLOCK when fork is registered', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      // Spy on the native instance to track which message types are sent
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.COMMIT_FORK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.SYNC_BLOCK);
+
+      callSpy.mockRestore();
+    });
+
+    it('uses SYNC_BLOCK and not COMMIT_FORK when no fork is registered', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+      await fork.close();
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.SYNC_BLOCK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.COMMIT_FORK);
+
+      callSpy.mockRestore();
+    });
+
+    it('unwind correctly reverses state committed via commit_fork', async () => {
+      // Commit 4 blocks via COMMIT_FORK
+      const treeInfosAfterBlock: Awaited<ReturnType<MerkleTreeWriteOperations['getTreeInfo']>>[] = [];
+
+      for (let i = 1; i <= 4; i++) {
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(i), 1, fork);
+        ws.registerForkForBlock(block.archive.root, fork.forkId);
+        await ws.handleL2BlockAndMessages(block, messages);
+        treeInfosAfterBlock.push(await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE));
+      }
+
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toBe(4);
+
+      // Unwind back to block 2
+      const unwindStatus = await ws.unwindBlocks(BlockNumber(2));
+      expect(unwindStatus.summary.unfinalizedBlockNumber).toBe(2);
+
+      // State matches what it was after block 2
+      const treeInfoAfterUnwind = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      expect(treeInfoAfterUnwind).toEqual(treeInfosAfterBlock[1]);
+
+      // Can build and commit new blocks on top of the unwound state
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(3), 1, fork);
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await ws.handleL2BlockAndMessages(block, messages);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toBe(3);
+    });
+
+    it('falls back to SYNC_BLOCK when COMMIT_FORK fails (fork deleted before commit)', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, fork);
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+      await fork.close();
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.COMMIT_FORK);
+      expect(messageTypes).toContain(WorldStateMessageType.SYNC_BLOCK);
+
+      const status = await ws.getStatusSummary();
+      expect(status.unfinalizedBlockNumber).toEqual(1);
+
+      callSpy.mockRestore();
+    });
+
+    it('registered fork is not used after unwindBlocks', async () => {
+      // Commit block 1
+      const fork1 = await ws.fork();
+      const { block: block1, messages: messages1 } = await mockBlock(BlockNumber(1), 1, fork1);
+      ws.registerForkForBlock(block1.archive.root, fork1.forkId);
+      await ws.handleL2BlockAndMessages(block1, messages1);
+
+      // Register fork for block 2 but don't sync it
+      const fork2 = await ws.fork();
+      const { block: block2 } = await mockBlock(BlockNumber(2), 1, fork2);
+      ws.registerForkForBlock(block2.archive.root, fork2.forkId);
+
+      // Unwind to genesis
+      await ws.unwindBlocks(BlockNumber(0));
+
+      // Build a new block 1 with different content
+      const fork3 = await ws.fork();
+      const { block: newBlock1, messages: newMessages1 } = await mockBlock(BlockNumber(1), 2, fork3);
+      await fork3.close();
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(newBlock1, newMessages1);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.SYNC_BLOCK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.COMMIT_FORK);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toEqual(1);
+
+      callSpy.mockRestore();
+    });
+
+    it('commits an empty block via COMMIT_FORK', async () => {
+      const fork = await ws.fork();
+      const { block, messages } = await mockEmptyBlock(BlockNumber(1), fork);
+
+      ws.registerForkForBlock(block.archive.root, fork.forkId);
+
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      await ws.handleL2BlockAndMessages(block, messages);
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes).toContain(WorldStateMessageType.COMMIT_FORK);
+      expect(messageTypes).not.toContain(WorldStateMessageType.SYNC_BLOCK);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toEqual(1);
+
+      callSpy.mockRestore();
+    });
+
+    it('COMMIT_FORK produces the same state as SYNC_BLOCK', async () => {
+      // Instance A: commit via COMMIT_FORK
+      const wsA = await NativeWorldStateService.tmp();
+      const forkA = await wsA.fork();
+      const { block, messages } = await mockBlock(BlockNumber(1), 1, forkA);
+      wsA.registerForkForBlock(block.archive.root, forkA.forkId);
+      await wsA.handleL2BlockAndMessages(block, messages);
+
+      // Instance B: commit via SYNC_BLOCK (no fork registration)
+      const wsB = await NativeWorldStateService.tmp();
+      await wsB.handleL2BlockAndMessages(block, messages);
+
+      // State references must be identical
+      const stateRefA = await wsA.getCommitted().getStateReference();
+      const stateRefB = await wsB.getCommitted().getStateReference();
+      expect(stateRefA).toEqual(stateRefB);
+
+      const archiveA = await wsA.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      const archiveB = await wsB.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(archiveA).toEqual(archiveB);
+
+      await wsA.close();
+      await wsB.close();
+    });
+
+    it('commits 5 sequential blocks via COMMIT_FORK (proposer flow)', async () => {
+      const blockCount = 5;
+      const instance = (ws as any).instance;
+      const callSpy = jest.spyOn(instance, 'call');
+
+      for (let i = 0; i < blockCount; i++) {
+        const fork = await ws.fork();
+        const { block, messages } = await mockBlock(BlockNumber(i + 1), 1, fork);
+        ws.registerForkForBlock(block.archive.root, fork.forkId);
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+
+      const messageTypes = callSpy.mock.calls.map(call => call[0]);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.CREATE_FORK)).toHaveLength(blockCount);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.COMMIT_FORK)).toHaveLength(blockCount);
+      expect(messageTypes.filter(t => t === WorldStateMessageType.SYNC_BLOCK)).toHaveLength(0);
+      expect((await ws.getStatusSummary()).unfinalizedBlockNumber).toEqual(blockCount);
+
+      callSpy.mockRestore();
     });
   });
 });

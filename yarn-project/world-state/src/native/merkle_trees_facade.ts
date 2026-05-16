@@ -219,6 +219,11 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
   }
+
+  /** Returns the native fork ID. */
+  get forkId(): number {
+    return this.revision.forkId;
+  }
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
@@ -296,9 +301,9 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     try {
       await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
     } catch (err: any) {
-      // Ignore errors due to native instance being closed during shutdown.
-      // This can happen when validators are still processing block proposals while the node is stopping.
-      if (err?.message === 'Native instance is closed') {
+      // Ignore errors due to native instance being closed during shutdown, or fork already
+      // destroyed (e.g. via commitFork).
+      if (err?.message === 'Native instance is closed' || err?.message === 'Fork not found') {
         return;
       }
       throw err;
@@ -310,8 +315,12 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
       void sleep(this.opts.closeDelayMs)
         .then(() => this.close())
         .catch(err => {
-          if (err && 'message' in err && err.message === 'Native instance is closed') {
-            return; // Ignore errors due to native instance being closed
+          if (
+            err &&
+            'message' in err &&
+            (err.message === 'Native instance is closed' || err.message === 'Fork not found')
+          ) {
+            return;
           }
           this.log.warn('Error closing MerkleTreesForkFacade after delay', { err });
         });

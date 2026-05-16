@@ -64,16 +64,16 @@ describe('Native World State: benchmarks', () => {
     effectsPerTx: number,
     worldState: NativeWorldStateService,
   ) => {
-    const blocks = [];
-    const fork = await worldState.fork();
-    for (let i = 0; i < numBlocks; i++) {
-      const { block, messages } = await mockBlock(BlockNumber(i + 1), txsPerBlock, fork, effectsPerTx);
-      blocks.push({ block, messages });
-    }
-
+    // Build each block on a separate fork and sync it before building the next.
+    // Each fork starts from the latest committed state (one fork per block).
     const startTime = performance.now();
 
-    for (const { block, messages } of blocks) {
+    for (let i = 0; i < numBlocks; i++) {
+      const status = await worldState.getStatusSummary();
+      const blockNumber = BlockNumber(status.unfinalizedBlockNumber + 1);
+      const fork = await worldState.fork();
+      const { block, messages } = await mockBlock(blockNumber, txsPerBlock, fork, effectsPerTx);
+      await fork.close();
       await worldState.handleL2BlockAndMessages(block, messages);
     }
 

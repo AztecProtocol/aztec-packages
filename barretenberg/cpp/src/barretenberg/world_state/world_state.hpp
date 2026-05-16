@@ -278,6 +278,7 @@ class WorldState {
 
     uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
+    WorldStateStatusFull commit_fork(const uint64_t& forkId);
 
     WorldStateStatusSummary set_finalized_blocks(const block_number_t& toBlockNumber);
     WorldStateStatusFull unwind_blocks(const block_number_t& toBlockNumber);
@@ -316,6 +317,7 @@ class WorldState {
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
+    Fork::SharedPtr retrieve_and_remove_fork(const uint64_t& forkId);
     Fork::SharedPtr create_new_fork(const block_number_t& blockNumber);
     void remove_forks_for_block(const block_number_t& blockNumber);
 
@@ -349,6 +351,8 @@ class WorldState {
                                                        std::array<TreeMeta, NUM_TREES>& metaResponses);
 
     static void populate_status_summary(WorldStateStatusFull& status);
+
+    std::pair<bool, std::string> commit(Fork::SharedPtr fork, WorldStateStatusFull& status);
 
     template <typename TreeType>
     void commit_tree(TreeDBStats& dbStats,

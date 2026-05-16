@@ -111,17 +111,16 @@ export async function mockBlocks(
   numTxs: number,
   worldState: NativeWorldStateService,
 ) {
-  const tempFork = await worldState.fork(BlockNumber(from - 1));
-
   const blocks = [];
   const messagesArray = [];
   for (let blockNumber = from; blockNumber < from + count; blockNumber++) {
+    const tempFork = await worldState.fork();
     const { block, messages } = await mockBlock(BlockNumber(blockNumber), numTxs, tempFork);
     blocks.push(block);
     messagesArray.push(messages);
+    worldState.registerForkForBlock(block.archive.root, tempFork.forkId);
+    await worldState.handleL2BlockAndMessages(block, messages);
   }
-
-  await tempFork.close();
 
   return { blocks, messages: messagesArray };
 }

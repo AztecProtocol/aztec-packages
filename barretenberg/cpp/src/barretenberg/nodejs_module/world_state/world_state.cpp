@@ -255,6 +255,10 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
 
     _dispatcher.register_target(
+        WorldStateMessageType::COMMIT_FORK,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_fork(obj, buffer); });
+
+    _dispatcher.register_target(
         WorldStateMessageType::FINALIZE_BLOCKS,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return set_finalized(obj, buffer); });
 
@@ -803,6 +807,20 @@ bool WorldStateWrapper::delete_fork(msgpack::object& obj, msgpack::sbuffer& buf)
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::DELETE_FORK, header, {});
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::commit_fork(msgpack::object& obj, msgpack::sbuffer& buf)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    WorldStateStatusFull status = _ws->commit_fork(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_FORK, header, { status });
     msgpack::pack(buf, resp_msg);
 
     return true;

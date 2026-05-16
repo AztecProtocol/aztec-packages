@@ -183,6 +183,7 @@ describe('EpochPruneWatcher', () => {
 
     expect(checkpointsBuilder.startCheckpoint).toHaveBeenCalled();
     expect(checkpointBuilder.buildBlock).toHaveBeenCalledWith(
+      fork,
       [tx],
       block.header.globalVariables.blockNumber,
       block.header.globalVariables.timestamp,
@@ -243,6 +244,7 @@ describe('EpochPruneWatcher', () => {
 
     expect(checkpointsBuilder.startCheckpoint).toHaveBeenCalled();
     expect(checkpointBuilder.buildBlock).toHaveBeenCalledWith(
+      fork,
       [tx],
       blockFromL1.header.globalVariables.blockNumber,
       blockFromL1.header.globalVariables.timestamp,

@@ -246,6 +246,9 @@ export interface MerkleTreeWriteOperations
   extends MerkleTreeReadOperations,
     MerkleTreeCheckpointOperations,
     AsyncDisposable {
+  /** The native fork ID assigned by the world state. */
+  readonly forkId: number;
+
   /**
    * Appends leaves to a given tree.
    * @param treeId - The tree to be updated.

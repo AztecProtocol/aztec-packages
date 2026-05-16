@@ -52,7 +52,6 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
 
   constructor(
     private checkpointBuilder: LightweightCheckpointBuilder,
-    private fork: MerkleTreeWriteOperations,
     private config: FullNodeBlockBuilderConfig,
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
@@ -72,10 +71,11 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
   }
 
   /**
-   * Builds a single block within this checkpoint.
+   * Builds a single block within this checkpoint using the given fork. The caller owns the fork.
    * Automatically caps gas and blob field limits based on checkpoint-level budgets and prior blocks.
    */
   async buildBlock(
+    fork: MerkleTreeWriteOperations,
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
@@ -101,7 +101,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       feeRecipient: constants.feeRecipient,
       gasFees: constants.gasFees,
     });
-    const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
+    const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, fork);
 
     // Cap gas limits amd available blob fields by remaining checkpoint-level budgets
     const cappedOpts: PublicProcessorLimits & { expectedEndState?: StateReference } = {
@@ -113,7 +113,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     this.contractsDB.createCheckpoint();
     // We execute all merkle tree operations on a world state fork checkpoint
     // This enables us to discard all modifications in the event that we fail to successfully process sufficient transactions
-    const forkCheckpoint = await ForkCheckpoint.new(this.fork);
+    const forkCheckpoint = await ForkCheckpoint.new(fork);
 
     try {
       const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
@@ -130,7 +130,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       await forkCheckpoint.commit();
 
       // Add block to checkpoint
-      const { block } = await this.checkpointBuilder.addBlock(globalVariables, processedTxs, {
+      const { block } = await this.checkpointBuilder.addBlock(fork, globalVariables, processedTxs, {
         expectedEndState: opts.expectedEndState,
       });
 
@@ -339,7 +339,6 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
 
     return new CheckpointBuilder(
       lightweightBuilder,
-      fork,
       this.config,
       this.contractDataSource,
       this.dateProvider,
@@ -393,14 +392,12 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       feeAssetPriceModifier,
       l1ToL2Messages,
       previousCheckpointOutHashes,
-      fork,
       existingBlocks,
       bindings,
     );
 
     return new CheckpointBuilder(
       lightweightBuilder,
-      fork,
       this.config,
       this.contractDataSource,
       this.dateProvider,

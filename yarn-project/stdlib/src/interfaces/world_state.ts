@@ -1,4 +1,5 @@
 import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { PromiseWithResolvers } from '@aztec/foundation/promise';
 
 import { z } from 'zod';
@@ -50,6 +51,14 @@ export interface ForkMerkleTreeOperations {
    *  - closeDelayMs: number of milliseconds to wait before closing the fork on dispose.
    */
   fork(block?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations>;
+
+  /**
+   * Registers a fork that has built a block. When SYNC_BLOCK is later called for a block
+   * with the same archive root, the fork will be committed instead of recalculating from scratch.
+   * @param archiveRoot - The archive root of the block built on the fork.
+   * @param forkId - The native fork ID.
+   */
+  registerForkForBlock(archiveRoot: Fr, forkId: number): void;
 
   /** Backups the db to the target path. */
   backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>>;

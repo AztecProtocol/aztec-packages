@@ -44,6 +44,7 @@ enum WorldStateMessageType {
 
     CREATE_FORK,
     DELETE_FORK,
+    COMMIT_FORK,
 
     FINALIZE_BLOCKS,
     UNWIND_BLOCKS,

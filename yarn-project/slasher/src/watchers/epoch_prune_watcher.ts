@@ -137,21 +137,17 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       .map(c => c.checkpointOutHash);
     let previousCheckpointOutHashes: Fr[] = [...priorCheckpointOutHashes];
 
-    const fork = await this.checkpointsBuilder.getFork(
+    await using fork = await this.checkpointsBuilder.getFork(
       BlockNumber(sortedBlocks[0].header.globalVariables.blockNumber - 1),
     );
-    try {
-      for (const checkpointBlocks of blocksByCheckpoint) {
-        await this.validateCheckpoint(checkpointBlocks, previousCheckpointOutHashes, fork);
+    for (const checkpointBlocks of blocksByCheckpoint) {
+      await this.validateCheckpoint(checkpointBlocks, previousCheckpointOutHashes, fork);
 
-        // Compute checkpoint out hash from all blocks in this checkpoint
-        const checkpointOutHash = computeCheckpointOutHash(
-          checkpointBlocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
-        );
-        previousCheckpointOutHashes = [...previousCheckpointOutHashes, checkpointOutHash];
-      }
-    } finally {
-      await fork.close();
+      // Compute checkpoint out hash from all blocks in this checkpoint
+      const checkpointOutHash = computeCheckpointOutHash(
+        checkpointBlocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
+      );
+      previousCheckpointOutHashes = [...previousCheckpointOutHashes, checkpointOutHash];
     }
   }
 
@@ -191,13 +187,14 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
     // Validate all blocks in the checkpoint sequentially
     for (const block of checkpointBlocks) {
-      await this.validateBlockInCheckpoint(block, checkpointBuilder);
+      await this.validateBlockInCheckpoint(block, checkpointBuilder, fork);
     }
   }
 
   private async validateBlockInCheckpoint(
     blockFromL1: L2Block,
     checkpointBuilder: ICheckpointBlockBuilder,
+    fork: MerkleTreeWriteOperations,
   ): Promise<void> {
     this.log.debug(`Validating pruned block ${blockFromL1.header.globalVariables.blockNumber}`);
     const txHashes = blockFromL1.body.txEffects.map(txEffect => txEffect.txHash);
@@ -211,7 +208,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     }
 
     const gv = blockFromL1.header.globalVariables;
-    const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(txs, gv.blockNumber, gv.timestamp, {
+    const { block, failedTxs, numTxs } = await checkpointBuilder.buildBlock(fork, txs, gv.blockNumber, gv.timestamp, {
       isBuildingProposal: false,
       minValidTxs: 0,
     });

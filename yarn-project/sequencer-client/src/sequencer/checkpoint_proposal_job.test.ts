@@ -1542,7 +1542,7 @@ describe('CheckpointProposalJob', () => {
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
       checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(1, 2, failedTxs));
 
-      const result = await job.buildSingleBlock(checkpointBuilder, {
+      const result = await job.buildSingleBlock(checkpointBuilder, mock<MerkleTreeWriteOperations>(), {
         blockNumber: newBlockNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
@@ -1563,7 +1563,7 @@ describe('CheckpointProposalJob', () => {
       const failedTxs: FailedTx[] = txs.slice(1).map(tx => ({ tx, error: new Error('Invalid tx') }));
       checkpointBuilder.buildBlock.mockRejectedValue(new InsufficientValidTxsError(0, 3, failedTxs));
 
-      const result = await job.buildSingleBlock(checkpointBuilder, {
+      const result = await job.buildSingleBlock(checkpointBuilder, mock<MerkleTreeWriteOperations>(), {
         blockNumber: newBlockNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(1),
         buildDeadline: undefined,
@@ -1862,6 +1862,7 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   /** Expose internal buildSingleBlock method */
   public override buildSingleBlock(
     checkpointBuilder: CheckpointBuilder,
+    fork: MerkleTreeWriteOperations,
     opts: {
       forceCreate?: boolean;
       blockTimestamp: bigint;
@@ -1873,7 +1874,7 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   ): Promise<
     { block: L2Block; usedTxs: Tx[] } | { failure: 'insufficient-txs' | 'insufficient-valid-txs' } | { error: Error }
   > {
-    return super.buildSingleBlock(checkpointBuilder, opts);
+    return super.buildSingleBlock(checkpointBuilder, fork, opts);
   }
 }
 

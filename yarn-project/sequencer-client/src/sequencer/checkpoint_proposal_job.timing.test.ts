@@ -79,6 +79,7 @@ class TimingAwareMockCheckpointBuilder extends MockCheckpointBuilder {
   }
 
   override async buildBlock(
+    fork: MerkleTreeWriteOperations,
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     timestamp: bigint,
@@ -94,7 +95,7 @@ class TimingAwareMockCheckpointBuilder extends MockCheckpointBuilder {
     this.recordedBuildTimes.push({ blockNumber, startTime, endTime });
     this.currentBlockIndex++;
 
-    return await super.buildBlock(pendingTxs, blockNumber, timestamp, opts);
+    return await super.buildBlock(fork, pendingTxs, blockNumber, timestamp, opts);
   }
 
   override reset(): void {

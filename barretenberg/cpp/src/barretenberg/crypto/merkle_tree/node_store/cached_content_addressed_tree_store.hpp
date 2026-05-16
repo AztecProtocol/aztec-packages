@@ -64,6 +64,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     ContentAddressedCachedTreeStore& operator=(ContentAddressedCachedTreeStore const& other) = delete;
     ContentAddressedCachedTreeStore& operator=(ContentAddressedCachedTreeStore const&& other) = delete;
 
+    void clear_initialized_from_block() { forkConstantData_.initialized_from_block_.reset(); }
+
     /**
      * @brief Returns the index of the leaf with a value immediately lower than the value provided
      */

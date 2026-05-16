@@ -44,6 +44,7 @@ import { Gas } from '@aztec/stdlib/gas';
 import {
   type BlockBuilderOptions,
   InsufficientValidTxsError,
+  type MerkleTreeWriteOperations,
   type ResolvedSequencerConfig,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -85,7 +86,8 @@ const TXS_POLLING_MS = 500;
 /** Result from proposeCheckpoint when a checkpoint was successfully built and broadcast. */
 type CheckpointProposalBroadcast = {
   checkpoint: Checkpoint;
-  proposal: CheckpointProposal;
+  /** Undefined in fisherman mode, where the checkpoint is built but not broadcast. */
+  proposal?: CheckpointProposal;
   blockProposedAt: number;
 };
 
@@ -609,8 +611,9 @@ export class CheckpointProposalJob implements Traceable {
         this.pipelinedParentSimulationOverridesPlan?.pendingCheckpointState?.feeHeader?.ethPerFeeAsset;
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12);
 
-      // Create a long-lived forked world state for the checkpoint builder
-      await using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
+      // Seed fork for the checkpoint: startCheckpoint appends the L1-to-L2 messages onto it, and
+      // block 1 is built against it. Block 2+ create their own forks inside buildBlocksForCheckpoint.
+      await using initialFork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
 
       // Create checkpoint builder for the entire slot
       const checkpointBuilder = await this.checkpointsBuilder.startCheckpoint(
@@ -619,7 +622,7 @@ export class CheckpointProposalJob implements Traceable {
         feeAssetPriceModifier,
         l1ToL2Messages,
         previousCheckpointOutHashes,
-        fork,
+        initialFork,
         this.log.getBindings(),
       );
 
@@ -642,6 +645,7 @@ export class CheckpointProposalJob implements Traceable {
         // Main loop: build blocks for the checkpoint
         const result = await this.buildBlocksForCheckpoint(
           checkpointBuilder,
+          initialFork,
           checkpointGlobalVariables.timestamp,
           inHash,
           blockProposalOptions,
@@ -759,8 +763,8 @@ export class CheckpointProposalJob implements Traceable {
           },
         );
         this.metrics.recordCheckpointSuccess();
-        // Return a broadcast result with a dummy proposal — fisherman mode skips attestation collection
-        return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now() };
+        // Fisherman mode skips attestation collection, so no proposal is produced.
+        return { checkpoint, blockProposedAt: this.dateProvider.now() };
       }
 
       // Create the checkpoint proposal and broadcast it
@@ -799,6 +803,7 @@ export class CheckpointProposalJob implements Traceable {
   @trackSpan('CheckpointProposalJob.buildBlocksForCheckpoint')
   private async buildBlocksForCheckpoint(
     checkpointBuilder: CheckpointBuilder,
+    initialFork: MerkleTreeWriteOperations,
     timestamp: bigint,
     inHash: Fr,
     blockProposalOptions: BlockProposalOptions,
@@ -813,7 +818,10 @@ export class CheckpointProposalJob implements Traceable {
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: BlockProposal | undefined = undefined;
 
-    while (true) {
+    // Builds one block on the given fork and handles its post-processing.
+    // Returns 'stop' to exit the outer loop, 'retry' after already sleeping past the failed subslot
+    // (outer loop re-invokes on whichever fork it picks), or a subslot deadline for the caller to wait on.
+    const buildOne = async (fork: MerkleTreeWriteOperations): Promise<'stop' | 'retry' | { deadline: number }> => {
       const blocksBuilt = blocksInCheckpoint.length;
       const indexWithinCheckpoint = IndexWithinCheckpoint(blocksBuilt);
       const blockNumber = BlockNumber(initialBlockNumber + blocksBuilt);
@@ -836,10 +844,10 @@ export class CheckpointProposalJob implements Traceable {
           blocksBuilt,
           secondsIntoSlot,
         });
-        break;
+        return 'stop';
       }
 
-      const buildResult = await this.buildSingleBlock(checkpointBuilder, {
+      const buildResult = await this.buildSingleBlock(checkpointBuilder, fork, {
         // Create all blocks with the same timestamp
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
@@ -857,11 +865,11 @@ export class CheckpointProposalJob implements Traceable {
       if ('failure' in buildResult) {
         // If this was the last subslot, or we're running with a single block per slot, we're done
         if (timingInfo.isLastBlock || timingInfo.deadline === undefined) {
-          break;
+          return 'stop';
         }
         // Otherwise, if there is still time for more blocks, we wait until the next subslot and try again
         await this.waitUntilNextSubslot(timingInfo.deadline);
-        continue;
+        return 'retry';
       }
 
       // If there was an error building the block, we just exit the loop and give up the rest of the slot.
@@ -874,7 +882,7 @@ export class CheckpointProposalJob implements Traceable {
             error: buildResult.error,
           });
         }
-        break;
+        return 'stop';
       }
 
       const { block, usedTxs } = buildResult;
@@ -885,6 +893,9 @@ export class CheckpointProposalJob implements Traceable {
 
       blocksInCheckpoint.push(block);
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
+
+      // Register the fork so SYNC_BLOCK can commit it instead of recalculating.
+      this.worldState.registerForkForBlock(block.archive.root, fork.forkId);
 
       // Sign the block proposal. This will throw if HA signing fails.
       const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
@@ -904,7 +915,7 @@ export class CheckpointProposalJob implements Traceable {
         });
 
         blockPendingBroadcast = proposal;
-        break;
+        return 'stop';
       }
 
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
@@ -912,8 +923,45 @@ export class CheckpointProposalJob implements Traceable {
         await this.p2pClient.broadcastProposal(proposal);
       }
 
-      // Wait until the next block's start time
-      await this.waitUntilNextSubslot(timingInfo.deadline);
+      return { deadline: timingInfo.deadline };
+    };
+
+    if (this.config.skipPushProposedBlocksToArchiver) {
+      // skipPush: all blocks are built on initialFork so their in-memory state accumulates.
+      while (true) {
+        const result = await buildOne(initialFork);
+        if (result === 'stop') {
+          break;
+        }
+        if (result === 'retry') {
+          continue;
+        }
+        await this.waitUntilNextSubslot(result.deadline);
+      }
+    } else {
+      while (true) {
+        // Block 1 uses initialFork (has L1-to-L2 messages appended by startCheckpoint).
+        // Block 2+ uses a fresh fork at the previously built block after syncing LMDB.
+        const blocksBuilt = blocksInCheckpoint.length;
+        let result: 'stop' | 'retry' | { deadline: number };
+        if (blocksBuilt === 0) {
+          result = await buildOne(initialFork);
+        } else {
+          const prevBlock = BlockNumber(initialBlockNumber + blocksBuilt - 1);
+          // Wait for LMDB to reach the previously built block before creating the next fork.
+          // In HA mode, another peer's proposal may arrive via gossip and be committed instead of ours.
+          await this.worldState.syncImmediate(prevBlock);
+          await using fork = await this.worldState.fork(prevBlock, { closeDelayMs: 12_000 });
+          result = await buildOne(fork);
+        }
+        if (result === 'stop') {
+          break;
+        }
+        if (result === 'retry') {
+          continue;
+        }
+        await this.waitUntilNextSubslot(result.deadline);
+      }
     }
 
     this.log.verbose(`Block building loop completed for slot ${this.targetSlot}`, {
@@ -961,6 +1009,7 @@ export class CheckpointProposalJob implements Traceable {
   @trackSpan('CheckpointProposalJob.buildSingleBlock')
   protected async buildSingleBlock(
     checkpointBuilder: CheckpointBuilder,
+    fork: MerkleTreeWriteOperations,
     opts: {
       forceCreate?: boolean;
       blockTimestamp: bigint;
@@ -1045,6 +1094,7 @@ export class CheckpointProposalJob implements Traceable {
       // updated for blocks that will be discarded.
       const buildResult = await this.buildSingleBlockWithCheckpointBuilder(
         checkpointBuilder,
+        fork,
         pendingTxs,
         blockNumber,
         blockTimestamp,
@@ -1139,6 +1189,7 @@ export class CheckpointProposalJob implements Traceable {
   /** Uses the checkpoint builder to build a block, catching InsufficientValidTxsError. */
   private async buildSingleBlockWithCheckpointBuilder(
     checkpointBuilder: CheckpointBuilder,
+    fork: MerkleTreeWriteOperations,
     pendingTxs: AsyncIterable<Tx>,
     blockNumber: BlockNumber,
     blockTimestamp: bigint,
@@ -1146,7 +1197,13 @@ export class CheckpointProposalJob implements Traceable {
   ) {
     try {
       const workTimer = new Timer();
-      const result = await checkpointBuilder.buildBlock(pendingTxs, blockNumber, blockTimestamp, blockBuilderOptions);
+      const result = await checkpointBuilder.buildBlock(
+        fork,
+        pendingTxs,
+        blockNumber,
+        blockTimestamp,
+        blockBuilderOptions,
+      );
       const blockBuildDuration = workTimer.ms();
       return { ...result, blockBuildDuration, status: 'success' as const };
     } catch (err: unknown) {
@@ -1205,6 +1262,9 @@ export class CheckpointProposalJob implements Traceable {
     broadcast: CheckpointProposalBroadcast,
   ): Promise<{ attestations: CommitteeAttestationsAndSigners; attestationsSignature: Signature } | undefined> {
     const { proposal, blockProposedAt } = broadcast;
+    if (!proposal) {
+      return undefined;
+    }
     this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
     const attestations = await this.waitForAttestations(proposal);
     if (!attestations) {
