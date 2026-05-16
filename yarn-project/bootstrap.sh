@@ -8,6 +8,14 @@ function hash {
     $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
 }
 
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    hash
+  fi
+}
+
 function compile_project {
   # TODO: 16 jobs is magic. Was seeing weird errors otherwise.
   parallel -j16 --line-buffered --tag 'cd {} && ../node_modules/.bin/swc src -d dest --config-file=../.swcrc --strip-leading-paths' "$@"
@@ -169,7 +177,7 @@ function build {
 }
 
 function test_cmds {
-  local hash=$(hash)
+  local hash=$(get_test_hash)
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
@@ -239,7 +247,7 @@ function test {
 }
 
 function bench_cmds {
-  local hash=$(hash)
+  local hash=$(get_test_hash)
   echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"

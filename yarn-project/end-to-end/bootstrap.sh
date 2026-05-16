@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(../bootstrap.sh hash)
+function get_hash {
+  ../bootstrap.sh hash
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
+
 bench_fixtures_dir=example-app-ivc-inputs-out
 default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
 ultrahonk_bench_dir=ultrahonk-bench-inputs
@@ -25,6 +36,7 @@ function set_dump_avm {
 
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  local hash=$(get_test_hash)
   local prefix="$hash:ISOLATE=1"
 
   if [ "$CI_FULL" -eq 1 ]; then
@@ -111,6 +123,7 @@ function test {
 }
 
 function bench_cmds {
+  local hash=$(get_test_hash)
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
   echo "$hash:ISOLATE=1:CPUS=8:NAME=tx_stats BB_IVC_CONCURRENCY=1 BB_NUM_IVC_VERIFIERS=8 BENCH_OUTPUT=bench-out/tx_stats.bench.json yarn-project/end-to-end/scripts/run_test.sh simple tx_stats_bench"
   echo "$hash:ISOLATE=1:NAME=node_rpc_perf BENCH_OUTPUT=bench-out/node_rpc_perf.bench.json yarn-project/end-to-end/scripts/run_test.sh simple node_rpc_perf"
@@ -133,6 +146,7 @@ function bench_cmds {
 
 # Builds all benchmark fixtures (chonk IVC captures + UltraHonk circuit inputs).
 function build_bench {
+  local hash=$(get_hash)
   rm -rf bench-out && mkdir -p bench-out
 
   # Build chonk IVC captures
@@ -171,6 +185,7 @@ function bench {
 # Runs e2e tests with AVM circuit inputs dumping enabled, then packages and uploads them
 function test_and_collect_avm_inputs {
   echo_header "e2e tests with AVM circuit inputs dumping"
+  local hash=$(get_hash)
 
   # Fail if dump directory already exists to avoid mixing/overwriting results
   if [ -d "$default_avm_inputs_dump_dir" ]; then
@@ -201,6 +216,7 @@ function test_and_collect_avm_inputs {
 
 # Generates commands to run avm_check_circuit on all dumped AVM circuit inputs
 function avm_check_circuit_cmds {
+  local hash=$(get_test_hash)
   local bb_avm="barretenberg/cpp/build/bin/bb-avm"
   # Commands run from repo root via parallelize, so use path from top
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
@@ -239,6 +255,7 @@ function avm_check_circuit_cmds {
 # Downloads cached AVM circuit inputs and runs check-circuit on all of them
 function avm_check_circuit {
   echo_header "AVM check-circuit on dumped inputs"
+  local hash=$(get_hash)
 
   # Use AVM_INPUTS_HASH if set (computed before build in CI), otherwise fall back to $hash
   local avm_hash=${AVM_INPUTS_HASH:-$hash}
@@ -263,6 +280,7 @@ function avm_check_circuit {
 function compat_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  local hash=$(get_test_hash)
   local prefix="$hash:ISOLATE=1"
   local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
 
