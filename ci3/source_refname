@@ -13,6 +13,34 @@
 # This is obviously overloaded in terms of how its value is generated, and how it's used.
 # So far this has been fine, so requiring more distinct variables has been unnecessary.
 # In Github Actions we need to take from what GA provides to avoid any race conditions.
+function read_git_head_ref {
+  local git_dir="$root/.git"
+  if [ -f "$git_dir" ]; then
+    local git_dir_line
+    IFS= read -r git_dir_line < "$git_dir" || return 1
+    [[ "$git_dir_line" == gitdir:\ * ]] || return 1
+    git_dir=${git_dir_line#gitdir: }
+    [[ "$git_dir" == /* ]] || git_dir="$root/$git_dir"
+  fi
+
+  local head
+  IFS= read -r head < "$git_dir/HEAD" || return 1
+  case "$head" in
+    "ref: refs/heads/"*)
+      echo "${head#ref: refs/heads/}"
+      ;;
+    "ref: refs/tags/"*)
+      echo "${head#ref: refs/tags/}"
+      ;;
+    "ref: "*)
+      echo "${head#ref: }"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 if [ -z "${REF_NAME:-}" ]; then
   if [ -n "${GITHUB_HEAD_REF:-}" ]; then
     # Use correct branch name in PRs.
@@ -21,7 +49,7 @@ if [ -z "${REF_NAME:-}" ]; then
     REF_NAME="${GITHUB_REF#refs/heads/}"   # Extract branch name
     REF_NAME="${REF_NAME#refs/tags/}"      # Extract tag name
   else
-    REF_NAME=$(git symbolic-ref --short -q HEAD || git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
+    REF_NAME=$(read_git_head_ref || git describe --tags --exact-match 2>/dev/null || git rev-parse HEAD)
     REF_NAME="${REF_NAME#heads/}"
   fi
 
