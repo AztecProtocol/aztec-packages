@@ -23,7 +23,13 @@ import {
   type TransactionStats,
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
-import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
+import {
+  FormattedViemError,
+  formatViemError,
+  mergeAbis,
+  tryDecodeRevertReason,
+  tryExtractEvent,
+} from '@aztec/ethereum/utils';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
@@ -154,6 +160,13 @@ export class SequencerPublisher {
   private bundleSimulator: SequencerBundleSimulator;
   public epochCache: EpochCache;
   private failedTxStore?: Promise<L1TxFailedStore | undefined>;
+
+  /**
+   * ABI used to decode raw revert payloads from dropped bundle entries when the original
+   * request did not carry an abi (e.g. the propose request). Merges every contract the
+   * publisher can route to so any of their custom errors decode against it.
+   */
+  private readonly revertDecoderAbi: Abi = mergeAbis([RollupAbi, SlashingProposerAbi, EmpireBaseAbi, ErrorsAbi]);
 
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
@@ -497,9 +510,11 @@ export class SequencerPublisher {
   /** Logs entries dropped by bundle simulation as warnings on the publisher's logger. */
   private logDroppedInSim(dropped: DroppedRequest[]): void {
     for (const drop of dropped) {
+      const revertReasonDecoded = drop.revertReason ?? tryDecodeRevertReason(drop.returnData, this.revertDecoderAbi);
       this.log.warn('Bundle entry dropped: action reverted in sim', {
         action: drop.request.action,
-        revertReason: drop.revertReason ?? drop.returnData,
+        revertReason: revertReasonDecoded ?? drop.returnData,
+        revertReasonDecoded,
         returnData: drop.returnData,
       });
     }
