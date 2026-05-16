@@ -412,6 +412,17 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       return;
     }
 
+    if (this.isJobStale(item)) {
+      // Job belongs to an epoch that has been (or is being) cleaned up. Don't persist a
+      // late error report — the cleanupPass will drop in-memory state for it, and writing
+      // to the deleted-epoch database racing with that teardown surfaces as 'Store is closed'.
+      this.logger.warn(`Discarding error report for stale proving job id=${id} epochNumber=${item.epochNumber}`, {
+        provingJobId: id,
+      });
+      this.inProgress.delete(id);
+      return;
+    }
+
     if (!info) {
       this.logger.warn(`Proving job id=${id} type=${ProvingRequestType[item.type]} not in the in-progress set`, {
         provingJobId: id,
@@ -551,6 +562,14 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const retries = this.retries.get(id) ?? 0;
     if (!item) {
       this.logger.warn(`Proving job id=${id} not found`, { provingJobId: id });
+      return;
+    }
+
+    if (this.isJobStale(item)) {
+      this.logger.warn(`Discarding result for stale proving job id=${id} epochNumber=${item.epochNumber}`, {
+        provingJobId: id,
+      });
+      this.inProgress.delete(id);
       return;
     }
 

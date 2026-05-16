@@ -87,6 +87,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   public readonly tracer: Tracer;
 
+  private deletedEpochs = new Set<number>();
+
   private constructor(
     private epochs: Map<number, SingleEpochDatabase>,
     private config: ProverBrokerConfig,
@@ -113,11 +115,26 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   // exposed for testing
   public async commitWrites(items: Array<ProvingJob | [ProvingJobId, ProvingJobSettledResult]>, epochNumber: number) {
+    if (this.deletedEpochs.has(epochNumber)) {
+      // Epoch was already pruned; the broker no longer cares about these writes.
+      return;
+    }
+
     const jobsToAdd = items.filter((item): item is ProvingJob => 'id' in item);
     const resultsToAdd = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult] => Array.isArray(item));
 
     const db = await this.getEpochDatabase(EpochNumber(epochNumber));
-    await db.batchWrite(jobsToAdd, resultsToAdd);
+    try {
+      await db.batchWrite(jobsToAdd, resultsToAdd);
+    } catch (err) {
+      // The store can be closed concurrently by deleteAllProvingJobsOlderThanEpoch while a
+      // batch is mid-flight. Treat this as a benign no-op — the epoch is being torn down.
+      if (err instanceof Error && err.message === 'Store is closed') {
+        this.logger.verbose(`Dropping batch for closed epoch ${epochNumber} store`);
+        return;
+      }
+      throw err;
+    }
   }
 
   private async estimateSize() {
@@ -181,14 +198,19 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   }))
   async deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
     const oldEpochs = Array.from(this.epochs.keys()).filter(e => e < Number(epochNumber));
+    // Mark before tearing down: this prevents commitWrites from reopening a deleted epoch's
+    // directory if a stale batch arrives mid-delete.
+    for (const old of oldEpochs) {
+      this.deletedEpochs.add(old);
+    }
     for (const old of oldEpochs) {
       const db = this.epochs.get(old);
       if (!db) {
         continue;
       }
       this.logger.verbose(`Deleting broker database for epoch ${old}`);
-      await db.delete();
       this.epochs.delete(old);
+      await db.delete();
     }
   }
 
