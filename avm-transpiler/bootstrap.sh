@@ -22,12 +22,11 @@ function build_native {
     # which may run in parallel and share the same RUSTUP_HOME/CARGO_HOME.
     (
       flock -x 200
-      denoise "cargo build --release --locked --bin avm-transpiler"
-      denoise "cargo build --release --locked --lib"
+      denoise "cargo build --release --locked --bin avm-transpiler --lib"
     ) 200>/tmp/rustup.lock
 
     denoise "cargo fmt --check"
-    denoise "cargo clippy"
+    denoise "cargo clippy --release --locked --bin avm-transpiler --lib"
     cache_upload $artifact target/release/avm-transpiler target/release/libavm_transpiler.a
   fi
 }
