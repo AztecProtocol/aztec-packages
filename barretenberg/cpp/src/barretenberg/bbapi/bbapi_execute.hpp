@@ -6,6 +6,7 @@
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
 #include "barretenberg/bbapi/bbapi_ecdsa.hpp"
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
+#include "barretenberg/bbapi/bbapi_schema.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_srs.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -148,26 +149,6 @@ using CommandResponse = NamedUnion<ErrorResponse,
  * @param request The circuit registry (acting as the request context).
  * @return A variant of all possible command responses.
  */
-inline CommandResponse execute(BBApiRequest& request, Command&& command)
-{
-    // Reset error state before execution
-    request.error_message.clear();
-
-    CommandResponse response = std::move(command).visit([&request](auto&& cmd) -> CommandResponse {
-        using CmdType = std::decay_t<decltype(cmd)>;
-        return std::forward<CmdType>(cmd).execute(request);
-    });
-
-    // Check if an error occurred during execution
-    if (!request.error_message.empty()) {
-        return ErrorResponse{ .message = std::move(request.error_message) };
-    }
-
-    return response;
-}
-
-// The msgpack scheme is an ad-hoc format that allows for cbind/compiler.ts to
-// generate TypeScript bindings for the API.
-std::string get_msgpack_schema_as_json();
+CommandResponse execute(BBApiRequest& request, Command&& command);
 
 } // namespace bb::bbapi
