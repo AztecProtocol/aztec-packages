@@ -253,10 +253,19 @@ function test_cmds {
   done
 
   # kv-store: per-file fan-out (mocha for node tests, vitest for browser tests).
-  kv-store/bootstrap.sh test_cmds
+  for test in kv-store/src/**/!(indexeddb|sqlite-opfs|bench)/*.test.ts; do
+    echo "$hash yarn-project/kv-store/scripts/run_test.sh ${test#kv-store/}"
+  done
+  for test in kv-store/src/indexeddb/*.test.ts kv-store/src/sqlite-opfs/*.test.ts; do
+    echo "$hash:ISOLATE=1 yarn-project/kv-store/scripts/run_test.sh ${test#kv-store/}"
+  done
 
   # Aztec CLI tests
-  aztec/bootstrap.sh test_cmds
+  local repo_root=$root
+  local nargo=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
+  local bb=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
+  local profiler_path=${PROFILER_PATH:-$repo_root/noir/noir-repo/target/release/noir-profiler}
+  echo "$hash:ISOLATE=1:NAME=aztec/cli NARGO=$nargo BB=$bb PROFILER_PATH=$profiler_path yarn-project/scripts/run_test.sh aztec/src/cli"
 
   if [[ "${TARGET_BRANCH:-}" =~ ^(v[0-9]+(-next)?|backport-to-v[0-9]+-(staging|next))$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
