@@ -2,12 +2,15 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Hash depends on ts because ts generates the Rust bindings
-hash=$(hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+# Hash depends on ts because ts generates the Rust bindings.
+function get_hash {
+  hash_str $(../ts/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+}
 
 function build {
   echo_header "barretenberg-rs build"
 
+  local hash=$(get_hash)
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
     # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
     (cd ../ts && yarn generate)
@@ -24,7 +27,12 @@ function build {
 
 function test_cmds {
   # List all test binaries
-  local prefix=$hash
+  local prefix
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    prefix=disabled-cache
+  else
+    prefix=$(get_hash)
+  fi
   echo "$prefix barretenberg/rust/scripts/run_test.sh"
 }
 
@@ -142,7 +150,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo "$hash"
+    get_hash
     ;;
   bench|bench_cmds)
     # Empty handling just to make this command valid.
