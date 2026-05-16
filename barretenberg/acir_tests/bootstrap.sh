@@ -4,22 +4,34 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 export CRS_PATH=$HOME/.bb-crs
 export RAYON_NUM_THREADS=1
 
-tests_tar=barretenberg-acir-tests-$(hash_str \
-  $(../../noir/bootstrap.sh hash) \
-  $(cache_content_hash \
-    ./.rebuild_patterns \
-    ../cpp/.rebuild_patterns \
-    ../noir/ \
-    )).tar.gz
+function get_tests_tar {
+  echo "barretenberg-acir-tests-$(hash_str \
+    $(../../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ./.rebuild_patterns \
+      ../cpp/.rebuild_patterns \
+      ../noir/ \
+      )).tar.gz"
+}
 
-tests_hash=$(hash_str \
-  $(../../noir/bootstrap.sh hash) \
-  $(../cpp/bootstrap.sh hash) \
-  $(cache_content_hash \
-    ^barretenberg/acir_tests/ \
-    ./.rebuild_patterns \
-    ../ts/.rebuild_patterns \
-    ../noir/))
+function get_tests_hash {
+  hash_str \
+    $(../../noir/bootstrap.sh hash) \
+    $(../cpp/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ^barretenberg/acir_tests/ \
+      ./.rebuild_patterns \
+      ../ts/.rebuild_patterns \
+      ../noir/)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_tests_hash
+  fi
+}
 
 # Generate inputs for a given recursively verifying program.
 function run_proof_generation {
@@ -100,6 +112,7 @@ function compile {
 function build {
   echo_header "acir_tests build"
 
+  local tests_tar=$(get_tests_tar)
   if ! cache_download $tests_tar; then
     rm -rf acir_tests
     denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
@@ -135,6 +148,8 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
+  local tests_hash=$(get_test_hash)
+
   # NOTE: chonk commands are tested in yarn-project/end-to-end bench due to circular dependencies.
   # Locally, you can do ./bootstrap.sh bench_ivc to run the 'tests' (benches with validation)
 
@@ -231,7 +246,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $tests_hash
+    get_tests_hash
     ;;
   *)
     default_cmd_handler "$@"
