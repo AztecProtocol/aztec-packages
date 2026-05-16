@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-root=${root:-$(git rev-parse --show-toplevel)}
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+root=${root:-$(cd "$script_dir/.." && pwd)}
 source "$root/ci3/source_bootstrap"
 
 function download_solc {
