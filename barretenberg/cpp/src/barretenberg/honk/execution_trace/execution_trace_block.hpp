@@ -12,6 +12,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstddef>
+#include <limits>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
 #include <backward.hpp>

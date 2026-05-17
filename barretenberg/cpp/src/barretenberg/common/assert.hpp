@@ -1,11 +1,12 @@
 #pragma once
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
-#include <regex>
+#include <exception>
 #include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 
 // Enable this for (VERY SLOW) stats on which asserts are hit the most. Note that the time measured will be very
 // inaccurate, but you can still see what is called too often to be in a release build.
@@ -16,6 +17,7 @@ namespace bb {
 enum class AssertMode : std::uint8_t { ABORT, WARN };
 AssertMode& get_assert_mode();
 void assert_failure(std::string const& err);
+bool exception_message_matches(std::string_view message, std::string_view expected_regex);
 
 // NOTE do not use in threaded contexts!
 struct AssertGuard {
@@ -195,7 +197,7 @@ struct AssertGuard {
         code;                                                                                                          \
         FAIL() << "Expected exception with message matching: " << expectedMessageRegex;                                \
     } catch (const std::exception& e) {                                                                                \
-        EXPECT_TRUE(std::regex_search(std::string(e.what()), std::regex(expectedMessageRegex)))                        \
+        EXPECT_TRUE(bb::exception_message_matches(e.what(), expectedMessageRegex))                                     \
             << "Exception message: " << e.what() << "\nExpected to match regex: " << expectedMessageRegex;             \
     }
 #endif // BB_NO_EXCEPTIONS

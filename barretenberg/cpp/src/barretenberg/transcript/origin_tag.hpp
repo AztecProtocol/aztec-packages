@@ -17,6 +17,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
+#include <atomic>
 #include <cstddef>
 #include <iterator>
 #include <ostream>
