@@ -1,7 +1,5 @@
 use crate::ephemeral::EphemeralArray;
-use crate::protocol::address::aztec_address::AztecAddress;
-use crate::protocol::point::Point;
-use crate::protocol::hash::sha256_to_field;
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field, point::Point};
 
 global GET_SHARED_SECRETS_REQUEST_SLOT: Field =
     sha256_to_field("AZTEC_NR::GET_SHARED_SECRETS_REQUEST_SLOT".as_bytes());
@@ -19,7 +17,7 @@ pub unconstrained fn get_shared_secret(
     eph_pk: Point,
     contract_address: AztecAddress,
 ) -> Field {
-    get_shared_secrets(address, BoundedVec::from_array([eph_pk]), contract_address).get(0)
+    get_shared_secrets::<1>(address, BoundedVec::from_array([eph_pk]), contract_address).get(0)
 }
 
 /// Returns app-siloed shared secrets between `address` and someone who knows the secret keys behind the given
@@ -65,9 +63,9 @@ pub unconstrained fn get_shared_secrets<let N: u32>(
 }
 
 mod test {
-    use crate::oracle::shared_secret::{GET_SHARED_SECRETS_REQUEST_SLOT, get_shared_secrets};
     use crate::ephemeral::EphemeralArray;
-    use crate::protocol::address::aztec_address::AztecAddress;
+    use crate::oracle::shared_secret::{GET_SHARED_SECRETS_REQUEST_SLOT, get_shared_secrets};
+    use crate::protocol::{address::AztecAddress, traits::FromField};
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::utils::point::point_from_x_coord;
     use std::test::OracleMock;
@@ -82,7 +80,7 @@ mod test {
             let pk_b = point_from_x_coord(2).unwrap();
             let pk_c = point_from_x_coord(3).unwrap();
 
-            let _ = get_shared_secrets(
+            let _: BoundedVec<Field, 3> = get_shared_secrets(
                 AztecAddress::from_field(1),
                 BoundedVec::from_array([pk_a, pk_b, pk_c]),
                 AztecAddress::from_field(2),
@@ -103,7 +101,7 @@ mod test {
             let _ = mock_get_shared_secrets([111, 222, 333]);
 
             let pk = point_from_x_coord(1).unwrap();
-            let results = get_shared_secrets(
+            let results: BoundedVec<Field, 3> = get_shared_secrets(
                 AztecAddress::from_field(1),
                 BoundedVec::from_array([pk, pk, pk]),
                 AztecAddress::from_field(2),
@@ -122,7 +120,7 @@ mod test {
             let _ = mock_get_shared_secrets([111, 222]);
 
             let pk = point_from_x_coord(1).unwrap();
-            let _ = get_shared_secrets(
+            let _: BoundedVec<Field, 1> = get_shared_secrets(
                 AztecAddress::from_field(1),
                 BoundedVec::from_array([pk]),
                 AztecAddress::from_field(2),
@@ -130,7 +128,7 @@ mod test {
         });
     }
 
-    fn mock_get_shared_secrets<let N: u32>(response_values: [Field; N]) -> Field {
+    unconstrained fn mock_get_shared_secrets<let N: u32>(response_values: [Field; N]) -> Field {
         let response_slot: Field = 99;
         let response_array: EphemeralArray<Field> = EphemeralArray::at(response_slot);
         for value in response_values {
