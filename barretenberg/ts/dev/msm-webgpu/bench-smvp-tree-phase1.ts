@@ -113,11 +113,17 @@ function makeRng(seed: number): () => number {
 }
 
 function randomBelow(p: bigint, rng: () => number): bigint {
+  // Use the FULL 32 bits per rng() call. Reading only the low byte
+  // (`rng() & 0xff`) cycles every 256 outputs for our 32-bit LCG, which
+  // gives ~8 distinct randomBelow results before the value sequence
+  // repeats. That's harmless for code that compares adjacent outputs
+  // (e.g. bench-batch-affine's pxMont !== qxMont check) but breaks any
+  // pattern that requires building a Set of distinct values.
   const bitlen = p.toString(2).length;
-  const byteLen = Math.ceil(bitlen / 8);
+  const wordLen = Math.ceil(bitlen / 32);
   for (let attempt = 0; attempt < 64; attempt++) {
     let v = 0n;
-    for (let i = 0; i < byteLen; i++) v = (v << 8n) | BigInt(rng() & 0xff);
+    for (let i = 0; i < wordLen; i++) v = (v << 32n) | BigInt(rng() >>> 0);
     v &= (1n << BigInt(bitlen)) - 1n;
     if (v < p) return v;
   }
@@ -150,7 +156,11 @@ interface Synth {
 }
 
 function buildSynthetic(num_wgs: number, slice_entries: number, seed: number, p: bigint, R: bigint): Synth {
+  console.log(`[bsynth] enter num_wgs=${num_wgs} slice_entries=${slice_entries} R.bits=${R.toString(2).length}`);
   const rng = makeRng(seed);
+  console.log(`[bsynth] rng first 8 calls: ${[rng(), rng(), rng(), rng(), rng(), rng(), rng(), rng()].map(v => v.toString(16)).join(',')}`);
+  const probeRng = makeRng(seed);
+  console.log(`[bsynth] randomBelow first 5: ${[0,1,2,3,4].map(() => randomBelow(p, probeRng).toString(16).slice(0, 20)).join(' | ')}`);
   const total_entries = num_wgs * slice_entries;
   // Each slice covers 3-5 distinct buckets uniformly.
   const buckets_per_slice = 3 + (rng() % 3);
@@ -177,11 +187,13 @@ function buildSynthetic(num_wgs: number, slice_entries: number, seed: number, p:
     acc += pops[b];
   }
   bucketStart[total_buckets] = acc;
+  console.log(`[bsynth] bucketStart built, total_entries=${total_entries} total_buckets=${total_buckets} acc=${acc} pops=${JSON.stringify(pops)}`);
   // For Phase 1 v0 we force slice boundaries at bucket edges and at
   // every slice_entries entries — easier for v0 correctness. Use
   // buildSliceLayout to compute a layout, then override boundaries to
   // multiples of slice_entries to match the GPU's fixed-slice model.
   const layout = buildSliceLayout(bucketStart, num_wgs);
+  console.log(`[bsynth] layout built numWgs=${layout.numWgs} totalAdds=${layout.totalAdds}`);
   // Force uniform slice_entries slices.
   const sliceBounds = new Uint32Array(num_wgs + 1);
   for (let k = 0; k <= num_wgs; k++) sliceBounds[k] = Math.min(k * slice_entries, total_entries);
@@ -201,18 +213,24 @@ function buildSynthetic(num_wgs: number, slice_entries: number, seed: number, p:
   // Base points: total_entries distinct random Mont-form values. Force
   // every pair within a bucket to have distinct .x so batch-inverse
   // doesn't hit a zero delta.
+  console.log(`[bsynth] starting point gen, total_entries=${total_entries}`);
   const point_x_mont_bigint: bigint[] = new Array(total_entries);
   const point_y_mont_bigint: bigint[] = new Array(total_entries);
   const seenX = new Set<bigint>();
   for (let i = 0; i < total_entries; i++) {
     let xMont: bigint;
+    let tries = 0;
     do {
       xMont = (randomBelow(p, rng) * R) % p;
+      tries++;
+      if (tries > 100) { console.log(`[bsynth] STUCK at i=${i} tries=${tries} xMont=${xMont.toString(16).slice(0, 32)}`); break; }
     } while (seenX.has(xMont));
     seenX.add(xMont);
     point_x_mont_bigint[i] = xMont;
     point_y_mont_bigint[i] = (randomBelow(p, rng) * R) % p;
+    if (i % 8 === 0) console.log(`[bsynth] i=${i}`);
   }
+  console.log(`[bsynth] point gen done`);
   const point_x = new Uint32Array(total_entries * NUM_LIMBS_U32);
   const point_y = new Uint32Array(total_entries * NUM_LIMBS_U32);
   for (let i = 0; i < total_entries; i++) {
@@ -268,8 +286,18 @@ interface RefOutput {
   y: bigint[];
 }
 
-function cpuReference(s: Synth, p: bigint): RefOutput {
+function cpuReference(s: Synth, p: bigint, R: bigint): RefOutput {
   const out: RefOutput = { bucket_id: [], x: [], y: [] };
+  const Rinv = modInverse(R, p);
+  // Convert Mont -> canonical for human-friendly arithmetic, then back
+  // to Mont for the comparison. This mirrors what the GPU produces
+  // because the GPU's `fr_inv_by_a` + `montgomery_product` chain
+  // operates so that every input/output BigInt is in Mont form
+  // throughout — `r_x_mont = r_x_canon * R mod p`.
+  const toCanon = (m: bigint) => (m * Rinv) % p;
+  const toMont = (c: bigint) => (c * R) % p;
+  const sub = (a: bigint, b: bigint) => ((a - b) % p + p) % p;
+
   for (let wg = 0; wg < s.num_wgs; wg++) {
     const lo = s.slice_bounds[wg];
     const hi = s.slice_bounds[wg + 1];
@@ -297,7 +325,7 @@ function cpuReference(s: Synth, p: bigint): RefOutput {
       const a_idx = aRaw & SCHEDULE_IDX_MASK;
       const pXm = s.point_x_mont_bigint[a_idx];
       const pYmRaw = s.point_y_mont_bigint[a_idx];
-      const pYm = a_neg ? (p - pYmRaw) % p : pYmRaw;
+      const pYm = a_neg ? sub(0n, pYmRaw) : pYmRaw;
       if (item.kind === 'unpaired') {
         out.bucket_id.push(item.bucket);
         out.x.push(pXm);
@@ -309,28 +337,18 @@ function cpuReference(s: Synth, p: bigint): RefOutput {
       const b_idx = bRaw & SCHEDULE_IDX_MASK;
       const qXm = s.point_x_mont_bigint[b_idx];
       const qYmRaw = s.point_y_mont_bigint[b_idx];
-      const qYm = b_neg ? (p - qYmRaw) % p : qYmRaw;
-      // Mont-form affine add: same as WGSL fr_sub/montgomery_product.
-      // For Mont-form a, b the field op `a + b` is just (a+b) mod p,
-      // `a - b` is (a - b + p) mod p, and `mont(a, b)` is a * b * R^-1 mod p.
-      const R = (1n << BigInt(NUM_LIMBS_U32 * WORD_SIZE_U32)) % p;
-      const Rinv = modInverse(R, p);
-      const mont = (a: bigint, b: bigint) => (((a * b) % p) * Rinv) % p;
-      const sub = (a: bigint, b: bigint) => ((a - b) % p + p) % p;
-      const dx = sub(qXm, pXm);
-      const dy = sub(qYm, pYm);
+      const qYm = b_neg ? sub(0n, qYmRaw) : qYmRaw;
+      const pX = toCanon(pXm), pY = toCanon(pYm), qX = toCanon(qXm), qY = toCanon(qYm);
+      const dx = sub(qX, pX);
+      const dy = sub(qY, pY);
       if (dx === 0n) throw new Error(`zero delta_x at item ${JSON.stringify(item)}`);
-      const dx_inv = mont(modInverse(dx, p), R); // inv in Mont form requires extra R multiply
-      const slope = mont(dy, dx_inv);
-      const slope_sq = mont(slope, slope);
-      const t1 = sub(slope_sq, pXm);
-      const r_x = sub(t1, qXm);
-      const dx_back = sub(pXm, r_x);
-      const ldx = mont(slope, dx_back);
-      const r_y = sub(ldx, pYm);
+      const slope = (dy * modInverse(dx, p)) % p;
+      const slope_sq = (slope * slope) % p;
+      const r_x_canon = sub(sub(slope_sq, pX), qX);
+      const r_y_canon = sub((slope * sub(pX, r_x_canon)) % p, pY);
       out.bucket_id.push(item.bucket);
-      out.x.push(r_x);
-      out.y.push(r_y);
+      out.x.push(toMont(r_x_canon));
+      out.y.push(toMont(r_y_canon));
     }
   }
   return out;
@@ -352,15 +370,20 @@ async function main() {
 
     const device = await get_device();
     log('info', 'WebGPU device acquired');
+    log('info', 'computing misc params...');
     const p = BN254_BASE_FIELD;
     const misc = compute_misc_params(p, WORD_SIZE_U32);
     if (misc.num_words !== NUM_LIMBS_U32) throw new Error(`expected num_words=${NUM_LIMBS_U32}, got ${misc.num_words}`);
     const R = misc.r;
+    log('info', 'misc params done');
 
+    log('info', 'building synthetic input...');
     const synth = buildSynthetic(params.num_wgs, params.slice_entries, params.seed, p, R);
     log('info', `synthetic schedule: entries=${synth.schedule.length} total_outputs=${synth.total_outputs}`);
 
+    log('info', 'constructing ShaderManager...');
     const sm = new ShaderManager(4, params.slice_entries, BN254_CURVE_CONFIG, false);
+    log('info', 'generating phase1 shader source...');
     const code = sm.gen_smvp_tree_phase1_shader(TPB, MAX_SLICE_ENTRIES);
     (window as unknown as Record<string, unknown>)['__shader_phase1'] = code;
     log('info', `compiling shader (${code.length} chars)`);
@@ -463,7 +486,7 @@ async function main() {
 
     // CPU reference + diff.
     log('info', 'running CPU reference');
-    const ref = cpuReference(synth, p);
+    const ref = cpuReference(synth, p, R);
     if (ref.bucket_id.length !== synth.total_outputs) {
       throw new Error(`CPU reference output count ${ref.bucket_id.length} != GPU total_outputs ${synth.total_outputs}`);
     }

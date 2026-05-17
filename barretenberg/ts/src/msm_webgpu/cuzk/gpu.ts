@@ -27,6 +27,14 @@ export const get_device = async (): Promise<GPUDevice> => {
   if (typeof wgStorageMax === 'number') {
     requiredLimits['maxComputeWorkgroupStorageSize'] = wgStorageMax;
   }
+  // Request the adapter MAX for storage buffers per stage. WebGPU's
+  // default cap is 8, but most modern GPUs expose 10 or more — and the
+  // smvp_tree_phase1 kernel needs 10. Bounded by the adapter ceiling
+  // so this never over-requests.
+  const storageBuffersMax = adapterLimits['maxStorageBuffersPerShaderStage'];
+  if (typeof storageBuffersMax === 'number') {
+    requiredLimits['maxStorageBuffersPerShaderStage'] = storageBuffersMax;
+  }
 
   const device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
   const grantedLimits = device.limits as unknown as Record<string, number>;

@@ -5156,12 +5156,7 @@ fn get_r() -> BigInt {
 {{{ r_limbs }}}
     return r;
 }
-
-fn get_p() -> BigInt {
-    var p: BigInt;
-{{{ p_limbs }}}
-    return p;
-}
+// \`get_p()\` is provided by the \`montgomery_product_funcs\` partial.
 
 // pair_list packs the per-WG list of (kind, idx_a, idx_b?) tuples.
 // Element layout: vec2<u32> = (idx_a, kind_or_idx_b). When kind ==
