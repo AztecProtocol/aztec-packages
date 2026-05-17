@@ -350,15 +350,12 @@ async function main() {
     benchState.state = 'running';
     log('info', `params: num_wgs=${params.num_wgs} slice_entries=${params.slice_entries} reps=${params.reps} seed=${params.seed}`);
 
-    log('info', `calling get_device()...`);
     const device = await get_device();
     log('info', 'WebGPU device acquired');
-    log('info', `computing misc params for BN254...`);
     const p = BN254_BASE_FIELD;
     const misc = compute_misc_params(p, WORD_SIZE_U32);
     if (misc.num_words !== NUM_LIMBS_U32) throw new Error(`expected num_words=${NUM_LIMBS_U32}, got ${misc.num_words}`);
     const R = misc.r;
-    log('info', `building synthetic input...`);
 
     const synth = buildSynthetic(params.num_wgs, params.slice_entries, params.seed, p, R);
     log('info', `synthetic schedule: entries=${synth.schedule.length} total_outputs=${synth.total_outputs}`);
@@ -511,20 +508,6 @@ async function main() {
     benchState.error = msg;
   }
 }
-
-window.addEventListener('error', (e) => {
-  log('err', `window.error: ${e.message} at ${e.filename}:${e.lineno}`);
-  benchState.state = 'error';
-  benchState.error = `window.error: ${e.message}`;
-  postFinal().catch(() => {});
-});
-window.addEventListener('unhandledrejection', (e) => {
-  const reason = e.reason instanceof Error ? `${e.reason.message}\n${e.reason.stack}` : String(e.reason);
-  log('err', `unhandledrejection: ${reason}`);
-  benchState.state = 'error';
-  benchState.error = `unhandledrejection: ${reason}`;
-  postFinal().catch(() => {});
-});
 
 main()
   .catch(e => {
