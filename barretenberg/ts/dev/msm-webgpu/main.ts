@@ -494,6 +494,8 @@ async function runWebGpuOnce(
   // (GPU wall vs. profiled-sum vs. readback overhead) into this object
   // before the await resolves.
   const capture: ProfileCapture = { profile: null };
+  const useTreeReduce = new URLSearchParams(window.location.search).get('use_tree_reduce') === '1';
+  if (useTreeReduce) log('info', '[gpu] use_tree_reduce=1 — routing SMVP through tree-reduce pipeline');
   const t0 = performance.now();
   const gpu = await compute_bn254_msm_batch_affine(
     ctx,
@@ -502,6 +504,8 @@ async function runWebGpuOnce(
     false,
     {},
     capture,
+    'legacy',
+    useTreeReduce,
   );
   const ms = performance.now() - t0;
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);

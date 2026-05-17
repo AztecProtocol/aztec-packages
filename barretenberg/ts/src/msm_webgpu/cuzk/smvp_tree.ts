@@ -20,7 +20,6 @@
 // (num_wgs × TPB) saturates ~40 K on a logN ≥ 14 workload.
 
 import { ShaderManager } from './shader_manager.js';
-import { type BucketStart } from './smvp_tree_partition.js';
 
 const NUM_LIMBS_U32 = 20;
 
@@ -134,7 +133,6 @@ export async function runTreeReduce(
   pointX: GPUBuffer,
   pointY: GPUBuffer,
   totalEntries: number,
-  bucketStart: BucketStart,
   cfg: TreeRunConfig,
 ): Promise<TreeRunResult> {
   const phaseTimingsMs: { phase: string; ms: number }[] = [];
@@ -251,7 +249,7 @@ export async function runTreeReduce(
   p1SliceBoundsBuf.destroy();
   p1OutputOffsetBuf.destroy();
   p1PrefixBuf.destroy();
-  void bucketStart; void ShaderManager;
+  void ShaderManager;
 
   return {
     outputBucketId: current.bucketId,

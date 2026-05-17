@@ -174,9 +174,10 @@ export async function smvp_batch_affine_gpu_tree(
     pipelines.phase1.pipeline, pipelines.phase1.layout,
     pipelines.phase2.pipeline, pipelines.phase2.layout,
     all_csc_val_idxs_sb, entryBucketIdBuf, point_x_sb, point_y_sb,
-    totalEntries, bucketStart,
+    totalEntries,
     { tpb: opts.tpb, maxSliceEntries: opts.maxSliceEntries },
   );
+  void bucketStart;
 
   const scatterInitParamsBuf = device.createBuffer({
     size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,

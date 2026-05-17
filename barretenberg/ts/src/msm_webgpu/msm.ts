@@ -250,6 +250,7 @@ export const compute_bn254_msm_batch_affine = async (
   // and no-collision Jacobian for g (saves ~13-25 ms but requires
   // batch-affine SMVP buckets and is sensitive to Tint codegen).
   bpr_inner_loop: 'legacy' | 'mixed_safe' | 'assume_affine' = 'legacy',
+  use_tree_reduce = false,
 ): Promise<{ x: bigint; y: bigint }> =>
   compute_curve_msm(
     // Cached path: `baseAffinePoints` is ignored. Uint8Array cast keeps
@@ -267,6 +268,7 @@ export const compute_bn254_msm_batch_affine = async (
     bpr_bench_flags,
     profile_capture,
     bpr_inner_loop,
+    use_tree_reduce,
   );
 
 // GLV cold-path entry points (compute_bn254_msm_glv and
@@ -494,6 +496,12 @@ const compute_curve_msm = async (
   // BPR stage_1 inner-loop variant. See compute_bn254_msm_batch_affine
   // for the full description. Default 'legacy' (production-stable).
   bpr_inner_loop: 'legacy' | 'mixed_safe' | 'assume_affine' = 'legacy',
+  // Opt-in: route the per-bucket affine reduction through the
+  // tree-reduce pipeline (smvp_tree_phase1 + recursive smvp_tree_phase2
+  // + scatter) instead of the round-loop. Init + finalize stages stay
+  // unchanged. Currently bn254 only (uses the same fr_inv_by_a from
+  // the existing batch_affine pipelines). Output bit-identical.
+  use_tree_reduce = false,
 ): Promise<{ x: bigint; y: bigint }> => {
   const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
@@ -900,6 +908,7 @@ const compute_curve_msm = async (
       // `cached_bases` are present — that's the warm benchmark loop.
       // Tells smvp_batch_affine_gpu it can cache its bind groups.
       cached_bases !== undefined && context !== undefined,
+      use_tree_reduce,
     );
   } else {
     const smvp_shader = shaderManager.gen_smvp_shader(s_workgroup_size, num_columns);

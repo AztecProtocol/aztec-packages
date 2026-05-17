@@ -42,6 +42,7 @@ import {
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
   smvp_bn254 as smvp_bn254_shader,
+  smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
   smvp_tree_scatter as smvp_tree_scatter_shader,
@@ -621,6 +622,21 @@ export class ShaderManager {
       smvp_tree_scatter_init_shader,
       { tpb, num_words: this.num_words, recompile: this.recompile },
       { structs },
+    );
+  }
+
+  /**
+   * Derive `entry_bucket_id[i] = bucketIdx(i)` for every schedule
+   * entry, in a single dispatch. Binary search on bucket_start[]; the
+   * production CSR row-pointer buffer (`all_csc_col_ptr_sb`) is the
+   * input. Used by the tree-reduce production path so the host
+   * doesn't need a `COPY_SRC`-tagged copy of the CSR.
+   */
+  public gen_smvp_tree_entry_bucket_id_shader(tpb: number): string {
+    return mustache.render(
+      smvp_tree_entry_bucket_id_shader,
+      { tpb, recompile: this.recompile },
+      {},
     );
   }
 

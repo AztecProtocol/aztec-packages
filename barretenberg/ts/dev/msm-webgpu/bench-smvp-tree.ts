@@ -323,7 +323,7 @@ async function main() {
     const res = await runTreeReduce(
       device, p1Pipeline, p1Layout, p2Pipeline, p2Layout,
       scheduleBuf, bucketBuf, xBuf, yBuf,
-      synth.total_entries, synth.bucketStart,
+      synth.total_entries,
       { tpb: TPB, maxSliceEntries: MAX_SLICE_ENTRIES },
     );
     log('info', `orchestrator done: layers=${res.layers} total_outputs=${res.totalOutputs}`);
