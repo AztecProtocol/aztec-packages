@@ -16,6 +16,8 @@ const { values: argv } = parseArgs({
     buckets: { type: 'string', default: '6' },
     seed: { type: 'string', default: '12345' },
     skew: { type: 'string', default: 'uniform' },
+    ebid: { type: 'string', default: 'host' },
+    subtasks: { type: 'string', default: '1' },
     url: { type: 'string', default: DEFAULT_URL_BASE },
     headed: { type: 'boolean', default: false },
     timeout: { type: 'string', default: '120' },
@@ -49,6 +51,8 @@ function buildUrl() {
   u.searchParams.set('buckets', String(argv.buckets));
   u.searchParams.set('seed', String(argv.seed));
   u.searchParams.set('skew', String(argv.skew));
+  u.searchParams.set('ebid', String(argv.ebid));
+  u.searchParams.set('subtasks', String(argv.subtasks));
   return u.toString();
 }
 

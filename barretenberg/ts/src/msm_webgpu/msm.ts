@@ -588,7 +588,20 @@ const compute_curve_msm = async (
   cpu_timer.phaseFrom('device_acquire', 'device_begin');
 
   // Create single command encoder for device
-  const commandEncoder = device.createCommandEncoder();
+  // commandEncoder is wrapped in a ref so smvp_batch_affine_gpu's
+  // tree-reduce path can swap it (it has to mid-flush the encoder to
+  // ensure ebid sees the current transpose, then continue with a fresh
+  // encoder for scatter + finalize + BPR).
+  const commandEncoderRef: { current: GPUCommandEncoder } = {
+    current: device.createCommandEncoder(),
+  };
+  // Backwards-compat alias for existing code paths that use the local
+  // `commandEncoder` name. Stock path never mutates the ref, so they
+  // resolve to the same object.
+  let commandEncoder = commandEncoderRef.current;
+  // The tree-reduce branch swaps commandEncoderRef.current; subsequent
+  // BPR / readback work must use the latest. We rebind `commandEncoder`
+  // below right after smvp_batch_affine_gpu.
 
   // Per-pass GPU profiler. No-ops if "timestamp-query" isn't supported.
   //
@@ -888,7 +901,7 @@ const compute_curve_msm = async (
     await smvp_batch_affine_gpu(
       shaderManager,
       device,
-      commandEncoder,
+      commandEncoderRef,
       num_subtasks,
       num_columns,
       input_size,
@@ -910,6 +923,9 @@ const compute_curve_msm = async (
       cached_bases !== undefined && context !== undefined,
       use_tree_reduce,
     );
+    // Tree-reduce path may have replaced the encoder; re-bind so
+    // subsequent BPR / readback operations target the active encoder.
+    commandEncoder = commandEncoderRef.current;
   } else {
     const smvp_shader = shaderManager.gen_smvp_shader(s_workgroup_size, num_columns);
 

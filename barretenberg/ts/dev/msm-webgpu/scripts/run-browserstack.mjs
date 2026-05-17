@@ -46,6 +46,10 @@ const { values: argv } = parseArgs({
     reps: { type: "string", default: "3" },
     total: { type: "string" },
     sizes: { type: "string" },
+    entries: { type: "string" },
+    buckets: { type: "string" },
+    seed: { type: "string" },
+    skew: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
     "stall-ms": { type: "string", default: "180000" },
@@ -123,6 +127,7 @@ if (!TARGETS[argv.target]) {
 
 const pageMap = {
   "bench-batch-affine": "/dev/msm-webgpu/bench-batch-affine.html",
+  "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
   sanity: "/dev/msm-webgpu/index.html",
 };
 if (!pageMap[argv.page]) {
@@ -408,6 +413,10 @@ async function main() {
   qp.set("reps", String(reps));
   if (argv.total) qp.set("total", String(argv.total));
   if (argv.sizes) qp.set("sizes", String(argv.sizes));
+  if (argv.entries) qp.set("entries", String(argv.entries));
+  if (argv.buckets) qp.set("buckets", String(argv.buckets));
+  if (argv.seed) qp.set("seed", String(argv.seed));
+  if (argv.skew) qp.set("skew", String(argv.skew));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
@@ -471,9 +480,19 @@ async function main() {
     );
     return 1;
   }
-  const summary = (final.results ?? [])
-    .map((r) => `B=${r.batch_size} ns/pair=${r.ns_per_pair.toFixed(1)} med=${r.median_ms.toFixed(3)}ms`)
-    .join("\n");
+  let summary;
+  if (argv.page === "bench-smvp-tree") {
+    const r = final.results ?? {};
+    const totalMs = (r.phase_ms ?? []).reduce((acc, p) => acc + p.ms, 0);
+    summary =
+      `layers=${r.layers} total_outputs=${r.total_outputs} ` +
+      `total_phase_ms=${totalMs.toFixed(1)} mismatches=${r.mismatches}\n` +
+      (r.phase_ms ?? []).map((p) => `  ${p.phase}: ${p.ms.toFixed(2)}ms`).join("\n");
+  } else {
+    summary = (final.results ?? [])
+      .map((r) => `B=${r.batch_size} ns/pair=${r.ns_per_pair.toFixed(1)} med=${r.median_ms.toFixed(3)}ms`)
+      .join("\n");
+  }
   process.stderr.write(`\n==== headline ====\nstate=done\n${summary}\n`);
   return 0;
 }

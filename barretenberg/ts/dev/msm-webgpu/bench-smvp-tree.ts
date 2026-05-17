@@ -142,50 +142,83 @@ interface Synth {
   point_y: Uint32Array;
   point_x_canon: bigint[];
   point_y_canon: bigint[];
-  bucket_pops: number[]; // [bucket0_pop, bucket1_pop, ...]
+  bucket_pops: number[]; // flat per-bucket pop list, length = num_subtasks * buckets_per_subtask
   total_entries: number;
-  bucketStart: Uint32Array;
+  bucketStart: Uint32Array;        // multi-subtask row_ptr: T*(nc+1)
+  num_subtasks: number;
+  input_size: number;              // entries per subtask
+  buckets_per_subtask: number;     // num_columns
 }
 
-function buildSynthetic(entries: number, buckets: number, seed: number, p: bigint, R: bigint, skewMode: 'uniform' | 'heavy' = 'uniform'): Synth {
+function buildSynthetic(
+  entriesPerSubtask: number,
+  bucketsPerSubtask: number,
+  seed: number,
+  p: bigint,
+  R: bigint,
+  skewMode: 'uniform' | 'heavy' = 'uniform',
+  num_subtasks: number = 1,
+): Synth {
   const rng = makeRng(seed);
-  // Distribute `entries` across `buckets` buckets, each at least 1.
-  const pops: number[] = new Array(buckets).fill(1);
-  let remaining = entries - buckets;
-  if (skewMode === 'heavy') {
-    // Worst-case skew for the existing round-loop MSM: one bucket gets
-    // ~half the entries, the rest distribute uniformly over the
-    // remainder. Tree-reduce should still finish in ceil(log2(heavy_pop))+1
-    // layers regardless.
-    const heavy = Math.floor(entries / 2);
-    pops[0] += heavy; remaining -= heavy;
+  const input_size = entriesPerSubtask;
+  const total_entries = entriesPerSubtask * num_subtasks;
+  const num_columns = bucketsPerSubtask;
+  // Per-subtask bucket pops. Each subtask has its own (rowPtr, valIdx).
+  // pops[k*num_columns + b] = entries in subtask k's bucket b.
+  const pops: number[] = new Array(num_subtasks * num_columns).fill(0);
+  // Each subtask gets exactly `entriesPerSubtask` entries (mimics production:
+  // every input scalar contributes one entry per subtask). Distribution is
+  // either uniform random over buckets (mimics production decompose with
+  // random scalars) or heavy-skew (one bucket gets ~half the entries).
+  for (let s = 0; s < num_subtasks; s++) {
+    let remaining = entriesPerSubtask;
+    if (skewMode === 'heavy') {
+      const heavy = Math.floor(entriesPerSubtask / 2);
+      pops[s * num_columns + 0] += heavy;
+      remaining -= heavy;
+    }
+    while (remaining > 0) {
+      // Use the high bits of rng() to avoid LCG low-bit periodicity that
+      // would otherwise produce a degenerate uniform "every bucket gets
+      // exactly n" distribution.
+      const r = rng() >>> 0;
+      const b = ((r >>> 16) ^ (r & 0xffff)) % num_columns;
+      pops[s * num_columns + b]++;
+      remaining--;
+    }
   }
-  while (remaining > 0) {
-    const b = rng() % buckets;
-    pops[b]++;
-    remaining--;
+
+  // Per-subtask bucketStart (CSR row_ptr). Layout: T * (num_columns + 1).
+  const bucketStart = new Uint32Array(num_subtasks * (num_columns + 1));
+  for (let s = 0; s < num_subtasks; s++) {
+    let acc = 0;
+    const base = s * (num_columns + 1);
+    for (let b = 0; b < num_columns; b++) {
+      bucketStart[base + b] = acc;
+      acc += pops[s * num_columns + b];
+    }
+    bucketStart[base + num_columns] = acc;
+    if (acc !== input_size) {
+      throw new Error(`subtask ${s} pop sum ${acc} != input_size ${input_size}`);
+    }
   }
-  const total_entries = entries;
-  const bucketStart = new Uint32Array(buckets + 1);
-  let acc = 0;
-  for (let b = 0; b < buckets; b++) { bucketStart[b] = acc; acc += pops[b]; }
-  bucketStart[buckets] = acc;
 
   const entry_bucket_id = new Uint32Array(total_entries);
-  for (let b = 0; b < buckets; b++) {
-    for (let i = bucketStart[b]; i < bucketStart[b + 1]; i++) entry_bucket_id[i] = b;
+  for (let s = 0; s < num_subtasks; s++) {
+    const base = s * (num_columns + 1);
+    const voff = s * input_size;
+    for (let b = 0; b < num_columns; b++) {
+      for (let i = bucketStart[base + b]; i < bucketStart[base + b + 1]; i++) {
+        entry_bucket_id[voff + i] = s * num_columns + b;
+      }
+    }
   }
 
   const schedule = new Uint32Array(total_entries);
   for (let i = 0; i < total_entries; i++) {
-    // No sign flip for this bench to keep the CPU reference simple.
     schedule[i] = (i & SCHEDULE_IDX_MASK);
   }
 
-  // Synthetic points: random canonical x,y (not on-curve; we diff
-  // CPU vs GPU using the same algebraic affine-add formula, so on-
-  // curveness doesn't matter as long as the math doesn't hit P+(-P)
-  // or zero delta_x, which we guard against by picking distinct x).
   const point_x_canon: bigint[] = new Array(total_entries);
   const point_y_canon: bigint[] = new Array(total_entries);
   const seenX = new Set<bigint>();
@@ -203,10 +236,16 @@ function buildSynthetic(entries: number, buckets: number, seed: number, p: bigin
     point_y.set(bigintToLimbsU32((point_y_canon[i] * R) % p), i * NUM_LIMBS_U32);
   }
 
-  return { schedule, entry_bucket_id, point_x, point_y, point_x_canon, point_y_canon, bucket_pops: pops, total_entries, bucketStart };
+  return {
+    schedule, entry_bucket_id, point_x, point_y, point_x_canon, point_y_canon,
+    bucket_pops: pops, total_entries, bucketStart,
+    num_subtasks, input_size, buckets_per_subtask: num_columns,
+  };
 }
 
 function cpuReferenceFullReduce(s: Synth, p: bigint): { bucketId: number[]; x: bigint[]; y: bigint[] } {
+  // Multi-subtask CPU reduce: walk per (subtask, bucket_local) following the
+  // same val_idx layout used by Phase 1 (point at idx = subtask*input_size + offset).
   // Mirror the GPU's tree-reduce parenthesization. Critical detail:
   // the affine-add formula is only group-associative on actual
   // elliptic curve points. The synthetic input uses random (off-curve)
@@ -234,18 +273,28 @@ function cpuReferenceFullReduce(s: Synth, p: bigint): { bucketId: number[]; x: b
     return cur[0];
   }
   const out: { bucketId: number[]; x: bigint[]; y: bigint[] } = { bucketId: [], x: [], y: [] };
-  let cursor = 0;
-  for (let b = 0; b < s.bucket_pops.length; b++) {
-    const pop = s.bucket_pops[b];
-    const pts: { x: bigint; y: bigint }[] = [];
-    for (let k = 0; k < pop; k++) {
-      pts.push({ x: s.point_x_canon[cursor], y: s.point_y_canon[cursor] });
-      cursor++;
+  const nc = s.buckets_per_subtask;
+  // Walk per (subtask, bucket_local) following the val_idx layout: each
+  // subtask owns input_size entries; bucket bucket_local within subtask k
+  // occupies entries [k*input_size + bucketStart[k*(nc+1)+b],
+  //                  k*input_size + bucketStart[k*(nc+1)+b+1]).
+  for (let sIdx = 0; sIdx < s.num_subtasks; sIdx++) {
+    const voff = sIdx * s.input_size;
+    const base = sIdx * (nc + 1);
+    for (let b = 0; b < nc; b++) {
+      const pop = s.bucketStart[base + b + 1] - s.bucketStart[base + b];
+      if (pop === 0) continue;
+      const pts: { x: bigint; y: bigint }[] = [];
+      const startOff = s.bucketStart[base + b];
+      for (let k = 0; k < pop; k++) {
+        const i = voff + startOff + k;
+        pts.push({ x: s.point_x_canon[i], y: s.point_y_canon[i] });
+      }
+      const r = reduceBucket(pts);
+      out.bucketId.push(sIdx * nc + b);
+      out.x.push(r.x);
+      out.y.push(r.y);
     }
-    const r = reduceBucket(pts);
-    out.bucketId.push(b);
-    out.x.push(r.x);
-    out.y.push(r.y);
   }
   return out;
 }
@@ -255,10 +304,12 @@ async function main() {
     if (!('gpu' in navigator)) throw new Error('navigator.gpu missing');
     const qp = new URLSearchParams(window.location.search);
     const params = {
-      entries: Math.max(2, Math.min(1 << 18, parseInt(qp.get('entries') ?? '60', 10))),
-      buckets: Math.max(1, Math.min(1 << 14, parseInt(qp.get('buckets') ?? '6', 10))),
+      entries: Math.max(2, Math.min(1 << 20, parseInt(qp.get('entries') ?? '60', 10))),
+      buckets: Math.max(1, Math.min(1 << 16, parseInt(qp.get('buckets') ?? '6', 10))),
       seed: parseInt(qp.get('seed') ?? '12345', 10),
       skewMode: (qp.get('skew') === 'heavy' ? 'heavy' : 'uniform') as 'uniform' | 'heavy',
+      ebidMode: (qp.get('ebid') === 'gpu' ? 'gpu' : 'host') as 'gpu' | 'host',
+      subtasks: Math.max(1, Math.min(32, parseInt(qp.get('subtasks') ?? '1', 10))),
     };
     benchState.params = params;
     benchState.state = 'running';
@@ -271,7 +322,7 @@ async function main() {
     const R = misc.r;
     const Rinv = modInverse(R, p);
 
-    const synth = buildSynthetic(params.entries, params.buckets, params.seed, p, R, params.skewMode);
+    const synth = buildSynthetic(params.entries, params.buckets, params.seed, p, R, params.skewMode, params.subtasks);
     const popsSummary = synth.bucket_pops.length > 16
       ? `pops[0..15]=${synth.bucket_pops.slice(0, 16).join(',')}... max=${Math.max(...synth.bucket_pops)} min=${Math.min(...synth.bucket_pops)}`
       : `pops=${synth.bucket_pops.join(',')}`;
@@ -280,6 +331,8 @@ async function main() {
     const sm = new ShaderManager(4, synth.total_entries, BN254_CURVE_CONFIG, false);
     const p1Code = sm.gen_smvp_tree_phase1_shader(TPB, MAX_SLICE_ENTRIES);
     const p2Code = sm.gen_smvp_tree_phase2_shader(TPB, MAX_SLICE_ENTRIES);
+    const ebidCode = sm.gen_smvp_tree_entry_bucket_id_shader(TPB);
+    log('info', `ebidMode=${params.ebidMode}`);
     log('info', `compiling shaders (p1=${p1Code.length} p2=${p2Code.length} chars)`);
     const p1Mod = device.createShaderModule({ code: p1Code });
     const p2Mod = device.createShaderModule({ code: p2Code });
@@ -315,9 +368,80 @@ async function main() {
       return buf;
     }
     const scheduleBuf = mkBuf(synth.schedule, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
-    const bucketBuf = mkBuf(synth.entry_bucket_id, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST);
+    let bucketBuf: GPUBuffer = mkBuf(synth.entry_bucket_id, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST);
     const xBuf = mkBuf(synth.point_x, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
     const yBuf = mkBuf(synth.point_y, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+
+    if (params.ebidMode === 'gpu') {
+      log('info', 'running GPU entry_bucket_id kernel from CSR bucketStart');
+      const ebidMod = device.createShaderModule({ code: ebidCode });
+      const ebidLayout = device.createBindGroupLayout({
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' as const } },
+          { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' as const } },
+          { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' as const } },
+        ],
+      });
+      const ebidPipe = await device.createComputePipelineAsync({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [ebidLayout] }),
+        compute: { module: ebidMod, entryPoint: 'main' },
+      });
+      const rowPtrBuf = mkBuf(synth.bucketStart, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+      const ebidOutBuf = device.createBuffer({
+        size: synth.total_entries * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+      const ebidUb = mkBuf(new Uint32Array([params.buckets, synth.input_size, synth.num_subtasks, 0]), GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+      const ebidBg = device.createBindGroup({
+        layout: ebidLayout,
+        entries: [
+          { binding: 0, resource: { buffer: rowPtrBuf } },
+          { binding: 1, resource: { buffer: ebidOutBuf } },
+          { binding: 2, resource: { buffer: ebidUb } },
+        ],
+      });
+      {
+        const enc = device.createCommandEncoder();
+        const pass = enc.beginComputePass();
+        pass.setPipeline(ebidPipe);
+        pass.setBindGroup(0, ebidBg);
+        pass.dispatchWorkgroups(Math.ceil(synth.total_entries / TPB), 1, 1);
+        pass.end();
+        device.queue.submit([enc.finish()]);
+        await device.queue.onSubmittedWorkDone();
+      }
+      // Verify GPU ebid against host computation.
+      const staging = device.createBuffer({
+        size: synth.total_entries * 4,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+      {
+        const enc = device.createCommandEncoder();
+        enc.copyBufferToBuffer(ebidOutBuf, 0, staging, 0, synth.total_entries * 4);
+        device.queue.submit([enc.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        await staging.mapAsync(GPUMapMode.READ);
+      }
+      const gpuEbid = new Uint32Array(staging.getMappedRange().slice(0));
+      staging.unmap(); staging.destroy();
+      let mismatches = 0;
+      let firstMismatch = -1;
+      for (let i = 0; i < synth.total_entries; i++) {
+        if (gpuEbid[i] !== synth.entry_bucket_id[i]) {
+          mismatches++;
+          if (firstMismatch < 0) firstMismatch = i;
+        }
+      }
+      if (mismatches > 0) {
+        throw new Error(
+          `GPU ebid mismatches host on ${mismatches}/${synth.total_entries} entries; first at i=${firstMismatch}: ` +
+            `gpu=${gpuEbid[firstMismatch]} host=${synth.entry_bucket_id[firstMismatch]}`,
+        );
+      }
+      log('ok', `GPU entry_bucket_id matches host computation bit-for-bit (${synth.total_entries} entries)`);
+      bucketBuf.destroy();
+      bucketBuf = ebidOutBuf;
+    }
 
     log('info', 'running tree-reduce orchestrator...');
     const res = await runTreeReduce(
@@ -364,6 +488,7 @@ async function main() {
     }
     let mismatches = 0;
     let first_mismatch: string | null = null;
+    const mismatchBuckets: number[] = [];
     for (let i = 0; i < ref.bucketId.length; i++) {
       const b = ref.bucketId[i];
       const g = gpuByBucket.get(b);
@@ -372,10 +497,31 @@ async function main() {
         if (first_mismatch === null) {
           first_mismatch = `bucket=${b} gpu_x=${g?.x?.toString(16)?.slice(0, 16)} ref_x=${ref.x[i].toString(16).slice(0, 16)}`;
         }
+        if (mismatchBuckets.length < 30) mismatchBuckets.push(b);
       }
     }
-    if (mismatches === 0) log('ok', `correctness OK: ${outN} buckets match full-reduce CPU reference bit-for-bit`);
-    else log('err', `MISMATCH on ${mismatches}/${outN}: ${first_mismatch}`);
+    if (mismatches === 0) {
+      log('ok', `correctness OK: ${outN} buckets match full-reduce CPU reference bit-for-bit`);
+    } else {
+      log('err', `MISMATCH on ${mismatches}/${outN}: ${first_mismatch}`);
+      // For each mismatched bucket: log its (subtask, bucket_local, pop, position-in-slice).
+      const nc = synth.buckets_per_subtask;
+      const sliceSize = MAX_SLICE_ENTRIES;
+      for (const b of mismatchBuckets) {
+        const sub = Math.floor(b / nc);
+        const bl = b % nc;
+        const base = sub * (nc + 1);
+        const start = synth.bucketStart[base + bl];
+        const end = synth.bucketStart[base + bl + 1];
+        const pop = end - start;
+        const globalStart = sub * synth.input_size + start;
+        const globalEnd = sub * synth.input_size + end;
+        const startSlice = Math.floor(globalStart / sliceSize);
+        const endSlice = Math.floor((globalEnd - 1) / sliceSize);
+        const sliceSpan = endSlice - startSlice;
+        log('err', `  bucket=${b} sub=${sub} bl=${bl} pop=${pop} global=[${globalStart},${globalEnd}) slices=${startSlice}..${endSlice} (span=${sliceSpan})`);
+      }
+    }
 
     benchState.results = {
       layers: res.layers,

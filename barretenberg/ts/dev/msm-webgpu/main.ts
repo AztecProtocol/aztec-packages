@@ -36,6 +36,7 @@ import {
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { runAllWgslUnitTests } from './wgsl_unit_tests.js';
+import { makeResultsClient } from './results_post.js';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
@@ -356,10 +357,36 @@ function biToLe32(v: bigint, label: string): Uint8Array {
 }
 
 const FR_ORDER = bn254.fields.Fr.ORDER;
+// Deterministic-seed PRNG for cross-run reproducibility (debug only).
+// Set via `?scalar_seed=N` URL param. When unset, falls back to crypto.
+let scalarPrngState: number | null = null;
+function maybeInitScalarPrng(): void {
+  if (scalarPrngState !== null) return;
+  const s = new URLSearchParams(window.location.search).get('scalar_seed');
+  if (s === null) return;
+  scalarPrngState = parseInt(s, 10) >>> 0 || 1;
+  log('info', `[gen] using deterministic scalar PRNG with seed=${scalarPrngState}`);
+}
+function nextScalarPrngBytes(out: Uint8Array): void {
+  let s = scalarPrngState as number;
+  for (let i = 0; i < out.length; i += 4) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    out[i] = s & 0xff;
+    out[i + 1] = (s >>> 8) & 0xff;
+    out[i + 2] = (s >>> 16) & 0xff;
+    out[i + 3] = (s >>> 24) & 0xff;
+  }
+  scalarPrngState = s;
+}
 function randomFr(): bigint {
+  maybeInitScalarPrng();
   for (;;) {
     const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
+    if (scalarPrngState !== null) {
+      nextScalarPrngBytes(bytes);
+    } else {
+      crypto.getRandomValues(bytes);
+    }
     bytes[31] &= 0x3f;
     let v = 0n;
     for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(bytes[i]);
@@ -1418,5 +1445,117 @@ function hideProgress(): void {
     hideProgress();
   } finally {
     setBusy(false);
+  }
+
+  // Autorun support for BrowserStack-driven integration testing.
+  // URL params:
+  //   ?autorun=msm-cross-check    Click Run, capture gpu/st/mt result triple
+  //   ?logn=N                     logN to test (default keeps page default)
+  //   ?use_tree_reduce=1          Route SMVP through tree-reduce pipeline
+  // Results posted via the standard /results endpoint so the BS harness
+  // can pick them up from JSONL.
+  const qp = new URLSearchParams(window.location.search);
+  const autorun = qp.get('autorun');
+  if (autorun === 'msm-cross-check') {
+    const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
+    const tree = qp.get('use_tree_reduce') === '1';
+    const debugSmvp = qp.get('debug_smvp') === '1';
+    const debugTreeOut = qp.get('debug_tree_output') === '1';
+    // Flags are NOT set here — they'd fire during warmup and abort the
+    // page before the real run executes. We set them after waitForRun
+    // (= SRS + warmup complete) just before clicking Run.
+    const client = makeResultsClient({ page: 'msm-autorun' });
+    log('info', `[autorun] msm-cross-check logN=${autorunLogN} tree=${tree} debug_smvp=${debugSmvp}`);
+    // Wait for Run button to enable (SRS + WASM ready).
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    try {
+      await waitForRun();
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      // First click: warmup happens during this click (no debug, runs
+      // to completion and produces a real gpu.x).
+      $run.click();
+      for (let i = 0; i < 60; i++) {
+        if ($run.disabled) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      // If debug flags requested, set them now (after warmup) and click
+      // Run again to exercise the real MSM with debug instrumentation.
+      // The debug throw aborts before finalize, but the running_x /
+      // tree_output dumps still get captured.
+      if (debugSmvp || debugTreeOut) {
+        if (debugSmvp) {
+          (window as unknown as { __msm_debug_after_smvp: boolean }).__msm_debug_after_smvp = true;
+        }
+        if (debugTreeOut) {
+          (window as unknown as { __msm_debug_tree_output: boolean }).__msm_debug_tree_output = true;
+        }
+        $run.click();
+        for (let i = 0; i < 60; i++) {
+          if ($run.disabled) break;
+          await new Promise(r => setTimeout(r, 100));
+        }
+        for (let i = 0; i < 1200; i++) {
+          if (!$run.disabled) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+      // The click handler clears $log at the very start; all remaining
+      // children belong to this run.
+      const lines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) {
+        lines.push($log.children[i].textContent ?? '');
+      }
+      const crossOk = lines.some(l => /cross-check.*all agree/i.test(l));
+      const crossErr = lines.find(l => /cross-check.*disagreement/i.test(l));
+      const gpuLine = lines.find(l => /\[gpu\] x=0x/.test(l));
+      const errLines = lines.filter(l => /^\[err\]/.test(l));
+      const dump = (window as unknown as { __msm_debug_dump?: number[] }).__msm_debug_dump;
+      const treeDump = (window as unknown as { __msm_debug_tree_dump?: unknown }).__msm_debug_tree_dump;
+      const params = { logN: autorunLogN, tree, page: 'msm-autorun' };
+      const results = {
+        cross_ok: crossOk,
+        cross_err: crossErr ?? null,
+        gpu_line: gpuLine ?? null,
+        err_count: errLines.length,
+        debug_dump: dump ?? null,
+        tree_dump: treeDump ?? null,
+      };
+      const state = (debugSmvp || debugTreeOut)
+        ? ((dump !== undefined || treeDump !== undefined) ? 'done' : 'error')
+        : (crossOk && errLines.length === 0 ? 'done' : 'error');
+      await client.postResults({
+        state,
+        params,
+        results,
+        error: errLines.length > 0 ? errLines.slice(0, 5).join('\n') : null,
+        log: lines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, tree, page: 'msm-autorun' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
   }
 })();

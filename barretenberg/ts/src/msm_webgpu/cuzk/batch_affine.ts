@@ -115,7 +115,7 @@ const compile_pipeline_for = async (
 export const smvp_batch_affine_gpu = async (
   shaderManager: ShaderManager,
   device: GPUDevice,
-  commandEncoder: GPUCommandEncoder,
+  commandEncoderRef: { current: GPUCommandEncoder },
   num_subtasks: number,
   num_columns: number,
   input_size: number,
@@ -144,6 +144,12 @@ export const smvp_batch_affine_gpu = async (
   // smvp_tree_phase1/2 orchestrator finishes.
   use_tree_reduce = false,
 ): Promise<void> => {
+  // The tree-reduce path needs to mid-flush commandEncoder so its CSR
+  // reads see the current call's transpose output (not stale data from
+  // the previous call). The caller passes commandEncoderRef.current,
+  // which we mutate to a fresh encoder mid-execution; the caller then
+  // continues recording BPR on the replaced encoder.
+  let commandEncoder = commandEncoderRef.current;
   const half_num_columns = num_columns / 2;
   const total_buckets = num_subtasks * num_columns;
   const num_words = shaderManager.num_words;
@@ -722,16 +728,22 @@ export const smvp_batch_affine_gpu = async (
         { binding: 2, resource: { buffer: ebidParamsBuf } },
       ],
     });
+    // Record ebid into the caller's commandEncoder, AFTER transpose +
+    // ba_init were recorded. Then finish + submit so ebid (and the
+    // upstream transpose) actually run on the GPU before runTreeReduce
+    // reads back entry_bucket_id. After that, swap to a fresh encoder
+    // for scatter + finalize + downstream BPR work.
     {
-      const enc = device.createCommandEncoder();
-      const pass = enc.beginComputePass();
+      const pass = commandEncoder.beginComputePass();
       pass.setPipeline(ebid.pipeline);
       pass.setBindGroup(0, ebidBg);
       pass.dispatchWorkgroups(Math.ceil(totalEntries / TREE_TPB), 1, 1);
       pass.end();
-      device.queue.submit([enc.finish()]);
-      await device.queue.onSubmittedWorkDone();
     }
+    device.queue.submit([commandEncoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    commandEncoder = device.createCommandEncoder();
+    commandEncoderRef.current = commandEncoder;
 
     if ((globalThis as unknown as { __tree_debug?: boolean }).__tree_debug) {
       const dumpN = 32;
@@ -777,6 +789,55 @@ export const smvp_batch_affine_gpu = async (
       totalEntries,
       { tpb: TREE_TPB, maxSliceEntries: TREE_MAX_SLICE_ENTRIES },
     );
+
+    if ((globalThis as unknown as { __msm_debug_tree_output?: boolean }).__msm_debug_tree_output) {
+      const N = treeRes.totalOutputs;
+      const bidStaging = device.createBuffer({ size: N * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const xStaging = device.createBuffer({ size: N * limb_byte_length, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const yStaging = device.createBuffer({ size: N * limb_byte_length, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      {
+        const enc = device.createCommandEncoder();
+        enc.copyBufferToBuffer(treeRes.outputBucketId, 0, bidStaging, 0, N * 4);
+        enc.copyBufferToBuffer(treeRes.outputX, 0, xStaging, 0, N * limb_byte_length);
+        enc.copyBufferToBuffer(treeRes.outputY, 0, yStaging, 0, N * limb_byte_length);
+        device.queue.submit([enc.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        await Promise.all([bidStaging.mapAsync(GPUMapMode.READ), xStaging.mapAsync(GPUMapMode.READ), yStaging.mapAsync(GPUMapMode.READ)]);
+      }
+      const bidArr = new Uint32Array(bidStaging.getMappedRange().slice(0));
+      const xArr = new Uint32Array(xStaging.getMappedRange().slice(0));
+      const yArr = new Uint32Array(yStaging.getMappedRange().slice(0));
+      bidStaging.unmap(); xStaging.unmap(); yStaging.unmap();
+      bidStaging.destroy(); xStaging.destroy(); yStaging.destroy();
+      // Aggregate per-subtask: (count, sumX, sumY).
+      const perSub: number[] = [];
+      const sCount = new Array(num_subtasks).fill(0);
+      const sX = new Array(num_subtasks).fill(0);
+      const sY = new Array(num_subtasks).fill(0);
+      let dupBids = 0;
+      let seenBids = new Set<number>();
+      for (let i = 0; i < N; i++) {
+        const bid = bidArr[i];
+        const sub = Math.floor(bid / num_columns);
+        if (sub < num_subtasks) {
+          sCount[sub]++;
+          let xfp = sX[sub] >>> 0;
+          let yfp = sY[sub] >>> 0;
+          for (let w = 0; w < num_words; w++) {
+            xfp = (xfp + (xArr[i * num_words + w] >>> 0)) >>> 0;
+            yfp = (yfp + (yArr[i * num_words + w] >>> 0)) >>> 0;
+          }
+          sX[sub] = xfp;
+          sY[sub] = yfp;
+        }
+        if (seenBids.has(bid)) dupBids++;
+        seenBids.add(bid);
+      }
+      for (let s = 0; s < num_subtasks; s++) perSub.push(sCount[s], sX[s], sY[s]);
+      (globalThis as unknown as { __msm_debug_tree_dump?: { N: number; perSub: number[]; dupBids: number } }).__msm_debug_tree_dump =
+        { N, perSub, dupBids };
+      console.log(`[msm-tree-debug] totalOutputs=${N} duplicateBidCount=${dupBids}`);
+    }
 
     const scatterParamsBuf = device.createBuffer({
       size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -984,6 +1045,86 @@ export const smvp_batch_affine_gpu = async (
     );
   }
   } // end if (!use_tree_reduce)
+
+  // DEBUG: dump running_x for ALL total_buckets buckets to console
+  // when `window.__msm_debug_after_smvp = true`. Used to A/B compare
+  // stock vs tree SMVP output without modifying finalize. Compact:
+  // per-subtask aggregated fingerprint (sum of all limbs mod 2^32) +
+  // active count.
+  if ((globalThis as unknown as { __msm_debug_after_smvp?: boolean }).__msm_debug_after_smvp) {
+    const DEBUG_N_BUCKETS = total_buckets;
+    const dumpBytes = DEBUG_N_BUCKETS * limb_byte_length;
+    const xStaging = device.createBuffer({
+      size: dumpBytes,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const yStaging = device.createBuffer({
+      size: dumpBytes,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const aStaging = device.createBuffer({
+      size: DEBUG_N_BUCKETS * 4,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const tmpEnc = device.createCommandEncoder();
+    // Source buffer is in the MAIN commandEncoder which we haven't
+    // submitted yet. We need a separate encoder that runs AFTER the
+    // main one. Since the caller hasn't submitted the main encoder yet,
+    // we have to flush main first then copy. To keep this simple we just
+    // copy from running_x_sb directly — the GPU sees writes from the
+    // main encoder when both encoders submit in order.
+    tmpEnc.copyBufferToBuffer(running_x_sb, 0, xStaging, 0, dumpBytes);
+    tmpEnc.copyBufferToBuffer(running_y_sb, 0, yStaging, 0, dumpBytes);
+    tmpEnc.copyBufferToBuffer(bucket_active_sb, 0, aStaging, 0, DEBUG_N_BUCKETS * 4);
+    // Submit main FIRST so the writes land, then submit our debug copy.
+    // The caller normally submits later; here we steal-submit to make
+    // the debug readback meaningful. The downside: the caller's later
+    // submit on the same encoder will error (encoder is consumed).
+    // This is fine for one-shot debug runs.
+    const cmd = commandEncoder.finish();
+    device.queue.submit([cmd, tmpEnc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await Promise.all([xStaging.mapAsync(GPUMapMode.READ), yStaging.mapAsync(GPUMapMode.READ), aStaging.mapAsync(GPUMapMode.READ)]);
+    const xLimbs = new Uint32Array(xStaging.getMappedRange().slice(0));
+    const yLimbs = new Uint32Array(yStaging.getMappedRange().slice(0));
+    const aFlags = new Uint32Array(aStaging.getMappedRange().slice(0));
+    xStaging.unmap(); yStaging.unmap(); aStaging.unmap();
+    xStaging.destroy(); yStaging.destroy(); aStaging.destroy();
+    // Aggregate per-subtask: (active_count, sum_of_x_limbs, sum_of_y_limbs)
+    // — but ONLY over active buckets. Persistent buffers retain stale
+    // values for inactive buckets from prior MSM calls, so summing them
+    // makes the fingerprint depend on warm-context history (different
+    // across workers) and the comparison becomes meaningless.
+    const perSubtask: number[] = [];
+    let globalActive = 0;
+    let globalSumX = 0 >>> 0;
+    let globalSumY = 0 >>> 0;
+    for (let s = 0; s < num_subtasks; s++) {
+      let sActive = 0;
+      let sX = 0 >>> 0;
+      let sY = 0 >>> 0;
+      for (let b = 0; b < num_columns; b++) {
+        const bucket = s * num_columns + b;
+        if (aFlags[bucket]) {
+          sActive++;
+          for (let w = 0; w < num_words; w++) {
+            sX = (sX + (xLimbs[bucket * num_words + w] >>> 0)) >>> 0;
+            sY = (sY + (yLimbs[bucket * num_words + w] >>> 0)) >>> 0;
+          }
+        }
+      }
+      perSubtask.push(sActive, sX, sY);
+      globalActive += sActive;
+      globalSumX = (globalSumX + sX) >>> 0;
+      globalSumY = (globalSumY + sY) >>> 0;
+    }
+    (globalThis as unknown as { __msm_debug_dump?: number[] }).__msm_debug_dump = perSubtask;
+    const mode = use_tree_reduce ? 'tree' : 'stock';
+    console.log(`[msm-debug] mode=${mode} subtasks=${num_subtasks} total_buckets=${total_buckets} ` +
+      `globalActive=${globalActive} globalSumX=${globalSumX} globalSumY=${globalSumY}`);
+    // Halt before finalize since we already submitted the encoder.
+    throw new Error('msm-debug-stop');
+  }
 
   // 3. Finalize — three single dispatches: collect → batch_inverse → apply.
   //
