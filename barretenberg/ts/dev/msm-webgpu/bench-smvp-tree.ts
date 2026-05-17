@@ -247,8 +247,8 @@ async function main() {
     if (!('gpu' in navigator)) throw new Error('navigator.gpu missing');
     const qp = new URLSearchParams(window.location.search);
     const params = {
-      entries: Math.max(2, Math.min(512, parseInt(qp.get('entries') ?? '60', 10))),
-      buckets: Math.max(1, Math.min(64, parseInt(qp.get('buckets') ?? '6', 10))),
+      entries: Math.max(2, Math.min(1 << 18, parseInt(qp.get('entries') ?? '60', 10))),
+      buckets: Math.max(1, Math.min(1 << 14, parseInt(qp.get('buckets') ?? '6', 10))),
       seed: parseInt(qp.get('seed') ?? '12345', 10),
     };
     benchState.params = params;
