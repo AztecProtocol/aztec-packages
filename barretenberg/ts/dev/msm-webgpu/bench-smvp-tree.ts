@@ -19,6 +19,13 @@ const WORD_SIZE_U32 = 13;
 const W_U32 = 1n << BigInt(WORD_SIZE_U32);
 const MASK_U32 = W_U32 - 1n;
 const TPB = 64;
+// Bumped from 128 → 256 scaled correctness OK on local SwiftShader
+// (200 entries × 12 buckets, 5 layers, 0 mismatches) but BS macOS
+// Chrome 148 fails to compile the resulting shader inside the worker's
+// initial-load window — either workgroup memory exceeded or the
+// per-WG `pair_list` static-bound loops blow out the WGSL compile
+// budget. Keep at 128 for the validated path; 256+ is a follow-up
+// that needs `pair_list` hoisted to global memory.
 const MAX_SLICE_ENTRIES = 128;
 const SCHEDULE_SIGN_BIT = 0x80000000;
 const SCHEDULE_IDX_MASK = 0x7fffffff;
