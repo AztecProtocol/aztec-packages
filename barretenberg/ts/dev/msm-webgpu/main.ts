@@ -1545,6 +1545,10 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[noble-direct] FATAL: ${msg}`);
+      (window as unknown as { __noble_result?: unknown }).__noble_result = {
+        match: false,
+        error: msg,
+      };
       await client.postResults({
         state: 'error',
         params: { logN: autorunLogN, tree, page: 'msm-noble-direct' },

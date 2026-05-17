@@ -24,6 +24,7 @@ import { create_and_write_sb, create_and_write_ub, create_bind_group, create_sb 
 import type { GpuContext } from './gpu_context.js';
 import { ShaderManager } from './shader_manager.js';
 import { create_bind_group_layout, execute_pipeline, execute_pipeline_indirect } from './gpu.js';
+import { runTreeReduce } from './smvp_tree.js';
 
 // Per-stage profiling budgets for the per-round loop. Sized to cover
 // every active round of every family at every benchmark size, including
@@ -114,7 +115,7 @@ const compile_pipeline_for = async (
 export const smvp_batch_affine_gpu = async (
   shaderManager: ShaderManager,
   device: GPUDevice,
-  commandEncoder: GPUCommandEncoder,
+  commandEncoderRef: { current: GPUCommandEncoder },
   num_subtasks: number,
   num_columns: number,
   input_size: number,
@@ -134,7 +135,20 @@ export const smvp_batch_affine_gpu = async (
   // path with transient buffers) we fall back to per-call bind-group
   // creation. Caller's responsibility to set correctly.
   externals_persistent = false,
+  // When true, replace the per-bucket round loop with the tree-reduce
+  // SMVP variant. The init dispatch above and the three finalize stages
+  // below stay unchanged — the tree path just writes the same
+  // running_x/y + bucket_active state via the smvp_tree_scatter shader
+  // instead of via the round loop.
+  use_tree_reduce = false,
 ): Promise<void> => {
+  // The tree-reduce path needs to mid-flush commandEncoder before
+  // runTreeReduce reads back entry_bucket_id (otherwise that read
+  // returns stale CSR from the previous MSM call). We do that by
+  // recording ebid into the caller's commandEncoder, finishing +
+  // submitting, then swapping to a fresh encoder for scatter + finalize.
+  // The caller observes the swap via commandEncoderRef.current.
+  let commandEncoder = commandEncoderRef.current;
   const half_num_columns = num_columns / 2;
   const total_buckets = num_subtasks * num_columns;
   const num_words = shaderManager.num_words;
@@ -601,6 +615,142 @@ export const smvp_batch_affine_gpu = async (
   const init_x_groups = Math.ceil(total_buckets / init_workgroup_size);
   await execute_pipeline(commandEncoder, init_pipe.pipeline, init_bg, init_x_groups, 1, 1, profiler?.stage('ba_init'));
 
+  if (use_tree_reduce) {
+    // 2'. Tree-reduce path. The init dispatch above has already zeroed
+    // running_x/y and populated bucket_active from the CSR row pointers.
+    // We compute per-CSR-row affine sums via tree-reduce and scatter them
+    // into running_x/y. bucket_active stays as init wrote it. The existing
+    // finalize stage below consumes the populated running_x/y +
+    // bucket_active and performs the affine→Jacobian + magnitude-bucket
+    // fold unchanged.
+    const TREE_TPB = 64;
+    const TREE_MAX_SLICE_ENTRIES = 1024;
+    const tree_p1_key = `bn254:smvp_tree_phase1:tpb${TREE_TPB}:max${TREE_MAX_SLICE_ENTRIES}`;
+    const tree_p2_key = `bn254:smvp_tree_phase2:tpb${TREE_TPB}:max${TREE_MAX_SLICE_ENTRIES}`;
+    const tree_scatter_key = `bn254:smvp_tree_scatter:tpb64`;
+    const tree_ebid_key = `bn254:smvp_tree_entry_bucket_id:tpb64`;
+    const buildPipeline = async (
+      code: string,
+      numBindings: number,
+      readOnlyCount: number,
+      lastIsUniform = false,
+    ) => {
+      const mod = device.createShaderModule({ code });
+      const layout = device.createBindGroupLayout({
+        entries: Array.from({ length: numBindings }, (_, i) => ({
+          binding: i,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: {
+            type: (i < readOnlyCount
+              ? 'read-only-storage'
+              : lastIsUniform && i === numBindings - 1
+                ? 'uniform'
+                : 'storage') as GPUBufferBindingType,
+          },
+        })),
+      });
+      const pipeline = await device.createComputePipelineAsync({
+        layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+        compute: { module: mod, entryPoint: 'main' },
+      });
+      return { pipeline, bindGroupLayout: layout };
+    };
+    const p1Compile = async () =>
+      buildPipeline(shaderManager.gen_smvp_tree_phase1_shader(TREE_TPB, TREE_MAX_SLICE_ENTRIES), 10, 6);
+    const p2Compile = async () =>
+      buildPipeline(shaderManager.gen_smvp_tree_phase2_shader(TREE_TPB, TREE_MAX_SLICE_ENTRIES), 9, 5);
+    const scatterCompile = async () => buildPipeline(shaderManager.gen_smvp_tree_scatter_shader(TREE_TPB), 7, 3, true);
+    const ebidCompile = async () =>
+      buildPipeline(shaderManager.gen_smvp_tree_entry_bucket_id_shader(TREE_TPB), 3, 1, true);
+    const p1Got = context !== undefined ? await context.getOrCreatePipeline(tree_p1_key, p1Compile) : await p1Compile();
+    const p2Got = context !== undefined ? await context.getOrCreatePipeline(tree_p2_key, p2Compile) : await p2Compile();
+    const scatterGot =
+      context !== undefined
+        ? await context.getOrCreatePipeline(tree_scatter_key, scatterCompile)
+        : await scatterCompile();
+    const ebidGot =
+      context !== undefined ? await context.getOrCreatePipeline(tree_ebid_key, ebidCompile) : await ebidCompile();
+    const p1 = { pipeline: p1Got.pipeline, layout: p1Got.bindGroupLayout };
+    const p2 = { pipeline: p2Got.pipeline, layout: p2Got.bindGroupLayout };
+    const scatter = { pipeline: scatterGot.pipeline, layout: scatterGot.bindGroupLayout };
+    const ebid = { pipeline: ebidGot.pipeline, layout: ebidGot.bindGroupLayout };
+
+    const totalEntries = input_size * num_subtasks;
+    const entryBucketIdBuf = device.createBuffer({
+      size: totalEntries * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    });
+    const ebidParamsBuf = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(ebidParamsBuf, 0, new Uint32Array([num_columns, input_size, num_subtasks, 0]));
+    const ebidBg = device.createBindGroup({
+      layout: ebid.layout,
+      entries: [
+        { binding: 0, resource: { buffer: all_csc_col_ptr_sb } },
+        { binding: 1, resource: { buffer: entryBucketIdBuf } },
+        { binding: 2, resource: { buffer: ebidParamsBuf } },
+      ],
+    });
+    // Record ebid into the caller's commandEncoder (after transpose +
+    // ba_init were recorded above). Finish + submit so ebid (and the
+    // upstream transpose) actually run on the GPU before runTreeReduce
+    // reads back entry_bucket_id. Then swap to a fresh encoder for the
+    // scatter + finalize stages; caller observes via commandEncoderRef.
+    {
+      const pass = commandEncoder.beginComputePass();
+      pass.setPipeline(ebid.pipeline);
+      pass.setBindGroup(0, ebidBg);
+      pass.dispatchWorkgroups(Math.ceil(totalEntries / TREE_TPB), 1, 1);
+      pass.end();
+    }
+    device.queue.submit([commandEncoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    commandEncoder = device.createCommandEncoder();
+    commandEncoderRef.current = commandEncoder;
+
+    const treeRes = await runTreeReduce(
+      device,
+      p1.pipeline,
+      p1.layout,
+      p2.pipeline,
+      p2.layout,
+      all_csc_val_idxs_sb,
+      entryBucketIdBuf,
+      point_x_sb,
+      point_y_sb,
+      totalEntries,
+      { tpb: TREE_TPB, maxSliceEntries: TREE_MAX_SLICE_ENTRIES },
+    );
+
+    const scatterParamsBuf = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(scatterParamsBuf, 0, new Uint32Array([treeRes.totalOutputs, total_buckets, 0, 0]));
+    const scatterBg = device.createBindGroup({
+      layout: scatter.layout,
+      entries: [
+        { binding: 0, resource: { buffer: treeRes.outputBucketId } },
+        { binding: 1, resource: { buffer: treeRes.outputX } },
+        { binding: 2, resource: { buffer: treeRes.outputY } },
+        { binding: 3, resource: { buffer: running_x_sb } },
+        { binding: 4, resource: { buffer: running_y_sb } },
+        { binding: 5, resource: { buffer: bucket_active_sb } },
+        { binding: 6, resource: { buffer: scatterParamsBuf } },
+      ],
+    });
+    await execute_pipeline(
+      commandEncoder,
+      scatter.pipeline,
+      scatterBg,
+      Math.ceil(treeRes.totalOutputs / TREE_TPB),
+      1,
+      1,
+      profiler?.stage('ba_tree_scatter'),
+    );
+  } else {
   // 2. Round loop, cross-subtask parallel.
   //
   // Each round dispatches the schedule, inverse, and apply kernels
@@ -769,6 +919,7 @@ export const smvp_batch_affine_gpu = async (
       sample_apply ? profiler?.stage(`ba_apply[r=${round}]`) : undefined,
     );
   }
+  } // end if (!use_tree_reduce)
 
   // 3. Finalize — three single dispatches: collect → batch_inverse → apply.
   //

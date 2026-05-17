@@ -15,7 +15,28 @@ export const get_device = async (): Promise<GPUDevice> => {
     requiredFeatures.push('timestamp-query');
   }
 
-  const device = await adapter.requestDevice({ requiredFeatures });
+  // The tree-reduce SMVP phase1/phase2 shaders push past two of WebGPU's
+  // default device limits:
+  //   - maxStorageBuffersPerShaderStage: phase1 binds 10 storage buffers
+  //     (default cap 8). Apple M2 and the Chromium SwiftShader adapter
+  //     both report 10.
+  //   - maxComputeWorkgroupStorageSize: the per-WG scratchpad needs ~27 KB
+  //     at the current TPB=64 / MAX_SLICE=1024 config (default cap 16 KB).
+  //     Apple M2 and SwiftShader both report 32 KB.
+  // We opt in to whichever values the adapter advertises, up to the
+  // tree-reduce needs. Adapters that cap below still allow the stock
+  // (non-tree) SMVP path; tree-reduce errors on pipeline compile.
+  const requiredLimits: Record<string, number> = {};
+  const wantedStorageBuffers = 10;
+  const wantedWorkgroupStorage = 32768;
+  if (adapter.limits.maxStorageBuffersPerShaderStage >= wantedStorageBuffers) {
+    requiredLimits.maxStorageBuffersPerShaderStage = wantedStorageBuffers;
+  }
+  if (adapter.limits.maxComputeWorkgroupStorageSize >= wantedWorkgroupStorage) {
+    requiredLimits.maxComputeWorkgroupStorageSize = wantedWorkgroupStorage;
+  }
+
+  const device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
   return device;
 };
 
