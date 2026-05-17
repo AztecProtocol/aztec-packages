@@ -21,6 +21,7 @@
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/standard_address_derivation.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bb/curve_constants.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
@@ -723,6 +724,27 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(cache_paths_command);
 
     /***************************************************************************************************************
+     * Subcommand: derive_standard_contract_addresses
+     ***************************************************************************************************************/
+    CLI::App* derive_standard_addresses_cmd =
+        app.add_subcommand("derive_standard_contract_addresses",
+                           "Derive deployment addresses for the standard contracts (auth_registry, "
+                           "public_checks, multi_call_entrypoint) from freshly-built Noir artifacts "
+                           "and emit a `standard_addresses.nr` module for downstream Noir compilation. "
+                           "Runs before the second phase of noir-contracts compilation in bootstrap.");
+    derive_standard_addresses_cmd->group(aztec_internal_group);
+    std::filesystem::path derive_standard_addresses_config;
+    derive_standard_addresses_cmd
+        ->add_option("--config",
+                     derive_standard_addresses_config,
+                     "JSON config listing each standard contract's artifact path, nr_const name, "
+                     "precomputed artifact_hash, precomputed private_functions_root, and the output "
+                     "paths to write the generated Noir module to.")
+        ->required();
+    add_verbose_flag(derive_standard_addresses_cmd);
+    add_debug_flag(derive_standard_addresses_cmd);
+
+    /***************************************************************************************************************
      * Subcommand: msgpack
      ***************************************************************************************************************/
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
@@ -917,6 +939,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
         if (acir_roundtrip_cmd->parsed()) {
             acir_roundtrip(bytecode_path, acir_roundtrip_output_path);
             return 0;
+        }
+
+        // Derive standard contract addresses (used by noir-contracts bootstrap to bake addresses
+        // into aztec-nr-stamped `standard_addresses.nr` modules before the second compile phase).
+        if (derive_standard_addresses_cmd->parsed()) {
+#ifdef __wasm__
+            throw_or_abort("derive_standard_contract_addresses is not supported in WASM builds.");
+#else
+            return derive_standard_contract_addresses(derive_standard_addresses_config) ? 0 : 1;
+#endif
         }
 
         // MSGPACK
