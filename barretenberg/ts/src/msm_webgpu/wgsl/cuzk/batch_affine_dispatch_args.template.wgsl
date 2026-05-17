@@ -60,11 +60,6 @@ var<storage, read_write> round_count: array<atomic<u32>>;
 @group(0) @binding(2)
 var<storage, read_write> dispatch_args: array<u32>;
 
-// WINDOWS_PER_BATCH — baked at render time. Controls the inverse-pass
-// Z dispatch dim: num_batches = ceil(num_subtasks / WPB). See
-// batch_inverse_parallel.template.wgsl for the merged-pool inverse.
-const WPB: u32 = {{ windows_per_batch }}u;
-
 // params[0] = num_subtasks
 // params[1] = apply_workgroup_size
 // params[2] = sched_x_groups   (= ceil(num_columns / schedule_workgroup_size))
@@ -79,7 +74,6 @@ fn main() {
     let apply_wg_size = params[1];
     let sched_x_groups = params[2];
     let num_sub_wgs = params[3];
-    let num_batches = (num_subtasks + WPB - 1u) / WPB;
 
     var max_count: u32 = 0u;
     for (var i: u32 = 0u; i < num_subtasks; i = i + 1u) {
@@ -104,14 +98,13 @@ fn main() {
     dispatch_args[1] = 1u;
     dispatch_args[2] = num_subtasks;
 
-    // THIS round's inverse: (W, 1, num_batches) workgroups — W sub-WGs
-    // per (batch, sub_wg) splitting each batch's MERGED pair pool (of
-    // size sum_{w} round_count[batch * WPB + w]) into W contiguous
-    // slices, each independently inverted with its own fr_inv. Pooling
-    // amortises one fr_inv across WPB subtasks. Z dim drops from T to
-    // ceil(T/WPB) accordingly.
+    // THIS round's inverse: (W, 1, T) workgroups — W sub-WGs per subtask
+    // splitting each subtask's pair pool into W contiguous slices, each
+    // independently inverted with its own fr_inv. Drops Phase A/D
+    // per-thread sequential cost by W. See batch_inverse_parallel for
+    // the algorithm.
     let inverse_x = select(0u, num_sub_wgs, any_work);
-    let inverse_z = select(0u, num_batches, any_work);
+    let inverse_z = select(0u, num_subtasks, any_work);
     dispatch_args[3] = inverse_x;
     dispatch_args[4] = 1u;
     dispatch_args[5] = inverse_z;

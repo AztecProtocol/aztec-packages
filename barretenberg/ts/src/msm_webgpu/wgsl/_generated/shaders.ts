@@ -1692,11 +1692,6 @@ var<storage, read_write> round_count: array<atomic<u32>>;
 @group(0) @binding(2)
 var<storage, read_write> dispatch_args: array<u32>;
 
-// WINDOWS_PER_BATCH — baked at render time. Controls the inverse-pass
-// Z dispatch dim: num_batches = ceil(num_subtasks / WPB). See
-// batch_inverse_parallel.template.wgsl for the merged-pool inverse.
-const WPB: u32 = {{ windows_per_batch }}u;
-
 // params[0] = num_subtasks
 // params[1] = apply_workgroup_size
 // params[2] = sched_x_groups   (= ceil(num_columns / schedule_workgroup_size))
@@ -1711,7 +1706,6 @@ fn main() {
     let apply_wg_size = params[1];
     let sched_x_groups = params[2];
     let num_sub_wgs = params[3];
-    let num_batches = (num_subtasks + WPB - 1u) / WPB;
 
     var max_count: u32 = 0u;
     for (var i: u32 = 0u; i < num_subtasks; i = i + 1u) {
@@ -1736,14 +1730,13 @@ fn main() {
     dispatch_args[1] = 1u;
     dispatch_args[2] = num_subtasks;
 
-    // THIS round's inverse: (W, 1, num_batches) workgroups — W sub-WGs
-    // per (batch, sub_wg) splitting each batch's MERGED pair pool (of
-    // size sum_{w} round_count[batch * WPB + w]) into W contiguous
-    // slices, each independently inverted with its own fr_inv. Pooling
-    // amortises one fr_inv across WPB subtasks. Z dim drops from T to
-    // ceil(T/WPB) accordingly.
+    // THIS round's inverse: (W, 1, T) workgroups — W sub-WGs per subtask
+    // splitting each subtask's pair pool into W contiguous slices, each
+    // independently inverted with its own fr_inv. Drops Phase A/D
+    // per-thread sequential cost by W. See batch_inverse_parallel for
+    // the algorithm.
     let inverse_x = select(0u, num_sub_wgs, any_work);
-    let inverse_z = select(0u, num_batches, any_work);
+    let inverse_z = select(0u, num_subtasks, any_work);
     dispatch_args[3] = inverse_x;
     dispatch_args[4] = 1u;
     dispatch_args[5] = inverse_z;
@@ -2546,8 +2539,6 @@ export const batch_inverse = `{{> structs }}
 {{> montgomery_product_funcs }}
 {{> field_funcs }}
 {{> fr_pow_funcs }}
-{{> bigint_by_funcs }}
-{{> by_inverse_a_funcs }}
 
 // get_r returns Montgomery R (= the integer 1 in Montgomery form). Each
 // main shader defines its own with \`r_limbs\` substitution; the
@@ -2619,7 +2610,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     // Step 2: invert the final product.
-    var inv_acc: BigInt = fr_inv_by_a(acc);
+    var inv_acc: BigInt = fr_inv(acc);
 
     // Step 3: walk back, emitting individual inverses.
     for (var idx = 0u; idx < n - 1u; idx = idx + 1u) {
@@ -2642,8 +2633,6 @@ export const batch_inverse_parallel = `{{> structs }}
 {{> montgomery_product_funcs }}
 {{> field_funcs }}
 {{> fr_pow_funcs }}
-{{> bigint_by_funcs }}
-{{> by_inverse_a_funcs }}
 
 // Parallel Montgomery batch-inverse on the GPU.
 //
@@ -2654,65 +2643,74 @@ export const batch_inverse_parallel = `{{> structs }}
 // workgroup of TPB threads, dropping the per-dispatch cost from ~30 ms
 // to ~1-3 ms at the realistic round sizes we see.
 //
-// MULTI-WORKGROUP + WINDOWS-PER-BATCH MODE. The dispatch is shaped
-// (NUM_SUB_WGS, 1, num_batches), where num_batches = ceil(T / WPB).
-// \`wid.z\` selects the batch; \`wid.x\` is the sub-workgroup index inside
-// the batch. Each (wid.z, wid.x) pair inverts the COMBINED pair pool of
-// WPB consecutive subtasks, treating it as one big logical pool of total
-// length sum_{w=0..WPB-1} count_buf[batch * WPB + w], with one
-// fr_inv_by_a call per (batch, sub_wg).
+// MULTI-WORKGROUP MODE. The dispatch is shaped (NUM_SUB_WGS, 1, T).
+// \`wid.z\` selects the subtask (count_buf[subtask]) and \`wid.x\` is the
+// sub-workgroup index inside that subtask (0..NUM_SUB_WGS-1). Each
+// sub-workgroup independently inverts a contiguous slice of length
+// per_sub_chunk = ceil(n / NUM_SUB_WGS), using its own fr_inv. Reasoning:
 //
-// Amortisation: with WPB=4 we run T/WPB × W fr_inv_by_a calls per round
-// instead of T × W — a 4× drop in the dominant Phase C cost. The
-// per-subtask layout of the pair pool (and the \`prefix\` / \`outputs\`
-// scratch buffers) is unchanged, so \`batch_affine_apply_scatter\` reads
-// outputs[subtask_global * pitch + slot_in_subtask] just like before.
-// The kernel "sews together" the gaps between subtask slices in the
-// scan: a logical position p in the merged pool decodes to
-// (subtask_in_batch, slot_in_subtask) via the per-batch exclusive
-// prefix-sum \`wg_cum\`, then to a physical buffer position
-// (batch * WPB + subtask_in_batch) * pitch + slot_in_subtask.
+//   - Phase A (per-thread fwd) and Phase D (per-thread back-walk) are
+//     sequential per thread with bs = ceil(n / TPB). Splitting each
+//     subtask across W sub-workgroups drops bs by W, giving up to W×
+//     speedup on the dominant per-round latency at large N.
 //
-// Per-thread walks advance a (cur_w, cur_off) cursor as they step
-// through their chunk so the per-step decode is O(1); the only WPB-loop
-// is the const-bounded prefix-sum setup at the top of the kernel.
+//   - Each sub-workgroup runs its own fr_inv. fr_invs across sub-WGs
+//     run concurrently on different SMs, so the EXTRA fr_invs cost zero
+//     wall time (gated only by SM occupancy). With T=16 subtasks × W=8
+//     sub-WGs = 128 workgroups in flight, RTX-class GPUs are fully
+//     occupied during the inverse pass.
 //
 // Two clients today:
-//   - SMVP (cross-subtask): pitch = num_columns, count_buf[g] =
-//     round_count[g] (per-subtask, forwarded by dispatch_args).
-//   - Finalize: pitch = half_num_columns, count_buf[g] =
-//     half_num_columns for all g (pre-populated by host). With WPB=1 in
-//     the finalize call this degenerates to the previous behaviour.
+//   - SMVP (cross-subtask): pitch = num_columns, count_buf[wid.z] =
+//     pair_counter[wid.z] (per-subtask atomic).
+//   - Finalize: pitch = half_num_columns, count_buf[wid.z] =
+//     half_num_columns for all wid.z (pre-populated by host).
 //
-// Algorithm (Montgomery's batch-inverse trick, two-level, merged pool):
+// Algorithm (Montgomery's batch-inverse trick, two-level):
 //
 //   1. Each thread i computes block_inclusive_prefix[k] for k in its
 //      chunk into the \`prefix\` scratch buffer (serial, length bs =
-//      ceil(n / TPB)). Captures block_total[i] in a register. The walk
-//      is over LOGICAL positions in the merged pool, but each write
-//      lands at the corresponding PHYSICAL buffer position (decoded via
-//      wg_cum).
+//      ceil(n / TPB)). Captures block_total[i] in a register.
 //   2. All TPB block_totals are pushed into workgroup memory.
 //   3. Two parallel inclusive scans over wg memory: forward (wg_fwd)
 //      and backward (wg_bwd). Hillis-Steele, log2(TPB) passes.
-//   4. Thread 0 computes inv_global = inv(global_total) — single
-//      fr_inv_by_a per (batch, sub_wg). Broadcast via wg_inv_total.
-//   5. Each thread walks back through its chunk. Within a single block,
-//      block_excl_prefix cancels algebraically, so the back-walk runs
-//      as the standard 2-mul/element batch inverse on the per-block
-//      prefix array (same as before). Outputs land at physical buffer
-//      positions matching the input layout.
+//      After scan:
+//        wg_fwd[i] = block_total[0] * ... * block_total[i]
+//        wg_bwd[i] = block_total[i] * ... * block_total[TPB-1]
+//      So global_total = wg_fwd[TPB-1] = wg_bwd[0].
+//   4. Thread 0 computes inv_global = inv(global_total) — single fr_inv.
+//      Broadcast via wg_inv_total.
+//   5. Each thread walks back through its chunk. The key trick: within
+//      a single block, block_excl_prefix cancels algebraically, so the
+//      back-walk reduces to the standard 2-mul/element batch inverse
+//      on the per-block prefix array.
+//
+//        inv(global_prefix[k]) · global_prefix[k-1]
+//          = inv(block_excl_prefix · P_in[k]) · (block_excl_prefix · P_in[k-1])
+//          = inv(P_in[k]) · P_in[k-1]    // block_excl_prefix cancels
+//
+//      So:
+//        block_excl_prefix[i] = wg_fwd[i-1] (or R for i=0)
+//        block_excl_suffix[i] = wg_bwd[i+1] (or R for i=TPB-1)
+//        // Setup: inv(block_total) = inv_global · block_excl_prefix · block_excl_suffix
+//        inv_acc = inv(block_total[i])              // 2 muls (setup, one-time)
+//        For k from chunk_end-1 down to chunk_start:
+//          out[k] = inv_acc · (k>chunk_start ? prefix[k-1] : R)   // 1 mul (or 0)
+//          inv_acc = inv_acc · inputs[k]                           // 1 mul
+//
+//      Cost: 2N muls in back-walk + N muls in forward + 2 muls setup
+//      = 3N + O(1) per workgroup. Previously 3N + N back-walk muls
+//      (extra mul-by-block_excl_prefix per element) = 4N total.
 //
 // TPB = 64 keeps workgroup memory at 2 * 64 * sizeof(BigInt) = 10240
 // bytes (BN254: BigInt = 80 bytes), comfortably under the WebGPU
 // default maxComputeWorkgroupStorageSize = 16384.
 //
-// When total_n == 0 for this (batch, sub_wg) the kernel returns
-// immediately at the top.
+// When n == 0 for this workgroup the kernel returns immediately at the
+// top.
 
 const TPB: u32 = 64u;
 const NUM_SUB_WGS: u32 = {{ num_sub_wgs }}u;
-const WPB: u32 = {{ windows_per_batch }}u;
 
 @group(0) @binding(0)
 var<storage, read> inputs: array<BigInt>;
@@ -2726,7 +2724,7 @@ var<storage, read_write> outputs: array<BigInt>;
 @group(0) @binding(3)
 var<storage, read_write> count_buf: array<atomic<u32>>;
 
-// params[0] = pitch (per-subtask slice stride inside inputs/prefix/outputs)
+// params[0] = pitch (per-workgroup slice stride)
 // params[1..3] = unused
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
@@ -2740,43 +2738,18 @@ fn get_r() -> BigInt {
 var<workgroup> wg_fwd: array<BigInt, TPB>;
 var<workgroup> wg_bwd: array<BigInt, TPB>;
 var<workgroup> wg_inv_total: BigInt;
-// Per-batch exclusive prefix of subtask counts: wg_cum[w] is the
-// cumulative count of subtasks 0..w-1 within this batch (so wg_cum[0]
-// is always 0 and the merged-pool total length is
-// wg_cum[WPB-1] + wg_counts[WPB-1]). Used to decode "logical position
-// p in the merged pool" → "(subtask_in_batch w, slot s in that
-// subtask)" via the largest w with wg_cum[w] <= p.
-var<workgroup> wg_counts: array<u32, WPB>;
-var<workgroup> wg_cum: array<u32, WPB>;
-// Broadcast slot for the merged-pool total count. atomicLoad returns a
-// non-uniform value as far as the WGSL uniformity analysis is
-// concerned, so the downstream \`workgroupBarrier()\`s would be
-// ill-formed if we branched directly on it. Funnelling it through a
-// workgroup variable + an explicit \`workgroupUniformLoad\` re-uniforms
-// the value (and acts as an implicit barrier).
-var<workgroup> wg_total_n: u32;
-// Per-sub-WG element offset into the merged pool. Set by tid 0
-// alongside wg_total_n; broadcast through workgroup memory so every
-// thread agrees on the slice base. (workgroupUniformLoad over
-// wg_total_n implicitly synchronises this write too, since both are
-// written before the load.)
+// Broadcast slot for the pair count. atomicLoad returns a non-uniform
+// value as far as the WGSL uniformity analysis is concerned, so the
+// downstream \`workgroupBarrier()\`s would be ill-formed if we branched
+// directly on it. Funnelling it through a workgroup variable + an
+// explicit \`workgroupUniformLoad\` re-uniforms the value (and acts as
+// an implicit barrier).
+var<workgroup> wg_n: u32;
+// Per-sub-WG element offset into the subtask's slice. Set by tid 0
+// alongside wg_n; broadcast through workgroup memory so every thread
+// agrees on the slice base. (workgroupUniformLoad over wg_n implicitly
+// synchronises this write too, since both are written before the load.)
 var<workgroup> wg_sub_offset: u32;
-
-// Decode a logical position p in the merged batch pool into
-// (subtask_in_batch, slot_in_subtask). The WPB-loop is const-bounded.
-struct PoolPos { w: u32, slot: u32 };
-fn decode_pool_pos(p: u32) -> PoolPos {
-    var out: PoolPos;
-    out.w = 0u;
-    out.slot = p;
-    for (var i = 1u; i < WPB; i = i + 1u) {
-        if (p >= wg_cum[i]) {
-            out.w = i;
-            out.slot = p - wg_cum[i];
-        }
-    }
-    return out;
-}
 
 @compute
 @workgroup_size(64)
@@ -2786,27 +2759,15 @@ fn main(
 ) {
     let tid = lid.x;
     let pitch = params[0];
-    let batch_idx = wid.z;
+    let subtask_idx = wid.z;
     let sub_idx = wid.x;
-    let subtask_base = batch_idx * WPB;
 
-    // Thread 0 reads the WPB per-subtask atomic counts in this batch,
-    // computes the exclusive prefix-sum into wg_cum + wg_counts, and
-    // resolves the sub-WG's slice bounds inside the merged pool.
-    // Broadcasts via wg_total_n + wg_sub_offset. workgroupUniformLoad
-    // over wg_total_n then re-uniforms across the workgroup.
+    // Thread 0 reads the subtask's atomic count and the sub-WG's slice
+    // bounds; broadcast via wg_n. workgroupUniformLoad ensures all
+    // threads see a uniform \`n\` (= this sub-WG's element count) and
+    // synchronises the workgroup before continuing.
     if (tid == 0u) {
-        var cum: u32 = 0u;
-        for (var w = 0u; w < WPB; w = w + 1u) {
-            let g = subtask_base + w;
-            // count_buf is sized to a multiple of WPB so the tail loads
-            // here return the host's initial zero (no out-of-bounds).
-            let c = atomicLoad(&count_buf[g]);
-            wg_counts[w] = c;
-            wg_cum[w] = cum;
-            cum = cum + c;
-        }
-        let total_n = cum;
+        let total_n = atomicLoad(&count_buf[subtask_idx]);
         // Split [0, total_n) into NUM_SUB_WGS contiguous chunks. Chunks
         // are sized ceil(total_n / NUM_SUB_WGS); trailing sub-WGs may
         // see a shorter (or empty) chunk if total_n isn't a multiple of
@@ -2821,70 +2782,39 @@ fn main(
             sub_n = clamped_end - raw_start;
         }
         wg_sub_offset = raw_start;
-        wg_total_n = sub_n;
+        wg_n = sub_n;
     }
-    let n = workgroupUniformLoad(&wg_total_n);
+    let n = workgroupUniformLoad(&wg_n);
     if (n == 0u) {
         return;
     }
-    let sub_offset_in_batch = wg_sub_offset;
+    let sub_offset_in_subtask = wg_sub_offset;
+
+    // Subtask owns a slice of \`pitch\` elements at offset
+    // subtask_idx * pitch. This sub-WG owns
+    // [subtask_offset + sub_offset_in_subtask,
+    //  subtask_offset + sub_offset_in_subtask + n).
+    let slice_offset = subtask_idx * pitch + sub_offset_in_subtask;
 
     // Block size = ceil(n / TPB). Last thread may have a shorter chunk.
     let bs = (n + TPB - 1u) / TPB;
-    let chunk_start_in_sub = tid * bs;
-    var chunk_end_in_sub = chunk_start_in_sub + bs;
-    if (chunk_end_in_sub > n) {
-        chunk_end_in_sub = n;
+    let chunk_start = tid * bs;
+    var chunk_end = chunk_start + bs;
+    if (chunk_end > n) {
+        chunk_end = n;
     }
 
-    // Translate this thread's [chunk_start, chunk_end) window from
-    // sub-WG-local indexing into batch-merged-pool indexing.
-    let chunk_start = sub_offset_in_batch + chunk_start_in_sub;
-    let chunk_end = sub_offset_in_batch + chunk_end_in_sub;
-
     // Phase A: per-thread inclusive prefix product over the chunk.
-    // Each k iterates over LOGICAL positions in the merged pool but
-    // every read/write lands at the PHYSICAL buffer position decoded
-    // through wg_cum. block_total = product of all elements in this
-    // thread's chunk, or R (Montgomery 1) if the chunk is empty.
+    // block_total = product of all elements in this thread's chunk,
+    // or R (Montgomery 1) if the chunk is empty.
     var block_total: BigInt = get_r();
-    if (chunk_start_in_sub < n) {
-        // Decode the starting logical position once, then carry
-        // (cur_w, cur_off) forward through the chunk so the per-step
-        // decode is O(1). cur_off is the slot within the current
-        // subtask; when it reaches wg_counts[cur_w] we advance to the
-        // next subtask.
-        let start_pos = decode_pool_pos(chunk_start);
-        var cur_w: u32 = start_pos.w;
-        var cur_off: u32 = start_pos.slot;
-        let g0 = subtask_base + cur_w;
-        let phys0 = g0 * pitch + cur_off;
-        var acc: BigInt = inputs[phys0];
-        prefix[phys0] = acc;
-        // Advance one step past the seed (k = chunk_start) and walk to
-        // chunk_end. The k variable here is the BATCH-MERGED logical
-        // position; advance cur_off in lockstep, rolling cur_w + cur_off
-        // across the wg_counts[cur_w] boundary when the subtask runs out.
+    if (chunk_start < n) {
+        var acc: BigInt = inputs[slice_offset + chunk_start];
+        prefix[slice_offset + chunk_start] = acc;
         for (var k = chunk_start + 1u; k < chunk_end; k = k + 1u) {
-            cur_off = cur_off + 1u;
-            // Bounded rollover: cross at most one boundary per step
-            // (counts never exceed pitch, which exceeds bs in practice).
-            // The const-bounded loop guards against any degenerate
-            // input where wg_counts[cur_w] could be zero — we still
-            // can't iterate past WPB steps because cur_w is in [0, WPB).
-            for (var hop = 0u; hop < WPB; hop = hop + 1u) {
-                if (cur_off >= wg_counts[cur_w]) {
-                    cur_w = cur_w + 1u;
-                    cur_off = 0u;
-                } else {
-                    break;
-                }
-            }
-            let g = subtask_base + cur_w;
-            let phys = g * pitch + cur_off;
-            var x: BigInt = inputs[phys];
+            var x: BigInt = inputs[slice_offset + k];
             acc = montgomery_product(&acc, &x);
-            prefix[phys] = acc;
+            prefix[slice_offset + k] = acc;
         }
         block_total = acc;
     }
@@ -2914,16 +2844,14 @@ fn main(
     }
 
     // Phase C: thread 0 inverts the global total. Broadcast via workgroup mem.
-    // One fr_inv_by_a per (batch, sub_wg), independent of WPB — that's
-    // the amortisation this layout buys.
     if (tid == 0u) {
         var global_total: BigInt = wg_fwd[TPB - 1u];
-        wg_inv_total = fr_inv_by_a(global_total);
+        wg_inv_total = fr_inv(global_total);
     }
     workgroupBarrier();
 
     // Phase D: walk back through this thread's chunk, emitting inverses.
-    if (chunk_start_in_sub >= n) {
+    if (chunk_start >= n) {
         return;
     }
 
@@ -2948,13 +2876,6 @@ fn main(
     var inv_acc: BigInt = montgomery_product(&inv_global, &block_excl_prefix);
     inv_acc = montgomery_product(&inv_acc, &block_excl_suffix);
 
-    // Decode the END position (chunk_end - 1) and walk backward,
-    // mirroring Phase A's forward decode. Maintain (cur_w, cur_off) as
-    // we step k from chunk_end-1 down to chunk_start.
-    let end_pos = decode_pool_pos(chunk_end - 1u);
-    var cur_w: u32 = end_pos.w;
-    var cur_off: u32 = end_pos.slot;
-
     // Walk from k = chunk_end-1 down to chunk_start. Within a block,
     // block_excl_prefix cancels algebraically (see header comment), so
     // we run the standard backward batch-inverse over the per-block
@@ -2963,74 +2884,23 @@ fn main(
     while (k > chunk_start) {
         k = k - 1u;
 
-        let g = subtask_base + cur_w;
-        let phys = g * pitch + cur_off;
-
-        // out[k] = inv_acc * prefix_in_block[k-1] (or inv_acc itself
-        // for k = chunk_start). The "k-1" position in the BLOCK is the
-        // previous logical position in the merged pool; if that lies
-        // in a different subtask, prefix is still indexed by physical
-        // position so we decode the neighbour separately.
+        // out[k] = inv_acc * prefix_in_block[k-1]   (or inv_acc itself for k = chunk_start)
         var inv_a_k: BigInt;
         if (k > chunk_start) {
-            // Compute the physical position of (k - 1). This is the
-            // logical predecessor of the current step. We carry a
-            // dedicated (prev_w, prev_off) cursor by mirroring the
-            // forward-from-decode but starting from (cur_w, cur_off):
-            // step back by one slot; if cur_off was 0, roll back to
-            // the previous subtask's last slot.
-            var prev_w: u32 = cur_w;
-            var prev_off: u32;
-            if (cur_off > 0u) {
-                prev_off = cur_off - 1u;
-            } else {
-                // Roll back to the largest preceding subtask with a
-                // non-empty count. Const-bounded by WPB.
-                prev_off = 0u;
-                for (var hop = 0u; hop < WPB; hop = hop + 1u) {
-                    if (prev_w == 0u) {
-                        // Should not happen — we'd be past chunk_start.
-                        break;
-                    }
-                    prev_w = prev_w - 1u;
-                    if (wg_counts[prev_w] > 0u) {
-                        prev_off = wg_counts[prev_w] - 1u;
-                        break;
-                    }
-                }
-            }
-            let g_prev = subtask_base + prev_w;
-            let phys_prev = g_prev * pitch + prev_off;
-            var prev_in_block: BigInt = prefix[phys_prev];
+            var prev_in_block: BigInt = prefix[slice_offset + k - 1u];
             inv_a_k = montgomery_product(&inv_acc, &prev_in_block);
         } else {
             inv_a_k = inv_acc;
         }
-        outputs[phys] = inv_a_k;
+        outputs[slice_offset + k] = inv_a_k;
 
         // Update: inv_acc <- inv_acc * a[k] = inv(prefix_in_block[k-1])
         // for the next iteration. The update on the last iteration
         // (k = chunk_start) is wasted — minor cost, kept for code
         // simplicity; the loop exit condition skips it naturally.
         if (k > chunk_start) {
-            var a_k: BigInt = inputs[phys];
+            var a_k: BigInt = inputs[slice_offset + k];
             inv_acc = montgomery_product(&inv_acc, &a_k);
-            // Step (cur_w, cur_off) back by one logical position, same
-            // rollover logic as the prev_* decode above.
-            if (cur_off > 0u) {
-                cur_off = cur_off - 1u;
-            } else {
-                for (var hop = 0u; hop < WPB; hop = hop + 1u) {
-                    if (cur_w == 0u) {
-                        break;
-                    }
-                    cur_w = cur_w - 1u;
-                    if (wg_counts[cur_w] > 0u) {
-                        cur_off = wg_counts[cur_w] - 1u;
-                        break;
-                    }
-                }
-            }
         }
     }
 
@@ -3275,14 +3145,9 @@ var<storage, read_write> g_points_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> g_points_z: array<BigInt>;
 
-// Uniform storage buffer. Layout: (subtask_idx_base, num_columns,
-// num_subtasks_per_bpr, num_subtasks_total). The 4th slot is the
-// dispatch's bounds-check ceiling for the WPB tail batch — values past
-// num_subtasks_total are skipped per-thread inside the multi-window
-// loop. Promoted from vec3 to vec4 so the host can pass a single
-// uniform across both legacy (WPB=1) and multi-window dispatches.
+// Unfiform storage buffer.
 @group(0) @binding(6)
-var<uniform> params: vec4<u32>;
+var<uniform> params: vec3<u32>;
 
 {{#capture_debug}}
 // Debug capture for stage_2's inline add-2007-bl formula. Layout: 8 BigInts
@@ -3408,29 +3273,15 @@ fn bench_xor_into(a: Point, b: Point) -> Point {
     return r;
 }
 
-// Multi-window BPR (WPB > 1) trades thread count for per-thread work:
-// fewer workgroups dispatched, each thread runs the WPB-window inner loop
-// {{ windows_per_batch }}u times (one per subtask in the batch). Saves
-// total launches and amortises kernel header / dispatch overhead, but
-// inflates per-thread register pressure — a single subtask already
-// carries ~10 BigInt locals (~800B/thread) inside the add_points formula,
-// so WPB > 1 risks spilling on Apple Silicon SIMD-groups (32 KB shared
-// register file). When WPB=1 the inner loop runs once and the dispatch
-// shape collapses to the legacy (X=num_subtasks, 256) layout.
 @compute
 @workgroup_size({{ workgroup_size }})
-fn stage_1(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) wg_id: vec3<u32>,
-    @builtin(local_invocation_id) local_id: vec3<u32>,
-) {
-    let thread_id = local_id.x;
+fn stage_1(@builtin(global_invocation_id) global_id: vec3<u32>) {    
+    let thread_id = global_id.x; 
     let num_threads_per_subtask = {{ workgroup_size }}u;
 
-    let subtask_idx_base = params[0]; // base subtask for this dispatch (host-side outer iter)
+    let subtask_idx = params[0]; // 0, 2, 4, 6, ...
     let num_columns = params[1]; // 65536
-    let num_subtasks_per_bpr = params[2]; // packs g_points output across subtasks (legacy)
-    let num_subtasks_total = params[3]; // bounds check for tail batches when WPB > 1
+    let num_subtasks_per_bpr = params[2]; // Must be a power of 2
 
     /// Number of buckets per subtask.
     let num_buckets_per_subtask = num_columns / 2u; // 2 ** 15 = 32768
@@ -3440,30 +3291,17 @@ fn stage_1(
     let num_buckets_per_bpr = num_buckets_per_subtask * num_subtasks_per_bpr;
 
     /// Number of buckets to reduce per thread.
-    let buckets_per_thread = num_buckets_per_subtask /
+    let buckets_per_thread = num_buckets_per_subtask / 
                              num_threads_per_subtask;
 
-    // WPB-aware subtask iteration. Each workgroup owns WPB consecutive
-    // subtasks; thread \`thread_id\` processes the same in-subtask slice
-    // for every one of them. With WPB=1 the outer loop runs once and
-    // the semantics are byte-identical to the legacy dispatch.
-    for (var w_local = 0u; w_local < {{ windows_per_batch }}u; w_local = w_local + 1u) {
-        let subtask_in_dispatch = wg_id.x * {{ windows_per_batch }}u + w_local;
-        let subtask_idx = subtask_idx_base + subtask_in_dispatch;
-        if (subtask_idx >= num_subtasks_total) {
-            // Tail batch: skip out-of-range subtasks (num_subtasks may
-            // not be a multiple of WPB).
-            continue;
-        }
+    let multiplier = subtask_idx + (thread_id / num_threads_per_subtask);
+    let offset = num_buckets_per_subtask * multiplier;
 
-        let multiplier = subtask_idx;
-        let offset = num_buckets_per_subtask * multiplier;
-
-        var idx = offset;
-        if (thread_id % num_threads_per_subtask != 0u) {
-            idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) *
-                  buckets_per_thread + offset;
-        }
+    var idx = offset;
+    if (thread_id % num_threads_per_subtask != 0u) {
+        idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) * 
+              buckets_per_thread + offset;
+    }
 
 {{#bench_compute_only}}
     // Microbench: synthesize the initial m so this load is also stripped.
@@ -3738,46 +3576,40 @@ fn stage_1(
 {{/mixed_safe_buckets}}
 {{/assume_affine_buckets}}
 
-        let t = (subtask_idx / num_subtasks_per_bpr) *
-                (num_threads_per_subtask * num_subtasks_per_bpr) +
-                thread_id;
+    let t = (subtask_idx / num_subtasks_per_bpr) *
+            (num_threads_per_subtask * num_subtasks_per_bpr) +
+            thread_id;
 
 {{#bench_skip_writes}}
-        // V_NULL / V3: skip the 6 storage writes (bucket_sum + g_points).
-        // Funnel one observable write per thread into the workgroup atomic
-        // sink so the WGSL compiler can't DCE the inner loop. atomicXor is
-        // the cheapest read-modify-write that can't be folded; it produces
-        // 1 LDS op per thread vs 6 storage writes in the production path.
-        atomicXor(&bench_sink, m.x.limbs[0] ^ g.x.limbs[0] ^ t);
+    // V_NULL / V3: skip the 6 storage writes (bucket_sum + g_points).
+    // Funnel one observable write per thread into the workgroup atomic
+    // sink so the WGSL compiler can't DCE the inner loop. atomicXor is
+    // the cheapest read-modify-write that can't be folded; it produces
+    // 1 LDS op per thread vs 6 storage writes in the production path.
+    atomicXor(&bench_sink, m.x.limbs[0] ^ g.x.limbs[0] ^ t);
 {{/bench_skip_writes}}
 {{^bench_skip_writes}}
-        bucket_sum_x[idx] = m.x;
-        bucket_sum_y[idx] = m.y;
-        bucket_sum_z[idx] = m.z;
+    bucket_sum_x[idx] = m.x;
+    bucket_sum_y[idx] = m.y;
+    bucket_sum_z[idx] = m.z;
 
-        g_points_x[t] = g.x;
-        g_points_y[t] = g.y;
-        g_points_z[t] = g.z;
+    g_points_x[t] = g.x;
+    g_points_y[t] = g.y;
+    g_points_z[t] = g.z;
 {{/bench_skip_writes}}
-    } // end of w_local loop (WPB-aware multi-window outer)
 
     {{{ recompile }}}
 }
 
 @compute
 @workgroup_size({{ workgroup_size }})
-fn stage_2(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) wg_id: vec3<u32>,
-    @builtin(local_invocation_id) local_id: vec3<u32>,
-) {
-    let thread_id = local_id.x;
+fn stage_2(@builtin(global_invocation_id) global_id: vec3<u32>) {    
+    let thread_id = global_id.x; 
     let num_threads_per_subtask = {{ workgroup_size }}u;
 
-    let subtask_idx_base = params[0]; // base subtask for this dispatch (host-side outer iter)
+    let subtask_idx = params[0]; // 0, 2, 4, 6, ...
     let num_columns = params[1]; // 65536
-    let num_subtasks_per_bpr = params[2]; // packs g_points output across subtasks (legacy)
-    let num_subtasks_total = params[3]; // bounds check for tail batches when WPB > 1
+    let num_subtasks_per_bpr = params[2]; // Must be a power of 2
 
     /// Number of buckets per subtask.
     let num_buckets_per_subtask = num_columns / 2u; // 2 ** 15 = 32768
@@ -3787,35 +3619,27 @@ fn stage_2(
     let num_buckets_per_bpr = num_buckets_per_subtask * num_subtasks_per_bpr;
 
     /// Number of buckets to reduce per thread.
-    let buckets_per_thread = num_buckets_per_subtask /
+    let buckets_per_thread = num_buckets_per_subtask / 
                              num_threads_per_subtask;
 
-    // WPB-aware subtask iteration. See stage_1 for the rationale.
-    for (var w_local = 0u; w_local < {{ windows_per_batch }}u; w_local = w_local + 1u) {
-        let subtask_in_dispatch = wg_id.x * {{ windows_per_batch }}u + w_local;
-        let subtask_idx = subtask_idx_base + subtask_in_dispatch;
-        if (subtask_idx >= num_subtasks_total) {
-            continue;
-        }
+    let multiplier = subtask_idx + (thread_id / num_threads_per_subtask);
+    let offset = num_buckets_per_subtask * multiplier;
 
-        let multiplier = subtask_idx;
-        let offset = num_buckets_per_subtask * multiplier;
+    var idx = offset;
+    if (thread_id % num_threads_per_subtask != 0u) {
+        idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) * 
+              buckets_per_thread + offset;
+    }
 
-        var idx = offset;
-        if (thread_id % num_threads_per_subtask != 0u) {
-            idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) *
-                  buckets_per_thread + offset;
-        }
+    var m = load_bucket_sum(idx);
 
-        var m = load_bucket_sum(idx);
+    let t = (subtask_idx / num_subtasks_per_bpr) *
+            (num_threads_per_subtask * num_subtasks_per_bpr) +
+            thread_id;
+    var g = load_g_point(t);
 
-        let t = (subtask_idx / num_subtasks_per_bpr) *
-                (num_threads_per_subtask * num_subtasks_per_bpr) +
-                thread_id;
-        var g = load_g_point(t);
-
-        let s = buckets_per_thread * (num_threads_per_subtask - (thread_id % num_threads_per_subtask) - 1u);
-        let sm: Point = double_and_add(m, s);
+    let s = buckets_per_thread * (num_threads_per_subtask - (thread_id % num_threads_per_subtask) - 1u);
+    let sm: Point = double_and_add(m, s);
 
     // The add-2007-bl formula is inlined here (rather than calling
     // add_points(g, sm)) because on Dawn/Metal the function-return slot for
@@ -3903,17 +3727,16 @@ fn stage_2(
         }
     }
 
-        g_points_x[t] = X3_out;
-        g_points_y[t] = Y3_out;
-        g_points_z[t] = Z3_out;
+    g_points_x[t] = X3_out;
+    g_points_y[t] = Y3_out;
+    g_points_z[t] = Z3_out;
 
-        {{#capture_debug}}
-        // Final values of the formula outputs, read from outer scope.
-        debug_capture[thread_id * 8u + 4u] = X3_out;
-        debug_capture[thread_id * 8u + 5u] = Y3_out;
-        debug_capture[thread_id * 8u + 7u] = Z3_out;
-        {{/capture_debug}}
-    } // end of w_local loop (WPB-aware multi-window outer)
+    {{#capture_debug}}
+    // Final values of the formula outputs, read from outer scope.
+    debug_capture[thread_id * 8u + 4u] = X3_out;
+    debug_capture[thread_id * 8u + 5u] = Y3_out;
+    debug_capture[thread_id * 8u + 7u] = Z3_out;
+    {{/capture_debug}}
 
     {{{ recompile }}}
 }
@@ -8128,28 +7951,6 @@ fn fr_pow(base: BigInt, exp: BigInt) -> BigInt {
         }
     }
     return result;
-}
-
-// (p - 2) as a plain (non-Montgomery) BigInt. Used by fr_pow_inv as the
-// exponent in Fermat's little theorem: a^(p-2) ≡ a^(-1) (mod p).
-fn get_p_minus_2() -> BigInt {
-    var e: BigInt;
-{{{ p_minus_2_limbs }}}
-    return e;
-}
-
-// Field inversion via Fermat's little theorem: a^(-1) ≡ a^(p-2) (mod p).
-// Both input and output are in Montgomery form. Since \`fr_pow\` preserves
-// Montgomery form (Mont(base)^exp -> Mont(base^exp)), the result of
-// \`fr_pow(Mont(a), p-2)\` is directly Mont(a^(-1)). No extra correction.
-//
-// Cost: ~254 squarings + ~127 expected multiplies (half the bits of p-2
-// are set), ≈ 381 montgomery_products per call. Compare to fr_inv's
-// jumpy K=12 safegcd which converges in ~62 outer iters with ~10
-// BigInt-ops each plus ONE montgomery_product at the end.
-fn fr_pow_inv(a: BigInt) -> BigInt {
-    var exp: BigInt = get_p_minus_2();
-    return fr_pow(a, exp);
 }
 
 // R^3 mod p. Used by \`fr_inv\` to convert the binary-GCD output (which is

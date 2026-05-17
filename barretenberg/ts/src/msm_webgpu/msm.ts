@@ -250,7 +250,6 @@ export const compute_bn254_msm_batch_affine = async (
   // and no-collision Jacobian for g (saves ~13-25 ms but requires
   // batch-affine SMVP buckets and is sensitive to Tint codegen).
   bpr_inner_loop: 'legacy' | 'mixed_safe' | 'assume_affine' = 'legacy',
-  use_tree_reduce = false,
 ): Promise<{ x: bigint; y: bigint }> =>
   compute_curve_msm(
     // Cached path: `baseAffinePoints` is ignored. Uint8Array cast keeps
@@ -268,7 +267,6 @@ export const compute_bn254_msm_batch_affine = async (
     bpr_bench_flags,
     profile_capture,
     bpr_inner_loop,
-    use_tree_reduce,
   );
 
 // GLV cold-path entry points (compute_bn254_msm_glv and
@@ -496,12 +494,6 @@ const compute_curve_msm = async (
   // BPR stage_1 inner-loop variant. See compute_bn254_msm_batch_affine
   // for the full description. Default 'legacy' (production-stable).
   bpr_inner_loop: 'legacy' | 'mixed_safe' | 'assume_affine' = 'legacy',
-  // Opt-in: route the per-bucket affine reduction through the
-  // tree-reduce pipeline (smvp_tree_phase1 + recursive smvp_tree_phase2
-  // + scatter) instead of the round-loop. Init + finalize stages stay
-  // unchanged. Currently bn254 only (uses the same fr_inv_by_a from
-  // the existing batch_affine pipelines). Output bit-identical.
-  use_tree_reduce = false,
 ): Promise<{ x: bigint; y: bigint }> => {
   const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
@@ -588,20 +580,7 @@ const compute_curve_msm = async (
   cpu_timer.phaseFrom('device_acquire', 'device_begin');
 
   // Create single command encoder for device
-  // commandEncoder is wrapped in a ref so smvp_batch_affine_gpu's
-  // tree-reduce path can swap it (it has to mid-flush the encoder to
-  // ensure ebid sees the current transpose, then continue with a fresh
-  // encoder for scatter + finalize + BPR).
-  const commandEncoderRef: { current: GPUCommandEncoder } = {
-    current: device.createCommandEncoder(),
-  };
-  // Backwards-compat alias for existing code paths that use the local
-  // `commandEncoder` name. Stock path never mutates the ref, so they
-  // resolve to the same object.
-  let commandEncoder = commandEncoderRef.current;
-  // The tree-reduce branch swaps commandEncoderRef.current; subsequent
-  // BPR / readback work must use the latest. We rebind `commandEncoder`
-  // below right after smvp_batch_affine_gpu.
+  const commandEncoder = device.createCommandEncoder();
 
   // Per-pass GPU profiler. No-ops if "timestamp-query" isn't supported.
   //
@@ -878,30 +857,10 @@ const compute_curve_msm = async (
     if (curveConfig.id !== 'bn254') {
       throw new Error('use_batch_affine_smvp is currently BN254-only.');
     }
-    // TODO(msm-tree-reduce): Swap this call for `runTreeReduce` from
-    // `cuzk/smvp_tree.ts` once the affine→Jacobian + T×h fold adapter
-    // lands. The orchestrator is correctness-validated end-to-end
-    // (Phase 1 + Phase 2 chain, standalone bench
-    // `dev/msm-webgpu/bench-smvp-tree.html` matches CPU full-reduce
-    // bit-for-bit on Apple M2 BS, 4 layers, 5 buckets, ~5.9 ms).
-    // Wiring checklist:
-    //   1. Compute `entry_bucket_id[]` from `all_csc_col_ptr_sb` (the
-    //      bucketStart array) via a one-pass scan kernel OR a host
-    //      readback (cold-path only; cache when externals_persistent).
-    //   2. Call `runTreeReduce(device, p1Pipeline, p1Layout,
-    //      p2Pipeline, p2Layout, all_csc_val_idxs_sb, entryBucketId,
-    //      point_x_sb, point_y_sb, total_entries, bucketStart,
-    //      {tpb, maxSliceEntries})`.
-    //   3. Convert affine partials to the T×h×BigInt Jacobian layout
-    //      expected by downstream BPR: for each `(bucket_id, P)` write
-    //      `(P.x, P.y, R)` (Mont-form 1) into the slot keyed by
-    //      bucket_id; zero out empty slots.
-    //   4. Run Quick Sanity Check at logN=16 via Playwright to confirm
-    //      end-to-end correctness, then open perf gates.
     await smvp_batch_affine_gpu(
       shaderManager,
       device,
-      commandEncoderRef,
+      commandEncoder,
       num_subtasks,
       num_columns,
       input_size,
@@ -921,11 +880,7 @@ const compute_curve_msm = async (
       // `cached_bases` are present — that's the warm benchmark loop.
       // Tells smvp_batch_affine_gpu it can cache its bind groups.
       cached_bases !== undefined && context !== undefined,
-      use_tree_reduce,
     );
-    // Tree-reduce path may have replaced the encoder; re-bind so
-    // subsequent BPR / readback operations target the active encoder.
-    commandEncoder = commandEncoderRef.current;
   } else {
     const smvp_shader = shaderManager.gen_smvp_shader(s_workgroup_size, num_columns);
 
@@ -993,14 +948,7 @@ const compute_curve_msm = async (
   // loop's wraparound bug AND keeps the simpler one-iteration dispatch
   // that the warm-cached bind-group cache already assumes.
   const num_subtasks_per_bpr_1 = num_subtasks;
-  // BPR_WINDOWS_PER_BATCH: each workgroup handles WPB consecutive
-  // subtasks via an in-kernel const-bounded loop. WPB=1 = legacy
-  // dispatch shape (X = num_subtasks). WPB > 1 trades thread count for
-  // per-thread work — see bpr_bn254.template.wgsl stage_1 comment for
-  // the register-pressure tradeoff. Override per call via the
-  // bpr_inner_loop knob downstream if needed.
-  const BPR_WINDOWS_PER_BATCH = 1;
-  const b_num_x_workgroups = Math.ceil(num_subtasks_per_bpr_1 / BPR_WINDOWS_PER_BATCH);
+  const b_num_x_workgroups = num_subtasks_per_bpr_1;
   const b_workgroup_size = 256;
 
   // Output of the parallel bucket points reduction (BPR) shader
@@ -1054,7 +1002,6 @@ const compute_curve_msm = async (
     /* mixed_safe_buckets */ bpr_mixed_safe,
     /* bench_flags */ bpr_bench_flags,
     /* safe_first_add_no_collision */ bpr_safe_first,
-    /* windows_per_batch */ BPR_WINDOWS_PER_BATCH,
   );
   // Compact key derived from the bench flags. Forwarded into the bpr_1
   // and bpr_2 pipeline cache keys so each variant compiles its own
@@ -1094,8 +1041,6 @@ const compute_curve_msm = async (
       bpr_mixed_safe,
       bpr_bench_key,
       input_size,
-      num_subtasks,
-      BPR_WINDOWS_PER_BATCH,
     );
   }
 
@@ -1125,7 +1070,7 @@ const compute_curve_msm = async (
   // Bucket points reduction (BPR) - stage 2
   // Same as bpr_1: dispatch all T subtasks in one outer iter.
   const num_subtasks_per_bpr_2 = num_subtasks;
-  const b_2_num_x_workgroups = Math.ceil(num_subtasks_per_bpr_2 / BPR_WINDOWS_PER_BATCH);
+  const b_2_num_x_workgroups = num_subtasks_per_bpr_2;
   for (let subtask_idx = 0; subtask_idx < num_subtasks; subtask_idx += num_subtasks_per_bpr_2) {
     await bpr_2(
       bpr_shader,
@@ -1151,8 +1096,6 @@ const compute_curve_msm = async (
       bpr_mixed_safe,
       bpr_bench_key,
       input_size,
-      num_subtasks,
-      BPR_WINDOWS_PER_BATCH,
     );
   }
   cpu_timer.phaseFrom('bpr_host_total', 'bpr_host_begin');
@@ -2416,11 +2359,6 @@ const bpr_1 = async (
   // first call's buffers, BPR would read stale data, and downstream
   // Horner would read an unwritten g_points buffer and return identity.
   input_size_key = 0,
-  // Total subtask count + WPB. Passed to the shader as params[3] so
-  // multi-window dispatches with WPB > 1 can skip out-of-range subtasks
-  // in the tail batch (when num_subtasks is not a multiple of WPB).
-  num_subtasks_total = 0,
-  windows_per_batch = 1,
 ) => {
   let original_bucket_sum_x_sb;
   let original_bucket_sum_y_sb;
@@ -2437,13 +2375,11 @@ const bpr_1 = async (
     commandEncoder.copyBufferToBuffer(bucket_sum_z_sb, 0, original_bucket_sum_z_sb, 0, bucket_sum_z_sb.size);
   }
 
-  // Parameters as a uniform buffer. Layout: (subtask_idx_base,
-  // num_columns, num_subtasks_per_bpr, num_subtasks_total). The 4th
-  // slot lets the WPB-aware shader skip out-of-range subtasks in tail
-  // batches. Constant per (subtask_idx, layout, WPB) tuple, so we cache
-  // it on the context when one is provided.
-  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups, num_subtasks_total]);
-  const bpr1_key = `${curveId ?? 'x'}:bpr1:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
+  // Parameters as a uniform buffer. Contents (subtask_idx, num_columns,
+  // num_x_workgroups) are constant per (subtask_idx, layout) tuple, so
+  // we cache them on the context when one is provided.
+  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups]);
+  const bpr1_key = `${curveId ?? 'x'}:bpr1:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
     const got = context.acquirePersistentUniform(`${bpr1_key}:params_ub`, params_bytes.length);
@@ -2470,7 +2406,7 @@ const bpr_1 = async (
     // Debug-capture variant compiles a different shader (Mustache flag),
     // so keys must not collide with the non-debug one.
     context,
-    `${curveId ?? 'x'}:bpr1:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
+    `${curveId ?? 'x'}:bpr1:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
   );
   cpu_timer?.accumulate('compile_bpr1_shader', performance.now() - _b1_compile_t0);
 
@@ -2618,15 +2554,10 @@ const bpr_2 = async (
   // group across MSM calls with different `input_size`, whose
   // workspace buffers are equally sized but distinct GPUBuffer objects.
   input_size_key = 0,
-  // See bpr_1: total subtasks (4th param slot) + WPB (cache key).
-  num_subtasks_total = 0,
-  windows_per_batch = 1,
 ) => {
   // Parameters as a uniform buffer (cached on context when not debug).
-  // Layout: (subtask_idx_base, num_columns, num_subtasks_per_bpr,
-  // num_subtasks_total). See bpr_1 for the layout rationale.
-  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups, num_subtasks_total]);
-  const bpr2_key = `${curveId ?? 'x'}:bpr2:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
+  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups]);
+  const bpr2_key = `${curveId ?? 'x'}:bpr2:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
     const got = context.acquirePersistentUniform(`${bpr2_key}:params_ub`, params_bytes.length);
@@ -2647,7 +2578,7 @@ const bpr_2 = async (
     shaderCode,
     'stage_2',
     context,
-    `${curveId ?? 'x'}:bpr2:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
+    `${curveId ?? 'x'}:bpr2:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
   );
   cpu_timer?.accumulate('compile_bpr2_shader', performance.now() - _b2_compile_t0);
 

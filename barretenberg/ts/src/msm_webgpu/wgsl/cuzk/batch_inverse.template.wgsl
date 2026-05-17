@@ -3,8 +3,6 @@
 {{> montgomery_product_funcs }}
 {{> field_funcs }}
 {{> fr_pow_funcs }}
-{{> bigint_by_funcs }}
-{{> by_inverse_a_funcs }}
 
 // get_r returns Montgomery R (= the integer 1 in Montgomery form). Each
 // main shader defines its own with `r_limbs` substitution; the
@@ -76,7 +74,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     // Step 2: invert the final product.
-    var inv_acc: BigInt = fr_inv_by_a(acc);
+    var inv_acc: BigInt = fr_inv(acc);
 
     // Step 3: walk back, emitting individual inverses.
     for (var idx = 0u; idx < n - 1u; idx = idx + 1u) {

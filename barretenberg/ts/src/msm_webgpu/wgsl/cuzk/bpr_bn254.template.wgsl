@@ -21,14 +21,9 @@ var<storage, read_write> g_points_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> g_points_z: array<BigInt>;
 
-// Uniform storage buffer. Layout: (subtask_idx_base, num_columns,
-// num_subtasks_per_bpr, num_subtasks_total). The 4th slot is the
-// dispatch's bounds-check ceiling for the WPB tail batch — values past
-// num_subtasks_total are skipped per-thread inside the multi-window
-// loop. Promoted from vec3 to vec4 so the host can pass a single
-// uniform across both legacy (WPB=1) and multi-window dispatches.
+// Unfiform storage buffer.
 @group(0) @binding(6)
-var<uniform> params: vec4<u32>;
+var<uniform> params: vec3<u32>;
 
 {{#capture_debug}}
 // Debug capture for stage_2's inline add-2007-bl formula. Layout: 8 BigInts
@@ -154,29 +149,15 @@ fn bench_xor_into(a: Point, b: Point) -> Point {
     return r;
 }
 
-// Multi-window BPR (WPB > 1) trades thread count for per-thread work:
-// fewer workgroups dispatched, each thread runs the WPB-window inner loop
-// {{ windows_per_batch }}u times (one per subtask in the batch). Saves
-// total launches and amortises kernel header / dispatch overhead, but
-// inflates per-thread register pressure — a single subtask already
-// carries ~10 BigInt locals (~800B/thread) inside the add_points formula,
-// so WPB > 1 risks spilling on Apple Silicon SIMD-groups (32 KB shared
-// register file). When WPB=1 the inner loop runs once and the dispatch
-// shape collapses to the legacy (X=num_subtasks, 256) layout.
 @compute
 @workgroup_size({{ workgroup_size }})
-fn stage_1(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) wg_id: vec3<u32>,
-    @builtin(local_invocation_id) local_id: vec3<u32>,
-) {
-    let thread_id = local_id.x;
+fn stage_1(@builtin(global_invocation_id) global_id: vec3<u32>) {    
+    let thread_id = global_id.x; 
     let num_threads_per_subtask = {{ workgroup_size }}u;
 
-    let subtask_idx_base = params[0]; // base subtask for this dispatch (host-side outer iter)
+    let subtask_idx = params[0]; // 0, 2, 4, 6, ...
     let num_columns = params[1]; // 65536
-    let num_subtasks_per_bpr = params[2]; // packs g_points output across subtasks (legacy)
-    let num_subtasks_total = params[3]; // bounds check for tail batches when WPB > 1
+    let num_subtasks_per_bpr = params[2]; // Must be a power of 2
 
     /// Number of buckets per subtask.
     let num_buckets_per_subtask = num_columns / 2u; // 2 ** 15 = 32768
@@ -186,30 +167,17 @@ fn stage_1(
     let num_buckets_per_bpr = num_buckets_per_subtask * num_subtasks_per_bpr;
 
     /// Number of buckets to reduce per thread.
-    let buckets_per_thread = num_buckets_per_subtask /
+    let buckets_per_thread = num_buckets_per_subtask / 
                              num_threads_per_subtask;
 
-    // WPB-aware subtask iteration. Each workgroup owns WPB consecutive
-    // subtasks; thread `thread_id` processes the same in-subtask slice
-    // for every one of them. With WPB=1 the outer loop runs once and
-    // the semantics are byte-identical to the legacy dispatch.
-    for (var w_local = 0u; w_local < {{ windows_per_batch }}u; w_local = w_local + 1u) {
-        let subtask_in_dispatch = wg_id.x * {{ windows_per_batch }}u + w_local;
-        let subtask_idx = subtask_idx_base + subtask_in_dispatch;
-        if (subtask_idx >= num_subtasks_total) {
-            // Tail batch: skip out-of-range subtasks (num_subtasks may
-            // not be a multiple of WPB).
-            continue;
-        }
+    let multiplier = subtask_idx + (thread_id / num_threads_per_subtask);
+    let offset = num_buckets_per_subtask * multiplier;
 
-        let multiplier = subtask_idx;
-        let offset = num_buckets_per_subtask * multiplier;
-
-        var idx = offset;
-        if (thread_id % num_threads_per_subtask != 0u) {
-            idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) *
-                  buckets_per_thread + offset;
-        }
+    var idx = offset;
+    if (thread_id % num_threads_per_subtask != 0u) {
+        idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) * 
+              buckets_per_thread + offset;
+    }
 
 {{#bench_compute_only}}
     // Microbench: synthesize the initial m so this load is also stripped.
@@ -484,46 +452,40 @@ fn stage_1(
 {{/mixed_safe_buckets}}
 {{/assume_affine_buckets}}
 
-        let t = (subtask_idx / num_subtasks_per_bpr) *
-                (num_threads_per_subtask * num_subtasks_per_bpr) +
-                thread_id;
+    let t = (subtask_idx / num_subtasks_per_bpr) *
+            (num_threads_per_subtask * num_subtasks_per_bpr) +
+            thread_id;
 
 {{#bench_skip_writes}}
-        // V_NULL / V3: skip the 6 storage writes (bucket_sum + g_points).
-        // Funnel one observable write per thread into the workgroup atomic
-        // sink so the WGSL compiler can't DCE the inner loop. atomicXor is
-        // the cheapest read-modify-write that can't be folded; it produces
-        // 1 LDS op per thread vs 6 storage writes in the production path.
-        atomicXor(&bench_sink, m.x.limbs[0] ^ g.x.limbs[0] ^ t);
+    // V_NULL / V3: skip the 6 storage writes (bucket_sum + g_points).
+    // Funnel one observable write per thread into the workgroup atomic
+    // sink so the WGSL compiler can't DCE the inner loop. atomicXor is
+    // the cheapest read-modify-write that can't be folded; it produces
+    // 1 LDS op per thread vs 6 storage writes in the production path.
+    atomicXor(&bench_sink, m.x.limbs[0] ^ g.x.limbs[0] ^ t);
 {{/bench_skip_writes}}
 {{^bench_skip_writes}}
-        bucket_sum_x[idx] = m.x;
-        bucket_sum_y[idx] = m.y;
-        bucket_sum_z[idx] = m.z;
+    bucket_sum_x[idx] = m.x;
+    bucket_sum_y[idx] = m.y;
+    bucket_sum_z[idx] = m.z;
 
-        g_points_x[t] = g.x;
-        g_points_y[t] = g.y;
-        g_points_z[t] = g.z;
+    g_points_x[t] = g.x;
+    g_points_y[t] = g.y;
+    g_points_z[t] = g.z;
 {{/bench_skip_writes}}
-    } // end of w_local loop (WPB-aware multi-window outer)
 
     {{{ recompile }}}
 }
 
 @compute
 @workgroup_size({{ workgroup_size }})
-fn stage_2(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) wg_id: vec3<u32>,
-    @builtin(local_invocation_id) local_id: vec3<u32>,
-) {
-    let thread_id = local_id.x;
+fn stage_2(@builtin(global_invocation_id) global_id: vec3<u32>) {    
+    let thread_id = global_id.x; 
     let num_threads_per_subtask = {{ workgroup_size }}u;
 
-    let subtask_idx_base = params[0]; // base subtask for this dispatch (host-side outer iter)
+    let subtask_idx = params[0]; // 0, 2, 4, 6, ...
     let num_columns = params[1]; // 65536
-    let num_subtasks_per_bpr = params[2]; // packs g_points output across subtasks (legacy)
-    let num_subtasks_total = params[3]; // bounds check for tail batches when WPB > 1
+    let num_subtasks_per_bpr = params[2]; // Must be a power of 2
 
     /// Number of buckets per subtask.
     let num_buckets_per_subtask = num_columns / 2u; // 2 ** 15 = 32768
@@ -533,35 +495,27 @@ fn stage_2(
     let num_buckets_per_bpr = num_buckets_per_subtask * num_subtasks_per_bpr;
 
     /// Number of buckets to reduce per thread.
-    let buckets_per_thread = num_buckets_per_subtask /
+    let buckets_per_thread = num_buckets_per_subtask / 
                              num_threads_per_subtask;
 
-    // WPB-aware subtask iteration. See stage_1 for the rationale.
-    for (var w_local = 0u; w_local < {{ windows_per_batch }}u; w_local = w_local + 1u) {
-        let subtask_in_dispatch = wg_id.x * {{ windows_per_batch }}u + w_local;
-        let subtask_idx = subtask_idx_base + subtask_in_dispatch;
-        if (subtask_idx >= num_subtasks_total) {
-            continue;
-        }
+    let multiplier = subtask_idx + (thread_id / num_threads_per_subtask);
+    let offset = num_buckets_per_subtask * multiplier;
 
-        let multiplier = subtask_idx;
-        let offset = num_buckets_per_subtask * multiplier;
+    var idx = offset;
+    if (thread_id % num_threads_per_subtask != 0u) {
+        idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) * 
+              buckets_per_thread + offset;
+    }
 
-        var idx = offset;
-        if (thread_id % num_threads_per_subtask != 0u) {
-            idx = (num_threads_per_subtask - (thread_id % num_threads_per_subtask)) *
-                  buckets_per_thread + offset;
-        }
+    var m = load_bucket_sum(idx);
 
-        var m = load_bucket_sum(idx);
+    let t = (subtask_idx / num_subtasks_per_bpr) *
+            (num_threads_per_subtask * num_subtasks_per_bpr) +
+            thread_id;
+    var g = load_g_point(t);
 
-        let t = (subtask_idx / num_subtasks_per_bpr) *
-                (num_threads_per_subtask * num_subtasks_per_bpr) +
-                thread_id;
-        var g = load_g_point(t);
-
-        let s = buckets_per_thread * (num_threads_per_subtask - (thread_id % num_threads_per_subtask) - 1u);
-        let sm: Point = double_and_add(m, s);
+    let s = buckets_per_thread * (num_threads_per_subtask - (thread_id % num_threads_per_subtask) - 1u);
+    let sm: Point = double_and_add(m, s);
 
     // The add-2007-bl formula is inlined here (rather than calling
     // add_points(g, sm)) because on Dawn/Metal the function-return slot for
@@ -649,17 +603,16 @@ fn stage_2(
         }
     }
 
-        g_points_x[t] = X3_out;
-        g_points_y[t] = Y3_out;
-        g_points_z[t] = Z3_out;
+    g_points_x[t] = X3_out;
+    g_points_y[t] = Y3_out;
+    g_points_z[t] = Z3_out;
 
-        {{#capture_debug}}
-        // Final values of the formula outputs, read from outer scope.
-        debug_capture[thread_id * 8u + 4u] = X3_out;
-        debug_capture[thread_id * 8u + 5u] = Y3_out;
-        debug_capture[thread_id * 8u + 7u] = Z3_out;
-        {{/capture_debug}}
-    } // end of w_local loop (WPB-aware multi-window outer)
+    {{#capture_debug}}
+    // Final values of the formula outputs, read from outer scope.
+    debug_capture[thread_id * 8u + 4u] = X3_out;
+    debug_capture[thread_id * 8u + 5u] = Y3_out;
+    debug_capture[thread_id * 8u + 7u] = Z3_out;
+    {{/capture_debug}}
 
     {{{ recompile }}}
 }

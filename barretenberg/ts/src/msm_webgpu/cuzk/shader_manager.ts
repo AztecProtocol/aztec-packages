@@ -462,7 +462,7 @@ export class ShaderManager {
   // get merged into ONE fr_inv_by_a call per (batch, sub_wg). Z dispatch
   // dim must be ceil(num_subtasks / WPB). Pass WPB=1 to recover the
   // pre-pooling behaviour byte-for-byte.
-  public gen_batch_inverse_parallel_shader(num_sub_wgs: number, windows_per_batch: number): string {
+  public gen_batch_inverse_parallel_shader(num_sub_wgs: number, windows_per_batch: number = 1): string {
     return mustache.render(
       batch_inverse_parallel_shader,
       {
@@ -708,7 +708,7 @@ export class ShaderManager {
   // dispatch_args derives `num_batches = ceil(num_subtasks / WPB)` and
   // uses it as the inverse-pass Z dispatch dim. Must match the WPB used
   // by the corresponding gen_batch_inverse_parallel_shader call.
-  public gen_batch_affine_dispatch_args_shader(windows_per_batch: number): string {
+  public gen_batch_affine_dispatch_args_shader(windows_per_batch: number = 1): string {
     return mustache.render(batch_affine_dispatch_args_shader, { windows_per_batch }, {});
   }
 

@@ -24,7 +24,6 @@ import { create_and_write_sb, create_and_write_ub, create_bind_group, create_sb 
 import type { GpuContext } from './gpu_context.js';
 import { ShaderManager } from './shader_manager.js';
 import { create_bind_group_layout, execute_pipeline, execute_pipeline_indirect } from './gpu.js';
-import { runTreeReduce } from './smvp_tree.js';
 
 // Per-stage profiling budgets for the per-round loop. Sized to cover
 // every active round of every family at every benchmark size, including
@@ -115,7 +114,7 @@ const compile_pipeline_for = async (
 export const smvp_batch_affine_gpu = async (
   shaderManager: ShaderManager,
   device: GPUDevice,
-  commandEncoderRef: { current: GPUCommandEncoder },
+  commandEncoder: GPUCommandEncoder,
   num_subtasks: number,
   num_columns: number,
   input_size: number,
@@ -135,45 +134,11 @@ export const smvp_batch_affine_gpu = async (
   // path with transient buffers) we fall back to per-call bind-group
   // creation. Caller's responsibility to set correctly.
   externals_persistent = false,
-  // When true, swap the round-loop for the tree-reduce pipeline.
-  // Init (zeroes running_x/y, sets bucket_active from CSR) and the
-  // three finalize dispatches stay unchanged — they consume the same
-  // running_x/y + bucket_active state regardless of how the per-bucket
-  // affine sums were computed. The tree-reduce path writes those
-  // exact buffers via the scatter kernel after the
-  // smvp_tree_phase1/2 orchestrator finishes.
-  use_tree_reduce = false,
 ): Promise<void> => {
-  // The tree-reduce path needs to mid-flush commandEncoder so its CSR
-  // reads see the current call's transpose output (not stale data from
-  // the previous call). The caller passes commandEncoderRef.current,
-  // which we mutate to a fresh encoder mid-execution; the caller then
-  // continues recording BPR on the replaced encoder.
-  let commandEncoder = commandEncoderRef.current;
   const half_num_columns = num_columns / 2;
   const total_buckets = num_subtasks * num_columns;
   const num_words = shaderManager.num_words;
   const limb_byte_length = num_words * 4;
-
-  // WINDOWS_PER_BATCH pools the pair pools of WPB consecutive subtasks
-  // into ONE fr_inv_by_a per (batch, sub_wg) — see
-  // batch_inverse_parallel.template.wgsl. With T=17 subtasks at logN=16
-  // and WPB=4, num_batches = ceil(17/4) = 5, so a round runs 5×W
-  // workgroups in the inverse pass instead of 17×W (~4× fewer fr_inv
-  // calls overall). The pair-pool layout is per-subtask, unchanged; the
-  // pooling only changes how the inverse kernel reads/writes scratch.
-  // WPB=1 falls back to byte-identical pre-pooling behaviour.
-  //
-  // Default is 1: the per-pass profiler at logN=16 on Apple Silicon
-  // showed ba_inverse Σ ≈ 14% of MSM, so pooling buys little relative
-  // to BPR (51%). The plumbing stays in place so the knob is one edit
-  // away once BPR is no longer the dominant cost.
-  const WINDOWS_PER_BATCH = 1;
-  const num_batches = Math.ceil(num_subtasks / WINDOWS_PER_BATCH);
-  // count_buf (round_count + finalize_count) must be safely loadable
-  // for every slot the inverse kernel reads — i.e. through the tail of
-  // the last batch.
-  const count_slots_padded = num_batches * WINDOWS_PER_BATCH;
 
   // ----- Workspace buffers -----
   // When a persistent context is provided, all per-MSM workspace buffers
@@ -225,12 +190,7 @@ export const smvp_batch_affine_gpu = async (
   // THIS round's inverse + apply. Decouples the schedule writer from
   // the inverse/apply readers so we can zero pair_counter in dispatch_args
   // without losing the values inverse/apply still need.
-  //
-  // Padded to num_batches × WPB so the inverse kernel's per-batch WPB-
-  // wide atomicLoad scan can safely touch the tail of the last batch
-  // when num_subtasks isn't a multiple of WPB. Persistent buffers come
-  // zero-initialised; nothing else writes those tail slots.
-  const round_count_sb = acquire_ws('round_count', count_slots_padded * 4);
+  const round_count_sb = acquire_ws('round_count', num_subtasks * 4);
   // Indirect-dispatch arg buffer. Layout: 9 u32s (36 B):
   //   args[0..3] = schedule (X, Y, Z)   — for the *next* round
   //   args[3..6] = inverse  (X, Y, Z)   — for *this* round
@@ -256,15 +216,9 @@ export const smvp_batch_affine_gpu = async (
   // Contents are constant across MSM calls, so we write once on first
   // acquisition and skip the writeBuffer thereafter.
   let finalize_count_sb: GPUBuffer;
-  // Sized to count_slots_padded so the inverse's per-batch WPB-wide scan
-  // sees zeros for tail slots past num_subtasks (which the kernel
-  // skips by treating wg_counts[w]=0 as an empty subtask). The first
-  // num_subtasks slots carry half_num_columns each.
-  const finalize_counts_arr = new Uint32Array(count_slots_padded);
-  for (let i = 0; i < num_subtasks; i++) finalize_counts_arr[i] = half_num_columns;
   if (context !== undefined) {
-    finalize_count_sb = context.acquirePersistentBuffer(`${ws_key}:finalize_count`, count_slots_padded * 4);
-    // Re-write the constants every time (cheap — at most ~20 u32s = 80 B)
+    finalize_count_sb = context.acquirePersistentBuffer(`${ws_key}:finalize_count`, num_subtasks * 4);
+    // Re-write the constants every time (cheap — T u32s = 64 B at T=16)
     // rather than tracking a "first call" flag. Avoids a subtle bug where
     // a bigger N then smaller N would leave stale values in the cached
     // buffer (acquirePersistentBuffer resets identity on size change but
@@ -272,12 +226,12 @@ export const smvp_batch_affine_gpu = async (
     device.queue.writeBuffer(
       finalize_count_sb,
       0,
-      new Uint8Array(finalize_counts_arr.buffer, finalize_counts_arr.byteOffset, finalize_counts_arr.byteLength),
+      new Uint8Array(new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer),
     );
   } else {
     finalize_count_sb = create_and_write_sb(
       device,
-      new Uint8Array(finalize_counts_arr.buffer, finalize_counts_arr.byteOffset, finalize_counts_arr.byteLength),
+      new Uint8Array(new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer),
     );
   }
 
@@ -302,20 +256,21 @@ export const smvp_batch_affine_gpu = async (
   const apply_workgroup_size = 64;
   const finalize_workgroup_size_default = 256;
 
-  // Inverse pass parallelism: each (batch, sub_wg) inverts a contiguous
-  // slice of the merged pool. NUM_SUB_WGS_PER_SUBTASK workgroups of
-  // TPB=64 threads each handle one slice independently (own fr_inv).
+  // Inverse pass parallelism: each subtask's pair pool is split across
+  // NUM_SUB_WGS_PER_SUBTASK contiguous slices, with one workgroup of
+  // TPB=64 threads inverting each slice independently (its own fr_inv).
   // Drops per-thread sequential bs by W× → W× faster Phase A/D at large
   // N. The W extra fr_invs run concurrently across SMs (zero wall-time
-  // cost).
+  // cost). W=8 keeps SM occupancy high (T=16 × W=8 = 128 in-flight
+  // workgroups, matching RTX-class GPU SM counts).
   const NUM_SUB_WGS_PER_SUBTASK = 8;
 
   const init_shader = shaderManager.gen_batch_affine_init_shader(init_workgroup_size);
   const schedule_shader = shaderManager.gen_batch_affine_schedule_shader(schedule_workgroup_size);
-  const dispatch_args_shader = shaderManager.gen_batch_affine_dispatch_args_shader(WINDOWS_PER_BATCH);
-  // Multi-workgroup batch-inverse (W sub-WGs per (batch, sub_wg)). See
+  const dispatch_args_shader = shaderManager.gen_batch_affine_dispatch_args_shader();
+  // Multi-workgroup batch-inverse (W sub-WGs per subtask). See
   // batch_inverse_parallel.template.wgsl for the algorithm.
-  const inverse_shader = shaderManager.gen_batch_inverse_parallel_shader(NUM_SUB_WGS_PER_SUBTASK, WINDOWS_PER_BATCH);
+  const inverse_shader = shaderManager.gen_batch_inverse_parallel_shader(NUM_SUB_WGS_PER_SUBTASK);
   const apply_shader = shaderManager.gen_batch_affine_apply_scatter_shader(apply_workgroup_size);
   // Finalize dispatch geometry — single dispatch covers all T·h IDs;
   // z workgroups = num_subtasks, threading inside the kernel mirrors
@@ -395,7 +350,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     inverse_shader,
     context,
-    `bn254:batch_affine_inverse:parallel-v4-wpb${WINDOWS_PER_BATCH}:${num_columns}:${input_size}`,
+    `bn254:batch_affine_inverse:parallel-v3-pitch:${num_columns}:${input_size}`,
   );
 
   const apply_pipe = await compile_pipeline_for(
@@ -426,7 +381,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     dispatch_args_shader,
     context,
-    `bn254:batch_affine_dispatch_args:v3-wpb${WINDOWS_PER_BATCH}:${num_subtasks}:${apply_workgroup_size}`,
+    `bn254:batch_affine_dispatch_args:v2-fwd:${num_subtasks}:${apply_workgroup_size}`,
   );
 
   const finalize_collect_pipe = await compile_pipeline_for(
@@ -577,7 +532,7 @@ export const smvp_batch_affine_gpu = async (
   // Cache suffix bumped to "v2" so we don't accidentally reuse a cached
   // bind group from the pre-fold v1 layout (same buffer count, different
   // semantics — the v2 suffix tags the new wiring explicitly).
-  const inverse_bg = acquire_bg(`inverse_bg:v3-wpb${WINDOWS_PER_BATCH}`, inverse_pipe.layout, [
+  const inverse_bg = acquire_bg('inverse_bg:v2', inverse_pipe.layout, [
     pair_delta_sb,
     pair_prefix_sb,
     pair_inv_sb,
@@ -600,7 +555,7 @@ export const smvp_batch_affine_gpu = async (
   // Suffix bumped to v2 by P2-clear: bind group now binds 4 buffers
   // (pair_counter + round_count + dispatch_args + ub) instead of 3.
   // W suffix dropped along with the P1 revert.
-  const dispatch_args_bg = acquire_bg(`dispatch_args_bg:v3-wpb${WINDOWS_PER_BATCH}`, dispatch_args_pipe.layout, [
+  const dispatch_args_bg = acquire_bg('dispatch_args_bg:v2', dispatch_args_pipe.layout, [
     pair_counter_sb,
     round_count_sb,
     dispatch_args_sb,
@@ -621,7 +576,7 @@ export const smvp_batch_affine_gpu = async (
     finalize_ub,
   ]);
 
-  const finalize_inverse_bg = acquire_bg(`finalize_inverse_bg:v2-wpb${WINDOWS_PER_BATCH}`, inverse_pipe.layout, [
+  const finalize_inverse_bg = acquire_bg('finalize_inverse_bg', inverse_pipe.layout, [
     pair_delta_sb,
     pair_prefix_sb,
     pair_inv_sb,
@@ -642,259 +597,10 @@ export const smvp_batch_affine_gpu = async (
 
   // ----- Dispatch sequence -----
 
-  // DEBUG: optionally zero all persistent workspace buffers at the
-  // start of every MSM call. Useful for isolating "stale persistent
-  // state across calls" as a non-determinism source.
-  if ((globalThis as unknown as { __msm_debug_zero_workspace?: boolean }).__msm_debug_zero_workspace) {
-    commandEncoder.clearBuffer(running_x_sb);
-    commandEncoder.clearBuffer(running_y_sb);
-    commandEncoder.clearBuffer(bucket_cursor_sb);
-    commandEncoder.clearBuffer(bucket_active_sb);
-    commandEncoder.clearBuffer(pair_delta_sb);
-    commandEncoder.clearBuffer(pair_inv_sb);
-    commandEncoder.clearBuffer(pair_prefix_sb);
-    commandEncoder.clearBuffer(pair_target_meta_sb);
-    commandEncoder.clearBuffer(pair_counter_sb);
-    commandEncoder.clearBuffer(round_count_sb);
-    commandEncoder.clearBuffer(bucket_sum_x_sb);
-    commandEncoder.clearBuffer(bucket_sum_y_sb);
-    commandEncoder.clearBuffer(bucket_sum_z_sb);
-  }
-
   // 1. Init: ceil(total_buckets / 256) workgroups in x, 1 thread per bucket.
   const init_x_groups = Math.ceil(total_buckets / init_workgroup_size);
   await execute_pipeline(commandEncoder, init_pipe.pipeline, init_bg, init_x_groups, 1, 1, profiler?.stage('ba_init'));
 
-  if (use_tree_reduce) {
-    // 2'. Tree-reduce path. The init dispatch above has already zeroed
-    // running_x/y and populated bucket_active from the CSR row pointers.
-    // We now compute per-CSR-row affine sums via tree-reduce and scatter
-    // them into running_x/y. bucket_active stays as init wrote it
-    // (which matches our scatter coverage exactly — both mark the
-    // CSR-active buckets and leave the rest at zero).
-    //
-    // The existing finalize stage (collect → batch_inverse → apply)
-    // below consumes the populated running_x/y + bucket_active and
-    // performs the affine→Jacobian + magnitude-bucket fold unchanged.
-    //
-    // Pipelines are compiled lazily and cached on the gpu context when
-    // available so warm bench loops don't pay shader-compile cost.
-    const TREE_TPB = 64;
-    const TREE_MAX_SLICE_ENTRIES = 1024;
-    const tree_p1_key = `bn254:smvp_tree_phase1:tpb${TREE_TPB}:max${TREE_MAX_SLICE_ENTRIES}`;
-    const tree_p2_key = `bn254:smvp_tree_phase2:tpb${TREE_TPB}:max${TREE_MAX_SLICE_ENTRIES}`;
-    const tree_scatter_key = `bn254:smvp_tree_scatter:tpb64`;
-    const tree_ebid_key = `bn254:smvp_tree_entry_bucket_id:tpb64`;
-    const buildPipeline = async (code: string, numBindings: number, readOnlyCount: number, lastIsUniform: boolean = false) => {
-      const mod = device.createShaderModule({ code });
-      const layout = device.createBindGroupLayout({
-        entries: Array.from({ length: numBindings }, (_, i) => ({
-          binding: i,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: {
-            type: (i < readOnlyCount
-              ? 'read-only-storage'
-              : (lastIsUniform && i === numBindings - 1 ? 'uniform' : 'storage')) as GPUBufferBindingType,
-          },
-        })),
-      });
-      const pipeline = await device.createComputePipelineAsync({
-        layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
-        compute: { module: mod, entryPoint: 'main' },
-      });
-      return { pipeline, layout };
-    };
-    const p1Compile = async () =>
-      buildPipeline(shaderManager.gen_smvp_tree_phase1_shader(TREE_TPB, TREE_MAX_SLICE_ENTRIES), 10, 6);
-    const p2Compile = async () =>
-      buildPipeline(shaderManager.gen_smvp_tree_phase2_shader(TREE_TPB, TREE_MAX_SLICE_ENTRIES), 9, 5);
-    const scatterCompile = async () =>
-      buildPipeline(shaderManager.gen_smvp_tree_scatter_shader(TREE_TPB), 7, 3, true);
-    const ebidCompile = async () =>
-      buildPipeline(shaderManager.gen_smvp_tree_entry_bucket_id_shader(TREE_TPB), 3, 1, true);
-    const p1Got = context !== undefined ? await context.getOrCreatePipeline(tree_p1_key, p1Compile) : await p1Compile();
-    const p2Got = context !== undefined ? await context.getOrCreatePipeline(tree_p2_key, p2Compile) : await p2Compile();
-    const scatterGot =
-      context !== undefined ? await context.getOrCreatePipeline(tree_scatter_key, scatterCompile) : await scatterCompile();
-    const ebidGot =
-      context !== undefined ? await context.getOrCreatePipeline(tree_ebid_key, ebidCompile) : await ebidCompile();
-    const p1 = { pipeline: p1Got.pipeline, layout: 'bindGroupLayout' in p1Got ? p1Got.bindGroupLayout : p1Got.layout };
-    const p2 = { pipeline: p2Got.pipeline, layout: 'bindGroupLayout' in p2Got ? p2Got.bindGroupLayout : p2Got.layout };
-    const scatter = {
-      pipeline: scatterGot.pipeline,
-      layout: 'bindGroupLayout' in scatterGot ? scatterGot.bindGroupLayout : scatterGot.layout,
-    };
-    const ebid = {
-      pipeline: ebidGot.pipeline,
-      layout: 'bindGroupLayout' in ebidGot ? ebidGot.bindGroupLayout : ebidGot.layout,
-    };
-
-    const totalEntries = input_size * num_subtasks;
-    const entryBucketIdBuf = device.createBuffer({
-      size: totalEntries * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    });
-    const ebidParamsBuf = device.createBuffer({
-      size: 16,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(ebidParamsBuf, 0, new Uint32Array([num_columns, input_size, num_subtasks, 0]));
-    const ebidBg = device.createBindGroup({
-      layout: ebid.layout,
-      entries: [
-        { binding: 0, resource: { buffer: all_csc_col_ptr_sb } },
-        { binding: 1, resource: { buffer: entryBucketIdBuf } },
-        { binding: 2, resource: { buffer: ebidParamsBuf } },
-      ],
-    });
-    // Record ebid into the caller's commandEncoder, AFTER transpose +
-    // ba_init were recorded. Then finish + submit so ebid (and the
-    // upstream transpose) actually run on the GPU before runTreeReduce
-    // reads back entry_bucket_id. After that, swap to a fresh encoder
-    // for scatter + finalize + downstream BPR work.
-    {
-      const pass = commandEncoder.beginComputePass();
-      pass.setPipeline(ebid.pipeline);
-      pass.setBindGroup(0, ebidBg);
-      pass.dispatchWorkgroups(Math.ceil(totalEntries / TREE_TPB), 1, 1);
-      pass.end();
-    }
-    device.queue.submit([commandEncoder.finish()]);
-    await device.queue.onSubmittedWorkDone();
-    commandEncoder = device.createCommandEncoder();
-    commandEncoderRef.current = commandEncoder;
-
-    if ((globalThis as unknown as { __tree_debug?: boolean }).__tree_debug) {
-      const dumpN = 32;
-      const dumpStaging = device.createBuffer({
-        size: dumpN * 4,
-        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-      });
-      const enc = device.createCommandEncoder();
-      enc.copyBufferToBuffer(entryBucketIdBuf, 0, dumpStaging, 0, dumpN * 4);
-      device.queue.submit([enc.finish()]);
-      await device.queue.onSubmittedWorkDone();
-      await dumpStaging.mapAsync(GPUMapMode.READ);
-      const dumped = new Uint32Array(dumpStaging.getMappedRange().slice(0));
-      dumpStaging.unmap();
-      dumpStaging.destroy();
-      console.log(`[tree-dbg] num_columns=${num_columns} num_subtasks=${num_subtasks} input_size=${input_size} totalEntries=${totalEntries}`);
-      console.log(`[tree-dbg] entry_bucket_id[0..${dumpN}] = ${Array.from(dumped).join(',')}`);
-      const rpStaging = device.createBuffer({
-        size: (num_columns + 1) * 4,
-        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-      });
-      try {
-        const e2 = device.createCommandEncoder();
-        e2.copyBufferToBuffer(all_csc_col_ptr_sb, 0, rpStaging, 0, (num_columns + 1) * 4);
-        device.queue.submit([e2.finish()]);
-        await device.queue.onSubmittedWorkDone();
-        await rpStaging.mapAsync(GPUMapMode.READ);
-        const rpDump = new Uint32Array(rpStaging.getMappedRange().slice(0));
-        rpStaging.unmap();
-        rpStaging.destroy();
-        console.log(`[tree-dbg] subtask0 row_ptr[0..16] = ${Array.from(rpDump.subarray(0, 16)).join(',')}`);
-        console.log(`[tree-dbg] subtask0 row_ptr[end-3..end] = ${Array.from(rpDump.subarray(num_columns - 2, num_columns + 1)).join(',')}`);
-      } catch (e) {
-        console.log(`[tree-dbg] row_ptr readback failed: ${(e as Error).message}`);
-      }
-    }
-
-    const treeRes = await runTreeReduce(
-      device,
-      p1.pipeline, p1.layout,
-      p2.pipeline, p2.layout,
-      all_csc_val_idxs_sb, entryBucketIdBuf, point_x_sb, point_y_sb,
-      totalEntries,
-      { tpb: TREE_TPB, maxSliceEntries: TREE_MAX_SLICE_ENTRIES },
-    );
-
-    if ((globalThis as unknown as { __msm_debug_tree_output?: boolean }).__msm_debug_tree_output) {
-      const N = treeRes.totalOutputs;
-      const bidStaging = device.createBuffer({ size: N * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const xStaging = device.createBuffer({ size: N * limb_byte_length, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const yStaging = device.createBuffer({ size: N * limb_byte_length, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      {
-        const enc = device.createCommandEncoder();
-        enc.copyBufferToBuffer(treeRes.outputBucketId, 0, bidStaging, 0, N * 4);
-        enc.copyBufferToBuffer(treeRes.outputX, 0, xStaging, 0, N * limb_byte_length);
-        enc.copyBufferToBuffer(treeRes.outputY, 0, yStaging, 0, N * limb_byte_length);
-        device.queue.submit([enc.finish()]);
-        await device.queue.onSubmittedWorkDone();
-        await Promise.all([bidStaging.mapAsync(GPUMapMode.READ), xStaging.mapAsync(GPUMapMode.READ), yStaging.mapAsync(GPUMapMode.READ)]);
-      }
-      const bidArr = new Uint32Array(bidStaging.getMappedRange().slice(0));
-      const xArr = new Uint32Array(xStaging.getMappedRange().slice(0));
-      const yArr = new Uint32Array(yStaging.getMappedRange().slice(0));
-      bidStaging.unmap(); xStaging.unmap(); yStaging.unmap();
-      bidStaging.destroy(); xStaging.destroy(); yStaging.destroy();
-      // Aggregate per-subtask: (count, sumX, sumY).
-      const perSub: number[] = [];
-      const sCount = new Array(num_subtasks).fill(0);
-      const sX = new Array(num_subtasks).fill(0);
-      const sY = new Array(num_subtasks).fill(0);
-      let dupBids = 0;
-      let seenBids = new Set<number>();
-      for (let i = 0; i < N; i++) {
-        const bid = bidArr[i];
-        const sub = Math.floor(bid / num_columns);
-        if (sub < num_subtasks) {
-          sCount[sub]++;
-          let xfp = sX[sub] >>> 0;
-          let yfp = sY[sub] >>> 0;
-          for (let w = 0; w < num_words; w++) {
-            xfp = (xfp + (xArr[i * num_words + w] >>> 0)) >>> 0;
-            yfp = (yfp + (yArr[i * num_words + w] >>> 0)) >>> 0;
-          }
-          sX[sub] = xfp;
-          sY[sub] = yfp;
-        }
-        if (seenBids.has(bid)) dupBids++;
-        seenBids.add(bid);
-      }
-      for (let s = 0; s < num_subtasks; s++) perSub.push(sCount[s], sX[s], sY[s]);
-      (globalThis as unknown as { __msm_debug_tree_dump?: { N: number; perSub: number[]; dupBids: number } }).__msm_debug_tree_dump =
-        { N, perSub, dupBids };
-      console.log(`[msm-tree-debug] totalOutputs=${N} duplicateBidCount=${dupBids}`);
-    }
-
-    const scatterParamsBuf = device.createBuffer({
-      size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(
-      scatterParamsBuf,
-      0,
-      new Uint32Array([treeRes.totalOutputs, total_buckets, 0, 0]),
-    );
-    const scatterBg = device.createBindGroup({
-      layout: scatter.layout,
-      entries: [
-        { binding: 0, resource: { buffer: treeRes.outputBucketId } },
-        { binding: 1, resource: { buffer: treeRes.outputX } },
-        { binding: 2, resource: { buffer: treeRes.outputY } },
-        { binding: 3, resource: { buffer: running_x_sb } },
-        { binding: 4, resource: { buffer: running_y_sb } },
-        { binding: 5, resource: { buffer: bucket_active_sb } },
-        { binding: 6, resource: { buffer: scatterParamsBuf } },
-      ],
-    });
-    await execute_pipeline(
-      commandEncoder,
-      scatter.pipeline,
-      scatterBg,
-      Math.ceil(treeRes.totalOutputs / TREE_TPB),
-      1,
-      1,
-      profiler?.stage('ba_tree_scatter'),
-    );
-
-    // Buffer lifetime: treeRes.* + entryBucketIdBuf + scatterParamsBuf
-    // + ebidParamsBuf are all referenced by bind groups recorded into
-    // commandEncoder OR were used in already-submitted ebid encoder.
-    // They get GC'd after the caller submits + finishes commandEncoder.
-    // No explicit `.destroy()` here — destroying buffers referenced by
-    // a pending bind group invalidates the encoder.
-  } else {
   // 2. Round loop, cross-subtask parallel.
   //
   // Each round dispatches the schedule, inverse, and apply kernels
@@ -1063,87 +769,6 @@ export const smvp_batch_affine_gpu = async (
       sample_apply ? profiler?.stage(`ba_apply[r=${round}]`) : undefined,
     );
   }
-  } // end if (!use_tree_reduce)
-
-  // DEBUG: dump running_x for ALL total_buckets buckets to console
-  // when `window.__msm_debug_after_smvp = true`. Used to A/B compare
-  // stock vs tree SMVP output without modifying finalize. Compact:
-  // per-subtask aggregated fingerprint (sum of all limbs mod 2^32) +
-  // active count.
-  if ((globalThis as unknown as { __msm_debug_after_smvp?: boolean }).__msm_debug_after_smvp) {
-    const DEBUG_N_BUCKETS = total_buckets;
-    const dumpBytes = DEBUG_N_BUCKETS * limb_byte_length;
-    const xStaging = device.createBuffer({
-      size: dumpBytes,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const yStaging = device.createBuffer({
-      size: dumpBytes,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const aStaging = device.createBuffer({
-      size: DEBUG_N_BUCKETS * 4,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const tmpEnc = device.createCommandEncoder();
-    // Source buffer is in the MAIN commandEncoder which we haven't
-    // submitted yet. We need a separate encoder that runs AFTER the
-    // main one. Since the caller hasn't submitted the main encoder yet,
-    // we have to flush main first then copy. To keep this simple we just
-    // copy from running_x_sb directly — the GPU sees writes from the
-    // main encoder when both encoders submit in order.
-    tmpEnc.copyBufferToBuffer(running_x_sb, 0, xStaging, 0, dumpBytes);
-    tmpEnc.copyBufferToBuffer(running_y_sb, 0, yStaging, 0, dumpBytes);
-    tmpEnc.copyBufferToBuffer(bucket_active_sb, 0, aStaging, 0, DEBUG_N_BUCKETS * 4);
-    // Submit main FIRST so the writes land, then submit our debug copy.
-    // The caller normally submits later; here we steal-submit to make
-    // the debug readback meaningful. The downside: the caller's later
-    // submit on the same encoder will error (encoder is consumed).
-    // This is fine for one-shot debug runs.
-    const cmd = commandEncoder.finish();
-    device.queue.submit([cmd, tmpEnc.finish()]);
-    await device.queue.onSubmittedWorkDone();
-    await Promise.all([xStaging.mapAsync(GPUMapMode.READ), yStaging.mapAsync(GPUMapMode.READ), aStaging.mapAsync(GPUMapMode.READ)]);
-    const xLimbs = new Uint32Array(xStaging.getMappedRange().slice(0));
-    const yLimbs = new Uint32Array(yStaging.getMappedRange().slice(0));
-    const aFlags = new Uint32Array(aStaging.getMappedRange().slice(0));
-    xStaging.unmap(); yStaging.unmap(); aStaging.unmap();
-    xStaging.destroy(); yStaging.destroy(); aStaging.destroy();
-    // Aggregate per-subtask: (active_count, sum_of_x_limbs, sum_of_y_limbs)
-    // — but ONLY over active buckets. Persistent buffers retain stale
-    // values for inactive buckets from prior MSM calls, so summing them
-    // makes the fingerprint depend on warm-context history (different
-    // across workers) and the comparison becomes meaningless.
-    const perSubtask: number[] = [];
-    let globalActive = 0;
-    let globalSumX = 0 >>> 0;
-    let globalSumY = 0 >>> 0;
-    for (let s = 0; s < num_subtasks; s++) {
-      let sActive = 0;
-      let sX = 0 >>> 0;
-      let sY = 0 >>> 0;
-      for (let b = 0; b < num_columns; b++) {
-        const bucket = s * num_columns + b;
-        if (aFlags[bucket]) {
-          sActive++;
-          for (let w = 0; w < num_words; w++) {
-            sX = (sX + (xLimbs[bucket * num_words + w] >>> 0)) >>> 0;
-            sY = (sY + (yLimbs[bucket * num_words + w] >>> 0)) >>> 0;
-          }
-        }
-      }
-      perSubtask.push(sActive, sX, sY);
-      globalActive += sActive;
-      globalSumX = (globalSumX + sX) >>> 0;
-      globalSumY = (globalSumY + sY) >>> 0;
-    }
-    (globalThis as unknown as { __msm_debug_dump?: number[] }).__msm_debug_dump = perSubtask;
-    const mode = use_tree_reduce ? 'tree' : 'stock';
-    console.log(`[msm-debug] mode=${mode} subtasks=${num_subtasks} total_buckets=${total_buckets} ` +
-      `globalActive=${globalActive} globalSumX=${globalSumX} globalSumY=${globalSumY}`);
-    // Halt before finalize since we already submitted the encoder.
-    throw new Error('msm-debug-stop');
-  }
 
   // 3. Finalize — three single dispatches: collect → batch_inverse → apply.
   //
@@ -1161,18 +786,17 @@ export const smvp_batch_affine_gpu = async (
     profiler?.stage('ba_finalize_collect'),
   );
 
-  // Pass B (batch_inverse): (W, 1, num_batches) workgroups in parallel
-  // — each (batch, sub_wg) inverts the merged h-element slices of WPB
-  // consecutive subtasks with one fr_inv_by_a. Same kernel as the
-  // round loop's inverse pass; finalize_count_sb is pre-populated with
-  // half_num_columns for valid subtasks and zero for the padded tail.
+  // Pass B (batch_inverse): (W, 1, T) workgroups in parallel — each
+  // subtask's h-element slice is split across W sub-WGs, each
+  // independently inverting its sub-slice. Same kernel as the round
+  // loop's inverse pass.
   await execute_pipeline(
     commandEncoder,
     inverse_pipe.pipeline,
     finalize_inverse_bg,
     NUM_SUB_WGS_PER_SUBTASK,
     1,
-    num_batches,
+    num_subtasks,
     profiler?.stage('ba_finalize_inverse'),
   );
 
