@@ -1479,6 +1479,9 @@ function hideProgress(): void {
       log('info', `[noble-direct] generated inputs with mirror for noble; first scalars: ${firstScalars.join(', ')}`);
       log('info', `[noble-direct] first point xs: ${firstPoints.join(', ')}`);
       const freshContextPerCall = qp.get('fresh_ctx') === '1';
+      if (qp.get('zero_workspace') === '1') {
+        (window as unknown as { __msm_debug_zero_workspace: boolean }).__msm_debug_zero_workspace = true;
+      }
       const gpuRuns: bigint[] = [];
       for (let r = 0; r < 3; r++) {
         if (freshContextPerCall && r > 0) {

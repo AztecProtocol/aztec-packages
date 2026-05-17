@@ -642,6 +642,25 @@ export const smvp_batch_affine_gpu = async (
 
   // ----- Dispatch sequence -----
 
+  // DEBUG: optionally zero all persistent workspace buffers at the
+  // start of every MSM call. Useful for isolating "stale persistent
+  // state across calls" as a non-determinism source.
+  if ((globalThis as unknown as { __msm_debug_zero_workspace?: boolean }).__msm_debug_zero_workspace) {
+    commandEncoder.clearBuffer(running_x_sb);
+    commandEncoder.clearBuffer(running_y_sb);
+    commandEncoder.clearBuffer(bucket_cursor_sb);
+    commandEncoder.clearBuffer(bucket_active_sb);
+    commandEncoder.clearBuffer(pair_delta_sb);
+    commandEncoder.clearBuffer(pair_inv_sb);
+    commandEncoder.clearBuffer(pair_prefix_sb);
+    commandEncoder.clearBuffer(pair_target_meta_sb);
+    commandEncoder.clearBuffer(pair_counter_sb);
+    commandEncoder.clearBuffer(round_count_sb);
+    commandEncoder.clearBuffer(bucket_sum_x_sb);
+    commandEncoder.clearBuffer(bucket_sum_y_sb);
+    commandEncoder.clearBuffer(bucket_sum_z_sb);
+  }
+
   // 1. Init: ceil(total_buckets / 256) workgroups in x, 1 thread per bucket.
   const init_x_groups = Math.ceil(total_buckets / init_workgroup_size);
   await execute_pipeline(commandEncoder, init_pipe.pipeline, init_bg, init_x_groups, 1, 1, profiler?.stage('ba_init'));
