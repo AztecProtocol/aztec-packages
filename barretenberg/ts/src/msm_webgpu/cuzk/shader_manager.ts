@@ -43,6 +43,7 @@ import {
   mulhilo_22 as mulhilo_22_funcs,
   smvp_bn254 as smvp_bn254_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
+  smvp_tree_phase2 as smvp_tree_phase2_shader,
   structs,
   transpose_parallel_count as transpose_parallel_count_shader,
   transpose_parallel_scan as transpose_parallel_scan_shader,
@@ -518,6 +519,54 @@ export class ShaderManager {
     const per_thread_pairs = Math.ceil(max_pairs / tpb);
     return mustache.render(
       smvp_tree_phase1_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        per_thread_pairs,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Phase 2 of the tree-reduce SMVP. Same Phase A/B/C/D batch-affine
+   * structure as Phase 1, but takes `(bucket_id, AffinePoint)` tuples
+   * directly (no schedule decode + sign-flip) and is meant to be
+   * invoked recursively until each bucket has one partial.
+   *
+   * Same `max_slice_entries` and `tpb` knobs as Phase 1; the two
+   * kernels share the shape of pair_list / prefix_scratch so the
+   * orchestrator can reuse buffers across phases.
+   */
+  public gen_smvp_tree_phase2_shader(tpb: number, max_slice_entries: number): string {
+    if (tpb <= 0 || max_slice_entries <= 0) {
+      throw new Error(`gen_smvp_tree_phase2_shader: tpb and max_slice_entries must be positive`);
+    }
+    const max_pairs = max_slice_entries;
+    const per_thread_pairs = Math.ceil(max_pairs / tpb);
+    return mustache.render(
+      smvp_tree_phase2_shader,
       {
         tpb,
         max_slice_entries,
