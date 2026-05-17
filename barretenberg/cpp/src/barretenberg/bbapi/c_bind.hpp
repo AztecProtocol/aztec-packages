@@ -1,14 +1,10 @@
 #pragma once
-#include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/serialize/cbind_fwd.hpp"
 #include <span>
 #include <string_view>
 #include <vector>
 
 namespace bb::bbapi {
-// Function declaration for CLI usage
-CommandResponse bbapi(Command&& command);
-
 enum class MsgpackCommandError {
     None,
     ExpectedArgumentTuple,

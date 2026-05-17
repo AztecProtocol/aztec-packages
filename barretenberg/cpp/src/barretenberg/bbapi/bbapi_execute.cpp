@@ -1,6 +1,20 @@
 #include "bbapi_execute.hpp"
 
+#include <exception>
+#include <utility>
+
 namespace bb::bbapi {
+
+namespace {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+BBApiRequest global_request;
+} // namespace
+
+BBApiRequest& get_global_request()
+{
+    return global_request;
+}
+
 CommandResponse execute(BBApiRequest& request, Command&& command)
 {
     // Reset error state before execution
@@ -17,5 +31,18 @@ CommandResponse execute(BBApiRequest& request, Command&& command)
     }
 
     return response;
+}
+
+CommandResponse bbapi(Command&& command)
+{
+#ifndef BB_NO_EXCEPTIONS
+    try {
+#endif
+        return execute(get_global_request(), std::move(command));
+#ifndef BB_NO_EXCEPTIONS
+    } catch (const std::exception& e) {
+        return ErrorResponse{ .message = e.what() };
+    }
+#endif
 }
 } // namespace bb::bbapi

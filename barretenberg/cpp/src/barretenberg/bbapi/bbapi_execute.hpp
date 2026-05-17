@@ -150,5 +150,6 @@ using CommandResponse = NamedUnion<ErrorResponse,
  * @return A variant of all possible command responses.
  */
 CommandResponse execute(BBApiRequest& request, Command&& command);
+CommandResponse bbapi(Command&& command);
 
 } // namespace bb::bbapi

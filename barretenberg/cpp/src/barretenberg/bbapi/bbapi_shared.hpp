@@ -203,6 +203,8 @@ struct BBApiRequest {
 #endif
 };
 
+BBApiRequest& get_global_request();
+
 /**
  * @brief Error response returned when a command fails
  */
