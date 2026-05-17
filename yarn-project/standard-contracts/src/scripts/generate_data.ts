@@ -3,45 +3,34 @@
 // into `standard_contract_data.ts` and as Noir address stamps into the `standard_addresses.nr`
 // modules of `aztec-nr/aztec` and `noir-contracts/.../aztec_sublib`. This avoids clients repeating
 // the expensive hashing at runtime and keeps the Noir-side address aligned with the TS-side.
+//
+// Drift detection: every invocation regenerates the output files unconditionally, then compares
+// against the pre-write snapshot. If any file's content actually changed, the generator writes the
+// new content (so the developer gets the regeneration for free) and exits non-zero with a clear
+// error. This makes stale-address bugs loud at build time: the first pass writes the fresh
+// addresses and fails, and a second `./bootstrap.sh` then recompiles dependent Noir contracts
+// against the now-correct values.
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import { FunctionSelector, loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  computeContractAddressFromInstance,
-  computeInitializationHash,
-  getContractClassFromArtifact,
-} from '@aztec/stdlib/contract';
-import { PublicKeys } from '@aztec/stdlib/keys';
-import { type NoirCompiledContract } from '@aztec/stdlib/noir';
 
 import { promises as fs } from 'fs';
 import path from 'path';
+import * as prettier from 'prettier';
+
+import {
+  type ContractData,
+  computeContractData,
+  destArtifactsDir,
+  loadArtifact,
+  noirAddressesPaths,
+  outputFilePath,
+  salt,
+  srcArtifactsPath,
+  standardContracts,
+} from '../contract_data.js';
 
 const log = createConsoleLogger('autogenerate');
-
-const noirContractsRoot = '../../noir-projects/noir-contracts';
-const srcPath = path.join(noirContractsRoot, './target');
-const destArtifactsDir = './artifacts';
-const outputFilePath = './src/standard_contract_data.ts';
-// Both consumers (aztec-nr's `aztec` crate and noir-contracts' `aztec_sublib`) need an identical
-// twin of the generated addresses module. `aztec_sublib` cannot depend on `aztec`, so we stamp the
-// same file into both locations rather than introducing a shared crate.
-const noirAddressesPaths = [
-  '../../noir-projects/aztec-nr/aztec/src/standard_addresses.nr',
-  '../../noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/standard_addresses.nr',
-];
-
-const salt = new Fr(1);
-const deployer = AztecAddress.zero();
-
-// Maps each TS name to its source artifact name in `noir-contracts/target/` and the Noir
-// constant name to emit. `nrConst: null` skips the Noir-side stamp for contracts with no
-// Noir-side address consumer (e.g. account-side entrypoints). Add a row here when introducing
-// a new standard contract.
-const standardContracts: { name: string; src: string; nrConst: string | null }[] = [
-  { name: 'AuthRegistry', src: 'auth_registry_contract-AuthRegistry', nrConst: 'STANDARD_AUTH_REGISTRY_ADDRESS' },
-];
 
 async function clearDestDir() {
   try {
@@ -59,49 +48,11 @@ async function clearDestDir() {
 }
 
 async function copyArtifact(srcName: string, destName: string) {
-  const src = path.join(srcPath, `${srcName}.json`);
-  const artifact = JSON.parse(await fs.readFile(src, 'utf8')) as NoirCompiledContract;
+  const artifact = await loadArtifact(srcName);
+  const src = path.join(srcArtifactsPath, `${srcName}.json`);
   const dest = path.join(destArtifactsDir, `${destName}.json`);
   await fs.copyFile(src, dest);
   return artifact;
-}
-
-type ContractData = {
-  address: AztecAddress;
-  classId: Fr;
-  artifactHash: Fr;
-  privateFunctionsRoot: Fr;
-  publicBytecodeCommitment: Fr;
-  initializationHash: Fr;
-  privateFunctions: { selector: FunctionSelector; vkHash: Fr }[];
-};
-
-// Precompute all the expensive contract data that can be obtained from the artifact, to avoid redundant computations in clients.
-// Standard contracts come from a trusted source (the build pipeline), so no class verifications are needed.
-async function computeContractData(artifact: NoirCompiledContract): Promise<ContractData> {
-  const loaded = loadContractArtifact(artifact);
-  const contractClass = await getContractClassFromArtifact(loaded);
-  const constructorArtifact = loaded.functions.find(f => f.name === 'constructor');
-  const initializationHash = await computeInitializationHash(constructorArtifact, []);
-  const instance = {
-    version: 1 as const,
-    currentContractClassId: contractClass.id,
-    originalContractClassId: contractClass.id,
-    initializationHash,
-    publicKeys: PublicKeys.default(),
-    salt,
-    deployer,
-  };
-  const address = await computeContractAddressFromInstance(instance);
-  return {
-    address,
-    classId: contractClass.id,
-    artifactHash: contractClass.artifactHash,
-    privateFunctionsRoot: contractClass.privateFunctionsRoot,
-    publicBytecodeCommitment: contractClass.publicBytecodeCommitment,
-    initializationHash,
-    privateFunctions: contractClass.privateFunctions,
-  };
 }
 
 async function generateDeclarationFile(destName: string) {
@@ -177,8 +128,8 @@ function generateClassIdPreimages(names: string[], contractData: ContractData[])
   `;
 }
 
-async function generateOutputFile(names: string[], contractData: ContractData[]) {
-  const content = `
+function renderOutputFile(names: string[], contractData: ContractData[]) {
+  return `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
     import { Fr } from '@aztec/foundation/curves/bn254';
     import { FunctionSelector } from '@aztec/stdlib/abi';
@@ -192,10 +143,9 @@ async function generateOutputFile(names: string[], contractData: ContractData[])
 
     ${generateClassIdPreimages(names, contractData)}
   `;
-  await fs.writeFile(outputFilePath, content);
 }
 
-function generateNoirAddresses(rows: { nrConst: string; address: AztecAddress }[]): string {
+function renderNoirAddresses(rows: { nrConst: string; address: AztecAddress }[]): string {
   // Pre-wrapped to survive `nargo fmt`'s line-width pass without diff churn.
   const globals = rows
     .map(
@@ -211,6 +161,45 @@ ${globals}
 `;
 }
 
+/**
+ * Reads a file's current content, or returns `null` if it doesn't exist. Used to snapshot a file
+ * before overwriting so we can detect whether the new content actually differs.
+ */
+async function readIfExists(filePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(filePath, 'utf8');
+  } catch (err: any) {
+    if (err.code === 'ENOENT') {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Formats TypeScript content with the repo's prettier config so the bytes written by the generator
+ * match what the eventual `format` step in bootstrap.sh produces. Without this normalization the
+ * drift check would false-positive on every run since the raw template-string output differs from
+ * the prettier-formatted committed content. The Noir output skips this — its renderer already
+ * emits format-stable content (`nargo fmt` would not rewrite it).
+ */
+async function formatTs(filePath: string, content: string): Promise<string> {
+  const config = (await prettier.resolveConfig(path.resolve(filePath))) ?? {};
+  return prettier.format(content, { ...config, filepath: filePath });
+}
+
+/**
+ * Writes `content` to `filePath` unconditionally, then returns `filePath` if the on-disk content
+ * actually changed (including the file not existing before). Returns `null` if the write was a
+ * no-op. The caller collects the returned paths to decide whether to fail the build.
+ */
+async function writeAndDetectDrift(filePath: string, content: string): Promise<string | null> {
+  const before = await readIfExists(filePath);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, content);
+  return before === content ? null : filePath;
+}
+
 async function main() {
   await clearDestDir();
 
@@ -222,16 +211,34 @@ async function main() {
     contractDataList.push(await computeContractData(artifact));
   }
 
-  await generateOutputFile(names, contractDataList);
+  const driftedFiles: string[] = [];
 
-  const noirAddressesContent = generateNoirAddresses(
+  const tsOutput = await formatTs(outputFilePath, renderOutputFile(names, contractDataList));
+  const tsDrift = await writeAndDetectDrift(outputFilePath, tsOutput);
+  if (tsDrift !== null) {
+    driftedFiles.push(tsDrift);
+  }
+
+  const noirAddressesContent = renderNoirAddresses(
     standardContracts
       .map((c, i) => ({ nrConst: c.nrConst, address: contractDataList[i].address }))
       .filter((row): row is { nrConst: string; address: AztecAddress } => row.nrConst !== null),
   );
   for (const noirAddressesPath of noirAddressesPaths) {
-    await fs.mkdir(path.dirname(noirAddressesPath), { recursive: true });
-    await fs.writeFile(noirAddressesPath, noirAddressesContent);
+    const noirDrift = await writeAndDetectDrift(noirAddressesPath, noirAddressesContent);
+    if (noirDrift !== null) {
+      driftedFiles.push(noirDrift);
+    }
+  }
+
+  if (driftedFiles.length > 0) {
+    const list = driftedFiles.map(f => `  - ${f}`).join('\n');
+    throw new Error(
+      `Standard contract addresses have changed. The following generated files were out of date and have been rewritten with the freshly-derived values:\n${list}\n\n` +
+        `Any aztec-nr-using Noir contract that already compiled against the previous addresses now has stale bytecode. ` +
+        `Rebuild aztec-nr and noir-contracts so dependent contracts pick up the fresh addresses — re-running \`./bootstrap.sh\` ` +
+        `once more is sufficient; the second pass picks up the now-correct values.`,
+    );
   }
 }
 
