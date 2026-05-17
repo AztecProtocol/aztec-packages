@@ -299,6 +299,48 @@ template <class Params_> struct alignas(32) field {
         return result;
     }
 
+    static constexpr field primitive_root()
+    {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+        return field{
+            Params::primitive_root_0,
+            Params::primitive_root_1,
+            Params::primitive_root_2,
+            Params::primitive_root_3,
+        };
+#else
+        return field{
+            Params::primitive_root_wasm_0,
+            Params::primitive_root_wasm_1,
+            Params::primitive_root_wasm_2,
+            Params::primitive_root_wasm_3,
+        };
+#endif
+    }
+
+    static constexpr field primitive_root_inverse()
+    {
+        if constexpr (requires { Params::primitive_root_inverse_0; }) {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+            return field{
+                Params::primitive_root_inverse_0,
+                Params::primitive_root_inverse_1,
+                Params::primitive_root_inverse_2,
+                Params::primitive_root_inverse_3,
+            };
+#else
+            return field{
+                Params::primitive_root_inverse_wasm_0,
+                Params::primitive_root_inverse_wasm_1,
+                Params::primitive_root_inverse_wasm_2,
+                Params::primitive_root_inverse_wasm_3,
+            };
+#endif
+        } else {
+            return primitive_root().invert();
+        }
+    }
+
     BB_INLINE constexpr field operator*(const field& other) const noexcept;
     BB_INLINE constexpr field operator+(const field& other) const noexcept;
     BB_INLINE constexpr field operator-(const field& other) const noexcept;

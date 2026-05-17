@@ -9,6 +9,24 @@
 
 namespace bb {
 
+namespace detail {
+template <typename FF> constexpr FF ultra_arithmetic_neg_half() noexcept
+{
+    if constexpr (std::same_as<FF, fr>) {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+        return fr(0xcba5e0bbd0000003ULL, 0x789bb8d96d2c51b3ULL, 0x28f0d12384840917ULL, 0x112ceb58a394e07dULL);
+#else
+        return fr(uint256_t{ 0xa1f0fac9f8000000ULL,
+                             0x9419f4243cdcb848ULL,
+                             0xdc2822db40c0ac2eULL,
+                             0x183227397098d014ULL });
+#endif
+    } else {
+        return FF(-2).invert();
+    }
+}
+} // namespace detail
+
 /**
  * @brief Expression for the Ultra (width-4) Arithmetic gate.
  * @details This relation contains two subrelations and encapsulates several identities, toggled by the value of
@@ -90,7 +108,7 @@ template <typename FF_> class ArithmeticRelationImpl {
             auto q_4_m = CoefficientAccumulator(in.q_4);
             auto q_c_m = CoefficientAccumulator(in.q_c);
 
-            static const FF neg_half = FF(-2).invert();
+            static const FF neg_half = detail::ultra_arithmetic_neg_half<FF>();
 
             auto tmp0 = Accumulator(w_r_m * w_l_m * neg_half) * Accumulator((q_arith_m - 3) * q_m_m);
             auto tmp1 = (q_l_m * w_l_m) + (q_r_m * w_r_m) + (q_o_m * w_o_m) + (q_4_m * w_4_m) + q_c_m;

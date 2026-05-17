@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace bb::detail {
@@ -13,5 +14,5 @@ void rtrim(std::string& s);
 void trim(std::string& s);
 
 // Used to extract variables from a macro #__VA_ARGS__
-std::vector<std::string> split_and_trim(const std::string& str, char delimiter);
+std::vector<std::string> split_and_trim(std::string_view str, char delimiter);
 } // namespace bb::detail

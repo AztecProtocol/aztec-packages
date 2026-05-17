@@ -75,9 +75,9 @@ class Grumpkin {
     // resulting element does not generate a smaller subgroup by further raising it to the powers of 3 and 29. To
     // optimize the recursive verifier and avoid costly inversions, we also precompute and store its inverse.
     static constexpr ScalarField subgroup_generator =
-        ScalarField(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
+        ScalarField(uint256_t{ 0x7c24fbc962a9586bUL, 0xc1a523bf8a0880bcUL, 0x14909e9f0513f31eUL, 0x147c647c09fb6395UL });
     static constexpr ScalarField subgroup_generator_inverse =
-        ScalarField("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
+        ScalarField(uint256_t{ 0xcde5384f6e3a1988UL, 0xa871771f71ec7452UL, 0xfab790bd3b59806fUL, 0x0c68e27477b5e78cUL });
     // The length of the polynomials used to mask the Sumcheck Round Univariates. In the ECCVM Sumcheck, the prover only
     // sends 3 elements in every round - a commitment to the round univariate and its evaluations at 0 and 1. Therefore,
     // length 3 is sufficient.

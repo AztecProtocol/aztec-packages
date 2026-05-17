@@ -28,35 +28,36 @@ inline size_t get_file_size(std::string const& filename)
     return (size_t)file.tellg();
 }
 
-inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes = 0)
+inline std::vector<uint8_t> read_fd_chunked(int fd, const std::string& name)
 {
     // Used for stdin and non-seekable fds (pipes, process substitution) where we don't know the
     // size in advance. Reads in 64 KiB chunks to avoid the O(n²) reallocation pattern that arises
     // from the istreambuf_iterator range constructor.
     constexpr size_t CHUNK = 65536;
-    auto read_chunked = [](int fd, const std::string& name) {
-        std::vector<uint8_t> result;
-        size_t total = 0;
-        ssize_t n = 0;
-        while (true) {
-            // Standard libraries will usually do geometric capacity growth here so that copying is amortized.
-            result.resize(total + CHUNK);
-            n = ::read(fd, result.data() + total, CHUNK);
-            if (n <= 0) {
-                break;
-            }
-            total += static_cast<size_t>(n);
+    std::vector<uint8_t> result;
+    size_t total = 0;
+    ssize_t n = 0;
+    while (true) {
+        // Standard libraries will usually do geometric capacity growth here so that copying is amortized.
+        result.resize(total + CHUNK);
+        n = ::read(fd, result.data() + total, CHUNK);
+        if (n <= 0) {
+            break;
         }
-        result.resize(total);
-        if (n < 0) {
-            THROW std::runtime_error("Failed to read from " + name + ": " + strerror(errno));
-        }
-        return result;
-    };
+        total += static_cast<size_t>(n);
+    }
+    result.resize(total);
+    if (n < 0) {
+        THROW std::runtime_error("Failed to read from " + name + ": " + strerror(errno));
+    }
+    return result;
+}
 
+inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes = 0)
+{
     // "-" is the conventional sentinel for stdin.
-    if (filename == "-") {
-        return read_chunked(STDIN_FILENO, "stdin");
+    if (filename.size() == 1 && filename[0] == '-') {
+        return read_fd_chunked(STDIN_FILENO, "stdin");
     }
 
     // std::filesystem::file_size is a single stat() call — no seek-to-end / rewind needed.
@@ -74,7 +75,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
     std::vector<uint8_t> fileData;
     if (!file_size.has_value()) {
         // Size unknown (pipe, device, etc.): read without pre-allocation.
-        fileData = read_chunked(fd, filename);
+        fileData = read_fd_chunked(fd, filename);
     } else {
         // Pre-allocate exactly what we need: either the caller's limit or the whole file.
         // Using POSIX read() directly avoids the extra buffering layer of std::ifstream.

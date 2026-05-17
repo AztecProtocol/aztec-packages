@@ -7,7 +7,9 @@
 #include "mega_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -19,6 +21,39 @@ namespace bb {
 template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
 {
     UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit();
+}
+
+template <typename FF> std::string MegaCircuitBuilder_<FF>::hash() const
+{
+    using serialize::write;
+    std::vector<uint8_t> buffer;
+
+    // Hash each block's complete structure - need to const_cast to call non-const methods
+    auto& blocks_ref = const_cast<MegaExecutionTraceBlocks&>(this->blocks);
+    for (auto& block : blocks_ref.get()) {
+        // Hash all wires; implicitly contains copy constraint information
+        for (const auto& wire : block.wires) {
+            for (const auto& idx : wire) {
+                write(buffer, idx);
+            }
+        }
+
+        // Hash all selectors
+        auto selectors = block.get_selectors();
+        for (auto& selector : selectors) {
+            for (size_t i = 0; i < selector.size(); ++i) {
+                write(buffer, selector[i]);
+            }
+        }
+    }
+
+    // Compute SHA256 hash
+    auto hash_bytes = crypto::sha256(buffer);
+
+    // Convert to hex string
+    std::stringstream ss;
+    ss << hash_bytes;
+    return ss.str();
 }
 
 /**

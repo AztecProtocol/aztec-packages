@@ -36,9 +36,9 @@ class BN254 {
     // generator below is 5^{(r-1) / 2^8} (so it has order 8). To avoid inversion in the recursive verifier, we also
     // store the inverse of the chosen generator.
     static constexpr ScalarField subgroup_generator =
-        ScalarField(uint256_t("0x07b0c561a6148404f086204a9f36ffb0617942546750f230c893619174a57a76"));
+        ScalarField(uint256_t{ 0xc893619174a57a76UL, 0x617942546750f230UL, 0xf086204a9f36ffb0UL, 0x07b0c561a6148404UL });
     static constexpr ScalarField subgroup_generator_inverse =
-        ScalarField(uint256_t("0x204bd3277422fad364751ad938e2b5e6a54cf8c68712848a692c553d0329f5d6"));
+        ScalarField(uint256_t{ 0x692c553d0329f5d6UL, 0xa54cf8c68712848aUL, 0x64751ad938e2b5e6UL, 0x204bd3277422fad3UL });
     // The length of the polynomials used to mask the Sumcheck Round Univariates. Computed as
     // max(BATCHED_PARTIAL_RELATION_LENGTH) for BN254 Flavors with ZK
     static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 9;

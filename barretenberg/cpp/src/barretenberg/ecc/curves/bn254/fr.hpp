@@ -69,6 +69,12 @@ class Bn254FrParams {
     static constexpr uint64_t primitive_root_2 = 0x56452ac01eb203d8UL;
     static constexpr uint64_t primitive_root_3 = 0x1860ef942963f9e7UL;
 
+    // A little-endian representation of primitive_root^{-1} in Fr in Montgomery form.
+    static constexpr uint64_t primitive_root_inverse_0 = 0x89bcc016584bb683UL;
+    static constexpr uint64_t primitive_root_inverse_1 = 0xe8d9887f0164a50cUL;
+    static constexpr uint64_t primitive_root_inverse_2 = 0x755e95cb795eda3dUL;
+    static constexpr uint64_t primitive_root_inverse_3 = 0x0f572b871323b130UL;
+
     // Coset generators in Montgomery form for R=2^256 mod Modulus. Used in FFT-based proving systems
     static constexpr uint64_t coset_generator_0 = 0x5eef048d8fffffe7ULL;
     static constexpr uint64_t coset_generator_1 = 0x12ee50ec1ce401d0ULL;
@@ -122,6 +128,12 @@ class Bn254FrParams {
     static constexpr uint64_t primitive_root_wasm_2 = 0x43a0fc9bbe2af541UL;
     static constexpr uint64_t primitive_root_wasm_3 = 0x05d90b5719653a4fUL;
 
+    // A little-endian representation of primitive_root^{-1} in Fr in Montgomery form for wasm (R=2^261 mod Modulus).
+    static constexpr uint64_t primitive_root_inverse_wasm_0 = 0x90c46b03a976d056UL;
+    static constexpr uint64_t primitive_root_inverse_wasm_1 = 0x8929fd0b6b563be4UL;
+    static constexpr uint64_t primitive_root_inverse_wasm_2 = 0x78b0004e1ccdd419UL;
+    static constexpr uint64_t primitive_root_inverse_wasm_3 = 0x06fa60659885e46dUL;
+
     // Coset generators in Montgomery form for R=2^261 mod Modulus. Used in FFT-based proving systems
     static constexpr uint64_t coset_generator_wasm_0 = 0xab46711cdffffcb2ULL;
     static constexpr uint64_t coset_generator_wasm_1 = 0x2476607dbd2dfff1ULL;
@@ -153,6 +165,8 @@ class Bn254FrParams {
 };
 
 using fr = field<Bn254FrParams>;
+
+static_assert(fr::primitive_root() * fr::primitive_root_inverse() == fr::one());
 
 template <> template <> inline fr fr::reconstruct_from_public(const std::span<const fr, PUBLIC_INPUTS_SIZE>& limbs)
 {

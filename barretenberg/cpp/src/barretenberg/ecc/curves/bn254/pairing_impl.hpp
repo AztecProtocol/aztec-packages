@@ -12,10 +12,27 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 
+#include <array>
+
 namespace bb::pairing {
 
+static constexpr fq bn254_fq_from_limbs(const std::array<uint64_t, 4>& canonical,
+                                        const std::array<uint64_t, 4>& montgomery) noexcept
+{
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+    (void)canonical;
+    return fq(montgomery[0], montgomery[1], montgomery[2], montgomery[3]);
+#else
+    (void)montgomery;
+    return fq(numeric::uint256_t{ canonical[0], canonical[1], canonical[2], canonical[3] });
+#endif
+}
+
 // Precompute 2^{-1} mod q for gradient calculations of tangent lines
-constexpr fq two_inv = fq(2).invert();
+constexpr fq two_inv = bn254_fq_from_limbs(
+    { 0x9e10460b6c3e7ea4ULL, 0xcbc0b548b438e546ULL, 0xdc2822db40c0ac2eULL, 0x183227397098d014ULL },
+    { 0x87bee7d24f060572ULL, 0xd0fd2add2f1c6ae5ULL, 0x8f5f7492fcfd4f44ULL, 0x1f37631a3d9cbfacULL });
+static_assert(two_inv + two_inv == fq::one());
 
 /**
  * @brief Compute \f$\Psi^{-1} \circ \phi_q \circ \Psi(Q)\f$ where \f$\Psi\f$ is the untwisting isomorphism and

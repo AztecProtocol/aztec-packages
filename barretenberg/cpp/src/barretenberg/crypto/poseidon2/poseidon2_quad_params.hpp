@@ -44,16 +44,25 @@ struct Poseidon2QuadBn254Params {
     static constexpr FF D3_minus_D4 = D3 - D4;
 
     // 1 / ((D_2 - D_3)(D_2 - D_4)) — denominator for α_1^(·)
-    static constexpr FF inv_denom_1 = (D2_minus_D3 * D2_minus_D4).invert();
+    static constexpr FF inv_denom_1 = poseidon2_fr_from_limbs(
+        { 0x0ee78acd18e97d90ULL, 0xd79d5c22106a623eULL, 0x3ed90deedcd2d295ULL, 0x214eac3d0d1d03e8ULL },
+        { 0xd4588e2f9d4d222dULL, 0xbdbbb5da34f7e705ULL, 0x9fd019e56dfd7d63ULL, 0x17d22f831d46746dULL });
     // 1 / ((D_3 - D_2)(D_3 - D_4)) — denominator for α_2^(·)
-    static constexpr FF inv_denom_2 = ((-D2_minus_D3) * D3_minus_D4).invert();
+    static constexpr FF inv_denom_2 = poseidon2_fr_from_limbs(
+        { 0x76fedb4a57988dd6ULL, 0x6647e4561df5e662ULL, 0x646c5c3a2ce7ceadULL, 0x1124bda311ecbe27ULL },
+        { 0x6a80653ee8ab1e5bULL, 0x4f614efc12b63898ULL, 0x21b47dc1e9195f9fULL, 0x0d1d6e3b5de15a9bULL });
     // 1 / ((D_4 - D_2)(D_4 - D_3)) — denominator for α_3^(·)
-    static constexpr FF inv_denom_3 = ((-D2_minus_D4) * (-D3_minus_D4)).invert();
+    static constexpr FF inv_denom_3 = poseidon2_fr_from_limbs(
+        { 0x01dd85106f7df49cULL, 0x12829018c5129882ULL, 0xcd5b2143f9480f77ULL, 0x2e553305a3597e43ULL },
+        { 0x050902256a07bf79ULL, 0x1b16e372320b50f3ULL, 0xf6cbae0f2a6a7b5aULL, 0x0b74b0b46609d120ULL });
 
     // Invertibility guard. det(V) = (D_3 - D_2)(D_4 - D_2)(D_4 - D_3).
     static_assert(!D2_minus_D3.is_zero(), "Poseidon2 quad: D_2 == D_3, Vandermonde singular");
     static_assert(!D2_minus_D4.is_zero(), "Poseidon2 quad: D_2 == D_4, Vandermonde singular");
     static_assert(!D3_minus_D4.is_zero(), "Poseidon2 quad: D_3 == D_4, Vandermonde singular");
+    static_assert(inv_denom_1 * D2_minus_D3 * D2_minus_D4 == FF(1));
+    static_assert(inv_denom_2 * (-D2_minus_D3) * D3_minus_D4 == FF(1));
+    static_assert(inv_denom_3 * (-D2_minus_D4) * (-D3_minus_D4) == FF(1));
 
   public:
     // Lagrange basis coefficients α_j^(k).

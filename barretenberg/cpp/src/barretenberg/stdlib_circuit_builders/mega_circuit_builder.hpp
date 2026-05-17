@@ -5,10 +5,9 @@
 // =====================
 
 #pragma once
-#include <sstream>
+#include <string>
 #include <utility>
 
-#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "databus.hpp"
@@ -178,38 +177,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * constraints, and public inputs (via pub inputs block). Useful for debugging purposes to identify where two
      * circuits diverge.
      */
-    std::string hash() const
-    {
-        using serialize::write;
-        std::vector<uint8_t> buffer;
-
-        // Hash each block's complete structure - need to const_cast to call non-const methods
-        auto& blocks_ref = const_cast<MegaExecutionTraceBlocks&>(this->blocks);
-        for (auto& block : blocks_ref.get()) {
-            // Hash all wires; implicitly contains copy constraint information
-            for (const auto& wire : block.wires) {
-                for (const auto& idx : wire) {
-                    write(buffer, idx);
-                }
-            }
-
-            // Hash all selectors
-            auto selectors = block.get_selectors();
-            for (auto& selector : selectors) {
-                for (size_t i = 0; i < selector.size(); ++i) {
-                    write(buffer, selector[i]);
-                }
-            }
-        }
-
-        // Compute SHA256 hash
-        auto hash_bytes = crypto::sha256(buffer);
-
-        // Convert to hex string
-        std::stringstream ss;
-        ss << hash_bytes;
-        return ss.str();
-    }
+    std::string hash() const;
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

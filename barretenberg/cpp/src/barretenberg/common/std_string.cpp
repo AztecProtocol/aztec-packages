@@ -4,6 +4,7 @@
 #include <iostream>
 #include <locale>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 namespace bb::detail {
@@ -38,11 +39,27 @@ void trim(std::string& s)
     rtrim(s);
     ltrim(s);
 }
-std::vector<std::string> split_and_trim(const std::string& str, char delimiter)
+std::vector<std::string> split_and_trim(std::string_view str, char delimiter)
 {
-    std::vector<std::string> ret = split(str, delimiter);
-    for (std::string& part : ret) {
-        trim(part);
+    std::vector<std::string> ret;
+    size_t start = 0;
+    while (start <= str.size()) {
+        size_t end = str.find(delimiter, start);
+        if (end == std::string_view::npos) {
+            end = str.size();
+        }
+        auto token = str.substr(start, end - start);
+        while (!token.empty() && std::isspace(static_cast<unsigned char>(token.front()))) {
+            token.remove_prefix(1);
+        }
+        while (!token.empty() && std::isspace(static_cast<unsigned char>(token.back()))) {
+            token.remove_suffix(1);
+        }
+        ret.emplace_back(token);
+        if (end == str.size()) {
+            break;
+        }
+        start = end + 1;
     }
     return ret;
 }

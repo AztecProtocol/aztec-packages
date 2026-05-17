@@ -509,27 +509,41 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
     // -----------------------------------------------------------------------------------------
     // STEP 3: Set up precomputed lookup tables for the discrete log computation
     // -----------------------------------------------------------------------------------------
-    // g = r^Q where r is a quadratic non-residue (coset_generator).
-    // Since r has order (p-1) and Q is the odd part, g has order exactly 2^S.
-    constexpr field g = coset_generator().pow(Q);
-
-    // g_inv = g^{-1} = r^{-Q} = r^{p-1-Q}
-    constexpr field g_inv = coset_generator().pow(modulus - 1 - Q);
-
     // S = primitive_root_log_size() is the 2-adic valuation of (p-1), i.e., the largest power of 2 dividing (p-1).
     constexpr size_t root_bits = primitive_root_log_size();
 
+    // g is a primitive 2^S root of unity. Use field parameters directly when present, avoiding repeated constexpr
+    // exponentiation of the coset generator in every translation unit that instantiates Tonelli-Shanks.
+    constexpr field g = []() {
+        if constexpr (T::primitive_root_0 != 0 || T::primitive_root_1 != 0 || T::primitive_root_2 != 0 ||
+                      T::primitive_root_3 != 0) {
+            return primitive_root();
+        } else {
+            return coset_generator().pow(Q);
+        }
+    }();
+
+    constexpr field g_inv = []() {
+        if constexpr (T::primitive_root_0 != 0 || T::primitive_root_1 != 0 || T::primitive_root_2 != 0 ||
+                      T::primitive_root_3 != 0) {
+            return primitive_root_inverse();
+        } else {
+            return coset_generator().pow(modulus - 1 - Q);
+        }
+    }();
+
     // table_bits (called 'w' in Bernstein's paper) determines the chunk size for the discrete log.
     // We process the exponent e in chunks of table_bits bits at a time.
-    // Using 6 bits means tables of size 64, balancing memory usage vs. number of iterations.
-    constexpr size_t table_bits = 6;
+    // Using 5 bits means tables of size 32. For the BN254 scalar field's 28-bit 2-adic subgroup this keeps a
+    // non-empty high chunk while reducing constexpr table construction in each instantiating translation unit.
+    constexpr size_t table_bits = 5;
 
     // num_tables = ceil(S / table_bits)
     // WARNING: this will have to be slightly changed if root_bits is exactly divisible by table_bits.
     constexpr size_t num_tables = root_bits / table_bits + (root_bits % table_bits != 0 ? 1 : 0);
     constexpr size_t num_offset_tables = num_tables - 1;
 
-    // table_size = 2^table_bits = 64 entries per table.
+    // table_size = 2^table_bits entries per table.
     constexpr size_t table_size = static_cast<size_t>(1UL) << table_bits;
 
     using GTable = std::array<field, table_size>;

@@ -3,6 +3,10 @@
 // For a native build, this is provided in this module.
 #pragma once
 
+#ifdef __wasm__
 #include "barretenberg/common/wasm_export.hpp"
 
 WASM_IMPORT("throw_or_abort_impl") void throw_or_abort_impl [[noreturn]] (char const*);
+#else
+extern "C" void throw_or_abort_impl [[noreturn]] (char const*);
+#endif

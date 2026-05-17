@@ -30,7 +30,8 @@
 #include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -59,7 +60,7 @@ class MegaFlavor {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
-    static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.

@@ -259,7 +259,16 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr auto SHIFT_2 = uint256_t(1) << (NUM_LIMB_BITS << 1);
 
     // Precomputed inverse to easily divide by the shift by 2 limbs
-    static constexpr auto SHIFT_2_INVERSE = Fr(SHIFT_2).invert();
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+    static constexpr Fr SHIFT_2_INVERSE =
+        Fr(0x43e1f593f0000001ULL, 0x2933e84879b97091ULL, 0xb85045b68181585dULL, 0x30644e72e131a029ULL);
+#else
+    static constexpr Fr SHIFT_2_INVERSE = Fr(uint256_t{ 0x568bea8e0766f9ddULL,
+                                                        0xa31a140f219532a9ULL,
+                                                        0x1a908db2cea9b991ULL,
+                                                        0x1b7c016fe8acfaedULL });
+#endif
+    static_assert(Fr(SHIFT_2) * SHIFT_2_INVERSE == Fr::one());
 
     // Shift by 3 binary limbs
     static constexpr auto SHIFT_3 = uint256_t(1) << (NUM_LIMB_BITS * 3);
