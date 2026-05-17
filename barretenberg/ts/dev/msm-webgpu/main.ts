@@ -1456,6 +1456,104 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
+  if (autorun === 'msm-noble-direct') {
+    // Run a single WebGPU MSM and compare its result directly against
+    // a noble reference computation — bypasses WASM entirely (which
+    // can't boot without barretenberg.wasm.gz built into the cpp tree).
+    const autorunLogN = parseInt(qp.get('logn') ?? '16', 10);
+    const tree = qp.get('use_tree_reduce') === '1';
+    const client = makeResultsClient({ page: 'msm-noble-direct' });
+    log('info', `[autorun] msm-noble-direct logN=${autorunLogN} tree=${tree}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never loaded within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const inputs = await generateInputs(autorunLogN, true);
+      const firstScalars = (inputs.scalars ?? []).slice(0, 4).map(s => s.toString(16));
+      const firstPoints = (inputs.points ?? []).slice(0, 4).map(p => p.x.toString(16).slice(0, 16));
+      log('info', `[noble-direct] generated inputs with mirror for noble; first scalars: ${firstScalars.join(', ')}`);
+      log('info', `[noble-direct] first point xs: ${firstPoints.join(', ')}`);
+      const freshContextPerCall = qp.get('fresh_ctx') === '1';
+      const gpuRuns: bigint[] = [];
+      for (let r = 0; r < 3; r++) {
+        if (freshContextPerCall && r > 0) {
+          // Force-destroy the persistent context + cached bases so each
+          // call starts from a clean slate. Isolates "is the bug due to
+          // persistent-buffer state contamination across calls?".
+          if (cachedBases !== null) { cachedBases.destroy(); cachedBases = null; cachedBasesLogN = null; }
+          if (gpuContext !== null) { gpuContext.destroy(); gpuContext = null; }
+          webgpuWarmedUp = false;
+          log('info', `[noble-direct] destroyed context before run ${r}`);
+        }
+        const g = await runWebGpuOnce(inputs);
+        gpuRuns.push(g.xy.x);
+        log('info', `[noble-direct] run ${r} gpu.x=0x${g.xy.x.toString(16).slice(0, 32)}`);
+      }
+      const gpu = { xy: { x: gpuRuns[0], y: 0n } };
+      const sameGpu = gpuRuns.every(x => x === gpuRuns[0]);
+      log(sameGpu ? 'ok' : 'err', `[noble-direct] 3x deterministic=${sameGpu} (fresh_ctx=${freshContextPerCall})`);
+      const gpu2 = { xy: { x: gpuRuns[1], y: 0n } };
+      log('info', `[noble-direct] computing noble reference (this may take ~10s for logN=16)…`);
+      const tStart = performance.now();
+      const noble = referenceMsm(inputs.points!, inputs.scalars!);
+      log('info', `[noble-direct] noble done in ${(performance.now() - tStart).toFixed(0)}ms`);
+      log('info', `[noble-direct] noble.x=0x${noble.x.toString(16).slice(0, 32)}`);
+      const match = pointsEqual(gpu.xy, noble);
+      log(match ? 'ok' : 'err', `[noble-direct] match=${match}`);
+      // Capture log lines after generateInputs cleared them.
+      const capturedLog: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) {
+        capturedLog.push($log.children[i].textContent ?? '');
+      }
+      (window as unknown as { __noble_result?: unknown }).__noble_result = {
+        match,
+        deterministic: sameGpu,
+        gpu_runs: gpuRuns.map(x => x.toString(16)),
+        noble_x: noble.x.toString(16),
+        noble_y: noble.y.toString(16),
+        first_scalars: firstScalars,
+        first_point_xs: firstPoints,
+      };
+      await client.postResults({
+        state: match ? 'done' : 'error',
+        params: { logN: autorunLogN, tree, page: 'msm-noble-direct' },
+        results: {
+          match,
+          deterministic: sameGpu,
+          gpu_x: gpu.xy.x.toString(16),
+          gpu_y: gpu.xy.y.toString(16),
+          gpu2_x: gpu2.xy.x.toString(16),
+          gpu2_y: gpu2.xy.y.toString(16),
+          noble_x: noble.x.toString(16),
+          noble_y: noble.y.toString(16),
+          first_scalars: firstScalars,
+          first_point_xs: firstPoints,
+        },
+        error: match ? null : `gpu.x=${gpu.xy.x.toString(16)} noble.x=${noble.x.toString(16)}`,
+        log: capturedLog.slice(-50),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[noble-direct] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, tree, page: 'msm-noble-direct' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+    return;
+  }
   if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
     const tree = qp.get('use_tree_reduce') === '1';
@@ -1478,6 +1576,12 @@ function hideProgress(): void {
       await waitForRun();
       $logn.value = String(autorunLogN);
       $logn.dispatchEvent(new Event('input'));
+      // Enable noble cross-check at log2(n) = 16 so the autorun captures
+      // an absolute reference even when WASM fails to boot.
+      if (qp.get('noble') === '1') {
+        $noble.checked = true;
+        log('info', '[autorun] enabled noble cross-check');
+      }
       // First click: warmup happens during this click (no debug, runs
       // to completion and produces a real gpu.x).
       $run.click();
@@ -1519,6 +1623,8 @@ function hideProgress(): void {
       const crossOk = lines.some(l => /cross-check.*all agree/i.test(l));
       const crossErr = lines.find(l => /cross-check.*disagreement/i.test(l));
       const gpuLine = lines.find(l => /\[gpu\] x=0x/.test(l));
+      const nobleOk = lines.some(l => /\[noble\] matches GPU/i.test(l));
+      const nobleErr = lines.find(l => /\[noble\] mismatch/i.test(l));
       const errLines = lines.filter(l => /^\[err\]/.test(l));
       const dump = (window as unknown as { __msm_debug_dump?: number[] }).__msm_debug_dump;
       const treeDump = (window as unknown as { __msm_debug_tree_dump?: unknown }).__msm_debug_tree_dump;
@@ -1527,6 +1633,8 @@ function hideProgress(): void {
         cross_ok: crossOk,
         cross_err: crossErr ?? null,
         gpu_line: gpuLine ?? null,
+        noble_ok: nobleOk,
+        noble_err: nobleErr ?? null,
         err_count: errLines.length,
         debug_dump: dump ?? null,
         tree_dump: treeDump ?? null,
