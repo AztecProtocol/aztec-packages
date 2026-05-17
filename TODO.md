@@ -1,2 +1,10 @@
 - Do not change optimization levels for compile-time improvements; keep work focused on structural C++ changes backed by compiler profiling.
 - Do not alter test code for compile-time improvements; use test builds only as a proxy for `ninja bb` compile time.
+- PCH is not a serious path for this repo. It can hide repeated parsing in warm local builds, but it does not reduce semantic work, template instantiation work, constant evaluation, or invalidation churn.
+- Move the next compile-time pass away from constants and toward compiler object volume: AST type count, declaration count, statement/expression count, source-location entries, token ownership, include graph shape, and duplicated template instantiations across TUs.
+- Use Clang 20/Zig Clang as an analysis compiler, not a production semantics change. Useful knobs: `-ftime-trace-verbose`, `-Xclang -print-stats`, `-Xclang -dump-tokens`, `clang-include-cleaner`, and `clang-scan-deps`.
+- Use GCC only as an independent sampling oracle for phase time and memory (`-ftime-report`, `-ftime-report-details`, `-fmem-report`), not as a build-system migration unless the data shows a real structural difference.
+- Consider Templight only for one or two narrow Sumcheck/Honk repro TUs if Clang time traces cannot explain template recursion roots. It is the closest tool to "a compiler meant for this", but likely too heavy to make the normal workflow depend on it.
+- Treat Sumcheck/Honk as the next heavy-work target set. Current Clang 20 sample shows `sumcheck_prover.cpp` and `sumcheck_verifier.cpp` as frontend and backend heavy, with millions of AST nodes across just the top Sumcheck TUs.
+- Prioritize headers that dominate tokens and semantic volume in hot Sumcheck TUs: `poseidon2_params.hpp`, `tuplet.hpp`, `biggroup_impl.hpp`, `element_impl.hpp`, `bigfield.hpp`, `biggroup.hpp`, `univariate.hpp`, `ecc_ops_table.hpp`, and field implementation headers.
+- For include cleanup, do not auto-apply `clang-include-cleaner`. Use it as a candidate generator, then measure before/after total compiler work because transitive include fixes can increase direct includes while reducing semantic drag.

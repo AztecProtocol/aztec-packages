@@ -493,11 +493,18 @@ def command_without_output(entry: dict[str, Any]) -> list[str]:
 
 
 def command_for_include_scan(entry: dict[str, Any]) -> list[str]:
-    return command_without_output(entry) + ["-H", "-fsyntax-only", "-fdiagnostics-color=never", real(entry["file"])]
+    return command_without_output(entry) + [
+        "-Wno-unused-command-line-argument",
+        "-H",
+        "-fsyntax-only",
+        "-fdiagnostics-color=never",
+        real(entry["file"]),
+    ]
 
 
 def command_for_token_scan(entry: dict[str, Any]) -> list[str]:
     return command_without_output(entry) + [
+        "-Wno-unused-command-line-argument",
         "-Xclang",
         "-dump-tokens",
         "-fsyntax-only",
@@ -508,6 +515,7 @@ def command_for_token_scan(entry: dict[str, Any]) -> list[str]:
 
 def command_for_frontend_stats(entry: dict[str, Any], stats_path: Path) -> list[str]:
     return command_without_output(entry) + [
+        "-Wno-unused-command-line-argument",
         "-Xclang",
         "-print-stats",
         "-Xclang",
@@ -516,6 +524,98 @@ def command_for_frontend_stats(entry: dict[str, Any], stats_path: Path) -> list[
         "-fdiagnostics-color=never",
         real(entry["file"]),
     ]
+
+
+def parse_frontend_stats_text(stderr: str) -> dict[str, int | float]:
+    stats: dict[str, int | float] = {}
+
+    simple_patterns: list[tuple[str, str]] = [
+        (r"^\s*(\d+) types total", "ast-context.types.total"),
+        (r"^\s*(\d+) decls total", "ast-context.decls.total"),
+        (r"^\s*(\d+) stmts/exprs total", "ast-context.stmts_exprs.total"),
+        (r"^\s*(\d+) directives found:", "frontend.preprocessor.directives"),
+        (r"^\s*(\d+) #define\.", "frontend.preprocessor.defines"),
+        (r"^\s*(\d+) #undef\.", "frontend.preprocessor.undefs"),
+        (r"^\s*(\d+) source files entered\.", "frontend.preprocessor.source_files_entered"),
+        (r"^\s*(\d+) max include stack depth", "frontend.preprocessor.max_include_stack_depth"),
+        (r"^\s*(\d+) #if/#ifndef/#ifdef\.", "frontend.preprocessor.conditionals"),
+        (r"^\s*(\d+) #else/#elif/#elifdef/#elifndef\.", "frontend.preprocessor.conditional_alternates"),
+        (r"^\s*(\d+) #endif\.", "frontend.preprocessor.endifs"),
+        (r"^\s*(\d+) #pragma\.", "frontend.preprocessor.pragmas"),
+        (r"^\s*(\d+) #if/#ifndef#ifdef regions skipped", "frontend.preprocessor.skipped_regions"),
+        (r"^Preprocessor Memory: (\d+)B total", "frontend.preprocessor.memory_bytes"),
+        (r"^# Identifiers:\s+(\d+)", "frontend.identifiers.count"),
+        (r"^Max identifier length:\s+(\d+)", "frontend.identifiers.max_length"),
+        (r"^(\d+) files tracked\.", "frontend.header_search.files_tracked"),
+        (r"^\s*(\d+) #import/#pragma once files\.", "frontend.header_search.once_files"),
+        (r"^\s*(\d+) #include/#include_next/#import\.", "frontend.header_search.include_attempts"),
+        (r"^\s*(\d+) #includes skipped due to the multi-include optimization\.", "frontend.header_search.multi_include_skips"),
+        (r"^(\d+) files mapped, \d+ mem buffers mapped\.", "frontend.source_manager.files_mapped"),
+        (r"^\d+ files mapped, (\d+) mem buffers mapped\.", "frontend.source_manager.mem_buffers_mapped"),
+        (r"^(\d+) local SLocEntries allocated", "frontend.source_manager.local_sloc_entries"),
+        (r"^\d+ local SLocEntries allocated \(\d+ bytes of capacity\), (\d+)B of SLoc address space used\.", "frontend.source_manager.sloc_address_bytes"),
+        (r"^(\d+) bytes of files mapped", "frontend.source_manager.file_bytes_mapped"),
+        (r"^FileID scans: (\d+) linear, \d+ binary\.", "frontend.source_manager.fileid_linear_scans"),
+        (r"^FileID scans: \d+ linear, (\d+) binary\.", "frontend.source_manager.fileid_binary_scans"),
+        (r"^(\d+) real files found, \d+ real dirs found\.", "frontend.file_manager.real_files"),
+        (r"^\d+ real files found, (\d+) real dirs found\.", "frontend.file_manager.real_dirs"),
+        (r"^(\d+) dir lookups, \d+ dir cache misses\.", "frontend.file_manager.dir_lookups"),
+        (r"^\d+ dir lookups, (\d+) dir cache misses\.", "frontend.file_manager.dir_cache_misses"),
+        (r"^(\d+) file lookups, \d+ file cache misses\.", "frontend.file_manager.file_lookups"),
+        (r"^\d+ file lookups, (\d+) file cache misses\.", "frontend.file_manager.file_cache_misses"),
+        (r"^(\d+) status\(\) calls", "frontend.vfs.status_calls"),
+        (r"^(\d+) openFileForRead\(\) calls", "frontend.vfs.open_file_calls"),
+    ]
+
+    for line in stderr.splitlines():
+        for pattern, key in simple_patterns:
+            match = re.search(pattern, line)
+            if match:
+                stats[key] = stats.get(key, 0) + int(match.group(1))
+                break
+
+        macro_match = re.search(
+            r"^(\d+)/(\d+)/(\d+) obj/fn/builtin macros expanded, (\d+) on the fast path\.",
+            line,
+        )
+        if macro_match:
+            keys = [
+                "frontend.preprocessor.object_macros_expanded",
+                "frontend.preprocessor.function_macros_expanded",
+                "frontend.preprocessor.builtin_macros_expanded",
+                "frontend.preprocessor.fast_macro_expansions",
+            ]
+            for key, value in zip(keys, macro_match.groups(), strict=True):
+                stats[key] = stats.get(key, 0) + int(value)
+
+        paste_match = re.search(r"^(\d+) token paste \(##\) operations performed, (\d+) on the fast path\.", line)
+        if paste_match:
+            stats["frontend.preprocessor.token_paste_operations"] = (
+                stats.get("frontend.preprocessor.token_paste_operations", 0) + int(paste_match.group(1))
+            )
+            stats["frontend.preprocessor.fast_token_paste_operations"] = (
+                stats.get("frontend.preprocessor.fast_token_paste_operations", 0) + int(paste_match.group(2))
+            )
+
+        ast_type_match = re.search(r"^\s*(\d+) ([A-Za-z0-9_]+) types,", line)
+        if ast_type_match:
+            stats[f"ast-context.types.{ast_type_match.group(2)}"] = (
+                stats.get(f"ast-context.types.{ast_type_match.group(2)}", 0) + int(ast_type_match.group(1))
+            )
+
+        decl_match = re.search(r"^\s*(\d+) ([A-Za-z0-9_]+) decls,", line)
+        if decl_match:
+            stats[f"ast-context.decls.{decl_match.group(2)}"] = (
+                stats.get(f"ast-context.decls.{decl_match.group(2)}", 0) + int(decl_match.group(1))
+            )
+
+        stmt_match = re.search(r"^\s*(\d+) ([A-Za-z0-9_]+), \d+ each", line)
+        if stmt_match:
+            stats[f"ast-context.stmts_exprs.{stmt_match.group(2)}"] = (
+                stats.get(f"ast-context.stmts_exprs.{stmt_match.group(2)}", 0) + int(stmt_match.group(1))
+            )
+
+    return stats
 
 
 INCLUDE_LINE_RE = re.compile(r"^(\.+)\s+(.*)$")
@@ -664,6 +764,8 @@ def run_frontend_stats_scan(trace: TuTrace, out_dir: Path) -> FrontendStatsScan 
             stats = {str(key): value for key, value in raw.items() if isinstance(value, int | float)}
         except (json.JSONDecodeError, OSError):
             stats = {}
+    for key, value in parse_frontend_stats_text(proc.stderr).items():
+        stats[key] = stats.get(key, 0) + value
     return FrontendStatsScan(tu=trace, stderr_path=real(stderr_path), stats_path=real(stats_path), stats=stats)
 
 
