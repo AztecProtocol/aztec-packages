@@ -1,7 +1,7 @@
 import { defineConfig, type PluginOption } from "vite";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { createReadStream, statSync, existsSync } from "node:fs";
+import { createReadStream, statSync, existsSync, appendFileSync, mkdirSync } from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tsRoot = path.resolve(__dirname, "../..");
@@ -93,13 +93,97 @@ function conditionalCoiHeaders(): PluginOption {
   };
 }
 
+// In-process result collector. Bench/sanity pages POST a JSON payload to
+// `/results` when they reach a terminal state; progress chunks POST to
+// `/progress` while running. The middleware appends each payload as a JSONL
+// row to the file named by env var `MSM_WEBGPU_RESULTS_FILE` (default
+// `/tmp/msm-webgpu-results.jsonl`) and also tees progress lines to
+// `MSM_WEBGPU_PROGRESS_FILE`. The BrowserStack runner tails these JSONL
+// files to apply stall/deadline watchdogs without polling JS globals.
+function resultsCollector(): PluginOption {
+  const resultsFile =
+    process.env.MSM_WEBGPU_RESULTS_FILE ?? "/tmp/msm-webgpu-results.jsonl";
+  const progressFile =
+    process.env.MSM_WEBGPU_PROGRESS_FILE ?? "/tmp/msm-webgpu-progress.jsonl";
+  for (const f of [resultsFile, progressFile]) {
+    mkdirSync(path.dirname(f), { recursive: true });
+  }
+  function readBody(req: import("node:http").IncomingMessage): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let buf = "";
+      req.setEncoding("utf8");
+      req.on("data", (chunk) => {
+        buf += chunk;
+        if (buf.length > 8 * 1024 * 1024) {
+          reject(new Error("payload too large (>8MB)"));
+        }
+      });
+      req.on("end", () => resolve(buf));
+      req.on("error", reject);
+    });
+  }
+  return {
+    name: "msm-webgpu-results-collector",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.method !== "POST") {
+          next();
+          return;
+        }
+        const targetFile =
+          req.url === "/results"
+            ? resultsFile
+            : req.url === "/progress"
+              ? progressFile
+              : null;
+        if (!targetFile) {
+          next();
+          return;
+        }
+        try {
+          const body = await readBody(req);
+          // Validate JSON before appending so a half-flushed POST can't
+          // corrupt the JSONL file.
+          const parsed = JSON.parse(body);
+          const row = { ts: new Date().toISOString(), ...parsed };
+          appendFileSync(targetFile, JSON.stringify(row) + "\n");
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Content-Type", "application/json");
+          res.statusCode = 200;
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.statusCode = 400;
+          res.end(
+            JSON.stringify({ ok: false, error: (e as Error).message }),
+          );
+        }
+      });
+      // CORS preflight: BrowserStack devices may issue an OPTIONS before
+      // the actual POST when the page is fetched via a different origin
+      // (Cloudflare Quick Tunnel is same-origin in practice, but Safari
+      // is conservative about POSTing JSON without CORS approval).
+      server.middlewares.use((req, res, next) => {
+        if (req.method === "OPTIONS" && (req.url === "/results" || req.url === "/progress")) {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+          res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 // Standalone dev server for the WebGPU BN254 MSM comparison page. Roots
 // Vite at `barretenberg/ts/` so relative imports from `dev/msm-webgpu/main.ts`
 // into `src/msm_webgpu/...` and `src/barretenberg/...` resolve naturally.
 // Run from `barretenberg/ts/` with `yarn dev:msm-webgpu`.
 export default defineConfig({
   root: tsRoot,
-  plugins: [serveBarretenbergWasm(), conditionalCoiHeaders()],
+  plugins: [serveBarretenbergWasm(), conditionalCoiHeaders(), resultsCollector()],
   resolve: {
     // The src/ tree hard-codes `bb_backends/node/` and similar `node/`
     // sub-paths in import specifiers; the production browser bundle
@@ -117,5 +201,12 @@ export default defineConfig({
   },
   server: {
     open: "/dev/msm-webgpu/index.html",
+    // Allow the trycloudflare.com tunnel host (and the BrowserStack-side
+    // host header) through Vite's default Host header guard. We don't
+    // hard-disable the guard ("allowedHosts: true") because that opens
+    // the dev server to DNS-rebinding when bound to a public interface;
+    // the wildcard limits exposure to Cloudflare's Quick Tunnel domain
+    // used by `scripts/run-browserstack.mjs`.
+    allowedHosts: [".trycloudflare.com", "127.0.0.1", "localhost"],
   },
 });

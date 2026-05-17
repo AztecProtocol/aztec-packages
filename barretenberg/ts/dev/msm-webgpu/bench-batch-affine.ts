@@ -13,6 +13,7 @@ import { BN254_CURVE_CONFIG } from '../../src/msm_webgpu/cuzk/curve_config.js';
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { compute_misc_params } from '../../src/msm_webgpu/cuzk/utils.js';
 import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
+import { makeResultsClient } from './results_post.js';
 
 // TOTAL_PAIRS defaults to 65536 (2^16). Overridable via ?total=N for
 // smoke-tests on small slices (NOT used in the headline sweep, but
@@ -116,6 +117,21 @@ const benchState: BenchState = {
   log: [],
 };
 (window as unknown as { __bench: BenchState }).__bench = benchState;
+
+const resultsClient = makeResultsClient({ page: 'bench-batch-affine' });
+(window as unknown as { __runId: string }).__runId = resultsClient.runId;
+
+async function postFinal(): Promise<void> {
+  await resultsClient.postResults({
+    state: benchState.state,
+    params: benchState.params,
+    results: benchState.results,
+    error: benchState.error,
+    log: benchState.log,
+    userAgent: navigator.userAgent,
+    hardwareConcurrency: navigator.hardwareConcurrency,
+  });
+}
 
 const $log = document.getElementById('log') as HTMLDivElement;
 function log(level: 'info' | 'ok' | 'err' | 'warn', msg: string) {
@@ -396,6 +412,7 @@ async function main() {
       try {
         const r = await runOne(device, sm, B, params.reps, R, p);
         benchState.results.push(r);
+        resultsClient.postProgress({ kind: 'batch_done', batch_size: B, median_ms: r.median_ms, ns_per_pair: r.ns_per_pair });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         log('err', `B=${B} failed: ${msg} — STOPPING sweep at first failure`);
@@ -415,9 +432,13 @@ async function main() {
   }
 }
 
-main().catch(e => {
-  const msg = e instanceof Error ? e.message : String(e);
-  log('err', `unhandled: ${msg}`);
-  benchState.state = 'error';
-  benchState.error = msg;
-});
+main()
+  .catch(e => {
+    const msg = e instanceof Error ? e.message : String(e);
+    log('err', `unhandled: ${msg}`);
+    benchState.state = 'error';
+    benchState.error = msg;
+  })
+  .finally(() => {
+    postFinal().catch(() => {});
+  });
