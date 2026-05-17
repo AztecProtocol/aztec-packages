@@ -733,6 +733,42 @@ export const smvp_batch_affine_gpu = async (
       await device.queue.onSubmittedWorkDone();
     }
 
+    if ((globalThis as unknown as { __tree_debug?: boolean }).__tree_debug) {
+      const dumpN = 32;
+      const dumpStaging = device.createBuffer({
+        size: dumpN * 4,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+      const enc = device.createCommandEncoder();
+      enc.copyBufferToBuffer(entryBucketIdBuf, 0, dumpStaging, 0, dumpN * 4);
+      device.queue.submit([enc.finish()]);
+      await device.queue.onSubmittedWorkDone();
+      await dumpStaging.mapAsync(GPUMapMode.READ);
+      const dumped = new Uint32Array(dumpStaging.getMappedRange().slice(0));
+      dumpStaging.unmap();
+      dumpStaging.destroy();
+      console.log(`[tree-dbg] num_columns=${num_columns} num_subtasks=${num_subtasks} input_size=${input_size} totalEntries=${totalEntries}`);
+      console.log(`[tree-dbg] entry_bucket_id[0..${dumpN}] = ${Array.from(dumped).join(',')}`);
+      const rpStaging = device.createBuffer({
+        size: (num_columns + 1) * 4,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+      try {
+        const e2 = device.createCommandEncoder();
+        e2.copyBufferToBuffer(all_csc_col_ptr_sb, 0, rpStaging, 0, (num_columns + 1) * 4);
+        device.queue.submit([e2.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        await rpStaging.mapAsync(GPUMapMode.READ);
+        const rpDump = new Uint32Array(rpStaging.getMappedRange().slice(0));
+        rpStaging.unmap();
+        rpStaging.destroy();
+        console.log(`[tree-dbg] subtask0 row_ptr[0..16] = ${Array.from(rpDump.subarray(0, 16)).join(',')}`);
+        console.log(`[tree-dbg] subtask0 row_ptr[end-3..end] = ${Array.from(rpDump.subarray(num_columns - 2, num_columns + 1)).join(',')}`);
+      } catch (e) {
+        console.log(`[tree-dbg] row_ptr readback failed: ${(e as Error).message}`);
+      }
+    }
+
     const treeRes = await runTreeReduce(
       device,
       p1.pipeline, p1.layout,
