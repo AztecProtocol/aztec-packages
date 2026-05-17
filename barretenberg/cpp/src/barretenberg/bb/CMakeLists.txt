@@ -9,13 +9,11 @@ if (NOT(FUZZING))
     target_link_libraries(
         bb
         PRIVATE
-        barretenberg
         env
         api
         circuit_checker
         vm2_stub
         ${TRACY_LIBS}
-        libdeflate::libdeflate_static
         tracy_mem
     )
     # Link avm_transpiler when library is provided
