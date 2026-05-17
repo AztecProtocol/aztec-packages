@@ -1,7 +1,7 @@
 use crate::ephemeral::EphemeralArray;
 use crate::protocol::address::aztec_address::AztecAddress;
 use crate::protocol::point::Point;
-use std::hash::sha256_to_field;
+use crate::protocol::hash::sha256_to_field;
 
 global GET_SHARED_SECRETS_REQUEST_SLOT: Field =
     sha256_to_field("AZTEC_NR::GET_SHARED_SECRETS_REQUEST_SLOT".as_bytes());
@@ -130,7 +130,7 @@ mod test {
         });
     }
 
-    fn mock_get_shared_secrets(response_values: [Field; N]) -> Field {
+    fn mock_get_shared_secrets<let N: u32>(response_values: [Field; N]) -> Field {
         let response_slot: Field = 99;
         let response_array: EphemeralArray<Field> = EphemeralArray::at(response_slot);
         for value in response_values {
