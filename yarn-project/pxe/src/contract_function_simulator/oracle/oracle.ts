@@ -10,7 +10,6 @@ import {
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   type ACIRCallback,
@@ -883,19 +882,17 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getSharedSecret(
+  async aztec_utl_getSharedSecrets(
     [address]: ACVMField[],
-    [ephPKField0]: ACVMField[],
-    [ephPKField1]: ACVMField[],
-    [ephPKField2]: ACVMField[],
+    [ephPksSlot]: ACVMField[],
     [contractAddress]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const secret = await this.handlerAsUtility().getSharedSecret(
+    const responseSlot = await this.handlerAsUtility().getSharedSecrets(
       AztecAddress.fromField(Fr.fromString(address)),
-      Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
+      Fr.fromString(ephPksSlot),
       AztecAddress.fromField(Fr.fromString(contractAddress)),
     );
-    return [toACVMField(secret)];
+    return [toACVMField(responseSlot)];
   }
 
   // eslint-disable-next-line camelcase
