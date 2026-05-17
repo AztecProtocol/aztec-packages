@@ -1,5 +1,6 @@
 #pragma once
 
+#include "concepts.hpp"
 #include "schema_name.hpp"
 #include <array>
 #include <concepts>

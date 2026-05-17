@@ -18,6 +18,7 @@
 #include <unordered_set>
 
 #include "barretenberg/serialize/msgpack.hpp"
+#include <msgpack/sbuffer_decl.hpp>
 
 namespace bb {
 

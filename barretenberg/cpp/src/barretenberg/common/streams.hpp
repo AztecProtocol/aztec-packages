@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_apply.hpp"
+#include "barretenberg/serialize/msgpack_impl/concepts.hpp"
 #include <iomanip>
 #include <map>
 #include <memory>

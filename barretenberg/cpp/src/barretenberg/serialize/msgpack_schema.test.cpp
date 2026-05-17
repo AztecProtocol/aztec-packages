@@ -1,5 +1,6 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/serialize/msgpack_impl/concepts.hpp"
 
 #include <gtest/gtest.h>
 

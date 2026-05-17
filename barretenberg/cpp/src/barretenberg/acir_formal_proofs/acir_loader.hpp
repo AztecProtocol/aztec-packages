@@ -3,6 +3,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include <cstdint>
+#include <msgpack/sbuffer_decl.hpp>
 #include <string>
 #include <vector>
 

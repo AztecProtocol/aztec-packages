@@ -2,6 +2,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "msgpack.hpp"
+#include "msgpack_impl/concepts.hpp"
 #include "msgpack_impl/drop_keys.hpp"
 #include <cstddef>
 #include <string_view>

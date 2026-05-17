@@ -7,6 +7,7 @@
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_camel_case.hpp"
 #include "barretenberg/serialize/msgpack_impl/uint_128_t_adaptor.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "msgpack/adaptor/define_decl.hpp"

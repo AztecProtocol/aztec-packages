@@ -18,6 +18,8 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
+#include <msgpack/sbuffer_decl.hpp>
+
 namespace bb {
 
 /**

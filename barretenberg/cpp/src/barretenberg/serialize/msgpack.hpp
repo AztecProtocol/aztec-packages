@@ -106,14 +106,7 @@ to the object itself, do break up the above to keep a reference to the handle, f
     }
 ```
 */
-// For sbuffer forward declaration:
-#include "msgpack_impl/concepts.hpp"
 #include "msgpack_impl/name_value_pair_macro.hpp"
-#include <msgpack/sbuffer_decl.hpp>
-
-#include <string>
-#include <string_view>
-#include <type_traits>
 
 // Helper for above documented syntax
 // Define a macro that takes any amount of parameters and expands to a msgpack method definition
@@ -122,49 +115,4 @@ to the object itself, do break up the above to keep a reference to the handle, f
     void msgpack(auto pack_fn)                                                                                         \
     {                                                                                                                  \
         pack_fn(NVP(__VA_ARGS__));                                                                                     \
-    }
-
-namespace msgpack_detail {
-
-// A constexpr function to convert a snake_case string to a camelCase string.
-inline constexpr std::string camel_case(std::string_view name)
-{
-    std::string result;
-    bool to_upper = false;
-    for (char c : name) {
-        if (c == '_') {
-            to_upper = true;
-        } else {
-            if (to_upper && c >= 'a' && c <= 'z') {
-                result += static_cast<char>(c - 'a' + 'A');
-                to_upper = false;
-            } else {
-                result += c;
-                to_upper = false;
-            }
-        }
-    }
-    return result;
-}
-
-// Helper to unwrap reference_wrappers or pass through values
-template <typename T> constexpr decltype(auto) unwrap_ref(T& t)
-{
-    if constexpr (requires { t.get(); }) {
-        return t.get();
-    } else {
-        return t;
-    }
-}
-
-} // namespace msgpack_detail
-
-// Same as SERIALIZATION_FIELDS but expecting the serialized names to be in camelCase.
-// NOTE: We use std::ref for fields to preserve references, store strings as values,
-// then unwrap reference_wrappers to get actual references while keeping strings as-is.
-#define MSGPACK_CAMEL_CASE_FIELDS(...)                                                                                 \
-    void msgpack(auto pack_fn)                                                                                         \
-    {                                                                                                                  \
-        auto temp_args = std::make_tuple(NVPFG(::msgpack_detail::camel_case, std::ref, __VA_ARGS__));                  \
-        std::apply([&](auto&... args) { pack_fn(::msgpack_detail::unwrap_ref(args)...); }, temp_args);                 \
     }
