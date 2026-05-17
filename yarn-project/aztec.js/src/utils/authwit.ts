@@ -1,6 +1,6 @@
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry/address';
+import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry/address';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -223,7 +223,7 @@ export async function lookupValidity(
     errorTypes: {},
   } as FunctionAbi;
   results.isValidInPublic = (
-    await new ContractFunctionInteraction(wallet, AUTH_REGISTRY_ADDRESS, isConsumableAbi, [
+    await new ContractFunctionInteraction(wallet, STANDARD_AUTH_REGISTRY_ADDRESS, isConsumableAbi, [
       onBehalfOf,
       messageHash,
     ]).simulate({ from: onBehalfOf })
@@ -242,7 +242,7 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
     messageHash: Fr,
     authorized: boolean,
   ) {
-    super(wallet, AUTH_REGISTRY_ADDRESS, SetPublicAuthwitContractInteraction.getSetAuthorizedAbi(), [
+    super(wallet, STANDARD_AUTH_REGISTRY_ADDRESS, SetPublicAuthwitContractInteraction.getSetAuthorizedAbi(), [
       messageHash,
       authorized,
     ]);

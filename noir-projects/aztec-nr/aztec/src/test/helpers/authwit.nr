@@ -6,7 +6,7 @@ use crate::{
 };
 
 use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField};
-use standard_addresses::AUTH_REGISTRY_ADDRESS;
+use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 
 pub unconstrained fn add_private_authwit_from_call<let M: u32, let N: u32, T>(
     env: TestEnvironment,
@@ -46,7 +46,7 @@ pub unconstrained fn add_public_authwit_from_call<let M: u32, let N: u32, T>(
     env.call_public(
         on_behalf_of,
         PublicCall::<_, _, ()>::new(
-            AUTH_REGISTRY_ADDRESS,
+            STANDARD_AUTH_REGISTRY_ADDRESS,
             comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
             "set_authorized",
             [message_hash, true as Field],

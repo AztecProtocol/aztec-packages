@@ -30,11 +30,11 @@ pub contract AvmTest {
         traits::{Empty, FromField, ToField},
     };
     use aztec::protocol::traits::Serialize;
+    use aztec::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
     use aztec::state_vars::Map;
     use aztec::state_vars::PublicMutable;
     use aztec::state_vars::StateVariable;
     use compressed_string::CompressedString;
-    use standard_addresses::AUTH_REGISTRY_ADDRESS;
     use std::embedded_curve_ops::multi_scalar_mul;
 
     use auth_contract::AuthRegistry;
@@ -858,7 +858,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn call_auth_registry() {
-        let _ = AuthRegistry::at(AUTH_REGISTRY_ADDRESS).is_reject_all(self.address).view(self.context);
+        let _ = AuthRegistry::at(STANDARD_AUTH_REGISTRY_ADDRESS).is_reject_all(self.address).view(self.context);
     }
 
     #[external("public")]

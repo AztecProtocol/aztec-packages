@@ -3,5 +3,5 @@
 // `AuthRegistry.json` static import.
 import { StandardContractAddress, StandardContractClassId } from '../standard_contract_data.js';
 
-export const AUTH_REGISTRY_ADDRESS = StandardContractAddress.AuthRegistry;
-export const AUTH_REGISTRY_CLASS_ID = StandardContractClassId.AuthRegistry;
+export const STANDARD_AUTH_REGISTRY_ADDRESS = StandardContractAddress.AuthRegistry;
+export const STANDARD_AUTH_REGISTRY_CLASS_ID = StandardContractClassId.AuthRegistry;

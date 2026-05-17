@@ -3,7 +3,7 @@ import { type ContractArtifact, loadContractArtifact } from '@aztec/stdlib/abi';
 import { makeStandardContract } from '../make_standard_contract.js';
 import type { StandardContract } from '../standard_contract.js';
 
-export { AUTH_REGISTRY_ADDRESS, AUTH_REGISTRY_CLASS_ID } from './address.js';
+export { STANDARD_AUTH_REGISTRY_ADDRESS, STANDARD_AUTH_REGISTRY_CLASS_ID } from './address.js';
 
 let standardContract: StandardContract;
 let standardContractArtifact: ContractArtifact;

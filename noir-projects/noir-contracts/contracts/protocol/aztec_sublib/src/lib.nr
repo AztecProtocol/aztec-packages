@@ -14,6 +14,7 @@ pub mod nullifier;
 pub mod utils;
 pub mod history;
 pub mod macros;
+pub mod standard_addresses;
 
 // Re-export protocol_types as `protocol` for compatibility with existing aztec imports
 pub use protocol_types as protocol;

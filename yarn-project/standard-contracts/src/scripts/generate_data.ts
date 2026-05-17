@@ -1,8 +1,8 @@
 // Reads compiled Noir artifacts for each standard contract and derives their addresses, class IDs,
 // bytecode commitments, and initialization hashes — emitting everything as precomputed constants
-// into `standard_contract_data.ts` and as Noir address stamps into
-// `noir-projects/aztec-nr/standard_addresses/src/lib.nr`. This avoids clients repeating the
-// expensive hashing at runtime and keeps the Noir-side address aligned with the TS-side.
+// into `standard_contract_data.ts` and as Noir address stamps into the `standard_addresses.nr`
+// modules of `aztec-nr/aztec` and `noir-contracts/.../aztec_sublib`. This avoids clients repeating
+// the expensive hashing at runtime and keeps the Noir-side address aligned with the TS-side.
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { FunctionSelector, loadContractArtifact } from '@aztec/stdlib/abi';
@@ -24,7 +24,13 @@ const noirContractsRoot = '../../noir-projects/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');
 const destArtifactsDir = './artifacts';
 const outputFilePath = './src/standard_contract_data.ts';
-const noirAddressesPath = '../../noir-projects/aztec-nr/standard_addresses/src/lib.nr';
+// Both consumers (aztec-nr's `aztec` crate and noir-contracts' `aztec_sublib`) need an identical
+// twin of the generated addresses module. `aztec_sublib` cannot depend on `aztec`, so we stamp the
+// same file into both locations rather than introducing a shared crate.
+const noirAddressesPaths = [
+  '../../noir-projects/aztec-nr/aztec/src/standard_addresses.nr',
+  '../../noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/standard_addresses.nr',
+];
 
 const salt = new Fr(1);
 const deployer = AztecAddress.zero();
@@ -34,7 +40,7 @@ const deployer = AztecAddress.zero();
 // Noir-side address consumer (e.g. account-side entrypoints). Add a row here when introducing
 // a new standard contract.
 const standardContracts: { name: string; src: string; nrConst: string | null }[] = [
-  { name: 'AuthRegistry', src: 'auth_registry_contract-AuthRegistry', nrConst: 'AUTH_REGISTRY_ADDRESS' },
+  { name: 'AuthRegistry', src: 'auth_registry_contract-AuthRegistry', nrConst: 'STANDARD_AUTH_REGISTRY_ADDRESS' },
 ];
 
 async function clearDestDir() {
@@ -218,15 +224,15 @@ async function main() {
 
   await generateOutputFile(names, contractDataList);
 
-  await fs.mkdir(path.dirname(noirAddressesPath), { recursive: true });
-  await fs.writeFile(
-    noirAddressesPath,
-    generateNoirAddresses(
-      standardContracts
-        .map((c, i) => ({ nrConst: c.nrConst, address: contractDataList[i].address }))
-        .filter((row): row is { nrConst: string; address: AztecAddress } => row.nrConst !== null),
-    ),
+  const noirAddressesContent = generateNoirAddresses(
+    standardContracts
+      .map((c, i) => ({ nrConst: c.nrConst, address: contractDataList[i].address }))
+      .filter((row): row is { nrConst: string; address: AztecAddress } => row.nrConst !== null),
   );
+  for (const noirAddressesPath of noirAddressesPaths) {
+    await fs.mkdir(path.dirname(noirAddressesPath), { recursive: true });
+    await fs.writeFile(noirAddressesPath, noirAddressesContent);
+  }
 }
 
 try {

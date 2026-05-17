@@ -1,8 +1,0 @@
-[package]
-name = "standard_addresses"
-authors = ["aztec-labs"]
-compiler_version = ">=0.18.0"
-type = "lib"
-
-[dependencies]
-protocol_types = { path = "../../noir-protocol-circuits/crates/types" }
