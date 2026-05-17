@@ -515,5 +515,6 @@ export async function runAllWgslUnitTests(): Promise<UnitTestResult[]> {
   results.push(await testTransposeAtChunkSize(15, 256));
   results.push(await testTransposeAtChunkSize(4, 256));
   results.push(await testTransposeAtChunkSize(16, 256));
+
   return results;
 }

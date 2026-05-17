@@ -948,7 +948,14 @@ const compute_curve_msm = async (
   // loop's wraparound bug AND keeps the simpler one-iteration dispatch
   // that the warm-cached bind-group cache already assumes.
   const num_subtasks_per_bpr_1 = num_subtasks;
-  const b_num_x_workgroups = num_subtasks_per_bpr_1;
+  // BPR_WINDOWS_PER_BATCH: each workgroup handles WPB consecutive
+  // subtasks via an in-kernel const-bounded loop. WPB=1 = legacy
+  // dispatch shape (X = num_subtasks). WPB > 1 trades thread count for
+  // per-thread work — see bpr_bn254.template.wgsl stage_1 comment for
+  // the register-pressure tradeoff. Override per call via the
+  // bpr_inner_loop knob downstream if needed.
+  const BPR_WINDOWS_PER_BATCH = 1;
+  const b_num_x_workgroups = Math.ceil(num_subtasks_per_bpr_1 / BPR_WINDOWS_PER_BATCH);
   const b_workgroup_size = 256;
 
   // Output of the parallel bucket points reduction (BPR) shader
@@ -1002,6 +1009,7 @@ const compute_curve_msm = async (
     /* mixed_safe_buckets */ bpr_mixed_safe,
     /* bench_flags */ bpr_bench_flags,
     /* safe_first_add_no_collision */ bpr_safe_first,
+    /* windows_per_batch */ BPR_WINDOWS_PER_BATCH,
   );
   // Compact key derived from the bench flags. Forwarded into the bpr_1
   // and bpr_2 pipeline cache keys so each variant compiles its own
@@ -1041,6 +1049,8 @@ const compute_curve_msm = async (
       bpr_mixed_safe,
       bpr_bench_key,
       input_size,
+      num_subtasks,
+      BPR_WINDOWS_PER_BATCH,
     );
   }
 
@@ -1070,7 +1080,7 @@ const compute_curve_msm = async (
   // Bucket points reduction (BPR) - stage 2
   // Same as bpr_1: dispatch all T subtasks in one outer iter.
   const num_subtasks_per_bpr_2 = num_subtasks;
-  const b_2_num_x_workgroups = num_subtasks_per_bpr_2;
+  const b_2_num_x_workgroups = Math.ceil(num_subtasks_per_bpr_2 / BPR_WINDOWS_PER_BATCH);
   for (let subtask_idx = 0; subtask_idx < num_subtasks; subtask_idx += num_subtasks_per_bpr_2) {
     await bpr_2(
       bpr_shader,
@@ -1096,6 +1106,8 @@ const compute_curve_msm = async (
       bpr_mixed_safe,
       bpr_bench_key,
       input_size,
+      num_subtasks,
+      BPR_WINDOWS_PER_BATCH,
     );
   }
   cpu_timer.phaseFrom('bpr_host_total', 'bpr_host_begin');
@@ -2359,6 +2371,11 @@ const bpr_1 = async (
   // first call's buffers, BPR would read stale data, and downstream
   // Horner would read an unwritten g_points buffer and return identity.
   input_size_key = 0,
+  // Total subtask count + WPB. Passed to the shader as params[3] so
+  // multi-window dispatches with WPB > 1 can skip out-of-range subtasks
+  // in the tail batch (when num_subtasks is not a multiple of WPB).
+  num_subtasks_total = 0,
+  windows_per_batch = 1,
 ) => {
   let original_bucket_sum_x_sb;
   let original_bucket_sum_y_sb;
@@ -2375,11 +2392,13 @@ const bpr_1 = async (
     commandEncoder.copyBufferToBuffer(bucket_sum_z_sb, 0, original_bucket_sum_z_sb, 0, bucket_sum_z_sb.size);
   }
 
-  // Parameters as a uniform buffer. Contents (subtask_idx, num_columns,
-  // num_x_workgroups) are constant per (subtask_idx, layout) tuple, so
-  // we cache them on the context when one is provided.
-  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups]);
-  const bpr1_key = `${curveId ?? 'x'}:bpr1:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
+  // Parameters as a uniform buffer. Layout: (subtask_idx_base,
+  // num_columns, num_subtasks_per_bpr, num_subtasks_total). The 4th
+  // slot lets the WPB-aware shader skip out-of-range subtasks in tail
+  // batches. Constant per (subtask_idx, layout, WPB) tuple, so we cache
+  // it on the context when one is provided.
+  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups, num_subtasks_total]);
+  const bpr1_key = `${curveId ?? 'x'}:bpr1:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
     const got = context.acquirePersistentUniform(`${bpr1_key}:params_ub`, params_bytes.length);
@@ -2406,7 +2425,7 @@ const bpr_1 = async (
     // Debug-capture variant compiles a different shader (Mustache flag),
     // so keys must not collide with the non-debug one.
     context,
-    `${curveId ?? 'x'}:bpr1:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
+    `${curveId ?? 'x'}:bpr1:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
   );
   cpu_timer?.accumulate('compile_bpr1_shader', performance.now() - _b1_compile_t0);
 
@@ -2554,10 +2573,15 @@ const bpr_2 = async (
   // group across MSM calls with different `input_size`, whose
   // workspace buffers are equally sized but distinct GPUBuffer objects.
   input_size_key = 0,
+  // See bpr_1: total subtasks (4th param slot) + WPB (cache key).
+  num_subtasks_total = 0,
+  windows_per_batch = 1,
 ) => {
   // Parameters as a uniform buffer (cached on context when not debug).
-  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups]);
-  const bpr2_key = `${curveId ?? 'x'}:bpr2:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
+  // Layout: (subtask_idx_base, num_columns, num_subtasks_per_bpr,
+  // num_subtasks_total). See bpr_1 for the layout rationale.
+  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups, num_subtasks_total]);
+  const bpr2_key = `${curveId ?? 'x'}:bpr2:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
     const got = context.acquirePersistentUniform(`${bpr2_key}:params_ub`, params_bytes.length);
@@ -2578,7 +2602,7 @@ const bpr_2 = async (
     shaderCode,
     'stage_2',
     context,
-    `${curveId ?? 'x'}:bpr2:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
+    `${curveId ?? 'x'}:bpr2:wpb${windows_per_batch}:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
   );
   cpu_timer?.accumulate('compile_bpr2_shader', performance.now() - _b2_compile_t0);
 

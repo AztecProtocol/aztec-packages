@@ -1190,6 +1190,7 @@ $probeGpu?.addEventListener('click', async () => {
 $runSanity.addEventListener('click', async () => {
   $log.innerHTML = '';
   abortRequested = false;
+  (window as unknown as { __sanity?: unknown }).__sanity = { state: 'running' };
   setBusy(true, 'sanity check…');
   try {
     log('info', '[sanity] WebGPU-only smoke test, log₂(n)=16, no WASM, no noble');
@@ -1252,9 +1253,23 @@ $runSanity.addEventListener('click', async () => {
     // view after a fresh page reload.
     $results.innerHTML = renderBreakdownTable([{ logN: 16, captures: [gpu.capture] }]);
     $results.classList.add('visible');
+    // Expose the raw capture so Playwright-driven profile scripts can
+    // pull per-stage GPU times without scraping the rendered table.
+    // Cleared at the start of every click, so a stale value from a
+    // previous run never bleeds into the next read.
+    (window as unknown as { __sanity?: unknown }).__sanity = {
+      state: 'done',
+      logN: 16,
+      ms: gpu.ms,
+      capture: JSON.parse(JSON.stringify(gpu.capture)),
+    };
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[sanity] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+    (window as unknown as { __sanity?: unknown }).__sanity = {
+      state: 'error',
+      error: err instanceof Error ? err.message : String(err),
+    };
   } finally {
     setBusy(false);
   }
