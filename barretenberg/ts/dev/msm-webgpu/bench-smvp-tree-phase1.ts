@@ -37,7 +37,7 @@ const W_U32 = 1n << BigInt(WORD_SIZE_U32);
 const MASK_U32 = W_U32 - 1n;
 
 const TPB = 64;
-const MAX_SLICE_ENTRIES = 128;
+const MAX_SLICE_ENTRIES = 1024;
 
 const SCHEDULE_SIGN_BIT = 0x80000000;
 const SCHEDULE_IDX_MASK = 0x7fffffff;

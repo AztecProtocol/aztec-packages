@@ -6,46 +6,17 @@
 {{> bigint_by_funcs }}
 {{> by_inverse_a_funcs }}
 
-// Phase 2 of the tree-reduce SMVP: recursive halving over partials.
-//
-// Input: (bucket_id, AffinePoint) tuples produced by Phase 1 (and by
-// each recursive Phase 2 dispatch). Globally sorted by bucket_id at
-// the kernel boundary — sorting is the job of `smvp_tree_resort`
-// between phases.
-//
-// One workgroup per slice (slice = wg_id's contiguous range of
-// partials in the bucket-sorted input). Per workgroup:
-//
-//   1. Pair detection (thread 0). Same paired/unpaired state machine
-//      as Phase 1, but bucket_id is read directly from
-//      `input_bucket_id[]` rather than from a separate bucket-tag
-//      array indexed by the schedule entry.
-//
-//   2. Batch-affine (cooperative across TPB threads). Same Phase
-//      A/B/C/D structure as Phase 1; one fr_inv_by_a amortised across
-//      the PAIR sub-stream.
-//
-//   3. Write-out. PAIR results emit affine-add output; UNPAIRED slots
-//      copy the input point verbatim (no sign flip — the points are
-//      already in canonical-on-curve form from the previous phase).
-//
-// Differences from Phase 1:
-//   - `point_x[scalar_idx]` / sign-flip → `input_x[entry_idx]` direct
-//     (one less indirection, no negation step).
-//   - Bucket id read from `input_bucket_id[entry_idx]` not from a
-//     separate `entry_bucket_id` array.
-//   - Output schema identical to Phase 1 so the resort + Phase 2
-//     loop can iterate without re-binding.
-//
-// Loop bounds — all `const`, same constraints as Phase 1.
+// Phase 2 of the tree-reduce SMVP (v2 — rearchitected for thread util).
+// See `smvp_tree_phase1.template.wgsl` header for the rank_to_raw +
+// prev_raw_for_pair preamble pattern. The only differences vs Phase 1
+// are at the load_point boundary (Mont-form points already in place,
+// no schedule decode or sign flip) and the bucket_id source (read from
+// `input_bucket_id[]` instead of `entry_bucket_id[]`).
 
 const TPB: u32 = {{ tpb }}u;
 const MAX_SLICE_ENTRIES: u32 = {{ max_slice_entries }}u;
 const MAX_PAIRS: u32 = {{ max_pairs }}u;
 const PER_THREAD_PAIRS: u32 = {{ per_thread_pairs }}u;
-
-const PAIR_KIND_UNPAIRED: u32 = 0u;
-const PAIR_KIND_PAIR: u32 = 1u;
 
 @group(0) @binding(0)
 var<storage, read> input_bucket_id: array<u32>;
@@ -81,9 +52,10 @@ fn get_r() -> BigInt {
 }
 // `get_p()` is provided by the `montgomery_product_funcs` partial.
 
-var<workgroup> pair_list_idx_a: array<u32, {{ max_pairs }}>;
-var<workgroup> pair_list_idx_b: array<u32, {{ max_pairs }}>;
-var<workgroup> pair_list_bucket: array<u32, {{ max_pairs }}>;
+var<workgroup> pair_idx_a: array<u32, {{ max_pairs }}>;
+var<workgroup> pair_idx_b: array<u32, {{ max_pairs }}>;
+var<workgroup> prev_raw_for_pair: array<u32, {{ max_pairs }}>;
+var<workgroup> rank_to_raw: array<u32, {{ max_pairs }}>;
 var<workgroup> pair_count: u32;
 var<workgroup> num_pairs_real: u32;
 
@@ -108,23 +80,30 @@ fn main(
         var pair_real: u32 = 0u;
         var open_idx: u32 = 0xffffffffu;
         var open_bucket: u32 = 0xffffffffu;
+        var last_pair_raw: u32 = 0xffffffffu;
         for (var i: u32 = 0u; i < MAX_SLICE_ENTRIES; i = i + 1u) {
             let entry_idx = slice_lo + i;
             if (entry_idx >= slice_hi) { break; }
             let b = input_bucket_id[entry_idx];
             if (open_idx != 0xffffffffu && b == open_bucket) {
-                pair_list_idx_a[count] = open_idx;
-                pair_list_idx_b[count] = entry_idx;
-                pair_list_bucket[count] = b;
+                let raw = count;
+                pair_idx_a[raw] = open_idx;
+                pair_idx_b[raw] = entry_idx;
+                prev_raw_for_pair[raw] = last_pair_raw;
+                rank_to_raw[pair_real] = raw;
+                output_bucket_id[out_base + raw] = b;
                 count = count + 1u;
                 pair_real = pair_real + 1u;
+                last_pair_raw = raw;
                 open_idx = 0xffffffffu;
                 open_bucket = 0xffffffffu;
             } else {
                 if (open_idx != 0xffffffffu) {
-                    pair_list_idx_a[count] = open_idx;
-                    pair_list_idx_b[count] = 0xffffffffu;
-                    pair_list_bucket[count] = open_bucket;
+                    let raw = count;
+                    pair_idx_a[raw] = open_idx;
+                    pair_idx_b[raw] = 0xffffffffu;
+                    prev_raw_for_pair[raw] = 0xffffffffu;
+                    output_bucket_id[out_base + raw] = open_bucket;
                     count = count + 1u;
                 }
                 open_idx = entry_idx;
@@ -132,9 +111,11 @@ fn main(
             }
         }
         if (open_idx != 0xffffffffu) {
-            pair_list_idx_a[count] = open_idx;
-            pair_list_idx_b[count] = 0xffffffffu;
-            pair_list_bucket[count] = open_bucket;
+            let raw = count;
+            pair_idx_a[raw] = open_idx;
+            pair_idx_b[raw] = 0xffffffffu;
+            prev_raw_for_pair[raw] = 0xffffffffu;
+            output_bucket_id[out_base + raw] = open_bucket;
             count = count + 1u;
         }
         pair_count = count;
@@ -146,27 +127,22 @@ fn main(
     let total_pairs = num_pairs_real;
 
     let chunk_start_rank = tid * PER_THREAD_PAIRS;
-    let chunk_end_rank = chunk_start_rank + PER_THREAD_PAIRS;
     var block_total: BigInt = get_r();
-    var rank: u32 = 0u;
-    for (var i: u32 = 0u; i < MAX_PAIRS; i = i + 1u) {
-        if (i >= total_outputs) { break; }
-        let idx_b = pair_list_idx_b[i];
-        if (idx_b == 0xffffffffu) { continue; }
-        if (rank >= chunk_end_rank) { break; }
-        if (rank >= chunk_start_rank) {
-            let idx_a = pair_list_idx_a[i];
-            var p_x: BigInt = input_x[idx_a];
-            var q_x: BigInt = input_x[idx_b];
-            var dx: BigInt = fr_sub(&q_x, &p_x);
-            if (rank == chunk_start_rank) {
-                block_total = dx;
-            } else {
-                block_total = montgomery_product(&block_total, &dx);
-            }
-            prefix_scratch[wg_id * MAX_PAIRS + i] = block_total;
+    for (var t: u32 = 0u; t < PER_THREAD_PAIRS; t = t + 1u) {
+        let rank = chunk_start_rank + t;
+        if (rank >= total_pairs) { break; }
+        let raw = rank_to_raw[rank];
+        let idx_a = pair_idx_a[raw];
+        let idx_b = pair_idx_b[raw];
+        var p_x: BigInt = input_x[idx_a];
+        var q_x: BigInt = input_x[idx_b];
+        var dx: BigInt = fr_sub(&q_x, &p_x);
+        if (t == 0u) {
+            block_total = dx;
+        } else {
+            block_total = montgomery_product(&block_total, &dx);
         }
-        rank = rank + 1u;
+        prefix_scratch[wg_id * MAX_PAIRS + raw] = block_total;
     }
 
     wg_fwd[tid] = block_total;
@@ -215,38 +191,33 @@ fn main(
         inv_acc = montgomery_product(&inv_acc, &block_excl_suffix);
     }
 
+    var thread_pair_count: u32 = 0u;
+    if (chunk_start_rank < total_pairs) {
+        let avail = total_pairs - chunk_start_rank;
+        if (avail >= PER_THREAD_PAIRS) {
+            thread_pair_count = PER_THREAD_PAIRS;
+        } else {
+            thread_pair_count = avail;
+        }
+    }
     var inv_acc_local: BigInt = inv_acc;
-    var rev_pair_rank: u32 = 0u;
-    for (var off: u32 = 0u; off < MAX_PAIRS; off = off + 1u) {
-        if (off >= total_outputs) { break; }
-        let i = total_outputs - 1u - off;
-        let idx_b = pair_list_idx_b[i];
-        if (idx_b == 0xffffffffu) { continue; }
-        let my_rank_from_end = rev_pair_rank;
-        rev_pair_rank = rev_pair_rank + 1u;
-        let fwd_rank = total_pairs - 1u - my_rank_from_end;
-        if (fwd_rank < chunk_start_rank || fwd_rank >= chunk_end_rank) { continue; }
-
-        let idx_a = pair_list_idx_a[i];
+    for (var off: u32 = 0u; off < PER_THREAD_PAIRS; off = off + 1u) {
+        if (off >= thread_pair_count) { break; }
+        let rank = chunk_start_rank + (thread_pair_count - 1u - off);
+        let raw = rank_to_raw[rank];
+        let idx_a = pair_idx_a[raw];
+        let idx_b = pair_idx_b[raw];
         var p_x: BigInt = input_x[idx_a];
         var p_y: BigInt = input_y[idx_a];
         var q_x: BigInt = input_x[idx_b];
         var q_y: BigInt = input_y[idx_b];
 
         var inv_dx: BigInt;
-        if (fwd_rank == chunk_start_rank) {
+        if (rank == chunk_start_rank) {
             inv_dx = inv_acc_local;
         } else {
-            var prev_i: u32 = 0xffffffffu;
-            for (var j: u32 = 1u; j <= MAX_PAIRS; j = j + 1u) {
-                if (j > i) { break; }
-                let probe = i - j;
-                if (pair_list_idx_b[probe] != 0xffffffffu) {
-                    prev_i = probe;
-                    break;
-                }
-            }
-            var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_PAIRS + prev_i];
+            let prev_raw = prev_raw_for_pair[raw];
+            var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_PAIRS + prev_raw];
             inv_dx = montgomery_product(&inv_acc_local, &prev_prefix);
         }
 
@@ -259,23 +230,21 @@ fn main(
         var ldx: BigInt = montgomery_product(&slope, &dx_back);
         var r_y: BigInt = fr_sub(&ldx, &p_y);
 
-        output_bucket_id[out_base + i] = pair_list_bucket[i];
-        output_x[out_base + i] = r_x;
-        output_y[out_base + i] = r_y;
+        output_x[out_base + raw] = r_x;
+        output_y[out_base + raw] = r_y;
 
-        if (fwd_rank > chunk_start_rank) {
+        if (rank > chunk_start_rank) {
             var dx_k: BigInt = fr_sub(&q_x, &p_x);
             inv_acc_local = montgomery_product(&inv_acc_local, &dx_k);
         }
     }
 
-    for (var off: u32 = 0u; off < MAX_PAIRS; off = off + 1u) {
+    for (var off: u32 = 0u; off < (MAX_PAIRS + TPB - 1u) / TPB; off = off + 1u) {
         let i = tid + off * TPB;
         if (i >= total_outputs) { break; }
-        let idx_b = pair_list_idx_b[i];
+        let idx_b = pair_idx_b[i];
         if (idx_b != 0xffffffffu) { continue; }
-        let idx_a = pair_list_idx_a[i];
-        output_bucket_id[out_base + i] = pair_list_bucket[i];
+        let idx_a = pair_idx_a[i];
         output_x[out_base + i] = input_x[idx_a];
         output_y[out_base + i] = input_y[idx_a];
     }

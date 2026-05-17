@@ -6,67 +6,66 @@
 {{> bigint_by_funcs }}
 {{> by_inverse_a_funcs }}
 
-// Phase 1 of the tree-reduce SMVP: initial sweep over the raw schedule.
+// Phase 1 of the tree-reduce SMVP (v2 — rearchitected for thread util).
 //
-// One workgroup per slice (slice = wg_id's contiguous range of entries
-// in the bucket-sorted transpose output). Per workgroup:
+// One workgroup per slice. Per-WG work is dominated by the cooperative
+// batch-affine over the PAIR sub-stream:
+//   - Phase A: per-thread inclusive-prefix product of delta_x for that
+//     thread's contiguous PAIR-rank chunk. ONE static loop of
+//     PER_THREAD_PAIRS iterations — no scan over MAX_PAIRS, no
+//     conditional skip.
+//   - Phase B: TPB-wide Hillis-Steele scan of per-thread block_total.
+//   - Phase C: thread-0 fr_inv_by_a on the global product.
+//   - Phase D: per-thread back-walk of the same chunk in descending
+//     PAIR-rank order, computing affine adds. inv_dx for PAIR rank R
+//     uses the precomputed previous-PAIR raw_slot (O(1) lookup, no
+//     backward scan).
 //
-//   1. Pair detection (thread 0, serial scan of the slice). Builds a
-//      `pair_list[]` in workgroup memory; each entry is either a PAIR
-//      (two consecutive same-bucket entries → input to batch-affine)
-//      or an UNPAIRED carry (a single entry passed through to output).
-//      pair_list is laid out left-to-right in the slice walk order, so
-//      it is automatically bucket-sorted (no reorder postlude needed —
-//      the schedule itself is bucket-sorted by upstream transpose).
+// Preamble (thread 0, ~MAX_SLICE_ENTRIES sequential ops, ~µs):
+//   Walks the slice left-to-right and fills four workgroup arrays:
+//     pair_idx_a[i]          — first input entry index of pair_list[i]
+//     pair_idx_b[i]          — second input entry index, or UNPAIRED
+//     prev_raw_for_pair[i]   — raw_slot of the immediate PAIR before
+//                              pair_list[i] (PAIRs only; UNPAIRED slots
+//                              are skipped). Set to UNPAIRED_SENTINEL
+//                              when there is no previous PAIR (i.e.
+//                              when this is rank 0).
+//     rank_to_raw[r]         — raw_slot of the PAIR with fwd-rank r.
+//   pair_count and num_pairs_real are also written here.
+//   pair_bucket is written to GLOBAL memory (one u32 per output,
+//   needed only by the final write-out — keeps workgroup memory
+//   under the 32 KiB cap at SWEET_B=1024).
 //
-//   2. Batch-affine (cooperative across TPB threads, Phase A/B/C/D
-//      structure from bench_batch_affine.template.wgsl). All PAIR
-//      entries in pair_list contribute one delta_x to a single
-//      fr_inv_by_a global inverse amortised across the workgroup.
-//      UNPAIRED entries are skipped during phases A/B/D — they emit
-//      directly from their scalar_idx in the final write-out.
+// Workgroup memory at MAX_PAIRS=1024, TPB=64:
+//   pair_idx_a/b/prev_raw/rank_to_raw: 4 × 4 KB = 16 KB
+//   wg_fwd, wg_bwd:                   2 × TPB × 80 = 10.24 KB
+//   wg_inv_total + counters:          ~120 B
+//   total:                            ~26.4 KB (under M2's 32 KB max).
 //
-//   3. Write-out: each thread writes its pair_list slice to
-//      `output_x[wg_output_offset[wg_id] + i]`, `output_y[...]`, with
-//      bucket id tagged in `output_bucket_id[...]`. PAIR entries write
-//      the affine-add result; UNPAIRED entries write the scalar point
-//      (with sign flip from the schedule's high bit).
-//
-// MAX_SLICE_ENTRIES is the static upper bound on per-slice entry count
-// (= per-slice pair_list length); baked at compile time so workgroup
-// memory + loop bounds are constant. v0 uses 128 to keep workgroup
-// memory comfortable while we validate correctness on small inputs;
-// the production target is 1024 with prefix scratch hoisted to global
-// (TODO once correctness gate passes).
-//
-// Loop bounds — every loop body in this kernel is bounded by a
-// compile-time `const`:
-//   - PHASE_A_LOOP: bound = PER_THREAD_PAIRS (compile-time).
-//   - PHASE_B_LOOP: bound = TPB (compile-time).
-//   - PHASE_D_LOOP: bound = PER_THREAD_PAIRS (compile-time).
-//   - All Bigint inner loops are bounded by NUM_WORDS in partials.
-// Walking the entry slice and the pair_list both use static
-// MAX_SLICE_ENTRIES bounds.
+// Static loop bounds:
+//   PHASE_A_LOOP:  PER_THREAD_PAIRS (compile-time const)
+//   PHASE_B_LOOP:  TPB
+//   PHASE_D_LOOP:  PER_THREAD_PAIRS
+//   write-unpaired loop: MAX_PAIRS / TPB (cooperative cooperative round-robin)
+//   preamble loop: MAX_SLICE_ENTRIES (thread-0 only, runs once per WG)
 
 const TPB: u32 = {{ tpb }}u;
 const MAX_SLICE_ENTRIES: u32 = {{ max_slice_entries }}u;
 const MAX_PAIRS: u32 = {{ max_pairs }}u;
 const PER_THREAD_PAIRS: u32 = {{ per_thread_pairs }}u;
+const UNPAIRED_BUCKET: u32 = 0xffffffffu;
 
-const PAIR_KIND_UNPAIRED: u32 = 0u;
-const PAIR_KIND_PAIR: u32 = 1u;
 const SCHEDULE_SIGN_BIT: u32 = 0x80000000u;
 const SCHEDULE_IDX_MASK: u32 = 0x7fffffffu;
 
-// Per-WG inputs.
 @group(0) @binding(0)
-var<storage, read> schedule: array<u32>;            // sign_bit | scalar_idx
+var<storage, read> schedule: array<u32>;            // (sign << 31) | scalar_idx
 
 @group(0) @binding(1)
-var<storage, read> entry_bucket_id: array<u32>;     // bucket id per entry (host-precomputed)
+var<storage, read> entry_bucket_id: array<u32>;     // bucket id per entry
 
 @group(0) @binding(2)
-var<storage, read> point_x: array<BigInt>;          // base points (indexed by scalar_idx)
+var<storage, read> point_x: array<BigInt>;
 
 @group(0) @binding(3)
 var<storage, read> point_y: array<BigInt>;
@@ -77,16 +76,9 @@ var<storage, read> slice_bounds: array<u32>;        // length num_wgs+1
 @group(0) @binding(5)
 var<storage, read> wg_output_offset: array<u32>;    // length num_wgs+1
 
-// Scratch — per pair, holds the prefix product through batch-affine
-// phase A and the negated-Q.y carrier needed by phase D. Sized to
-// MAX_PAIRS × BigInt; allocated globally because workgroup memory at
-// MAX_PAIRS=512 would be 40 KB (exceeds 16 KB limit on mobile). Slot
-// k is owned exclusively by pair_list[k] within this WG, so no
-// cross-WG sync is needed.
 @group(0) @binding(6)
 var<storage, read_write> prefix_scratch: array<BigInt>;  // size num_wgs * MAX_PAIRS
 
-// Outputs.
 @group(0) @binding(7)
 var<storage, read_write> output_bucket_id: array<u32>;
 
@@ -103,29 +95,17 @@ fn get_r() -> BigInt {
 }
 // `get_p()` is provided by the `montgomery_product_funcs` partial.
 
-// pair_list packs the per-WG list of (kind, idx_a, idx_b?) tuples.
-// Element layout: vec2<u32> = (idx_a, kind_or_idx_b). When kind ==
-// PAIR_KIND_PAIR, kind_or_idx_b holds idx_b (a global entry index <
-// 2^31). When kind == PAIR_KIND_UNPAIRED, kind_or_idx_b is set to the
-// sentinel 0xffffffff and idx_a alone identifies the entry.
-//
-// Bucket id per pair_list slot lives in a parallel array so the
-// postlude write-out can tag outputs without re-reading
-// entry_bucket_id (saves one global load per output).
-var<workgroup> pair_list_idx_a: array<u32, {{ max_pairs }}>;
-var<workgroup> pair_list_idx_b: array<u32, {{ max_pairs }}>;
-var<workgroup> pair_list_bucket: array<u32, {{ max_pairs }}>;
+var<workgroup> pair_idx_a: array<u32, {{ max_pairs }}>;
+var<workgroup> pair_idx_b: array<u32, {{ max_pairs }}>;
+var<workgroup> prev_raw_for_pair: array<u32, {{ max_pairs }}>;
+var<workgroup> rank_to_raw: array<u32, {{ max_pairs }}>;
 var<workgroup> pair_count: u32;
-var<workgroup> num_pairs_real: u32; // count of PAIR entries (not UNPAIRED)
+var<workgroup> num_pairs_real: u32;
 
-// Per-thread Phase A/B scratch: each thread owns PER_THREAD_PAIRS pair
-// slots from pair_list. Phase B reduction state across the workgroup.
 var<workgroup> wg_fwd: array<BigInt, {{ tpb }}>;
 var<workgroup> wg_bwd: array<BigInt, {{ tpb }}>;
 var<workgroup> wg_inv_total: BigInt;
 
-// Load the affine point for a schedule entry. The high bit of the
-// schedule encodes a sign flip — if set, return -P (i.e. (P.x, -P.y)).
 fn load_point(entry_idx: u32, out_x: ptr<function, BigInt>, out_y: ptr<function, BigInt>) {
     let raw = schedule[entry_idx];
     let scalar_idx = raw & SCHEDULE_IDX_MASK;
@@ -150,32 +130,35 @@ fn main(
     let slice_hi = slice_bounds[wg_id + 1u];
     let out_base = wg_output_offset[wg_id];
 
-    // Preamble: thread 0 builds pair_list. Other threads spin on the
-    // barrier. Pair detection is sequential and ~O(slice_size) — at
-    // SWEET_B=1024 it's ~5µs of the kernel which is acceptable; the
-    // parallel-scan version is a follow-up.
     if (tid == 0u) {
         var count: u32 = 0u;
         var pair_real: u32 = 0u;
         var open_idx: u32 = 0xffffffffu;
         var open_bucket: u32 = 0xffffffffu;
+        var last_pair_raw: u32 = 0xffffffffu;
         for (var i: u32 = 0u; i < MAX_SLICE_ENTRIES; i = i + 1u) {
             let entry_idx = slice_lo + i;
             if (entry_idx >= slice_hi) { break; }
             let b = entry_bucket_id[entry_idx];
             if (open_idx != 0xffffffffu && b == open_bucket) {
-                pair_list_idx_a[count] = open_idx;
-                pair_list_idx_b[count] = entry_idx;
-                pair_list_bucket[count] = b;
+                let raw = count;
+                pair_idx_a[raw] = open_idx;
+                pair_idx_b[raw] = entry_idx;
+                prev_raw_for_pair[raw] = last_pair_raw;
+                rank_to_raw[pair_real] = raw;
+                output_bucket_id[out_base + raw] = b;
                 count = count + 1u;
                 pair_real = pair_real + 1u;
+                last_pair_raw = raw;
                 open_idx = 0xffffffffu;
                 open_bucket = 0xffffffffu;
             } else {
                 if (open_idx != 0xffffffffu) {
-                    pair_list_idx_a[count] = open_idx;
-                    pair_list_idx_b[count] = 0xffffffffu;
-                    pair_list_bucket[count] = open_bucket;
+                    let raw = count;
+                    pair_idx_a[raw] = open_idx;
+                    pair_idx_b[raw] = 0xffffffffu;
+                    prev_raw_for_pair[raw] = 0xffffffffu; // unused for UNPAIRED
+                    output_bucket_id[out_base + raw] = open_bucket;
                     count = count + 1u;
                 }
                 open_idx = entry_idx;
@@ -183,9 +166,11 @@ fn main(
             }
         }
         if (open_idx != 0xffffffffu) {
-            pair_list_idx_a[count] = open_idx;
-            pair_list_idx_b[count] = 0xffffffffu;
-            pair_list_bucket[count] = open_bucket;
+            let raw = count;
+            pair_idx_a[raw] = open_idx;
+            pair_idx_b[raw] = 0xffffffffu;
+            prev_raw_for_pair[raw] = 0xffffffffu;
+            output_bucket_id[out_base + raw] = open_bucket;
             count = count + 1u;
         }
         pair_count = count;
@@ -196,54 +181,37 @@ fn main(
     let total_outputs = pair_count;
     let total_pairs = num_pairs_real;
 
-    // Phase A: per-thread inclusive-prefix product over delta_x for
-    // its PER_THREAD_PAIRS slice of the PAIR-only sub-stream. The
-    // sub-stream is implicit: thread t walks pair_list slots [a, b)
-    // where a/b are computed from its PAIR rank, not the raw slot
-    // index. We iterate over raw slots and skip UNPAIRED.
-    //
-    // Per-thread work is bounded by PER_THREAD_PAIRS = ceil(MAX_PAIRS / TPB)
-    // pairs at the rate of one delta_x per PAIR. Threads with no PAIR
-    // assignment skip the inversion completely (block_total stays at R).
-    //
-    // To make the per-thread chunk static, we map raw pair_list index
-    // to its PAIR-rank via a serial loop: we keep a running pair_rank
-    // counter and only act on entries where idx_b != UNPAIRED_SENTINEL.
-    // Each thread chunks the PAIR sub-stream by rank, not raw index,
-    // so the cooperative product is over PAIRs only.
+    // Phase A: per-thread prefix product over PER_THREAD_PAIRS PAIRs
+    // assigned to this thread's contiguous PAIR-rank chunk. NO scan
+    // over MAX_PAIRS; rank → raw_slot via rank_to_raw[].
     let chunk_start_rank = tid * PER_THREAD_PAIRS;
-    let chunk_end_rank = chunk_start_rank + PER_THREAD_PAIRS;
     var block_total: BigInt = get_r();
-    var rank: u32 = 0u;
-    for (var i: u32 = 0u; i < MAX_PAIRS; i = i + 1u) {
-        if (i >= total_outputs) { break; }
-        let idx_b = pair_list_idx_b[i];
-        if (idx_b == 0xffffffffu) { continue; }
-        if (rank >= chunk_end_rank) { break; }
-        if (rank >= chunk_start_rank) {
-            let idx_a = pair_list_idx_a[i];
-            var p_x: BigInt;
-            var p_y: BigInt;
-            load_point(idx_a, &p_x, &p_y);
-            var q_x: BigInt;
-            var q_y: BigInt;
-            load_point(idx_b, &q_x, &q_y);
-            var dx: BigInt = fr_sub(&q_x, &p_x);
-            if (rank == chunk_start_rank) {
-                block_total = dx;
-            } else {
-                block_total = montgomery_product(&block_total, &dx);
-            }
-            prefix_scratch[wg_id * MAX_PAIRS + i] = block_total;
+    for (var t: u32 = 0u; t < PER_THREAD_PAIRS; t = t + 1u) {
+        let rank = chunk_start_rank + t;
+        if (rank >= total_pairs) { break; }
+        let raw = rank_to_raw[rank];
+        let idx_a = pair_idx_a[raw];
+        let idx_b = pair_idx_b[raw];
+        var p_x: BigInt;
+        var p_y: BigInt;
+        load_point(idx_a, &p_x, &p_y);
+        var q_x: BigInt;
+        var q_y: BigInt;
+        load_point(idx_b, &q_x, &q_y);
+        var dx: BigInt = fr_sub(&q_x, &p_x);
+        if (t == 0u) {
+            block_total = dx;
+        } else {
+            block_total = montgomery_product(&block_total, &dx);
         }
-        rank = rank + 1u;
+        prefix_scratch[wg_id * MAX_PAIRS + raw] = block_total;
     }
 
     wg_fwd[tid] = block_total;
     wg_bwd[tid] = block_total;
     workgroupBarrier();
 
-    // Phase B: Hillis-Steele scans over per-thread block_totals.
+    // Phase B: Hillis-Steele forward + backward scans.
     for (var stride: u32 = 1u; stride < TPB; stride = stride * 2u) {
         var fwd_x: BigInt = wg_fwd[tid];
         if (tid >= stride) {
@@ -261,9 +229,7 @@ fn main(
         workgroupBarrier();
     }
 
-    // Phase C: thread 0 inverts the global product. If there are zero
-    // PAIRs (all entries are unpaired carries) skip — write_out doesn't
-    // need an inverse.
+    // Phase C: thread-0 global inverse.
     if (tid == 0u) {
         if (total_pairs > 0u) {
             var global_total: BigInt = wg_fwd[TPB - 1u];
@@ -272,8 +238,7 @@ fn main(
     }
     workgroupBarrier();
 
-    // Setup per-thread inv_acc = inv(block_total[tid])
-    //                          = inv_global * block_excl_prefix * block_excl_suffix
+    // Per-thread inv_acc = inv(block_total[tid]) = inv_global * excl_prefix * excl_suffix.
     var block_excl_prefix: BigInt = get_r();
     if (tid > 0u) {
         block_excl_prefix = wg_fwd[tid - 1u];
@@ -291,65 +256,42 @@ fn main(
         inv_acc = montgomery_product(&inv_acc, &block_excl_suffix);
     }
 
-    // Phase D: back-walk this thread's PAIR rank chunk in descending
-    // fwd_rank order. The Montgomery backward-batch-inverse trick
-    //   inv_dx_k = inv_acc * prefix[k-1]
-    //   inv_acc  *= dx_k             (after processing k, unless k = chunk_start)
-    // requires the previous chunk-local PAIR's prefix_scratch entry.
+    // Phase D: back-walk this thread's PAIR-rank chunk in descending
+    // fwd-rank order. PER_THREAD_PAIRS iterations, no scan, no
+    // backward search — prev raw_slot comes from prev_raw_for_pair[].
     //
-    // We iterate raw slots in reverse using `off = 0..MAX_PAIRS`,
-    // i = total_outputs - 1 - off (descending), counting PAIRs from
-    // the right via `rev_pair_rank`. fwd_rank = total_pairs - 1 -
-    // rev_pair_rank. The gate `fwd_rank ∈ [chunk_start_rank,
-    // chunk_end_rank)` selects this thread's chunk.
-    //
-    // For non-chunk-start PAIRs we need prev_i = raw slot of the
-    // immediate prior PAIR (a strictly smaller raw slot, since pair
-    // ranks are monotone with raw slot). prefix_scratch[prev_i] holds
-    // that PAIR's chunk-local partial product because prev_i is
-    // guaranteed to be in *this* thread's chunk (fwd_rank R-1 is in
-    // [chunk_start_rank, R) ⊂ chunk when R > chunk_start_rank).
+    // We need this thread's last PAIR rank (smallest of
+    // {chunk_start_rank + PER_THREAD_PAIRS - 1, total_pairs - 1}).
+    var thread_pair_count: u32 = 0u;
+    if (chunk_start_rank < total_pairs) {
+        let avail = total_pairs - chunk_start_rank;
+        if (avail >= PER_THREAD_PAIRS) {
+            thread_pair_count = PER_THREAD_PAIRS;
+        } else {
+            thread_pair_count = avail;
+        }
+    }
     var inv_acc_local: BigInt = inv_acc;
-    var rev_pair_rank: u32 = 0u;
-    for (var off: u32 = 0u; off < MAX_PAIRS; off = off + 1u) {
-        if (off >= total_outputs) { break; }
-        let i = total_outputs - 1u - off;
-        let idx_b = pair_list_idx_b[i];
-        if (idx_b == 0xffffffffu) { continue; }
-        let my_rank_from_end = rev_pair_rank;
-        rev_pair_rank = rev_pair_rank + 1u;
-        let fwd_rank = total_pairs - 1u - my_rank_from_end;
-        if (fwd_rank < chunk_start_rank || fwd_rank >= chunk_end_rank) { continue; }
-
-        let idx_a = pair_list_idx_a[i];
+    for (var off: u32 = 0u; off < PER_THREAD_PAIRS; off = off + 1u) {
+        if (off >= thread_pair_count) { break; }
+        let rank = chunk_start_rank + (thread_pair_count - 1u - off);
+        let raw = rank_to_raw[rank];
+        let idx_a = pair_idx_a[raw];
+        let idx_b = pair_idx_b[raw];
         var p_x: BigInt; var p_y: BigInt;
         load_point(idx_a, &p_x, &p_y);
         var q_x: BigInt; var q_y: BigInt;
         load_point(idx_b, &q_x, &q_y);
 
         var inv_dx: BigInt;
-        if (fwd_rank == chunk_start_rank) {
+        if (rank == chunk_start_rank) {
             inv_dx = inv_acc_local;
         } else {
-            // Walk backward from i-1 looking for the immediate prior
-            // PAIR (largest raw slot < i with idx_b != UNPAIRED).
-            // Bound = MAX_PAIRS (UNPAIRED count between consecutive
-            // PAIRs is bounded by buckets-in-slice, far smaller in
-            // practice). Guaranteed to find one when fwd_rank > 0.
-            var prev_i: u32 = 0xffffffffu;
-            for (var j: u32 = 1u; j <= MAX_PAIRS; j = j + 1u) {
-                if (j > i) { break; }
-                let probe = i - j;
-                if (pair_list_idx_b[probe] != 0xffffffffu) {
-                    prev_i = probe;
-                    break;
-                }
-            }
-            var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_PAIRS + prev_i];
+            let prev_raw = prev_raw_for_pair[raw];
+            var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_PAIRS + prev_raw];
             inv_dx = montgomery_product(&inv_acc_local, &prev_prefix);
         }
 
-        // Affine add.
         var dy: BigInt = fr_sub(&q_y, &p_y);
         var slope: BigInt = montgomery_product(&dy, &inv_dx);
         var slope_sq: BigInt = montgomery_product(&slope, &slope);
@@ -359,29 +301,28 @@ fn main(
         var ldx: BigInt = montgomery_product(&slope, &dx_back);
         var r_y: BigInt = fr_sub(&ldx, &p_y);
 
-        output_bucket_id[out_base + i] = pair_list_bucket[i];
-        output_x[out_base + i] = r_x;
-        output_y[out_base + i] = r_y;
+        output_x[out_base + raw] = r_x;
+        output_y[out_base + raw] = r_y;
 
-        if (fwd_rank > chunk_start_rank) {
+        if (rank > chunk_start_rank) {
             var dx_k: BigInt = fr_sub(&q_x, &p_x);
             inv_acc_local = montgomery_product(&inv_acc_local, &dx_k);
         }
     }
 
-    // Write-out UNPAIRED entries. Each unpaired slot copies its source
-    // scalar point (with sign flip) to the output. Threads partition
-    // the pair_list raw slots round-robin to avoid contention. Bound
-    // = MAX_PAIRS / TPB.
-    for (var off: u32 = 0u; off < MAX_PAIRS; off = off + 1u) {
+    // Write-out UNPAIRED slots cooperatively round-robin. Static bound
+    // = ceil(MAX_PAIRS / TPB). UNPAIRED count is bounded by
+    // num_buckets_in_slice (small in practice); most iterations are
+    // no-ops, but with TPB threads in parallel the wall time is
+    // negligible.
+    for (var off: u32 = 0u; off < (MAX_PAIRS + TPB - 1u) / TPB; off = off + 1u) {
         let i = tid + off * TPB;
         if (i >= total_outputs) { break; }
-        let idx_b = pair_list_idx_b[i];
-        if (idx_b != 0xffffffffu) { continue; } // skip PAIRs (already written)
-        let idx_a = pair_list_idx_a[i];
+        let idx_b = pair_idx_b[i];
+        if (idx_b != 0xffffffffu) { continue; }
+        let idx_a = pair_idx_a[i];
         var p_x: BigInt; var p_y: BigInt;
         load_point(idx_a, &p_x, &p_y);
-        output_bucket_id[out_base + i] = pair_list_bucket[i];
         output_x[out_base + i] = p_x;
         output_y[out_base + i] = p_y;
     }
