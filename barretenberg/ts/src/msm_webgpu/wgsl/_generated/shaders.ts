@@ -5122,55 +5122,57 @@ export const smvp_tree_phase1 = `{{> structs }}
 {{> bigint_by_funcs }}
 {{> by_inverse_a_funcs }}
 
-// Phase 1 of the tree-reduce SMVP (v2 — rearchitected for thread util).
+// Phase 1 of the tree-reduce SMVP (v3 — fully parallel preamble).
 //
-// One workgroup per slice. Per-WG work is dominated by the cooperative
-// batch-affine over the PAIR sub-stream:
-//   - Phase A: per-thread inclusive-prefix product of delta_x for that
-//     thread's contiguous PAIR-rank chunk. ONE static loop of
-//     PER_THREAD_PAIRS iterations — no scan over MAX_PAIRS, no
-//     conditional skip.
+// One workgroup per slice. PER-WG WORK IS NOW EVENLY DISTRIBUTED:
+//   - Preamble (parallel pair detection):
+//       Each of TPB threads processes PER_THREAD_ENTRIES =
+//       MAX_SLICE_ENTRIES / TPB entries from the slice's bucket-sorted
+//       stream. Each entry's \`pos_in_run\` (its position within its
+//       contiguous same-bucket run, with the run reset at slice_lo)
+//       is recovered by a TPB-wide max-scan of per-thread "last break
+//       position". An entry "emits" iff (pos_in_run & 1u) == 0u — and
+//       is a PAIR iff its successor in the slice has the same bucket
+//       id (else UNPAIRED). Per-thread emit / pair counts feed two
+//       TPB-wide prefix-sums to assign raw_slot and pair_rank ranges
+//       without any serial state machine.
+//   - Phase A: per-thread inclusive-prefix product of delta_x over
+//       PER_THREAD_PAIRS PAIRs in PAIR-rank order. ONE static loop —
+//       no scan over MAX_PAIRS. ONLY reads point_x — point_y is not
+//       touched in Phase A (saves ~50% of point-data bandwidth on
+//       large WG inputs).
 //   - Phase B: TPB-wide Hillis-Steele scan of per-thread block_total.
 //   - Phase C: thread-0 fr_inv_by_a on the global product.
 //   - Phase D: per-thread back-walk of the same chunk in descending
-//     PAIR-rank order, computing affine adds. inv_dx for PAIR rank R
-//     uses the precomputed previous-PAIR raw_slot (O(1) lookup, no
-//     backward scan).
-//
-// Preamble (thread 0, ~MAX_SLICE_ENTRIES sequential ops, ~µs):
-//   Walks the slice left-to-right and fills four workgroup arrays:
-//     pair_idx_a[i]          — first input entry index of pair_list[i]
-//     pair_idx_b[i]          — second input entry index, or UNPAIRED
-//     prev_raw_for_pair[i]   — raw_slot of the immediate PAIR before
-//                              pair_list[i] (PAIRs only; UNPAIRED slots
-//                              are skipped). Set to UNPAIRED_SENTINEL
-//                              when there is no previous PAIR (i.e.
-//                              when this is rank 0).
-//     rank_to_raw[r]         — raw_slot of the PAIR with fwd-rank r.
-//   pair_count and num_pairs_real are also written here.
-//   pair_bucket is written to GLOBAL memory (one u32 per output,
-//   needed only by the final write-out — keeps workgroup memory
-//   under the 32 KiB cap at SWEET_B=1024).
+//       PAIR-rank order, computing affine adds. inv_dx for PAIR rank R
+//       uses the precomputed previous-PAIR raw_slot (O(1) lookup,
+//       no backward scan).
 //
 // Workgroup memory at MAX_PAIRS=1024, TPB=64:
 //   pair_idx_a/b/prev_raw/rank_to_raw: 4 × 4 KB = 16 KB
-//   wg_fwd, wg_bwd:                   2 × TPB × 80 = 10.24 KB
-//   wg_inv_total + counters:          ~120 B
-//   total:                            ~26.4 KB (under M2's 32 KB max).
+//   thread_max_break/emit_prefix/pair_prefix: 3 × 256 B = 768 B
+//   wg_fwd, wg_bwd:                  2 × TPB × 80 = 10.24 KB
+//   wg_inv_total + counters:         ~120 B
+//   total:                           ~27.1 KB (under M2's 32 KB cap).
 //
 // Static loop bounds:
-//   PHASE_A_LOOP:  PER_THREAD_PAIRS (compile-time const)
-//   PHASE_B_LOOP:  TPB
-//   PHASE_D_LOOP:  PER_THREAD_PAIRS
-//   write-unpaired loop: MAX_PAIRS / TPB (cooperative cooperative round-robin)
-//   preamble loop: MAX_SLICE_ENTRIES (thread-0 only, runs once per WG)
+//   Preamble Step 1 (load buckets + local break-max): PER_THREAD_ENTRIES
+//   Preamble Step 2 (TPB max-scan):                  log2(TPB)
+//   Preamble Step 3 (emit/pair flags):               PER_THREAD_ENTRIES
+//   Preamble Step 4 (TPB prefix-sum):                log2(TPB)
+//   Preamble Step 5 (write pair_idx*/rank_to_raw):   PER_THREAD_ENTRIES
+//   Preamble Step 6 (write prev_raw_for_pair):       PER_THREAD_ENTRIES
+//   Phase A:                                          PER_THREAD_PAIRS
+//   Phase B:                                          log2(TPB)
+//   Phase D:                                          PER_THREAD_PAIRS
+//   UNPAIRED write-out:                              MAX_PAIRS / TPB
 
 const TPB: u32 = {{ tpb }}u;
 const MAX_SLICE_ENTRIES: u32 = {{ max_slice_entries }}u;
 const MAX_PAIRS: u32 = {{ max_pairs }}u;
+const PER_THREAD_ENTRIES: u32 = {{ per_thread_entries }}u;
 const PER_THREAD_PAIRS: u32 = {{ per_thread_pairs }}u;
-const UNPAIRED_BUCKET: u32 = 0xffffffffu;
-
+const UNPAIRED_SENTINEL: u32 = 0xffffffffu;
 const SCHEDULE_SIGN_BIT: u32 = 0x80000000u;
 const SCHEDULE_IDX_MASK: u32 = 0x7fffffffu;
 
@@ -5215,12 +5217,23 @@ var<workgroup> pair_idx_a: array<u32, {{ max_pairs }}>;
 var<workgroup> pair_idx_b: array<u32, {{ max_pairs }}>;
 var<workgroup> prev_raw_for_pair: array<u32, {{ max_pairs }}>;
 var<workgroup> rank_to_raw: array<u32, {{ max_pairs }}>;
-var<workgroup> pair_count: u32;
-var<workgroup> num_pairs_real: u32;
+
+var<workgroup> thread_max_break: array<u32, {{ tpb }}>;
+var<workgroup> thread_emit_prefix: array<u32, {{ tpb }}>;
+var<workgroup> thread_pair_prefix: array<u32, {{ tpb }}>;
+
+var<workgroup> pair_count_wg: u32;
+var<workgroup> num_pairs_real_wg: u32;
 
 var<workgroup> wg_fwd: array<BigInt, {{ tpb }}>;
 var<workgroup> wg_bwd: array<BigInt, {{ tpb }}>;
 var<workgroup> wg_inv_total: BigInt;
+
+fn load_point_x_only(entry_idx: u32) -> BigInt {
+    let raw = schedule[entry_idx];
+    let scalar_idx = raw & SCHEDULE_IDX_MASK;
+    return point_x[scalar_idx];
+}
 
 fn load_point(entry_idx: u32, out_x: ptr<function, BigInt>, out_y: ptr<function, BigInt>) {
     let raw = schedule[entry_idx];
@@ -5246,60 +5259,177 @@ fn main(
     let slice_hi = slice_bounds[wg_id + 1u];
     let out_base = wg_output_offset[wg_id];
 
-    if (tid == 0u) {
-        var count: u32 = 0u;
-        var pair_real: u32 = 0u;
-        var open_idx: u32 = 0xffffffffu;
-        var open_bucket: u32 = 0xffffffffu;
-        var last_pair_raw: u32 = 0xffffffffu;
-        for (var i: u32 = 0u; i < MAX_SLICE_ENTRIES; i = i + 1u) {
-            let entry_idx = slice_lo + i;
-            if (entry_idx >= slice_hi) { break; }
-            let b = entry_bucket_id[entry_idx];
-            if (open_idx != 0xffffffffu && b == open_bucket) {
-                let raw = count;
-                pair_idx_a[raw] = open_idx;
-                pair_idx_b[raw] = entry_idx;
-                prev_raw_for_pair[raw] = last_pair_raw;
-                rank_to_raw[pair_real] = raw;
-                output_bucket_id[out_base + raw] = b;
-                count = count + 1u;
-                pair_real = pair_real + 1u;
-                last_pair_raw = raw;
-                open_idx = 0xffffffffu;
-                open_bucket = 0xffffffffu;
+    let chunk_lo = slice_lo + tid * PER_THREAD_ENTRIES;
+    var chunk_hi_v: u32 = chunk_lo + PER_THREAD_ENTRIES;
+    if (chunk_hi_v > slice_hi) { chunk_hi_v = slice_hi; }
+    if (chunk_lo > slice_hi) { chunk_hi_v = chunk_lo; }
+    let chunk_hi = chunk_hi_v;
+
+    // === Preamble Step 1: per-thread bucket load + local "last break pos" ===
+    // For each entry e in [chunk_lo, chunk_hi):
+    //   is_break iff (e == slice_lo) OR (bucket[e] != bucket[e-1])
+    //   local_break_pos[off] = max{e' <= e : is_break(e')}
+    // local_buckets[] caches bucket_id for re-use in Steps 3 and 5.
+    var local_buckets: array<u32, {{ per_thread_entries }}>;
+    var local_break_pos: array<u32, {{ per_thread_entries }}>;
+    var prev_bucket: u32 = UNPAIRED_SENTINEL;
+    if (chunk_lo > slice_lo && chunk_lo < slice_hi) {
+        prev_bucket = entry_bucket_id[chunk_lo - 1u];
+    }
+    var max_break: u32 = 0u;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        let e = chunk_lo + off;
+        if (e < chunk_hi) {
+            let b = entry_bucket_id[e];
+            local_buckets[off] = b;
+            var is_break: bool;
+            if (e == slice_lo) {
+                is_break = true;
+            } else if (off == 0u) {
+                is_break = b != prev_bucket;
             } else {
-                if (open_idx != 0xffffffffu) {
-                    let raw = count;
-                    pair_idx_a[raw] = open_idx;
-                    pair_idx_b[raw] = 0xffffffffu;
-                    prev_raw_for_pair[raw] = 0xffffffffu; // unused for UNPAIRED
-                    output_bucket_id[out_base + raw] = open_bucket;
-                    count = count + 1u;
-                }
-                open_idx = entry_idx;
-                open_bucket = b;
+                is_break = b != local_buckets[off - 1u];
+            }
+            if (is_break) {
+                max_break = e;
+            }
+        } else {
+            local_buckets[off] = UNPAIRED_SENTINEL;
+        }
+        local_break_pos[off] = max_break;
+    }
+
+    // === Preamble Step 2: TPB-wide inclusive max-scan of max_break ===
+    thread_max_break[tid] = max_break;
+    workgroupBarrier();
+    for (var stride: u32 = 1u; stride < TPB; stride = stride * 2u) {
+        var v: u32 = thread_max_break[tid];
+        if (tid >= stride) {
+            let lhs = thread_max_break[tid - stride];
+            if (lhs > v) { v = lhs; }
+        }
+        workgroupBarrier();
+        thread_max_break[tid] = v;
+        workgroupBarrier();
+    }
+    // Exclusive prefix-max for this thread.
+    var prev_thread_max: u32 = 0u;
+    if (tid > 0u) {
+        prev_thread_max = thread_max_break[tid - 1u];
+    }
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        if (prev_thread_max > local_break_pos[off]) {
+            local_break_pos[off] = prev_thread_max;
+        }
+    }
+    // Now: pos_in_run(e) = e - local_break_pos[off] for e in this chunk.
+
+    // === Preamble Step 3: emit / pair flags ===
+    var next_chunk_bucket: u32 = UNPAIRED_SENTINEL;
+    if (chunk_hi < slice_hi) {
+        next_chunk_bucket = entry_bucket_id[chunk_hi];
+    }
+    var local_emit: u32 = 0u;
+    var local_pair: u32 = 0u;
+    var local_emit_mask: u32 = 0u;
+    var local_pair_mask: u32 = 0u;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        let e = chunk_lo + off;
+        if (e >= chunk_hi) { continue; }
+        let p = e - local_break_pos[off];
+        if ((p & 1u) != 0u) { continue; }
+        local_emit = local_emit + 1u;
+        local_emit_mask = local_emit_mask | (1u << off);
+        var next_b: u32 = UNPAIRED_SENTINEL;
+        if (off + 1u < PER_THREAD_ENTRIES) {
+            if (e + 1u < chunk_hi) {
+                next_b = local_buckets[off + 1u];
+            }
+        } else {
+            if (e + 1u < slice_hi) {
+                next_b = next_chunk_bucket;
             }
         }
-        if (open_idx != 0xffffffffu) {
-            let raw = count;
-            pair_idx_a[raw] = open_idx;
-            pair_idx_b[raw] = 0xffffffffu;
-            prev_raw_for_pair[raw] = 0xffffffffu;
-            output_bucket_id[out_base + raw] = open_bucket;
-            count = count + 1u;
+        if (next_b == local_buckets[off]) {
+            local_pair = local_pair + 1u;
+            local_pair_mask = local_pair_mask | (1u << off);
         }
-        pair_count = count;
-        num_pairs_real = pair_real;
+    }
+
+    // === Preamble Step 4: TPB-wide prefix-sum of emit + pair counts ===
+    thread_emit_prefix[tid] = local_emit;
+    thread_pair_prefix[tid] = local_pair;
+    workgroupBarrier();
+    for (var stride: u32 = 1u; stride < TPB; stride = stride * 2u) {
+        var ev: u32 = thread_emit_prefix[tid];
+        var pv: u32 = thread_pair_prefix[tid];
+        if (tid >= stride) {
+            ev = ev + thread_emit_prefix[tid - stride];
+            pv = pv + thread_pair_prefix[tid - stride];
+        }
+        workgroupBarrier();
+        thread_emit_prefix[tid] = ev;
+        thread_pair_prefix[tid] = pv;
+        workgroupBarrier();
+    }
+    var raw_base: u32 = 0u;
+    var pair_base: u32 = 0u;
+    if (tid > 0u) {
+        raw_base = thread_emit_prefix[tid - 1u];
+        pair_base = thread_pair_prefix[tid - 1u];
+    }
+    if (tid == 0u) {
+        pair_count_wg = thread_emit_prefix[TPB - 1u];
+        num_pairs_real_wg = thread_pair_prefix[TPB - 1u];
     }
     workgroupBarrier();
 
-    let total_outputs = pair_count;
-    let total_pairs = num_pairs_real;
+    // === Preamble Step 5: write pair_idx_a/b, rank_to_raw, output_bucket_id ===
+    var raw_w: u32 = raw_base;
+    var pair_w: u32 = pair_base;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        let e = chunk_lo + off;
+        let raw = raw_w;
+        raw_w = raw_w + 1u;
+        pair_idx_a[raw] = e;
+        if ((local_pair_mask & (1u << off)) != 0u) {
+            pair_idx_b[raw] = e + 1u;
+            let pair_rank = pair_w;
+            pair_w = pair_w + 1u;
+            rank_to_raw[pair_rank] = raw;
+        } else {
+            pair_idx_b[raw] = UNPAIRED_SENTINEL;
+        }
+        output_bucket_id[out_base + raw] = local_buckets[off];
+    }
+    workgroupBarrier();
+
+    // === Preamble Step 6: write prev_raw_for_pair using rank_to_raw ===
+    var raw_r: u32 = raw_base;
+    var pair_r: u32 = pair_base;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        let raw = raw_r;
+        raw_r = raw_r + 1u;
+        if ((local_pair_mask & (1u << off)) != 0u) {
+            let pair_rank = pair_r;
+            pair_r = pair_r + 1u;
+            if (pair_rank == 0u) {
+                prev_raw_for_pair[raw] = UNPAIRED_SENTINEL;
+            } else {
+                prev_raw_for_pair[raw] = rank_to_raw[pair_rank - 1u];
+            }
+        }
+    }
+    workgroupBarrier();
+
+    let total_outputs = pair_count_wg;
+    let total_pairs = num_pairs_real_wg;
 
     // Phase A: per-thread prefix product over PER_THREAD_PAIRS PAIRs
-    // assigned to this thread's contiguous PAIR-rank chunk. NO scan
-    // over MAX_PAIRS; rank → raw_slot via rank_to_raw[].
+    // assigned to this thread's contiguous PAIR-rank chunk. Only x is
+    // read; y is not needed for dx = Q.x - P.x.
     let chunk_start_rank = tid * PER_THREAD_PAIRS;
     var block_total: BigInt = get_r();
     for (var t: u32 = 0u; t < PER_THREAD_PAIRS; t = t + 1u) {
@@ -5308,12 +5438,8 @@ fn main(
         let raw = rank_to_raw[rank];
         let idx_a = pair_idx_a[raw];
         let idx_b = pair_idx_b[raw];
-        var p_x: BigInt;
-        var p_y: BigInt;
-        load_point(idx_a, &p_x, &p_y);
-        var q_x: BigInt;
-        var q_y: BigInt;
-        load_point(idx_b, &q_x, &q_y);
+        var p_x: BigInt = load_point_x_only(idx_a);
+        var q_x: BigInt = load_point_x_only(idx_b);
         var dx: BigInt = fr_sub(&q_x, &p_x);
         if (t == 0u) {
             block_total = dx;
@@ -5354,7 +5480,6 @@ fn main(
     }
     workgroupBarrier();
 
-    // Per-thread inv_acc = inv(block_total[tid]) = inv_global * excl_prefix * excl_suffix.
     var block_excl_prefix: BigInt = get_r();
     if (tid > 0u) {
         block_excl_prefix = wg_fwd[tid - 1u];
@@ -5373,24 +5498,20 @@ fn main(
     }
 
     // Phase D: back-walk this thread's PAIR-rank chunk in descending
-    // fwd-rank order. PER_THREAD_PAIRS iterations, no scan, no
-    // backward search — prev raw_slot comes from prev_raw_for_pair[].
-    //
-    // We need this thread's last PAIR rank (smallest of
-    // {chunk_start_rank + PER_THREAD_PAIRS - 1, total_pairs - 1}).
-    var thread_pair_count: u32 = 0u;
+    // fwd-rank order. PER_THREAD_PAIRS iterations, no scan.
+    var thread_pair_count_local: u32 = 0u;
     if (chunk_start_rank < total_pairs) {
         let avail = total_pairs - chunk_start_rank;
         if (avail >= PER_THREAD_PAIRS) {
-            thread_pair_count = PER_THREAD_PAIRS;
+            thread_pair_count_local = PER_THREAD_PAIRS;
         } else {
-            thread_pair_count = avail;
+            thread_pair_count_local = avail;
         }
     }
     var inv_acc_local: BigInt = inv_acc;
     for (var off: u32 = 0u; off < PER_THREAD_PAIRS; off = off + 1u) {
-        if (off >= thread_pair_count) { break; }
-        let rank = chunk_start_rank + (thread_pair_count - 1u - off);
+        if (off >= thread_pair_count_local) { break; }
+        let rank = chunk_start_rank + (thread_pair_count_local - 1u - off);
         let raw = rank_to_raw[rank];
         let idx_a = pair_idx_a[raw];
         let idx_b = pair_idx_b[raw];
@@ -5426,16 +5547,12 @@ fn main(
         }
     }
 
-    // Write-out UNPAIRED slots cooperatively round-robin. Static bound
-    // = ceil(MAX_PAIRS / TPB). UNPAIRED count is bounded by
-    // num_buckets_in_slice (small in practice); most iterations are
-    // no-ops, but with TPB threads in parallel the wall time is
-    // negligible.
+    // Write-out UNPAIRED slots cooperatively round-robin.
     for (var off: u32 = 0u; off < (MAX_PAIRS + TPB - 1u) / TPB; off = off + 1u) {
         let i = tid + off * TPB;
         if (i >= total_outputs) { break; }
         let idx_b = pair_idx_b[i];
-        if (idx_b != 0xffffffffu) { continue; }
+        if (idx_b != UNPAIRED_SENTINEL) { continue; }
         let idx_a = pair_idx_a[i];
         var p_x: BigInt; var p_y: BigInt;
         load_point(idx_a, &p_x, &p_y);
@@ -5455,17 +5572,19 @@ export const smvp_tree_phase2 = `{{> structs }}
 {{> bigint_by_funcs }}
 {{> by_inverse_a_funcs }}
 
-// Phase 2 of the tree-reduce SMVP (v2 — rearchitected for thread util).
-// See \`smvp_tree_phase1.template.wgsl\` header for the rank_to_raw +
-// prev_raw_for_pair preamble pattern. The only differences vs Phase 1
-// are at the load_point boundary (Mont-form points already in place,
-// no schedule decode or sign flip) and the bucket_id source (read from
-// \`input_bucket_id[]\` instead of \`entry_bucket_id[]\`).
+// Phase 2 of the tree-reduce SMVP (v3 — fully parallel preamble).
+// See \`smvp_tree_phase1.template.wgsl\` header for the preamble design.
+// The only differences vs Phase 1 are at the load_point boundary
+// (Mont-form points already in place, no schedule decode or sign flip)
+// and the bucket_id source (read from \`input_bucket_id[]\` instead of
+// \`entry_bucket_id[]\`).
 
 const TPB: u32 = {{ tpb }}u;
 const MAX_SLICE_ENTRIES: u32 = {{ max_slice_entries }}u;
 const MAX_PAIRS: u32 = {{ max_pairs }}u;
+const PER_THREAD_ENTRIES: u32 = {{ per_thread_entries }}u;
 const PER_THREAD_PAIRS: u32 = {{ per_thread_pairs }}u;
+const UNPAIRED_SENTINEL: u32 = 0xffffffffu;
 
 @group(0) @binding(0)
 var<storage, read> input_bucket_id: array<u32>;
@@ -5505,8 +5624,13 @@ var<workgroup> pair_idx_a: array<u32, {{ max_pairs }}>;
 var<workgroup> pair_idx_b: array<u32, {{ max_pairs }}>;
 var<workgroup> prev_raw_for_pair: array<u32, {{ max_pairs }}>;
 var<workgroup> rank_to_raw: array<u32, {{ max_pairs }}>;
-var<workgroup> pair_count: u32;
-var<workgroup> num_pairs_real: u32;
+
+var<workgroup> thread_max_break: array<u32, {{ tpb }}>;
+var<workgroup> thread_emit_prefix: array<u32, {{ tpb }}>;
+var<workgroup> thread_pair_prefix: array<u32, {{ tpb }}>;
+
+var<workgroup> pair_count_wg: u32;
+var<workgroup> num_pairs_real_wg: u32;
 
 var<workgroup> wg_fwd: array<BigInt, {{ tpb }}>;
 var<workgroup> wg_bwd: array<BigInt, {{ tpb }}>;
@@ -5524,57 +5648,170 @@ fn main(
     let slice_hi = slice_bounds[wg_id + 1u];
     let out_base = wg_output_offset[wg_id];
 
-    if (tid == 0u) {
-        var count: u32 = 0u;
-        var pair_real: u32 = 0u;
-        var open_idx: u32 = 0xffffffffu;
-        var open_bucket: u32 = 0xffffffffu;
-        var last_pair_raw: u32 = 0xffffffffu;
-        for (var i: u32 = 0u; i < MAX_SLICE_ENTRIES; i = i + 1u) {
-            let entry_idx = slice_lo + i;
-            if (entry_idx >= slice_hi) { break; }
-            let b = input_bucket_id[entry_idx];
-            if (open_idx != 0xffffffffu && b == open_bucket) {
-                let raw = count;
-                pair_idx_a[raw] = open_idx;
-                pair_idx_b[raw] = entry_idx;
-                prev_raw_for_pair[raw] = last_pair_raw;
-                rank_to_raw[pair_real] = raw;
-                output_bucket_id[out_base + raw] = b;
-                count = count + 1u;
-                pair_real = pair_real + 1u;
-                last_pair_raw = raw;
-                open_idx = 0xffffffffu;
-                open_bucket = 0xffffffffu;
+    let chunk_lo = slice_lo + tid * PER_THREAD_ENTRIES;
+    var chunk_hi_v: u32 = chunk_lo + PER_THREAD_ENTRIES;
+    if (chunk_hi_v > slice_hi) { chunk_hi_v = slice_hi; }
+    if (chunk_lo > slice_hi) { chunk_hi_v = chunk_lo; }
+    let chunk_hi = chunk_hi_v;
+
+    // === Preamble Step 1: per-thread bucket load + local "last break pos" ===
+    var local_buckets: array<u32, {{ per_thread_entries }}>;
+    var local_break_pos: array<u32, {{ per_thread_entries }}>;
+    var prev_bucket: u32 = UNPAIRED_SENTINEL;
+    if (chunk_lo > slice_lo && chunk_lo < slice_hi) {
+        prev_bucket = input_bucket_id[chunk_lo - 1u];
+    }
+    var max_break: u32 = 0u;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        let e = chunk_lo + off;
+        if (e < chunk_hi) {
+            let b = input_bucket_id[e];
+            local_buckets[off] = b;
+            var is_break: bool;
+            if (e == slice_lo) {
+                is_break = true;
+            } else if (off == 0u) {
+                is_break = b != prev_bucket;
             } else {
-                if (open_idx != 0xffffffffu) {
-                    let raw = count;
-                    pair_idx_a[raw] = open_idx;
-                    pair_idx_b[raw] = 0xffffffffu;
-                    prev_raw_for_pair[raw] = 0xffffffffu;
-                    output_bucket_id[out_base + raw] = open_bucket;
-                    count = count + 1u;
-                }
-                open_idx = entry_idx;
-                open_bucket = b;
+                is_break = b != local_buckets[off - 1u];
+            }
+            if (is_break) {
+                max_break = e;
+            }
+        } else {
+            local_buckets[off] = UNPAIRED_SENTINEL;
+        }
+        local_break_pos[off] = max_break;
+    }
+
+    // === Preamble Step 2: TPB-wide inclusive max-scan of max_break ===
+    thread_max_break[tid] = max_break;
+    workgroupBarrier();
+    for (var stride: u32 = 1u; stride < TPB; stride = stride * 2u) {
+        var v: u32 = thread_max_break[tid];
+        if (tid >= stride) {
+            let lhs = thread_max_break[tid - stride];
+            if (lhs > v) { v = lhs; }
+        }
+        workgroupBarrier();
+        thread_max_break[tid] = v;
+        workgroupBarrier();
+    }
+    var prev_thread_max: u32 = 0u;
+    if (tid > 0u) {
+        prev_thread_max = thread_max_break[tid - 1u];
+    }
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        if (prev_thread_max > local_break_pos[off]) {
+            local_break_pos[off] = prev_thread_max;
+        }
+    }
+
+    // === Preamble Step 3: emit / pair flags ===
+    var next_chunk_bucket: u32 = UNPAIRED_SENTINEL;
+    if (chunk_hi < slice_hi) {
+        next_chunk_bucket = input_bucket_id[chunk_hi];
+    }
+    var local_emit: u32 = 0u;
+    var local_pair: u32 = 0u;
+    var local_emit_mask: u32 = 0u;
+    var local_pair_mask: u32 = 0u;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        let e = chunk_lo + off;
+        if (e >= chunk_hi) { continue; }
+        let p = e - local_break_pos[off];
+        if ((p & 1u) != 0u) { continue; }
+        local_emit = local_emit + 1u;
+        local_emit_mask = local_emit_mask | (1u << off);
+        var next_b: u32 = UNPAIRED_SENTINEL;
+        if (off + 1u < PER_THREAD_ENTRIES) {
+            if (e + 1u < chunk_hi) {
+                next_b = local_buckets[off + 1u];
+            }
+        } else {
+            if (e + 1u < slice_hi) {
+                next_b = next_chunk_bucket;
             }
         }
-        if (open_idx != 0xffffffffu) {
-            let raw = count;
-            pair_idx_a[raw] = open_idx;
-            pair_idx_b[raw] = 0xffffffffu;
-            prev_raw_for_pair[raw] = 0xffffffffu;
-            output_bucket_id[out_base + raw] = open_bucket;
-            count = count + 1u;
+        if (next_b == local_buckets[off]) {
+            local_pair = local_pair + 1u;
+            local_pair_mask = local_pair_mask | (1u << off);
         }
-        pair_count = count;
-        num_pairs_real = pair_real;
+    }
+
+    // === Preamble Step 4: TPB-wide prefix-sum of emit + pair counts ===
+    thread_emit_prefix[tid] = local_emit;
+    thread_pair_prefix[tid] = local_pair;
+    workgroupBarrier();
+    for (var stride: u32 = 1u; stride < TPB; stride = stride * 2u) {
+        var ev: u32 = thread_emit_prefix[tid];
+        var pv: u32 = thread_pair_prefix[tid];
+        if (tid >= stride) {
+            ev = ev + thread_emit_prefix[tid - stride];
+            pv = pv + thread_pair_prefix[tid - stride];
+        }
+        workgroupBarrier();
+        thread_emit_prefix[tid] = ev;
+        thread_pair_prefix[tid] = pv;
+        workgroupBarrier();
+    }
+    var raw_base: u32 = 0u;
+    var pair_base: u32 = 0u;
+    if (tid > 0u) {
+        raw_base = thread_emit_prefix[tid - 1u];
+        pair_base = thread_pair_prefix[tid - 1u];
+    }
+    if (tid == 0u) {
+        pair_count_wg = thread_emit_prefix[TPB - 1u];
+        num_pairs_real_wg = thread_pair_prefix[TPB - 1u];
     }
     workgroupBarrier();
 
-    let total_outputs = pair_count;
-    let total_pairs = num_pairs_real;
+    // === Preamble Step 5: write pair_idx_a/b, rank_to_raw, output_bucket_id ===
+    var raw_w: u32 = raw_base;
+    var pair_w: u32 = pair_base;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        let e = chunk_lo + off;
+        let raw = raw_w;
+        raw_w = raw_w + 1u;
+        pair_idx_a[raw] = e;
+        if ((local_pair_mask & (1u << off)) != 0u) {
+            pair_idx_b[raw] = e + 1u;
+            let pair_rank = pair_w;
+            pair_w = pair_w + 1u;
+            rank_to_raw[pair_rank] = raw;
+        } else {
+            pair_idx_b[raw] = UNPAIRED_SENTINEL;
+        }
+        output_bucket_id[out_base + raw] = local_buckets[off];
+    }
+    workgroupBarrier();
 
+    // === Preamble Step 6: write prev_raw_for_pair using rank_to_raw ===
+    var raw_r: u32 = raw_base;
+    var pair_r: u32 = pair_base;
+    for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
+        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        let raw = raw_r;
+        raw_r = raw_r + 1u;
+        if ((local_pair_mask & (1u << off)) != 0u) {
+            let pair_rank = pair_r;
+            pair_r = pair_r + 1u;
+            if (pair_rank == 0u) {
+                prev_raw_for_pair[raw] = UNPAIRED_SENTINEL;
+            } else {
+                prev_raw_for_pair[raw] = rank_to_raw[pair_rank - 1u];
+            }
+        }
+    }
+    workgroupBarrier();
+
+    let total_outputs = pair_count_wg;
+    let total_pairs = num_pairs_real_wg;
+
+    // Phase A: per-thread prefix product over PER_THREAD_PAIRS PAIRs.
+    // Only x is read; y is not needed for dx = Q.x - P.x.
     let chunk_start_rank = tid * PER_THREAD_PAIRS;
     var block_total: BigInt = get_r();
     for (var t: u32 = 0u; t < PER_THREAD_PAIRS; t = t + 1u) {
@@ -5640,19 +5877,19 @@ fn main(
         inv_acc = montgomery_product(&inv_acc, &block_excl_suffix);
     }
 
-    var thread_pair_count: u32 = 0u;
+    var thread_pair_count_local: u32 = 0u;
     if (chunk_start_rank < total_pairs) {
         let avail = total_pairs - chunk_start_rank;
         if (avail >= PER_THREAD_PAIRS) {
-            thread_pair_count = PER_THREAD_PAIRS;
+            thread_pair_count_local = PER_THREAD_PAIRS;
         } else {
-            thread_pair_count = avail;
+            thread_pair_count_local = avail;
         }
     }
     var inv_acc_local: BigInt = inv_acc;
     for (var off: u32 = 0u; off < PER_THREAD_PAIRS; off = off + 1u) {
-        if (off >= thread_pair_count) { break; }
-        let rank = chunk_start_rank + (thread_pair_count - 1u - off);
+        if (off >= thread_pair_count_local) { break; }
+        let rank = chunk_start_rank + (thread_pair_count_local - 1u - off);
         let raw = rank_to_raw[rank];
         let idx_a = pair_idx_a[raw];
         let idx_b = pair_idx_b[raw];
@@ -5692,7 +5929,7 @@ fn main(
         let i = tid + off * TPB;
         if (i >= total_outputs) { break; }
         let idx_b = pair_idx_b[i];
-        if (idx_b != 0xffffffffu) { continue; }
+        if (idx_b != UNPAIRED_SENTINEL) { continue; }
         let idx_a = pair_idx_a[i];
         output_x[out_base + i] = input_x[idx_a];
         output_y[out_base + i] = input_y[idx_a];
