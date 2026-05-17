@@ -857,6 +857,26 @@ const compute_curve_msm = async (
     if (curveConfig.id !== 'bn254') {
       throw new Error('use_batch_affine_smvp is currently BN254-only.');
     }
+    // TODO(msm-tree-reduce): Swap this call for `runTreeReduce` from
+    // `cuzk/smvp_tree.ts` once the affine→Jacobian + T×h fold adapter
+    // lands. The orchestrator is correctness-validated end-to-end
+    // (Phase 1 + Phase 2 chain, standalone bench
+    // `dev/msm-webgpu/bench-smvp-tree.html` matches CPU full-reduce
+    // bit-for-bit on Apple M2 BS, 4 layers, 5 buckets, ~5.9 ms).
+    // Wiring checklist:
+    //   1. Compute `entry_bucket_id[]` from `all_csc_col_ptr_sb` (the
+    //      bucketStart array) via a one-pass scan kernel OR a host
+    //      readback (cold-path only; cache when externals_persistent).
+    //   2. Call `runTreeReduce(device, p1Pipeline, p1Layout,
+    //      p2Pipeline, p2Layout, all_csc_val_idxs_sb, entryBucketId,
+    //      point_x_sb, point_y_sb, total_entries, bucketStart,
+    //      {tpb, maxSliceEntries})`.
+    //   3. Convert affine partials to the T×h×BigInt Jacobian layout
+    //      expected by downstream BPR: for each `(bucket_id, P)` write
+    //      `(P.x, P.y, R)` (Mont-form 1) into the slot keyed by
+    //      bucket_id; zero out empty slots.
+    //   4. Run Quick Sanity Check at logN=16 via Playwright to confirm
+    //      end-to-end correctness, then open perf gates.
     await smvp_batch_affine_gpu(
       shaderManager,
       device,
