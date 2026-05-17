@@ -194,24 +194,45 @@ function buildSynthetic(entries: number, buckets: number, seed: number, p: bigin
 }
 
 function cpuReferenceFullReduce(s: Synth, p: bigint): { bucketId: number[]; x: bigint[]; y: bigint[] } {
-  // For each bucket, sequentially sum all its entries via affine add.
+  // Mirror the GPU's tree-reduce parenthesization. Critical detail:
+  // the affine-add formula is only group-associative on actual
+  // elliptic curve points. The synthetic input uses random (off-curve)
+  // bigints, so sequential `((P0+P1)+P2)+P3` produces a DIFFERENT
+  // bit-pattern than the tree-reduce `(P0+P1)+(P2+P3)`. To validate
+  // the orchestrator bit-for-bit, walk each bucket via the same pair-
+  // detection state machine the GPU uses, recursing layer-by-layer.
+  function reduceBucket(points: { x: bigint; y: bigint }[]): { x: bigint; y: bigint } {
+    let cur = points;
+    while (cur.length > 1) {
+      const next: { x: bigint; y: bigint }[] = [];
+      // Pair-detection state machine — same as GPU thread-0 preamble.
+      let open: { x: bigint; y: bigint } | null = null;
+      for (const pt of cur) {
+        if (open !== null) {
+          next.push(affineAddCanon(open.x, open.y, pt.x, pt.y, p));
+          open = null;
+        } else {
+          open = pt;
+        }
+      }
+      if (open !== null) next.push(open);
+      cur = next;
+    }
+    return cur[0];
+  }
   const out: { bucketId: number[]; x: bigint[]; y: bigint[] } = { bucketId: [], x: [], y: [] };
   let cursor = 0;
   for (let b = 0; b < s.bucket_pops.length; b++) {
     const pop = s.bucket_pops[b];
-    let xAcc = s.point_x_canon[cursor];
-    let yAcc = s.point_y_canon[cursor];
-    cursor++;
-    for (let k = 1; k < pop; k++) {
-      const xN = s.point_x_canon[cursor];
-      const yN = s.point_y_canon[cursor];
+    const pts: { x: bigint; y: bigint }[] = [];
+    for (let k = 0; k < pop; k++) {
+      pts.push({ x: s.point_x_canon[cursor], y: s.point_y_canon[cursor] });
       cursor++;
-      const r = affineAddCanon(xAcc, yAcc, xN, yN, p);
-      xAcc = r.x; yAcc = r.y;
     }
+    const r = reduceBucket(pts);
     out.bucketId.push(b);
-    out.x.push(xAcc);
-    out.y.push(yAcc);
+    out.x.push(r.x);
+    out.y.push(r.y);
   }
   return out;
 }
