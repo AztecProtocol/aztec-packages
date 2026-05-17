@@ -42,6 +42,7 @@ import {
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
   smvp_bn254 as smvp_bn254_shader,
+  smvp_tree_phase1 as smvp_tree_phase1_shader,
   structs,
   transpose_parallel_count as transpose_parallel_count_shader,
   transpose_parallel_scan as transpose_parallel_scan_shader,
@@ -499,6 +500,54 @@ export class ShaderManager {
   // from a hand-built table (see bench-batch-affine.ts). BS = batch_size /
   // tpb is baked into the shader as a compile-time constant so the inner
   // forward-and-backward walks have static loop bounds.
+  /**
+   * Phase 1 of the tree-reduce SMVP. One workgroup per slice; pair
+   * detection in workgroup memory + cooperative batch-affine over the
+   * PAIR sub-stream + per-bucket-tagged writes to global output.
+   *
+   * `max_slice_entries` upper-bounds slice size; pair_list shared
+   * memory and loop bounds scale with it. Keep small for v0 (128)
+   * until correctness gates; production target is 1024 with the
+   * pair_list hoisted to global if mobile workgroup memory caps bind.
+   */
+  public gen_smvp_tree_phase1_shader(tpb: number, max_slice_entries: number): string {
+    if (tpb <= 0 || max_slice_entries <= 0) {
+      throw new Error(`gen_smvp_tree_phase1_shader: tpb and max_slice_entries must be positive`);
+    }
+    const max_pairs = max_slice_entries; // each slot is either PAIR or UNPAIRED
+    const per_thread_pairs = Math.ceil(max_pairs / tpb);
+    return mustache.render(
+      smvp_tree_phase1_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        per_thread_pairs,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
   public gen_bench_batch_affine_shader(batch_size: number, tpb: number): string {
     if (batch_size <= 0 || tpb <= 0 || batch_size % tpb !== 0) {
       throw new Error(
