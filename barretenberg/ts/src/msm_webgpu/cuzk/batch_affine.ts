@@ -140,6 +140,26 @@ export const smvp_batch_affine_gpu = async (
   const num_words = shaderManager.num_words;
   const limb_byte_length = num_words * 4;
 
+  // WINDOWS_PER_BATCH pools the pair pools of WPB consecutive subtasks
+  // into ONE fr_inv_by_a per (batch, sub_wg) — see
+  // batch_inverse_parallel.template.wgsl. With T=17 subtasks at logN=16
+  // and WPB=4, num_batches = ceil(17/4) = 5, so a round runs 5×W
+  // workgroups in the inverse pass instead of 17×W (~4× fewer fr_inv
+  // calls overall). The pair-pool layout is per-subtask, unchanged; the
+  // pooling only changes how the inverse kernel reads/writes scratch.
+  // WPB=1 falls back to byte-identical pre-pooling behaviour.
+  //
+  // Default is 1: the per-pass profiler at logN=16 on Apple Silicon
+  // showed ba_inverse Σ ≈ 14% of MSM, so pooling buys little relative
+  // to BPR (51%). The plumbing stays in place so the knob is one edit
+  // away once BPR is no longer the dominant cost.
+  const WINDOWS_PER_BATCH = 1;
+  const num_batches = Math.ceil(num_subtasks / WINDOWS_PER_BATCH);
+  // count_buf (round_count + finalize_count) must be safely loadable
+  // for every slot the inverse kernel reads — i.e. through the tail of
+  // the last batch.
+  const count_slots_padded = num_batches * WINDOWS_PER_BATCH;
+
   // ----- Workspace buffers -----
   // When a persistent context is provided, all per-MSM workspace buffers
   // are pulled from `context.acquirePersistentBuffer` and survive across
@@ -190,7 +210,12 @@ export const smvp_batch_affine_gpu = async (
   // THIS round's inverse + apply. Decouples the schedule writer from
   // the inverse/apply readers so we can zero pair_counter in dispatch_args
   // without losing the values inverse/apply still need.
-  const round_count_sb = acquire_ws('round_count', num_subtasks * 4);
+  //
+  // Padded to num_batches × WPB so the inverse kernel's per-batch WPB-
+  // wide atomicLoad scan can safely touch the tail of the last batch
+  // when num_subtasks isn't a multiple of WPB. Persistent buffers come
+  // zero-initialised; nothing else writes those tail slots.
+  const round_count_sb = acquire_ws('round_count', count_slots_padded * 4);
   // Indirect-dispatch arg buffer. Layout: 9 u32s (36 B):
   //   args[0..3] = schedule (X, Y, Z)   — for the *next* round
   //   args[3..6] = inverse  (X, Y, Z)   — for *this* round
@@ -216,9 +241,15 @@ export const smvp_batch_affine_gpu = async (
   // Contents are constant across MSM calls, so we write once on first
   // acquisition and skip the writeBuffer thereafter.
   let finalize_count_sb: GPUBuffer;
+  // Sized to count_slots_padded so the inverse's per-batch WPB-wide scan
+  // sees zeros for tail slots past num_subtasks (which the kernel
+  // skips by treating wg_counts[w]=0 as an empty subtask). The first
+  // num_subtasks slots carry half_num_columns each.
+  const finalize_counts_arr = new Uint32Array(count_slots_padded);
+  for (let i = 0; i < num_subtasks; i++) finalize_counts_arr[i] = half_num_columns;
   if (context !== undefined) {
-    finalize_count_sb = context.acquirePersistentBuffer(`${ws_key}:finalize_count`, num_subtasks * 4);
-    // Re-write the constants every time (cheap — T u32s = 64 B at T=16)
+    finalize_count_sb = context.acquirePersistentBuffer(`${ws_key}:finalize_count`, count_slots_padded * 4);
+    // Re-write the constants every time (cheap — at most ~20 u32s = 80 B)
     // rather than tracking a "first call" flag. Avoids a subtle bug where
     // a bigger N then smaller N would leave stale values in the cached
     // buffer (acquirePersistentBuffer resets identity on size change but
@@ -226,12 +257,12 @@ export const smvp_batch_affine_gpu = async (
     device.queue.writeBuffer(
       finalize_count_sb,
       0,
-      new Uint8Array(new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer),
+      new Uint8Array(finalize_counts_arr.buffer, finalize_counts_arr.byteOffset, finalize_counts_arr.byteLength),
     );
   } else {
     finalize_count_sb = create_and_write_sb(
       device,
-      new Uint8Array(new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer),
+      new Uint8Array(finalize_counts_arr.buffer, finalize_counts_arr.byteOffset, finalize_counts_arr.byteLength),
     );
   }
 
@@ -256,21 +287,20 @@ export const smvp_batch_affine_gpu = async (
   const apply_workgroup_size = 64;
   const finalize_workgroup_size_default = 256;
 
-  // Inverse pass parallelism: each subtask's pair pool is split across
-  // NUM_SUB_WGS_PER_SUBTASK contiguous slices, with one workgroup of
-  // TPB=64 threads inverting each slice independently (its own fr_inv).
+  // Inverse pass parallelism: each (batch, sub_wg) inverts a contiguous
+  // slice of the merged pool. NUM_SUB_WGS_PER_SUBTASK workgroups of
+  // TPB=64 threads each handle one slice independently (own fr_inv).
   // Drops per-thread sequential bs by W× → W× faster Phase A/D at large
   // N. The W extra fr_invs run concurrently across SMs (zero wall-time
-  // cost). W=8 keeps SM occupancy high (T=16 × W=8 = 128 in-flight
-  // workgroups, matching RTX-class GPU SM counts).
+  // cost).
   const NUM_SUB_WGS_PER_SUBTASK = 8;
 
   const init_shader = shaderManager.gen_batch_affine_init_shader(init_workgroup_size);
   const schedule_shader = shaderManager.gen_batch_affine_schedule_shader(schedule_workgroup_size);
-  const dispatch_args_shader = shaderManager.gen_batch_affine_dispatch_args_shader();
-  // Multi-workgroup batch-inverse (W sub-WGs per subtask). See
+  const dispatch_args_shader = shaderManager.gen_batch_affine_dispatch_args_shader(WINDOWS_PER_BATCH);
+  // Multi-workgroup batch-inverse (W sub-WGs per (batch, sub_wg)). See
   // batch_inverse_parallel.template.wgsl for the algorithm.
-  const inverse_shader = shaderManager.gen_batch_inverse_parallel_shader(NUM_SUB_WGS_PER_SUBTASK);
+  const inverse_shader = shaderManager.gen_batch_inverse_parallel_shader(NUM_SUB_WGS_PER_SUBTASK, WINDOWS_PER_BATCH);
   const apply_shader = shaderManager.gen_batch_affine_apply_scatter_shader(apply_workgroup_size);
   // Finalize dispatch geometry — single dispatch covers all T·h IDs;
   // z workgroups = num_subtasks, threading inside the kernel mirrors
@@ -350,7 +380,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     inverse_shader,
     context,
-    `bn254:batch_affine_inverse:parallel-v3-pitch:${num_columns}:${input_size}`,
+    `bn254:batch_affine_inverse:parallel-v4-wpb${WINDOWS_PER_BATCH}:${num_columns}:${input_size}`,
   );
 
   const apply_pipe = await compile_pipeline_for(
@@ -381,7 +411,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     dispatch_args_shader,
     context,
-    `bn254:batch_affine_dispatch_args:v2-fwd:${num_subtasks}:${apply_workgroup_size}`,
+    `bn254:batch_affine_dispatch_args:v3-wpb${WINDOWS_PER_BATCH}:${num_subtasks}:${apply_workgroup_size}`,
   );
 
   const finalize_collect_pipe = await compile_pipeline_for(
@@ -532,7 +562,7 @@ export const smvp_batch_affine_gpu = async (
   // Cache suffix bumped to "v2" so we don't accidentally reuse a cached
   // bind group from the pre-fold v1 layout (same buffer count, different
   // semantics — the v2 suffix tags the new wiring explicitly).
-  const inverse_bg = acquire_bg('inverse_bg:v2', inverse_pipe.layout, [
+  const inverse_bg = acquire_bg(`inverse_bg:v3-wpb${WINDOWS_PER_BATCH}`, inverse_pipe.layout, [
     pair_delta_sb,
     pair_prefix_sb,
     pair_inv_sb,
@@ -555,7 +585,7 @@ export const smvp_batch_affine_gpu = async (
   // Suffix bumped to v2 by P2-clear: bind group now binds 4 buffers
   // (pair_counter + round_count + dispatch_args + ub) instead of 3.
   // W suffix dropped along with the P1 revert.
-  const dispatch_args_bg = acquire_bg('dispatch_args_bg:v2', dispatch_args_pipe.layout, [
+  const dispatch_args_bg = acquire_bg(`dispatch_args_bg:v3-wpb${WINDOWS_PER_BATCH}`, dispatch_args_pipe.layout, [
     pair_counter_sb,
     round_count_sb,
     dispatch_args_sb,
@@ -576,7 +606,7 @@ export const smvp_batch_affine_gpu = async (
     finalize_ub,
   ]);
 
-  const finalize_inverse_bg = acquire_bg('finalize_inverse_bg', inverse_pipe.layout, [
+  const finalize_inverse_bg = acquire_bg(`finalize_inverse_bg:v2-wpb${WINDOWS_PER_BATCH}`, inverse_pipe.layout, [
     pair_delta_sb,
     pair_prefix_sb,
     pair_inv_sb,
@@ -786,17 +816,18 @@ export const smvp_batch_affine_gpu = async (
     profiler?.stage('ba_finalize_collect'),
   );
 
-  // Pass B (batch_inverse): (W, 1, T) workgroups in parallel — each
-  // subtask's h-element slice is split across W sub-WGs, each
-  // independently inverting its sub-slice. Same kernel as the round
-  // loop's inverse pass.
+  // Pass B (batch_inverse): (W, 1, num_batches) workgroups in parallel
+  // — each (batch, sub_wg) inverts the merged h-element slices of WPB
+  // consecutive subtasks with one fr_inv_by_a. Same kernel as the
+  // round loop's inverse pass; finalize_count_sb is pre-populated with
+  // half_num_columns for valid subtasks and zero for the padded tail.
   await execute_pipeline(
     commandEncoder,
     inverse_pipe.pipeline,
     finalize_inverse_bg,
     NUM_SUB_WGS_PER_SUBTASK,
     1,
-    num_subtasks,
+    num_batches,
     profiler?.stage('ba_finalize_inverse'),
   );
 

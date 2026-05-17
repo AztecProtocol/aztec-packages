@@ -1,5 +1,11 @@
 // Request a high-performance GPU device. Enables the optional "timestamp-query"
 // feature when the adapter supports it, so per-pass timings can be collected.
+//
+// Explicitly requests the adapter's MAX for `maxComputeWorkgroupStorageSize`
+// so workgroup-shared scratch can scale with hardware support.
+// WebGPU's default limit is 16 KiB; Apple M1/M2 Metal exposes ~32 KiB, M3+
+// ~64 KiB. Requesting the max keeps room for larger per-WG scratch buffers
+// without falling back to the default cap.
 export const get_device = async (): Promise<GPUDevice> => {
   const gpuErrMsg = 'Please use a browser that has WebGPU enabled.';
   const adapter = await navigator.gpu.requestAdapter({
@@ -15,8 +21,63 @@ export const get_device = async (): Promise<GPUDevice> => {
     requiredFeatures.push('timestamp-query');
   }
 
-  const device = await adapter.requestDevice({ requiredFeatures });
+  const requiredLimits: Record<string, number> = {};
+  const adapterLimits = adapter.limits as unknown as Record<string, number>;
+  const wgStorageMax = adapterLimits['maxComputeWorkgroupStorageSize'];
+  if (typeof wgStorageMax === 'number') {
+    requiredLimits['maxComputeWorkgroupStorageSize'] = wgStorageMax;
+  }
+
+  const device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
+  const grantedLimits = device.limits as unknown as Record<string, number>;
+  console.log(
+    `[gpu] requested maxComputeWorkgroupStorageSize=${wgStorageMax}B,` +
+      ` granted=${grantedLimits['maxComputeWorkgroupStorageSize']}B`,
+  );
   return device;
+};
+
+// Pick the largest SLAB that fits NUM_BUCKETS u32 atomics in the device's
+// workgroup-shared memory limit AND leaves headroom for compiler-allocated
+// temporaries. Returns `{ slab, slabs, bytes }` where
+//   slab * 4 + HEADROOM <= workgroup_storage_limit
+//   slabs = ceil(num_columns / slab)
+//
+// Selection:
+//   - If `num_columns * 4 + HEADROOM <= limit`, use `slab = num_columns`
+//     (single slab, zero tiling — every scalar is Booth-recoded exactly
+//     once per window).
+//   - Otherwise pick the largest power-of-2 SLAB that fits. Power-of-2 is
+//     a convenience: it keeps `slot = k * WG_SIZE + tid` integer divisions
+//     cheap and the per-slab digit range a clean [s, s+SLAB) interval.
+//
+// Headroom rationale: kernels also use small amounts of compiler-allocated
+// workgroup memory (loop counters, barrier state). Leaving a 1 KiB margin
+// keeps us inside the granted limit on drivers that over-allocate slightly.
+export const pick_shared_digit_slab = (
+  num_columns: number,
+  workgroup_storage_limit: number,
+): { slab: number; slabs: number; bytes: number } => {
+  const HEADROOM_BYTES = 1024;
+  const usable_bytes = Math.max(0, workgroup_storage_limit - HEADROOM_BYTES);
+  const max_cells = Math.floor(usable_bytes / 4);
+  if (max_cells <= 0) {
+    throw new Error(
+      `pick_shared_digit_slab: workgroup_storage_limit=${workgroup_storage_limit}B is too small even for the 1 KiB headroom`,
+    );
+  }
+  if (max_cells >= num_columns) {
+    return { slab: num_columns, slabs: 1, bytes: num_columns * 4 };
+  }
+  let slab = 1;
+  while (slab * 2 <= max_cells) slab *= 2;
+  if (slab < 1024) {
+    throw new Error(
+      `pick_shared_digit_slab: device workgroup storage ${workgroup_storage_limit}B can only fit ${slab} cells; below the 1024-cell floor`,
+    );
+  }
+  const slabs = Math.ceil(num_columns / slab);
+  return { slab, slabs, bytes: slab * 4 };
 };
 
 export const read_write_buffer_usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
