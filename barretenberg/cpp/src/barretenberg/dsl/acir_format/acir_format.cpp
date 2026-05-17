@@ -25,6 +25,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <memory>
 
 namespace acir_format {

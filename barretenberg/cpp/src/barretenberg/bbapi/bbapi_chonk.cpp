@@ -11,9 +11,9 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 #ifndef __wasm__

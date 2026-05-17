@@ -1,7 +1,7 @@
 #include "arithmetic_constraints.hpp"
 #include "acir_format.hpp"
 
-#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf_internal.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"

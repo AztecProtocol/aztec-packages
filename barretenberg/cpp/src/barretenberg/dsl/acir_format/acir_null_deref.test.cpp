@@ -19,7 +19,7 @@
 #include <regex>
 #include <vector>
 
-#include "acir_to_constraint_buf.hpp"
+#include "acir_to_constraint_buf_internal.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "serde/acir.hpp"

@@ -20,7 +20,7 @@
  */
 
 #include "acir_format.hpp"
-#include "acir_to_constraint_buf.hpp"
+#include "acir_to_constraint_buf_internal.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/fields/field.fuzzer.hpp"

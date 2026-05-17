@@ -12,12 +12,11 @@
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_length.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
-#include <fstream>
 
 namespace bb {
 
@@ -97,73 +96,22 @@ template <bool IsRecursive = false> struct ChonkProof_ {
   public:
     // MSGPACK methods (native mode only)
     msgpack::sbuffer to_msgpack_buffer() const
-        requires(!IsRecursive)
-    {
-        msgpack::sbuffer buffer;
-        msgpack::pack(buffer, *this);
-        return buffer;
-    }
+        requires(!IsRecursive);
 
     uint8_t* to_msgpack_heap_buffer() const
-        requires(!IsRecursive)
-    {
-        msgpack::sbuffer buffer = to_msgpack_buffer();
-        std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
-        return to_heap_buffer(buf);
-    }
+        requires(!IsRecursive);
 
     static ChonkProof_ from_msgpack_buffer(uint8_t const*& buffer)
-        requires(!IsRecursive)
-    {
-        auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
-        msgpack::sbuffer sbuf;
-        sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
-        return from_msgpack_buffer(sbuf);
-    }
+        requires(!IsRecursive);
 
     static ChonkProof_ from_msgpack_buffer(const msgpack::sbuffer& buffer)
-        requires(!IsRecursive)
-    {
-        std::size_t offset = 0;
-        msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size(), offset);
-        if (offset != buffer.size()) {
-            throw_or_abort("ChonkProof::from_msgpack_buffer: trailing data (" + std::to_string(buffer.size() - offset) +
-                           " extra bytes)");
-        }
-        ChonkProof_ proof;
-        oh.get().convert(proof);
-        return proof;
-    }
+        requires(!IsRecursive);
 
     void to_file_msgpack(const std::string& filename) const
-        requires(!IsRecursive)
-    {
-        msgpack::sbuffer buffer = to_msgpack_buffer();
-        std::ofstream ofs(filename, std::ios::binary);
-        if (!ofs.is_open()) {
-            throw_or_abort("Failed to open file for writing.");
-        }
-        ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-        ofs.close();
-    }
+        requires(!IsRecursive);
 
     static ChonkProof_ from_file_msgpack(const std::string& filename)
-        requires(!IsRecursive)
-    {
-        std::ifstream ifs(filename, std::ios::binary);
-        if (!ifs.is_open()) {
-            throw_or_abort("Failed to open file for reading.");
-        }
-        ifs.seekg(0, std::ios::end);
-        size_t file_size = static_cast<size_t>(ifs.tellg());
-        ifs.seekg(0, std::ios::beg);
-        std::vector<char> buffer(file_size);
-        ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
-        ifs.close();
-        msgpack::sbuffer msgpack_buffer;
-        msgpack_buffer.write(buffer.data(), file_size);
-        return ChonkProof_::from_msgpack_buffer(msgpack_buffer);
-    }
+        requires(!IsRecursive);
 
     // MSGPACK support (native mode only)
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProof";

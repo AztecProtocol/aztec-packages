@@ -7,7 +7,9 @@
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include <fstream>
 
 namespace bb {
 
@@ -73,6 +75,81 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
                         std::move(joint_proof_out) };
 }
 
+template <bool IsRecursive>
+msgpack::sbuffer ChonkProof_<IsRecursive>::to_msgpack_buffer() const
+    requires(!IsRecursive)
+{
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, *this);
+    return buffer;
+}
+
+template <bool IsRecursive>
+uint8_t* ChonkProof_<IsRecursive>::to_msgpack_heap_buffer() const
+    requires(!IsRecursive)
+{
+    msgpack::sbuffer buffer = to_msgpack_buffer();
+    std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
+    return to_heap_buffer(buf);
+}
+
+template <bool IsRecursive>
+ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_msgpack_buffer(uint8_t const*& buffer)
+    requires(!IsRecursive)
+{
+    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+    msgpack::sbuffer sbuf;
+    sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
+    return from_msgpack_buffer(sbuf);
+}
+
+template <bool IsRecursive>
+ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_msgpack_buffer(const msgpack::sbuffer& buffer)
+    requires(!IsRecursive)
+{
+    std::size_t offset = 0;
+    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size(), offset);
+    if (offset != buffer.size()) {
+        throw_or_abort("ChonkProof::from_msgpack_buffer: trailing data (" + std::to_string(buffer.size() - offset) +
+                       " extra bytes)");
+    }
+    ChonkProof_ proof;
+    oh.get().convert(proof);
+    return proof;
+}
+
+template <bool IsRecursive>
+void ChonkProof_<IsRecursive>::to_file_msgpack(const std::string& filename) const
+    requires(!IsRecursive)
+{
+    msgpack::sbuffer buffer = to_msgpack_buffer();
+    std::ofstream ofs(filename, std::ios::binary);
+    if (!ofs.is_open()) {
+        throw_or_abort("Failed to open file for writing.");
+    }
+    ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    ofs.close();
+}
+
+template <bool IsRecursive>
+ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_file_msgpack(const std::string& filename)
+    requires(!IsRecursive)
+{
+    std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs.is_open()) {
+        throw_or_abort("Failed to open file for reading.");
+    }
+    ifs.seekg(0, std::ios::end);
+    size_t file_size = static_cast<size_t>(ifs.tellg());
+    ifs.seekg(0, std::ios::beg);
+    std::vector<char> buffer(file_size);
+    ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
+    ifs.close();
+    msgpack::sbuffer msgpack_buffer;
+    msgpack_buffer.write(buffer.data(), file_size);
+    return ChonkProof_::from_msgpack_buffer(msgpack_buffer);
+}
+
 // Explicit template instantiations
 template std::vector<bb::fr> ChonkProof_<false>::to_field_elements() const;
 template std::vector<stdlib::field_t<UltraCircuitBuilder>> ChonkProof_<true>::to_field_elements() const;
@@ -80,5 +157,12 @@ template std::vector<stdlib::field_t<UltraCircuitBuilder>> ChonkProof_<true>::to
 template ChonkProof_<false> ChonkProof_<false>::from_field_elements(const std::vector<bb::fr>& fields);
 template ChonkProof_<true> ChonkProof_<true>::from_field_elements(
     const std::vector<stdlib::field_t<UltraCircuitBuilder>>& fields);
+
+template msgpack::sbuffer ChonkProof_<false>::to_msgpack_buffer() const;
+template uint8_t* ChonkProof_<false>::to_msgpack_heap_buffer() const;
+template ChonkProof_<false> ChonkProof_<false>::from_msgpack_buffer(uint8_t const*& buffer);
+template ChonkProof_<false> ChonkProof_<false>::from_msgpack_buffer(const msgpack::sbuffer& buffer);
+template void ChonkProof_<false>::to_file_msgpack(const std::string& filename) const;
+template ChonkProof_<false> ChonkProof_<false>::from_file_msgpack(const std::string& filename);
 
 } // namespace bb

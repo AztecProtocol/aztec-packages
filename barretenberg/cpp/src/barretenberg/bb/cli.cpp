@@ -30,7 +30,6 @@
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
-#include "barretenberg/dsl/acir_format/serde/index.hpp"
 #include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"

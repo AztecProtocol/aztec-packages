@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "acir_format.hpp"
-#include "acir_to_constraint_buf.hpp"
+#include "acir_to_constraint_buf_internal.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"

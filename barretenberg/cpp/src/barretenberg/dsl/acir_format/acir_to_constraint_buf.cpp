@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "acir_to_constraint_buf.hpp"
+#include "acir_to_constraint_buf_internal.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -425,6 +425,37 @@ WitnessVector witness_buf_to_witness_vector(std::vector<uint8_t>&& buf)
                  "acir_format::witness_buf_to_witness_vector: expected single WitnessMap in WitnessStack");
 
     return witness_map_to_witness_vector(witness_stack.stack[0].witness);
+}
+
+std::vector<uint8_t> roundtrip_acir_bytecode(std::vector<uint8_t>&& buf)
+{
+    BB_ASSERT(!buf.empty(), "roundtrip_acir_bytecode: bytecode buffer is empty");
+    const uint8_t fmt = buf[0];
+    BB_ASSERT(fmt == 2 || fmt == 3,
+              "roundtrip_acir_bytecode: expected msgpack format marker (2 or 3), got " + std::to_string(fmt));
+
+    const char* data = reinterpret_cast<const char*>(buf.data() + 1);
+    size_t data_size = buf.size() - 1;
+    auto oh = msgpack::unpack(data, data_size);
+    auto o = oh.get();
+    BB_ASSERT(o.type == msgpack::type::ARRAY, "roundtrip_acir_bytecode: expected ARRAY, got " + std::to_string(o.type));
+
+    Acir::Program program;
+    try {
+        o.convert(program);
+    } catch (const msgpack::type_error&) {
+        std::cerr << o << std::endl;
+        bb::assert_failure("acir_format::roundtrip_acir_bytecode: failed to convert msgpack data to Program");
+    }
+
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> packer(sbuf);
+    packer.pack(program);
+
+    std::vector<uint8_t> raw_bytes;
+    raw_bytes.push_back(fmt);
+    raw_bytes.insert(raw_bytes.end(), sbuf.data(), sbuf.data() + sbuf.size());
+    return raw_bytes;
 }
 
 WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness_map)
