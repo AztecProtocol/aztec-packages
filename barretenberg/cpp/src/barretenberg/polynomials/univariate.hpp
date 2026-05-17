@@ -13,7 +13,6 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate_coefficient_basis.hpp"
 
 namespace bb {
@@ -541,38 +540,23 @@ template <class Fr, size_t domain_end> class Univariate {
     }
 
     /**
-     * @brief Evaluate a univariate at a point u not known at compile time
-     * and assumed not to be in the domain (else we divide by zero).
+     * @brief Evaluate a univariate at a point u not known at compile time.
      * @param f
      * @return Fr
      */
     Fr evaluate(const Fr& u) const
     {
-        using Data = BarycentricData<Fr, domain_end, LENGTH>;
-        Fr full_numerator_value = 1;
-        for (size_t i = 0; i != domain_end; ++i) {
-            full_numerator_value *= u - i;
+        auto evaluations_copy = evaluations;
+        Fr result = evaluations_copy[0];
+        Fr binomial_coefficient = 1;
+        for (size_t degree = 1; degree < LENGTH; ++degree) {
+            for (size_t idx = 0; idx < LENGTH - degree; ++idx) {
+                evaluations_copy[idx] = evaluations_copy[idx + 1] - evaluations_copy[idx];
+            }
+            binomial_coefficient *= u - Fr(degree - 1);
+            binomial_coefficient /= Fr(degree);
+            result += binomial_coefficient * evaluations_copy[0];
         }
-
-        // build set of domain size-many denominator inverses 1/(d_i*(x_k - x_j)). will multiply against
-        // each of these (rather than to divide by something) for each barycentric evaluation
-        std::array<Fr, LENGTH> denominator_inverses;
-        for (size_t i = 0; i != LENGTH; ++i) {
-            Fr inv = Data::lagrange_denominators[i];
-            inv *= u - Data::big_domain[i]; // warning: need to avoid zero here
-            inv = Fr(1) / inv;
-            denominator_inverses[i] = inv;
-        }
-
-        Fr result = 0;
-        // compute each term v_j / (d_j*(x-x_j)) of the sum
-        for (size_t i = 0; i != domain_end; ++i) {
-            Fr term = value_at(i);
-            term *= denominator_inverses[i];
-            result += term;
-        }
-        // scale the sum by the value of of B(x)
-        result *= full_numerator_value;
         return result;
     };
 
