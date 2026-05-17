@@ -5,11 +5,12 @@
 // =====================
 
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/chonk_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/dsl/acir_format/witness_utils.hpp"
 
 namespace acir_format {
 

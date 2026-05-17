@@ -6,7 +6,7 @@
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
-#include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/dsl/acir_format/witness_utils.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 
 namespace acir_format {

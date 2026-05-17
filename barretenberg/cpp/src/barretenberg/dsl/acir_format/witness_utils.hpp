@@ -17,6 +17,9 @@ std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std::span<
 template <typename Builder>
 byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields);
 
+std::vector<uint32_t> add_public_inputs_to_proof(const std::vector<uint32_t>& proof_in,
+                                                 const std::vector<uint32_t>& public_inputs);
+
 template <typename Builder>
 void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values);
 

@@ -6,9 +6,10 @@
 
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
-#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
+#include "barretenberg/dsl/acir_format/witness_utils.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
