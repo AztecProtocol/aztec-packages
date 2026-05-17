@@ -9,6 +9,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/encryption/ecdsa/ecdsa_default_point.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 namespace bb::stdlib {
@@ -96,8 +97,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // We conditionally select a public key whose x and y coordinates are smaller than the base field modulus. We need
     // to do this to avoid circuit failures in the function validate_on_curve. Note that this doesn't allow any attack
     // as the result of the verification takes into account whether the original point coordinates were valid or not.
-    typename Curve::AffineElementNative native_double_generator(Curve::GroupNative::one + Curve::GroupNative::one);
-    G1 double_generator(Fq(native_double_generator.x), Fq(native_double_generator.y), /*assert_on_curve=*/false);
+    G1 double_generator(Fq(ecdsa_default_public_key_x_uint256<Curve>()),
+                        Fq(ecdsa_default_public_key_y_uint256<Curve>()),
+                        /*assert_on_curve=*/false);
     G1 corrected_public_key = G1::conditional_assign(
         is_point_at_infinity || !is_x_less_than_modulus || !is_y_less_than_modulus, double_generator, public_key);
     bool_t<Builder> is_point_on_curve =

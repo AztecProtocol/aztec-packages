@@ -121,9 +121,7 @@ TEST(Poseidon2QuadClosedForm, MatchesStepIteration)
 // The terminal relation `Poseidon2QuadInternalTerminalRelationImpl::accumulate` exploits the
 // fact that the U_3 coefficient of out_1, out_2, out_3 in the closed-form table is identically
 // 1, allowing it to write `+ u_3` instead of `+ u_3 * C[k][6]` (lines 85-87 of
-// poseidon2_quad_internal_terminal_relation.hpp). This invariant is hard-coded by `build_out_j`
-// (`r[U_3] = FF(1)`); if a future refactor removes that line, the terminal relation becomes
-// silently incorrect. This sentinel test pins the invariant.
+// poseidon2_quad_internal_terminal_relation.hpp). This sentinel test pins the invariant.
 TEST(Poseidon2QuadClosedForm, TerminalU3CoefIsOne)
 {
     EXPECT_EQ(QuadParams::tables.closed_form[QuadParams::OUT_1][QuadParams::U_3], FF(1));

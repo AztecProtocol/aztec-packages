@@ -8,6 +8,7 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/dsl/acir_format/witness_utils.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/encryption/ecdsa/ecdsa_default_point.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 
@@ -80,12 +81,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder, const Ecd
         // The choice of 2*generator is arbitrary; it just needs to be a valid point on the curve and different from G
         // or (-G). For secp256r1, the batch multiplication requires that the two points do not have the same x
         // coordinate (so as to create a valid lookup table).
-        // Compute as native type to get byte representation
-        typename Curve::AffineElementNative default_point_native(Curve::GroupNative::one + Curve::GroupNative::one);
-        std::array<uint8_t, 32> default_x_bytes;
-        std::array<uint8_t, 32> default_y_bytes;
-        Curve::BaseFieldNative::serialize_to_buffer(default_point_native.x, default_x_bytes.data());
-        Curve::BaseFieldNative::serialize_to_buffer(default_point_native.y, default_y_bytes.data());
+        const auto default_x_bytes = stdlib::ecdsa_default_public_key_x_bytes<Curve>();
+        const auto default_y_bytes = stdlib::ecdsa_default_public_key_y_bytes<Curve>();
 
         for (size_t i = 0; i < 32; ++i) {
             pub_x_fields[i] = field_ct::conditional_assign(predicate, pub_x_fields[i], field_ct(default_x_bytes[i]));

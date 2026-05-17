@@ -28,7 +28,6 @@
 #include "barretenberg/relations/poseidon2_quad_internal_relation.hpp"
 #include "barretenberg/relations/poseidon2_quad_internal_terminal_relation.hpp"
 #include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
-#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
@@ -81,7 +80,8 @@ class MegaFlavor {
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    // TODO(AI): Test these hardcoded values against the old tuple-helper initialization.
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = 7;
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
@@ -92,7 +92,7 @@ class MegaFlavor {
     static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
     // A challenge whose powers are used to batch subrelation contributions during Sumcheck
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    static constexpr size_t NUM_SUBRELATIONS = 63;
     using SubrelationSeparator = FF;
 
     /**

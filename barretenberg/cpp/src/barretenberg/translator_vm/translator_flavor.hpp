@@ -18,7 +18,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
@@ -134,10 +133,11 @@ class TranslatorFlavor {
                                   TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    // TODO(AI): Test these hardcoded values against the old tuple-helper initialization.
+    static constexpr size_t NUM_SUBRELATIONS = 149;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = 7;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation

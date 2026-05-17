@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "serde/index.hpp"
 #include "witness_constant.hpp"
 #include <cstdint>
 #include <vector>

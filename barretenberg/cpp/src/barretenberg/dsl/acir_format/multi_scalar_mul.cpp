@@ -5,7 +5,6 @@
 // =====================
 
 #include "multi_scalar_mul.hpp"
-#include "barretenberg/dsl/acir_format/serde/acir.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"

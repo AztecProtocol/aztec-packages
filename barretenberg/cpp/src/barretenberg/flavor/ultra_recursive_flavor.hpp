@@ -61,7 +61,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = UltraFlavor::Relations_<FF>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 

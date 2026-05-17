@@ -18,6 +18,16 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+TYPED_TEST(StdlibKeccak, sparse_round_constants)
+{
+    using Builder = TypeParam;
+
+    for (size_t i = 0; i < stdlib::keccak<Builder>::NUM_KECCAK_ROUNDS; ++i) {
+        EXPECT_EQ(stdlib::keccak<Builder>::SPARSE_RC[i],
+                  stdlib::keccak<Builder>::convert_to_sparse(stdlib::keccak<Builder>::RC[i]));
+    }
+}
+
 TYPED_TEST(StdlibKeccak, keccak_format_input_table)
 {
     using Builder = TypeParam;

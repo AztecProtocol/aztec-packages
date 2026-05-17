@@ -6,6 +6,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "ecdsa.hpp"
+#include "ecdsa_default_point.hpp"
 #include "ecdsa_tests_data.hpp"
 
 #include <gtest/gtest.h>
@@ -483,6 +484,22 @@ TYPED_TEST(EcdsaTests, Wycherproof)
 TYPED_TEST(EcdsaTests, SignatureDoubleGenerator)
 {
     TestFixture::test_signature_double_generator();
+}
+
+TYPED_TEST(EcdsaTests, DoubleGeneratorConstants)
+{
+    typename TypeParam::AffineElementNative expected(TypeParam::GroupNative::one + TypeParam::GroupNative::one);
+
+    EXPECT_EQ(stdlib::ecdsa_default_public_key_x_uint256<TypeParam>(), uint256_t(expected.x));
+    EXPECT_EQ(stdlib::ecdsa_default_public_key_y_uint256<TypeParam>(), uint256_t(expected.y));
+
+    std::array<uint8_t, 32> expected_x_bytes;
+    std::array<uint8_t, 32> expected_y_bytes;
+    TypeParam::BaseFieldNative::serialize_to_buffer(expected.x, expected_x_bytes.data());
+    TypeParam::BaseFieldNative::serialize_to_buffer(expected.y, expected_y_bytes.data());
+
+    EXPECT_EQ(stdlib::ecdsa_default_public_key_x_bytes<TypeParam>(), expected_x_bytes);
+    EXPECT_EQ(stdlib::ecdsa_default_public_key_y_bytes<TypeParam>(), expected_y_bytes);
 }
 
 TYPED_TEST(EcdsaTests, SignatureGenerator)

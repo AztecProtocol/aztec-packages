@@ -91,11 +91,32 @@ class EventCost:
 
 
 @dataclass
+class NinjaLogEntry:
+    start_ms: int
+    end_ms: int
+    mtime_ns: int
+    output: str
+    command_hash: str
+
+    @property
+    def duration_us(self) -> float:
+        return max(self.end_ms - self.start_ms, 0) * 1000.0
+
+
+@dataclass
+class PchArtifact:
+    path: str
+    size_bytes: int
+    target: str
+
+
+@dataclass
 class TuTrace:
     trace_path: str
     output: str
     source: str
     command: dict[str, Any] | None
+    ninja_entry: NinjaLogEntry | None = None
     execute_us: float = 0.0
     frontend_us: float = 0.0
     backend_us: float = 0.0
@@ -160,6 +181,91 @@ def load_compdb(build_dir: Path) -> tuple[dict[str, dict[str, Any]], dict[str, d
     return by_output, by_file
 
 
+def parse_since(value: str | None) -> float | None:
+    if not value:
+        return None
+    path = Path(value)
+    if path.exists():
+        return path.stat().st_mtime
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"--since must be an existing path or Unix timestamp, got {value!r}") from exc
+
+
+def ninja_output_path(build_dir: Path, output: str) -> str:
+    path = Path(output)
+    if path.is_absolute():
+        return real(path)
+    return real(build_dir / path)
+
+
+def load_ninja_log(build_dir: Path, since: float | None = None) -> dict[str, NinjaLogEntry]:
+    log_path = build_dir / ".ninja_log"
+    if not log_path.exists():
+        return {}
+
+    cutoff_ns = int(since * 1_000_000_000) if since is not None else None
+    entries: dict[str, NinjaLogEntry] = {}
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return {}
+
+    for line in lines:
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) < 5:
+            continue
+        try:
+            start_ms = int(fields[0])
+            end_ms = int(fields[1])
+            mtime_ns = int(fields[2])
+        except ValueError:
+            continue
+        if cutoff_ns is not None and mtime_ns < cutoff_ns:
+            continue
+        output = ninja_output_path(build_dir, fields[3])
+        entries[output] = NinjaLogEntry(
+            start_ms=start_ms,
+            end_ms=end_ms,
+            mtime_ns=mtime_ns,
+            output=output,
+            command_hash=fields[4],
+        )
+    return entries
+
+
+def pch_target_for_path(path: str, root: str) -> str:
+    rel = display_path(path, root)
+    match = re.search(r"(?:^|/)CMakeFiles/([^/]+)\.dir/", rel)
+    if match:
+        return match.group(1)
+    return "unknown"
+
+
+def find_pch_artifacts(build_dir: Path, root: str, since: float | None = None) -> list[PchArtifact]:
+    artifacts: list[PchArtifact] = []
+    for path in build_dir.rglob("*.pch"):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        if since is not None and stat.st_mtime < since:
+            continue
+        artifact_path = real(path)
+        artifacts.append(
+            PchArtifact(
+                path=artifact_path,
+                size_bytes=stat.st_size,
+                target=pch_target_for_path(artifact_path, root),
+            )
+        )
+    artifacts.sort(key=lambda artifact: artifact.size_bytes, reverse=True)
+    return artifacts
+
+
 def trace_output_path(build_dir: Path, trace_path: Path) -> str:
     rel = trace_path.relative_to(build_dir)
     if rel.name.endswith(".json"):
@@ -168,10 +274,12 @@ def trace_output_path(build_dir: Path, trace_path: Path) -> str:
     return real(trace_path)
 
 
-def find_trace_files(build_dir: Path) -> list[Path]:
+def find_trace_files(build_dir: Path, since: float | None = None) -> list[Path]:
     paths = []
     for path in build_dir.rglob("*.json"):
         if path.name in {"Labels.json", "launch.json", "settings.json", "extensions.json"}:
+            continue
+        if since is not None and path.stat().st_mtime < since:
             continue
         paths.append(path)
     return sorted(paths)
@@ -309,6 +417,26 @@ def display_path(path: str, root: str) -> str:
     if is_under(path, root):
         return os.path.relpath(path, root)
     return path
+
+
+def cmake_target_for_output(output: str, root: str) -> str:
+    rel = display_path(output, root)
+    match = re.search(r"(?:^|/)CMakeFiles/([^/]+)\.dir/", rel)
+    if match:
+        return match.group(1)
+    if rel.startswith("lib/"):
+        return "archive"
+    if rel.startswith("bin/"):
+        return "executable"
+    return "unknown"
+
+
+def ninja_span(entries: list[NinjaLogEntry]) -> tuple[int, int, int]:
+    if not entries:
+        return 0, 0, 0
+    start = min(entry.start_ms for entry in entries)
+    end = max(entry.end_ms for entry in entries)
+    return start, end, max(end - start, 0)
 
 
 def aggregate_sources(traces: list[TuTrace]) -> dict[str, SourceCost]:
@@ -582,6 +710,81 @@ def hot_tus_rows(traces: list[TuTrace], root: str, top: int) -> list[list[str]]:
     return rows
 
 
+def ninja_tu_rows(traces: list[TuTrace], root: str, top: int) -> list[list[str]]:
+    rows = []
+    items = [trace for trace in traces if trace.ninja_entry]
+    for trace in sorted(items, key=lambda item: item.ninja_entry.duration_us if item.ninja_entry else 0.0, reverse=True)[:top]:
+        assert trace.ninja_entry is not None
+        rows.append(
+            [
+                f"{trace.ninja_entry.start_ms / 1000.0:.2f}",
+                f"{trace.ninja_entry.end_ms / 1000.0:.2f}",
+                f"{seconds(trace.ninja_entry.duration_us):.2f}",
+                f"{seconds(trace.execute_us):.2f}",
+                f"{seconds(trace.frontend_us):.2f}",
+                f"{seconds(trace.backend_us):.2f}",
+                cmake_target_for_output(trace.output, root),
+                escape_cell(display_path(trace.source, root)),
+            ]
+        )
+    return rows
+
+
+def target_rows(traces: list[TuTrace], root: str, top: int) -> list[list[str]]:
+    buckets: dict[str, dict[str, float | int]] = defaultdict(lambda: {
+        "count": 0,
+        "execute_us": 0.0,
+        "frontend_us": 0.0,
+        "backend_us": 0.0,
+        "ninja_us": 0.0,
+        "first_ms": -1,
+        "last_ms": 0,
+    })
+    for trace in traces:
+        target = cmake_target_for_output(trace.output, root)
+        bucket = buckets[target]
+        bucket["count"] = int(bucket["count"]) + 1
+        bucket["execute_us"] = float(bucket["execute_us"]) + trace.execute_us
+        bucket["frontend_us"] = float(bucket["frontend_us"]) + trace.frontend_us
+        bucket["backend_us"] = float(bucket["backend_us"]) + trace.backend_us
+        if trace.ninja_entry:
+            bucket["ninja_us"] = float(bucket["ninja_us"]) + trace.ninja_entry.duration_us
+            start_ms = trace.ninja_entry.start_ms
+            end_ms = trace.ninja_entry.end_ms
+            bucket["first_ms"] = start_ms if int(bucket["first_ms"]) < 0 else min(int(bucket["first_ms"]), start_ms)
+            bucket["last_ms"] = max(int(bucket["last_ms"]), end_ms)
+
+    rows = []
+    for target, bucket in sorted(buckets.items(), key=lambda item: float(item[1]["execute_us"]), reverse=True)[:top]:
+        first_ms = int(bucket["first_ms"])
+        span_ms = max(int(bucket["last_ms"]) - first_ms, 0) if first_ms >= 0 else 0
+        rows.append(
+            [
+                target,
+                str(bucket["count"]),
+                f"{seconds(float(bucket['execute_us'])):.2f}",
+                f"{seconds(float(bucket['frontend_us'])):.2f}",
+                f"{seconds(float(bucket['backend_us'])):.2f}",
+                f"{seconds(float(bucket['ninja_us'])):.2f}" if bucket["ninja_us"] else "",
+                f"{span_ms / 1000.0:.2f}" if span_ms else "",
+            ]
+        )
+    return rows
+
+
+def pch_rows(artifacts: list[PchArtifact], root: str, top: int) -> list[list[str]]:
+    rows = []
+    for artifact in artifacts[:top]:
+        rows.append(
+            [
+                artifact.target,
+                f"{artifact.size_bytes / (1024.0 * 1024.0):.1f}",
+                escape_cell(display_path(artifact.path, root)),
+            ]
+        )
+    return rows
+
+
 def hot_headers_rows(sources: dict[str, SourceCost], root: str, top: int, project_only: bool) -> list[list[str]]:
     rows = []
     filtered = sources.items()
@@ -651,6 +854,95 @@ def event_rows(costs: dict[str, EventCost], top: int) -> list[list[str]]:
     for detail, cost in sorted(costs.items(), key=lambda item: item[1].total_us, reverse=True)[:top]:
         rows.append([f"{seconds(cost.total_us):.2f}", str(cost.count), escape_cell(trim(detail, 120))])
     return rows
+
+
+def duplicated_event_rows(traces: list[TuTrace], root: str, top: int) -> list[list[str]]:
+    buckets: dict[tuple[str, str], dict[str, Any]] = defaultdict(
+        lambda: {
+            "total_us": 0.0,
+            "count": 0,
+            "tus": defaultdict(float),
+        }
+    )
+    event_groups = (
+        ("template", "template_costs"),
+        ("function", "function_costs"),
+        ("constexpr", "constexpr_costs"),
+    )
+    for trace in traces:
+        for kind, attr in event_groups:
+            for detail, cost in getattr(trace, attr).items():
+                bucket = buckets[(kind, detail)]
+                bucket["total_us"] += cost.total_us
+                bucket["count"] += cost.count
+                bucket["tus"][trace.source] += cost.total_us
+
+    rows = []
+    candidates = [
+        (kind, detail, bucket)
+        for (kind, detail), bucket in buckets.items()
+        if len(bucket["tus"]) > 1 and bucket["total_us"] >= 250_000
+    ]
+    candidates.sort(key=lambda item: float(item[2]["total_us"]), reverse=True)
+    for kind, detail, bucket in candidates[:top]:
+        top_tus = sorted(bucket["tus"].items(), key=lambda item: item[1], reverse=True)[:3]
+        rows.append(
+            [
+                f"{seconds(float(bucket['total_us'])):.2f}",
+                str(len(bucket["tus"])),
+                str(bucket["count"]),
+                kind,
+                escape_cell("; ".join(f"{seconds(cost):.2f}s {display_path(source, root)}" for source, cost in top_tus)),
+                escape_cell(trim(detail, 120)),
+            ]
+        )
+    return rows
+
+
+def duplicated_event_summary(traces: list[TuTrace], root: str, top: int) -> list[dict[str, Any]]:
+    buckets: dict[tuple[str, str], dict[str, Any]] = defaultdict(
+        lambda: {
+            "total_us": 0.0,
+            "count": 0,
+            "tus": defaultdict(float),
+        }
+    )
+    event_groups = (
+        ("template", "template_costs"),
+        ("function", "function_costs"),
+        ("constexpr", "constexpr_costs"),
+    )
+    for trace in traces:
+        for kind, attr in event_groups:
+            for detail, cost in getattr(trace, attr).items():
+                bucket = buckets[(kind, detail)]
+                bucket["total_us"] += cost.total_us
+                bucket["count"] += cost.count
+                bucket["tus"][trace.source] += cost.total_us
+
+    candidates = [
+        (kind, detail, bucket)
+        for (kind, detail), bucket in buckets.items()
+        if len(bucket["tus"]) > 1 and bucket["total_us"] >= 250_000
+    ]
+    candidates.sort(key=lambda item: float(item[2]["total_us"]), reverse=True)
+    return [
+        {
+            "kind": kind,
+            "event": detail,
+            "total_us": float(bucket["total_us"]),
+            "count": int(bucket["count"]),
+            "tu_count": len(bucket["tus"]),
+            "top_tus": [
+                {
+                    "source": display_path(source, root),
+                    "time_us": cost,
+                }
+                for source, cost in sorted(bucket["tus"].items(), key=lambda item: item[1], reverse=True)[:5]
+            ],
+        }
+        for kind, detail, bucket in candidates[:top]
+    ]
 
 
 def edge_rows(edges: dict[tuple[str, str], EdgeCost], root: str, top: int, project_only: bool) -> list[list[str]]:
@@ -744,6 +1036,9 @@ def render_report(
     root: str,
     traces: list[TuTrace],
     source_costs: dict[str, SourceCost],
+    ninja_entries: dict[str, NinjaLogEntry],
+    pch_artifacts: list[PchArtifact],
+    since: float | None,
     scans: list[IncludeScan],
     token_scans: list[TokenScan],
     frontend_stats_scans: list[FrontendStatsScan],
@@ -756,6 +1051,10 @@ def render_report(
     total_backend = sum(trace.backend_us for trace in traces)
     total_optimizer = sum(trace.optimizer_us for trace in traces)
     total_codegen = sum(trace.codegen_us for trace in traces)
+    traced_ninja_entries = [trace.ninja_entry for trace in traces if trace.ninja_entry]
+    ninja_start_ms, ninja_end_ms, ninja_wall_ms = ninja_span([entry for entry in traced_ninja_entries if entry])
+    ninja_command_us = sum(entry.duration_us for entry in traced_ninja_entries if entry)
+    total_pch_bytes = sum(artifact.size_bytes for artifact in pch_artifacts)
 
     template_costs = aggregate_events(traces, "template_costs")
     function_costs = aggregate_events(traces, "function_costs")
@@ -771,10 +1070,25 @@ def render_report(
     lines.append(f"* Include scans: `{len(scans)}`")
     lines.append(f"* Token scans: `{len(token_scans)}`")
     lines.append(f"* Frontend stats scans: `{len(frontend_stats_scans)}`")
+    if since is not None:
+        lines.append(f"* Freshness filter: traces and Ninja log outputs newer than Unix time `{since:.3f}`")
     lines.append(
         f"* Aggregate traced work: `{seconds(total_execute):.1f}s` execute, "
         f"`{seconds(total_frontend):.1f}s` frontend, `{seconds(total_backend):.1f}s` backend"
     )
+    if ninja_entries:
+        lines.append(f"* Ninja log outputs in scope: `{len(ninja_entries)}`")
+    if traced_ninja_entries:
+        avg_parallelism = (ninja_command_us / (ninja_wall_ms * 1000.0)) if ninja_wall_ms else 0.0
+        lines.append(
+            f"* Traced Ninja span: `{ninja_wall_ms / 1000.0:.2f}s` wall "
+            f"({ninja_start_ms / 1000.0:.2f}s to {ninja_end_ms / 1000.0:.2f}s), "
+            f"`{seconds(ninja_command_us):.1f}s` summed command time, `{avg_parallelism:.1f}x` average parallelism"
+        )
+    if pch_artifacts:
+        lines.append(
+            f"* PCH artifacts: `{len(pch_artifacts)}` files, `{total_pch_bytes / (1024.0 * 1024.0):.1f} MiB` total"
+        )
     if total_optimizer or total_codegen:
         lines.append(
             f"* Backend split: `{seconds(total_optimizer):.1f}s` optimizer, "
@@ -784,6 +1098,27 @@ def render_report(
 
     lines.append("## Hottest Translation Units\n")
     lines.append(table(["frontend s", "backend s", "execute s", "headers", "source"], hot_tus_rows(traces, root, top)))
+
+    if traced_ninja_entries:
+        lines.append("## Hottest Ninja Compile Commands\n")
+        lines.append(
+            table(
+                ["start s", "end s", "ninja s", "trace execute s", "frontend s", "backend s", "target", "source"],
+                ninja_tu_rows(traces, root, top),
+            )
+        )
+
+        lines.append("## CMake Target Work Buckets\n")
+        lines.append(
+            table(
+                ["target", "TUs", "execute s", "frontend s", "backend s", "ninja command s", "ninja span s"],
+                target_rows(traces, root, top),
+            )
+        )
+
+    if pch_artifacts:
+        lines.append("## Precompiled Header Artifacts\n")
+        lines.append(table(["target", "size MiB", "path"], pch_rows(pch_artifacts, root, top)))
 
     lines.append("## Hot Project Headers By Inclusive Parse Time\n")
     lines.append(
@@ -833,6 +1168,17 @@ def render_report(
         )
         lines.append(table(["value", "counter"], frontend_stats_rows(frontend_stats, top)))
 
+    lines.append("## Duplicated Template/Function/Constexpr Work\n")
+    lines.append(
+        "These events appear in more than one translation unit, so reducing a duplicate site removes real repeated work.\n"
+    )
+    lines.append(
+        table(
+            ["time s", "TUs", "count", "kind", "hottest TUs", "event"],
+            duplicated_event_rows(traces, root, top),
+        )
+    )
+
     lines.append("## Top Template Instantiations\n")
     lines.append(table(["time s", "count", "template"], event_rows(template_costs, top)))
 
@@ -872,6 +1218,9 @@ def json_summary(
     root: str,
     traces: list[TuTrace],
     source_costs: dict[str, SourceCost],
+    ninja_entries: dict[str, NinjaLogEntry],
+    pch_artifacts: list[PchArtifact],
+    since: float | None,
     scans: list[IncludeScan],
     token_scans: list[TokenScan],
     frontend_stats_scans: list[FrontendStatsScan],
@@ -880,8 +1229,23 @@ def json_summary(
     edge_costs = aggregate_edges(scans)
     token_counts = aggregate_tokens(token_scans)
     frontend_stats = aggregate_frontend_stats(frontend_stats_scans)
+    traced_ninja_entries = [trace.ninja_entry for trace in traces if trace.ninja_entry]
+    _ninja_start_ms, _ninja_end_ms, ninja_wall_ms = ninja_span([entry for entry in traced_ninja_entries if entry])
+    ninja_command_us = sum(entry.duration_us for entry in traced_ninja_entries if entry)
     return {
         "trace_count": len(traces),
+        "ninja_log_output_count": len(ninja_entries),
+        "pch_artifact_count": len(pch_artifacts),
+        "pch_total_bytes": sum(artifact.size_bytes for artifact in pch_artifacts),
+        "pch_artifacts": [
+            {
+                "target": artifact.target,
+                "size_bytes": artifact.size_bytes,
+                "path": display_path(artifact.path, root),
+            }
+            for artifact in pch_artifacts[:top]
+        ],
+        "since_unix": since,
         "include_scan_count": len(scans),
         "token_scan_count": len(token_scans),
         "frontend_stats_scan_count": len(frontend_stats_scans),
@@ -890,16 +1254,37 @@ def json_summary(
             "frontend_us": sum(trace.frontend_us for trace in traces),
             "backend_us": sum(trace.backend_us for trace in traces),
         },
+        "ninja": {
+            "mapped_trace_count": len(traced_ninja_entries),
+            "wall_us": ninja_wall_ms * 1000,
+            "summed_command_us": ninja_command_us,
+            "average_parallelism": (ninja_command_us / (ninja_wall_ms * 1000.0)) if ninja_wall_ms else 0.0,
+        },
         "frontend_stats": frontend_stats,
+        "duplicated_events": duplicated_event_summary(traces, root, top),
         "hot_tus": [
             {
                 "source": display_path(trace.source, root),
                 "frontend_us": trace.frontend_us,
                 "backend_us": trace.backend_us,
                 "execute_us": trace.execute_us,
+                "ninja_us": trace.ninja_entry.duration_us if trace.ninja_entry else None,
+                "cmake_target": cmake_target_for_output(trace.output, root),
                 "header_count": len(trace.source_costs),
             }
             for trace in sorted(traces, key=lambda item: item.frontend_us, reverse=True)[:top]
+        ],
+        "cmake_targets": [
+            {
+                "target": row[0],
+                "translation_units": int(row[1]),
+                "execute_s": float(row[2]),
+                "frontend_s": float(row[3]),
+                "backend_s": float(row[4]),
+                "ninja_command_s": float(row[5]) if row[5] else None,
+                "ninja_span_s": float(row[6]) if row[6] else None,
+            }
+            for row in target_rows(traces, root, top)
         ],
         "hot_project_headers": [
             {
@@ -1472,6 +1857,7 @@ def records_for_html(
     root: str,
     traces: list[TuTrace],
     source_costs: dict[str, SourceCost],
+    pch_artifacts: list[PchArtifact],
     scans: list[IncludeScan],
     token_scans: list[TokenScan],
     frontend_stats_scans: list[FrontendStatsScan],
@@ -1519,6 +1905,7 @@ def records_for_html(
     return {
         "traces": traces,
         "source_costs": source_costs,
+        "pch_artifacts": pch_artifacts,
         "edges": edge_costs,
         "tokens": token_counts,
         "frontend_stats": frontend_stats,
@@ -1538,13 +1925,16 @@ def render_html_reports(
     root: str,
     traces: list[TuTrace],
     source_costs: dict[str, SourceCost],
+    ninja_entries: dict[str, NinjaLogEntry],
+    pch_artifacts: list[PchArtifact],
+    since: float | None,
     scans: list[IncludeScan],
     token_scans: list[TokenScan],
     frontend_stats_scans: list[FrontendStatsScan],
     top: int,
 ) -> None:
     html_dir.mkdir(parents=True, exist_ok=True)
-    data = records_for_html(root, traces, source_costs, scans, token_scans, frontend_stats_scans)
+    data = records_for_html(root, traces, source_costs, pch_artifacts, scans, token_scans, frontend_stats_scans)
     edge_costs: dict[tuple[str, str], EdgeCost] = data["edges"]  # type: ignore[assignment]
     token_counts: Counter[str] = data["tokens"]  # type: ignore[assignment]
     frontend_stats: dict[str, float] = data["frontend_stats"]  # type: ignore[assignment]
@@ -1813,7 +2203,9 @@ def render_html_reports(
     )
     (html_dir / "templates.html").write_text(html_shell("Templates And Constexpr", "templates.html", pages, templates_body), encoding="utf-8")
 
-    raw_payload = json_summary(root, traces, source_costs, scans, token_scans, frontend_stats_scans, max(top, 100))
+    raw_payload = json_summary(
+        root, traces, source_costs, ninja_entries, pch_artifacts, since, scans, token_scans, frontend_stats_scans, max(top, 100)
+    )
     raw_payload["bb_domains"] = domains
     generated_files = [["index.html", "Single-page app"], ["data.json", "Machine-readable summary"]]
     generated_files.extend([[filename, title] for filename, title in pages if filename != "index.html"])
@@ -1858,6 +2250,15 @@ def main() -> int:
     parser.add_argument("build_dir", type=Path, help="CMake/Ninja build dir containing *.cpp.json traces")
     parser.add_argument("--source-root", type=Path, default=Path.cwd(), help="Project root for relative paths")
     parser.add_argument("--top", type=int, default=25, help="Rows per report section")
+    parser.add_argument(
+        "--since",
+        help="Only include traces and Ninja log outputs newer than this marker file or Unix timestamp",
+    )
+    parser.add_argument(
+        "--require-ninja-entry",
+        action="store_true",
+        help="Drop trace files whose object output is not present in the in-scope Ninja log entries",
+    )
     parser.add_argument("--scan-includes", type=int, default=0, help="Run clang -H syntax-only for the N hottest TUs")
     parser.add_argument("--scan-tokens", type=int, default=0, help="Run clang token dumps for the N hottest TUs")
     parser.add_argument("--scan-frontend-stats", type=int, default=0, help="Run clang frontend stats for the N hottest TUs")
@@ -1877,11 +2278,17 @@ def main() -> int:
         print(f"error: build dir does not exist: {build_dir}", file=sys.stderr)
         return 2
 
+    since = parse_since(args.since)
+    ninja_entries = load_ninja_log(build_dir, since)
+    pch_artifacts = find_pch_artifacts(build_dir, root, since)
     compdb_by_output, compdb_by_file = load_compdb(build_dir)
     traces: list[TuTrace] = []
-    for trace_file in find_trace_files(build_dir):
+    for trace_file in find_trace_files(build_dir, since):
         trace = load_trace(trace_file, build_dir, compdb_by_output, compdb_by_file)
         if trace:
+            trace.ninja_entry = ninja_entries.get(trace.output)
+            if args.require_ninja_entry and not trace.ninja_entry:
+                continue
             traces.append(trace)
     if not traces:
         print(f"error: found no Clang -ftime-trace JSON files under {build_dir}", file=sys.stderr)
@@ -1916,6 +2323,9 @@ def main() -> int:
         root=root,
         traces=traces,
         source_costs=source_costs,
+        ninja_entries=ninja_entries,
+        pch_artifacts=pch_artifacts,
+        since=since,
         scans=scans,
         token_scans=token_scans,
         frontend_stats_scans=frontend_stats_scans,
@@ -1934,7 +2344,19 @@ def main() -> int:
         args.json_output.parent.mkdir(parents=True, exist_ok=True)
         args.json_output.write_text(
             json.dumps(
-                json_summary(root, traces, source_costs, scans, token_scans, frontend_stats_scans, args.top), indent=2
+                json_summary(
+                    root,
+                    traces,
+                    source_costs,
+                    ninja_entries,
+                    pch_artifacts,
+                    since,
+                    scans,
+                    token_scans,
+                    frontend_stats_scans,
+                    args.top,
+                ),
+                indent=2,
             ),
             encoding="utf-8",
         )
@@ -1946,6 +2368,9 @@ def main() -> int:
             root=root,
             traces=traces,
             source_costs=source_costs,
+            ninja_entries=ninja_entries,
+            pch_artifacts=pch_artifacts,
+            since=since,
             scans=scans,
             token_scans=token_scans,
             frontend_stats_scans=frontend_stats_scans,

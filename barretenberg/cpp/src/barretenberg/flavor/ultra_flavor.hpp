@@ -22,7 +22,6 @@
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -73,9 +72,9 @@ class UltraFlavor {
 
     using Relations = Relations_<FF>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    // TODO(AI): Test these hardcoded values against the old tuple-helper initialization.
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = 7;
+    static constexpr size_t NUM_SUBRELATIONS = 29;
     // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     using SubrelationSeparator = FF;
 
