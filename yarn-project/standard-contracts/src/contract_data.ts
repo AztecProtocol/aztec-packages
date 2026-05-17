@@ -5,6 +5,10 @@
 // same code path. Adding a new standard contract is a one-row change in the array below — both
 // the generator and the drift test pick it up automatically.
 //
+// The rendering and write-if-changed plumbing lives in `drift.ts`, a build-time-only sibling
+// module — keeping `prettier` out of this module avoids pulling a formatter into the published
+// package's transitive imports.
+//
 // Paths below are relative to `yarn-project/standard-contracts` (the cwd when scripts run).
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FunctionSelector, loadContractArtifact } from '@aztec/stdlib/abi';
