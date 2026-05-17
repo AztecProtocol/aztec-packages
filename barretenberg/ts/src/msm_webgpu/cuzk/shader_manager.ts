@@ -44,6 +44,8 @@ import {
   smvp_bn254 as smvp_bn254_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
+  smvp_tree_scatter as smvp_tree_scatter_shader,
+  smvp_tree_scatter_init as smvp_tree_scatter_init_shader,
   structs,
   transpose_parallel_count as transpose_parallel_count_shader,
   transpose_parallel_scan as transpose_parallel_scan_shader,
@@ -594,6 +596,31 @@ export class ShaderManager {
         bigint_by_funcs,
         by_inverse_a_funcs,
       },
+    );
+  }
+
+  /**
+   * Scatters tree-reduce orchestrator output `(bucket_id[], x[], y[])`
+   * into the dense `(running_x, running_y, bucket_active)` arrays the
+   * existing finalize_collect pipeline expects. One thread per output.
+   */
+  public gen_smvp_tree_scatter_shader(tpb: number): string {
+    return mustache.render(
+      smvp_tree_scatter_shader,
+      { tpb, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Companion to `smvp_tree_scatter`: zeros running_x/y + bucket_active
+   * across the dense T*num_columns layout before the scatter pass.
+   */
+  public gen_smvp_tree_scatter_init_shader(tpb: number): string {
+    return mustache.render(
+      smvp_tree_scatter_init_shader,
+      { tpb, num_words: this.num_words, recompile: this.recompile },
+      { structs },
     );
   }
 
