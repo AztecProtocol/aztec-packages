@@ -147,11 +147,19 @@ interface Synth {
   bucketStart: Uint32Array;
 }
 
-function buildSynthetic(entries: number, buckets: number, seed: number, p: bigint, R: bigint): Synth {
+function buildSynthetic(entries: number, buckets: number, seed: number, p: bigint, R: bigint, skewMode: 'uniform' | 'heavy' = 'uniform'): Synth {
   const rng = makeRng(seed);
   // Distribute `entries` across `buckets` buckets, each at least 1.
   const pops: number[] = new Array(buckets).fill(1);
   let remaining = entries - buckets;
+  if (skewMode === 'heavy') {
+    // Worst-case skew for the existing round-loop MSM: one bucket gets
+    // ~half the entries, the rest distribute uniformly over the
+    // remainder. Tree-reduce should still finish in ceil(log2(heavy_pop))+1
+    // layers regardless.
+    const heavy = Math.floor(entries / 2);
+    pops[0] += heavy; remaining -= heavy;
+  }
   while (remaining > 0) {
     const b = rng() % buckets;
     pops[b]++;
@@ -250,6 +258,7 @@ async function main() {
       entries: Math.max(2, Math.min(1 << 18, parseInt(qp.get('entries') ?? '60', 10))),
       buckets: Math.max(1, Math.min(1 << 14, parseInt(qp.get('buckets') ?? '6', 10))),
       seed: parseInt(qp.get('seed') ?? '12345', 10),
+      skewMode: (qp.get('skew') === 'heavy' ? 'heavy' : 'uniform') as 'uniform' | 'heavy',
     };
     benchState.params = params;
     benchState.state = 'running';
@@ -262,8 +271,11 @@ async function main() {
     const R = misc.r;
     const Rinv = modInverse(R, p);
 
-    const synth = buildSynthetic(params.entries, params.buckets, params.seed, p, R);
-    log('info', `synth: entries=${synth.total_entries} buckets=${synth.bucket_pops.length} pops=${synth.bucket_pops.join(',')}`);
+    const synth = buildSynthetic(params.entries, params.buckets, params.seed, p, R, params.skewMode);
+    const popsSummary = synth.bucket_pops.length > 16
+      ? `pops[0..15]=${synth.bucket_pops.slice(0, 16).join(',')}... max=${Math.max(...synth.bucket_pops)} min=${Math.min(...synth.bucket_pops)}`
+      : `pops=${synth.bucket_pops.join(',')}`;
+    log('info', `synth: entries=${synth.total_entries} buckets=${synth.bucket_pops.length} skew=${params.skewMode} ${popsSummary}`);
 
     const sm = new ShaderManager(4, synth.total_entries, BN254_CURVE_CONFIG, false);
     const p1Code = sm.gen_smvp_tree_phase1_shader(TPB, MAX_SLICE_ENTRIES);
