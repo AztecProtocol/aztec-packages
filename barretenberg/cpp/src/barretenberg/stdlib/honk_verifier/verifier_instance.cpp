@@ -1,2 +1,1 @@
-// Verifier instance implementation
-#include "barretenberg/ultra_honk/verifier_instance.hpp"
+// Object file anchor for the stdlib_honk_verifier module.
