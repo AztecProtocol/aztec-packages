@@ -80,10 +80,13 @@ async function main() {
   if (driftedFiles.length > 0) {
     const list = driftedFiles.map(f => `  - ${f}`).join('\n');
     throw new Error(
-      `Standard contract addresses have changed. The following generated files were out of date and have been rewritten with the freshly-derived values:\n${list}\n\n` +
-        `Any aztec-nr-using Noir contract that already compiled against the previous addresses now has stale bytecode. ` +
-        `Rebuild aztec-nr and noir-contracts so dependent contracts pick up the fresh addresses — re-running \`./bootstrap.sh\` ` +
-        `once more is sufficient; the second pass picks up the now-correct values.`,
+      `Standard contract addresses have changed. The following generated files were out of date and have been rewritten in-place with the freshly-derived values:\n${list}\n\n` +
+        `Any noir-contract that imports the stale addresses (via aztec-nr or aztec_sublib) now has stale bytecode and must be rebuilt. ` +
+        `To recover, from the repo root run:\n` +
+        `  1. \`./bootstrap.sh build noir-contracts\`  (recompiles every contract against the now-stamped addresses)\n` +
+        `  2. \`./bootstrap.sh build yarn-project\`    (this generator re-runs, sees no drift, and the build proceeds)\n` +
+        `Or simply re-run \`./bootstrap.sh\` end-to-end — the second pass picks up the now-correct values. ` +
+        `Commit the rewritten files alongside whatever source change triggered the drift.`,
     );
   }
 }
