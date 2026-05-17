@@ -78,7 +78,7 @@ mod test {
 
             let pk_a = point_from_x_coord(1).unwrap();
             let pk_b = point_from_x_coord(2).unwrap();
-            let pk_c = point_from_x_coord(3).unwrap();
+            let pk_c = point_from_x_coord(8).unwrap();
 
             let _: BoundedVec<Field, 3> = get_shared_secrets(
                 AztecAddress::from_field(1),
