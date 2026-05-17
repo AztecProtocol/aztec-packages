@@ -7,7 +7,7 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/dsl/acir_format/witness_utils.hpp"
 #include <vector>
 
 namespace acir_format {
@@ -19,29 +19,6 @@ using namespace bb::stdlib;
 
 /// The functions below are helpers for constructing in-circuit representations of the witnesses passed from ACIR to
 /// barretenberg
-
-/**
- * @brief Generate builder variables from witness indices. This function is useful when receiving the indices of the
- * witness from ACIR.
- *
- * @tparam Builder
- * @param builder
- * @param witness_indices
- * @return std::vector<stdlib::field_t<Builder>>
- */
-template <typename Builder>
-std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std::span<const uint32_t> witness_indices);
-
-/**
- * @brief Convert a vector of field_t elements to a byte_array enforcing each element to fit in one byte
- *
- * @tparam Builder
- * @param builder
- * @param fields
- * @return byte_array<Builder>
- */
-template <typename Builder>
-byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields);
 
 /**
  * @brief Reconstruct a barretenberg style proof from an ACIR style proof + public inputs
@@ -144,12 +121,5 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(std::vector<bb::fr>& wi
 /// ========== WRITE_VK UTILITIES ========== ///
 
 /// The functions below are helpers for write_vk situations
-
-/**
- * @brief Populate fields in the builder with the given values.
- *
- */
-template <typename Builder>
-void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values);
 
 } // namespace acir_format

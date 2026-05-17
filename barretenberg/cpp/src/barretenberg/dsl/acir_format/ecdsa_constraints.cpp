@@ -5,7 +5,8 @@
 // =====================
 
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
-#include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/dsl/acir_format/witness_utils.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
