@@ -186,8 +186,13 @@ void process_hn_recursion_constraints(
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
                 auto key_fields = fields_from_witnesses(builder, constraint.key);
-                populate_fields(builder, key_fields, queue_entry.honk_vk->to_field_elements());
-                builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
+                if (queue_entry.is_kernel) {
+                    populate_fields(builder, key_fields, queue_entry.kernel_honk_vk->to_field_elements());
+                    builder.set_variable(constraint.key_hash, queue_entry.kernel_honk_vk->hash());
+                } else {
+                    populate_fields(builder, key_fields, queue_entry.app_honk_vk->to_field_elements());
+                    builder.set_variable(constraint.key_hash, queue_entry.app_honk_vk->hash());
+                }
             }
         }
 
@@ -225,8 +230,9 @@ void process_hn_recursion_constraints(
             // Validate public input layout: IO region size must match VK's num_public_inputs
             size_t expected_io_size =
                 queue_entry.is_kernel ? IVCType::KernelIO::PUBLIC_INPUTS_SIZE : IVCType::AppIO::PUBLIC_INPUTS_SIZE;
-            size_t vk_num_public_inputs =
-                static_cast<size_t>(uint64_t(queue_entry.honk_vk_and_hash->vk->num_public_inputs.get_value()));
+            size_t vk_num_public_inputs = static_cast<size_t>(
+                uint64_t(queue_entry.is_kernel ? queue_entry.kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
+                                               : queue_entry.app_honk_vk_and_hash->vk->num_public_inputs.get_value()));
             BB_ASSERT_EQ(expected_io_size,
                          vk_num_public_inputs,
                          "process_hn_recursion_constraints: IO size mismatch with VK num_public_inputs");

@@ -62,7 +62,7 @@ static constexpr size_t NUM_ZERO_ROWS = 1;
 // The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
 static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
 
-static constexpr size_t CHONK_MAX_NUM_APPS = 34;
+static constexpr size_t CHONK_MAX_NUM_APPS = 42;
 static constexpr size_t compute_chonk_max_num_circuits()
 {
     return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +

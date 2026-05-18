@@ -108,13 +108,12 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
 {
     using IvcType = Chonk;
     using FF = IvcType::FF;
-    using MegaVerificationKey = IvcType::MegaVerificationKey;
-    using Flavor = IvcType::Flavor;
+    using AppFlavor = IvcType::AppFlavor;
+    using KernelFlavor = IvcType::KernelFlavor;
 
-    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N; // maybe doesnt need to be correct
-
-    std::vector<FF> proof;
-    std::shared_ptr<MegaVerificationKey> verification_key;
+    Chonk::VerifierInputs entry;
+    entry.type = verification_type;
+    entry.is_kernel = is_kernel;
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;
@@ -122,23 +121,20 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
                          verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
                      true);
 
-        // Kernel circuits always have a prior accumulator, so fold proof is always included
         constexpr bool include_fold = true;
-        proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
-
-        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size);
+        entry.proof = create_mock_hyper_nova_proof<KernelFlavor, KernelIO>(include_fold);
+        entry.kernel_honk_vk = create_mock_honk_vk<KernelFlavor, KernelIO>(1 << KernelFlavor::VIRTUAL_LOG_N);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
 
-        // First app (OINK) has no prior accumulator; subsequent apps (HN) do
         bool include_fold = (verification_type != Chonk::QUEUE_TYPE::OINK);
-        proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
-
-        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size);
+        entry.proof = create_mock_hyper_nova_proof<AppFlavor, AppIO>(include_fold);
+        entry.app_honk_vk = create_mock_honk_vk<AppFlavor, AppIO>(1 << AppFlavor::VIRTUAL_LOG_N);
     }
 
-    return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
+    (void)FF{};
+    return entry;
 }
 
 /**
