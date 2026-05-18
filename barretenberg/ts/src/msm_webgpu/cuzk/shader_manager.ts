@@ -48,6 +48,8 @@ import {
   smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
   smvp_tree_layer_prelude as smvp_tree_layer_prelude_shader,
   smvp_tree_layer_scan as smvp_tree_layer_scan_shader,
+  smvp_tree_meta_phase1 as smvp_tree_meta_phase1_shader,
+  smvp_tree_meta_phase2 as smvp_tree_meta_phase2_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
   smvp_tree_scatter as smvp_tree_scatter_shader,
@@ -652,6 +654,98 @@ export class ShaderManager {
         bigint_by_funcs,
         by_inverse_a_funcs,
       },
+    );
+  }
+
+  /**
+   * Layer-0 metadata kernel. Runs the parallel preamble previously
+   * embedded in phase1: per-thread bucket walk → TPB-wide max-scan →
+   * prefix-sum → meta_pool writes + per-WG (emit_count, pair_count) into
+   * wg_counts. The math-only phase1 kernel then consumes these without
+   * doing the preamble itself.
+   */
+  public gen_smvp_tree_meta_phase1_shader(
+    tpb: number,
+    max_slice_entries: number,
+    max_pairs: number,
+  ): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0) {
+      throw new Error(
+        `gen_smvp_tree_meta_phase1_shader: tpb, max_slice_entries, and max_pairs must be positive`,
+      );
+    }
+    if (max_slice_entries % tpb !== 0) {
+      throw new Error(
+        `gen_smvp_tree_meta_phase1_shader: max_slice_entries (${max_slice_entries}) must be a multiple of tpb (${tpb})`,
+      );
+    }
+    if (max_pairs > max_slice_entries) {
+      throw new Error(
+        `gen_smvp_tree_meta_phase1_shader: max_pairs (${max_pairs}) must not exceed max_slice_entries (${max_slice_entries})`,
+      );
+    }
+    const per_thread_entries = max_slice_entries / tpb;
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
+    return mustache.render(
+      smvp_tree_meta_phase1_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
+        recompile: this.recompile,
+      },
+      {},
+    );
+  }
+
+  /**
+   * Layer >=1 metadata kernel. Same as gen_smvp_tree_meta_phase1_shader
+   * but reads `input_bucket_id` and a per-layer `slice_bounds` binding
+   * instead of `entry_bucket_id` + a uniform per_wg.
+   */
+  public gen_smvp_tree_meta_phase2_shader(
+    tpb: number,
+    max_slice_entries: number,
+    max_pairs: number,
+  ): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0) {
+      throw new Error(
+        `gen_smvp_tree_meta_phase2_shader: tpb, max_slice_entries, and max_pairs must be positive`,
+      );
+    }
+    if (max_slice_entries % tpb !== 0) {
+      throw new Error(
+        `gen_smvp_tree_meta_phase2_shader: max_slice_entries (${max_slice_entries}) must be a multiple of tpb (${tpb})`,
+      );
+    }
+    if (max_pairs > max_slice_entries) {
+      throw new Error(
+        `gen_smvp_tree_meta_phase2_shader: max_pairs (${max_pairs}) must not exceed max_slice_entries (${max_slice_entries})`,
+      );
+    }
+    const per_thread_entries = max_slice_entries / tpb;
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
+    return mustache.render(
+      smvp_tree_meta_phase2_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
+        recompile: this.recompile,
+      },
+      {},
     );
   }
 

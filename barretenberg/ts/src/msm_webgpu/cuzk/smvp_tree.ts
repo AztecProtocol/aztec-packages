@@ -37,35 +37,54 @@ const SCAN_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'uniform', // 7 params
 ];
 
-// Phase 1 binding layout. Binding 10 (`meta_pool`) holds the combined
-// per-WG metadata pool — pair_idx_a, pair_idx_b, rank_to_raw, and
-// prev_raw_for_pair. Keeps storage-binding count at 10
-// (M2/SwiftShader's maxStorageBuffersPerShaderStage cap).
+// Phase 1 binding layout. The preamble (pair_idx_a/b, rank_to_raw,
+// prev_raw_for_pair derivation + per-WG counts) has been split into
+// the smvp_tree_meta_phase1 kernel, which runs before phase1 and
+// populates meta_pool + wg_counts. Phase1 reads both as read-only.
 const PHASE1_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'read-only-storage', // 0 schedule
-  'read-only-storage', // 1 entry_bucket_id
-  'read-only-storage', // 2 point_x
-  'read-only-storage', // 3 point_y
-  'uniform', // 4 phase1_params (per_wg, total_entries)
-  'read-only-storage', // 5 wg_output_offset
-  'storage', // 6 prefix_scratch
-  'storage', // 7 output_bucket_id
-  'storage', // 8 output_x
-  'storage', // 9 output_y
-  'storage', // 10 meta_pool (4-section per-WG slice)
+  'read-only-storage', // 1 point_x
+  'read-only-storage', // 2 point_y
+  'read-only-storage', // 3 wg_output_offset
+  'storage', // 4 prefix_scratch
+  'storage', // 5 output_x
+  'storage', // 6 output_y
+  'read-only-storage', // 7 meta_pool (populated by meta_phase1)
+  'read-only-storage', // 8 wg_counts (populated by meta_phase1)
 ];
 
 const PHASE2_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
+  'read-only-storage', // 0 input_x
+  'read-only-storage', // 1 input_y
+  'read-only-storage', // 2 wg_output_offset
+  'storage', // 3 prefix_scratch
+  'storage', // 4 output_x
+  'storage', // 5 output_y
+  'read-only-storage', // 6 meta_pool (populated by meta_phase2)
+  'read-only-storage', // 7 wg_counts (populated by meta_phase2)
+];
+
+// Meta kernels populate per-WG metadata (meta_pool sections + emit/pair
+// counts) + output_bucket_id, freeing phase1/phase2 to run only Phase
+// A-D math. meta_phase1 (layer 0) reads entry_bucket_id + uniform
+// per_wg; meta_phase2 (layers >= 1) reads input_bucket_id +
+// slice_bounds.
+const META_PHASE1_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
+  'read-only-storage', // 0 entry_bucket_id
+  'uniform', // 1 phase1_params
+  'read-only-storage', // 2 wg_output_offset
+  'storage', // 3 output_bucket_id
+  'storage', // 4 meta_pool
+  'storage', // 5 wg_counts
+];
+
+const META_PHASE2_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'read-only-storage', // 0 input_bucket_id
-  'read-only-storage', // 1 input_x
-  'read-only-storage', // 2 input_y
-  'read-only-storage', // 3 slice_bounds
-  'read-only-storage', // 4 wg_output_offset
-  'storage', // 5 prefix_scratch
-  'storage', // 6 output_bucket_id
-  'storage', // 7 output_x
-  'storage', // 8 output_y
-  'storage', // 9 meta_pool (4-section per-WG slice)
+  'read-only-storage', // 1 slice_bounds
+  'read-only-storage', // 2 wg_output_offset
+  'storage', // 3 output_bucket_id
+  'storage', // 4 meta_pool
+  'storage', // 5 wg_counts
 ];
 
 const SCATTER_ARGS_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
@@ -190,6 +209,14 @@ export async function recordTreeReduce(
   const metaPool = context.acquirePersistentBuffer(
     `${wsKey}:tree:meta_pool`,
     MAX_WGS * metaPerWgStride * 4,
+  );
+  // Per-WG (emit_count, pair_count). Reused across layers — each layer's
+  // meta kernel overwrites this in full before the same-layer phase1/2
+  // reads it. WebGPU's implicit storage barrier between dispatches keeps
+  // the two ordered.
+  const wgCounts = context.acquirePersistentBuffer(
+    `${wsKey}:tree:wg_counts`,
+    MAX_WGS * 2 * 4,
   );
   const sliceBounds = context.acquirePersistentBuffer(
     `${wsKey}:tree:slice_bounds`,
@@ -339,8 +366,10 @@ export async function recordTreeReduce(
 
   const preludeKey = `${pipeKey}:smvp_tree_layer_prelude:wg${preludeWgSize}:max_slice${maxSliceEntries}:max_wgs${MAX_WGS}`;
   const scanKey = `${pipeKey}:smvp_tree_layer_scan:wg${scanWgSize}:max_wgs${MAX_WGS}`;
-  const phase1Key = `${pipeKey}:smvp_tree_phase1:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
-  const phase2Key = `${pipeKey}:smvp_tree_phase2:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
+  const metaPhase1Key = `${pipeKey}:smvp_tree_meta_phase1:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
+  const metaPhase2Key = `${pipeKey}:smvp_tree_meta_phase2:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
+  const phase1Key = `${pipeKey}:smvp_tree_phase1:v4:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
+  const phase2Key = `${pipeKey}:smvp_tree_phase2:v4:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
   const scatterArgsKey = `${pipeKey}:smvp_tree_scatter_args`;
 
   const preludePipe = await context.getOrCreatePipeline(preludeKey, () =>
@@ -348,6 +377,20 @@ export async function recordTreeReduce(
   );
   const scanPipe = await context.getOrCreatePipeline(scanKey, () =>
     compileWithLayout(SCAN_BINDINGS, shaderManager.gen_smvp_tree_layer_scan_shader(scanWgSize, MAX_WGS), scanKey),
+  );
+  const metaPhase1Pipe = await context.getOrCreatePipeline(metaPhase1Key, () =>
+    compileWithLayout(
+      META_PHASE1_BINDINGS,
+      shaderManager.gen_smvp_tree_meta_phase1_shader(tpb, maxSliceEntries, maxPairs),
+      metaPhase1Key,
+    ),
+  );
+  const metaPhase2Pipe = await context.getOrCreatePipeline(metaPhase2Key, () =>
+    compileWithLayout(
+      META_PHASE2_BINDINGS,
+      shaderManager.gen_smvp_tree_meta_phase2_shader(tpb, maxSliceEntries, maxPairs),
+      metaPhase2Key,
+    ),
   );
   const phase1Pipe = await context.getOrCreatePipeline(phase1Key, () =>
     compileWithLayout(
@@ -403,50 +446,82 @@ export async function recordTreeReduce(
       }),
     );
 
+  const buildMetaPhase1Bg = (L: number) =>
+    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:meta_phase1:L${L}`, () =>
+      device.createBindGroup({
+        layout: metaPhase1Pipe.bindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: entryBucketId } },
+          { binding: 1, resource: { buffer: phase1ParamsUniform.buffer } },
+          {
+            binding: 2,
+            resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
+          },
+          { binding: 3, resource: { buffer: pingBucketId[(L + 1) & 1] } },
+          { binding: 4, resource: { buffer: metaPool } },
+          { binding: 5, resource: { buffer: wgCounts } },
+        ],
+      }),
+    );
+
+  const buildMetaPhase2Bg = (L: number) =>
+    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:meta_phase2:L${L}`, () =>
+      device.createBindGroup({
+        layout: metaPhase2Pipe.bindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: pingBucketId[L & 1] } },
+          {
+            binding: 1,
+            resource: { buffer: sliceBounds, offset: L * sliceBoundsStride, size: sliceBoundsStride },
+          },
+          {
+            binding: 2,
+            resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
+          },
+          { binding: 3, resource: { buffer: pingBucketId[(L + 1) & 1] } },
+          { binding: 4, resource: { buffer: metaPool } },
+          { binding: 5, resource: { buffer: wgCounts } },
+        ],
+      }),
+    );
+
   const buildPhase1Bg = (L: number) =>
-    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase1:L${L}`, () =>
+    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase1:v4:L${L}`, () =>
       device.createBindGroup({
         layout: phase1Pipe.bindGroupLayout,
         entries: [
           { binding: 0, resource: { buffer: schedule } },
-          { binding: 1, resource: { buffer: entryBucketId } },
-          { binding: 2, resource: { buffer: pointX } },
-          { binding: 3, resource: { buffer: pointY } },
-          { binding: 4, resource: { buffer: phase1ParamsUniform.buffer } },
+          { binding: 1, resource: { buffer: pointX } },
+          { binding: 2, resource: { buffer: pointY } },
           {
-            binding: 5,
+            binding: 3,
             resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
           },
-          { binding: 6, resource: { buffer: prefixScratch } },
-          { binding: 7, resource: { buffer: pingBucketId[(L + 1) & 1] } },
-          { binding: 8, resource: { buffer: pingX[(L + 1) & 1] } },
-          { binding: 9, resource: { buffer: pingY[(L + 1) & 1] } },
-          { binding: 10, resource: { buffer: metaPool } },
+          { binding: 4, resource: { buffer: prefixScratch } },
+          { binding: 5, resource: { buffer: pingX[(L + 1) & 1] } },
+          { binding: 6, resource: { buffer: pingY[(L + 1) & 1] } },
+          { binding: 7, resource: { buffer: metaPool } },
+          { binding: 8, resource: { buffer: wgCounts } },
         ],
       }),
     );
 
   const buildPhase2Bg = (L: number) =>
-    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase2:L${L}`, () =>
+    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase2:v4:L${L}`, () =>
       device.createBindGroup({
         layout: phase2Pipe.bindGroupLayout,
         entries: [
-          { binding: 0, resource: { buffer: pingBucketId[L & 1] } },
-          { binding: 1, resource: { buffer: pingX[L & 1] } },
-          { binding: 2, resource: { buffer: pingY[L & 1] } },
+          { binding: 0, resource: { buffer: pingX[L & 1] } },
+          { binding: 1, resource: { buffer: pingY[L & 1] } },
           {
-            binding: 3,
-            resource: { buffer: sliceBounds, offset: L * sliceBoundsStride, size: sliceBoundsStride },
-          },
-          {
-            binding: 4,
+            binding: 2,
             resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
           },
-          { binding: 5, resource: { buffer: prefixScratch } },
-          { binding: 6, resource: { buffer: pingBucketId[(L + 1) & 1] } },
-          { binding: 7, resource: { buffer: pingX[(L + 1) & 1] } },
-          { binding: 8, resource: { buffer: pingY[(L + 1) & 1] } },
-          { binding: 9, resource: { buffer: metaPool } },
+          { binding: 3, resource: { buffer: prefixScratch } },
+          { binding: 4, resource: { buffer: pingX[(L + 1) & 1] } },
+          { binding: 5, resource: { buffer: pingY[(L + 1) & 1] } },
+          { binding: 6, resource: { buffer: metaPool } },
+          { binding: 7, resource: { buffer: wgCounts } },
         ],
       }),
     );
@@ -505,27 +580,45 @@ export async function recordTreeReduce(
       profiler?.stage(`tree_scan[L=${L}]`),
     );
 
-    // Phase1 (L=0) or Phase2 (L>=1).
+    // Meta + Phase1 (L=0) or Meta + Phase2 (L>=1). The meta kernel
+    // populates meta_pool + wg_counts + output_bucket_id; the math-only
+    // phase kernel then consumes those.
     if (L === 0) {
-      const bg = buildPhase1Bg(L);
-      // Layer 0's phase1 has host-known dispatch geometry (num_wgs =
-      // numWgsP1 always). Direct dispatch eliminates the first-in-chain
-      // indirect-args visibility uncertainty.
+      const metaBg = buildMetaPhase1Bg(L);
+      const phaseBg = buildPhase1Bg(L);
+      await execute_pipeline(
+        commandEncoder,
+        metaPhase1Pipe.pipeline,
+        metaBg,
+        numWgsP1,
+        1,
+        1,
+        profiler?.stage('tree_meta_phase1'),
+      );
       await execute_pipeline(
         commandEncoder,
         phase1Pipe.pipeline,
-        bg,
+        phaseBg,
         numWgsP1,
         1,
         1,
         profiler?.stage('tree_phase1'),
       );
     } else {
-      const bg = buildPhase2Bg(L);
+      const metaBg = buildMetaPhase2Bg(L);
+      const phaseBg = buildPhase2Bg(L);
+      execute_pipeline_indirect(
+        commandEncoder,
+        metaPhase2Pipe.pipeline,
+        metaBg,
+        dispatchArgsPhase2,
+        L * 12,
+        profiler?.stage(`tree_meta_phase2[L=${L}]`),
+      );
       execute_pipeline_indirect(
         commandEncoder,
         phase2Pipe.pipeline,
-        bg,
+        phaseBg,
         dispatchArgsPhase2,
         L * 12,
         profiler?.stage(`tree_phase2[L=${L}]`),
