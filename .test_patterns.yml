@@ -142,6 +142,12 @@ tests:
     owners:
       - *palla
 
+  # Flakes under pipelining.
+  - regex: "src/e2e_expiration_timestamp.test.ts"
+    error_regex: "✕ invalidates the transaction"
+    owners:
+      - *palla
+
   # yarn-project tests
   # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
   - regex: "yarn-project/kv-store"

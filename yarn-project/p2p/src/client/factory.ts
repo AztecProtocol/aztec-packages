@@ -27,6 +27,7 @@ import {
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
+import { SharedTxValidationCache } from '../services/tx_collection/shared_tx_validation_cache.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { NodeRpcTxSource, type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
 import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
@@ -154,10 +155,14 @@ export async function createP2PClient(
   );
 
   const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(proofVerifier, config);
+  const txValidationCache = new SharedTxValidationCache(
+    txValidatorForTxCollection,
+    logger.createChild('shared-tx-validation-cache'),
+  );
   const nodeSources = [
-    ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, txValidatorForTxCollection, config),
+    ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, txValidationCache, config),
     ...(deps.rpcTxProviders ?? []).map(
-      (node, i) => new NodeRpcTxSource(node, txValidatorForTxCollection, `node-rpc-provider-${i}`),
+      (node, i) => new NodeRpcTxSource(node, txValidationCache, `node-rpc-provider-${i}`),
     ),
     ...(deps.txCollectionNodeSources ?? []),
   ];
@@ -170,7 +175,7 @@ export async function createP2PClient(
   const fileStoreSources = await createFileStoreTxSources(
     config.txCollectionFileStoreUrls,
     txFileStoreBasePath,
-    txValidatorForTxCollection,
+    txValidationCache,
     logger.createChild('file-store-tx-source'),
     telemetry,
   );
@@ -187,6 +192,7 @@ export async function createP2PClient(
     mempools.txPool,
     config,
     fileStoreSources,
+    txValidationCache,
     dateProvider,
     telemetry,
     logger.createChild('tx-collection'),

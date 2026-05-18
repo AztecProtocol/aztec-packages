@@ -4,11 +4,12 @@ import { FifoMemoryQueue, type ISemaphore, Semaphore } from '@aztec/foundation/q
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { Tx, TxArray, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
 import type { IRequestTracker } from '../../tx_collection/request_tracker.js';
+import type { ISharedTxValidationCache } from '../../tx_collection/shared_tx_validation_cache.js';
 import { ReqRespSubProtocol } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse, type BlockTxsSource } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
@@ -21,7 +22,6 @@ import {
 import type { BatchTxRequesterLibP2PService, BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadataCollection } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection } from './peer_collection.js';
-import { createBatchRequestTxValidator } from './tx_validator.js';
 
 /*
  * Tries to fetch all missing transaction until deadline is hit.
@@ -51,7 +51,7 @@ export class BatchTxRequester {
   private readonly txsMetadata: ITxMetadataCollection;
   private readonly smartRequesterSemaphore: ISemaphore;
   private readonly txQueue: FifoMemoryQueue<Tx>;
-  private readonly txValidator: TxValidator;
+  private readonly validationCache: ISharedTxValidationCache;
   private readonly smartParallelWorkerCount: number;
   private readonly dumbParallelWorkerCount: number;
   private readonly txBatchSize: number;
@@ -61,6 +61,7 @@ export class BatchTxRequester {
     blockTxsSource: BlockTxsSource,
     pinnedPeer: PeerId | undefined,
     p2pService: BatchTxRequesterLibP2PService,
+    validationCache: ISharedTxValidationCache,
     logger?: Logger,
     dateProvider?: DateProvider,
     opts?: BatchTxRequesterOptions,
@@ -78,7 +79,7 @@ export class BatchTxRequester {
       this.opts.dumbParallelWorkerCount ?? DEFAULT_BATCH_TX_REQUESTER_DUMB_PARALLEL_WORKER_COUNT;
     this.txBatchSize = this.opts.txBatchSize ?? DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE;
     this.txQueue = new FifoMemoryQueue(this.logger);
-    this.txValidator = this.opts.txValidator ?? createBatchRequestTxValidator(this.p2pService.txValidatorConfig);
+    this.validationCache = validationCache;
 
     if (this.opts.peerCollection) {
       this.peers = this.opts.peerCollection;
@@ -97,8 +98,9 @@ export class BatchTxRequester {
   }
 
   /*
-   * Fetches all missing transactions and yields them one by one
-   * */
+   * Fetches all missing transactions and yields them one by one.
+   * The returned set might be missing some txs if they have been skipped by the validation cache.
+   */
   public async *run(): AsyncGenerator<Tx, Tx | undefined, unknown> {
     try {
       if (this.txsMetadata.getMissingTxHashes().size === 0) {
@@ -138,7 +140,8 @@ export class BatchTxRequester {
 
   /*
    * Fetches all missing transactions
-   * @returns Collection of fetched transactions */
+   * @returns Collection of fetched transactions
+   */
   public static async collectAllTxs(generator: AsyncGenerator<Tx, Tx | undefined, unknown>): Promise<Tx[]> {
     const txs: Tx[] = [];
     for await (const tx of generator) {
@@ -504,25 +507,20 @@ export class BatchTxRequester {
       return;
     }
 
-    // TODO: this validation can be slow, maybe spawn worker just for validation
-    // We could use the async queue for communication.
-    const validationResults = await Promise.allSettled(
-      newTxs.map(async tx => ({
-        tx,
-        isValid: (await this.txValidator.validateTx(tx)).result === 'valid',
-      })),
-    );
+    const outcomes = await this.validationCache.submitBatch(newTxs);
 
     let hasInvalidTx = false;
-    validationResults.forEach(result => {
-      if (result.status === 'fulfilled' && result.value.isValid) {
-        if (this.txsMetadata.markFetched(peerId, result.value.tx)) {
-          this.txQueue.put(result.value.tx);
-        }
-      } else {
+    for (let i = 0; i < outcomes.length; i++) {
+      const outcome = outcomes[i];
+      const tx = newTxs[i];
+      // We only "return" the tx if it was validated successfully.
+      // If it was skipped by the validation cache, it should not be handled.
+      if (outcome.status === 'invalid') {
         hasInvalidTx = true;
+      } else if (outcome.status === 'accepted' && this.txsMetadata.markFetched(peerId, tx)) {
+        this.txQueue.put(tx);
       }
-    });
+    }
 
     if (hasInvalidTx) {
       this.logger.warn(`Penalizing peer ${peerId.toString()} for sending invalid transactions in batch response`, {

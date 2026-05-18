@@ -20,6 +20,7 @@ import type { TxCollectionConfig } from './config.js';
 import { FileStoreTxCollection } from './file_store_tx_collection.js';
 import type { FileStoreTxSource } from './file_store_tx_source.js';
 import { type IRequestTracker, RequestTracker } from './request_tracker.js';
+import type { ISharedTxValidationCache } from './shared_tx_validation_cache.js';
 import { type TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
@@ -82,6 +83,7 @@ export class TxCollection {
     private readonly txPool: TxPoolV2,
     private readonly config: TxCollectionConfig,
     fileStoreSources: FileStoreTxSource[] = [],
+    private readonly validationCache: ISharedTxValidationCache,
     private readonly dateProvider: DateProvider = new DateProvider(),
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private readonly log: Logger = createLogger('p2p:tx_collection_service'),
@@ -95,6 +97,7 @@ export class TxCollection {
           blockTxsSource,
           pinnedPeer,
           this.p2pService,
+          this.validationCache,
           this.log,
           this.dateProvider,
         ).run(),

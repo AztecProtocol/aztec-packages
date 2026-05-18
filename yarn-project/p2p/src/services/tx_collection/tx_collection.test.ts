@@ -17,6 +17,7 @@ import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requeste
 import type { BlockTxsSource } from '../reqresp/protocols/block_txs/block_txs_reqresp.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './config.js';
 import type { FileStoreTxSource } from './file_store_tx_source.js';
+import type { ISharedTxValidationCache } from './shared_tx_validation_cache.js';
 import { type FastCollectionRequest, type IReqRespTxsCollector, TxCollection } from './tx_collection.js';
 import type { TxSource } from './tx_source.js';
 
@@ -24,6 +25,7 @@ describe('TxCollection', () => {
   let txCollection: TestTxCollection;
 
   const mockP2PService = mock<BatchTxRequesterLibP2PService>();
+  const validationCache = mock<ISharedTxValidationCache>();
   let nodes: MockProxy<TxSource>[];
   let txPool: MockProxy<TxPoolV2>;
   let constants: L1RollupConstants;
@@ -142,7 +144,16 @@ describe('TxCollection', () => {
     block = await makeL2Block();
     deadline = new Date(dateProvider.now() + 60 * 60 * 1000);
 
-    txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+    txCollection = new TestTxCollection(
+      mockP2PService,
+      nodes,
+      constants,
+      txPool,
+      config,
+      [],
+      validationCache,
+      dateProvider,
+    );
     setReqRespTxs([]);
   });
 
@@ -199,7 +210,16 @@ describe('TxCollection', () => {
     });
 
     it('collects via reqresp if no nodes are configured', async () => {
-      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, [], dateProvider);
+      txCollection = new TestTxCollection(
+        mockP2PService,
+        [],
+        constants,
+        txPool,
+        config,
+        [],
+        validationCache,
+        dateProvider,
+      );
       const argsGetter = setReqRespTxs(txs);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expect(txCollection.reqRespTxsCollector).toHaveBeenCalledTimes(1);
@@ -211,7 +231,16 @@ describe('TxCollection', () => {
     it('starts reqresp immediately when no nodes are configured', async () => {
       // Large initial wait — if reqresp were gated by it, the collection would take ~10s.
       config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
-      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, [], dateProvider);
+      txCollection = new TestTxCollection(
+        mockP2PService,
+        [],
+        constants,
+        txPool,
+        config,
+        [],
+        validationCache,
+        dateProvider,
+      );
       setReqRespTxs(txs);
 
       const startTime = dateProvider.now();
@@ -326,7 +355,16 @@ describe('TxCollection', () => {
       // Step 18: skips reqresp when all txs found during initial wait
       it('skips reqresp when all txs are found during initial node wait', async () => {
         config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
-        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        txCollection = new TestTxCollection(
+          mockP2PService,
+          nodes,
+          constants,
+          txPool,
+          config,
+          [],
+          validationCache,
+          dateProvider,
+        );
 
         setNodeTxs(nodes[0], txs);
         setReqRespTxs([]);
@@ -340,7 +378,16 @@ describe('TxCollection', () => {
       it('skips reqresp when deadline expires during initial node wait', async () => {
         deadline = new Date(dateProvider.now() + 200);
         config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
-        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        txCollection = new TestTxCollection(
+          mockP2PService,
+          nodes,
+          constants,
+          txPool,
+          config,
+          [],
+          validationCache,
+          dateProvider,
+        );
         setReqRespTxs([]);
 
         const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
@@ -358,7 +405,16 @@ describe('TxCollection', () => {
           txCollectionFastNodesTimeoutBeforeReqRespMs: 30_000,
           txCollectionFastNodeIntervalMs: 30_000,
         };
-        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        txCollection = new TestTxCollection(
+          mockP2PService,
+          nodes,
+          constants,
+          txPool,
+          config,
+          [],
+          validationCache,
+          dateProvider,
+        );
         setReqRespTxs([]);
 
         // Nodes return nothing, so node loops will sleep for 30s between retries
@@ -385,7 +441,16 @@ describe('TxCollection', () => {
           txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000,
           txCollectionFastNodeIntervalMs: 5_000,
         };
-        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        txCollection = new TestTxCollection(
+          mockP2PService,
+          nodes,
+          constants,
+          txPool,
+          config,
+          [],
+          validationCache,
+          dateProvider,
+        );
         setReqRespTxs([]);
 
         const getRequest = captureRequest();
@@ -409,7 +474,16 @@ describe('TxCollection', () => {
       it('exits main wait when tracker is cancelled during reqresp', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
         config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 1 };
-        txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        txCollection = new TestTxCollection(
+          mockP2PService,
+          nodes,
+          constants,
+          txPool,
+          config,
+          [],
+          validationCache,
+          dateProvider,
+        );
         setReqRespTxs([]);
 
         const collectorPromise = promiseWithResolvers<Tx[]>();
@@ -534,6 +608,7 @@ describe('TxCollection', () => {
         txPool,
         config,
         fileStoreSources,
+        validationCache,
         dateProvider,
       );
       setReqRespTxs([]);

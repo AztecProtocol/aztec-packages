@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type FileStore, createFileStore } from '@aztec/stdlib/file-store';
-import { Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, readdir, rm } from 'fs/promises';
@@ -11,6 +11,7 @@ import { join } from 'path';
 
 import { InMemoryTxPool } from '../../test-helpers/testbench-utils.js';
 import { FileStoreTxSource } from '../tx_collection/file_store_tx_source.js';
+import type { ISharedTxValidationCache } from '../tx_collection/shared_tx_validation_cache.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStore } from './tx_file_store.js';
 
@@ -20,7 +21,7 @@ describe('TxFileStore', () => {
   let txPool: InMemoryTxPool;
   let config: TxFileStoreConfig;
   let txFileStore: TxFileStore | undefined;
-  let mockValidator: MockProxy<TxValidator>;
+  let validationCache: MockProxy<ISharedTxValidationCache>;
   const log = createLogger('test:tx_file_store');
   const basePath = 'aztec-1-1-0x1234';
 
@@ -54,8 +55,8 @@ describe('TxFileStore', () => {
 
     fileStore = await createFileStore(`file://${tmpDir}`);
     txPool = new InMemoryTxPool();
-    mockValidator = mock<TxValidator>();
-    mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
+    validationCache = mock<ISharedTxValidationCache>();
+    validationCache.submitBatch.mockImplementation(txs => Promise.resolve(txs.map(() => ({ status: 'accepted' }))));
 
     config = {
       txFileStoreEnabled: true,
@@ -318,8 +319,8 @@ describe('TxFileStore', () => {
       const tx = await makeTx();
       await fileStore.save(`${basePath}/txs/${tx.txHash.toString()}.bin`, tx.toBuffer(), { compress: false });
 
-      mockValidator.validateTx.mockResolvedValueOnce({ result: 'invalid', reason: ['invalid'] });
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      validationCache.submitBatch.mockResolvedValueOnce([{ status: 'invalid', reason: ['invalid'] }]);
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, validationCache, log))!;
       const result = await source.getTxsByHash([tx.txHash]);
 
       expect(result.validTxs).toHaveLength(0);
@@ -330,7 +331,7 @@ describe('TxFileStore', () => {
       const tx = await makeTx();
       await fileStore.save(`${basePath}/txs/${tx.txHash.toString()}.bin`, tx.toBuffer(), { compress: false });
 
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, validationCache, log))!;
       const result = await source.getTxsByHash([tx.txHash]);
 
       expect(result.validTxs).toHaveLength(1);
@@ -343,11 +344,12 @@ describe('TxFileStore', () => {
       await fileStore.save(`${basePath}/txs/${tx1.txHash.toString()}.bin`, tx1.toBuffer(), { compress: false });
       await fileStore.save(`${basePath}/txs/${tx2.txHash.toString()}.bin`, tx2.toBuffer(), { compress: false });
 
-      mockValidator.validateTx
-        .mockResolvedValueOnce({ result: 'valid' })
-        .mockResolvedValueOnce({ result: 'invalid', reason: ['bad'] });
+      validationCache.submitBatch.mockResolvedValueOnce([
+        { status: 'accepted' },
+        { status: 'invalid', reason: ['bad'] },
+      ]);
 
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, validationCache, log))!;
       const result = await source.getTxsByHash([tx1.txHash, tx2.txHash]);
 
       expect(result.validTxs).toHaveLength(1);
@@ -386,7 +388,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       // Read back via FileStoreTxSource using the same local file store
-      const txSource = await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log);
+      const txSource = await FileStoreTxSource.create(`file://${tmpDir}`, basePath, validationCache, log);
       expect(txSource).toBeDefined();
 
       const results = await txSource!.getTxsByHash([tx.getTxHash()]);
