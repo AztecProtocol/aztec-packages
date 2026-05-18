@@ -144,6 +144,10 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     // nodes[0] is the malicious node; honest observers are nodes[1..].
     const honestObservers = nodes.slice(1);
     await assertAllObserversSentinelStatus(honestObservers, targetAddress, targetSlot, 'checkpoint-unvalidated');
+    // The malicious node self-records `checkpoint-valid` for its own slot using the locally
+    // computed archive (broadcastInvalidBlockProposal only corrupts the broadcast archive,
+    // not the proposer's local state).
+    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, targetSlot, 'checkpoint-valid');
     await assertInactivityOffenseFor(targetAddress, nodes[1]);
   });
 
@@ -155,6 +159,9 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     const targetSlot = await warpToSlotBeforeTargetProposer(targetAddress);
     const honestObservers = nodes.slice(1);
     await assertAllObserversSentinelStatus(honestObservers, targetAddress, targetSlot, 'checkpoint-invalid');
+    // Malicious self-records `checkpoint-valid` for its own slot — proposers always consider
+    // their own freshly-built proposal valid from their local-state perspective.
+    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, targetSlot, 'checkpoint-valid');
     await assertInactivityOffenseFor(targetAddress, nodes[1]);
   });
 

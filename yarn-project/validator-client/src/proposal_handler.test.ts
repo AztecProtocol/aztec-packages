@@ -330,7 +330,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: proposalHeader });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_header_mismatch' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_header_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
       expect(mockDispose).toHaveBeenCalled();
     });
 
@@ -344,7 +348,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns out_hash_mismatch when epoch out hash differs', async () => {
@@ -357,7 +361,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns checkpoint_validation_failed when validateCheckpoint throws', async () => {
@@ -372,7 +376,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_validation_failed' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_validation_failed',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('returns isValid true when everything matches', async () => {

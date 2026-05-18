@@ -926,6 +926,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       options,
     );
     this.lastProposedCheckpoint = newProposal;
+    // Self-record this slot's outcome on the re-execution tracker. Proposers don't run their
+    // own proposals through `handleCheckpointProposal`, so without this call the proposer's
+    // sentinel would see no outcome for slots it proposed and would mis-attribute itself as
+    // inactive. We pass the locally-computed `archive` (not `newProposal.archive`, which may
+    // be intentionally corrupted under test-only flags); from the proposer's local-view
+    // perspective the work it just completed is valid by definition.
+    this.proposalHandler.recordOwnCheckpointProposalAsValid(checkpointHeader.slotNumber, archive, checkpointNumber);
     return newProposal;
   }
 
