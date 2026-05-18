@@ -9,6 +9,8 @@ import {
   batch_affine_finalize as batch_affine_finalize_shader,
   batch_affine_finalize_apply as batch_affine_finalize_apply_shader,
   batch_affine_finalize_collect as batch_affine_finalize_collect_shader,
+  batch_affine_tree_finalize as batch_affine_tree_finalize_shader,
+  batch_affine_tree_finalize_apply as batch_affine_tree_finalize_apply_shader,
   batch_affine_init as batch_affine_init_shader,
   batch_affine_schedule as batch_affine_schedule_shader,
   batch_inverse as batch_inverse_shader,
@@ -938,6 +940,58 @@ export class ShaderManager {
   public gen_batch_affine_finalize_apply_shader(workgroup_size: number, num_csr_cols: number): string {
     return mustache.render(
       batch_affine_finalize_apply_shader,
+      {
+        workgroup_size,
+        num_columns: num_csr_cols,
+        half_num_columns: num_csr_cols / 2,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+      },
+    );
+  }
+
+  public gen_batch_affine_tree_finalize_shader(workgroup_size: number, num_csr_cols: number): string {
+    return mustache.render(
+      batch_affine_tree_finalize_shader,
+      {
+        workgroup_size,
+        num_columns: num_csr_cols,
+        half_num_columns: num_csr_cols / 2,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+      },
+    );
+  }
+
+  public gen_batch_affine_tree_finalize_apply_shader(workgroup_size: number, num_csr_cols: number): string {
+    return mustache.render(
+      batch_affine_tree_finalize_apply_shader,
       {
         workgroup_size,
         num_columns: num_csr_cols,

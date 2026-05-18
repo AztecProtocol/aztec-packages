@@ -313,6 +313,16 @@ export const smvp_batch_affine_gpu = async (
   // T*h ≈ 524 K threads).
   const finalize_collect_shader = shaderManager.gen_batch_affine_finalize_collect_shader(f_workgroup_size, num_columns);
   const finalize_apply_shader = shaderManager.gen_batch_affine_finalize_apply_shader(f_workgroup_size, num_columns);
+  // Tree-reduce path uses a merged finalize that writes Jacobian
+  // directly to bucket_x/y/z for cases 1-3 (no per-bucket delta) and
+  // only compacts case-4 deltas (~0.4% of T*h slots at logN=16) into
+  // a per-subtask slice for a much smaller batch inverse.
+  const tree_finalize_shader = use_tree_reduce
+    ? shaderManager.gen_batch_affine_tree_finalize_shader(f_workgroup_size, num_columns)
+    : '';
+  const tree_finalize_apply_shader = use_tree_reduce
+    ? shaderManager.gen_batch_affine_tree_finalize_apply_shader(f_workgroup_size, num_columns)
+    : '';
 
   const _compile_t0 = performance.now();
 
@@ -431,6 +441,48 @@ export const smvp_batch_affine_gpu = async (
     context,
     `bn254:batch_affine_finalize_apply:v1:${num_columns}:${input_size}:${f_workgroup_size}`,
   );
+
+  const tree_finalize_pipe = use_tree_reduce
+    ? await compile_pipeline_for(
+        device,
+        [
+          'read-only-storage', // 0 running_x
+          'read-only-storage', // 1 running_y
+          'read-only-storage', // 2 bucket_active
+          'storage', // 3 bucket_x
+          'storage', // 4 bucket_y
+          'storage', // 5 bucket_z
+          'storage', // 6 case4_delta
+          'storage', // 7 case4_back_id
+          'storage', // 8 case4_count (atomic)
+          'uniform', // 9 params
+        ],
+        tree_finalize_shader,
+        context,
+        `bn254:batch_affine_tree_finalize:v1:${num_columns}:${input_size}:${f_workgroup_size}`,
+      )
+    : undefined;
+
+  const tree_finalize_apply_pipe = use_tree_reduce
+    ? await compile_pipeline_for(
+        device,
+        [
+          'read-only-storage', // 0 running_x
+          'read-only-storage', // 1 running_y
+          'read-only-storage', // 2 bucket_active
+          'read-only-storage', // 3 case4_back_id
+          'read-only-storage', // 4 case4_inv
+          'read-only-storage', // 5 case4_count
+          'storage', // 6 bucket_x
+          'storage', // 7 bucket_y
+          'storage', // 8 bucket_z
+          'uniform', // 9 params
+        ],
+        tree_finalize_apply_shader,
+        context,
+        `bn254:batch_affine_tree_finalize_apply:v1:${num_columns}:${input_size}:${f_workgroup_size}`,
+      )
+    : undefined;
 
   cpu_timer?.accumulate('compile_smvp_batch_affine', performance.now() - _compile_t0);
 
@@ -608,6 +660,62 @@ export const smvp_batch_affine_gpu = async (
     bucket_sum_z_sb,
     finalize_ub,
   ]);
+
+  // Case-4 compaction buffers + bind groups for the tree-reduce merged
+  // finalize. Sized for worst-case (every slot is case 4); in practice
+  // typically <1% of slots are case 4 at logN=16, so most of the
+  // allocation is unused but cheap to hold.
+  let case4_delta_sb: GPUBuffer | undefined;
+  let case4_back_id_sb: GPUBuffer | undefined;
+  let case4_count_sb: GPUBuffer | undefined;
+  let tree_finalize_bg: GPUBindGroup | undefined;
+  let tree_finalize_inverse_bg: GPUBindGroup | undefined;
+  let tree_finalize_apply_bg: GPUBindGroup | undefined;
+  if (use_tree_reduce) {
+    const case4_pool_capacity = num_subtasks * half_num_columns;
+    case4_delta_sb = acquire_ws('case4_delta', case4_pool_capacity * limb_byte_length);
+    case4_back_id_sb = acquire_ws('case4_back_id', case4_pool_capacity * 4);
+    case4_count_sb = acquire_ws('case4_count', num_subtasks * 4);
+
+    tree_finalize_bg = acquire_bg('tree_finalize_bg', tree_finalize_pipe!.layout, [
+      running_x_sb,
+      running_y_sb,
+      bucket_active_sb,
+      bucket_sum_x_sb,
+      bucket_sum_y_sb,
+      bucket_sum_z_sb,
+      case4_delta_sb,
+      case4_back_id_sb,
+      case4_count_sb,
+      finalize_ub,
+    ]);
+
+    // Reuse the per-subtask batch_inverse pipeline. count_buf =
+    // case4_count_sb (per-subtask atomic counter populated by the
+    // merged finalize); inputs = case4_delta_sb, outputs = pair_inv_sb
+    // (reused as case4_inv — the per-round pool is unused during
+    // finalize). Pitch is the same per-subtask stride as case4_*.
+    tree_finalize_inverse_bg = acquire_bg('tree_finalize_inverse_bg', inverse_pipe.layout, [
+      case4_delta_sb,
+      pair_prefix_sb,
+      pair_inv_sb,
+      case4_count_sb,
+      inverse_finalize_ub,
+    ]);
+
+    tree_finalize_apply_bg = acquire_bg('tree_finalize_apply_bg', tree_finalize_apply_pipe!.layout, [
+      running_x_sb,
+      running_y_sb,
+      bucket_active_sb,
+      case4_back_id_sb,
+      pair_inv_sb,
+      case4_count_sb,
+      bucket_sum_x_sb,
+      bucket_sum_y_sb,
+      bucket_sum_z_sb,
+      finalize_ub,
+    ]);
+  }
 
   // ----- Dispatch sequence -----
 
@@ -951,6 +1059,44 @@ export const smvp_batch_affine_gpu = async (
   }
   } // end if (!use_tree_reduce)
 
+  if (use_tree_reduce) {
+    // 3'. Merged finalize. Zero case4_count, dispatch the merged
+    // collect (writes cases 1-3 directly to bucket_x/y/z, compacts
+    // case 4 into case4_delta + case4_back_id), then run the per-subtask
+    // batch_inverse over the compacted case-4 slice, then dispatch the
+    // compacted apply (early-returns past case4_count[subtask_idx]).
+    commandEncoder.clearBuffer(case4_count_sb!, 0, num_subtasks * 4);
+
+    await execute_pipeline(
+      commandEncoder,
+      tree_finalize_pipe!.pipeline,
+      tree_finalize_bg!,
+      f_num_x_workgroups,
+      f_num_y_workgroups,
+      f_num_z_workgroups,
+      profiler?.stage('ba_tree_finalize'),
+    );
+
+    await execute_pipeline(
+      commandEncoder,
+      inverse_pipe.pipeline,
+      tree_finalize_inverse_bg!,
+      NUM_SUB_WGS_PER_SUBTASK,
+      1,
+      num_subtasks,
+      profiler?.stage('ba_tree_finalize_inverse'),
+    );
+
+    await execute_pipeline(
+      commandEncoder,
+      tree_finalize_apply_pipe!.pipeline,
+      tree_finalize_apply_bg!,
+      f_num_x_workgroups,
+      f_num_y_workgroups,
+      f_num_z_workgroups,
+      profiler?.stage('ba_tree_finalize_apply'),
+    );
+  } else {
   // 3. Finalize — three single dispatches: collect → batch_inverse → apply.
   //
   // Pass A (collect): single dispatch over T·h threads. Each thread
@@ -993,4 +1139,5 @@ export const smvp_batch_affine_gpu = async (
     f_num_z_workgroups,
     profiler?.stage('ba_finalize_apply'),
   );
+  }
 };
