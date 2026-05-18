@@ -5779,17 +5779,26 @@ fn main(
     if (chunk_hi < slice_hi) {
         next_chunk_bucket = entry_bucket_id[chunk_hi];
     }
+    // PER_THREAD_ENTRIES can exceed 32 (iter 9: 64), so the emit/pair
+    // flag bitmasks split into low (off ∈ [0, 32)) and high (off ∈ [32, 64))
+    // u32s. A single u32 would silently overflow on \`1u << off\` for off >= 32.
     var local_emit: u32 = 0u;
     var local_pair: u32 = 0u;
-    var local_emit_mask: u32 = 0u;
-    var local_pair_mask: u32 = 0u;
+    var local_emit_mask_lo: u32 = 0u;
+    var local_emit_mask_hi: u32 = 0u;
+    var local_pair_mask_lo: u32 = 0u;
+    var local_pair_mask_hi: u32 = 0u;
     for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
         let e = chunk_lo + off;
         if (e >= chunk_hi) { continue; }
         let p = e - local_break_pos[off];
         if ((p & 1u) != 0u) { continue; }
         local_emit = local_emit + 1u;
-        local_emit_mask = local_emit_mask | (1u << off);
+        if (off < 32u) {
+            local_emit_mask_lo = local_emit_mask_lo | (1u << off);
+        } else {
+            local_emit_mask_hi = local_emit_mask_hi | (1u << (off - 32u));
+        }
         var next_b: u32 = UNPAIRED_SENTINEL;
         if (off + 1u < PER_THREAD_ENTRIES) {
             if (e + 1u < chunk_hi) {
@@ -5802,7 +5811,11 @@ fn main(
         }
         if (next_b == local_buckets[off]) {
             local_pair = local_pair + 1u;
-            local_pair_mask = local_pair_mask | (1u << off);
+            if (off < 32u) {
+                local_pair_mask_lo = local_pair_mask_lo | (1u << off);
+            } else {
+                local_pair_mask_hi = local_pair_mask_hi | (1u << (off - 32u));
+            }
         }
     }
 
@@ -5838,12 +5851,21 @@ fn main(
     var raw_w: u32 = raw_base;
     var pair_w: u32 = pair_base;
     for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
-        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        var emit_bit: u32;
+        var pair_bit: u32;
+        if (off < 32u) {
+            emit_bit = local_emit_mask_lo & (1u << off);
+            pair_bit = local_pair_mask_lo & (1u << off);
+        } else {
+            emit_bit = local_emit_mask_hi & (1u << (off - 32u));
+            pair_bit = local_pair_mask_hi & (1u << (off - 32u));
+        }
+        if (emit_bit == 0u) { continue; }
         let e = chunk_lo + off;
         let raw = raw_w;
         raw_w = raw_w + 1u;
         meta_pool[pair_idx_a_base + raw] = e;
-        if ((local_pair_mask & (1u << off)) != 0u) {
+        if (pair_bit != 0u) {
             meta_pool[pair_idx_b_base + raw] = e + 1u;
             let pair_rank = pair_w;
             pair_w = pair_w + 1u;
@@ -5859,10 +5881,19 @@ fn main(
     var raw_r: u32 = raw_base;
     var pair_r: u32 = pair_base;
     for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
-        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        var emit_bit: u32;
+        var pair_bit: u32;
+        if (off < 32u) {
+            emit_bit = local_emit_mask_lo & (1u << off);
+            pair_bit = local_pair_mask_lo & (1u << off);
+        } else {
+            emit_bit = local_emit_mask_hi & (1u << (off - 32u));
+            pair_bit = local_pair_mask_hi & (1u << (off - 32u));
+        }
+        if (emit_bit == 0u) { continue; }
         let raw = raw_r;
         raw_r = raw_r + 1u;
-        if ((local_pair_mask & (1u << off)) != 0u) {
+        if (pair_bit != 0u) {
             let pair_rank = pair_r;
             pair_r = pair_r + 1u;
             if (pair_rank == 0u) {
@@ -5999,17 +6030,26 @@ fn main(
     if (chunk_hi < slice_hi) {
         next_chunk_bucket = input_bucket_id[chunk_hi];
     }
+    // PER_THREAD_ENTRIES can exceed 32 (iter 9: 64), so the emit/pair
+    // flag bitmasks split into low (off ∈ [0, 32)) and high (off ∈ [32, 64))
+    // u32s. A single u32 would silently overflow on \`1u << off\` for off >= 32.
     var local_emit: u32 = 0u;
     var local_pair: u32 = 0u;
-    var local_emit_mask: u32 = 0u;
-    var local_pair_mask: u32 = 0u;
+    var local_emit_mask_lo: u32 = 0u;
+    var local_emit_mask_hi: u32 = 0u;
+    var local_pair_mask_lo: u32 = 0u;
+    var local_pair_mask_hi: u32 = 0u;
     for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
         let e = chunk_lo + off;
         if (e >= chunk_hi) { continue; }
         let p = e - local_break_pos[off];
         if ((p & 1u) != 0u) { continue; }
         local_emit = local_emit + 1u;
-        local_emit_mask = local_emit_mask | (1u << off);
+        if (off < 32u) {
+            local_emit_mask_lo = local_emit_mask_lo | (1u << off);
+        } else {
+            local_emit_mask_hi = local_emit_mask_hi | (1u << (off - 32u));
+        }
         var next_b: u32 = UNPAIRED_SENTINEL;
         if (off + 1u < PER_THREAD_ENTRIES) {
             if (e + 1u < chunk_hi) {
@@ -6022,7 +6062,11 @@ fn main(
         }
         if (next_b == local_buckets[off]) {
             local_pair = local_pair + 1u;
-            local_pair_mask = local_pair_mask | (1u << off);
+            if (off < 32u) {
+                local_pair_mask_lo = local_pair_mask_lo | (1u << off);
+            } else {
+                local_pair_mask_hi = local_pair_mask_hi | (1u << (off - 32u));
+            }
         }
     }
 
@@ -6058,12 +6102,21 @@ fn main(
     var raw_w: u32 = raw_base;
     var pair_w: u32 = pair_base;
     for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
-        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        var emit_bit: u32;
+        var pair_bit: u32;
+        if (off < 32u) {
+            emit_bit = local_emit_mask_lo & (1u << off);
+            pair_bit = local_pair_mask_lo & (1u << off);
+        } else {
+            emit_bit = local_emit_mask_hi & (1u << (off - 32u));
+            pair_bit = local_pair_mask_hi & (1u << (off - 32u));
+        }
+        if (emit_bit == 0u) { continue; }
         let e = chunk_lo + off;
         let raw = raw_w;
         raw_w = raw_w + 1u;
         meta_pool[pair_idx_a_base + raw] = e;
-        if ((local_pair_mask & (1u << off)) != 0u) {
+        if (pair_bit != 0u) {
             meta_pool[pair_idx_b_base + raw] = e + 1u;
             let pair_rank = pair_w;
             pair_w = pair_w + 1u;
@@ -6079,10 +6132,19 @@ fn main(
     var raw_r: u32 = raw_base;
     var pair_r: u32 = pair_base;
     for (var off: u32 = 0u; off < PER_THREAD_ENTRIES; off = off + 1u) {
-        if ((local_emit_mask & (1u << off)) == 0u) { continue; }
+        var emit_bit: u32;
+        var pair_bit: u32;
+        if (off < 32u) {
+            emit_bit = local_emit_mask_lo & (1u << off);
+            pair_bit = local_pair_mask_lo & (1u << off);
+        } else {
+            emit_bit = local_emit_mask_hi & (1u << (off - 32u));
+            pair_bit = local_pair_mask_hi & (1u << (off - 32u));
+        }
+        if (emit_bit == 0u) { continue; }
         let raw = raw_r;
         raw_r = raw_r + 1u;
-        if ((local_pair_mask & (1u << off)) != 0u) {
+        if (pair_bit != 0u) {
             let pair_rank = pair_r;
             pair_r = pair_r + 1u;
             if (pair_rank == 0u) {
