@@ -4,7 +4,6 @@
 #include <functional>
 #include <sstream>
 #include <string>
-#include <vector>
 
 #include "barretenberg/env/logstr.hpp"
 
@@ -120,47 +119,3 @@ inline void benchmark_info(Arg1 composer, Arg2 class_name, Arg3 operation, Arg4 
 #else
 template <typename... Args> inline void benchmark_info(Args... /*unused*/) {}
 #endif
-
-/**
- * @brief A class for saving benchmarks and printing them all at once in the end of the function.
- *
- */
-class BenchmarkInfoCollator {
-
-    std::vector<std::string> saved_benchmarks;
-
-  public:
-    BenchmarkInfoCollator() = default;
-    BenchmarkInfoCollator(const BenchmarkInfoCollator& other) = default;
-    BenchmarkInfoCollator(BenchmarkInfoCollator&& other) = default;
-    BenchmarkInfoCollator& operator=(const BenchmarkInfoCollator& other) = default;
-    BenchmarkInfoCollator& operator=(BenchmarkInfoCollator&& other) = default;
-
-/**
- * @brief Info used to store circuit statistics during CI/CD with concrete structure. Stores string in vector for now
- * (used to flush all benchmarks at the end of test).
- *
- * @details Automatically appends the necessary prefix and suffix, as well as separators.
- *
- * @tparam Args
- * @param args
- */
-#ifdef CI
-    template <typename Arg1, typename Arg2, typename Arg3, typename Arg4, typename Arg5>
-    inline void benchmark_info_deferred(Arg1 composer, Arg2 class_name, Arg3 operation, Arg4 metric, Arg5 value)
-    {
-        saved_benchmarks.push_back(benchmark_format(composer, class_name, operation, metric, value).c_str());
-    }
-#else
-    explicit BenchmarkInfoCollator(std::vector<std::string> saved_benchmarks)
-        : saved_benchmarks(std::move(saved_benchmarks))
-    {}
-    template <typename... Args> inline void benchmark_info_deferred(Args... /*unused*/) {}
-#endif
-    ~BenchmarkInfoCollator()
-    {
-        for (auto& x : saved_benchmarks) {
-            logstr(x.c_str());
-        }
-    }
-};
