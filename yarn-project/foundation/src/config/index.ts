@@ -42,6 +42,31 @@ export type ConfigMappingsType<T> = {
   [K in keyof T]-?: ConfigMapping<Required<T>[K]>;
 };
 
+export const BASE_CONFIG_LAYER_PRIORITY = ['cli', 'env', 'network'] as const;
+export type BaseConfigLayerName = (typeof BASE_CONFIG_LAYER_PRIORITY)[number];
+export type ResolvedConfigLayerName = BaseConfigLayerName | 'default';
+
+export interface ConfigLayer<T> {
+  name: BaseConfigLayerName;
+  source: Partial<T>;
+}
+
+export interface LayerEntry<T> {
+  layer: ResolvedConfigLayerName;
+  value: T;
+}
+
+export interface ResolvedValue<T> {
+  value: T;
+  source: ResolvedConfigLayerName;
+  envVar?: EnvVar;
+  layers: LayerEntry<T>[];
+}
+
+export type ResolvedConfig<T> = {
+  [K in keyof T]-?: ResolvedValue<Required<T>[K]>;
+};
+
 type AnyConfig = Record<string, unknown>;
 type AnyConfigMappings = ConfigMappingsType<AnyConfig>;
 type ConfigFromMappings<TMappings> = TMappings extends ConfigMappingsType<infer T> ? T : never;
@@ -119,6 +144,68 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
   }
 
   return config;
+}
+
+function assertConfigLayerPriority(layers: ConfigLayer<unknown>[]): void {
+  const layerPriorities = new Map(BASE_CONFIG_LAYER_PRIORITY.map((name, priority) => [name, priority]));
+  const seenLayers = new Set<BaseConfigLayerName>();
+  let lastPriority = -1;
+
+  for (const layer of layers) {
+    if (seenLayers.has(layer.name)) {
+      throw new Error(`Duplicate config layer '${layer.name}'.`);
+    }
+
+    seenLayers.add(layer.name);
+    const priority = layerPriorities.get(layer.name)!;
+    if (priority < lastPriority) {
+      throw new Error(
+        `Config layers must be ordered by priority (${BASE_CONFIG_LAYER_PRIORITY.join(' > ')}) from highest to lowest.`,
+      );
+    }
+    lastPriority = priority;
+  }
+}
+
+export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: ConfigLayer<T>[]): ResolvedConfig<T> {
+  assertConfigLayerPriority(layers);
+  const resolvedConfig: Partial<ResolvedConfig<T>> = {};
+
+  for (const key of Object.keys(configMappings) as Array<keyof T>) {
+    const mapping = configMappings[key];
+    const resolvedLayers: LayerEntry<Required<T>[typeof key]>[] = [];
+
+    for (const layer of layers) {
+      const layerValue = layer.source[key];
+      if (layerValue !== undefined) {
+        resolvedLayers.push({
+          layer: layer.name,
+          value: layerValue as Required<T>[typeof key],
+        });
+      }
+    }
+
+    if (mapping.defaultValue !== undefined) {
+      resolvedLayers.push({
+        layer: 'default',
+        value: mapping.defaultValue as Required<T>[typeof key],
+      });
+    }
+
+    if (resolvedLayers.length === 0) {
+      throw new Error(`Missing required config '${String(key)}' (env: ${mapping.env ?? 'none'})`);
+    }
+
+    const winningLayer = resolvedLayers[0];
+    resolvedConfig[key] = {
+      value: winningLayer.value,
+      source: winningLayer.layer,
+      envVar: mapping.env,
+      layers: resolvedLayers,
+    };
+  }
+
+  return resolvedConfig as ResolvedConfig<T>;
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
+  resolveConfig,
 } from './index.js';
 
 describe('Config', () => {
@@ -137,6 +138,174 @@ describe('Config', () => {
 
         consoleSpy.mockRestore();
       });
+    });
+  });
+
+  describe('resolveConfig', () => {
+    interface ResolveConfigFixture {
+      port: number;
+      enabled: boolean;
+      networkName: string;
+      requiredToken: string;
+    }
+
+    const mappings: ConfigMappingsType<ResolveConfigFixture> = {
+      port: {
+        description: 'Port',
+        env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+        ...numberConfigHelper(8080),
+      },
+      enabled: {
+        description: 'Enabled',
+        ...booleanConfigHelper(false),
+      },
+      networkName: {
+        description: 'Network name',
+        defaultValue: 'alpha',
+      },
+      requiredToken: {
+        description: 'Required token',
+      },
+    };
+
+    it('resolves values by layer priority and keeps provenance for each key', () => {
+      const resolved = resolveConfig(mappings, [
+        {
+          name: 'cli',
+          source: {
+            port: 4040,
+          },
+        },
+        {
+          name: 'env',
+          source: {
+            port: 5050,
+            enabled: true,
+            requiredToken: 'env-token',
+          },
+        },
+        {
+          name: 'network',
+          source: {
+            port: 6060,
+            networkName: 'mainnet',
+          },
+        },
+      ]);
+
+      expect(resolved.port).toEqual({
+        value: 4040,
+        source: 'cli',
+        envVar: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+        layers: [
+          { layer: 'cli', value: 4040 },
+          { layer: 'env', value: 5050 },
+          { layer: 'network', value: 6060 },
+          { layer: 'default', value: 8080 },
+        ],
+      });
+      expect(resolved.enabled).toEqual({
+        value: true,
+        source: 'env',
+        envVar: undefined,
+        layers: [
+          { layer: 'env', value: true },
+          { layer: 'default', value: false },
+        ],
+      });
+      expect(resolved.networkName).toEqual({
+        value: 'mainnet',
+        source: 'network',
+        envVar: undefined,
+        layers: [
+          { layer: 'network', value: 'mainnet' },
+          { layer: 'default', value: 'alpha' },
+        ],
+      });
+      expect(resolved.requiredToken).toEqual({
+        value: 'env-token',
+        source: 'env',
+        envVar: undefined,
+        layers: [{ layer: 'env', value: 'env-token' }],
+      });
+    });
+
+    it('throws if a required key has no value in any layer and no default', () => {
+      expect(() =>
+        resolveConfig(mappings, [
+          {
+            name: 'env',
+            source: {
+              port: 5050,
+            },
+          },
+        ]),
+      ).toThrow("Missing required config 'requiredToken'");
+    });
+
+    it('does not call parseEnv while resolving already-typed layer values', () => {
+      const parseEnv = jest.fn((_val: string) => 999);
+      const typedMappings: ConfigMappingsType<{ safeInteger: number }> = {
+        safeInteger: {
+          description: 'Safe integer',
+          parseEnv,
+          defaultValue: 1,
+        },
+      };
+
+      const resolved = resolveConfig(typedMappings, [
+        {
+          name: 'env',
+          source: {
+            safeInteger: 42,
+          },
+        },
+      ]);
+
+      expect(resolved.safeInteger.value).toBe(42);
+      expect(resolved.safeInteger.layers).toEqual([
+        { layer: 'env', value: 42 },
+        { layer: 'default', value: 1 },
+      ]);
+      expect(parseEnv).not.toHaveBeenCalled();
+    });
+
+    it('throws when layers are not ordered by priority', () => {
+      expect(() =>
+        resolveConfig(mappings, [
+          {
+            name: 'env',
+            source: {
+              requiredToken: 'env-token',
+            },
+          },
+          {
+            name: 'cli',
+            source: {
+              port: 4040,
+            },
+          },
+        ]),
+      ).toThrow('Config layers must be ordered by priority');
+    });
+
+    it('throws when a layer is provided more than once', () => {
+      expect(() =>
+        resolveConfig(mappings, [
+          {
+            name: 'env',
+            source: {
+              requiredToken: 'first-token',
+            },
+          },
+          {
+            name: 'env',
+            source: {
+              port: 4040,
+            },
+          },
+        ]),
+      ).toThrow("Duplicate config layer 'env'.");
     });
   });
 
