@@ -17,7 +17,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists } from './shared.js';
 
 const TEST_TIMEOUT = 600_000; // 10 minutes
 
@@ -238,19 +238,13 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     // process both proposals while still in the build slot (often the other malicious node, since
     // they receive each other's broadcasts immediately). We therefore collect offenses from every
     // node in the network and assert that at least one of them recorded the duplicate proposal.
+    //
+    // Poll every node directly for DUPLICATE_PROPOSAL offenses with the full wait budget. Using a
+    // single targeted retry (instead of waiting for *any* offense and then re-polling for the
+    // specific type) avoids racing the duplicate-detection window: if a non-duplicate offense
+    // surfaced first, the previous two-stage wait could exhaust its short follow-up budget before
+    // the duplicate offense propagated through the slasher's offenses-collector.
     t.logger.warn('Waiting for duplicate proposal offense to be detected...');
-    await awaitOffenseDetected({
-      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
-      logger: t.logger,
-      nodeAdmin: honestNode1,
-      slashingRoundSize,
-      waitUntilOffenseCount: 1,
-      timeoutSeconds: AZTEC_SLOT_DURATION * 16,
-    });
-
-    // Poll every node for DUPLICATE_PROPOSAL offenses, retrying briefly so any node that detected
-    // the duplicate after the initial offense was collected has time to flush it through the
-    // slasher's offenses-collector.
     const proposalOffenses = await retryUntil(
       async () => {
         const allOffenses = (await Promise.all(nodes.map(n => n.getSlashOffenses('all')))).flat();
@@ -260,7 +254,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
         }
       },
       'duplicate proposal offense',
-      AZTEC_SLOT_DURATION * 4,
+      AZTEC_SLOT_DURATION * 20,
     );
 
     t.logger.warn(`Collected duplicate proposal offenses`, { proposalOffenses });
