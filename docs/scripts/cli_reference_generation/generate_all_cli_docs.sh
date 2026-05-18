@@ -92,11 +92,11 @@ done
 
 # Also regenerate the operator-facing `aztec start` reference. It is not
 # in cli_docs_config.json because it's a single flag-list dump rather than a
-# recursive command tree, and bypasses scan_cli.py. Only regenerate it when
-# writing to the default output location — when OUTPUT_DIR is set, the caller
-# is targeting a specific version directory and the operator ref isn't part
-# of that flow.
-if [[ -z "$OUTPUT_DIR" ]]; then
+# recursive command tree, and bypasses scan_cli.py. Only regenerate it for
+# the default/current flow — when OUTPUT_DIR is set or a specific historical
+# version is being targeted, the operator ref (which always reflects the
+# currently-installed CLI) isn't part of that flow.
+if [[ -z "$OUTPUT_DIR" ]] && [[ "$TARGET_VERSION" == "all" || "$TARGET_VERSION" == "current" ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "Generating Operator (aztec start) CLI Reference"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -117,7 +117,7 @@ for cli in "${VALID_CLIS[@]}"; do
     echo "  - $CLI_OUTPUT_FILE"
   fi
 done
-if [[ -z "$OUTPUT_DIR" ]]; then
+if [[ -z "$OUTPUT_DIR" ]] && [[ "$TARGET_VERSION" == "all" || "$TARGET_VERSION" == "current" ]]; then
   echo "  - operators/reference/cli-reference.md"
 fi
 echo ""

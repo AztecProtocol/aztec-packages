@@ -192,6 +192,26 @@ if needed).
 Verify the output lists the expected number of methods and has no ungrouped
 methods warnings.
 
+### Step 5b: Regenerate Operator CLI Reference
+
+The operator-facing CLI reference (`docs/docs-operate/operators/reference/cli-reference.md`)
+is auto-generated from `aztec start --help`. Regenerate it so the doc matches
+the CLI shipped with the release.
+
+```bash
+cd docs
+yarn generate:operator-cli-reference
+```
+
+**Prerequisite:** the locally-installed `aztec` CLI must match the release
+version (the same prerequisite the developer CLI references have in
+`/release-docs`). If `aztec --version` reports the wrong version, install the
+matching one first.
+
+The script captures `aztec start --help`, retries on the dockerized-CLI
+stdout-truncation race, and writes the file. Verify the resulting file is
+~950+ lines and the last section (`TXE`) is present.
+
 ### Step 6: Build and Validate
 
 Set the environment variables matching the release type so the build
@@ -306,13 +326,18 @@ Check for stash conflicts. Then report to the user:
 - **Some addresses are not in the RPC**: Contracts like Staking Registry,
   Reward Booster, Tally Slashing Proposer, and others must be queried on-chain,
   obtained from deployment output, or confirmed unchanged by the user.
-- **No heavy prerequisites**: This skill does not require aztec CLI, nargo, or
-  a yarn-project build. Only `yarn` (for the docs build), `curl`/`jq` (for
-  the RPC query), and `cast` (for on-chain address queries) are needed.
+- **Lightweight prerequisites**: This skill does not require nargo or a
+  yarn-project build. It does need: the locally-installed `aztec` CLI to match
+  the release version (for Step 5b), `yarn` (for the docs build), `curl`/`jq`
+  (for the RPC query), and `cast` (for on-chain address queries).
 - **Node API reference is auto-generated**: Run `yarn generate:node-api-reference`
   (Step 5a) before building. The generator parses TypeScript source directly, so
   no yarn-project build is required — but `yarn-project/node_modules/` must exist
   (run `yarn install` from `yarn-project` if missing).
+- **Operator CLI reference is auto-generated**: Run `yarn generate:operator-cli-reference`
+  (Step 5b) before building. The script runs `aztec start --help` and prepends
+  the hand-curated frontmatter/intro. Requires the matching `aztec` CLI version
+  to be installed locally.
 - **Build must pass**: Do not cut versioned docs until `yarn build` succeeds.
 - **COMMIT_TAG needs `v` prefix**: The preprocessor uses COMMIT_TAG for GitHub
   URLs and git tag references. Omitting the `v` will break links in versioned
