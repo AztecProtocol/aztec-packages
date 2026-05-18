@@ -18,6 +18,7 @@
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
+#include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/memory_relation.hpp"
@@ -62,31 +63,36 @@ class MegaAppFlavor_Generated {
         q_elliptic = 23,
         q_memory = 24,
         q_nnf = 25,
-        q_busread = 26,
-        return_data_indicator = 27,
-        databus_id = 28,
-        q_poseidon2_external = 29,
-        q_poseidon2_external_initial = 30,
-        q_poseidon2_quad_internal = 31,
-        q_5 = 32,
-        q_poseidon2_quad_internal_terminal = 33,
-        q_poseidon2_transition_entry = 34,
-        w_l = 35,
-        w_r = 36,
-        w_o = 37,
-        w_4 = 38,
-        z_perm = 39,
-        lookup_inverses = 40,
-        lookup_read_counts = 41,
-        lookup_read_tags = 42,
-        return_data = 43,
-        return_data_read_counts = 44,
-        return_data_inverses = 45,
-        w_l_shift = 46,
-        w_r_shift = 47,
-        w_o_shift = 48,
-        w_4_shift = 49,
-        z_perm_shift = 50,
+        lagrange_ecc_op = 26,
+        q_busread = 27,
+        return_data_indicator = 28,
+        databus_id = 29,
+        q_poseidon2_external = 30,
+        q_poseidon2_external_initial = 31,
+        q_poseidon2_quad_internal = 32,
+        q_5 = 33,
+        q_poseidon2_quad_internal_terminal = 34,
+        q_poseidon2_transition_entry = 35,
+        w_l = 36,
+        w_r = 37,
+        w_o = 38,
+        w_4 = 39,
+        z_perm = 40,
+        lookup_inverses = 41,
+        lookup_read_counts = 42,
+        lookup_read_tags = 43,
+        ecc_op_wire_1 = 44,
+        ecc_op_wire_2 = 45,
+        ecc_op_wire_3 = 46,
+        ecc_op_wire_4 = 47,
+        return_data = 48,
+        return_data_read_counts = 49,
+        return_data_inverses = 50,
+        w_l_shift = 51,
+        w_r_shift = 52,
+        w_o_shift = 53,
+        w_4_shift = 54,
+        z_perm_shift = 55,
     };
 
     // Sumcheck relation tuple. Source of truth is
@@ -99,6 +105,7 @@ class MegaAppFlavor_Generated {
                                   bb::EllipticRelation<FF>,
                                   bb::MemoryRelation<FF>,
                                   bb::NonNativeFieldRelation<FF>,
+                                  bb::EccOpQueueRelation<FF>,
                                   bb::SingleBusLookupRelation<FF,
                                                               EntityId::return_data,
                                                               EntityId::return_data_read_counts,
@@ -111,8 +118,8 @@ class MegaAppFlavor_Generated {
                                   bb::Poseidon2QuadInternalTerminalRelation<FF>,
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 35;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 11;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 36;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 15;
     static constexpr size_t NUM_MASKING_ENTITIES = 0;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
     static constexpr bool HasDataBus = true;
@@ -121,7 +128,7 @@ class MegaAppFlavor_Generated {
     static constexpr bool HasElliptic = true;
     static constexpr bool HasMemory = true;
     static constexpr bool HasNonNativeField = true;
-    static constexpr bool HasEccOpQueue = false;
+    static constexpr bool HasEccOpQueue = true;
     static constexpr bool UsesEtaPowers = true;
     static constexpr bool UsesBetaPowers = true;
     static constexpr size_t NUM_COMMITTED_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_MASKING_ENTITIES;
@@ -131,8 +138,8 @@ class MegaAppFlavor_Generated {
     // Per-shifted-entity (original, duplicate) index pairs in AllEntities, one per shifted
     // entity. Collapsed into `RepeatedCommitmentsData` below for Shplemini compatibility.
     static constexpr std::array<DuplicatePair, NUM_SHIFTED_ENTITIES> REPEATED_COMMITMENT_PAIRS = {
-        DuplicatePair{ 35, 46 }, DuplicatePair{ 36, 47 }, DuplicatePair{ 37, 48 },
-        DuplicatePair{ 38, 49 }, DuplicatePair{ 39, 50 },
+        DuplicatePair{ 36, 51 }, DuplicatePair{ 37, 52 }, DuplicatePair{ 38, 53 },
+        DuplicatePair{ 39, 54 }, DuplicatePair{ 40, 55 },
     };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         repeated_commitments_from_pairs(REPEATED_COMMITMENT_PAIRS);
@@ -266,6 +273,8 @@ class MegaAppFlavor_Generated {
         const DataType& q_memory() const { return data[static_cast<size_t>(EntityId::q_memory)]; }
         DataType& q_nnf() { return data[static_cast<size_t>(EntityId::q_nnf)]; }
         const DataType& q_nnf() const { return data[static_cast<size_t>(EntityId::q_nnf)]; }
+        DataType& lagrange_ecc_op() { return data[static_cast<size_t>(EntityId::lagrange_ecc_op)]; }
+        const DataType& lagrange_ecc_op() const { return data[static_cast<size_t>(EntityId::lagrange_ecc_op)]; }
         DataType& q_busread() { return data[static_cast<size_t>(EntityId::q_busread)]; }
         const DataType& q_busread() const { return data[static_cast<size_t>(EntityId::q_busread)]; }
         DataType& return_data_indicator() { return data[static_cast<size_t>(EntityId::return_data_indicator)]; }
@@ -327,6 +336,14 @@ class MegaAppFlavor_Generated {
         const DataType& lookup_read_counts() const { return data[static_cast<size_t>(EntityId::lookup_read_counts)]; }
         DataType& lookup_read_tags() { return data[static_cast<size_t>(EntityId::lookup_read_tags)]; }
         const DataType& lookup_read_tags() const { return data[static_cast<size_t>(EntityId::lookup_read_tags)]; }
+        DataType& ecc_op_wire_1() { return data[static_cast<size_t>(EntityId::ecc_op_wire_1)]; }
+        const DataType& ecc_op_wire_1() const { return data[static_cast<size_t>(EntityId::ecc_op_wire_1)]; }
+        DataType& ecc_op_wire_2() { return data[static_cast<size_t>(EntityId::ecc_op_wire_2)]; }
+        const DataType& ecc_op_wire_2() const { return data[static_cast<size_t>(EntityId::ecc_op_wire_2)]; }
+        DataType& ecc_op_wire_3() { return data[static_cast<size_t>(EntityId::ecc_op_wire_3)]; }
+        const DataType& ecc_op_wire_3() const { return data[static_cast<size_t>(EntityId::ecc_op_wire_3)]; }
+        DataType& ecc_op_wire_4() { return data[static_cast<size_t>(EntityId::ecc_op_wire_4)]; }
+        const DataType& ecc_op_wire_4() const { return data[static_cast<size_t>(EntityId::ecc_op_wire_4)]; }
         DataType& return_data() { return data[static_cast<size_t>(EntityId::return_data)]; }
         const DataType& return_data() const { return data[static_cast<size_t>(EntityId::return_data)]; }
         DataType& return_data_read_counts() { return data[static_cast<size_t>(EntityId::return_data_read_counts)]; }
@@ -383,11 +400,11 @@ class MegaAppFlavor_Generated {
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted()
         {
-            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (35), NUM_SHIFTED_ENTITIES };
+            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (36), NUM_SHIFTED_ENTITIES };
         }
         std::span<const DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted() const
         {
-            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (35), NUM_SHIFTED_ENTITIES };
+            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (36), NUM_SHIFTED_ENTITIES };
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_shifted()
         {
@@ -489,6 +506,20 @@ class MegaAppFlavor_Generated {
                      (*this)[EntityId::table_3],
                      (*this)[EntityId::table_4] };
         }
+        RefArray<DataType, 4> get_ecc_op_wires()
+        {
+            return { (*this)[EntityId::ecc_op_wire_1],
+                     (*this)[EntityId::ecc_op_wire_2],
+                     (*this)[EntityId::ecc_op_wire_3],
+                     (*this)[EntityId::ecc_op_wire_4] };
+        }
+        RefArray<const DataType, 4> get_ecc_op_wires() const
+        {
+            return { (*this)[EntityId::ecc_op_wire_1],
+                     (*this)[EntityId::ecc_op_wire_2],
+                     (*this)[EntityId::ecc_op_wire_3],
+                     (*this)[EntityId::ecc_op_wire_4] };
+        }
         RefArray<DataType, 2> get_databus_entities()
         {
             return { (*this)[EntityId::return_data], (*this)[EntityId::return_data_read_counts] };
@@ -541,6 +572,7 @@ class MegaAppFlavor_Generated {
                 "Q_ELLIPTIC",
                 "Q_MEMORY",
                 "Q_NNF",
+                "LAGRANGE_ECC_OP",
                 "Q_BUSREAD",
                 "RETURN_DATA_INDICATOR",
                 "DATABUS_ID",
@@ -558,6 +590,10 @@ class MegaAppFlavor_Generated {
                 "LOOKUP_INVERSES",
                 "LOOKUP_READ_COUNTS",
                 "LOOKUP_READ_TAGS",
+                "ECC_OP_WIRE_1",
+                "ECC_OP_WIRE_2",
+                "ECC_OP_WIRE_3",
+                "ECC_OP_WIRE_4",
                 "RETURN_DATA",
                 "RETURN_DATA_READ_COUNTS",
                 "RETURN_DATA_INVERSES",
@@ -637,24 +673,26 @@ class MegaAppFlavor_Generated {
         const DataType& q_memory() const { return data[24]; }
         DataType& q_nnf() { return data[25]; }
         const DataType& q_nnf() const { return data[25]; }
-        DataType& q_busread() { return data[26]; }
-        const DataType& q_busread() const { return data[26]; }
-        DataType& return_data_indicator() { return data[27]; }
-        const DataType& return_data_indicator() const { return data[27]; }
-        DataType& databus_id() { return data[28]; }
-        const DataType& databus_id() const { return data[28]; }
-        DataType& q_poseidon2_external() { return data[29]; }
-        const DataType& q_poseidon2_external() const { return data[29]; }
-        DataType& q_poseidon2_external_initial() { return data[30]; }
-        const DataType& q_poseidon2_external_initial() const { return data[30]; }
-        DataType& q_poseidon2_quad_internal() { return data[31]; }
-        const DataType& q_poseidon2_quad_internal() const { return data[31]; }
-        DataType& q_5() { return data[32]; }
-        const DataType& q_5() const { return data[32]; }
-        DataType& q_poseidon2_quad_internal_terminal() { return data[33]; }
-        const DataType& q_poseidon2_quad_internal_terminal() const { return data[33]; }
-        DataType& q_poseidon2_transition_entry() { return data[34]; }
-        const DataType& q_poseidon2_transition_entry() const { return data[34]; }
+        DataType& lagrange_ecc_op() { return data[26]; }
+        const DataType& lagrange_ecc_op() const { return data[26]; }
+        DataType& q_busread() { return data[27]; }
+        const DataType& q_busread() const { return data[27]; }
+        DataType& return_data_indicator() { return data[28]; }
+        const DataType& return_data_indicator() const { return data[28]; }
+        DataType& databus_id() { return data[29]; }
+        const DataType& databus_id() const { return data[29]; }
+        DataType& q_poseidon2_external() { return data[30]; }
+        const DataType& q_poseidon2_external() const { return data[30]; }
+        DataType& q_poseidon2_external_initial() { return data[31]; }
+        const DataType& q_poseidon2_external_initial() const { return data[31]; }
+        DataType& q_poseidon2_quad_internal() { return data[32]; }
+        const DataType& q_poseidon2_quad_internal() const { return data[32]; }
+        DataType& q_5() { return data[33]; }
+        const DataType& q_5() const { return data[33]; }
+        DataType& q_poseidon2_quad_internal_terminal() { return data[34]; }
+        const DataType& q_poseidon2_quad_internal_terminal() const { return data[34]; }
+        DataType& q_poseidon2_transition_entry() { return data[35]; }
+        const DataType& q_poseidon2_transition_entry() const { return data[35]; }
 
         // Subset views.
         RefArray<DataType, 7> get_non_gate_selectors()
@@ -754,6 +792,7 @@ class MegaAppFlavor_Generated {
                 "Q_ELLIPTIC",
                 "Q_MEMORY",
                 "Q_NNF",
+                "LAGRANGE_ECC_OP",
                 "Q_BUSREAD",
                 "RETURN_DATA_INDICATOR",
                 "DATABUS_ID",
@@ -798,16 +837,32 @@ class MegaAppFlavor_Generated {
         const DataType& lookup_read_counts() const { return data[6]; }
         DataType& lookup_read_tags() { return data[7]; }
         const DataType& lookup_read_tags() const { return data[7]; }
-        DataType& return_data() { return data[8]; }
-        const DataType& return_data() const { return data[8]; }
-        DataType& return_data_read_counts() { return data[9]; }
-        const DataType& return_data_read_counts() const { return data[9]; }
-        DataType& return_data_inverses() { return data[10]; }
-        const DataType& return_data_inverses() const { return data[10]; }
+        DataType& ecc_op_wire_1() { return data[8]; }
+        const DataType& ecc_op_wire_1() const { return data[8]; }
+        DataType& ecc_op_wire_2() { return data[9]; }
+        const DataType& ecc_op_wire_2() const { return data[9]; }
+        DataType& ecc_op_wire_3() { return data[10]; }
+        const DataType& ecc_op_wire_3() const { return data[10]; }
+        DataType& ecc_op_wire_4() { return data[11]; }
+        const DataType& ecc_op_wire_4() const { return data[11]; }
+        DataType& return_data() { return data[12]; }
+        const DataType& return_data() const { return data[12]; }
+        DataType& return_data_read_counts() { return data[13]; }
+        const DataType& return_data_read_counts() const { return data[13]; }
+        DataType& return_data_inverses() { return data[14]; }
+        const DataType& return_data_inverses() const { return data[14]; }
 
         // Subset views.
         RefArray<DataType, 4> get_wires() { return { this->w_l(), this->w_r(), this->w_o(), this->w_4() }; }
         RefArray<const DataType, 4> get_wires() const { return { this->w_l(), this->w_r(), this->w_o(), this->w_4() }; }
+        RefArray<DataType, 4> get_ecc_op_wires()
+        {
+            return { this->ecc_op_wire_1(), this->ecc_op_wire_2(), this->ecc_op_wire_3(), this->ecc_op_wire_4() };
+        }
+        RefArray<const DataType, 4> get_ecc_op_wires() const
+        {
+            return { this->ecc_op_wire_1(), this->ecc_op_wire_2(), this->ecc_op_wire_3(), this->ecc_op_wire_4() };
+        }
         RefArray<DataType, 2> get_databus_entities()
         {
             return { this->return_data(), this->return_data_read_counts() };
@@ -839,6 +894,10 @@ class MegaAppFlavor_Generated {
                 "LOOKUP_INVERSES",
                 "LOOKUP_READ_COUNTS",
                 "LOOKUP_READ_TAGS",
+                "ECC_OP_WIRE_1",
+                "ECC_OP_WIRE_2",
+                "ECC_OP_WIRE_3",
+                "ECC_OP_WIRE_4",
                 "RETURN_DATA",
                 "RETURN_DATA_READ_COUNTS",
                 "RETURN_DATA_INVERSES",

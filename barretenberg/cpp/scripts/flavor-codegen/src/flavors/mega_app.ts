@@ -2,11 +2,11 @@ import { flavor } from "../flavor.js";
 import * as R from "../relations/index.js";
 
 // App-circuit flavor for Chonk. Empirical scan (BB_PRINT_ZERO_POLYS over real client-IVC flows
-// transfer/deploy_schnorr/amm) shows: lagrange_ecc_op + ecc_op_wire_* never populated → no Goblin
-// offload happens inside an app, so EccOpQueueRelation is dropped. Likewise none of the
-// kernel_calldata / app_calldata buses are read inside an app, so those four buses are dropped.
-// Only the return_data bus is kept — the app writes its outputs there and the commitment must
-// still propagate to the next kernel.
+// transfer/deploy_schnorr/amm) shows the kernel_calldata / first/second/third_app_calldata buses
+// are never read inside an app, so those four bus-lookup relations are dropped. The return_data
+// bus is retained — the app writes its outputs there and the commitment must still propagate into
+// the next kernel. EccOpQueueRelation is kept even though those flows didn't exercise it, because
+// apps may contain recursion that offloads EC ops through Goblin.
 export const MegaApp = flavor({
   name: "MegaAppFlavor",
   family: "mega_app",
@@ -18,6 +18,7 @@ export const MegaApp = flavor({
     R.EllipticRelation,
     R.MemoryRelation,
     R.NonNativeFieldRelation,
+    R.EccOpQueueRelation,
     R.singleBusLookupRelation({
       bus: "return_data",
       value: "return_data",
