@@ -50,6 +50,9 @@ const { values: argv } = parseArgs({
     buckets: { type: "string" },
     seed: { type: "string" },
     skew: { type: "string" },
+    logn: { type: "string" },
+    runs: { type: "string" },
+    variants: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
     "stall-ms": { type: "string", default: "180000" },
@@ -128,6 +131,7 @@ if (!TARGETS[argv.target]) {
 const pageMap = {
   "bench-batch-affine": "/dev/msm-webgpu/bench-batch-affine.html",
   "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
+  "bench-msm-variant": "/dev/msm-webgpu/bench-msm-variant.html",
   sanity: "/dev/msm-webgpu/index.html",
 };
 if (!pageMap[argv.page]) {
@@ -417,6 +421,9 @@ async function main() {
   if (argv.buckets) qp.set("buckets", String(argv.buckets));
   if (argv.seed) qp.set("seed", String(argv.seed));
   if (argv.skew) qp.set("skew", String(argv.skew));
+  if (argv.logn) qp.set("logn", String(argv.logn));
+  if (argv.runs) qp.set("runs", String(argv.runs));
+  if (argv.variants) qp.set("variants", String(argv.variants));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
