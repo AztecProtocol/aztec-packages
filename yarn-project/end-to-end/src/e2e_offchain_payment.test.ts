@@ -6,11 +6,11 @@ import type { CheatCodes } from '@aztec/aztec/testing';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
-import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getLogger, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -19,7 +19,7 @@ const TIMEOUT = 300_000;
 
 describe('e2e_offchain_payment', () => {
   let contract: OffchainPaymentContract;
-  let aztecNode: AztecNode & AztecNodeDebug;
+  let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let cheatCodes: CheatCodes;
   let wallet: TestWallet;
@@ -31,7 +31,7 @@ describe('e2e_offchain_payment', () => {
 
   beforeAll(async () => {
     ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2, {
-      ...AUTOMINE_E2E_OPTS,
+      ...PIPELINING_SETUP_OPTS,
       anvilSlotsInAnEpoch: 32,
     }));
   });
@@ -45,10 +45,7 @@ describe('e2e_offchain_payment', () => {
   async function forceEmptyBlock() {
     const blockBefore = await aztecNode.getBlockNumber();
     logger.info(`Forcing empty block. Current L2 block: ${blockBefore}`);
-    // `mineBlock` routes through AutomineSequencer.buildEmptyBlock when wired, or temporarily
-    // drops `minTxsPerBlock` to 0 and triggers the production sequencer otherwise. Works under
-    // both AUTOMINE_E2E_OPTS and PIPELINING_SETUP_OPTS.
-    await aztecNode.mineBlock();
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     await retryUntil(
       async () => {
         const current = await aztecNode.getBlockNumber();
@@ -59,6 +56,7 @@ describe('e2e_offchain_payment', () => {
       30,
       1,
     );
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
   }
 
   async function forceReorg(block: BlockNumber) {
