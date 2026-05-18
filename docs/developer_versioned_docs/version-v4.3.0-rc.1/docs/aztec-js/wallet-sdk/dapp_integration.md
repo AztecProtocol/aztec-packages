@@ -213,6 +213,6 @@ await provider.disconnect();
 ## Reference
 
 - API reference: [`@aztec/wallet-sdk` reference](pathname:///typescript-api/mainnet/wallet-sdk.md), [`@aztec/aztec.js/wallet` reference](pathname:///typescript-api/mainnet/aztec.js.md).
-- Capability type definitions: [`yarn-project/aztec.js/src/wallet/capabilities.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/aztec.js/src/wallet/capabilities.ts) at v4.2.0.
-- `WalletManager` source: [`yarn-project/wallet-sdk/src/manager/wallet_manager.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/wallet-sdk/src/manager/wallet_manager.ts) at v4.2.0.
+- Capability type definitions: [`yarn-project/aztec.js/src/wallet/capabilities.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.3.0-rc.1/yarn-project/aztec.js/src/wallet/capabilities.ts) at v4.3.0-rc.1.
+- `WalletManager` source: [`yarn-project/wallet-sdk/src/manager/wallet_manager.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.3.0-rc.1/yarn-project/wallet-sdk/src/manager/wallet_manager.ts) at v4.3.0-rc.1.
 - Reference wallet implementation: [`AztecProtocol/demo-wallet`](https://github.com/AztecProtocol/demo-wallet). End-to-end open-source wallet showing the other side of the discovery, key exchange, and capability flows described above.

@@ -136,7 +136,7 @@ The flexibility of signing key storage and rotation is entirely up to your accou
 
 Your Aztec address is deterministically computed from your public keys and account contract. This enables anyone to encrypt notes to your address without needing additional information.
 
-<Image img={require("@site/static/img/address_derivation.png")} />
+<Image img={require("@site/static/img/address_derivation.svg")} />
 
 ```text
 pre_address = hash(public_keys_hash, partial_address)

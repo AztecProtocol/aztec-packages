@@ -5,7 +5,7 @@ tags: [wallet, sdk, extension]
 description: Implement the Aztec wallet SDK protocol in a browser extension. Covers discovery, sessions, message routing, and BaseWallet.
 ---
 
-This page is a reference for wallet extension developers. It walks through each piece of the integration without prescribing a full project layout. For the canonical source you can browse alongside this guide, see [`yarn-project/wallet-sdk/`](https://github.com/AztecProtocol/aztec-packages/tree/v4.2.0/yarn-project/wallet-sdk) at v4.2.0.
+This page is a reference for wallet extension developers. It walks through each piece of the integration without prescribing a full project layout. For the canonical source you can browse alongside this guide, see [`yarn-project/wallet-sdk/`](https://github.com/AztecProtocol/aztec-packages/tree/v4.3.0-rc.1/yarn-project/wallet-sdk) at v4.3.0-rc.1.
 
 ## Components
 
@@ -200,6 +200,6 @@ The handler's in-memory state (active sessions, pending discoveries) does not su
 ## Reference
 
 - API reference: [`@aztec/wallet-sdk` reference](pathname:///typescript-api/mainnet/wallet-sdk.md).
-- `BaseWallet` source: [`yarn-project/wallet-sdk/src/base-wallet/base_wallet.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/wallet-sdk/src/base-wallet/base_wallet.ts) at v4.2.0.
-- `BackgroundConnectionHandler` source: [`yarn-project/wallet-sdk/src/extension/handlers/background_connection_handler.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/wallet-sdk/src/extension/handlers/background_connection_handler.ts) at v4.2.0.
-- Wallet SDK README at v4.2.0: [`yarn-project/wallet-sdk/README.md`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/wallet-sdk/README.md).
+- `BaseWallet` source: [`yarn-project/wallet-sdk/src/base-wallet/base_wallet.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.3.0-rc.1/yarn-project/wallet-sdk/src/base-wallet/base_wallet.ts) at v4.3.0-rc.1.
+- `BackgroundConnectionHandler` source: [`yarn-project/wallet-sdk/src/extension/handlers/background_connection_handler.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.3.0-rc.1/yarn-project/wallet-sdk/src/extension/handlers/background_connection_handler.ts) at v4.3.0-rc.1.
+- Wallet SDK README at v4.3.0-rc.1: [`yarn-project/wallet-sdk/README.md`](https://github.com/AztecProtocol/aztec-packages/blob/v4.3.0-rc.1/yarn-project/wallet-sdk/README.md).
