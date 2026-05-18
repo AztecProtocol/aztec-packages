@@ -837,13 +837,21 @@ export class ProposalHandler {
 
     this.lastCheckpointValidationResult = { payloadHash, result };
 
-    // Record the outcome on the re-execution tracker (single point of recording driven by the
-    // reason → outcome mapping). Failures whose mapped outcome is `undefined` are deliberately
-    // skipped: `invalid_signature` (we don't know who proposed) and `checkpoint_already_published`
-    // (the checkpoint is on L1 — sentinel observes that directly via `checkpoint-mined`).
+    // Record the outcome on the re-execution tracker.
     const outcome = result.isValid ? ('valid' as const) : CHECKPOINT_VALIDATION_REASON_TO_OUTCOME[result.reason];
     if (outcome !== undefined) {
       this.reexecutionTracker.recordOutcome(slot, proposal.archive, outcome, result.checkpointNumber);
+    }
+
+    // Drop tracker entries for checkpoints that have reached L1 finality.
+    try {
+      const tips = await this.blockSource.getL2Tips();
+      const finalizedCheckpointNumber = tips.finalized.checkpoint.number;
+      if (finalizedCheckpointNumber > 0) {
+        this.reexecutionTracker.removeBefore(CheckpointNumber(finalizedCheckpointNumber + 1));
+      }
+    } catch (err) {
+      this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
     }
 
     // Upload blobs to filestore if validation passed (fire and forget)
@@ -1038,17 +1046,6 @@ export class ProposalHandler {
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
-
-    // Drop tracker entries for checkpoints that have reached L1 finality.
-    try {
-      const tips = await this.blockSource.getL2Tips();
-      const finalizedCheckpointNumber = tips.finalized.checkpoint.number;
-      if (finalizedCheckpointNumber > 0) {
-        this.reexecutionTracker.removeBefore(CheckpointNumber(finalizedCheckpointNumber + 1));
-      }
-    } catch (err) {
-      this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
-    }
 
     return { isValid: true, checkpointNumber };
   }
