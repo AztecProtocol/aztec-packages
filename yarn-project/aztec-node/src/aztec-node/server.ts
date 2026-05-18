@@ -7,11 +7,9 @@ import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIG
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
-import { GovernanceProposerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import { PublisherManager } from '@aztec/ethereum/publisher-manager';
-import { EthCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -42,8 +40,7 @@ import {
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  SequencerPublisherFactory,
-  getPublisherConfigFromSequencerConfig,
+  createAutomineSequencer,
 } from '@aztec/sequencer-client';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
@@ -865,57 +862,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         if (config.useAutomineSequencer) {
           // Test-only path: deterministic, queue-driven sequencer for non-block-building e2e tests.
           // See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
-          const publisherManager = new PublisherManager(l1TxUtils, getPublisherConfigFromSequencerConfig(config), {
-            bindings: log.getBindings(),
-            funder: funderL1TxUtils,
-          });
-          const governanceProposerContract = new GovernanceProposerContract(
+          automineSequencer = await createAutomineSequencer({
+            config,
+            l1TxUtils,
+            funderL1TxUtils,
             publicClient,
-            config.governanceProposerAddress.toString(),
-          );
-          const publisherFactory = new SequencerPublisherFactory(config, {
-            telemetry,
-            blobClient,
-            epochCache,
-            governanceProposerContract,
             rollupContract,
+            epochCache,
+            blobClient,
+            telemetry,
             dateProvider,
-            publisherManager,
-            nodeKeyStore: NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager!),
-            logger: log,
-          });
-          const attestorAddresses = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager!).getAttesterAddresses();
-          const attestor = attestorAddresses[0];
-          if (!attestor) {
-            throw new Error('AutomineSequencer requires at least one attestor address in the keystore');
-          }
-          const coinbase = validatorClient.getCoinbaseForAttestor(attestor);
-          const feeRecipient = validatorClient.getFeeRecipientForAttestor(attestor);
-          const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, dateProvider, log.createChild('eth-cheat-codes'));
-          automineSequencer = new AutomineSequencer({
-            publisherFactory,
+            keyStoreManager: keyStoreManager!,
+            validatorClient,
             checkpointsBuilder,
-            globalsBuilder: globalVariableBuilder,
-            worldState: worldStateSynchronizer,
-            l2BlockSource: archiver,
-            l1ToL2MessageSource: archiver,
+            globalVariableBuilder,
+            worldStateSynchronizer,
+            archiver,
             p2pClient,
-            ethCheatCodes,
-            dateProvider: dateProvider as any, // TestDateProvider; verified at construction in fixture
             l1Constants: {
               l1GenesisTime,
               slotDuration: Number(slotDuration),
               ethereumSlotDuration: config.ethereumSlotDuration,
               rollupManaLimit,
-              epochDuration: config.aztecEpochDuration,
             },
-            coinbase,
-            feeRecipient,
-            signatureContext: { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
-            config,
-            log: log.createChild('automine-sequencer'),
+            log,
           });
-          await publisherManager.start();
         } else {
           sequencer = await SequencerClient.new(config, {
             ...deps,

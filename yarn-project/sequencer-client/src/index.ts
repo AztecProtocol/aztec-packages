@@ -5,6 +5,8 @@ export {
   AutomineSequencer,
   type AutomineSequencerConstants,
   type AutomineSequencerDeps,
+  createAutomineSequencer,
+  type CreateAutomineSequencerArgs,
   Sequencer,
   SequencerState,
   type SequencerEvents,
