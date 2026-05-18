@@ -6,7 +6,6 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
-  omitConfigMappings,
   optionalNumberConfigHelper,
   parseCommaSeparated,
 } from '@aztec/foundation/config';
@@ -25,8 +24,6 @@ export type GenesisStateConfig = {
 };
 
 type OwnL1ContractsConfig = {
-  /** How many seconds an L1 slot lasts. */
-  ethereumSlotDuration: number;
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
   aztecSlotDuration: number;
   /** How many L2 slots an epoch lasts. */
@@ -92,11 +89,6 @@ export type L1ContractsConfig = OwnL1ContractsConfig & L1TxUtilsConfig;
  * Real deployments use forge scripts which require explicit env vars (vm.envUint).
  */
 const ownL1ContractsConfigMappings: ConfigMappingsType<OwnL1ContractsConfig> = {
-  ethereumSlotDuration: {
-    env: 'ETHEREUM_SLOT_DURATION',
-    description: 'How many seconds an L1 slot lasts.',
-    ...numberConfigHelper(l1ContractsDefaultEnv.ETHEREUM_SLOT_DURATION),
-  },
   aztecSlotDuration: {
     env: 'AZTEC_SLOT_DURATION',
     description: 'How many seconds an L2 slots lasts (must be multiple of ethereum slot duration).',
@@ -244,7 +236,7 @@ const ownL1ContractsConfigMappings: ConfigMappingsType<OwnL1ContractsConfig> = {
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = composeConfigMappings(
   ownL1ContractsConfigMappings,
-  omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
+  l1TxUtilsConfigMappings,
 );
 
 /**

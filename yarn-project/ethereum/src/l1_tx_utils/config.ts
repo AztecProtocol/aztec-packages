@@ -8,6 +8,8 @@ import {
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 
+import { l1ContractsDefaultEnv } from '../generated/l1-contracts-defaults.js';
+
 export interface L1TxUtilsConfig {
   /**
    * How much to increase calculated gas limit.
@@ -160,7 +162,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   ethereumSlotDuration: {
     env: 'ETHEREUM_SLOT_DURATION',
     description: 'How many seconds an L1 slot lasts.',
-    ...numberConfigHelper(12),
+    ...numberConfigHelper(l1ContractsDefaultEnv.ETHEREUM_SLOT_DURATION),
   },
 };
 
