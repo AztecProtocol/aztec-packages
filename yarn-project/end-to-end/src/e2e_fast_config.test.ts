@@ -68,7 +68,7 @@ describe('e2e_fast_config', () => {
   );
 
   it(
-    'proven tip advances within an epoch of publish',
+    'proven tip advances within two epochs of publish',
     async () => {
       const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
       const { receipt } = await contract.methods.increment_public_value(ownerAddress, 0).send({ from: ownerAddress });
