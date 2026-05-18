@@ -11,7 +11,7 @@ import { computeCalldataHash } from '@aztec/stdlib/hash';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -45,7 +45,7 @@ describe('e2e_ordering', () => {
       wallet,
       aztecNode,
       accounts: [defaultAccountAddress],
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
   }, TIMEOUT);
 
   afterEach(() => teardown());

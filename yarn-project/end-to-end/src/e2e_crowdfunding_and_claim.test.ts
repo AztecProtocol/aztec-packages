@@ -10,7 +10,7 @@ import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client'
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -61,7 +61,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       wallet,
       aztecNode: _aztecNode,
       accounts: [operatorAddress, donor1Address, donor2Address],
-    } = await setup(3, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
 
     // We set the deadline to a week from now
     deadline = (await cheatCodes.eth.lastBlockTimestamp()) + 7 * 24 * 60 * 60;

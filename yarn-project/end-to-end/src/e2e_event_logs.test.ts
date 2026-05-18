@@ -17,7 +17,7 @@ import {
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
@@ -42,7 +42,7 @@ describe('Logs', () => {
       accounts: [account1Address, account2Address],
       aztecNode,
       logger: log,
-    } = await setup(2, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
 
     log.warn(`Setup complete, checking account contracts published`);
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);

@@ -10,7 +10,7 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { getLogger, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -31,7 +31,7 @@ describe('e2e_offchain_payment', () => {
 
   beforeAll(async () => {
     ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2, {
-      ...PIPELINING_SETUP_OPTS,
+      ...AUTOMINE_E2E_OPTS,
       anvilSlotsInAnEpoch: 32,
     }));
   });

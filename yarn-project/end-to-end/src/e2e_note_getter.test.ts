@@ -4,7 +4,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { NoteGetterContract } from '@aztec/noir-test-contracts.js/NoteGetter';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 interface NoirBoundedVec<T> {
@@ -26,7 +26,7 @@ describe('e2e_note_getter', () => {
       teardown,
       wallet,
       accounts: [defaultAddress],
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
   });
 
   afterAll(() => teardown());
