@@ -6,8 +6,12 @@
 
 #pragma once
 
-#include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
 
 namespace bb::eccvm {
 static constexpr size_t NUM_SCALAR_BITS = 128;   // The length of scalars handled by the ECCVVM
