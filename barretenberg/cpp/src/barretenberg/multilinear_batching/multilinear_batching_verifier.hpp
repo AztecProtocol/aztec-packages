@@ -7,6 +7,7 @@
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_recursive_flavor.hpp"
+#include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -37,7 +38,7 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     using InstanceFlavor = std::conditional_t<std::is_same_v<Flavor, MultilinearBatchingFlavor>,
                                               MegaFlavor,
                                               MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-    using InstanceCommitments = InstanceFlavor::VerifierCommitments;
+    using InstanceCommitments = typename VerifierCommitmentsConstructor<InstanceFlavor>::Commitments;
     using InstanceFF = InstanceFlavor::FF;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;

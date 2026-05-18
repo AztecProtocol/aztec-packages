@@ -136,7 +136,7 @@ struct AcirProgram {
  */
 struct ProgramMetadata {
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
-    std::shared_ptr<bb::IVCBase> ivc = nullptr;
+    std::shared_ptr<bb::Chonk> ivc = nullptr;
 
     bool has_ipa_claim =
         false; // Boolean describing whether the circuit should propagate an IPA claim or not. If `True`, the circuit

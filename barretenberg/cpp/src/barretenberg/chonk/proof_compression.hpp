@@ -99,7 +99,7 @@ class ProofCompressor {
         for (size_t i = 0; i < num_public_inputs; i++) {
             process_scalar();
         }
-        // Witness commitments (wires + lookup + databus + z_perm = NUM_WITNESS_ENTITIES)
+        // Witness commitments (NUM_WITNESS_ENTITIES)
         for (size_t i = 0; i < MegaZKFlavor::NUM_WITNESS_ENTITIES; i++) {
             process_commitment();
         }

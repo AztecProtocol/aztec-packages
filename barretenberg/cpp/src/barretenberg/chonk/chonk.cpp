@@ -73,9 +73,8 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 }
 
-template <typename Flavor>
 void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
-                                   const std::shared_ptr<ProverInstance_<Flavor>>& prover_instance,
+                                   const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
     info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
@@ -94,14 +93,6 @@ void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
 
     info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }
-
-template void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
-                                            const std::shared_ptr<ProverInstance_<MegaFlavor>>& prover_instance,
-                                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
-
-template void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
-                                            const std::shared_ptr<ProverInstance_<MegaZKFlavor>>& prover_instance,
-                                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
 
 // Constructor
@@ -252,16 +243,16 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // Kernel return data
         bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata.get_value();
+            kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata().get_value();
         BB_ASSERT_DEBUG(kernel_return_data_match,
                         "kernel_return_data mismatch: proof contains "
                             << kernel_input.kernel_return_data.get_value() << " but kernel_calldata commitment is "
-                            << witness_commitments.kernel_calldata.get_value());
-        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata);
+                            << witness_commitments.kernel_calldata().get_value());
+        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata());
 
-        const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata,
-                                                   &witness_commitments.second_app_calldata,
-                                                   &witness_commitments.third_app_calldata };
+        const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata(),
+                                                   &witness_commitments.second_app_calldata(),
+                                                   &witness_commitments.third_app_calldata() };
         for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
             bool app_return_data_match =
                 kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();
@@ -285,7 +276,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // ============= Set the kernel return data commitment ==============================
 
-        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
+        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data());
 
         return { std::move(kernel_input.pairing_inputs), std::move(kernel_input.ecc_op_hash) };
     }
@@ -294,8 +285,8 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     AppIO app_input; // pairing points
     app_input.reconstruct_from_public(public_inputs);
 
-    // Set the app return data commitment to be propagated via the public inputs. The depot owns slot allocation.
-    bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
+    // Set the app return data commitment to be propagated via the public inputs
+    bus_depot.set_app_return_data_commitment(witness_commitments.return_data());
 
     return { std::move(app_input.pairing_inputs), std::nullopt };
 }
@@ -528,30 +519,33 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
 /**
  * @brief Build the hiding kernel's ZK proving key and verification key (proving is deferred to prove()).
  */
-void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
+                                     const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk)
 {
     BB_BENCH_NAME("Chonk::accumulate_hiding_kernel");
+    BB_ASSERT_LT(
+        num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
+    BB_ASSERT(get_queue_type() == QUEUE_TYPE::MEGA,
+              "Chonk::accumulate_hiding_kernel must be the final circuit in the IVC stack");
+
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
     hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
+
     // Free circuit block memory now that trace data has been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
-    // MegaZKFlavor inherits VerificationKey from MegaFlavor unchanged, so MegaZKVerificationKey
-    // and MegaVerificationKey are the same type. Reuse the caller-supplied precomputed VK when
-    // present to skip the 31 sequential commitments in the NativeVerificationKey_ ctor.
-    static_assert(
-        std::is_same_v<MegaVerificationKey, MegaZKVerificationKey>,
-        "hiding-kernel precomputed VK reuse relies on MegaZKFlavor inheriting VerificationKey from MegaFlavor");
+
     if (precomputed_vk) {
+#ifndef NDEBUG
+        auto computed_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
+        BB_ASSERT(*precomputed_vk == *computed_vk,
+                  "Chonk::accumulate_hiding_kernel - precomputed MegaZK VK does not match computed VK");
+#endif
         hiding_vk = precomputed_vk;
     } else {
         hiding_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
     }
-
-    // Push VK to queue so get_hiding_kernel_vk_and_hash() can find it.
-    VerifierInputs queue_entry{ {}, hiding_vk, QUEUE_TYPE::MEGA, /*is_kernel=*/true };
-    verification_queue.push_back(queue_entry);
     num_circuits_accumulated++;
 }
 
@@ -649,40 +643,28 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
 }
 
 /**
- * @brief Execute prover work for accumulation (e.g. HN folding, merge proving)
+ * @brief Execute prover work for accumulating a non-hiding circuit (HN folding, merge proving).
  *
- * @details Dispatches to accumulate_hiding_kernel (for MEGA/hiding kernel) or accumulate_and_fold (for all
- * folding-based queue types). See chonk.hpp QUEUE_TYPE for the full state machine.
- *
- * @param circuit The circuit to accumulate
- * @param precomputed_vk Precomputed verification key for the circuit
+ * @details For the hiding kernel (final circuit), call `accumulate_hiding_kernel` instead — it
+ * uses the MegaZKFlavor VK, which is a different C++ type than MegaVerificationKey.
  */
 void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
     BB_BENCH_NAME("Chonk::accumulate");
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
-    BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
-
     QUEUE_TYPE queue_type = get_queue_type();
-    bool is_hiding_kernel = queue_type == QUEUE_TYPE::MEGA;
+    BB_ASSERT(queue_type != QUEUE_TYPE::MEGA,
+              "Chonk::accumulate: use accumulate_hiding_kernel for the hiding-kernel circuit");
+    BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
 
     std::shared_ptr<ProverInstance> prover_instance;
 #ifndef NDEBUG
-    if (is_hiding_kernel) {
-        auto hiding_kernel_prover_instance = std::make_shared<HidingKernelProverInstance>(circuit);
-        debug_incoming_circuit<MegaZKFlavor>(circuit, hiding_kernel_prover_instance, precomputed_vk);
-    } else {
-        prover_instance = std::make_shared<ProverInstance>(circuit);
-        debug_incoming_circuit<MegaFlavor>(circuit, prover_instance, precomputed_vk);
-    }
+    prover_instance = std::make_shared<ProverInstance>(circuit);
+    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
 #endif
 
-    if (is_hiding_kernel) {
-        accumulate_hiding_kernel(circuit, precomputed_vk);
-    } else {
-        accumulate_and_fold(circuit, precomputed_vk, queue_type, std::move(prover_instance));
-    }
+    accumulate_and_fold(circuit, precomputed_vk, queue_type, std::move(prover_instance));
 
     prover_instance.reset();
     if (queue_type == QUEUE_TYPE::HN_FINAL) {
@@ -758,9 +740,8 @@ ChonkProof Chonk::prove()
 
 std::shared_ptr<MegaZKFlavor::VKAndHash> Chonk::get_hiding_kernel_vk_and_hash() const
 {
-    BB_ASSERT_EQ(verification_queue.size(), 1UL, "Expected single hiding kernel VK in queue");
-    BB_ASSERT(verification_queue.front().type == QUEUE_TYPE::MEGA, "Expected MEGA proof type");
-    return std::make_shared<MegaZKFlavor::VKAndHash>(verification_queue.front().honk_vk);
+    BB_ASSERT(hiding_vk != nullptr, "Hiding kernel VK has not been computed yet");
+    return std::make_shared<MegaZKFlavor::VKAndHash>(hiding_vk);
 }
 
 } // namespace bb

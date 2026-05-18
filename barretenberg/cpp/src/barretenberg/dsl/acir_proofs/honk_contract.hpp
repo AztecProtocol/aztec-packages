@@ -222,22 +222,15 @@ uint256 constant GROUP_ELEMENT_SIZE = 0x40;
 // Powers of alpha used to batch subrelations (alpha, alpha^2, ..., alpha^(NUM_SUBRELATIONS-1))
 uint256 constant NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
 
-// ENUM FOR WIRES
+// Must match UltraFlavor_Generated::EntityId order.
 enum WIRE {
     Q_M,
-    Q_C,
     Q_L,
     Q_R,
     Q_O,
     Q_4,
-    Q_LOOKUP,
+    Q_C,
     Q_ARITH,
-    Q_RANGE,
-    Q_ELLIPTIC,
-    Q_MEMORY,
-    Q_NNF,
-    Q_POSEIDON2_EXTERNAL,
-    Q_POSEIDON2_INTERNAL,
     SIGMA_1,
     SIGMA_2,
     SIGMA_3,
@@ -246,12 +239,19 @@ enum WIRE {
     ID_2,
     ID_3,
     ID_4,
+    LAGRANGE_FIRST,
+    LAGRANGE_LAST,
+    Q_LOOKUP,
     TABLE_1,
     TABLE_2,
     TABLE_3,
     TABLE_4,
-    LAGRANGE_FIRST,
-    LAGRANGE_LAST,
+    Q_RANGE,
+    Q_ELLIPTIC,
+    Q_MEMORY,
+    Q_NNF,
+    Q_POSEIDON2_EXTERNAL,
+    Q_POSEIDON2_INTERNAL,
     W_L,
     W_R,
     W_O,
@@ -1976,33 +1976,33 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         commitments[1] = vk.qm;
-        commitments[2] = vk.qc;
-        commitments[3] = vk.ql;
-        commitments[4] = vk.qr;
-        commitments[5] = vk.qo;
-        commitments[6] = vk.q4;
-        commitments[7] = vk.qLookup;
-        commitments[8] = vk.qArith;
-        commitments[9] = vk.qDeltaRange;
-        commitments[10] = vk.qElliptic;
-        commitments[11] = vk.qMemory;
-        commitments[12] = vk.qNnf;
-        commitments[13] = vk.qPoseidon2External;
-        commitments[14] = vk.qPoseidon2Internal;
-        commitments[15] = vk.s1;
-        commitments[16] = vk.s2;
-        commitments[17] = vk.s3;
-        commitments[18] = vk.s4;
-        commitments[19] = vk.id1;
-        commitments[20] = vk.id2;
-        commitments[21] = vk.id3;
-        commitments[22] = vk.id4;
-        commitments[23] = vk.t1;
-        commitments[24] = vk.t2;
-        commitments[25] = vk.t3;
-        commitments[26] = vk.t4;
-        commitments[27] = vk.lagrangeFirst;
-        commitments[28] = vk.lagrangeLast;
+        commitments[2] = vk.ql;
+        commitments[3] = vk.qr;
+        commitments[4] = vk.qo;
+        commitments[5] = vk.q4;
+        commitments[6] = vk.qc;
+        commitments[7] = vk.qArith;
+        commitments[8] = vk.s1;
+        commitments[9] = vk.s2;
+        commitments[10] = vk.s3;
+        commitments[11] = vk.s4;
+        commitments[12] = vk.id1;
+        commitments[13] = vk.id2;
+        commitments[14] = vk.id3;
+        commitments[15] = vk.id4;
+        commitments[16] = vk.lagrangeFirst;
+        commitments[17] = vk.lagrangeLast;
+        commitments[18] = vk.qLookup;
+        commitments[19] = vk.t1;
+        commitments[20] = vk.t2;
+        commitments[21] = vk.t3;
+        commitments[22] = vk.t4;
+        commitments[23] = vk.qDeltaRange;
+        commitments[24] = vk.qElliptic;
+        commitments[25] = vk.qMemory;
+        commitments[26] = vk.qNnf;
+        commitments[27] = vk.qPoseidon2External;
+        commitments[28] = vk.qPoseidon2Internal;
 
         // Accumulate proof points
         commitments[29] = proof.w1;

@@ -60,7 +60,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
     f0.template copy_vector<FF>({ v00, v10, v01, v11 });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     std::vector<FF> gate_challenges{ 1, 1 };
@@ -107,7 +107,7 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
     std::vector<FF> gate_challenges{ 1, 1 };
 
     SumcheckProver<Flavor> sumcheck(
@@ -174,7 +174,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
     f0.template copy_vector<FF>({ v000, v100, v010, v110, v001, v101, v011, v111 });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
 
@@ -234,7 +234,7 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
     f0.template copy_vector<FF>({ v000, v100, v010, v110, v001, v101, v011, v111 });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    full_polynomials.q_m = f0;
+    full_polynomials.q_m() = f0;
 
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
@@ -305,10 +305,11 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     f2.template copy_vector<FF>({ v000[2], v100[2], v010[2], v110[2], v001[2], v101[2], v011[2], v111[2] });
 
     typename Flavor::ProverPolynomials full_polynomials;
-    // Set the first 3 ProverPolynomials
-    full_polynomials.q_m = f0;
-    full_polynomials.q_c = f1;
-    full_polynomials.q_l = f2;
+    // Assign the first three ProverPolynomials in layout order (Ultra's EntityId layout starts
+    // q_m, q_l, q_r) so that `get_all()[0..2]` lines up with f0/f1/f2.
+    full_polynomials.q_m() = f0;
+    full_polynomials.q_l() = f1;
+    full_polynomials.q_r() = f2;
     auto transcript = Transcript::test_prover_init_empty();
     FF alpha = FF(1);
     std::vector<FF> gate_challenges{ 1, 1, 1 };

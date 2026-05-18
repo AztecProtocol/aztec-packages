@@ -4,6 +4,8 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #pragma once
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -43,7 +45,7 @@ class HypernovaFoldingProver {
     using ProverInstance = ProverInstance_<Flavor>;
     using Accumulator = MultilinearBatchingProverClaim;
     using VerificationKey = Flavor::VerificationKey;
-    using VerifierCommitments = Flavor::VerifierCommitments;
+    using VerifierCommitments = typename VerifierCommitmentsConstructor<Flavor>::Commitments;
     using MegaOinkProver = OinkProver<Flavor>;
     using MegaSumcheckProver = SumcheckProver<Flavor>;
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
@@ -113,7 +115,7 @@ class HypernovaFoldingProver {
     /**
      * @brief Utility to perform batch mul of commitments.
      */
-    template <size_t N> Commitment batch_mul(const RefArray<Commitment, N>& _points, std::vector<FF>& scalars);
+    template <size_t N> Commitment batch_mul(std::span<Commitment, N> _points, std::vector<FF>& scalars);
 };
 
 } // namespace bb

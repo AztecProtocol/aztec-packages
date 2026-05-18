@@ -77,28 +77,28 @@ TEST_F(ZKBoundaryTests, EccOpWireAlignmentAtDisabledBoundary)
     constexpr size_t ecc_op_start = ProverInstance::TRACE_OFFSET;
 
     // Sanity: lagrange_ecc_op should be 1 starting at ecc_op_start
-    ASSERT_EQ(polys.lagrange_ecc_op[ecc_op_start], FF{ 1 })
+    ASSERT_EQ(polys.lagrange_ecc_op()[ecc_op_start], FF{ 1 })
         << "lagrange_ecc_op should be active at row " << ecc_op_start;
 
     // Verify alignment: ecc_op_wire[r] == w[r + NUM_ZERO_ROWS] = w_shift[r] for each active ecc_op row.
     auto ecc_op_wires = polys.get_ecc_op_wires();
     auto wires = polys.get_wires();
-    for (size_t r = ecc_op_start; polys.lagrange_ecc_op[r] == FF{ 1 }; r++) {
+    for (size_t r = ecc_op_start; polys.lagrange_ecc_op()[r] == FF{ 1 }; r++) {
         for (auto [ecc_op_wire, wire] : zip_view(ecc_op_wires, wires)) {
             ASSERT_EQ(ecc_op_wire[r], wire[r + NUM_ZERO_ROWS]) << "ecc_op_wire / w_shift mismatch at row " << r;
         }
     }
 
     // Now corrupt: ecc_op_wire[ecc_op_start] and verify EccOpQueueRelation detects it
-    FF original = polys.ecc_op_wire_1[ecc_op_start];
-    polys.ecc_op_wire_1.at(ecc_op_start) = original + FF{ 1 };
+    FF original = polys.ecc_op_wire_1()[ecc_op_start];
+    polys.ecc_op_wire_1().at(ecc_op_start) = original + FF{ 1 };
 
     auto failures = RelationChecker<void>::check<EccOpQueueRelation<FF>>(
         polys, instance->relation_parameters, "EccOpQueue", /*start_row=*/ecc_op_start);
     EXPECT_FALSE(failures.empty()) << "Corrupting ecc_op_wire at the boundary should cause EccOpQueueRelation failure";
 
     // Restore
-    polys.ecc_op_wire_1.at(ecc_op_start) = original;
+    polys.ecc_op_wire_1().at(ecc_op_start) = original;
 }
 
 /**
@@ -146,7 +146,7 @@ TEST_F(ZKBoundaryTests, DisabledRegionIsolation)
 
     // Check all relations pass on clean state (start from row TRACE_OFFSET
     // since the RelationChecker doesn't account for row-disabling)
-    auto clean_failures = RelationChecker<MegaFlavor>::check_all(polys, instance->relation_parameters);
+    auto clean_failures = RelationChecker<MegaZKFlavor>::check_all(polys, instance->relation_parameters);
     // Relations may have non-zero values at rows 0-3 (before row-disabling multiplier),
     // but should be clean in the active region. Check the specific row of each failure.
     for (auto& [name, subrel_failures] : clean_failures) {
@@ -166,9 +166,9 @@ TEST_F(ZKBoundaryTests, LagrangeFirstPosition)
     auto& polys = instance->polynomials;
 
     // lagrange_first should be 1 at row TRACE_OFFSET and 0 elsewhere
-    EXPECT_EQ(polys.lagrange_first[ProverInstance::TRACE_OFFSET], FF{ 1 });
+    EXPECT_EQ(polys.lagrange_first()[ProverInstance::TRACE_OFFSET], FF{ 1 });
     for (size_t r = 0; r < ProverInstance::TRACE_OFFSET; r++) {
-        EXPECT_EQ(polys.lagrange_first[r], FF{ 0 }) << "lagrange_first should be 0 at disabled row " << r;
+        EXPECT_EQ(polys.lagrange_first()[r], FF{ 0 }) << "lagrange_first should be 0 at disabled row " << r;
     }
 }
 
@@ -218,8 +218,8 @@ TEST_F(ZKBoundaryTests, CorruptionInActiveRegionFailsProof)
     // Find first arithmetic gate in the active region
     const size_t dyadic_size = bad_instance->dyadic_size();
     for (size_t i = ProverInstance::TRACE_OFFSET; i < dyadic_size; i++) {
-        if (bad_instance->polynomials.q_arith[i] != FF{ 0 }) {
-            bad_instance->polynomials.w_l.at(i) += FF{ 1 };
+        if (bad_instance->polynomials.q_arith()[i] != FF{ 0 }) {
+            bad_instance->polynomials.w_l().at(i) += FF{ 1 };
             break;
         }
     }

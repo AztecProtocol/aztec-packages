@@ -47,7 +47,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         }
         // Zero out z_perm — compute_grand_product will fill the active region and expects
         // z_perm[gp_start] = 0 as the initial value of the running product.
-        prover_polynomials.z_perm = Polynomial::shiftable(circuit_size, circuit_size);
+        prover_polynomials.z_perm() = Polynomial::shiftable(circuit_size, circuit_size);
 
         // Get random challenges
         auto beta = FF::random_element();
@@ -132,7 +132,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         // Check consistency between locally computed z_perm and the one computed by the prover library.
         // Only compare the active region (after disabled rows); masking values at rows 1..3 are random.
         for (size_t i = gp_start; i < circuit_size; ++i) {
-            EXPECT_EQ(prover_polynomials.z_perm[i], z_permutation_expected[i]) << "Mismatch at index " << i;
+            EXPECT_EQ(prover_polynomials.z_perm()[i], z_permutation_expected[i]) << "Mismatch at index " << i;
         }
     };
 };

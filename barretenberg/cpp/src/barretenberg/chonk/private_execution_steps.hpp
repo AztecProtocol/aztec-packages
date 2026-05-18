@@ -8,10 +8,13 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace bb {
+
+class Chonk;
 
 /**
  * @brief This is the msgpack encoding of the objects returned by the following typescript:
@@ -63,9 +66,9 @@ struct PrivateExecutionStepRaw {
  *
  */
 struct PrivateExecutionSteps {
-    std::vector<acir_format::AcirProgram> folding_stack;                      ///< ACIR programs with witnesses
-    std::vector<std::string> function_names;                                  ///< Function names for logging
-    std::vector<std::shared_ptr<Chonk::MegaVerificationKey>> precomputed_vks; ///< Precomputed VKs (performance)
+    std::vector<acir_format::AcirProgram> folding_stack; ///< ACIR programs with witnesses
+    std::vector<std::string> function_names;             ///< Function names for logging
+    std::vector<std::vector<uint8_t>> precomputed_vks;   ///< Serialized precomputed VKs (performance)
 
     /**
      * @brief Creates a Chonk instance and accumulates each circuit in the folding stack.

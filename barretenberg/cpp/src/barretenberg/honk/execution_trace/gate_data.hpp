@@ -95,7 +95,7 @@ template <typename FF> struct ecc_dbl_gate_ {
     uint32_t y3;
 };
 
-// Databus lookup gate: reads value at index from calldata/returndata
+// Databus lookup gate: reads value at index from kernel_calldata/returndata
 template <typename FF> struct databus_lookup_gate_ {
     uint32_t index;
     uint32_t value;

@@ -163,11 +163,11 @@ TYPED_TEST(UltraHonkTests, LookupFailureCorruptedReadCountsAndTags)
     auto& polynomials = prover_instance->polynomials;
 
     // Erroneously update the read counts/tags at an arbitrary index
-    polynomials.lookup_inverses = polynomials.lookup_inverses.full();
-    polynomials.lookup_read_counts = polynomials.lookup_read_counts.full();
-    polynomials.lookup_read_counts.at(25) = 1;
-    polynomials.lookup_read_tags = polynomials.lookup_read_tags.full();
-    polynomials.lookup_read_tags.at(25) = 1;
+    polynomials.lookup_inverses() = polynomials.lookup_inverses().full();
+    polynomials.lookup_read_counts() = polynomials.lookup_read_counts().full();
+    polynomials.lookup_read_counts().at(25) = 1;
+    polynomials.lookup_read_tags() = polynomials.lookup_read_tags().full();
+    polynomials.lookup_read_tags().at(25) = 1;
 
     TestFixture::prove_and_verify(prover_instance, /*expected_result=*/false);
 }
@@ -192,9 +192,10 @@ TYPED_TEST(UltraHonkTests, LookupFailureCorruptedWireValue)
 
     bool altered = false;
     // Find a lookup gate and alter one of the wire values
-    for (auto [i, q_lookup] : polynomials.q_lookup.indexed_values()) {
-        if (!q_lookup.is_zero() && polynomials.q_lookup.is_valid_set_index(i)) {
-            polynomials.w_o.at(i) += 1;
+    for (auto [i, q_lookup] : polynomials.q_lookup().indexed_values()) {
+        if (!q_lookup.is_zero() && polynomials.q_lookup().is_valid_set_index(i)) {
+            using LookupEntityId = typename TypeParam::ProverPolynomials::EntityId;
+            polynomials[LookupEntityId::w_o].at(i) += 1;
             altered = true;
             break;
         }
@@ -223,10 +224,11 @@ TYPED_TEST(UltraHonkTests, LookupFailureErroneousLookupSelector)
     auto& polynomials = prover_instance->polynomials;
 
     // Turn the lookup selector on for an arbitrary row where it is not already active
-    polynomials.lookup_inverses = polynomials.lookup_inverses.full();
-    polynomials.q_lookup = polynomials.q_lookup.full();
-    ASSERT_TRUE(polynomials.q_lookup[25] != 1);
-    polynomials.q_lookup.at(25) = 1;
+    using LookupEntityId2 = typename TypeParam::ProverPolynomials::EntityId;
+    polynomials[LookupEntityId2::lookup_inverses] = polynomials.lookup_inverses().full();
+    polynomials[LookupEntityId2::q_lookup] = polynomials.q_lookup().full();
+    ASSERT_TRUE(polynomials.q_lookup()[25] != 1);
+    polynomials[LookupEntityId2::q_lookup].at(25) = 1;
 
     TestFixture::prove_and_verify(prover_instance, /*expected_result=*/false);
 }

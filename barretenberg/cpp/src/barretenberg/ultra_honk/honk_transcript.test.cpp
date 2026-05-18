@@ -100,41 +100,46 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
 
-        // Mega-specific witness commitments: ECC op wires and databus polynomials
-        if constexpr (IsMegaFlavor<Flavor>) {
+        if constexpr (Flavor::HasEccOpQueue) {
             manifest_expected.add_entry(round, "ECC_OP_WIRE_1", data_types_per_G);
             manifest_expected.add_entry(round, "ECC_OP_WIRE_2", data_types_per_G);
             manifest_expected.add_entry(round, "ECC_OP_WIRE_3", data_types_per_G);
             manifest_expected.add_entry(round, "ECC_OP_WIRE_4", data_types_per_G);
-            manifest_expected.add_entry(round, "KERNEL_CALLDATA", data_types_per_G);
-            manifest_expected.add_entry(round, "KERNEL_CALLDATA_READ_COUNTS", data_types_per_G);
-            manifest_expected.add_entry(round, "FIRST_APP_CALLDATA", data_types_per_G);
-            manifest_expected.add_entry(round, "FIRST_APP_CALLDATA_READ_COUNTS", data_types_per_G);
-            manifest_expected.add_entry(round, "SECOND_APP_CALLDATA", data_types_per_G);
-            manifest_expected.add_entry(round, "SECOND_APP_CALLDATA_READ_COUNTS", data_types_per_G);
-            manifest_expected.add_entry(round, "THIRD_APP_CALLDATA", data_types_per_G);
-            manifest_expected.add_entry(round, "THIRD_APP_CALLDATA_READ_COUNTS", data_types_per_G);
-            manifest_expected.add_entry(round, "RETURN_DATA", data_types_per_G);
-            manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", data_types_per_G);
+        }
+        // Bus list is flavor-specific: MegaZK keeps only kernel_calldata (the hiding kernel's
+        // sole bus); MegaFlavor carries the full five-bus set.
+        constexpr std::array<const char*, 5> ALL_BUSES = {
+            "KERNEL_CALLDATA", "FIRST_APP_CALLDATA", "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA", "RETURN_DATA"
+        };
+        if constexpr (Flavor::HasDataBus) {
+            for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+                manifest_expected.add_entry(round, ALL_BUSES[i], data_types_per_G);
+                manifest_expected.add_entry(round, std::string(ALL_BUSES[i]) + "_READ_COUNTS", data_types_per_G);
+            }
         }
 
-        manifest_expected.add_challenge(round, "eta");
-
-        round++;
-        manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", data_types_per_G);
-        manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", data_types_per_G);
+        // eta is only sampled when the flavor consumes it (memory or log-derivative lookup);
+        // flavors without either (e.g. MegaZK) skip the challenge entirely, and the W_4 commit
+        // stays in the same Fiat-Shamir round as the prior wire/bus commitments.
+        if constexpr (Flavor::HasLogDerivLookup || Flavor::HasMemory) {
+            manifest_expected.add_challenge(round, "eta");
+            round++;
+        }
+        if constexpr (Flavor::HasLogDerivLookup) {
+            manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", data_types_per_G);
+        }
         manifest_expected.add_entry(round, "W_4", data_types_per_G);
         manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
-        manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
-        // Mega-specific databus inverse commitments
-        if constexpr (IsMegaFlavor<Flavor>) {
-            manifest_expected.add_entry(round, "KERNEL_CALLDATA_INVERSES", data_types_per_G);
-            manifest_expected.add_entry(round, "FIRST_APP_CALLDATA_INVERSES", data_types_per_G);
-            manifest_expected.add_entry(round, "SECOND_APP_CALLDATA_INVERSES", data_types_per_G);
-            manifest_expected.add_entry(round, "THIRD_APP_CALLDATA_INVERSES", data_types_per_G);
-            manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", data_types_per_G);
+        if constexpr (Flavor::HasLogDerivLookup) {
+            manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
+        }
+        if constexpr (Flavor::HasDataBus) {
+            for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
+                manifest_expected.add_entry(round, std::string(ALL_BUSES[i]) + "_INVERSES", data_types_per_G);
+            }
         }
         manifest_expected.add_entry(round, "Z_PERM", data_types_per_G);
 

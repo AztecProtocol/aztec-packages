@@ -150,10 +150,10 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             break;
         case TamperingMode::Instance: {
             // Tamper with w_l at the first row where q_arith is non-zero (an active arithmetic gate).
-            auto& q_arith = instance->polynomials.q_arith;
+            auto& q_arith = instance->polynomials.q_arith();
             for (size_t i = ProverInstance::TRACE_OFFSET; i < q_arith.end_index(); i++) {
                 if (!q_arith[i].is_zero()) {
-                    instance->polynomials.w_l.at(i) = NativeFF::random_element();
+                    instance->polynomials.w_l().at(i) = NativeFF::random_element();
                     break;
                 }
             }
@@ -208,11 +208,10 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         manifest.add_challenge(round, "alpha");
         manifest.add_challenge(round, "HypernovaFoldingProver:gate_challenge");
         manifest.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
-        manifest.add_entry(round, "KERNEL_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "FIRST_APP_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "SECOND_APP_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "THIRD_APP_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
+        for (const auto& bus :
+             { "KERNEL_CALLDATA", "FIRST_APP_CALLDATA", "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA", "RETURN_DATA" }) {
+            manifest.add_entry(round, std::string(bus) + "_INVERSES", frs_per_G);
+        }
         manifest.add_entry(round, "Z_PERM", frs_per_G);
         round++;
 
