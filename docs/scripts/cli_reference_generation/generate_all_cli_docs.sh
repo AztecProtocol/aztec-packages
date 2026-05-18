@@ -90,6 +90,20 @@ for cli in "${VALID_CLIS[@]}"; do
   echo ""
 done
 
+# Also regenerate the operator-facing `aztec start` reference. It is not
+# in cli_docs_config.json because it's a single flag-list dump rather than a
+# recursive command tree, and bypasses scan_cli.py. Only regenerate it when
+# writing to the default output location — when OUTPUT_DIR is set, the caller
+# is targeting a specific version directory and the operator ref isn't part
+# of that flow.
+if [[ -z "$OUTPUT_DIR" ]]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Generating Operator (aztec start) CLI Reference"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  "$SCRIPT_DIR/generate_operator_cli_ref.sh"
+  echo ""
+fi
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ All CLI Documentation Generated"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -103,6 +117,9 @@ for cli in "${VALID_CLIS[@]}"; do
     echo "  - $CLI_OUTPUT_FILE"
   fi
 done
+if [[ -z "$OUTPUT_DIR" ]]; then
+  echo "  - operators/reference/cli-reference.md"
+fi
 echo ""
 if [[ -z "$OUTPUT_DIR" ]]; then
   echo "You can now commit these changes to the repository."
