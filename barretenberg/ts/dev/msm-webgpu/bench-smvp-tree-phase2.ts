@@ -299,7 +299,7 @@ async function main() {
     log('info', `synthetic: entries=${synth.total_entries} total_outputs=${synth.total_outputs}`);
 
     const sm = new ShaderManager(4, params.slice_entries, BN254_CURVE_CONFIG, false);
-    const code = sm.gen_smvp_tree_phase2_shader(TPB, MAX_SLICE_ENTRIES);
+    const code = sm.gen_smvp_tree_phase2_shader(TPB, MAX_SLICE_ENTRIES, MAX_SLICE_ENTRIES);
     (window as unknown as Record<string, unknown>)['__shader_phase2'] = code;
     log('info', `compiling shader (${code.length} chars)`);
 

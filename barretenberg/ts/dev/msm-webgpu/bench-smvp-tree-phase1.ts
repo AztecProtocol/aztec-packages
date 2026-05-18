@@ -384,7 +384,7 @@ async function main() {
     log('info', 'constructing ShaderManager...');
     const sm = new ShaderManager(4, params.slice_entries, BN254_CURVE_CONFIG, false);
     log('info', 'generating phase1 shader source...');
-    const code = sm.gen_smvp_tree_phase1_shader(TPB, MAX_SLICE_ENTRIES);
+    const code = sm.gen_smvp_tree_phase1_shader(TPB, MAX_SLICE_ENTRIES, MAX_SLICE_ENTRIES);
     (window as unknown as Record<string, unknown>)['__shader_phase1'] = code;
     log('info', `compiling shader (${code.length} chars)`);
 

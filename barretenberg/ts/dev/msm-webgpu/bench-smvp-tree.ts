@@ -329,8 +329,8 @@ async function main() {
     log('info', `synth: entries=${synth.total_entries} buckets=${synth.bucket_pops.length} skew=${params.skewMode} ${popsSummary}`);
 
     const sm = new ShaderManager(4, synth.total_entries, BN254_CURVE_CONFIG, false);
-    const p1Code = sm.gen_smvp_tree_phase1_shader(TPB, MAX_SLICE_ENTRIES);
-    const p2Code = sm.gen_smvp_tree_phase2_shader(TPB, MAX_SLICE_ENTRIES);
+    const p1Code = sm.gen_smvp_tree_phase1_shader(TPB, MAX_SLICE_ENTRIES, MAX_SLICE_ENTRIES);
+    const p2Code = sm.gen_smvp_tree_phase2_shader(TPB, MAX_SLICE_ENTRIES, MAX_SLICE_ENTRIES);
     const ebidCode = sm.gen_smvp_tree_entry_bucket_id_shader(TPB);
     log('info', `ebidMode=${params.ebidMode}`);
     log('info', `compiling shaders (p1=${p1Code.length} p2=${p2Code.length} chars)`);

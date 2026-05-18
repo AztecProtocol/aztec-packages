@@ -47,6 +47,14 @@ var<storage, read_write> output_x: array<BigInt>;
 @group(0) @binding(8)
 var<storage, read_write> output_y: array<BigInt>;
 
+// Combined pair_idx_a/b global. Interleaved layout per WG:
+//   pair_idx_combined[wg_id * 2 * MAX_SLICE_ENTRIES + raw * 2 + 0] = idx_a
+//   pair_idx_combined[wg_id * 2 * MAX_SLICE_ENTRIES + raw * 2 + 1] = idx_b
+// Hoisted out of workgroup memory at MAX_SLICE_ENTRIES=2048; see the
+// phase1 header comment for the WG-memory accounting.
+@group(0) @binding(9)
+var<storage, read_write> pair_idx_combined: array<u32>;
+
 fn get_r() -> BigInt {
     var r: BigInt;
 {{{ r_limbs }}}
@@ -54,9 +62,13 @@ fn get_r() -> BigInt {
 }
 // `get_p()` is provided by the `montgomery_product_funcs` partial.
 
-var<workgroup> pair_idx_a: array<u32, {{ max_pairs }}>;
-var<workgroup> pair_idx_b: array<u32, {{ max_pairs }}>;
-var<workgroup> prev_raw_for_pair: array<u32, {{ max_pairs }}>;
+// prev_raw_for_pair is INDEXED by raw_slot (∈ [0, MAX_SLICE_ENTRIES)),
+// not by pair_rank — when many UNPAIRED slots precede a PAIR, the PAIR's
+// raw_slot can exceed MAX_PAIRS, so the array must be sized by
+// MAX_SLICE_ENTRIES.
+// rank_to_raw is indexed by pair_rank (∈ [0, MAX_PAIRS)), so MAX_PAIRS is
+// correct here even though its values are raw_slots (which may be larger).
+var<workgroup> prev_raw_for_pair: array<u32, {{ max_slice_entries }}>;
 var<workgroup> rank_to_raw: array<u32, {{ max_pairs }}>;
 
 var<workgroup> thread_max_break: array<u32, {{ tpb }}>;
@@ -87,6 +99,8 @@ fn main(
     if (chunk_hi_v > slice_hi) { chunk_hi_v = slice_hi; }
     if (chunk_lo > slice_hi) { chunk_hi_v = chunk_lo; }
     let chunk_hi = chunk_hi_v;
+
+    let pair_idx_base = wg_id * 2u * MAX_SLICE_ENTRIES;
 
     // === Preamble Step 1: per-thread bucket load + local "last break pos" ===
     var local_buckets: array<u32, {{ per_thread_entries }}>;
@@ -209,14 +223,14 @@ fn main(
         let e = chunk_lo + off;
         let raw = raw_w;
         raw_w = raw_w + 1u;
-        pair_idx_a[raw] = e;
+        pair_idx_combined[pair_idx_base + raw * 2u + 0u] = e;
         if ((local_pair_mask & (1u << off)) != 0u) {
-            pair_idx_b[raw] = e + 1u;
+            pair_idx_combined[pair_idx_base + raw * 2u + 1u] = e + 1u;
             let pair_rank = pair_w;
             pair_w = pair_w + 1u;
             rank_to_raw[pair_rank] = raw;
         } else {
-            pair_idx_b[raw] = UNPAIRED_SENTINEL;
+            pair_idx_combined[pair_idx_base + raw * 2u + 1u] = UNPAIRED_SENTINEL;
         }
         output_bucket_id[out_base + raw] = local_buckets[off];
     }
@@ -252,8 +266,8 @@ fn main(
         let rank = chunk_start_rank + t;
         if (rank >= total_pairs) { break; }
         let raw = rank_to_raw[rank];
-        let idx_a = pair_idx_a[raw];
-        let idx_b = pair_idx_b[raw];
+        let idx_a = pair_idx_combined[pair_idx_base + raw * 2u + 0u];
+        let idx_b = pair_idx_combined[pair_idx_base + raw * 2u + 1u];
         var p_x: BigInt = input_x[idx_a];
         var q_x: BigInt = input_x[idx_b];
         var dx: BigInt = fr_sub(&q_x, &p_x);
@@ -262,7 +276,7 @@ fn main(
         } else {
             block_total = montgomery_product(&block_total, &dx);
         }
-        prefix_scratch[wg_id * MAX_PAIRS + raw] = block_total;
+        prefix_scratch[wg_id * MAX_SLICE_ENTRIES + raw] = block_total;
     }
 
     wg_fwd[tid] = block_total;
@@ -325,8 +339,8 @@ fn main(
         if (off >= thread_pair_count_local) { break; }
         let rank = chunk_start_rank + (thread_pair_count_local - 1u - off);
         let raw = rank_to_raw[rank];
-        let idx_a = pair_idx_a[raw];
-        let idx_b = pair_idx_b[raw];
+        let idx_a = pair_idx_combined[pair_idx_base + raw * 2u + 0u];
+        let idx_b = pair_idx_combined[pair_idx_base + raw * 2u + 1u];
         var p_x: BigInt = input_x[idx_a];
         var p_y: BigInt = input_y[idx_a];
         var q_x: BigInt = input_x[idx_b];
@@ -337,7 +351,7 @@ fn main(
             inv_dx = inv_acc_local;
         } else {
             let prev_raw = prev_raw_for_pair[raw];
-            var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_PAIRS + prev_raw];
+            var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_SLICE_ENTRIES + prev_raw];
             inv_dx = montgomery_product(&inv_acc_local, &prev_prefix);
         }
 
@@ -359,12 +373,15 @@ fn main(
         }
     }
 
-    for (var off: u32 = 0u; off < (MAX_PAIRS + TPB - 1u) / TPB; off = off + 1u) {
+    // Total emitted slots can reach MAX_SLICE_ENTRIES in the worst case
+    // (all alternating buckets emit and are UNPAIRED), so iterate over
+    // ceil(MAX_SLICE_ENTRIES / TPB) chunks.
+    for (var off: u32 = 0u; off < (MAX_SLICE_ENTRIES + TPB - 1u) / TPB; off = off + 1u) {
         let i = tid + off * TPB;
         if (i >= total_outputs) { break; }
-        let idx_b = pair_idx_b[i];
+        let idx_b = pair_idx_combined[pair_idx_base + i * 2u + 1u];
         if (idx_b != UNPAIRED_SENTINEL) { continue; }
-        let idx_a = pair_idx_a[i];
+        let idx_a = pair_idx_combined[pair_idx_base + i * 2u + 0u];
         output_x[out_base + i] = input_x[idx_a];
         output_y[out_base + i] = input_y[idx_a];
     }

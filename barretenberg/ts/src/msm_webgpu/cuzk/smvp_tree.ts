@@ -37,17 +37,22 @@ const SCAN_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'uniform', // 7 params
 ];
 
+// Phase 1 binding layout. Iter 3a replaced binding 4 (slice_bounds) with
+// a uniform that carries layer-0 slice geometry (per_wg, total_entries),
+// freeing one storage slot so we can add pair_idx_combined (binding 10)
+// without exceeding maxStorageBuffersPerShaderStage = 10 on M2/SwiftShader.
 const PHASE1_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'read-only-storage', // 0 schedule
   'read-only-storage', // 1 entry_bucket_id
   'read-only-storage', // 2 point_x
   'read-only-storage', // 3 point_y
-  'read-only-storage', // 4 slice_bounds
+  'uniform', // 4 phase1_params (per_wg, total_entries)
   'read-only-storage', // 5 wg_output_offset
   'storage', // 6 prefix_scratch
   'storage', // 7 output_bucket_id
   'storage', // 8 output_x
   'storage', // 9 output_y
+  'storage', // 10 pair_idx_combined (interleaved a/b, per-WG slice)
 ];
 
 const PHASE2_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
@@ -60,6 +65,7 @@ const PHASE2_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'storage', // 6 output_bucket_id
   'storage', // 7 output_x
   'storage', // 8 output_y
+  'storage', // 9 pair_idx_combined (interleaved a/b, per-WG slice)
 ];
 
 const SCATTER_ARGS_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
@@ -71,6 +77,13 @@ const SCATTER_ARGS_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> 
 export interface RecordTreeReduceConfig {
   tpb: number;
   maxSliceEntries: number;
+  /**
+   * Cap on PAIR slots per workgroup. Decoupled from maxSliceEntries in iter
+   * 3a — the phase1/2 shaders' workgroup memory budget is sized by maxPairs,
+   * while pair_idx_a/b (sized by maxSliceEntries) sit in a global per-WG
+   * scratch buffer. Must be a multiple of tpb and ≤ maxSliceEntries.
+   */
+  maxPairs: number;
   maxLayers: number;
   preludeWgSize: number;
   scanWgSize: number;
@@ -123,7 +136,12 @@ export async function recordTreeReduce(
   workspaceCacheKeyPrefix: string,
   profiler?: Profiler,
 ): Promise<RecordTreeReduceResources> {
-  const { tpb, maxSliceEntries, maxLayers, preludeWgSize, scanWgSize } = cfg;
+  const { tpb, maxSliceEntries, maxPairs, maxLayers, preludeWgSize, scanWgSize } = cfg;
+  if (maxPairs > maxSliceEntries || maxPairs % tpb !== 0) {
+    throw new Error(
+      `recordTreeReduce: maxPairs (${maxPairs}) must be a multiple of tpb (${tpb}) and ≤ maxSliceEntries (${maxSliceEntries})`,
+    );
+  }
   const numWgsP1 = Math.max(1, Math.ceil(totalEntries / maxSliceEntries));
   const MAX_WGS = numWgsP1;
   const SCATTER_TPB = tpb;
@@ -156,9 +174,21 @@ export async function recordTreeReduce(
     context.acquirePersistentBuffer(`${wsKey}:tree:ping_y:0`, totalEntries * limbBytes),
     context.acquirePersistentBuffer(`${wsKey}:tree:ping_y:1`, totalEntries * limbBytes),
   ];
+  // prefix_scratch's per-WG stride must match the emit-slot index space
+  // (raw_slot ∈ [0, maxSliceEntries)), not the PAIR-rank space (maxPairs).
+  // The shader indexes via `prefix_scratch[wg_id * MAX_SLICE_ENTRIES + raw]`,
+  // so under-sizing to maxPairs would let raw > maxPairs writes spill
+  // into the next WG's region and corrupt its data.
   const prefixScratch = context.acquirePersistentBuffer(
     `${wsKey}:tree:prefix_scratch`,
     MAX_WGS * maxSliceEntries * limbBytes,
+  );
+  // Per-WG slice for hoisted pair_idx_a/b (interleaved (a,b) pairs).
+  // Worst case all-alternating-bucket: emits = maxSliceEntries, so
+  // each WG needs 2 * maxSliceEntries u32 slots.
+  const pairIdxCombined = context.acquirePersistentBuffer(
+    `${wsKey}:tree:pair_idx_combined`,
+    MAX_WGS * 2 * maxSliceEntries * 4,
   );
   const sliceBounds = context.acquirePersistentBuffer(
     `${wsKey}:tree:slice_bounds`,
@@ -240,6 +270,18 @@ export async function recordTreeReduce(
     device.queue.writeBuffer(scatterArgsUniform.buffer, 0, new Uint32Array([maxLayers, SCATTER_TPB, 0, 0]).buffer);
   }
 
+  // Phase-1 uniform replaces the per-layer slice_bounds storage binding
+  // for layer 0 (the only layer phase1 runs on). per_wg mirrors the
+  // prelude's `ceil(N / num_wgs)` so the shader can reconstruct
+  // slice_lo/slice_hi from wg_id alone.
+  const phase1ParamsPerWg = Math.max(1, Math.ceil(totalEntries / numWgsP1));
+  const phase1ParamsUniform = context.acquirePersistentUniform(`${wsKey}:tree:phase1_params_ub`, 16);
+  device.queue.writeBuffer(
+    phase1ParamsUniform.buffer,
+    0,
+    new Uint32Array([phase1ParamsPerWg, totalEntries, 0, 0]).buffer,
+  );
+
   // Always seed layer_counts[0] = totalEntries and dispatch_args_prelude[0..3].
   // The GPU clobbers these slots in subsequent dispatches each call,
   // so we re-seed every entry — cheap (4 + 12 bytes).
@@ -296,8 +338,8 @@ export async function recordTreeReduce(
 
   const preludeKey = `${pipeKey}:smvp_tree_layer_prelude:wg${preludeWgSize}:max_slice${maxSliceEntries}:max_wgs${MAX_WGS}`;
   const scanKey = `${pipeKey}:smvp_tree_layer_scan:wg${scanWgSize}:max_wgs${MAX_WGS}`;
-  const phase1Key = `${pipeKey}:smvp_tree_phase1:tpb${tpb}:max${maxSliceEntries}`;
-  const phase2Key = `${pipeKey}:smvp_tree_phase2:tpb${tpb}:max${maxSliceEntries}`;
+  const phase1Key = `${pipeKey}:smvp_tree_phase1:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
+  const phase2Key = `${pipeKey}:smvp_tree_phase2:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
   const scatterArgsKey = `${pipeKey}:smvp_tree_scatter_args`;
 
   const preludePipe = await context.getOrCreatePipeline(preludeKey, () =>
@@ -307,10 +349,18 @@ export async function recordTreeReduce(
     compileWithLayout(SCAN_BINDINGS, shaderManager.gen_smvp_tree_layer_scan_shader(scanWgSize, MAX_WGS), scanKey),
   );
   const phase1Pipe = await context.getOrCreatePipeline(phase1Key, () =>
-    compileWithLayout(PHASE1_BINDINGS, shaderManager.gen_smvp_tree_phase1_shader(tpb, maxSliceEntries), phase1Key),
+    compileWithLayout(
+      PHASE1_BINDINGS,
+      shaderManager.gen_smvp_tree_phase1_shader(tpb, maxSliceEntries, maxPairs),
+      phase1Key,
+    ),
   );
   const phase2Pipe = await context.getOrCreatePipeline(phase2Key, () =>
-    compileWithLayout(PHASE2_BINDINGS, shaderManager.gen_smvp_tree_phase2_shader(tpb, maxSliceEntries), phase2Key),
+    compileWithLayout(
+      PHASE2_BINDINGS,
+      shaderManager.gen_smvp_tree_phase2_shader(tpb, maxSliceEntries, maxPairs),
+      phase2Key,
+    ),
   );
   const scatterArgsPipe = await context.getOrCreatePipeline(scatterArgsKey, () =>
     compileWithLayout(SCATTER_ARGS_BINDINGS, shaderManager.gen_smvp_tree_scatter_args_shader(), scatterArgsKey),
@@ -361,10 +411,7 @@ export async function recordTreeReduce(
           { binding: 1, resource: { buffer: entryBucketId } },
           { binding: 2, resource: { buffer: pointX } },
           { binding: 3, resource: { buffer: pointY } },
-          {
-            binding: 4,
-            resource: { buffer: sliceBounds, offset: L * sliceBoundsStride, size: sliceBoundsStride },
-          },
+          { binding: 4, resource: { buffer: phase1ParamsUniform.buffer } },
           {
             binding: 5,
             resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
@@ -373,6 +420,7 @@ export async function recordTreeReduce(
           { binding: 7, resource: { buffer: pingBucketId[(L + 1) & 1] } },
           { binding: 8, resource: { buffer: pingX[(L + 1) & 1] } },
           { binding: 9, resource: { buffer: pingY[(L + 1) & 1] } },
+          { binding: 10, resource: { buffer: pairIdxCombined } },
         ],
       }),
     );
@@ -397,6 +445,7 @@ export async function recordTreeReduce(
           { binding: 6, resource: { buffer: pingBucketId[(L + 1) & 1] } },
           { binding: 7, resource: { buffer: pingX[(L + 1) & 1] } },
           { binding: 8, resource: { buffer: pingY[(L + 1) & 1] } },
+          { binding: 9, resource: { buffer: pairIdxCombined } },
         ],
       }),
     );

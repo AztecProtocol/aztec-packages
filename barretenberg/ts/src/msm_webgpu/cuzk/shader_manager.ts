@@ -518,17 +518,26 @@ export class ShaderManager {
    * until correctness gates; production target is 1024 with the
    * pair_list hoisted to global if mobile workgroup memory caps bind.
    */
-  public gen_smvp_tree_phase1_shader(tpb: number, max_slice_entries: number): string {
-    if (tpb <= 0 || max_slice_entries <= 0) {
-      throw new Error(`gen_smvp_tree_phase1_shader: tpb and max_slice_entries must be positive`);
+  public gen_smvp_tree_phase1_shader(tpb: number, max_slice_entries: number, max_pairs: number): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0) {
+      throw new Error(`gen_smvp_tree_phase1_shader: tpb, max_slice_entries, and max_pairs must be positive`);
     }
     if (max_slice_entries % tpb !== 0) {
       throw new Error(
         `gen_smvp_tree_phase1_shader: max_slice_entries (${max_slice_entries}) must be a multiple of tpb (${tpb})`,
       );
     }
-    const max_pairs = max_slice_entries; // each slot is either PAIR or UNPAIRED
-    const per_thread_pairs = Math.ceil(max_pairs / tpb);
+    if (max_pairs % tpb !== 0) {
+      throw new Error(
+        `gen_smvp_tree_phase1_shader: max_pairs (${max_pairs}) must be a multiple of tpb (${tpb})`,
+      );
+    }
+    if (max_pairs > max_slice_entries) {
+      throw new Error(
+        `gen_smvp_tree_phase1_shader: max_pairs (${max_pairs}) must not exceed max_slice_entries (${max_slice_entries})`,
+      );
+    }
+    const per_thread_pairs = max_pairs / tpb;
     const per_thread_entries = max_slice_entries / tpb;
     return mustache.render(
       smvp_tree_phase1_shader,
@@ -573,17 +582,26 @@ export class ShaderManager {
    * kernels share the shape of pair_list / prefix_scratch so the
    * orchestrator can reuse buffers across phases.
    */
-  public gen_smvp_tree_phase2_shader(tpb: number, max_slice_entries: number): string {
-    if (tpb <= 0 || max_slice_entries <= 0) {
-      throw new Error(`gen_smvp_tree_phase2_shader: tpb and max_slice_entries must be positive`);
+  public gen_smvp_tree_phase2_shader(tpb: number, max_slice_entries: number, max_pairs: number): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0) {
+      throw new Error(`gen_smvp_tree_phase2_shader: tpb, max_slice_entries, and max_pairs must be positive`);
     }
     if (max_slice_entries % tpb !== 0) {
       throw new Error(
         `gen_smvp_tree_phase2_shader: max_slice_entries (${max_slice_entries}) must be a multiple of tpb (${tpb})`,
       );
     }
-    const max_pairs = max_slice_entries;
-    const per_thread_pairs = Math.ceil(max_pairs / tpb);
+    if (max_pairs % tpb !== 0) {
+      throw new Error(
+        `gen_smvp_tree_phase2_shader: max_pairs (${max_pairs}) must be a multiple of tpb (${tpb})`,
+      );
+    }
+    if (max_pairs > max_slice_entries) {
+      throw new Error(
+        `gen_smvp_tree_phase2_shader: max_pairs (${max_pairs}) must not exceed max_slice_entries (${max_slice_entries})`,
+      );
+    }
+    const per_thread_pairs = max_pairs / tpb;
     const per_thread_entries = max_slice_entries / tpb;
     return mustache.render(
       smvp_tree_phase2_shader,

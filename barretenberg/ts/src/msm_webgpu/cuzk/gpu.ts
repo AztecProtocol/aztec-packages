@@ -17,12 +17,17 @@ export const get_device = async (): Promise<GPUDevice> => {
 
   // The tree-reduce SMVP phase1/phase2 shaders push past two of WebGPU's
   // default device limits:
-  //   - maxStorageBuffersPerShaderStage: phase1 binds 10 storage buffers
-  //     (default cap 8). Apple M2 and the Chromium SwiftShader adapter
-  //     both report 10.
-  //   - maxComputeWorkgroupStorageSize: the per-WG scratchpad needs ~27 KB
-  //     at the current TPB=64 / MAX_SLICE=1024 config (default cap 16 KB).
-  //     Apple M2 and SwiftShader both report 32 KB.
+  //   - maxStorageBuffersPerShaderStage: phase1/phase2 each bind 10
+  //     storage buffers (default cap 8). Apple M2 and the Chromium
+  //     SwiftShader adapter both report 10. Iter 3a hoists pair_idx_a/b
+  //     out of workgroup memory into one combined global binding (so the
+  //     phase1/2 WG scratchpad fits at MAX_SLICE_ENTRIES=2048) and drops
+  //     slice_bounds from phase1 (replaced by a uniform that lets layer
+  //     0 compute its slice bounds from per_wg + N), keeping phase1 at
+  //     10 storage bindings.
+  //   - maxComputeWorkgroupStorageSize: the per-WG scratchpad needs ~20 KB
+  //     at the current TPB=64 / MAX_SLICE=2048 / MAX_PAIRS=1024 config
+  //     (default cap 16 KB). Apple M2 and SwiftShader both report 32 KB.
   // We opt in to whichever values the adapter advertises, up to the
   // tree-reduce needs. Adapters that cap below still allow the stock
   // (non-tree) SMVP path; tree-reduce errors on pipeline compile.
