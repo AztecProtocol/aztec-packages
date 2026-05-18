@@ -10,6 +10,8 @@ import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
+import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
@@ -182,6 +184,25 @@ describe('full_prover', () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
+    // Per AZIP-8 / AZIP-9 rebase: deploy Parent + Child and prove a 4-call private chain to
+    // regenerate `private-kernel-inner/Prover.toml`. The Token transfers below pack into
+    // init_2 / init_3, never invoking plain `inner`; this nested chain
+    // (entrypoint → parent.private_nested_static_call → parent.private_call → child.private_get_value)
+    // is 4 private apps and the planner splits it as init_3 + inner. `proveInteraction` alone is
+    // enough to capture `pushTestData('private-kernel-inner', ...)`; no need to land the tx.
+    logger.info(`Deploying Parent + Child contracts to exercise inner kernel`);
+    const { contract: childContract } = await ChildContract.deploy(provenWallet).send({ from: sender });
+    const { contract: parentContract } = await ParentContract.deploy(provenWallet).send({ from: sender });
+    // Seed a note in child so the static private_get_value read below has something to return.
+    await childContract.methods.private_set_value(42n, sender).send({ from: sender });
+    const innerKernelInteraction = parentContract.methods.private_nested_static_call(
+      childContract.address,
+      await childContract.methods.private_get_value.selector(),
+      [42n, sender],
+    );
+    logger.info(`Proving nested-call tx to populate inner kernel test data`);
+    await proveInteraction(provenWallet, innerKernelInteraction, { from: sender });
+
     // Create the two transactions
     const { result: privateBalance } = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
     const privateSendAmount = privateBalance / 20n;
