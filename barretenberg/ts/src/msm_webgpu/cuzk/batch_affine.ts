@@ -163,6 +163,14 @@ export const smvp_batch_affine_gpu = async (
   const total_buckets = num_subtasks * num_columns;
   const num_words = shaderManager.num_words;
   const limb_byte_length = num_words * 4;
+  // PACKED 8×u32 (32 B/element) storage for the running_x/y field
+  // workspace. Implied by the fused round path (tree-reduce takes
+  // precedence and is mutually exclusive). Arithmetic still unpacks to
+  // the BigInt limb layout in-register; only the storage bytes change.
+  // pair_delta / pair_inv / pair_prefix are NOT packed — they are unused
+  // on the fused round path and consumed BigInt-layout by finalize.
+  const packed = fused_revcarry && !use_tree_reduce;
+  const field_elem_byte_length = packed ? 32 : limb_byte_length;
 
   // WINDOWS_PER_BATCH pools the pair pools of WPB consecutive subtasks
   // into ONE fr_inv_by_a per (batch, sub_wg) — see
@@ -192,7 +200,8 @@ export const smvp_batch_affine_gpu = async (
   // Each MSM call had previously paid ~80 MB × 5 buffers = ~400 MB of
   // allocator round-trips at N=2^16; collapsing those to one-time gives a
   // measurable wall-time win.
-  const ws_byte_len = total_buckets * limb_byte_length;
+  // running_x/y are field-element buffers — packed sizing on fused path.
+  const ws_byte_len = total_buckets * field_elem_byte_length;
   // `input_size` must be part of the key. The workspace buffers
   // themselves are sized by (num_subtasks, num_columns, num_words), but
   // the bind groups under this key also capture `point_x_sb`/`point_y_sb`
@@ -203,7 +212,10 @@ export const smvp_batch_affine_gpu = async (
   // logN=16 stays bound to logN=16's CachedBases and CSR buffers, which
   // are destroyed when the harness moves to logN=17 — kernels then
   // dispatch against dead/zero buffers and the MSM returns identity.
-  const ws_key = `bn254:ba:${num_subtasks}:${num_columns}:${num_words}:${input_size}`;
+  // `packed` part of the key: packed running_x/y are 32 B/element vs
+  // num_words·4 B baseline and init/schedule/finalize shaders differ —
+  // a cached buffer / bind group must never alias across layouts.
+  const ws_key = `bn254:ba:${num_subtasks}:${num_columns}:${num_words}:${input_size}:${packed ? 'pk' : 'bi'}`;
   const acquire_ws = (suffix: string, size: number): GPUBuffer =>
     context !== undefined ? context.acquirePersistentBuffer(`${ws_key}:${suffix}`, size) : create_sb(device, size);
 
@@ -319,8 +331,8 @@ export const smvp_batch_affine_gpu = async (
   // cost).
   const NUM_SUB_WGS_PER_SUBTASK = 8;
 
-  const init_shader = shaderManager.gen_batch_affine_init_shader(init_workgroup_size);
-  const schedule_shader = shaderManager.gen_batch_affine_schedule_shader(schedule_workgroup_size);
+  const init_shader = shaderManager.gen_batch_affine_init_shader(init_workgroup_size, packed);
+  const schedule_shader = shaderManager.gen_batch_affine_schedule_shader(schedule_workgroup_size, packed);
   const dispatch_args_shader = shaderManager.gen_batch_affine_dispatch_args_shader(WINDOWS_PER_BATCH);
   // Multi-workgroup batch-inverse (W sub-WGs per (batch, sub_wg)). See
   // batch_inverse_parallel.template.wgsl for the algorithm.
@@ -351,8 +363,16 @@ export const smvp_batch_affine_gpu = async (
   // its inv_delta and finishes the affine add. Replaces the previous
   // monolithic finalize that called fr_inv per thread (~150 ms at
   // T*h ≈ 524 K threads).
-  const finalize_collect_shader = shaderManager.gen_batch_affine_finalize_collect_shader(f_workgroup_size, num_columns);
-  const finalize_apply_shader = shaderManager.gen_batch_affine_finalize_apply_shader(f_workgroup_size, num_columns);
+  const finalize_collect_shader = shaderManager.gen_batch_affine_finalize_collect_shader(
+    f_workgroup_size,
+    num_columns,
+    packed,
+  );
+  const finalize_apply_shader = shaderManager.gen_batch_affine_finalize_apply_shader(
+    f_workgroup_size,
+    num_columns,
+    packed,
+  );
 
   const _compile_t0 = performance.now();
 
@@ -372,7 +392,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     init_shader,
     context,
-    `bn254:batch_affine_init:${num_columns}:${input_size}`,
+    `bn254:batch_affine_init:${num_columns}:${input_size}:${packed ? 'pk' : 'bi'}`,
   );
 
   const schedule_pipe = await compile_pipeline_for(
@@ -390,7 +410,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     schedule_shader,
     context,
-    `bn254:batch_affine_schedule:xsubtask-v1:${num_columns}:${input_size}`,
+    `bn254:batch_affine_schedule:xsubtask-v1:${num_columns}:${input_size}:${packed ? 'pk' : 'bi'}`,
   );
 
   const inverse_pipe = await compile_pipeline_for(
@@ -480,7 +500,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     finalize_collect_shader,
     context,
-    `bn254:batch_affine_finalize_collect:v1:${num_columns}:${input_size}:${f_workgroup_size}`,
+    `bn254:batch_affine_finalize_collect:v1:${num_columns}:${input_size}:${f_workgroup_size}:${packed ? 'pk' : 'bi'}`,
   );
 
   const finalize_apply_pipe = await compile_pipeline_for(
@@ -497,7 +517,7 @@ export const smvp_batch_affine_gpu = async (
     ],
     finalize_apply_shader,
     context,
-    `bn254:batch_affine_finalize_apply:v1:${num_columns}:${input_size}:${f_workgroup_size}`,
+    `bn254:batch_affine_finalize_apply:v1:${num_columns}:${input_size}:${f_workgroup_size}:${packed ? 'pk' : 'bi'}`,
   );
 
   cpu_timer?.accumulate('compile_smvp_batch_affine', performance.now() - _compile_t0);

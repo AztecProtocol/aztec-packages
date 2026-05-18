@@ -6,6 +6,23 @@
 
 /// Used as input buffers for the bucket sums from SMVP, but also repurposed to
 /// store the m points.
+{{#packed}}
+@group(0) @binding(0)
+var<storage, read_write> bucket_sum_x: array<vec4<u32>>;
+@group(0) @binding(1)
+var<storage, read_write> bucket_sum_y: array<vec4<u32>>;
+@group(0) @binding(2)
+var<storage, read_write> bucket_sum_z: array<vec4<u32>>;
+
+// Output buffers to store the g points
+@group(0) @binding(3)
+var<storage, read_write> g_points_x: array<vec4<u32>>;
+@group(0) @binding(4)
+var<storage, read_write> g_points_y: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> g_points_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(0)
 var<storage, read_write> bucket_sum_x: array<BigInt>;
 @group(0) @binding(1)
@@ -20,6 +37,7 @@ var<storage, read_write> g_points_x: array<BigInt>;
 var<storage, read_write> g_points_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> g_points_z: array<BigInt>;
+{{/packed}}
 
 // Uniform storage buffer. Layout: (subtask_idx_base, num_columns,
 // num_subtasks_per_bpr, num_subtasks_total). The 4th slot is the
@@ -51,6 +69,27 @@ var<storage, read_write> debug_capture: array<BigInt>;
 // Always declared (zero cost when unused). NOT a binding — workgroup
 // scope only.
 var<workgroup> bench_sink: atomic<u32>;
+
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed_rw(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed_rw(base_elem: u32, dst: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*dst)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*dst)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -92,11 +131,20 @@ fn double_and_add(point: Point, scalar: u32) -> Point {
 }
 
 fn load_bucket_sum(idx: u32) -> Point {
+{{#packed}}
+    return Point(
+        load_packed_rw(idx, &bucket_sum_x),
+        load_packed_rw(idx, &bucket_sum_y),
+        load_packed_rw(idx, &bucket_sum_z)
+    );
+{{/packed}}
+{{^packed}}
     return Point(
         bucket_sum_x[idx],
         bucket_sum_y[idx],
         bucket_sum_z[idx]
     );
+{{/packed}}
 }
 
 // Separate helper for g_points. Must NOT inline an equivalent
@@ -108,20 +156,37 @@ fn load_bucket_sum(idx: u32) -> Point {
 // diagnostic v7..v9 in src/submission/miscellaneous/tests/
 // jacobian_bn254.test.ts for the localization.
 fn load_g_point(t: u32) -> Point {
+{{#packed}}
+    return Point(
+        load_packed_rw(t, &g_points_x),
+        load_packed_rw(t, &g_points_y),
+        load_packed_rw(t, &g_points_z)
+    );
+{{/packed}}
+{{^packed}}
     return Point(
         g_points_x[t],
         g_points_y[t],
         g_points_z[t]
     );
+{{/packed}}
 }
 
 // Symmetric helper to load_g_point. Currently unused — the inline stage_2
 // formula writes g_points_*[t] directly. Kept available for future call-sites
 // that need to dodge caller-side struct-slot quirks on Dawn/Metal.
 fn store_g_point(t: u32, p: Point) {
+{{#packed}}
+    var px = p.x; var py = p.y; var pz = p.z;
+    store_packed_rw(t, &g_points_x, &px);
+    store_packed_rw(t, &g_points_y, &py);
+    store_packed_rw(t, &g_points_z, &pz);
+{{/packed}}
+{{^packed}}
     g_points_x[t] = p.x;
     g_points_y[t] = p.y;
     g_points_z[t] = p.z;
+{{/packed}}
 }
 
 // Microbench helpers. Synthesize a Point from per-thread/per-iter seeds so
@@ -497,6 +562,18 @@ fn stage_1(
         atomicXor(&bench_sink, m.x.limbs[0] ^ g.x.limbs[0] ^ t);
 {{/bench_skip_writes}}
 {{^bench_skip_writes}}
+{{#packed}}
+        var m_x = m.x; var m_y = m.y; var m_z = m.z;
+        store_packed_rw(idx, &bucket_sum_x, &m_x);
+        store_packed_rw(idx, &bucket_sum_y, &m_y);
+        store_packed_rw(idx, &bucket_sum_z, &m_z);
+
+        var g_x = g.x; var g_y = g.y; var g_z = g.z;
+        store_packed_rw(t, &g_points_x, &g_x);
+        store_packed_rw(t, &g_points_y, &g_y);
+        store_packed_rw(t, &g_points_z, &g_z);
+{{/packed}}
+{{^packed}}
         bucket_sum_x[idx] = m.x;
         bucket_sum_y[idx] = m.y;
         bucket_sum_z[idx] = m.z;
@@ -504,6 +581,7 @@ fn stage_1(
         g_points_x[t] = g.x;
         g_points_y[t] = g.y;
         g_points_z[t] = g.z;
+{{/packed}}
 {{/bench_skip_writes}}
     } // end of w_local loop (WPB-aware multi-window outer)
 
@@ -649,9 +727,16 @@ fn stage_2(
         }
     }
 
+{{#packed}}
+        store_packed_rw(t, &g_points_x, &X3_out);
+        store_packed_rw(t, &g_points_y, &Y3_out);
+        store_packed_rw(t, &g_points_z, &Z3_out);
+{{/packed}}
+{{^packed}}
         g_points_x[t] = X3_out;
         g_points_y[t] = Y3_out;
         g_points_z[t] = Z3_out;
+{{/packed}}
 
         {{#capture_debug}}
         // Final values of the formula outputs, read from outer scope.

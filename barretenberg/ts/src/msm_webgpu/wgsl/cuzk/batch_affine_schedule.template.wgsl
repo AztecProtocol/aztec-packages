@@ -22,10 +22,18 @@
 var<storage, read> row_ptr: array<u32>;
 @group(0) @binding(1)
 var<storage, read> val_idx: array<u32>;
+{{#packed}}
+@group(0) @binding(2)
+var<storage, read> new_point_x: array<vec4<u32>>;
+@group(0) @binding(3)
+var<storage, read> running_x: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(2)
 var<storage, read> new_point_x: array<BigInt>;
 @group(0) @binding(3)
 var<storage, read> running_x: array<BigInt>;
+{{/packed}}
 
 @group(0) @binding(4)
 var<storage, read_write> bucket_cursor: array<u32>;
@@ -51,6 +59,21 @@ var<storage, read_write> pair_counter: array<atomic<u32>>;
 @group(0) @binding(8)
 var<uniform> params: vec4<u32>;
 
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+{{/packed}}
+
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -74,8 +97,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Look up Q's index in new_point_x.
     let pt_idx = val_idx[vi_offset + cursor];
+{{#packed}}
+    var q_x: BigInt = load_packed(pt_idx, &new_point_x);
+    var p_x: BigInt = load_packed(bucket_global, &running_x);
+{{/packed}}
+{{^packed}}
     var q_x: BigInt = new_point_x[pt_idx];
     var p_x: BigInt = running_x[bucket_global];
+{{/packed}}
 
     // delta = Q.x - P.x. fr_sub returns canonical zero if Q.x == P.x.
     var delta: BigInt = fr_sub(&q_x, &p_x);

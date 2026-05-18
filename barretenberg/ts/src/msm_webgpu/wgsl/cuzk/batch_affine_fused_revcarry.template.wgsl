@@ -17,17 +17,10 @@
 //   one fr_inv_by_a(suf[base]) for the whole slice
 //   ascending : inv_dx_k recovered from suf, lean affine add, scatter
 //
-// Field values are stored in the 20x13-bit BigInt limb layout shared by
-// the rest of the pipeline (init / schedule / finalize), so this kernel
-// drops in behind the boolean `fused_revcarry` flag without any pack /
-// unpack conversion stage: schedule keeps reading `running_x` (BigInt)
-// for its collision check and this kernel reads/writes the same buffers.
-// montmul is whatever the shader manager injects (Karatsuba+Yuval) and
-// the inversion is the existing BY-safegcd fr_inv_by_a — the same driver
-// batch_inverse_parallel uses. The single-inversion suffix-product and
-// the lean affine apply are the ba_rev_packed_carry techniques and the
-// real win here; packed 8xu32 storage is a separate memory optimisation
-// deliberately left as a follow-up so this path is provably correct.
+// Field values are stored PACKED (8x u32 = two vec4<u32>) and unpacked to
+// limbs only in-register via the decoupled (full-ILP) pack/unpack. montmul
+// is Karatsuba+Yuval and the inversion is BY-safegcd fr_inv_by_a (injected
+// partials), exactly as in ba_rev_packed_carry.
 //
 // Slots in one subtask pool are distinct buckets (the scheduler pulls one
 // pair per active bucket per round), so there is no intra-slice RAW hazard
@@ -41,28 +34,40 @@ const SCHUNK: u32 = {{ schunk }}u;
 @group(0) @binding(0)
 var<storage, read> val_idx: array<u32>;
 @group(0) @binding(1)
-var<storage, read> new_point_x: array<BigInt>;
+var<storage, read> new_point_x: array<vec4<u32>>;
 @group(0) @binding(2)
-var<storage, read> new_point_y: array<BigInt>;
+var<storage, read> new_point_y: array<vec4<u32>>;
 @group(0) @binding(3)
-var<storage, read_write> running_x: array<BigInt>;
+var<storage, read_write> running_x: array<vec4<u32>>;
 @group(0) @binding(4)
-var<storage, read_write> running_y: array<BigInt>;
-// pair_target_meta packs (bucket_global, q_cursor) per pair as TWO u32s,
-// exactly as the schedule kernel writes it:
-//   pair_target_meta[2*i]     = bucket_global
-//   pair_target_meta[2*i + 1] = q_cursor
+var<storage, read_write> running_y: array<vec4<u32>>;
 @group(0) @binding(5)
 var<storage, read> pair_target_meta: array<u32>;
-// Per-subtask atomic counters. count_buf[subtask_idx] gives the number
-// of active pairs the schedule kernel emitted for that subtask in this
-// round (forwarded into round_count by the dispatch_args kernel).
 @group(0) @binding(6)
 var<storage, read_write> count_buf: array<atomic<u32>>;
 
 // params[0] = num_columns ; params[1] = input_size
 @group(0) @binding(7)
 var<uniform> params: vec4<u32>;
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*src)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*src)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
 
 @compute
 @workgroup_size({{ workgroup_size }})
@@ -95,8 +100,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let bucket = pair_target_meta[2u * slot];
         let q_cursor = pair_target_meta[2u * slot + 1u];
         let pt_idx = val_idx[vi_offset + q_cursor];
-        var p_x = running_x[bucket];
-        var q_x = new_point_x[pt_idx];
+        var p_x = load_packed(bucket, &running_x);
+        var q_x = load_packed(pt_idx, &new_point_x);
         var dx = fr_sub(&q_x, &p_x);
         if (jj == 0u) {
             acc = dx;
@@ -118,10 +123,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let q_cursor = pair_target_meta[2u * slot + 1u];
         let pt_idx = val_idx[vi_offset + q_cursor];
 
-        var p_x = running_x[bucket];
-        var p_y = running_y[bucket];
-        var q_x = new_point_x[pt_idx];
-        var q_y = new_point_y[pt_idx];
+        var p_x = load_packed(bucket, &running_x);
+        var p_y = load_packed(bucket, &running_y);
+        var q_x = load_packed(pt_idx, &new_point_x);
+        var q_y = load_packed(pt_idx, &new_point_y);
 
         var inv_dx: BigInt;
         if (i + 1u < len) {
@@ -140,8 +145,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var r_y = montgomery_product(&lambda, &dxb);
         r_y = fr_sub(&r_y, &p_y);
 
-        running_x[bucket] = r_x;
-        running_y[bucket] = r_y;
+        store_packed(bucket, &running_x, &r_x);
+        store_packed(bucket, &running_y, &r_y);
 
         if (i + 1u < len) {
             var dx_fwd = fr_sub(&q_x, &p_x);

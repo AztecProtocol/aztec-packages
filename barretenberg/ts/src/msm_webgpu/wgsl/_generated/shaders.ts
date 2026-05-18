@@ -2008,6 +2008,24 @@ export const batch_affine_finalize_apply = `{{> structs }}
 // fr_sub / montgomery_product, same write order. So downstream BPR is
 // unaffected.
 
+{{#packed}}
+@group(0) @binding(0)
+var<storage, read> running_x: array<vec4<u32>>;
+@group(0) @binding(1)
+var<storage, read> running_y: array<vec4<u32>>;
+@group(0) @binding(2)
+var<storage, read> bucket_active: array<u32>;
+@group(0) @binding(3)
+var<storage, read> pair_inv: array<BigInt>;
+
+@group(0) @binding(4)
+var<storage, read_write> bucket_x: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> bucket_y: array<vec4<u32>>;
+@group(0) @binding(6)
+var<storage, read_write> bucket_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(0)
 var<storage, read> running_x: array<BigInt>;
 @group(0) @binding(1)
@@ -2023,6 +2041,7 @@ var<storage, read_write> bucket_x: array<BigInt>;
 var<storage, read_write> bucket_y: array<BigInt>;
 @group(0) @binding(6)
 var<storage, read_write> bucket_z: array<BigInt>;
+{{/packed}}
 
 @group(0) @binding(7)
 var<uniform> params: vec4<u32>;
@@ -2030,6 +2049,27 @@ var<uniform> params: vec4<u32>;
 // params[1] = num_z_workgroups
 // params[2] = subtask_offset
 // params[3] = workspace_stride
+
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed_ro(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed_rw(base_elem: u32, dst: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*dst)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*dst)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -2039,7 +2079,12 @@ fn get_r() -> BigInt {
 
 fn neg_y(running_idx: u32) -> BigInt {
     var p_mod = get_p();
+{{#packed}}
+    var y = load_packed_ro(running_idx, &running_y);
+{{/packed}}
+{{^packed}}
     var y = running_y[running_idx];
+{{/packed}}
     var ny: BigInt;
     let _b = bigint_sub(&p_mod, &y, &ny);
     return ny;
@@ -2087,11 +2132,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (bucket_idx > 0u) {
             let workspace_idx = workspace_offset + row_idx;
             if (bucket_active[workspace_idx] != 0u) {
+{{#packed}}
+                p1_x = load_packed_ro(workspace_idx, &running_x);
+{{/packed}}
+{{^packed}}
                 p1_x = running_x[workspace_idx];
+{{/packed}}
                 if (negate) {
                     p1_y = neg_y(workspace_idx);
                 } else {
+{{#packed}}
+                    p1_y = load_packed_ro(workspace_idx, &running_y);
+{{/packed}}
+{{^packed}}
                     p1_y = running_y[workspace_idx];
+{{/packed}}
                 }
                 p1_active = true;
             }
@@ -2116,11 +2171,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (bucket_idx > 0u) {
             let workspace_idx = workspace_offset + row_idx;
             if (bucket_active[workspace_idx] != 0u) {
+{{#packed}}
+                p2_x = load_packed_ro(workspace_idx, &running_x);
+{{/packed}}
+{{^packed}}
                 p2_x = running_x[workspace_idx];
+{{/packed}}
                 if (negate) {
                     p2_y = neg_y(workspace_idx);
                 } else {
+{{#packed}}
+                    p2_y = load_packed_ro(workspace_idx, &running_y);
+{{/packed}}
+{{^packed}}
                     p2_y = running_y[workspace_idx];
+{{/packed}}
                 }
                 p2_active = true;
             }
@@ -2146,9 +2211,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var ldx = montgomery_product(&lambda, &dx_back);
     var r_y = fr_sub(&ldx, &p1_y);
 
+    var r_z = get_r();
+{{#packed}}
+    store_packed_rw(bi, &bucket_x, &r_x);
+    store_packed_rw(bi, &bucket_y, &r_y);
+    store_packed_rw(bi, &bucket_z, &r_z);
+{{/packed}}
+{{^packed}}
     bucket_x[bi] = r_x;
     bucket_y[bi] = r_y;
-    bucket_z[bi] = get_r();
+    bucket_z[bi] = r_z;
+{{/packed}}
 
     {{{ recompile }}}
 }
@@ -2182,6 +2255,22 @@ export const batch_affine_finalize_collect = `{{> structs }}
 // only consumes inv_delta when bot sides are active, so the placeholder
 // inverse value is never used.
 
+{{#packed}}
+@group(0) @binding(0)
+var<storage, read> running_x: array<vec4<u32>>;
+@group(0) @binding(1)
+var<storage, read> running_y: array<vec4<u32>>;
+@group(0) @binding(2)
+var<storage, read> bucket_active: array<u32>;
+
+@group(0) @binding(3)
+var<storage, read_write> bucket_x: array<vec4<u32>>;
+@group(0) @binding(4)
+var<storage, read_write> bucket_y: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> bucket_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(0)
 var<storage, read> running_x: array<BigInt>;
 @group(0) @binding(1)
@@ -2195,6 +2284,7 @@ var<storage, read_write> bucket_x: array<BigInt>;
 var<storage, read_write> bucket_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> bucket_z: array<BigInt>;
+{{/packed}}
 
 @group(0) @binding(6)
 var<storage, read_write> pair_delta: array<BigInt>;
@@ -2206,17 +2296,56 @@ var<uniform> params: vec4<u32>;
 // params[2] = subtask_offset
 // params[3] = workspace_stride
 
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed_ro(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed_rw(base_elem: u32, dst: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*dst)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*dst)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
+
 fn get_r() -> BigInt {
     var r: BigInt;
 {{{ r_limbs }}}
     return r;
 }
 
+fn store_bucket(bi: u32, xv: ptr<function, BigInt>, yv: ptr<function, BigInt>, zv: ptr<function, BigInt>) {
+{{#packed}}
+    store_packed_rw(bi, &bucket_x, xv);
+    store_packed_rw(bi, &bucket_y, yv);
+    store_packed_rw(bi, &bucket_z, zv);
+{{/packed}}
+{{^packed}}
+    bucket_x[bi] = *xv;
+    bucket_y[bi] = *yv;
+    bucket_z[bi] = *zv;
+{{/packed}}
+}
+
 // Field negation in canonical form: returns (p - y) mod p. fr_sub
 // outputs guarantee 0 <= y < p so this is safe.
 fn neg_y(running_idx: u32) -> BigInt {
     var p_mod = get_p();
+{{#packed}}
+    var y = load_packed_ro(running_idx, &running_y);
+{{/packed}}
+{{^packed}}
     var y = running_y[running_idx];
+{{/packed}}
     var ny: BigInt;
     let _b = bigint_sub(&p_mod, &y, &ny);
     return ny;
@@ -2264,11 +2393,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (bucket_idx > 0u) {
             let workspace_idx = workspace_offset + row_idx;
             if (bucket_active[workspace_idx] != 0u) {
+{{#packed}}
+                p1_x = load_packed_ro(workspace_idx, &running_x);
+{{/packed}}
+{{^packed}}
                 p1_x = running_x[workspace_idx];
+{{/packed}}
                 if (negate) {
                     p1_y = neg_y(workspace_idx);
                 } else {
+{{#packed}}
+                    p1_y = load_packed_ro(workspace_idx, &running_y);
+{{/packed}}
+{{^packed}}
                     p1_y = running_y[workspace_idx];
+{{/packed}}
                 }
                 p1_active = true;
             }
@@ -2293,11 +2432,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (bucket_idx > 0u) {
             let workspace_idx = workspace_offset + row_idx;
             if (bucket_active[workspace_idx] != 0u) {
+{{#packed}}
+                p2_x = load_packed_ro(workspace_idx, &running_x);
+{{/packed}}
+{{^packed}}
                 p2_x = running_x[workspace_idx];
+{{/packed}}
                 if (negate) {
                     p2_y = neg_y(workspace_idx);
                 } else {
+{{#packed}}
+                    p2_y = load_packed_ro(workspace_idx, &running_y);
+{{/packed}}
+{{^packed}}
                     p2_y = running_y[workspace_idx];
+{{/packed}}
                 }
                 p2_active = true;
             }
@@ -2307,25 +2456,22 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // ---- Cases ----
     if (!p1_active && !p2_active) {
         var zero: BigInt;
-        bucket_x[bi] = zero;
-        bucket_y[bi] = get_r();
-        bucket_z[bi] = zero;
+        var r_val = get_r();
+        store_bucket(bi, &zero, &r_val, &zero);
         pair_delta[id] = get_r(); // placeholder — never consumed.
         return;
     }
 
     if (!p2_active) {
-        bucket_x[bi] = p1_x;
-        bucket_y[bi] = p1_y;
-        bucket_z[bi] = get_r();
+        var r_val = get_r();
+        store_bucket(bi, &p1_x, &p1_y, &r_val);
         pair_delta[id] = get_r();
         return;
     }
 
     if (!p1_active) {
-        bucket_x[bi] = p2_x;
-        bucket_y[bi] = p2_y;
-        bucket_z[bi] = get_r();
+        var r_val = get_r();
+        store_bucket(bi, &p2_x, &p2_y, &r_val);
         pair_delta[id] = get_r();
         return;
     }
@@ -2357,17 +2503,10 @@ export const batch_affine_fused_revcarry = `{{> structs }}
 //   one fr_inv_by_a(suf[base]) for the whole slice
 //   ascending : inv_dx_k recovered from suf, lean affine add, scatter
 //
-// Field values are stored in the 20x13-bit BigInt limb layout shared by
-// the rest of the pipeline (init / schedule / finalize), so this kernel
-// drops in behind the boolean \`fused_revcarry\` flag without any pack /
-// unpack conversion stage: schedule keeps reading \`running_x\` (BigInt)
-// for its collision check and this kernel reads/writes the same buffers.
-// montmul is whatever the shader manager injects (Karatsuba+Yuval) and
-// the inversion is the existing BY-safegcd fr_inv_by_a — the same driver
-// batch_inverse_parallel uses. The single-inversion suffix-product and
-// the lean affine apply are the ba_rev_packed_carry techniques and the
-// real win here; packed 8xu32 storage is a separate memory optimisation
-// deliberately left as a follow-up so this path is provably correct.
+// Field values are stored PACKED (8x u32 = two vec4<u32>) and unpacked to
+// limbs only in-register via the decoupled (full-ILP) pack/unpack. montmul
+// is Karatsuba+Yuval and the inversion is BY-safegcd fr_inv_by_a (injected
+// partials), exactly as in ba_rev_packed_carry.
 //
 // Slots in one subtask pool are distinct buckets (the scheduler pulls one
 // pair per active bucket per round), so there is no intra-slice RAW hazard
@@ -2381,28 +2520,40 @@ const SCHUNK: u32 = {{ schunk }}u;
 @group(0) @binding(0)
 var<storage, read> val_idx: array<u32>;
 @group(0) @binding(1)
-var<storage, read> new_point_x: array<BigInt>;
+var<storage, read> new_point_x: array<vec4<u32>>;
 @group(0) @binding(2)
-var<storage, read> new_point_y: array<BigInt>;
+var<storage, read> new_point_y: array<vec4<u32>>;
 @group(0) @binding(3)
-var<storage, read_write> running_x: array<BigInt>;
+var<storage, read_write> running_x: array<vec4<u32>>;
 @group(0) @binding(4)
-var<storage, read_write> running_y: array<BigInt>;
-// pair_target_meta packs (bucket_global, q_cursor) per pair as TWO u32s,
-// exactly as the schedule kernel writes it:
-//   pair_target_meta[2*i]     = bucket_global
-//   pair_target_meta[2*i + 1] = q_cursor
+var<storage, read_write> running_y: array<vec4<u32>>;
 @group(0) @binding(5)
 var<storage, read> pair_target_meta: array<u32>;
-// Per-subtask atomic counters. count_buf[subtask_idx] gives the number
-// of active pairs the schedule kernel emitted for that subtask in this
-// round (forwarded into round_count by the dispatch_args kernel).
 @group(0) @binding(6)
 var<storage, read_write> count_buf: array<atomic<u32>>;
 
 // params[0] = num_columns ; params[1] = input_size
 @group(0) @binding(7)
 var<uniform> params: vec4<u32>;
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*src)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*src)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
 
 @compute
 @workgroup_size({{ workgroup_size }})
@@ -2435,8 +2586,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let bucket = pair_target_meta[2u * slot];
         let q_cursor = pair_target_meta[2u * slot + 1u];
         let pt_idx = val_idx[vi_offset + q_cursor];
-        var p_x = running_x[bucket];
-        var q_x = new_point_x[pt_idx];
+        var p_x = load_packed(bucket, &running_x);
+        var q_x = load_packed(pt_idx, &new_point_x);
         var dx = fr_sub(&q_x, &p_x);
         if (jj == 0u) {
             acc = dx;
@@ -2458,10 +2609,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let q_cursor = pair_target_meta[2u * slot + 1u];
         let pt_idx = val_idx[vi_offset + q_cursor];
 
-        var p_x = running_x[bucket];
-        var p_y = running_y[bucket];
-        var q_x = new_point_x[pt_idx];
-        var q_y = new_point_y[pt_idx];
+        var p_x = load_packed(bucket, &running_x);
+        var p_y = load_packed(bucket, &running_y);
+        var q_x = load_packed(pt_idx, &new_point_x);
+        var q_y = load_packed(pt_idx, &new_point_y);
 
         var inv_dx: BigInt;
         if (i + 1u < len) {
@@ -2480,8 +2631,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var r_y = montgomery_product(&lambda, &dxb);
         r_y = fr_sub(&r_y, &p_y);
 
-        running_x[bucket] = r_x;
-        running_y[bucket] = r_y;
+        store_packed(bucket, &running_x, &r_x);
+        store_packed(bucket, &running_y, &r_y);
 
         if (i + 1u < len) {
             var dx_fwd = fr_sub(&q_x, &p_x);
@@ -2525,6 +2676,20 @@ var<storage, read> row_ptr: array<u32>;
 // val_idx layout: (num_subtasks * input_size) entries.
 @group(0) @binding(1)
 var<storage, read> val_idx: array<u32>;
+{{#packed}}
+@group(0) @binding(2)
+var<storage, read> new_point_x: array<vec4<u32>>;
+@group(0) @binding(3)
+var<storage, read> new_point_y: array<vec4<u32>>;
+
+// Workspace: (num_subtasks * num_columns) entries.
+// running_x/y[subtask_idx * num_columns + bucket_local] = current sum
+@group(0) @binding(4)
+var<storage, read_write> running_x: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> running_y: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(2)
 var<storage, read> new_point_x: array<BigInt>;
 @group(0) @binding(3)
@@ -2536,6 +2701,7 @@ var<storage, read> new_point_y: array<BigInt>;
 var<storage, read_write> running_x: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> running_y: array<BigInt>;
+{{/packed}}
 @group(0) @binding(6)
 var<storage, read_write> bucket_cursor: array<u32>;
 @group(0) @binding(7)
@@ -2547,6 +2713,18 @@ var<storage, read_write> bucket_active: array<u32>;
 // params[3] = unused
 @group(0) @binding(8)
 var<uniform> params: vec4<u32>;
+
+{{#packed}}
+// Both new_point_* and running_* are packed 8×u32 (two vec4<u32>). The
+// seed copy is a layout-identical raw element copy — no unpack/pack
+// needed, the destination element bytes equal the source element bytes.
+fn copy_packed(dst_elem: u32, src_elem: u32,
+                dst: ptr<storage, array<vec4<u32>>, read_write>,
+                src: ptr<storage, array<vec4<u32>>, read>) {
+    (*dst)[2u * dst_elem]      = (*src)[2u * src_elem];
+    (*dst)[2u * dst_elem + 1u] = (*src)[2u * src_elem + 1u];
+}
+{{/packed}}
 
 @compute
 @workgroup_size({{ workgroup_size }})
@@ -2579,8 +2757,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Seed from first point in the bucket.
     let pt_idx = val_idx[vi_offset + row_begin];
+{{#packed}}
+    copy_packed(bucket_global, pt_idx, &running_x, &new_point_x);
+    copy_packed(bucket_global, pt_idx, &running_y, &new_point_y);
+{{/packed}}
+{{^packed}}
     running_x[bucket_global] = new_point_x[pt_idx];
     running_y[bucket_global] = new_point_y[pt_idx];
+{{/packed}}
     bucket_cursor[bucket_global] = row_begin + 1u;
     bucket_active[bucket_global] = 1u;
 
@@ -2612,10 +2796,18 @@ export const batch_affine_schedule = `{{> structs }}
 var<storage, read> row_ptr: array<u32>;
 @group(0) @binding(1)
 var<storage, read> val_idx: array<u32>;
+{{#packed}}
+@group(0) @binding(2)
+var<storage, read> new_point_x: array<vec4<u32>>;
+@group(0) @binding(3)
+var<storage, read> running_x: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(2)
 var<storage, read> new_point_x: array<BigInt>;
 @group(0) @binding(3)
 var<storage, read> running_x: array<BigInt>;
+{{/packed}}
 
 @group(0) @binding(4)
 var<storage, read_write> bucket_cursor: array<u32>;
@@ -2641,6 +2833,21 @@ var<storage, read_write> pair_counter: array<atomic<u32>>;
 @group(0) @binding(8)
 var<uniform> params: vec4<u32>;
 
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+{{/packed}}
+
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -2664,8 +2871,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Look up Q's index in new_point_x.
     let pt_idx = val_idx[vi_offset + cursor];
+{{#packed}}
+    var q_x: BigInt = load_packed(pt_idx, &new_point_x);
+    var p_x: BigInt = load_packed(bucket_global, &running_x);
+{{/packed}}
+{{^packed}}
     var q_x: BigInt = new_point_x[pt_idx];
     var p_x: BigInt = running_x[bucket_global];
+{{/packed}}
 
     // delta = Q.x - P.x. fr_sub returns canonical zero if Q.x == P.x.
     var delta: BigInt = fr_sub(&q_x, &p_x);
@@ -3416,6 +3629,23 @@ export const bpr_bn254 = `{{> structs }}
 
 /// Used as input buffers for the bucket sums from SMVP, but also repurposed to
 /// store the m points.
+{{#packed}}
+@group(0) @binding(0)
+var<storage, read_write> bucket_sum_x: array<vec4<u32>>;
+@group(0) @binding(1)
+var<storage, read_write> bucket_sum_y: array<vec4<u32>>;
+@group(0) @binding(2)
+var<storage, read_write> bucket_sum_z: array<vec4<u32>>;
+
+// Output buffers to store the g points
+@group(0) @binding(3)
+var<storage, read_write> g_points_x: array<vec4<u32>>;
+@group(0) @binding(4)
+var<storage, read_write> g_points_y: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> g_points_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(0)
 var<storage, read_write> bucket_sum_x: array<BigInt>;
 @group(0) @binding(1)
@@ -3430,6 +3660,7 @@ var<storage, read_write> g_points_x: array<BigInt>;
 var<storage, read_write> g_points_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> g_points_z: array<BigInt>;
+{{/packed}}
 
 // Uniform storage buffer. Layout: (subtask_idx_base, num_columns,
 // num_subtasks_per_bpr, num_subtasks_total). The 4th slot is the
@@ -3461,6 +3692,27 @@ var<storage, read_write> debug_capture: array<BigInt>;
 // Always declared (zero cost when unused). NOT a binding — workgroup
 // scope only.
 var<workgroup> bench_sink: atomic<u32>;
+
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed_rw(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed_rw(base_elem: u32, dst: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*dst)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*dst)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -3502,11 +3754,20 @@ fn double_and_add(point: Point, scalar: u32) -> Point {
 }
 
 fn load_bucket_sum(idx: u32) -> Point {
+{{#packed}}
+    return Point(
+        load_packed_rw(idx, &bucket_sum_x),
+        load_packed_rw(idx, &bucket_sum_y),
+        load_packed_rw(idx, &bucket_sum_z)
+    );
+{{/packed}}
+{{^packed}}
     return Point(
         bucket_sum_x[idx],
         bucket_sum_y[idx],
         bucket_sum_z[idx]
     );
+{{/packed}}
 }
 
 // Separate helper for g_points. Must NOT inline an equivalent
@@ -3518,20 +3779,37 @@ fn load_bucket_sum(idx: u32) -> Point {
 // diagnostic v7..v9 in src/submission/miscellaneous/tests/
 // jacobian_bn254.test.ts for the localization.
 fn load_g_point(t: u32) -> Point {
+{{#packed}}
+    return Point(
+        load_packed_rw(t, &g_points_x),
+        load_packed_rw(t, &g_points_y),
+        load_packed_rw(t, &g_points_z)
+    );
+{{/packed}}
+{{^packed}}
     return Point(
         g_points_x[t],
         g_points_y[t],
         g_points_z[t]
     );
+{{/packed}}
 }
 
 // Symmetric helper to load_g_point. Currently unused — the inline stage_2
 // formula writes g_points_*[t] directly. Kept available for future call-sites
 // that need to dodge caller-side struct-slot quirks on Dawn/Metal.
 fn store_g_point(t: u32, p: Point) {
+{{#packed}}
+    var px = p.x; var py = p.y; var pz = p.z;
+    store_packed_rw(t, &g_points_x, &px);
+    store_packed_rw(t, &g_points_y, &py);
+    store_packed_rw(t, &g_points_z, &pz);
+{{/packed}}
+{{^packed}}
     g_points_x[t] = p.x;
     g_points_y[t] = p.y;
     g_points_z[t] = p.z;
+{{/packed}}
 }
 
 // Microbench helpers. Synthesize a Point from per-thread/per-iter seeds so
@@ -3907,6 +4185,18 @@ fn stage_1(
         atomicXor(&bench_sink, m.x.limbs[0] ^ g.x.limbs[0] ^ t);
 {{/bench_skip_writes}}
 {{^bench_skip_writes}}
+{{#packed}}
+        var m_x = m.x; var m_y = m.y; var m_z = m.z;
+        store_packed_rw(idx, &bucket_sum_x, &m_x);
+        store_packed_rw(idx, &bucket_sum_y, &m_y);
+        store_packed_rw(idx, &bucket_sum_z, &m_z);
+
+        var g_x = g.x; var g_y = g.y; var g_z = g.z;
+        store_packed_rw(t, &g_points_x, &g_x);
+        store_packed_rw(t, &g_points_y, &g_y);
+        store_packed_rw(t, &g_points_z, &g_z);
+{{/packed}}
+{{^packed}}
         bucket_sum_x[idx] = m.x;
         bucket_sum_y[idx] = m.y;
         bucket_sum_z[idx] = m.z;
@@ -3914,6 +4204,7 @@ fn stage_1(
         g_points_x[t] = g.x;
         g_points_y[t] = g.y;
         g_points_z[t] = g.z;
+{{/packed}}
 {{/bench_skip_writes}}
     } // end of w_local loop (WPB-aware multi-window outer)
 
@@ -4059,9 +4350,16 @@ fn stage_2(
         }
     }
 
+{{#packed}}
+        store_packed_rw(t, &g_points_x, &X3_out);
+        store_packed_rw(t, &g_points_y, &Y3_out);
+        store_packed_rw(t, &g_points_z, &Z3_out);
+{{/packed}}
+{{^packed}}
         g_points_x[t] = X3_out;
         g_points_y[t] = Y3_out;
         g_points_z[t] = Z3_out;
+{{/packed}}
 
         {{#capture_debug}}
         // Final values of the formula outputs, read from outer scope.
@@ -4091,12 +4389,32 @@ var<storage, read> second_half: array<u32>;
 var<storage, read> scalars: array<u32>;
 
 // Output buffers
+{{#packed}}
+@group(0) @binding(3)
+var<storage, read_write> point_x: array<vec4<u32>>;
+@group(0) @binding(4)
+var<storage, read_write> point_y: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(3)
 var<storage, read_write> point_x: array<BigInt>;
 @group(0) @binding(4)
 var<storage, read_write> point_y: array<BigInt>;
+{{/packed}}
 @group(0) @binding(5)
 var<storage, read_write> chunks: array<u32>;
+
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn store_packed_pt(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*src)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*src)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
 
 // Uniform buffer for parameters
 @group(0) @binding(6)
@@ -4156,8 +4474,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Convert x and y coordinates to Montgomery form
     var r = get_r();
-    point_x[id] = field_mul(&x_bigint, &r);
-    point_y[id] = field_mul(&y_bigint, &r);
+    var x_mont = field_mul(&x_bigint, &r);
+    var y_mont = field_mul(&y_bigint, &r);
+{{#packed}}
+    store_packed_pt(id, &point_x, &x_mont);
+    store_packed_pt(id, &point_y, &y_mont);
+{{/packed}}
+{{^packed}}
+    point_x[id] = x_mont;
+    point_y[id] = y_mont;
+{{/packed}}
 
     // Note that we only compute the t and z coordinates in the SMVP shader
     // as WebGPU limits the number of buffers per shader to 8.
@@ -4872,12 +5198,22 @@ const B_WG_SIZE: u32 = {{ b_workgroup_size }}u;
 const CHUNK_SIZE: u32 = {{ chunk_size }}u;
 const T: u32 = {{ num_subtasks }}u;
 
+{{#packed}}
+@group(0) @binding(0)
+var<storage, read> g_points_x: array<vec4<u32>>;
+@group(0) @binding(1)
+var<storage, read> g_points_y: array<vec4<u32>>;
+@group(0) @binding(2)
+var<storage, read> g_points_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(0)
 var<storage, read> g_points_x: array<BigInt>;
 @group(0) @binding(1)
 var<storage, read> g_points_y: array<BigInt>;
 @group(0) @binding(2)
 var<storage, read> g_points_z: array<BigInt>;
+{{/packed}}
 
 // Combined scratch + result buffer (T+1 BigInts per coordinate):
 //   index 0..T-1 — per-subtask partial sum (written by subtask_reduce,
@@ -4894,6 +5230,21 @@ var<storage, read_write> sums_x: array<BigInt>;
 var<storage, read_write> sums_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> sums_z: array<BigInt>;
+
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed_ro(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+{{/packed}}
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -4929,9 +5280,16 @@ fn subtask_reduce(
     for (var i: u32 = 0u; i < chunk; i = i + 1u) {
         let idx = base + chunk_start + i;
         var p: Point;
+{{#packed}}
+        p.x = load_packed_ro(idx, &g_points_x);
+        p.y = load_packed_ro(idx, &g_points_y);
+        p.z = load_packed_ro(idx, &g_points_z);
+{{/packed}}
+{{^packed}}
         p.x = g_points_x[idx];
         p.y = g_points_y[idx];
         p.z = g_points_z[idx];
+{{/packed}}
         acc = add_points(acc, p);
     }
     wg_partials[tid] = acc;

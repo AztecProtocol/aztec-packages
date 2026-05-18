@@ -518,6 +518,15 @@ const compute_curve_msm = async (
   const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
   const rinv = curveParams.rinv;
+  // PACKED 8×u32 (32 bytes/element) storage for every INTERMEDIATE
+  // field-element buffer on the fused path (point_x/y, running_x/y,
+  // bucket_sum_x/y/z, g_points_x/y/z). Arithmetic still unpacks to the
+  // BigInt limb layout in-register; only storage-buffer bytes change.
+  // The final gpu_horner_sums_* result buffer and the raw point input
+  // stay BigInt-layout so host decoding is unchanged. Tree-reduce takes
+  // precedence (mutually exclusive with fused), so packed implies the
+  // batch_affine fused round path.
+  const packed = fused_revcarry && !use_tree_reduce;
   const effective_scalar_byte_length = glv_override?.scalar_byte_length ?? curveConfig.scalarByteLength;
   const input_size = cached_bases ? cached_bases.input_size : (scalars as Buffer).length / effective_scalar_byte_length;
 
@@ -689,6 +698,19 @@ const compute_curve_msm = async (
   if (cached_bases) {
     // Warm path: points are already Montgomery-form on the GPU. Only do
     // scalar decomposition.
+    //
+    // CachedBases stores point_x/y in the num_words-limb BigInt layout
+    // (cached_bases.ts builds them with a non-packed convert). The fused
+    // packed path expects 32-byte packed point_x/y, so the warm path is
+    // not layout-compatible with `packed` yet — fail loudly instead of
+    // feeding SMVP a buffer it would misinterpret.
+    if (packed) {
+      throw new Error(
+        'fused_revcarry packed path does not support the CachedBases warm path: ' +
+          'cached point_x/y are BigInt-layout. Run with cached_bases unset (cold convert) ' +
+          'or extend cached_bases.ts to produce packed point buffers.',
+      );
+    }
     cpu_timer.mark('convert_host_begin');
     point_x_sb = cached_bases.point_x_sb;
     point_y_sb = cached_bases.point_y_sb;
@@ -726,6 +748,7 @@ const compute_curve_msm = async (
       num_columns,
       glv_override?.scalar_bit_length,
       glv_override?.scalar_byte_length,
+      packed,
     );
 
     // Convert the affine points to Montgomery form and decompose the scalars
@@ -750,6 +773,7 @@ const compute_curve_msm = async (
       cpu_timer,
       context,
       effective_scalar_byte_length,
+      packed,
     );
     point_x_sb = converted.point_x_sb;
     point_y_sb = converted.point_y_sb;
@@ -765,15 +789,23 @@ const compute_curve_msm = async (
     debug_stagings.convert = { point_x: dx, point_y: dy };
   }
 
+  // Per field-element storage size: packed = two vec4<u32> (32 bytes),
+  // baseline = num_words 32-bit limbs.
+  const field_elem_bytes = packed ? 32 : num_words * 4;
+
   // Buffers to  store the SMVP result (the bucket sum). They are overwritten per iteration
-  const bucket_sum_coord_bytelength = (num_columns / 2) * num_words * 4 * num_subtasks;
+  const bucket_sum_coord_bytelength = (num_columns / 2) * field_elem_bytes * num_subtasks;
   // When a context is provided, pull the bucket-sum scratch from the
   // persistent buffer cache. Same lifetime semantics as the workspace
   // buffers in batch_affine.ts: same buffer reused across MSM calls,
   // recreated only on size change. The MSM call sequence (SMVP →
   // collect → finalize_apply / BPR) fully overwrites these on each
   // call, so no clear is needed.
-  const ws_key = `bn254:msm:${num_subtasks}:${num_columns}:${num_words}:${input_size}`;
+  // `packed` is part of the key: packed field buffers are 32 B/element
+  // vs num_words·4 B baseline and the shaders differ, so a persistent
+  // buffer / pipeline / bind group cached under one layout must never be
+  // reused for the other.
+  const ws_key = `bn254:msm:${num_subtasks}:${num_columns}:${num_words}:${input_size}:${packed ? 'pk' : 'bi'}`;
   const acquire_msm_ws = (suffix: string, size: number): GPUBuffer =>
     context !== undefined ? context.acquirePersistentBuffer(`${ws_key}:${suffix}`, size) : create_sb(device, size);
   const bucket_sum_x_sb = acquire_msm_ws('bucket_sum_x', bucket_sum_coord_bytelength);
@@ -1017,7 +1049,7 @@ const compute_curve_msm = async (
   const b_workgroup_size = 256;
 
   // Output of the parallel bucket points reduction (BPR) shader
-  const g_points_coord_bytelength = num_subtasks * b_workgroup_size * num_words * 4;
+  const g_points_coord_bytelength = num_subtasks * b_workgroup_size * field_elem_bytes;
   const g_points_x_sb = acquire_msm_ws('g_points_x', g_points_coord_bytelength);
   const g_points_y_sb = acquire_msm_ws('g_points_y', g_points_coord_bytelength);
   const g_points_z_sb = acquire_msm_ws('g_points_z', g_points_coord_bytelength);
@@ -1068,6 +1100,7 @@ const compute_curve_msm = async (
     /* bench_flags */ bpr_bench_flags,
     /* safe_first_add_no_collision */ bpr_safe_first,
     /* windows_per_batch */ BPR_WINDOWS_PER_BATCH,
+    /* packed */ packed,
   );
   // Compact key derived from the bench flags. Forwarded into the bpr_1
   // and bpr_2 pipeline cache keys so each variant compiles its own
@@ -1078,7 +1111,8 @@ const compute_curve_msm = async (
     (bpr_bench_flags.bench_compute_only ? 'c' : '') +
     (bpr_bench_flags.bench_memory_only ? 'm' : '') +
     (bpr_bench_flags.bench_no_store ? 's' : '') +
-    (bpr_safe_first ? 'f' : '');
+    (bpr_safe_first ? 'f' : '') +
+    (packed ? 'P' : '');
   // 8 BigInts per thread × workgroup_size threads (subtask 0 only — the
   // diagnostic only inspects subtask 0). One BigInt = num_words u32s.
   const debug_capture_sb = debug_trace ? create_sb(device, b_workgroup_size * 8 * num_words * 4) : undefined;
@@ -1200,7 +1234,7 @@ const compute_curve_msm = async (
     gpu_horner_sums_y_sb = acquire_msm_ws('gpu_horner_y', sums_buf_size);
     gpu_horner_sums_z_sb = acquire_msm_ws('gpu_horner_z', sums_buf_size);
 
-    const horner_shader = shaderManager.gen_horner_reduce_shader(num_subtasks, b_workgroup_size, chunk_size);
+    const horner_shader = shaderManager.gen_horner_reduce_shader(num_subtasks, b_workgroup_size, chunk_size, packed);
 
     // Both entry points share the same WGSL source + bind group layout.
     const horner_layout: Array<'storage' | 'read-only-storage' | 'uniform'> = [
@@ -1217,7 +1251,7 @@ const compute_curve_msm = async (
       horner_shader,
       'subtask_reduce',
       context,
-      `bn254:subtask_reduce:v2-packed:T=${num_subtasks}:bwg=${b_workgroup_size}`,
+      `bn254:subtask_reduce:v2-packed:T=${num_subtasks}:bwg=${b_workgroup_size}:${packed ? 'pk' : 'bi'}`,
     );
     // horner_chain pipeline used to be compiled here but it's never
     // dispatched (CPU walks the Horner chain — the serial 240-doubling
@@ -1736,6 +1770,11 @@ export const convert_point_coords_and_decompose_shaders = async (
   cpu_timer?: CpuTimer,
   context?: GpuContext,
   scalar_byte_length_override?: number,
+  // When true, the point_x/point_y output buffers are stored PACKED as
+  // 8×u32 (32 bytes/element) instead of the num_words-limb BigInt layout.
+  // The supplied `shaderCode` MUST have been generated with the matching
+  // `packed` flag so its store_packed writes agree with this sizing.
+  packed = false,
 ) => {
   const r = curveParams.r;
   // GLV path passes a 128-bit override; the assertion only holds for the
@@ -1764,9 +1803,11 @@ export const convert_point_coords_and_decompose_shaders = async (
   const scalars_sb = create_and_write_sb(device, scalars_buffer);
   cpu_timer?.phaseFrom('upload_inputs', 'upload_begin');
 
-  // Output buffers
-  const point_x_sb = create_sb(device, input_size * num_words * 4);
-  const point_y_sb = create_sb(device, input_size * num_words * 4);
+  // Output buffers. Packed field elements are two vec4<u32> = 32 bytes;
+  // the BigInt-layout baseline is num_words 32-bit limbs.
+  const field_elem_bytes = packed ? 32 : num_words * 4;
+  const point_x_sb = create_sb(device, input_size * field_elem_bytes);
+  const point_y_sb = create_sb(device, input_size * field_elem_bytes);
   const scalar_chunks_sb = create_sb(device, input_size * num_subtasks * 4);
 
   // Uniform param buffer
@@ -1780,7 +1821,7 @@ export const convert_point_coords_and_decompose_shaders = async (
     shaderCode,
     'main',
     context,
-    `${curveConfig.id}:convert:${num_x_workgroups}:${num_y_workgroups}:${chunk_size}:${input_size}:${num_subtasks}:sbl${effective_scalar_byte_length}`,
+    `${curveConfig.id}:convert:${num_x_workgroups}:${num_y_workgroups}:${chunk_size}:${input_size}:${num_subtasks}:sbl${effective_scalar_byte_length}:${packed ? 'pk' : 'bi'}`,
   );
   cpu_timer?.phaseFrom('compile_convert_shader', 'compile_begin');
 

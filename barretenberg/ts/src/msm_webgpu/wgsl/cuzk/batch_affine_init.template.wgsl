@@ -29,6 +29,20 @@ var<storage, read> row_ptr: array<u32>;
 // val_idx layout: (num_subtasks * input_size) entries.
 @group(0) @binding(1)
 var<storage, read> val_idx: array<u32>;
+{{#packed}}
+@group(0) @binding(2)
+var<storage, read> new_point_x: array<vec4<u32>>;
+@group(0) @binding(3)
+var<storage, read> new_point_y: array<vec4<u32>>;
+
+// Workspace: (num_subtasks * num_columns) entries.
+// running_x/y[subtask_idx * num_columns + bucket_local] = current sum
+@group(0) @binding(4)
+var<storage, read_write> running_x: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> running_y: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(2)
 var<storage, read> new_point_x: array<BigInt>;
 @group(0) @binding(3)
@@ -40,6 +54,7 @@ var<storage, read> new_point_y: array<BigInt>;
 var<storage, read_write> running_x: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> running_y: array<BigInt>;
+{{/packed}}
 @group(0) @binding(6)
 var<storage, read_write> bucket_cursor: array<u32>;
 @group(0) @binding(7)
@@ -51,6 +66,18 @@ var<storage, read_write> bucket_active: array<u32>;
 // params[3] = unused
 @group(0) @binding(8)
 var<uniform> params: vec4<u32>;
+
+{{#packed}}
+// Both new_point_* and running_* are packed 8×u32 (two vec4<u32>). The
+// seed copy is a layout-identical raw element copy — no unpack/pack
+// needed, the destination element bytes equal the source element bytes.
+fn copy_packed(dst_elem: u32, src_elem: u32,
+                dst: ptr<storage, array<vec4<u32>>, read_write>,
+                src: ptr<storage, array<vec4<u32>>, read>) {
+    (*dst)[2u * dst_elem]      = (*src)[2u * src_elem];
+    (*dst)[2u * dst_elem + 1u] = (*src)[2u * src_elem + 1u];
+}
+{{/packed}}
 
 @compute
 @workgroup_size({{ workgroup_size }})
@@ -83,8 +110,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Seed from first point in the bucket.
     let pt_idx = val_idx[vi_offset + row_begin];
+{{#packed}}
+    copy_packed(bucket_global, pt_idx, &running_x, &new_point_x);
+    copy_packed(bucket_global, pt_idx, &running_y, &new_point_y);
+{{/packed}}
+{{^packed}}
     running_x[bucket_global] = new_point_x[pt_idx];
     running_y[bucket_global] = new_point_y[pt_idx];
+{{/packed}}
     bucket_cursor[bucket_global] = row_begin + 1u;
     bucket_active[bucket_global] = 1u;
 

@@ -216,6 +216,67 @@ export class ShaderManager {
     }
   }
 
+  // DECOUPLED (full-ILP) pack/unpack WGSL for the packed 8×u32 storage
+  // path. For limb i (WS bits) the source word and shift are compile-time
+  // constants derived from WS / num_words / 256-bit / 8-word:
+  //   w0 = (WS*i) div 32 ;  s0 = (WS*i) mod 32
+  //   value = (packed[w0] >> s0) & LIMB_MASK
+  //   if s0+WS > 32: value |= (packed[w0+1] << (32-s0)) & LIMB_MASK
+  // Pack is symmetric: each output u32 word j is the OR of the constant
+  // set of limbs whose bit window overlaps [32*j, 32*j+32). Produces the
+  // bit-identical integer to a serial bit-cursor (sum limbs[i]*2^(WS*i)
+  // == sum w[j]*2^(32*j)); same Montgomery domain, no R correction.
+  private decoupledPackUnpackWgsl(): { unpack: string; pack: string } {
+    const WS = this.word_size;
+    const NW = this.num_words;
+    const PACKED = 8;
+    const LIMB_MASK = (1 << WS) - 1;
+
+    const unpackLines: string[] = [];
+    for (let i = 0; i < NW; i++) {
+      const bitpos = WS * i;
+      const w0 = Math.floor(bitpos / 32);
+      const s0 = bitpos % 32;
+      let expr = `(w[${w0}u] >> ${s0}u)`;
+      if (s0 + WS > 32 && w0 + 1 < PACKED) {
+        expr = `(${expr} | (w[${w0 + 1}u] << ${32 - s0}u))`;
+      }
+      unpackLines.push(`    b.limbs[${i}u] = ${expr} & ${LIMB_MASK}u;`);
+    }
+    const unpack = `fn unpack256_to_limbs(w: array<u32, 8>) -> BigInt {
+    var b: BigInt;
+${unpackLines.join('\n')}
+    return b;
+}`;
+
+    const wordTerms: string[][] = Array.from({ length: PACKED }, () => []);
+    for (let i = 0; i < NW; i++) {
+      const bitpos = WS * i;
+      const w0 = Math.floor(bitpos / 32);
+      const s0 = bitpos % 32;
+      const limbExpr = `(b.limbs[${i}u] & ${LIMB_MASK}u)`;
+      if (w0 < PACKED) {
+        wordTerms[w0].push(s0 === 0 ? limbExpr : `(${limbExpr} << ${s0}u)`);
+      }
+      if (s0 + WS > 32 && w0 + 1 < PACKED) {
+        wordTerms[w0 + 1].push(`(${limbExpr} >> ${32 - s0}u)`);
+      }
+    }
+    const packLines: string[] = [];
+    for (let j = 0; j < PACKED; j++) {
+      const terms = wordTerms[j];
+      packLines.push(`    w[${j}u] = ${terms.length ? terms.join(' | ') : '0u'};`);
+    }
+    const pack = `fn pack_limbs_to_256(bp: ptr<function, BigInt>) -> array<u32, 8> {
+    let b = *bp;
+    var w: array<u32, 8>;
+${packLines.join('\n')}
+    return w;
+}`;
+
+    return { unpack, pack };
+  }
+
   public gen_convert_points_and_decomp_scalars_shader(
     workgroup_size: number,
     num_y_workgroups: number,
@@ -223,6 +284,7 @@ export class ShaderManager {
     num_columns: number,
     scalar_bit_length_override?: number,
     scalar_byte_length_override?: number,
+    packed = false,
   ): string {
     const num_16_bit_words_per_coord = Math.ceil((this.num_words * this.word_size) / 16);
     const coord_u32_words = this.curveConfig.coordinateByteLength / 4;
@@ -230,6 +292,7 @@ export class ShaderManager {
     const scalar_bit_length = scalar_bit_length_override ?? this.curveConfig.scalarBitLength;
     const scalar_u32_words = scalar_byte_length / 4;
     const use_top_chunk_override = scalar_bit_length % this.chunk_size !== 0;
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       convert_point_coords_and_decompose_scalars,
       {
@@ -237,6 +300,9 @@ export class ShaderManager {
         num_y_workgroups,
         num_subtasks,
         num_columns,
+        packed,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
         num_words: this.num_words,
         word_size: this.word_size,
         n0: this.n0,
@@ -693,12 +759,16 @@ export class ShaderManager {
     );
   }
 
-  public gen_batch_affine_init_shader(workgroup_size: number): string {
+  public gen_batch_affine_init_shader(workgroup_size: number, packed = false): string {
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       batch_affine_init_shader,
       {
         workgroup_size,
         num_words: this.num_words,
+        packed,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       { structs },
@@ -713,7 +783,8 @@ export class ShaderManager {
     return mustache.render(batch_affine_dispatch_args_shader, { windows_per_batch }, {});
   }
 
-  public gen_batch_affine_schedule_shader(workgroup_size: number): string {
+  public gen_batch_affine_schedule_shader(workgroup_size: number, packed = false): string {
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       batch_affine_schedule_shader,
       {
@@ -726,6 +797,9 @@ export class ShaderManager {
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
+        packed,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
@@ -764,10 +838,10 @@ export class ShaderManager {
   // Fused batch-affine round kernel: ba_rev_packed_carry's
   // suffix-product / single fr_inv_by_a / lean-apply scheme applied
   // in-place to the cuZK Pippenger round, replacing the separate
-  // batch_inverse_parallel + apply_scatter dispatches. Operates on the
-  // shared 20x13-bit BigInt limb layout (no pack/unpack stage) and uses
-  // the same fr_inv_by_a driver as gen_batch_inverse_parallel_shader.
+  // batch_inverse_parallel + apply_scatter dispatches. Packed 8x u32
+  // storage + decoupled (full-ILP) pack/unpack + Karat+Yuval montmul.
   public gen_batch_affine_fused_revcarry_shader(workgroup_size: number, schunk: number): string {
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       batch_affine_fused_revcarry_shader,
       {
@@ -784,6 +858,8 @@ export class ShaderManager {
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
@@ -828,7 +904,12 @@ export class ShaderManager {
     );
   }
 
-  public gen_batch_affine_finalize_collect_shader(workgroup_size: number, num_csr_cols: number): string {
+  public gen_batch_affine_finalize_collect_shader(
+    workgroup_size: number,
+    num_csr_cols: number,
+    packed = false,
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       batch_affine_finalize_collect_shader,
       {
@@ -843,6 +924,9 @@ export class ShaderManager {
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
+        packed,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
@@ -854,7 +938,12 @@ export class ShaderManager {
     );
   }
 
-  public gen_batch_affine_finalize_apply_shader(workgroup_size: number, num_csr_cols: number): string {
+  public gen_batch_affine_finalize_apply_shader(
+    workgroup_size: number,
+    num_csr_cols: number,
+    packed = false,
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       batch_affine_finalize_apply_shader,
       {
@@ -869,6 +958,9 @@ export class ShaderManager {
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
+        packed,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {
@@ -921,7 +1013,12 @@ export class ShaderManager {
     // one-subtask-per-workgroup behaviour. Const-bounded inside the
     // shader so Tint can fully unroll when WPB is small.
     windows_per_batch = 1,
+    // Packed 8×u32 storage for the bucket_sum_* (SMVP output) and
+    // g_points_* (BPR output → horner input) field buffers. Off keeps
+    // the byte-identical BigInt-layout baseline.
+    packed = false,
   ) {
+    const dec = this.decoupledPackUnpackWgsl();
     const bench_null = !!bench_flags.bench_null;
     const bench_compute_only = !!bench_flags.bench_compute_only;
     const bench_memory_only = !!bench_flags.bench_memory_only;
@@ -955,6 +1052,9 @@ export class ShaderManager {
         bench_compute_only,
         bench_memory_only,
         bench_skip_writes,
+        packed,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
       },
       {
         structs,
@@ -966,7 +1066,13 @@ export class ShaderManager {
     );
   }
 
-  public gen_horner_reduce_shader(num_subtasks: number, b_workgroup_size: number, chunk_size: number): string {
+  public gen_horner_reduce_shader(
+    num_subtasks: number,
+    b_workgroup_size: number,
+    chunk_size: number,
+    packed = false,
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       horner_reduce_bn254_shader,
       {
@@ -981,6 +1087,9 @@ export class ShaderManager {
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
+        packed,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
         recompile: this.recompile,
       },
       {

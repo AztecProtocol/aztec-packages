@@ -37,12 +37,22 @@ const B_WG_SIZE: u32 = {{ b_workgroup_size }}u;
 const CHUNK_SIZE: u32 = {{ chunk_size }}u;
 const T: u32 = {{ num_subtasks }}u;
 
+{{#packed}}
+@group(0) @binding(0)
+var<storage, read> g_points_x: array<vec4<u32>>;
+@group(0) @binding(1)
+var<storage, read> g_points_y: array<vec4<u32>>;
+@group(0) @binding(2)
+var<storage, read> g_points_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(0)
 var<storage, read> g_points_x: array<BigInt>;
 @group(0) @binding(1)
 var<storage, read> g_points_y: array<BigInt>;
 @group(0) @binding(2)
 var<storage, read> g_points_z: array<BigInt>;
+{{/packed}}
 
 // Combined scratch + result buffer (T+1 BigInts per coordinate):
 //   index 0..T-1 — per-subtask partial sum (written by subtask_reduce,
@@ -59,6 +69,21 @@ var<storage, read_write> sums_x: array<BigInt>;
 var<storage, read_write> sums_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> sums_z: array<BigInt>;
+
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed_ro(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+{{/packed}}
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -94,9 +119,16 @@ fn subtask_reduce(
     for (var i: u32 = 0u; i < chunk; i = i + 1u) {
         let idx = base + chunk_start + i;
         var p: Point;
+{{#packed}}
+        p.x = load_packed_ro(idx, &g_points_x);
+        p.y = load_packed_ro(idx, &g_points_y);
+        p.z = load_packed_ro(idx, &g_points_z);
+{{/packed}}
+{{^packed}}
         p.x = g_points_x[idx];
         p.y = g_points_y[idx];
         p.z = g_points_z[idx];
+{{/packed}}
         acc = add_points(acc, p);
     }
     wg_partials[tid] = acc;

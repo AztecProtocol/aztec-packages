@@ -26,6 +26,22 @@
 // only consumes inv_delta when bot sides are active, so the placeholder
 // inverse value is never used.
 
+{{#packed}}
+@group(0) @binding(0)
+var<storage, read> running_x: array<vec4<u32>>;
+@group(0) @binding(1)
+var<storage, read> running_y: array<vec4<u32>>;
+@group(0) @binding(2)
+var<storage, read> bucket_active: array<u32>;
+
+@group(0) @binding(3)
+var<storage, read_write> bucket_x: array<vec4<u32>>;
+@group(0) @binding(4)
+var<storage, read_write> bucket_y: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> bucket_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(0)
 var<storage, read> running_x: array<BigInt>;
 @group(0) @binding(1)
@@ -39,6 +55,7 @@ var<storage, read_write> bucket_x: array<BigInt>;
 var<storage, read_write> bucket_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> bucket_z: array<BigInt>;
+{{/packed}}
 
 @group(0) @binding(6)
 var<storage, read_write> pair_delta: array<BigInt>;
@@ -50,17 +67,56 @@ var<uniform> params: vec4<u32>;
 // params[2] = subtask_offset
 // params[3] = workspace_stride
 
+{{#packed}}
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+fn load_packed_ro(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed_rw(base_elem: u32, dst: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*dst)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*dst)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
+
 fn get_r() -> BigInt {
     var r: BigInt;
 {{{ r_limbs }}}
     return r;
 }
 
+fn store_bucket(bi: u32, xv: ptr<function, BigInt>, yv: ptr<function, BigInt>, zv: ptr<function, BigInt>) {
+{{#packed}}
+    store_packed_rw(bi, &bucket_x, xv);
+    store_packed_rw(bi, &bucket_y, yv);
+    store_packed_rw(bi, &bucket_z, zv);
+{{/packed}}
+{{^packed}}
+    bucket_x[bi] = *xv;
+    bucket_y[bi] = *yv;
+    bucket_z[bi] = *zv;
+{{/packed}}
+}
+
 // Field negation in canonical form: returns (p - y) mod p. fr_sub
 // outputs guarantee 0 <= y < p so this is safe.
 fn neg_y(running_idx: u32) -> BigInt {
     var p_mod = get_p();
+{{#packed}}
+    var y = load_packed_ro(running_idx, &running_y);
+{{/packed}}
+{{^packed}}
     var y = running_y[running_idx];
+{{/packed}}
     var ny: BigInt;
     let _b = bigint_sub(&p_mod, &y, &ny);
     return ny;
@@ -108,11 +164,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (bucket_idx > 0u) {
             let workspace_idx = workspace_offset + row_idx;
             if (bucket_active[workspace_idx] != 0u) {
+{{#packed}}
+                p1_x = load_packed_ro(workspace_idx, &running_x);
+{{/packed}}
+{{^packed}}
                 p1_x = running_x[workspace_idx];
+{{/packed}}
                 if (negate) {
                     p1_y = neg_y(workspace_idx);
                 } else {
+{{#packed}}
+                    p1_y = load_packed_ro(workspace_idx, &running_y);
+{{/packed}}
+{{^packed}}
                     p1_y = running_y[workspace_idx];
+{{/packed}}
                 }
                 p1_active = true;
             }
@@ -137,11 +203,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (bucket_idx > 0u) {
             let workspace_idx = workspace_offset + row_idx;
             if (bucket_active[workspace_idx] != 0u) {
+{{#packed}}
+                p2_x = load_packed_ro(workspace_idx, &running_x);
+{{/packed}}
+{{^packed}}
                 p2_x = running_x[workspace_idx];
+{{/packed}}
                 if (negate) {
                     p2_y = neg_y(workspace_idx);
                 } else {
+{{#packed}}
+                    p2_y = load_packed_ro(workspace_idx, &running_y);
+{{/packed}}
+{{^packed}}
                     p2_y = running_y[workspace_idx];
+{{/packed}}
                 }
                 p2_active = true;
             }
@@ -151,25 +227,22 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // ---- Cases ----
     if (!p1_active && !p2_active) {
         var zero: BigInt;
-        bucket_x[bi] = zero;
-        bucket_y[bi] = get_r();
-        bucket_z[bi] = zero;
+        var r_val = get_r();
+        store_bucket(bi, &zero, &r_val, &zero);
         pair_delta[id] = get_r(); // placeholder — never consumed.
         return;
     }
 
     if (!p2_active) {
-        bucket_x[bi] = p1_x;
-        bucket_y[bi] = p1_y;
-        bucket_z[bi] = get_r();
+        var r_val = get_r();
+        store_bucket(bi, &p1_x, &p1_y, &r_val);
         pair_delta[id] = get_r();
         return;
     }
 
     if (!p1_active) {
-        bucket_x[bi] = p2_x;
-        bucket_y[bi] = p2_y;
-        bucket_z[bi] = get_r();
+        var r_val = get_r();
+        store_bucket(bi, &p2_x, &p2_y, &r_val);
         pair_delta[id] = get_r();
         return;
     }
