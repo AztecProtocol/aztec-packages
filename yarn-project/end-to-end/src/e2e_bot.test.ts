@@ -258,7 +258,7 @@ describe('e2e_bot', () => {
     // See 'can consume L1 to L2 message in %s after inbox drifts away from the rollup'
     // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
     it('creates bot after inbox drift', async () => {
-      await cheatCodes.rollup.advanceInboxInProgress(10);
+      await cheatCodes.rollup.advanceInboxInProgress(4);
       await Bot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot')));
     }, 300_000);
   });
