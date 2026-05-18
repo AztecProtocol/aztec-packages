@@ -76,6 +76,12 @@ template <HasMsgpackSchemaName... Types> class NamedUnion {
         : value_(std::forward<T>(t))
     {}
 
+    template <typename T, typename... Args>
+        requires((std::same_as<T, Types> || ...) && std::constructible_from<T, Args...>)
+    explicit NamedUnion(std::in_place_type_t<T>, Args&&... args)
+        : value_(std::in_place_type<T>, std::forward<Args>(args)...)
+    {}
+
     // Conversion operator to get the underlying variant
     operator VariantType&() { return value_; }
     operator const VariantType&() const { return value_; }

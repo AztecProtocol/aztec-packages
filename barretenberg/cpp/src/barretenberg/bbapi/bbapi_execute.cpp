@@ -22,12 +22,15 @@ CommandResponse execute(BBApiRequest& request, Command&& command)
 
     CommandResponse response = std::move(command).visit([&request](auto&& cmd) -> CommandResponse {
         using CmdType = std::decay_t<decltype(cmd)>;
-        return std::forward<CmdType>(cmd).execute(request);
+        auto command_response = std::forward<CmdType>(cmd).execute(request);
+        using ResponseType = std::decay_t<decltype(command_response)>;
+        return CommandResponse(std::in_place_type<ResponseType>, std::move(command_response));
     });
 
     // Check if an error occurred during execution
     if (!request.error_message.empty()) {
-        return ErrorResponse{ .message = std::move(request.error_message) };
+        return CommandResponse(std::in_place_type<ErrorResponse>,
+                               ErrorResponse{ .message = std::move(request.error_message) });
     }
 
     return response;
@@ -41,7 +44,7 @@ CommandResponse bbapi(Command&& command)
         return execute(get_global_request(), std::move(command));
 #ifndef BB_NO_EXCEPTIONS
     } catch (const std::exception& e) {
-        return ErrorResponse{ .message = e.what() };
+        return CommandResponse(std::in_place_type<ErrorResponse>, ErrorResponse{ .message = e.what() });
     }
 #endif
 }
