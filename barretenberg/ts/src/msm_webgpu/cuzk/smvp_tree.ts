@@ -37,69 +37,35 @@ const SCAN_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'uniform', // 7 params
 ];
 
-// Phase 1-A bindings (iter 4 split). 9 storage + 1 uniform; under the
-// M2/SwiftShader 10-storage cap.
-const PHASE1_A_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
+// Phase 1 binding layout. Binding 10 (`meta_pool`) holds the combined
+// per-WG metadata pool — pair_idx_a, pair_idx_b, rank_to_raw, and
+// prev_raw_for_pair. Keeps storage-binding count at 10
+// (M2/SwiftShader's maxStorageBuffersPerShaderStage cap).
+const PHASE1_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'read-only-storage', // 0 schedule
   'read-only-storage', // 1 entry_bucket_id
   'read-only-storage', // 2 point_x
-  'uniform', // 3 phase1_params (per_wg, total_entries)
+  'read-only-storage', // 3 point_y
+  'uniform', // 4 phase1_params (per_wg, total_entries)
+  'read-only-storage', // 5 wg_output_offset
+  'storage', // 6 prefix_scratch
+  'storage', // 7 output_bucket_id
+  'storage', // 8 output_x
+  'storage', // 9 output_y
+  'storage', // 10 meta_pool (4-section per-WG slice)
+];
+
+const PHASE2_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
+  'read-only-storage', // 0 input_bucket_id
+  'read-only-storage', // 1 input_x
+  'read-only-storage', // 2 input_y
+  'read-only-storage', // 3 slice_bounds
   'read-only-storage', // 4 wg_output_offset
   'storage', // 5 prefix_scratch
   'storage', // 6 output_bucket_id
-  'storage', // 7 meta_pool
-  'storage', // 8 wg_spill (per-WG block_total + per-thread spill)
-  'storage', // 9 wg_counts_global
-];
-
-// Phase 1-D bindings. 10 storage; at the cap.
-const PHASE1_D_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
-  'read-only-storage', // 0 schedule
-  'read-only-storage', // 1 point_x
-  'read-only-storage', // 2 point_y
-  'read-only-storage', // 3 wg_output_offset
-  'read-only-storage', // 4 prefix_scratch
-  'storage', // 5 output_x
-  'storage', // 6 output_y
-  'storage', // 7 meta_pool
-  'read-only-storage', // 8 wg_spill
-  'read-only-storage', // 9 wg_counts_global
-];
-
-// Phase 2-A bindings (iter 4 split). 9 storage; no uniform.
-const PHASE2_A_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
-  'read-only-storage', // 0 input_bucket_id
-  'read-only-storage', // 1 input_x
-  'read-only-storage', // 2 slice_bounds
-  'read-only-storage', // 3 wg_output_offset
-  'storage', // 4 prefix_scratch
-  'storage', // 5 output_bucket_id
-  'storage', // 6 meta_pool
-  'storage', // 7 wg_spill
-  'storage', // 8 wg_counts_global
-];
-
-// Phase 2-D bindings. 9 storage.
-const PHASE2_D_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
-  'read-only-storage', // 0 input_x
-  'read-only-storage', // 1 input_y
-  'read-only-storage', // 2 wg_output_offset
-  'read-only-storage', // 3 prefix_scratch
-  'storage', // 4 output_x
-  'storage', // 5 output_y
-  'storage', // 6 meta_pool
-  'read-only-storage', // 7 wg_spill
-  'read-only-storage', // 8 wg_counts_global
-];
-
-// Layer-wide batch inverse bindings (single WG, single thread).
-const LAYER_BATCH_INV_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
-  'read-only-storage', // 0 num_wgs_per_layer
-  'read-only-storage', // 1 layer_counts
-  'read-only-storage', // 2 num_active_count_buckets
-  'storage', // 3 wg_spill
-  'storage', // 4 prefix_scratch_inverse
-  'uniform', // 5 params (layer_idx, is_layer_zero)
+  'storage', // 7 output_x
+  'storage', // 8 output_y
+  'storage', // 9 meta_pool (4-section per-WG slice)
 ];
 
 const SCATTER_ARGS_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
@@ -235,21 +201,6 @@ export async function recordTreeReduce(
     maxLayers * wgOutputOffsetStride,
   );
   const numWgsPerLayer = context.acquirePersistentBuffer(`${wsKey}:tree:num_wgs_per_layer`, maxLayers * 4);
-
-  // iter 4 spill buffers. Each layer's batch inverse runs inline between
-  // Phase A and Phase D of the same layer — successive layers don't
-  // overlap in the encoder timeline, so one layer's worth of storage is
-  // enough for wgSpill and prefixScratchInverse.
-  const wgSpillBytes = (MAX_WGS + MAX_WGS * tpb) * limbBytes;
-  const wgSpill = context.acquirePersistentBuffer(`${wsKey}:tree:wg_spill`, wgSpillBytes);
-  const wgCountsGlobal = context.acquirePersistentBuffer(
-    `${wsKey}:tree:wg_counts_global`,
-    MAX_WGS * 2 * 4,
-  );
-  const prefixScratchInverse = context.acquirePersistentBuffer(
-    `${wsKey}:tree:prefix_scratch_inverse`,
-    MAX_WGS * limbBytes,
-  );
   // layer_counts layout:
   //   [0..maxLayers): per-layer N counts (input/output sizes).
   //   [maxLayers]: final terminal total (written by terminating scan kernel).
@@ -313,15 +264,6 @@ export async function recordTreeReduce(
       );
     }
     scanUniforms.push(su.buffer);
-  }
-
-  const batchInvUniforms: GPUBuffer[] = [];
-  for (let L = 0; L < maxLayers; L++) {
-    const bu = context.acquirePersistentUniform(`${wsKey}:tree:batch_inv_ub:L${L}`, 16);
-    if (bu.created) {
-      device.queue.writeBuffer(bu.buffer, 0, new Uint32Array([L, L === 0 ? 1 : 0, 0, 0]).buffer);
-    }
-    batchInvUniforms.push(bu.buffer);
   }
 
   const scatterArgsUniform = context.acquirePersistentUniform(`${wsKey}:tree:scatter_args_ub`, 16);
@@ -397,11 +339,8 @@ export async function recordTreeReduce(
 
   const preludeKey = `${pipeKey}:smvp_tree_layer_prelude:wg${preludeWgSize}:max_slice${maxSliceEntries}:max_wgs${MAX_WGS}`;
   const scanKey = `${pipeKey}:smvp_tree_layer_scan:wg${scanWgSize}:max_wgs${MAX_WGS}`;
-  const phase1AKey = `${pipeKey}:smvp_tree_phase1_a:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}:wgs${MAX_WGS}`;
-  const phase1DKey = `${pipeKey}:smvp_tree_phase1_d:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}:wgs${MAX_WGS}`;
-  const phase2AKey = `${pipeKey}:smvp_tree_phase2_a:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}:wgs${MAX_WGS}`;
-  const phase2DKey = `${pipeKey}:smvp_tree_phase2_d:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}:wgs${MAX_WGS}`;
-  const batchInvKey = `${pipeKey}:smvp_tree_layer_batch_inverse:wgs${MAX_WGS}`;
+  const phase1Key = `${pipeKey}:smvp_tree_phase1:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
+  const phase2Key = `${pipeKey}:smvp_tree_phase2:tpb${tpb}:max${maxSliceEntries}:pairs${maxPairs}`;
   const scatterArgsKey = `${pipeKey}:smvp_tree_scatter_args`;
 
   const preludePipe = await context.getOrCreatePipeline(preludeKey, () =>
@@ -410,39 +349,18 @@ export async function recordTreeReduce(
   const scanPipe = await context.getOrCreatePipeline(scanKey, () =>
     compileWithLayout(SCAN_BINDINGS, shaderManager.gen_smvp_tree_layer_scan_shader(scanWgSize, MAX_WGS), scanKey),
   );
-  const phase1APipe = await context.getOrCreatePipeline(phase1AKey, () =>
+  const phase1Pipe = await context.getOrCreatePipeline(phase1Key, () =>
     compileWithLayout(
-      PHASE1_A_BINDINGS,
-      shaderManager.gen_smvp_tree_phase1_a_shader(tpb, maxSliceEntries, maxPairs, MAX_WGS),
-      phase1AKey,
+      PHASE1_BINDINGS,
+      shaderManager.gen_smvp_tree_phase1_shader(tpb, maxSliceEntries, maxPairs),
+      phase1Key,
     ),
   );
-  const phase1DPipe = await context.getOrCreatePipeline(phase1DKey, () =>
+  const phase2Pipe = await context.getOrCreatePipeline(phase2Key, () =>
     compileWithLayout(
-      PHASE1_D_BINDINGS,
-      shaderManager.gen_smvp_tree_phase1_d_shader(tpb, maxSliceEntries, maxPairs, MAX_WGS),
-      phase1DKey,
-    ),
-  );
-  const phase2APipe = await context.getOrCreatePipeline(phase2AKey, () =>
-    compileWithLayout(
-      PHASE2_A_BINDINGS,
-      shaderManager.gen_smvp_tree_phase2_a_shader(tpb, maxSliceEntries, maxPairs, MAX_WGS),
-      phase2AKey,
-    ),
-  );
-  const phase2DPipe = await context.getOrCreatePipeline(phase2DKey, () =>
-    compileWithLayout(
-      PHASE2_D_BINDINGS,
-      shaderManager.gen_smvp_tree_phase2_d_shader(tpb, maxSliceEntries, maxPairs, MAX_WGS),
-      phase2DKey,
-    ),
-  );
-  const batchInvPipe = await context.getOrCreatePipeline(batchInvKey, () =>
-    compileWithLayout(
-      LAYER_BATCH_INV_BINDINGS,
-      shaderManager.gen_smvp_tree_layer_batch_inverse_shader(MAX_WGS),
-      batchInvKey,
+      PHASE2_BINDINGS,
+      shaderManager.gen_smvp_tree_phase2_shader(tpb, maxSliceEntries, maxPairs),
+      phase2Key,
     ),
   );
   const scatterArgsPipe = await context.getOrCreatePipeline(scatterArgsKey, () =>
@@ -485,106 +403,50 @@ export async function recordTreeReduce(
       }),
     );
 
-  const buildPhase1ABg = (L: number) =>
-    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase1_a:L${L}`, () =>
+  const buildPhase1Bg = (L: number) =>
+    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase1:L${L}`, () =>
       device.createBindGroup({
-        layout: phase1APipe.bindGroupLayout,
+        layout: phase1Pipe.bindGroupLayout,
         entries: [
           { binding: 0, resource: { buffer: schedule } },
           { binding: 1, resource: { buffer: entryBucketId } },
           { binding: 2, resource: { buffer: pointX } },
-          { binding: 3, resource: { buffer: phase1ParamsUniform.buffer } },
+          { binding: 3, resource: { buffer: pointY } },
+          { binding: 4, resource: { buffer: phase1ParamsUniform.buffer } },
+          {
+            binding: 5,
+            resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
+          },
+          { binding: 6, resource: { buffer: prefixScratch } },
+          { binding: 7, resource: { buffer: pingBucketId[(L + 1) & 1] } },
+          { binding: 8, resource: { buffer: pingX[(L + 1) & 1] } },
+          { binding: 9, resource: { buffer: pingY[(L + 1) & 1] } },
+          { binding: 10, resource: { buffer: metaPool } },
+        ],
+      }),
+    );
+
+  const buildPhase2Bg = (L: number) =>
+    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase2:L${L}`, () =>
+      device.createBindGroup({
+        layout: phase2Pipe.bindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: pingBucketId[L & 1] } },
+          { binding: 1, resource: { buffer: pingX[L & 1] } },
+          { binding: 2, resource: { buffer: pingY[L & 1] } },
+          {
+            binding: 3,
+            resource: { buffer: sliceBounds, offset: L * sliceBoundsStride, size: sliceBoundsStride },
+          },
           {
             binding: 4,
             resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
           },
           { binding: 5, resource: { buffer: prefixScratch } },
           { binding: 6, resource: { buffer: pingBucketId[(L + 1) & 1] } },
-          { binding: 7, resource: { buffer: metaPool } },
-          { binding: 8, resource: { buffer: wgSpill } },
-          { binding: 9, resource: { buffer: wgCountsGlobal } },
-        ],
-      }),
-    );
-
-  const buildPhase1DBg = (L: number) =>
-    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase1_d:L${L}`, () =>
-      device.createBindGroup({
-        layout: phase1DPipe.bindGroupLayout,
-        entries: [
-          { binding: 0, resource: { buffer: schedule } },
-          { binding: 1, resource: { buffer: pointX } },
-          { binding: 2, resource: { buffer: pointY } },
-          {
-            binding: 3,
-            resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
-          },
-          { binding: 4, resource: { buffer: prefixScratch } },
-          { binding: 5, resource: { buffer: pingX[(L + 1) & 1] } },
-          { binding: 6, resource: { buffer: pingY[(L + 1) & 1] } },
-          { binding: 7, resource: { buffer: metaPool } },
-          { binding: 8, resource: { buffer: wgSpill } },
-          { binding: 9, resource: { buffer: wgCountsGlobal } },
-        ],
-      }),
-    );
-
-  const buildPhase2ABg = (L: number) =>
-    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase2_a:L${L}`, () =>
-      device.createBindGroup({
-        layout: phase2APipe.bindGroupLayout,
-        entries: [
-          { binding: 0, resource: { buffer: pingBucketId[L & 1] } },
-          { binding: 1, resource: { buffer: pingX[L & 1] } },
-          {
-            binding: 2,
-            resource: { buffer: sliceBounds, offset: L * sliceBoundsStride, size: sliceBoundsStride },
-          },
-          {
-            binding: 3,
-            resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
-          },
-          { binding: 4, resource: { buffer: prefixScratch } },
-          { binding: 5, resource: { buffer: pingBucketId[(L + 1) & 1] } },
-          { binding: 6, resource: { buffer: metaPool } },
-          { binding: 7, resource: { buffer: wgSpill } },
-          { binding: 8, resource: { buffer: wgCountsGlobal } },
-        ],
-      }),
-    );
-
-  const buildPhase2DBg = (L: number) =>
-    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:phase2_d:L${L}`, () =>
-      device.createBindGroup({
-        layout: phase2DPipe.bindGroupLayout,
-        entries: [
-          { binding: 0, resource: { buffer: pingX[L & 1] } },
-          { binding: 1, resource: { buffer: pingY[L & 1] } },
-          {
-            binding: 2,
-            resource: { buffer: wgOutputOffset, offset: L * wgOutputOffsetStride, size: wgOutputOffsetStride },
-          },
-          { binding: 3, resource: { buffer: prefixScratch } },
-          { binding: 4, resource: { buffer: pingX[(L + 1) & 1] } },
-          { binding: 5, resource: { buffer: pingY[(L + 1) & 1] } },
-          { binding: 6, resource: { buffer: metaPool } },
-          { binding: 7, resource: { buffer: wgSpill } },
-          { binding: 8, resource: { buffer: wgCountsGlobal } },
-        ],
-      }),
-    );
-
-  const buildBatchInvBg = (L: number) =>
-    context.getOrCreatePersistentBindGroup(`${wsKey}:treeBg:batch_inv:L${L}`, () =>
-      device.createBindGroup({
-        layout: batchInvPipe.bindGroupLayout,
-        entries: [
-          { binding: 0, resource: { buffer: numWgsPerLayer } },
-          { binding: 1, resource: { buffer: layerCounts } },
-          { binding: 2, resource: { buffer: numActiveBuckets } },
-          { binding: 3, resource: { buffer: wgSpill } },
-          { binding: 4, resource: { buffer: prefixScratchInverse } },
-          { binding: 5, resource: { buffer: batchInvUniforms[L] } },
+          { binding: 7, resource: { buffer: pingX[(L + 1) & 1] } },
+          { binding: 8, resource: { buffer: pingY[(L + 1) & 1] } },
+          { binding: 9, resource: { buffer: metaPool } },
         ],
       }),
     );
@@ -643,70 +505,30 @@ export async function recordTreeReduce(
       profiler?.stage(`tree_scan[L=${L}]`),
     );
 
-    // Phase A → Layer batch inverse → Phase D.
+    // Phase1 (L=0) or Phase2 (L>=1).
     if (L === 0) {
-      const aBg = buildPhase1ABg(L);
+      const bg = buildPhase1Bg(L);
+      // Layer 0's phase1 has host-known dispatch geometry (num_wgs =
+      // numWgsP1 always). Direct dispatch eliminates the first-in-chain
+      // indirect-args visibility uncertainty.
       await execute_pipeline(
         commandEncoder,
-        phase1APipe.pipeline,
-        aBg,
+        phase1Pipe.pipeline,
+        bg,
         numWgsP1,
         1,
         1,
-        profiler?.stage('tree_phase1_a'),
-      );
-
-      const invBg = buildBatchInvBg(L);
-      await execute_pipeline(
-        commandEncoder,
-        batchInvPipe.pipeline,
-        invBg,
-        1,
-        1,
-        1,
-        profiler?.stage(`tree_layer_batch_inverse[L=${L}]`),
-      );
-
-      const dBg = buildPhase1DBg(L);
-      await execute_pipeline(
-        commandEncoder,
-        phase1DPipe.pipeline,
-        dBg,
-        numWgsP1,
-        1,
-        1,
-        profiler?.stage('tree_phase1_d'),
+        profiler?.stage('tree_phase1'),
       );
     } else {
-      const aBg = buildPhase2ABg(L);
+      const bg = buildPhase2Bg(L);
       execute_pipeline_indirect(
         commandEncoder,
-        phase2APipe.pipeline,
-        aBg,
+        phase2Pipe.pipeline,
+        bg,
         dispatchArgsPhase2,
         L * 12,
-        profiler?.stage(`tree_phase2_a[L=${L}]`),
-      );
-
-      const invBg = buildBatchInvBg(L);
-      await execute_pipeline(
-        commandEncoder,
-        batchInvPipe.pipeline,
-        invBg,
-        1,
-        1,
-        1,
-        profiler?.stage(`tree_layer_batch_inverse[L=${L}]`),
-      );
-
-      const dBg = buildPhase2DBg(L);
-      execute_pipeline_indirect(
-        commandEncoder,
-        phase2DPipe.pipeline,
-        dBg,
-        dispatchArgsPhase2,
-        L * 12,
-        profiler?.stage(`tree_phase2_d[L=${L}]`),
+        profiler?.stage(`tree_phase2[L=${L}]`),
       );
     }
   }
