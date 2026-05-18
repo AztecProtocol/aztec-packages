@@ -947,31 +947,28 @@ describe('ValidatorClient', () => {
       'out_hash_mismatch',
       'last_block_archive_mismatch',
       'checkpoint_validation_failed',
-    ])(
-      'emits checkpoint proposal slash event for %s',
-      async reason => {
-        const checkpointHandler = registerAllNodesCheckpointHandler();
-        const checkpointProposal = await makeCheckpointProposalForSlot();
-        jest.spyOn(validatorClient.getProposalHandler(), 'handleCheckpointProposal').mockResolvedValue({
-          isValid: false,
-          reason,
-        });
-        const emitSpy = jest.spyOn(validatorClient, 'emit');
+    ])('emits checkpoint proposal slash event for %s', async reason => {
+      const checkpointHandler = registerAllNodesCheckpointHandler();
+      const checkpointProposal = await makeCheckpointProposalForSlot();
+      jest.spyOn(validatorClient.getProposalHandler(), 'handleCheckpointProposal').mockResolvedValue({
+        isValid: false,
+        reason,
+      });
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
 
-        await checkpointHandler(checkpointProposal, sender);
+      await checkpointHandler(checkpointProposal, sender);
 
-        const proposer = checkpointProposal.getSender();
-        expect(proposer).toBeDefined();
-        expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
-          {
-            validator: proposer!,
-            amount: config.slashBroadcastedInvalidCheckpointProposalPenalty,
-            offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
-            epochOrSlot: BigInt(checkpointProposal.slotNumber),
-          },
-        ]);
-      },
-    );
+      const proposer = checkpointProposal.getSender();
+      expect(proposer).toBeDefined();
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: proposer!,
+          amount: config.slashBroadcastedInvalidCheckpointProposalPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+          epochOrSlot: BigInt(checkpointProposal.slotNumber),
+        },
+      ]);
+    });
 
     it('does not emit checkpoint proposal slash event when the penalty is disabled', async () => {
       validatorClient.updateConfig({ slashBroadcastedInvalidCheckpointProposalPenalty: 0n });
@@ -986,22 +983,22 @@ describe('ValidatorClient', () => {
       expect(getBroadcastedInvalidCheckpointProposalSlashEvents(emitSpy)).toHaveLength(0);
     });
 
-    it.each<CheckpointProposalValidationFailureReason>([
-      'last_block_not_found',
-      'checkpoint_already_published',
-    ])('does not emit checkpoint proposal slash event for %s', async reason => {
-      const checkpointHandler = registerAllNodesCheckpointHandler();
-      const checkpointProposal = await makeCheckpointProposalForSlot();
-      jest.spyOn(validatorClient.getProposalHandler(), 'handleCheckpointProposal').mockResolvedValue({
-        isValid: false,
-        reason,
-      });
-      const emitSpy = jest.spyOn(validatorClient, 'emit');
+    it.each<CheckpointProposalValidationFailureReason>(['last_block_not_found', 'checkpoint_already_published'])(
+      'does not emit checkpoint proposal slash event for %s',
+      async reason => {
+        const checkpointHandler = registerAllNodesCheckpointHandler();
+        const checkpointProposal = await makeCheckpointProposalForSlot();
+        jest.spyOn(validatorClient.getProposalHandler(), 'handleCheckpointProposal').mockResolvedValue({
+          isValid: false,
+          reason,
+        });
+        const emitSpy = jest.spyOn(validatorClient, 'emit');
 
-      await checkpointHandler(checkpointProposal, sender);
+        await checkpointHandler(checkpointProposal, sender);
 
-      expect(getBroadcastedInvalidCheckpointProposalSlashEvents(emitSpy)).toHaveLength(0);
-    });
+        expect(getBroadcastedInvalidCheckpointProposalSlashEvents(emitSpy)).toHaveLength(0);
+      },
+    );
 
     it('emits checkpoint proposal slash event once for repeated invalid proposals', async () => {
       const checkpointHandler = registerAllNodesCheckpointHandler();
