@@ -125,6 +125,7 @@ import {
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
+import { ConstrainedAppTaggingSecret } from '../logs/constrained_app_tagging_secret.js';
 import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
@@ -1730,4 +1731,9 @@ export async function randomExtendedDirectionalAppTaggingSecret(): Promise<Exten
   // expose the type's constructor just for tests since in prod the secret is always constructed via compute. Also this
   // method is tested in extended_directional_app_tagging_secret.test.ts hence all should be fine.
   return ExtendedDirectionalAppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
+}
+
+export async function randomConstrainedAppTaggingSecret(): Promise<ConstrainedAppTaggingSecret> {
+  const resolvedApp = await AztecAddress.random();
+  return new ConstrainedAppTaggingSecret(Fr.random(), resolvedApp);
 }

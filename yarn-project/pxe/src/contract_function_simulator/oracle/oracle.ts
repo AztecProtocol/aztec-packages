@@ -610,6 +610,12 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_prv_getNextConstrainedIndex([appSiloedSecret]: ACVMField[]): Promise<ACVMField[]> {
+    const index = await this.handlerAsPrivate().getNextConstrainedIndex(Fr.fromString(appSiloedSecret));
+    return [toACVMField(index)];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_getPendingTaggedLogs(
     [pendingTaggedLogArrayBaseSlot]: ACVMField[],
     [scope]: ACVMField[],

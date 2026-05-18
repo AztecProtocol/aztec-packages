@@ -1,16 +1,16 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
-import type { ExtendedDirectionalAppTaggingSecret, TaggingIndexRange } from '@aztec/stdlib/logs';
-import { PrivateLog, SiloedTag } from '@aztec/stdlib/logs';
-import { randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
+import type { AppTaggingSecret, ExtendedDirectionalAppTaggingSecret, TaggingIndexRange } from '@aztec/stdlib/logs';
+import { PrivateLog, SiloedTag, siloedTagFor } from '@aztec/stdlib/logs';
+import { randomConstrainedAppTaggingSecret, randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
 import { SenderTaggingStore } from './sender_tagging_store.js';
 
 /** Helper to create a single-index range (lowestIndex === highestIndex). */
-function range(secret: ExtendedDirectionalAppTaggingSecret, lowest: number, highest?: number): TaggingIndexRange {
+function range(secret: AppTaggingSecret, lowest: number, highest?: number): TaggingIndexRange {
   return { extendedSecret: secret, lowestIndex: lowest, highestIndex: highest ?? lowest };
 }
 
@@ -605,6 +605,49 @@ describe('SenderTaggingStore', () => {
       // Finalized index should be updated to 4 (higher than previous 2)
       expect(await taggingStore.getLastFinalizedIndex(secret1, 'test')).toBe(4);
       expect(await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test')).toHaveLength(0);
+    });
+
+    it('recomputes siloed tags via the constrained domain separator for constrained-delivery secrets', async () => {
+      const constrainedSecret = await randomConstrainedAppTaggingSecret();
+      const txHash = TxHash.random();
+
+      await taggingStore.storePendingIndexes([range(constrainedSecret, 3, 5)], txHash, 'test');
+
+      // The onchain tag must be derived via siloedTagFor (which uses the constrained log domain separator), not via
+      // SiloedTag.compute (which would use the unconstrained domain separator).
+      const survivingTag = await siloedTagFor(constrainedSecret, 4);
+      const txEffect = makeTxEffect(txHash, [survivingTag]);
+
+      await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(txEffect, 'test');
+
+      expect(await taggingStore.getLastFinalizedIndex(constrainedSecret, 'test')).toBe(4);
+      expect(await taggingStore.getTxHashesOfPendingIndexes(constrainedSecret, 0, 10, 'test')).toHaveLength(0);
+    });
+
+    // If an unconstrained tag (computed with the unconstrained domain separator) accidentally appears in a tx
+    // effect alongside a pending range for the *same* underlying Fr but registered as a constrained secret, the
+    // finalizer must not treat it as a surviving constrained-tag. The onchain emission would have used the
+    // constrained domain separator, so the values are different.
+    it('does not cross-match a tag computed under the wrong domain separator', async () => {
+      const sharedFr = Fr.random();
+      const constrainedSecret = await randomConstrainedAppTaggingSecret();
+
+      const txHash = TxHash.random();
+      await taggingStore.storePendingIndexes([range(constrainedSecret, 0, 2)], txHash, 'test');
+
+      // Build an unconstrained twin whose `secret` field happens to equal the constrained secret's `secret`. Doing
+      // this via the public construction path keeps the test independent of how the production code derives Frs.
+      // Emit a tag using the *unconstrained* domain separator for the same Fr/index combination. This should NOT match.
+      const wrongDomSepTag = await SiloedTag.compute({
+        extendedSecret: { secret: sharedFr, app: constrainedSecret.app } as ExtendedDirectionalAppTaggingSecret,
+        index: 1,
+      });
+      const txEffect = makeTxEffect(txHash, [wrongDomSepTag]);
+
+      await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(txEffect, 'test');
+
+      // No constrained index survived (the domain separator mismatch means the tag doesn't reconstruct).
+      expect(await taggingStore.getLastFinalizedIndex(constrainedSecret, 'test')).toBeUndefined();
     });
   });
 

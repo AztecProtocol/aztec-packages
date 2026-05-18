@@ -1514,4 +1514,13 @@ export class RPCTranslator {
 
     return toForeignCallResult([toSingle(nextAppTag.value)]);
   }
+
+  // eslint-disable-next-line camelcase
+  async aztec_prv_getNextConstrainedIndex(foreignAppSiloedSecret: ForeignCallSingle) {
+    const appSiloedSecret = fromSingle(foreignAppSiloedSecret);
+
+    const index = await this.handlerAsPrivate().getNextConstrainedIndex(appSiloedSecret);
+
+    return toForeignCallResult([toSingle(new Fr(index))]);
+  }
 }

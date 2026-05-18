@@ -221,4 +221,5 @@ export interface IPrivateExecutionOracle {
   getSenderForTags(): Promise<AztecAddress | undefined>;
   setSenderForTags(senderForTags: AztecAddress): Promise<void>;
   getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
+  getNextConstrainedIndex(appSiloedSecret: Fr): Promise<number>;
 }

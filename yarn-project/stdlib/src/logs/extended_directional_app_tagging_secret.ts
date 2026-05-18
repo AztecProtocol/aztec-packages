@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { CompleteAddress } from '../contract/complete_address.js';
 import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
+import { AppTaggingSecretKind } from './app_tagging_secret_kind.js';
 
 /**
  * Extended directional application tagging secret used for log tagging.
@@ -23,6 +24,9 @@ import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
  * doesn't seem to be a good way around this.
  */
 export class ExtendedDirectionalAppTaggingSecret {
+  /** In-memory discriminator for the [`AppTaggingSecret`](./app_tagging_secret.js) union. */
+  public readonly kind = AppTaggingSecretKind.UNCONSTRAINED;
+
   constructor(
     public readonly secret: Fr,
     public readonly app: AztecAddress,
@@ -92,7 +96,10 @@ async function computeSharedTaggingSecret(
   return Grumpkin.mul(externalAddressPoint, await computeAddressSecret(knownPreaddress, localIvsk));
 }
 
-export const ExtendedDirectionalAppTaggingSecretSchema = z.object({
-  secret: Fr.schema,
-  app: AztecAddress.schema,
-});
+export const ExtendedDirectionalAppTaggingSecretSchema = z
+  .object({
+    kind: z.literal(AppTaggingSecretKind.UNCONSTRAINED),
+    secret: Fr.schema,
+    app: AztecAddress.schema,
+  })
+  .transform(({ secret, app }) => new ExtendedDirectionalAppTaggingSecret(secret, app));
