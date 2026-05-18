@@ -806,11 +806,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
     const size_t k5_pair_groups = (CAN_USE_K5 && num_points >= K5_MIN_POINTS) ? ((num_points >> 1) / 5) : size_t{ 0 };
     const size_t k5_points = k5_pair_groups * 10;
 
-    Fq batch_inversion_accumulator = Fq::one();
-    // Populated by K=5 forward, consumed by K=5 backward prefix-product tree.
-    // Only meaningful when CAN_USE_K5; left uninitialized otherwise (the backward
-    // K=5 block is gated by the same constexpr predicate).
-    std::array<Fq, 5> acc_lanes;
+    std::array<Fq, 5> acc_lanes = { Fq::one(), Fq::one(), Fq::one(), Fq::one(), Fq::one() };
 
     // ---------------------------------------------------------------------
     // K=5 forward pass. Per group of 10 points, two 5-wide muls:
@@ -818,14 +814,14 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
     //   acc_lane *= x_lane    (5-wide)
     // Each lane k threads its own independent batch-inversion chain through the groups.
     //
-    // acc_lanes_vec stays in packed (VFq) form across iterations — converting
-    // back to AoS each group would cost two AoS↔packed transposes per iter
-    // (one to write, one to re-read next iter). Collapsed to a single scalar
-    // Fq via one final to_array() + 4 muls once the loop exits.
+    // Note: tried keeping acc_lanes in packed VFq form across iterations
+    // (one to_array() at loop exit instead of per-group) to drop the
+    // apparent AoS↔packed round-trip — no measurable end-to-end
+    // improvement on V8/wasmtime. LLVM appears to SROA the round-trip
+    // already.
     // ---------------------------------------------------------------------
     if constexpr (CAN_USE_K5) {
         using VFq = VectorField<Bn254FqParams>;
-        VFq acc_lanes_vec = VFq::broadcast(Fq::one());
         std::array<Fq, 5> y_buf; // (y2 - y1) per lane in current group
         std::array<Fq, 5> x_buf; // (x2 - x1) per lane in current group
         for (size_t g = 0; g < k5_pair_groups; ++g) {
@@ -838,21 +834,21 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
                 y_buf[k] = points[pi + 1].y;
                 x_buf[k] = points[pi + 1].x;
             }
-            std::array<Fq, 5> y_out = (VFq(y_buf) * acc_lanes_vec).to_array();
+            VFq vec_acc(acc_lanes);
+            std::array<Fq, 5> y_out = (VFq(y_buf) * vec_acc).to_array();
             for (size_t k = 0; k < 5; ++k) {
                 points[i + (2 * k) + 1].y = y_out[k];
             }
-            acc_lanes_vec = acc_lanes_vec * VFq(x_buf);
+            acc_lanes = (vec_acc * VFq(x_buf)).to_array();
         }
-        acc_lanes = acc_lanes_vec.to_array();
-        batch_inversion_accumulator = acc_lanes[0] * acc_lanes[1] * acc_lanes[2] * acc_lanes[3] * acc_lanes[4];
     }
 
     // ---------------------------------------------------------------------
-    // K=1 forward tail. When k5_points == 0 (CAN_USE_K5 false or batch too
-    // small), batch_inversion_accumulator stays at Fq::one() and this runs
-    // from i=0, recovering the original K=1 path exactly.
+    // Combine 5 lane accumulators into one and run the K=1 forward tail.
+    // When k5_points == 0 this collapses cleanly to the original K=1 forward
+    // pass (acc_lanes is all-ones, so the product is one).
     // ---------------------------------------------------------------------
+    Fq batch_inversion_accumulator = acc_lanes[0] * acc_lanes[1] * acc_lanes[2] * acc_lanes[3] * acc_lanes[4];
     for (size_t i = k5_points; i < num_points; i += 2) {
         scratch_space[i >> 1] = points[i].x + points[i + 1].x;
         points[i + 1].x -= points[i].x;
