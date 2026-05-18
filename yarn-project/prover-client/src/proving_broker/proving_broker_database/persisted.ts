@@ -1,7 +1,7 @@
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BatchQueue } from '@aztec/foundation/queue';
+import { BatchQueue, SerialQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { openVersionedStoreAt } from '@aztec/kv-store/lmdb-v2';
 import {
@@ -84,6 +84,10 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   private metrics: LmdbMetrics;
 
   private batchQueue: BatchQueue<ProvingJob | [ProvingJobId, ProvingJobSettledResult], number>;
+  // Serializes batch writes and stale-epoch deletions so that a cleanup pass cannot close
+  // an epoch's store mid-write. Without this lock the broker's cleanupPass races with
+  // pending batch writes and surfaces as "Store is closed" errors.
+  private operationQueue = new SerialQueue();
 
   public readonly tracer: Tracer;
 
@@ -104,7 +108,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     this.tracer = client.getTracer('KVBrokerDatabase');
 
     this.batchQueue = new BatchQueue(
-      (items, key) => this.commitWrites(items, key),
+      (items, key) => this.operationQueue.put(() => this.commitWrites(items, key)),
       config.proverBrokerBatchSize,
       config.proverBrokerBatchIntervalMs,
       createLogger('proving-client:proving-broker-database:batch-queue'),
@@ -115,6 +119,14 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   public async commitWrites(items: Array<ProvingJob | [ProvingJobId, ProvingJobSettledResult]>, epochNumber: number) {
     const jobsToAdd = items.filter((item): item is ProvingJob => 'id' in item);
     const resultsToAdd = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult] => Array.isArray(item));
+
+    // If only results are being written and the epoch was already cleaned up, drop the
+    // batch — the broker's in-memory cache is the source of truth and the epoch's data
+    // is being deleted anyway. Adding new jobs still creates the epoch as before.
+    if (jobsToAdd.length === 0 && !this.epochs.has(epochNumber)) {
+      this.logger.debug(`Dropping batch results for missing epoch ${epochNumber}`);
+      return;
+    }
 
     const db = await this.getEpochDatabase(EpochNumber(epochNumber));
     await db.batchWrite(jobsToAdd, resultsToAdd);
@@ -166,11 +178,13 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   }
 
   private start(): void {
+    this.operationQueue.start();
     this.batchQueue.start();
   }
 
   async close(): Promise<void> {
     await this.batchQueue.stop();
+    await this.operationQueue.end();
     for (const [_, v] of this.epochs) {
       await v.close();
     }
@@ -179,17 +193,19 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   @trackSpan('KVBrokerDatabase.deleteAllProvingJobsOlderThanEpoch', epochNumber => ({
     [Attributes.EPOCH_NUMBER]: epochNumber,
   }))
-  async deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
-    const oldEpochs = Array.from(this.epochs.keys()).filter(e => e < Number(epochNumber));
-    for (const old of oldEpochs) {
-      const db = this.epochs.get(old);
-      if (!db) {
-        continue;
+  deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
+    return this.operationQueue.put(async () => {
+      const oldEpochs = Array.from(this.epochs.keys()).filter(e => e < Number(epochNumber));
+      for (const old of oldEpochs) {
+        const db = this.epochs.get(old);
+        if (!db) {
+          continue;
+        }
+        this.logger.verbose(`Deleting broker database for epoch ${old}`);
+        await db.delete();
+        this.epochs.delete(old);
       }
-      this.logger.verbose(`Deleting broker database for epoch ${old}`);
-      await db.delete();
-      this.epochs.delete(old);
-    }
+    });
   }
 
   addProvingJob(job: ProvingJob): Promise<void> {
