@@ -55,6 +55,10 @@ export class CachedBases {
   readonly word_size: number;
   readonly point_x_sb: GPUBuffer;
   readonly point_y_sb: GPUBuffer;
+  // When true, point_x_sb/point_y_sb hold the packed 8×u32 (32-byte)
+  // layout instead of the num_words-limb BigInt layout. Must match the
+  // MSM call's `fused_revcarry`/`packed` path.
+  readonly packed: boolean;
 
   constructor(
     context: GpuContext,
@@ -64,6 +68,7 @@ export class CachedBases {
     word_size: number,
     point_x_sb: GPUBuffer,
     point_y_sb: GPUBuffer,
+    packed = false,
   ) {
     this.context = context;
     this.curveConfig = curveConfig;
@@ -72,6 +77,7 @@ export class CachedBases {
     this.word_size = word_size;
     this.point_x_sb = point_x_sb;
     this.point_y_sb = point_y_sb;
+    this.packed = packed;
   }
 
   destroy(): void {
@@ -102,6 +108,7 @@ export const precompute_bn254_bases = async (
   points_buffer: Buffer,
   log_progress = false,
   curveConfig: CurveConfig = BN254_CURVE_CONFIG,
+  packed = false,
 ): Promise<CachedBases> => {
   const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
@@ -126,8 +133,9 @@ export const precompute_bn254_bases = async (
 
   // Output buffers — Montgomery-form x and y. Persisted on the context;
   // returned via `CachedBases`.
-  const point_x_sb = create_sb(device, input_size * num_words * 4);
-  const point_y_sb = create_sb(device, input_size * num_words * 4);
+  const elem_bytes = packed ? 32 : num_words * 4;
+  const point_x_sb = create_sb(device, input_size * elem_bytes);
+  const point_y_sb = create_sb(device, input_size * elem_bytes);
 
   // Uniform: input_size. Everything else is template-substituted.
   const params_bytes = numbers_to_u8s_for_gpu([input_size]);
@@ -165,8 +173,8 @@ export const precompute_bn254_bases = async (
 
   const sm = context.getShaderManager(curveConfig, input_size >= 65536 ? 16 : 4, input_size);
   const shaderCode = context.getOrRenderShaderCode(
-    `${curveConfig.id}:convert_points_only:${workgroup_size}:${num_y_workgroups}:${input_size}`,
-    () => sm.gen_convert_points_only_shader(workgroup_size, num_y_workgroups),
+    `${curveConfig.id}:convert_points_only:${workgroup_size}:${num_y_workgroups}:${input_size}:packed=${packed}`,
+    () => sm.gen_convert_points_only_shader(workgroup_size, num_y_workgroups, packed),
   );
 
   const bindLayoutTypes: Array<'read-only-storage' | 'storage' | 'uniform'> = [
@@ -178,7 +186,7 @@ export const precompute_bn254_bases = async (
   ];
 
   const { pipeline, bindGroupLayout } = await context.getOrCreatePipeline(
-    `${curveConfig.id}:convert_points_only:${workgroup_size}:${num_y_workgroups}:${input_size}`,
+    `${curveConfig.id}:convert_points_only:${workgroup_size}:${num_y_workgroups}:${input_size}:packed=${packed}`,
     async () => {
       const bindGroupLayout = create_bind_group_layout(device, bindLayoutTypes);
       const pipeline = await create_compute_pipeline(device, [bindGroupLayout], shaderCode, 'main');
@@ -216,5 +224,14 @@ export const precompute_bn254_bases = async (
     console.log(`  ${'wall'.padEnd(22)} ${r.total_wall_ms.toFixed(2)} ms`);
   }
 
-  return new CachedBases(context, curveConfig, input_size, num_words, curveConfig.wordSize, point_x_sb, point_y_sb);
+  return new CachedBases(
+    context,
+    curveConfig,
+    input_size,
+    num_words,
+    curveConfig.wordSize,
+    point_x_sb,
+    point_y_sb,
+    packed,
+  );
 };

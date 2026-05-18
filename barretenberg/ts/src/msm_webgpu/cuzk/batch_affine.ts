@@ -79,22 +79,24 @@ const compile_pipeline_for = async (
     const m = device.createShaderModule({ code: shaderCode });
     const info = await m.getCompilationInfo();
     let hasError = false;
+    const errLines: string[] = [];
     for (const msg of info.messages) {
       const tag = `[batch-affine ${cacheKey}]`;
       const where = `line ${msg.lineNum}, col ${msg.linePos}`;
       const line = `${tag} ${msg.type}: ${msg.message} (${where})`;
       if (msg.type === 'error') {
         console.error(line);
+        errLines.push(`${msg.type}: ${msg.message} (line ${msg.lineNum}, col ${msg.linePos})`);
         hasError = true;
       } else {
         console.warn(line);
       }
     }
     if (hasError) {
-      // Throw with a clear message so the calling try/catch in the UI
-      // surfaces it instead of swallowing into a generic
-      // GPUPipelineError downstream.
-      throw new Error(`WGSL compile failed for ${cacheKey} — see DevTools console`);
+      // Include the first few Tint messages in the thrown error so
+      // headless/BrowserStack callers get the real diagnostic, not just
+      // a "see DevTools console" stub.
+      throw new Error(`WGSL compile failed for ${cacheKey}: ${errLines.slice(0, 6).join(' | ')}`);
     }
     const pipeline = await device.createComputePipelineAsync({
       layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),

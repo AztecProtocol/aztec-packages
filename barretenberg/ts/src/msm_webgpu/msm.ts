@@ -699,16 +699,15 @@ const compute_curve_msm = async (
     // Warm path: points are already Montgomery-form on the GPU. Only do
     // scalar decomposition.
     //
-    // CachedBases stores point_x/y in the num_words-limb BigInt layout
-    // (cached_bases.ts builds them with a non-packed convert). The fused
-    // packed path expects 32-byte packed point_x/y, so the warm path is
-    // not layout-compatible with `packed` yet — fail loudly instead of
-    // feeding SMVP a buffer it would misinterpret.
-    if (packed) {
+    // CachedBases point_x/y layout must match the MSM path: packed
+    // 8×u32 when `packed`, num_words-limb BigInt otherwise. Build the
+    // CachedBases with the matching `packed` arg to precompute_bn254_bases.
+    const cached_packed = (cached_bases as { packed?: boolean }).packed === true;
+    if (cached_packed !== packed) {
       throw new Error(
-        'fused_revcarry packed path does not support the CachedBases warm path: ' +
-          'cached point_x/y are BigInt-layout. Run with cached_bases unset (cold convert) ' +
-          'or extend cached_bases.ts to produce packed point buffers.',
+        `CachedBases layout mismatch: cached_bases.packed=${cached_packed} but MSM packed=${packed}. ` +
+          'Call precompute_bn254_bases(..., /*packed*/ ' +
+          `${packed}) to build layout-matched bases for this path.`,
       );
     }
     cpu_timer.mark('convert_host_begin');
@@ -1229,7 +1228,7 @@ const compute_curve_msm = async (
     // Three separate buffers (one per coordinate) instead of one combined
     // because BigInt array indexing in WGSL requires homogeneous element
     // type and the existing add_points API operates on BigInt fields.
-    const sums_buf_size = (num_subtasks + 1) * num_words * 4;
+    const sums_buf_size = (num_subtasks + 1) * field_elem_bytes;
     gpu_horner_sums_x_sb = acquire_msm_ws('gpu_horner_x', sums_buf_size);
     gpu_horner_sums_y_sb = acquire_msm_ws('gpu_horner_y', sums_buf_size);
     gpu_horner_sums_z_sb = acquire_msm_ws('gpu_horner_z', sums_buf_size);
@@ -1437,9 +1436,25 @@ const compute_curve_msm = async (
   }
 
   cpu_timer.mark('cpu_horner_begin');
-  const g_points_x_mont_coords = u8s_to_bigints_without_assertion(data[0], num_words, curveConfig.wordSize);
-  const g_points_y_mont_coords = u8s_to_bigints_without_assertion(data[1], num_words, curveConfig.wordSize);
-  const g_points_z_mont_coords = u8s_to_bigints_without_assertion(data[2], num_words, curveConfig.wordSize);
+  // On the packed path the GPU g_points buffers are 32-byte packed
+  // 8×u32 little-endian (one 256-bit field value per element), not the
+  // num_words 13-bit-limb BigInt layout. Decode accordingly.
+  const decode_field_coords = (buf: Uint8Array): bigint[] => {
+    if (!packed) {
+      return u8s_to_bigints_without_assertion(buf, num_words, curveConfig.wordSize);
+    }
+    const count = Math.floor(buf.length / 32);
+    const out = new Array<bigint>(count);
+    for (let e = 0; e < count; e++) {
+      let v = 0n;
+      for (let b = 31; b >= 0; b--) v = (v << 8n) | BigInt(buf[e * 32 + b]);
+      out[e] = v;
+    }
+    return out;
+  };
+  const g_points_x_mont_coords = decode_field_coords(data[0]);
+  const g_points_y_mont_coords = decode_field_coords(data[1]);
+  const g_points_z_mont_coords = decode_field_coords(data[2]);
 
   let r: { x: bigint; y: bigint };
 

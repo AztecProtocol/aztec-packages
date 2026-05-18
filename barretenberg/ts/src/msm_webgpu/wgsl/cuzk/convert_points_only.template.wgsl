@@ -20,13 +20,31 @@ var<storage, read> first_half: array<u32>;
 @group(0) @binding(1)
 var<storage, read> second_half: array<u32>;
 
+{{#packed}}
+@group(0) @binding(2)
+var<storage, read_write> point_x: array<vec4<u32>>;
+@group(0) @binding(3)
+var<storage, read_write> point_y: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(2)
 var<storage, read_write> point_x: array<BigInt>;
 @group(0) @binding(3)
 var<storage, read_write> point_y: array<BigInt>;
+{{/packed}}
 
 @group(0) @binding(4)
 var<uniform> input_size: u32;
+
+{{#packed}}
+{{{ dec_pack }}}
+
+fn store_packed_pt(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*src)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*src)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -75,8 +93,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     var r = get_r();
-    point_x[id] = field_mul(&x_bigint, &r);
-    point_y[id] = field_mul(&y_bigint, &r);
+    var x_mont = field_mul(&x_bigint, &r);
+    var y_mont = field_mul(&y_bigint, &r);
+{{#packed}}
+    store_packed_pt(id, &point_x, &x_mont);
+    store_packed_pt(id, &point_y, &y_mont);
+{{/packed}}
+{{^packed}}
+    point_x[id] = x_mont;
+    point_y[id] = y_mont;
+{{/packed}}
 
     {{{ recompile }}}
 }

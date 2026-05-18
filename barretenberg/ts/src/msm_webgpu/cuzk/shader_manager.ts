@@ -339,12 +339,15 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number): string {
+  public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number, packed = false): string {
     const num_16_bit_words_per_coord = Math.ceil((this.num_words * this.word_size) / 16);
     const coord_u32_words = this.curveConfig.coordinateByteLength / 4;
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       convert_points_only_shader,
       {
+        packed,
+        dec_pack: dec.pack,
         workgroup_size,
         num_y_workgroups,
         num_words: this.num_words,

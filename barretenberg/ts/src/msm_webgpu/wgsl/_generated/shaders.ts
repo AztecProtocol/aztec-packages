@@ -2549,10 +2549,25 @@ fn load_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> Big
     return unpack256_to_limbs(w);
 }
 
+fn load_packed_rw(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
 fn store_packed(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
     let w = pack_limbs_to_256(val);
     (*src)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
     (*src)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+
+fn get_r() -> BigInt {
+    var r: BigInt;
+{{{ r_limbs }}}
+    return r;
 }
 
 @compute
@@ -2586,7 +2601,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let bucket = pair_target_meta[2u * slot];
         let q_cursor = pair_target_meta[2u * slot + 1u];
         let pt_idx = val_idx[vi_offset + q_cursor];
-        var p_x = load_packed(bucket, &running_x);
+        var p_x = load_packed_rw(bucket, &running_x);
         var q_x = load_packed(pt_idx, &new_point_x);
         var dx = fr_sub(&q_x, &p_x);
         if (jj == 0u) {
@@ -2609,8 +2624,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let q_cursor = pair_target_meta[2u * slot + 1u];
         let pt_idx = val_idx[vi_offset + q_cursor];
 
-        var p_x = load_packed(bucket, &running_x);
-        var p_y = load_packed(bucket, &running_y);
+        var p_x = load_packed_rw(bucket, &running_x);
+        var p_y = load_packed_rw(bucket, &running_y);
         var q_x = load_packed(pt_idx, &new_point_x);
         var q_y = load_packed(pt_idx, &new_point_y);
 
@@ -4564,13 +4579,31 @@ var<storage, read> first_half: array<u32>;
 @group(0) @binding(1)
 var<storage, read> second_half: array<u32>;
 
+{{#packed}}
+@group(0) @binding(2)
+var<storage, read_write> point_x: array<vec4<u32>>;
+@group(0) @binding(3)
+var<storage, read_write> point_y: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(2)
 var<storage, read_write> point_x: array<BigInt>;
 @group(0) @binding(3)
 var<storage, read_write> point_y: array<BigInt>;
+{{/packed}}
 
 @group(0) @binding(4)
 var<uniform> input_size: u32;
+
+{{#packed}}
+{{{ dec_pack }}}
+
+fn store_packed_pt(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*src)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*src)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+{{/packed}}
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -4619,8 +4652,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     var r = get_r();
-    point_x[id] = field_mul(&x_bigint, &r);
-    point_y[id] = field_mul(&y_bigint, &r);
+    var x_mont = field_mul(&x_bigint, &r);
+    var y_mont = field_mul(&y_bigint, &r);
+{{#packed}}
+    store_packed_pt(id, &point_x, &x_mont);
+    store_packed_pt(id, &point_y, &y_mont);
+{{/packed}}
+{{^packed}}
+    point_x[id] = x_mont;
+    point_y[id] = y_mont;
+{{/packed}}
 
     {{{ recompile }}}
 }
