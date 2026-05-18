@@ -4,7 +4,7 @@ import { FifoMemoryQueue, type ISemaphore, Semaphore } from '@aztec/foundation/q
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -21,7 +21,7 @@ import {
 import type { BatchTxRequesterLibP2PService, BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadataCollection } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection } from './peer_collection.js';
-import { BatchRequestTxValidator, type IBatchRequestTxValidator } from './tx_validator.js';
+import { createBatchRequestTxValidator } from './tx_validator.js';
 
 /*
  * Tries to fetch all missing transaction until deadline is hit.
@@ -51,7 +51,7 @@ export class BatchTxRequester {
   private readonly txsMetadata: ITxMetadataCollection;
   private readonly smartRequesterSemaphore: ISemaphore;
   private readonly txQueue: FifoMemoryQueue<Tx>;
-  private readonly txValidator: IBatchRequestTxValidator;
+  private readonly txValidator: TxValidator;
   private readonly smartParallelWorkerCount: number;
   private readonly dumbParallelWorkerCount: number;
   private readonly txBatchSize: number;
@@ -78,7 +78,7 @@ export class BatchTxRequester {
       this.opts.dumbParallelWorkerCount ?? DEFAULT_BATCH_TX_REQUESTER_DUMB_PARALLEL_WORKER_COUNT;
     this.txBatchSize = this.opts.txBatchSize ?? DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE;
     this.txQueue = new FifoMemoryQueue(this.logger);
-    this.txValidator = this.opts.txValidator ?? new BatchRequestTxValidator(this.p2pService.txValidatorConfig);
+    this.txValidator = this.opts.txValidator ?? createBatchRequestTxValidator(this.p2pService.txValidatorConfig);
 
     if (this.opts.peerCollection) {
       this.peers = this.opts.peerCollection;
@@ -509,7 +509,7 @@ export class BatchTxRequester {
     const validationResults = await Promise.allSettled(
       newTxs.map(async tx => ({
         tx,
-        isValid: (await this.txValidator.validateRequestedTx(tx)).result === 'valid',
+        isValid: (await this.txValidator.validateTx(tx)).result === 'valid',
       })),
     );
 
