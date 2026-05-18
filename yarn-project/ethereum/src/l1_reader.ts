@@ -56,6 +56,8 @@ const ownL1ReaderConfigMappings: ConfigMappingsType<OwnL1ReaderConfig> = {
   },
   viemPollingIntervalMS: {
     env: 'L1_READER_VIEM_POLLING_INTERVAL_MS',
+    fallback: ['ARCHIVER_VIEM_POLLING_INTERVAL_MS'],
+    deprecatedFallback: [{ env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS' }],
     description: 'The polling interval viem uses in ms',
     ...numberConfigHelper(1_000),
   },

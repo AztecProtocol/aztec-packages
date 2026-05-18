@@ -4,7 +4,7 @@ services:
     cpus: 1
     cpuset: ${CPU_LIST:-}
     mem_limit: 2G
-    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
+    entrypoint: "anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337"
 
   local-network:
     image: aztecprotocol/build:3.0
@@ -16,7 +16,7 @@ services:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
     working_dir: /root/aztec-packages/yarn-project/aztec
-    command: 'node ./dest/bin start --local-network'
+    command: "node ./dest/bin start --local-network"
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOSTS: http://fork:8545
@@ -26,7 +26,7 @@ services:
       P2P_BLOCK_CHECK_INTERVAL_MS: 500
       SEQ_POLLING_INTERVAL_MS: 500
       WS_BLOCK_CHECK_INTERVAL_MS: 500
-      ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
+      L1_READER_VIEM_POLLING_INTERVAL_MS: 500
       P2P_MIN_TX_POOL_AGE_MS: 0
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
 
@@ -44,7 +44,7 @@ services:
     working_dir: /root/aztec-packages/yarn-project/end-to-end
     environment:
       JEST_CACHE_DIR: /tmp-jest
-      BENCHMARK: 'true'
+      BENCHMARK: "true"
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
       ETHEREUM_HOSTS: http://fork:8545
       L1_CHAIN_ID: 31337
