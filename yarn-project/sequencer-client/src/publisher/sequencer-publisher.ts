@@ -613,19 +613,22 @@ export class SequencerPublisher {
 
   /*
    * Schedules sending all enqueued requests at (or after) the start of the given L2 slot.
-   * Sleeps until one L1 slot before the L2 slot boundary so the tx has a chance of being
-   * picked up by the first L1 block of the L2 slot.
-   * NB: there is a known correctness risk — being included in the L1 block right before the
-   * L2 slot starts would revert propose with HeaderLib__InvalidSlotNumber.
+   * Sleeps until the L2 slot boundary so that the next L1 block that picks up the tx is
+   * guaranteed to have a block.timestamp inside the target L2 slot. Submitting earlier
+   * (e.g. one L1 slot before the boundary) lets the tx be included in the L1 block just
+   * before the L2 slot starts, which reverts propose with `HeaderLib__InvalidSlotNumber`;
+   * under anvil interval-mining this race surfaces deterministically and Multicall3
+   * swallows the inner revert with `allowFailure: true`.
    * Uses InterruptibleSleep so it can be cancelled via interrupt().
    */
   public async sendRequestsAt(targetSlot: SlotNumber): Promise<SendRequestsResult | undefined> {
     const l1Constants = this.epochCache.getL1Constants();
     // Start of the target L2 slot, in ms (getTimestampForSlot returns seconds).
     const startOfTargetSlotMs = Number(getTimestampForSlot(targetSlot, l1Constants)) * 1000;
-    // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
-    // being picked up by the first L1 block of the L2 slot.
-    const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
+    // Wait until the target L2 slot has actually started before submitting, so the next L1
+    // block to include the tx has `block.timestamp >= startOfTargetSlot` and the header
+    // slot assertion in `ProposeLib.validateHeader` passes.
+    const submitAfterMs = startOfTargetSlotMs;
     const sleepMs = submitAfterMs - this.dateProvider.now();
     if (sleepMs > 0) {
       this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
