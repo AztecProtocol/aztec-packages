@@ -57,6 +57,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private log = createLogger('prover-node');
 
   private jobs: Map<string, EpochProvingJob> = new Map();
+  private runJobPromises: Map<string, Promise<void>> = new Map();
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
@@ -166,10 +167,21 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   async stop() {
     this.log.info('Stopping ProverNode');
     await this.epochsMonitor.stop();
+
+    // Signal in-flight epoch jobs to stop and await the entire `runJob` wrapper
+    // (not just `EpochProvingJob.run`) before tearing down the prover, publisher or
+    // world-state. The wrapper does post-`run` work (e.g. `tryUploadEpochFailure`,
+    // re-creating a job on reorg) that still touches world-state, and `asyncPool`
+    // tasks inside `run` can hold native world-state forks open. Without this barrier,
+    // those tasks have been observed calling into the native world-state addon after
+    // `ProverNode.stop()` returned, producing process-level SEGFAULTs during e2e
+    // teardown of in-process simulated prover-nodes.
+    await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
+    await Promise.all(Array.from(this.runJobPromises.values()));
+
     await this.prover.stop();
     await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
-    await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     this.rewardsMetrics.stop();
     this.l1Metrics.stop();
     await this.telemetryClient.stop();
@@ -192,7 +204,15 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   public async startProof(epochNumber: EpochNumber) {
     const job = await this.createProvingJob(epochNumber, { skipEpochCheck: true });
-    void this.runJob(job);
+    this.trackRunJob(job);
+  }
+
+  /** Spawns `runJob` and tracks the resulting promise so `stop()` can await it. */
+  private trackRunJob(job: EpochProvingJob) {
+    const jobId = job.getId();
+    const promise = this.runJob(job);
+    this.runJobPromises.set(jobId, promise);
+    void promise.finally(() => this.runJobPromises.delete(jobId));
   }
 
   private async runJob(job: EpochProvingJob) {

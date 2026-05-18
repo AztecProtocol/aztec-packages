@@ -263,6 +263,27 @@ describe('prover-node', () => {
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
+  it('awaits in-flight epoch jobs before stop resolves', async () => {
+    // Block job.run() so the runJob wrapper stays in-flight while we call stop.
+    const jobRun = promiseWithResolvers<void>();
+    proverNode.nextJobRun = () => jobRun.promise;
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    let stopped = false;
+    const stopPromise = proverNode.stop().then(() => {
+      stopped = true;
+    });
+
+    await sleep(100);
+    expect(stopped).toBe(false);
+    expect(jobs[0].job.stop).toHaveBeenCalled();
+
+    // Resolving the run promise unblocks the runJob wrapper, which lets stop complete.
+    jobRun.resolve();
+    await stopPromise;
+    expect(stopped).toBe(true);
+  });
+
   class TestProverNode extends ProverNode {
     public totalJobCount = 0;
     public nextJobState: EpochProvingJobState = 'completed';

@@ -156,6 +156,15 @@ export class NativeWorldState implements NativeWorldStateInstance {
     responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
     errorHandler = (_: string) => {},
   ): Promise<WorldStateResponse[T]> {
+    // Reject calls that arrive after `close()` has flipped the destruction guard, before
+    // they reach the per-fork queue. This is defence-in-depth for the teardown race where
+    // an in-process owner (e.g. an in-flight EpochProvingJob) tries to use the addon
+    // after the native instance has been closed: a clean JS error is far preferable to
+    // the SIGSEGV that an unguarded native call would otherwise produce.
+    if (!this.open) {
+      throw new Error(`Native world state is closed; cannot call ${WorldStateMessageType[messageType]}`);
+    }
+
     // Here we determine which fork the request is being executed against and whether it requires uncommitted data
     // We use the fork Id to select the appropriate request queue and the uncommitted data flag to pass to the queue
     let forkId = -1;
@@ -215,14 +224,24 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
   /**
    * Stops the native instance.
+   *
+   * Flips `this.open` to reject any further `call()` invocations, drains every
+   * per-fork queue, then sends `CLOSE` on the canonical queue. Draining fork
+   * queues before sending the native CLOSE prevents a race where an in-flight
+   * fork-queue call would touch native state that CLOSE has already destroyed.
    */
   public async close(): Promise<void> {
     if (!this.open) {
       return;
     }
     this.open = false;
-    const queue = this.queues.get(0)!;
 
+    const forkQueues = Array.from(this.queues.entries())
+      .filter(([forkId]) => forkId !== 0)
+      .map(([, queue]) => queue.stop());
+    await Promise.all(forkQueues);
+
+    const queue = this.queues.get(0)!;
     await queue.execute(
       async () => {
         await this._sendMessage(WorldStateMessageType.CLOSE, { canonical: true });

@@ -1478,6 +1478,18 @@ describe('NativeWorldState', () => {
 
       await Promise.all([setupFork.close(), testFork.close()]);
     }, 30_000);
+
+    it('rejects calls issued after close with a JS error rather than crashing', async () => {
+      const wsLocal = await NativeWorldStateService.tmp();
+      const fork = await wsLocal.fork();
+      await fork.close();
+      await wsLocal.close();
+
+      // A fresh fork() after close must surface a JS error, not segfault into the
+      // destroyed native addon. This is the defensive-shutdown contract relied on by
+      // ProverNode teardown.
+      await expect(wsLocal.fork()).rejects.toThrow(/closed/i);
+    });
   });
 
   describe('Checkpoints', () => {

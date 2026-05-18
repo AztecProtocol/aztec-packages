@@ -22,13 +22,17 @@ describe('e2e_expiration_timestamp', () => {
   const aztecSlotDuration = BigInt(getL1ContractsConfigEnvVars().aztecSlotDuration);
 
   beforeAll(async () => {
+    // Anchor the PXE to the checkpointed tip rather than the proposed tip. Under pipelining the
+    // proposed tip can be pruned when a slot ends without a checkpoint landing on L1; the PXE's
+    // prove-time world-state lookup then fails with `Block hash ... not found`. Same workaround
+    // as `e2e_amm` (PR #23336) — the checkpointed tip is L1-confirmed and cannot be pruned.
     ({
       teardown,
       wallet,
       aztecNode,
       cheatCodes,
       accounts: [defaultAccountAddress],
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...PIPELINING_SETUP_OPTS }, { syncChainTip: 'checkpointed' }));
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
