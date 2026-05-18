@@ -105,6 +105,8 @@ export async function createAutomineSequencer({
   const archiverWithRollback = archiver as { rollbackTo: (blockNumber: BlockNumber) => Promise<void> };
   const archiverRollback = (blockNumber: BlockNumber) => archiverWithRollback.rollbackTo(blockNumber);
   const resetPublisherNonces = () => l1TxUtils.forEach(utils => utils.resetNonce());
+  const p2pClientWithSync = p2pClient as { sync?: () => Promise<void> };
+  const syncP2P = p2pClientWithSync.sync ? () => p2pClientWithSync.sync!() : () => Promise.resolve();
 
   const automineSequencer = new AutomineSequencer({
     publisherFactory,
@@ -129,6 +131,7 @@ export async function createAutomineSequencer({
     config,
     archiverRollback,
     resetPublisherNonces,
+    syncP2P,
     log: log.createChild('automine-sequencer'),
   });
 

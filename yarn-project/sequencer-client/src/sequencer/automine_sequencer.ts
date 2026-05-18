@@ -63,6 +63,13 @@ export type AutomineSequencerDeps = {
    * after an L1 reorg. Without this, publishers use a stale nonce from before the reorg.
    */
   resetPublisherNonces: () => void;
+  /**
+   * Forces one work cycle on the P2P block stream so it immediately processes any
+   * `chain-pruned` event emitted by the archiver after a rollback. Without this, the
+   * P2P pool may not have restored rolled-back txs to pending by the time the next
+   * build runs.
+   */
+  syncP2P: () => Promise<void>;
   /** How often to poll the mempool for new txs while running. Defaults to 50ms. */
   pollIntervalMs?: number;
   log?: Logger;
@@ -265,6 +272,13 @@ export class AutomineSequencer {
 
     const tips = await this.deps.l2BlockSource.getL2Tips();
     const syncedToBlockNumber = tips.proposed.number;
+
+    // Ensure world state has processed the archiver's tip before forking. Without this,
+    // world state may still be at the previous block (since it syncs asynchronously from
+    // the archiver), and `fork(syncedToBlockNumber)` would fail with
+    // "Unable to initialize from future block".
+    await this.deps.worldState.syncImmediate(BlockNumber(syncedToBlockNumber));
+
     const nextBlockNumber = BlockNumber(syncedToBlockNumber + 1);
     const checkpointNumber = CheckpointNumber(tips.proposedCheckpoint.checkpoint.number + 1);
     const targetEpoch = getEpochAtSlot(SlotNumber(targetSlot), this.deps.l1Constants);
@@ -417,6 +431,12 @@ export class AutomineSequencer {
     const lastBlockInCheckpoint = BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
     await this.deps.archiverRollback(lastBlockInCheckpoint);
 
+    // Force the P2P block stream to run one cycle immediately so it processes the
+    // chain-pruned event triggered by the archiver rollback above. Without this, the
+    // P2P pool may not have restored rolled-back txs to pending by the time the next
+    // build runs.
+    await this.deps.syncP2P();
+
     // Force world-state to process the archiver's prune event immediately, so the next build
     // doesn't try to insert nullifiers that were already in the pruned checkpoints.
     await this.deps.worldState.syncImmediate();
@@ -439,14 +459,9 @@ export class AutomineSequencer {
     // Reset slot bookkeeping so the next build picks up at the correct slot.
     this.lastBuiltSlot = Number(checkpointData.header.slotNumber);
 
-    // Sync the date provider to the L1 timestamp now at the chain tip.
-    const newL1Ts = await this.deps.ethCheatCodes.lastBlockTimestamp();
-    this.deps.dateProvider.setTime(newL1Ts * 1000);
-
     this.log.verbose(`Reverted to checkpoint ${targetCheckpoint}`, {
       targetCheckpoint,
       targetL1Block,
-      l1Timestamp: newL1Ts,
     });
   }
 }

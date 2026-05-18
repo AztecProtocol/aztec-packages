@@ -3,6 +3,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
 
 import { jest } from '@jest/globals';
@@ -182,9 +183,21 @@ describe('e2e_offchain_payment', () => {
     expect(aliceAfterRollback).toBe(mintAmount);
 
     // The p2p tx pool marks rolled-back txs as pending again, so the AutomineSequencer
-    // re-mines the transfer tx automatically. Force an empty block so the PXE re-syncs
+    // re-mines the transfer tx automatically. Force a block build so the PXE re-syncs
     // and reprocesses the offchain-delivered notes.
     await forceEmptyBlock();
+
+    // Wait for the PXE to process the re-mined block and update its note view.
+    // The PXE syncs asynchronously from the archiver, so the balance may lag briefly.
+    await retryUntil(
+      async () => {
+        const { result } = await contract.methods.get_balance(bob).simulate({ from: bob });
+        return result === paymentAmount;
+      },
+      'Bob balance restored after re-mine',
+      30,
+      0.1,
+    );
 
     // Check that the message was reprocessed and Bob has his payment again.
     // Notice what we want to test here is that the offchain effects don't need to be re-enqueued
