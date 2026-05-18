@@ -3,7 +3,6 @@ import type { Logger } from '@aztec/foundation/log';
 import type { Block } from 'viem';
 
 import type { ViemClient } from '../../types.js';
-import type { L1TxUtilsConfig } from '../config.js';
 
 /**
  * Historical block count for fee history queries
@@ -28,8 +27,6 @@ export interface PriorityFeeStrategyResult {
  * Context passed to the strategy function
  */
 export interface PriorityFeeStrategyContext {
-  /** Gas configuration */
-  gasConfig: L1TxUtilsConfig;
   /** Whether this is for a blob transaction */
   isBlobTx: boolean;
   /** Logger for debugging */
