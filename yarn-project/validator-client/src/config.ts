@@ -8,7 +8,11 @@ import {
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { l1ChainIdConfigMapping, validatorConstraintsConfigMappings } from '@aztec/stdlib/config';
+import {
+  l1ChainIdConfigMapping,
+  pushProposedBlocksToArchiverConfigMappings,
+  validatorConstraintsConfigMappings,
+} from '@aztec/stdlib/config';
 import { localSignerConfigMappings, validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
 import type { OwnValidatorClientConfig, ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
@@ -53,10 +57,6 @@ const ownValidatorClientConfigMappings: ConfigMappingsType<OwnValidatorClientCon
     description: 'Skip checkpoint proposal validation and always attest (default: false)',
     defaultValue: false,
   },
-  skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing re-executed blocks to archiver (default: false)',
-    defaultValue: false,
-  },
   attestToEquivocatedProposals: {
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
@@ -65,6 +65,7 @@ const ownValidatorClientConfigMappings: ConfigMappingsType<OwnValidatorClientCon
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = composeConfigMappings(
   ownValidatorClientConfigMappings,
+  pushProposedBlocksToArchiverConfigMappings,
   l1ChainIdConfigMapping,
   validatorConstraintsConfigMappings,
   localSignerConfigMappings,

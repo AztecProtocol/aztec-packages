@@ -88,7 +88,6 @@ export class ReadOnlyL1TxUtils {
     const strategyResult = await retry(
       () =>
         CurrentStrategy.execute(this.client, {
-          gasConfig,
           isBlobTx,
           logger: this.logger,
         }),
@@ -237,7 +236,7 @@ export class ReadOnlyL1TxUtils {
   public async estimateGas(
     account: Account | Hex,
     request: L1TxRequest,
-    _gasConfig?: L1TxUtilsConfig,
+    _gasConfig?: Partial<L1TxUtilsConfig>,
     _blobInputs?: L1BlobInputs,
   ): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };

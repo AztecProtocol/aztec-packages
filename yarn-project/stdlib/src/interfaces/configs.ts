@@ -5,7 +5,7 @@ import type { Prettify } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import type { FishermanModeConfig } from '../config/validator-config.js';
+import type { FishermanModeConfig, PushProposedBlocksToArchiverConfig } from '../config/validator-config.js';
 import { schemas, zodFor } from '../schemas/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 
@@ -61,8 +61,6 @@ export interface OwnSequencerConfig {
   shuffleAttestationOrdering?: boolean;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
-  /** Skip pushing proposed blocks to archiver (default: false) */
-  skipPushProposedBlocksToArchiver?: boolean;
   /** Minimum number of blocks required for a checkpoint proposal (test only, defaults to undefined = no minimum) */
   minBlocksForCheckpoint?: number;
   /** Skip publishing checkpoint proposals probability (for testing checkpoint prunes only) */
@@ -78,6 +76,7 @@ export interface OwnSequencerConfig {
  * Composed from OwnSequencerConfig plus fields mapped by shared mapping objects in sequencer-client.
  */
 export type SequencerConfig = OwnSequencerConfig &
+  PushProposedBlocksToArchiverConfig &
   FishermanModeConfig & {
     /** The maximum number of txs to include in a block. */
     maxTxsPerBlock?: number;

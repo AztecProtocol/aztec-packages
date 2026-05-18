@@ -7,7 +7,6 @@ import { type Block, type FormattedTransaction, type Hex, formatGwei } from 'vie
 
 import type { ViemClient } from '../types.js';
 import { calculatePercentile, isBlobTransaction } from '../utils.js';
-import type { L1TxUtilsConfig } from './config.js';
 import { BLOB_CAPACITY_SCHEDULE, GAS_PER_BLOB, WEI_CONST } from './constants.js';
 import {
   DEFAULT_PRIORITY_FEE_STRATEGIES,
@@ -254,7 +253,6 @@ export class L1FeeAnalyzer {
     private logger: Logger = createLogger('ethereum:l1-fee-analyzer'),
     private maxCompletedAnalyses: number = 100,
     strategies: PriorityFeeStrategy[] = DEFAULT_PRIORITY_FEE_STRATEGIES,
-    private gasConfig: L1TxUtilsConfig = {},
   ) {
     this.strategies = strategies;
   }
@@ -268,7 +266,6 @@ export class L1FeeAnalyzer {
   async executeAllStrategies(isBlobTx: boolean): Promise<StrategyAnalysisResult[]> {
     const results: StrategyAnalysisResult[] = [];
     const context: PriorityFeeStrategyContext = {
-      gasConfig: this.gasConfig,
       isBlobTx,
       logger: this.logger,
     };
