@@ -1335,7 +1335,7 @@ const compute_curve_msm = async (
           device,
           commandEncoder,
           [gpu_horner_sums_x_sb!, gpu_horner_sums_y_sb!, gpu_horner_sums_z_sb!],
-          /* custom_size */ num_subtasks * num_words * 4,
+          /* custom_size */ num_subtasks * field_elem_bytes,
           /* source_offset */ 0,
           /* dest_offset */ 0,
           cpu_timer,
@@ -1455,6 +1455,31 @@ const compute_curve_msm = async (
   const g_points_x_mont_coords = decode_field_coords(data[0]);
   const g_points_y_mont_coords = decode_field_coords(data[1]);
   const g_points_z_mont_coords = decode_field_coords(data[2]);
+
+  if ((globalThis as unknown as { __msm_dump?: boolean }).__msm_dump && curveConfig.id === 'bn254') {
+    const tag = packed ? 'FUSED' : 'BASE';
+    // eslint-disable-next-line no-console
+    console.log(
+      `[dump:${tag}] params num_subtasks=${num_subtasks} b_wg=${b_workgroup_size} chunk=${chunk_size} gpu_horner=${gpu_horner_enabled} coords_len=${g_points_x_mont_coords.length}`,
+    );
+    const q = curveConfig.baseFieldModulus;
+    const k = Math.min(num_subtasks, g_points_x_mont_coords.length);
+    for (let i = 0; i < k; i++) {
+      const zc = (g_points_z_mont_coords[i] * rinv) % q;
+      if (zc === 0n) {
+        // eslint-disable-next-line no-console
+        console.log(`[dump:${tag}] gpsum[${i}] INF`);
+        continue;
+      }
+      const aff = toAffineBn254Jacobian({
+        x: (g_points_x_mont_coords[i] * rinv) % q,
+        y: (g_points_y_mont_coords[i] * rinv) % q,
+        z: zc,
+      });
+      // eslint-disable-next-line no-console
+      console.log(`[dump:${tag}] gpsum[${i}] affx=${aff.x} affy=${aff.y}`);
+    }
+  }
 
   let r: { x: bigint; y: bigint };
 
