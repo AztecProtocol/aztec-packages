@@ -67,7 +67,6 @@ export const PIPELINING_SETUP_OPTS = {
  */
 export const AUTOMINE_E2E_OPTS = {
   useAutomineSequencer: true,
-  disableValidator: true,
   disableAnvilTestWatcher: true,
   enableProposerPipelining: false,
   inboxLag: 1,

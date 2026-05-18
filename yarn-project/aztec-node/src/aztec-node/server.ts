@@ -7,9 +7,11 @@ import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIG
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
-import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { GovernanceProposerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
+import { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import { EthCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -35,10 +37,13 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import {
+  AutomineSequencer,
   FeeProviderImpl,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
+  SequencerPublisherFactory,
+  getPublisherConfigFromSequencerConfig,
 } from '@aztec/sequencer-client';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
@@ -197,6 +202,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     private validatorClient?: ValidatorClient,
     private keyStoreManager?: KeystoreManager,
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
+    private readonly automineSequencer?: AutomineSequencer,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -796,6 +802,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       // Validator enabled, create/start relevant service
       let sequencer: SequencerClient | undefined;
+      let automineSequencer: AutomineSequencer | undefined;
       let slasherClient: SlasherClientInterface | undefined;
       if (!config.disableValidator && validatorClient) {
         // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
@@ -855,24 +862,80 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           debugLogStore,
         );
 
-        sequencer = await SequencerClient.new(config, {
-          ...deps,
-          epochCache,
-          l1TxUtils,
-          funderL1TxUtils,
-          validatorClient,
-          p2pClient,
-          worldStateSynchronizer,
-          slasherClient,
-          checkpointsBuilder,
-          l2BlockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          telemetry,
-          dateProvider,
-          blobClient,
-          nodeKeyStore: keyStoreManager!,
-          globalVariableBuilder,
-        });
+        if (config.useAutomineSequencer) {
+          // Test-only path: deterministic, queue-driven sequencer for non-block-building e2e tests.
+          // See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
+          const publisherManager = new PublisherManager(l1TxUtils, getPublisherConfigFromSequencerConfig(config), {
+            bindings: log.getBindings(),
+            funder: funderL1TxUtils,
+          });
+          const governanceProposerContract = new GovernanceProposerContract(
+            publicClient,
+            config.governanceProposerAddress.toString(),
+          );
+          const publisherFactory = new SequencerPublisherFactory(config, {
+            telemetry,
+            blobClient,
+            epochCache,
+            governanceProposerContract,
+            rollupContract,
+            dateProvider,
+            publisherManager,
+            nodeKeyStore: NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager!),
+            logger: log,
+          });
+          const attestorAddresses = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager!).getAttesterAddresses();
+          const attestor = attestorAddresses[0];
+          if (!attestor) {
+            throw new Error('AutomineSequencer requires at least one attestor address in the keystore');
+          }
+          const coinbase = validatorClient.getCoinbaseForAttestor(attestor);
+          const feeRecipient = validatorClient.getFeeRecipientForAttestor(attestor);
+          const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, dateProvider, log.createChild('eth-cheat-codes'));
+          automineSequencer = new AutomineSequencer({
+            publisherFactory,
+            checkpointsBuilder,
+            globalsBuilder: globalVariableBuilder,
+            worldState: worldStateSynchronizer,
+            l2BlockSource: archiver,
+            l1ToL2MessageSource: archiver,
+            p2pClient,
+            ethCheatCodes,
+            dateProvider: dateProvider as any, // TestDateProvider; verified at construction in fixture
+            l1Constants: {
+              l1GenesisTime,
+              slotDuration: Number(slotDuration),
+              ethereumSlotDuration: config.ethereumSlotDuration,
+              rollupManaLimit,
+              epochDuration: config.aztecEpochDuration,
+            },
+            coinbase,
+            feeRecipient,
+            signatureContext: { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
+            config,
+            log: log.createChild('automine-sequencer'),
+          });
+          await publisherManager.start();
+        } else {
+          sequencer = await SequencerClient.new(config, {
+            ...deps,
+            epochCache,
+            l1TxUtils,
+            funderL1TxUtils,
+            validatorClient,
+            p2pClient,
+            worldStateSynchronizer,
+            slasherClient,
+            checkpointsBuilder,
+            l2BlockSource: archiver,
+            l1ToL2MessageSource: archiver,
+            telemetry,
+            dateProvider,
+            blobClient,
+            nodeKeyStore: keyStoreManager!,
+            globalVariableBuilder,
+          });
+        }
       }
 
       if (!options.dontStartSequencer && sequencer) {
@@ -881,6 +944,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         log.verbose(`Sequencer started`);
       } else if (sequencer) {
         log.warn(`Sequencer created but not started`);
+      }
+
+      if (!options.dontStartSequencer && automineSequencer) {
+        await automineSequencer.start();
+        started.push({ stop: () => automineSequencer!.stop() });
+        log.verbose(`AutomineSequencer started`);
+      } else if (automineSequencer) {
+        log.warn(`AutomineSequencer created but not started`);
       }
 
       // Create prover node subsystem if enabled
@@ -935,6 +1006,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         validatorClient,
         keyStoreManager,
         debugLogStore,
+        automineSequencer,
       );
 
       return node;
@@ -953,6 +1025,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
+  }
+
+  /** Test-only: returns the AutomineSequencer when wired via `useAutomineSequencer`. */
+  public getAutomineSequencer(): AutomineSequencer | undefined {
+    return this.automineSequencer;
   }
 
   /** Returns the prover node subsystem, if enabled. */
@@ -1896,6 +1973,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async mineBlock(): Promise<void> {
+    if (this.automineSequencer) {
+      await this.automineSequencer.buildEmptyBlock();
+      return;
+    }
     if (!this.sequencer) {
       throw new BadRequestError('Cannot mine block: no sequencer is running');
     }

@@ -605,7 +605,12 @@ export async function setup(
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
+    const cheatCodes = await CheatCodes.create(
+      config.l1RpcUrls,
+      aztecNodeService,
+      dateProvider,
+      aztecNodeService.getAutomineSequencer(),
+    );
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -634,6 +639,11 @@ export async function setup(
       accounts = accountManagers.map(accountManager => accountManager.address);
     } else if (needsEmptyBlock) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
+      // AutomineSequencer only builds on tx arrival; explicitly request an empty block.
+      const automine = aztecNodeService.getAutomineSequencer();
+      if (automine) {
+        await automine.buildEmptyBlock();
+      }
       while ((await aztecNodeService.getBlockNumber()) === 0) {
         await sleep(2000);
       }
