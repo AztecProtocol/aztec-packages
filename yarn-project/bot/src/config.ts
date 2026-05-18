@@ -85,7 +85,7 @@ export interface OwnBotConfig {
   l1ToL2SeedCount: number;
 }
 
-export type BotConfig = OwnBotConfig & BaseDataStoreConfig & L1RpcUrlsConfig & NodeUrlConfig;
+export type BotConfig = OwnBotConfig & BaseDataStoreConfig & Partial<L1RpcUrlsConfig> & Partial<NodeUrlConfig>;
 
 export const BotConfigSchema = zodFor<BotConfig>()(
   z
@@ -120,18 +120,20 @@ export const BotConfigSchema = zodFor<BotConfig>()(
       dataDirectory: z.string().optional(),
       dataStoreMapSizeKb: z.number().optional(),
     })
-    .transform(config => ({
-      nodeUrl: undefined,
-      nodeAdminUrl: undefined,
-      senderSalt: undefined,
-      l2GasLimit: undefined,
-      daGasLimit: undefined,
-      l1Mnemonic: undefined,
-      l1PrivateKey: undefined,
-      senderPrivateKey: undefined,
-      dataStoreMapSizeKb: 1_024 * 1_024,
-      ...config,
-    })),
+    .transform(
+      (config): BotConfig => ({
+        nodeUrl: undefined,
+        nodeAdminUrl: undefined,
+        senderSalt: undefined,
+        l2GasLimit: undefined,
+        daGasLimit: undefined,
+        l1Mnemonic: undefined,
+        l1PrivateKey: undefined,
+        senderPrivateKey: undefined,
+        dataStoreMapSizeKb: 1_024 * 1_024,
+        ...config,
+      }),
+    ),
 );
 
 const ownBotConfigMappings: ConfigMappingsType<OwnBotConfig> = {
