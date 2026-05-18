@@ -4,6 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
+import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
@@ -323,6 +324,20 @@ export class AutomineSequencer {
     this.deps.dateProvider.setTime(newL1Ts * 1000);
 
     this.lastBuiltSlot = targetSlot;
+
+    // Wait for the archiver to surface the new checkpoint as its proposed tip. Without this,
+    // the next mempool-driven build picks up a stale tip and L1 rejects the propose with
+    // Rollup__InvalidArchive (we built our header pointing at the pre-publish lastArchive,
+    // but L1's lastArchive has already advanced).
+    await retryUntil(
+      async () => {
+        const tips = await this.deps.l2BlockSource.getL2Tips();
+        return tips.proposedCheckpoint.checkpoint.number >= checkpointNumber;
+      },
+      `archiver sync to checkpoint ${checkpointNumber}`,
+      this.deps.l1Constants.slotDuration * 2,
+      0.05,
+    );
 
     this.log.verbose(`Automine checkpoint published`, {
       checkpointNumber,

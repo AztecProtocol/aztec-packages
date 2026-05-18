@@ -72,9 +72,12 @@ describe('e2e_automine_smoke', () => {
 
   it('warpL2TimeAtLeastBy advances L1 timestamp and the next tx lands at a fresh slot', async () => {
     const before = await cheatCodes.eth.lastBlockTimestamp();
-    await cheatCodes.warpL2TimeAtLeastBy(aztecNode, 3600);
+    // Warp by 2 slots; a much larger warp (e.g. 1h) crosses the L1 proof-submission window
+    // and triggers a prune of unproven checkpoints, which is a separate test concern.
+    const warpBy = 24;
+    await cheatCodes.warpL2TimeAtLeastBy(aztecNode, warpBy);
     const after = await cheatCodes.eth.lastBlockTimestamp();
-    expect(after - before).toBeGreaterThanOrEqual(3600);
+    expect(after - before).toBeGreaterThanOrEqual(warpBy);
 
     const { receipt } = await contract.methods.emit_nullifier_public(BigInt(9999)).send({ from: owner });
     expect(receipt.blockNumber).toBeGreaterThan(0);
