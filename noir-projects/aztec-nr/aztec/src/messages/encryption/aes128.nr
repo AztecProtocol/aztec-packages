@@ -477,6 +477,7 @@ unconstrained fn random_address_point() -> AddressPoint {
 
 mod test {
     use crate::{
+        ephemeral::EphemeralArray,
         keys::ecdh_shared_secret::{compute_app_siloed_shared_secret, derive_ecdh_shared_secret},
         messages::{
             encoding::{HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_PLAINTEXT_LEN, MESSAGE_PLAINTEXT_SIZE_IN_BYTES},
@@ -520,7 +521,10 @@ mod test {
             );
             let s_app = compute_app_siloed_shared_secret(raw_shared_secret, contract_address);
 
-            let _ = OracleMock::mock("aztec_utl_getSharedSecret").returns(s_app);
+            let response_slot: Field = 99;
+            let response_array: EphemeralArray<Field> = EphemeralArray::at(response_slot);
+            response_array.push(s_app);
+            let _ = OracleMock::mock("aztec_utl_getSharedSecrets").returns(response_slot);
 
             // Decrypt the message
             let decrypted = AES128::decrypt(encrypted_message, recipient, contract_address).unwrap();
