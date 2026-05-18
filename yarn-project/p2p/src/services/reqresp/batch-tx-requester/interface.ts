@@ -1,6 +1,6 @@
 import type { ISemaphore } from '@aztec/foundation/queue';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import type { Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -56,6 +56,4 @@ export interface BatchTxRequesterOptions {
   //Injectable for testing purposes
   semaphore?: ISemaphore;
   peerCollection?: IPeerCollection;
-  /** Optional tx validator for testing - if not provided, one is created from p2pService.txValidatorConfig */
-  txValidator?: TxValidator;
 }

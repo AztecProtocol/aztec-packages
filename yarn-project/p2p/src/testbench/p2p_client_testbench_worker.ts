@@ -42,6 +42,7 @@ import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.j
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
 import { RequestTracker } from '../services/tx_collection/request_tracker.js';
+import { SharedTxValidationCache } from '../services/tx_collection/shared_tx_validation_cache.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
@@ -278,6 +279,7 @@ async function runAggregatorBenchmark(
     const noopTxValidator: TxValidator = {
       validateTx: (_tx: Tx): Promise<TxValidationResult> => Promise.resolve({ result: 'valid' }),
     };
+    const validationCache = new SharedTxValidationCache(noopTxValidator, logger);
 
     timer = new Timer();
     const tracker = RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs));
@@ -286,9 +288,9 @@ async function runAggregatorBenchmark(
       blockProposal,
       pinnedPeer,
       batchTxRequesterService,
+      validationCache,
       logger,
       new DateProvider(),
-      { txValidator: noopTxValidator },
     );
     const fetchedTxs = await BatchTxRequester.collectAllTxs(batchRequester.run());
     const durationMs = timer.ms();

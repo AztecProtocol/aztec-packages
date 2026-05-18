@@ -10,7 +10,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { type BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
-import { Tx, TxArray, TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -18,6 +18,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { createSecp256k1PeerId } from '../../../index.js';
 import { RequestTracker } from '../../tx_collection/request_tracker.js';
+import type { ISharedTxValidationCache, TxValidationOutcome } from '../../tx_collection/shared_tx_validation_cache.js';
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import type { ReqRespInterface } from '../interface.js';
 import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
@@ -27,12 +28,17 @@ import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD, DEFAULT_BATCH_TX_REQUEST
 import type { BatchTxRequesterLibP2PService, IPeerPenalizer } from './interface.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
 
-/** Mock tx validator for testing that always returns valid */
-class AlwaysValidTxValidator implements TxValidator {
-  validateTx(_tx: Tx): Promise<TxValidationResult> {
-    return Promise.resolve({ result: 'valid' });
-  }
-}
+/**
+ * Builds a mock validation cache whose `submitBatch` defers to `outcomeFor` for each tx.
+ * Default behaviour: every tx is accepted.
+ */
+const makeValidationCacheMock = (
+  outcomeFor: (_tx: Tx) => TxValidationOutcome = () => ({ status: 'accepted' }),
+): MockProxy<ISharedTxValidationCache> => {
+  const mockCache = mock<ISharedTxValidationCache>();
+  mockCache.submitBatch.mockImplementation((txs: Tx[]) => Promise.resolve(txs.map(outcomeFor)));
+  return mockCache;
+};
 
 const TEST_TIMEOUT = 15_000;
 const TX_BATCH_SIZE = DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE;
@@ -45,7 +51,7 @@ describe('BatchTxRequester', () => {
   let connectionSampler: MockProxy<ConnectionSampler>;
   let reqResp: MockProxy<ReqRespInterface>;
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
-  let txValidator: TxValidator;
+  let validationCache: MockProxy<ISharedTxValidationCache>;
 
   beforeEach(async () => {
     logger = createLogger('test');
@@ -58,7 +64,7 @@ describe('BatchTxRequester', () => {
       peerScoring,
     });
     mockP2PService.validateRequestedBlockTxsConsistency.mockResolvedValue(true);
-    txValidator = new AlwaysValidTxValidator();
+    validationCache = makeValidationCacheMock();
 
     const signer = Secp256k1Signer.random();
     const archiveRoot = Fr.random();
@@ -108,11 +114,19 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
 
       const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
-      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
-        smartParallelWorkerCount: 0,
-        dumbParallelWorkerCount: 1,
-        txValidator,
-      });
+      const requester = new BatchTxRequester(
+        tracker,
+        blockProposal,
+        undefined,
+        mockP2PService,
+        validationCache,
+        logger,
+        clock,
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 1,
+        },
+      );
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -155,11 +169,19 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
 
       const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
-      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
-        smartParallelWorkerCount: 0,
-        dumbParallelWorkerCount: 3,
-        txValidator,
-      });
+      const requester = new BatchTxRequester(
+        tracker,
+        blockProposal,
+        undefined,
+        mockP2PService,
+        validationCache,
+        logger,
+        clock,
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 3,
+        },
+      );
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -279,6 +301,7 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
@@ -286,7 +309,6 @@ describe('BatchTxRequester', () => {
           dumbParallelWorkerCount: 3,
           txBatchSize: txCount,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -332,13 +354,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           semaphore, // inject test semaphore
           smartParallelWorkerCount: 1, // start one smart worker that will block on acquire()
           dumbParallelWorkerCount: 2,
-          txValidator,
         },
       );
 
@@ -383,6 +405,7 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         dateProvider,
         {
@@ -390,7 +413,6 @@ describe('BatchTxRequester', () => {
           smartParallelWorkerCount: 2,
           dumbParallelWorkerCount: 2,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -455,6 +477,7 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         dateProvider,
         {
@@ -462,7 +485,6 @@ describe('BatchTxRequester', () => {
           smartParallelWorkerCount: 3,
           dumbParallelWorkerCount: 3,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -510,6 +532,7 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         dateProvider,
         {
@@ -517,7 +540,6 @@ describe('BatchTxRequester', () => {
           smartParallelWorkerCount: 1,
           dumbParallelWorkerCount: 1,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -565,13 +587,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         dateProvider,
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -641,13 +663,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         dateProvider,
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 1,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -754,6 +776,7 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         dateProvider,
         {
@@ -761,7 +784,6 @@ describe('BatchTxRequester', () => {
           peerCollection,
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 3,
-          txValidator,
         },
       );
 
@@ -893,13 +915,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         clock,
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -963,11 +985,19 @@ describe('BatchTxRequester', () => {
       const clock = new TestClock();
 
       const tracker = RequestTracker.create(missing, new Date(Date.now() + shortDeadline));
-      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
-        smartParallelWorkerCount: 1,
-        dumbParallelWorkerCount: 1,
-        txValidator,
-      });
+      const requester = new BatchTxRequester(
+        tracker,
+        blockProposal,
+        undefined,
+        mockP2PService,
+        validationCache,
+        logger,
+        clock,
+        {
+          smartParallelWorkerCount: 1,
+          dumbParallelWorkerCount: 1,
+        },
+      );
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -1017,12 +1047,12 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 2,
           dumbParallelWorkerCount: 2,
-          txValidator,
         },
       );
 
@@ -1087,12 +1117,12 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
-          txValidator,
         },
       );
 
@@ -1133,13 +1163,21 @@ describe('BatchTxRequester', () => {
 
       // Create semaphore that starts with 0 permits to block smart workers
       const semaphore = new TestSemaphore(new Semaphore(0));
-      const requester = new BatchTxRequester(tracker, blockProposal, undefined, mockP2PService, logger, clock, {
-        semaphore,
-        smartParallelWorkerCount: 2,
-        dumbParallelWorkerCount: 2,
-        peerCollection,
-        txValidator,
-      });
+      const requester = new BatchTxRequester(
+        tracker,
+        blockProposal,
+        undefined,
+        mockP2PService,
+        validationCache,
+        logger,
+        clock,
+        {
+          semaphore,
+          smartParallelWorkerCount: 2,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+        },
+      );
 
       const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
@@ -1187,14 +1225,6 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([2, 3, 7]); // Mark transactions at indices 2, 3, and 7 as invalid
 
-      const customValidator: TxValidator = {
-        validateTx: (tx: Tx) => {
-          const txIndex = missing.findIndex(h => h.equals(tx.txHash));
-          const isInvalid = invalidTxIndices.has(txIndex);
-          return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
-        },
-      };
-
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
@@ -1203,6 +1233,11 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        makeValidationCacheMock(tx =>
+          invalidTxIndices.has(missing.findIndex(h => h.equals(tx.txHash)))
+            ? { status: 'invalid', reason: ['test invalid'] }
+            : { status: 'accepted' },
+        ),
         logger,
         new DateProvider(),
         {
@@ -1210,7 +1245,6 @@ describe('BatchTxRequester', () => {
           dumbParallelWorkerCount: 2,
           txBatchSize: txCount,
           peerCollection,
-          txValidator: customValidator,
         },
       );
 
@@ -1263,16 +1297,8 @@ describe('BatchTxRequester', () => {
         [peers[2].toString(), [0, 6, 7, 8, 9, 10, 11]],
       ]);
 
-      // Validator that rejects transactions at specific indices
-      // Even indices are rejected, odd indices are accepted
+      // Reject txs at specific indices; even indices are rejected, odd indices are accepted.
       const invalidTxIndices = new Set([0, 2, 4, 6, 8, 10]);
-      const mixedValidator: TxValidator = {
-        validateTx: (tx: Tx) => {
-          const txIndex = missing.findIndex(h => h.equals(tx.txHash));
-          const isInvalid = invalidTxIndices.has(txIndex);
-          return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
-        },
-      };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
@@ -1282,12 +1308,16 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        makeValidationCacheMock(tx =>
+          invalidTxIndices.has(missing.findIndex(h => h.equals(tx.txHash)))
+            ? { status: 'invalid', reason: ['test invalid'] }
+            : { status: 'accepted' },
+        ),
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 3,
-          txValidator: mixedValidator,
         },
       );
 
@@ -1322,25 +1352,9 @@ describe('BatchTxRequester', () => {
       const peer = await createSecp256k1PeerId();
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
 
-      // Validator that throws errors for specific transactions
-      const throwingValidator: TxValidator = {
-        validateTx: (tx: Tx) => {
-          const txIndex = missing.findIndex(h => h.equals(tx.txHash));
-
-          // Throw error for transactions at indices 1 and 3
-          if (txIndex === 1 || txIndex === 3) {
-            return Promise.reject(new Error(`Validation error for tx at index ${txIndex}`));
-          }
-
-          // Reject transaction at index 5 normally
-          if (txIndex === 5) {
-            return Promise.resolve({ result: 'invalid', reason: ['test rejected'] });
-          }
-
-          return Promise.resolve({ result: 'valid' });
-        },
-      };
-
+      // Validator outcomes for indices 1, 3 are reported by the cache as invalid
+      // (since SharedTxValidationCache catches thrown validators and reports them as invalid).
+      // Index 5 is also reported invalid via a normal validation failure.
       const peerTransactions = new Map([[peer.toString(), Array.from({ length: txCount }, (_, i) => i)]]);
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
@@ -1351,12 +1365,21 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        makeValidationCacheMock(tx => {
+          const txIndex = missing.findIndex(h => h.equals(tx.txHash));
+          if (txIndex === 1 || txIndex === 3) {
+            return { status: 'invalid', reason: [`Validation error for tx at index ${txIndex}`] };
+          }
+          if (txIndex === 5) {
+            return { status: 'invalid', reason: ['test rejected'] };
+          }
+          return { status: 'accepted' };
+        }),
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 1,
-          txValidator: throwingValidator,
         },
       );
 
@@ -1407,12 +1430,12 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 1,
-          txValidator,
         },
       );
 
@@ -1466,12 +1489,12 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
-          txValidator,
         },
       );
 
@@ -1517,13 +1540,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 1,
           dumbParallelWorkerCount: 1,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -1598,13 +1621,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         clock,
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -1653,13 +1676,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 1,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -1691,14 +1714,6 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([1, 6]); // Mark some transactions as invalid
 
-      const customValidator: TxValidator = {
-        validateTx: (tx: Tx) => {
-          const txIndex = missing.findIndex(h => h.equals(tx.txHash));
-          const isInvalid = invalidTxIndices.has(txIndex);
-          return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
-        },
-      };
-
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
       reqResp.sendRequestToPeer.mockImplementation(mockImplementation);
 
@@ -1707,12 +1722,16 @@ describe('BatchTxRequester', () => {
         blockProposal,
         pinnedPeer,
         mockP2PService,
+        makeValidationCacheMock(tx =>
+          invalidTxIndices.has(missing.findIndex(h => h.equals(tx.txHash)))
+            ? { status: 'invalid', reason: ['test invalid'] }
+            : { status: 'accepted' },
+        ),
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
-          txValidator: customValidator,
         },
       );
 
@@ -1800,13 +1819,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 1,
           dumbParallelWorkerCount: 1,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -1895,13 +1914,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 1,
           dumbParallelWorkerCount: 1,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -1990,13 +2009,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 1,
           dumbParallelWorkerCount: 1,
           peerCollection,
-          txValidator,
         },
       );
 
@@ -2062,13 +2081,13 @@ describe('BatchTxRequester', () => {
         blockProposal,
         undefined,
         mockP2PService,
+        validationCache,
         logger,
         new DateProvider(),
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
           peerCollection,
-          txValidator,
         },
       );
 

@@ -9,7 +9,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
-import { Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -22,6 +22,7 @@ import { BatchTxRequester } from '../../services/reqresp/batch-tx-requester/batc
 import type { BatchTxRequesterLibP2PService } from '../../services/reqresp/batch-tx-requester/interface.js';
 import type { ConnectionSampler } from '../../services/reqresp/connection-sampler/connection_sampler.js';
 import { RequestTracker } from '../../services/tx_collection/request_tracker.js';
+import type { ISharedTxValidationCache } from '../../services/tx_collection/shared_tx_validation_cache.js';
 import { generatePeerIdPrivateKeys } from '../../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../../test-helpers/get-ports.js';
 import { makeEnrs } from '../../test-helpers/make-enrs.js';
@@ -38,7 +39,7 @@ describe('p2p client integration batch txs', () => {
 
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
   let connectionSampler: MockProxy<ConnectionSampler>;
-  let txValidator: TxValidator;
+  let validationCache: MockProxy<ISharedTxValidationCache>;
 
   let logger: Logger;
   let p2pBaseConfig: P2PConfig;
@@ -56,11 +57,11 @@ describe('p2p client integration batch txs', () => {
       connectionSampler,
       validateRequestedBlockTxsConsistency: () => Promise.resolve(true),
     });
-    txValidator = {
-      validateTx: () => Promise.resolve({ result: 'valid' }),
-    };
-
     logger = createLogger('p2p:test:integration:batch');
+    validationCache = mock<ISharedTxValidationCache>();
+    validationCache.submitBatch.mockImplementation((txs: Tx[]) =>
+      Promise.resolve(txs.map(() => ({ status: 'accepted' as const }))),
+    );
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
@@ -236,9 +237,10 @@ describe('p2p client integration batch txs', () => {
       blockProposal,
       undefined, // no pinned peer
       mockP2PService,
+      validationCache,
       logger,
       undefined,
-      { smartParallelWorkerCount: 10, dumbParallelWorkerCount: 10, txValidator },
+      { smartParallelWorkerCount: 10, dumbParallelWorkerCount: 10 },
     );
 
     const fetchedTxs = await BatchTxRequester.collectAllTxs(requester.run());

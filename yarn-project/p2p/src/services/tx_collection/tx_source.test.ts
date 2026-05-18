@@ -1,13 +1,14 @@
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { ISharedTxValidationCache } from './shared_tx_validation_cache.js';
 import { NodeRpcTxSource } from './tx_source.js';
 
 describe('NodeRpcTxSource', () => {
   let mockClient: MockProxy<Pick<AztecNode, 'getTxsByHash'>>;
-  let mockValidator: MockProxy<TxValidator>;
+  let mockValidationCache: MockProxy<ISharedTxValidationCache>;
 
   const makeTx = async () => {
     const tx = Tx.random();
@@ -17,28 +18,43 @@ describe('NodeRpcTxSource', () => {
 
   beforeEach(() => {
     mockClient = mock<Pick<AztecNode, 'getTxsByHash'>>();
-    mockValidator = mock<TxValidator>();
-    mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
+    mockValidationCache = mock<ISharedTxValidationCache>();
   });
 
-  const createSource = () => new NodeRpcTxSource(mockClient, mockValidator, 'test');
+  const createSource = () => new NodeRpcTxSource(mockClient, mockValidationCache, 'test');
 
-  it('returns valid txs when validator accepts', async () => {
+  it('returns valid txs when validation cache accepts', async () => {
     const tx1 = await makeTx();
     const tx2 = await makeTx();
     mockClient.getTxsByHash.mockResolvedValue([tx1, tx2]);
+    mockValidationCache.submitBatch.mockResolvedValue([{ status: 'accepted' }, { status: 'accepted' }]);
 
     const result = await createSource().getTxsByHash([tx1.getTxHash(), tx2.getTxHash()]);
 
-    expect(result.validTxs).toHaveLength(2);
+    expect(result.validTxs).toEqual([tx1, tx2]);
     expect(result.invalidTxHashes).toHaveLength(0);
   });
 
-  it('returns invalid tx hashes when validator rejects', async () => {
+  it('treats skipped outcomes as valid', async () => {
     const tx1 = await makeTx();
     const tx2 = await makeTx();
     mockClient.getTxsByHash.mockResolvedValue([tx1, tx2]);
-    mockValidator.validateTx.mockResolvedValue({ result: 'invalid', reason: ['bad'] });
+    mockValidationCache.submitBatch.mockResolvedValue([{ status: 'accepted' }, { status: 'skipped' }]);
+
+    const result = await createSource().getTxsByHash([tx1.getTxHash(), tx2.getTxHash()]);
+
+    expect(result.validTxs).toEqual([tx1, tx2]);
+    expect(result.invalidTxHashes).toHaveLength(0);
+  });
+
+  it('returns invalid tx hashes when validation cache rejects', async () => {
+    const tx1 = await makeTx();
+    const tx2 = await makeTx();
+    mockClient.getTxsByHash.mockResolvedValue([tx1, tx2]);
+    mockValidationCache.submitBatch.mockResolvedValue([
+      { status: 'invalid', reason: ['bad'] },
+      { status: 'invalid', reason: ['bad'] },
+    ]);
 
     const result = await createSource().getTxsByHash([tx1.getTxHash(), tx2.getTxHash()]);
 
@@ -46,13 +62,11 @@ describe('NodeRpcTxSource', () => {
     expect(result.invalidTxHashes).toEqual([tx1.getTxHash().toString(), tx2.getTxHash().toString()]);
   });
 
-  it('partitions txs based on validator result', async () => {
+  it('partitions txs based on validation cache outcomes', async () => {
     const tx1 = await makeTx();
     const tx2 = await makeTx();
     mockClient.getTxsByHash.mockResolvedValue([tx1, tx2]);
-    mockValidator.validateTx
-      .mockResolvedValueOnce({ result: 'valid' })
-      .mockResolvedValueOnce({ result: 'invalid', reason: ['bad'] });
+    mockValidationCache.submitBatch.mockResolvedValue([{ status: 'accepted' }, { status: 'invalid', reason: ['bad'] }]);
 
     const result = await createSource().getTxsByHash([tx1.getTxHash(), tx2.getTxHash()]);
 
