@@ -707,7 +707,7 @@ export const smvp_batch_affine_gpu = async (
       Math.ceil(totalEntries / TREE_TPB),
       1,
       1,
-      profiler?.stage('ba_tree_ebid'),
+      profiler?.stage('tree_ebid'),
     );
 
     // Zero numActiveBuckets before count_active dispatches.
@@ -720,7 +720,7 @@ export const smvp_batch_affine_gpu = async (
       Math.ceil(totalEntries / 256),
       1,
       1,
-      profiler?.stage('ba_tree_count_active'),
+      profiler?.stage('tree_count_active'),
     );
 
     // Record the whole tree-reduce chain into the same command encoder.
@@ -747,6 +747,7 @@ export const smvp_batch_affine_gpu = async (
       },
       `bn254:${num_columns}:${input_size}`,
       ws_key,
+      profiler,
     );
 
     // Scatter params: (total_buckets, max_layers_slot,

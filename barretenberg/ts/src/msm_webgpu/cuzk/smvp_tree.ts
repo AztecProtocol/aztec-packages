@@ -13,7 +13,7 @@
 
 import type { GpuContext } from './gpu_context.js';
 import { ShaderManager } from './shader_manager.js';
-import { create_bind_group_layout, execute_pipeline, execute_pipeline_indirect } from './gpu.js';
+import { create_bind_group_layout, execute_pipeline, execute_pipeline_indirect, Profiler } from './gpu.js';
 
 const NUM_LIMBS_U32 = 20;
 
@@ -121,6 +121,7 @@ export async function recordTreeReduce(
   cfg: RecordTreeReduceConfig,
   pipelineCacheKeyPrefix: string,
   workspaceCacheKeyPrefix: string,
+  profiler?: Profiler,
 ): Promise<RecordTreeReduceResources> {
   const { tpb, maxSliceEntries, maxLayers, preludeWgSize, scanWgSize } = cfg;
   const numWgsP1 = Math.max(1, Math.ceil(totalEntries / maxSliceEntries));
@@ -422,14 +423,37 @@ export async function recordTreeReduce(
       // in the chain (where SwiftShader has been observed to miss the
       // implicit storage→indirect barrier).
       const preludeWgs = Math.max(1, Math.ceil((numWgsP1 + 1) / preludeWgSize));
-      await execute_pipeline(commandEncoder, preludePipe.pipeline, preludeBg, preludeWgs, 1, 1);
+      await execute_pipeline(
+        commandEncoder,
+        preludePipe.pipeline,
+        preludeBg,
+        preludeWgs,
+        1,
+        1,
+        profiler?.stage(`tree_prelude[L=${L}]`),
+      );
     } else {
       // Prelude (indirect from dispatch_args_prelude[L*3])
-      execute_pipeline_indirect(commandEncoder, preludePipe.pipeline, preludeBg, dispatchArgsPrelude, L * 12);
+      execute_pipeline_indirect(
+        commandEncoder,
+        preludePipe.pipeline,
+        preludeBg,
+        dispatchArgsPrelude,
+        L * 12,
+        profiler?.stage(`tree_prelude[L=${L}]`),
+      );
     }
 
     // Scan (direct 1,1,1)
-    await execute_pipeline(commandEncoder, scanPipe.pipeline, scanBg, 1, 1, 1);
+    await execute_pipeline(
+      commandEncoder,
+      scanPipe.pipeline,
+      scanBg,
+      1,
+      1,
+      1,
+      profiler?.stage(`tree_scan[L=${L}]`),
+    );
 
     // Phase1 (L=0) or Phase2 (L>=1).
     if (L === 0) {
@@ -437,15 +461,38 @@ export async function recordTreeReduce(
       // Layer 0's phase1 has host-known dispatch geometry (num_wgs =
       // numWgsP1 always). Direct dispatch eliminates the first-in-chain
       // indirect-args visibility uncertainty.
-      await execute_pipeline(commandEncoder, phase1Pipe.pipeline, bg, numWgsP1, 1, 1);
+      await execute_pipeline(
+        commandEncoder,
+        phase1Pipe.pipeline,
+        bg,
+        numWgsP1,
+        1,
+        1,
+        profiler?.stage('tree_phase1'),
+      );
     } else {
       const bg = buildPhase2Bg(L);
-      execute_pipeline_indirect(commandEncoder, phase2Pipe.pipeline, bg, dispatchArgsPhase2, L * 12);
+      execute_pipeline_indirect(
+        commandEncoder,
+        phase2Pipe.pipeline,
+        bg,
+        dispatchArgsPhase2,
+        L * 12,
+        profiler?.stage(`tree_phase2[L=${L}]`),
+      );
     }
   }
 
   // scatter_args: direct dispatch, single thread.
-  await execute_pipeline(commandEncoder, scatterArgsPipe.pipeline, scatterArgsBg, 1, 1, 1);
+  await execute_pipeline(
+    commandEncoder,
+    scatterArgsPipe.pipeline,
+    scatterArgsBg,
+    1,
+    1,
+    1,
+    profiler?.stage('tree_scatter_args'),
+  );
 
   return {
     pingBucketId,
