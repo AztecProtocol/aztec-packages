@@ -15,16 +15,17 @@ import { setup } from './fixtures/utils.js';
  * this test is the first thing that fails.
  *
  * The config gives us:
- *   - aztecSlotDuration = 12s, ethereumSlotDuration = 4s
+ *   - aztecSlotDuration = 12s, ethereumSlotDuration = 4s, aztecEpochDuration = 4 slots
  *   - one block per slot (blockDurationMs unset → single-block mode in the timetable)
  *   - pipelining on (build slot N-1, commit to slot N)
- *   - CheckpointAutoProver wired (testOnlyAutoProveAfterPublish = true)
+ *   - EpochTestSettler wired (testOnlyAutoProveAfterPublish = true), advancing proven once
+ *     per completed epoch (48s wall time)
  *   - no AnvilTestWatcher running for the anvil-backed run
  *
  * The test exercises three invariants:
  *   1. The chain advances on its own under interval mining + pipelining.
  *   2. 20 sequential dependent txs land in distinct blocks (single-block mode keeps batching off).
- *   3. The proven tip advances after a published checkpoint (CheckpointAutoProver works).
+ *   3. The proven tip advances after an epoch completes (EpochTestSettler works).
  */
 describe('e2e_fast_config', () => {
   jest.setTimeout(15 * 60 * 1000);
@@ -67,19 +68,20 @@ describe('e2e_fast_config', () => {
   );
 
   it(
-    'proven tip advances within a few slots of publish',
+    'proven tip advances within an epoch of publish',
     async () => {
       const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
       const { receipt } = await contract.methods.increment_public_value(ownerAddress, 0).send({ from: ownerAddress });
       expect(receipt.blockNumber).toBeDefined();
       const provenTarget = receipt.blockNumber!;
 
-      // CheckpointAutoProver listens to checkpoint-published and marks proven once the archiver
-      // has promoted the checkpoint. Five slots * 12s = 60s is generous.
+      // EpochTestSettler advances proven once per completed epoch. With aztecEpochDuration=4
+      // and aztecSlotDuration=12, an epoch is 48s; allow two epochs of slack for the in-flight
+      // checkpoint to settle into the next one.
       await retryUntil(
         async () => (await aztecNode.getBlockNumber('proven')) >= provenTarget,
         `proven tip reaches block ${provenTarget}`,
-        /* timeoutSecs= */ 90,
+        /* timeoutSecs= */ 150,
         /* intervalSecs= */ 1,
       );
     },

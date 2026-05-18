@@ -17,7 +17,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes, CheckpointAutoProver } from '@aztec/aztec/testing';
+import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes, EpochTestSettler } from '@aztec/aztec/testing';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -214,10 +214,10 @@ export type SetupOptions = {
   /** Options forwarded to PXE creation (e.g. execution hooks). */
   pxeCreationOptions?: PXECreationOptions;
   /**
-   * When true, the fixture constructs a CheckpointAutoProver that calls
-   * `RollupCheatCodes.markAsProven` after each published checkpoint, replacing
-   * AnvilTestWatcher's markAsProven loop. Wired in step 4 of the plan; safe to
-   * set in step 1 because it just stores a config value until the helper is hooked up.
+   * When true, the fixture constructs an `EpochTestSettler` that advances the proven tip
+   * (and the outbox hash) once per completed epoch, replacing `AnvilTestWatcher`'s polling
+   * `markAsProven` loop for e2e tests that don't run a real prover-node. Skipped when
+   * `startProverNode` is set — the real prover advances proven there.
    */
   testOnlyAutoProveAfterPublish?: boolean;
 } & Partial<AztecNodeConfig>;
@@ -256,8 +256,8 @@ export type EndToEndContext = {
   ethCheatCodes: EthCheatCodes;
   /** The anvil test watcher. */
   watcher: AnvilTestWatcher;
-  /** Auto-prover that calls markAsProven after each checkpoint when testOnlyAutoProveAfterPublish is true. */
-  checkpointAutoProver: CheckpointAutoProver | undefined;
+  /** Epoch-granularity proven-tip settler when testOnlyAutoProveAfterPublish is true. */
+  epochTestSettler: EpochTestSettler | undefined;
   /** Allows tweaking current system time, used by the epoch cache only. */
   dateProvider: TestDateProvider;
   /** Telemetry client */
@@ -487,7 +487,7 @@ export async function setup(
       opts.anvilTestWatcherOpts,
     );
     // Watcher is only needed on the sandbox path. Anvil e2e tests use interval mining + cheat-code
-    // atomic dateProvider sync + CheckpointAutoProver instead.
+    // atomic dateProvider sync + EpochTestSettler (opt-in via testOnlyAutoProveAfterPublish) instead.
     const disableWatcher = opts.disableAnvilTestWatcher ?? isAnvilChain;
     if (!disableWatcher) {
       await watcher.start();
@@ -613,15 +613,16 @@ export async function setup(
 
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
 
-    let checkpointAutoProver: CheckpointAutoProver | undefined = undefined;
-    if (opts.testOnlyAutoProveAfterPublish && isAnvilChain && !opts.startProverNode && sequencerClient) {
-      checkpointAutoProver = new CheckpointAutoProver({
-        sequencer: sequencerClient.getSequencer(),
-        l2BlockSource: aztecNodeService.getBlockSource(),
-        rollupCheatCodes: cheatCodes.rollup,
-        log: logger,
-      });
-      checkpointAutoProver.start();
+    let epochTestSettler: EpochTestSettler | undefined = undefined;
+    if (opts.testOnlyAutoProveAfterPublish && isAnvilChain && !opts.startProverNode) {
+      epochTestSettler = new EpochTestSettler(
+        ethCheatCodes,
+        deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+        aztecNodeService.getBlockSource(),
+        logger.createChild('epoch-settler'),
+        { pollingIntervalMs: 200 },
+      );
+      await epochTestSettler.start();
     }
 
     if (
@@ -670,7 +671,7 @@ export async function setup(
 
     const teardown = async () => {
       try {
-        await checkpointAutoProver?.stop();
+        await epochTestSettler?.stop();
         await tryStop(wallet, logger);
         await tryStop(aztecNodeService, logger);
         await tryStop(proverNode, logger);
@@ -722,7 +723,7 @@ export async function setup(
       wallet,
       accounts,
       watcher,
-      checkpointAutoProver,
+      epochTestSettler,
       acvmConfig,
       bbConfig,
       directoryToCleanup,
