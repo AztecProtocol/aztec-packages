@@ -88,6 +88,7 @@ TEST(CrsFactory, bn254)
     // Tiny download check to test the 'net CRS' path
     ASSERT_ANY_THROW(check_bn254_consistency(temp_crs_path, 1, /*allow_download=*/false));
     check_bn254_consistency(temp_crs_path, 1, /*allow_download=*/true);
+    fs::remove_all(temp_crs_path);
 }
 
 TEST(CrsFactory, grumpkin)
@@ -99,6 +100,7 @@ TEST(CrsFactory, grumpkin)
     // Tiny download check to test the 'net CRS' path
     ASSERT_ANY_THROW(check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/false));
     check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/true);
+    fs::remove_all(temp_crs_path);
 }
 
 // TODO: Re-enable once g1_compressed.dat is deployed to S3 fallback
@@ -201,4 +203,26 @@ TEST(CrsFactory, Bn254CompressedChunkHashCorruptionDetected)
     auto chunk = std::span<const uint8_t>(data.data(), data.size());
     auto hash = bb::crypto::sha256(chunk);
     EXPECT_NE(hash, bb::srs::BN254_G1_CHUNK_HASHES[0]);
+}
+
+// With `BB_VERIFY_CRS=1`, `get_bn254_g1_data` runs the chunk-hash check on cached compressed bytes
+// and rejects a corrupted file that would otherwise be silently decompressed and trusted.
+TEST(CrsFactory, Bn254CacheLoadRejectsCorruptionWhenEnvVarSet)
+{
+    constexpr size_t COMPRESSED_POINT_SIZE = 32;
+    const fs::path temp_path = "barretenberg_srs_test_env_var_corruption";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+
+    // Three points: garbage everywhere is fine — the partial-last-chunk SHA-256 check compares
+    // against BN254_G1_CHUNK_HASHES[0] (hash of a real 4MB chunk) and necessarily fails.
+    std::vector<uint8_t> bad_data(3 * COMPRESSED_POINT_SIZE, 0);
+    bb::write_file(temp_path / "bn254_g1_compressed.dat", bad_data);
+
+    setenv("BB_VERIFY_CRS", "1", /*overwrite=*/1);
+    EXPECT_THROW_OR_ABORT(bb::get_bn254_g1_data(temp_path, /*num_points=*/3, /*allow_download=*/false),
+                          "CRS integrity check failed");
+    unsetenv("BB_VERIFY_CRS");
+
+    fs::remove_all(temp_path);
 }
