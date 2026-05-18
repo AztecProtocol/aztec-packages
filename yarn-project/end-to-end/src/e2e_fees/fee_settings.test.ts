@@ -95,19 +95,25 @@ describe('e2e_fees fee settings', () => {
         reference: reference.toInspect(),
       });
 
-      // Bump next L1 block base fee to ~3x current with a 0.1 gwei floor. The 0.1 gwei floor
+      const minRiseTarget = (reference.feePerL2Gas * 13n) / 10n;
+
+      // Bump next L1 block base fee above both the current L1 fee and the L1 fee implied by
+      // the requested L2 fee rise, with a 0.1 gwei absolute floor. The absolute floor
       // matters when anvil's natural EIP-1559 decay has driven `currentL1BaseFee` close to zero —
       // multiplying tiny numbers stays tiny, so a target below the previous oracle snapshot can
-      // *decrease* L2 fees. The oracle rotation deadband (`LIFETIME - LAG = 3` L2 slots between
-      // successful rotations, see FeeLib.sol:170) silently no-ops `updateL1GasFeeOracle` until
-      // the window opens; we retry every second so the *first* call after the deadband opens
-      // captures our bumped block.
+      // *decrease* L2 fees. The reference-derived floor matters after an earlier spike has
+      // already raised the L2 fee baseline: repeating the same absolute L1 base fee can leave
+      // the derived L2 fee below the required 1.3x rise. The oracle rotation deadband
+      // (`LIFETIME - LAG = 3` L2 slots between successful rotations, see FeeLib.sol:170)
+      // silently no-ops `updateL1GasFeeOracle` until the window opens; we retry every second so
+      // the *first* call after the deadband opens captures our bumped block.
       const latestL1Block = await cheatCodes.eth.publicClient.getBlock();
       const currentL1BaseFee = latestL1Block.baseFeePerGas ?? 1_000_000_000n;
-      const targetL1BaseFee = currentL1BaseFee * 3n > 100_000_000n ? currentL1BaseFee * 3n : 100_000_000n;
+      const referenceDerivedL1BaseFee = minRiseTarget / 8_000n;
+      const targetL1BaseFee = [currentL1BaseFee * 2n, 100_000_000n, referenceDerivedL1BaseFee].reduce((a, b) =>
+        a > b ? a : b,
+      );
       t.logger.info(`Targeting L1 base fee ${targetL1BaseFee} (current ${currentL1BaseFee})`);
-
-      const minRiseTarget = (reference.feePerL2Gas * 13n) / 10n;
 
       return await retryUntil(
         async () => {
@@ -215,12 +221,8 @@ describe('e2e_fees fee settings', () => {
       const lowerMinFees = await getCurrentMinFeesAfterCheckpoint(testContractDeployBlock);
       // `higherMinFees` is the synthetic "stale" snapshot the wallet supposedly took before the
       // real L2 fee bumped — it only needs to stay above the realized `bumpedMinFees` so that
-      // `txWithNoPadding` is still mineable after the bump. A 3x L1 spike (the magnitude
-      // `inflateL2FeesViaL1BaseFee` produces) drives the L2 fee to roughly 2.0–2.5x of the
-      // pre-bump baseline once EIP-1559 decay on the oracle-rotation block is accounted for,
-      // so `2x` headroom is too tight (assertions racing against the bump landing barely above
-      // 2x) — use `4x` for unambiguous headroom while keeping the snapshot still under the
-      // 6x default-padding cap.
+      // `txWithNoPadding` is still mineable after the bump. Use `4x` for unambiguous headroom
+      // while keeping the snapshot below the 6x default-padding cap.
       const higherMinFees = lowerMinFees.mul(4);
 
       const { txWithNoPadding, txWithDefaultPadding } = await prepareTxsWithMockedMinFees(higherMinFees, lowerMinFees);
