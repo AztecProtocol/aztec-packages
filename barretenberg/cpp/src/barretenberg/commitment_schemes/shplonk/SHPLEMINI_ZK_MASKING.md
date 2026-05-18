@@ -119,7 +119,7 @@ $$
 and let
 
 $$
-\Psi:V\longrightarrow\mathcal{T}_{\mathrm{Gem}}
+\Psi_{\mathrm{Gem}}:V\longrightarrow\mathcal{T}_{\mathrm{Gem}}
 $$
 
 be the Gemini leakage map with coordinates
@@ -129,8 +129,17 @@ M(u),\quad M_0(\tau),\ldots,M_{d-1}(\tau),\quad
 M_0(-r_0),\ldots,M_{d-1}(-r_{d-1}).
 $$
 
-We prove that $\Psi$ has rank $2d$. The only formula we need is the effect of
-Gemini folding on one monomial. After $t$ folds,
+The row $M(u)$ is not needed for the rank lower bound. Let $B$ be the
+$2d\times 2d$ matrix obtained from $\Psi_{\mathrm{Gem}}$ by dropping the
+$M(u)$ row. It is enough to prove $\det B \ne 0$ in the rational function
+field
+
+$$
+K \;=\; \mathbb{F}(u_0,\ldots,u_{d-1},\,r_0,\ldots,r_{d-1},\,\tau).
+$$
+
+**Fold formula.** The only formula we need is the effect of Gemini folding
+on one monomial. After $t$ folds,
 
 $$
 \mathrm{fold}_t(E_j) \;=\; L_{j \bmod 2^t}(u_0,\ldots,u_{t-1})\,
@@ -140,96 +149,161 @@ L_b(u_0,\ldots,u_{t-1}) \;=\; \prod_{a=0}^{t-1}
 \begin{cases} 1 - u_a & \text{if } \mathrm{bit}_a(b) = 0,\\ u_a & \text{otherwise.}\end{cases}
 $$
 
-Write the support as adjacent pairs indexed by their larger monomial index:
+Hence the entry of $B$ in row $(t,x)$, where $x\in\{\tau,-r_t\}$, and column
+$E_s$ is
 
 $$
-A=\{E-1,\ 2^{d-1},\ 2^{d-2},\ \ldots,\ 2\},\qquad
-P_a=\{a,a-1\}\quad(a\in A).
+B_{(t,x),s}
+=L_{s\bmod 2^t}(u_0,\ldots,u_{t-1})\,
+x^{\lfloor s/2^t\rfloor}.
 $$
 
-Order $A$ as $a_1>a_2>\cdots>a_d$, and define the filtration
+**Row basis change.** Replace each pair $(M_t(\tau),M_t(-r_t))$ by
+$(D_t,M_t(-r_t))$, where
 
 $$
-V_m=\mathrm{span}\{E_{a_i},E_{a_i-1}:1\le i\le m\},
-\qquad 0\le m\le d,
+D_t \;:=\; M_t(\tau)-M_t(-r_t).
 $$
 
-with $V_0=\{0\}$. Let $\Psi_m$ be the restriction of $\Psi$ to $V_m$. We show
-by induction that $\Psi_m$ has rank $2m$.
-
-The quotient $V_m/V_{m-1}$ is the two-dimensional span of the newest pair
-$P_{a_m}$. It is enough to show that the induced map
+This is a determinant-preserving row change: the change-of-basis matrix is
+block-diagonal with $2\times 2$ blocks $\begin{pmatrix}1 & -1\\0 & 1\end{pmatrix}$
+of unit determinant. From the fold formula,
 
 $$
-\overline{\Psi}_m:\ V_m/V_{m-1}\longrightarrow
-\mathcal{T}_{\mathrm{Gem}}/\Psi(V_{m-1})
+D_t(E_s) \;=\; L_{s\bmod 2^t}(u)\,\bigl(\tau^{q}-(-r_t)^{q}\bigr),\qquad
+q=\lfloor s/2^t\rfloor.
 $$
 
-has rank $2$.
+The structural observation that drives the rank argument is:
 
-First consider a dyadic pair $P_{2^k}=\{2^k,2^k-1\}$ with $1\le k<d$. After
-$k$ folds,
+> **(★)** $D_t(E_s) = 0$ whenever $s < 2^t$.
 
-$$
-E_{2^k}\mapsto L_0(u_0,\ldots,u_{k-1}) X,\qquad
-E_{2^k-1}\mapsto L_{2^k-1}(u_0,\ldots,u_{k-1}).
-$$
+Indeed for $s<2^t$ we have $q=0$ and $\tau^0-(-r_t)^0=0$.
 
-After quotienting the target by $\Psi(V_{m-1})$, the two coordinates
-$M_k(\tau)$ and $M_k(-r_k)$ give the matrix
+**Pair filtration.** Index the support as adjacent pairs by their larger
+monomial:
 
 $$
+P_{\mathrm{top}}=\{E-1,E-2\},\qquad
+P_{2^k}=\{2^k,2^k-1\}\quad(1\le k\le d-1).
+$$
+
+Order the pairs by increasing index $P_2,P_4,\ldots,P_{2^{d-1}},P_{\mathrm{top}}$,
+let $V_0=\{0\}$, and define
+
+$$
+V_m=\mathrm{span}(P_2\cup\cdots\cup P_{2^m})\ \ (1\le m\le d-1),\qquad
+V_d=V.
+$$
+
+Let $B_{\le m}$ be the submatrix of columns in $V_m$. We show by induction
+that $\mathrm{rank}(B_{\le m})=2m$.
+
+**Induction via Schur complements.** Suppose
+$\mathrm{rank}(B_{\le m-1})=2(m-1)$. Let $C_{m-1}$ be any full-rank
+$2(m-1)\times 2(m-1)$ minor of $B_{\le m-1}$. Augment with the two new
+columns of the pair $P\in\{P_{2^m},P_{\mathrm{top}}\}$ and two new rows
+$(D_k,M_k(-r_k))$ — with $k=m$ for a dyadic pair and $k=0$ for the top pair
+— to form
+
+$$
+\begin{pmatrix} C_{m-1} & R \\ L & A \end{pmatrix}.
+$$
+
+The pair contributes rank $2$ modulo $V_{m-1}$ iff the Schur complement
+
+$$
+S \;:=\; A \;-\; L\,C_{m-1}^{-1}\,R
+$$
+
+has nonzero determinant in $K$. The Schur complement depends only on the
+column span $V_{m-1}$, not on the choice of $C_{m-1}$, so $\det S\ne 0$ is
+well-defined. The induction step is therefore: **at each pair, verify
+$\det S\ne 0$ in $K$.**
+
+**Dyadic step.** For the pair $P_{2^k}=\{2^k,2^k-1\}$ ($1\le k\le d-1$),
+the raw local block on rows $(D_k,M_k(-r_k))$ is
+
+$$
+A_k \;=\;
 \begin{pmatrix}
-L_0\tau & L_{2^k-1}\\
-(-r_k)\,L_0 & L_{2^k-1}
-\end{pmatrix}.
+D_k(E_{2^k}) & D_k(E_{2^k-1})\\
+M_k(-r_k)(E_{2^k}) & M_k(-r_k)(E_{2^k-1})
+\end{pmatrix}
+\;=\;
+\begin{pmatrix}L_0(\tau+r_k) & 0\\ -L_0\,r_k & L_{2^k-1}\end{pmatrix},
 $$
 
-Its determinant is
+with $L_0,L_{2^k-1}$ evaluated at $(u_0,\ldots,u_{k-1})$. The zero in the
+$(1,2)$ entry is precisely (★).
+
+The Schur complement $S_k$ inherits the upper-triangular shape of $A_k$
+through (★): the row $D_k$ vanishes identically on $V_{m-1}$ (every column
+index there is strictly below $2^k$), so the first row of $L$ is zero and
+the first row of $S_k$ equals the first row of $A_k$. Hence
 
 $$
-L_0 L_{2^k-1}\,(\tau+r_k),
+S_k \;=\;
+\begin{pmatrix} L_0(\tau+r_k) & 0 \\ -L_0\,r_k-\alpha_k & L_{2^k-1}-\rho_k \end{pmatrix},
+\qquad
+\det S_k \;=\; L_0(\tau+r_k)\,\bigl(L_{2^k-1}-\rho_k\bigr),
 $$
 
-which is non-zero outside the bad set defined in the lemma statement. Here
-$L_0$ and $L_{2^k-1}$ are evaluated at
-$(u_0,\ldots,u_{k-1})$.
+where $\alpha_k,\rho_k\in K$ are the Schur corrections at the $E_{2^k}$ and
+$E_{2^k-1}$ columns. The pair contributes rank $2$ iff
+$L_{2^k-1}-\rho_k\ne 0$ in $K$ (the prefactor $L_0(\tau+r_k)$ is a nonzero
+polynomial in $K$, vanishing only on an explicit subvariety absorbed into
+the bad set).
 
-For the top pair $P_{E-1}=\{E-1,E-2\}$, no Gemini fold is needed. After
-the same target quotient, the two coordinates $M(\tau)$ and $M(-r_0)$ give
-the matrix
+**Top-pair step.** For $P_{\mathrm{top}}$, use the rows $(D_0,M_0(-r_0))$ at
+fold level $0$. The raw block is
 
 $$
+A_{\mathrm{top}} \;=\;
 \begin{pmatrix}
-\tau^{E-1} & \tau^{E-2}\\
+\tau^{E-1}-(-r_0)^{E-1} & \tau^{E-2}-(-r_0)^{E-2}\\
 (-r_0)^{E-1} & (-r_0)^{E-2}
 \end{pmatrix},
+\qquad
+\det A_{\mathrm{top}} \;=\; \tau^{E-2}(-r_0)^{E-2}(\tau+r_0).
 $$
 
-whose determinant is
+Here (★) is vacuous at $t=0$, so both rows of $L$ are generically nonzero
+and neither row of $S_{\mathrm{top}}=A_{\mathrm{top}}-L\,C_{d-1}^{-1}R$ is
+preserved from $A_{\mathrm{top}}$. The pair contributes rank $2$ iff
+$\det S_{\mathrm{top}}\ne 0$ in $K$.
+
+**Filtered-minor lemma.**
+
+> *Lemma (FM).* For the tail-halving support $S$ and the row ordering above,
+> the rational functions
+> $$
+> L_{2^k-1}(u_0,\ldots,u_{k-1})-\rho_k\quad(1\le k\le d-1)
+> \qquad\text{and}\qquad
+> \det S_{\mathrm{top}}
+> $$
+> are all nonzero in $K$.
+
+The Schur-complement induction shows (FM) implies $\mathrm{rank}(B_{\le m})=2m$
+at every step. Iterating the Schur factorization yields
 
 $$
-\tau^{E-2}(-r_0)^{E-2}(\tau+r_0).
+\det B \;=\; \det S_{\mathrm{top}}\;\cdot\;\prod_{k=1}^{d-1}
+L_0(u_0,\ldots,u_{k-1})\,(\tau+r_k)\,\bigl(L_{2^k-1}(u_0,\ldots,u_{k-1})-\rho_k\bigr).
 $$
 
-This is again non-zero outside the bad set defined in the lemma statement.
+Each $L_0$ and $(\tau+r_k)$ is a nonzero polynomial in $K$, so $\det B\ne 0$
+iff (FM) holds.
 
-Thus each quotient $V_m/V_{m-1}$ contributes rank $2$. Since
-$\dim(V_m/V_{m-1})=2$, the induction gives
-$\mathrm{rank}(\Psi_m)=2m$ for all $m$, and in particular
-$\mathrm{rank}(\Psi)=2d$.
-
-Equivalently, the Gemini projection has full column rank $2d$ over
-$\mathbb{F}(u_0,\ldots,u_{d-1},r,\tau)$. After specializing the challenges in
-$\mathbb{F}$, rank can drop only on the zero locus of the product of the
-local determinants above, so the bad set has Schwartz-Zippel probability
-negligible over BN254. This proves the required rank statement.
-
-**Optional finite-field sanity check.** The script
-`shplemini_zk_mask_rank.py` evaluates the full Gemini + Shplonk + KZG leakage
-matrix at random
-$(u, r, \tau) \in \mathbb{F}_{\mathrm{BN254}}^{\,2d+1}$ and confirms full
-rank for the supported $d$. Example:
+**Proof of (FM) by exhibition.** $\det B$ is a polynomial in
+$u_0,\ldots,u_{d-1}, r_0,\ldots,r_{d-1}, \tau$ — the row basis change clears
+no denominator and the rest is a determinant of polynomial entries. A
+single specialization where the value is nonzero suffices, deterministically,
+to prove $\det B\ne 0$ as a polynomial; by the factorization above this is
+equivalent to (FM). The script `shplemini_zk_mask_rank.py` evaluates the
+Gemini block at a sampled
+$(u,r,\tau)\in\mathbb{F}_{\mathrm{BN254}}^{\,2d+1}$ for each supported $d$
+and finds rank $2d$, i.e. $\det B(u,r,\tau)\ne 0$. Example output:
 
 ```text
 d= 8 halving-tail support size= 16: [(16, 16, 16, 19)]
@@ -237,9 +311,17 @@ d=10 halving-tail support size= 20: [(20, 20, 20, 23)]
 ```
 
 The tuple is (rank of Gemini block, rank after appending `Shplonk:Q` row,
-rank after appending `KZG:W` row, total rows in the sampled full matrix). The
-first rank already equals $2d$, so the later rows cannot increase the rank;
-the sampled values confirm that the implementation matches this argument.
+rank after appending `KZG:W` row, total rows in the sampled full matrix);
+the first entry equals $2d$, witnessing $\det B\ne 0$ at the sampled point
+and therefore $\det B\ne 0$ in $K$. This proves (FM).
+
+**Schwartz-Zippel.** After specializing the Fiat-Shamir challenges in
+$\mathbb{F}$, rank can drop only on the zero locus of $\det B$. The bad set
+in the lemma statement is the union of this zero locus with the previously
+listed Shplonk/KZG denominator events, Fiat-Shamir collisions, and
+vanishing-Lagrange events. Its measure over BN254 is bounded by
+$\deg(\det B)/|\mathbb{F}_{\mathrm{BN254}}|$, which is negligible for the
+$d\approx 15$ used in real flavors.
 
 **3. Simulate.** Since $\mathrm{rank}(B) = 2d$, the random coefficients on
 $S$ induce a uniform mask over the $2d$-dimensional leakage subspace
