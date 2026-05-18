@@ -192,8 +192,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     configToFlag('--rpcMaxBodySize', nodeRpcConfigMappings.rpcMaxBodySize),
   ],
   ETHEREUM: [
-    configToFlag('--l1-chain-id', l1ReaderConfigMappings.l1ChainId),
-    // Do not set default for CLI: keep undefined unless provided via flag or env
+    // Do not set defaults for CLI: keep undefined unless provided via flag or env
+    configToFlag('--l1-chain-id', { ...l1ReaderConfigMappings.l1ChainId, defaultValue: undefined }),
     configToFlag('--l1-rpc-urls', { ...l1ReaderConfigMappings.l1RpcUrls, defaultValue: undefined }),
     configToFlag('--l1-consensus-host-urls', blobClientConfigMapping.l1ConsensusHostUrls),
     configToFlag('--l1-consensus-host-api-keys', blobClientConfigMapping.l1ConsensusHostApiKeys),
