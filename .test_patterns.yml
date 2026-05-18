@@ -200,6 +200,16 @@ tests:
     owners:
       - *phil
       - *palla
+  # In pipelined-sequencer e2e tests, the parent-checkpoint-landed check in
+  # `waitForValidParentCheckpointOnL1` can race with L1 publishing under CI
+  # load: the pipelined work for the next checkpoint gets discarded because
+  # the parent's L1 tx hasn't been mined yet, the target slot has nothing to
+  # publish (`propose_action_not_successful`), and pending txs are dropped
+  # during the resulting prune ("Tx dropped by P2P node").
+  - regex: "src/e2e_partial_notes.test.ts"
+    error_regex: "Tx dropped by P2P node"
+    owners:
+      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
