@@ -444,17 +444,244 @@ If both sub-identities hold:
 - **Conclusion**: $\det B_d \ne 0$ in $K$ for all $d$, with explicit bad
   set, no computer assistance needed.
 
-### What's still missing
+### Why the naive filtration is dead
 
-1. A clean closed form for $\det C_{d-1}$ (the "interior" dyadic minor).
-   The empirical formula gives a product, but the *intermediate* minors
-   $C_{d-1}$ haven't been computed.
-2. An algebraic derivation of the $\tau^{E-4}-r_0^{E-4}$ factor from the
-   top-pair Schur complement. The exponent $E-4$ should fall out of an
-   explicit row-reduction of $A_{\mathrm{top}} - L C^{-1} R$, but I
-   haven't done it.
-3. Verification that the empirical $\mathsf{Mid}_k$ block matches a per-level
-   contribution from a single column-pair addition $P_{2^k}\to P_{2^{k+1}}$.
+Direct check at $d=3$: the would-be "dyadic interior" minor
+$C_2$ on rows $(D_1, M_1(-r_1), D_2, M_2(-r_2))$ at the dyadic
+columns $V_2 = \{E_1, E_2, E_3, E_4\}$ has $\det C_2 = 0$ *symbolically*.
+
+Reason: expanding along the $D_2$ row (which has a single nonzero entry
+at $E_4$ by (★)) reduces to a $3\times 3$ minor on $(D_1, M_1, M_2)$
+restricted to $(E_3, E_2, E_1)$. In that minor, every row is a scalar
+multiple of $(u_0, 1-u_0, \star)$ on columns $(E_3, E_2)$ — the
+Lagrange weights collapse identically, making columns $E_3, E_2$
+proportional and forcing the $3\times 3$ minor to zero.
+
+Symmetric pair: peeling instead $(D_{d-1}, M_{d-1}(-r_{d-1}))$ along with
+$P_2$ columns *also* fails — at $d=3$ the local block $A_{\mathrm{top}}'$
+of $(D_2, M_2)$ on $\{E_7, E_6\}$ has $\det = 0$ for the same Lagrange
+proportionality reason.
+
+So neither the "top-pair peel" nor the "bottom-pair peel" via fold-level
+rows is the right inductive step. The factorisation $\det B = \det C \cdot
+\det S$ requires $C$ to be a genuine full-rank minor, and the
+Gemini-fold-aligned choices of $C$ are exactly the ones that aren't.
+
+A working full-rank minor exists (e.g. $d=3$: rows $(D_0, M_0, D_1, M_1)$
+on $V_2$ has det $\ne 0$), but it *mixes* level-0 rows into the
+"interior" — so the induction loses the clean level-by-level structure.
+
+## Possible proof strategies
+
+### (A) Polynomial identity via degree + vanishing loci
+
+Both sides of the boxed formula are polynomials in $K[u, r, \tau]$. To
+prove equality:
+
+1. **Match total degree** in each variable separately. We've already
+   checked $\tau$-degree: $E + 3d - 6$ on both sides for $E=N$.
+2. **Match vanishing loci.** For each factor $F$ on the RHS, show the LHS
+   vanishes on the hyperplane $F = 0$ with at least the same
+   multiplicity. The hyperplanes are:
+   - $\tau = 0$, $r_0 = 0$ (each contributing $\tau^2, r_0^2$).
+   - $\tau^{E-4} = r_0^{E-4}$ (the $(E-4)$ roots of unity times $r_0$).
+   - $\tau = \pm r_k$ for $1 \le k \le d-2$.
+   - $\tau = -r_{d-1}$.
+   - $L_0(u_{<k}) = 0$, $L_{2^k-1}(u_{<k}) = 0$, $A_k^{+}(r_k) = 0$,
+     $A_k^{-}(\tau) = 0$.
+3. **Match a single coefficient** (e.g. the leading $\tau$-coefficient) to
+   pin the multiplicative constant $(-1)^d$.
+
+The hard part is (2). For most factors the rank-deficiency at the
+hyperplane is visible (proportional rows or zero rows), but
+$\tau^{E-4} = r_0^{E-4}$ is non-obvious — that's where the level-0
+anomaly sits and where the Frobenius/Vandermonde insight would have to do
+real work.
+
+### (B) Tensor / Cauchy-Binet factorisation
+
+The entry $B_{(t,x), s} = L_{s\bmod 2^t}(u_{<t})\cdot x^{\lfloor s/2^t\rfloor}$
+is a product of a Lagrange part and an evaluation part. If we can
+express $B = D \cdot V$ where $D$ ($2d \times m$) carries the Lagrange
+weights and $V$ ($m \times 2d$) is a *generalised Vandermonde*, then
+Cauchy-Binet gives
+
+$$
+\det B \;=\; \sum_{|I|=2d} \det D_I \,\det V_I.
+$$
+
+The dream is that the sum collapses to a single term because of the
+*structured* support $S$: the multi-index dependencies of the Lagrange
+weights force most $I$ to give $\det D_I = 0$. The surviving terms
+realise the explicit Vandermonde factor $\tau^{E-4} - r_0^{E-4}$ as a
+specific generalised-Vandermonde minor.
+
+This is the most "Krattenthaler-flavoured" approach. The key would be
+recognising $V$ as a known matrix from the determinant-calculus
+literature.
+
+### (C) Specialisation to $r_k = r^{2^k}$ (collapse to single variable $r$)
+
+On the codimension-$(d-1)$ subvariety $r_k = r^{2^k}$, the formula
+specialises to a single-variable expression in $r$ (which is what the
+user's earlier conjecture targeted). On this subvariety the matrix has
+*extra* algebraic structure — the rows $M_t(-r_t)$ collapse to
+$M_t(-r^{2^t})$, which is the value $M$ would take after $t$ Gemini
+folds at the *Frobenius orbit* $r, r^2, r^4, \ldots, r^{2^{d-1}}$.
+
+Strategy:
+1. Prove the formula on the subvariety (where the structure is cleaner).
+2. Lift back: both sides are polynomials in independent
+   $r_0, \ldots, r_{d-1}$, and equality on a generic subvariety of the
+   right codimension forces equality everywhere *if* you can argue both
+   sides depend on the $r_k$'s in the same way.
+
+The subvariety trick has the advantage that the level-0 anomaly $\tau^{E-4}
+- r_0^{E-4}$ on the subvariety becomes $\tau^{E-4} - r^{E-4}$, and this
+plausibly arises as the resultant of $\tau$-Frobenius and $r$-Frobenius
+orbits.
+
+### (D) Row/column operations to upper-triangular
+
+Just compute. If $B$ admits an explicit LU decomposition with
+triangular factors whose diagonal entries are *exactly* the empirical
+factors, you read off $\det B$ directly. The triangularisation would
+have to be "Gemini-fold-aware" — pivot order matching the fold levels,
+with row operations subtracting nested-Lagrange combinations.
+
+The level-0 row pair has to be handled specially because (as we saw) the
+fold-aligned pivot order has $D_t$ vanishing on later columns by (★),
+which would seem to suggest the matrix is *already* upper-triangular in
+the fold-pivot order — but the calculation shows the $M_t$ rows mix
+things up. A more careful pivot order, or simultaneous row+column
+elimination, could fix this.
+
+## Two-stage proof plan (dyadic scaffold + bridge)
+
+**Deployment stays on the tail-halving support** — the dyadic version
+including $E_0$ is *only* used as a proof scaffold, not as a working
+masking layout. The strategy:
+
+### Stage 1 — prove the dyadic formula by induction
+
+Define an auxiliary "fully dyadic" support
+
+$$
+S_{\mathrm{dyad}}\;=\;\bigcup_{k=1}^{d}\{2^k-1,\ 2^k-2\}\;=\;\{N-1, N-2, N/2-1, N/2-2,\ \ldots,\ 1, 0\}
+$$
+
+and the corresponding $2d\times 2d$ matrix $B_d^{\mathrm{dyad}}$. With this
+support, every pair $k$ has both indices strictly below $2^k$, so by (★),
+$D_k$ vanishes on pairs $1, \ldots, k$. This gives the staircase
+structure described above, and the level-$(d-1)$ Schur peel is *clean*:
+
+- $L = (D_{d-1}, M_{d-1})$ at pairs $1,\ldots,d-1$ has its first row zero.
+- $C_{d-1}$ on rows $(D_0, M_0, \ldots, D_{d-2}, M_{d-2})$ at pairs
+  $1, \ldots, d-1$ is structurally identical to $B_{d-1}^{\mathrm{dyad}}$
+  — i.e., the *same problem* one size down. **The recursion is literal:**
+
+  $$
+  \det B_d^{\mathrm{dyad}} \;=\; \mathsf{Block}_d^{\mathrm{dyad}}\;\cdot\;\det B_{d-1}^{\mathrm{dyad}},
+  $$
+
+  where $\mathsf{Block}_d^{\mathrm{dyad}} = \det S_d^{\mathrm{dyad}}$ is
+  the $2\times 2$ Schur complement at pair $d$.
+
+- $\mathsf{Block}_d^{\mathrm{dyad}}$ has an explicit form: the raw block
+  $A_d$ is rank-$1$ (rows proportional to $(u_0, 1-u_0)$), so the *only*
+  rank-$2$ contribution comes from the Schur correction in the second
+  row. That correction is a structurally computable expression in
+  $(u, r, \tau)$ — to be derived once and used at every level.
+
+  Conjecturally:
+
+  $$
+  \mathsf{Block}_d^{\mathrm{dyad}}\;\doteq\;
+  (\tau + r_{d-1})\;\cdot\; L_0(u_{<d-1})\,L_{2^{d-1}-1}(u_{<d-1})\;\cdot\;A_{d-1}^{+}(r_{d-1})\,A_{d-1}^{-}(\tau)
+  $$
+
+  for $d \ge 2$ (with the $A_{d-1}^\pm$ involving the *next-level*
+  affine residual, i.e. $u_{d-1}$). Base case $d=1$: $\det
+  B_1^{\mathrm{dyad}} = \tau + r_0$ (a $2\times 2$ determinant, direct
+  computation).
+
+The inductive formula:
+
+$$
+\boxed{\det B_d^{\mathrm{dyad}}\;\doteq\;\prod_{k=1}^{d}\mathsf{Block}_k^{\mathrm{dyad}}.}
+$$
+
+This is a **single-direction clean induction** with no level-0
+carve-out. The base case and the recursion are both elementary
+$2\times 2$ computations.
+
+### Stage 2 — bridge to the tail-halving formula
+
+The tail-halving support $S^{\mathrm{tail}} = \{(E-1, E-2), (N/2,
+N/2-1), \ldots, (2, 1)\}$ differs from $S_{\mathrm{dyad}}$ in two ways
+(taking $E=N$ for concreteness):
+
+| pair | dyadic | tail-halving |
+|---|---|---|
+| top | $(N-1, N-2)$ | $(N-1, N-2)$ ✓ same |
+| pair $k=1,\ldots,d-1$ | $(2^k-1, 2^k-2)$ | $(2^k, 2^k-1)$ — shifted by $+1$ |
+| bottom | includes $E_0$ | excludes $E_0$ |
+
+So the bridge is: a **unit upward shift** of all non-top pairs. In
+generating-function terms, replacing $E_s \to E_{s+1}$ for $s$ in the
+relevant range is multiplication by $X$, which under the Gemini fold has
+an explicit action (Zeromorph Lemma 2.5.3: $(X^{2^k} + 1)\mathcal U_n(X_k f) = X^{2^k}\mathcal U_n(f)$).
+
+Two sub-goals for the bridge:
+
+1. **Express $B_d^{\mathrm{tail}}$ as a column transform of $B_d^{\mathrm{dyad}}$.** The
+   shift $E_s \to E_{s+1}$ at the column level corresponds to a *known*
+   multiplication on the matrix entries (each entry $L \cdot x^q$ becomes
+   $L \cdot x^q + \text{correction}$ for some structured correction
+   involving Lagranges at the next level).
+
+2. **Compute the determinant transformation.** Express $\det
+   B_d^{\mathrm{tail}}$ as $\det B_d^{\mathrm{dyad}}$ times an explicit
+   "Jacobian" factor. The $\tau^{E-4} - r_0^{E-4}$ anomaly should
+   emerge from this Jacobian — it is the determinant of the column shift
+   acting on the level-0 row pair.
+
+### Why this should work
+
+The dyadic version is genuinely the *clean* recursive structure: $D_k$
+vanishes on pairs $\le k$ purely from (★), the Schur peel is forced, and
+the recursion is exact. The bridge is then a purely algebraic
+comparison of two known matrices — and the discrepancy *must* localise
+at the level-0 row pair (since that's the only place where the column
+shift hits a row without (★)-vanishing).
+
+This routes around the failure of naive filtration on $S^{\mathrm{tail}}$
+directly, *without* having to commit to using $S_{\mathrm{dyad}}$ in
+deployment (it never leaves the proof).
+
+---
+
+### My read
+
+(A) is the most mechanical and probably what works. The hard subproblem
+is showing $\det B$ vanishes when $\tau^{E-4} = r_0^{E-4}$ — this is
+where a structural identity from Krattenthaler or a Frobenius/Cauchy-Binet
+argument would have to be invoked.
+
+(C) is the most elegant if it pans out, because the Frobenius orbit
+$r, r^2, r^4, \ldots$ is exactly where the binary cyclotomic Zeromorph
+structure should live, and the level-0 anomaly should be visible as a
+deviation from pure cyclotomic on that subvariety.
+
+What's still missing for either path:
+
+1. A clean closed form for $\det C_{d-1}$ where $C_{d-1}$ is a
+   *working* full-rank $(2d-2)\times(2d-2)$ minor — not the
+   fold-aligned one, but one chosen to preserve a recursion.
+2. Direct verification that $\det B$ vanishes on each hyperplane,
+   especially $\tau^{E-4} = r_0^{E-4}$.
+3. Identification of $B$ with a known structured-matrix family from
+   classical determinant calculus.
 
 ## Open questions
 
