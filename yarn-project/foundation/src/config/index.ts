@@ -42,23 +42,30 @@ export type ConfigMappingsType<T> = {
   [K in keyof T]-?: ConfigMapping<Required<T>[K]>;
 };
 
-export const BASE_CONFIG_LAYER_PRIORITY = ['cli', 'env', 'network'] as const;
-export type BaseConfigLayerName = (typeof BASE_CONFIG_LAYER_PRIORITY)[number];
-export type ResolvedConfigLayerName = BaseConfigLayerName | 'default';
+export enum ConfigLayerName {
+  CLI = 'cli',
+  ENV = 'env',
+  NETWORK = 'network',
+  DEFAULT = 'default',
+}
+
+// Ordered list of config layers in order of precedence.
+export const ORDERED_CONFIG_LAYERS = [ConfigLayerName.CLI, ConfigLayerName.ENV, ConfigLayerName.NETWORK] as const;
+export type OrderedConfigLayerName = (typeof ORDERED_CONFIG_LAYERS)[number];
 
 export interface ConfigLayer<T> {
-  name: BaseConfigLayerName;
-  source: Partial<T>;
+  name: OrderedConfigLayerName;
+  values: Partial<T>;
 }
 
 export interface LayerEntry<T> {
-  layer: ResolvedConfigLayerName;
+  layer: ConfigLayerName;
   value: T;
 }
 
 export interface ResolvedValue<T> {
   value: T;
-  source: ResolvedConfigLayerName;
+  source: ConfigLayerName;
   envVar?: EnvVar;
   layers: LayerEntry<T>[];
 }
@@ -146,40 +153,31 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
   return config;
 }
 
-function assertConfigLayerPriority(layers: ConfigLayer<unknown>[]): void {
-  const layerPriorities = new Map(BASE_CONFIG_LAYER_PRIORITY.map((name, priority) => [name, priority]));
-  const seenLayers = new Set<BaseConfigLayerName>();
-  let lastPriority = -1;
+export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: ConfigLayer<T>[]): ResolvedConfig<T> {
+  const resolvedConfig: Partial<ResolvedConfig<T>> = {};
+  const layerSources = new Map<OrderedConfigLayerName, Partial<T>>();
 
   for (const layer of layers) {
-    if (seenLayers.has(layer.name)) {
-      throw new Error(`Duplicate config layer '${layer.name}'.`);
+    if (layerSources.has(layer.name)) {
+      throw new Error(`Duplicate config layer '${layer.name}' in resolveConfig input`);
     }
-
-    seenLayers.add(layer.name);
-    const priority = layerPriorities.get(layer.name)!;
-    if (priority < lastPriority) {
-      throw new Error(
-        `Config layers must be ordered by priority (${BASE_CONFIG_LAYER_PRIORITY.join(' > ')}) from highest to lowest.`,
-      );
-    }
-    lastPriority = priority;
+    layerSources.set(layer.name, layer.values);
   }
-}
-
-export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: ConfigLayer<T>[]): ResolvedConfig<T> {
-  assertConfigLayerPriority(layers);
-  const resolvedConfig: Partial<ResolvedConfig<T>> = {};
 
   for (const key of Object.keys(configMappings) as Array<keyof T>) {
     const mapping = configMappings[key];
     const resolvedLayers: LayerEntry<Required<T>[typeof key]>[] = [];
 
-    for (const layer of layers) {
-      const layerValue = layer.source[key];
+    for (const layerName of ORDERED_CONFIG_LAYERS) {
+      const layerSource = layerSources.get(layerName);
+      if (!layerSource) {
+        continue;
+      }
+
+      const layerValue = layerSource[key];
       if (layerValue !== undefined) {
         resolvedLayers.push({
-          layer: layer.name,
+          layer: layerName,
           value: layerValue as Required<T>[typeof key],
         });
       }
@@ -187,7 +185,7 @@ export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: 
 
     if (mapping.defaultValue !== undefined) {
       resolvedLayers.push({
-        layer: 'default',
+        layer: ConfigLayerName.DEFAULT,
         value: mapping.defaultValue as Required<T>[typeof key],
       });
     }
