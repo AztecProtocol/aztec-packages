@@ -539,6 +539,14 @@ export class ShaderManager {
     }
     const per_thread_pairs = max_pairs / tpb;
     const per_thread_entries = max_slice_entries / tpb;
+    // Layout of the per-WG meta_pool slice (u32 indices):
+    //   [0 .. MSE)               = pair_idx_a
+    //   [MSE .. 2*MSE)           = pair_idx_b
+    //   [2*MSE .. 2*MSE + MP)    = rank_to_raw
+    //   [2*MSE + MP .. + MSE)    = prev_raw_for_pair (indexed by raw_slot)
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
     return mustache.render(
       smvp_tree_phase1_shader,
       {
@@ -547,6 +555,9 @@ export class ShaderManager {
         max_pairs,
         per_thread_pairs,
         per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -603,6 +614,9 @@ export class ShaderManager {
     }
     const per_thread_pairs = max_pairs / tpb;
     const per_thread_entries = max_slice_entries / tpb;
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
     return mustache.render(
       smvp_tree_phase2_shader,
       {
@@ -611,6 +625,9 @@ export class ShaderManager {
         max_pairs,
         per_thread_pairs,
         per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,

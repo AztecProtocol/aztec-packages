@@ -5337,19 +5337,15 @@ export const smvp_tree_phase1 = `{{> structs }}
 //       uses the precomputed previous-PAIR raw_slot (O(1) lookup,
 //       no backward scan).
 //
-// Workgroup memory at MAX_PAIRS=1024, MAX_SLICE_ENTRIES=2048, TPB=64:
-//   prev_raw_for_pair (MAX_SLICE_ENTRIES): 8 KB
-//   rank_to_raw (MAX_PAIRS):         4 KB
-//   thread_max_break/emit_prefix/pair_prefix: 3 × 256 B = 768 B
-//   wg_fwd, wg_bwd:                  2 × TPB × 80 = 10.24 KB
+// Workgroup memory at MAX_PAIRS=1024, MAX_SLICE_ENTRIES=2048, TPB=128:
+//   thread_max_break/emit_prefix/pair_prefix: 3 × TPB × 4 = 1.5 KB
+//   wg_fwd, wg_bwd:                  2 × TPB × 80 = 20.48 KB
 //   wg_inv_total + counters:         ~120 B
-//   total:                           ~23.1 KB (under M2's 32 KB cap).
+//   total:                           ~22.1 KB (under M2's 32 KB cap).
 //
-// pair_idx_a/b are hoisted to a single global storage buffer
-// (binding 10) with stride \`2 * MAX_SLICE_ENTRIES\` per workgroup and
-// interleaved (a, b) pairs — at MAX_SLICE_ENTRIES=2048 the worst-case
-// emit count fills 2 × 2048 u32 = 16 KB per WG, too large to keep in
-// workgroup memory alongside the rest of the scratchpad.
+// pair_idx_a/b, rank_to_raw, and prev_raw_for_pair all live in the
+// single per-WG \`meta_pool\` storage binding (binding 10). The per-WG
+// slice has four contiguous sections — see META_OFF_* below.
 //
 // Static loop bounds:
 //   Preamble Step 1 (load buckets + local break-max): PER_THREAD_ENTRIES
@@ -5412,13 +5408,25 @@ var<storage, read_write> output_x: array<BigInt>;
 @group(0) @binding(9)
 var<storage, read_write> output_y: array<BigInt>;
 
-// Combined pair_idx_a/b global. Interleaved layout per WG:
-//   pair_idx_combined[wg_id * 2 * MAX_SLICE_ENTRIES + raw * 2 + 0] = idx_a
-//   pair_idx_combined[wg_id * 2 * MAX_SLICE_ENTRIES + raw * 2 + 1] = idx_b
-// Hoisted out of workgroup memory at MAX_SLICE_ENTRIES=2048; see the
-// header comment for the WG-memory accounting.
+// Single combined per-WG metadata pool. Four contiguous sections:
+//   [0 .. MAX_SLICE_ENTRIES)               = pair_idx_a
+//   [MAX_SLICE_ENTRIES .. 2*MSE)           = pair_idx_b
+//   [2*MSE .. 2*MSE + MAX_PAIRS)           = rank_to_raw
+//   [2*MSE + MAX_PAIRS .. 2*MSE + MP + MSE) = prev_raw_for_pair
+// Per-WG stride = 3 * MAX_SLICE_ENTRIES + MAX_PAIRS u32s.
+// pair_idx_a/b are indexed by raw_slot ∈ [0, MAX_SLICE_ENTRIES).
+// rank_to_raw is indexed by pair_rank ∈ [0, MAX_PAIRS).
+// prev_raw_for_pair is INDEXED by raw_slot ∈ [0, MAX_SLICE_ENTRIES) —
+// when many UNPAIRED slots precede a PAIR, the PAIR's raw_slot can
+// exceed MAX_PAIRS, so this section must be sized by MAX_SLICE_ENTRIES.
 @group(0) @binding(10)
-var<storage, read_write> pair_idx_combined: array<u32>;
+var<storage, read_write> meta_pool: array<u32>;
+
+const META_PER_WG_STRIDE: u32 = {{ meta_per_wg_stride }}u;
+const META_OFF_PAIR_IDX_A: u32 = 0u;
+const META_OFF_PAIR_IDX_B: u32 = {{ max_slice_entries }}u;
+const META_OFF_RANK_TO_RAW: u32 = {{ meta_off_rank_to_raw }}u;
+const META_OFF_PREV_RAW: u32 = {{ meta_off_prev_raw }}u;
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -5426,15 +5434,6 @@ fn get_r() -> BigInt {
     return r;
 }
 // \`get_p()\` is provided by the \`montgomery_product_funcs\` partial.
-
-// prev_raw_for_pair is INDEXED by raw_slot (∈ [0, MAX_SLICE_ENTRIES)),
-// not by pair_rank — when many UNPAIRED slots precede a PAIR, the PAIR's
-// raw_slot can exceed MAX_PAIRS, so the array must be sized by
-// MAX_SLICE_ENTRIES.
-// rank_to_raw is indexed by pair_rank (∈ [0, MAX_PAIRS)), so MAX_PAIRS is
-// correct here even though its values are raw_slots (which may be larger).
-var<workgroup> prev_raw_for_pair: array<u32, {{ max_slice_entries }}>;
-var<workgroup> rank_to_raw: array<u32, {{ max_pairs }}>;
 
 var<workgroup> thread_max_break: array<u32, {{ tpb }}>;
 var<workgroup> thread_emit_prefix: array<u32, {{ tpb }}>;
@@ -5487,7 +5486,11 @@ fn main(
     if (chunk_lo > slice_hi) { chunk_hi_v = chunk_lo; }
     let chunk_hi = chunk_hi_v;
 
-    let pair_idx_base = wg_id * 2u * MAX_SLICE_ENTRIES;
+    let meta_base = wg_id * META_PER_WG_STRIDE;
+    let pair_idx_a_base = meta_base + META_OFF_PAIR_IDX_A;
+    let pair_idx_b_base = meta_base + META_OFF_PAIR_IDX_B;
+    let rank_to_raw_base = meta_base + META_OFF_RANK_TO_RAW;
+    let prev_raw_base = meta_base + META_OFF_PREV_RAW;
 
     // === Preamble Step 1: per-thread bucket load + local "last break pos" ===
     // For each entry e in [chunk_lo, chunk_hi):
@@ -5616,14 +5619,14 @@ fn main(
         let e = chunk_lo + off;
         let raw = raw_w;
         raw_w = raw_w + 1u;
-        pair_idx_combined[pair_idx_base + raw * 2u + 0u] = e;
+        meta_pool[pair_idx_a_base + raw] = e;
         if ((local_pair_mask & (1u << off)) != 0u) {
-            pair_idx_combined[pair_idx_base + raw * 2u + 1u] = e + 1u;
+            meta_pool[pair_idx_b_base + raw] = e + 1u;
             let pair_rank = pair_w;
             pair_w = pair_w + 1u;
-            rank_to_raw[pair_rank] = raw;
+            meta_pool[rank_to_raw_base + pair_rank] = raw;
         } else {
-            pair_idx_combined[pair_idx_base + raw * 2u + 1u] = UNPAIRED_SENTINEL;
+            meta_pool[pair_idx_b_base + raw] = UNPAIRED_SENTINEL;
         }
         output_bucket_id[out_base + raw] = local_buckets[off];
     }
@@ -5640,9 +5643,9 @@ fn main(
             let pair_rank = pair_r;
             pair_r = pair_r + 1u;
             if (pair_rank == 0u) {
-                prev_raw_for_pair[raw] = UNPAIRED_SENTINEL;
+                meta_pool[prev_raw_base + raw] = UNPAIRED_SENTINEL;
             } else {
-                prev_raw_for_pair[raw] = rank_to_raw[pair_rank - 1u];
+                meta_pool[prev_raw_base + raw] = meta_pool[rank_to_raw_base + pair_rank - 1u];
             }
         }
     }
@@ -5659,9 +5662,9 @@ fn main(
     for (var t: u32 = 0u; t < PER_THREAD_PAIRS; t = t + 1u) {
         let rank = chunk_start_rank + t;
         if (rank >= total_pairs) { break; }
-        let raw = rank_to_raw[rank];
-        let idx_a = pair_idx_combined[pair_idx_base + raw * 2u + 0u];
-        let idx_b = pair_idx_combined[pair_idx_base + raw * 2u + 1u];
+        let raw = meta_pool[rank_to_raw_base + rank];
+        let idx_a = meta_pool[pair_idx_a_base + raw];
+        let idx_b = meta_pool[pair_idx_b_base + raw];
         var p_x: BigInt = load_point_x_only(idx_a);
         var q_x: BigInt = load_point_x_only(idx_b);
         var dx: BigInt = fr_sub(&q_x, &p_x);
@@ -5736,9 +5739,9 @@ fn main(
     for (var off: u32 = 0u; off < PER_THREAD_PAIRS; off = off + 1u) {
         if (off >= thread_pair_count_local) { break; }
         let rank = chunk_start_rank + (thread_pair_count_local - 1u - off);
-        let raw = rank_to_raw[rank];
-        let idx_a = pair_idx_combined[pair_idx_base + raw * 2u + 0u];
-        let idx_b = pair_idx_combined[pair_idx_base + raw * 2u + 1u];
+        let raw = meta_pool[rank_to_raw_base + rank];
+        let idx_a = meta_pool[pair_idx_a_base + raw];
+        let idx_b = meta_pool[pair_idx_b_base + raw];
         var p_x: BigInt; var p_y: BigInt;
         load_point(idx_a, &p_x, &p_y);
         var q_x: BigInt; var q_y: BigInt;
@@ -5748,7 +5751,7 @@ fn main(
         if (rank == chunk_start_rank) {
             inv_dx = inv_acc_local;
         } else {
-            let prev_raw = prev_raw_for_pair[raw];
+            let prev_raw = meta_pool[prev_raw_base + raw];
             var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_SLICE_ENTRIES + prev_raw];
             inv_dx = montgomery_product(&inv_acc_local, &prev_prefix);
         }
@@ -5778,9 +5781,9 @@ fn main(
     for (var off: u32 = 0u; off < (MAX_SLICE_ENTRIES + TPB - 1u) / TPB; off = off + 1u) {
         let i = tid + off * TPB;
         if (i >= total_outputs) { break; }
-        let idx_b = pair_idx_combined[pair_idx_base + i * 2u + 1u];
+        let idx_b = meta_pool[pair_idx_b_base + i];
         if (idx_b != UNPAIRED_SENTINEL) { continue; }
-        let idx_a = pair_idx_combined[pair_idx_base + i * 2u + 0u];
+        let idx_a = meta_pool[pair_idx_a_base + i];
         var p_x: BigInt; var p_y: BigInt;
         load_point(idx_a, &p_x, &p_y);
         output_x[out_base + i] = p_x;
@@ -5840,13 +5843,20 @@ var<storage, read_write> output_x: array<BigInt>;
 @group(0) @binding(8)
 var<storage, read_write> output_y: array<BigInt>;
 
-// Combined pair_idx_a/b global. Interleaved layout per WG:
-//   pair_idx_combined[wg_id * 2 * MAX_SLICE_ENTRIES + raw * 2 + 0] = idx_a
-//   pair_idx_combined[wg_id * 2 * MAX_SLICE_ENTRIES + raw * 2 + 1] = idx_b
-// Hoisted out of workgroup memory at MAX_SLICE_ENTRIES=2048; see the
-// phase1 header comment for the WG-memory accounting.
+// Single combined per-WG metadata pool. Four contiguous sections:
+//   [0 .. MAX_SLICE_ENTRIES)               = pair_idx_a
+//   [MAX_SLICE_ENTRIES .. 2*MSE)           = pair_idx_b
+//   [2*MSE .. 2*MSE + MAX_PAIRS)           = rank_to_raw
+//   [2*MSE + MAX_PAIRS .. 2*MSE + MP + MSE) = prev_raw_for_pair
+// See phase1 header for the WG-memory accounting and indexing rules.
 @group(0) @binding(9)
-var<storage, read_write> pair_idx_combined: array<u32>;
+var<storage, read_write> meta_pool: array<u32>;
+
+const META_PER_WG_STRIDE: u32 = {{ meta_per_wg_stride }}u;
+const META_OFF_PAIR_IDX_A: u32 = 0u;
+const META_OFF_PAIR_IDX_B: u32 = {{ max_slice_entries }}u;
+const META_OFF_RANK_TO_RAW: u32 = {{ meta_off_rank_to_raw }}u;
+const META_OFF_PREV_RAW: u32 = {{ meta_off_prev_raw }}u;
 
 fn get_r() -> BigInt {
     var r: BigInt;
@@ -5854,15 +5864,6 @@ fn get_r() -> BigInt {
     return r;
 }
 // \`get_p()\` is provided by the \`montgomery_product_funcs\` partial.
-
-// prev_raw_for_pair is INDEXED by raw_slot (∈ [0, MAX_SLICE_ENTRIES)),
-// not by pair_rank — when many UNPAIRED slots precede a PAIR, the PAIR's
-// raw_slot can exceed MAX_PAIRS, so the array must be sized by
-// MAX_SLICE_ENTRIES.
-// rank_to_raw is indexed by pair_rank (∈ [0, MAX_PAIRS)), so MAX_PAIRS is
-// correct here even though its values are raw_slots (which may be larger).
-var<workgroup> prev_raw_for_pair: array<u32, {{ max_slice_entries }}>;
-var<workgroup> rank_to_raw: array<u32, {{ max_pairs }}>;
 
 var<workgroup> thread_max_break: array<u32, {{ tpb }}>;
 var<workgroup> thread_emit_prefix: array<u32, {{ tpb }}>;
@@ -5893,7 +5894,11 @@ fn main(
     if (chunk_lo > slice_hi) { chunk_hi_v = chunk_lo; }
     let chunk_hi = chunk_hi_v;
 
-    let pair_idx_base = wg_id * 2u * MAX_SLICE_ENTRIES;
+    let meta_base = wg_id * META_PER_WG_STRIDE;
+    let pair_idx_a_base = meta_base + META_OFF_PAIR_IDX_A;
+    let pair_idx_b_base = meta_base + META_OFF_PAIR_IDX_B;
+    let rank_to_raw_base = meta_base + META_OFF_RANK_TO_RAW;
+    let prev_raw_base = meta_base + META_OFF_PREV_RAW;
 
     // === Preamble Step 1: per-thread bucket load + local "last break pos" ===
     var local_buckets: array<u32, {{ per_thread_entries }}>;
@@ -6016,14 +6021,14 @@ fn main(
         let e = chunk_lo + off;
         let raw = raw_w;
         raw_w = raw_w + 1u;
-        pair_idx_combined[pair_idx_base + raw * 2u + 0u] = e;
+        meta_pool[pair_idx_a_base + raw] = e;
         if ((local_pair_mask & (1u << off)) != 0u) {
-            pair_idx_combined[pair_idx_base + raw * 2u + 1u] = e + 1u;
+            meta_pool[pair_idx_b_base + raw] = e + 1u;
             let pair_rank = pair_w;
             pair_w = pair_w + 1u;
-            rank_to_raw[pair_rank] = raw;
+            meta_pool[rank_to_raw_base + pair_rank] = raw;
         } else {
-            pair_idx_combined[pair_idx_base + raw * 2u + 1u] = UNPAIRED_SENTINEL;
+            meta_pool[pair_idx_b_base + raw] = UNPAIRED_SENTINEL;
         }
         output_bucket_id[out_base + raw] = local_buckets[off];
     }
@@ -6040,9 +6045,9 @@ fn main(
             let pair_rank = pair_r;
             pair_r = pair_r + 1u;
             if (pair_rank == 0u) {
-                prev_raw_for_pair[raw] = UNPAIRED_SENTINEL;
+                meta_pool[prev_raw_base + raw] = UNPAIRED_SENTINEL;
             } else {
-                prev_raw_for_pair[raw] = rank_to_raw[pair_rank - 1u];
+                meta_pool[prev_raw_base + raw] = meta_pool[rank_to_raw_base + pair_rank - 1u];
             }
         }
     }
@@ -6058,9 +6063,9 @@ fn main(
     for (var t: u32 = 0u; t < PER_THREAD_PAIRS; t = t + 1u) {
         let rank = chunk_start_rank + t;
         if (rank >= total_pairs) { break; }
-        let raw = rank_to_raw[rank];
-        let idx_a = pair_idx_combined[pair_idx_base + raw * 2u + 0u];
-        let idx_b = pair_idx_combined[pair_idx_base + raw * 2u + 1u];
+        let raw = meta_pool[rank_to_raw_base + rank];
+        let idx_a = meta_pool[pair_idx_a_base + raw];
+        let idx_b = meta_pool[pair_idx_b_base + raw];
         var p_x: BigInt = input_x[idx_a];
         var q_x: BigInt = input_x[idx_b];
         var dx: BigInt = fr_sub(&q_x, &p_x);
@@ -6131,9 +6136,9 @@ fn main(
     for (var off: u32 = 0u; off < PER_THREAD_PAIRS; off = off + 1u) {
         if (off >= thread_pair_count_local) { break; }
         let rank = chunk_start_rank + (thread_pair_count_local - 1u - off);
-        let raw = rank_to_raw[rank];
-        let idx_a = pair_idx_combined[pair_idx_base + raw * 2u + 0u];
-        let idx_b = pair_idx_combined[pair_idx_base + raw * 2u + 1u];
+        let raw = meta_pool[rank_to_raw_base + rank];
+        let idx_a = meta_pool[pair_idx_a_base + raw];
+        let idx_b = meta_pool[pair_idx_b_base + raw];
         var p_x: BigInt = input_x[idx_a];
         var p_y: BigInt = input_y[idx_a];
         var q_x: BigInt = input_x[idx_b];
@@ -6143,7 +6148,7 @@ fn main(
         if (rank == chunk_start_rank) {
             inv_dx = inv_acc_local;
         } else {
-            let prev_raw = prev_raw_for_pair[raw];
+            let prev_raw = meta_pool[prev_raw_base + raw];
             var prev_prefix: BigInt = prefix_scratch[wg_id * MAX_SLICE_ENTRIES + prev_raw];
             inv_dx = montgomery_product(&inv_acc_local, &prev_prefix);
         }
@@ -6172,9 +6177,9 @@ fn main(
     for (var off: u32 = 0u; off < (MAX_SLICE_ENTRIES + TPB - 1u) / TPB; off = off + 1u) {
         let i = tid + off * TPB;
         if (i >= total_outputs) { break; }
-        let idx_b = pair_idx_combined[pair_idx_base + i * 2u + 1u];
+        let idx_b = meta_pool[pair_idx_b_base + i];
         if (idx_b != UNPAIRED_SENTINEL) { continue; }
-        let idx_a = pair_idx_combined[pair_idx_base + i * 2u + 0u];
+        let idx_a = meta_pool[pair_idx_a_base + i];
         output_x[out_base + i] = input_x[idx_a];
         output_y[out_base + i] = input_y[idx_a];
     }

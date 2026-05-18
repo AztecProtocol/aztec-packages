@@ -622,15 +622,15 @@ export const smvp_batch_affine_gpu = async (
     // affine sums via tree-reduce and scatter them into running_x/y.
     // bucket_active stays as init wrote it. The existing finalize stage
     // below consumes the populated running_x/y + bucket_active.
-    const TREE_TPB = 64;
+    const TREE_TPB = 128;
     const TREE_MAX_SLICE_ENTRIES = 2048;
     const TREE_MAX_PAIRS = 1024;
     const TREE_MAX_LAYERS = 25;
     const TREE_PRELUDE_WG_SIZE = 64;
     const TREE_SCAN_WG_SIZE = 256;
-    const tree_ebid_key = `bn254:smvp_tree_entry_bucket_id:tpb64`;
+    const tree_ebid_key = `bn254:smvp_tree_entry_bucket_id:tpb${TREE_TPB}`;
     const tree_count_active_key = `bn254:smvp_tree_count_active:wg256`;
-    const tree_scatter_key = `bn254:smvp_tree_scatter:tpb64:v3`;
+    const tree_scatter_key = `bn254:smvp_tree_scatter:tpb${TREE_TPB}:v3`;
 
     const totalEntries = input_size * num_subtasks;
 

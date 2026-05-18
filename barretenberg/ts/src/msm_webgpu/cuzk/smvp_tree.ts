@@ -37,10 +37,10 @@ const SCAN_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'uniform', // 7 params
 ];
 
-// Phase 1 binding layout. Iter 3a replaced binding 4 (slice_bounds) with
-// a uniform that carries layer-0 slice geometry (per_wg, total_entries),
-// freeing one storage slot so we can add pair_idx_combined (binding 10)
-// without exceeding maxStorageBuffersPerShaderStage = 10 on M2/SwiftShader.
+// Phase 1 binding layout. Binding 10 (`meta_pool`) holds the combined
+// per-WG metadata pool — pair_idx_a, pair_idx_b, rank_to_raw, and
+// prev_raw_for_pair. Keeps storage-binding count at 10
+// (M2/SwiftShader's maxStorageBuffersPerShaderStage cap).
 const PHASE1_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'read-only-storage', // 0 schedule
   'read-only-storage', // 1 entry_bucket_id
@@ -52,7 +52,7 @@ const PHASE1_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'storage', // 7 output_bucket_id
   'storage', // 8 output_x
   'storage', // 9 output_y
-  'storage', // 10 pair_idx_combined (interleaved a/b, per-WG slice)
+  'storage', // 10 meta_pool (4-section per-WG slice)
 ];
 
 const PHASE2_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
@@ -65,7 +65,7 @@ const PHASE2_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
   'storage', // 6 output_bucket_id
   'storage', // 7 output_x
   'storage', // 8 output_y
-  'storage', // 9 pair_idx_combined (interleaved a/b, per-WG slice)
+  'storage', // 9 meta_pool (4-section per-WG slice)
 ];
 
 const SCATTER_ARGS_BINDINGS: Array<'storage' | 'read-only-storage' | 'uniform'> = [
@@ -183,12 +183,13 @@ export async function recordTreeReduce(
     `${wsKey}:tree:prefix_scratch`,
     MAX_WGS * maxSliceEntries * limbBytes,
   );
-  // Per-WG slice for hoisted pair_idx_a/b (interleaved (a,b) pairs).
-  // Worst case all-alternating-bucket: emits = maxSliceEntries, so
-  // each WG needs 2 * maxSliceEntries u32 slots.
-  const pairIdxCombined = context.acquirePersistentBuffer(
-    `${wsKey}:tree:pair_idx_combined`,
-    MAX_WGS * 2 * maxSliceEntries * 4,
+  // Per-WG meta pool: pair_idx_a, pair_idx_b, rank_to_raw, prev_raw_for_pair
+  // packed contiguously. Per-WG stride = 3 * maxSliceEntries + maxPairs u32s.
+  // At maxSliceEntries=2048, maxPairs=1024, MAX_WGS=540: ~15 MB total.
+  const metaPerWgStride = 3 * maxSliceEntries + maxPairs;
+  const metaPool = context.acquirePersistentBuffer(
+    `${wsKey}:tree:meta_pool`,
+    MAX_WGS * metaPerWgStride * 4,
   );
   const sliceBounds = context.acquirePersistentBuffer(
     `${wsKey}:tree:slice_bounds`,
@@ -420,7 +421,7 @@ export async function recordTreeReduce(
           { binding: 7, resource: { buffer: pingBucketId[(L + 1) & 1] } },
           { binding: 8, resource: { buffer: pingX[(L + 1) & 1] } },
           { binding: 9, resource: { buffer: pingY[(L + 1) & 1] } },
-          { binding: 10, resource: { buffer: pairIdxCombined } },
+          { binding: 10, resource: { buffer: metaPool } },
         ],
       }),
     );
@@ -445,7 +446,7 @@ export async function recordTreeReduce(
           { binding: 6, resource: { buffer: pingBucketId[(L + 1) & 1] } },
           { binding: 7, resource: { buffer: pingX[(L + 1) & 1] } },
           { binding: 8, resource: { buffer: pingY[(L + 1) & 1] } },
-          { binding: 9, resource: { buffer: pairIdxCombined } },
+          { binding: 9, resource: { buffer: metaPool } },
         ],
       }),
     );
