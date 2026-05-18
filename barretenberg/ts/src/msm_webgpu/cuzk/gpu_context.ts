@@ -66,6 +66,11 @@ export class GpuContext {
   // returned by `getOrCreatePersistentUniform`.
   private readonly persistentUniforms = new Map<string, GPUBuffer>();
 
+  // Tracks which persistent buffer keys have ever been initialized by
+  // their caller, so callers using `acquirePersistentBufferWithInit`
+  // know whether to seed the buffer's contents on first acquisition.
+  private readonly initializedPersistentBufferKeys = new Set<string>();
+
   // Persistent bind-group cache. Bind groups are functions of (layout,
   // GPUBuffer references), so once we make the underlying buffers
   // persistent the bind group itself can also be cached. Cache key is
@@ -193,6 +198,7 @@ export class GpuContext {
       // key's buffer and destroy the old buffer.
       this.invalidateBindGroupsReferencing(cacheKey);
       existing.destroy();
+      this.initializedPersistentBufferKeys.delete(cacheKey);
     }
     const buf = this.device.createBuffer({
       size,
@@ -200,6 +206,29 @@ export class GpuContext {
     });
     this.persistentBuffers.set(cacheKey, buf);
     return buf;
+  }
+
+  /**
+   * Same as `acquirePersistentBuffer` but additionally reports whether
+   * this is the FIRST time the caller has touched this key (or whether
+   * the buffer was reallocated due to a size change). Callers use the
+   * `created` flag to decide whether to seed contents (e.g. write the
+   * `layer_counts[0]` and the initial `dispatch_args_prelude[0..3]`
+   * entries on the first MSM call).
+   */
+  acquirePersistentBufferWithInit(
+    cacheKey: string,
+    size: number,
+    extraUsage = 0,
+  ): { buffer: GPUBuffer; created: boolean } {
+    const existing = this.persistentBuffers.get(cacheKey);
+    const had = existing !== undefined && existing.size === size && this.initializedPersistentBufferKeys.has(cacheKey);
+    const buffer = this.acquirePersistentBuffer(cacheKey, size, extraUsage);
+    if (!had) {
+      this.initializedPersistentBufferKeys.add(cacheKey);
+      return { buffer, created: true };
+    }
+    return { buffer, created: false };
   }
 
   /**
@@ -285,6 +314,7 @@ export class GpuContext {
     this.persistentBuffers.clear();
     this.persistentUniforms.clear();
     this.persistentBindGroups.clear();
+    this.initializedPersistentBufferKeys.clear();
     this.shaderManagerCache.clear();
   }
 }

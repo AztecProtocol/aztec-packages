@@ -24,7 +24,7 @@ import { create_and_write_sb, create_and_write_ub, create_bind_group, create_sb 
 import type { GpuContext } from './gpu_context.js';
 import { ShaderManager } from './shader_manager.js';
 import { create_bind_group_layout, execute_pipeline, execute_pipeline_indirect } from './gpu.js';
-import { runTreeReduce } from './smvp_tree.js';
+import { recordTreeReduce } from './smvp_tree.js';
 
 // Per-stage profiling budgets for the per-round loop. Sized to cover
 // every active round of every family at every benchmark size, including
@@ -616,146 +616,165 @@ export const smvp_batch_affine_gpu = async (
   await execute_pipeline(commandEncoder, init_pipe.pipeline, init_bg, init_x_groups, 1, 1, profiler?.stage('ba_init'));
 
   if (use_tree_reduce) {
-    // 2'. Tree-reduce path. The init dispatch above has already zeroed
-    // running_x/y and populated bucket_active from the CSR row pointers.
-    // We compute per-CSR-row affine sums via tree-reduce and scatter them
-    // into running_x/y. bucket_active stays as init wrote it. The existing
-    // finalize stage below consumes the populated running_x/y +
-    // bucket_active and performs the affine→Jacobian + magnitude-bucket
-    // fold unchanged.
+    // 2'. Tree-reduce path — single command encoder, single submit. The
+    // init dispatch above has already zeroed running_x/y and populated
+    // bucket_active from the CSR row pointers. We compute per-CSR-row
+    // affine sums via tree-reduce and scatter them into running_x/y.
+    // bucket_active stays as init wrote it. The existing finalize stage
+    // below consumes the populated running_x/y + bucket_active.
     const TREE_TPB = 64;
     const TREE_MAX_SLICE_ENTRIES = 1024;
-    const tree_p1_key = `bn254:smvp_tree_phase1:tpb${TREE_TPB}:max${TREE_MAX_SLICE_ENTRIES}`;
-    const tree_p2_key = `bn254:smvp_tree_phase2:tpb${TREE_TPB}:max${TREE_MAX_SLICE_ENTRIES}`;
-    const tree_scatter_key = `bn254:smvp_tree_scatter:tpb64`;
+    const TREE_MAX_LAYERS = 25;
+    const TREE_PRELUDE_WG_SIZE = 64;
+    const TREE_SCAN_WG_SIZE = 256;
     const tree_ebid_key = `bn254:smvp_tree_entry_bucket_id:tpb64`;
-    const buildPipeline = async (
-      code: string,
-      numBindings: number,
-      readOnlyCount: number,
-      lastIsUniform = false,
-    ) => {
-      const mod = device.createShaderModule({ code });
-      const layout = device.createBindGroupLayout({
-        entries: Array.from({ length: numBindings }, (_, i) => ({
-          binding: i,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: {
-            type: (i < readOnlyCount
-              ? 'read-only-storage'
-              : lastIsUniform && i === numBindings - 1
-                ? 'uniform'
-                : 'storage') as GPUBufferBindingType,
-          },
-        })),
-      });
-      const pipeline = await device.createComputePipelineAsync({
-        layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
-        compute: { module: mod, entryPoint: 'main' },
-      });
-      return { pipeline, bindGroupLayout: layout };
-    };
-    const p1Compile = async () =>
-      buildPipeline(shaderManager.gen_smvp_tree_phase1_shader(TREE_TPB, TREE_MAX_SLICE_ENTRIES), 10, 6);
-    const p2Compile = async () =>
-      buildPipeline(shaderManager.gen_smvp_tree_phase2_shader(TREE_TPB, TREE_MAX_SLICE_ENTRIES), 9, 5);
-    const scatterCompile = async () => buildPipeline(shaderManager.gen_smvp_tree_scatter_shader(TREE_TPB), 7, 3, true);
-    const ebidCompile = async () =>
-      buildPipeline(shaderManager.gen_smvp_tree_entry_bucket_id_shader(TREE_TPB), 3, 1, true);
-    const p1Got = context !== undefined ? await context.getOrCreatePipeline(tree_p1_key, p1Compile) : await p1Compile();
-    const p2Got = context !== undefined ? await context.getOrCreatePipeline(tree_p2_key, p2Compile) : await p2Compile();
-    const scatterGot =
-      context !== undefined
-        ? await context.getOrCreatePipeline(tree_scatter_key, scatterCompile)
-        : await scatterCompile();
-    const ebidGot =
-      context !== undefined ? await context.getOrCreatePipeline(tree_ebid_key, ebidCompile) : await ebidCompile();
-    const p1 = { pipeline: p1Got.pipeline, layout: p1Got.bindGroupLayout };
-    const p2 = { pipeline: p2Got.pipeline, layout: p2Got.bindGroupLayout };
-    const scatter = { pipeline: scatterGot.pipeline, layout: scatterGot.bindGroupLayout };
-    const ebid = { pipeline: ebidGot.pipeline, layout: ebidGot.bindGroupLayout };
+    const tree_count_active_key = `bn254:smvp_tree_count_active:wg256`;
+    const tree_scatter_key = `bn254:smvp_tree_scatter:tpb64:v3`;
 
     const totalEntries = input_size * num_subtasks;
-    const entryBucketIdBuf = device.createBuffer({
-      size: totalEntries * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    });
-    const ebidParamsBuf = device.createBuffer({
-      size: 16,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(ebidParamsBuf, 0, new Uint32Array([num_columns, input_size, num_subtasks, 0]));
-    const ebidBg = device.createBindGroup({
-      layout: ebid.layout,
-      entries: [
-        { binding: 0, resource: { buffer: all_csc_col_ptr_sb } },
-        { binding: 1, resource: { buffer: entryBucketIdBuf } },
-        { binding: 2, resource: { buffer: ebidParamsBuf } },
-      ],
-    });
-    // Record ebid into the caller's commandEncoder (after transpose +
-    // ba_init were recorded above). Finish + submit so ebid (and the
-    // upstream transpose) actually run on the GPU before runTreeReduce
-    // reads back entry_bucket_id. Then swap to a fresh encoder for the
-    // scatter + finalize stages; caller observes via commandEncoderRef.
-    {
-      const pass = commandEncoder.beginComputePass();
-      pass.setPipeline(ebid.pipeline);
-      pass.setBindGroup(0, ebidBg);
-      pass.dispatchWorkgroups(Math.ceil(totalEntries / TREE_TPB), 1, 1);
-      pass.end();
-    }
-    device.queue.submit([commandEncoder.finish()]);
-    await device.queue.onSubmittedWorkDone();
-    commandEncoder = device.createCommandEncoder();
-    commandEncoderRef.current = commandEncoder;
 
-    const treeRes = await runTreeReduce(
+    // Persistent ebid output. Bind groups remain stable across calls.
+    const entryBucketIdBuf =
+      context !== undefined
+        ? context.acquirePersistentBuffer(`${ws_key}:tree:entry_bucket_id`, totalEntries * 4)
+        : device.createBuffer({
+            size: totalEntries * 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+          });
+
+    // num_active_buckets — single atomic u32. Reset to zero each call.
+    const numActiveBucketsBuf =
+      context !== undefined
+        ? context.acquirePersistentBuffer(`${ws_key}:tree:num_active_buckets`, 4)
+        : device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+          });
+
+    const ebidPipe = await compile_pipeline_for(
       device,
-      p1.pipeline,
-      p1.layout,
-      p2.pipeline,
-      p2.layout,
+      ['read-only-storage', 'storage', 'uniform'],
+      shaderManager.gen_smvp_tree_entry_bucket_id_shader(TREE_TPB),
+      context,
+      tree_ebid_key,
+    );
+    const countActivePipe = await compile_pipeline_for(
+      device,
+      ['read-only-storage', 'storage', 'uniform'],
+      shaderManager.gen_smvp_tree_count_active_shader(256),
+      context,
+      tree_count_active_key,
+    );
+    const scatterPipe = await compile_pipeline_for(
+      device,
+      [
+        'read-only-storage', // 0 bucket_id ping_a
+        'read-only-storage', // 1 x ping_a
+        'read-only-storage', // 2 y ping_a
+        'storage', // 3 running_x
+        'storage', // 4 running_y
+        'storage', // 5 bucket_active
+        'uniform', // 6 params
+        'read-only-storage', // 7 layer_counts (total_outputs + final_slot_index)
+        'read-only-storage', // 8 bucket_id ping_b
+        'read-only-storage', // 9 x ping_b
+        'read-only-storage', // 10 y ping_b
+      ],
+      shaderManager.gen_smvp_tree_scatter_shader(TREE_TPB),
+      context,
+      tree_scatter_key,
+    );
+
+    const ebidParamsBuf = acquire_ub('tree_ebid_ub', numbers_to_u8s([num_columns, input_size, num_subtasks, 0]));
+    const countActiveParamsBuf = acquire_ub('tree_count_active_ub', numbers_to_u8s([totalEntries, 0, 0, 0]));
+
+    const ebidBg = acquire_bg('tree_ebid_bg', ebidPipe.layout, [
+      all_csc_col_ptr_sb,
+      entryBucketIdBuf,
+      ebidParamsBuf,
+    ]);
+    const countActiveBg = acquire_bg('tree_count_active_bg', countActivePipe.layout, [
+      entryBucketIdBuf,
+      numActiveBucketsBuf,
+      countActiveParamsBuf,
+    ]);
+
+    // Record ebid into the caller's commandEncoder. NO mid-encoder flush.
+    await execute_pipeline(
+      commandEncoder,
+      ebidPipe.pipeline,
+      ebidBg,
+      Math.ceil(totalEntries / TREE_TPB),
+      1,
+      1,
+      profiler?.stage('ba_tree_ebid'),
+    );
+
+    // Zero numActiveBuckets before count_active dispatches.
+    commandEncoder.clearBuffer(numActiveBucketsBuf, 0, 4);
+
+    await execute_pipeline(
+      commandEncoder,
+      countActivePipe.pipeline,
+      countActiveBg,
+      Math.ceil(totalEntries / 256),
+      1,
+      1,
+      profiler?.stage('ba_tree_count_active'),
+    );
+
+    // Record the whole tree-reduce chain into the same command encoder.
+    if (context === undefined) {
+      throw new Error('use_tree_reduce currently requires a persistent GpuContext');
+    }
+    const tree = await recordTreeReduce(
+      device,
+      shaderManager,
+      context,
+      commandEncoder,
       all_csc_val_idxs_sb,
       entryBucketIdBuf,
       point_x_sb,
       point_y_sb,
+      numActiveBucketsBuf,
       totalEntries,
-      { tpb: TREE_TPB, maxSliceEntries: TREE_MAX_SLICE_ENTRIES },
+      {
+        tpb: TREE_TPB,
+        maxSliceEntries: TREE_MAX_SLICE_ENTRIES,
+        maxLayers: TREE_MAX_LAYERS,
+        preludeWgSize: TREE_PRELUDE_WG_SIZE,
+        scanWgSize: TREE_SCAN_WG_SIZE,
+      },
+      `bn254:${num_columns}:${input_size}`,
+      ws_key,
     );
-    // Expose runTreeReduce's per-phase wall-clock timings to the dev
-    // page so bench-msm-variant can report them in the profile dump.
-    // runTreeReduce uses its own command encoders + per-layer awaits,
-    // so the main Profiler's QuerySet doesn't capture its inner work —
-    // these wall-clock numbers are the only visibility we have until
-    // the encoder chain is unified.
-    (globalThis as unknown as { __last_tree_phase_timings_ms?: { phase: string; ms: number }[] })
-      .__last_tree_phase_timings_ms = treeRes.phaseTimingsMs;
 
-    const scatterParamsBuf = device.createBuffer({
-      size: 16,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(scatterParamsBuf, 0, new Uint32Array([treeRes.totalOutputs, total_buckets, 0, 0]));
-    const scatterBg = device.createBindGroup({
-      layout: scatter.layout,
-      entries: [
-        { binding: 0, resource: { buffer: treeRes.outputBucketId } },
-        { binding: 1, resource: { buffer: treeRes.outputX } },
-        { binding: 2, resource: { buffer: treeRes.outputY } },
-        { binding: 3, resource: { buffer: running_x_sb } },
-        { binding: 4, resource: { buffer: running_y_sb } },
-        { binding: 5, resource: { buffer: bucket_active_sb } },
-        { binding: 6, resource: { buffer: scatterParamsBuf } },
-      ],
-    });
-    await execute_pipeline(
+    // Scatter params: (total_buckets, max_layers_slot,
+    // final_slot_index_slot, _). Both total_outputs and slot are read
+    // from layer_counts at those slots by the shader.
+    const scatterParamsBuf = acquire_ub(
+      'tree_scatter_ub:v3',
+      numbers_to_u8s([total_buckets, TREE_MAX_LAYERS, TREE_MAX_LAYERS + 1, 0]),
+    );
+    const scatterBg = acquire_bg('tree_scatter_bg:v3', scatterPipe.layout, [
+      tree.pingBucketId[0],
+      tree.pingX[0],
+      tree.pingY[0],
+      running_x_sb,
+      running_y_sb,
+      bucket_active_sb,
+      scatterParamsBuf,
+      tree.layerCounts,
+      tree.pingBucketId[1],
+      tree.pingX[1],
+      tree.pingY[1],
+    ]);
+    execute_pipeline_indirect(
       commandEncoder,
-      scatter.pipeline,
+      scatterPipe.pipeline,
       scatterBg,
-      Math.ceil(treeRes.totalOutputs / TREE_TPB),
-      1,
-      1,
+      tree.dispatchArgsScatter,
+      0,
       profiler?.stage('ba_tree_scatter'),
     );
   } else {

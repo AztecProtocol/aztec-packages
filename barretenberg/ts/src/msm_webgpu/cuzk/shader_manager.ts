@@ -42,10 +42,14 @@ import {
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
   smvp_bn254 as smvp_bn254_shader,
+  smvp_tree_count_active as smvp_tree_count_active_shader,
   smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
+  smvp_tree_layer_prelude as smvp_tree_layer_prelude_shader,
+  smvp_tree_layer_scan as smvp_tree_layer_scan_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
   smvp_tree_scatter as smvp_tree_scatter_shader,
+  smvp_tree_scatter_args as smvp_tree_scatter_args_shader,
   smvp_tree_scatter_init as smvp_tree_scatter_init_shader,
   structs,
   transpose_parallel_count as transpose_parallel_count_shader,
@@ -652,6 +656,86 @@ export class ShaderManager {
       { tpb, recompile: this.recompile },
       {},
     );
+  }
+
+  /**
+   * Counts the number of distinct contiguous bucket runs in
+   * `entry_bucket_id`. Single dispatch over ceil(total/wg_size)
+   * workgroups; each WG does a shared-memory reduction and atomic-adds
+   * the partial into slot 0 of the output buffer. Replaces the
+   * `countActiveBuckets` JS readback in `runTreeReduce`.
+   */
+  public gen_smvp_tree_count_active_shader(wg_size: number): string {
+    if (wg_size <= 0 || (wg_size & (wg_size - 1)) !== 0) {
+      throw new Error(`gen_smvp_tree_count_active_shader: wg_size (${wg_size}) must be a positive power of two`);
+    }
+    return mustache.render(
+      smvp_tree_count_active_shader,
+      { wg_size, recompile: this.recompile },
+      {},
+    );
+  }
+
+  /**
+   * Per-layer GPU prelude. Replaces host pickNumWgs / evenSliceBounds /
+   * cpuPairCountPerSlice. Writes layer-strided slice bounds + per-WG
+   * pair counts + the layer's chosen num_wgs into a small metadata pool
+   * shared across all tree-reduce layers.
+   *
+   * Dispatched indirectly from `dispatch_args_prelude[layer_idx*3]`,
+   * which the previous layer's `layer_scan` kernel wrote based on the
+   * actual output count of this layer.
+   */
+  public gen_smvp_tree_layer_prelude_shader(
+    prelude_wg_size: number,
+    max_slice_entries: number,
+    max_wgs: number,
+  ): string {
+    if (prelude_wg_size <= 0 || max_slice_entries <= 0 || max_wgs <= 0) {
+      throw new Error(
+        `gen_smvp_tree_layer_prelude_shader: prelude_wg_size=${prelude_wg_size}, max_slice_entries=${max_slice_entries}, max_wgs=${max_wgs} must all be positive`,
+      );
+    }
+    return mustache.render(
+      smvp_tree_layer_prelude_shader,
+      { prelude_wg_size, max_slice_entries, max_wgs, recompile: this.recompile },
+      {},
+    );
+  }
+
+  /**
+   * Per-layer GPU scan + dispatch-args writer. Single workgroup of
+   * `scan_wg_size` threads; runs after `layer_prelude` finishes. Writes
+   * the exclusive prefix-sum over per-WG pair counts into
+   * `wg_output_offset_out`, propagates the total into
+   * `layer_counts[layer_idx+1]`, and emits the indirect dispatch geometry
+   * for both the next layer's prelude pass and this layer's
+   * phase1/phase2 pass. Also writes the terminal flags
+   * (`layer_counts[max_layers_slot]`, `final_slot_index[0]`) when the
+   * tree reduce has converged.
+   */
+  public gen_smvp_tree_layer_scan_shader(scan_wg_size: number, max_wgs: number): string {
+    if (scan_wg_size <= 0 || max_wgs <= 0) {
+      throw new Error(
+        `gen_smvp_tree_layer_scan_shader: scan_wg_size=${scan_wg_size}, max_wgs=${max_wgs} must be positive`,
+      );
+    }
+    const elems_per_thread = Math.ceil(max_wgs / scan_wg_size);
+    return mustache.render(
+      smvp_tree_layer_scan_shader,
+      { scan_wg_size, max_wgs, elems_per_thread, recompile: this.recompile },
+      {},
+    );
+  }
+
+  /**
+   * Single-thread writer that converts the final tree-reduce total
+   * (`layer_counts[max_layers_slot]`) into the indirect dispatch
+   * geometry for the host-side scatter pass:
+   *   dispatch_args_scatter = (ceil(total / scatter_tpb), 1, 1).
+   */
+  public gen_smvp_tree_scatter_args_shader(): string {
+    return mustache.render(smvp_tree_scatter_args_shader, {}, {});
   }
 
   public gen_bench_batch_affine_shader(batch_size: number, tpb: number): string {
