@@ -143,6 +143,15 @@ export const smvp_batch_affine_gpu = async (
   // exact buffers via the scatter kernel after the
   // smvp_tree_phase1/2 orchestrator finishes.
   use_tree_reduce = false,
+  // When true, replace the per-round batch_inverse_parallel +
+  // apply_scatter dispatch pair with a SINGLE fused kernel per round
+  // (the ba_rev_packed_carry suffix-product / one-fr_inv_by_a /
+  // lean-apply scheme). Init / schedule / dispatch_args / finalize stay
+  // unchanged: the fused kernel reads + writes the same BigInt-layout
+  // running_x/y buffers, so schedule's collision check and finalize's
+  // consumption are unaffected. Mutually exclusive with use_tree_reduce
+  // (tree path takes precedence if both are set). Currently bn254 only.
+  fused_revcarry = false,
 ): Promise<void> => {
   // The tree-reduce path needs to mid-flush commandEncoder so its CSR
   // reads see the current call's transpose output (not stale data from
@@ -416,6 +425,34 @@ export const smvp_batch_affine_gpu = async (
     `bn254:batch_affine_apply:xsubtask-v1:${num_columns}:${input_size}`,
   );
 
+  // Fused round kernel (ba_rev_packed_carry). Compiled only when the
+  // flag is set so the default path pays no extra shader-compile cost.
+  // Bindings: 0 val_idx, 1 new_point_x, 2 new_point_y, 3 running_x (rw),
+  // 4 running_y (rw), 5 pair_target_meta, 6 count_buf (atomic rw =
+  // round_count_sb), 7 uniform params (num_columns, input_size, 0, 0).
+  // Same BigInt layout as apply_scatter; no pack/unpack stage.
+  const FUSED_SCHUNK = 16;
+  let fused_pipe: { pipeline: GPUComputePipeline; layout: GPUBindGroupLayout } | undefined;
+  if (fused_revcarry && !use_tree_reduce) {
+    const fused_shader = shaderManager.gen_batch_affine_fused_revcarry_shader(apply_workgroup_size, FUSED_SCHUNK);
+    fused_pipe = await compile_pipeline_for(
+      device,
+      [
+        'read-only-storage', // 0 val_idx
+        'read-only-storage', // 1 new_point_x
+        'read-only-storage', // 2 new_point_y
+        'storage', // 3 running_x
+        'storage', // 4 running_y
+        'read-only-storage', // 5 pair_target_meta
+        'storage', // 6 count_buf (atomic, atomicLoad; per-subtask)
+        'uniform', // 7 params
+      ],
+      fused_shader,
+      context,
+      `bn254:batch_affine_fused_revcarry:v1:sc${FUSED_SCHUNK}:wg${apply_workgroup_size}:${num_columns}:${input_size}`,
+    );
+  }
+
   const dispatch_args_pipe = await compile_pipeline_for(
     device,
     [
@@ -596,6 +633,24 @@ export const smvp_batch_affine_gpu = async (
     round_count_sb,
     apply_ub,
   ]);
+
+  // Fused round bind group. Reuses the same external + workspace buffers
+  // as the apply path (val_idx, point_x/y, running_x/y, pair_target_meta,
+  // round_count) plus apply_ub. round_count_sb carries the per-subtask
+  // pair count forwarded by dispatch_args, same as apply's count_buf.
+  const fused_bg =
+    fused_pipe !== undefined
+      ? acquire_bg('fused_revcarry_bg:v1', fused_pipe.layout, [
+          all_csc_val_idxs_sb,
+          point_x_sb,
+          point_y_sb,
+          running_x_sb,
+          running_y_sb,
+          pair_target_meta_sb,
+          round_count_sb,
+          apply_ub,
+        ])
+      : undefined;
 
   // Suffix bumped to v2 by P2-clear: bind group now binds 4 buffers
   // (pair_counter + round_count + dispatch_args + ub) instead of 3.
@@ -1021,28 +1076,47 @@ export const smvp_batch_affine_gpu = async (
       profiler?.stage(`ba_dispatch_args[r=${round}]`),
     );
 
-    // 2c. Batch inverse — INDIRECT. T workgroups when any subtask has
-    // pairs, 0 otherwise. Each workgroup inverts its subtask's
-    // pair_delta slice (count_buf[k] = pair_counter[k]).
-    execute_pipeline_indirect(
-      commandEncoder,
-      inverse_pipe.pipeline,
-      inverse_bg,
-      dispatch_args_sb,
-      12,
-      sample_inverse ? profiler?.stage(`ba_inverse[r=${round}]`) : undefined,
-    );
+    if (fused_pipe !== undefined && fused_bg !== undefined) {
+      // 2c'. Fused round — INDIRECT. One kernel replaces the separate
+      // inverse + apply dispatches. Reuses the apply arg triple at
+      // offset 24 = (ceil(max_count / apply_wg_size), 1, num_subtasks).
+      // The fused kernel addresses pairs as `global_id.x * SCHUNK`, so
+      // this triple over-provisions the X dim by SCHUNK× vs what the
+      // fused slicing needs; every surplus thread early-returns via
+      // `base >= n`, so over-dispatch is correctness-safe. The single
+      // fr_inv_by_a per SCHUNK slice is the actual win regardless.
+      execute_pipeline_indirect(
+        commandEncoder,
+        fused_pipe.pipeline,
+        fused_bg,
+        dispatch_args_sb,
+        24,
+        sample_apply ? profiler?.stage(`ba_fused[r=${round}]`) : undefined,
+      );
+    } else {
+      // 2c. Batch inverse — INDIRECT. T workgroups when any subtask has
+      // pairs, 0 otherwise. Each workgroup inverts its subtask's
+      // pair_delta slice (count_buf[k] = pair_counter[k]).
+      execute_pipeline_indirect(
+        commandEncoder,
+        inverse_pipe.pipeline,
+        inverse_bg,
+        dispatch_args_sb,
+        12,
+        sample_inverse ? profiler?.stage(`ba_inverse[r=${round}]`) : undefined,
+      );
 
-    // 2d. Apply scatter — INDIRECT. (ceil(max/wg), 1, T) workgroups,
-    // 0 when no subtask scheduled any pair.
-    execute_pipeline_indirect(
-      commandEncoder,
-      apply_pipe.pipeline,
-      apply_bg,
-      dispatch_args_sb,
-      24,
-      sample_apply ? profiler?.stage(`ba_apply[r=${round}]`) : undefined,
-    );
+      // 2d. Apply scatter — INDIRECT. (ceil(max/wg), 1, T) workgroups,
+      // 0 when no subtask scheduled any pair.
+      execute_pipeline_indirect(
+        commandEncoder,
+        apply_pipe.pipeline,
+        apply_bg,
+        dispatch_args_sb,
+        24,
+        sample_apply ? profiler?.stage(`ba_apply[r=${round}]`) : undefined,
+      );
+    }
   }
   } // end if (!use_tree_reduce)
 

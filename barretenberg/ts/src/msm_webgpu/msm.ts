@@ -251,6 +251,11 @@ export const compute_bn254_msm_batch_affine = async (
   // batch-affine SMVP buckets and is sensitive to Tint codegen).
   bpr_inner_loop: 'legacy' | 'mixed_safe' | 'assume_affine' = 'legacy',
   use_tree_reduce = false,
+  // Opt-in: route the per-round affine reduction through the single
+  // fused ba_rev_packed_carry kernel instead of the separate
+  // batch_inverse_parallel + apply_scatter dispatches. Init / schedule /
+  // finalize stay unchanged (same BigInt-layout buffers). bn254 only.
+  fused_revcarry = false,
 ): Promise<{ x: bigint; y: bigint }> =>
   compute_curve_msm(
     // Cached path: `baseAffinePoints` is ignored. Uint8Array cast keeps
@@ -269,6 +274,7 @@ export const compute_bn254_msm_batch_affine = async (
     profile_capture,
     bpr_inner_loop,
     use_tree_reduce,
+    fused_revcarry,
   );
 
 // GLV cold-path entry points (compute_bn254_msm_glv and
@@ -502,6 +508,12 @@ const compute_curve_msm = async (
   // unchanged. Currently bn254 only (uses the same fr_inv_by_a from
   // the existing batch_affine pipelines). Output bit-identical.
   use_tree_reduce = false,
+  // Opt-in: route the per-round affine reduction through the single
+  // fused ba_rev_packed_carry kernel (suffix-product / one fr_inv_by_a /
+  // lean apply) instead of the separate batch_inverse_parallel +
+  // apply_scatter dispatches. Init / schedule / finalize unchanged.
+  // Forwarded into smvp_batch_affine_gpu. bn254 only.
+  fused_revcarry = false,
 ): Promise<{ x: bigint; y: bigint }> => {
   const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
@@ -922,6 +934,7 @@ const compute_curve_msm = async (
       // Tells smvp_batch_affine_gpu it can cache its bind groups.
       cached_bases !== undefined && context !== undefined,
       use_tree_reduce,
+      fused_revcarry,
     );
     // Tree-reduce path may have replaced the encoder; re-bind so
     // subsequent BPR / readback operations target the active encoder.

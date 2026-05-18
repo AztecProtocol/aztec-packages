@@ -9,6 +9,7 @@ import {
   batch_affine_finalize as batch_affine_finalize_shader,
   batch_affine_finalize_apply as batch_affine_finalize_apply_shader,
   batch_affine_finalize_collect as batch_affine_finalize_collect_shader,
+  batch_affine_fused_revcarry as batch_affine_fused_revcarry_shader,
   batch_affine_init as batch_affine_init_shader,
   batch_affine_schedule as batch_affine_schedule_shader,
   batch_inverse as batch_inverse_shader,
@@ -756,6 +757,43 @@ export class ShaderManager {
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
         field_funcs,
+      },
+    );
+  }
+
+  // Fused batch-affine round kernel: ba_rev_packed_carry's
+  // suffix-product / single fr_inv_by_a / lean-apply scheme applied
+  // in-place to the cuZK Pippenger round, replacing the separate
+  // batch_inverse_parallel + apply_scatter dispatches. Operates on the
+  // shared 20x13-bit BigInt limb layout (no pack/unpack stage) and uses
+  // the same fr_inv_by_a driver as gen_batch_inverse_parallel_shader.
+  public gen_batch_affine_fused_revcarry_shader(workgroup_size: number, schunk: number): string {
+    return mustache.render(
+      batch_affine_fused_revcarry_shader,
+      {
+        workgroup_size,
+        schunk,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
       },
     );
   }
