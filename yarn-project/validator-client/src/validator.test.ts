@@ -942,7 +942,12 @@ describe('ValidatorClient', () => {
       ]);
     });
 
-    it.each<CheckpointProposalValidationFailureReason>(['archive_mismatch', 'out_hash_mismatch'])(
+    it.each<CheckpointProposalValidationFailureReason>([
+      'archive_mismatch',
+      'out_hash_mismatch',
+      'last_block_archive_mismatch',
+      'checkpoint_validation_failed',
+    ])(
       'emits checkpoint proposal slash event for %s',
       async reason => {
         const checkpointHandler = registerAllNodesCheckpointHandler();
@@ -984,8 +989,6 @@ describe('ValidatorClient', () => {
     it.each<CheckpointProposalValidationFailureReason>([
       'last_block_not_found',
       'checkpoint_already_published',
-      'last_block_archive_mismatch',
-      'checkpoint_validation_failed',
     ])('does not emit checkpoint proposal slash event for %s', async reason => {
       const checkpointHandler = registerAllNodesCheckpointHandler();
       const checkpointProposal = await makeCheckpointProposalForSlot();
