@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "msgpackr": "^1.10.0"
+    "msgpackr": "^1.10.0",
+    "tsx": "^4.19.0"
   }
 }

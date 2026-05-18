@@ -19,7 +19,7 @@ cd "$EXAMPLES_DIR"
 server_cmd_for() {
   case "$1" in
     rust) echo "rust/echo/target/debug/echo_server" ;;
-    ts)   echo "npx tsx ts/echo/echo_server.ts" ;;
+    ts)   echo "ts/echo/node_modules/.bin/tsx ts/echo/echo_server.ts" ;;
     cpp)  echo "cpp/echo/echo_server" ;;
     zig)  echo "zig/echo/zig-out/bin/echo_server" ;;
     *)    echo "unknown lang: $1" >&2; exit 1 ;;
@@ -29,7 +29,7 @@ server_cmd_for() {
 client_cmd_for() {
   case "$1" in
     rust) echo "rust/echo/target/debug/echo_client" ;;
-    ts)   echo "npx tsx ts/echo/echo_client.ts" ;;
+    ts)   echo "ts/echo/node_modules/.bin/tsx ts/echo/echo_client.ts" ;;
     cpp)  echo "cpp/echo/echo_client" ;;
     zig)  echo "zig/echo/zig-out/bin/echo_client" ;;
     *)    echo "unknown lang: $1" >&2; exit 1 ;;
@@ -43,7 +43,7 @@ run_golden() {
       rust/echo/target/debug/golden_test --golden-dir echo-schema/golden
       ;;
     ts)
-      npx tsx ts/echo/golden_test.ts
+      ts/echo/node_modules/.bin/tsx ts/echo/golden_test.ts
       ;;
     *)
       echo "golden tests only defined for rust and ts (got: $lang)" >&2
@@ -65,12 +65,15 @@ run_matrix() {
   local server_pid=$!
   trap "kill $server_pid 2>/dev/null || true; rm -f $socket" EXIT
 
-  for _ in $(seq 1 20); do
+  # Generous timeout: under docker_isolate with CPUS=1, `npx tsx` cold start
+  # alone routinely takes several seconds. Native binaries (rust/c++/zig) bind
+  # the socket in <100ms either way, so this only stretches the worst-case wait.
+  for _ in $(seq 1 300); do
     [ -S "$socket" ] && break
     sleep 0.1
   done
   if [ ! -S "$socket" ]; then
-    echo "server did not create socket within 2s" >&2
+    echo "server did not create socket within 30s" >&2
     exit 1
   fi
 
