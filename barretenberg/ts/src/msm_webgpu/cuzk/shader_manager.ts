@@ -46,8 +46,13 @@ import {
   smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
   smvp_tree_layer_prelude as smvp_tree_layer_prelude_shader,
   smvp_tree_layer_scan as smvp_tree_layer_scan_shader,
+  smvp_tree_layer_batch_inverse as smvp_tree_layer_batch_inverse_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
+  smvp_tree_phase1_a as smvp_tree_phase1_a_shader,
+  smvp_tree_phase1_d as smvp_tree_phase1_d_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
+  smvp_tree_phase2_a as smvp_tree_phase2_a_shader,
+  smvp_tree_phase2_d as smvp_tree_phase2_d_shader,
   smvp_tree_scatter as smvp_tree_scatter_shader,
   smvp_tree_scatter_args as smvp_tree_scatter_args_shader,
   smvp_tree_scatter_init as smvp_tree_scatter_init_shader,
@@ -628,6 +633,272 @@ export class ShaderManager {
         meta_off_rank_to_raw,
         meta_off_prev_raw,
         meta_per_wg_stride,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Phase 1-A of the tree-reduce SMVP (iter 4 split). Runs the preamble
+   * + Phase A prefix-product + Phase B scan, then spills the per-WG
+   * block_total + per-thread block_total + per-WG counts to global
+   * storage so the layer-wide batch inverse + Phase 1-D can consume them.
+   * No fr_inv_by_a; that moves to `smvp_tree_layer_batch_inverse`.
+   */
+  public gen_smvp_tree_phase1_a_shader(
+    tpb: number,
+    max_slice_entries: number,
+    max_pairs: number,
+    max_wgs: number,
+  ): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0 || max_wgs <= 0) {
+      throw new Error(`gen_smvp_tree_phase1_a_shader: all sizes must be positive`);
+    }
+    if (max_slice_entries % tpb !== 0) {
+      throw new Error(
+        `gen_smvp_tree_phase1_a_shader: max_slice_entries (${max_slice_entries}) must be a multiple of tpb (${tpb})`,
+      );
+    }
+    if (max_pairs % tpb !== 0 || max_pairs > max_slice_entries) {
+      throw new Error(`gen_smvp_tree_phase1_a_shader: max_pairs invalid`);
+    }
+    const per_thread_pairs = max_pairs / tpb;
+    const per_thread_entries = max_slice_entries / tpb;
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
+    return mustache.render(
+      smvp_tree_phase1_a_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        max_wgs,
+        per_thread_pairs,
+        per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Phase 1-D companion to `smvp_tree_phase1_a`. Reloads the per-thread
+   * block_total spilled by Phase 1-A and the per-WG inverse produced by
+   * `smvp_tree_layer_batch_inverse`, re-runs Phase B locally to derive
+   * the exclusive prefix/suffix, runs Phase D + UNPAIRED write-out.
+   */
+  public gen_smvp_tree_phase1_d_shader(
+    tpb: number,
+    max_slice_entries: number,
+    max_pairs: number,
+    max_wgs: number,
+  ): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0 || max_wgs <= 0) {
+      throw new Error(`gen_smvp_tree_phase1_d_shader: all sizes must be positive`);
+    }
+    const per_thread_pairs = max_pairs / tpb;
+    const per_thread_entries = max_slice_entries / tpb;
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
+    return mustache.render(
+      smvp_tree_phase1_d_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        max_wgs,
+        per_thread_pairs,
+        per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /** Phase 2-A of the tree-reduce SMVP. Sister of Phase 1-A for L >= 1. */
+  public gen_smvp_tree_phase2_a_shader(
+    tpb: number,
+    max_slice_entries: number,
+    max_pairs: number,
+    max_wgs: number,
+  ): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0 || max_wgs <= 0) {
+      throw new Error(`gen_smvp_tree_phase2_a_shader: all sizes must be positive`);
+    }
+    const per_thread_pairs = max_pairs / tpb;
+    const per_thread_entries = max_slice_entries / tpb;
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
+    return mustache.render(
+      smvp_tree_phase2_a_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        max_wgs,
+        per_thread_pairs,
+        per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /** Phase 2-D companion to `smvp_tree_phase2_a`. */
+  public gen_smvp_tree_phase2_d_shader(
+    tpb: number,
+    max_slice_entries: number,
+    max_pairs: number,
+    max_wgs: number,
+  ): string {
+    if (tpb <= 0 || max_slice_entries <= 0 || max_pairs <= 0 || max_wgs <= 0) {
+      throw new Error(`gen_smvp_tree_phase2_d_shader: all sizes must be positive`);
+    }
+    const per_thread_pairs = max_pairs / tpb;
+    const per_thread_entries = max_slice_entries / tpb;
+    const meta_off_rank_to_raw = 2 * max_slice_entries;
+    const meta_off_prev_raw = 2 * max_slice_entries + max_pairs;
+    const meta_per_wg_stride = 3 * max_slice_entries + max_pairs;
+    return mustache.render(
+      smvp_tree_phase2_d_shader,
+      {
+        tpb,
+        max_slice_entries,
+        max_pairs,
+        max_wgs,
+        per_thread_pairs,
+        per_thread_entries,
+        meta_off_rank_to_raw,
+        meta_off_prev_raw,
+        meta_per_wg_stride,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Layer-wide Montgomery batch inverse. Replaces the per-WG
+   * `fr_inv_by_a` with one `fr_inv_by_a` per layer plus a serial
+   * forward/backward pass over the per-WG products. Single workgroup,
+   * single thread.
+   */
+  public gen_smvp_tree_layer_batch_inverse_shader(max_wgs: number): string {
+    if (max_wgs <= 0) {
+      throw new Error(`gen_smvp_tree_layer_batch_inverse_shader: max_wgs (${max_wgs}) must be positive`);
+    }
+    return mustache.render(
+      smvp_tree_layer_batch_inverse_shader,
+      {
+        max_wgs,
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
