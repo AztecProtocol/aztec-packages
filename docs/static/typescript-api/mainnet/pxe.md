@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v4.3.0-rc.1
+Version: v4.3.0
 
 ## Quick Import Reference
 
