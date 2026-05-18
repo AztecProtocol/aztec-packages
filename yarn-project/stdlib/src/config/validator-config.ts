@@ -20,6 +20,19 @@ export const fishermanModeConfigMappings: ConfigMappingsType<FishermanModeConfig
   },
 };
 
+/** Config for controlling whether proposed/re-executed blocks should be pushed to archiver. */
+export interface PushProposedBlocksToArchiverConfig {
+  /** Whether to skip pushing proposed/re-executed blocks to archiver. */
+  skipPushProposedBlocksToArchiver?: boolean;
+}
+
+export const pushProposedBlocksToArchiverConfigMappings: ConfigMappingsType<PushProposedBlocksToArchiverConfig> = {
+  skipPushProposedBlocksToArchiver: {
+    description: 'Skip pushing proposed/re-executed blocks to archiver (default: false)',
+    ...booleanConfigHelper(false),
+  },
+};
+
 /** Validator block constraint config shared across validator-client and p2p. */
 type OwnValidatorConstraintsConfig = {
   /** Maximum L2 block gas for validation. Proposals exceeding this limit are rejected. */

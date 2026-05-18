@@ -20,7 +20,7 @@ import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
 import type { ChainConfig } from '../config/chain-config.js';
-import type { ValidatorConstraintsConfig } from '../config/validator-config.js';
+import type { PushProposedBlocksToArchiverConfig, ValidatorConstraintsConfig } from '../config/validator-config.js';
 import {
   type LocalSignerConfig,
   LocalSignerConfigSchema,
@@ -52,9 +52,6 @@ export type OwnValidatorClientConfig = {
   /** Skip checkpoint proposal validation and always attest (default: false) */
   skipCheckpointProposalValidation?: boolean;
 
-  /** Skip pushing re-executed blocks to archiver (default: false) */
-  skipPushProposedBlocksToArchiver?: boolean;
-
   /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
   attestToEquivocatedProposals?: boolean;
 };
@@ -64,6 +61,7 @@ export type OwnValidatorClientConfig = {
  */
 export type ValidatorClientConfig = ValidatorHASignerConfig &
   LocalSignerConfig &
+  PushProposedBlocksToArchiverConfig &
   ValidatorConstraintsConfig &
   Pick<ChainConfig, 'l1ChainId'> &
   OwnValidatorClientConfig;

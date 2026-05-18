@@ -22,6 +22,7 @@ import {
   chainConfigMappings,
   fishermanModeConfigMappings,
   pipelineConfigMappings,
+  pushProposedBlocksToArchiverConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
 import type { OwnSequencerConfig, ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -202,10 +203,6 @@ const ownSequencerConfigMappings: ConfigMappingsType<OwnSequencerConfig> = {
     description: 'Have sequencer build and publish an empty checkpoint if there are no txs',
     ...booleanConfigHelper(DefaultSequencerConfig.buildCheckpointIfEmpty),
   },
-  skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing proposed blocks to archiver (default: true)',
-    ...booleanConfigHelper(DefaultSequencerConfig.skipPushProposedBlocksToArchiver),
-  },
   minBlocksForCheckpoint: {
     description: 'Minimum number of blocks required for a checkpoint proposal (test only)',
   },
@@ -226,6 +223,7 @@ const ownSequencerConfigMappings: ConfigMappingsType<OwnSequencerConfig> = {
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = composeConfigMappings(
   ownSequencerConfigMappings,
+  pushProposedBlocksToArchiverConfigMappings,
   fishermanModeConfigMappings,
   sharedSequencerConfigMappings,
   pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
