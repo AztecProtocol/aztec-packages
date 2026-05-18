@@ -1,4 +1,4 @@
-import { Archiver, createArchiver } from '@aztec/archiver';
+import { Archiver, L1ToL2MessagesNotReadyError, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
@@ -20,6 +20,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
+import { isErrorClass } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
@@ -1516,11 +1517,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // the world state tree so simulation can take them into account. We detect if the next block would
     // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
     // which means the next block would be the first block of the next checkpoint.
+    const targetCheckpoint = CheckpointNumber(
+      (l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1,
+    );
     const nextCheckpointMessages: Fr[] | undefined =
       l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
-        ? await this.l1ToL2MessageSource.getL1ToL2Messages(
-            CheckpointNumber((l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1),
-          )
+        ? await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
+            if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
+              this.log.warn(
+                `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
+              );
+            } else {
+              this.log.error(
+                `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
+                err,
+              );
+            }
+            return undefined;
+          })
         : undefined;
 
     // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
