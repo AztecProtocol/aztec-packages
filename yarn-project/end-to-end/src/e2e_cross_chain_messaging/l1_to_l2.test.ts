@@ -49,8 +49,11 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       ? testContract.methods.consume_message_from_arbitrary_sender_private
       : testContract.methods.consume_message_from_arbitrary_sender_public;
 
-  // Sends a tx to L2 to advance the block number by 1
-  const advanceBlock = async () => {
+  // Sends a tx to L2 to advance the block number by 1.
+  // Pass `{ prove: false }` from tests that intentionally want the L1 proof window to expire
+  // (e.g. the drift test that waits for the chain to prune); otherwise this re-anchors proven
+  // every call and the prune deadline never fires.
+  const advanceBlock = async ({ prove = true }: { prove?: boolean } = {}) => {
     const block = await aztecNode.getBlockNumber();
     log.warn(`Sending noop tx at block ${block}`);
     await wallet.sendTx(ExecutionPayload.empty(), { from: user1Address });
@@ -59,10 +62,12 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     if (newBlock === block) {
       throw new Error(`Failed to advance block ${block}`);
     }
-    // Under interval mining `AnvilTestWatcher.markAsProven` does not auto-fire; without an explicit
-    // prove call here, L1's `aztecProofSubmissionEpochs=2` window (96s with pipelined 12s slots)
-    // expires mid-test and triggers a chain prune that drops in-flight wallet txs.
-    await t.context.watcher.markAsProven();
+    // Under interval mining `AnvilTestWatcher.markAsProven` does not auto-fire; tests that expect
+    // L1's `aztecProofSubmissionEpochs=2` window (96s with pipelined 12s slots) to stay open need
+    // to mark explicitly here, or in-flight wallet txs get dropped when L1 prunes.
+    if (prove) {
+      await t.context.watcher.markAsProven();
+    }
     return newBlock;
   };
 
@@ -86,21 +91,21 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     );
   };
 
-  const advanceCheckpoint = async () => {
+  const advanceCheckpoint = async ({ prove = true }: { prove?: boolean } = {}) => {
     let checkpoint = await aztecNode.getCheckpointNumber();
     const originalCheckpoint = checkpoint;
     log.warn(`Original checkpoint ${originalCheckpoint}`);
     do {
-      const newBlock = await advanceBlock();
+      const newBlock = await advanceBlock({ prove });
       checkpoint = await waitForBlockToCheckpoint(newBlock);
     } while (checkpoint <= originalCheckpoint);
     log.warn(`At checkpoint ${checkpoint}`);
   };
 
   // Same as above but ignores errors. Useful if we expect a prune.
-  const tryAdvanceBlock = async () => {
+  const tryAdvanceBlock = async ({ prove = true }: { prove?: boolean } = {}) => {
     try {
-      await advanceBlock();
+      await advanceBlock({ prove });
     } catch (err) {
       log.warn(`Failed to advance block: ${(err as Error).message}`);
     }
@@ -228,9 +233,11 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         onlyCheckpointed: true,
       });
       log.warn(`Stopping proof submission at checkpoint ${checkpointedProvenBlock.checkpointNumber} to allow drift`);
-      // Mine several checkpoints to ensure drift
+      // Mine several checkpoints to ensure drift. Pass `prove: false` so each advanceBlock call
+      // does not re-anchor proven — the whole point of this test is to let proven fall behind
+      // and trigger the L1 prune deadline.
       log.warn(`Mining blocks to allow drift`);
-      await timesAsync(4, advanceCheckpoint);
+      await timesAsync(4, () => advanceCheckpoint({ prove: false }));
 
       // Generate and send the message to the L1 contract
       log.warn(`Sending L1 to L2 message`);
@@ -250,7 +257,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       await retryUntil(
         async () =>
           (await aztecNode.getBlockNumber().then(b => b === lastProven || b === lastProven + 1)) ||
-          (await tryAdvanceBlock()),
+          (await tryAdvanceBlock({ prove: false })),
         'wait for prune',
         180,
       );
