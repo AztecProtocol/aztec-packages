@@ -5,7 +5,7 @@ import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_double_spend', () => {
@@ -24,7 +24,7 @@ describe('e2e_double_spend', () => {
       wallet,
       accounts: [defaultAccountAddress],
       logger,
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 

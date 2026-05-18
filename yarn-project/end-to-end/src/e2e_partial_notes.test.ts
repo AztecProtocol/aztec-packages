@@ -5,7 +5,7 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
@@ -33,7 +33,7 @@ describe('partial notes', () => {
       wallet,
       accounts: [adminAddress, liquidityProviderAddress],
       logger,
-    } = await setup(2, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
 
     const { contract } = await deployToken(wallet, adminAddress, 0n, logger);
     token0 = contract;
