@@ -20,7 +20,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
+import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -82,9 +82,47 @@ export type BlockProposalValidationFailureResult = {
 
 export type BlockProposalValidationResult = BlockProposalValidationSuccessResult | BlockProposalValidationFailureResult;
 
+export type CheckpointProposalValidationFailureReason =
+  | 'invalid_signature'
+  | 'invalid_fee_asset_price_modifier'
+  | 'last_block_not_found'
+  | 'block_fetch_error'
+  | 'checkpoint_already_published'
+  | 'no_blocks_for_slot'
+  | 'last_block_archive_mismatch'
+  | 'too_many_blocks_in_checkpoint'
+  | 'checkpoint_header_mismatch'
+  | 'archive_mismatch'
+  | 'out_hash_mismatch'
+  | 'checkpoint_validation_failed';
+
 export type CheckpointProposalValidationResult =
   | { isValid: true; checkpointNumber: CheckpointNumber }
-  | { isValid: false; reason: string };
+  | { isValid: false; reason: CheckpointProposalValidationFailureReason; checkpointNumber?: CheckpointNumber };
+
+/**
+ * Mapping from a checkpoint-proposal validation failure reason to the tracker outcome that
+ * `handleCheckpointProposal` should record. `undefined` means do not record (signature
+ * couldn't be verified, or the checkpoint is already on L1 so the question is moot).
+ */
+/* eslint-disable camelcase */
+const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
+  CheckpointProposalValidationFailureReason,
+  ReexecutionOutcome | undefined
+> = {
+  invalid_signature: undefined,
+  invalid_fee_asset_price_modifier: 'invalid',
+  checkpoint_already_published: undefined,
+  last_block_not_found: 'unvalidated',
+  block_fetch_error: 'unvalidated',
+  no_blocks_for_slot: 'unvalidated',
+  last_block_archive_mismatch: 'invalid',
+  too_many_blocks_in_checkpoint: 'invalid',
+  checkpoint_header_mismatch: 'invalid',
+  archive_mismatch: 'invalid',
+  out_hash_mismatch: 'invalid',
+  checkpoint_validation_failed: 'invalid',
+};
 
 type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
@@ -128,6 +166,21 @@ export class ProposalHandler {
       this.log = this.log.createChild('[FISHERMAN]');
     }
     this.tracer = telemetry.getTracer('ProposalHandler');
+  }
+
+  /**
+   * Records the proposer's own checkpoint proposal as a `valid` outcome in the re-execution
+   * tracker. Without this, the node's own checkpoint proposals never flow through
+   * `handleCheckpointProposal` (proposers don't validate their own proposals), so its sentinel
+   * sees no outcome for slots where it was the proposer and reports itself as inactive.
+   *
+   * `archive` should be the locally-computed archive (NOT the broadcast archive, which may have
+   * been deliberately corrupted in tests via `broadcastInvalidBlockProposal` /
+   * `broadcastInvalidCheckpointProposalOnly`). Recording the local archive correctly models the
+   * proposer's own view of its own work.
+   */
+  public recordOwnCheckpointProposalAsValid(slot: SlotNumber, archive: Fr, checkpointNumber: CheckpointNumber): void {
+    this.reexecutionTracker.recordOutcome(slot, archive, 'valid', checkpointNumber);
   }
 
   /**
@@ -320,6 +373,9 @@ export class ProposalHandler {
       pinnedPeer: proposalSender,
       deadline: this.getReexecutionDeadline(slotNumber, config),
     });
+
+    // Record the tx-collection outcome on the re-execution tracker
+    this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
 
     // If reexecution is disabled, bail. We were just interested in triggering tx collection.
     if (!shouldReexecute) {
@@ -767,24 +823,37 @@ export class ProposalHandler {
     }
 
     const proposer = proposal.getSender();
+    let result: CheckpointProposalValidationResult;
     if (!proposer) {
       this.log.warn(`Received checkpoint proposal with invalid signature for slot ${proposal.slotNumber}`);
-      const result: CheckpointProposalValidationResult = { isValid: false, reason: 'invalid_signature' };
-      this.lastCheckpointValidationResult = { payloadHash, result };
-      return result;
-    }
-
-    if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
+      result = { isValid: false, reason: 'invalid_signature' };
+    } else if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
       this.log.warn(
         `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposal.slotNumber}`,
       );
-      const result: CheckpointProposalValidationResult = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
-      this.lastCheckpointValidationResult = { payloadHash, result };
-      return result;
+      result = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
+    } else {
+      result = await this.validateCheckpointProposal(proposal, proposalInfo);
     }
 
-    const result = await this.validateCheckpointProposal(proposal, proposalInfo);
     this.lastCheckpointValidationResult = { payloadHash, result };
+
+    // Record the outcome on the re-execution tracker.
+    const outcome = result.isValid ? ('valid' as const) : CHECKPOINT_VALIDATION_REASON_TO_OUTCOME[result.reason];
+    if (outcome !== undefined) {
+      this.reexecutionTracker.recordOutcome(slot, proposal.archive, outcome, result.checkpointNumber);
+    }
+
+    // Drop tracker entries for checkpoints that have reached L1 finality.
+    try {
+      const tips = await this.blockSource.getL2Tips();
+      const finalizedCheckpointNumber = tips.finalized.checkpoint.number;
+      if (finalizedCheckpointNumber > 0) {
+        this.reexecutionTracker.removeBefore(CheckpointNumber(finalizedCheckpointNumber + 1));
+      }
+    } catch (err) {
+      this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
+    }
 
     // Upload blobs to filestore if validation passed (fire and forget)
     if (result.isValid) {
@@ -845,20 +914,28 @@ export class ProposalHandler {
         ...proposalInfo,
         checkpointNumber: lastBlockData.checkpointNumber,
       });
-      return { isValid: false, reason: 'checkpoint_already_published' };
+      return {
+        isValid: false,
+        reason: 'checkpoint_already_published',
+        checkpointNumber: lastBlockData.checkpointNumber,
+      };
     }
 
     // Get all full blocks for the slot and checkpoint
     const blocks = await this.blockSource.getBlocksForSlot(slot);
     if (blocks.length === 0) {
       this.log.warn(`No blocks found for slot ${slot}`, proposalInfo);
-      return { isValid: false, reason: 'no_blocks_for_slot' };
+      return { isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: lastBlockData.checkpointNumber };
     }
 
     // Ensure the last block for this slot matches the archive in the checkpoint proposal
     if (!blocks.at(-1)?.archive.root.equals(proposal.archive)) {
       this.log.warn(`Last block archive mismatch for checkpoint proposal`, proposalInfo);
-      return { isValid: false, reason: 'last_block_archive_mismatch' };
+      return {
+        isValid: false,
+        reason: 'last_block_archive_mismatch',
+        checkpointNumber: lastBlockData.checkpointNumber,
+      };
     }
 
     const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
@@ -868,7 +945,11 @@ export class ProposalHandler {
         blocksInProposal: blocks.length,
         maxBlocksPerCheckpoint,
       });
-      return { isValid: false, reason: 'too_many_blocks_in_checkpoint' };
+      return {
+        isValid: false,
+        reason: 'too_many_blocks_in_checkpoint',
+        checkpointNumber: lastBlockData.checkpointNumber,
+      };
     }
 
     this.log.debug(`Found ${blocks.length} blocks for slot ${slot}`, {
@@ -922,7 +1003,7 @@ export class ProposalHandler {
         computed: computedCheckpoint.header.toInspect(),
         proposal: proposal.checkpointHeader.toInspect(),
       });
-      return { isValid: false, reason: 'checkpoint_header_mismatch' };
+      return { isValid: false, reason: 'checkpoint_header_mismatch', checkpointNumber };
     }
 
     // Compare archive root with proposal
@@ -932,7 +1013,7 @@ export class ProposalHandler {
         computed: computedCheckpoint.archive.root.toString(),
         proposal: proposal.archive.toString(),
       });
-      return { isValid: false, reason: 'archive_mismatch' };
+      return { isValid: false, reason: 'archive_mismatch', checkpointNumber };
     }
 
     // Check that the accumulated epoch out hash matches the value in the proposal.
@@ -948,7 +1029,7 @@ export class ProposalHandler {
         previousCheckpointOutHashes: previousCheckpointOutHashes.map(h => h.toString()),
         ...proposalInfo,
       });
-      return { isValid: false, reason: 'out_hash_mismatch' };
+      return { isValid: false, reason: 'out_hash_mismatch', checkpointNumber };
     }
 
     // Final round of validations on the checkpoint, just in case.
@@ -962,26 +1043,10 @@ export class ProposalHandler {
       });
     } catch (err) {
       this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
-      return { isValid: false, reason: 'checkpoint_validation_failed' };
+      return { isValid: false, reason: 'checkpoint_validation_failed', checkpointNumber };
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
-
-    // Maintain re-execution tracker for any obsevers
-
-    // Drop tracker entries for checkpoints that have reached L1 finality.
-    try {
-      const tips = await this.blockSource.getL2Tips();
-      const finalizedCheckpointNumber = tips.finalized.checkpoint.number;
-      if (finalizedCheckpointNumber > 0) {
-        this.reexecutionTracker.removeBefore(CheckpointNumber(finalizedCheckpointNumber + 1));
-      }
-    } catch (err) {
-      this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
-    }
-
-    // We successfully re-executed every block in this checkpoint locally, record for any observers
-    this.reexecutionTracker.recordReexecuted(checkpointNumber, proposal.archive);
 
     return { isValid: true, checkpointNumber };
   }

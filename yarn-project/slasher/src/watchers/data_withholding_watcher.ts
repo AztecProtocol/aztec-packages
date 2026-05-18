@@ -45,7 +45,7 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
     private readonly l2BlockSource: Pick<L2BlockSource, 'getCheckpoint' | 'getSyncedL2SlotNumber'>,
     private readonly txProvider: Pick<ITxProvider, 'hasTxs'>,
     private readonly p2p: Pick<P2PApi, 'getCheckpointAttestationsForSlot'>,
-    private readonly reexecutionTracker: Pick<CheckpointReexecutionTracker, 'hasReexecuted'>,
+    private readonly reexecutionTracker: Pick<CheckpointReexecutionTracker, 'getTxsCollectedRecord'>,
     private readonly signatureContext: CoordinationSignatureContext,
     config: DataWithholdingWatcherConfig,
     private readonly log: Logger = createLogger('data-withholding-watcher'),
@@ -125,12 +125,25 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
     }
 
     const checkpointNumber = published.checkpoint.number;
-    const archiveRoot = published.checkpoint.archive.root;
 
-    // Short-circuit: if we re-executed this checkpoint locally, the data was available to
-    // us, so there's no need to probe the mempool.
-    if (this.reexecutionTracker.hasReexecuted(checkpointNumber, archiveRoot)) {
-      this.log.trace(`Already re-executed checkpoint at slot ${slot}; skipping`, { slot, checkpointNumber });
+    // Per-block tx-collection records (true | false | undefined) for every block in this
+    // published checkpoint. Captured by the validator's proposal handler at the moment of
+    // tx collection (i.e. by the *re-execution* deadline). Used as a positive short-circuit
+    // only: a `true` for every block means we know the data was available locally, so this
+    // checkpoint cannot be a data-withholding offense. A `false` does *not* trigger a slash
+    // on its own — the re-execution deadline is much earlier than the data-withholding
+    // tolerance window, so missing txs at that earlier deadline may still arrive in time.
+    // Anything other than all-true falls through to the mempool probe, which respects the
+    // tolerance window.
+    const collectionRecords = published.checkpoint.blocks.map((block, idx) =>
+      this.reexecutionTracker.getTxsCollectedRecord(block.header.getSlot(), idx),
+    );
+
+    if (collectionRecords.every(r => r === true)) {
+      this.log.trace(`All blocks for checkpoint at slot ${slot} were collected locally; skipping`, {
+        slot,
+        checkpointNumber,
+      });
       return;
     }
 
@@ -153,21 +166,22 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
     const attesters = await this.extractAttesters(published);
 
     if (attesters.length === 0) {
-      this.log.warn(`Detected ${missingTxs.length} missing txs at slot ${slot} but no recoverable attesters`, {
+      this.log.warn(`Detected data withholding at slot ${slot} but no recoverable attesters`, {
         slot,
+        checkpointNumber,
         missingTxs: missingTxs.map(h => h.toString()),
+        records: collectionRecords,
       });
       return;
     }
 
-    this.log.warn(
-      `Detected data withholding at slot ${slot}: ${missingTxs.length}/${txHashes.length} txs missing. Slashing ${attesters.length} attesters.`,
-      {
-        slot,
-        missingTxs: missingTxs.map(h => h.toString()),
-        attesters: attesters.map(a => a.toString()),
-      },
-    );
+    this.log.warn(`Detected data withholding at slot ${slot}. Slashing ${attesters.length} attesters.`, {
+      slot,
+      checkpointNumber,
+      missingTxs: missingTxs.map(h => h.toString()),
+      records: collectionRecords,
+      attesters: attesters.map(a => a.toString()),
+    });
 
     const args: WantToSlashArgs[] = attesters.map(validator => ({
       validator,

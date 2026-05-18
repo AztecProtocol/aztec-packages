@@ -65,7 +65,7 @@ import {
 } from '@aztec/stdlib/block';
 import {
   type CheckpointData,
-  InMemoryCheckpointReexecutionTracker,
+  CheckpointReexecutionTracker,
   L1PublishedData,
   type PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
@@ -667,7 +667,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let validatorClient: ValidatorClient | undefined;
 
       // Tracks successful checkpoint re-execution by a checkpoint proposal handler.
-      const reexecutionTracker = new InMemoryCheckpointReexecutionTracker();
+      const reexecutionTracker = new CheckpointReexecutionTracker();
 
       if (!config.disableValidator) {
         // Create validator client if required
@@ -735,7 +735,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
 
       if (!proverOnly) {
-        validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+        validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
         if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
           watchers.push(validatorsSentinel);
         }
