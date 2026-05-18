@@ -1,5 +1,5 @@
 #include "barretenberg/common/try_catch_shim.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
+#include <msgpack/object.hpp>
 #include <sstream>
 
 namespace bb {

@@ -13,7 +13,6 @@
 #include "barretenberg/goblin/goblin_verifier.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
