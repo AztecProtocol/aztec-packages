@@ -333,6 +333,129 @@ the Schur-complement with the dyadic columns subtracts off something of
 degree $\sim N/2$. The remaining symmetric difference is $\tau^{E-4} -
 r_0^{E-4}$, but a clean structural derivation is open.
 
+## Modular split (toward an inductive proof)
+
+To set up an induction on $d$, group the factors of the conjectured
+formula into three structural modules:
+
+$$
+\boxed{
+\det B_d
+\;=\;
+(-1)^d
+\;\cdot\;
+\mathsf{Top}_d
+\;\cdot\;
+\mathsf{Last}_d
+\;\cdot\;
+\prod_{k=1}^{d-2}\mathsf{Mid}_k
+}
+$$
+
+with
+
+$$
+\begin{aligned}
+\mathsf{Top}_d
+&\;:=\;
+r_0^2\,\tau^2\,\bigl(\tau^{E-4}-r_0^{E-4}\bigr)\;\cdot\;A_0^{+}(r_0)\,A_0^{-}(\tau),
+\\[4pt]
+\mathsf{Last}_d
+&\;:=\;
+\tau+r_{d-1},
+\\[4pt]
+\mathsf{Mid}_k
+&\;:=\;
+\underbrace{(\tau^2-r_k^2)}_{\text{level-}k\text{ Vandermonde}}
+\;\cdot\;
+\underbrace{L_0(u_{<k})\,L_{2^k-1}(u_{<k})}_{\text{nested Lagrange block}}
+\;\cdot\;
+\underbrace{A_k^{+}(r_k)\,A_k^{-}(\tau)}_{\text{single-variable affine residuals in }u_k}.
+\end{aligned}
+$$
+
+The level index in $\mathsf{Mid}_k$ runs $k = 1, \ldots, d-2$. The
+$\mathsf{Mid}_k$ block depends on
+$(u_0,\ldots,u_k,\, r_k,\, \tau)$ — i.e., variables up to fold level $k$
+plus $\tau$.
+
+### Block dependencies
+
+| module | variables | how $d$ enters |
+|---|---|---|
+| $\mathsf{Top}_d$ | $u_0, r_0, \tau$ | only through the exponent $E-4$ (here $E=N=2^d$) |
+| $\mathsf{Last}_d$ | $r_{d-1}, \tau$ | through the index $d-1$ |
+| $\mathsf{Mid}_k$ | $u_0,\ldots,u_k, r_k, \tau$ | independent of $d$ (purely "level-$k$") |
+
+So $\mathsf{Mid}_k$ is *intrinsic* to fold level $k$ — going from $d$ to
+$d+1$ adds a new $\mathsf{Mid}_{d-1}$ (the old $\mathsf{Last}_d$ "is
+replaced by" $\mathsf{Mid}_{d-1}\cdot\mathsf{Last}_{d+1}$ schematically),
+while $\mathsf{Top}$ only sees the exponent shift $E-4 \to 2E-4$.
+
+### Conjectural Schur peel (target inductive step)
+
+The natural induction step would be a Schur-complement peel of the top
+pair from $B_d$: choose previously-realised rows $(D_1, M_1, \ldots,
+D_{d-1}, M_{d-1})$ on the dyadic columns to form $C_{d-1}$, and let
+$(D_0, M_0(-r_0))$ on the top-pair columns be the new $A$ block. Then
+
+$$
+\det B_d \;=\; \det C_{d-1}\;\cdot\;\det S_{\mathrm{top}},
+\qquad
+S_{\mathrm{top}} \;=\; A_{\mathrm{top}} - L\,C_{d-1}^{-1}\,R.
+$$
+
+The two conjectural sub-identities one would want to prove:
+
+1. **Top-pair Schur identity.**
+
+   $$
+   \det S_{\mathrm{top}} \;\doteq\; \mathsf{Top}_d \;\cdot\;\Bigl(\text{stuff already in }C_{d-1}\Bigr)^{-1}
+   $$
+
+   i.e. all the level-$0$-specific algebra (including the anomalous
+   $\tau^{E-4}-r_0^{E-4}$ factor) lives entirely in the top-pair Schur
+   complement; the dyadic minor $C_{d-1}$ contributes the rest.
+
+2. **Dyadic minor identity.**
+
+   $$
+   \det C_{d-1} \;\doteq\; \mathsf{Last}_d \;\cdot\;\prod_{k=1}^{d-2}\mathsf{Mid}_k\;\cdot\;\Bigl(\text{stuff cancelled by }S_{\mathrm{top}}\Bigr).
+   $$
+
+   This is the "$d{-}1$ level sub-problem"; its determinant should match
+   the lower-level modules.
+
+The cancellation in (1) and (2) has to be arranged so the
+"stuff" pieces invert each other. Empirically, the full product
+$\det C_{d-1} \cdot \det S_{\mathrm{top}}$ equals the boxed formula above,
+so cancellation does happen — the question is how to write it down
+cleanly so that the level-$0$ anomaly $\tau^{E-4} - r_0^{E-4}$ falls out
+of the top-pair Schur complement without leaking into the dyadic side.
+
+### What an induction on $d$ would buy
+
+If both sub-identities hold:
+
+- **Base case** $d=3$: $C_2$ is a $4\times 4$ minor (verifiable by hand).
+- **Inductive step** $d\Rightarrow d+1$: the new $C_d$ (size $2d\times
+  2d$) reuses the old $C_{d-1}$ as its dyadic interior, plus one new
+  $\mathsf{Mid}_{d-1}$ block.
+- **Conclusion**: $\det B_d \ne 0$ in $K$ for all $d$, with explicit bad
+  set, no computer assistance needed.
+
+### What's still missing
+
+1. A clean closed form for $\det C_{d-1}$ (the "interior" dyadic minor).
+   The empirical formula gives a product, but the *intermediate* minors
+   $C_{d-1}$ haven't been computed.
+2. An algebraic derivation of the $\tau^{E-4}-r_0^{E-4}$ factor from the
+   top-pair Schur complement. The exponent $E-4$ should fall out of an
+   explicit row-reduction of $A_{\mathrm{top}} - L C^{-1} R$, but I
+   haven't done it.
+3. Verification that the empirical $\mathsf{Mid}_k$ block matches a per-level
+   contribution from a single column-pair addition $P_{2^k}\to P_{2^{k+1}}$.
+
 ## Open questions
 
 1. **Verify the general-$d$ conjecture at $N=32, 64$**. Computational cost
