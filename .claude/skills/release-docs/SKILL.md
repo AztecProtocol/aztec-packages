@@ -84,6 +84,55 @@ state (the old version); they are still valid if the upgrade reuses the same
 contracts, but ask the user to confirm whether any addresses will change at
 upgrade time.
 
+**IMPORTANT: All release work runs on the tag, not on `next`.** The versioned
+snapshot must reflect the state of the code at the tag. `next` has already moved
+forward with post-release commits, ongoing development, and other docs changes
+that may describe APIs/behavior that did not ship in this release. Generating
+API references, CLI references, and cutting the versioned docs snapshot from
+`next` would produce docs that misrepresent what the release actually contains.
+
+Therefore the workflow is:
+
+1. Checkout the tag and do all generation, edits, and version cuts there.
+2. Stash the resulting changes (Step 16).
+3. Switch to `next` and stash-pop.
+4. Backport any docs improvements that landed on `next` after the tag (e.g. new
+   reference tables, SDK updates) into the just-cut versioned snapshot. Do this
+   *after* the snapshot is created, so the snapshot's baseline is the tag's docs
+   source and the backports are an explicit, reviewable additive step.
+
+Do **not** cut the version from `next` and then try to "back out" post-release
+changes; it is too easy to miss diffs and ship docs that don't match the release.
+
+### Unversioned root pages
+
+A small set of pages under `docs/docs/` are served on the production site **but
+are not part of any versioned docs instance**. They live in the root docusaurus
+docs plugin (configured as "no versioning" in `docusaurus.config.js`). Common
+examples:
+
+- `docs/docs/networks.md` — current network info and contract addresses
+- `docs/docs/index.md` — landing page
+
+Implications for this release workflow:
+
+- These files are **not** snapshotted by `yarn docusaurus docs:version:...`. The
+  content live at any given moment is whatever is on the deployed branch (`next`
+  in production).
+- Edits made on the tag for these files will land on `next` via the final
+  `git stash pop` and become the live content immediately — they don't get
+  archived into the version-vN.N.N folders.
+- For these files, the "right" content is the content that should be live
+  *after the release*. If `next` already has an up-to-date version of these
+  pages (e.g. a newer `networks.md` with the right contract addresses and an
+  "Alpha (Mainnet)" framing that the tag's older copy lacks), prefer porting
+  next's content into the working tree at the tag, then only bump the version
+  field for the new release. Don't regress unversioned pages back to the tag's
+  older copy.
+
+Treat `docs/docs/networks.md` as a "post-release-live" file rather than a
+"snapshot-of-the-tag" file.
+
 ### Step 3: Verify Aztec CLI Version
 
 ```bash
@@ -335,6 +384,25 @@ There is no dedicated `getting_started_on_testnet.md` page. Instead:
   that also need updating
 
 ### Step 11: Run `yarn build` and Fix Issues
+
+**ORDER NOTE:** The build must run **after** Step 13 (Cut Versioned Docs) for
+the *new* release. Docusaurus validates that `lastVersion` (read from
+`developer_version_config.json`) corresponds to a versioned docs directory that
+actually exists. If you bumped the config in Step 5 to `v<new_version>` but
+haven't cut the snapshot yet, `yarn build` fails with `lastVersion: vX.Y.Z is
+invalid. Available version names are: ...`. In practice the working order is:
+Steps 5–10 (prepare source files + config), Step 13 (cut snapshots), then Step
+11 (build) and Step 12 (review). The numbering is retained for backward
+familiarity but the dependency is one-directional: build *requires* the cut.
+
+**RELEASE_TYPE for `rc` tags:** Even if the version string contains `rc`, an RC
+cut for mainnet still uses `RELEASE_TYPE=mainnet`. The preprocessor reads
+`RELEASE_TYPE` directly (no string-pattern fallback), so this is honored; but
+the API-doc generation scripts (`generate_aztec_nr_docs.sh` and
+`generate_ts_api_docs.sh`) have an `rc`→`testnet` fallback that only triggers
+when `RELEASE_TYPE` is *unset*. Always pass `RELEASE_TYPE` explicitly for an
+rc-suffixed mainnet build so the API docs land under `static/.../mainnet/` and
+not `static/.../testnet/`.
 
 Set the environment variables matching the release type so the build preprocessor
 resolves version placeholders correctly:
