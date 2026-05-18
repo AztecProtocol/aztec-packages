@@ -990,7 +990,7 @@ export class CheckpointProposalJob implements Traceable {
           availableTxs,
           minTxs,
         });
-        this.log.warn(
+        this.log.debug(
           `Not enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (got ${availableTxs} txs but needs ${minTxs})`,
           {
             reason: 'insufficient_txs',
