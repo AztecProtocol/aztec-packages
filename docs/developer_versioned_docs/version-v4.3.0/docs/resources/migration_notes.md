@@ -7,8 +7,6 @@ tags: [migration, updating, sandbox, local network]
 
 Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
 
-## TBD
-
 ## 4.3.0
 
 ### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
