@@ -38,12 +38,16 @@ export const SlasherConfigSchema = zodFor<SlasherConfig>()(
     slashValidatorsAlways: z.array(schemas.EthAddress),
     slashValidatorsNever: z.array(schemas.EthAddress),
     slashDataWithholdingPenalty: schemas.BigInt,
-    slashDataWithholdingToleranceSlots: z.number(),
+    // Tolerated as undefined to allow validating responses from older node images that
+    // predate the per-slot data-withholding watcher (PR #23116).
+    slashDataWithholdingToleranceSlots: z.number().default(3),
     slashInactivityTargetPercentage: z.number(),
     slashInactivityConsecutiveEpochThreshold: z.number(),
     slashInactivityPenalty: schemas.BigInt,
     slashProposeInvalidAttestationsPenalty: schemas.BigInt,
-    slashBroadcastedInvalidCheckpointProposalPenalty: schemas.BigInt,
+    // Tolerated as undefined to allow validating responses from older node images that
+    // predate this slasher penalty being added.
+    slashBroadcastedInvalidCheckpointProposalPenalty: schemas.BigInt.default(0n),
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
     slashAttestDescendantOfInvalidPenalty: schemas.BigInt,
