@@ -71,7 +71,7 @@ export interface ResolvedValue<T> {
 }
 
 export type ResolvedConfig<T> = {
-  [K in keyof T]-?: ResolvedValue<Required<T>[K]>;
+  [K in keyof T]-?: ResolvedValue<T[K]>;
 };
 
 type AnyConfig = Record<string, unknown>;
@@ -190,8 +190,21 @@ export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: 
       });
     }
 
+    // TODO(A-1065): optional config keys (e.g. `slashingQuorum?: number`) legitimately resolve to
+    // undefined when no layer provides a value and no defaultValue exists, so this throw is
+    // incorrect for those cases. Uncomment and gate on a per-mapping `optional` flag once that
+    // field is added to ConfigMapping.
+    // if (resolvedLayers.length === 0) {
+    //   throw new Error(`Missing required config '${String(key)}' (env: ${mapping.env ?? 'none'})`);
+    // }
     if (resolvedLayers.length === 0) {
-      throw new Error(`Missing required config '${String(key)}' (env: ${mapping.env ?? 'none'})`);
+      resolvedConfig[key] = {
+        value: undefined as T[typeof key],
+        source: ConfigLayerName.DEFAULT,
+        envVar: mapping.env,
+        layers: [],
+      };
+      continue;
     }
 
     const winningLayer = resolvedLayers[0];

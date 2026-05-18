@@ -231,17 +231,23 @@ describe('Config', () => {
       });
     });
 
-    it('throws if a required key has no value in any layer and no default', () => {
-      expect(() =>
-        resolveConfig(mappings, [
-          {
-            name: ConfigLayerName.ENV,
-            values: {
-              port: 5050,
-            },
+    // TODO(A-1065): once ConfigMapping gains an `optional` flag, restore a throw test for truly
+    // required keys. For now, missing keys resolve to { value: undefined }.
+    it('resolves to undefined when a key has no value in any layer and no default', () => {
+      const resolved = resolveConfig(mappings, [
+        {
+          name: ConfigLayerName.ENV,
+          values: {
+            port: 5050,
           },
-        ]),
-      ).toThrow("Missing required config 'requiredToken'");
+        },
+      ]);
+      expect(resolved.requiredToken).toEqual({
+        value: undefined,
+        source: ConfigLayerName.DEFAULT,
+        envVar: undefined,
+        layers: [],
+      });
     });
 
     it('does not call parseEnv while resolving already-typed layer values', () => {
