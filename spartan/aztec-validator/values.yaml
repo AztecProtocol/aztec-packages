@@ -40,7 +40,6 @@ validator:
 
     startCmd:
       - --node
-      - --archiver
       - --sequencer
 
   web3signerUrl: ""

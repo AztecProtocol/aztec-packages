@@ -12,7 +12,7 @@ import {
   loadStorageProofArgs,
 } from '../../e2e_storage_proof/fixtures/storage_proof_fixture.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { captureProfile } from './benchmark.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
@@ -94,14 +94,12 @@ describe('Storage proof benchmark', () => {
             `${accountType}+storage_proof_7_layers+${benchmarkingPaymentMethod}`,
             interaction,
             options,
-            1 + // Account entrypoint
-              1 + // Kernel init
-              paymentMethod.circuits + // Payment method circuits
-              2 + // Storage proof entry + kernel inner
-              3 * 2 + // Recurse into path section + kernel inner 3 times
-              1 + // Kernel reset
-              1 + // Kernel tail
-              1, // Kernel hiding
+            expectedExecutionSteps(
+              1 + // Account entrypoint
+                paymentMethod.apps + // Payment method apps
+                1 + // Storage proof entry
+                3, // Recurse into path section 3 times
+            ),
           );
 
           if (process.env.SANITY_CHECKS) {

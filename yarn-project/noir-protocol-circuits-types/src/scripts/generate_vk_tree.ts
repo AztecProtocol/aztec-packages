@@ -27,8 +27,16 @@ async function buildVKTree() {
   );
 
   const vkHashes = new Array(2 ** VK_TREE_HEIGHT).fill(Buffer.alloc(32));
+  const seen = new Set<number>();
   for (const [key, value] of Object.entries(allVks)) {
     const index = ProtocolCircuitVkIndexes[key as ProtocolArtifact];
+    if (index >= vkHashes.length) {
+      throw new Error(`VK index ${index} for ${key} is out of bounds (VK tree size: ${vkHashes.length})`);
+    }
+    if (seen.has(index)) {
+      throw new Error(`Duplicate VK index ${index} for ${key}`);
+    }
+    seen.add(index);
     vkHashes[index] = value.keyAsFields.hash.toBuffer();
   }
 

@@ -1,3 +1,4 @@
+import { randomL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
@@ -31,14 +32,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerBatchIntervalMs: 10,
       proverBrokerMaxEpochsToKeepResultsFor: 1,
       proverBrokerDebugReplayEnabled: false,
-      l1Contracts: {
-        rollupAddress: EthAddress.random(),
-      } as any,
       l1RpcUrls: [],
       l1DebugRpcUrls: [],
       l1ChainId: 42,
       viemPollingIntervalMS: 100,
       rollupVersion: 42,
+      ...randomL1ContractAddresses(),
     };
     db = await KVBrokerDatabase.new(config);
   });
@@ -313,10 +312,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     // Now create another instance
     const secondDb = await KVBrokerDatabase.new({
       ...config,
-      l1Contracts: {
-        ...config.l1Contracts,
-        rollupAddress: EthAddress.random(),
-      },
+      rollupAddress: EthAddress.random(),
     });
 
     // db should be empty
@@ -341,14 +337,12 @@ describe('ProvingBrokerPersistedDatabase', () => {
         proverBrokerBatchIntervalMs: 10,
         proverBrokerMaxEpochsToKeepResultsFor: 1,
         proverBrokerDebugReplayEnabled: false,
-        l1Contracts: {
-          rollupAddress: EthAddress.random(),
-        } as any,
         l1RpcUrls: [],
         l1DebugRpcUrls: [],
         l1ChainId: 42,
         viemPollingIntervalMS: 100,
         rollupVersion: 42,
+        ...randomL1ContractAddresses(),
       };
       db = await KVBrokerDatabase.new(config);
       commitSpy = jest.spyOn(db, 'commitWrites');

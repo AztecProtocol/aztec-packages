@@ -35,7 +35,7 @@ export function createProposalHandler(
     maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
     signatureContext: {
       chainId: config.l1ChainId,
-      rollupAddress: config.l1Contracts.rollupAddress,
+      rollupAddress: config.rollupAddress,
     },
   });
   return new ProposalHandler(

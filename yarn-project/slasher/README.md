@@ -128,6 +128,12 @@ List of all slashable offenses in the system:
 **Target**: Proposer who broadcast the duplicate proposal.
 **Time Unit**: Slot-based offense.
 
+### ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL
+**Description**: A committee member attested to a checkpoint proposal in a slot where this node detected a slashable invalid block proposal.
+**Detection**: ValidatorClient marks slots with invalid block proposals detected via reexecution and slashes checkpoint attesters seen for that slot. If proposal equivocation is later detected for the slot, pending bad-attestation offenses are cleared.
+**Target**: Committee members who attested in the invalid proposal slot.
+**Time Unit**: Slot-based offense.
+
 ## Configuration
 
 ### L1 System Settings (L1ContractsConfig)
@@ -164,6 +170,7 @@ These settings are configured locally on each validator node:
 - `slashDuplicateProposalPenalty`: Penalty for DUPLICATE_PROPOSAL
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
 - `slashAttestDescendantOfInvalidPenalty`: Penalty for ATTESTED_DESCENDANT_OF_INVALID
+- `slashAttestInvalidCheckpointProposalPenalty`: Penalty for ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL
 - `slashUnknownPenalty`: Default penalty for unknown offense types
 - `slashMaxPayloadSize`: Limits the number of **unique validators** (across all committees and epochs in a round) that receive non-zero votes. When this cap is hit, the lowest-severity validator-epoch pairs are zeroed out first, so the most severe slashes are always preserved. Note that multiple offenses for the same validator in the same epoch are summed and counted as a single validator entry against this limit.
 

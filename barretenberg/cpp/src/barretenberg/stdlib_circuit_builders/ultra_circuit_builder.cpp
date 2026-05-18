@@ -241,8 +241,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
 
     if (can_fuse_into_previous_gate) {
-        block.q_1().set(block.size() - 1, q_sign);   // set q_sign of previous gate
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
+        block.q_1().set(block.size() - 1, q_sign);                            // set q_sign of previous gate
+        block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, 1); // set q_ecc of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_3().emplace_back(0);
@@ -292,8 +292,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 
     // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
     if (can_fuse_into_previous_gate) {
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
-        block.q_m().set(block.size() - 1, 1);        // set q_m (q_is_double) of previous gate to 1
+        block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, 1); // set q_ecc of previous gate to 1
+        block.q_m().set(block.size() - 1, 1); // set q_m (q_is_double) of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_m().emplace_back(1);
@@ -1832,7 +1832,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.q_c().emplace_back(0);
     block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
     block.q_5().emplace_back(0);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Poseidon2Ext, 1);
     this->check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -1921,12 +1921,12 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
                                         block.q_3()[idx],
                                         block.q_4()[idx],
                                         block.q_c()[idx],
-                                        block.q_arith()[idx],
-                                        block.q_delta_range()[idx],
-                                        block.q_elliptic()[idx],
-                                        block.q_memory()[idx],
-                                        block.q_nnf()[idx],
-                                        block.q_lookup()[idx],
+                                        read_gate_selector(block, GateKind::Arith, idx),
+                                        read_gate_selector(block, GateKind::DeltaRange, idx),
+                                        read_gate_selector(block, GateKind::Elliptic, idx),
+                                        read_gate_selector(block, GateKind::Memory, idx),
+                                        read_gate_selector(block, GateKind::Nnf, idx),
+                                        read_gate_selector(block, GateKind::Lookup, idx),
                                         curve_b };
 
             std::vector<uint32_t> tmp_w = {

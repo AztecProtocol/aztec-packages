@@ -62,7 +62,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
             {
               dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              l1Contracts,
+              rollupAddress: l1Contracts.rollupAddress,
             },
             1,
             rootLogger.createChild('wallet:data'),
@@ -79,3 +79,10 @@ export { BrowserEmbeddedWallet as EmbeddedWallet };
 export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';
+
+// At-rest encryption helpers are intentionally NOT re-exported here. They live
+// on the `@aztec/wallets/embedded/store-encryption` sub-path so consumers
+// (and bundlers) of this entrypoint don't transitively pull in
+// `@aztec/kv-store/sqlite-opfs` and its `new Worker(new URL('./worker.js'))`
+// chain into `@aztec/sqlite3mc-wasm`. Apps that don't use encryption-at-rest
+// (e.g. the playground) should never see sqlite-opfs in their bundle.

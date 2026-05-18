@@ -6,7 +6,6 @@ import { toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
   type FunctionArtifact,
-  type FunctionCall,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
@@ -47,8 +46,6 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   argsHash: Fr;
   txContext: TxContext;
   callContext: CallContext;
-  /** Needed to trigger contract synchronization before nested calls */
-  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -80,7 +77,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
   private readonly callContext: CallContext;
-  private readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -101,7 +97,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
     this.callContext = args.callContext;
-    this.utilityExecutor = args.utilityExecutor;
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
