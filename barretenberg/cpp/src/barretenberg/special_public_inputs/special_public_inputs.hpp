@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/claim_reconstruct.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/public_input_component/public_input_component.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
