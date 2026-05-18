@@ -6,7 +6,7 @@ import type { CheatCodes } from '@aztec/aztec/testing';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
@@ -19,7 +19,7 @@ const TIMEOUT = 300_000;
 
 describe('e2e_offchain_payment', () => {
   let contract: OffchainPaymentContract;
-  let aztecNode: AztecNode;
+  let aztecNode: AztecNode & AztecNodeDebug;
   let aztecNodeAdmin: AztecNodeAdmin;
   let cheatCodes: CheatCodes;
   let wallet: TestWallet;
@@ -45,7 +45,10 @@ describe('e2e_offchain_payment', () => {
   async function forceEmptyBlock() {
     const blockBefore = await aztecNode.getBlockNumber();
     logger.info(`Forcing empty block. Current L2 block: ${blockBefore}`);
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    // `mineBlock` routes through AutomineSequencer.buildEmptyBlock when wired, or temporarily
+    // drops `minTxsPerBlock` to 0 and triggers the production sequencer otherwise. Works under
+    // both AUTOMINE_E2E_OPTS and PIPELINING_SETUP_OPTS.
+    await aztecNode.mineBlock();
     await retryUntil(
       async () => {
         const current = await aztecNode.getBlockNumber();
@@ -56,7 +59,6 @@ describe('e2e_offchain_payment', () => {
       30,
       1,
     );
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
   }
 
   async function forceReorg(block: BlockNumber) {
