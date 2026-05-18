@@ -105,6 +105,7 @@ export type CheckpointProposalValidationResult =
  * `handleCheckpointProposal` should record. `undefined` means do not record (signature
  * couldn't be verified, or the checkpoint is already on L1 so the question is moot).
  */
+/* eslint-disable camelcase */
 const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   CheckpointProposalValidationFailureReason,
   ReexecutionOutcome | undefined
