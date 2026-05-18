@@ -53,12 +53,17 @@ export const PIPELINING_SETUP_OPTS = {
  *
  * Extends PIPELINING_SETUP_OPTS with:
  * - `l1PublishingTime: 4`: L1 tx is expected to land inside one Ethereum slot.
- * - `aztecEpochDuration: 4`: shorter epoch so the proven tip advances on a tight cadence under
- *   `EpochTestSettler` (4 slots * 12s = 48s per epoch). Must be small enough that any
- *   `waitForProven`-style assertion fits inside its timeout.
  * - `testOnlyAutoProveAfterPublish: true`: opts the fixture into spinning up an
  *   `EpochTestSettler` that advances the outbox + proven tip once per completed epoch,
  *   replacing AnvilTestWatcher's markAsProven loop.
+ *
+ * Note: `aztecEpochDuration` is intentionally left at the default (32 slots). Shortening it
+ * makes `EpochTestSettler` fire its `markAsProven` cheat-code while the sequencer is pipelining
+ * the very next propose tx. The cheat-code path pauses anvil interval mining briefly, which is
+ * enough to push the in-flight propose into the previous L2 slot's L1 block and revert with
+ * `HeaderLib__InvalidSlotNumber`. Tests that explicitly need a fast proven-tip cadence should
+ * either set `aztecEpochDuration` locally and accept the resulting flakiness, or run a real
+ * prover-node (`startProverNode: true`).
  *
  * Auto-tuning applied by `normalizeCheckpointTimingConfig` (stdlib/src/timetable/index.ts):
  * because ethereumSlotDuration < 8, p2pPropagationTime = 0, checkpointAssembleTime = 0.5,
@@ -75,7 +80,6 @@ export const PIPELINING_SETUP_OPTS = {
  */
 export const FAST_E2E_SETUP_OPTS = {
   ...PIPELINING_SETUP_OPTS,
-  aztecEpochDuration: 4,
   l1PublishingTime: 4,
   testOnlyAutoProveAfterPublish: true,
 } as const;
