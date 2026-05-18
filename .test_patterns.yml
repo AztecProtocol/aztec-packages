@@ -141,6 +141,14 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
+  # Pipelined-publisher flake: `propose_action_not_successful` discards the in-flight
+  # checkpoint, the local chain prunes back, and the in-flight test tx is reported as
+  # "Tx dropped by P2P node". Tracked alongside the AnvilTestWatcher / pipelined-publisher
+  # rework in https://github.com/AztecProtocol/aztec-packages/pull/23340.
+  - regex: "src/e2e_scope_isolation.test.ts"
+    error_regex: "Tx dropped by P2P node"
+    owners:
+      - *palla
 
   # yarn-project tests
   # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
