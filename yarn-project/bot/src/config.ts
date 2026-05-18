@@ -123,7 +123,6 @@ export const BotConfigSchema = zodFor<BotConfig>()(
     .transform(config => ({
       nodeUrl: undefined,
       nodeAdminUrl: undefined,
-      l1RpcUrls: undefined,
       senderSalt: undefined,
       l2GasLimit: undefined,
       daGasLimit: undefined,

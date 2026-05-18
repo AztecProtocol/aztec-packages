@@ -2,7 +2,6 @@ import { jest } from '@jest/globals';
 
 import {
   type ConfigMappingsType,
-  bigintConfigHelper,
   booleanConfigHelper,
   composeConfigMappings,
   getConfigFromMappings,
