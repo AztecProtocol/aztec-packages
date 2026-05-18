@@ -31,7 +31,7 @@ class ProverPolynomialsBase : public AllEntitiesBase {
     ProverPolynomialsBase(ProverPolynomialsBase&& o) noexcept = default;
     ProverPolynomialsBase& operator=(ProverPolynomialsBase&& o) noexcept = default;
     ~ProverPolynomialsBase() = default;
-    [[nodiscard]] size_t get_polynomial_size() const { return this->q_c.virtual_size(); }
+    [[nodiscard]] size_t get_polynomial_size() const { return this->q_c().virtual_size(); }
     [[nodiscard]] AllValuesType get_row(size_t row_idx) const
     {
         AllValuesType result;

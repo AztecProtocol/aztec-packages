@@ -26,7 +26,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
 
     auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials);
 
-    if constexpr (IsMegaFlavor<Flavor>) {
+    if constexpr (Flavor::HasEccOpQueue) {
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
 
         add_ecc_op_wires_to_prover_instance(builder, polynomials);
@@ -116,9 +116,11 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         }
     }
 
-    // Phase 2: parallel selector filling. Each task copies one selector column into one polynomial
-    // slot. Walking blocks in declaration order then each block's `gate_selectors` in order yields
-    // polynomial gate slots in canonical order — same invariant `get_gate_blocks()` relies on.
+    // Phase 2: parallel selector filling across a flattened task list.
+    // Non-gate selectors (q_m/q_c/q_l/q_r/q_o/q_4/q_5) come from every block via codegen-emitted
+    // `get_block_non_gate_selectors(block)`. Gate selectors come from the codegen's
+    // `get_gate_blocks(blocks)` × `GATE_KINDS` parallel arrays — one task per flavor gate
+    // selector, sourced from the unique block that owns the matching `GateKind`.
     {
         BB_BENCH_NAME("populate_selectors");
         struct SelectorTask {
@@ -127,20 +129,30 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             uint32_t trace_offset;
             uint32_t block_size;
         };
+
+        const auto& polynomials_ref = polynomials;
+        const size_t num_non_gate = polynomials_ref.get_non_gate_selectors().size();
+
         std::vector<SelectorTask> selector_tasks;
-        const size_t num_non_gate_poly = polynomials.get_non_gate_selectors().size();
-        size_t gate_poly_idx = num_non_gate_poly;
         for (auto& block : blocks_array) {
-            const uint32_t off = block.trace_offset();
-            const uint32_t bsz = static_cast<uint32_t>(block.size());
-            for (size_t i = 0; i < num_non_gate_poly; ++i) {
-                selector_tasks.emplace_back(SelectorTask{ &block.non_gate_selectors[i], i, off, bsz });
-            }
-            for (auto& [kind, sel] : block.gate_selectors) {
-                selector_tasks.emplace_back(SelectorTask{ &sel, gate_poly_idx, off, bsz });
-                ++gate_poly_idx;
+            const uint32_t offset = block.trace_offset();
+            const uint32_t block_size = static_cast<uint32_t>(block.size());
+            auto non_gate = Flavor::Generated::get_block_non_gate_selectors(block);
+            for (size_t i = 0; i < non_gate.size(); ++i) {
+                selector_tasks.emplace_back(SelectorTask{ &non_gate[i], i, offset, block_size });
             }
         }
+
+        auto gate_blocks = Flavor::Generated::get_gate_blocks(builder.blocks);
+        constexpr auto& gate_kinds = Flavor::Generated::GATE_KINDS;
+        for (size_t i = 0; i < gate_kinds.size(); ++i) {
+            auto& block = gate_blocks[i];
+            selector_tasks.emplace_back(SelectorTask{ &block.gate_selector_for(gate_kinds[i]),
+                                                      num_non_gate + i,
+                                                      block.trace_offset(),
+                                                      static_cast<uint32_t>(block.size()) });
+        }
+
         parallel_for(selector_tasks.size(), [&](size_t task_idx) {
             const auto& task = selector_tasks[task_idx];
             const auto& source = *task.source;
@@ -155,9 +167,9 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
 template <class Flavor>
 void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials& polynomials)
-    requires IsMegaFlavor<Flavor>
+    requires Flavor::HasEccOpQueue
 {
-    auto& ecc_op_selector = polynomials.lagrange_ecc_op;
+    auto& ecc_op_selector = polynomials.lagrange_ecc_op();
 
     // The EccOpQueueRelation constrains ecc_op_wire[row] == w_shift[row] where lagrange_ecc_op == 1;
     // equivalently, ecc_op_wire[row] == w[row + NUM_ZERO_ROWS], so we write ecc_op_wire starting at

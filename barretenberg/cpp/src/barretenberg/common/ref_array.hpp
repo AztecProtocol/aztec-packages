@@ -7,6 +7,7 @@
 #include <iterator>
 #include <span>
 #include <stdexcept>
+#include <type_traits>
 
 namespace bb {
 /**
@@ -38,6 +39,19 @@ template <typename T, std::size_t N> class RefArray {
     RefArray(T& first, Ts&... refs)
         : storage{ &first, &refs... }
     {}
+    RefArray(std::span<T, N> sp)
+    {
+        for (std::size_t i = 0; i < N; ++i) {
+            storage[i] = &sp[i];
+        }
+    }
+    RefArray(std::span<std::remove_const_t<T>, N> sp)
+        requires std::is_const_v<T>
+    {
+        for (std::size_t i = 0; i < N; ++i) {
+            storage[i] = &sp[i];
+        }
+    }
 
     T& operator[](std::size_t idx) const
     {
@@ -174,5 +188,29 @@ RefArray<T, (Ns + ...)> constexpr concatenate(const RefArray<T, Ns>&... ref_arra
     (..., copy_into(ref_arrays, offset));
 
     return concatenated;
+}
+
+/**
+ * @brief concatenate overload that accepts std::span (with static extent) inputs.
+ *
+ * Each argument is either a RefArray<T, N> or a std::span<T, N>. Spans are wrapped into RefArrays
+ * via the implicit constructor.
+ */
+template <typename T, std::size_t N1, std::size_t N2>
+RefArray<T, N1 + N2> constexpr concatenate(std::span<T, N1> a, std::span<T, N2> b)
+{
+    return concatenate(RefArray<T, N1>(a), RefArray<T, N2>(b));
+}
+
+template <typename T, std::size_t N1, std::size_t N2>
+RefArray<T, N1 + N2> constexpr concatenate(std::span<T, N1> a, const RefArray<T, N2>& b)
+{
+    return concatenate(RefArray<T, N1>(a), b);
+}
+
+template <typename T, std::size_t N1, std::size_t N2>
+RefArray<T, N1 + N2> constexpr concatenate(const RefArray<T, N1>& a, std::span<T, N2> b)
+{
+    return concatenate(a, RefArray<T, N2>(b));
 }
 } // namespace bb

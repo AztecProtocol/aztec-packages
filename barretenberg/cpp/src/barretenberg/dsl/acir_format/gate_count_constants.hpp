@@ -101,7 +101,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(900948, 0);
+        return std::make_tuple(648799, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -114,7 +114,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1616648;
+inline constexpr size_t CHONK_RECURSION_GATES = 1363527;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -124,6 +124,7 @@ inline constexpr size_t CHONK_RECURSION_GATES = 1616648;
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
+
 inline constexpr size_t INIT_KERNEL_GATE_COUNT = 13877;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 656 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 75;
@@ -139,9 +140,9 @@ inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 689 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 77;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 39725;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 4905 + MSM_ROWS_OFFSET;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 339;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 38940;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 4773 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 331;
 
 // ========================================
 // ECCVM Recursive Verifier Constants

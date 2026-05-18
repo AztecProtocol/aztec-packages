@@ -29,7 +29,7 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_quad_internal_terminal.is_zero();
+        return in[AllEntities::EntityId::q_poseidon2_quad_internal_terminal].is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -41,22 +41,22 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoeffAcc = typename Accumulator::CoefficientAccumulator;
 
-        const auto w_l = CoeffAcc(in.w_l);
-        const auto w_r = CoeffAcc(in.w_r);
-        const auto w_o = CoeffAcc(in.w_o);
-        const auto w_4 = CoeffAcc(in.w_4);
+        const auto w_l = CoeffAcc(in[AllEntities::EntityId::w_l]);
+        const auto w_r = CoeffAcc(in[AllEntities::EntityId::w_r]);
+        const auto w_o = CoeffAcc(in[AllEntities::EntityId::w_o]);
+        const auto w_4 = CoeffAcc(in[AllEntities::EntityId::w_4]);
 
-        const auto w_l_shift = CoeffAcc(in.w_l_shift);
-        const auto w_r_shift = CoeffAcc(in.w_r_shift);
-        const auto w_o_shift = CoeffAcc(in.w_o_shift);
-        const auto w_4_shift = CoeffAcc(in.w_4_shift);
+        const auto w_l_shift = CoeffAcc(in[AllEntities::EntityId::w_l_shift]);
+        const auto w_r_shift = CoeffAcc(in[AllEntities::EntityId::w_r_shift]);
+        const auto w_o_shift = CoeffAcc(in[AllEntities::EntityId::w_o_shift]);
+        const auto w_4_shift = CoeffAcc(in[AllEntities::EntityId::w_4_shift]);
 
-        const auto q_l = CoeffAcc(in.q_l);
-        const auto q_r = CoeffAcc(in.q_r);
-        const auto q_o = CoeffAcc(in.q_o);
-        const auto q_4 = CoeffAcc(in.q_4);
+        const auto q_l = CoeffAcc(in[AllEntities::EntityId::q_l]);
+        const auto q_r = CoeffAcc(in[AllEntities::EntityId::q_r]);
+        const auto q_o = CoeffAcc(in[AllEntities::EntityId::q_o]);
+        const auto q_4 = CoeffAcc(in[AllEntities::EntityId::q_4]);
 
-        const auto q_sel = CoeffAcc(in.q_poseidon2_quad_internal_terminal);
+        const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_quad_internal_terminal]);
 
         auto pow5 = [](const Accumulator& x) -> Accumulator {
             auto sq = x.sqr();

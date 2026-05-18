@@ -19,9 +19,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
 
     using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;
 
-    // Specialize for Ultra (general case used in UltraRecursive).
-    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-
     using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };
 

@@ -13,7 +13,7 @@
 namespace bb {
 
 template <size_t N>
-HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(const RefArray<Commitment, N>& _points,
+HypernovaFoldingProver::Commitment HypernovaFoldingProver::batch_mul(std::span<Commitment, N> _points,
                                                                      std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
@@ -52,7 +52,8 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     }
 
     // Batch commitments
-    VerifierCommitments verifier_commitments(honk_vk, instance->commitments);
+    VerifierCommitments verifier_commitments =
+        VerifierCommitmentsConstructor<Flavor>::construct(honk_vk, instance->commitments);
 
     Commitment batched_unshifted_commitment = batch_mul(verifier_commitments.get_unshifted(), unshifted_challenges);
     Commitment batched_shifted_commitment = batch_mul(verifier_commitments.get_to_be_shifted(), shifted_challenges);

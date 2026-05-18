@@ -295,7 +295,8 @@ TEST_F(AvmRecursionInnerCircuitTests, Tampering)
             create_and_prove_inner_circuit(outer_builder, proof, public_inputs_flat);
 
         auto mega_vk_tampered = inner_prover_output.mega_vk;
-        mega_vk_tampered->q_m = mega_vk_tampered->q_m + MegaAvmFlavor::Commitment::one(); // Tamper with q_m commitment
+        mega_vk_tampered->q_m() =
+            mega_vk_tampered->q_m() + MegaAvmFlavor::Commitment::one(); // Tamper with q_m commitment
 
         TwoLayerAvmRecursiveVerifier goblin_avm_verifier(outer_builder);
         TwoLayerAvmRecursiveVerifierOutput output = goblin_avm_verifier.construct_outer_recursive_verification_circuit(

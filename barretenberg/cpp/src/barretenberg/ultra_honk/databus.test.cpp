@@ -17,7 +17,9 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 
-using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
+// DataBusTests only run against flavors that include the databus relation in their tuple.
+// MegaZKFlavor deliberately drops databus; q_busread is identically zero in the hiding kernel.
+using FlavorTypes = ::testing::Types<MegaFlavor>;
 
 template <typename Flavor> class DataBusTests : public ::testing::Test {
   protected:
@@ -54,9 +56,8 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
 
     /**
      * @brief Test method for constructing a databus column and performing reads on it
-     * @details All individual bus columns (calldata, returndata etc.) behave the same way. This method facilitates
-     * testing each of them individually by allowing specification of the add and read methods for a given bus column
-     * type.
+     * @details All individual bus columns behave the same way. This method facilitates testing each of them
+     * individually by allowing specification of the add and read methods for a given bus column type.
      *
      * @param add_bus_data Method for adding data to the given bus column
      * @param read_bus_data Method for reading from a given bus column
@@ -89,7 +90,7 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
 TYPED_TEST_SUITE(DataBusTests, FlavorTypes);
 
 /**
- * @brief Test proof construction/verification for a circuit with calldata lookup gates
+ * @brief Test proof construction/verification for a circuit with kernel calldata lookup gates
  *
  */
 TYPED_TEST(DataBusTests, KernelCallDataRead)
@@ -146,8 +147,8 @@ TYPED_TEST(DataBusTests, ReadAll)
 }
 
 /**
- * @brief Test proof construction/verification for a circuit with duplicate calldata reads and some explicit checks that
- * the read results are correct
+ * @brief Test proof construction/verification for a circuit with duplicate kernel calldata reads and some explicit
+ * checks that the read results are correct
  *
  */
 TYPED_TEST(DataBusTests, CallDataDuplicateRead)
@@ -156,7 +157,7 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
     using FF = TypeParam::FF;
 
-    // Add some values to calldata
+    // Add some values to kernel calldata
 
     std::vector<FF> calldata_values = { 7, 10, 3, 12, 1 };
     for (auto& val : calldata_values) {
@@ -166,10 +167,10 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
     // Define some read indices with a duplicate
     std::vector<uint32_t> read_indices = { 1, 4, 1 };
 
-    // Create some calldata read gates and store the variable indices of the result for later
+    // Create some kernel calldata read gates and store the variable indices of the result for later
     std::vector<uint32_t> result_witness_indices;
     for (uint32_t& read_idx : read_indices) {
-        // Create a variable corresponding to the index at which we want to read into calldata
+        // Create a variable corresponding to the index at which we want to read into kernel calldata
         uint32_t read_idx_witness_idx = builder.add_variable(FF(read_idx));
 
         auto value_witness_idx = builder.read_calldata(BusId::KERNEL_CALLDATA, read_idx_witness_idx);

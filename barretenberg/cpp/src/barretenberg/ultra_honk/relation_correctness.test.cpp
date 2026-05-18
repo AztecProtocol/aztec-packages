@@ -162,7 +162,7 @@ template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& 
 
 template <typename Flavor>
 void create_some_ecc_op_queue_gates(auto& circuit_builder)
-    requires IsMegaFlavor<Flavor>
+    requires(Flavor::HasEccOpQueue)
 {
     using G1 = typename Flavor::Curve::Group;
     using FF = typename Flavor::FF;
@@ -176,7 +176,7 @@ void create_some_ecc_op_queue_gates(auto& circuit_builder)
 
 template <typename Flavor>
 void create_some_databus_gates(auto& builder)
-    requires HasDataBus<Flavor>
+    requires Flavor::HasDataBus
 {
     using FF = typename Flavor::FF;
     auto val = builder.add_variable(FF::random_element());
