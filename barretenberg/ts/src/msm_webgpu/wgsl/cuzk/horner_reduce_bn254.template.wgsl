@@ -63,12 +63,22 @@ var<storage, read> g_points_z: array<BigInt>;
 // instead of six separate buffers keeps us within the 8-storage-buffers-
 // per-stage WebGPU baseline (current shader: 3 read-only g_points +
 // 3 read-write packed = 6 storage bindings).
+{{#packed}}
+@group(0) @binding(3)
+var<storage, read_write> sums_x: array<vec4<u32>>;
+@group(0) @binding(4)
+var<storage, read_write> sums_y: array<vec4<u32>>;
+@group(0) @binding(5)
+var<storage, read_write> sums_z: array<vec4<u32>>;
+{{/packed}}
+{{^packed}}
 @group(0) @binding(3)
 var<storage, read_write> sums_x: array<BigInt>;
 @group(0) @binding(4)
 var<storage, read_write> sums_y: array<BigInt>;
 @group(0) @binding(5)
 var<storage, read_write> sums_z: array<BigInt>;
+{{/packed}}
 
 {{#packed}}
 {{{ dec_unpack }}}
@@ -82,6 +92,21 @@ fn load_packed_ro(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read>) -> 
     w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
     w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
     return unpack256_to_limbs(w);
+}
+
+fn load_packed_rw(base_elem: u32, src: ptr<storage, array<vec4<u32>>, read_write>) -> BigInt {
+    var w: array<u32, 8>;
+    let q0 = (*src)[2u * base_elem];
+    let q1 = (*src)[2u * base_elem + 1u];
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn store_packed_rw(base_elem: u32, dst: ptr<storage, array<vec4<u32>>, read_write>, val: ptr<function, BigInt>) {
+    let w = pack_limbs_to_256(val);
+    (*dst)[2u * base_elem] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    (*dst)[2u * base_elem + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
 }
 {{/packed}}
 
@@ -149,9 +174,17 @@ fn subtask_reduce(
     // Thread 0 writes this subtask's sum at slot subtask_idx.
     if (tid == 0u) {
         let s = wg_partials[0];
+{{#packed}}
+        var sx = s.x; var sy = s.y; var sz = s.z;
+        store_packed_rw(subtask_idx, &sums_x, &sx);
+        store_packed_rw(subtask_idx, &sums_y, &sy);
+        store_packed_rw(subtask_idx, &sums_z, &sz);
+{{/packed}}
+{{^packed}}
         sums_x[subtask_idx] = s.x;
         sums_y[subtask_idx] = s.y;
         sums_z[subtask_idx] = s.z;
+{{/packed}}
     }
 
     {{{ recompile }}}
@@ -184,9 +217,16 @@ fn horner_chain(@builtin(local_invocation_id) lid: vec3<u32>) {
 
     // Load subtask_sums[tid] and apply tid·CHUNK_SIZE doublings.
     var p: Point;
+{{#packed}}
+    p.x = load_packed_rw(tid, &sums_x);
+    p.y = load_packed_rw(tid, &sums_y);
+    p.z = load_packed_rw(tid, &sums_z);
+{{/packed}}
+{{^packed}}
     p.x = sums_x[tid];
     p.y = sums_y[tid];
     p.z = sums_z[tid];
+{{/packed}}
     let n_doublings = tid * CHUNK_SIZE;
     for (var i: u32 = 0u; i < n_doublings; i = i + 1u) {
         p = double_point(p);
@@ -208,9 +248,17 @@ fn horner_chain(@builtin(local_invocation_id) lid: vec3<u32>) {
     // Thread 0 writes the final result.
     if (tid == 0u) {
         let r = wg_partials[0];
+{{#packed}}
+        var rx = r.x; var ry = r.y; var rz = r.z;
+        store_packed_rw(RESULT_SLOT, &sums_x, &rx);
+        store_packed_rw(RESULT_SLOT, &sums_y, &ry);
+        store_packed_rw(RESULT_SLOT, &sums_z, &rz);
+{{/packed}}
+{{^packed}}
         sums_x[RESULT_SLOT] = r.x;
         sums_y[RESULT_SLOT] = r.y;
         sums_z[RESULT_SLOT] = r.z;
+{{/packed}}
     }
 
     {{{ recompile }}}
