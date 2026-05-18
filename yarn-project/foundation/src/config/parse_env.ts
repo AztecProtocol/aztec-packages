@@ -4,7 +4,7 @@ export function parseBooleanEnv(val: string | undefined): boolean {
 }
 
 /** Parses a comma-separated env var into trimmed non-empty strings. */
-export function parseCommaSeparatedTrimmed(val: string): string[] {
+export function parseCommaSeparated(val: string): string[] {
   return val
     .split(',')
     .map(item => item.trim())

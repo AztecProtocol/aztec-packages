@@ -3,6 +3,7 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  parseCommaSeparated,
 } from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
@@ -48,25 +49,13 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelExcludeMetrics: {
     env: 'OTEL_EXCLUDE_METRICS',
     description: 'A list of metric prefixes to exclude from export',
-    parseEnv: (val: string) =>
-      val
-        ? val
-            .split(',')
-            .map(s => s.trim())
-            .filter(s => s.length > 0)
-        : [],
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
   otelIncludeMetrics: {
     env: 'OTEL_INCLUDE_METRICS',
     description: 'A list of metric prefixes to include in export (ignored if OTEL_EXCLUDE_METRICS is set)',
-    parseEnv: (val: string) =>
-      val
-        ? val
-            .split(',')
-            .map(s => s.trim())
-            .filter(s => s.length > 0)
-        : [],
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
 
@@ -78,25 +67,13 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   publicMetricsCollectFrom: {
     env: 'PUBLIC_OTEL_COLLECT_FROM',
     description: 'The role types to collect metrics from',
-    parseEnv: (val: string) =>
-      val
-        ? val
-            .split(',')
-            .map(s => s.trim())
-            .filter(s => s.length > 0)
-        : [],
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
   publicIncludeMetrics: {
     env: 'PUBLIC_OTEL_INCLUDE_METRICS',
     description: 'A list of metric prefixes to publicly export',
-    parseEnv: (val: string) =>
-      val
-        ? val
-            .split(',')
-            .map(s => s.trim())
-            .filter(s => s.length > 0)
-        : [],
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
   publicMetricsOptOut: {

@@ -1,5 +1,10 @@
 import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
-import { type ConfigMappingsType, booleanConfigHelper, composeConfigMappings } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  composeConfigMappings,
+  parseCommaSeparated,
+} from '@aztec/foundation/config';
 import { type FishermanModeConfig, fishermanModeConfigMappings } from '@aztec/stdlib/config';
 
 export type OwnSharedNodeConfig = {
@@ -26,11 +31,7 @@ const ownSharedNodeConfigMappings: ConfigMappingsType<OwnSharedNodeConfig> = {
   snapshotsUrls: {
     env: 'SYNC_SNAPSHOTS_URLS',
     description: 'Base URLs for snapshots index, comma-separated.',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(url => url.trim())
-        .filter(url => url.length > 0),
+    parseEnv: parseCommaSeparated,
     fallback: ['SYNC_SNAPSHOTS_URL'],
     defaultValue: [],
   },

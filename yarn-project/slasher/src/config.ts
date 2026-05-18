@@ -4,6 +4,7 @@ import {
   booleanConfigHelper,
   floatConfigHelper,
   numberConfigHelper,
+  parseCommaSeparated,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -44,23 +45,13 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   slashValidatorsAlways: {
     env: 'SLASH_VALIDATORS_ALWAYS',
     description: 'Comma-separated list of validator addresses that should always be slashed.',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(addr => addr.trim())
-        .filter(addr => addr.length > 0)
-        .map(addr => EthAddress.fromString(addr)),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(addr => EthAddress.fromString(addr)),
     defaultValue: DefaultSlasherConfig.slashValidatorsAlways,
   },
   slashValidatorsNever: {
     env: 'SLASH_VALIDATORS_NEVER',
     description: 'Comma-separated list of validator addresses that should never be slashed.',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(addr => addr.trim())
-        .filter(addr => addr.length > 0)
-        .map(addr => EthAddress.fromString(addr)),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(addr => EthAddress.fromString(addr)),
     defaultValue: DefaultSlasherConfig.slashValidatorsNever,
   },
   slashPrunePenalty: {

@@ -6,6 +6,7 @@ import {
   SecretValue,
   booleanConfigHelper,
   composeConfigMappings,
+  parseCommaSeparated,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type FishermanModeConfig, fishermanModeConfigMappings } from '@aztec/stdlib/config';
@@ -56,14 +57,14 @@ const ownProverTxSenderConfigMappings: ConfigMappingsType<OwnProverTxSenderConfi
     env: `PROVER_PUBLISHER_PRIVATE_KEYS`,
     description: 'The private keys to be used by the prover publisher.',
     parseEnv: (val: string) =>
-      val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
+      parseCommaSeparated(val).map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
     defaultValue: [],
     fallback: [`PROVER_PUBLISHER_PRIVATE_KEY`],
   },
   proverPublisherAddresses: {
     env: `PROVER_PUBLISHER_ADDRESSES`,
     description: 'The addresses of the publishers to use with remote signers',
-    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(address => EthAddress.fromString(address)),
     defaultValue: [],
   },
 };
@@ -73,14 +74,14 @@ const ownSequencerTxSenderConfigMappings: ConfigMappingsType<OwnSequencerTxSende
     env: `SEQ_PUBLISHER_PRIVATE_KEYS`,
     description: 'The private keys to be used by the sequencer publisher.',
     parseEnv: (val: string) =>
-      val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
+      parseCommaSeparated(val).map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
     defaultValue: [],
     fallback: [`SEQ_PUBLISHER_PRIVATE_KEY`],
   },
   sequencerPublisherAddresses: {
     env: `SEQ_PUBLISHER_ADDRESSES`,
     description: 'The addresses of the publishers to use with remote signers',
-    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(address => EthAddress.fromString(address)),
     defaultValue: [],
   },
 };

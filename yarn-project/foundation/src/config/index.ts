@@ -251,7 +251,7 @@ export function enumConfigHelper<T extends string>(
 export {
   parseBigIntEnv,
   parseBooleanEnv,
-  parseCommaSeparatedTrimmed,
+  parseCommaSeparated,
   parseEnumEnv,
   parseFloatEnv,
   parseIntegerEnv,

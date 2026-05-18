@@ -6,6 +6,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  parseCommaSeparated,
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
@@ -150,8 +151,7 @@ const ownProverAgentConfigMappings: ConfigMappingsType<OwnProverAgentConfig> = {
     env: 'PROVER_AGENT_PROOF_TYPES',
     description: 'The types of proofs the prover agent can generate',
     parseEnv: (val: string) =>
-      val
-        .split(',')
+      parseCommaSeparated(val)
         .map(v => ProvingRequestType[v as any])
         .filter(v => typeof v === 'number'),
   },

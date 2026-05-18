@@ -4,6 +4,7 @@ import {
   composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
+  parseCommaSeparated,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -18,18 +19,14 @@ const ownValidatorClientConfigMappings: ConfigMappingsType<OwnValidatorClientCon
     env: 'VALIDATOR_PRIVATE_KEYS',
     description: 'List of private keys of the validators participating in attestation duties',
     ...secretValueConfigHelper<`0x${string}`[]>(val =>
-      val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
+      val ? parseCommaSeparated(val).map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
     ),
     fallback: ['VALIDATOR_PRIVATE_KEY'],
   },
   validatorAddresses: {
     env: 'VALIDATOR_ADDRESSES',
     description: 'List of addresses of the validators to use with remote signers',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .filter(address => address && address.trim().length > 0)
-        .map(address => EthAddress.fromString(address.trim())),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(address => EthAddress.fromString(address)),
     defaultValue: [],
   },
   disableValidator: {
@@ -39,11 +36,7 @@ const ownValidatorClientConfigMappings: ConfigMappingsType<OwnValidatorClientCon
   },
   disabledValidators: {
     description: 'Temporarily disable these specific validator addresses',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .filter(address => address && address.trim().length > 0)
-        .map(address => EthAddress.fromString(address.trim())),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(address => EthAddress.fromString(address)),
     defaultValue: [],
   },
   attestationPollingIntervalMs: {

@@ -11,7 +11,7 @@ import {
   composeConfigMappings,
   getConfigFromMappings,
   optionalNumberConfigHelper,
-  parseCommaSeparatedTrimmed,
+  parseCommaSeparated,
   pickConfigMappings,
 } from '@aztec/foundation/config';
 
@@ -84,19 +84,19 @@ const ownBlobClientConfigMappings: ConfigMappingsType<OwnBlobClientConfig> = {
   l1ConsensusHostUrls: {
     env: 'L1_CONSENSUS_HOST_URLS',
     description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(url => url.replace(/\/$/, '')),
   },
   l1ConsensusHostApiKeys: {
     env: 'L1_CONSENSUS_HOST_API_KEYS',
     description:
       'List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=<api-key>" unless a header is defined',
-    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(key.trim())),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(key => new SecretValue(key)),
   },
   l1ConsensusHostApiKeyHeaders: {
     env: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',
     description:
       'List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "<api-key-header>: <api-key>"',
-    parseEnv: parseCommaSeparatedTrimmed,
+    parseEnv: parseCommaSeparated,
   },
   blobSinkMapSizeKb: {
     env: 'BLOB_SINK_MAP_SIZE_KB',
@@ -111,7 +111,7 @@ const ownBlobClientConfigMappings: ConfigMappingsType<OwnBlobClientConfig> = {
   blobFileStoreUrls: {
     env: 'BLOB_FILE_STORE_URLS',
     description: 'URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.',
-    parseEnv: parseCommaSeparatedTrimmed,
+    parseEnv: parseCommaSeparated,
   },
   blobFileStoreUploadUrl: {
     env: 'BLOB_FILE_STORE_UPLOAD_URL',

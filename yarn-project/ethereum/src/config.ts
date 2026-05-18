@@ -8,6 +8,7 @@ import {
   numberConfigHelper,
   omitConfigMappings,
   optionalNumberConfigHelper,
+  parseCommaSeparated,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -266,11 +267,7 @@ export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> 
   prefundAddresses: {
     env: 'PREFUND_ADDRESSES',
     description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis (local network only).',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(a => a.trim())
-        .filter(a => a.length > 0),
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
 };

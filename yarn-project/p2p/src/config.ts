@@ -8,6 +8,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  parseCommaSeparated,
   percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
@@ -302,7 +303,7 @@ const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
   },
   bootstrapNodes: {
     env: 'BOOTSTRAP_NODES',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
     defaultValue: [],
   },
@@ -329,11 +330,7 @@ const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
   },
   publicIpServices: {
     env: 'P2P_PUBLIC_IP_SERVICES',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean),
+    parseEnv: parseCommaSeparated,
     description:
       'Comma-separated HTTPS URLs that return plain-text public IPv4. Used when P2P_QUERY_FOR_IP is true and P2P_IP is unset. Tried in order until one succeeds.',
     defaultValue: DEFAULT_PUBLIC_IP_SERVICES,
@@ -400,7 +397,7 @@ const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
   },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',
-    parseEnv: (val: string) => val.split(',').map(Number),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(Number),
     description:
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
@@ -423,20 +420,20 @@ const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
   },
   trustedPeers: {
     env: 'P2P_TRUSTED_PEERS',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description: 'A list of trusted peer ENRs that will always be persisted. Separated by commas.',
     defaultValue: [],
   },
   privatePeers: {
     env: 'P2P_PRIVATE_PEERS',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description:
       'A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
     defaultValue: [],
   },
   preferredPeers: {
     env: 'P2P_PREFERRED_PEERS',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description:
       'A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
     defaultValue: [],
@@ -640,11 +637,7 @@ export function parseAllowList(value: string): AllowedElement[] {
     return entries;
   }
 
-  for (const val of value.split(',')) {
-    const trimmed = val.trim();
-    if (!trimmed) {
-      continue;
-    }
+  for (const trimmed of parseCommaSeparated(value)) {
     const [typeString, identifierString, selectorString, flagsString] = trimmed.split(':');
 
     if (!selectorString) {

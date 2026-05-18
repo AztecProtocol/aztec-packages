@@ -4,6 +4,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  parseCommaSeparated,
 } from '@aztec/foundation/config';
 
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
@@ -30,7 +31,7 @@ export const l1RpcUrlsConfigMappings: ConfigMappingsType<L1RpcUrlsConfig> = {
   l1RpcUrls: {
     env: 'ETHEREUM_HOSTS',
     description: 'List of URLs of Ethereum RPC nodes that services will connect to (comma separated).',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
 };
@@ -50,7 +51,7 @@ const ownL1ReaderConfigMappings: ConfigMappingsType<OwnL1ReaderConfig> = {
   l1DebugRpcUrls: {
     env: 'ETHEREUM_DEBUG_HOSTS',
     description: 'The RPC Url of the ethereum debug host for trace and debug methods.',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
   viemPollingIntervalMS: {

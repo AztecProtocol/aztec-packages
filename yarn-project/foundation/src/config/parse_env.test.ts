@@ -1,8 +1,8 @@
-import { parseBigIntEnv, parseCommaSeparatedTrimmed, parseEnumEnv, parsePercentageEnv } from './parse_env.js';
+import { parseBigIntEnv, parseCommaSeparated, parseEnumEnv, parsePercentageEnv } from './parse_env.js';
 
 describe('parse_env', () => {
-  it('parseCommaSeparatedTrimmed splits, trims, and drops empty segments', () => {
-    expect(parseCommaSeparatedTrimmed(' a ,, b ,  ')).toEqual(['a', 'b']);
+  it('parseCommaSeparated splits, trims, and drops empty segments', () => {
+    expect(parseCommaSeparated(' a ,, b ,  ')).toEqual(['a', 'b']);
   });
 
   it('parseEnumEnv matches case-insensitively', () => {
