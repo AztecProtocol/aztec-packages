@@ -1,24 +1,26 @@
-import { l1ReaderConfigMappings, l1RpcUrlsConfigMappings } from '@aztec/ethereum/l1-reader';
+import {
+  type L1ReaderConfig,
+  type L1RpcUrlsConfig,
+  l1ReaderConfigMappings,
+  l1RpcUrlsConfigMappings,
+} from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   optionalNumberConfigHelper,
+  parseCommaSeparatedTrimmed,
   pickConfigMappings,
 } from '@aztec/foundation/config';
 
 import { type BlobArchiveApiConfig, blobArchiveApiConfigMappings } from '../archive/config.js';
 
 /**
- * The configuration for the blob client
+ * Blob-client-specific configuration (excluding shared L1 / archive mappings).
  */
-export interface BlobClientConfig extends BlobArchiveApiConfig {
-  /**
-   * List of URLs for L1 RPC Execution clients
-   */
-  l1RpcUrls?: string[];
-
+export type OwnBlobClientConfig = {
   /**
    * List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)
    */
@@ -59,18 +61,26 @@ export interface BlobClientConfig extends BlobArchiveApiConfig {
    */
   blobHealthcheckUploadIntervalMinutes?: number;
 
-  /** Timeout for HTTP requests to the L1 RPC node in ms. */
-  l1HttpTimeoutMS?: number;
-
-  /** Whether to prefer filestores over consensus clients when fetching blobs. Default: false (consensus first). */
+  /**
+   * Whether to prefer filestores over consensus clients when fetching blobs. Default: false (consensus first).
+   */
   blobPreferFilestores?: boolean;
 
-  /** Timeout in ms for HTTP requests to the blob file store. Default: 10000 (10s). */
+  /**
+   * Timeout in ms for HTTP requests to the blob file store. Default: 10000 (10s).
+   */
   blobFileStoreTimeoutMs?: number;
-}
+};
 
-export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
-  ...l1RpcUrlsConfigMappings,
+/**
+ * The configuration for the blob client
+ */
+export type BlobClientConfig = BlobArchiveApiConfig &
+  Partial<L1RpcUrlsConfig> &
+  Pick<L1ReaderConfig, 'l1HttpTimeoutMS'> &
+  OwnBlobClientConfig;
+
+const ownBlobClientConfigMappings: ConfigMappingsType<OwnBlobClientConfig> = {
   l1ConsensusHostUrls: {
     env: 'L1_CONSENSUS_HOST_URLS',
     description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
@@ -86,7 +96,7 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
     env: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',
     description:
       'List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "<api-key-header>: <api-key>"',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    parseEnv: parseCommaSeparatedTrimmed,
   },
   blobSinkMapSizeKb: {
     env: 'BLOB_SINK_MAP_SIZE_KB',
@@ -101,11 +111,7 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
   blobFileStoreUrls: {
     env: 'BLOB_FILE_STORE_URLS',
     description: 'URLs for filestore blob archive, comma-separated. Tried in order until blobs are found.',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(url => url.trim())
-        .filter(url => url.length > 0),
+    parseEnv: parseCommaSeparatedTrimmed,
   },
   blobFileStoreUploadUrl: {
     env: 'BLOB_FILE_STORE_UPLOAD_URL',
@@ -116,7 +122,6 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
     description: 'Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)',
     ...optionalNumberConfigHelper(),
   },
-  ...pickConfigMappings(l1ReaderConfigMappings, ['l1HttpTimeoutMS']),
   blobPreferFilestores: {
     env: 'BLOB_PREFER_FILESTORES',
     description: 'Whether to prefer filestores over consensus clients when fetching blobs. Default: false.',
@@ -127,8 +132,14 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
     description: 'Timeout in ms for HTTP requests to the blob file store. Default: 10000 (10s).',
     ...optionalNumberConfigHelper(),
   },
-  ...blobArchiveApiConfigMappings,
 };
+
+export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = composeConfigMappings(
+  l1RpcUrlsConfigMappings,
+  ownBlobClientConfigMappings,
+  pickConfigMappings(l1ReaderConfigMappings, ['l1HttpTimeoutMS']),
+  blobArchiveApiConfigMappings,
+);
 
 /**
  * Returns the blob client configuration from the environment variables.

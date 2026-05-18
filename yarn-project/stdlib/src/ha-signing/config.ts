@@ -7,6 +7,7 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -20,7 +21,7 @@ import { z } from 'zod';
 /**
  * Base signing protection configuration shared by both HA (Postgres) and local (LMDB) signers.
  */
-export type BaseSignerConfig = {
+export type OwnBaseSignerConfig = {
   /** Unique identifier for this node */
   nodeId: string;
   /** How long to wait between polls when a duty is being signed (ms) */
@@ -31,9 +32,11 @@ export type BaseSignerConfig = {
   maxStuckDutiesAgeMs?: number;
   /** Optional: clean up old duties after this many hours (disabled if not set) */
   cleanupOldDutiesAfterHours?: number;
-} & Pick<L1ContractAddresses, 'rollupAddress'>;
+};
 
-export const baseSignerConfigMappings: ConfigMappingsType<BaseSignerConfig> = {
+export type BaseSignerConfig = OwnBaseSignerConfig & Pick<L1ContractAddresses, 'rollupAddress'>;
+
+const ownBaseSignerConfigMappings: ConfigMappingsType<OwnBaseSignerConfig> = {
   nodeId: {
     env: 'VALIDATOR_HA_NODE_ID',
     description: 'The unique identifier for this node',
@@ -59,8 +62,12 @@ export const baseSignerConfigMappings: ConfigMappingsType<BaseSignerConfig> = {
     description: 'Optional: clean up old duties after this many hours (disabled if not set)',
     ...optionalNumberConfigHelper(),
   },
-  ...pickL1ContractAddressMappings('rollupAddress'),
 };
+
+export const baseSignerConfigMappings: ConfigMappingsType<BaseSignerConfig> = composeConfigMappings(
+  ownBaseSignerConfigMappings,
+  pickL1ContractAddressMappings('rollupAddress'),
+);
 
 export const BaseSignerConfigSchema = z.object({
   nodeId: z.string(),
@@ -71,12 +78,7 @@ export const BaseSignerConfigSchema = z.object({
   ...pickL1ContractAddressesSchema('rollupAddress'),
 }) satisfies ZodFor<BaseSignerConfig>;
 
-/**
- * Configuration for the Validator HA Signer.
- *
- * Extends BaseSignerConfig with a flag to enable HA mode and Postgres connection settings.
- */
-export interface ValidatorHASignerConfig extends BaseSignerConfig {
+export type OwnValidatorHASignerConfig = {
   /** Whether HA signing / slashing protection is enabled */
   haSigningEnabled: boolean;
   /**
@@ -92,10 +94,16 @@ export interface ValidatorHASignerConfig extends BaseSignerConfig {
   poolIdleTimeoutMs?: number;
   /** Connection timeout in milliseconds (default: 0, no timeout) */
   poolConnectionTimeoutMs?: number;
-}
+};
 
-export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASignerConfig> = {
-  ...baseSignerConfigMappings,
+/**
+ * Configuration for the Validator HA Signer.
+ *
+ * Extends BaseSignerConfig with a flag to enable HA mode and Postgres connection settings.
+ */
+export type ValidatorHASignerConfig = BaseSignerConfig & OwnValidatorHASignerConfig;
+
+const ownValidatorHASignerConfigMappings: ConfigMappingsType<OwnValidatorHASignerConfig> = {
   haSigningEnabled: {
     env: 'VALIDATOR_HA_SIGNING_ENABLED',
     description: 'Whether HA signing / slashing protection is enabled',
@@ -128,6 +136,11 @@ export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASign
     ...numberConfigHelper(0),
   },
 };
+
+export const validatorHASignerConfigMappings: ConfigMappingsType<ValidatorHASignerConfig> = composeConfigMappings(
+  baseSignerConfigMappings,
+  ownValidatorHASignerConfigMappings,
+);
 
 export const defaultValidatorHASignerConfig: ValidatorHASignerConfig = getDefaultConfig(
   validatorHASignerConfigMappings,

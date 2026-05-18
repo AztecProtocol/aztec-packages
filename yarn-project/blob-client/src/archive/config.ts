@@ -1,14 +1,16 @@
-import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
-import { type ConfigMappingsType, pickConfigMappings } from '@aztec/foundation/config';
+import { type L1ChainIdConfig, l1ChainIdConfigMappings } from '@aztec/ethereum/l1-reader';
+import { type ConfigMapping, type ConfigMappingsType, composeConfigMappings } from '@aztec/foundation/config';
 
-export type BlobArchiveApiConfig = {
+export interface BlobArchiveApiConfig extends Partial<L1ChainIdConfig> {
   archiveApiUrl?: string;
-} & Partial<Pick<L1ReaderConfig, 'l1ChainId'>>;
+}
 
-export const blobArchiveApiConfigMappings: ConfigMappingsType<BlobArchiveApiConfig> = {
-  archiveApiUrl: {
-    env: 'BLOB_ARCHIVE_API_URL',
-    description: 'The URL of the archive API',
+export const blobArchiveApiConfigMappings: ConfigMappingsType<BlobArchiveApiConfig> = composeConfigMappings(
+  {
+    archiveApiUrl: {
+      env: 'BLOB_ARCHIVE_API_URL',
+      description: 'The URL of the archive API',
+    } as ConfigMapping<string>,
   },
-  ...pickConfigMappings(l1ReaderConfigMappings, ['l1ChainId']),
-};
+  l1ChainIdConfigMappings,
+);

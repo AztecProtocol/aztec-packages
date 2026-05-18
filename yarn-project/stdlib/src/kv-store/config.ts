@@ -6,14 +6,14 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 
-type OwnDataStoreConfig = {
+export interface BaseDataStoreConfig {
   dataDirectory?: string;
   dataStoreMapSizeKb: number;
-};
+}
 
-export type DataStoreConfig = OwnDataStoreConfig & Partial<Pick<L1ContractAddresses, 'rollupAddress'>>;
+export interface DataStoreConfig extends BaseDataStoreConfig, Partial<Pick<L1ContractAddresses, 'rollupAddress'>> {}
 
-const ownDataStoreConfigMappings: ConfigMappingsType<OwnDataStoreConfig> = {
+export const baseDataStoreConfigMappings: ConfigMappingsType<BaseDataStoreConfig> = {
   dataDirectory: {
     env: 'DATA_DIRECTORY',
     description: 'Optional dir to store data. If omitted will store in memory.',
@@ -26,7 +26,7 @@ const ownDataStoreConfigMappings: ConfigMappingsType<OwnDataStoreConfig> = {
 };
 
 export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = composeConfigMappings(
-  ownDataStoreConfigMappings,
+  baseDataStoreConfigMappings,
   pickL1ContractAddressMappings('rollupAddress'),
 );
 

@@ -5,8 +5,8 @@ import type { Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
-import type { EnvVar } from '../config/index.js';
-import { parseBooleanEnv } from '../config/parse-env.js';
+import type { EnvVar } from '../config/env_var.js';
+import { parseBooleanEnv } from '../config/parse_env.js';
 import { convertBigintsToStrings } from './bigint-utils.js';
 import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseLogLevelEnvVar } from './log-filters.js';

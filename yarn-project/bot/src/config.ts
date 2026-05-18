@@ -1,21 +1,21 @@
-import { l1RpcUrlsConfigMappings } from '@aztec/ethereum/l1-reader';
+import { type L1RpcUrlsConfig, l1RpcUrlsConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
-  pickConfigMappings,
   secretFrConfigHelper,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { nodeUrlConfigMappings } from '@aztec/stdlib/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
+import { type NodeUrlConfig, nodeUrlConfigMappings } from '@aztec/stdlib/config';
+import { type BaseDataStoreConfig, baseDataStoreConfigMappings } from '@aztec/stdlib/kv-store';
 import { schemas, zodFor } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
@@ -32,13 +32,9 @@ export enum SupportedTokenContracts {
   PrivateTokenContract = 'PrivateTokenContract',
 }
 
-export type BotConfig = {
-  /** The URL to the Aztec node to check for tx pool status. */
-  nodeUrl: string | undefined;
+export interface OwnBotConfig {
   /** The URL to the Aztec node admin API to force-flush txs if configured. */
   nodeAdminUrl: string | undefined;
-  /** Url of the ethereum host. */
-  l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
   l1Mnemonic: SecretValue<string> | undefined;
   /** The private key for the account to bridge fee juice from L1. */
@@ -87,14 +83,16 @@ export type BotConfig = {
   l2ToL1MessagesPerTx: number;
   /** Max L1→L2 messages to keep in-flight (crosschain mode). */
   l1ToL2SeedCount: number;
-} & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'>;
+}
+
+export type BotConfig = OwnBotConfig & BaseDataStoreConfig & L1RpcUrlsConfig & NodeUrlConfig;
 
 export const BotConfigSchema = zodFor<BotConfig>()(
   z
     .object({
       nodeUrl: z.string().optional(),
       nodeAdminUrl: z.string().optional(),
-      l1RpcUrls: z.array(z.string()).optional(),
+      l1RpcUrls: z.array(z.string()).default([]),
       l1Mnemonic: schemas.SecretValue(z.string()).optional(),
       l1PrivateKey: schemas.SecretValue(z.string()).optional(),
       l1ToL2MessageTimeoutSeconds: z.number(),
@@ -137,12 +135,11 @@ export const BotConfigSchema = zodFor<BotConfig>()(
     })),
 );
 
-export const botConfigMappings: ConfigMappingsType<BotConfig> = {
+const ownBotConfigMappings: ConfigMappingsType<OwnBotConfig> = {
   nodeAdminUrl: {
     env: 'AZTEC_NODE_ADMIN_URL',
     description: 'The URL to the Aztec node admin API to force-flush txs if configured.',
   },
-  ...l1RpcUrlsConfigMappings,
   l1Mnemonic: {
     env: 'BOT_L1_MNEMONIC',
     description: 'The mnemonic for the account to bridge fee juice from L1.',
@@ -291,9 +288,14 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Max L1→L2 messages to keep in-flight (crosschain mode)',
     ...numberConfigHelper(1),
   },
-  ...nodeUrlConfigMappings,
-  ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKb', 'dataDirectory']),
 };
+
+export const botConfigMappings: ConfigMappingsType<BotConfig> = composeConfigMappings(
+  ownBotConfigMappings,
+  l1RpcUrlsConfigMappings,
+  nodeUrlConfigMappings,
+  baseDataStoreConfigMappings,
+);
 
 export function getBotConfigFromEnv(): BotConfig {
   return getConfigFromMappings<BotConfig>(botConfigMappings);

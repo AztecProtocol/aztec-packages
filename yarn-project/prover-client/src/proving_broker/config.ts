@@ -2,13 +2,14 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
-import { proverConfigMappings } from '@aztec/stdlib/interfaces/prover-config';
+import { proverAgentSharedConfigMappings } from '@aztec/stdlib/interfaces/prover-config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
@@ -42,7 +43,18 @@ export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
   L1ReaderConfig &
   Pick<ChainConfig, 'rollupVersion'>;
 
-export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> = {
+export type OwnProverBrokerConfig = {
+  proverBrokerJobMaxRetries: number;
+  proverBrokerJobTimeoutMs: number;
+  proverBrokerPollIntervalMs: number;
+  proverBrokerBatchSize: number;
+  proverBrokerBatchIntervalMs: number;
+  proverBrokerMaxEpochsToKeepResultsFor: number;
+  proverBrokerStoreMapSizeKb?: number;
+  proverBrokerDebugReplayEnabled: boolean;
+};
+
+const ownProverBrokerConfigMappings: ConfigMappingsType<OwnProverBrokerConfig> = {
   proverBrokerJobTimeoutMs: {
     env: 'PROVER_BROKER_JOB_TIMEOUT_MS',
     description: 'Jobs are retried if not kept alive for this long',
@@ -83,10 +95,14 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'Enable debug replay mode for replaying proving jobs from stored inputs',
     ...booleanConfigHelper(false),
   },
-  ...dataConfigMappings,
-  ...l1ReaderConfigMappings,
-  ...pickConfigMappings(chainConfigMappings, ['rollupVersion']),
 };
+
+export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> = composeConfigMappings(
+  ownProverBrokerConfigMappings,
+  dataConfigMappings,
+  l1ReaderConfigMappings,
+  pickConfigMappings(chainConfigMappings, ['rollupVersion']),
+);
 
 export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);
 
@@ -117,16 +133,14 @@ export const ProverAgentConfig = z.object({
 
 export type ProverAgentConfig = z.infer<typeof ProverAgentConfig>;
 
-export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = {
-  ...pickConfigMappings(proverConfigMappings, [
-    'proverAgentCount',
-    'realProofs',
-    'proverTestDelayType',
-    'proverTestDelayMs',
-    'proverTestDelayFactor',
-    'cancelJobsOnStop',
-    'proofStore',
-  ]),
+export type OwnProverAgentConfig = {
+  proverAgentPollIntervalMs: number;
+  proverAgentProofTypes: ProvingRequestType[];
+  proverBrokerUrl?: string;
+  proverTestVerificationDelayMs?: number;
+};
+
+const ownProverAgentConfigMappings: ConfigMappingsType<OwnProverAgentConfig> = {
   proverAgentPollIntervalMs: {
     env: 'PROVER_AGENT_POLL_INTERVAL_MS',
     description: 'The interval agents poll for jobs at',
@@ -151,3 +165,8 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
     ...numberConfigHelper(10),
   },
 };
+
+export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = composeConfigMappings(
+  proverAgentSharedConfigMappings,
+  ownProverAgentConfigMappings,
+);
