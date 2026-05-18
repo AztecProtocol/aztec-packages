@@ -20,14 +20,12 @@ import {
 } from './config.js';
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
-  DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
-  type ReqRespSubProtocolValidators,
   type ShouldRejectPeer,
   UNAUTHENTICATED_ALLOWED_PROTOCOLS,
   subProtocolSizeCalculators,
@@ -59,7 +57,6 @@ export class ReqResp implements ReqRespInterface {
   private dialTimeoutMs: number = DEFAULT_REQRESP_DIAL_TIMEOUT_MS;
 
   private subProtocolHandlers: Partial<ReqRespSubProtocolHandlers> = {};
-  private subProtocolValidators: Partial<ReqRespSubProtocolValidators> = {};
 
   private connectionSampler: ConnectionSampler;
   private rateLimiter: RequestResponseRateLimiter;
@@ -122,9 +119,8 @@ export class ReqResp implements ReqRespInterface {
   /**
    * Start the reqresp service
    */
-  async start(subProtocolHandlers: ReqRespSubProtocolHandlers, subProtocolValidators: ReqRespSubProtocolValidators) {
+  async start(subProtocolHandlers: ReqRespSubProtocolHandlers) {
     Object.assign(this.subProtocolHandlers, subProtocolHandlers);
-    Object.assign(this.subProtocolValidators, subProtocolValidators);
 
     // Register streamHandler with libp2p.
     // The streamHandler is responsible for reading the incoming stream, determining the protocol, then triggering the appropriate handler.
@@ -141,13 +137,8 @@ export class ReqResp implements ReqRespInterface {
     this.rateLimiter.start();
   }
 
-  async addSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol] = DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol],
-  ): Promise<void> {
+  async addSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void> {
     this.subProtocolHandlers[subProtocol] = handler;
-    this.subProtocolValidators[subProtocol] = validator;
     this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
     await this.libp2p.handle(
       subProtocol,

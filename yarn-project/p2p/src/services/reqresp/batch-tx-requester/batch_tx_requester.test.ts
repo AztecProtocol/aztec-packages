@@ -61,6 +61,7 @@ describe('BatchTxRequester', () => {
       reqResp,
       peerScoring,
     });
+    mockP2PService.validateRequestedBlockTxsConsistency.mockResolvedValue(true);
     txValidator = new AlwaysValidTxValidator();
 
     const signer = Secp256k1Signer.random();
@@ -2017,6 +2018,82 @@ describe('BatchTxRequester', () => {
       // Non-zero archive root mismatch is malicious — peer must be penalised
       const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
       expect(peer0Penalties.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Response consistency validation', () => {
+    it('marks peer dumb (without penalising) when validateRequestedBlockTxsConsistency rejects the response', async () => {
+      const txCount = TX_BATCH_SIZE;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = await makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
+        archiveRoot: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, undefined, new DateProvider()),
+      );
+
+      // peer0's responses are rejected by consistency validation; peer1's responses pass.
+      const consistencyCallPeerIds: string[] = [];
+      mockP2PService.validateRequestedBlockTxsConsistency.mockImplementation((_req, _resp, peerId) => {
+        consistencyCallPeerIds.push(peerId.toString());
+        return Promise.resolve(peerId.toString() !== peers[0].toString());
+      });
+
+      // Both peers return well-formed responses with the requested txs;
+      // the consistency mock is what decides whether the response is accepted.
+      reqResp.sendRequestToPeer.mockImplementation((_peerId: any, _sub: any, data: any) => {
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+        const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
+
+        return Promise.resolve({
+          status: ReqRespStatus.SUCCESS,
+          data: new BlockTxsResponse(
+            blockProposal.archive,
+            new TxArray(...availableTxs),
+            BitVector.init(txCount, requestedIndices),
+          ).toBuffer(),
+        });
+      });
+
+      const requester = new BatchTxRequester(
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
+        blockProposal,
+        undefined,
+        mockP2PService,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+          txValidator,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // All txs eventually fetched (via peer1).
+      expect(results).toHaveLength(txCount);
+
+      // Consistency validation was invoked for peer0's response.
+      expect(consistencyCallPeerIds).toContain(peers[0].toString());
+
+      // peer0 marked dumb (INTERNAL_ERROR path in handleFailResponseFromPeer)…
+      expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
+
+      // …but NOT penalised — failed consistency yields INTERNAL_ERROR, not a penalty cause.
+      const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
+      expect(peer0Penalties).toHaveLength(0);
     });
   });
 });

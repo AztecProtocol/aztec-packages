@@ -29,7 +29,6 @@ import type {
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
   ReqRespSubProtocolHandlers,
-  ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
 import { ReqRespStatus } from '../services/reqresp/status.js';
 import { GossipSubEvent } from '../types/index.js';
@@ -104,19 +103,12 @@ class MockReqResp implements ReqRespInterface {
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
   setShouldRejectPeer(): void {}
 
-  start(
-    subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,
-    _subProtocolValidators: ReqRespSubProtocolValidators,
-  ): Promise<void> {
+  start(subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>): Promise<void> {
     Object.assign(this.handlers, subProtocolHandlers);
     return Promise.resolve();
   }
 
-  addSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
+  addSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void> {
     this.handlers[subProtocol] = handler;
     return Promise.resolve();
   }

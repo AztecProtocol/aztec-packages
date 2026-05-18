@@ -428,6 +428,15 @@ export class BatchTxRequester {
       }
 
       const blockResponse = BlockTxsResponse.fromBuffer(response.data);
+
+      // Validate response. Peers will be penalised by the validator if they send invalid response.
+      const isValid = await this.p2pService.validateRequestedBlockTxsConsistency(request, blockResponse, peerId);
+      if (!isValid) {
+        this.logger.debug(`Peer ${peerId.toString()} sent invalid response`);
+        this.handleFailResponseFromPeer(peerId, ReqRespStatus.INTERNAL_ERROR);
+        return;
+      }
+
       await this.handleSuccessResponseFromPeer(peerId, blockResponse);
     } catch (err: any) {
       this.logger.error(`Failed to get valid response from peer ${peerId.toString()}: ${err.message}`, {
@@ -445,6 +454,7 @@ export class BatchTxRequester {
    * Handles failed response form the peer
    * There are 3 scenarios
    * - RATE_LIMIT_EXCEEDED: We mark this and don't query this peer again for some_time
+   * - INTERNAL_ERROR: We use this to cover cases where the request-response consistency validation fails.
    * - FAILURE and UNKNOWN: We penalise this, if peer has been penalised this way N times they are not queried again
    *   this implies we will query these peers couple of more times and give them a chance to "redeem" themselves before completely ignoring them
    */
@@ -458,7 +468,8 @@ export class BatchTxRequester {
 
     // NOT_FOUND means the peer pruned its block proposal — it can no longer serve
     // index-based requests, but this is a legitimate state so we don't penalize.
-    if (responseStatus === ReqRespStatus.NOT_FOUND) {
+    // We use INTERNAL_ERROR to cover cases where the request-response consistency validation fails.
+    if (responseStatus === ReqRespStatus.NOT_FOUND || responseStatus === ReqRespStatus.INTERNAL_ERROR) {
       this.peers.markPeerDumb(peerId);
       this.txsMetadata.clearPeerData(peerId);
       return;
@@ -485,7 +496,7 @@ export class BatchTxRequester {
    * Handles received txs.
    * Transactions are validated and then put on async queue
    * to be yielded by main running loop
-   * */
+   */
   private async handleReceivedTxs(peerId: PeerId, txs: TxArray) {
     const newTxs = txs.filter(tx => !this.txsMetadata.alreadyFetched(tx.txHash));
 
@@ -493,7 +504,7 @@ export class BatchTxRequester {
       return;
     }
 
-    //TODO: this validation can be slow, maybe spawn worker just for validation
+    // TODO: this validation can be slow, maybe spawn worker just for validation
     // We could use the async queue for communication.
     const validationResults = await Promise.allSettled(
       newTxs.map(async tx => ({
