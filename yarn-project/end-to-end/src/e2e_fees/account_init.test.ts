@@ -17,7 +17,7 @@ import { GasSettings } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
 
-import { getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
@@ -27,7 +27,7 @@ describe('e2e_fees account_init', () => {
   const t = new FeesTest('account_init', 1);
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     await t.applyFundAliceWithBananas();
     await t.applyFPCSetup();
     ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = t);
