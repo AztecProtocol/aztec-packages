@@ -731,8 +731,8 @@ export const smvp_batch_affine_gpu = async (
     // bucket_active stays as init wrote it. The existing finalize stage
     // below consumes the populated running_x/y + bucket_active.
     const TREE_TPB = 128;
-    const TREE_MAX_SLICE_ENTRIES = 8192;
-    const TREE_MAX_PAIRS = 4096;
+    const TREE_MAX_SLICE_ENTRIES = 4096;
+    const TREE_MAX_PAIRS = 2048;
     const TREE_MAX_LAYERS = 25;
     const TREE_PRELUDE_WG_SIZE = 64;
     const TREE_SCAN_WG_SIZE = 256;
