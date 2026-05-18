@@ -45,6 +45,38 @@ export const PIPELINING_SETUP_OPTS = {
   walletMinFeePadding: PIPELINED_FEE_PADDING,
 } as const;
 
+/**
+ * Setup option preset that opts a test into the deterministic AutomineSequencer path.
+ * Use only for single-sequencer tests that don't exercise block-building or consensus
+ * (e.g. e2e_token, e2e_amm, e2e_authwit). Not compatible with `e2e_p2p/*`,
+ * `e2e_epochs/*`, `e2e_slashing/*`, `e2e_block_building`, or any multi-validator suite.
+ *
+ *     await setup(N, { ...AUTOMINE_E2E_OPTS, ...otherOpts });
+ *
+ * The preset:
+ * - Swaps the production Sequencer for an AutomineSequencer that builds one block per
+ *   submitted tx, publishes synchronously to L1, and owns all time control through a
+ *   serial queue (see `sequencer-client/src/sequencer/automine_sequencer.ts`).
+ * - Disables the validator client and AnvilTestWatcher (the AutomineSequencer needs
+ *   neither).
+ * - Disables proposer pipelining and uses `inboxLag: 1` (synchronous, non-pipelined).
+ * - Switches anvil into automine mode at setup time (no interval mining); each L1 tx
+ *   mines an L1 block immediately.
+ *
+ * Requires `aztecTargetCommitteeSize: 0`, which is the e2e default at `setup.ts:317`.
+ */
+export const AUTOMINE_E2E_OPTS = {
+  useAutomineSequencer: true,
+  disableValidator: true,
+  disableAnvilTestWatcher: true,
+  enableProposerPipelining: false,
+  inboxLag: 1,
+  minTxsPerBlock: 0,
+  aztecSlotDuration: 12,
+  ethereumSlotDuration: 4,
+  walletMinFeePadding: PIPELINED_FEE_PADDING,
+} as const;
+
 /** Returns worst-case predicted min fees with padding applied, mirroring the BaseWallet pattern. */
 export async function getPaddedMaxFeesPerGas(node: AztecNode, padding = DEFAULT_MIN_FEE_PADDING): Promise<GasFees> {
   const predicted = await node.getPredictedMinFees();

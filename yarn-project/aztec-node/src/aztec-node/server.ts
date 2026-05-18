@@ -972,6 +972,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.p2pClient;
   }
 
+  /** Exposes the world-state synchronizer. Used by test-only orchestration like AutomineSequencer. */
+  public getWorldStateSynchronizer(): WorldStateSynchronizer {
+    return this.worldStateSynchronizer;
+  }
+
+  /** Exposes the L1->L2 message source (the archiver). Used by test-only orchestration. */
+  public getL1ToL2MessageSource(): L1ToL2MessageSource {
+    return this.l1ToL2MessageSource;
+  }
+
+  /** Exposes the epoch cache. Used by test-only orchestration. */
+  public getEpochCache(): EpochCacheInterface {
+    return this.epochCache;
+  }
+
+  /** Exposes the global variables builder. Used by test-only orchestration. */
+  public getGlobalVariableBuilder(): GlobalVariableBuilderInterface {
+    return this.globalVariableBuilder;
+  }
+
   /**
    * Method to return the currently deployed L1 contract addresses.
    * @returns - The currently deployed L1 contract addresses.

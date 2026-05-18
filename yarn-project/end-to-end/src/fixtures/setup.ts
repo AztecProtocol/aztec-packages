@@ -213,6 +213,9 @@ export type SetupOptions = {
   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
   skipInitialSequencer?: boolean;
+  /** Whether to swap the production Sequencer for the minimal AutomineSequencer.
+   * Use only for single-sequencer non-block-building tests. See AUTOMINE_E2E_OPTS in `fixtures.ts`. */
+  useAutomineSequencer?: boolean;
   /** Options forwarded to PXE creation (e.g. execution hooks). */
   pxeCreationOptions?: PXECreationOptions;
 } & Partial<AztecNodeConfig>;
