@@ -77,11 +77,6 @@ const ownArchiverConfigMappings: ConfigMappingsType<ArchiverSpecificConfig> = {
       'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
     ...booleanConfigHelper(false),
   },
-  viemPollingIntervalMS: {
-    env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',
-    description: 'The polling interval viem uses in ms',
-    ...numberConfigHelper(1000),
-  },
 };
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = composeConfigMappings(
