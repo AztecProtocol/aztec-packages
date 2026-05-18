@@ -350,6 +350,14 @@ tests:
     owners:
       - *alex
 
+  # http://ci.aztec-labs.com/14142e6c59162a95
+  # Sequencer.stop awaits pending L1 publish (interrupted), then prover-node tries to use
+  # an already-stopped worldstate fork — native worldstate code segfaults the jest process.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_fees/fee_settings.test.ts"
+    error_regex: "Segmentation fault.*core dumped|code: 139"
+    owners:
+      - *alex
+
   - regex: "yarn-project/end-to-end/scripts/run_test.sh compose src/composed/docs_examples.test.ts"
     error_regex: "maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas,"
     owners:
