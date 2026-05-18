@@ -11,32 +11,77 @@
     "PRIVATE_LOG_SILOING": {}
   },
   "inner": [
-    { "name": "inner_sm", "dimensions": [4, 4, 4, 4, 4, 4, 0, 0, 0], "cost": 76212 },
-    { "name": "inner_lg", "dimensions": [32, 32, 32, 32, 16, 16, 0, 0, 0], "cost": 177389 },
-    { "name": "inner_nhpr_overflow", "dimensions": [64, 0, 0, 0, 0, 0, 0, 0, 0], "cost": 48176 },
-    { "name": "inner_nhsr_overflow", "dimensions": [0, 64, 0, 0, 0, 0, 0, 0, 0], "cost": 144574 },
-    { "name": "inner_nfpr_overflow", "dimensions": [0, 0, 64, 0, 0, 0, 0, 0, 0], "cost": 48176 },
-    { "name": "inner_nfsr_overflow", "dimensions": [0, 0, 0, 64, 0, 0, 0, 0, 0], "cost": 147763 },
-    { "name": "inner_key_overflow", "dimensions": [0, 0, 0, 0, 64, 0, 0, 0, 0], "cost": 86307 },
-    { "name": "inner_squash_overflow", "dimensions": [0, 0, 0, 0, 0, 64, 0, 0, 0], "cost": 66609 }
+    {
+      "name": "inner_sm",
+      "dimensions": [4, 4, 4, 4, 4, 4, 0, 0, 0],
+      "cost": 76212
+    },
+    {
+      "name": "inner_lg",
+      "dimensions": [32, 32, 32, 32, 16, 16, 0, 0, 0],
+      "cost": 177389
+    },
+    {
+      "name": "inner_nhpr_overflow",
+      "dimensions": [64, 0, 0, 0, 0, 0, 0, 0, 0],
+      "cost": 48176
+    },
+    {
+      "name": "inner_nhsr_overflow",
+      "dimensions": [0, 64, 0, 0, 0, 0, 0, 0, 0],
+      "cost": 144574
+    },
+    {
+      "name": "inner_nfpr_overflow",
+      "dimensions": [0, 0, 64, 0, 0, 0, 0, 0, 0],
+      "cost": 48176
+    },
+    {
+      "name": "inner_nfsr_overflow",
+      "dimensions": [0, 0, 0, 64, 0, 0, 0, 0, 0],
+      "cost": 147763
+    },
+    {
+      "name": "inner_key_overflow",
+      "dimensions": [0, 0, 0, 0, 64, 0, 0, 0, 0],
+      "cost": 86307
+    },
+    {
+      "name": "inner_squash_overflow",
+      "dimensions": [0, 0, 0, 0, 0, 64, 0, 0, 0],
+      "cost": 66609
+    }
   ],
   "final": [
-    { "name": "xs_bare", "dimensions": [0, 1, 0, 1, 0, 0, 0, 2, 1], "cost": 50654 },
-    { "name": "xs_pending_nh", "dimensions": [1, 0, 0, 0, 1, 0, 1, 4, 1], "cost": 49061 },
-    { "name": "xs_pending_nf", "dimensions": [0, 1, 1, 0, 0, 0, 0, 4, 1], "cost": 49336 },
-    { "name": "xs_pay", "dimensions": [0, 2, 0, 1, 1, 0, 2, 4, 4], "cost": 54134 },
-    { "name": "s_bare", "dimensions": [0, 1, 0, 4, 0, 0, 0, 4, 4], "cost": 56092 },
-    { "name": "s_pay_lite", "dimensions": [0, 4, 0, 4, 1, 0, 1, 4, 2], "cost": 61654 },
-    { "name": "s_pending_nh", "dimensions": [1, 0, 0, 1, 1, 0, 1, 4, 2], "cost": 50719 },
-    { "name": "s_pay", "dimensions": [0, 4, 0, 8, 2, 0, 2, 8, 4], "cost": 69462 },
-    { "name": "m_bridge", "dimensions": [0, 1, 0, 8, 0, 0, 0, 8, 8], "cost": 63433 },
-    { "name": "md_pay", "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8], "cost": 78438 },
-    { "name": "lg_universal", "dimensions": [2, 16, 0, 16, 4, 0, 4, 16, 8], "cost": 103953 },
-    { "name": "mid_siloed", "dimensions": [4, 8, 4, 8, 4, 0, 4, 8, 4], "cost": 77726 },
-    { "name": "all_4", "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4], "cost": 79945 },
-    { "name": "all_8", "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8], "cost": 97521 },
-    { "name": "all_16", "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16], "cost": 132668 },
-    { "name": "all_32", "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32], "cost": 202965 },
-    { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 343749 }
+    {
+      "name": "md_pay",
+      "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8],
+      "cost": 78438
+    },
+    {
+      "name": "all_4",
+      "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4],
+      "cost": 79945
+    },
+    {
+      "name": "all_8",
+      "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8],
+      "cost": 97521
+    },
+    {
+      "name": "all_16",
+      "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16],
+      "cost": 132668
+    },
+    {
+      "name": "all_32",
+      "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32],
+      "cost": 202965
+    },
+    {
+      "name": "all_64",
+      "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64],
+      "cost": 343749
+    }
   ]
 }
