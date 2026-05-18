@@ -153,7 +153,7 @@ export class AutomineSequencer {
       return Promise.resolve(undefined);
     }
     this.buildQueued = true;
-    return this.queue.put(async () => {
+    return this.queue.put(() => {
       this.buildQueued = false;
       return this.runBuild({ allowEmpty: false });
     });
