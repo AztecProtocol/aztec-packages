@@ -1,6 +1,6 @@
 #include "avm2_recursion_constraint.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include <stdexcept>
+#include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
 
 namespace acir_format {
 
