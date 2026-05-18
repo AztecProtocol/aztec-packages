@@ -6,7 +6,7 @@
  * This file contains command structures for Schnorr signature operations
  * on the Grumpkin curve.
  */
-#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_request.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"

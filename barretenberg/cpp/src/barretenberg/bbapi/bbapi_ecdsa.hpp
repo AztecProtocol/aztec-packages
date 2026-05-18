@@ -6,7 +6,7 @@
  * This file contains command structures for ECDSA signature operations
  * on Secp256k1 and Secp256r1 curves.
  */
-#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_request.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"

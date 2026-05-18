@@ -6,7 +6,7 @@
  * This file contains command structures for elliptic curve operations including
  * Grumpkin, Secp256k1, and BN254 field operations.
  */
-#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_request.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"

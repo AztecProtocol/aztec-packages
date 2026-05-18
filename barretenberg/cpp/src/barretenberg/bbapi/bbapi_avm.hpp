@@ -7,7 +7,7 @@
  * verification, and circuit checking. When built with bb (non-AVM), these
  * commands return an error response. When built with bb-avm, they work normally.
  */
-#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_request.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"

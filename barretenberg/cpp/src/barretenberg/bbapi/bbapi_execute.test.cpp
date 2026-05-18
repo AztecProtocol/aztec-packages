@@ -5,16 +5,6 @@
 
 namespace bb::bbapi {
 
-namespace {
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-BBApiRequest global_request;
-} // namespace
-
-BBApiRequest& get_global_request()
-{
-    return global_request;
-}
-
 CommandResponse execute(BBApiRequest& request, Command&& command)
 {
     // Reset error state before execution

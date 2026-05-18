@@ -5,7 +5,7 @@
  *
  * This file contains command structures for initializing BN254 and Grumpkin SRS.
  */
-#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_request.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>

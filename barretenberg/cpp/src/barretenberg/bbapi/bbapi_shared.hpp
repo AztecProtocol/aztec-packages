@@ -7,6 +7,7 @@
  * including circuit input types and proof system settings.
  */
 
+#include "barretenberg/bbapi/bbapi_request.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
@@ -19,19 +20,10 @@
 #include "barretenberg/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/flavor/ultra_starknet_zk_flavor.hpp"
 #endif
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
-
-namespace acir_format {
-struct AcirFormat;
-}
-
-namespace bb {
-class IVCBase;
-}
 
 namespace bb::bbapi {
 
@@ -49,17 +41,6 @@ template <typename VK> inline void validate_vk_size(const std::vector<uint8_t>& 
                        std::to_string(vk_bytes.size()));
     }
 }
-
-/**
- * @enum VkPolicy
- * @brief Policy for handling verification keys during IVC accumulation
- */
-enum class VkPolicy {
-    DEFAULT,   // Use the provided VK as-is (default behavior)
-    CHECK,     // Verify the provided VK matches the computed VK, throw error if mismatch
-    RECOMPUTE, // Always ignore the provided VK and treat it as nullptr
-    REWRITE    // Check the VK and rewrite the input file with correct VK if mismatch (for check command)
-};
 
 /**
  * @struct CircuitInputNoVK
@@ -178,33 +159,6 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
     return VkPolicy::DEFAULT; // default
 }
 
-#ifndef __wasm__
-// Forward declaration — defined in bbapi_chonk.hpp
-class ChonkBatchVerifierService;
-#endif
-
-struct BBApiRequest {
-    // Current depth of the IVC stack for this request
-    uint32_t ivc_stack_depth = 0;
-    std::shared_ptr<IVCBase> ivc_in_progress;
-    // Name of the last loaded circuit
-    std::string loaded_circuit_name;
-    // Store the parsed constraint system to get ahead of parsing before accumulate
-    std::shared_ptr<acir_format::AcirFormat> loaded_circuit_constraints;
-    // Store the verification key passed with the circuit
-    std::vector<uint8_t> loaded_circuit_vk;
-    // Policy for handling verification keys during accumulation
-    VkPolicy vk_policy = VkPolicy::DEFAULT;
-    // Error message - empty string means no error
-    std::string error_message;
-#ifndef __wasm__
-    // Batch verifier service instance (persists across RPC calls)
-    std::shared_ptr<ChonkBatchVerifierService> batch_verifier_service;
-#endif
-};
-
-BBApiRequest& get_global_request();
-
 /**
  * @brief Error response returned when a command fails
  */
@@ -214,15 +168,6 @@ struct ErrorResponse {
     SERIALIZATION_FIELDS(message);
     bool operator==(const ErrorResponse&) const = default;
 };
-
-/**
- * @brief Macro to set error in BBApiRequest and return default response
- */
-#define BBAPI_ERROR(request, msg)                                                                                      \
-    do {                                                                                                               \
-        (request).error_message = (msg);                                                                               \
-        return {};                                                                                                     \
-    } while (0)
 
 struct Shutdown {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "Shutdown";

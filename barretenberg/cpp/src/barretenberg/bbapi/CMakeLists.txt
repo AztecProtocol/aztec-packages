@@ -3,7 +3,6 @@ barretenberg_module(bbapi common chonk dsl crypto_poseidon2 crypto_pedersen_comm
 target_precompile_headers(
     bbapi_objects
     PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:"barretenberg/bbapi/bbapi_execute.hpp">
     $<$<COMPILE_LANGUAGE:CXX>:"barretenberg/serialize/msgpack_impl.hpp">
 )
 
