@@ -146,11 +146,7 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
     size_t size() const override { return data.size(); }
     bool empty() const override { return data.empty(); }
 
-    void free_memory() override
-    {
-        data.clear();
-        data.shrink_to_fit();
-    }
+    void free_memory() override { std::vector<FF>{}.swap(data); }
 
   private:
     std::vector<FF> data;
@@ -319,8 +315,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         cached_size_ = std::get<0>(wires).size();
         data_freed_ = true;
         for (auto& wire : wires) {
-            wire.clear();
-            wire.shrink_to_fit();
+            WireType{}.swap(wire);
         }
         for (auto& sel : non_gate_selectors) {
             sel.free_memory();

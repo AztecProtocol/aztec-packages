@@ -239,45 +239,25 @@ struct LookupHashTable {
     using Key = std::array<FF, 3>; // an entry in a lookup table
     using Value = size_t;          // the index of an entry in a lookup table
 
-    // Define a simple hash on three field elements
-    struct HashFunction {
-        FF mult_const;
-        FF const_sqr;
+  private:
+    struct State;
+    State* state;
 
-        HashFunction()
-            : mult_const(FF(uint256_t(0x1337, 0x1336, 0x1335, 0x1334)))
-            , const_sqr(mult_const.sqr())
-        {}
-
-        size_t operator()(const Key& entry) const
-        {
-            FF result = entry[0] + mult_const * entry[1] + const_sqr * entry[2];
-            return static_cast<size_t>(result.reduce_once().data[0]);
-        }
-    };
-
-    std::unordered_map<Key, Value, HashFunction> index_map;
-
-    LookupHashTable() = default;
+  public:
+    LookupHashTable();
+    ~LookupHashTable();
+    LookupHashTable(const LookupHashTable& other);
+    LookupHashTable(LookupHashTable&& other) noexcept;
+    LookupHashTable& operator=(const LookupHashTable& other);
+    LookupHashTable& operator=(LookupHashTable&& other) noexcept;
 
     // Initialize the entry-index map with the columns of a table
-    void initialize(std::vector<FF>& column_1, std::vector<FF>& column_2, std::vector<FF>& column_3)
-    {
-        BB_ASSERT_DEBUG(column_1.size() == column_2.size() && column_2.size() == column_3.size());
-        for (size_t i = 0; i < column_1.size(); ++i) {
-            index_map[{ column_1[i], column_2[i], column_3[i] }] = i;
-        }
-    }
+    void initialize(std::vector<FF>& column_1, std::vector<FF>& column_2, std::vector<FF>& column_3);
 
     // Given an entry in the table, return its index in the table
-    Value operator[](const Key& key) const
-    {
-        auto it = index_map.find(key);
-        BB_ASSERT_DEBUG(it != index_map.end(), "LookupHashTable: Key not found!");
-        return it->second;
-    }
+    Value operator[](const Key& key) const;
 
-    bool operator==(const LookupHashTable& other) const = default;
+    bool operator==(const LookupHashTable& other) const;
 };
 
 /**

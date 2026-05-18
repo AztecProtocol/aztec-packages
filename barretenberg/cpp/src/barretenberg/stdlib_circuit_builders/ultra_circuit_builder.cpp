@@ -13,6 +13,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "circuit_schema_internal.hpp"
 #include "rom_ram_logic.hpp"
 
 #include "barretenberg/crypto/sha256/sha256.hpp"
