@@ -16,6 +16,7 @@ import {
   GpuContext,
   precompute_bn254_bases,
   type CachedBases,
+  type ProfileCapture,
 } from '../../src/msm_webgpu/index.js';
 import { loadSrsPoints } from './srs.js';
 import { makeResultsClient } from './results_post.js';
@@ -61,7 +62,9 @@ async function runOnce(
   bases: CachedBases,
   scalars: Buffer,
   variant: VariantName,
-): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
+  captureProfile: boolean,
+): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture | null }> {
+  const capture: ProfileCapture | null = captureProfile ? { profile: null } : null;
   const t0 = performance.now();
   const xy = await compute_bn254_msm_batch_affine(
     ctx,
@@ -69,12 +72,12 @@ async function runOnce(
     scalars,
     false,
     {},
-    undefined,
+    capture ?? undefined,
     'legacy',
     variant === 'tree',
   );
   const ms = performance.now() - t0;
-  return { ms, xy };
+  return { ms, xy, capture };
 }
 
 async function main(): Promise<void> {
@@ -125,14 +128,20 @@ async function main(): Promise<void> {
 
     const rows: RunRow[] = [];
 
+    const profileCaptures: Record<string, ProfileCapture> = {};
+
     for (const variant of variants) {
       log('info', `[${variant}] pre-warm (untimed) — compiles pipelines on first dispatch`);
-      const warm = await runOnce(ctx, bases, scalarBytes as unknown as Buffer, variant);
+      const warm = await runOnce(ctx, bases, scalarBytes as unknown as Buffer, variant, false);
       log('info', `[${variant}] pre-warm done in ${warm.ms.toFixed(0)} ms, gpu.x=${warm.xy.x.toString(16).slice(0, 16)}…`);
       client.postProgress({ kind: 'warm', variant, ms: warm.ms });
 
       for (let r = 0; r < runs; r++) {
-        const out = await runOnce(ctx, bases, scalarBytes as unknown as Buffer, variant);
+        // Capture per-stage GPU profile on the last run of each variant.
+        const captureProfile = r === runs - 1;
+        // Clear any stale tree-phase dump from a prior variant.
+        (globalThis as unknown as { __last_tree_phase_timings_ms?: unknown }).__last_tree_phase_timings_ms = undefined;
+        const out = await runOnce(ctx, bases, scalarBytes as unknown as Buffer, variant, captureProfile);
         const row: RunRow = {
           variant,
           run_idx: r,
@@ -143,6 +152,47 @@ async function main(): Promise<void> {
         rows.push(row);
         log('ok', `[${variant}] run ${r + 1}/${runs}: ${out.ms.toFixed(1)} ms gpu.x=${row.gpu_x.slice(0, 16)}…`);
         client.postProgress({ kind: 'run', variant, run_idx: r, ms: out.ms });
+        if (out.capture) {
+          profileCaptures[variant] = out.capture;
+          // Attach the tree-phase wall-clock dump (if the last call was
+          // tree-reduce) onto the same capture object so the JSONL POST
+          // carries it.
+          const treePhases = (globalThis as unknown as { __last_tree_phase_timings_ms?: { phase: string; ms: number }[] }).__last_tree_phase_timings_ms;
+          if (treePhases) (out.capture as unknown as { treePhases?: { phase: string; ms: number }[] }).treePhases = treePhases;
+        }
+      }
+    }
+
+    // Aggregate profile per variant: group stages by family (prefix
+    // before "[" or first colon) and report total ms per family.
+    function familyOf(label: string): string {
+      const i1 = label.indexOf('[');
+      if (i1 >= 0) return label.slice(0, i1);
+      const i2 = label.indexOf(':');
+      if (i2 >= 0) return label.slice(0, i2);
+      return label;
+    }
+    const profileSummary: Record<string, Record<string, { count: number; ms: number }>> = {};
+    for (const [variant, cap] of Object.entries(profileCaptures)) {
+      const fams: Record<string, { count: number; ms: number }> = {};
+      if (cap.profile) {
+        for (const row of cap.profile) {
+          const fam = familyOf(row.label);
+          if (!fams[fam]) fams[fam] = { count: 0, ms: 0 };
+          fams[fam].count++;
+          fams[fam].ms += row.ms;
+        }
+      }
+      if (cap.gpu_readback) {
+        fams['__gpu_compute_wall'] = { count: 1, ms: cap.gpu_readback.gpu_compute_wall };
+        fams['__profiled_passes_sum'] = { count: 1, ms: cap.gpu_readback.profiled_passes_sum };
+        fams['__untimestamped'] = { count: 1, ms: cap.gpu_readback.untimestamped };
+      }
+      profileSummary[variant] = fams;
+      log('info', `[${variant}] profile families:`);
+      const sorted = Object.entries(fams).sort((a, b) => b[1].ms - a[1].ms);
+      for (const [fam, v] of sorted) {
+        log('info', `  ${fam.padEnd(36)} ${v.ms.toFixed(2).padStart(8)} ms  (${v.count} stages)`);
       }
     }
 
@@ -175,7 +225,7 @@ async function main(): Promise<void> {
     await client.postResults({
       state: 'done',
       params: { logN, runs, variants, page: 'bench-msm-variant' },
-      results: { rows, summary, stockTreeAgree },
+      results: { rows, summary, stockTreeAgree, profileSummary, profileCaptures },
       log: [],
       userAgent: navigator.userAgent,
       hardwareConcurrency: navigator.hardwareConcurrency,

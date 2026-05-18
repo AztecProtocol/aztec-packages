@@ -723,6 +723,14 @@ export const smvp_batch_affine_gpu = async (
       totalEntries,
       { tpb: TREE_TPB, maxSliceEntries: TREE_MAX_SLICE_ENTRIES },
     );
+    // Expose runTreeReduce's per-phase wall-clock timings to the dev
+    // page so bench-msm-variant can report them in the profile dump.
+    // runTreeReduce uses its own command encoders + per-layer awaits,
+    // so the main Profiler's QuerySet doesn't capture its inner work —
+    // these wall-clock numbers are the only visibility we have until
+    // the encoder chain is unified.
+    (globalThis as unknown as { __last_tree_phase_timings_ms?: { phase: string; ms: number }[] })
+      .__last_tree_phase_timings_ms = treeRes.phaseTimingsMs;
 
     const scatterParamsBuf = device.createBuffer({
       size: 16,
