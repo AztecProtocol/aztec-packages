@@ -1,14 +1,23 @@
 #include "mock_verifier_inputs.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/constants.hpp"
+#include "barretenberg/dsl/acir_format/mock_avm_proof_constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "barretenberg/vm2/constraining/flavor.hpp"
 
 namespace acir_format {
 
 using namespace bb;
+
+template <typename Flavor> constexpr bool is_avm_flavor()
+{
+    if constexpr (requires { Flavor::IS_AVM; }) {
+        return Flavor::IS_AVM;
+    }
+    return false;
+}
 
 template <class Curve>
 void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const size_t& num_commitments)
@@ -143,7 +152,7 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     HonkProof proof;
 
     constexpr size_t const_proof_log_n = []() {
-        if constexpr (std::is_same_v<Flavor, bb::avm2::AvmFlavor>) {
+        if constexpr (is_avm_flavor<Flavor>()) {
             return MEGA_AVM_LOG_N;
         } else {
             return Flavor::VIRTUAL_LOG_N;
@@ -217,23 +226,19 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
 HonkProof create_mock_avm_proof_without_pub_inputs(const bool add_padding)
 {
     size_t proof_length =
-        add_padding ? AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED : bb::avm2::AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS;
-    // Construct an AVM proof as the padded concatenation of an Oink proof and a Decider proof
-    HonkProof oink_proof =
-        create_mock_oink_proof<bb::avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-            /*acir_public_inputs_size=*/0);
-    HonkProof decider_proof = create_mock_decider_proof<avm2::AvmFlavor>();
+        add_padding ? AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED : mock_avm_proof::COMPUTED_PROOF_LENGTH_IN_FIELDS;
 
     HonkProof proof;
     proof.reserve(proof_length);
-    proof.insert(proof.end(),
-                 oink_proof.begin() +
-                     bb::DefaultIO::PUBLIC_INPUTS_SIZE, // Skip the Oink public inputs as they are not needed
-                 oink_proof.end());
-    proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
+    populate_field_elements_for_mock_commitments<curve::BN254>(proof, mock_avm_proof::NUM_WITNESS_ENTITIES);
+    populate_field_elements<fr>(proof, mock_avm_proof::PROOF_LOG_N * mock_avm_proof::BATCHED_RELATION_PARTIAL_LENGTH);
+    populate_field_elements<fr>(proof, mock_avm_proof::NUM_ALL_ENTITIES);
+    populate_field_elements_for_mock_commitments<curve::BN254>(proof, mock_avm_proof::PROOF_LOG_N - 1);
+    populate_field_elements<fr>(proof, mock_avm_proof::PROOF_LOG_N);
+    populate_field_elements_for_mock_commitments<curve::BN254>(proof, 2);
 
-    BB_ASSERT_LTE(proof.size(), proof_length); // Sanity check
-    proof.resize(proof_length, 0);             // Pad the proof to the required length (if needed)
+    BB_ASSERT_LTE(proof.size(), proof_length);
+    proof.resize(proof_length, 0);
 
     return proof;
 }
@@ -619,16 +624,12 @@ template HonkProof create_mock_oink_proof<UltraZKFlavor, stdlib::recursion::honk
     const size_t);
 template HonkProof create_mock_oink_proof<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
-template HonkProof create_mock_oink_proof<avm2::AvmFlavor, stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
-    const size_t);
-
 template HonkProof create_mock_pcs_proof<MegaFlavor>();
 template HonkProof create_mock_pcs_proof<TranslatorFlavor>();
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
 template HonkProof create_mock_decider_proof<UltraFlavor>();
 template HonkProof create_mock_decider_proof<UltraZKFlavor>();
-template HonkProof create_mock_decider_proof<avm2::AvmFlavor>();
 
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(const size_t);
 template HonkProof create_mock_honk_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(const size_t);

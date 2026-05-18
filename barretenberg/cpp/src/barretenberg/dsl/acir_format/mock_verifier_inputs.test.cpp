@@ -1,7 +1,9 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/dsl/acir_format/mock_avm_proof_constants.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 
 #include <gtest/gtest.h>
 
@@ -50,6 +52,19 @@ static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 143,
               "MegaZK VK size changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 136,
               "MultilinearBatching proof size changed - update constants.nr");
+
+static_assert(mock_avm_proof::PROOF_LOG_N == MEGA_AVM_LOG_N, "mock AVM proof log size changed");
+static_assert(mock_avm_proof::NUM_WITNESS_ENTITIES == avm2::AvmFlavor::NUM_WITNESS_ENTITIES,
+              "mock AVM witness entity count changed");
+static_assert(mock_avm_proof::NUM_ALL_ENTITIES == avm2::AvmFlavor::NUM_ALL_ENTITIES, "mock AVM entity count changed");
+static_assert(mock_avm_proof::BATCHED_RELATION_PARTIAL_LENGTH == avm2::AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH,
+              "mock AVM relation length changed");
+static_assert(mock_avm_proof::NUM_FRS_COMMITMENT == avm2::AvmFlavor::NUM_FRS_COM,
+              "mock AVM commitment serialization length changed");
+static_assert(mock_avm_proof::NUM_FRS_SCALAR == avm2::AvmFlavor::NUM_FRS_FR,
+              "mock AVM scalar serialization length changed");
+static_assert(mock_avm_proof::COMPUTED_PROOF_LENGTH_IN_FIELDS == avm2::AvmFlavor::COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+              "mock AVM proof length changed");
 
 /**
  * @brief Check that mock merge proof has the expected size
