@@ -96,10 +96,6 @@ export type CheckpointProposalValidationFailureReason =
   | 'out_hash_mismatch'
   | 'checkpoint_validation_failed';
 
-export type CheckpointProposalValidationResult =
-  | { isValid: true; checkpointNumber: CheckpointNumber }
-  | { isValid: false; reason: CheckpointProposalValidationFailureReason; checkpointNumber?: CheckpointNumber };
-
 /**
  * Mapping from a checkpoint-proposal validation failure reason to the tracker outcome that
  * `handleCheckpointProposal` should record. `undefined` means do not record (signature
@@ -124,6 +120,27 @@ const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
   checkpoint_validation_failed: 'invalid',
 };
 
+export type CheckpointProposalValidationSuccessResult = {
+  isValid: true;
+  checkpointNumber: CheckpointNumber;
+};
+
+export type CheckpointProposalValidationFailureResult = {
+  isValid: false;
+  reason: CheckpointProposalValidationFailureReason;
+  checkpointNumber?: CheckpointNumber;
+};
+
+export type CheckpointProposalValidationResult =
+  | CheckpointProposalValidationSuccessResult
+  | CheckpointProposalValidationFailureResult;
+
+export type CheckpointProposalValidationFailureCallback = (
+  proposal: CheckpointProposalCore,
+  result: CheckpointProposalValidationFailureResult,
+  proposalInfo: LogData,
+) => void | Promise<void>;
+
 type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
   | { checkpointNumber?: undefined; reason: 'invalid_proposal' | 'global_variables_mismatch' };
@@ -146,6 +163,8 @@ export class ProposalHandler {
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
 
+  private checkpointProposalValidationFailureCallback?: CheckpointProposalValidationFailureCallback;
+
   constructor(
     private checkpointsBuilder: FullNodeCheckpointsBuilder,
     private worldState: WorldStateSynchronizer,
@@ -166,6 +185,14 @@ export class ProposalHandler {
       this.log = this.log.createChild('[FISHERMAN]');
     }
     this.tracer = telemetry.getTracer('ProposalHandler');
+  }
+
+  public updateConfig(config: Partial<ValidatorClientFullConfig>): void {
+    this.config = { ...this.config, ...config };
+  }
+
+  public setCheckpointProposalValidationFailureCallback(callback?: CheckpointProposalValidationFailureCallback): void {
+    this.checkpointProposalValidationFailureCallback = callback;
   }
 
   /**
@@ -245,6 +272,19 @@ export class ProposalHandler {
           proposer: proposal.getSender()?.toString(),
         };
 
+        if (this.config.skipCheckpointProposalValidation) {
+          this.log.warn(`Skipping checkpoint proposal validation for slot ${proposal.slotNumber}`, proposalInfo);
+          return undefined;
+        }
+
+        if (await this.epochCache.isEscapeHatchOpenAtSlot(proposal.slotNumber)) {
+          this.log.warn(
+            `Escape hatch open for slot ${proposal.slotNumber}, skipping checkpoint proposal validation`,
+            proposalInfo,
+          );
+          return undefined;
+        }
+
         // For own proposals, skip validation — the proposer already built and validated the checkpoint
         const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
@@ -267,7 +307,9 @@ export class ProposalHandler {
         }
 
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
-        if (result.isValid && this.archiver && this.epochCache.isProposerPipeliningEnabled()) {
+        if (!result.isValid) {
+          await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
+        } else if (this.archiver && this.epochCache.isProposerPipeliningEnabled()) {
           const set = await this.setProposedCheckpointFromValidation(proposal);
           if (set) {
             this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
@@ -826,7 +868,7 @@ export class ProposalHandler {
     let result: CheckpointProposalValidationResult;
     if (!proposer) {
       this.log.warn(`Received checkpoint proposal with invalid signature for slot ${proposal.slotNumber}`);
-      result = { isValid: false, reason: 'invalid_signature' };
+      result = { isValid: false as const, reason: 'invalid_signature' };
     } else if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
       this.log.warn(
         `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposal.slotNumber}`,
