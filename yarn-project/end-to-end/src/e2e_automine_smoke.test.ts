@@ -1,3 +1,4 @@
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
@@ -15,6 +16,7 @@ describe('e2e_automine_smoke', () => {
 
   let teardown: () => Promise<void>;
   let aztecNode: AztecNode & AztecNodeDebug;
+  let aztecNodeService: AztecNodeService;
   let wallet: Wallet;
   let owner: AztecAddress;
   let cheatCodes: CheatCodes;
@@ -24,6 +26,7 @@ describe('e2e_automine_smoke', () => {
     ({
       teardown,
       aztecNode,
+      aztecNodeService,
       wallet,
       accounts: [owner],
       cheatCodes,
@@ -88,5 +91,28 @@ describe('e2e_automine_smoke', () => {
     await aztecNode.mineBlock();
     const after = await aztecNode.getBlockNumber();
     expect(after).toBeGreaterThan(before);
+  });
+
+  it('revertToCheckpoint rolls back L1+L2 state', async () => {
+    // Land a tx and record the checkpoint it landed at.
+    await contract.methods.emit_nullifier_public(BigInt(5000)).send({ from: owner });
+    const checkpointBefore = (await aztecNode.getChainTips()).checkpointed.checkpoint.number;
+
+    // Land another tx so we advance to a later checkpoint.
+    await contract.methods.emit_nullifier_public(BigInt(5001)).send({ from: owner });
+    const checkpointAfter = (await aztecNode.getChainTips()).checkpointed.checkpoint.number;
+    expect(checkpointAfter).toBeGreaterThan(checkpointBefore);
+
+    // Revert to the first checkpoint.
+    const automine = aztecNodeService.getAutomineSequencer()!;
+    await automine.revertToCheckpoint(checkpointBefore);
+
+    // Archiver tip should be back at checkpointBefore.
+    const checkpointReverted = (await aztecNode.getChainTips()).checkpointed.checkpoint.number;
+    expect(checkpointReverted).toBe(checkpointBefore);
+
+    // After reverting, a new tx should land cleanly.
+    const { receipt: r3 } = await contract.methods.emit_nullifier_public(BigInt(5002)).send({ from: owner });
+    expect(r3.blockNumber).toBeGreaterThan(0);
   });
 });

@@ -53,6 +53,16 @@ export type AutomineSequencerDeps = {
   feeRecipient: AztecAddress;
   signatureContext: CoordinationSignatureContext;
   config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
+  /**
+   * Rolls the archiver's internal state back to the given L2 block number.
+   * Required for `revertToCheckpoint` to work correctly after an L1 reorg.
+   */
+  archiverRollback: (targetL2BlockNumber: BlockNumber) => Promise<void>;
+  /**
+   * Resets the cached nonce on all L1 tx publishers so they re-fetch the real chain nonce
+   * after an L1 reorg. Without this, publishers use a stale nonce from before the reorg.
+   */
+  resetPublisherNonces: () => void;
   /** How often to poll the mempool for new txs while running. Defaults to 50ms. */
   pollIntervalMs?: number;
   log?: Logger;
@@ -185,6 +195,17 @@ export class AutomineSequencer {
       const current = await this.deps.ethCheatCodes.lastBlockTimestamp();
       await this.runWarp(current + deltaSec);
     });
+  }
+
+  /**
+   * Reorgs L1 so that every L1 block strictly after the one that published
+   * `targetCheckpoint` is removed. The archiver, world-state, and date provider
+   * are all brought back in sync before the promise resolves.
+   *
+   * Runs inside the serial queue so it never interleaves with a build or warp.
+   */
+  public revertToCheckpoint(targetCheckpoint: number): Promise<void> {
+    return this.queue.put(() => this.runRevert(targetCheckpoint));
   }
 
   /** Awaits the queue draining to a fully idle state. */
@@ -370,5 +391,62 @@ export class AutomineSequencer {
     this.lastBuiltSlot = targetSlot;
 
     this.log.verbose(`Warped L1 to slot boundary`, { slot: targetSlot + 1, timestamp: slotBoundaryTs });
+  }
+
+  /**
+   * Rolls L1 back to the block that published `targetCheckpoint`, drops the archiver's
+   * in-memory state to match, and resets internal slot bookkeeping.
+   */
+  private async runRevert(targetCheckpoint: number): Promise<void> {
+    const checkpointData = await this.deps.l2BlockSource.getCheckpointData({
+      number: CheckpointNumber(targetCheckpoint),
+    });
+    if (!checkpointData) {
+      throw new Error(`AutomineSequencer: checkpoint ${targetCheckpoint} not found in archiver`);
+    }
+
+    const targetL1Block = Number(checkpointData.l1.blockNumber);
+    this.log.verbose(`Reverting to checkpoint ${targetCheckpoint}`, {
+      targetCheckpoint,
+      targetL1Block,
+      checkpointSlot: checkpointData.header.slotNumber,
+    });
+
+    // Roll the archiver back to the last block of targetCheckpoint before the L1 reorg,
+    // since the archiver needs to fetch the target checkpoint's L1 block hash during rollback.
+    const lastBlockInCheckpoint = BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
+    await this.deps.archiverRollback(lastBlockInCheckpoint);
+
+    // Force world-state to process the archiver's prune event immediately, so the next build
+    // doesn't try to insert nullifiers that were already in the pruned checkpoints.
+    await this.deps.worldState.syncImmediate();
+
+    // Remove all L1 blocks strictly after the target checkpoint's publish block so that
+    // the propose txs for later checkpoints are gone from L1. We use reorg(depth) directly
+    // to keep targetL1Block itself as the new chain tip.
+    const currentL1Block = await this.deps.ethCheatCodes.publicClient.getBlockNumber();
+    const depth = Number(currentL1Block) - targetL1Block;
+    if (depth > 0) {
+      await this.deps.ethCheatCodes.reorg(depth);
+    }
+
+    // anvil_rollback re-queues the rolled-back txs into the mempool. Clear them so they
+    // don't get re-mined, then reset the publisher nonce tracker so the next propose tx
+    // uses the correct nonce for the post-reorg chain state.
+    await this.deps.ethCheatCodes.rpcCall('anvil_dropAllTransactions', []);
+    this.deps.resetPublisherNonces();
+
+    // Reset slot bookkeeping so the next build picks up at the correct slot.
+    this.lastBuiltSlot = Number(checkpointData.header.slotNumber);
+
+    // Sync the date provider to the L1 timestamp now at the chain tip.
+    const newL1Ts = await this.deps.ethCheatCodes.lastBlockTimestamp();
+    this.deps.dateProvider.setTime(newL1Ts * 1000);
+
+    this.log.verbose(`Reverted to checkpoint ${targetCheckpoint}`, {
+      targetCheckpoint,
+      targetL1Block,
+      l1Timestamp: newL1Ts,
+    });
   }
 }

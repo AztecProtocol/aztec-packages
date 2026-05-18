@@ -5,6 +5,7 @@ import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
@@ -98,6 +99,13 @@ export async function createAutomineSequencer({
   const feeRecipient = validatorClient.getFeeRecipientForAttestor(attestor);
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, dateProvider, log.createChild('eth-cheat-codes'));
 
+  if (!('rollbackTo' in archiver) || typeof (archiver as any).rollbackTo !== 'function') {
+    throw new Error('AutomineSequencer requires an archiver with a rollbackTo method');
+  }
+  const archiverWithRollback = archiver as { rollbackTo: (blockNumber: BlockNumber) => Promise<void> };
+  const archiverRollback = (blockNumber: BlockNumber) => archiverWithRollback.rollbackTo(blockNumber);
+  const resetPublisherNonces = () => l1TxUtils.forEach(utils => utils.resetNonce());
+
   const automineSequencer = new AutomineSequencer({
     publisherFactory,
     checkpointsBuilder,
@@ -119,6 +127,8 @@ export async function createAutomineSequencer({
     feeRecipient,
     signatureContext: { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
     config,
+    archiverRollback,
+    resetPublisherNonces,
     log: log.createChild('automine-sequencer'),
   });
 
