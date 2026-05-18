@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "crates/submit_circuit",
+    "crates/publish_circuit",
+]
