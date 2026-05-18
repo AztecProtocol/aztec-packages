@@ -23,7 +23,6 @@
 
 #include "./fixed_base/fixed_base_params.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 
 namespace bb::plookup {
