@@ -625,7 +625,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         slotDuration: Number(slotDuration),
       };
 
-      const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+      const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
       const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
       const proverOnly = config.enableProverNode && config.disableValidator;

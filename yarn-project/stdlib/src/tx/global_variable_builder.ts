@@ -1,6 +1,6 @@
 import type { RollupContract, SimulationOverridesPlan } from '@aztec/ethereum/contracts';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { SlotNumber } from '@aztec/foundation/schemas';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { CheckpointGlobalVariables } from './global_variables.js';

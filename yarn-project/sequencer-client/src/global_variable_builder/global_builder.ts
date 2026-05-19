@@ -4,10 +4,9 @@ import {
   buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { SlotNumber } from '@aztec/foundation/schemas';
-import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -16,7 +15,11 @@ import type {
   GlobalVariableBuilder as GlobalVariableBuilderInterface,
 } from '@aztec/stdlib/tx';
 
-/** Configuration for the GlobalVariableBuilder (excludes L1 client config). */
+/**
+ * Configuration shared by {@link GlobalVariableBuilder} and {@link FeeProviderImpl}. `ethereumSlotDuration`
+ * is only consumed by the fee provider (its predictor uses it to advance L1 timestamps); the
+ * global variable builder does not read it because slot decisions are made by callers.
+ */
 export type GlobalVariableBuilderConfig = {
   rollupAddress: EthAddress;
   ethereumSlotDuration: number;
@@ -35,7 +38,6 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private version: Fr;
 
   constructor(
-    _dateProvider: DateProvider,
     private readonly publicClient: ViemPublicClient,
     config: GlobalVariableBuilderConfig,
   ) {
