@@ -768,9 +768,7 @@ describe('aztec node', () => {
       it('case A — mid-checkpoint continuation reuses latest block globals', async () => {
         const tx = await mockTxForRollup(0xa0001);
         const latestGlobals = GlobalVariables.from({
-          ...GlobalVariables.empty()
-            .toFields()
-            .reduce(() => GlobalVariables.empty(), GlobalVariables.empty()),
+          ...GlobalVariables.empty(),
           chainId,
           version: rollupVersion,
           blockNumber: BlockNumber(7),
@@ -877,6 +875,17 @@ describe('aztec node', () => {
         expect(planArg!.pendingCheckpointState!.archive).toBeDefined();
         expect(planArg!.pendingCheckpointState!.slotNumber).toBeDefined();
         expect(planArg!.pendingCheckpointState!.headerHash).toBeDefined();
+        // Fee header is derived from the grandparent (checkpoint 4) via computeChildFeeHeader.
+        // Mocked grandparent feeHeader has ethPerFeeAsset=1n which gets clamped up to the
+        // MIN_ETH_PER_FEE_ASSET floor (100n) by computeChildFeeHeader; manaUsed mirrors the
+        // proposed parent's totalManaUsed (0n in the fixture).
+        expect(planArg!.pendingCheckpointState!.feeHeader).toEqual({
+          excessMana: 0n,
+          manaUsed: 0n,
+          ethPerFeeAsset: 100n,
+          congestionCost: 0n,
+          proverCost: 0n,
+        });
         expect(planArg!.chainTipsOverride?.pending).toEqual(CheckpointNumber(5));
         // L1-to-L2 messages are fetched for the target checkpoint (6).
         expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(6));
@@ -926,6 +935,29 @@ describe('aztec node', () => {
             checkpointNumber: CheckpointNumber(4),
             startBlock: BlockNumber(18),
             blockCount: 3,
+          }),
+        );
+
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/Torn L2 tips snapshot/);
+      });
+
+      it('coherency guard — last-block mismatch throws a typed error', async () => {
+        const tx = await mockTxForRollup(0xb0006);
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(20),
+            proposedCheckpoint: CheckpointNumber(5),
+            proposedCheckpointBlock: BlockNumber(20),
+            checkpointed: CheckpointNumber(4),
+          }),
+        );
+        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
+        // Returned checkpoint number matches, but startBlock+blockCount-1 = 17+2-1 = 18 != tips' 20.
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpoint({
+            checkpointNumber: CheckpointNumber(5),
+            startBlock: BlockNumber(17),
+            blockCount: 2,
           }),
         );
 
