@@ -1,43 +1,36 @@
 use aztec::{
+    keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     macros::notes::note,
-    protocol::{
-        address::AztecAddress,
-        constants::DOM_SEP__HANDSHAKE_SECRET_HASH,
-        hash::poseidon2_hash_with_separator,
-        point::Point,
-        traits::{Deserialize, Packable, Serialize},
-    },
+    protocol::{address::AztecAddress, point::Point, traits::{Deserialize, Packable, Serialize}},
 };
 
 /// A record of a handshake established by the note's owner (the sender).
 ///
-/// Stored in [`crate::HandshakeRegistry`]'s `handshakes` set. Holds the **hash** of the master shared secret.
-/// A contract that wants to use this handshake will later prove the note's existence and
-/// use the kernel key-validation mechanism to derive its own app-siloed secret from the master, so
-/// the master is never exposed to dependent contracts.
+/// Stored in [`crate::HandshakeRegistry`]'s `handshakes` state. Holds the raw ECDH shared-secret point `S`. App
+/// contracts never see `S` directly: they call the registry's private surface, which
+/// silos `S` against the calling contract's address and hands back the app-siloed `Field`.
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct HandshakeNote {
-    /// Hash of the master shared secret: `poseidon2_hash_with_separator([S.x, S.y], DOM_SEP__HANDSHAKE_SECRET_HASH)`
-    /// over the raw ECDH point `S = eph_sk * recipient_address_point`.
-    pub secret_hash: Field,
     /// Stored so contracts can constrain the kind of handshake they accept (e.g. an app may want to require interactive
     /// handshakes only).
-    pub handshake_type: u8,
+    handshake_type: u8,
     /// The recipient this handshake authorizes. Part of the note preimage so a contract proving note
     /// existence can bind the proof to the intended recipient.
-    pub recipient: AztecAddress,
+    recipient: AztecAddress,
+    /// The raw ECDH shared-secret point `S = eph_sk * recipient_address_point`. Only this module can read it for
+    /// siloing, and it is never returned by an external function.
+    secret: Point,
 }
 
 impl HandshakeNote {
-    pub fn new(shared_secret: Point, handshake_type: u8, recipient: AztecAddress) -> Self {
-        Self {
-            secret_hash: poseidon2_hash_with_separator(
-                [shared_secret.x, shared_secret.y],
-                DOM_SEP__HANDSHAKE_SECRET_HASH,
-            ),
-            handshake_type,
-            recipient,
-        }
+    pub(crate) fn new(shared_secret: Point, handshake_type: u8, recipient: AztecAddress) -> Self {
+        Self { handshake_type, recipient, secret: shared_secret }
+    }
+
+    /// Returns the app-siloed shared secret for `caller`, computed via aztec-nr's canonical
+    /// [`compute_app_siloed_shared_secret`].
+    pub(crate) fn siloed_for(self, caller: AztecAddress) -> Field {
+        compute_app_siloed_shared_secret(self.secret, caller)
     }
 }

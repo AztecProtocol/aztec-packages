@@ -18,6 +18,7 @@ import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
 } from '../services/service.js';
 
@@ -108,6 +109,9 @@ export type P2P = P2PClient & {
    * @param callback - Function called with info about the duplicate attestation
    */
   registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void;
+
+  /** Registers a callback invoked when a valid checkpoint attestation is accepted into the pool. */
+  registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void;
 
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.

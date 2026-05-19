@@ -6,16 +6,13 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 
 import {
-  type CollectorType,
   type DistributionPattern,
   WorkerClientManager,
   testChainConfig,
-} from '../../../testbench/worker_client_manager.js';
+} from '../../testbench/worker_client_manager.js';
 
 const TEST_TIMEOUT_MS = 600_000; // 10 minutes
 jest.setTimeout(TEST_TIMEOUT_MS);
-
-const COLLECTOR_TYPES: CollectorType[] = ['batch-requester', 'send-batch-request'];
 
 const PEERS_PER_RUN = 30;
 const TIMEOUT_MS = 30_000;
@@ -39,7 +36,6 @@ interface BenchmarkCase extends ScenarioBase {
 interface BenchmarkResult {
   missingTxCount: number;
   distribution: DistributionPattern;
-  collector: CollectorType;
   durationMs: number;
   fetchedCount: number;
   success: boolean;
@@ -79,7 +75,7 @@ const CASES: readonly BenchmarkCase[] = BASE_SCENARIOS.flatMap(base =>
   })),
 );
 
-describe('ProposalTxCollector Benchmarks', () => {
+describe('BatchTxRequester Benchmarks', () => {
   const results: BenchmarkResult[] = [];
 
   let logger: Logger;
@@ -128,7 +124,7 @@ describe('ProposalTxCollector Benchmarks', () => {
   });
 
   describe.each(CASES)('$name (missing=$missingTxCount)', benchCase => {
-    it.each(COLLECTOR_TYPES)('collector: %s', async collectorType => {
+    it('runs batch tx requester benchmark', async () => {
       if (!workerManager) {
         throw new Error('Worker manager not initialized');
       }
@@ -137,15 +133,12 @@ describe('ProposalTxCollector Benchmarks', () => {
       const pinnedPeerIndex = distribution === 'pinned-only' ? benchCase.pinnedPeerIndex : undefined;
       const seed = blockNumber * 1_000_000;
 
-      logger.info(
-        `Case=${benchCase.name}, missing=${missingTxCount}, collector=${collectorType}, peers=${peers}, timeoutMs=${timeoutMs}`,
-      );
+      logger.info(`Case=${benchCase.name}, missing=${missingTxCount}, peers=${peers}, timeoutMs=${timeoutMs}`);
 
       try {
         const result = await workerManager.runReqRespBenchmark({
           txCount: missingTxCount,
           distribution,
-          collectorType,
           timeoutMs,
           pinnedPeerIndex,
           blockNumber,
@@ -155,22 +148,18 @@ describe('ProposalTxCollector Benchmarks', () => {
         results.push({
           missingTxCount,
           distribution,
-          collector: collectorType,
           durationMs: result.durationMs,
           fetchedCount: result.fetchedCount,
           success: result.fetchedCount === missingTxCount,
         });
 
-        logger.info(
-          `${collectorType}: fetched ${result.fetchedCount}/${missingTxCount} in ${result.durationMs.toFixed(0)}ms`,
-        );
+        logger.info(`fetched ${result.fetchedCount}/${missingTxCount} in ${result.durationMs.toFixed(0)}ms`);
       } catch (err: any) {
-        logger.error(`${collectorType} failed: ${err?.message ?? String(err)}`);
+        logger.error(`Benchmark failed: ${err?.message ?? String(err)}`);
 
         results.push({
           missingTxCount,
           distribution,
-          collector: collectorType,
           durationMs: timeoutMs,
           fetchedCount: 0,
           success: false,
@@ -192,65 +181,24 @@ function toPrettyString(benchResults: BenchmarkResult[]): string {
 
   lines.push('');
   lines.push('='.repeat(80));
-  lines.push('ProposalTxCollector Benchmark Results');
+  lines.push('BatchTxRequester Benchmark Results');
   lines.push('='.repeat(80));
   lines.push('');
-  lines.push('| Collector           | Distribution | Missing | Duration (ms) | Fetched | Success |');
-  lines.push('|---------------------|--------------|---------|---------------|---------|---------|');
+  lines.push('| Distribution | Missing | Duration (ms) | Fetched | Success |');
+  lines.push('|--------------|---------|---------------|---------|---------|');
 
   const sorted = [...benchResults].sort((a, b) => {
     if (a.distribution !== b.distribution) {
       return a.distribution.localeCompare(b.distribution);
     }
-    if (a.missingTxCount !== b.missingTxCount) {
-      return a.missingTxCount - b.missingTxCount;
-    }
-    return a.collector.localeCompare(b.collector);
+    return a.missingTxCount - b.missingTxCount;
   });
 
   for (const r of sorted) {
     lines.push(
-      `| ${r.collector.padEnd(19)} | ${r.distribution.padEnd(12)} | ${String(r.missingTxCount).padStart(7)} | ` +
+      `| ${r.distribution.padEnd(12)} | ${String(r.missingTxCount).padStart(7)} | ` +
         `${r.durationMs.toFixed(0).padStart(13)} | ${String(r.fetchedCount).padStart(7)} | ${r.success ? '  Yes  ' : '  No   '} |`,
     );
-  }
-
-  lines.push('');
-  lines.push('## Comparison Summary');
-  lines.push('');
-
-  const keys = [...new Set(sorted.map(r => `${r.distribution}:${r.missingTxCount}`))];
-
-  for (const key of keys) {
-    const [distRaw, missingRaw] = key.split(':');
-    const dist = distRaw as DistributionPattern;
-    const missing = Number(missingRaw);
-
-    const batch = sorted.find(
-      r => r.distribution === dist && r.missingTxCount === missing && r.collector === 'batch-requester',
-    );
-    const send = sorted.find(
-      r => r.distribution === dist && r.missingTxCount === missing && r.collector === 'send-batch-request',
-    );
-
-    if (!batch || !send) {
-      continue;
-    }
-
-    if (!batch.success || !send.success) {
-      lines.push(
-        `- ${dist} (missing=${missing}): cannot compare reliably (success: batch=${batch.success}, send=${send.success})`,
-      );
-      continue;
-    }
-
-    const faster = batch.durationMs <= send.durationMs ? 'BatchTxRequester' : 'SendBatchRequest';
-    const slower = faster === 'BatchTxRequester' ? 'SendBatchRequest' : 'BatchTxRequester';
-
-    const delta = Math.abs(send.durationMs - batch.durationMs);
-    const pct = (delta / Math.max(batch.durationMs, send.durationMs)) * 100;
-
-    lines.push(`- ${dist} (missing=${missing}): ${faster} is ${pct.toFixed(1)}% faster than ${slower}`);
   }
 
   lines.push('');
@@ -264,7 +212,7 @@ function toBenchmarkJSON(benchResults: BenchmarkResult[], indent = 2): string {
   const metrics: JsonBenchmarkResult[] = [];
 
   for (const result of benchResults) {
-    const baseName = `ProposalTxCollector/${result.collector}/${result.distribution}/missing_${result.missingTxCount}`;
+    const baseName = `BatchTxRequester/${result.distribution}/missing_${result.missingTxCount}`;
     metrics.push(
       {
         name: `${baseName}/duration`,

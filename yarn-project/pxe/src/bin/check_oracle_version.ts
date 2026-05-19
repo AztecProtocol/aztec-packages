@@ -17,7 +17,7 @@ import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
  *   - If the change is backward-breaking (e.g. removing/renaming an oracle), bump ORACLE_VERSION_MAJOR.
  *   - If the change is an oracle addition (non-breaking), bump ORACLE_VERSION_MINOR.
  *
- * TODO(#16581): The following only takes into consideration changes to the oracles defined in Oracle.ts and omits TXE
+ * TODO(F-667): The following only takes into consideration changes to the oracles defined in Oracle.ts and omits TXE
  * oracles. Ensure this checks TXE oracles as well. This hasn't been implemented yet since we don't have a clean TXE
  * oracle interface like we do in PXE (i.e., there is no single Oracle class that contains only the oracles).
  */

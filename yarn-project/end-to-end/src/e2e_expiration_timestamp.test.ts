@@ -1,9 +1,11 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_INVALID_EXPIRATION_TIMESTAMP } from '@aztec/stdlib/tx';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -11,7 +13,8 @@ import { proveInteraction } from './test-wallet/utils.js';
 describe('e2e_expiration_timestamp', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
-  let aztecNode: AztecNode;
+  let aztecNode: AztecNode & AztecNodeDebug;
+  let cheatCodes: CheatCodes;
   let teardown: () => Promise<void>;
 
   let contract: TestContract;
@@ -23,8 +26,9 @@ describe('e2e_expiration_timestamp', () => {
       teardown,
       wallet,
       aztecNode,
+      cheatCodes,
       accounts: [defaultAccountAddress],
-    } = await setup());
+    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
@@ -38,8 +42,9 @@ describe('e2e_expiration_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
-      // The timestamp of the next slot.
-      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration;
+      // Two slots ahead of the latest mined block, to leave room for the anchor block to advance
+      // by one slot under proposer pipelining between fetching the header and proving the tx.
+      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration * 2n;
     });
 
     describe('with no enqueued public calls', () => {
@@ -91,8 +96,10 @@ describe('e2e_expiration_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
-      // 1n lower than the next slot.
-      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration - 1n;
+      // 1n lower than two slots ahead. Under proposer pipelining the anchor block may already
+      // have advanced one slot past the latest mined header, so the next slot to be mined is
+      // typically two slots ahead; this expiration sits just below that slot's start.
+      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration * 2n - 1n;
     });
 
     describe('with no enqueued public calls', () => {
@@ -108,11 +115,7 @@ describe('e2e_expiration_timestamp', () => {
       });
 
       it('invalidates the transaction', async () => {
-        await expect(
-          contract.methods
-            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
-            .send({ from: defaultAccountAddress }),
-        ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
+        await runInvalidatesTest(enqueuePublicCall);
       });
     });
 
@@ -129,13 +132,43 @@ describe('e2e_expiration_timestamp', () => {
       });
 
       it('invalidates the transaction', async () => {
-        await expect(
-          contract.methods
-            .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
-            .send({ from: defaultAccountAddress }),
-        ).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
+        await runInvalidatesTest(enqueuePublicCall);
       });
     });
+
+    // Prove a tx with an expiration a few slots above the latest mined block's timestamp (so it passes
+    // the PXE's prove-time check that requires `expirationTimestamp > anchor block timestamp`, even if
+    // the anchor block advances by a slot or two between fetching the header and proving), then warp
+    // L1 time past the expiration. Submitting the proven tx must then be rejected by the node because
+    // the next slot's timestamp (derived from L1 time) is greater than the tx expiration.
+    async function runInvalidatesTest(enqueuePublicCall: boolean) {
+      const header = (await aztecNode.getBlockData('latest'))?.header;
+      if (!header) {
+        throw new Error('Block header not found in invalidates-the-transaction setup');
+      }
+      const requestedExpiration = header.globalVariables.timestamp + aztecSlotDuration * 5n;
+
+      const provenTx = await proveInteraction(
+        wallet,
+        contract.methods.set_expiration_timestamp(requestedExpiration, enqueuePublicCall),
+        { from: defaultAccountAddress },
+      );
+      const provedExpiration = provenTx.data.expirationTimestamp;
+      expect(provedExpiration).toBeGreaterThan(0n);
+
+      // Warp L1 time past the tx expiration. The node's `isValidTx` uses the next L1 slot timestamp
+      // (via `epochCache.getEpochAndSlotInNextL1Slot()`), so warping L1 alone is enough — we don't
+      // need to mine an L2 block here, which avoids cascading sequencer publish delays across tests.
+      // If L1 time has already advanced past the expiration (e.g. due to a prior test's warp), skip
+      // the warp — the tx is already invalid against the current L1 slot.
+      const currentL1Timestamp = BigInt(await cheatCodes.eth.lastBlockTimestamp());
+      const targetTimestamp = provedExpiration + aztecSlotDuration;
+      if (targetTimestamp > currentL1Timestamp) {
+        await cheatCodes.eth.warp(targetTimestamp, { resetBlockInterval: true });
+      }
+
+      await expect(provenTx.send()).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
+    }
   });
 
   describe('when requesting expiration timestamp lower than the one of a mined block', () => {

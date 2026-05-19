@@ -8,7 +8,7 @@ import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
-import { captureProfile } from './benchmark.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(1_600_000);
@@ -74,14 +74,12 @@ describe('Deployment benchmark', () => {
               }+${benchmarkingPaymentMethod}`,
               deploymentInteraction,
               options,
-              1 + // Account entrypoint
-                1 + // Kernel init
-                paymentMethod.circuits + // Payment method circuits
-                (isClassRegistered ? 0 : 2) + // ContractClassRegistry register_contract_class + kernel inner
-                2 + // ContractInstanceRegistry publish + kernel inner
-                1 + // Kernel reset
-                1 + // Kernel tail
-                1, // Kernel hiding
+              expectedExecutionSteps(
+                1 + // Account entrypoint
+                  paymentMethod.apps + // Payment method apps
+                  (isClassRegistered ? 0 : 1) + // ContractClassRegistry register_contract_class
+                  1, // ContractInstanceRegistry publish
+              ),
             );
 
             if (process.env.SANITY_CHECKS) {

@@ -7,6 +7,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { LendingContract } from '@aztec/noir-contracts.js/Lending';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import type { TokenSimulator } from './token_simulator.js';
 
@@ -92,15 +93,25 @@ export class LendingSimulator {
     public stableCoin: TokenSimulator,
   ) {}
 
-  async prepare() {
+  prepare() {
     this.accumulator = BASE;
-    const slot = await this.rollup.getSlotAt(
-      BigInt(await this.cc.eth.lastBlockTimestamp()) + BigInt(this.ethereumSlotDuration),
-    );
-    this.time = Number(await this.rollup.getTimestampForSlot(slot));
+    this.time = 0;
   }
 
-  async progressSlots(diff: number, dateProvider?: TestDateProvider) {
+  /**
+   * Advances the simulator's accumulator and clock to match a block timestamp observed on chain.
+   * Call this BEFORE applying any accumulator-sensitive mutation (borrow/repay) so the mutation
+   * sees the same accumulator as the contract did during execution.
+   */
+  observeBlockTimestamp(ts: number) {
+    const diff = ts - this.time;
+    if (diff > 0) {
+      this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(diff)), BASE);
+    }
+    this.time = ts;
+  }
+
+  async progressSlots(diff: number, dateProvider?: TestDateProvider, node?: AztecNodeDebug) {
     if (diff <= 1) {
       return;
     }
@@ -108,16 +119,19 @@ export class LendingSimulator {
     const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.lastBlockTimestamp()));
     const targetSlot = SlotNumber(slot + diff);
     const ts = Number(await this.rollup.getTimestampForSlot(targetSlot));
-    const timeDiff = ts - this.time;
-    this.time = ts;
 
     // Mine ethereum blocks such that the next block will be in a new slot
-    await this.cc.eth.warp(this.time - this.ethereumSlotDuration);
+    await this.cc.eth.warp(ts - this.ethereumSlotDuration);
     if (dateProvider) {
-      dateProvider.setTime(this.time * 1000);
+      dateProvider.setTime(ts * 1000);
     }
     await this.cc.rollup.markAsProven(await this.rollup.getCheckpointNumber());
-    this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(timeDiff)), BASE);
+
+    // Under pipelining, the warp can invalidate an in-flight proposed checkpoint.
+    // Mine an empty block to drain that and re-stabilize the chain tip before the next tx anchors.
+    if (node) {
+      await node.mineBlock();
+    }
   }
 
   depositPrivate(from: AztecAddress, onBehalfOf: Fr, amount: bigint) {
