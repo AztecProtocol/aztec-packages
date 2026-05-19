@@ -643,6 +643,9 @@ construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
+template HonkProof create_mock_hyper_nova_proof<MegaAppFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
+    bool);
+template HonkProof create_mock_hyper_nova_proof<MegaKernelFlavor, stdlib::recursion::honk::KernelIO>(bool);
 
 template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
@@ -651,6 +654,12 @@ template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFl
     const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor,
                                                                           stdlib::recursion::honk::KernelIO>(
+    const size_t, const size_t);
+template std::shared_ptr<MegaAppFlavor::VerificationKey> create_mock_honk_vk<MegaAppFlavor,
+                                                                             stdlib::recursion::honk::AppIO>(
+    const size_t, const size_t);
+template std::shared_ptr<MegaKernelFlavor::VerificationKey> create_mock_honk_vk<MegaKernelFlavor,
+                                                                                stdlib::recursion::honk::KernelIO>(
     const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
