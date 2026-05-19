@@ -229,6 +229,14 @@ tests:
     owners:
       - *adam
 
+  # Race between a far L1 time warp from an earlier `it(...)` block in the same file and the
+  # archiver's pruning of unpublished blocks. The PXE is mid-prove with an anchor on a block that
+  # gets pruned out from under it. Pre-existing fragility under pipelining; unrelated to specific PRs.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_expiration_timestamp.test.ts"
+    error_regex: "Block hash.*not found when querying world state"
+    owners:
+      - *palla
+
   # boxes
   - regex: "vanilla-all-browsers box boxes"
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
