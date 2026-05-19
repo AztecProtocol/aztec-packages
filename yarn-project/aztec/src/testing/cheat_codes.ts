@@ -56,9 +56,10 @@ export class CheatCodes {
 
     // AutomineSequencer owns time control through its serial queue — delegate to keep warps atomic
     // with respect to any in-flight build, and avoid the mineBlock-loop hack below.
+    // `warpTo` internally builds an empty L2 checkpoint, which auto-mines exactly one L1 block at
+    // the target slot boundary, so no separate `node.mineBlock()` is needed here.
     if (this.automine) {
       await this.automine.warpTo(Number(targetBigInt));
-      await node.mineBlock();
       return;
     }
 

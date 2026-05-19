@@ -24,8 +24,12 @@ import {
 import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
-import type { FailedTx } from '@aztec/stdlib/tx';
-import type { FullNodeCheckpointsBuilder } from '@aztec/validator-client';
+import type { FailedTx, Tx } from '@aztec/stdlib/tx';
+import type {
+  BuildBlockInCheckpointResult,
+  CheckpointBuilder,
+  FullNodeCheckpointsBuilder,
+} from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../../publisher/sequencer-publisher-factory.js';
@@ -281,10 +285,13 @@ export class AutomineSequencer {
       return undefined;
     }
 
-    // Decide target slot and timestamps from anvil's current clock.
+    // Decide target slot from the pending block's timestamp — this picks up any prior
+    // `setNextBlockTimestamp` call (e.g. queued by `runWarp`) instead of assuming +1 over
+    // the last mined block.
     const currentL1TsSec = await this.deps.ethCheatCodes.lastBlockTimestamp();
-    const automineBumpedTs = currentL1TsSec + 1;
-    let targetSlot = Number(getSlotAtTimestamp(BigInt(automineBumpedTs), this.deps.l1Constants));
+    const pendingBlock = await this.deps.ethCheatCodes.publicClient.getBlock({ blockTag: 'pending' });
+    const pendingBlockTs = Number(pendingBlock.timestamp);
+    let targetSlot = Number(getSlotAtTimestamp(BigInt(pendingBlockTs), this.deps.l1Constants));
     if (targetSlot <= this.lastBuiltSlot) {
       // Anvil's clock hasn't crossed into a new slot; advance to the next slot we own.
       targetSlot = this.lastBuiltSlot + 1;
@@ -292,7 +299,8 @@ export class AutomineSequencer {
     const slotBoundaryTs = Number(getTimestampForSlot(SlotNumber(targetSlot), this.deps.l1Constants));
 
     // Pre-set anvil's next block timestamp only if it would advance the chain forward.
-    // `setNextBlockTimestamp` rejects past timestamps, so we guard by current.
+    // `setNextBlockTimestamp` rejects timestamps `<= currentBlockTimestamp`, so we guard by
+    // the last mined block's timestamp.
     if (slotBoundaryTs > currentL1TsSec) {
       await this.deps.ethCheatCodes.setNextBlockTimestamp(slotBoundaryTs);
     }
@@ -352,36 +360,17 @@ export class AutomineSequencer {
 
     const pendingTxs = this.deps.p2pClient.iterateEligiblePendingTxs();
 
-    let buildResult;
-    try {
-      buildResult = await checkpointBuilder.buildBlock(pendingTxs, nextBlockNumber, checkpointGlobals.timestamp, {
-        maxTransactions: this.deps.config.maxTxsPerBlock,
-        // Allow empty for explicit-empty builds; require at least 1 valid tx otherwise.
-        minValidTxs: allowEmpty ? 0 : 1,
-        isBuildingProposal: true,
-        maxBlocksPerCheckpoint: 1,
-        perBlockAllocationMultiplier: 1,
-      });
-    } catch (err) {
-      // Mirrors production's checkpoint_proposal_job: if every pending tx failed execution and
-      // we didn't reach minValidTxs, drop the failed txs from the mempool so they don't block
-      // the poller forever, then abort this build with no checkpoint published.
-      if (isErrorClass(err, InsufficientValidTxsError)) {
-        await this.dropFailedTxsFromP2P(err.failedTxs);
-        this.log.verbose(`AutomineSequencer: insufficient valid txs, skipping build`, {
-          checkpointNumber,
-          processedCount: err.processedCount,
-          minRequired: err.minRequired,
-          failedCount: err.failedTxs.length,
-        });
-        return undefined;
-      }
-      throw err;
+    const buildResult = await this.tryBuildBlock(
+      checkpointBuilder,
+      pendingTxs,
+      nextBlockNumber,
+      checkpointGlobals.timestamp,
+      allowEmpty,
+      checkpointNumber,
+    );
+    if (!buildResult) {
+      return undefined;
     }
-
-    // Drop any txs that failed execution but didn't trigger InsufficientValidTxsError, so we
-    // don't re-pick them up on the next build.
-    await this.dropFailedTxsFromP2P(buildResult.failedTxs);
 
     const checkpoint = await checkpointBuilder.completeCheckpoint();
 
@@ -436,7 +425,9 @@ export class AutomineSequencer {
 
   /**
    * Warps L1 timestamp to (or past) `targetTimestampSec`, rounded up to the next aztec-slot
-   * boundary, syncs the date provider, and advances internal slot bookkeeping.
+   * boundary, by queuing an empty-checkpoint build at that slot. Mines exactly one L1 block
+   * (the propose tx auto-mined under anvil's automine mode), with the timestamp pre-set so
+   * the mined block lands on the slot boundary.
    */
   private async runWarp(targetTimestampSec: number): Promise<void> {
     const currentL1Ts = await this.deps.ethCheatCodes.lastBlockTimestamp();
@@ -449,9 +440,11 @@ export class AutomineSequencer {
     const targetSlot = Number(getSlotAtTimestamp(BigInt(targetTimestampSec), this.deps.l1Constants));
     const slotBoundaryTs = Number(getTimestampForSlot(SlotNumber(targetSlot + 1), this.deps.l1Constants));
 
-    // `EthCheatCodes.warp` is atomic: setNextBlockTimestamp + doMine + dateProvider.setTime.
-    await this.deps.ethCheatCodes.warp(slotBoundaryTs, { resetBlockInterval: false, silent: true });
-    this.lastBuiltSlot = targetSlot;
+    // Queue the next L1 block at the slot boundary timestamp, then build (and publish) an
+    // empty L2 checkpoint. The propose tx auto-mines a single L1 block at slotBoundaryTs,
+    // and `runBuild` syncs the date provider to the new L1 timestamp.
+    await this.deps.ethCheatCodes.setNextBlockTimestamp(slotBoundaryTs);
+    await this.runBuild({ allowEmpty: true });
 
     this.log.verbose(`Warped L1 to slot boundary`, { slot: targetSlot + 1, timestamp: slotBoundaryTs });
   }
@@ -512,6 +505,53 @@ export class AutomineSequencer {
       targetCheckpoint,
       targetL1Block,
     });
+  }
+
+  /**
+   * Wraps `checkpointBuilder.buildBlock` with the failed-tx handling shared by both error
+   * and success paths: drops the failed txs from the P2P mempool, and returns `undefined`
+   * when `InsufficientValidTxsError` aborts the build (so the caller skips publishing).
+   */
+  private async tryBuildBlock(
+    checkpointBuilder: CheckpointBuilder,
+    pendingTxs: AsyncIterableIterator<Tx>,
+    nextBlockNumber: BlockNumber,
+    timestamp: bigint,
+    allowEmpty: boolean,
+    checkpointNumber: CheckpointNumber,
+  ): Promise<BuildBlockInCheckpointResult | undefined> {
+    let buildResult: BuildBlockInCheckpointResult;
+    try {
+      buildResult = await checkpointBuilder.buildBlock(pendingTxs, nextBlockNumber, timestamp, {
+        maxTransactions: this.deps.config.maxTxsPerBlock,
+        // Allow empty for explicit-empty builds; require at least 1 valid tx otherwise.
+        minValidTxs: allowEmpty ? 0 : 1,
+        isBuildingProposal: true,
+        maxBlocksPerCheckpoint: 1,
+        perBlockAllocationMultiplier: 1,
+      });
+    } catch (err) {
+      // Mirrors production's checkpoint_proposal_job: if every pending tx failed execution and
+      // we didn't reach minValidTxs, drop the failed txs from the mempool so they don't block
+      // the poller forever, then abort this build with no checkpoint published.
+      if (isErrorClass(err, InsufficientValidTxsError)) {
+        await this.dropFailedTxsFromP2P(err.failedTxs);
+        this.log.verbose(`AutomineSequencer: insufficient valid txs, skipping build`, {
+          checkpointNumber,
+          processedCount: err.processedCount,
+          minRequired: err.minRequired,
+          failedCount: err.failedTxs.length,
+        });
+        return undefined;
+      }
+      throw err;
+    }
+
+    // Drop any txs that failed execution but didn't trigger InsufficientValidTxsError, so we
+    // don't re-pick them up on the next build.
+    await this.dropFailedTxsFromP2P(buildResult.failedTxs);
+
+    return buildResult;
   }
 
   /** Removes txs that failed execution from the P2P mempool so they don't get retried. */
