@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan
+.PHONY: noir barretenberg noir-projects noir-projects-deps l1-contracts release-image boxes playground docs aztec-up spartan
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -284,19 +284,26 @@ claude-tests:
 # Noir Projects
 #==============================================================================
 
-noir-protocol-circuits: noir bb-cpp-native
+# Serial pre-step that caches the shared `noir-lang/*` git dependencies into
+# ~/.nargo/. Without this, the four noir-projects targets below race on the
+# same cache and one of the parallel `nargo` invocations can fail (e.g. with
+# a "Could not resolve host" git clone error) before the others populate it.
+noir-projects-deps: noir
+	$(call run_command,$@,$(ROOT)/noir-projects,$(ROOT)/ci3/denoise './bootstrap.sh prep')
+
+noir-protocol-circuits: noir bb-cpp-native noir-projects-deps
 	$(call build,$@,noir-projects/noir-protocol-circuits)
 
 noir-protocol-circuits-tests: noir noir-protocol-circuits
 	$(call test,$@,noir-projects/noir-protocol-circuits)
 
-mock-protocol-circuits: noir bb-cpp-native
+mock-protocol-circuits: noir bb-cpp-native noir-projects-deps
 	$(call build,$@,noir-projects/mock-protocol-circuits)
 
-noir-contracts: noir bb-cpp-native
+noir-contracts: noir bb-cpp-native noir-projects-deps
 	$(call build,$@,noir-projects/noir-contracts)
 
-aztec-nr: noir bb-cpp-native
+aztec-nr: noir bb-cpp-native noir-projects-deps
 	$(call build,$@,noir-projects/aztec-nr)
 
 # These tests are not included in the dep tree.

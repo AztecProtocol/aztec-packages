@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
+# Use fmt as a trick to download dependencies.
+# Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
+# Also doubles up as our formatting check.
+# Exposed as a top-level command so the root Makefile can run it as a serial barrier
+# before the parallel noir-projects sub-builds.
+function prep {
+  set -eu
+  (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
+  for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
+    (cd $dir && ../../noir/noir-repo/target/release/nargo fmt --check)
+  done
+}
+export -f prep
+
 function build {
   echo_header "noir-projects build"
-
-  # Use fmt as a trick to download dependencies.
-  # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
-  # Also doubles up as our formatting check.
-  function prep {
-    set -eu
-    (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
-    for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
-      (cd $dir && ../../noir/noir-repo/target/release/nargo fmt --check)
-    done
-  }
-  export -f prep
 
   denoise prep
 
