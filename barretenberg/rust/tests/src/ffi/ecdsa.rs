@@ -121,12 +121,18 @@ fn test_ecdsa_sign_and_verify() {
         .expect("ecdsa_secp256k1_construct_signature failed");
 
     // Signature should have r, s, and v components
-    assert_eq!(sign_response.r.len(), 32);
-    assert_eq!(sign_response.s.len(), 32);
+    assert_eq!(sign_response.r.0.len(), 32);
+    assert_eq!(sign_response.s.0.len(), 32);
 
     // Verify
     let verify_response = api
-        .ecdsa_secp256k1_verify_signature(&message_hash, public_key, &sign_response.r, &sign_response.s, sign_response.v)
+        .ecdsa_secp256k1_verify_signature(
+            &message_hash,
+            public_key,
+            sign_response.r,
+            sign_response.s,
+            sign_response.v,
+        )
         .expect("ecdsa_secp256k1_verify_signature failed");
 
     assert!(verify_response.verified, "Signature should be valid");
@@ -163,10 +169,19 @@ fn test_ecdsa_verify_wrong_message() {
 
     // Verify with message_hash2 - should fail
     let verify_response = api
-        .ecdsa_secp256k1_verify_signature(&message_hash2, public_key, &sign_response.r, &sign_response.s, sign_response.v)
+        .ecdsa_secp256k1_verify_signature(
+            &message_hash2,
+            public_key,
+            sign_response.r,
+            sign_response.s,
+            sign_response.v,
+        )
         .expect("ecdsa_secp256k1_verify_signature failed");
 
-    assert!(!verify_response.verified, "Signature should be invalid for wrong message");
+    assert!(
+        !verify_response.verified,
+        "Signature should be invalid for wrong message"
+    );
 
     api.destroy().expect("Failed to destroy backend");
 }

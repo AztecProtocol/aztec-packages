@@ -3,13 +3,63 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include "barretenberg/wsdb/wsdb_commands.hpp"
+
+#include <cstring>
 
 namespace bb::wsdb_client {
 
 // Use avm2::simulation for interface types, but NOT world_state (it transitively
 // imports crypto::merkle_tree which conflicts with avm2::simulation aliases).
 using namespace avm2::simulation;
+
+// ---------------------------------------------------------------------------
+// Wire <-> Domain conversion helpers
+//
+// ipc-codegen emits a wire-typed client (std::array<uint8_t,32> for field
+// elements, primitive ints for enums, plain structs for domain types). This
+// translation unit owns the inline conversions to/from barretenberg's domain
+// types so the public interface stays unchanged.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+inline ::Fr fr_to_wire(const bb::fr& d)
+{
+    ::Fr r{};
+    bb::fr::serialize_to_buffer(d, r.data());
+    return r;
+}
+
+inline bb::fr fr_from_wire(const ::Fr& w)
+{
+    return bb::fr::serialize_from_buffer(w.data());
+}
+
+inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<::Fr>& wire)
+{
+    std::vector<bb::fr> result;
+    result.reserve(wire.size());
+    for (const auto& w : wire) {
+        result.push_back(fr_from_wire(w));
+    }
+    return result;
+}
+
+inline wsdb::wire::WorldStateRevision revision_to_wire(const world_state::WorldStateRevision& r)
+{
+    return wsdb::wire::WorldStateRevision{
+        .forkId = r.forkId,
+        .blockNumber = r.blockNumber,
+        .includeUncommitted = r.includeUncommitted,
+    };
+}
+
+inline uint32_t tree_id_to_wire(MerkleTreeId id)
+{
+    return static_cast<uint32_t>(id);
+}
+
+} // anonymous namespace
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,24 +99,26 @@ avm2::TreeSnapshots WsdbIpcMerkleDB::get_tree_roots() const
         return cached_tree_roots_.value();
     }
 
+    auto wire_rev = revision_to_wire(revision_);
+
     auto l1_info = client_.get_tree_info(
-        wsdb::WsdbGetTreeInfo{ .treeId = MerkleTreeId::L1_TO_L2_MESSAGE_TREE, .revision = revision_ });
-    auto nh_info =
-        client_.get_tree_info(wsdb::WsdbGetTreeInfo{ .treeId = MerkleTreeId::NOTE_HASH_TREE, .revision = revision_ });
-    auto null_info =
-        client_.get_tree_info(wsdb::WsdbGetTreeInfo{ .treeId = MerkleTreeId::NULLIFIER_TREE, .revision = revision_ });
-    auto pd_info =
-        client_.get_tree_info(wsdb::WsdbGetTreeInfo{ .treeId = MerkleTreeId::PUBLIC_DATA_TREE, .revision = revision_ });
+        wsdb::WsdbGetTreeInfo{ .treeId = tree_id_to_wire(MerkleTreeId::L1_TO_L2_MESSAGE_TREE), .revision = wire_rev });
+    auto nh_info = client_.get_tree_info(
+        wsdb::WsdbGetTreeInfo{ .treeId = tree_id_to_wire(MerkleTreeId::NOTE_HASH_TREE), .revision = wire_rev });
+    auto null_info = client_.get_tree_info(
+        wsdb::WsdbGetTreeInfo{ .treeId = tree_id_to_wire(MerkleTreeId::NULLIFIER_TREE), .revision = wire_rev });
+    auto pd_info = client_.get_tree_info(
+        wsdb::WsdbGetTreeInfo{ .treeId = tree_id_to_wire(MerkleTreeId::PUBLIC_DATA_TREE), .revision = wire_rev });
 
     avm2::TreeSnapshots snapshots{
-        .l1_to_l2_message_tree =
-            avm2::AppendOnlyTreeSnapshot{ .root = l1_info.root, .next_available_leaf_index = l1_info.size },
-        .note_hash_tree =
-            avm2::AppendOnlyTreeSnapshot{ .root = nh_info.root, .next_available_leaf_index = nh_info.size },
-        .nullifier_tree =
-            avm2::AppendOnlyTreeSnapshot{ .root = null_info.root, .next_available_leaf_index = null_info.size },
-        .public_data_tree =
-            avm2::AppendOnlyTreeSnapshot{ .root = pd_info.root, .next_available_leaf_index = pd_info.size },
+        .l1_to_l2_message_tree = avm2::AppendOnlyTreeSnapshot{ .root = fr_from_wire(l1_info.root),
+                                                               .next_available_leaf_index = l1_info.size },
+        .note_hash_tree = avm2::AppendOnlyTreeSnapshot{ .root = fr_from_wire(nh_info.root),
+                                                        .next_available_leaf_index = nh_info.size },
+        .nullifier_tree = avm2::AppendOnlyTreeSnapshot{ .root = fr_from_wire(null_info.root),
+                                                        .next_available_leaf_index = null_info.size },
+        .public_data_tree = avm2::AppendOnlyTreeSnapshot{ .root = fr_from_wire(pd_info.root),
+                                                          .next_available_leaf_index = pd_info.size },
     };
     cached_tree_roots_ = snapshots;
     return snapshots;
@@ -83,22 +135,23 @@ void WsdbIpcMerkleDB::invalidate_tree_roots_cache()
 
 SiblingPath WsdbIpcMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
 {
-    auto resp = client_.get_sibling_path(
-        wsdb::WsdbGetSiblingPath{ .treeId = tree_id, .revision = revision_, .leafIndex = leaf_index });
-    return resp.path;
+    auto resp = client_.get_sibling_path(wsdb::WsdbGetSiblingPath{
+        .treeId = tree_id_to_wire(tree_id), .revision = revision_to_wire(revision_), .leafIndex = leaf_index });
+    return fr_vec_from_wire(resp.path);
 }
 
 crypto::merkle_tree::GetLowIndexedLeafResponse WsdbIpcMerkleDB::get_low_indexed_leaf(MerkleTreeId tree_id,
                                                                                      const avm2::FF& value) const
 {
-    auto resp = client_.find_low_leaf(wsdb::WsdbFindLowLeaf{ .treeId = tree_id, .revision = revision_, .key = value });
+    auto resp = client_.find_low_leaf(wsdb::WsdbFindLowLeaf{
+        .treeId = tree_id_to_wire(tree_id), .revision = revision_to_wire(revision_), .key = fr_to_wire(value) });
     return GetLowIndexedLeafResponse(resp.alreadyPresent, resp.index);
 }
 
 avm2::FF WsdbIpcMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const
 {
-    auto resp = client_.get_leaf_value(
-        wsdb::WsdbGetLeafValue{ .treeId = tree_id, .revision = revision_, .leafIndex = leaf_index });
+    auto resp = client_.get_leaf_value(wsdb::WsdbGetLeafValue{
+        .treeId = tree_id_to_wire(tree_id), .revision = revision_to_wire(revision_), .leafIndex = leaf_index });
     if (!resp.value.has_value()) {
         throw std::runtime_error("Invalid get_leaf_value request for tree " +
                                  std::to_string(static_cast<uint64_t>(tree_id)) + " index " +
@@ -109,8 +162,10 @@ avm2::FF WsdbIpcMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_inde
 
 IndexedLeaf<PublicDataLeafValue> WsdbIpcMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
-    auto resp = client_.get_leaf_preimage(wsdb::WsdbGetLeafPreimage{
-        .treeId = MerkleTreeId::PUBLIC_DATA_TREE, .revision = revision_, .leafIndex = leaf_index });
+    auto resp =
+        client_.get_leaf_preimage(wsdb::WsdbGetLeafPreimage{ .treeId = tree_id_to_wire(MerkleTreeId::PUBLIC_DATA_TREE),
+                                                             .revision = revision_to_wire(revision_),
+                                                             .leafIndex = leaf_index });
     if (!resp.preimage.has_value()) {
         throw std::runtime_error("Invalid get_leaf_preimage_public_data_tree request for index " +
                                  std::to_string(leaf_index));
@@ -120,8 +175,10 @@ IndexedLeaf<PublicDataLeafValue> WsdbIpcMerkleDB::get_leaf_preimage_public_data_
 
 IndexedLeaf<NullifierLeafValue> WsdbIpcMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
-    auto resp = client_.get_leaf_preimage(wsdb::WsdbGetLeafPreimage{
-        .treeId = MerkleTreeId::NULLIFIER_TREE, .revision = revision_, .leafIndex = leaf_index });
+    auto resp =
+        client_.get_leaf_preimage(wsdb::WsdbGetLeafPreimage{ .treeId = tree_id_to_wire(MerkleTreeId::NULLIFIER_TREE),
+                                                             .revision = revision_to_wire(revision_),
+                                                             .leafIndex = leaf_index });
     if (!resp.preimage.has_value()) {
         throw std::runtime_error("Invalid get_leaf_preimage_nullifier_tree request for index " +
                                  std::to_string(leaf_index));
@@ -137,8 +194,10 @@ SequentialInsertionResult<PublicDataLeafValue> WsdbIpcMerkleDB::insert_indexed_l
     const PublicDataLeafValue& leaf_value)
 {
     std::vector<std::vector<uint8_t>> serialized_leaves = { serialize_to_msgpack(leaf_value) };
-    auto resp = client_.sequential_insert(wsdb::WsdbSequentialInsert{
-        .treeId = MerkleTreeId::PUBLIC_DATA_TREE, .leaves = std::move(serialized_leaves), .forkId = revision_.forkId });
+    auto resp =
+        client_.sequential_insert(wsdb::WsdbSequentialInsert{ .treeId = tree_id_to_wire(MerkleTreeId::PUBLIC_DATA_TREE),
+                                                              .leaves = std::move(serialized_leaves),
+                                                              .forkId = revision_.forkId });
     invalidate_tree_roots_cache();
     return deserialize_from_msgpack<SequentialInsertionResult<PublicDataLeafValue>>(resp.result);
 }
@@ -147,8 +206,10 @@ SequentialInsertionResult<NullifierLeafValue> WsdbIpcMerkleDB::insert_indexed_le
     const NullifierLeafValue& leaf_value)
 {
     std::vector<std::vector<uint8_t>> serialized_leaves = { serialize_to_msgpack(leaf_value) };
-    auto resp = client_.sequential_insert(wsdb::WsdbSequentialInsert{
-        .treeId = MerkleTreeId::NULLIFIER_TREE, .leaves = std::move(serialized_leaves), .forkId = revision_.forkId });
+    auto resp =
+        client_.sequential_insert(wsdb::WsdbSequentialInsert{ .treeId = tree_id_to_wire(MerkleTreeId::NULLIFIER_TREE),
+                                                              .leaves = std::move(serialized_leaves),
+                                                              .forkId = revision_.forkId });
     invalidate_tree_roots_cache();
     return deserialize_from_msgpack<SequentialInsertionResult<NullifierLeafValue>>(resp.result);
 }
@@ -161,7 +222,7 @@ void WsdbIpcMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const avm2::
         serialized_leaves.push_back(serialize_to_msgpack(leaf));
     }
     client_.append_leaves(wsdb::WsdbAppendLeaves{
-        .treeId = tree_id, .leaves = std::move(serialized_leaves), .forkId = revision_.forkId });
+        .treeId = tree_id_to_wire(tree_id), .leaves = std::move(serialized_leaves), .forkId = revision_.forkId });
     invalidate_tree_roots_cache();
 }
 
@@ -175,7 +236,7 @@ void WsdbIpcMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
         for (size_t i = 0; i < num_leaves; i++) {
             padding_leaves.push_back(serialize_to_msgpack(empty_leaf));
         }
-        client_.batch_insert(wsdb::WsdbBatchInsert{ .treeId = MerkleTreeId::NULLIFIER_TREE,
+        client_.batch_insert(wsdb::WsdbBatchInsert{ .treeId = tree_id_to_wire(MerkleTreeId::NULLIFIER_TREE),
                                                     .leaves = std::move(padding_leaves),
                                                     .subtreeDepth = NULLIFIER_SUBTREE_HEIGHT,
                                                     .forkId = revision_.forkId });
@@ -188,8 +249,9 @@ void WsdbIpcMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
         for (size_t i = 0; i < num_leaves; i++) {
             padding_leaves.push_back(serialize_to_msgpack(zero));
         }
-        client_.append_leaves(wsdb::WsdbAppendLeaves{
-            .treeId = MerkleTreeId::NOTE_HASH_TREE, .leaves = std::move(padding_leaves), .forkId = revision_.forkId });
+        client_.append_leaves(wsdb::WsdbAppendLeaves{ .treeId = tree_id_to_wire(MerkleTreeId::NOTE_HASH_TREE),
+                                                      .leaves = std::move(padding_leaves),
+                                                      .forkId = revision_.forkId });
         break;
     }
     default:

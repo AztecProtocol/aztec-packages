@@ -46,20 +46,36 @@
 //! }
 //! ```
 
-pub mod backend;
-pub mod types;
-pub mod api;
-pub mod error;
+// Bb API bindings produced by `ipc-codegen` from `ipc-codegen/schemas/bb_schema.json`.
+// Output lives under src/generated/ and is regenerated on every `yarn generate`.
+// NB: ipc-codegen also drops uds_backend.rs into generated/ (because --uds is
+// what pulls in the Backend + IpcError templates the client needs), but we
+// don't declare it as a module here — barretenberg-rs ships its own pipe
+// backend under src/backends/pipe.rs and has no use for the UDS one. Leaving
+// uds_backend.rs undeclared keeps non-Unix targets building.
+pub mod generated {
+    pub mod backend;
+    pub mod bb_client;
+    pub mod bb_types;
+    pub mod error;
 
-// Generated types from msgpack schema
-// Run: cd ../ts && yarn generate
-pub mod generated_types;
+    #[cfg(feature = "ffi")]
+    pub mod ffi_backend;
+}
 
-pub use backend::Backend;
-pub use types::{Fr, Point};
-pub use generated_types::{Command, Response, GrumpkinPoint};
-pub use api::BarretenbergApi;
-pub use error::{BarretenbergError, Result};
+mod fr_ext;
+
+pub use generated::backend::Backend;
+pub use generated::bb_client::BbApi as BarretenbergApi;
+pub use generated::bb_types::{
+    Bn254G1Point, Bn254G2Point, Command, Fr, GrumpkinPoint, Response, Secp256k1Point,
+    Secp256r1Point,
+};
+pub use generated::error::{IpcError as BarretenbergError, Result};
+
+// Re-export the full generated types module as `generated_types` for callers
+// that imported types directly (e.g. `barretenberg_rs::generated_types::Secp256k1Point`).
+pub use generated::bb_types as generated_types;
 
 /// Backend implementations
 pub mod backends {
@@ -68,8 +84,8 @@ pub mod backends {
     #[cfg(feature = "native")]
     pub use pipe::PipeBackend;
 
+    // The FFI backend comes from ipc-codegen (see crate::generated::ffi_backend).
+    // Re-export it here to preserve the existing `barretenberg_rs::backends::FfiBackend` path.
     #[cfg(feature = "ffi")]
-    pub mod ffi;
-    #[cfg(feature = "ffi")]
-    pub use ffi::FfiBackend;
+    pub use crate::generated::ffi_backend::FfiBackend;
 }

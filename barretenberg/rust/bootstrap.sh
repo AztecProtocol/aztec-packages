@@ -18,7 +18,7 @@ function build {
     BB_LIB_DIR="$(cd ../cpp/build/lib && pwd)" denoise "cargo build --release"
 
     # Upload build artifacts and generated source files to cache
-    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated_types.rs barretenberg-rs/src/api.rs
+    cache_upload barretenberg-rs-$hash.tar.gz target/release barretenberg-rs/src/generated
   fi
 }
 
@@ -55,7 +55,7 @@ function release {
   sed -i "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
 
   # Generated files must exist (created during build step, or generate now)
-  if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
+  if [ ! -f barretenberg-rs/src/generated/bb_client.rs ] || [ ! -f barretenberg-rs/src/generated/bb_types.rs ]; then
     echo "Generated files not found, running yarn generate..."
     (cd ../ts && yarn generate)
   fi

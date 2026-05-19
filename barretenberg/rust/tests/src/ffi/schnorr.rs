@@ -113,12 +113,17 @@ fn test_schnorr_sign_and_verify() {
         .expect("schnorr_construct_signature failed");
 
     // Signature should have s and e components (32 bytes each)
-    assert_eq!(sign_response.s.len(), 32);
-    assert_eq!(sign_response.e.len(), 32);
+    assert_eq!(sign_response.s.0.len(), 32);
+    assert_eq!(sign_response.e.0.len(), 32);
 
     // Verify
     let verify_response = api
-        .schnorr_verify_signature(message, pub_key_response.public_key.clone(), &sign_response.s, &sign_response.e)
+        .schnorr_verify_signature(
+            message,
+            pub_key_response.public_key.clone(),
+            sign_response.s,
+            sign_response.e,
+        )
         .expect("schnorr_verify_signature failed");
 
     assert!(verify_response.verified, "Signature should be valid");
@@ -151,10 +156,18 @@ fn test_schnorr_verify_wrong_message() {
 
     // Verify with message2 - should fail
     let verify_response = api
-        .schnorr_verify_signature(message2, pub_key_response.public_key.clone(), &sign_response.s, &sign_response.e)
+        .schnorr_verify_signature(
+            message2,
+            pub_key_response.public_key.clone(),
+            sign_response.s,
+            sign_response.e,
+        )
         .expect("schnorr_verify_signature failed");
 
-    assert!(!verify_response.verified, "Signature should be invalid for wrong message");
+    assert!(
+        !verify_response.verified,
+        "Signature should be invalid for wrong message"
+    );
 
     api.destroy().expect("Failed to destroy backend");
 }

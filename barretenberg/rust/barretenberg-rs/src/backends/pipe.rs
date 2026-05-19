@@ -3,8 +3,8 @@
 //! This backend communicates with the BB binary via stdin/stdout pipes,
 //! using a 4-byte little-endian length prefix protocol.
 
-use crate::backend::Backend;
-use crate::error::{BarretenbergError, Result};
+use crate::Backend;
+use crate::{BarretenbergError, Result};
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -37,20 +37,26 @@ impl PipeBackend {
         }
 
         // Spawn the process
-        let mut process = cmd.spawn()
-            .map_err(|e| BarretenbergError::Backend(format!("Failed to spawn BB process: {}", e)))?;
+        let mut process = cmd.spawn().map_err(|e| {
+            BarretenbergError::Backend(format!("Failed to spawn BB process: {}", e))
+        })?;
 
         // Take stdin and stdout handles
-        let stdin = process.stdin.take()
+        let stdin = process
+            .stdin
+            .take()
             .ok_or_else(|| BarretenbergError::Backend("Failed to get stdin handle".to_string()))?;
-        let stdout = process.stdout.take()
+        let stdout = process
+            .stdout
+            .take()
             .ok_or_else(|| BarretenbergError::Backend("Failed to get stdout handle".to_string()))?;
 
         // Check if process exited immediately (indicates startup failure)
         if let Ok(Some(status)) = process.try_wait() {
-            return Err(BarretenbergError::Backend(
-                format!("BB process exited immediately with status: {}", status)
-            ));
+            return Err(BarretenbergError::Backend(format!(
+                "BB process exited immediately with status: {}",
+                status
+            )));
         }
 
         Ok(Self {
@@ -63,11 +69,14 @@ impl PipeBackend {
     /// Send data with length prefix
     fn send_with_prefix(&mut self, data: &[u8]) -> Result<()> {
         let len = data.len() as u32;
-        self.stdin.write_all(&len.to_le_bytes())
+        self.stdin
+            .write_all(&len.to_le_bytes())
             .map_err(|e| BarretenbergError::Ipc(format!("Failed to write length: {}", e)))?;
-        self.stdin.write_all(data)
+        self.stdin
+            .write_all(data)
             .map_err(|e| BarretenbergError::Ipc(format!("Failed to write data: {}", e)))?;
-        self.stdin.flush()
+        self.stdin
+            .flush()
             .map_err(|e| BarretenbergError::Ipc(format!("Failed to flush stdin: {}", e)))?;
         Ok(())
     }
@@ -75,13 +84,15 @@ impl PipeBackend {
     /// Receive data with length prefix
     fn receive_with_prefix(&mut self) -> Result<Vec<u8>> {
         let mut len_buf = [0u8; 4];
-        self.stdout.read_exact(&mut len_buf)
+        self.stdout
+            .read_exact(&mut len_buf)
             .map_err(|e| BarretenbergError::Ipc(format!("Failed to read length: {}", e)))?;
 
         let len = u32::from_le_bytes(len_buf) as usize;
 
         let mut data = vec![0u8; len];
-        self.stdout.read_exact(&mut data)
+        self.stdout
+            .read_exact(&mut data)
             .map_err(|e| BarretenbergError::Ipc(format!("Failed to read data: {}", e)))?;
 
         Ok(data)

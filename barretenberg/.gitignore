@@ -11,6 +11,3 @@ bench-out
 
 # Generated code (produced by ipc-codegen, not committed)
 **/generated/
-# Legacy generated paths from the cbind pipeline (kept for any leftover from migration)
-rust/barretenberg-rs/src/generated_types.rs
-rust/barretenberg-rs/src/api.rs
