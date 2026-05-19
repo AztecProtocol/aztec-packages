@@ -90,6 +90,7 @@ export class AutomineSequencer {
   private readonly deps: AutomineSequencerDeps;
 
   private running = false;
+  private paused = false;
   private mempoolPoller?: RunningPromise;
   private publisher?: SequencerPublisher;
   private attestorAddress?: EthAddress;
@@ -149,10 +150,11 @@ export class AutomineSequencer {
 
   /**
    * Enqueues a mempool-driven build. Coalesces consecutive calls so a burst of new txs
-   * collapses into one build job. Returns the built block (or undefined if nothing was built).
+   * collapses into one build job. Returns the built block (or undefined if nothing was built
+   * or the sequencer is paused).
    */
   public buildIfPending(): Promise<L2Block | undefined> {
-    if (!this.running) {
+    if (!this.running || this.paused) {
       return Promise.resolve(undefined);
     }
     if (this.buildQueued) {
@@ -164,6 +166,28 @@ export class AutomineSequencer {
       this.buildQueued = false;
       return this.runBuild({ allowEmpty: false });
     });
+  }
+
+  /**
+   * Pauses mempool-driven block production. Pending txs accumulate in the pool without being
+   * mined. Explicit test-harness operations (`buildEmptyBlock`, `warpTo`, `revertToCheckpoint`)
+   * continue to work; this only gates the mempool poller and `buildIfPending`.
+   */
+  public pause(): void {
+    if (this.paused) {
+      return;
+    }
+    this.paused = true;
+    this.log.info('AutomineSequencer paused');
+  }
+
+  /** Resumes mempool-driven block production after a previous {@link pause}. */
+  public resume(): void {
+    if (!this.paused) {
+      return;
+    }
+    this.paused = false;
+    this.log.info('AutomineSequencer resumed');
   }
 
   /** Enqueues an empty-block build. Resolves to the built block. */
@@ -216,7 +240,7 @@ export class AutomineSequencer {
 
   /** Called from the mempool poller. Enqueues a build if there are pending txs. */
   private async maybeEnqueueBuild(): Promise<void> {
-    if (!this.running || this.buildQueued) {
+    if (!this.running || this.paused || this.buildQueued) {
       return;
     }
     try {

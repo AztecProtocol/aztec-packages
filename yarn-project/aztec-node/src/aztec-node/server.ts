@@ -168,6 +168,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private metrics: NodeMetrics;
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
+  // Saved minTxsPerBlock used by `pauseSequencer` to restore production-sequencer config on resume.
+  private sequencerPausedMinTxsPerBlock: number | undefined;
 
   public readonly tracer: Tracer;
 
@@ -1842,6 +1844,41 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.worldStateSynchronizer.resumeSync();
     (this.blockSource as Archiver).resume();
     return Promise.resolve();
+  }
+
+  public pauseSequencer(): Promise<void> {
+    if (this.automineSequencer) {
+      this.automineSequencer.pause();
+      return Promise.resolve();
+    }
+    if (this.sequencer) {
+      if (this.sequencerPausedMinTxsPerBlock === undefined) {
+        this.sequencerPausedMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock ?? 0;
+        this.sequencer.updateConfig({ minTxsPerBlock: Number.MAX_SAFE_INTEGER });
+        this.log.info(`Sequencer paused (minTxsPerBlock set to MAX_SAFE_INTEGER)`, {
+          previousMinTxsPerBlock: this.sequencerPausedMinTxsPerBlock,
+        });
+      }
+      return Promise.resolve();
+    }
+    throw new BadRequestError('Cannot pause sequencer: no sequencer is running');
+  }
+
+  public resumeSequencer(): Promise<void> {
+    if (this.automineSequencer) {
+      this.automineSequencer.resume();
+      return Promise.resolve();
+    }
+    if (this.sequencer) {
+      if (this.sequencerPausedMinTxsPerBlock !== undefined) {
+        const restored = this.sequencerPausedMinTxsPerBlock;
+        this.sequencerPausedMinTxsPerBlock = undefined;
+        this.sequencer.updateConfig({ minTxsPerBlock: restored });
+        this.log.info(`Sequencer resumed (minTxsPerBlock restored)`, { minTxsPerBlock: restored });
+      }
+      return Promise.resolve();
+    }
+    throw new BadRequestError('Cannot resume sequencer: no sequencer is running');
   }
 
   public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
