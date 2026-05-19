@@ -35,21 +35,23 @@ auto run_native_folding_verifier(Chonk& chonk,
         std::make_shared<VerifierInstance_<NativeFlavor>>(std::make_shared<typename NativeFlavor::VKAndHash>(honk_vk));
     HypernovaFoldingVerifier<NativeFlavor> native_verifier(verifier_transcript);
     if (queue_entry.type == Chonk::QUEUE_TYPE::OINK) {
-        auto [first_verified, new_accumulator] =
+        auto [_first_verified, new_accumulator] =
             native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
-        info("Sumcheck: instance to accumulator verified: ", first_verified ? "true" : "false");
         chonk.native_verifier_accum = std::move(new_accumulator);
+        info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
     } else {
-        auto [first_verified, second_verified, new_accumulator] =
+        auto [_first_verified, _second_verified, new_accumulator] =
             native_verifier.verify_folding_proof(verifier_inst, chonk.native_verifier_accum, queue_entry.proof);
-        info("Sumcheck: instance to accumulator verified: ", first_verified ? "true" : "false");
-        info("Sumcheck: batch two accumulators verified: ", second_verified ? "true" : "false");
         chonk.native_verifier_accum = std::move(new_accumulator);
+
+        info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
+        info("Sumcheck: batch two accumulators verified: ", _second_verified ? "true" : "false");
 
         if (queue_entry.type == Chonk::QUEUE_TYPE::HN_FINAL) {
             HypernovaDeciderVerifier<NativeFlavor> decider_verifier(verifier_transcript);
             bb::PairingPoints<curve::BN254> pairing_points =
                 decider_verifier.verify_proof(chonk.native_verifier_accum, chonk.decider_proof);
+
             info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
         }
     }
@@ -194,6 +196,7 @@ Chonk::FoldingResult run_recursive_folding_verifier(
     case Chonk::QUEUE_TYPE::HN_TAIL: {
         BB_ASSERT(input_verifier_accumulator.has_value(),
                   "Verifier accumulator should be present for HN and HN_TAIL proofs");
+
         vinfo("Recursively verifying inner accumulation.");
         auto [_first_verified, _second_verified, new_verifier_accumulator] = folding_verifier.verify_folding_proof(
             verifier_instance, input_verifier_accumulator.value(), verifier_inputs.proof);
@@ -202,25 +205,26 @@ Chonk::FoldingResult run_recursive_folding_verifier(
     }
     case Chonk::QUEUE_TYPE::HN_FINAL: {
         BB_ASSERT(input_verifier_accumulator.has_value(), "Verifier accumulator should be present for HN_FINAL proofs");
+
         vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_queue_size, size_t(1));
+
         auto [_first_verified, _second_verified, final_verifier_accumulator] = folding_verifier.verify_folding_proof(
             verifier_instance, input_verifier_accumulator.value(), verifier_inputs.proof);
+
         HypernovaDeciderVerifier<RecursiveFlavor> decider_verifier(accumulation_recursive_transcript);
         Chonk::StdlibProof stdlib_decider_proof(circuit, decider_proof);
         pairing_points.emplace_back(decider_verifier.verify_proof(final_verifier_accumulator, stdlib_decider_proof));
         break;
     }
-    default:
+    default: {
         throw_or_abort("Invalid queue type! Only OINK, HN, HN_TAIL and HN_FINAL are supported");
+    }
     }
 
     return { std::move(output_accumulator), std::move(pairing_points) };
 }
 } // namespace
-
-// verify_folding member is no longer needed — recursive_verification_and_consistency_checks
-// dispatches directly to run_recursive_folding_verifier<RecursiveFlavor>.
 
 /**
  * @brief Process public inputs from a verified circuit and perform databus consistency checks
