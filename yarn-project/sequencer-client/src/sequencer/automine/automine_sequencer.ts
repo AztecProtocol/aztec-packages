@@ -21,9 +21,10 @@ import {
   getSlotAtTimestamp,
   getTimestampForSlot,
 } from '@aztec/stdlib/epoch-helpers';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import type { FailedTx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../../global_variable_builder/global_builder.js';
@@ -102,8 +103,8 @@ export class AutomineSequencer {
   private publisher?: SequencerPublisher;
   private attestorAddress?: EthAddress;
 
-  /** True while a mempool-driven build is queued but not yet run; used to coalesce. */
-  private buildQueued = false;
+  /** Set while a mempool-driven build is queued but not yet run; used to coalesce. */
+  private buildQueued: Promise<L2Block | undefined> | undefined = undefined;
 
   /** Last L2 slot we published a checkpoint for (-1 means none yet). */
   private lastBuiltSlot: number = -1;
@@ -128,9 +129,9 @@ export class AutomineSequencer {
     await this.deps.ethCheatCodes.setIntervalMining(0, { silent: true });
     await this.deps.ethCheatCodes.setAutomine(true, { silent: true });
 
-    const pair = await this.deps.publisherFactory.create();
-    this.publisher = pair.publisher;
-    this.attestorAddress = pair.attestorAddress;
+    const { publisher, attestorAddress } = await this.deps.publisherFactory.create();
+    this.publisher = publisher;
+    this.attestorAddress = attestorAddress;
     this.log.info(`AutomineSequencer started`, {
       publisher: this.publisher.getSenderAddress().toString(),
       attestor: this.attestorAddress.toString(),
@@ -172,13 +173,16 @@ export class AutomineSequencer {
     }
     if (this.buildQueued) {
       // A build is already queued; coalesce. The pending build will pick up the new txs.
-      return Promise.resolve(undefined);
+      return this.buildQueued;
     }
-    this.buildQueued = true;
-    return this.queue.put(() => {
-      this.buildQueued = false;
-      return this.runBuild({ allowEmpty: false });
+    this.buildQueued = this.queue.put(async () => {
+      try {
+        return await this.runBuild({ allowEmpty: false });
+      } finally {
+        this.buildQueued = undefined;
+      }
     });
+    return this.buildQueued;
   }
 
   /**
@@ -246,10 +250,6 @@ export class AutomineSequencer {
   public syncPoint(): Promise<void> {
     return this.queue.syncPoint();
   }
-
-  // ============================================================================
-  // Internal
-  // ============================================================================
 
   /** Called from the mempool poller. Enqueues a build if there are pending txs. */
   private async maybeEnqueueBuild(): Promise<void> {
@@ -352,14 +352,36 @@ export class AutomineSequencer {
 
     const pendingTxs = this.deps.p2pClient.iterateEligiblePendingTxs();
 
-    const buildResult = await checkpointBuilder.buildBlock(pendingTxs, nextBlockNumber, checkpointGlobals.timestamp, {
-      maxTransactions: this.deps.config.maxTxsPerBlock,
-      // Allow empty for explicit-empty builds; require at least 1 valid tx otherwise.
-      minValidTxs: allowEmpty ? 0 : 1,
-      isBuildingProposal: true,
-      maxBlocksPerCheckpoint: 1,
-      perBlockAllocationMultiplier: 1,
-    });
+    let buildResult;
+    try {
+      buildResult = await checkpointBuilder.buildBlock(pendingTxs, nextBlockNumber, checkpointGlobals.timestamp, {
+        maxTransactions: this.deps.config.maxTxsPerBlock,
+        // Allow empty for explicit-empty builds; require at least 1 valid tx otherwise.
+        minValidTxs: allowEmpty ? 0 : 1,
+        isBuildingProposal: true,
+        maxBlocksPerCheckpoint: 1,
+        perBlockAllocationMultiplier: 1,
+      });
+    } catch (err) {
+      // Mirrors production's checkpoint_proposal_job: if every pending tx failed execution and
+      // we didn't reach minValidTxs, drop the failed txs from the mempool so they don't block
+      // the poller forever, then abort this build with no checkpoint published.
+      if (isErrorClass(err, InsufficientValidTxsError)) {
+        await this.dropFailedTxsFromP2P(err.failedTxs);
+        this.log.verbose(`AutomineSequencer: insufficient valid txs, skipping build`, {
+          checkpointNumber,
+          processedCount: err.processedCount,
+          minRequired: err.minRequired,
+          failedCount: err.failedTxs.length,
+        });
+        return undefined;
+      }
+      throw err;
+    }
+
+    // Drop any txs that failed execution but didn't trigger InsufficientValidTxsError, so we
+    // don't re-pick them up on the next build.
+    await this.dropFailedTxsFromP2P(buildResult.failedTxs);
 
     const checkpoint = await checkpointBuilder.completeCheckpoint();
 
@@ -490,5 +512,15 @@ export class AutomineSequencer {
       targetCheckpoint,
       targetL1Block,
     });
+  }
+
+  /** Removes txs that failed execution from the P2P mempool so they don't get retried. */
+  private async dropFailedTxsFromP2P(failedTxs: FailedTx[]): Promise<void> {
+    if (failedTxs.length === 0) {
+      return;
+    }
+    const failedTxHashes = failedTxs.map(fail => fail.tx.getTxHash());
+    this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
+    await this.deps.p2pClient.handleFailedExecution(failedTxHashes);
   }
 }
