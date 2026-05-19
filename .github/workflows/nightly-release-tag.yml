@@ -26,7 +26,7 @@ jobs:
         run: |
           git config --global user.email "tech@aztecprotocol.com"
           git config --global user.name "AztecBot"
-          current_version=$(jq -r '."."' .release-please-manifest.json)
+          current_version=$(cat VERSION)
           echo "Current version: $current_version"
           nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
           echo "Nightly tag: $nightly_tag"
@@ -46,7 +46,7 @@ jobs:
         run: |
           git config --global user.email "tech@aztecprotocol.com"
           git config --global user.name "AztecBot"
-          current_version=$(jq -r '."."' .release-please-manifest.json)
+          current_version=$(cat VERSION)
           echo "Current version: $current_version"
           nightly_tag="v${current_version}-spartan.$(date -u +%Y%m%d)"
           echo "Spartan nightly tag: $nightly_tag"

@@ -42,7 +42,7 @@ jobs:
             SEMVER=$(echo "$TAG" | sed 's/-amd64$//' | sed 's/-spartan\.[0-9]\{8\}//')
           else
             # Scheduled nightly run - get latest spartan nightly tag
-            current_version=$(jq -r '."."' .release-please-manifest.json)
+            current_version=$(cat VERSION)
             echo "Current version: $current_version"
 
             # Format the tag as: <current_version>-spartan.<YYYYMMDD>-amd64

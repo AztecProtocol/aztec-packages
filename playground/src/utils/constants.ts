@@ -1,6 +1,6 @@
-import releasePleaseManifest from '../../../.release-please-manifest.json';
+import versionFile from '../../../VERSION?raw';
 
-export const VERSION = releasePleaseManifest['.'];
+export const VERSION = versionFile.trim();
 
 export const ContractDescriptions = {
   PrivateVoting:

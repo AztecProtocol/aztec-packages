@@ -7,7 +7,7 @@
  *
  * The script:
  * 1. Validates the nightly tag format (vX.Y.Z-nightly.YYYYMMDD)
- * 2. Reads the major version from .release-please-manifest.json
+ * 2. Reads the major version from the VERSION file
  * 3. Finds the next devnet iteration number
  * 4. Creates a branch with a .devnet-version file
  * 5. Pushes the branch
@@ -43,11 +43,8 @@ if (!/^v\d+\.\d+\.\d+-nightly\.\d{8}$/.test(nightlyTag)) {
 // 2. Configure git identity in CI
 configureGitIdentityInCI();
 
-// 3. Read major version from manifest
-const manifest = JSON.parse(
-  readFileSync(".release-please-manifest.json", "utf-8"),
-);
-const version: string = manifest["."];
+// 3. Read major version from the VERSION file
+const version: string = readFileSync("VERSION", "utf-8").trim();
 const majorVersion = version.split(".")[0];
 console.log(`Major version: ${majorVersion}`);
 

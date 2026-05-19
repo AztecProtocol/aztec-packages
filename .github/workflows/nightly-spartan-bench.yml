@@ -29,7 +29,7 @@ jobs:
           if [[ -n "${{ inputs.nightly_tag }}" ]]; then
             nightly_tag="${{ inputs.nightly_tag }}"
           else
-            current_version=$(jq -r '."."' .release-please-manifest.json)
+            current_version=$(cat VERSION)
             nightly_tag="${current_version}-spartan.$(date -u +%Y%m%d)"
           fi
           echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
@@ -134,7 +134,7 @@ jobs:
           if [[ -n "${{ inputs.nightly_tag }}" ]]; then
             nightly_tag="${{ inputs.nightly_tag }}"
           else
-            current_version=$(jq -r '."."' .release-please-manifest.json)
+            current_version=$(cat VERSION)
             nightly_tag="${current_version}-spartan.$(date -u +%Y%m%d)"
           fi
           echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT

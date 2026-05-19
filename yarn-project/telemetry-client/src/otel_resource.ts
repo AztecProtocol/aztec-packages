@@ -14,14 +14,11 @@ import { fileURLToPath } from 'url';
 
 import { AZTEC_NODE_ROLE, AZTEC_REGISTRY_ADDRESS, AZTEC_ROLLUP_ADDRESS, AZTEC_ROLLUP_VERSION } from './attributes.js';
 
-/** Reads the Aztec client version from the release manifest. */
+/** Reads the Aztec client version from the root VERSION file. */
 function getAztecVersion(): string | undefined {
   try {
-    const releasePleasePath = resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      '../../../.release-please-manifest.json',
-    );
-    return JSON.parse(readFileSync(releasePleasePath, 'utf-8'))['.'];
+    const versionPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../VERSION');
+    return readFileSync(versionPath, 'utf-8').trim();
   } catch {
     return undefined;
   }

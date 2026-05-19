@@ -9,7 +9,7 @@ description: Updates changelog documentation for contract developers and node op
 
 ### 1. Determine Target Files
 
-Read `.release-please-manifest.json` to get the version (e.g., `{"." : "4.0.0"}` → edit `v4.md`).
+Read the root `VERSION` file to get the version (e.g., `4.0.0` → edit `v4.md`).
 
 **Target files:**
 
