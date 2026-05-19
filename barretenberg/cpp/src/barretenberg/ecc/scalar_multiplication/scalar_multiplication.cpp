@@ -2000,12 +2000,11 @@ size_t dedup_phase_a_worker_hash(const uint32_t* schedule_w0,
         }
     } // MSM::PhaseA/cluster_scan
 
-    // After the per-bucket loop we have `clusters_opened` total clusters, each
-    // with members in cluster_members starting at cluster_offsets[k]. The
-    // cluster_offsets vector already contains end-offsets for each cluster
-    // because we push_back'd at promotion time. Convert it into the same
-    // [start, end) layout the existing tree-reduce + publish loops expect.
-    const size_t num_clusters = clusters_opened;
+    // Only flattened clusters are published. `clusters_opened` counts every promoted
+    // hash-table singleton, including clusters later skipped because cluster_members_cap
+    // would be exceeded. Skipped clusters intentionally fall through the normal Pippenger
+    // path because they never get redirect_lookup entries.
+    const size_t num_clusters = cluster_offsets_size - 1;
     if (num_clusters == 0) {
         return 0;
     }

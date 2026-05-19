@@ -70,6 +70,15 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         return AffineElement(expected_acc);
     }
 
+    static std::vector<AffineElement> make_repeated_test_points(size_t num_pts)
+    {
+        std::vector<AffineElement> points(num_pts);
+        for (size_t i = 0; i < num_pts; ++i) {
+            points[i] = generators[i % generators.size()];
+        }
+        return points;
+    }
+
     static void SetUpTestSuite()
     {
         generators.resize(num_points);
@@ -569,18 +578,51 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     void test_msm_dedup_cap_and_carry()
     {
         const size_t num_pts = 50000;
-        ASSERT_LE(num_pts, num_points);
         // Pick a dedup-eligible scalar: msb >= c (c ≈ 11 for n ≈ 50 000), so any value
         // ≥ 2^11 works. Use 2^200 so msb is firmly large for any c the dispatch picks.
         const ScalarField val = ScalarField(uint256_t(0, 0, 0, uint64_t{ 1 } << (200 - 192))); // 2^200
         std::vector<ScalarField> uniform_scalars(num_pts, val);
-        std::span<const AffineElement> points(&generators[0], num_pts);
+        std::vector<AffineElement> points = make_repeated_test_points(num_pts);
         PolynomialSpan<ScalarField> scalar_span(0, uniform_scalars);
 
         AffineElement result = scalar_multiplication::MSM<Curve>::msm(
             points, scalar_span, /*handle_edge_cases=*/false, /*dedup_hint=*/true);
 
-        AffineElement expected = naive_msm(std::span<ScalarField>(uniform_scalars), points);
+        AffineElement expected =
+            naive_msm(std::span<ScalarField>(uniform_scalars), std::span<const AffineElement>(points));
+        EXPECT_EQ(result, expected);
+    }
+
+    /**
+     * @brief Stress-test dedup cap fallback across many small clusters.
+     *
+     *        This shape opens more clusters than can fit in the flattened member slab:
+     *        12K distinct scalar values, each repeated 3 times, produce 36K potential
+     *        cluster members against the 32K member cap. Clusters that do not fit must
+     *        remain unpublished and fall through the ordinary Pippenger path.
+     */
+    void test_msm_dedup_many_small_clusters_cap()
+    {
+        constexpr size_t NUM_CLUSTERS = 12000;
+        constexpr size_t CLUSTER_SIZE = 3;
+        const size_t num_pts = NUM_CLUSTERS * CLUSTER_SIZE;
+
+        std::vector<ScalarField> scalars;
+        scalars.reserve(num_pts);
+        const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));
+        for (size_t i = 0; i < NUM_CLUSTERS; ++i) {
+            const ScalarField val = ScalarField(high_bit + uint256_t(i + 1));
+            for (size_t j = 0; j < CLUSTER_SIZE; ++j) {
+                scalars.push_back(val);
+            }
+        }
+
+        std::vector<AffineElement> points = make_repeated_test_points(num_pts);
+        PolynomialSpan<ScalarField> scalar_span(0, scalars);
+
+        AffineElement result =
+            scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/false, true);
+        AffineElement expected = naive_msm(std::span<ScalarField>(scalars), std::span<const AffineElement>(points));
         EXPECT_EQ(result, expected);
     }
 
@@ -974,6 +1016,10 @@ TYPED_TEST(ScalarMultiplicationTest, MSMSingleDigitMegaRun)
 TYPED_TEST(ScalarMultiplicationTest, MSMDedupCapAndCarry)
 {
     this->test_msm_dedup_cap_and_carry();
+}
+TYPED_TEST(ScalarMultiplicationTest, MSMDedupManySmallClustersCap)
+{
+    this->test_msm_dedup_many_small_clusters_cap();
 }
 
 // Dispatch-coverage tests for `pippenger_round_parallel`.

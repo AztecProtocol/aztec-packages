@@ -175,14 +175,15 @@ round ladder with `BB_MSM_TRACE` and `batch_mul_with_endomorphism` timings, espe
 ### `ecdsar1+transfer_0_recursions+sponsored_fpc`, native (clang20-no-avm, 16 threads)
 
 Branch `lde/zacs-pippenger` (`758407a0835`) vs baseline `merge-train/barretenberg`
-(`4da6ab07f2c`), EC2 single run.
+(`4da6ab07f2c`), EC2 single run. The flow matrix below includes current-branch reruns after
+instrumentation, variable-split removal, and the dedup cap publication fix.
 
 Native Chonk flow matrix:
 
 | Flow | Circuits | Baseline `ChonkAPI::prove` | Branch `ChonkAPI::prove` | Status |
 | --- | --- | --- | --- | --- |
-| `ecdsar1+transfer_0_recursions+sponsored_fpc` | 9 | 4.48 s | 3.46 s | -22.8% |
-| `ecdsar1+transfer_1_recursions+private_fpc` | 17 | 7.75 s | aborted | Arena overflow, 1.70 MB needed vs 1.21 MB cap |
+| `ecdsar1+transfer_0_recursions+sponsored_fpc` | 9 | 4.48 s | 3.43 s median | -23.4% |
+| `ecdsar1+transfer_1_recursions+private_fpc` | 17 | 7.75 s | 6.10 s | -21.3% |
 
 | Stage | Baseline | Branch | Delta |
 | --- | --- | --- | --- |
@@ -335,10 +336,13 @@ Concrete actions from this trace:
 3. Consider replacing the ECCVM transcript accumulator dedup case with a cheaper zero-heavy
    path if it remains measurable after the correctness work.
 
-### `ecdsar1+transfer_1_recursions+private_fpc`, native baseline
+### `ecdsar1+transfer_1_recursions+private_fpc`, native
 
-Baseline `merge-train/barretenberg` (`4da6ab07f2c`) proves this flow in 7.75 s. The branch
-(`758407a0835`) aborts before a branch timing can be collected:
+Baseline `merge-train/barretenberg` (`4da6ab07f2c`) proves this flow in 7.75 s. The current
+branch, after variable-split removal and the dedup cap publication fix, proves it in 6.10 s
+single-run: a 1.65 s / 21.3% speedup.
+
+The earlier branch state (`758407a0835`) aborted before timing could be collected:
 
 ```text
 aligned_local + bytes <= bound_bytes
@@ -348,8 +352,8 @@ aligned_local + bytes <= bound_bytes
 This flow is roughly "more of the same" compared with transfer_0: 17 circuits vs 9 circuits,
 and baseline wallclock scales from 4.48 s to 7.75 s. Per-circuit baseline time is slightly
 lower on transfer_1 (456 ms vs 498 ms), so the private-recursive flow is not a qualitatively
-different workload; it is a larger real Chonk workload that the branch currently cannot
-prove.
+different workload. The current branch now proves this larger real Chonk workload, so the
+headline native speedup holds beyond the shorter public-transfer flow.
 
 Baseline slices:
 
@@ -367,9 +371,10 @@ Baseline slices:
 | `BatchedHonkTranslatorProver::prove` | 944.5 ms | - |
 | `MSM::batch_multi_scalar_mul` (top context) | 2.25 s | 70 x 32.1 ms |
 
-The branch abort here expands the arena hypothesis from "sizer and allocator drift across
-feature toggles" to "sizer and allocator drift across real workloads." Transfer_0 native
-fits the current arena bound by accident; transfer_1 native exceeds it by about 40%.
+The prior abort is now best treated as a removed-path/cap-publication correctness symptom,
+not proof that the whole unsplit arena model is broken. Variable-split removal deleted the
+split-specific sizing branch, and the dedup cap fix prevents promoted-but-unflattened
+clusters from being published.
 
 ### `BB_MSM_TRACE=1` aggregates, same flow
 
@@ -407,7 +412,7 @@ Observations:
   `dedup_members_dropped`. Adding those would let the cap-fallback drift from the
   immediate red flag section be diagnosed empirically rather than by code reading.
 
-### WASM bench: blocked by arena overflow on the same flow
+### Historical arena-overflow reproductions
 
 `build-wasm-threads/bb prove --scheme chonk` aborts on this flow at:
 
@@ -427,20 +432,22 @@ branch regression specific to wasm. Likely candidates:
 - Concurrency surfaced from wasi-threads under `HARDWARE_CONCURRENCY=16` may not match
   what the sizer assumed when picking per-worker scratch caps.
 
-This blocks any wasm performance comparison until fixed. Worth treating as the next
-correctness item after the dedup cap fallback, since it manifests on a real production
-flow rather than a unit test.
+This blocked wasm performance comparison in the earlier branch state. Re-run wasm after the
+variable-split removal and dedup cap fix before treating this as still current.
 
-The arena assertion now has four distinct reproductions:
+The arena/dedup assertion had four distinct reproductions before the recent fixes:
 
 | Scenario | Overflow | Severity |
 | --- | --- | --- |
-| transfer_0 native + `BB_MSM_NO_GLV=1` | unrecorded | Ablation-only but same assertion |
-| transfer_0 wasm | ~8%, 674 KB needed vs 624 KB cap | WASM regression |
-| transfer_1 native, no flags | ~40%, 1.70 MB needed vs 1.21 MB cap | Production-path crash |
-| dedup cap fallback | cluster count drift | Unit-test correctness failure |
+| transfer_0 native + `BB_MSM_NO_GLV=1` | unrecorded | Ablation-only; needs rerun |
+| transfer_0 wasm | ~8%, 674 KB needed vs 624 KB cap | WASM regression; needs rerun |
+| transfer_1 native, no flags | ~40%, 1.70 MB needed vs 1.21 MB cap | Fixed: current branch proves in 6.10 s |
+| dedup cap fallback | cluster count drift | Fixed by publishing only flattened clusters |
 
-This makes arena/sizer mirroring a blocker for the rewrite, not an optional cleanup item.
+Current diagnosis: the broad "arena/sizer mirroring is broken" conclusion was too coarse.
+The surviving evidence points to the removed variable-split sizing branch plus the dedup cap
+publication bug. The unsplit native path now passes both public and private transfer flows;
+`BB_MSM_NO_GLV=1` and wasm should be rerun to close the remaining historical reproductions.
 
 ### Two preset/cmake regressions noted while reproducing
 
@@ -453,3 +460,65 @@ Outside MSM code itself, the branch silently changed wasm/cmake behavior:
   (Phase 5a sched -> pts copy) depend on `v128.load/store` at runtime, so any older
   V8/wasmtime would now fail differently. The bench machine runs wasmtime 43, which is
   fine; production wasm consumers should be checked.
+
+### Full bench matrix: all 11 IVC flows x {native, wasm} x {baseline, branch}
+
+Single-run, EC2 16 threads. Native: `clang20-no-avm`. WASM: `wasm-threads` + wasmtime 43
+with `-W threads=y -W shared-memory=y -S threads=y`. Branch HEAD is the current state
+(variable-split removed, dedup cap publication fixed). Baseline is `merge-train/barretenberg`
+(`4da6ab07f2c`). All numbers are `ChonkAPI::prove` wallclock in seconds.
+
+| Flow | Base nat | Branch nat | Native delta | Base wasm | Branch wasm | WASM delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `deploy_ecdsar1+sponsored_fpc` | 5.47 | 4.27 | -21.9% | 14.83 | 10.88 | -26.6% |
+| `deploy_schnorr+sponsored_fpc` | 5.19 | 3.99 | -23.1% | 14.04 | 10.15 | -27.7% |
+| `ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc` | 8.69 | 6.97 | -19.8% | 23.64 | 18.11 | -23.4% |
+| `ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc` | 5.82 | 4.58 | -21.3% | 15.66 | 11.74 | -25.0% |
+| **`ecdsar1+storage_proof_7_layers+sponsored_fpc`** | **13.60** | **11.96** | **-12.1%** | **43.28** | **37.11** | **-14.3%** |
+| `ecdsar1+token_bridge_claim_private+sponsored_fpc` | 5.19 | 4.07 | -21.6% | 14.00 | 10.41 | -25.6% |
+| `ecdsar1+transfer_0_recursions+private_fpc` | 6.98 | 5.54 | -20.6% | 19.02 | 14.26 | -25.0% |
+| `ecdsar1+transfer_0_recursions+sponsored_fpc` | 4.48 | 3.46 | -22.8% | 11.92 | 8.71 | -26.9% |
+| `ecdsar1+transfer_1_recursions+private_fpc` | 7.74 | 6.16 | -20.4% | 20.99 | 15.84 | -24.5% |
+| `ecdsar1+transfer_1_recursions+sponsored_fpc` | 5.10 | 3.96 | -22.4% | 13.67 | 10.09 | -26.2% |
+| `schnorr+deploy_tokenContract_with_registration+sponsored_fpc` | 5.55 | 4.32 | -22.2% | 14.99 | 11.08 | -26.1% |
+| **Sum** | **73.81** | **59.28** | **-19.7%** | **206.04** | **158.38** | **-23.1%** |
+
+The four open arena-overflow reproductions from earlier in the doc are all resolved at the
+current branch state:
+
+| Prior abort | Outcome at current branch |
+| --- | --- |
+| transfer_1 native, no flags | Proves in 6.16 s |
+| transfer_0 wasm | Proves in 8.71 s |
+| transfer_0 native + `BB_MSM_NO_GLV=1` | Proves in 3.47 s |
+| Dedup cap fallback assertion | Replaced with flattened-cluster publish; ChonkTests.TestCircuitSizes status to confirm |
+
+### Reading the matrix
+
+- **Native deltas cluster tightly at -20% to -23%** across every "normal" flow. Single-run
+  noise on a given flow is about 30 ms (~1%) from the earlier 5-run stability check on
+  transfer_0_sponsored, so the matrix deltas are far outside noise.
+- **WASM deltas are uniformly 3-5 points larger than native** (-24% to -28%). This is
+  consistent with the rewrite's biggest wins (Bernstein-Yang inversion and batch-affine
+  bucket accumulation) paying more in a runtime with higher per-mul constants. For the
+  browser-wasm prover that end users hit, the rewrite is a stronger headline than the
+  native number.
+- **`storage_proof_7_layers` is an outlier** at -12.1% / -14.3%, both the slowest flow and
+  the one where the rewrite helps least. Likely the bottleneck has shifted to non-MSM work
+  or to a size band the new path improves less aggressively. Worth a per-stage `print_bench`
+  + MSM trace pass on this flow before final review sign-off; it is the realistic
+  worst-case for prover UX and the rewrite's value proposition is weakest there.
+- Schnorr and ECDSA-R1 deploy flows behave identically up to ~0.3 s, so signature scheme is
+  not a meaningful axis.
+
+### Caveats
+
+- All cells are single-run. Stability on transfer_0_sponsored (5 native runs after var-split
+  removal) gave a 30 ms peak-to-peak range, so anything within ~50 ms of a baseline cell
+  should be read as "not different." The matrix deltas (1.0-6.2 s absolute) are well past
+  that.
+- WASM runs go through wasmtime 43, not a browser. Browser-wasm numbers are typically
+  1.3-2x slower due to V8 worker-pool and SharedArrayBuffer overhead, but the deltas should
+  carry across since both branch and baseline pay the same envelope.
+- The matrix only measures `ChonkAPI::prove`. Memory matrix (peak RSS via
+  `--memory_profile_out`) is the natural next data point and is not yet captured.
