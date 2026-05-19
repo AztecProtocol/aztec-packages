@@ -79,10 +79,7 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 
   /**
    * Scans newly closed slots, plus a small lookback for late-arriving proposals. Anchors
-   * `currentSlot` at the archiver's last synced L2 slot rather than the wallclock so the scan
-   * doesn't speculate ahead of where L1 has actually closed (e.g. an L1 stall would otherwise
-   * cause us to walk slots whose L1 windows haven't ingested yet). Falls back to the wallclock
-   * if the archiver isn't ready (cold start).
+   * `currentSlot` at the archiver's last synced L2 slot.
    */
   public async scan(): Promise<void> {
     if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {

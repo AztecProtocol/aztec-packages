@@ -377,8 +377,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    *
    * `currentSlot` is anchored to the archiver's last synced L2 slot rather than the wallclock,
    * so the per-slot lag (`isReadyToProcess`) and the end-of-epoch buffer (`processEpochEnds`)
-   * advance with archiver progress and don't speculate ahead of where L1 actually is. Falls
-   * back to the wallclock if the archiver isn't ready yet (cold start).
+   * advance with archiver.
    */
   public async work() {
     const currentSlot = await this.getCurrentSlot();
