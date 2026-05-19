@@ -5,7 +5,7 @@ import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interf
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 
-const DEFAULT_BB_CRS_SIZE = 2 ** 18;
+const DEFAULT_BB_CRS_SIZE = 2 ** 19;
 // Keep the iOS default separate so it can diverge when mobile memory limits require it.
 const IOS_BB_CRS_SIZE = 2 ** 18;
 
