@@ -56,7 +56,7 @@ export const PIPELINING_SETUP_OPTS = {
  * The preset:
  * - Swaps the production Sequencer for an AutomineSequencer that builds one block per
  *   submitted tx, publishes synchronously to L1, and owns all time control through a
- *   serial queue (see `sequencer-client/src/sequencer/automine_sequencer.ts`).
+ *   serial queue (see `sequencer-client/src/sequencer/automine/automine_sequencer.ts`).
  * - Disables the validator client and AnvilTestWatcher (the AutomineSequencer needs
  *   neither).
  * - Disables proposer pipelining and uses `inboxLag: 1` (synchronous, non-pipelined).

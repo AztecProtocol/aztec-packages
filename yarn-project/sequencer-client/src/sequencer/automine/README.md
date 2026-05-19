@@ -37,6 +37,10 @@ Public entry points:
 
 ## Entry points
 
-**Factory** — `createAutomineSequencer` in `automine_factory.ts` wires up all dependencies (publisher manager, keystore, cheat codes, etc.) and returns a started `AutomineSequencer`. It is called by the full node when `aztecTargetCommitteeSize == 0`.
+**Factory** — `createAutomineSequencer` in `automine_factory.ts` wires up all dependencies (publisher manager, keystore, cheat codes, etc.), starts the `PublisherManager`, and returns an unstarted `AutomineSequencer`. The caller (`AztecNodeService.createAndSync` in `aztec-node/src/aztec-node/server.ts`) invokes `AutomineSequencer.start()` separately. It is called by the full node when `aztecTargetCommitteeSize == 0`.
 
 **Test fixture** — `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts` is the test-side entry point. Pass it to `setup()` to get a node + `AutomineSequencer` instead of the production sequencer stack.
+
+## Epoch proving caveat
+
+Epoch proving remains manual under `AUTOMINE_E2E_OPTS`. The e2e `setup()` fixture does NOT wire an `EpochTestSettler` — that observer is only attached in `local-network.ts`. Tests that cross epoch boundaries must therefore advance the proven anchor explicitly via `cheatCodes.rollup.markAsProven(...)`. See `e2e_lending_contract.test.ts` (which calls `progressSlots` in `simulators/lending_simulator.ts`) and `e2e_pruned_blocks.test.ts` for real examples.
