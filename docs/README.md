@@ -377,7 +377,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
 
 ### `#include_aztec_version`
 
-This macro will be replaced inline with the current Aztec packages tag. This value is sourced from the `VERSION` file on the project root.
+This legacy macro will be replaced inline with the current Aztec packages tag from `COMMIT_TAG`.
 
 Alternatively, you can also use the `AztecPackagesVersion()` js function, which you need to import explicitly:
 

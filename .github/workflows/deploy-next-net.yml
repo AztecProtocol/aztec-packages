@@ -42,7 +42,21 @@ jobs:
             SEMVER=$(echo "$TAG" | sed 's/-amd64$//' | sed 's/-spartan\.[0-9]\{8\}//')
           else
             # Scheduled nightly run - get latest spartan nightly tag
-            current_version=$(cat VERSION)
+            git fetch origin +next:refs/remotes/origin/next --depth=1 || true
+            current_version=$(git show origin/next:VERSION 2>/dev/null | tr -d '[:space:]' || true)
+            if [[ -z "$current_version" ]]; then
+              current_version=$(
+                git ls-remote --tags --refs origin 'v[0-9]*-nightly.*' |
+                  awk -F/ '{print $3}' |
+                  sed -nE 's/^v([0-9]+\.[0-9]+\.[0-9]+)-nightly\..*$/\1/p' |
+                  sort -V |
+                  tail -n1
+              )
+            fi
+            if [[ -z "$current_version" ]]; then
+              echo "Unable to infer current next version from VERSION or nightly tags"
+              exit 1
+            fi
             echo "Current version: $current_version"
 
             # Format the tag as: <current_version>-spartan.<YYYYMMDD>-amd64
