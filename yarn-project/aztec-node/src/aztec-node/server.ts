@@ -1022,26 +1022,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.p2pClient;
   }
 
-  /** Exposes the world-state synchronizer. Used by test-only orchestration like AutomineSequencer. */
-  public getWorldStateSynchronizer(): WorldStateSynchronizer {
-    return this.worldStateSynchronizer;
-  }
-
-  /** Exposes the L1->L2 message source (the archiver). Used by test-only orchestration. */
-  public getL1ToL2MessageSource(): L1ToL2MessageSource {
-    return this.l1ToL2MessageSource;
-  }
-
-  /** Exposes the epoch cache. Used by test-only orchestration. */
-  public getEpochCache(): EpochCacheInterface {
-    return this.epochCache;
-  }
-
-  /** Exposes the global variables builder. Used by test-only orchestration. */
-  public getGlobalVariableBuilder(): GlobalVariableBuilderInterface {
-    return this.globalVariableBuilder;
-  }
-
   /**
    * Method to return the currently deployed L1 contract addresses.
    * @returns - The currently deployed L1 contract addresses.
@@ -1272,6 +1252,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.slasherClient);
     await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
     await tryStop(this.sequencer);
+    await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
     await tryStop(this.worldStateSynchronizer);
@@ -1701,7 +1682,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    this.sequencer?.updateConfig(config);
+    // If the sequencer is currently paused via pauseSequencer(), record the caller's desired
+    // minTxsPerBlock as the restore value (so resumeSequencer applies it) and keep the freeze
+    // (MAX_SAFE_INTEGER) applied to the underlying sequencer. Without this guard, forwarding
+    // the new minTxsPerBlock to the sequencer would silently unpause block production while
+    // pauseSequencer() still considers it paused.
+    const sequencerUpdate = { ...config };
+    if (this.sequencerPausedMinTxsPerBlock !== undefined && sequencerUpdate.minTxsPerBlock !== undefined) {
+      this.sequencerPausedMinTxsPerBlock = sequencerUpdate.minTxsPerBlock;
+      delete sequencerUpdate.minTxsPerBlock;
+    }
+    this.sequencer?.updateConfig(sequencerUpdate);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
     await this.p2pClient.updateP2PConfig(config);
