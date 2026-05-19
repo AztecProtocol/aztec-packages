@@ -8,12 +8,18 @@
  *   - No complex abstraction
  */
 
-import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.ts';
-import { toPascalCase, toSnakeCase } from './naming.ts';
+import type {
+  CompiledSchema,
+  Type,
+  Struct,
+  Field,
+  Command,
+} from "./schema_visitor.ts";
+import { toPascalCase, toSnakeCase } from "./naming.ts";
 
 function toCamelCase(name: string): string {
   // If no underscores, assume already camelCase (e.g. forkId, classId)
-  if (!name.includes('_')) {
+  if (!name.includes("_")) {
     return name.charAt(0).toLowerCase() + name.slice(1);
   }
   const pascal = toPascalCase(name);
@@ -21,9 +27,9 @@ function toCamelCase(name: string): string {
 }
 
 export class TypeScriptCodegen {
-  private errorTypeName: string = 'ErrorResponse';
+  private errorTypeName: string = "ErrorResponse";
   /** Prefix to strip from command names when generating method names (e.g. "Bb" -> BbCircuitProve becomes circuitProve) */
-  private methodPrefix: string = '';
+  private methodPrefix: string = "";
 
   constructor(options?: { stripMethodPrefix?: string }) {
     if (options?.stripMethodPrefix) {
@@ -43,94 +49,126 @@ export class TypeScriptCodegen {
   // Type mapping: Schema type -> TypeScript type
   private mapType(type: Type): string {
     switch (type.kind) {
-      case 'primitive':
+      case "primitive":
         switch (type.primitive) {
-          case 'bool': return 'boolean';
-          case 'u8': return 'number';
-          case 'u16': return 'number';
-          case 'u32': return 'number';
-          case 'u64': return 'number';
-          case 'f64': return 'number';
-          case 'string': return 'string';
-          case 'bytes': return 'Uint8Array';
-          case 'fr': return 'Fr';  // 32-byte field element
-          case 'field2': return '[Fr, Fr]';  // Extension field (Fq2)
-          case 'enum_u32': return 'number';  // C++ enum as integer
-          case 'map_u32_pair': return 'Record<number, [Uint8Array, number]>';  // map<enum, pair<fr, index>>
+          case "bool":
+            return "boolean";
+          case "u8":
+            return "number";
+          case "u16":
+            return "number";
+          case "u32":
+            return "number";
+          case "u64":
+            return "number";
+          case "f64":
+            return "number";
+          case "string":
+            return "string";
+          case "bytes":
+            return "Uint8Array";
+          case "fr":
+            return "Fr"; // 32-byte field element
+          case "field2":
+            return "[Fr, Fr]"; // Extension field (Fq2)
+          case "enum_u32":
+            return "number"; // C++ enum as integer
+          case "map_u32_pair":
+            return "Record<number, [Uint8Array, number]>"; // map<enum, pair<fr, index>>
         }
         break;
 
-      case 'vector': {
+      case "vector": {
         const inner = this.mapType(type.element!);
         // Wrap union types in parens to avoid precedence issues: (Foo | undefined)[]
-        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+        return type.element!.kind === "optional"
+          ? `(${inner})[]`
+          : `${inner}[]`;
       }
 
-      case 'array': {
+      case "array": {
         const inner = this.mapType(type.element!);
-        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+        return type.element!.kind === "optional"
+          ? `(${inner})[]`
+          : `${inner}[]`;
       }
 
-      case 'optional':
+      case "optional":
         return `${this.mapType(type.element!)} | null`;
 
-      case 'struct':
+      case "struct":
         return toPascalCase(type.struct!.name);
     }
 
-    return 'unknown';
+    return "unknown";
   }
 
   // Type mapping for msgpack interfaces (uses Msgpack* prefix for structs)
   private mapMsgpackType(type: Type): string {
     switch (type.kind) {
-      case 'primitive':
+      case "primitive":
         switch (type.primitive) {
-          case 'bool': return 'boolean';
-          case 'u8': return 'number';
-          case 'u16': return 'number';
-          case 'u32': return 'number';
-          case 'u64': return 'number';
-          case 'f64': return 'number';
-          case 'string': return 'string';
-          case 'bytes': return 'Uint8Array';
-          case 'fr': return 'Uint8Array';  // Fr on the wire is still 32 bytes
-          case 'field2': return '[Uint8Array, Uint8Array]';
-          case 'enum_u32': return 'number';
-          case 'map_u32_pair': return 'Record<number, [Uint8Array, number]>';
+          case "bool":
+            return "boolean";
+          case "u8":
+            return "number";
+          case "u16":
+            return "number";
+          case "u32":
+            return "number";
+          case "u64":
+            return "number";
+          case "f64":
+            return "number";
+          case "string":
+            return "string";
+          case "bytes":
+            return "Uint8Array";
+          case "fr":
+            return "Uint8Array"; // Fr on the wire is still 32 bytes
+          case "field2":
+            return "[Uint8Array, Uint8Array]";
+          case "enum_u32":
+            return "number";
+          case "map_u32_pair":
+            return "Record<number, [Uint8Array, number]>";
         }
         break;
 
-      case 'vector': {
+      case "vector": {
         const inner = this.mapMsgpackType(type.element!);
-        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+        return type.element!.kind === "optional"
+          ? `(${inner})[]`
+          : `${inner}[]`;
       }
 
-      case 'array': {
+      case "array": {
         const inner = this.mapMsgpackType(type.element!);
-        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+        return type.element!.kind === "optional"
+          ? `(${inner})[]`
+          : `${inner}[]`;
       }
 
-      case 'optional':
+      case "optional":
         return `${this.mapMsgpackType(type.element!)} | null`;
 
-      case 'struct':
+      case "struct":
         return `Msgpack${toPascalCase(type.struct!.name)}`;
     }
 
-    return 'unknown';
+    return "unknown";
   }
 
   // Check if type needs conversion (has nested structs)
   private needsConversion(type: Type): boolean {
     switch (type.kind) {
-      case 'primitive':
+      case "primitive":
         return false;
-      case 'vector':
-      case 'array':
-      case 'optional':
+      case "vector":
+      case "array":
+      case "optional":
         return this.needsConversion(type.element!);
-      case 'struct':
+      case "struct":
         return true;
     }
     return false;
@@ -152,7 +190,7 @@ export class TypeScriptCodegen {
   // Generate public interface
   private generateInterface(struct: Struct): string {
     const tsName = toPascalCase(struct.name);
-    const fields = struct.fields.map(f => this.generateField(f)).join('\n');
+    const fields = struct.fields.map((f) => this.generateField(f)).join("\n");
 
     return `export interface ${tsName} {
 ${fields}
@@ -162,7 +200,9 @@ ${fields}
   // Generate msgpack interface (internal)
   private generateMsgpackInterface(struct: Struct): string {
     const tsName = toPascalCase(struct.name);
-    const fields = struct.fields.map(f => this.generateMsgpackField(f)).join('\n');
+    const fields = struct.fields
+      .map((f) => this.generateMsgpackField(f))
+      .join("\n");
 
     return `interface Msgpack${tsName} {
 ${fields}
@@ -180,16 +220,19 @@ ${fields}
     }
 
     const checks = struct.fields
-      .map(f => `  if (o.${f.name} === undefined) { throw new Error("Expected ${f.name} in ${tsName} deserialization"); }`)
-      .join('\n');
+      .map(
+        (f) =>
+          `  if (o.${f.name} === undefined) { throw new Error("Expected ${f.name} in ${tsName} deserialization"); }`,
+      )
+      .join("\n");
 
     const conversions = struct.fields
-      .map(f => {
+      .map((f) => {
         const tsFieldName = toCamelCase(f.name);
         const converter = this.generateToConverter(f.type, `o.${f.name}`);
         return `    ${tsFieldName}: ${converter},`;
       })
-      .join('\n');
+      .join("\n");
 
     return `function to${tsName}(o: Msgpack${tsName}): ${tsName} {
 ${checks};
@@ -210,19 +253,22 @@ ${conversions}
     }
 
     const checks = struct.fields
-      .map(f => {
+      .map((f) => {
         const tsFieldName = toCamelCase(f.name);
         return `  if (o.${tsFieldName} === undefined) { throw new Error("Expected ${tsFieldName} in ${tsName} serialization"); }`;
       })
-      .join('\n');
+      .join("\n");
 
     const conversions = struct.fields
-      .map(f => {
+      .map((f) => {
         const tsFieldName = toCamelCase(f.name);
-        const converter = this.generateFromConverter(f.type, `o.${tsFieldName}`);
+        const converter = this.generateFromConverter(
+          f.type,
+          `o.${tsFieldName}`,
+        );
         return `  ${f.name}: ${converter},`;
       })
-      .join('\n');
+      .join("\n");
 
     return `function from${tsName}(o: ${tsName}): Msgpack${tsName} {
 ${checks};
@@ -239,18 +285,18 @@ ${conversions}
     }
 
     switch (type.kind) {
-      case 'vector':
-      case 'array':
+      case "vector":
+      case "array":
         if (this.needsConversion(type.element!)) {
-          return `${value}.map((v: any) => ${this.generateToConverter(type.element!, 'v')})`;
+          return `${value}.map((v: any) => ${this.generateToConverter(type.element!, "v")})`;
         }
         return value;
-      case 'optional':
+      case "optional":
         if (this.needsConversion(type.element!)) {
           return `${value} != null ? ${this.generateToConverter(type.element!, value)} : null`;
         }
         return value;
-      case 'struct':
+      case "struct":
         return `to${toPascalCase(type.struct!.name)}(${value})`;
     }
     return value;
@@ -263,18 +309,18 @@ ${conversions}
     }
 
     switch (type.kind) {
-      case 'vector':
-      case 'array':
+      case "vector":
+      case "array":
         if (this.needsConversion(type.element!)) {
-          return `${value}.map((v: any) => ${this.generateFromConverter(type.element!, 'v')})`;
+          return `${value}.map((v: any) => ${this.generateFromConverter(type.element!, "v")})`;
         }
         return value;
-      case 'optional':
+      case "optional":
         if (this.needsConversion(type.element!)) {
           return `${value} != null ? ${this.generateFromConverter(type.element!, value)} : null`;
         }
         return value;
-      case 'struct':
+      case "struct":
         return `from${toPascalCase(type.struct!.name)}(${value})`;
     }
     return value;
@@ -282,33 +328,41 @@ ${conversions}
 
   // Generate types file (api_types.ts)
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
-    const allStructs = [...schema.structs.values(), ...schema.responses.values()];
+    const allStructs = [
+      ...schema.structs.values(),
+      ...schema.responses.values(),
+    ];
 
     // Public interfaces
     const publicInterfaces = allStructs
-      .map(s => this.generateInterface(s))
-      .join('\n\n');
+      .map((s) => this.generateInterface(s))
+      .join("\n\n");
 
     // Msgpack interfaces
     const msgpackInterfaces = allStructs
-      .map(s => this.generateMsgpackInterface(s))
-      .join('\n\n');
+      .map((s) => this.generateMsgpackInterface(s))
+      .join("\n\n");
 
     // Conversion functions
     const toFunctions = allStructs
-      .map(s => 'export ' + this.generateToFunction(s))
-      .join('\n\n');
+      .map((s) => "export " + this.generateToFunction(s))
+      .join("\n\n");
 
     const fromFunctions = allStructs
-      .map(s => 'export ' + this.generateFromFunction(s))
-      .join('\n\n');
+      .map((s) => "export " + this.generateFromFunction(s))
+      .join("\n\n");
 
     // BbApiBase interface
     const apiMethods = schema.commands
-      .map(c => `  ${this.toMethodName(c.name)}(command: ${toPascalCase(c.name)}): Promise<${toPascalCase(c.responseType)}>;`)
-      .join('\n');
+      .map(
+        (c) =>
+          `  ${this.toMethodName(c.name)}(command: ${toPascalCase(c.name)}): Promise<${toPascalCase(c.responseType)}>;`,
+      )
+      .join("\n");
 
-    const hashLine = schemaHash ? `\n/** Schema version hash for compatibility checking */\nexport const SCHEMA_HASH = '${schemaHash}';\n` : '';
+    const hashLine = schemaHash
+      ? `\n/** Schema version hash for compatibility checking */\nexport const SCHEMA_HASH = '${schemaHash}';\n`
+      : "";
 
     return `// AUTOGENERATED FILE - DO NOT EDIT
 ${hashLine}
@@ -346,7 +400,7 @@ ${apiMethods}
     const msgpackCommand = from${cmdType}(command);
     return msgpackCall(this.backend, [["${command.name}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
       if (variantName === '${this.errorTypeName}') {
-        throw new BBApiException(result.message || 'Unknown error from barretenberg');
+        throw new BBApiException(result.message || 'Unknown error from server');
       }
       if (variantName !== '${command.responseType}') {
         throw new BBApiException(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
@@ -365,7 +419,7 @@ ${apiMethods}
     const msgpackCommand = from${cmdType}(command);
     const [variantName, result] = msgpackCall(this.backend, [["${command.name}", msgpackCommand]]);
     if (variantName === '${this.errorTypeName}') {
-      throw new BBApiException(result.message || 'Unknown error from barretenberg');
+      throw new BBApiException(result.message || 'Unknown error from server');
     }
     if (variantName !== '${command.responseType}') {
       throw new BBApiException(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
@@ -376,11 +430,11 @@ ${apiMethods}
 
   // Generate async API file
   generateAsyncApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
     const imports = this.generateApiImports(schema);
     const methods = schema.commands
-      .map(c => this.generateAsyncApiMethod(c))
-      .join('\n\n');
+      .map((c) => this.generateAsyncApiMethod(c))
+      .join("\n\n");
 
     return `// AUTOGENERATED FILE - DO NOT EDIT
 
@@ -409,11 +463,11 @@ ${methods}
 
   // Generate sync API file
   generateSyncApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
     const imports = this.generateApiImports(schema);
     const methods = schema.commands
-      .map(c => this.generateSyncApiMethod(c))
-      .join('\n\n');
+      .map((c) => this.generateSyncApiMethod(c))
+      .join("\n\n");
 
     return `// AUTOGENERATED FILE - DO NOT EDIT
 
@@ -455,10 +509,10 @@ ${methods}
     }
 
     // Add BbApiBase
-    types.add('BbApiBase');
+    types.add("BbApiBase");
 
     const sortedTypes = Array.from(types).sort();
-    return `import { ${sortedTypes.join(', ')} } from './api_types.js';`;
+    return `import { ${sortedTypes.join(", ")} } from './api_types.js';`;
   }
 
   // -----------------------------------------------------------------------
@@ -467,24 +521,24 @@ ${methods}
 
   /** Generate a server handler interface and dispatch function */
   generateServerApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
     const errorType = toPascalCase(this.errorTypeName);
 
     // Generate handler interface
     const handlerMethods = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.toMethodName(c.name);
         const cmdType = toPascalCase(c.name);
         const respType = toPascalCase(c.responseType);
         return `  ${methodName}(command: ${cmdType}): Promise<${respType}>;`;
       })
-      .join('\n');
+      .join("\n");
 
     // Generate dispatch switch cases
     const dispatchCases = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.toMethodName(c.name);
         const cmdType = toPascalCase(c.name);
         const respType = toPascalCase(c.responseType);
@@ -494,12 +548,12 @@ ${methods}
         return ['${c.responseType}', from${respType}(result)];
       }`;
       })
-      .join('\n');
+      .join("\n");
 
     // Collect imports
     const importTypes = new Set<string>();
     for (const cmd of schema.commands) {
-      if (cmd.name.endsWith('Shutdown')) continue;
+      if (cmd.name.endsWith("Shutdown")) continue;
       const cmdType = toPascalCase(cmd.name);
       const respType = toPascalCase(cmd.responseType);
       importTypes.add(cmdType);
@@ -512,7 +566,7 @@ ${methods}
     return `// AUTOGENERATED FILE - DO NOT EDIT
 // Server-side dispatch for IPC protocol
 
-import { ${sortedImports.join(', ')} } from './api_types.js';
+import { ${sortedImports.join(", ")} } from './api_types.js';
 
 /** Handler interface — implement this to serve commands. */
 export interface Handler {
@@ -548,28 +602,29 @@ ${dispatchCases}
     // Collect import types
     const importTypes = new Set<string>();
     for (const cmd of schema.commands) {
-      if (cmd.name.endsWith('Shutdown')) continue;
+      if (cmd.name.endsWith("Shutdown")) continue;
       importTypes.add(toPascalCase(cmd.name));
       importTypes.add(toPascalCase(cmd.responseType));
     }
-    importTypes.add('Handler');
+    importTypes.add("Handler");
     const sortedImports = Array.from(importTypes).sort();
 
     const stubs = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.toMethodName(c.name);
         const cmdType = toPascalCase(c.name);
         const respType = toPascalCase(c.responseType);
         return `  async ${methodName}(command: ${cmdType}): Promise<${respType}> {
     throw new Error('not implemented: ${c.name}');
   }`;
-      }).join('\n\n');
+      })
+      .join("\n\n");
 
     return `// Handler stubs — implement your service logic here.
 // This file is generated ONCE. Edit freely — it will not be overwritten.
 
-import { ${sortedImports.join(', ')} } from './generated/${serverModule}.js';
+import { ${sortedImports.join(", ")} } from './generated/${serverModule}.js';
 
 /** Shared context for your service — add database connections, state, etc. */
 export interface ${prefix}Context {
@@ -612,24 +667,30 @@ serve(socketPath, (commandName: string, payload: any) => dispatch(handler, comma
 
   /** Generate package.json for a standalone service */
   generateBuildFile(prefix: string): string {
-    const pkgName = toSnakeCase(prefix).replace(/_/g, '-');
+    const pkgName = toSnakeCase(prefix).replace(/_/g, "-");
 
-    return JSON.stringify({
-      name: `${pkgName}-service`,
-      version: '0.1.0',
-      type: 'module',
-      scripts: {
-        build: 'tsc',
-        start: 'node --experimental-strip-types main.ts',
-        generate: 'bash generate.sh',
-      },
-      dependencies: {
-        msgpackr: '^1.10.0',
-      },
-      devDependencies: {
-        typescript: '^5.4.0',
-      },
-    }, null, 2) + '\n';
+    return (
+      JSON.stringify(
+        {
+          name: `${pkgName}-service`,
+          version: "0.1.0",
+          type: "module",
+          scripts: {
+            build: "tsc",
+            start: "node --experimental-strip-types main.ts",
+            generate: "bash generate.sh",
+          },
+          dependencies: {
+            msgpackr: "^1.10.0",
+          },
+          devDependencies: {
+            typescript: "^5.4.0",
+          },
+        },
+        null,
+        2,
+      ) + "\n"
+    );
   }
 
   /** Generate .gitignore for the skeleton project */

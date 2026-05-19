@@ -1,5 +1,5 @@
 ^ipc-codegen/src/.*\.ts$
-^ipc-codegen/schemas/.*\.(json|msgpack)$
 ^ipc-codegen/templates/
+^ipc-codegen/examples/
 ^ipc-codegen/package\.json$
 ^ipc-codegen/bootstrap\.sh$

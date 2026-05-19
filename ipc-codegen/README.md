@@ -19,12 +19,6 @@ cd ipc-codegen
 ```
 ipc-codegen/
   bootstrap.sh           # build / test / update_goldens / hash
-  schemas/               # committed JSON schemas (one per service)
-    avm_schema.json
-    bb_schema.json
-    cdb_schema.json
-    wsdb_schema.json
-    bb_curve_constants.json
   src/                   # generator (TypeScript, runs under Node 22+)
     generate.ts            # CLI entry point
     schema_visitor.ts      # JSON schema -> CompiledSchema IR
@@ -38,12 +32,11 @@ ipc-codegen/
     ts/{ipc_client,ipc_server}.ts
     rust/{backend,error,ipc_client,ipc_server,uds_backend,ffi_backend}.rs
     zig/{backend,uds_backend,ffi_backend,ipc_client,ipc_server,ffi_client}.zig
-  scripts/
-    update_schemas.sh    # refresh schemas/ from current C++ binaries
-    validate_schemas.sh  # CI guard: schemas/ matches the binaries
   examples/              # 4-language echo service (test harness, see below)
   SCHEMA_SPEC.md         # wire protocol and schema-format reference
 ```
+
+The package contains no service schemas of its own. Each consumer owns and commits its schema next to the C++ server that defines the wire format, and invokes `generate.ts` with that local path.
 
 ## CLI: `src/generate.ts`
 
@@ -84,7 +77,7 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 |---|---|
 | `--cpp-namespace <ns>` | C++ namespace, e.g. `bb::wsdb`. Default: lowercased prefix. |
 | `--cpp-wire-namespace <ns>` | Inner namespace for wire types, default `wire`. |
-| `--cpp-include-dir <path>` | Include-path prefix for cross-includes between generated files, e.g. `barretenberg/wsdb/generated`. Leave unset when generated files are in the same directory as their consumer. |
+| `--cpp-include-dir <path>` | Include-path prefix for cross-includes between generated files, e.g. `myservice/generated`. Leave unset when generated files are in the same directory as their consumer. |
 
 ### Other
 
@@ -95,72 +88,72 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 
 ## Worked examples
 
-Each invocation produces both the per-command type definitions and the role(s) you request.
+Paths below are illustrative — consumers commit their own schema next to the C++ server that owns the wire format and supply absolute or relative paths on the command line.
 
-### TypeScript client + server, with curve constants (bb)
+### TypeScript client + server, with curve constants
 
 ```sh
 src/generate.ts \
-  --schema schemas/bb_schema.json \
+  --schema /path/to/myservice_schema.json \
   --lang ts \
-  --out ../barretenberg/ts/src/cbind/generated \
+  --out /path/to/output/generated \
   --server --client \
-  --prefix Bb --strip-method-prefix --curve-constants
+  --prefix MyService --strip-method-prefix --curve-constants
 ```
 
 Produces `api_types.ts`, `async.ts`, `sync.ts`, `server.ts`, `ipc_client.ts` (template), `ipc_server.ts` (template), `curve_constants.ts`.
 
-### C++ server (no client), under a barretenberg sub-include path (wsdb)
+### C++ server + client, under a project sub-include path
 
 ```sh
 src/generate.ts \
-  --schema schemas/wsdb_schema.json \
+  --schema /path/to/myservice_schema.json \
   --lang cpp \
-  --out ../barretenberg/cpp/src/barretenberg/wsdb/generated \
+  --out /path/to/myservice/generated \
   --server --client \
-  --cpp-namespace bb::wsdb --prefix Wsdb \
-  --cpp-include-dir barretenberg/wsdb/generated
+  --cpp-namespace my::ns --prefix MyService \
+  --cpp-include-dir myservice/generated
 ```
 
-Produces `wsdb_types.hpp`, `wsdb_ipc_client.{hpp,cpp}`, `wsdb_ipc_server.hpp`, plus the `ipc_client.hpp` / `ipc_server.hpp` / `msgpack_struct_map_impl.hpp` templates. Cross-includes use the supplied `--cpp-include-dir` prefix (`#include "barretenberg/wsdb/generated/wsdb_types.hpp"`).
+Produces `myservice_types.hpp`, `myservice_ipc_client.{hpp,cpp}`, `myservice_ipc_server.hpp`, plus the `ipc_client.hpp` / `ipc_server.hpp` / `msgpack_struct_map_impl.hpp` templates. Cross-includes use the supplied `--cpp-include-dir` prefix (`#include "myservice/generated/myservice_types.hpp"`).
 
-### Rust UDS + FFI client (wsdb)
+### Rust UDS + FFI client
 
 ```sh
 src/generate.ts \
-  --schema schemas/wsdb_schema.json \
+  --schema /path/to/myservice_schema.json \
   --lang rust \
-  --out src/generated \
+  --out /path/to/crate/src/generated \
   --server --client --uds --ffi \
-  --prefix Wsdb \
-  --skeleton src
+  --prefix MyService \
+  --skeleton /path/to/crate/src
 ```
 
-Produces `wsdb_types.rs`, `wsdb_client.rs`, `wsdb_server.rs`, `ipc_server.rs` (template), plus the backend templates (`backend.rs`, `error.rs`, `uds_backend.rs`, `ffi_backend.rs`). The skeleton flag also writes a one-time `wsdb_handlers.rs`, `main.rs`, and `Cargo.toml` into `src/` so a new service crate is buildable on first run.
+Produces `myservice_types.rs`, `myservice_client.rs`, `myservice_server.rs`, `ipc_server.rs` (template), plus the backend templates (`backend.rs`, `error.rs`, `uds_backend.rs`, `ffi_backend.rs`). The skeleton flag also writes a one-time `myservice_handlers.rs`, `main.rs`, and `Cargo.toml` into the skeleton dir so a new service crate is buildable on first run.
 
-### Zig client + server (avm)
+### Zig client + server
 
 ```sh
 src/generate.ts \
-  --schema schemas/avm_schema.json \
+  --schema /path/to/myservice_schema.json \
   --lang zig \
-  --out src/generated \
+  --out /path/to/output/generated \
   --server --client --uds --ffi \
-  --prefix Avm
+  --prefix MyService
 ```
 
-Produces `avm_types.zig`, `avm_client.zig`, `avm_server.zig`, plus backend templates.
+Produces `myservice_types.zig`, `myservice_client.zig`, `myservice_server.zig`, plus backend templates.
 
 ## Adding a new service
 
 1. **Define the C++ command structs** in your service's `.hpp`, each with `MSGPACK_SCHEMA_NAME` and `SERIALIZATION_FIELDS(...)`. Group them into a single `Command` and `Response` `NamedUnion`.
-2. **Build the service binary** and run `./scripts/update_schemas.sh` — this calls `<binary> msgpack schema` and writes the JSON to `schemas/<service>_schema.json`. Commit the schema.
-3. **Wire your consumer's `bootstrap.sh build` to invoke `src/generate.ts`** with the flags above. Generated files go under a `generated/` directory which is gitignored by convention.
+2. **Snapshot the schema.** Build the service binary and run `<binary> msgpack schema` to dump the JSON. Commit it next to the C++ source that defines it (e.g. alongside the `Command` / `Response` headers). This is the wire-format source of truth.
+3. **Wire your consumer's build to invoke `src/generate.ts`** with the flags above, passing the absolute path to the committed schema and the desired output directory. Generated files go under a `generated/` directory which is gitignored by convention.
 4. **Run `./bootstrap.sh test`** in `ipc-codegen/` to confirm the codegen and cross-language wire compat tests still pass.
 
 ## Schemas are the source of truth
 
-The JSON files under `schemas/` are checked in. They're what `generate.ts` consumes. They're produced from the C++ binaries via `./scripts/update_schemas.sh` whenever the underlying commands change. `validate_schemas.sh` is the CI guard that diffs the committed JSON against the current binaries — a stale schema is a CI failure, not a runtime surprise.
+The JSON schema is the wire contract between client and server. Consumers commit it next to the C++ server that defines the underlying `SERIALIZATION_FIELDS`, so the file lives close to what it describes and tracks with that code. Whenever a server-side command changes, refresh the JSON snapshot by running `<binary> msgpack schema` against the rebuilt binary and committing the diff. Diverged schemas are a CI failure (each consumer is responsible for guarding its own snapshot).
 
 Each generated file embeds a `SCHEMA_HASH` so callers can detect at connection time that their bindings predate the server.
 

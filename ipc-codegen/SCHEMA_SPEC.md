@@ -230,13 +230,12 @@ To add a new command to a service:
 1. Define the command struct in C++ with `MSGPACK_SCHEMA_NAME` and `SERIALIZATION_FIELDS`
 2. Add a nested `Response` struct with its own `MSGPACK_SCHEMA_NAME` and `SERIALIZATION_FIELDS`
 3. Add both to the service's `Command` and `CommandResponse` NamedUnion types
-4. Run `yarn generate` to regenerate all language bindings
+4. Re-snapshot the schema JSON and re-run ipc-codegen for every target language
 5. Verify generated code compiles in all target languages
 
 ## Source Files
 
-- Schema export: `barretenberg/cpp/src/barretenberg/serialize/msgpack_impl/schema_impl.hpp`
-- Schema naming: `barretenberg/cpp/src/barretenberg/serialize/msgpack_impl/schema_name.hpp`
-- NamedUnion: `barretenberg/cpp/src/barretenberg/common/named_union.hpp`
 - Schema visitor (IR compiler): `ipc-codegen/src/schema_visitor.ts`
 - CLI entry point: `ipc-codegen/src/generate.ts`
+
+The schema JSON is produced by the consumer's own C++ msgpack reflection (typically a `<binary> msgpack schema` subcommand that walks `SERIALIZATION_FIELDS` and `NamedUnion`s and prints the IR). ipc-codegen treats the resulting JSON as the source of truth and never reaches back into the producer.

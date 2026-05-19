@@ -5,9 +5,7 @@
 // so generated IPC clients/servers don't pull in any framework-specific
 // msgpack headers.
 //
-// Lifted from barretenberg/cpp/src/barretenberg/serialize/msgpack_impl/
-// (struct_map_impl.hpp + concepts.hpp + drop_keys.hpp), trimmed to just
-// what the generated dispatch needs.
+// Self-contained struct-map msgpack adaptor — only depends on msgpack-c.
 
 #include <cassert>
 #include <msgpack.hpp>

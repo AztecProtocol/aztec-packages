@@ -139,9 +139,9 @@ Optional:
   --client                 Generate client
   --skeleton <dir>         Generate handler stubs + main (one-time)
   --prefix <str>           Type prefix (auto-detected if omitted)
-  --cpp-namespace <ns>     C++ namespace (e.g. bb::wsdb)
+  --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
-  --cpp-include-dir <path> Include path for generated dir (e.g. barretenberg/wsdb/generated)
+  --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
   --curve-constants        Generate TS curve constants
   --strip-method-prefix    Strip prefix from TS method names (e.g. BbCircuitProve -> circuitProve)`);
     process.exit(1);
@@ -456,10 +456,14 @@ function generate(args: Args) {
           gen.generateStandaloneTypes(compiled),
         ),
       );
+      // Bundled cpp templates are copied verbatim. Push them through clang-format
+      // alongside the generated files so they pass downstream format-check
+      // (each consumer's local .clang-format gets picked up via the file path).
       if (args.server || args.client) {
         // Bundled msgpack adaptor — keeps the generated client/server free of
         // any framework-specific msgpack includes.
         copyTemplate("cpp", "msgpack_struct_map_impl.hpp", absOut);
+        cppFiles.push(join(absOut, "msgpack_struct_map_impl.hpp"));
       }
       if (args.server) {
         cppFiles.push(
@@ -469,6 +473,7 @@ function generate(args: Args) {
           ),
         );
         copyTemplate("cpp", "ipc_server.hpp", absOut);
+        cppFiles.push(join(absOut, "ipc_server.hpp"));
       }
       if (args.client) {
         cppFiles.push(
@@ -484,6 +489,7 @@ function generate(args: Args) {
           ),
         );
         copyTemplate("cpp", "ipc_client.hpp", absOut);
+        cppFiles.push(join(absOut, "ipc_client.hpp"));
       }
 
       // Skeleton (one-time handler stubs + main + build files)
