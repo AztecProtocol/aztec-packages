@@ -289,7 +289,7 @@ async function runOne(
   const runningXBuf = mkSb(runningXAB.byteLength, true, true);
   const runningYBuf = mkSb(runningYAB.byteLength, true, true);
   const ptmBuf = mkSb(ptmAB.byteLength);
-  const prefixBuf = mkSb(TOTAL_PAIRS * fieldBytes, false);
+  const prefixBuf = mkSb(TOTAL_PAIRS * 20 * 4, false);
   const countBuf = mkSb(countAB.byteLength);
   const paramsBuf = device.createBuffer({
     size: 16,

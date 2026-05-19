@@ -14,31 +14,21 @@
 
 // Workgroup-scan fused batch-affine round kernel for v2 MSM.
 //
-// Each workgroup of TPB threads cooperates on BATCH_SIZE = TPB * BS pairs
-// from one subtask's pair pool, performs a workgroup-level Hillis-Steele
-// prefix product over per-thread chunks, runs ONE fr_inv_by_a per
-// workgroup, then back-walks per-thread emitting lean affine adds. This
-// is the design validated in `bench_batch_affine.template.wgsl` (22
-// ns/pair at TPB=64, BS=16 on M2) with bucket-indirect loads/stores via
-// `pair_target_meta`.
-//
-// LAYOUT
-//   - All field-element variables (workgroup, function, struct fields)
-//     are `PackedField` (two vec4<u32>). The 20×13-bit BigInt limb form
-//     only exists as a transient local inside mont_p / fr_*_p / fr_inv_p.
-//   - Per-subtask pair pool of length n (= count_buf[subtask_idx]) is
-//     dispatched as ceil(n / BATCH_SIZE) workgroups in X, num_subtasks
-//     in Z. The last workgroup of each subtask may have a partial batch
-//     (n - batch_base < BATCH_SIZE); threads with chunk_start >=
-//     batch_len contribute identity (R in Mont form) to the scan and
-//     skip phase D.
+// Mirrors `bench_batch_affine.template.wgsl`'s phases A/B/C/D — TPB
+// threads cooperating on BATCH_SIZE = TPB*BS pairs per workgroup with
+// one fr_inv_by_a per workgroup — adapted for the MSM pipeline:
+//   - storage is packed 8×u32 per field element (vs the bench's
+//     BigInt-array storage); conversions happen only at field_load_*
+//     and field_store, every kernel-local var holds BigInt limbs
+//   - loads are bucket-indirect via `pair_target_meta` (vs the bench's
+//     flat `inputs[pair_base + *]`)
 //
 // PHASES
-//   A) Per-thread serial chunk: walk BS pairs, compute dx = Q.x - P.x
-//      and the inclusive prefix product. Captures block_total in a
-//      register, writes the per-element prefix into prefix_buf.
-//   B) Workgroup Hillis-Steele forward + backward scan over the TPB
-//      block_totals (log2 TPB rounds of mont mul).
+//   A) Per-thread serial prefix product over BS pairs. Each thread
+//      writes its prefix-product chain to `prefix[batch_base + k]`
+//      (global storage) and captures `block_total` in a register.
+//   B) Workgroup-shared Hillis-Steele forward + backward scan over the
+//      TPB block_totals (log2 TPB rounds of mont mul).
 //   C) Thread 0 inverts the global product via fr_inv_by_a (ONE per
 //      workgroup). Broadcasts to wg_inv_total.
 //   D) Each thread back-walks its chunk, recovers inv_dx for each pair
@@ -47,12 +37,20 @@
 //      running_x/y[bucket].
 //
 // SAFETY
-//   The scheduler emits at most one pair per (subtask, bucket) per round
-//   (see batch_affine_schedule). So within a workgroup's BATCH_SIZE
-//   slots, every `bucket` is distinct → no intra-workgroup RAW hazards
-//   on the running_x/y scatters. Across workgroups in the same subtask:
-//   disjoint slot ranges → still distinct buckets. Across subtasks
-//   (Z dim): different bucket ranges entirely.
+//   The scheduler emits at most one pair per (subtask, bucket) per
+//   round. Within a workgroup's BATCH_SIZE slots, every `bucket` is
+//   distinct → no intra-workgroup RAW hazard on the running_x/y
+//   scatters. Across workgroups in the same subtask: disjoint slot
+//   ranges → still distinct buckets. Across subtasks (Z dim): different
+//   bucket ranges entirely.
+//
+// DISPATCH
+//   workgroup_size = TPB. Workgroups in X = ceil(n / (TPB*BS)).
+//   Workgroups in Z = num_subtasks. The atomicLoad of count_buf and
+//   subsequent control flow are uniform within a workgroup (every
+//   thread sees the same `n`), but Tint can't prove that — so we never
+//   early-return based on it. Instead, partial-batch threads contribute
+//   identity to the scan and skip their work loop bodies.
 
 const TPB: u32 = {{ tpb }}u;
 const BS: u32 = {{ bs }}u;
@@ -71,7 +69,7 @@ var<storage, read_write> running_y: array<vec4<u32>>;
 @group(0) @binding(5)
 var<storage, read> pair_target_meta: array<u32>;
 @group(0) @binding(6)
-var<storage, read_write> prefix_buf: array<vec4<u32>>;
+var<storage, read_write> prefix_buf: array<BigInt>;
 @group(0) @binding(7)
 var<storage, read_write> count_buf: array<atomic<u32>>;
 
@@ -80,9 +78,9 @@ var<storage, read_write> count_buf: array<atomic<u32>>;
 @group(0) @binding(8)
 var<uniform> params: vec4<u32>;
 
-var<workgroup> wg_fwd: array<PackedField, {{ tpb }}>;
-var<workgroup> wg_bwd: array<PackedField, {{ tpb }}>;
-var<workgroup> wg_inv_total: PackedField;
+var<workgroup> wg_fwd: array<BigInt, {{ tpb }}>;
+var<workgroup> wg_bwd: array<BigInt, {{ tpb }}>;
+var<workgroup> wg_inv_total: BigInt;
 
 @compute
 @workgroup_size({{ tpb }})
@@ -102,46 +100,38 @@ fn main(
     let pool_base = subtask_idx * num_columns;
     let vi_offset = subtask_idx * input_size;
 
-    var batch_len: u32 = 0u;
-    if (batch_base < n) {
-        batch_len = min(BATCH_SIZE, n - batch_base);
-    }
-
     let chunk_start = tid * BS;
-    var chunk_len: u32 = 0u;
-    if (chunk_start < batch_len) {
-        let chunk_end = min(chunk_start + BS, batch_len);
-        chunk_len = chunk_end - chunk_start;
-    }
+    let chunk_pool_base = pool_base + batch_base + chunk_start;
 
-    // Phase A — per-thread serial prefix product. Threads with
-    // chunk_len == 0 contribute identity (R = Mont 1) so the workgroup
-    // scan reads a sane value for every slot.
-    var block_total: PackedField = get_r_packed();
-    if (chunk_len > 0u) {
-        let k0 = chunk_start;
-        let slot0 = pool_base + batch_base + k0;
-        let bucket0 = pair_target_meta[2u * slot0];
-        let cursor0 = pair_target_meta[2u * slot0 + 1u];
-        let pt_idx0 = val_idx[vi_offset + cursor0];
-        let p_x0 = field_load_rw(bucket0, &running_x);
-        let q_x0 = field_load_ro(pt_idx0, &new_point_x);
-        let dx0 = fr_sub_p(q_x0, p_x0);
-        field_store(pool_base + batch_base + k0, &prefix_buf, dx0);
-        block_total = dx0;
+    let in_pool = batch_base + chunk_start + BS <= n;
 
-        for (var i: u32 = 1u; i < BS; i = i + 1u) {
-            if (i >= chunk_len) { break; }
-            let k = chunk_start + i;
-            let slot = pool_base + batch_base + k;
+    // Phase A — per-thread serial prefix product. Inin_pool threads
+    // (chunk past the live pool) contribute identity (R = Mont 1) so
+    // the workgroup scan reads a sane value at every slot.
+    var block_total: BigInt = get_r();
+    if (in_pool) {
+        {
+            let k0 = 0u;
+            let slot = chunk_pool_base + k0;
             let bucket = pair_target_meta[2u * slot];
-            let cursor = pair_target_meta[2u * slot + 1u];
-            let pt_idx = val_idx[vi_offset + cursor];
-            let p_x = field_load_rw(bucket, &running_x);
-            let q_x = field_load_ro(pt_idx, &new_point_x);
-            let dx = fr_sub_p(q_x, p_x);
-            block_total = mont_p(block_total, dx);
-            field_store(pool_base + batch_base + k, &prefix_buf, block_total);
+            let q_cursor = pair_target_meta[2u * slot + 1u];
+            let pt_idx = val_idx[vi_offset + q_cursor];
+            var p_x: BigInt = field_load_rw(bucket, &running_x);
+            var q_x: BigInt = field_load_ro(pt_idx, &new_point_x);
+            var dx: BigInt = fr_sub(&q_x, &p_x);
+            prefix_buf[chunk_pool_base + k0] = dx;
+            block_total = dx;
+        }
+        for (var i: u32 = 1u; i < BS; i = i + 1u) {
+            let slot = chunk_pool_base + i;
+            let bucket = pair_target_meta[2u * slot];
+            let q_cursor = pair_target_meta[2u * slot + 1u];
+            let pt_idx = val_idx[vi_offset + q_cursor];
+            var p_x: BigInt = field_load_rw(bucket, &running_x);
+            var q_x: BigInt = field_load_ro(pt_idx, &new_point_x);
+            var dx: BigInt = fr_sub(&q_x, &p_x);
+            block_total = montgomery_product(&block_total, &dx);
+            prefix_buf[chunk_pool_base + i] = block_total;
         }
     }
 
@@ -151,15 +141,15 @@ fn main(
 
     // Phase B — Hillis-Steele forward + backward inclusive scan.
     for (var stride: u32 = 1u; stride < TPB; stride = stride * 2u) {
-        var fwd_x: PackedField = wg_fwd[tid];
+        var fwd_x: BigInt = wg_fwd[tid];
         if (tid >= stride) {
-            let lhs = wg_fwd[tid - stride];
-            fwd_x = mont_p(lhs, fwd_x);
+            var lhs: BigInt = wg_fwd[tid - stride];
+            fwd_x = montgomery_product(&lhs, &fwd_x);
         }
-        var bwd_x: PackedField = wg_bwd[tid];
+        var bwd_x: BigInt = wg_bwd[tid];
         if (tid + stride < TPB) {
-            let rhs = wg_bwd[tid + stride];
-            bwd_x = mont_p(bwd_x, rhs);
+            var rhs: BigInt = wg_bwd[tid + stride];
+            bwd_x = montgomery_product(&bwd_x, &rhs);
         }
         workgroupBarrier();
         wg_fwd[tid] = fwd_x;
@@ -167,67 +157,64 @@ fn main(
         workgroupBarrier();
     }
 
-    // Phase C — single fr_inv per workgroup. wg_fwd[TPB-1] holds the
-    // product of every active (and identity-padding) block_total in the
-    // workgroup.
+    // Phase C — single fr_inv per workgroup.
     if (tid == 0u) {
-        let global_total = wg_fwd[TPB - 1u];
-        wg_inv_total = fr_inv_p(global_total);
+        var global_total: BigInt = wg_fwd[TPB - 1u];
+        wg_inv_total = fr_inv_by_a(global_total);
     }
     workgroupBarrier();
 
     // Phase D — back-walk this thread's chunk, emit lean affine adds.
-    // Threads with chunk_len == 0 (overshoot dispatch or end-of-pool
-    // padding) skip the work loop entirely but stay live through any
-    // future workgroup-uniform code (currently none — D is the last
-    // phase).
-    var block_excl_prefix: PackedField = get_r_packed();
+    if (!in_pool) {
+        return;
+    }
+    var block_excl_prefix: BigInt = get_r();
     if (tid > 0u) {
         block_excl_prefix = wg_fwd[tid - 1u];
     }
-    var block_excl_suffix: PackedField = get_r_packed();
+    var block_excl_suffix: BigInt = get_r();
     if (tid + 1u < TPB) {
         block_excl_suffix = wg_bwd[tid + 1u];
     }
-    var inv_acc: PackedField = mont_p(wg_inv_total, block_excl_prefix);
-    inv_acc = mont_p(inv_acc, block_excl_suffix);
+    var inv_global: BigInt = wg_inv_total;
+    var inv_acc: BigInt = montgomery_product(&inv_global, &block_excl_prefix);
+    inv_acc = montgomery_product(&inv_acc, &block_excl_suffix);
 
     for (var off: u32 = 0u; off < BS; off = off + 1u) {
-        if (off >= chunk_len) { break; }
-        let k = chunk_start + (chunk_len - 1u - off);
-        let slot = pool_base + batch_base + k;
+        let k = BS - 1u - off;
+        let slot = chunk_pool_base + k;
         let bucket = pair_target_meta[2u * slot];
-        let cursor = pair_target_meta[2u * slot + 1u];
-        let pt_idx = val_idx[vi_offset + cursor];
+        let q_cursor = pair_target_meta[2u * slot + 1u];
+        let pt_idx = val_idx[vi_offset + q_cursor];
 
-        let p_x = field_load_rw(bucket, &running_x);
-        let p_y = field_load_rw(bucket, &running_y);
-        let q_x = field_load_ro(pt_idx, &new_point_x);
-        let q_y = field_load_ro(pt_idx, &new_point_y);
+        var p_x: BigInt = field_load_rw(bucket, &running_x);
+        var p_y: BigInt = field_load_rw(bucket, &running_y);
+        var q_x: BigInt = field_load_ro(pt_idx, &new_point_x);
+        var q_y: BigInt = field_load_ro(pt_idx, &new_point_y);
 
-        var inv_dx: PackedField;
-        if (k > chunk_start) {
-            let prev = field_load_rw(pool_base + batch_base + (k - 1u), &prefix_buf);
-            inv_dx = mont_p(inv_acc, prev);
+        var inv_dx: BigInt;
+        if (k > 0u) {
+            var prev_prefix: BigInt = prefix_buf[chunk_pool_base + (k - 1u)];
+            inv_dx = montgomery_product(&inv_acc, &prev_prefix);
         } else {
             inv_dx = inv_acc;
         }
 
-        let dy = fr_sub_p(q_y, p_y);
-        let lambda = mont_p(dy, inv_dx);
-        let lambda_sq = mont_p(lambda, lambda);
-        var r_x = fr_sub_p(lambda_sq, p_x);
-        r_x = fr_sub_p(r_x, q_x);
-        let dx_back = fr_sub_p(p_x, r_x);
-        let ldx = mont_p(lambda, dx_back);
-        let r_y = fr_sub_p(ldx, p_y);
+        var dy: BigInt = fr_sub(&q_y, &p_y);
+        var lambda: BigInt = montgomery_product(&dy, &inv_dx);
+        var lambda_sq: BigInt = montgomery_product(&lambda, &lambda);
+        var t1: BigInt = fr_sub(&lambda_sq, &p_x);
+        var r_x: BigInt = fr_sub(&t1, &q_x);
+        var dx_back: BigInt = fr_sub(&p_x, &r_x);
+        var ldx: BigInt = montgomery_product(&lambda, &dx_back);
+        var r_y: BigInt = fr_sub(&ldx, &p_y);
 
-        field_store(bucket, &running_x, r_x);
-        field_store(bucket, &running_y, r_y);
+        field_store(bucket, &running_x, &r_x);
+        field_store(bucket, &running_y, &r_y);
 
-        if (k > chunk_start) {
-            let dx_fwd = fr_sub_p(q_x, p_x);
-            inv_acc = mont_p(inv_acc, dx_fwd);
+        if (k > 0u) {
+            var dx_k: BigInt = fr_sub(&q_x, &p_x);
+            inv_acc = montgomery_product(&inv_acc, &dx_k);
         }
     }
 
