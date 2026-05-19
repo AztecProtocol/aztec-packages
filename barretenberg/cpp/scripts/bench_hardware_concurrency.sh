@@ -5,8 +5,7 @@
 # Example: ./bench_hardware_concurrency.sh 1 2 4 8 16 32
 #
 # To run on a remote machine with ci.sh shell-new:
-#   ./ci.sh shell-new "./ci3/cache_download bb-chonk-captures-ba1369853ed8670e.tar.gz ; \
-#                      mv example-app-ivc-inputs-out yarn-project/end-to-end 2>/dev/null ; \
+#   ./ci.sh shell-new "./barretenberg/cpp/scripts/chonk_inputs.sh download ; \
 #                      DENOISE=1 ./barretenberg/cpp/bootstrap.sh build_native ; \
 #                      DENOISE=1 ./barretenberg/cpp/scripts/bench_hardware_concurrency.sh"
 #
@@ -19,7 +18,8 @@
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Use ci3 script base.
-source $REPO_ROOT/ci3/source_bootstrap
+source $REPO_ROOT/ci3/source
+source $REPO_ROOT/barretenberg/cpp/scripts/pinned_chonk_inputs.sh
 
 # Use provided arguments or default values
 if [ $# -eq 0 ]; then
@@ -36,6 +36,9 @@ TEST_CASES=(
     "ecdsar1+transfer_0_recursions+private_fpc"
     "ecdsar1+transfer_1_recursions+private_fpc"
 )
+
+echo "Ensuring pinned Chonk inputs are present..." >&2
+ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)"
 
 # Function to run benchmark for a specific test case
 run_benchmark() {
