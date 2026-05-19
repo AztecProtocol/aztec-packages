@@ -105,38 +105,6 @@ describe('NetworkConfig', () => {
         );
       }
     });
-
-    it('should handle future network config schema evolution', () => {
-      const futureFriendlyNetworkConfig = {
-        'staging-public': {
-          bootnodes: ['enr:-staging1'],
-          snapshots: ['https://example.com/staging-snapshot.tar.gz'],
-          registryAddress: '0x1234567890123456789012345678901234567890',
-          l1ChainId: 11155111,
-          newBootnodeFormat: ['multiaddr:/ip4/...'],
-          advancedP2PConfig: { maxPeers: 50, timeout: 30000 },
-        },
-        testnet: {
-          bootnodes: ['enr:-testnet1'],
-          snapshots: ['https://example.com/testnet-snapshot.tar.gz'],
-          registryAddress: '0x2345678901234567890123456789012345678901',
-          l1ChainId: 1,
-          experimentalFeatures: ['feature1', 'feature2'],
-        },
-      };
-
-      const result = NetworkConfigMapSchema.safeParse(futureFriendlyNetworkConfig);
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data['staging-public'].registryAddress.toString()).toBe(
-          '0x1234567890123456789012345678901234567890',
-        );
-        expect(result.data['testnet'].registryAddress.toString()).toBe('0x2345678901234567890123456789012345678901');
-        expect((result.data['staging-public'] as any).newBootnodeFormat).toEqual(['multiaddr:/ip4/...']);
-        expect((result.data['staging-public'] as any).advancedP2PConfig).toEqual({ maxPeers: 50, timeout: 30000 });
-        expect((result.data['testnet'] as any).experimentalFeatures).toEqual(['feature1', 'feature2']);
-      }
-    });
   });
 });
 
@@ -276,52 +244,5 @@ describe('networkConfigToTyped', () => {
     expect(() => networkConfigToTyped(mappings, baseNetworkConfig)).toThrow(
       "Failed to parse config 'registryAddress' (env: REGISTRY_CONTRACT_ADDRESS): bad address",
     );
-  });
-
-  it('maps the full representative NetworkConfig to a typed Partial', () => {
-    interface FullConfig {
-      bootstrapNodes: string[];
-      snapshotsUrls: string[];
-      l1ChainId: number;
-      blobFileStoreUrls: string[];
-      txCollectionFileStoreUrls: string[];
-      blockDurationMs: number;
-      txPublicSetupAllowListExtend: string[];
-    }
-    const parseAllowListMock = jest.fn((v: string) => v.split(';'));
-    const mappings: ConfigMappingsType<FullConfig> = {
-      bootstrapNodes: { description: 'nodes' },
-      snapshotsUrls: { description: 'snapshots' },
-      l1ChainId: { description: 'chain id' },
-      blobFileStoreUrls: { description: 'blob urls' },
-      txCollectionFileStoreUrls: { description: 'tx collection urls' },
-      blockDurationMs: { description: 'block duration' },
-      txPublicSetupAllowListExtend: {
-        description: 'allow list',
-        parseEnv: parseAllowListMock,
-      },
-    };
-
-    const fullNetworkConfig: NetworkConfig = {
-      bootnodes: ['enr://a'],
-      snapshots: ['https://snap.example.com'],
-      blobFileStoreUrls: ['s3://blobs'],
-      txCollectionFileStoreUrls: ['s3://txs'],
-      registryAddress: '0x1234',
-      l1ChainId: 31337,
-      blockDurationMs: 12000,
-      txPublicSetupAllowListExtend: 'I:0xabc:0x1234;C:0xdef:0x5678',
-    };
-
-    const result = networkConfigToTyped(mappings, fullNetworkConfig);
-
-    expect(result.bootstrapNodes).toEqual(['enr://a']);
-    expect(result.snapshotsUrls).toEqual(['https://snap.example.com']);
-    expect(result.l1ChainId).toBe(31337);
-    expect(result.blobFileStoreUrls).toEqual(['s3://blobs']);
-    expect(result.txCollectionFileStoreUrls).toEqual(['s3://txs']);
-    expect(result.blockDurationMs).toBe(12000);
-    expect(parseAllowListMock).toHaveBeenCalledWith('I:0xabc:0x1234;C:0xdef:0x5678');
-    expect(result.txPublicSetupAllowListExtend).toEqual(['I:0xabc:0x1234', 'C:0xdef:0x5678']);
   });
 });

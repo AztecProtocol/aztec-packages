@@ -288,6 +288,47 @@ describe('Config', () => {
         ]),
       ).toThrow("Duplicate config layer 'env' in resolveConfig input");
     });
+
+    it('produces correct merged result and provenance across CLI > ENV > NETWORK > DEFAULT', () => {
+      const integrationMappings: ConfigMappingsType<{
+        port: number;
+        host: string;
+        network: string;
+        timeout: number;
+      }> = {
+        port: { description: 'port', ...numberConfigHelper(8080) },
+        host: { description: 'host', defaultValue: 'localhost' },
+        network: { description: 'network', env: 'NETWORK', defaultValue: 'local' },
+        timeout: { description: 'timeout', ...numberConfigHelper(30) },
+      };
+
+      const resolved = resolveConfig(integrationMappings, [
+        {
+          name: ConfigLayerName.CLI,
+          values: cliToTyped(integrationMappings, { port: 9000, host: undefined }),
+        },
+        {
+          name: ConfigLayerName.ENV,
+          values: envToTyped(integrationMappings, { NETWORK: 'testnet' } as NodeJS.ProcessEnv),
+        },
+        {
+          name: ConfigLayerName.NETWORK,
+          values: { timeout: 60 },
+        },
+      ]);
+
+      expect(resolved.port.value).toBe(9000);
+      expect(resolved.port.source).toBe(ConfigLayerName.CLI);
+
+      expect(resolved.network.value).toBe('testnet');
+      expect(resolved.network.source).toBe(ConfigLayerName.ENV);
+
+      expect(resolved.timeout.value).toBe(60);
+      expect(resolved.timeout.source).toBe(ConfigLayerName.NETWORK);
+
+      expect(resolved.host.value).toBe('localhost');
+      expect(resolved.host.source).toBe(ConfigLayerName.DEFAULT);
+    });
   });
 
   describe('composeConfigMappings', () => {
@@ -676,61 +717,9 @@ describe('Config', () => {
     });
   });
 
-  describe('resolveConfig integration with all three layers', () => {
-    interface IntegrationFixture {
-      port: number;
-      host: string;
-      network: string;
-      timeout: number;
-    }
-
-    const mappings: ConfigMappingsType<IntegrationFixture> = {
-      port: { description: 'port', ...numberConfigHelper(8080) },
-      host: { description: 'host', defaultValue: 'localhost' },
-      network: { description: 'network', env: 'NETWORK', defaultValue: 'local' },
-      timeout: { description: 'timeout', ...numberConfigHelper(30) },
-    };
-
-    it('produces correct merged result and provenance across CLI > ENV > NETWORK > DEFAULT', () => {
-      const resolved = resolveConfig(mappings, [
-        {
-          name: ConfigLayerName.CLI,
-          values: cliToTyped(mappings, { port: 9000, host: undefined }),
-        },
-        {
-          name: ConfigLayerName.ENV,
-          values: envToTyped(mappings, { NETWORK: 'testnet' } as NodeJS.ProcessEnv),
-        },
-        {
-          name: ConfigLayerName.NETWORK,
-          values: { timeout: 60 },
-        },
-      ]);
-
-      // CLI wins for port
-      expect(resolved.port.value).toBe(9000);
-      expect(resolved.port.source).toBe(ConfigLayerName.CLI);
-
-      // ENV wins for network (no CLI value)
-      expect(resolved.network.value).toBe('testnet');
-      expect(resolved.network.source).toBe(ConfigLayerName.ENV);
-
-      // NETWORK layer wins for timeout
-      expect(resolved.timeout.value).toBe(60);
-      expect(resolved.timeout.source).toBe(ConfigLayerName.NETWORK);
-
-      // DEFAULT wins for host (not set in any layer)
-      expect(resolved.host.value).toBe('localhost');
-      expect(resolved.host.source).toBe(ConfigLayerName.DEFAULT);
-    });
-  });
-
   describe('findUniversalConfigKeys', () => {
-    it('returns empty when no mappings are passed', () => {
+    it('returns empty when fewer than two components are passed', () => {
       expect(findUniversalConfigKeys()).toEqual(new Set());
-    });
-
-    it('returns empty when only one component is passed', () => {
       const mappings: ConfigMappingsType<{ port: number }> = {
         port: { description: 'port', ...numberConfigHelper(8080) },
       };
