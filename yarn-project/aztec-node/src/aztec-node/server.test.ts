@@ -819,7 +819,7 @@ describe('aztec node', () => {
         );
       });
 
-      it('case B idle — builds overrides plan with no proposed parent', async () => {
+      it('case B idle — omits overrides plan with no proposed parent', async () => {
         const tx = await mockTxForRollup(0xb0001);
         l2BlockSource.getL2Tips.mockResolvedValue(
           makeSimTips({
@@ -839,11 +839,40 @@ describe('aztec node', () => {
         expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
         const [, , slotArg, planArg] = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0];
         expect(slotArg).toEqual(expectedSlot);
-        // Plan is defined (chain tips are always pinned), pendingCheckpointState is absent (no proposed parent).
-        expect(planArg).toBeDefined();
-        expect(planArg!.pendingCheckpointState).toBeUndefined();
-        expect(planArg!.chainTipsOverride?.pending).toEqual(CheckpointNumber(3));
-        expect(planArg!.chainTipsOverride?.proven).toEqual(CheckpointNumber(3));
+        // No proposed parent — fees read L1 state as-is to match the wallet's getCurrentMinFees.
+        expect(planArg).toBeUndefined();
+      });
+
+      it('case B with 2-deep proposed parent — omits overrides plan', async () => {
+        const tx = await mockTxForRollup(0xb0007);
+        // proposedCheckpoint number is checkpointed + 2, so the proposed parent is 2-deep
+        // beyond L1's confirmed view. The grandparent would not be available on L1, so we must
+        // not call buildCheckpointSimulationOverridesPlan.
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(20),
+            proposedCheckpoint: CheckpointNumber(5),
+            proposedCheckpointBlock: BlockNumber(20),
+            checkpointed: CheckpointNumber(3),
+            checkpointedBlock: BlockNumber(14),
+          }),
+        );
+        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpoint({
+            checkpointNumber: CheckpointNumber(5),
+            startBlock: BlockNumber(18),
+            blockCount: 3,
+          }),
+        );
+
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
+
+        expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
+        const [, , , planArg] = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0];
+        expect(planArg).toBeUndefined();
+        // Grandparent is not on L1, so we must not have asked the rollup contract for it.
+        expect(rollupContractForBuilder.getCheckpoint).not.toHaveBeenCalled();
       });
 
       it('case B with proposed parent — overrides plan carries archive + fee header overrides', async () => {

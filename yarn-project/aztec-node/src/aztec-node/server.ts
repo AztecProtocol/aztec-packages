@@ -1530,6 +1530,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       let proposedCheckpointData: ProposedCheckpointData | undefined;
       let checkpointNumber: CheckpointNumber;
+      // We only build the overrides plan when extending a 1-deep proposed parent (i.e. the
+      // proposed parent's checkpoint number is exactly `checkpointed + 1`). Beyond that depth,
+      // the parent's grandparent has not landed on L1, so the helper would revert when reading
+      // the grandparent feeHeader. Without a proposed parent (or with a deeper pipeline), we
+      // omit the plan entirely so `getManaMinFeeAt` reads L1 state as-is — matching the fee
+      // value wallets see via `getCurrentMinFees`.
+      let buildOverridesForProposedParent = false;
 
       if (hasProposedCheckpoint) {
         // Extend the proposed parent: target checkpoint is parent + 1, and the parent's data feeds
@@ -1552,22 +1559,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           );
         }
         checkpointNumber = CheckpointNumber(proposedCheckpointData.checkpointNumber + 1);
+        // Only build the overrides plan when the proposed parent is 1-deep. When the pipeline is
+        // deeper (parent's checkpoint number > checkpointed + 1), the grandparent is not yet on
+        // L1 and `computePipelinedParentFeeHeader` would revert with
+        // `Rollup__UnavailableTempCheckpointLog`.
+        buildOverridesForProposedParent =
+          proposedCheckpointData.checkpointNumber === l2Tips.checkpointed.checkpoint.number + 1;
       } else {
         proposedCheckpointData = undefined;
         checkpointNumber = CheckpointNumber(l2Tips.checkpointed.checkpoint.number + 1);
       }
 
-      // Build the overrides plan always: even with no proposed parent, the plan pins chain tips
-      // to `checkpointedCheckpointNumber` so the prune trigger doesn't fire during simulation.
-      const overridesPlan = await buildCheckpointSimulationOverridesPlan({
-        checkpointNumber,
-        proposedCheckpointData,
-        invalidateToPendingCheckpointNumber: undefined,
-        checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-        rollup: this.globalVariableBuilder.getRollupContract(),
-        signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
-        log: this.log,
-      });
+      // Build the overrides plan only when extending a 1-deep proposed parent. Without it (idle
+      // case, or 2+ deep pipeline), we read L1 fees as-is and avoid the deep-pipeline revert,
+      // which also keeps `getManaMinFeeAt` in lockstep with the wallet's `getCurrentMinFees`.
+      const overridesPlan = buildOverridesForProposedParent
+        ? await buildCheckpointSimulationOverridesPlan({
+            checkpointNumber,
+            proposedCheckpointData,
+            invalidateToPendingCheckpointNumber: undefined,
+            checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
+            rollup: this.globalVariableBuilder.getRollupContract(),
+            signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
+            log: this.log,
+          })
+        : undefined;
 
       // Simulation always zeroes these regardless of whether a sequencer is configured on this
       // node — the simulator does not represent the proposer's payout addresses.
