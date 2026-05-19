@@ -420,15 +420,27 @@ async function runPipeline(
   );
   if (T === 0 && TT === 0) throw new Error('plan is empty');
 
-  // Determine number of pair-tree levels: starting at T_0 = T, halve
-  // each level until T == 0 or some safety cap.
+  // Determine number of pair-tree levels. Each level halves T and
+  // every level produces T*S outputs. We stop when T*S equals the
+  // distinct-bucket count contributing to the main path (= one sum
+  // per bucket). Iterating further would start pairing across
+  // buckets, which is incorrect.
+  let bMain = 0;
+  for (let b = 0; b < counts.length; b++) {
+    if (counts[b] >= 2 * S) bMain++;
+  }
+  if (bMain === 0) throw new Error('no buckets in main path');
+  const stopT = Math.max(1, Math.ceil(bMain / S));
   const levels: number[] = [];
-  for (let t = T; t > 0; t = Math.floor(t / 2)) {
+  for (let t = T; t >= stopT; t = Math.floor(t / 2)) {
     levels.push(t);
-    if (t === 1) break;
+    if (t === stopT) break;
     if (levels.length > 24) throw new Error('too many tree levels');
   }
-  log('info', `pair-tree levels: ${levels.length} (T sequence: ${levels.join(' -> ')})`);
+  log(
+    'info',
+    `pair-tree levels: ${levels.length} (T sequence: ${levels.join(' -> ')}, stopT=${stopT}, bMain=${bMain})`,
+  );
 
   // Buffers.
   const mkSb = (size: number, copyDst: boolean, copySrc: boolean): GPUBuffer => {
