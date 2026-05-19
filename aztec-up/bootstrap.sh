@@ -29,6 +29,11 @@ uplinks:
     url: https://registry.npmjs.org/
 
 packages:
+  "@aztec/*":
+    access: \$all
+    publish: \$all
+    unpublish: \$all
+
   "@*/*":
     access: \$all
     publish: \$all
