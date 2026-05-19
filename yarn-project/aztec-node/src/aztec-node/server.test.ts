@@ -33,7 +33,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -678,6 +678,275 @@ describe('aztec node', () => {
       const tx = await mockTxForRollup(0x10000);
       unfreeze(tx.data.constants.txContext.gasSettings.gasLimits).l2Gas = 1e12;
       await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/gas/i);
+    });
+
+    describe('next-block globals', () => {
+      // Constants used across the simulator-shape tests below. We use a non-trivial l1GenesisTime
+      // so getSlotAtNextL1Block produces a deterministic slot we can assert on.
+      const L1_CONSTANTS = {
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: 1_700_000_000n,
+        slotDuration: 24,
+        ethereumSlotDuration: 12,
+      };
+
+      /** Builds an L2Tips stub for the simulator tests. */
+      function makeSimTips(args: {
+        proposedBlock: BlockNumber;
+        checkpointedBlock?: BlockNumber;
+        proposedCheckpoint: CheckpointNumber;
+        proposedCheckpointBlock: BlockNumber;
+        checkpointed: CheckpointNumber;
+      }): L2Tips {
+        const checkpointedBlock = args.checkpointedBlock ?? args.proposedCheckpointBlock;
+        return {
+          proposed: { number: args.proposedBlock, hash: '' },
+          checkpointed: {
+            block: { number: checkpointedBlock, hash: '' },
+            checkpoint: { number: args.checkpointed, hash: '' },
+          },
+          proposedCheckpoint: {
+            block: { number: args.proposedCheckpointBlock, hash: '' },
+            checkpoint: { number: args.proposedCheckpoint, hash: '' },
+          },
+          proven: {
+            block: { number: BlockNumber.ZERO, hash: '' },
+            checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+          },
+          finalized: {
+            block: { number: BlockNumber.ZERO, hash: '' },
+            checkpoint: { number: CheckpointNumber.ZERO, hash: '' },
+          },
+        };
+      }
+
+      /** Builds a ProposedCheckpointData stub. */
+      function makeProposedCheckpoint(args: {
+        checkpointNumber: CheckpointNumber;
+        startBlock: BlockNumber;
+        blockCount: number;
+      }): ProposedCheckpointData {
+        return {
+          checkpointNumber: args.checkpointNumber,
+          header: CheckpointHeader.random({ slotNumber: SlotNumber(0) }),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          checkpointOutHash: Fr.ZERO,
+          startBlock: args.startBlock,
+          blockCount: args.blockCount,
+          totalManaUsed: 0n,
+          feeAssetPriceModifier: 0n,
+        };
+      }
+
+      // Captured rollup contract used by the simulator's overrides-plan helper.
+      let rollupContractForBuilder: MockProxy<RollupContract>;
+
+      beforeEach(() => {
+        rollupContractForBuilder = mock<RollupContract>();
+        rollupContractForBuilder.getCheckpoint.mockResolvedValue({
+          feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
+        } as any);
+        rollupContractForBuilder.getManaTarget.mockResolvedValue(10_000n);
+        globalVariablesBuilder.getRollupContract.mockReturnValue(rollupContractForBuilder);
+        // Default checkpoint globals — tests override the slotNumber assertion where it matters.
+        globalVariablesBuilder.buildCheckpointGlobalVariables.mockResolvedValue({
+          chainId,
+          version: rollupVersion,
+          slotNumber: SlotNumber(0),
+          timestamp: 0n,
+          coinbase: EthAddress.ZERO,
+          feeRecipient: AztecAddress.ZERO,
+          gasFees: new GasFees(0, 0),
+        });
+        l2BlockSource.getL1Constants.mockResolvedValue(L1_CONSTANTS);
+        l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
+        // Cause `simulatePublicCalls` to bail out after building the global variables so we can
+        // observe what the simulator decided without needing to spin up the full AVM processor.
+        worldState.fork.mockRejectedValue(new Error('stop-after-globals'));
+      });
+
+      it('case A — mid-checkpoint continuation reuses latest block globals', async () => {
+        const tx = await mockTxForRollup(0xa0001);
+        const latestGlobals = GlobalVariables.from({
+          ...GlobalVariables.empty()
+            .toFields()
+            .reduce(() => GlobalVariables.empty(), GlobalVariables.empty()),
+          chainId,
+          version: rollupVersion,
+          blockNumber: BlockNumber(7),
+          slotNumber: SlotNumber(42),
+          timestamp: 1_700_100_000n,
+          coinbase: EthAddress.fromString(`0x${'aa'.repeat(20)}`),
+          feeRecipient: await AztecAddress.random(),
+          gasFees: new GasFees(0, 17n),
+        });
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(7),
+            proposedCheckpoint: CheckpointNumber(3),
+            proposedCheckpointBlock: BlockNumber(5),
+            checkpointed: CheckpointNumber(3),
+          }),
+        );
+        l2BlockSource.getBlockData.mockResolvedValue({
+          header: BlockHeader.empty({ globalVariables: latestGlobals }),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          blockHash: BlockHash.random(),
+          checkpointNumber: CheckpointNumber(3),
+          indexWithinCheckpoint: IndexWithinCheckpoint(2),
+        });
+
+        let observedGlobals: GlobalVariables | undefined;
+        globalVariablesBuilder.buildCheckpointGlobalVariables.mockImplementation(async () => {
+          throw new Error('buildCheckpointGlobalVariables should not be called in case A');
+        });
+        worldState.fork.mockImplementation(async () => {
+          // The simulator has finished case-A globals composition by the time fork is invoked.
+          throw new Error('stop-after-globals');
+        });
+        // We can't easily read `newGlobalVariables` from outside; instead assert via the verbose log.
+        const verboseSpy = jest.spyOn((node as any).log, 'verbose');
+
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
+
+        expect(globalVariablesBuilder.buildCheckpointGlobalVariables).not.toHaveBeenCalled();
+        expect(l2BlockSource.getL1Timestamp).not.toHaveBeenCalled();
+        expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: BlockNumber(7) });
+        // verbose log carries the simulated globals; pull them out and assert field-for-field.
+        const call = verboseSpy.mock.calls.find(c => /Simulating public calls/.test(String(c[0])));
+        expect(call).toBeDefined();
+        observedGlobals = (call![1] as any).globalVariables;
+        expect(observedGlobals).toEqual(
+          GlobalVariables.from({ ...latestGlobals, blockNumber: BlockNumber(8) }).toInspect(),
+        );
+      });
+
+      it('case B idle — builds overrides plan with no proposed parent', async () => {
+        const tx = await mockTxForRollup(0xb0001);
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(10),
+            proposedCheckpoint: CheckpointNumber(3),
+            proposedCheckpointBlock: BlockNumber(10),
+            checkpointed: CheckpointNumber(3),
+            checkpointedBlock: BlockNumber(10),
+          }),
+        );
+        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
+
+        const expectedSlot = getSlotAtNextL1Block(1_700_001_000n, L1_CONSTANTS);
+
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
+
+        expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
+        const [, , slotArg, planArg] = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0];
+        expect(slotArg).toEqual(expectedSlot);
+        // Plan is defined (chain tips are always pinned), pendingCheckpointState is absent (no proposed parent).
+        expect(planArg).toBeDefined();
+        expect(planArg!.pendingCheckpointState).toBeUndefined();
+        expect(planArg!.chainTipsOverride?.pending).toEqual(CheckpointNumber(3));
+        expect(planArg!.chainTipsOverride?.proven).toEqual(CheckpointNumber(3));
+      });
+
+      it('case B with proposed parent — overrides plan carries archive + fee header overrides', async () => {
+        const tx = await mockTxForRollup(0xb0002);
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(20),
+            proposedCheckpoint: CheckpointNumber(5),
+            proposedCheckpointBlock: BlockNumber(20),
+            checkpointed: CheckpointNumber(4),
+            checkpointedBlock: BlockNumber(17),
+          }),
+        );
+        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpoint({
+            checkpointNumber: CheckpointNumber(5),
+            startBlock: BlockNumber(18),
+            blockCount: 3,
+          }),
+        );
+
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
+
+        expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
+        const [, , , planArg] = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0];
+        // Pipelined plan: target = parent + 1 = 6, parent state must be present.
+        expect(planArg!.pendingCheckpointState).toBeDefined();
+        expect(planArg!.pendingCheckpointState!.archive).toBeDefined();
+        expect(planArg!.pendingCheckpointState!.slotNumber).toBeDefined();
+        expect(planArg!.pendingCheckpointState!.headerHash).toBeDefined();
+        expect(planArg!.chainTipsOverride?.pending).toEqual(CheckpointNumber(5));
+        // L1-to-L2 messages are fetched for the target checkpoint (6).
+        expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(6));
+      });
+
+      it('slot anchoring — Date.now does not influence the simulated slot', async () => {
+        const tx = await mockTxForRollup(0xb0003);
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(10),
+            proposedCheckpoint: CheckpointNumber(3),
+            proposedCheckpointBlock: BlockNumber(10),
+            checkpointed: CheckpointNumber(3),
+            checkpointedBlock: BlockNumber(10),
+          }),
+        );
+        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
+
+        const dateNowSpy = jest.spyOn(Date, 'now');
+        dateNowSpy.mockReturnValue(1_000_000_000_000);
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
+        const firstSlot = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0][2];
+
+        globalVariablesBuilder.buildCheckpointGlobalVariables.mockClear();
+        dateNowSpy.mockReturnValue(1_000_000_000_000 + 60 * 60 * 1000); // +1 hour
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
+        const secondSlot = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0][2];
+
+        expect(secondSlot).toEqual(firstSlot);
+        dateNowSpy.mockRestore();
+      });
+
+      it('coherency guard — torn snapshot throws a typed error', async () => {
+        const tx = await mockTxForRollup(0xb0004);
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(20),
+            proposedCheckpoint: CheckpointNumber(5),
+            proposedCheckpointBlock: BlockNumber(20),
+            checkpointed: CheckpointNumber(4),
+          }),
+        );
+        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
+        // Returned checkpointNumber doesn't match tips.proposedCheckpoint.checkpoint.number.
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpoint({
+            checkpointNumber: CheckpointNumber(4),
+            startBlock: BlockNumber(18),
+            blockCount: 3,
+          }),
+        );
+
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/Torn L2 tips snapshot/);
+      });
+
+      it('archiver-not-synced — getL1Timestamp undefined throws a typed error', async () => {
+        const tx = await mockTxForRollup(0xb0005);
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeSimTips({
+            proposedBlock: BlockNumber(10),
+            proposedCheckpoint: CheckpointNumber(3),
+            proposedCheckpointBlock: BlockNumber(10),
+            checkpointed: CheckpointNumber(3),
+            checkpointedBlock: BlockNumber(10),
+          }),
+        );
+        l2BlockSource.getL1Timestamp.mockResolvedValue(undefined);
+
+        await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/archiver has not synced an L1 timestamp/);
+      });
     });
   });
 
