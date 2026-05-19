@@ -285,23 +285,21 @@ export class AutomineSequencer {
       return undefined;
     }
 
-    // Decide target slot from the pending block's timestamp — this picks up any prior
-    // `setNextBlockTimestamp` call (e.g. queued by `runWarp`) instead of assuming +1 over
+    // Decide target slot from the pending block's timestamp — picks up any prior
+    // `setNextBlockTimestamp` call (e.g. queued by runWarp) instead of assuming +1 over
     // the last mined block.
-    const currentL1TsSec = await this.deps.ethCheatCodes.lastBlockTimestamp();
-    const pendingBlock = await this.deps.ethCheatCodes.publicClient.getBlock({ blockTag: 'pending' });
-    const pendingBlockTs = Number(pendingBlock.timestamp);
+    const pendingBlockTs = await this.deps.ethCheatCodes.nextBlockTimestamp();
     let targetSlot = Number(getSlotAtTimestamp(BigInt(pendingBlockTs), this.deps.l1Constants));
     if (targetSlot <= this.lastBuiltSlot) {
-      // Anvil's clock hasn't crossed into a new slot; advance to the next slot we own.
+      // Pending block doesn't reach a new slot yet; advance to the next slot we own.
       targetSlot = this.lastBuiltSlot + 1;
     }
     const slotBoundaryTs = Number(getTimestampForSlot(SlotNumber(targetSlot), this.deps.l1Constants));
 
-    // Pre-set anvil's next block timestamp only if it would advance the chain forward.
-    // `setNextBlockTimestamp` rejects timestamps `<= currentBlockTimestamp`, so we guard by
-    // the last mined block's timestamp.
-    if (slotBoundaryTs > currentL1TsSec) {
+    // Pre-set anvil's next block timestamp only if the slot boundary is past what's already
+    // scheduled. setNextBlockTimestamp rejects values not strictly greater than the last block's
+    // timestamp, and pendingBlockTs is always > lastBlockTimestamp, so this guard is sufficient.
+    if (slotBoundaryTs > pendingBlockTs) {
       await this.deps.ethCheatCodes.setNextBlockTimestamp(slotBoundaryTs);
     }
 
