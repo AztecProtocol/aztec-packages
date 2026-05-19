@@ -26,11 +26,12 @@
 //   (32 bytes/elem == 2x vec4<u32>), not the 20x 13-bit-limb BigInt
 //   (80 bytes/elem == 5x vec4<u32>). Unpack into 20x13-bit limbs only
 //   in-register at load and repack on store. The pack/unpack is the
-//   decoupled (`{{{ dec_unpack }}}` / `{{{ dec_pack }}}`) full-ILP
-//   straight-line form: 20 mutually-independent compile-time-constant-
-//   indexed limb extractions, zero loop-carried bit-cursor dependency
-//   chain. This cuts global traffic 2.5x (the dominant cost in the
-//   memory-bound batch-affine kernel) at a sub-cycle in-register cost.
+//   decoupled full-ILP straight-line form (injected below as
+//   unpack256_to_limbs / pack_limbs_to_256): 20 mutually-independent
+//   compile-time-constant-indexed limb extractions, zero loop-carried
+//   bit-cursor dependency chain. This cuts global traffic 2.5x (the
+//   dominant cost in the memory-bound batch-affine kernel) at a
+//   sub-cycle in-register cost.
 //
 // LAYOUT: packed elem = 2 vec4<u32>; for each of the 4 input planes
 // (A.x, A.y, P.x, P.y) and 2 output planes (R.x, R.y), plane c holds
