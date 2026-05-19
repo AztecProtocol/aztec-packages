@@ -33,9 +33,10 @@ namespace { // anonymous namespace
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response =
-        bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .use_zk_flavor = flags.use_zk_flavor }
-            .execute();
+    // CLI flag `--use_zk_flavor` only ever requests the hiding-kernel VK in current usage; the
+    // false branch keeps a path for callers that just want a plain MegaApp-shape VK.
+    const CircuitKind kind = flags.use_zk_flavor ? CircuitKind::HidingKernel : CircuitKind::App;
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .kind = kind }.execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -66,6 +67,7 @@ void ChonkAPI::prove(const Flags& flags,
         const auto& step = raw_steps[i];
         bbapi::ChonkLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+            .kind = step.kind,
         }
             .execute(request);
 
@@ -220,11 +222,10 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        const bool use_zk_flavor = (i == raw_steps.size() - 1);
         auto response =
             bbapi::ChonkCheckPrecomputedVk{
                 .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
-                .use_zk_flavor = use_zk_flavor,
+                .kind = step.kind,
             }
                 .execute();
 

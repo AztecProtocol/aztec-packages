@@ -15,10 +15,13 @@
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include <msgpack/adaptor/define_decl.hpp>
 
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <variant>
 
 namespace bb {
@@ -39,6 +42,19 @@ enum class CircuitKind : uint8_t {
     Kernel = 1,
     HidingKernel = 2,
 };
+
+inline std::ostream& operator<<(std::ostream& os, CircuitKind kind)
+{
+    switch (kind) {
+    case CircuitKind::App:
+        return os << "App";
+    case CircuitKind::Kernel:
+        return os << "Kernel";
+    case CircuitKind::HidingKernel:
+        return os << "HidingKernel";
+    }
+    return os << "CircuitKind(" << static_cast<int>(kind) << ")";
+}
 
 /**
  * @brief Verification key paired with `CircuitKind` at the call boundary.
@@ -118,3 +134,7 @@ template <typename F> constexpr decltype(auto) dispatch_kind(CircuitKind kind, F
 }
 
 } // namespace bb
+
+// Allows `CircuitKind` to travel over the bbapi msgpack wire (encoded as its underlying uint8_t).
+// Must live in the global namespace per msgpack-c's macro contract.
+MSGPACK_ADD_ENUM(bb::CircuitKind)

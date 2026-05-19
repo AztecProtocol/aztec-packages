@@ -49,11 +49,14 @@ ChonkVkCheckResult check_vk(acir_format::AcirProgram& program, const std::vector
 
 void accumulate_next_chonk_circuit(Chonk& ivc,
                                    Chonk::ClientCircuit& circuit,
+                                   Chonk::CircuitKind kind,
                                    const std::vector<uint8_t>& precomputed_vk,
                                    ChonkPrecomputedVkPolicy policy)
 {
-    // Until PXE carries an explicit tag, derive the kind from the IVC state machine.
-    const Chonk::CircuitKind kind = ivc.next_circuit_kind();
+    // PXE carries the kind explicitly; double-check against the IVC state machine so a stale
+    // / wrong tag fails loudly rather than silently mis-folding.
+    BB_ASSERT(kind == ivc.next_circuit_kind(),
+              "ChonkStepProcessor: supplied CircuitKind disagrees with IVC state machine");
 
     // Per-kind body: resolve a typed VK for the kind's flavor according to `policy`, then hand it
     // back to Chonk wrapped in the variant. The runtime kind → static flavor mapping lives in
@@ -95,7 +98,7 @@ void ChonkStepProcessor::process_step(ChonkExecutionStep&& step, ChonkPrecompute
     if (detail::use_memory_profile) {
         detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(step.name);
     }
-    accumulate_next_chonk_circuit(*ivc, circuit, step.precomputed_vk, policy);
+    accumulate_next_chonk_circuit(*ivc, circuit, step.kind, step.precomputed_vk, policy);
 }
 
 ChonkProof ChonkStepProcessor::prove()
@@ -108,28 +111,22 @@ std::shared_ptr<MegaZKFlavor::VKAndHash> ChonkStepProcessor::get_hiding_kernel_v
     return ivc->get_hiding_kernel_vk_and_hash();
 }
 
-ChonkVkData compute_chonk_vk(acir_format::AcirProgram& program, ChonkVkFlavor flavor)
+ChonkVkData compute_chonk_vk(acir_format::AcirProgram& program, CircuitKind kind)
 {
-    switch (flavor) {
-    case ChonkVkFlavor::MEGA:
-        return compute_vk_data<Chonk::MegaVerificationKey, Chonk::ProverInstance>(program);
-    case ChonkVkFlavor::MEGA_ZK:
-        return compute_vk_data<Chonk::MegaZKVerificationKey, Chonk::HidingKernelProverInstance>(program);
-    }
-    throw_or_abort("compute_chonk_vk: invalid VK flavor");
+    return dispatch_kind(kind, [&]<CircuitKind K>() {
+        using FlavorT = flavor_for<K>;
+        return compute_vk_data<typename FlavorT::VerificationKey, ProverInstance_<FlavorT>>(program);
+    });
 }
 
 ChonkVkCheckResult check_precomputed_chonk_vk(acir_format::AcirProgram& program,
                                               const std::vector<uint8_t>& precomputed_vk,
-                                              ChonkVkFlavor flavor)
+                                              CircuitKind kind)
 {
-    switch (flavor) {
-    case ChonkVkFlavor::MEGA:
-        return check_vk<Chonk::MegaVerificationKey, Chonk::ProverInstance>(program, precomputed_vk);
-    case ChonkVkFlavor::MEGA_ZK:
-        return check_vk<Chonk::MegaZKVerificationKey, Chonk::HidingKernelProverInstance>(program, precomputed_vk);
-    }
-    throw_or_abort("check_precomputed_chonk_vk: invalid VK flavor");
+    return dispatch_kind(kind, [&]<CircuitKind K>() {
+        using FlavorT = flavor_for<K>;
+        return check_vk<typename FlavorT::VerificationKey, ProverInstance_<FlavorT>>(program, precomputed_vk);
+    });
 }
 
 std::shared_ptr<Chonk::MegaZKVerificationKey> deserialize_chonk_vk(const std::vector<uint8_t>& vk)

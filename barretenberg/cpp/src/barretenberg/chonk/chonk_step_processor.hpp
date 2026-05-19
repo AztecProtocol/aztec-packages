@@ -10,7 +10,6 @@
 namespace bb {
 
 enum class ChonkPrecomputedVkPolicy : uint8_t { DEFAULT, CHECK, RECOMPUTE };
-enum class ChonkVkFlavor : uint8_t { MEGA, MEGA_ZK };
 
 struct ChonkVkData {
     std::vector<uint8_t> bytes;
@@ -26,6 +25,10 @@ struct ChonkExecutionStep {
     std::string name;
     acir_format::AcirProgram program;
     std::vector<uint8_t> precomputed_vk;
+    // CircuitKind tag supplied by the caller (PXE / msgpack wire). The IVC state machine still
+    // computes the kind for the next slot; `process_step` validates the two agree so that a wrong
+    // tag from PXE fails loudly instead of silently mis-folding.
+    CircuitKind kind = CircuitKind::App;
 };
 
 class ChonkStepProcessor {
@@ -44,11 +47,11 @@ class ChonkStepProcessor {
     std::shared_ptr<Chonk> ivc;
 };
 
-ChonkVkData compute_chonk_vk(acir_format::AcirProgram& program, ChonkVkFlavor flavor);
+ChonkVkData compute_chonk_vk(acir_format::AcirProgram& program, CircuitKind kind);
 
 ChonkVkCheckResult check_precomputed_chonk_vk(acir_format::AcirProgram& program,
                                               const std::vector<uint8_t>& precomputed_vk,
-                                              ChonkVkFlavor flavor);
+                                              CircuitKind kind);
 
 std::shared_ptr<Chonk::MegaZKVerificationKey> deserialize_chonk_vk(const std::vector<uint8_t>& vk);
 
