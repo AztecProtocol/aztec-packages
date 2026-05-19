@@ -129,6 +129,7 @@ const pageMap = {
   "bench-batch-affine": "/dev/msm-webgpu/bench-batch-affine.html",
   "bench-fused-wg-scan": "/dev/msm-webgpu/bench-fused-wg-scan.html",
   "bench-ba-rev-packed-carry": "/dev/msm-webgpu/bench-ba-rev-packed-carry.html",
+  "bench-msm-chain": "/dev/msm-webgpu/bench-msm-chain.html",
   "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
   sanity: "/dev/msm-webgpu/index.html",
 };

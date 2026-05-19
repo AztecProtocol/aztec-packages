@@ -5,6 +5,7 @@ import {
   batch_affine_apply as batch_affine_apply_shader,
   batch_affine_apply_scatter as batch_affine_apply_scatter_shader,
   batch_affine_dispatch_args as batch_affine_dispatch_args_shader,
+  ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
   ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
   bench_batch_affine as bench_batch_affine_shader,
   batch_affine_finalize as batch_affine_finalize_shader,
@@ -762,6 +763,22 @@ ${packLines.join('\n')}
         bigint_by_funcs,
         by_inverse_a_funcs,
       },
+    );
+  }
+
+  /**
+   * Marshal kernel for the bench-msm-chain pipeline: transposes a
+   * CSR-sorted point list into the strided SoA layout the
+   * ba_rev_packed_carry chain kernel consumes. Pure memory shuffle.
+   */
+  public gen_ba_marshal_chain_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_marshal_chain_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    return mustache.render(
+      ba_marshal_chain_bench_shader,
+      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
     );
   }
 
