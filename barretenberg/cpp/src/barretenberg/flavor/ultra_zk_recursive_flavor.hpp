@@ -41,8 +41,6 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecu
         using Base = UltraFlavor::AllEntities_<FF, HasZK>;
         using Base::Base;
     };
-
-    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 };
 
 } // namespace bb

@@ -39,6 +39,7 @@ template <typename Flavor> class OinkVerifier {
                  size_t num_public_inputs)
         : transcript(transcript)
         , verifier_instance(verifier_instance)
+        , comm_labels(Flavor::commitment_labels())
         , num_public_inputs(num_public_inputs)
     {}
 

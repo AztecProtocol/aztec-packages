@@ -71,7 +71,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_external.is_zero();
+        return in[AllEntities::EntityId::q_poseidon2_external].is_zero();
     }
 
     /**
@@ -96,22 +96,22 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         // Current state
-        const auto w_1 = CoefficientAccumulator(in.w_l);
-        const auto w_2 = CoefficientAccumulator(in.w_r);
-        const auto w_3 = CoefficientAccumulator(in.w_o);
-        const auto w_4 = CoefficientAccumulator(in.w_4);
+        const auto w_1 = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        const auto w_2 = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        const auto w_3 = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        const auto w_4 = CoefficientAccumulator(in[AllEntities::EntityId::w_4]);
         // Expected state, contained in the next row
-        const auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
-        const auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
-        const auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
-        const auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
+        const auto w_1_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        const auto w_2_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        const auto w_3_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+        const auto w_4_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]);
         // i-th external round constants
-        const auto c_1 = CoefficientAccumulator(in.q_l);
-        const auto c_2 = CoefficientAccumulator(in.q_r);
-        const auto c_3 = CoefficientAccumulator(in.q_o);
-        const auto c_4 = CoefficientAccumulator(in.q_4);
+        const auto c_1 = CoefficientAccumulator(in[AllEntities::EntityId::q_l]);
+        const auto c_2 = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+        const auto c_3 = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+        const auto c_4 = CoefficientAccumulator(in[AllEntities::EntityId::q_4]);
         // Poseidon2 external relation selector
-        const auto q_poseidon2_external = CoefficientAccumulator(in.q_poseidon2_external);
+        const auto q_poseidon2_external = CoefficientAccumulator(in[AllEntities::EntityId::q_poseidon2_external]);
 
         // add round constants which are loaded in selectors
 

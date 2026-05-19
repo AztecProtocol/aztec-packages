@@ -7,7 +7,7 @@
  * including circuit input types and proof system settings.
  */
 
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_step_processor.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -176,9 +176,7 @@ class ChonkBatchVerifierService;
 #endif
 
 struct BBApiRequest {
-    // Current depth of the IVC stack for this request
-    uint32_t ivc_stack_depth = 0;
-    std::shared_ptr<IVCBase> ivc_in_progress;
+    std::shared_ptr<ChonkStepProcessor> ivc_in_progress;
     // Name of the last loaded circuit
     std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate

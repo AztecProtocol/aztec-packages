@@ -60,10 +60,14 @@ const main = async () => {
     // (e.g. PrivateKernelInit3CircuitPrivateInputs) and pass the camelcase lint rule.
     programs.push([pascalCase(circuit).replace(/_(\d)/g, '$1'), abiObj]);
   }
-  const code = codegen(
+  let code = codegen(
     programs,
     false, // Don't embed artifacts
     true, // Use fixed length arrays
+  );
+  code = code.replace(
+    'export type ProofData<A, B extends number> = {\n  public_inputs: A;\n  proof: FixedLengthArray<Field, B>;\n  vk_data: VkData<115>;\n}',
+    'export type ProofData<A, B extends number, C extends number = 115> = {\n  public_inputs: A;\n  proof: FixedLengthArray<Field, B>;\n  vk_data: VkData<C>;\n}',
   );
 
   await fs.writeFile('./src/types/index.ts', code);

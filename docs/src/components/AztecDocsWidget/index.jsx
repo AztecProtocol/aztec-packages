@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./styles.css";
 import { DEFAULT_SUGGESTED, getTheme } from "./theme";
 import { makeMarkdownComponents } from "./markdown";
@@ -6,6 +6,14 @@ import { streamAnswer } from "./streamAnswer";
 import { sendFeedback } from "./sendFeedback";
 import LauncherButton from "./LauncherButton";
 import Panel from "./Panel";
+import {
+  buildShareUrl,
+  clearShareHash,
+  copyToClipboard,
+  decodeShare,
+  encodeShare,
+  readShareHash,
+} from "./share";
 
 export default function AztecDocsWidget({
   apiHost,
@@ -31,8 +39,18 @@ export default function AztecDocsWidget({
   const [conversationId, setConversationId] = useState(null);
   const [feedbackByIndex, setFeedbackByIndex] = useState({});
   const [feedbackErrorsByIndex, setFeedbackErrorsByIndex] = useState({});
+  const [shareState, setShareState] = useState("idle");
+  // True while the panel is showing a conversation loaded from a
+  // `#share=...` URL. Cleared on reset or when the recipient starts
+  // their own follow-up so their messages don't blend into the shared
+  // transcript.
+  const [viewingShared, setViewingShared] = useState(false);
   const scrollRef = useRef(null);
   const abortRef = useRef(null);
+  // Flipped as soon as the user opens the panel, sends, or resets, so a
+  // slow share-decode resolving later can't clobber an in-progress local
+  // conversation.
+  const userInteractedRef = useRef(false);
 
   const tokens = React.useMemo(() => getTheme(theme, accent), [theme, accent]);
   const mdComponents = React.useMemo(
@@ -50,10 +68,59 @@ export default function AztecDocsWidget({
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // On first mount, replay a shared conversation if the URL hash carries
+  // one. Decoding is async (uses DecompressionStream), so we set state
+  // when it resolves; a malformed/oversize hash silently drops back to
+  // the launcher state.
+  useEffect(() => {
+    const token = readShareHash();
+    if (!token) return;
+    let cancelled = false;
+    decodeShare(token).then((shared) => {
+      if (cancelled || userInteractedRef.current) return;
+      if (!shared || shared.length === 0) return;
+      // The codec models messages as a flat sequence of {role, text}.
+      // The widget models them as Q&A pairs ({prompt, response}). Pair
+      // up user→bot adjacencies; orphan user messages still render as
+      // an unanswered prompt.
+      const replayed = [];
+      let pending = null;
+      for (const m of shared) {
+        if (m.role === "user") {
+          if (pending) replayed.push(pending);
+          pending = { prompt: m.text, response: "", sources: [] };
+        } else {
+          replayed.push({
+            prompt: pending?.prompt ?? "",
+            response: m.text,
+            sources: m.sources ?? [],
+          });
+          pending = null;
+        }
+      }
+      if (pending) replayed.push(pending);
+      if (replayed.length === 0) return;
+      setMessages(replayed);
+      setViewingShared(true);
+      setOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function handleSend(text) {
     const question = (text ?? input).trim();
     if (!question || streaming) return;
+    userInteractedRef.current = true;
     setInput("");
+    // Once the recipient continues the conversation it's no longer the
+    // shared replay; drop the banner and scrub the hash so a refresh
+    // doesn't reload the old transcript over the new one.
+    if (viewingShared) {
+      setViewingShared(false);
+      clearShareHash();
+    }
     const nextHistory = messages.map((m) => ({
       prompt: m.prompt,
       response: m.response,
@@ -120,6 +187,7 @@ export default function AztecDocsWidget({
   }
 
   function handleReset() {
+    userInteractedRef.current = true;
     abortRef.current?.abort();
     setMessages([]);
     setStreaming(false);
@@ -128,7 +196,47 @@ export default function AztecDocsWidget({
     setConversationId(null);
     setFeedbackByIndex({});
     setFeedbackErrorsByIndex({});
+    if (viewingShared) {
+      setViewingShared(false);
+      clearShareHash();
+    }
   }
+
+  // Build a shareable URL with the current conversation encoded into the
+  // hash and copy it to the clipboard. The encoded blob never leaves the
+  // browser; the recipient's browser decompresses it locally.
+  const handleShare = useCallback(async () => {
+    const shareable = [];
+    for (const m of messages) {
+      if (m.prompt) shareable.push({ role: "user", text: m.prompt });
+      if (m.response) {
+        shareable.push({
+          role: "bot",
+          text: m.response,
+          sources: m.sources,
+        });
+      }
+    }
+    if (shareable.length === 0) return;
+    try {
+      const token = await encodeShare(shareable);
+      const url = buildShareUrl(token);
+      const ok = await copyToClipboard(url);
+      if (ok) {
+        setShareState("ok");
+      } else if (typeof window !== "undefined") {
+        // window.prompt returns null only when the user cancels — treat
+        // that as a failed copy rather than reporting "Link copied".
+        const result = window.prompt("Copy this share link:", url);
+        setShareState(result === null ? "fail" : "ok");
+      } else {
+        setShareState("fail");
+      }
+    } catch {
+      setShareState("fail");
+    }
+    window.setTimeout(() => setShareState("idle"), 2200);
+  }, [messages]);
 
   async function handleFeedback(messageIndex, kind) {
     if (!conversationId) return;
@@ -164,7 +272,10 @@ export default function AztecDocsWidget({
         <LauncherButton
           buttonStyle={buttonStyle}
           position={position}
-          onOpen={() => setOpen(true)}
+          onOpen={() => {
+            userInteractedRef.current = true;
+            setOpen(true);
+          }}
         />
       )}
       {open && (
@@ -195,6 +306,9 @@ export default function AztecDocsWidget({
           feedbackByIndex={feedbackByIndex}
           feedbackErrorsByIndex={feedbackErrorsByIndex}
           onFeedback={handleFeedback}
+          onShare={handleShare}
+          shareState={shareState}
+          viewingShared={viewingShared}
         />
       )}
     </div>

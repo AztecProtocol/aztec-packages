@@ -618,10 +618,10 @@ pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
 // Chonk sub-proof lengths; pinned to bb via static_asserts in mock_verifier_inputs.test.cpp.
-pub global CHONK_HIDING_OINK_LENGTH: u32 = 108;
+pub global CHONK_HIDING_OINK_LENGTH: u32 = 48;
 pub global CHONK_MERGE_PROOF_SIZE: u32 = 42;
 pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 612;
-pub global CHONK_JOINT_PROOF_LENGTH: u32 = 504;
+pub global CHONK_JOINT_PROOF_LENGTH: u32 = 477;
 pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
     + HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE
     + CHONK_MERGE_PROOF_SIZE
@@ -631,8 +631,9 @@ pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 163; // size of a Mega verification key
+pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 115; // size of a MegaZK verification key
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
-pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
+pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -804,10 +805,6 @@ pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
-
-/// Domain separator for the secret hash stored in handshake notes produced by the handshake registry contract.
-/// Kept distinct from [`DOM_SEP__SECRET_HASH`] (which is specifically for L1 to L2 messages).
-pub global DOM_SEP__HANDSHAKE_SECRET_HASH: u32 = 3596796143;
 
 /// Domain separator for transaction nullifiers.
 ///
@@ -1230,8 +1227,8 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 27 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
 // Dynamic L2 GAS
-pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
-pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 3;
+pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 6;
+pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
 pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 pub global AVM_EMITPUBLICLOG_DYN_L2_GAS: u32 = 3;

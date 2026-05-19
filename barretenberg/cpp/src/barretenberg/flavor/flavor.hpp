@@ -142,9 +142,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     bool operator==(const NativeVerificationKey_&) const = default;
 
 #ifndef NDEBUG
-    template <size_t NUM_PRECOMPUTED_ENTITIES, typename StringType>
-    bool compare(const NativeVerificationKey_& other,
-                 RefArray<StringType, NUM_PRECOMPUTED_ENTITIES> commitment_labels) const
+    template <typename CommitmentLabels>
+    bool compare(const NativeVerificationKey_& other, CommitmentLabels commitment_labels) const
     {
         bool is_equal = true;
 

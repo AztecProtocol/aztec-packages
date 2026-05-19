@@ -47,7 +47,7 @@ template <typename FF_> class EccOpQueueRelationImpl {
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // The prover can skip execution of this relation if the ecc op selector is identically zero
-        return in.lagrange_ecc_op.is_zero();
+        return in[AllEntities::EntityId::lagrange_ecc_op].is_zero();
     }
 
     /**
@@ -68,15 +68,16 @@ template <typename FF_> class EccOpQueueRelationImpl {
         // 3). To do a degree-1 multiplication in the coefficient basis requires 3 Fp muls and 4 Fp adds (karatsuba
         // multiplication). But a multiplication of a degree-3 Univariate only requires 3 Fp muls.
         // We still cast to CoefficientAccumulator so that the degree is extended to degree-3 from degree-1
-        auto w_1_shift = Accumulator(CoefficientAccumulator(in.w_l_shift));
-        auto w_2_shift = Accumulator(CoefficientAccumulator(in.w_r_shift));
-        auto w_3_shift = Accumulator(CoefficientAccumulator(in.w_o_shift));
-        auto w_4_shift = Accumulator(CoefficientAccumulator(in.w_4_shift));
-        auto op_wire_1 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_1));
-        auto op_wire_2 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_2));
-        auto op_wire_3 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_3));
-        auto op_wire_4 = Accumulator(CoefficientAccumulator(in.ecc_op_wire_4));
-        auto lagrange_ecc_op = Accumulator(CoefficientAccumulator(in.lagrange_ecc_op)); // precomputed selector
+        auto w_1_shift = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]));
+        auto w_2_shift = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]));
+        auto w_3_shift = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]));
+        auto w_4_shift = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]));
+        auto op_wire_1 = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_1]));
+        auto op_wire_2 = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_2]));
+        auto op_wire_3 = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_3]));
+        auto op_wire_4 = Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_4]));
+        auto lagrange_ecc_op =
+            Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::lagrange_ecc_op])); // precomputed selector
 
         // If lagrange_ecc_op is the indicator for ecc_op_gates, complement_ecc_op_by_scaling is the indicator for the
         // complement times the scaling factor
@@ -145,10 +146,14 @@ template <typename FF_> class MegaEccOpBoundaryRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        std::get<0>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_1)) * scaling_factor;
-        std::get<1>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_2)) * scaling_factor;
-        std::get<2>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_3)) * scaling_factor;
-        std::get<3>(evals) += Accumulator(CoefficientAccumulator(in.ecc_op_wire_4)) * scaling_factor;
+        std::get<0>(evals) +=
+            Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_1])) * scaling_factor;
+        std::get<1>(evals) +=
+            Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_2])) * scaling_factor;
+        std::get<2>(evals) +=
+            Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_3])) * scaling_factor;
+        std::get<3>(evals) +=
+            Accumulator(CoefficientAccumulator(in[AllEntities::EntityId::ecc_op_wire_4])) * scaling_factor;
     }
 };
 

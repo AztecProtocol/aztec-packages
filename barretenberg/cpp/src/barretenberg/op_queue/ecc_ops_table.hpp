@@ -209,8 +209,8 @@ using EccvmOpsTable = EccOpsTable<ECCVMOperation>;
  */
 class UltraEccOpsTable {
   public:
-    static constexpr size_t TABLE_WIDTH = 4;     // dictated by the number of wires in the Ultra arithmetization
-    static constexpr size_t NUM_ROWS_PER_OP = 2; // A single ECC op is split across two width-4 rows
+    static constexpr size_t TABLE_WIDTH = NUM_WIRES; // dictated by the number of wires in the Ultra arithmetization
+    static constexpr size_t NUM_ROWS_PER_OP = 2;     // A single ECC op is split across two width-4 rows
     static constexpr size_t ZK_ULTRA_OPS =
         (ECC_NUM_RANDOM_OPS_START + ECC_NUM_NO_OPS_START + ECC_NUM_HIDING_OPS_START) * NUM_ROWS_PER_OP;
 

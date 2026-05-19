@@ -167,11 +167,12 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
     }
 
     /**
-     * Explicitly constrain w[62] and w[63] to 32 bits. All other computed w_out values
+     * Explicitly constrain w[0], w[62] and w[63] to 32 bits. All other computed w_out values
      * (w[16..61]) are implicitly constrained via lookups in convert_witness().
      *
      * While not strictly necessary for soundness, this simplifies security analysis at minimal cost.
      */
+    w_sparse[0].normal.create_range_constraint(32);
     w_sparse[62].normal.create_range_constraint(32);
     w_sparse[63].normal.create_range_constraint(32);
 

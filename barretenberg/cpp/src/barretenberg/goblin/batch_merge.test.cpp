@@ -22,7 +22,6 @@ namespace bb {
 using NativeCurve = curve::BN254;
 using NativeG1 = NativeCurve::AffineElement;
 
-static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 static constexpr size_t NUM_FRS_COMM = NativeTranscript::Codec::template calc_num_fields<NativeG1>();
 
 template <typename Curve, typename = void> struct BuilderTypeHelper {
@@ -339,7 +338,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 6362 : 22624;
+    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 6362 : 21838;
     static constexpr size_t ZK_OFFSET = NumSubtables == 9 ? 666 : 520;
 
     struct VerifyResult {

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -21,6 +22,11 @@
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 
 namespace bb::avm2 {
+
+static constexpr size_t NUM_AVM_ULTRA_OPS = 3117;
+static_assert(2 * NUM_AVM_ULTRA_OPS < (1 << CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE) - NUM_DISABLED_ROWS_IN_SUMCHECK,
+              "AVM ultra ops land in the range reserved for randomness in the Translator mini circuit. If this "
+              "assertion fails, we need to increase CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE.");
 
 /**
  * @brief Recursive verifier of AVM2 proofs that utilizes the Goblin mechanism for efficient EC operations.
@@ -190,6 +196,10 @@ class TwoLayerAvmRecursiveVerifier {
         // Construct the GoblinAvm proof \pi_G (includes ECCVM, IPA, and Translator proofs)
         goblin.transcript = transcript;
         GoblinAvmProof goblin_proof = goblin.prove();
+        BB_ASSERT_EQ(goblin.op_queue->get_ultra_ops_count(),
+                     NUM_AVM_ULTRA_OPS,
+                     "The number of ultra ops in the AVM proof has changed. This should only happen if the number of "
+                     "columns in the AVM changed.");
 
         return {
             .mega_proof = mega_proof,

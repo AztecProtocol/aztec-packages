@@ -231,10 +231,10 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
             break;
         case TamperingMode::Instance: {
             // Tamper with w_l at the first row where q_arith is non-zero (an active arithmetic gate).
-            auto& q_arith = instance->polynomials.q_arith;
+            auto& q_arith = instance->polynomials.q_arith();
             for (size_t i = ProverInstance::TRACE_OFFSET; i < q_arith.end_index(); i++) {
                 if (!q_arith[i].is_zero()) {
-                    instance->polynomials.w_l.at(i) = NativeFF::random_element();
+                    instance->polynomials.w_l().at(i) = NativeFF::random_element();
                     break;
                 }
             }

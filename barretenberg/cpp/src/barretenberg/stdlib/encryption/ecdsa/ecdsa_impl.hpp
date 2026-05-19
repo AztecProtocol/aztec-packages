@@ -145,13 +145,13 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     result.x().reduce_mod_target_modulus();
 
     // Transfer Fq value result.x() to Fr (this is just moving from a C++ class to another)
-    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x().binary_basis_limbs[0].element,
-                                                        result.x().binary_basis_limbs[1].element,
-                                                        result.x().binary_basis_limbs[2].element,
-                                                        result.x().binary_basis_limbs[3].element);
+    Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x().get_limb(0).element,
+                                                        result.x().get_limb(1).element,
+                                                        result.x().get_limb(2).element,
+                                                        result.x().get_limb(3).element);
     // Copy maximum limb values from Fq to Fr: this is needed by the subtraction happening in the == operator
     for (size_t idx = 0; idx < 4; idx++) {
-        result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x().binary_basis_limbs[idx].maximum_value;
+        result_x_mod_r.set_limb_max(idx, result.x().get_limb(idx).maximum_value);
     }
 
     // Check result.x() = r mod n AND that no other check failed

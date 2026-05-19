@@ -41,10 +41,7 @@ using witness_ct = stdlib::witness_t<Builder>;
  */
 void fix_bigfield_element(const fq_ct& element)
 {
-    for (size_t i = 0; i < 4; i++) {
-        element.binary_basis_limbs[i].element.fix_witness();
-    }
-    element.prime_basis_limb.fix_witness();
+    stdlib::bigfield_test_access::fix_witness_in_place(element);
 }
 
 /**

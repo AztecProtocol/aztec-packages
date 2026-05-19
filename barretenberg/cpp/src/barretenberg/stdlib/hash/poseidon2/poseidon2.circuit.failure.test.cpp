@@ -127,11 +127,11 @@ TEST_F(Poseidon2FailureTests, WrongWitnessValues)
 
     auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     {
-        modify_witness(prover_instance->polynomials.q_poseidon2_external, prover_instance->polynomials.w_l);
+        modify_witness(prover_instance->polynomials.q_poseidon2_external(), prover_instance->polynomials.w_l());
         prove_and_verify(prover_instance, false);
     }
     {
-        modify_witness(prover_instance->polynomials.q_poseidon2_internal, prover_instance->polynomials.w_r);
+        modify_witness(prover_instance->polynomials.q_poseidon2_internal(), prover_instance->polynomials.w_r());
         prove_and_verify(prover_instance, false);
     }
 }
@@ -146,14 +146,14 @@ TEST_F(Poseidon2FailureTests, TamperingWithShifts)
     {
         bool external_round = true;
         tamper_with_shifts(
-            prover_instance->polynomials.q_poseidon2_external, prover_instance->polynomials.w_l, external_round);
+            prover_instance->polynomials.q_poseidon2_external(), prover_instance->polynomials.w_l(), external_round);
         prove_and_verify(prover_instance, false);
     }
 
     {
         bool external_round = false;
         tamper_with_shifts(
-            prover_instance->polynomials.q_poseidon2_internal, prover_instance->polynomials.w_l, external_round);
+            prover_instance->polynomials.q_poseidon2_internal(), prover_instance->polynomials.w_l(), external_round);
         prove_and_verify(prover_instance, false);
     }
 }

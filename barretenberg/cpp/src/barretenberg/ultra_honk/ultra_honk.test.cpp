@@ -501,14 +501,14 @@ TYPED_TEST(UltraHonkTests, WitnessPolynomialsMasked)
         };
 
         auto& polys = prover_instance->polynomials;
-        check_masked(polys.w_l, "w_l");
-        check_masked(polys.w_r, "w_r");
-        check_masked(polys.w_o, "w_o");
-        check_masked(polys.w_4, "w_4");
-        check_masked(polys.z_perm, "z_perm");
-        check_masked(polys.lookup_read_counts, "lookup_read_counts");
-        check_masked(polys.lookup_read_tags, "lookup_read_tags");
-        check_masked(polys.lookup_inverses, "lookup_inverses");
+        check_masked(polys.w_l(), "w_l");
+        check_masked(polys.w_r(), "w_r");
+        check_masked(polys.w_o(), "w_o");
+        check_masked(polys.w_4(), "w_4");
+        check_masked(polys.z_perm(), "z_perm");
+        check_masked(polys.lookup_read_counts(), "lookup_read_counts");
+        check_masked(polys.lookup_read_tags(), "lookup_read_tags");
+        check_masked(polys.lookup_inverses(), "lookup_inverses");
     }
 }
 

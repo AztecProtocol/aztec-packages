@@ -37,16 +37,17 @@ TEMPLATE_DIR="$(dirname $0)/templates/$template"
 # Copy template crates and substitute placeholders
 cp -r "$TEMPLATE_DIR/contract" "$contract_dir"
 cp -r "$TEMPLATE_DIR/test" "$test_dir"
+# Use perl -i for portability across os.
 find "$contract_dir" "$test_dir" -type f -exec \
-  sed -i -e "s/__CRATE_NAME__/${crate_name}/g" -e "s/__AZTEC_VERSION__/${AZTEC_VERSION}/g" {} +
+  perl -i -pe "s/__CRATE_NAME__/${crate_name}/g; s/__AZTEC_VERSION__/${AZTEC_VERSION}/g" {} +
 
 # Add members to workspace Nargo.toml
 if grep -q 'members\s*=\s*\[\s*\]' Nargo.toml; then
   # Empty array: members = []
-  sed -i "s|members\s*=\s*\[\s*\]|members = [\"${contract_dir}\", \"${test_dir}\"]|" Nargo.toml
+  perl -i -pe "s|members\s*=\s*\[\s*\]|members = [\"${contract_dir}\", \"${test_dir}\"]|" Nargo.toml
 else
   # Non-empty array: add before closing ]
-  sed -i "s|\(members\s*=\s*\[.*\)\]|\1, \"${contract_dir}\", \"${test_dir}\"]|" Nargo.toml
+  perl -i -pe "s|(members\s*=\s*\[.*)\]|\1, \"${contract_dir}\", \"${test_dir}\"]|" Nargo.toml
 fi
 
 echo "Created crates '${contract_dir}' and '${test_dir}'"

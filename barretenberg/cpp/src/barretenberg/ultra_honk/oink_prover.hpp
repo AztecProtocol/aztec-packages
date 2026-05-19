@@ -56,6 +56,7 @@ template <typename Flavor> class OinkProver {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Proof = typename Transcript::Proof;
+    using EntityId = typename Flavor::ProverPolynomials::EntityId;
 
   public:
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
@@ -64,6 +65,7 @@ template <typename Flavor> class OinkProver {
         : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
+        , commitment_labels(Flavor::commitment_labels())
     {}
 
     // emit_alpha: when false, skip drawing the "alpha" challenge at the end of Oink.

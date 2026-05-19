@@ -241,6 +241,8 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
 
 BasicTable create_basic_table(const BasicTableId id, const size_t index)
 {
+    BB_ASSERT_GT(index, 0U, "Table index must be greater than 0");
+
     // we have >50 basic fixed base tables so we match with some logic instead of a switch statement
     auto id_var = static_cast<size_t>(id);
     if (id_var >= static_cast<size_t>(FIXED_BASE_0_0) && id_var < static_cast<size_t>(FIXED_BASE_1_0)) {
@@ -297,10 +299,12 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
         return sparse_tables::generate_sparse_table_with_rotation<28, 11, 6>(SHA256_BASE28_ROTATE6, index);
     }
     case SHA256_BASE28_ROTATE3: {
-        return sparse_tables::generate_sparse_table_with_rotation<28, 11, 3>(SHA256_BASE28_ROTATE3, index);
+        // 10-bit (not 11) for use with L2 slot of SHA256_CH_INPUT
+        return sparse_tables::generate_sparse_table_with_rotation<28, 10, 3>(SHA256_BASE28_ROTATE3, index);
     }
     case SHA256_BASE16: {
-        return sparse_tables::generate_sparse_table_with_rotation<16, 11, 0>(SHA256_BASE16, index);
+        // 10-bit (not 11) for use with L2 slot of SHA256_CH_INPUT
+        return sparse_tables::generate_sparse_table_with_rotation<16, 10, 0>(SHA256_BASE16, index);
     }
     case SHA256_BASE16_ROTATE2: {
         return sparse_tables::generate_sparse_table_with_rotation<16, 11, 2>(SHA256_BASE16_ROTATE2, index);

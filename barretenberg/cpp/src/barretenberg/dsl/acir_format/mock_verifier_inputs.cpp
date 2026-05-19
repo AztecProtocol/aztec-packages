@@ -279,10 +279,10 @@ Goblin::MergeProof create_mock_merge_proof()
     populate_field_elements<fr>(proof, 1, /*value=*/fr{ mock_shift_size });
 
     // Populate mock merged table commitments and batched degree check polynomial commitment
-    populate_field_elements_for_mock_commitments(proof, 5);
+    populate_field_elements_for_mock_commitments(proof, NUM_WIRES + 1);
 
     // Populate evaluations (3 * NUM_WIRES + 1: left, right, and merged tables, plus batched degree check polynomial)
-    populate_field_elements(proof, 13);
+    populate_field_elements(proof, (3 * NUM_WIRES) + 1);
 
     // Shplonk proof: commitment to the quotient
     populate_field_elements_for_mock_commitments(proof, 1);
@@ -299,7 +299,6 @@ HonkProof create_mock_batch_merge_proof()
 {
     HonkProof proof;
 
-    constexpr size_t NUM_WIRES = Goblin::BatchMergeRecursiveVerifier::NUM_WIRES;
     constexpr size_t MAX_MERGE_SIZE = Goblin::BatchMergeRecursiveVerifier::MAX_MERGE_SIZE;
 
     // Commitments to the fixed-width list of subtables.

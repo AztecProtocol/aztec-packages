@@ -86,7 +86,7 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.q_poseidon2_internal.is_zero());
+        return (in[AllEntities::EntityId::q_poseidon2_internal].is_zero());
     }
 
     /**
@@ -110,19 +110,19 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
         // Current state
-        const auto w_1 = CoefficientAccumulator(in.w_l);
-        const auto w_2 = CoefficientAccumulator(in.w_r);
-        const auto w_3 = CoefficientAccumulator(in.w_o);
-        const auto w_4 = CoefficientAccumulator(in.w_4);
+        const auto w_1 = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        const auto w_2 = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        const auto w_3 = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        const auto w_4 = CoefficientAccumulator(in[AllEntities::EntityId::w_4]);
         // Expected state, contained in the next row
-        const auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
-        const auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
-        const auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
-        const auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
+        const auto w_1_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        const auto w_2_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        const auto w_3_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+        const auto w_4_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]);
         // Poseidon2 internal relation selector
-        const auto q_poseidon2_internal_m = CoefficientAccumulator(in.q_poseidon2_internal);
+        const auto q_poseidon2_internal_m = CoefficientAccumulator(in[AllEntities::EntityId::q_poseidon2_internal]);
         // ĉ₀⁽ⁱ⁾ - the round constant in `i`-th  internal round
-        const auto c_0_int = CoefficientAccumulator(in.q_l);
+        const auto c_0_int = CoefficientAccumulator(in[AllEntities::EntityId::q_l]);
 
         Accumulator barycentric_term;
 
