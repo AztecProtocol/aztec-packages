@@ -186,7 +186,7 @@ void process_hn_recursion_constraints(
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
                 auto key_fields = fields_from_witnesses(builder, constraint.key);
-                if (queue_entry.is_kernel) {
+                if (queue_entry.is_kernel()) {
                     populate_fields(builder, key_fields, queue_entry.kernel_honk_vk->to_field_elements());
                     builder.set_variable(constraint.key_hash, queue_entry.kernel_honk_vk->hash());
                 } else {
@@ -227,12 +227,13 @@ void process_hn_recursion_constraints(
                       "process_hn_recursion_constraints: unexpected non-empty public_inputs in HN constraint - "
                       "Noir HN constraints should have empty public_inputs (public inputs are handled by IVC IO)");
 
-            // Validate public input layout: IO region size must match VK's num_public_inputs
-            size_t expected_io_size =
-                queue_entry.is_kernel ? IVCType::KernelIO::PUBLIC_INPUTS_SIZE : IVCType::AppIO::PUBLIC_INPUTS_SIZE;
-            size_t vk_num_public_inputs = static_cast<size_t>(
-                uint64_t(queue_entry.is_kernel ? queue_entry.kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
-                                               : queue_entry.app_honk_vk_and_hash->vk->num_public_inputs.get_value()));
+            // Validate public input layout: IO region size must match VK's num_public_inputs.
+            // `io_for<kind>` resolves to the stdlib IO type (`KernelIO` / `AppIO`).
+            const size_t expected_io_size = bb::dispatch_kind(
+                queue_entry.kind, [&]<bb::CircuitKind K>() -> size_t { return bb::io_for<K>::PUBLIC_INPUTS_SIZE; });
+            size_t vk_num_public_inputs = static_cast<size_t>(uint64_t(
+                queue_entry.is_kernel() ? queue_entry.kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
+                                        : queue_entry.app_honk_vk_and_hash->vk->num_public_inputs.get_value()));
             BB_ASSERT_EQ(expected_io_size,
                          vk_num_public_inputs,
                          "process_hn_recursion_constraints: IO size mismatch with VK num_public_inputs");

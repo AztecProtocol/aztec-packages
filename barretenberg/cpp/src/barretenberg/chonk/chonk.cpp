@@ -63,7 +63,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
 {
     info("======= DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 
-    if (queue_entry.is_kernel) {
+    if (queue_entry.is_kernel()) {
         run_native_folding_verifier<KernelFlavor>(*this, queue_entry.kernel_honk_vk, queue_entry, verifier_transcript);
     } else {
         run_native_folding_verifier<AppFlavor>(*this, queue_entry.app_honk_vk, queue_entry, verifier_transcript);
@@ -81,7 +81,7 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
              native_verifier_accum_hash);
     }
     has_last_app_been_accumulated = num_circuits_accumulated + 1 == num_circuits - 3;
-    is_previous_circuit_a_kernel = queue_entry.is_kernel;
+    is_previous_circuit_a_kernel = queue_entry.is_kernel();
 
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 }
@@ -145,7 +145,7 @@ void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
         // Construct stdlib proof directly from the internal native queue data
         StdlibProof stdlib_proof(circuit, entry.proof);
 
-        if (entry.is_kernel) {
+        if (entry.is_kernel()) {
             auto stdlib_vk_and_hash = std::make_shared<KernelRecursiveVKAndHash>(circuit, entry.kernel_honk_vk);
             stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash, entry.type);
         } else {
@@ -320,7 +320,7 @@ Chonk::recursive_verification_and_consistency_checks(
 
     // Compute prev_accum_hash before folding (transcript state changes during verification)
     std::optional<StdlibFF> prev_accum_hash;
-    if (verifier_inputs.is_kernel) {
+    if (verifier_inputs.is_kernel()) {
         BB_ASSERT(input_verifier_accumulator.has_value(), "Previous accumulator expected for kernel circuit folding");
         prev_accum_hash = input_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
     }
@@ -334,7 +334,7 @@ Chonk::recursive_verification_and_consistency_checks(
     PublicInputsResult public_inputs_result;
     std::vector<RecursiveCommitment> ecc_op_col_commitments_vec;
 
-    if (verifier_inputs.is_kernel) {
+    if (verifier_inputs.is_kernel()) {
         auto verifier_instance =
             std::make_shared<KernelRecursiveVerifierInstance>(verifier_inputs.kernel_honk_vk_and_hash);
         auto fr = run_recursive_folding_verifier<KernelRecursiveFlavor>(verifier_instance,
@@ -375,7 +375,7 @@ Chonk::recursive_verification_and_consistency_checks(
 
     std::optional<StdlibFF> updated_hash = running_hash;
     if (public_inputs_result.ecc_op_hash.has_value()) {
-        BB_ASSERT_EQ(verifier_inputs.is_kernel, true, "previous_ecc_op_hash should only be set for kernels");
+        BB_ASSERT_EQ(verifier_inputs.is_kernel(), true, "previous_ecc_op_hash should only be set for kernels");
         BB_ASSERT(!running_hash.has_value(), "Running hash should not be set when recursively verifying a kernel");
         updated_hash = public_inputs_result.ecc_op_hash.value();
     }
@@ -642,21 +642,19 @@ std::pair<HonkProof, std::shared_ptr<typename InstanceFlavor::VerificationKey>> 
 }
 } // namespace
 
-void Chonk::accumulate_and_fold(ClientCircuit& circuit,
-                                const std::shared_ptr<MegaVerificationKey>& /*precomputed_vk*/,
-                                QUEUE_TYPE queue_type,
-                                std::shared_ptr<ProverInstance> /*prover_instance*/)
+void Chonk::accumulate_and_fold(ClientCircuit& circuit, CircuitKind kind, QUEUE_TYPE queue_type)
 {
     BB_BENCH_NAME("Chonk::accumulate_and_fold");
 
-    // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
-    // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
-    // call (which will always be for an app circuit).
-    bool is_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
+    // Sanity-check the caller's `kind` against the queue state — they must agree on whether this
+    // circuit is a kernel (verification_queue is drained by the kernel recursive verifier).
+    const bool state_says_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
+    BB_ASSERT_EQ(state_says_kernel,
+                 kind == CircuitKind::Kernel,
+                 "Chonk::accumulate_and_fold: caller-provided CircuitKind disagrees with the IVC state machine");
 
-    // Transcript to be shared across folding of K_{i} (kernel) (the current kernel), A_{i+1,1} (app), .., A_{i+1,
-    // n} (app)
-    if (is_kernel) {
+    // Transcript shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1,n} (app).
+    if (kind == CircuitKind::Kernel) {
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
@@ -669,8 +667,8 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     HonkProof proof;
     VerifierInputs queue_entry;
     queue_entry.type = queue_type;
-    queue_entry.is_kernel = is_kernel;
-    if (is_kernel) {
+    queue_entry.kind = kind;
+    if (kind == CircuitKind::Kernel) {
         auto [p, vk] = run_oink_or_fold<KernelFlavor>(*this, circuit, queue_type, prover_accumulation_transcript);
         proof = std::move(p);
         queue_entry.kernel_honk_vk = std::move(vk);
@@ -697,35 +695,47 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     num_circuits_accumulated++;
 }
 
+Chonk::CircuitKind Chonk::next_circuit_kind() const
+{
+    if (get_queue_type() == QUEUE_TYPE::MEGA) {
+        return CircuitKind::HidingKernel;
+    }
+    const bool is_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
+    return is_kernel ? CircuitKind::Kernel : CircuitKind::App;
+}
+
 /**
- * @brief Execute prover work for accumulating a non-hiding circuit (HN folding, merge proving).
- *
- * @details For the hiding kernel (final circuit), call `accumulate_hiding_kernel` instead — it
- * uses the MegaZKFlavor VK, which is a different C++ type than MegaVerificationKey.
+ * @brief Unified accumulation entry point. Dispatches on `kind` to either folding (App / Kernel)
+ * or the hiding-kernel path (HidingKernel — proving deferred to `prove()`).
  */
-void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+void Chonk::accumulate(ClientCircuit& circuit, CircuitKind kind, const CircuitVerificationKey& vk)
 {
     BB_BENCH_NAME("Chonk::accumulate");
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
     QUEUE_TYPE queue_type = get_queue_type();
-    BB_ASSERT(queue_type != QUEUE_TYPE::MEGA,
-              "Chonk::accumulate: use accumulate_hiding_kernel for the hiding-kernel circuit");
-    BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
 
-    std::shared_ptr<ProverInstance> prover_instance;
-#ifndef NDEBUG
-    prover_instance = std::make_shared<ProverInstance>(circuit);
-    debug_incoming_circuit(circuit, prover_instance, precomputed_vk);
-#endif
+    switch (kind) {
+    case CircuitKind::HidingKernel: {
+        BB_ASSERT(queue_type == QUEUE_TYPE::MEGA, "HidingKernel must be the final circuit in the IVC stack");
+        accumulate_hiding_kernel(circuit, std::get<std::shared_ptr<MegaZKVerificationKey>>(vk));
+        break;
+    }
+    case CircuitKind::App:
+    case CircuitKind::Kernel: {
+        BB_ASSERT(queue_type != QUEUE_TYPE::MEGA, "App/Kernel cannot be the final circuit; use HidingKernel");
+        // Variant is currently only used for runtime kind/VK consistency at the boundary; the VK is
+        // re-derived inside `run_oink_or_fold` from the prover instance. TODO: thread the
+        // precomputed VK through to skip that re-derivation.
+        (void)vk;
+        accumulate_and_fold(circuit, kind, queue_type);
 
-    accumulate_and_fold(circuit, precomputed_vk, queue_type, std::move(prover_instance));
-
-    prover_instance.reset();
-    if (queue_type == QUEUE_TYPE::HN_FINAL) {
-        prover_accumulator = ProverAccumulator(); // Free the prover accumulator now that it's no longer needed in the
-                                                  // remaining fold of the hiding kernel
-        goblin.prove_batch_merge();
+        if (queue_type == QUEUE_TYPE::HN_FINAL) {
+            prover_accumulator = ProverAccumulator(); // Free; no longer needed before the hiding-kernel fold.
+            goblin.prove_batch_merge();
+        }
+        break;
+    }
     }
 }
 

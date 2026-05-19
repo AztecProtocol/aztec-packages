@@ -47,49 +47,37 @@ ChonkVkCheckResult check_vk(acir_format::AcirProgram& program, const std::vector
     return { .valid = false, .actual_vk = to_buffer(*computed_vk) };
 }
 
-bool is_hiding_kernel(const Chonk& ivc)
-{
-    return ivc.num_circuits_accumulated + 1 == ivc.get_num_circuits();
-}
-
 void accumulate_next_chonk_circuit(Chonk& ivc,
                                    Chonk::ClientCircuit& circuit,
                                    const std::vector<uint8_t>& precomputed_vk,
                                    ChonkPrecomputedVkPolicy policy)
 {
-    if (is_hiding_kernel(ivc)) {
-        std::shared_ptr<Chonk::MegaZKVerificationKey> vk;
-        if (policy != ChonkPrecomputedVkPolicy::RECOMPUTE && !precomputed_vk.empty()) {
-            vk = deserialize_vk<Chonk::MegaZKVerificationKey>(precomputed_vk);
+    // Until PXE carries an explicit tag, derive the kind from the IVC state machine.
+    const Chonk::CircuitKind kind = ivc.next_circuit_kind();
+
+    // Per-kind body: resolve a typed VK for the kind's flavor according to `policy`, then hand it
+    // back to Chonk wrapped in the variant. The runtime kind → static flavor mapping lives in
+    // `dispatch_kind` so this body is identical for App / Kernel / HidingKernel.
+    dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
+        using FlavorT = flavor_for<K>;
+        using VK = typename FlavorT::VerificationKey;
+        std::shared_ptr<VK> vk;
+        if (policy == ChonkPrecomputedVkPolicy::RECOMPUTE) {
+            vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
+        } else {
+            if (precomputed_vk.empty()) {
+                throw_or_abort("Chonk: precomputed VK is required");
+            }
+            vk = deserialize_vk<VK>(precomputed_vk);
             if (policy == ChonkPrecomputedVkPolicy::CHECK) {
-                auto computed_vk = std::make_shared<Chonk::MegaZKVerificationKey>(
-                    Chonk::HidingKernelProverInstance(circuit).get_precomputed());
+                auto computed_vk = std::make_shared<VK>(ProverInstance_<FlavorT>(circuit).get_precomputed());
                 if (*vk != *computed_vk) {
-                    throw_or_abort("Chonk: precomputed hiding-kernel VK does not match computed VK");
+                    throw_or_abort("Chonk: precomputed VK does not match computed VK");
                 }
             }
         }
-        ivc.accumulate_hiding_kernel(circuit, vk);
-        return;
-    }
-
-    std::shared_ptr<Chonk::MegaVerificationKey> vk;
-    if (policy == ChonkPrecomputedVkPolicy::RECOMPUTE) {
-        vk = std::make_shared<Chonk::MegaVerificationKey>(Chonk::ProverInstance(circuit).get_precomputed());
-    } else {
-        if (precomputed_vk.empty()) {
-            throw_or_abort("Chonk: precomputed VK is required for non-hiding circuits");
-        }
-        vk = deserialize_vk<Chonk::MegaVerificationKey>(precomputed_vk);
-        if (policy == ChonkPrecomputedVkPolicy::CHECK) {
-            auto computed_vk =
-                std::make_shared<Chonk::MegaVerificationKey>(Chonk::ProverInstance(circuit).get_precomputed());
-            if (*vk != *computed_vk) {
-                throw_or_abort("Chonk: precomputed VK does not match computed VK");
-            }
-        }
-    }
-    ivc.accumulate(circuit, vk);
+        ivc.accumulate(circuit, K, Chonk::CircuitVerificationKey{ vk });
+    });
 }
 
 } // namespace

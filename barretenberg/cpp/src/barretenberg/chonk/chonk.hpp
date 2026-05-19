@@ -8,6 +8,7 @@
 
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_prover.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/chonk/circuit_input.hpp"
 #include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
@@ -49,6 +50,7 @@ class Chonk {
     using Flavor = MegaFlavor;
     using AppFlavor = MegaAppFlavor;
     using KernelFlavor = MegaKernelFlavor;
+    using HidingKernelFlavor = MegaZKFlavor;
     using MegaVerificationKey = Flavor::VerificationKey;
     using AppVerificationKey = AppFlavor::VerificationKey;
     using KernelVerificationKey = KernelFlavor::VerificationKey;
@@ -58,8 +60,6 @@ class Chonk {
     using ProverPolynomials = Flavor::ProverPolynomials;
     using Point = Flavor::Curve::AffineElement;
     using ProverInstance = ProverInstance_<Flavor>;
-    using AppProverInstance = ProverInstance_<AppFlavor>;
-    using KernelProverInstance = ProverInstance_<KernelFlavor>;
     using HidingKernelProverInstance = ProverInstance_<MegaZKFlavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
@@ -77,8 +77,6 @@ class Chonk {
     using AppRecursiveVerifierInstance = VerifierInstance_<AppRecursiveFlavor>;
     using KernelRecursiveVerifierInstance = VerifierInstance_<KernelRecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
-    using AppRecursiveVerificationKey = AppRecursiveFlavor::VerificationKey;
-    using KernelRecursiveVerificationKey = KernelRecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using AppRecursiveVKAndHash = AppRecursiveFlavor::VKAndHash;
     using KernelRecursiveVKAndHash = KernelRecursiveFlavor::VKAndHash;
@@ -136,31 +134,39 @@ class Chonk {
      */
     enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
 
-    // An entry in the native verification queue. Exactly one of `app_honk_vk` / `kernel_honk_vk`
-    // is non-null, keyed by `is_kernel`.
+    // `CircuitKind` and `CircuitVerificationKey` are the PXE/bbapi-facing tag + VK surface; see
+    // `chonk/circuit_input.hpp`. Re-exported as nested aliases so existing `Chonk::CircuitKind`
+    // callers keep working.
+    using CircuitKind = bb::CircuitKind;
+    using CircuitVerificationKey = bb::CircuitVerificationKey;
+
+    // An entry in the native verification queue. Only App and Kernel kinds appear here — the
+    // hiding kernel does not fold and never lands in the queue. The matching VK pointer is the one
+    // selected by `kind`.
     struct VerifierInputs {
         std::vector<FF> proof; // oink or HN
         std::shared_ptr<AppVerificationKey> app_honk_vk;
         std::shared_ptr<KernelVerificationKey> kernel_honk_vk;
         QUEUE_TYPE type;
-        bool is_kernel = false;
+        CircuitKind kind = CircuitKind::App;
+
+        [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
 
         // Uniform accessor: returns num_public_inputs from whichever VK is populated.
         [[nodiscard]] size_t num_public_inputs() const
         {
-            return is_kernel ? kernel_honk_vk->num_public_inputs : app_honk_vk->num_public_inputs;
+            return is_kernel() ? kernel_honk_vk->num_public_inputs : app_honk_vk->num_public_inputs;
         }
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
-    // An entry in the stdlib verification queue. Exactly one of `app_honk_vk_and_hash` /
-    // `kernel_honk_vk_and_hash` is non-null, keyed by `is_kernel`.
+    // An entry in the stdlib verification queue. Mirrors `VerifierInputs` on the stdlib side.
     struct StdlibVerifierInputs {
         StdlibProof proof; // oink or HN
         std::shared_ptr<AppRecursiveVKAndHash> app_honk_vk_and_hash;
         std::shared_ptr<KernelRecursiveVKAndHash> kernel_honk_vk_and_hash;
         QUEUE_TYPE type;
-        bool is_kernel = false;
+        CircuitKind kind = CircuitKind::App;
 
         // App constructor
         StdlibVerifierInputs(StdlibProof proof_,
@@ -169,7 +175,7 @@ class Chonk {
             : proof(std::move(proof_))
             , app_honk_vk_and_hash(std::move(app_vk_and_hash_))
             , type(type_)
-            , is_kernel(false)
+            , kind(CircuitKind::App)
         {}
 
         // Kernel constructor
@@ -179,8 +185,10 @@ class Chonk {
             : proof(std::move(proof_))
             , kernel_honk_vk_and_hash(std::move(kernel_vk_and_hash_))
             , type(type_)
-            , is_kernel(true)
+            , kind(CircuitKind::Kernel)
         {}
+
+        [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
@@ -246,27 +254,28 @@ class Chonk {
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     /**
-     * @brief Perform prover work for accumulating a non-hiding circuit (HN folding, merge proving).
+     * @brief Accumulate a circuit into the running IVC.
      *
-     * @details For the final (hiding-kernel) circuit, call `accumulate_hiding_kernel` instead — it
-     * uses the MegaZKFlavor-shaped VK, which is a different C++ type than `MegaVerificationKey`.
+     * @details Single entry point for all three circuit kinds; behavior is selected at runtime by
+     * `kind`:
+     *   - `CircuitKind::App`          → MegaAppFlavor, fold into `prover_accumulator`.
+     *   - `CircuitKind::Kernel`       → MegaKernelFlavor, fold (with the previous kernel's
+     *                                   accumulator); HN_FINAL also runs the Decider.
+     *   - `CircuitKind::HidingKernel` → MegaZKFlavor; build the prover instance only, proving is
+     *                                   deferred to `prove()`.
      *
-     * @param circuit The incoming statement
-     * @param precomputed_vk The MegaFlavor verification key of the incoming statement OR a mocked
-     * key whose metadata needs to be set using the proving key produced from `circuit` in order to
-     * pass some assertions in the Oink prover.
+     * The caller must pass the matching VK variant alternative for `kind`; mismatches throw
+     * `std::bad_variant_access`.
      */
-    void accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
+    void accumulate(ClientCircuit& circuit, CircuitKind kind, const CircuitVerificationKey& vk);
 
     /**
-     * @brief Accumulate the hiding kernel (the final circuit in the IVC stack).
+     * @brief What kind of circuit Chonk expects next, derived from the IVC state machine.
      *
-     * @param circuit The hiding-kernel circuit
-     * @param precomputed_vk Optional precomputed MegaZK VK; if null, the VK is computed from the
-     * prover instance.
+     * Callers that don't yet have an out-of-band tag (PXE will eventually carry one) can use this
+     * to pick the matching VK type before calling `accumulate`.
      */
-    void accumulate_hiding_kernel(ClientCircuit& circuit,
-                                  const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk = nullptr);
+    [[nodiscard]] CircuitKind next_circuit_kind() const;
 
     ChonkProof prove();
 
@@ -300,10 +309,9 @@ class Chonk {
     PublicInputsResult process_app_public_inputs(std::vector<StdlibFF>& public_inputs,
                                                  AppWitnessCommitments& witness_commitments);
 
-    void accumulate_and_fold(ClientCircuit& circuit,
-                             const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
-                             QUEUE_TYPE queue_type,
-                             std::shared_ptr<ProverInstance> prover_instance);
+    void accumulate_and_fold(ClientCircuit& circuit, CircuitKind kind, QUEUE_TYPE queue_type);
+
+    void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk);
 
     QUEUE_TYPE get_queue_type() const;
 };

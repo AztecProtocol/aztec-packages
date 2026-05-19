@@ -124,7 +124,7 @@ class ChonkTests : public ::testing::Test {
         auto [proof, vk] = run_ivc(/*num_app_circuits=*/2, settings, [](Chonk& ivc, size_t idx) {
             if (idx == 1) {
                 auto& app_entry = ivc.verification_queue[1];
-                ASSERT_FALSE(app_entry.is_kernel) << "Expected second queue entry to be an app";
+                ASSERT_FALSE(app_entry.is_kernel()) << "Expected second queue entry to be an app";
 
                 using AppIOSerde = bb::stdlib::recursion::honk::AppIOSerde;
                 size_t num_public_inputs = app_entry.num_public_inputs();
@@ -155,7 +155,7 @@ class ChonkTests : public ::testing::Test {
         auto [proof, vk] = run_ivc(/*num_app_circuits=*/4, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
             if (idx == 3) {
                 auto& kernel_entry = ivc.verification_queue[0];
-                ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
+                ASSERT_TRUE(kernel_entry.is_kernel()) << "Expected first queue entry to be a kernel";
 
                 using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
                 size_t num_public_inputs = kernel_entry.num_public_inputs();
@@ -220,7 +220,7 @@ class ChonkTests : public ::testing::Test {
                 // With 2 apps the layout is [app, kernel, app, kernel, reset, tail, hiding].
                 if (idx == NUM_TOTAL_CIRCUITS - 2) {
                     for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
-                        if (it.is_kernel) {
+                        if (it.is_kernel()) {
                             size_t num_public_inputs = it.num_public_inputs();
                             ASSERT_EQ(num_public_inputs, KernelIOSerde::PUBLIC_INPUTS_SIZE)
                                 << "Tail kernel should use KernelIO format";

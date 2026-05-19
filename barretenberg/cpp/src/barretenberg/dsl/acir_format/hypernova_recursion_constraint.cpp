@@ -113,7 +113,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
 
     Chonk::VerifierInputs entry;
     entry.type = verification_type;
-    entry.is_kernel = is_kernel;
+    entry.kind = is_kernel ? Chonk::CircuitKind::Kernel : Chonk::CircuitKind::App;
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;

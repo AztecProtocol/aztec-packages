@@ -282,12 +282,27 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
         auto circuit =
             create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_sizes);
-        if (is_hiding_kernel) {
-            ivc.accumulate_hiding_kernel(circuit, get_hiding_kernel_verification_key(circuit));
-        } else {
-            ivc.accumulate(circuit, get_verification_key(circuit));
-        }
+        const Chonk::CircuitKind kind = ivc.next_circuit_kind();
+        ivc.accumulate(circuit, kind, make_circuit_verification_key(kind, circuit));
     }
+
+  private:
+    // Build the per-kind verification key for the current circuit. Uses `dispatch_kind` to map
+    // the runtime `CircuitKind` to the matching flavor and derive its precomputed VK.
+    static Chonk::CircuitVerificationKey make_circuit_verification_key(Chonk::CircuitKind kind,
+                                                                       ClientCircuit& builder_in)
+    {
+        return dispatch_kind(kind, [&]<Chonk::CircuitKind K>() -> Chonk::CircuitVerificationKey {
+            using FlavorT = flavor_for<K>;
+            using VK = typename FlavorT::VerificationKey;
+            MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+            builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+            auto prover_instance = std::make_shared<ProverInstance_<FlavorT>>(builder);
+            return Chonk::CircuitVerificationKey{ std::make_shared<VK>(prover_instance->get_precomputed()) };
+        });
+    }
+
+  public:
 };
 
 } // namespace
