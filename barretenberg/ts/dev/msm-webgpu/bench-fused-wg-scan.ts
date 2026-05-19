@@ -318,9 +318,15 @@ async function runOne(
     ],
   });
 
-  const dispatch = async () => {
-    device.queue.writeBuffer(runningXBuf, 0, runningXAB);
-    device.queue.writeBuffer(runningYBuf, 0, runningYAB);
+  device.queue.writeBuffer(runningXBuf, 0, runningXAB);
+  device.queue.writeBuffer(runningYBuf, 0, runningYAB);
+
+  const dispatch = async (resetState: boolean) => {
+    if (resetState) {
+      device.queue.writeBuffer(runningXBuf, 0, runningXAB);
+      device.queue.writeBuffer(runningYBuf, 0, runningYAB);
+      await device.queue.onSubmittedWorkDone();
+    }
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginComputePass();
     pass.setPipeline(pipeline);
@@ -333,7 +339,7 @@ async function runOne(
     return performance.now() - t0;
   };
 
-  await dispatch();
+  await dispatch(true);
   log('info', 'warmup dispatch returned');
 
   let correctness: 'pass' | 'fail' | 'skipped' = 'skipped';
@@ -408,7 +414,7 @@ async function runOne(
 
   const samples: number[] = [];
   for (let r = 0; r < reps; r++) {
-    samples.push(await dispatch());
+    samples.push(await dispatch(false));
   }
   const med = median(samples);
   const mn = Math.min(...samples);
