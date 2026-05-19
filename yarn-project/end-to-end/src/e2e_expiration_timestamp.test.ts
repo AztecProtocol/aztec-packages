@@ -5,7 +5,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_INVALID_EXPIRATION_TIMESTAMP } from '@aztec/stdlib/tx';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -28,7 +28,7 @@ describe('e2e_expiration_timestamp', () => {
       aztecNode,
       cheatCodes,
       accounts: [defaultAccountAddress],
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
@@ -42,8 +42,9 @@ describe('e2e_expiration_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
-      // Two slots ahead of the latest mined block, to leave room for the anchor block to advance
-      // by one slot under proposer pipelining between fetching the header and proving the tx.
+      // Two slots ahead of the latest mined block — gives enough headroom that the expiration
+      // is safely above the next block's timestamp even if there's a brief delay between
+      // fetching the header and proving the tx.
       expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration * 2n;
     });
 
@@ -96,10 +97,11 @@ describe('e2e_expiration_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
-      // 1n lower than two slots ahead. Under proposer pipelining the anchor block may already
-      // have advanced one slot past the latest mined header, so the next slot to be mined is
-      // typically two slots ahead; this expiration sits just below that slot's start.
-      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration * 2n - 1n;
+      // 1n below the start of the next slot (header.timestamp + slotDuration). Under
+      // AutomineSequencer the next block is always one slot ahead, so an expiration just
+      // before that boundary is provable (expiration > anchor block timestamp) but rejected
+      // at submission because nextSlotTimestamp >= expiration.
+      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration - 1n;
     });
 
     describe('with no enqueued public calls', () => {
@@ -137,10 +139,9 @@ describe('e2e_expiration_timestamp', () => {
     });
 
     // Prove a tx with an expiration a few slots above the latest mined block's timestamp (so it passes
-    // the PXE's prove-time check that requires `expirationTimestamp > anchor block timestamp`, even if
-    // the anchor block advances by a slot or two between fetching the header and proving), then warp
-    // L1 time past the expiration. Submitting the proven tx must then be rejected by the node because
-    // the next slot's timestamp (derived from L1 time) is greater than the tx expiration.
+    // the PXE's prove-time check that requires `expirationTimestamp > anchor block timestamp`), then
+    // warp L1 time past the expiration. Submitting the proven tx must then be rejected by the node
+    // because the next slot's timestamp (derived from L1 time) is greater than the tx expiration.
     async function runInvalidatesTest(enqueuePublicCall: boolean) {
       const header = (await aztecNode.getBlockData('latest'))?.header;
       if (!header) {
