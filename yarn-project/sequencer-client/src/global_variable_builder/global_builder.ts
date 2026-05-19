@@ -50,11 +50,6 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.rollupContract = new RollupContract(this.publicClient, config.rollupAddress);
   }
 
-  /** Returns the underlying rollup contract for callers that need to read on-chain state. */
-  public getRollupContract(): RollupContract {
-    return this.rollupContract;
-  }
-
   /** Builds global variables that are constant throughout a checkpoint. */
   public async buildCheckpointGlobalVariables(
     coinbase: EthAddress,

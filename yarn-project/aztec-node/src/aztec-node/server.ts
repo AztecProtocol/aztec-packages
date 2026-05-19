@@ -208,11 +208,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       globalVariableBuilder,
       feeProvider,
       telemetry,
-      l1ChainId,
       config: {
         rpcSimulatePublicMaxGasLimit: config.rpcSimulatePublicMaxGasLimit,
         rpcSimulatePublicMaxDebugLogMemoryReads: config.rpcSimulatePublicMaxDebugLogMemoryReads,
-        rollupAddress: config.rollupAddress,
       },
       log: this.log,
     });

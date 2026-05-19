@@ -6,13 +6,12 @@ import { BadRequestError } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { isErrorClass } from '@aztec/foundation/types';
-import { buildCheckpointSimulationOverridesPlan } from '@aztec/sequencer-client/chain-state-overrides';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import {
@@ -33,8 +32,6 @@ export interface NodePublicCallsSimulatorConfig {
   rpcSimulatePublicMaxGasLimit: number;
   /** Maximum number of debug-log memory reads collected during simulation. */
   rpcSimulatePublicMaxDebugLogMemoryReads: number;
-  /** Address of the rollup contract on L1 (used as signature context for the overrides plan). */
-  rollupAddress: EthAddress;
 }
 
 /** Dependencies required to build a {@link NodePublicCallsSimulator}. */
@@ -46,7 +43,6 @@ export interface NodePublicCallsSimulatorDeps {
   globalVariableBuilder: GlobalVariableBuilder;
   feeProvider: FeeProvider;
   telemetry?: TelemetryClient;
-  l1ChainId: number;
   config: NodePublicCallsSimulatorConfig;
   log?: Logger;
 }
@@ -61,10 +57,11 @@ export interface NodePublicCallsSimulatorDeps {
  * - **Case A — mid-checkpoint continuation:** every block in a checkpoint
  *   shares the same `CheckpointGlobalVariables`, so we reuse the latest
  *   proposed block's globals and only bump the block number.
- * - **Case B — opening a new checkpoint:** we compute fresh globals from
- *   `FeeProvider.getCurrentMinFeesSnapshot()` — the same triple the wallet
- *   observes via `getCurrentMinFees`, so slot, timestamp, and gas fees
- *   agree between simulator and wallet by construction.
+ * - **Case B — opening a new checkpoint:** we compute fresh globals.
+ *   Timestamp and slot come from `FeeProvider.getCurrentMinFeesSnapshot()`;
+ *   gas fees come from `FeeProvider.getPredictedMinFees()[0]` — the same
+ *   prediction path the wallet uses via `getMinFees`, so simulator and
+ *   wallet agree on per-block fees by construction.
  */
 export class NodePublicCallsSimulator {
   private readonly blockSource: L2BlockSource;
@@ -74,7 +71,6 @@ export class NodePublicCallsSimulator {
   private readonly globalVariableBuilder: GlobalVariableBuilder;
   private readonly feeProvider: FeeProvider;
   private readonly telemetry: TelemetryClient;
-  private readonly l1ChainId: number;
   private readonly config: NodePublicCallsSimulatorConfig;
   private readonly log: Logger;
 
@@ -86,7 +82,6 @@ export class NodePublicCallsSimulator {
     this.globalVariableBuilder = deps.globalVariableBuilder;
     this.feeProvider = deps.feeProvider;
     this.telemetry = deps.telemetry ?? getTelemetryClient();
-    this.l1ChainId = deps.l1ChainId;
     this.config = deps.config;
     this.log = deps.log ?? createLogger('node:public-calls-simulator');
   }
@@ -155,100 +150,29 @@ export class NodePublicCallsSimulator {
 
     if (newGlobalVariables === undefined) {
       // Case B: opening a new checkpoint. Compute fresh globals.
-      // Slot/timestamp/gasFees come from `FeeProvider.getCurrentMinFeesSnapshot()`, which is the
-      // same triple `FeeProviderImpl.computeCurrentMinFeesSnapshot()` derives for the wallet's
-      // `getCurrentMinFees`. Anchoring the simulator on that snapshot guarantees the three fields
-      // agree between simulator and wallet — an archiver-anchored slot diverges whenever the
-      // local archiver lags wall-clock by an L2 slot, which is routine in e2e tests with short
-      // anvil intervals.
+      // Slot/timestamp come from `FeeProvider.getCurrentMinFeesSnapshot()`. Gas fees come from
+      // `FeeProvider.getPredictedMinFees()[0]` — the same prediction path the wallet uses via
+      // `getMinFees` for its pre-tx fee quote. Anchoring on the predictor guarantees fee parity
+      // between simulator and wallet for the next block, without needing to mirror any L1 state
+      // overrides the sequencer applies internally when building a real block.
       const snapshot = await this.feeProvider.getCurrentMinFeesSnapshot();
-      const targetSlot = snapshot.slotNumber;
+      const predictedFees = await this.feeProvider.getPredictedMinFees(ManaUsageEstimate.Target);
+      // Index 0 is the next available L2 slot after the L1-confirmed pending checkpoint — i.e. the
+      // slot the next block will land in. The predictor anchors its `lastCheckpoint` on L1, so
+      // index 0 also matches the wallet's view: parity is by construction.
+      const gasFees = predictedFees[0] ?? snapshot.gasFees;
 
-      let proposedCheckpointData: ProposedCheckpointData | undefined;
-      let checkpointNumber: CheckpointNumber;
-      // We only build the overrides plan when extending a 1-deep proposed parent (i.e. the
-      // proposed parent's checkpoint number is exactly `checkpointed + 1`). Beyond that depth,
-      // the parent's grandparent has not landed on L1, so the helper would revert when reading
-      // the grandparent feeHeader. Without a proposed parent (or with a deeper pipeline), we
-      // omit the plan entirely so `getManaMinFeeAt` reads L1 state as-is — matching the fee
-      // value wallets see via `getCurrentMinFees`.
-      let buildOverridesForProposedParent = false;
-
-      // Only consult getProposedCheckpointData when we are still in Case B by virtue of an
-      // observed boundary (`atCheckpointBoundary` is true). When we fell through here from a
-      // missing Case-A header, the latest proposed block is mid-checkpoint and there is no
-      // sensible proposed parent to extend — treat it as idle.
-      if (hasProposedCheckpoint && atCheckpointBoundary) {
-        // Extend the proposed parent: target checkpoint is parent + 1, and the parent's data feeds
-        // into the overrides plan so getManaMinFeeAt sees the chain state propose() will write.
-        proposedCheckpointData = await this.blockSource.getProposedCheckpointData();
-        const expectedNumber = l2Tips.proposedCheckpoint.checkpoint.number;
-        // We only cross-check `checkpointNumber`; `buildCheckpointSimulationOverridesPlan` reads
-        // that field alone and asserts it equals `target - 1`. The plan does not depend on the
-        // parent's block count, so a mismatch there has no observable effect.
-        if (!proposedCheckpointData || proposedCheckpointData.checkpointNumber !== expectedNumber) {
-          // Surprising sync state: getL2Tips() and getProposedCheckpointData() disagree on the
-          // proposed checkpoint's number. Fall back to an idle simulation anchored at the
-          // L1-confirmed tip rather than failing the RPC.
-          this.log.warn(
-            `Falling back to L1-confirmed-tip simulation: torn L2 tips snapshot. getL2Tips() reported proposed checkpoint ${expectedNumber}, but getProposedCheckpointData() reported ${
-              proposedCheckpointData?.checkpointNumber ?? 'undefined'
-            }`,
-            {
-              expectedNumber,
-              actualNumber: proposedCheckpointData?.checkpointNumber,
-            },
-          );
-          proposedCheckpointData = undefined;
-          checkpointNumber = CheckpointNumber(l2Tips.checkpointed.checkpoint.number + 1);
-        } else {
-          checkpointNumber = CheckpointNumber(proposedCheckpointData.checkpointNumber + 1);
-          // Only build the overrides plan when the proposed parent is 1-deep. When the pipeline is
-          // deeper (parent's checkpoint number > checkpointed + 1), the grandparent is not yet on
-          // L1 and `computePipelinedParentFeeHeader` would revert with
-          // `Rollup__UnavailableTempCheckpointLog`.
-          buildOverridesForProposedParent =
-            proposedCheckpointData.checkpointNumber === l2Tips.checkpointed.checkpoint.number + 1;
-        }
-      } else {
-        proposedCheckpointData = undefined;
-        checkpointNumber = CheckpointNumber(l2Tips.checkpointed.checkpoint.number + 1);
-      }
+      const checkpointNumber = hasProposedCheckpoint
+        ? CheckpointNumber(l2Tips.proposedCheckpoint.checkpoint.number + 1)
+        : CheckpointNumber(l2Tips.checkpointed.checkpoint.number + 1);
 
       // Simulation always zeroes these regardless of whether a sequencer is configured on this
       // node — the simulator does not represent the proposer's payout addresses.
-      const coinbase = EthAddress.ZERO;
-      const feeRecipient = AztecAddress.ZERO;
-
-      let checkpointGlobals;
-      if (buildOverridesForProposedParent) {
-        // Build the overrides plan when extending a 1-deep proposed parent so getManaMinFeeAt
-        // sees the chain state propose() will write. Use the async builder so the rollup contract
-        // can apply the override.
-        const overridesPlan = await buildCheckpointSimulationOverridesPlan({
-          checkpointNumber,
-          proposedCheckpointData,
-          invalidateToPendingCheckpointNumber: undefined,
-          checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-          rollup: this.globalVariableBuilder.getRollupContract(),
-          signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
-          log: this.log,
-        });
-        checkpointGlobals = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
-          coinbase,
-          feeRecipient,
-          targetSlot,
-          overridesPlan,
-        );
-      } else {
-        // No overrides plan: the snapshot already carries the gas fees the wallet observed, so we
-        // can compose the globals synchronously without re-reading L1.
-        checkpointGlobals = this.globalVariableBuilder.buildCheckpointGlobalVariablesFromSnapshot(
-          coinbase,
-          feeRecipient,
-          snapshot,
-        );
-      }
+      const checkpointGlobals = this.globalVariableBuilder.buildCheckpointGlobalVariablesFromSnapshot(
+        EthAddress.ZERO,
+        AztecAddress.ZERO,
+        { timestamp: snapshot.timestamp, slotNumber: snapshot.slotNumber, gasFees },
+      );
       newGlobalVariables = GlobalVariables.from({ blockNumber, ...checkpointGlobals });
       targetCheckpoint = checkpointNumber;
     }

@@ -1,4 +1,4 @@
-import type { RollupContract, SimulationOverridesPlan } from '@aztec/ethereum/contracts';
+import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -28,13 +28,6 @@ export class TXEFeeProvider implements FeeProvider {
 }
 
 export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
-  // getRollupContract is reachable from AztecNodeService.simulatePublicCalls (it feeds the
-  // SimulationOverridesPlan that the Case B branch builds). TXE does not run the PXE service
-  // and never invokes node.simulatePublicCalls, so this throw is unreachable in practice.
-  public getRollupContract(): RollupContract {
-    throw new Error('TXEGlobalVariablesBuilder does not expose a rollup contract');
-  }
-
   public buildCheckpointGlobalVariables(
     _coinbase: EthAddress,
     _feeRecipient: AztecAddress,
@@ -53,8 +46,8 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
     });
   }
 
-  // Same reasoning as getRollupContract: only reachable via AztecNodeService.simulatePublicCalls,
-  // which TXE never invokes. Throwing here keeps the surface honest if that ever changes.
+  // Only reachable via AztecNodeService.simulatePublicCalls, which TXE never invokes. Throwing
+  // here keeps the surface honest if that ever changes.
   public buildCheckpointGlobalVariablesFromSnapshot(): CheckpointGlobalVariables {
     throw new Error('TXEGlobalVariablesBuilder does not implement buildCheckpointGlobalVariablesFromSnapshot');
   }
