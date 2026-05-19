@@ -19,7 +19,7 @@ use crate::{
         discovery::partial_notes::DeliveredPendingPartialNote,
         encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
-        processing::log_retrieval_request::{LogRetrievalRequest, LogSource},
+        processing::log_retrieval_request::LogRetrievalRequest,
     },
     oracle::message_processing,
 };
@@ -174,13 +174,7 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
             pending_partial_note.note_completion_log_tag,
             DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         );
-        log_retrieval_requests.push(LogRetrievalRequest {
-            contract_address,
-            unsiloed_tag: log_tag,
-            source: LogSource.PUBLIC_AND_PRIVATE,
-            from_block: Option::none(),
-            to_block: Option::none(),
-        });
+        log_retrieval_requests.push(LogRetrievalRequest::new(contract_address, log_tag));
         i += 1;
     }
 

@@ -15,15 +15,17 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
-import { MessageContext } from '@aztec/stdlib/logs';
+import { MessageContext, Tag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
 import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -35,6 +37,8 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -561,6 +565,39 @@ describe('Utility Execution test suite', () => {
 
         const wrongAddress = await AztecAddress.random();
         await expect(utilityExecutionOracle.getSharedSecret(owner, ephPk, wrongAddress)).rejects.toThrow(/expected/);
+      });
+    });
+
+    describe('getLogsByTag (deprecated v1)', () => {
+      it('returns only the first log per tag as an Option', async () => {
+        const requestSlot = Fr.random();
+        const responseSlot = Fr.random();
+
+        const tag1 = new Tag(Fr.random());
+        const tag2 = new Tag(Fr.random());
+        const request1 = new LogRetrievalRequest(contractAddress, tag1);
+        const request2 = new LogRetrievalRequest(contractAddress, tag2);
+
+        capsuleStore.readCapsuleArray.mockResolvedValueOnce([request1.toFields(), request2.toFields()]);
+
+        const response1a = new LogRetrievalResponse([Fr.random()], TxHash.random(), [Fr.random()], Fr.random());
+        const response1b = new LogRetrievalResponse([Fr.random()], TxHash.random(), [Fr.random()], Fr.random());
+        const fetchSpy = jest
+          .spyOn(LogService.prototype, 'fetchLogsByTag')
+          .mockResolvedValueOnce([[response1a, response1b], []]);
+
+        await utilityExecutionOracle.getLogsByTag(contractAddress, requestSlot, responseSlot, scope);
+
+        const responseCall = capsuleStore.setCapsuleArray.mock.calls.find(
+          call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
+        );
+        expect(responseCall).toBeDefined();
+        const writtenResponses = responseCall![2];
+        expect(writtenResponses).toHaveLength(2);
+        expect(writtenResponses[0]).toEqual(LogRetrievalResponse.toSerializedOption(response1a));
+        expect(writtenResponses[1]).toEqual(LogRetrievalResponse.toSerializedOption(null));
+
+        fetchSpy.mockRestore();
       });
     });
 

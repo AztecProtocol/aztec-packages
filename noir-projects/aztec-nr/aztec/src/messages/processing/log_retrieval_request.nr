@@ -22,6 +22,19 @@ pub(crate) struct LogRetrievalRequest {
     pub to_block: Option<Field>,
 }
 
+impl LogRetrievalRequest {
+    /// Creates a request that queries both public and private logs with no block range filter.
+    pub(crate) fn new(contract_address: AztecAddress, unsiloed_tag: Field) -> Self {
+        LogRetrievalRequest {
+            contract_address,
+            unsiloed_tag,
+            source: LogSource.PUBLIC_AND_PRIVATE,
+            from_block: Option::none(),
+            to_block: Option::none(),
+        }
+    }
+}
+
 mod test {
     use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use super::{LogRetrievalRequest, LogSource};
