@@ -206,7 +206,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       l1ToL2MessageSource,
       contractDataSource,
       globalVariableBuilder,
-      dateProvider,
+      feeProvider,
       telemetry,
       l1ChainId,
       config: {
