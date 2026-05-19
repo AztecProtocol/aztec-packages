@@ -31,6 +31,7 @@ function print_usage {
   echo_cmd "network-scenarios"     "Spin up EC2 instances to run network scenario tests in parallel."
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
+  echo_cmd "network-proving-bench" "Spin up an EC2 instance to deploy a network and run proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to skip deploy."
   echo_cmd "network-bench-10tps"   "Spin up an EC2 instance to run the 10 TPS benchmark on bench-10tps."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
@@ -253,11 +254,13 @@ case "$cmd" in
     ;;
   network-proving-bench)
     # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks.
+    # Deploys network and runs proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
     export INSTANCE_POSTFIX="n-proving-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-proving-bench $*"
     ;;
   network-block-capacity-bench)
     # Args: <scenario> <namespace> [docker_image]

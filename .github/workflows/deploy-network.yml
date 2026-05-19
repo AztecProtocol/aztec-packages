@@ -38,6 +38,11 @@ on:
         description: "Source tag that triggered this deploy"
         required: false
         type: string
+      notify_on_failure:
+        description: "Whether this workflow should send its own failure notification"
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       network:
@@ -74,6 +79,11 @@ on:
         description: "Source tag that triggered this deploy"
         required: false
         type: string
+      notify_on_failure:
+        description: "Whether this workflow should send its own failure notification"
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.aztec_docker_image || inputs.semver }}-${{ github.ref || github.ref_name }}
@@ -242,7 +252,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: failure() && inputs.notify_on_failure
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
