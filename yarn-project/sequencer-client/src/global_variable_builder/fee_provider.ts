@@ -2,20 +2,25 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { DateProvider } from '@aztec/foundation/timer';
-import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getNextL1SlotTimestamp, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
-import type { FeeProvider } from '@aztec/stdlib/tx';
+import type { CurrentMinFeesSnapshot, FeeProvider } from '@aztec/stdlib/tx';
 
 import { FeePredictor } from './fee_predictor.js';
 import type { GlobalVariableBuilderConfig } from './global_builder.js';
 
 /** Provides current and predicted fee information based on on-chain state. */
 export class FeeProviderImpl implements FeeProvider {
-  private currentMinFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
+  private currentMinFeesSnapshot: Promise<CurrentMinFeesSnapshot> = Promise.resolve({
+    timestamp: 0n,
+    slotNumber: SlotNumber.ZERO,
+    gasFees: new GasFees(0, 0),
+  });
   private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
   private readonly feePredictor: FeePredictor;
+  private readonly slotDuration: number;
   private readonly ethereumSlotDuration: number;
   private readonly l1GenesisTime: bigint;
 
@@ -24,6 +29,7 @@ export class FeeProviderImpl implements FeeProvider {
     private readonly publicClient: ViemPublicClient,
     config: GlobalVariableBuilderConfig,
   ) {
+    this.slotDuration = config.slotDuration;
     this.ethereumSlotDuration = config.ethereumSlotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
 
@@ -36,10 +42,11 @@ export class FeeProviderImpl implements FeeProvider {
   }
 
   /**
-   * Computes the "current" min fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Min fees for the next block
+   * Computes the full snapshot describing the next L2 block at the current instant. The snapshot
+   * is the source of truth for both {@link getCurrentMinFees} (which projects out `gasFees`) and
+   * {@link getCurrentMinFeesSnapshot}, ensuring all three fields agree.
    */
-  private async computeCurrentMinFees(): Promise<GasFees> {
+  private async computeCurrentMinFeesSnapshot(): Promise<CurrentMinFeesSnapshot> {
     // Since this might be called in the middle of a slot where a block might have been published,
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
@@ -53,20 +60,30 @@ export class FeeProviderImpl implements FeeProvider {
       ethereumSlotDuration: this.ethereumSlotDuration,
     });
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
+    const slotNumber = getSlotAtTimestamp(timestamp, {
+      l1GenesisTime: this.l1GenesisTime,
+      slotDuration: this.slotDuration,
+    });
+    const gasFees = new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
 
-    return new GasFees(0, await this.rollupContract.getManaMinFeeAt(timestamp, true));
+    return { timestamp, slotNumber, gasFees };
   }
 
-  public async getCurrentMinFees(): Promise<GasFees> {
+  public async getCurrentMinFeesSnapshot(): Promise<CurrentMinFeesSnapshot> {
     // Get the current block number
     const blockNumber = await this.publicClient.getBlockNumber();
 
     // If the L1 block number has changed then chain a new promise to get the current min fees
     if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
       this.currentL1BlockNumber = blockNumber;
-      this.currentMinFees = this.currentMinFees.then(() => this.computeCurrentMinFees());
+      this.currentMinFeesSnapshot = this.currentMinFeesSnapshot.then(() => this.computeCurrentMinFeesSnapshot());
     }
-    return this.currentMinFees;
+    return this.currentMinFeesSnapshot;
+  }
+
+  public async getCurrentMinFees(): Promise<GasFees> {
+    const snapshot = await this.getCurrentMinFeesSnapshot();
+    return snapshot.gasFees;
   }
 
   public getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]> {

@@ -3,6 +3,7 @@ import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import type { GasFees } from '../gas/gas_fees.js';
 import type { CheckpointGlobalVariables } from './global_variables.js';
 
 /**
@@ -19,4 +20,15 @@ export interface GlobalVariableBuilder {
     slotNumber: SlotNumber,
     simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<CheckpointGlobalVariables>;
+
+  /**
+   * Builds checkpoint global variables from a precomputed `{timestamp, slotNumber, gasFees}`
+   * snapshot. Synchronous — no L1 reads — because the caller has already resolved gas fees and
+   * timestamp via {@link FeeProvider.getCurrentMinFeesSnapshot}.
+   */
+  buildCheckpointGlobalVariablesFromSnapshot(
+    coinbase: EthAddress,
+    feeRecipient: AztecAddress,
+    snapshot: { timestamp: bigint; slotNumber: SlotNumber; gasFees: GasFees },
+  ): CheckpointGlobalVariables;
 }

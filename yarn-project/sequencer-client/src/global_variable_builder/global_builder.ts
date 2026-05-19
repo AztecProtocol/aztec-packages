@@ -74,4 +74,21 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
     return { chainId, version, slotNumber, timestamp, coinbase, feeRecipient, gasFees };
   }
+
+  public buildCheckpointGlobalVariablesFromSnapshot(
+    coinbase: EthAddress,
+    feeRecipient: AztecAddress,
+    snapshot: { timestamp: bigint; slotNumber: SlotNumber; gasFees: GasFees },
+  ): CheckpointGlobalVariables {
+    const { chainId, version } = this;
+    return {
+      chainId,
+      version,
+      slotNumber: snapshot.slotNumber,
+      timestamp: snapshot.timestamp,
+      coinbase,
+      feeRecipient,
+      gasFees: snapshot.gasFees,
+    };
+  }
 }
