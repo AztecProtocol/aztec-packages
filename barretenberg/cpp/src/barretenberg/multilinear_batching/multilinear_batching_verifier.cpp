@@ -177,10 +177,10 @@ bool MultilinearBatchingVerifier<Flavor_, InstanceFlavor_>::check_eq_consistency
     }
 }
 
-template class MultilinearBatchingVerifier<MultilinearBatchingFlavor>;
 template class MultilinearBatchingVerifier<MultilinearBatchingFlavor, MegaAppFlavor>;
 template class MultilinearBatchingVerifier<MultilinearBatchingFlavor, MegaKernelFlavor>;
-template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
+template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor,
+                                           MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor, MegaAppRecursiveFlavor>;
 template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor, MegaKernelRecursiveFlavor>;
 

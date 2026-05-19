@@ -24,13 +24,9 @@ namespace bb {
  * @details See: chonk/README.md#batching-claims-into-accumulator
  */
 // `InstanceFlavor_` is the flavor of the incoming sumcheck instance (e.g. MegaFlavor / MegaAppFlavor /
-// MegaKernelFlavor). It is independent of `Flavor_` which selects the batching curve/codec (native or
-// stdlib). When unspecified, defaults to MegaFlavor or its recursive counterpart based on `Flavor_`.
-template <typename Flavor_,
-          typename InstanceFlavor_ = std::conditional_t<std::is_same_v<Flavor_, MultilinearBatchingFlavor>,
-                                                        MegaFlavor,
-                                                        MegaRecursiveFlavor_<MegaCircuitBuilder>>>
-class MultilinearBatchingVerifier {
+// MegaKernelFlavor and their recursive counterparts). It is independent of `Flavor_` which selects
+// the batching curve/codec (native or stdlib); callers must specify it explicitly.
+template <typename Flavor_, typename InstanceFlavor_> class MultilinearBatchingVerifier {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;

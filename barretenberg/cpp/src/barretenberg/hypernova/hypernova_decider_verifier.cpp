@@ -53,8 +53,6 @@ HypernovaDeciderVerifier<Flavor>::PairingPoints HypernovaDeciderVerifier<Flavor>
     }
 };
 
-template class HypernovaDeciderVerifier<MegaFlavor>;
-template class HypernovaDeciderVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class HypernovaDeciderVerifier<MegaAppFlavor>;
 template class HypernovaDeciderVerifier<MegaKernelFlavor>;
 template class HypernovaDeciderVerifier<MegaAppRecursiveFlavor>;

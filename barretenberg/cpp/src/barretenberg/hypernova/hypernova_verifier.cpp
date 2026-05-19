@@ -156,8 +156,6 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     return { sumcheck_output.verified, sumcheck_batching_result, new_accumulator };
 };
 
-template class HypernovaFoldingVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-template class HypernovaFoldingVerifier<MegaFlavor>;
 template class HypernovaFoldingVerifier<MegaAppFlavor>;
 template class HypernovaFoldingVerifier<MegaKernelFlavor>;
 template class HypernovaFoldingVerifier<MegaAppRecursiveFlavor>;

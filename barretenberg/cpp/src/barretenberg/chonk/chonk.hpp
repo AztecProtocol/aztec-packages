@@ -93,20 +93,13 @@ class Chonk {
     using KernelWitnessCommitments = KernelRecursiveFlavor::WitnessCommitments;
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
-    // Folding
+    // Folding. The Hypernova accumulator (MultilinearBatchingVerifierClaim<Curve>) is flavor-agnostic,
+    // so apps and kernels (each with their own slim flavor) fold into the same accumulator type.
     using FoldingProver = HypernovaFoldingProver;
-    using FoldingVerifier = HypernovaFoldingVerifier<Flavor>;
-    using AppFoldingVerifier = HypernovaFoldingVerifier<AppFlavor>;
-    using KernelFoldingVerifier = HypernovaFoldingVerifier<KernelFlavor>;
-    using RecursiveFoldingVerifier = HypernovaFoldingVerifier<RecursiveFlavor>;
-    using AppRecursiveFoldingVerifier = HypernovaFoldingVerifier<AppRecursiveFlavor>;
-    using KernelRecursiveFoldingVerifier = HypernovaFoldingVerifier<KernelRecursiveFlavor>;
     using DeciderProver = HypernovaDeciderProver;
-    using RecursiveDeciderVerifier = HypernovaDeciderVerifier<RecursiveFlavor>;
-    using KernelRecursiveDeciderVerifier = HypernovaDeciderVerifier<KernelRecursiveFlavor>;
     using ProverAccumulator = FoldingProver::Accumulator;
-    using VerifierAccumulator = FoldingVerifier::Accumulator;
-    using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
+    using VerifierAccumulator = MultilinearBatchingVerifierClaim<curve::BN254>;
+    using RecursiveVerifierAccumulator = MultilinearBatchingVerifierClaim<stdlib::bn254<ClientCircuit>>;
 
     // Result types for decomposed verification steps
     struct FoldingResult {

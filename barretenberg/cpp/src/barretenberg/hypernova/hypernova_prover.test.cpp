@@ -1,4 +1,5 @@
 #include "barretenberg/hypernova/hypernova_prover.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "gtest/gtest.h"
 
@@ -10,9 +11,12 @@ class HypernovaFoldingProverTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
   public:
-    using Builder = HypernovaFoldingProver::Flavor::CircuitBuilder;
-    using ProverInstance = HypernovaFoldingProver::ProverInstance;
-    using CommitmentKey = HypernovaFoldingProver::Flavor::CommitmentKey;
+    // The Hypernova prover methods are templated on InstanceFlavor; pick MegaKernelFlavor as a
+    // representative — it's what Chonk uses for kernel circuits.
+    using Flavor = MegaKernelFlavor;
+    using Builder = Flavor::CircuitBuilder;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using CommitmentKey = Flavor::CommitmentKey;
     using Transcript = HypernovaFoldingProver::Transcript;
 
     enum class TamperingMode : uint8_t { None, Accumulator };

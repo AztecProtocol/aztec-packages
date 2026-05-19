@@ -1,5 +1,7 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
@@ -17,15 +19,14 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
 
   public:
     // Recursive decider verifier
-    using RecursiveHypernovaDeciderVerifier =
-        HypernovaDeciderVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>;
+    using RecursiveHypernovaDeciderVerifier = HypernovaDeciderVerifier<bb::MegaKernelRecursiveFlavor>;
     using RecursiveFlavor = RecursiveHypernovaDeciderVerifier::Flavor;
     using Builder = RecursiveFlavor::CircuitBuilder;
     using RecursiveTranscript = RecursiveHypernovaDeciderVerifier::Transcript;
     using RecursiveProof = RecursiveHypernovaDeciderVerifier::Proof;
 
     // Native decider verifier
-    using NativeHypernovaDeciderVerifier = HypernovaDeciderVerifier<bb::MegaFlavor>;
+    using NativeHypernovaDeciderVerifier = HypernovaDeciderVerifier<bb::MegaKernelFlavor>;
     using NativeFlavor = NativeHypernovaDeciderVerifier::Flavor;
     using CommitmentKey = NativeFlavor::CommitmentKey;
     using NativeFF = NativeFlavor::FF;
@@ -36,7 +37,7 @@ class HypernovaDeciderVerifierTests : public ::testing::Test {
     // Provers
     using HypernovaFoldingProver = bb::HypernovaFoldingProver;
     using NativeProverAccumulator = HypernovaFoldingProver::Accumulator;
-    using ProverInstance = HypernovaFoldingProver::ProverInstance;
+    using ProverInstance = ProverInstance_<bb::MegaKernelFlavor>;
     using HypernovaDeciderProver = bb::HypernovaDeciderProver;
 
     // Recursive Verifier

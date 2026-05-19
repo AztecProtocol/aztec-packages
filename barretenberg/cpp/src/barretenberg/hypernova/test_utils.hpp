@@ -8,14 +8,13 @@ namespace bb {
  * @brief Test helper to create a recursive verifier accumulator from a native one
  * @details Converts all fields from native to stdlib types for recursive verification testing
  */
-inline HypernovaFoldingVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>::Accumulator
-create_recursive_verifier_accumulator(MegaCircuitBuilder* builder,
-                                      const HypernovaFoldingVerifier<bb::MegaFlavor>::Accumulator& native_accumulator)
+inline HypernovaFoldingVerifier<bb::MegaKernelRecursiveFlavor>::Accumulator create_recursive_verifier_accumulator(
+    MegaCircuitBuilder* builder, const HypernovaFoldingVerifier<bb::MegaKernelFlavor>::Accumulator& native_accumulator)
 {
-    using Flavor = HypernovaFoldingVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>::Flavor;
+    using Flavor = HypernovaFoldingVerifier<bb::MegaKernelRecursiveFlavor>::Flavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
-    using Accumulator = HypernovaFoldingVerifier<bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder>>::Accumulator;
+    using Accumulator = HypernovaFoldingVerifier<bb::MegaKernelRecursiveFlavor>::Accumulator;
 
     Accumulator recursive_accumulator;
 
