@@ -101,7 +101,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(901039, 0);
+        return std::make_tuple(648863, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -114,7 +114,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1616793;
+inline constexpr size_t CHONK_RECURSION_GATES = 1363645;
 
 // ========================================
 // Hypernova Recursion Constants
