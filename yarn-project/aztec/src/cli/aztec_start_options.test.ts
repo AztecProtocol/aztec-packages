@@ -60,25 +60,25 @@ describe('aztec_start_options commander integration', () => {
 
   it('captures local-network flags passed explicitly on CLI', () => {
     const cmd = buildCommandWith(['LOCAL_NETWORK']);
-    cmd.parse(['node', 'cli', '--localNetwork.testAccounts', 'false']);
+    cmd.parse(['node', 'cli', '--local-network.testAccounts', 'false']);
     const opts = cmd.opts();
     expect(opts['localNetwork.testAccounts']).toBe(false);
   });
 
-  it('parses --localNetwork.l1Mnemonic into a SecretValue', () => {
+  it('parses --local-network.l1Mnemonic into a SecretValue', () => {
     const cmd = buildCommandWith(['LOCAL_NETWORK']);
-    cmd.parse(['node', 'cli', '--localNetwork.l1Mnemonic', 'word1 word2 word3']);
+    cmd.parse(['node', 'cli', '--local-network.l1Mnemonic', 'word1 word2 word3']);
     const opts = cmd.opts();
     const mnemonic = opts['localNetwork.l1Mnemonic'] as SecretValue<string>;
     expect(mnemonic).toBeInstanceOf(SecretValue);
     expect(mnemonic.getValue()).toBe('word1 word2 word3');
   });
 
-  it('auto-generates --localNetwork.* flags for genesis state config', () => {
+  it('auto-generates --local-network.* flags for genesis state config', () => {
     const cmd = buildCommandWith(['LOCAL_NETWORK']);
     // sponsoredFPC and prefundAddresses come from genesisStateConfigMappings and are now
-    // auto-exposed under --localNetwork.* since they only matter for fresh-chain init.
-    cmd.parse(['node', 'cli', '--localNetwork.sponsoredFPC', 'true', '--localNetwork.prefundAddresses', '0x1,0x2']);
+    // auto-exposed under --local-network.* since they only matter for fresh-chain init.
+    cmd.parse(['node', 'cli', '--local-network.sponsoredFPC', 'true', '--local-network.prefundAddresses', '0x1,0x2']);
     const opts = cmd.opts();
     expect(opts['localNetwork.sponsoredFPC']).toBe(true);
     expect(opts['localNetwork.prefundAddresses']).toEqual(['0x1', '0x2']);
