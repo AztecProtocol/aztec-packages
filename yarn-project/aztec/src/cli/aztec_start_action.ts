@@ -52,6 +52,13 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     adminServices.node = [node, AztecNodeAdminApiSchema];
     services.nodeDebug = [node, AztecNodeDebugApiSchema];
   } else {
+    // Block list for modules that cannot be run with --prover-node
+    const proverNodeBlockList = ['sequencer', 'bot', 'p2pBootstrap', 'txe'];
+    if (options.proverNode && proverNodeBlockList.some(block => options[block])) {
+      userLog(`Cannot run --prover-node and ${proverNodeBlockList.join(', ')} in the same process`);
+      process.exit(1);
+    }
+
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
       options.node = true;
