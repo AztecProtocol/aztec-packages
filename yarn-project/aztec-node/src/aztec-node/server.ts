@@ -1693,6 +1693,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       delete sequencerUpdate.minTxsPerBlock;
     }
     this.sequencer?.updateConfig(sequencerUpdate);
+    this.automineSequencer?.updateConfig(sequencerUpdate);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
     await this.p2pClient.updateP2PConfig(config);

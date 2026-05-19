@@ -213,6 +213,20 @@ export class AutomineSequencer {
     this.log.info('AutomineSequencer resumed');
   }
 
+  /**
+   * Updates the in-memory sequencer config. Mirrors {@link SequencerClient.updateConfig} so that
+   * `AztecNode.setConfig` (e.g. tests bumping `minTxsPerBlock` to bundle multiple txs into one
+   * block) propagates to the AutomineSequencer's gating logic in {@link runBuild}.
+   */
+  public updateConfig(config: Partial<SequencerConfig>): void {
+    Object.assign(this.deps.config, config);
+  }
+
+  /** Returns a snapshot of the current sequencer config (used by pause/resume bookkeeping). */
+  public getConfig(): SequencerConfig {
+    return this.deps.config;
+  }
+
   /** Enqueues an empty-block build. Resolves to the built block. */
   public buildEmptyBlock(): Promise<L2Block> {
     return this.queue.put(async () => {
@@ -283,7 +297,12 @@ export class AutomineSequencer {
     }
 
     const txCount = await this.deps.p2pClient.getPendingTxCount();
-    if (txCount === 0 && !allowEmpty) {
+    // For mempool-driven builds, wait for at least `minTxsPerBlock` pending txs (or 1 if not set)
+    // before building. This mirrors the production sequencer's `waitForMinTxs` behavior, and is
+    // required for tests that bundle multiple txs into one block via `setConfig({ minTxsPerBlock })`.
+    // Explicit empty-block / warp paths pass `allowEmpty: true` and bypass this gate.
+    const minRequired = allowEmpty ? 0 : Math.max(this.deps.config.minTxsPerBlock ?? 1, 1);
+    if (txCount < minRequired) {
       return undefined;
     }
 
