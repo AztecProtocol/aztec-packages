@@ -58,6 +58,7 @@ export class CheatCodes {
     // with respect to any in-flight build, and avoid the mineBlock-loop hack below.
     if (this.automine) {
       await this.automine.warpTo(Number(targetBigInt));
+      await node.mineBlock();
       return;
     }
 

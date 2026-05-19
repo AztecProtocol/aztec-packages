@@ -125,12 +125,10 @@ describe('e2e_contract_updates', () => {
       INITIAL_UPDATABLE_CONTRACT_VALUE,
     );
     await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
-    // Warp time to get past the timestamp of change where the update takes effect, then mine an
-    // empty block so the latest header's timestamp (which the PXE uses to read the current class
-    // id) is past the update's timestampOfChange. The AutomineSequencer's warp advances L1 time
-    // but does not by itself produce an L2 block.
+    // Warp time to get past the timestamp of change where the update takes effect so the latest
+    // header's timestamp (which the PXE uses to read the current class id) is past the update's
+    // timestampOfChange.
     await cheatCodes.warpL2TimeAtLeastBy(aztecNode, DEFAULT_TEST_UPDATE_DELAY);
-    await aztecNode.mineBlock();
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);
     const updatedContract = UpdatedContract.at(contract.address, wallet);
@@ -165,7 +163,6 @@ describe('e2e_contract_updates', () => {
 
     await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
     await cheatCodes.warpL2TimeAtLeastBy(aztecNode, BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n);
-    await aztecNode.mineBlock();
 
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);
