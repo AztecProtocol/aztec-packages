@@ -407,7 +407,7 @@ describe('NodePublicCallsSimulator', () => {
       nowSpy.mockRestore();
     });
 
-    it('coherency guard — torn snapshot throws a typed error', async () => {
+    it('coherency guard — checkpoint-number mismatch falls back to idle simulation with a warning', async () => {
       const tx = await mockTxForRollup(0xb0004);
       l2BlockSource.getL2Tips.mockResolvedValue(
         makeSimTips({
@@ -426,10 +426,26 @@ describe('NodePublicCallsSimulator', () => {
         }),
       );
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(/Torn L2 tips snapshot/);
+      const warnSpy = jest.spyOn((simulator as any).log, 'warn');
+      const expectedSlot = expectedSimulatorSlot();
+
+      await expect(simulator.simulate(tx)).rejects.toThrow('stop-after-globals');
+
+      // Fallback uses idle Case B: no overrides plan, slot anchored on wall-clock.
+      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
+      const [, , slotArg, planArg] = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0];
+      expect(slotArg).toEqual(expectedSlot);
+      expect(planArg).toBeUndefined();
+      // L1-to-L2 messages are fetched for `checkpointed + 1 = 5`, not the parent + 1 = 6.
+      expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(5));
+      // Logger received a warning explaining the fallback.
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Falling back to L1-confirmed-tip simulation.*[Tt]orn L2 tips snapshot/),
+        expect.objectContaining({ expectedNumber: CheckpointNumber(5) }),
+      );
     });
 
-    it('coherency guard — last-block mismatch throws a typed error', async () => {
+    it('coherency guard — last-block mismatch falls back to idle simulation with a warning', async () => {
       const tx = await mockTxForRollup(0xb0006);
       l2BlockSource.getL2Tips.mockResolvedValue(
         makeSimTips({
@@ -448,7 +464,54 @@ describe('NodePublicCallsSimulator', () => {
         }),
       );
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(/Torn L2 tips snapshot/);
+      const warnSpy = jest.spyOn((simulator as any).log, 'warn');
+      const expectedSlot = expectedSimulatorSlot();
+
+      await expect(simulator.simulate(tx)).rejects.toThrow('stop-after-globals');
+
+      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
+      const [, , slotArg, planArg] = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0];
+      expect(slotArg).toEqual(expectedSlot);
+      expect(planArg).toBeUndefined();
+      expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(5));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Falling back to L1-confirmed-tip simulation.*[Tt]orn L2 tips snapshot/),
+        expect.objectContaining({ expectedNumber: CheckpointNumber(5) }),
+      );
+    });
+
+    it('case A missing block header falls back to idle simulation with a warning', async () => {
+      const tx = await mockTxForRollup(0xa0099);
+      // Mid-checkpoint: proposed block (7) is past the last proposed-checkpoint block (5).
+      l2BlockSource.getL2Tips.mockResolvedValue(
+        makeSimTips({
+          proposedBlock: BlockNumber(7),
+          proposedCheckpoint: CheckpointNumber(3),
+          proposedCheckpointBlock: BlockNumber(5),
+          checkpointed: CheckpointNumber(3),
+        }),
+      );
+      // Header for the latest proposed block is missing on this node.
+      l2BlockSource.getBlockData.mockResolvedValue(undefined);
+
+      const warnSpy = jest.spyOn((simulator as any).log, 'warn');
+      const expectedSlot = expectedSimulatorSlot();
+
+      await expect(simulator.simulate(tx)).rejects.toThrow('stop-after-globals');
+
+      // Fallback uses idle Case B: no overrides plan, wall-clock-anchored slot, idle checkpoint.
+      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledTimes(1);
+      const [, , slotArg, planArg] = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0];
+      expect(slotArg).toEqual(expectedSlot);
+      expect(planArg).toBeUndefined();
+      // No attempt to consult the proposed checkpoint data — we fell through from a Case-A failure.
+      expect(l2BlockSource.getProposedCheckpointData).not.toHaveBeenCalled();
+      // Idle target checkpoint = checkpointed + 1 = 4.
+      expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(4));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Falling back to L1-confirmed-tip simulation.*has no header/),
+        expect.objectContaining({ latestBlockNumber: BlockNumber(7) }),
+      );
     });
   });
 });

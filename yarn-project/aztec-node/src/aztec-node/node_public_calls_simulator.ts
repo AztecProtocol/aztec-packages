@@ -126,7 +126,7 @@ export class NodePublicCallsSimulator {
     // have been added past the last L1-confirmed boundary but no proposed-checkpoint entry exists yet.
     const atCheckpointBoundary = l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number;
 
-    let newGlobalVariables: GlobalVariables;
+    let newGlobalVariables: GlobalVariables | undefined;
     let nextCheckpointMessages: Fr[] | undefined;
     let targetCheckpoint: CheckpointNumber | undefined;
 
@@ -136,14 +136,23 @@ export class NodePublicCallsSimulator {
       // reuse the latest proposed block's globals verbatim and only bump the block number.
       const latestBlockData = await this.blockSource.getBlockData({ number: latestBlockNumber });
       if (!latestBlockData) {
-        throw new Error(`Latest proposed block ${latestBlockNumber} has no header on this node`);
+        // Surprising sync state: archiver reports `latestBlockNumber` via getL2Tips() but does not
+        // have its header. Rather than failing the RPC, fall through to the idle Case B path so
+        // the wallet still gets a simulation result built against L1-confirmed state.
+        this.log.warn(
+          `Falling back to L1-confirmed-tip simulation: latest proposed block ${latestBlockNumber} has no header on this node`,
+          { latestBlockNumber },
+        );
+      } else {
+        newGlobalVariables = GlobalVariables.from({
+          ...latestBlockData.header.globalVariables,
+          blockNumber,
+        });
+        nextCheckpointMessages = undefined;
       }
-      newGlobalVariables = GlobalVariables.from({
-        ...latestBlockData.header.globalVariables,
-        blockNumber,
-      });
-      nextCheckpointMessages = undefined;
-    } else {
+    }
+
+    if (newGlobalVariables === undefined) {
       // Case B: opening a new checkpoint. Compute fresh globals.
       // Slot is wall-clock anchored to match `FeeProviderImpl.computeCurrentMinFees` exactly so
       // the simulator's `gasFees` agree with what the wallet observes via `getCurrentMinFees`.
@@ -168,7 +177,11 @@ export class NodePublicCallsSimulator {
       // value wallets see via `getCurrentMinFees`.
       let buildOverridesForProposedParent = false;
 
-      if (hasProposedCheckpoint) {
+      // Only consult getProposedCheckpointData when we are still in Case B by virtue of an
+      // observed boundary (`atCheckpointBoundary` is true). When we fell through here from a
+      // missing Case-A header, the latest proposed block is mid-checkpoint and there is no
+      // sensible proposed parent to extend — treat it as idle.
+      if (hasProposedCheckpoint && atCheckpointBoundary) {
         // Extend the proposed parent: target checkpoint is parent + 1, and the parent's data feeds
         // into the overrides plan so getManaMinFeeAt sees the chain state propose() will write.
         proposedCheckpointData = await this.blockSource.getProposedCheckpointData();
@@ -182,19 +195,31 @@ export class NodePublicCallsSimulator {
           proposedCheckpointData.checkpointNumber !== expectedNumber ||
           actualLastBlock !== expectedLastBlock
         ) {
-          throw new Error(
-            `Torn L2 tips snapshot: getL2Tips() reported proposed checkpoint ${expectedNumber} ending at block ${expectedLastBlock}, but getProposedCheckpointData() reported ${
+          // Surprising sync state: getL2Tips() and getProposedCheckpointData() disagree on the
+          // proposed checkpoint's number or its last block. Fall back to an idle simulation
+          // anchored at the L1-confirmed tip rather than failing the RPC.
+          this.log.warn(
+            `Falling back to L1-confirmed-tip simulation: torn L2 tips snapshot. getL2Tips() reported proposed checkpoint ${expectedNumber} ending at block ${expectedLastBlock}, but getProposedCheckpointData() reported ${
               proposedCheckpointData?.checkpointNumber ?? 'undefined'
-            } / ${actualLastBlock ?? 'undefined'}. Retry the simulation.`,
+            } / ${actualLastBlock ?? 'undefined'}`,
+            {
+              expectedNumber,
+              expectedLastBlock,
+              actualNumber: proposedCheckpointData?.checkpointNumber,
+              actualLastBlock,
+            },
           );
+          proposedCheckpointData = undefined;
+          checkpointNumber = CheckpointNumber(l2Tips.checkpointed.checkpoint.number + 1);
+        } else {
+          checkpointNumber = CheckpointNumber(proposedCheckpointData.checkpointNumber + 1);
+          // Only build the overrides plan when the proposed parent is 1-deep. When the pipeline is
+          // deeper (parent's checkpoint number > checkpointed + 1), the grandparent is not yet on
+          // L1 and `computePipelinedParentFeeHeader` would revert with
+          // `Rollup__UnavailableTempCheckpointLog`.
+          buildOverridesForProposedParent =
+            proposedCheckpointData.checkpointNumber === l2Tips.checkpointed.checkpoint.number + 1;
         }
-        checkpointNumber = CheckpointNumber(proposedCheckpointData.checkpointNumber + 1);
-        // Only build the overrides plan when the proposed parent is 1-deep. When the pipeline is
-        // deeper (parent's checkpoint number > checkpointed + 1), the grandparent is not yet on
-        // L1 and `computePipelinedParentFeeHeader` would revert with
-        // `Rollup__UnavailableTempCheckpointLog`.
-        buildOverridesForProposedParent =
-          proposedCheckpointData.checkpointNumber === l2Tips.checkpointed.checkpoint.number + 1;
       } else {
         proposedCheckpointData = undefined;
         checkpointNumber = CheckpointNumber(l2Tips.checkpointed.checkpoint.number + 1);
