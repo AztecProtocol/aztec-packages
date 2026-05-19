@@ -553,7 +553,7 @@ describe('Config', () => {
     };
 
     it('emits only keys present in the env source, not defaults', () => {
-      const result = envToTyped(mappings, { L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: '9090' });
+      const result = envToTyped(mappings, { AZTEC_PORT: '9090' });
       expect(result).toEqual({ port: 9090 });
       expect('network' in result).toBe(false);
       expect('enabled' in result).toBe(false);
@@ -561,7 +561,7 @@ describe('Config', () => {
 
     it('runs parseEnv and returns typed values', () => {
       const result = envToTyped(mappings, {
-        L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: '3000',
+        AZTEC_PORT: '3000',
         NETWORK: 'testnet',
       });
       expect(result.port).toBe(3000);
@@ -634,14 +634,14 @@ describe('Config', () => {
     });
 
     it('treats empty string env values as absent', () => {
-      const result = envToTyped(mappings, { L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: '' });
+      const result = envToTyped(mappings, { AZTEC_PORT: '' });
       expect('port' in result).toBe(false);
     });
 
     it('accepts a custom env source without touching process.env', () => {
       const customEnv = { NETWORK: 'custom-network' };
       const result = envToTyped(mappings, customEnv);
-      expect(result).toEqual({ name: 'custom-network' });
+      expect(result).toEqual({ network: 'custom-network' });
     });
   });
 
