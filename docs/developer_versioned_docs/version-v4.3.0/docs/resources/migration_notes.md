@@ -348,7 +348,7 @@ The `--name` flag has been removed from both `aztec new` and `aztec init`. For `
 
 **Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
 
-## 4.2.0-aztecnr-rc.2
+## 4.2.0
 
 ### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
 
@@ -411,6 +411,25 @@ The zero address (`AztecAddress::zero()`) is always allowed regardless of the sc
 
 **Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
 
+### [aztec.js] `EmbeddedWalletOptions` now uses a unified `pxe` field
+
+The `pxeConfig` and `pxeOptions` fields on `EmbeddedWalletOptions` have been deprecated in favor of a single `pxe` field that accepts both PXE configuration and dependency overrides (custom prover, store, simulator):
+
+```diff
+const wallet = await EmbeddedWallet.create(nodeUrl, {
+-  pxeConfig: { proverEnabled: true },
+-  pxeOptions: { proverOrOptions: myCustomProver },
++  pxe: {
++    proverEnabled: true,
++    proverOrOptions: myCustomProver,
++  },
+});
+```
+
+The old fields still work but will be removed in a future release.
+
+## 4.2.0-aztecnr-rc.2
+
 ### Custom token FPCs removed from default public setup allowlist
 
 Token contract functions (like `transfer_in_public` and `_increase_public_balance`) have been removed from the default public setup allowlist. FPCs that accept custom tokens (like the reference `FPC` contract) will not work on public networks, because their setup-phase calls to these functions will be rejected. Token class IDs change with each aztec-nr release, making it impractical to maintain them in the allowlist.
@@ -429,23 +448,6 @@ FPCs that use only Fee Juice still work on all networks, since FeeJuice is a pro
 ```
 
 Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on devnet and local network.
-
-### [aztec.js] `EmbeddedWalletOptions` now uses a unified `pxe` field
-
-The `pxeConfig` and `pxeOptions` fields on `EmbeddedWalletOptions` have been deprecated in favor of a single `pxe` field that accepts both PXE configuration and dependency overrides (custom prover, store, simulator):
-
-```diff
-const wallet = await EmbeddedWallet.create(nodeUrl, {
--  pxeConfig: { proverEnabled: true },
--  pxeOptions: { proverOrOptions: myCustomProver },
-+  pxe: {
-+    proverEnabled: true,
-+    proverOrOptions: myCustomProver,
-+  },
-});
-```
-
-The old fields still work but will be removed in a future release.
 
 ### [Aztec.nr] Domain-separated tags on log emission
 
@@ -717,6 +719,8 @@ Contract initialization now emits two separate nullifiers instead of one: a **pr
 -   skipClassPublication: true,
   }).deployed();
 ```
+
+## 4.1.3
 
 ### [Aztec.js] `TxReceipt` now includes `epochNumber`
 
