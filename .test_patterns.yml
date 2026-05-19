@@ -141,6 +141,16 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
+  # Under proposer pipelining the latest block can briefly disappear between the
+  # describe-level beforeEach and runInvalidatesTest's own getBlockData('latest')
+  # call (likely an archiver reorg window after the prior test's L1 warp), so the
+  # second fetch returns undefined and the test throws before doing any real work.
+  # Migrated to pipelining in #23275; flake surfaced on the merge-train/spartan
+  # queue (http://ci.aztec-labs.com/a8a7ea45ecd3fe2b).
+  - regex: "src/e2e_expiration_timestamp.test.ts"
+    error_regex: "Block header not found in invalidates-the-transaction setup"
+    owners:
+      - *palla
 
   # yarn-project tests
   # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
