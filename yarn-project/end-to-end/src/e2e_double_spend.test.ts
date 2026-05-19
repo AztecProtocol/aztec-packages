@@ -5,6 +5,7 @@ import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_double_spend', () => {
@@ -23,7 +24,7 @@ describe('e2e_double_spend', () => {
       wallet,
       accounts: [defaultAccountAddress],
       logger,
-    } = await setup(1));
+    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 
@@ -46,7 +47,7 @@ describe('e2e_double_spend', () => {
       // tx will be included in a block but with app logic reverted
       await expect(
         contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }),
-      ).rejects.toThrow(TxExecutionResult.APP_LOGIC_REVERTED);
+      ).rejects.toThrow(TxExecutionResult.REVERTED);
     });
   });
 });

@@ -20,6 +20,9 @@ function build {
   echo
 
   # Create Verdaccio config.
+  # publish.allow_offline lets verdaccio accept publishes when the npmjs
+  # uplink is briefly unreachable, instead of returning 503. We never want
+  # the upstream existence check to gate these local fake-publishes.
   cat > /tmp/verdaccio-config.yaml <<EOF
 storage: $PWD/verdaccio-storage
 max_body_size: 1000mb
@@ -28,7 +31,23 @@ uplinks:
   npmjs:
     url: https://registry.npmjs.org/
 
+publish:
+  allow_offline: true
+
 packages:
+  # @aztec/viem is a third-party fork published to npm, not built locally.
+  # Match it before @aztec/* so it falls through to the npmjs uplink.
+  "@aztec/viem":
+    access: \$all
+    publish: \$all
+    unpublish: \$all
+    proxy: npmjs
+
+  "@aztec/*":
+    access: \$all
+    publish: \$all
+    unpublish: \$all
+
   "@*/*":
     access: \$all
     publish: \$all

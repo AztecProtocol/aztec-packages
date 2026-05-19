@@ -12,6 +12,39 @@ export const DEFAULT_MIN_FEE_PADDING = 5;
  */
 export const LARGE_MIN_FEE_PADDING = 15;
 
+/**
+ * Fee padding used by tests running under proposer pipelining. Under pipelining the fee-asset
+ * price modifier evolves faster across the build/publish gap, so client-set maxFeesPerGas (sized
+ * for the default 5x padding) was getting bumped past by the time the tx mined a few slots later.
+ * Observed worst case in CI: fee evolved ~20x between PXE snapshot and inclusion, exceeding even
+ * LARGE_MIN_FEE_PADDING (15x).
+ */
+export const PIPELINED_FEE_PADDING = 30;
+
+/**
+ * Setup option preset that opts a test into proposer pipelining. Use with `setup()`:
+ *
+ *     await setup(N, { ...PIPELINING_SETUP_OPTS, ...otherOpts });
+ *
+ * The preset sets:
+ * - `enableProposerPipelining: true` so the sequencer builds for `slot + 1`.
+ * - `inboxLag: 2` so the sequencer sources L1->L2 messages from checkpoint N-1 (already sealed),
+ *   avoiding `L1ToL2MessagesNotReadyError` when building for slot N during slot N-1.
+ * - `minTxsPerBlock: 0` so empty checkpoints land even when a tx arrives late in the build window
+ *   (otherwise the chain stalls on alternating slots).
+ * - `aztecSlotDuration: 12` / `ethereumSlotDuration: 4` so the pipelined cycle fits inside the
+ *   default 300s Jest hook budget. Tests that depend on the env-default 72s/12s should override.
+ * - `walletMinFeePadding: PIPELINED_FEE_PADDING` (30x) to absorb the wider fee evolution window.
+ */
+export const PIPELINING_SETUP_OPTS = {
+  enableProposerPipelining: true,
+  inboxLag: 2,
+  minTxsPerBlock: 0,
+  aztecSlotDuration: 12,
+  ethereumSlotDuration: 4,
+  walletMinFeePadding: PIPELINED_FEE_PADDING,
+} as const;
+
 /** Returns worst-case predicted min fees with padding applied, mirroring the BaseWallet pattern. */
 export async function getPaddedMaxFeesPerGas(node: AztecNode, padding = DEFAULT_MIN_FEE_PADDING): Promise<GasFees> {
   const predicted = await node.getPredictedMinFees();

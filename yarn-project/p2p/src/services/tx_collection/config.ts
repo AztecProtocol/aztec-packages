@@ -1,12 +1,5 @@
-import {
-  type ConfigMappingsType,
-  enumConfigHelper,
-  numberConfigHelper,
-  parseCommaSeparated,
-} from '@aztec/foundation/config';
+import { type ConfigMappingsType, numberConfigHelper, parseCommaSeparated } from '@aztec/foundation/config';
 import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/api-limit';
-
-export type MissingTxsCollectorType = 'new' | 'old';
 
 export type TxCollectionConfig = {
   /** How long to wait before starting reqresp for fast collection  */
@@ -19,11 +12,9 @@ export type TxCollectionConfig = {
   txCollectionFastMaxParallelRequestsPerNode: number;
   /** Maximum number of transactions to request from a node in a single batch */
   txCollectionNodeRpcMaxBatchSize: number;
-  /** Which collector implementation to use for missing txs collection */
-  txCollectionMissingTxsCollectorType: MissingTxsCollectorType;
   /** A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection */
   txCollectionFileStoreUrls: string[];
-  /** Delay in ms before file store collection starts after fast collection is triggered */
+  /** Delay in ms from reqresp start before file store collection begins */
   txCollectionFileStoreFastDelayMs: number;
   /** Number of concurrent workers for fast file store collection */
   txCollectionFileStoreFastWorkerCount: number;
@@ -61,11 +52,6 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
     description: 'Maximum number of transactions to request from a node in a single batch',
     ...numberConfigHelper(MAX_RPC_TXS_LEN),
   },
-  txCollectionMissingTxsCollectorType: {
-    env: 'TX_COLLECTION_MISSING_TXS_COLLECTOR_TYPE',
-    description: 'Which collector implementation to use for missing txs collection (new or old)',
-    ...enumConfigHelper(['new', 'old'] as const, 'new'),
-  },
   txCollectionFileStoreUrls: {
     env: 'TX_COLLECTION_FILE_STORE_URLS',
     description: 'A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection',
@@ -74,7 +60,7 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
   },
   txCollectionFileStoreFastDelayMs: {
     env: 'TX_COLLECTION_FILE_STORE_FAST_DELAY_MS',
-    description: 'Delay before file store collection starts after fast collection',
+    description: 'Delay in ms from reqresp start before file store collection begins',
     ...numberConfigHelper(2_000),
   },
   txCollectionFileStoreFastWorkerCount: {

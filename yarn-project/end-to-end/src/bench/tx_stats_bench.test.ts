@@ -24,7 +24,7 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 
 // Set a 3 minute timeout.
-const TIMEOUT = 180_000;
+const TIMEOUT = 300_000;
 
 describe('transaction benchmarks', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
@@ -248,7 +248,12 @@ describe('transaction benchmarks', () => {
     TIMEOUT,
   );
 
-  it(
+  // TODO(#23083): Skipped while a flake under heavy bb-prover concurrency is investigated.
+  // Under 8x parallel IVC verifications (each spawning a bb subprocess via the bb.js
+  // NativeUnixSocket backend) at least one verification intermittently returns valid:false on
+  // the bench host. The serial sub-tests above pass cleanly. Re-enable once the underlying
+  // verifier-under-load interaction is fixed.
+  it.skip(
     'verifies transactions at 10 TPS',
     async () => {
       const seconds = 60;

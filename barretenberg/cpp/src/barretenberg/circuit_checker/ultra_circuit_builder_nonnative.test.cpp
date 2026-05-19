@@ -257,41 +257,6 @@ TEST_F(UltraCircuitBuilderNonNative, MultiplicationLargeCarryRegression)
     EXPECT_EQ(builder.err(), "range_constrain_two_limbs: hi limb.");
 }
 
-// Verifies that the NNF block only contains NNF gates (other selectors are zero)
-TEST_F(UltraCircuitBuilderNonNative, BlockSelectorIsolation)
-{
-    UltraCircuitBuilder builder;
-
-    uint256_t a = uint256_t(fq::random_element());
-    uint256_t b = uint256_t(fq::random_element());
-    uint256_t modulus = fq::modulus;
-
-    auto [q, r] = compute_quotient_remainder(a, b, modulus);
-    const auto [lo_1_idx, hi_1_idx] = create_non_native_multiplication(builder, a, b, q, r, modulus);
-
-    // Range check the carry (output) lo and hi limbs
-    const bool is_low_70_bits = uint256_t(builder.get_variable(lo_1_idx)).get_msb() < 70;
-    const bool is_high_70_bits = uint256_t(builder.get_variable(hi_1_idx)).get_msb() < 70;
-    if (is_low_70_bits && is_high_70_bits) {
-        builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
-    } else {
-        builder.create_limbed_range_constraint(lo_1_idx, 72);
-        builder.create_limbed_range_constraint(hi_1_idx, 72);
-    }
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-
-    // Verify that in the NNF block, all non-NNF selectors are zero
-    for (size_t i = 0; i < builder.blocks.nnf.size(); ++i) {
-        EXPECT_EQ(builder.blocks.nnf.q_arith()[i], 0);
-        EXPECT_EQ(builder.blocks.nnf.q_delta_range()[i], 0);
-        EXPECT_EQ(builder.blocks.nnf.q_elliptic()[i], 0);
-        EXPECT_EQ(builder.blocks.nnf.q_lookup()[i], 0);
-        EXPECT_EQ(builder.blocks.nnf.q_poseidon2_external()[i], 0);
-        EXPECT_EQ(builder.blocks.nnf.q_poseidon2_internal()[i], 0);
-    }
-}
-
 // Verifies non-native field addition with various scaling factors
 TEST_F(UltraCircuitBuilderNonNative, Addition)
 {

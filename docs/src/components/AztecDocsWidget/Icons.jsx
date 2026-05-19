@@ -154,4 +154,34 @@ export const Icons = {
       <path d="M3 21l7-7" />
     </svg>
   ),
+  thumbUp: (p) => (
+    <svg
+      viewBox="0 0 24 24"
+      width={p.size || 13}
+      height={p.size || 13}
+      fill={p.filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3z" />
+      <path d="M7 11l5-8a2 2 0 0 1 2 2v4h5a2 2 0 0 1 2 2l-2 7a2 2 0 0 1-2 1H7" />
+    </svg>
+  ),
+  thumbDown: (p) => (
+    <svg
+      viewBox="0 0 24 24"
+      width={p.size || 13}
+      height={p.size || 13}
+      fill={p.filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-3z" />
+      <path d="M17 13l-5 8a2 2 0 0 1-2-2v-4H5a2 2 0 0 1-2-2l2-7a2 2 0 0 1 2-1h10" />
+    </svg>
+  ),
 };

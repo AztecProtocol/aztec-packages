@@ -50,12 +50,11 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *
  *      About SLASH_OFFSET_IN_ROUNDS:
  *      - This offset gives us time to detect an offense and then vote on it in a later
- *        round. For instance, an `VALID_EPOCH_PRUNED` offense for epoch N is only triggered after
- *        `PROOF_SUBMISSION_WINDOW` epochs. Consider the following:
- *        - Epoch 1 is valid
- *        - At the end of epoch 3, the proof for 1 has not landed, so epoch 1 is pruned
- *        - Network decides to slash the committee of epoch 1
- *        - This means that only starting from epoch 4 we should be voting for slashing the committee of epoch 1
+ *        round. For instance, a `DATA_WITHHOLDING` offense for slot S is only triggered after
+ *        `DATA_WITHHOLDING_TOLERANCE_SLOTS` slots. Consider:
+ *        - Slot S publishes a checkpoint
+ *        - At slot S + tolerance, observers find missing data and want to slash the attesters
+ *        - Voting on that slash needs to happen in a round that starts after detection
  *      - In terms of voting, this parameter means that in round R we are voting for the committee of epochs starting
  *        from (R - SLASH_OFFSET_IN_ROUNDS) * ROUND_SIZE_IN_EPOCHS.
  *      - For example, with SLASH_OFFSET_IN_ROUNDS=2, ROUND_SIZE=10, and EPOCH_DURATION=2

@@ -20,7 +20,7 @@ import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
 import {
   createCheckAllowedSetupCalls,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
   getDefaultAllowedSetupFunctions,
 } from '../msg_validators/index.js';
@@ -153,7 +153,7 @@ export async function createP2PClient(
     telemetry,
   );
 
-  const txValidatorForTxCollection = createTxValidatorForReqResponseReceivedTxs(proofVerifier, config);
+  const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(proofVerifier, config);
   const nodeSources = [
     ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, txValidatorForTxCollection, config),
     ...(deps.rpcTxProviders ?? []).map(
