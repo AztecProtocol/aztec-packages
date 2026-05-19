@@ -1,3 +1,4 @@
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import {
   type DetectorSync,
   type IResource,
@@ -8,17 +9,13 @@ import {
   serviceInstanceIdDetectorSync,
 } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 import { AZTEC_NODE_ROLE, AZTEC_REGISTRY_ADDRESS, AZTEC_ROLLUP_ADDRESS, AZTEC_ROLLUP_VERSION } from './attributes.js';
 
-/** Reads the Aztec client version from the root VERSION file. */
+/** Reads the Aztec client version from the package-local version source. */
 function getAztecVersion(): string | undefined {
   try {
-    const versionPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../VERSION');
-    return readFileSync(versionPath, 'utf-8').trim();
+    return getPackageVersion();
   } catch {
     return undefined;
   }

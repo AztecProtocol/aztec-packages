@@ -1,6 +1,6 @@
 ---
 name: updating-changelog
-description: Updates changelog documentation for contract developers and node operators by analyzing branch changes relative to 'next'. Use when preparing a PR, updating migration notes, documenting breaking changes, or when asked to update changelog/release notes.
+description: Updates changelog documentation for contract developers and node operators by analyzing branch changes relative to the appropriate base branch or release tag. Use when preparing a PR, updating migration notes, documenting breaking changes, or when asked to update changelog/release notes.
 ---
 
 # Updating Changelog
@@ -9,7 +9,7 @@ description: Updates changelog documentation for contract developers and node op
 
 ### 1. Determine Target Files
 
-Read the root `VERSION` file to get the version (e.g., `4.0.0` → edit `v4.md`).
+Read the root `VERSION` file to get the version (e.g., `4.0.0` → edit `v4.md`). If the major-version operator changelog does not exist yet, create it from the current changelog conventions and add it to `docs/docs-operate/operators/reference/changelog/index.md`.
 
 **Target files:**
 
@@ -18,7 +18,13 @@ Read the root `VERSION` file to get the version (e.g., `4.0.0` → edit `v4.md`)
 
 ### 2. Analyze Branch Changes
 
-Run `git diff next...HEAD --stat` for overview, then `git diff next...HEAD` for details.
+Choose the diff base before generating entries:
+
+- For a PR, use the PR target branch.
+- For `v4-next`, release branches, and backports, use that branch's upstream/base rather than `next`.
+- For release notes, diff the previous release tag against the new release tag.
+
+Run `git diff <base>...HEAD --stat` for overview, then `git diff <base>...HEAD` for details.
 
 **Categorize changes:**
 

@@ -16,9 +16,9 @@
 
 `next` is the primary development branch. All new work should go into `next` by default.
 
-The current version of a branch can be found in the root `VERSION` file. As of this writing, the version of `next` is `3.0.0`.
+The current version of a branch can be found in the root `VERSION` file.
 
-Each day at 02:00 UTC, `.github/workflows/nightly-release-tag.yml` runs, which creates a tag like `v3.0.0-nightly.20250919`.
+Each day at 02:00 UTC, `.github/workflows/nightly-release-tag.yml` runs, which creates a tag like `v$(cat VERSION)-nightly.20250919`.
 
 The creation of a tag starting with `v` causes `.github/workflows/ci3.yml` to run.
 
@@ -37,9 +37,9 @@ It requires a commit SHA which SHOULD be one from a particular nightly run.
 
 This creates a new branch for whatever the current version in `next` is, then bumps the version on `next`.
 
-For example, if this were run now, it would create a branch `v3`, and then bump the version in the root `VERSION` file on `next` to be `4.0.0`.
+For example, if `VERSION` is `5.0.0`, it creates branch `v5`, then bumps the root `VERSION` file on `next` to `6.0.0`.
 
-Release-candidate tags (e.g. `v3.0.0-rc.1`) are pushed against the release branch to publish artifacts.
+Release-candidate tags (e.g. `v5.0.0-rc.1`) are pushed against the release branch to publish artifacts. Pick the next `rc.N` by checking existing tags for the same version, and tag the exact release-branch commit that should be tested.
 
 Each `rc` tag causes ci3.yml to run, and creates releases because it runs `bootstrap.sh ci-nightly`.
 
@@ -72,7 +72,7 @@ If you are fixing a bug in production, send it into `v2` first.
 
 If you are doing something in `next` we would like in production, you can use the `backport-to-v2` label.
 
-If your change produces new rollup contract addresses or VKs (and so would require a governance upgrade on testnet/mainnet), manually bump the minor version in the root `VERSION` file; e.g., we would presently go to `2.1.0`. We're investigating ways to automate this.
+If your change produces new rollup contract addresses or VKs (and so would require a governance upgrade on testnet/mainnet), manually bump the minor version in the root `VERSION` file before tagging the release.
 
 ### v3 (planned)
 
@@ -85,6 +85,12 @@ One can cut a release manually by updating the version number in the root `VERSI
 ```
 ./bootstrap.sh release
 ```
+
+Before pushing a final public release tag, update release-facing docs explicitly:
+
+- Run `/updating-changelog` and update migration notes plus the operator changelog for the branch/version being released.
+- Run `/release-docs` for developer + network docs, or `/release-network-docs` for network-only releases.
+- Ensure GitHub release notes are written or generated for the pushed tag; there is no longer an automated release PR that maintains them.
 
 ## release image
 

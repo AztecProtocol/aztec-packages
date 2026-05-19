@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - v4
+    tags:
+      - 'v4.*'
   workflow_dispatch: {}
 
 concurrency:
@@ -29,6 +31,19 @@ jobs:
       - name: Poll for semver tag at HEAD
         id: poll-tag
         run: |
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG="$GITHUB_REF_NAME"
+            if ! ci3/semver check "$TAG"; then
+              echo "Error: Tag $TAG is not a valid semver tag"
+              exit 1
+            fi
+            echo "Found pushed tag: $TAG"
+            SEMVER="${TAG#v}"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "semver=$SEMVER" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           HEAD_SHA=$(git rev-parse HEAD)
           MAX_ATTEMPTS=60
           echo "Looking for any semver tag at HEAD ($HEAD_SHA)"
