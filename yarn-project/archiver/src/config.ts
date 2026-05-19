@@ -4,8 +4,8 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
@@ -94,7 +94,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = compos
  * @returns The archiver configuration.
  */
 export function getArchiverConfigFromEnv(): ArchiverConfig {
-  return getConfigFromMappings<ArchiverConfig>(archiverConfigMappings);
+  return buildConfigFromEnv<ArchiverConfig>(archiverConfigMappings);
 }
 
 /** Extracts the archiver-specific configuration from the full ArchiverConfig */

@@ -11,11 +11,10 @@ import {
   createAndStartProvingBroker,
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
-import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
-import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
+import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { extractRelevantOptions } from '../util.js';
+import type { ConfigResolverFn } from '../util.js';
 import { computeExpectedGenesisRoot, waitForCompatibleRollup } from './standby.js';
 
 export async function startProverBroker(
@@ -23,16 +22,14 @@ export async function startProverBroker(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
+  resolveConfig: ConfigResolverFn,
 ): Promise<{ broker: ProvingJobBroker; config: ProverBrokerConfig }> {
   if (options.node || options.sequencer || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover broker with --node, --sequencer, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 
-  const baseConfig: ProverBrokerConfig = {
-    ...getProverNodeBrokerConfigFromEnv(), // get default config from env
-    ...extractRelevantOptions<ProverBrokerConfig>(options, proverBrokerConfigMappings, 'proverBroker'), // override with command line options
-  };
+  const baseConfig = resolveConfig(proverBrokerConfigMappings, 'proverBroker');
 
   if (!baseConfig.registryAddress || baseConfig.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
@@ -56,7 +53,7 @@ export async function startProverBroker(
 
   const config: ProverBrokerConfig = { ...baseConfig, ...addresses, rollupVersion: rollupConfig.rollupVersion };
 
-  const client = await initTelemetryClient(getTelemetryClientConfig());
+  const client = await initTelemetryClient(resolveConfig(telemetryClientConfigMappings, 'tel'));
   const broker = await createAndStartProvingBroker(config, client);
 
   services.proverBroker = [

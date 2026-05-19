@@ -2,14 +2,11 @@
 //
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectAztecNodeCommands } from '@aztec/cli/aztec_node';
-import { enrichEnvironmentWithChainName } from '@aztec/cli/config/chain';
-import { enrichEnvironmentWithNetworkConfig } from '@aztec/cli/config/network';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectValidatorKeysCommands } from '@aztec/cli/validator_keys';
-import { getActiveNetworkName } from '@aztec/foundation/config';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -19,8 +16,6 @@ import { injectCompileCommand } from '../cli/cmds/compile.js';
 import { injectMigrateCommand } from '../cli/cmds/migrate_ha_db.js';
 import { injectProfileCommand } from '../cli/cmds/profile.js';
 import { injectAztecCommands } from '../cli/index.js';
-
-const NETWORK_FLAG = 'network';
 
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('cli');
@@ -32,20 +27,6 @@ async function main() {
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
-
-  // Intercept the setting of a network and enrich the environment with defaults for that network
-  let networkValue: string | undefined;
-
-  const args = process.argv.slice(2);
-  const networkIndex = args.findIndex(arg => arg.startsWith(`--${NETWORK_FLAG}=`) || arg === `--${NETWORK_FLAG}`);
-
-  if (networkIndex !== -1) {
-    networkValue = args[networkIndex].split('=')[1] || args[networkIndex + 1];
-  }
-
-  const networkName = getActiveNetworkName(networkValue);
-  await enrichEnvironmentWithNetworkConfig(networkName);
-  enrichEnvironmentWithChainName(networkName);
 
   const cliVersion = getPackageVersion();
   let program = new Command('aztec');

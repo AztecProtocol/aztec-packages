@@ -1,8 +1,8 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   numberConfigHelper,
   parseCommaSeparated,
   secretValueConfigHelper,
@@ -78,5 +78,5 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
  * @returns The validator configuration.
  */
 export function getProverEnvVars(): ValidatorClientConfig {
-  return getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
+  return buildConfigFromEnv<ValidatorClientConfig>(validatorClientConfigMappings);
 }

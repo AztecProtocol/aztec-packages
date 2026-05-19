@@ -35,15 +35,6 @@ describe('aztec_start_options commander integration', () => {
     expect(opts.port).toBe(1234);
   });
 
-  it('reads from the env', () => {
-    process.env.NETWORK = 'testnet';
-    const cmd = buildCommandWith(['API', 'MISC']);
-    cmd.parse(['node', 'cli', '--port', '1234']);
-    const opts = cmd.opts();
-    expect(opts.network).toBe('testnet');
-    expect(opts.port).toBe(1234);
-  });
-
   it('maps namespaced flags to dotted keys', () => {
     const cmd = buildCommandWith(['P2P SUBSYSTEM']);
     cmd.parse(['node', 'cli', '--p2p.listenAddress', '1.2.3.4']);
@@ -58,68 +49,52 @@ describe('aztec_start_options commander integration', () => {
     expect(opts.l1RpcUrls).toEqual(['http://a', 'http://b']);
   });
 
-  it('parses SecretValue arrays from env for ETHEREUM consensus keys', () => {
-    process.env.L1_CONSENSUS_HOST_API_KEYS = 'k1, k2';
+  it('parses SecretValue arrays from CLI for ETHEREUM consensus keys', () => {
     const cmd = buildCommandWith(['ETHEREUM']);
-    cmd.parse(['node', 'cli']);
+    cmd.parse(['node', 'cli', '--l1-consensus-host-api-keys', 'k1, k2']);
     const opts = cmd.opts();
     const keys = opts.l1ConsensusHostApiKeys as SecretValue<string>[];
     expect(Array.isArray(keys)).toBe(true);
     expect(keys.map(k => k.getValue())).toEqual(['k1', 'k2']);
   });
 
-  it('does not set l1RpcUrls and l1ChainId by default', () => {
-    const cmd = buildCommandWith(['ETHEREUM']);
-    cmd.parse(['node', 'cli']);
-    const opts = cmd.opts();
-    expect(opts.l1ChainId).toBeUndefined();
-    expect(opts.l1RpcUrls).toBeUndefined();
-  });
-
-  it('uses defaults when flags are missing (numeric defaults)', () => {
-    const cmd = buildCommandWith(['API']);
-    cmd.parse(['node', 'cli']);
-    const opts = cmd.opts();
-    expect(opts.port).toBe(8080);
-    expect(opts.adminPort).toBe(8880);
-  });
-
-  it('uses environment variables when flags are missing', () => {
-    process.env.AZTEC_PORT = '9090';
-    const cmd = buildCommandWith(['API']);
-    cmd.parse(['node', 'cli']);
-    const opts = cmd.opts();
-    // Parsed through parseVal into a number
-    expect(opts.port).toBe(9090);
-    expect(typeof opts.port).toBe('number');
-  });
-
-  it('respects TEST_ACCOUNTS env var for local network', () => {
-    process.env.TEST_ACCOUNTS = 'false';
+  it('captures local-network flags passed explicitly on CLI', () => {
     const cmd = buildCommandWith(['LOCAL_NETWORK']);
-    cmd.parse(['node', 'cli']);
+    cmd.parse(['node', 'cli', '--localNetwork.testAccounts', 'false']);
     const opts = cmd.opts();
     expect(opts['localNetwork.testAccounts']).toBe(false);
   });
 
-  it('defaults testAccounts to true for local network', () => {
+  it('parses --localNetwork.l1Mnemonic into a SecretValue', () => {
     const cmd = buildCommandWith(['LOCAL_NETWORK']);
-    cmd.parse(['node', 'cli']);
+    cmd.parse(['node', 'cli', '--localNetwork.l1Mnemonic', 'word1 word2 word3']);
     const opts = cmd.opts();
-    expect(opts['localNetwork.testAccounts']).toBe(true);
+    const mnemonic = opts['localNetwork.l1Mnemonic'] as SecretValue<string>;
+    expect(mnemonic).toBeInstanceOf(SecretValue);
+    expect(mnemonic.getValue()).toBe('word1 word2 word3');
+  });
+
+  it('auto-generates --localNetwork.* flags for genesis state config', () => {
+    const cmd = buildCommandWith(['LOCAL_NETWORK']);
+    // sponsoredFPC and prefundAddresses come from genesisStateConfigMappings and are now
+    // auto-exposed under --localNetwork.* since they only matter for fresh-chain init.
+    cmd.parse(['node', 'cli', '--localNetwork.sponsoredFPC', 'true', '--localNetwork.prefundAddresses', '0x1,0x2']);
+    const opts = cmd.opts();
+    expect(opts['localNetwork.sponsoredFPC']).toBe(true);
+    expect(opts['localNetwork.prefundAddresses']).toEqual(['0x1', '0x2']);
   });
 
   it('parses optional boolean flag values', () => {
-    const cmd = buildCommandWith(['P2P SUBSYSTEM']);
-
-    expect(cmd.parse(['node', 'cli', '--p2p-enabled']).opts().p2pEnabled).toBe(true);
-    expect(cmd.parse(['node', 'cli', '--p2p-enabled', 'false']).opts().p2pEnabled).toBe(false);
-    expect(cmd.parse(['node', 'cli']).opts().p2pEnabled).toBe(false);
+    expect(buildCommandWith(['P2P SUBSYSTEM']).parse(['node', 'cli', '--p2p-enabled']).opts().p2pEnabled).toBe(true);
+    expect(buildCommandWith(['P2P SUBSYSTEM']).parse(['node', 'cli', '--p2p-enabled', 'false']).opts().p2pEnabled).toBe(
+      false,
+    );
+    expect(buildCommandWith(['P2P SUBSYSTEM']).parse(['node', 'cli']).opts().p2pEnabled).toBeUndefined();
   });
 
-  it('uses numeric defaults from P2P mappings', () => {
+  it('captures explicit numeric P2P port flag', () => {
     const cmd = buildCommandWith(['P2P SUBSYSTEM']);
-    cmd.parse(['node', 'cli']);
+    cmd.parse(['node', 'cli', '--p2p.p2pPort', String(DEFAULT_P2P_PORT)]);
     const opts = cmd.opts();
     expect(opts['p2p.p2pPort']).toBe(DEFAULT_P2P_PORT);
     expect(typeof opts['p2p.p2pPort']).toBe('number');

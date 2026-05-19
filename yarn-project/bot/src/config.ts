@@ -3,8 +3,8 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -299,7 +299,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = composeConfigMap
 );
 
 export function getBotConfigFromEnv(): BotConfig {
-  return getConfigFromMappings<BotConfig>(botConfigMappings);
+  return buildConfigFromEnv<BotConfig>(botConfigMappings);
 }
 
 export function getBotDefaultConfig(): BotConfig {

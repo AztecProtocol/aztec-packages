@@ -5,27 +5,21 @@ import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootnodeConfig, BootstrapNode, bootnodeConfigMappings } from '@aztec/p2p';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { P2PBootstrapApiSchema } from '@aztec/stdlib/interfaces/server';
-import {
-  type TelemetryClientConfig,
-  initTelemetryClient,
-  telemetryClientConfigMappings,
-} from '@aztec/telemetry-client';
+import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { extractRelevantOptions } from '../util.js';
+import type { ConfigResolverFn } from '../util.js';
 
 export async function startP2PBootstrap(
-  options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
+  resolveConfig: ConfigResolverFn,
 ) {
-  // Start a P2P bootstrap node.
-  const config = extractRelevantOptions<BootnodeConfig>(options, bootnodeConfigMappings, 'p2p');
+  const config = resolveConfig<BootnodeConfig>(bootnodeConfigMappings, 'p2pBootstrap');
   const safeConfig = { ...config, peerIdPrivateKey: '<redacted>' };
   userLog(`Starting P2P bootstrap node with config: ${jsonStringify(safeConfig)}`);
 
-  const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetryClient = await initTelemetryClient(telemetryConfig);
+  const telemetryClient = await initTelemetryClient(resolveConfig(telemetryClientConfigMappings, 'tel'));
 
   const store = await createStore('p2p-bootstrap', 1, config);
   const node = new BootstrapNode(store, telemetryClient);

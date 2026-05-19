@@ -4,8 +4,8 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
   pickConfigMappings,
@@ -246,5 +246,5 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
  * Creates an instance of SequencerClientConfig out of environment variables using sensible defaults for integration testing if not set.
  */
 export function getConfigEnvVars(): SequencerClientConfig {
-  return getConfigFromMappings<SequencerClientConfig>(sequencerClientConfigMappings);
+  return buildConfigFromEnv<SequencerClientConfig>(sequencerClientConfigMappings);
 }

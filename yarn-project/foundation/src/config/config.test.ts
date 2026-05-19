@@ -4,11 +4,11 @@ import {
   ConfigLayerName,
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   cliToTyped,
   composeConfigMappings,
   envToTyped,
   findUniversalConfigKeys,
-  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
@@ -16,7 +16,7 @@ import {
 } from './index.js';
 
 describe('Config', () => {
-  describe('getConfigFromMappings', () => {
+  describe('buildConfigFromEnv', () => {
     describe('deprecatedFallback', () => {
       const originalEnv = process.env;
 
@@ -59,7 +59,7 @@ describe('Config', () => {
           },
         };
 
-        const config = getConfigFromMappings(configMappings);
+        const config = buildConfigFromEnv(configMappings);
 
         // Value should still be parsed from the deprecated env var
         expect(config.minimumPriorityFeePerGas).toBe(Number(value));
@@ -97,7 +97,7 @@ describe('Config', () => {
           },
         };
 
-        const config = getConfigFromMappings(configMappings);
+        const config = buildConfigFromEnv(configMappings);
 
         expect(config.minimumPriorityFeePerGas).toBe(Number(value));
 
@@ -129,7 +129,7 @@ describe('Config', () => {
           },
         };
 
-        const config = getConfigFromMappings(configMappings);
+        const config = buildConfigFromEnv(configMappings);
 
         expect(config.minimumPriorityFeePerGas).toBe(Number(value));
 
@@ -511,7 +511,7 @@ describe('Config', () => {
         interface TestConfig {
           value: bigint;
         }
-        const config = getConfigFromMappings<TestConfig>({
+        const config = buildConfigFromEnv<TestConfig>({
           value: {
             env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
             description: 'test',

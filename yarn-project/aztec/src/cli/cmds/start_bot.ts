@@ -5,14 +5,10 @@ import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { type AztecNode, type AztecNodeAdmin, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
-import {
-  getConfigEnvVars as getTelemetryClientConfig,
-  initTelemetryClient,
-  makeTracedFetch,
-} from '@aztec/telemetry-client';
+import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
-import { extractRelevantOptions, stringifyConfig } from '../util.js';
+import { type ConfigResolverFn, stringifyConfig } from '../util.js';
 import { getVersions } from '../versioning.js';
 
 export async function startBot(
@@ -20,6 +16,7 @@ export async function startBot(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
+  resolveConfig: ConfigResolverFn,
 ) {
   const { proverNode, sequencer, p2pBootstrap, txe, prover } = options;
   if (proverNode || sequencer || p2pBootstrap || txe || prover) {
@@ -28,32 +25,32 @@ export async function startBot(
   }
 
   const fetch = makeTracedFetch([1, 2, 3], true);
-  const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
+  const config = resolveConfig<BotConfig>(botConfigMappings, 'bot');
   if (!config.nodeUrl) {
     throw new Error('The bot requires access to a Node');
   }
 
   const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
 
-  const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+  const pxeConfig = resolveConfig<PXEConfig & CliPXEOptions>(allPxeConfigMappings, 'pxe');
   userLog(`Creating bot wallet with config ${stringifyConfig(pxeConfig)}`);
   const wallet = await EmbeddedWallet.create(aztecNode, { pxeConfig });
 
-  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
-  await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined, userLog);
+  const telemetry = await initTelemetryClient(resolveConfig(telemetryClientConfigMappings, 'tel'));
+  await addBot(signalHandlers, services, wallet, aztecNode, telemetry, resolveConfig, undefined, userLog);
 }
 
 export async function addBot(
-  options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   wallet: EmbeddedWallet,
   aztecNode: AztecNode,
   telemetry: TelemetryClient,
+  resolveConfig: ConfigResolverFn,
   aztecNodeAdmin?: AztecNodeAdmin,
   userLog?: LogFn,
 ) {
-  const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
+  const config = resolveConfig<BotConfig>(botConfigMappings, 'bot');
   userLog?.(`Starting bot with config ${stringifyConfig(config)}`);
 
   const db = await (config.dataDirectory

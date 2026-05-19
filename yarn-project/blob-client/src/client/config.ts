@@ -8,8 +8,8 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   optionalNumberConfigHelper,
   parseCommaSeparated,
   pickConfigMappings,
@@ -146,7 +146,7 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = com
  * @returns The blob client configuration.
  */
 export function getBlobClientConfigFromEnv(): BlobClientConfig {
-  return getConfigFromMappings<BlobClientConfig>(blobClientConfigMapping);
+  return buildConfigFromEnv<BlobClientConfig>(blobClientConfigMapping);
 }
 
 /**

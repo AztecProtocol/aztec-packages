@@ -1,8 +1,8 @@
 import {
   type ConfigMapping,
   type ConfigMappingsType,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { zodFor } from '@aztec/foundation/schemas';
@@ -52,5 +52,5 @@ export const LocalSignerConfigSchema = zodFor<LocalSignerConfig>()(
  * Returns the local signer configuration from environment variables.
  */
 export function getLocalSignerConfigEnvVars(): LocalSignerConfig {
-  return getConfigFromMappings<LocalSignerConfig>(localSignerConfigMappings);
+  return buildConfigFromEnv<LocalSignerConfig>(localSignerConfigMappings);
 }

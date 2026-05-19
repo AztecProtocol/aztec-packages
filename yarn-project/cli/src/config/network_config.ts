@@ -4,7 +4,6 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 
 import { cachedFetch } from './cached_fetch.js';
-import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
 
 const DEFAULT_CONFIG_URL =
   'https://raw.githubusercontent.com/AztecProtocol/networks/refs/heads/main/network_config.json';
@@ -103,49 +102,5 @@ async function fetchNetworkConfigFromUrl(
     return networkConfigMap[networkName];
   } else {
     return undefined;
-  }
-}
-
-/**
- * Enriches environment variables with remote network configuration.
- * This function is called before node config initialization to set env vars
- * from the remote config.
- *
- * @param networkName - The network name to fetch remote config for
- * @throws Error if network config fetch fails (network errors, parse errors, etc.)
- * Does not throw if the network simply doesn't exist in the config - just returns without enriching
- */
-export async function enrichEnvironmentWithNetworkConfig(networkName: NetworkNames) {
-  if (networkName === 'local') {
-    return; // No remote config for local development
-  }
-
-  const cacheDir = process.env.DATA_DIRECTORY ? join(process.env.DATA_DIRECTORY, 'cache') : undefined;
-  const networkConfig = await getNetworkConfig(networkName, cacheDir);
-
-  if (!networkConfig) {
-    return; // Network not found in config, continue without enriching
-  }
-
-  enrichVar('BOOTSTRAP_NODES', networkConfig.bootnodes.join(','));
-  enrichVar('L1_CHAIN_ID', String(networkConfig.l1ChainId));
-  enrichVar('SYNC_SNAPSHOTS_URLS', networkConfig.snapshots.join(','));
-
-  enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', networkConfig.registryAddress.toString());
-  if (networkConfig.feeAssetHandlerAddress) {
-    enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', networkConfig.feeAssetHandlerAddress.toString());
-  }
-
-  if (networkConfig.blobFileStoreUrls?.length) {
-    enrichVar('BLOB_FILE_STORE_URLS', networkConfig.blobFileStoreUrls.join(','));
-  }
-  if (networkConfig.txCollectionFileStoreUrls?.length) {
-    enrichVar('TX_COLLECTION_FILE_STORE_URLS', networkConfig.txCollectionFileStoreUrls.join(','));
-  }
-  if (networkConfig.blockDurationMs !== undefined) {
-    enrichVar('SEQ_BLOCK_DURATION_MS', String(networkConfig.blockDurationMs));
-  }
-  if (networkConfig.txPublicSetupAllowListExtend) {
-    enrichVar('TX_PUBLIC_SETUP_ALLOWLIST', networkConfig.txPublicSetupAllowListExtend);
   }
 }

@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, buildConfigFromEnv } from '@aztec/foundation/config';
 
 export type KeyStoreConfig = {
   keyStoreDirectory: string | undefined;
@@ -12,5 +12,5 @@ export const keyStoreConfigMappings: ConfigMappingsType<KeyStoreConfig> = {
 };
 
 export function getKeyStoreConfigFromEnv(): KeyStoreConfig {
-  return getConfigFromMappings<KeyStoreConfig>(keyStoreConfigMappings);
+  return buildConfigFromEnv<KeyStoreConfig>(keyStoreConfigMappings);
 }

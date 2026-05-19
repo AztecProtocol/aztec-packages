@@ -3,8 +3,8 @@ import type { GenesisStateConfig } from '@aztec/ethereum/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import {
@@ -97,7 +97,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = comp
  * @returns A valid aztec node config.
  */
 export function getConfigEnvVars(): AztecNodeConfig {
-  return getConfigFromMappings<AztecNodeConfig>(aztecNodeConfigMappings);
+  return buildConfigFromEnv<AztecNodeConfig>(aztecNodeConfigMappings);
 }
 
 type ConfigRequiredToBuildKeyStore = SequencerClientConfig & SharedNodeConfig & ValidatorClientConfig;

@@ -23,7 +23,7 @@ import { dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
 import { worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { DefaultMnemonic } from '../mnemonic.js';
+import { localNetworkCliConfigMappings } from '../local-network/config.js';
 
 // Define an interface for options
 export interface AztecStartOption {
@@ -123,19 +123,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       env: undefined,
     },
-    {
-      flag: '--local-network.l1Mnemonic <value>',
-      description:
-        'Mnemonic for L1 accounts. Will be used to generate private keys for the sequencer/validator accounts',
-      defaultValue: DefaultMnemonic,
-      env: 'MNEMONIC',
-    },
-    {
-      flag: '--local-network.testAccounts',
-      description: 'Deploy test accounts on local network start',
-      env: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(true),
-    },
+    ...getOptions('local-network', localNetworkCliConfigMappings),
   ],
   API: [
     {

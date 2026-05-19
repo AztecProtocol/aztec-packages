@@ -9,9 +9,10 @@
  */
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { createLocalNetwork } from '@aztec/aztec';
+import { type LocalNetworkConfig, createLocalNetwork, localNetworkConfigMappings } from '@aztec/aztec';
 import { Fr } from '@aztec/aztec.js/fields';
 import { WalletSchema } from '@aztec/aztec.js/wallet';
+import { buildConfigFromEnv } from '@aztec/foundation/config';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
@@ -40,13 +41,20 @@ async function main() {
 
   logger.info('Starting wallet service...', { l1RpcUrls });
 
-  // createLocalNetwork deploys L1 contracts, starts the node, and optionally deploys funded test accounts (when
-  // TEST_ACCOUNTS=true via env). We are not proving anything just like is done when local network is started by
-  // the `aztecStart` function. The extra account address is passed via prefundAddresses so it gets fee juice at genesis.
-  const { node, stop: stopNetwork } = await createLocalNetwork(
-    { l1RpcUrls, realProofs: false, prefundAddresses: [extraAccountAddress.toString()] },
-    logger.info,
-  );
+  // createLocalNetwork deploys L1 contracts, starts the node, and optionally deploys funded test accounts. We are not
+  // proving anything just like is done when local network is started by the `aztecStart` function. The extra account
+  // address is passed via prefundAddresses so it gets fee juice at genesis.
+  //
+  // No CLI options are available in this binary, so we build the full LocalNetworkConfig from env + mapping defaults.
+  // This binary always wants test accounts deployed; mapping default is false, so override explicitly.
+  const localNetworkConfig: LocalNetworkConfig = {
+    ...buildConfigFromEnv(localNetworkConfigMappings),
+    l1RpcUrls,
+    realProofs: false,
+    prefundAddresses: [extraAccountAddress.toString()],
+    testAccounts: true,
+  };
+  const { node, stop: stopNetwork } = await createLocalNetwork(localNetworkConfig, logger.info);
 
   // Create an ephemeral embedded wallet backed by the local node.
   const wallet = await EmbeddedWallet.create(node, { ephemeral: true });

@@ -11,7 +11,7 @@ import {
 } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
-import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
+import { SecretValue, buildConfigFromEnv } from '@aztec/foundation/config';
 import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -1079,7 +1079,7 @@ describe('ValidatorClient', () => {
         VALIDATOR_PRIVATE_KEYS: undefined,
       };
 
-      const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
+      const config = buildConfigFromEnv<ValidatorClientConfig>(validatorClientConfigMappings);
       expect(config.validatorPrivateKeys!.getValue()).toHaveLength(1);
       expect(config.validatorPrivateKeys!.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
     });

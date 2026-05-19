@@ -1,4 +1,4 @@
-import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, aztecNodeConfigMappings } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum/client';
@@ -25,13 +25,7 @@ import {
 } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
-import { createAztecNode } from '../../local-network/index.js';
-import {
-  extractNamespacedOptions,
-  extractRelevantOptions,
-  preloadCrsDataForVerifying,
-  setupVersionChecker,
-} from '../util.js';
+import { type ConfigResolverFn, preloadCrsDataForVerifying, setupVersionChecker } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { computeExpectedGenesisRoot, waitForCompatibleRollup } from './standby.js';
 import { startProverBroker } from './start_prover_broker.js';
@@ -43,18 +37,9 @@ export async function startNode(
   adminServices: NamespacedApiHandlers,
   userLog: LogFn,
   networkName: NetworkNames,
+  resolveConfig: ConfigResolverFn,
 ): Promise<{ config: AztecNodeConfig }> {
-  // All options set from environment variables
-  const configFromEnvVars = getConfigEnvVars();
-
-  // Extract relevant options from command line arguments
-  const relevantOptions = extractRelevantOptions(options, aztecNodeConfigMappings, 'node');
-
-  // All options that are relevant to the Aztec Node
-  let nodeConfig: AztecNodeConfig = {
-    ...configFromEnvVars,
-    ...relevantOptions,
-  };
+  let nodeConfig: AztecNodeConfig = resolveConfig(aztecNodeConfigMappings, 'node');
 
   // Prover node configuration and broker setup
   // REFACTOR: Move the broker setup out of here and into the prover-node factory
@@ -73,7 +58,7 @@ export async function startNode(
       const fetch = makeTracedFetch(proverBrokerBackoff, false, makeUndiciFetch(new Agent({ connections: 100 })));
       broker = createProvingJobBrokerClient(nodeConfig.proverBrokerUrl, getVersions(nodeConfig), fetch);
     } else if (options.proverBroker) {
-      ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));
+      ({ broker } = await startProverBroker(options, signalHandlers, services, userLog, resolveConfig));
     } else {
       userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
       process.exit(1);
@@ -101,7 +86,7 @@ export async function startNode(
     userLog,
   );
 
-  const { addresses, config } = await getL1Config(
+  const { addresses, config: l1config } = await getL1Config(
     nodeConfig.registryAddress,
     nodeConfig.l1RpcUrls,
     nodeConfig.l1ChainId,
@@ -110,37 +95,34 @@ export async function startNode(
 
   process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
 
-  if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
+  if (!Fr.fromHexString(l1config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
     throw new Error(
-      `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
+      `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${l1config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
     );
   }
 
+  // L1-authoritative merge: contract addresses and rollup constants read directly from the L1
+  // registry override anything the user supplied via CLI/ENV/network. This is intentional — the
+  // node must follow the on-chain rollup or it will desync. Kept outside `resolveConfig` because
+  // L1 is not a user-intent source like the other layers.
+  // TODO(A-1000): once L1-derived fields are removed from `aztecNodeConfigMappings`, this merge
+  // becomes a straight assembly step and the silent overwrite of any user values for these keys
+  // goes away.
   nodeConfig = {
     ...nodeConfig,
     ...addresses,
-    ...config,
+    ...l1config,
   };
 
   if (!options.sequencer && !nodeConfig.fishermanMode) {
     nodeConfig.disableValidator = true;
   } else {
-    const sequencerConfig = {
-      ...configFromEnvVars,
-      ...extractNamespacedOptions(options, 'sequencer'),
-    };
     // If no publisher private keys have been given, use the first validator key
-    if (
-      sequencerConfig.sequencerPublisherPrivateKeys === undefined ||
-      !sequencerConfig.sequencerPublisherPrivateKeys.length
-    ) {
-      if (sequencerConfig.validatorPrivateKeys?.getValue().length) {
-        sequencerConfig.sequencerPublisherPrivateKeys = [
-          new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0]),
-        ];
+    if (nodeConfig.sequencerPublisherPrivateKeys === undefined || !nodeConfig.sequencerPublisherPrivateKeys.length) {
+      if (nodeConfig.validatorPrivateKeys?.getValue().length) {
+        nodeConfig.sequencerPublisherPrivateKeys = [new SecretValue(nodeConfig.validatorPrivateKeys.getValue()[0])];
       }
     }
-    nodeConfig.sequencerPublisherPrivateKeys = sequencerConfig.sequencerPublisherPrivateKeys;
   }
 
   if (nodeConfig.p2pEnabled) {
@@ -150,11 +132,11 @@ export async function startNode(
     }
   }
 
-  const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
+  const telemetryConfig = resolveConfig<TelemetryClientConfig>(telemetryClientConfigMappings, 'tel');
   const telemetry = await initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { genesis });
+  const node = await AztecNodeService.createAndSync(nodeConfig, { telemetry, proverNodeDeps: { broker } }, { genesis });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];
@@ -177,14 +159,14 @@ export async function startNode(
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
 
-    const pxeConfig = extractRelevantOptions<PXEConfig & CliPXEOptions>(options, allPxeConfigMappings, 'pxe');
+    const pxeConfig = resolveConfig<PXEConfig & CliPXEOptions>(allPxeConfigMappings, 'pxe');
     const wallet = await EmbeddedWallet.create(node, { pxeConfig });
 
-    await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
+    await addBot(signalHandlers, services, wallet, node, telemetry, resolveConfig, undefined);
   }
 
   if (nodeConfig.enableVersionCheck && networkName !== 'local') {
-    const cacheDir = process.env.DATA_DIRECTORY ? `${process.env.DATA_DIRECTORY}/cache` : undefined;
+    const cacheDir = nodeConfig.dataDirectory ? `${nodeConfig.dataDirectory}/cache` : undefined;
     try {
       await setupVersionChecker(
         networkName,

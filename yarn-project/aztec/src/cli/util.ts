@@ -3,7 +3,17 @@ import type { AccountManager } from '@aztec/aztec.js/wallet';
 import { getNetworkConfig } from '@aztec/cli/config';
 import { RegistryContract } from '@aztec/ethereum/contracts';
 import type { ViemClient } from '@aztec/ethereum/types';
-import type { ConfigMappingsType, NetworkNames } from '@aztec/foundation/config';
+import {
+  ConfigLayerName,
+  type ConfigMappingsType,
+  type NetworkConfig,
+  type NetworkNames,
+  cliToTyped,
+  envToTyped,
+  networkConfigToTyped,
+  resolveConfig,
+  resolvedToConfig,
+} from '@aztec/foundation/config';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
@@ -131,44 +141,14 @@ export function formatHelpLine(
   return `${chalk.cyan(paddedOption)}${chalk.yellow(paddedDefault)}${chalk.green(envVar)}`;
 }
 
-const getDefaultOrEnvValue = (opt: AztecStartOption) => {
-  let val;
-
-  // if the option is set in the environment, use that
-  if (opt.env) {
-    val = process.env[opt.env];
-  }
-
-  // if we have fallback env vars, check those
-  if (!val && opt.fallback && opt.fallback.length > 0) {
-    for (const fallback of opt.fallback) {
-      val = process.env[fallback];
-      if (val) {
-        break;
-      }
-    }
-  }
-
-  // if we have a value, optionally parse it and return
-  if (val) {
-    if (opt.parseVal) {
-      return opt.parseVal(val);
-    }
-    return val;
-  } else if (opt.defaultValue !== undefined) {
-    return opt.defaultValue;
-  }
-  return undefined;
-};
-
-// Function to add options dynamically
+// Function to add options dynamically. Only the parseVal coercion is wired into Commander
 export const addOptions = (cmd: Command, options: AztecStartOption[]) => {
   options.forEach(opt => {
     cmd.option(
       opt.flag,
       `${opt.description} (default: ${opt.defaultValue}) ($${opt.env})`,
       opt.parseVal ? opt.parseVal : val => val,
-      getDefaultOrEnvValue(opt),
+      undefined,
     );
   });
 };
@@ -216,6 +196,42 @@ export const extractNamespacedOptions = (options: Record<string, any>, namespace
   }
   return namespacedOptions;
 };
+
+/** A function that resolves typed config from CLI, env, network, and default layers. */
+export type ConfigResolverFn = <T>(mappings: ConfigMappingsType<T>, namespace?: string) => T;
+
+/**
+ * Creates a config resolver that merges four sources in order of decreasing precedence:
+ *   1. CLI flags (parsed by Commander, filtered through `cliToTyped`)
+ *   2. Explicit env vars (`envToTyped` against `process.env`)
+ *   3. Network layer: remote network JSON + generated chain defaults (via `envToTyped` with stringified map)
+ *   4. Mapping `defaultValue` fields (DEFAULT layer inside `resolveConfig`)
+ *
+ * @param options - Raw Commander `opts()` object.
+ * @param remoteNetworkConfig - Fetched remote network config, or undefined for local.
+ * @param chainConfigLayer - Stringified spartan-generated network defaults keyed by env var name.
+ */
+export function createConfigResolver(
+  options: Record<string, unknown>,
+  remoteNetworkConfig: NetworkConfig | undefined,
+  chainConfigLayer: Record<string, string>,
+): ConfigResolverFn {
+  return function resolveComponentConfig<T>(mappings: ConfigMappingsType<T>, namespace?: string): T {
+    const networkLayerValues: Partial<T> = {
+      ...envToTyped(mappings, chainConfigLayer),
+      ...(remoteNetworkConfig ? networkConfigToTyped(mappings, remoteNetworkConfig) : {}),
+    };
+
+    return resolvedToConfig(
+      // NOTE: resolved object will be used for logging later
+      resolveConfig(mappings, [
+        { name: ConfigLayerName.CLI, values: cliToTyped(mappings, options, namespace) },
+        { name: ConfigLayerName.ENV, values: envToTyped(mappings) },
+        { name: ConfigLayerName.NETWORK, values: networkLayerValues },
+      ]),
+    );
+  };
+}
 
 /**
  * Extracts relevant options from a key-value map.

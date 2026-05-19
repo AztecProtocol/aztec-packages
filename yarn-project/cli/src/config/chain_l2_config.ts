@@ -12,48 +12,36 @@ const NetworkConfigs: Partial<Record<NetworkNames, NetworkConfigEnv>> = {
   mainnet: mainnetConfig,
 };
 
-function enrichEnvironmentWithNetworkConfig(config: NetworkConfigEnv): void {
-  for (const [key, value] of Object.entries(config)) {
-    if (process.env[key] === undefined && value !== undefined) {
-      process.env[key] = String(value);
-    }
-  }
-}
-
 function getDefaultDataDir(networkName: NetworkNames): string {
   return path.join(process.env.HOME || '~', '.aztec', networkName, 'data');
 }
 
 /**
- * Sets up environment for the given network.
+ * Returns the generated spartan defaults for the given network as a string-keyed env var map,
+ * suitable as the `envSource` argument to `envToTyped`. Includes a DATA_DIRECTORY default.
+ * For 'local', returns an empty map (local defaults come from the mapping `defaultValue` fields).
  *
- * For 'local' network: returns early, using hardcoded defaults from DefaultL1ContractsConfig
- * and DefaultSlasherConfig (which match the 'defaults' section of defaults.yml).
- *
- * For deployed networks: applies network configuration from generated defaults.yml,
- * merging base defaults with network-specific overrides.
- *
- * @param networkName - The network name
+ * NOTE: generated network config will be removed and we'll be fetching directly from L1
  */
-export function enrichEnvironmentWithChainName(networkName: NetworkNames) {
-  // For 'local', we don't inject any env vars - use hardcoded TypeScript/Solidity defaults
-  // These defaults are defined in defaults.yml 'defaults' section and match:
-  // - DefaultL1ContractsConfig (yarn-project/ethereum/src/config.ts)
-  // - Solidity vm.envOr defaults (l1-contracts/script/deploy/RollupConfiguration.sol)
+export function getChainConfigLayer(networkName: NetworkNames): Record<string, string> {
   if (networkName === 'local') {
-    return;
+    return {};
   }
 
   // Apply generated network config from defaults.yml
   // For devnet iterations (v4-devnet-1, etc.), use the base devnet config
   const configKey = /^v\d+-devnet-\d+$/.test(networkName) ? 'devnet' : networkName;
   const generatedConfig = NetworkConfigs[configKey];
+
+  const result: Record<string, string> = {};
   if (generatedConfig) {
-    enrichEnvironmentWithNetworkConfig(generatedConfig);
+    for (const [key, value] of Object.entries(generatedConfig)) {
+      result[key] = String(value);
+    }
   }
 
-  // Set DATA_DIRECTORY if not already set
-  if (process.env['DATA_DIRECTORY'] === undefined) {
-    process.env['DATA_DIRECTORY'] = getDefaultDataDir(networkName);
-  }
+  // Provide a network-specific DATA_DIRECTORY default (lower priority than explicit env).
+  result['DATA_DIRECTORY'] = getDefaultDataDir(networkName);
+
+  return result;
 }

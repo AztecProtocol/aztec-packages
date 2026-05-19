@@ -1,6 +1,6 @@
 import {
   type ConfigMappingsType,
-  getConfigFromMappings,
+  buildConfigFromEnv,
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
@@ -102,5 +102,5 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
  * @returns The configuration values for the world state synchronizer.
  */
 export function getWorldStateConfigFromEnv(): WorldStateConfig {
-  return getConfigFromMappings<WorldStateConfig>(worldStateConfigMappings);
+  return buildConfigFromEnv<WorldStateConfig>(worldStateConfigMappings);
 }
