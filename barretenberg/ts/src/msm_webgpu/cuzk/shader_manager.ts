@@ -6,7 +6,10 @@ import {
   batch_affine_apply_scatter as batch_affine_apply_scatter_shader,
   batch_affine_dispatch_args as batch_affine_dispatch_args_shader,
   ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
+  ba_marshal_tree_l0_bench as ba_marshal_tree_l0_bench_shader,
   ba_pair_disjoint_bench as ba_pair_disjoint_bench_shader,
+  ba_pair_disjoint_tree_bench as ba_pair_disjoint_tree_bench_shader,
+  ba_tail_reduce_bench as ba_tail_reduce_bench_shader,
   ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
   bench_batch_affine as bench_batch_affine_shader,
   batch_affine_finalize as batch_affine_finalize_shader,
@@ -780,6 +783,110 @@ ${packLines.join('\n')}
       ba_marshal_chain_bench_shader,
       { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
       { structs },
+    );
+  }
+
+  /**
+   * Tree variant of the disjoint pair-sum kernel: writes outputs in the
+   * layout the next pair-tree level expects as input, so multi-level
+   * reductions can chain without an intervening marshal pass. Per
+   * thread: 2*S inputs -> S disjoint pair sums. Final-level flag (via
+   * params.z) switches to a simple strided write for the last pass.
+   */
+  public gen_ba_pair_disjoint_tree_bench_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_pair_disjoint_tree_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_pair_disjoint_tree_bench_shader,
+      {
+        workgroup_size,
+        s,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Level-0 marshal kernel for the bench-msm-tree pipeline: transposes
+   * CSR-sorted point indices into the 2-plane strided SoA layout the
+   * tree-disjoint kernel reads. Pure memory shuffle.
+   */
+  public gen_ba_marshal_tree_l0_bench_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_marshal_tree_l0_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    return mustache.render(
+      ba_marshal_tree_l0_bench_shader,
+      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Tail kernel for the bench-msm-tree pipeline: one thread per small
+   * bucket (count < 2*S), serial per-thread chain with one fr_inv_by_a
+   * per add (no batched inversion). Bounded loop up to compile-time
+   * TAIL_CAP = 2*S - 1.
+   */
+  public gen_ba_tail_reduce_bench_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_tail_reduce_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    const tail_cap = 2 * s - 1;
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_tail_reduce_bench_shader,
+      {
+        workgroup_size,
+        tail_cap,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
     );
   }
 

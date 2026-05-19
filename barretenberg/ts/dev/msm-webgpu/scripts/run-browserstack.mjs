@@ -131,6 +131,7 @@ const pageMap = {
   "bench-ba-rev-packed-carry": "/dev/msm-webgpu/bench-ba-rev-packed-carry.html",
   "bench-msm-chain": "/dev/msm-webgpu/bench-msm-chain.html",
   "bench-ba-pair-disjoint": "/dev/msm-webgpu/bench-ba-pair-disjoint.html",
+  "bench-msm-tree": "/dev/msm-webgpu/bench-msm-tree.html",
   "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
   sanity: "/dev/msm-webgpu/index.html",
 };

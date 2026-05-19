@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MSM bucket-accumulate multi-level pair-tree bench (WebGPU)</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; line-height: 1.45; }
+      h1 { font-size: 1.25rem; }
+      #log {
+        background: #0b1020; color: #e6e6e6;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px; padding: 0.75rem; border-radius: 6px;
+        white-space: pre-wrap; overflow-x: auto; min-height: 8rem;
+      }
+      .ok { color: #6ee7b7; } .err { color: #fca5a5; } .warn { color: #fde68a; }
+    </style>
+  </head>
+  <body>
+    <h1>MSM bucket-accumulate multi-level pair-tree bench (WebGPU)</h1>
+    <p>Query params: <code>?reps=R&amp;n=N&amp;buckets=B&amp;s=S&amp;wgi=W&amp;mode=uniform|skewed&amp;disp=D</code></p>
+    <div id="log"></div>
+    <script type="module" src="./bench-msm-tree.ts"></script>
+  </body>
+</html>
