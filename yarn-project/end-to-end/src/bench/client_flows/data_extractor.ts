@@ -51,6 +51,7 @@ async function main() {
       // TODO(AD) do we still want to take this from witness.json?
       witness: witnessStack[i],
       vk: stepsFromFile[i].vk,
+      kind: stepsFromFile[i].kind,
       timings: {
         witgen: step.timings.witgen,
         gateCount: step.timings.gateCount,

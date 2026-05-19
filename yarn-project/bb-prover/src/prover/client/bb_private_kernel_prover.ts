@@ -384,6 +384,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       executionSteps.map(step => ungzip(step.bytecode)),
       barretenberg,
       executionSteps.map(step => step.functionName),
+      executionSteps.map(step => step.kind),
     );
 
     // Use compressed prove path to get both proof fields and compressed proof bytes

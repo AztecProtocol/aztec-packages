@@ -1,3 +1,4 @@
+import { CircuitKind } from '@aztec/bb.js';
 import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
@@ -145,6 +146,7 @@ export class PrivateKernelExecutionProver {
             bytecode: output.bytecode,
             witness: output.outputWitness,
             vk: output.verificationKey.keyAsBytes,
+            kind: CircuitKind.Kernel,
             timings: {
               witgen: witgenTimer.ms(),
             },
@@ -206,6 +208,7 @@ export class PrivateKernelExecutionProver {
         bytecode: output.bytecode,
         witness: output.outputWitness,
         vk: output.verificationKey.keyAsBytes,
+        kind: CircuitKind.Kernel,
         timings: {
           witgen: witgenTimer.ms(),
         },
@@ -249,6 +252,7 @@ export class PrivateKernelExecutionProver {
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
       vk: tailOutput.verificationKey.keyAsBytes,
+      kind: CircuitKind.Kernel,
       timings: {
         witgen: witgenTimer.ms(),
       },
@@ -280,6 +284,7 @@ export class PrivateKernelExecutionProver {
         bytecode: hidingOutput.bytecode,
         witness: hidingOutput.outputWitness,
         vk: hidingOutput.verificationKey.keyAsBytes,
+        kind: CircuitKind.HidingKernel,
         timings: {
           witgen: witgenTimer.ms(),
         },
@@ -385,6 +390,7 @@ export class PrivateKernelExecutionProver {
       bytecode: next.acir,
       witness: next.partialWitness,
       vk: next.vk,
+      kind: CircuitKind.App,
       timings: {
         witgen: next.profileResult?.timings.witgen ?? 0,
         oracles: next.profileResult?.timings.oracles,
@@ -588,6 +594,7 @@ export class PrivateKernelExecutionProver {
       bytecode: output.bytecode,
       witness: output.outputWitness,
       vk: output.verificationKey.keyAsBytes,
+      kind: CircuitKind.Kernel,
       timings: {
         witgen: witgenTimer.ms(),
       },

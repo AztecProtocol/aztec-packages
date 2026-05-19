@@ -1,6 +1,7 @@
 import { Barretenberg } from './index.js';
 import { ProofData, uint8ArrayToHex, hexToUint8Array } from '../proof/index.js';
 import { fromChonkProof, toChonkProof, ChonkProof } from '../cbind/generated/api_types.js';
+import { CircuitKind } from '../cbind/circuit_kind.js';
 import { ungzip } from 'pako';
 import { Decoder, Encoder } from 'msgpackr';
 
@@ -295,13 +296,7 @@ export interface AztecClientProveResult {
  * The order matches the C++ ChonkProof::to_field_elements() layout.
  */
 export function flattenChonkProofFields(proof: ChonkProof): Uint8Array[] {
-  return [
-    proof.hidingOinkProof,
-    proof.mergeProof,
-    proof.eccvmProof,
-    proof.ipaProof,
-    proof.jointProof,
-  ].flat();
+  return [proof.hidingOinkProof, proof.mergeProof, proof.eccvmProof, proof.ipaProof, proof.jointProof].flat();
 }
 
 export class AztecClientBackend {
@@ -314,7 +309,20 @@ export class AztecClientBackend {
     private acirBuf: Uint8Array[],
     private api: Barretenberg,
     private circuitNames: string[] = [],
-  ) {}
+    /**
+     * Per-step CircuitKind, one entry per `acirBuf` slot, supplied by PXE.
+     * The trailing slot must be `HidingKernel`. If omitted, the constructor falls back to a
+     * legacy heuristic (last = HidingKernel, rest = App) — kept only for callers that haven't
+     * migrated yet and produces wrong VKs for kernels.
+     */
+    private circuitKinds: CircuitKind[] = [],
+  ) {
+    if (circuitKinds.length === 0 && acirBuf.length > 0) {
+      this.circuitKinds = acirBuf.map((_, i) =>
+        i === acirBuf.length - 1 ? CircuitKind.HidingKernel : CircuitKind.App,
+      );
+    }
+  }
 
   async prove(
     witnessBuf: Uint8Array[],
@@ -328,6 +336,9 @@ export class AztecClientBackend {
     if (vksBuf.length !== 0 && vksBuf.length !== witnessBuf.length) {
       // NOTE: we allow 0 as an explicit 'I have no VKs'. This is a deprecated feature.
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
+    }
+    if (this.circuitKinds.length !== this.acirBuf.length) {
+      throw new AztecClientBackendError('circuitKinds must have one entry per bytecode!');
     }
 
     // Queue IVC start with the number of circuits
@@ -347,6 +358,7 @@ export class AztecClientBackend {
           bytecode: bytecode,
           verificationKey: vk,
         },
+        kind: this.circuitKinds[i],
       });
 
       // Accumulate with witness
@@ -359,13 +371,13 @@ export class AztecClientBackend {
     const proveResult = await this.api.chonkProve({});
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
-    // Generate the hiding kernel VK (always the last circuit, proven as MegaZK).
+    // Generate the hiding kernel VK from the last accumulated circuit (proven as MegaZK).
     const vkResult = await this.api.chonkComputeVk({
       circuit: {
         name: this.circuitNames[lastIdx] || 'circuit',
         bytecode: this.acirBuf[lastIdx],
       },
-      useZkFlavor: true,
+      kind: CircuitKind.HidingKernel,
     });
 
     const proofFields = flattenChonkProofFields(proveResult.proof);
@@ -493,4 +505,3 @@ export function fieldToString(field: Uint8Array, radix: number = 10): string {
 export function fieldsToStrings(fields: Uint8Array[], radix: number = 10): string[] {
   return fields.map(field => fieldToString(field, radix));
 }
-
