@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_fixture.hpp"
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
@@ -418,11 +419,18 @@ TYPED_TEST(HonkRecursionConstraintTestWithPredicate, GateCountSingleHonkRecursio
         auto [EXPECTED_GATE_COUNT, EXPECTED_ULTRA_OPS] = HONK_RECURSION_CONSTANTS<RecursiveFlavor>(predicate_mode);
 
         // Assert gate count
+        const auto observe_flavor = gate_count_fixture::honk_recursion_flavor_key<RecursiveFlavor>();
+        const auto observe_mode = gate_count_fixture::predicate_mode_key(predicate_mode);
+        BB_OBSERVE_GATE_COUNT(gate_count_fixture::honk_recursion_constants_key(observe_flavor, observe_mode, "gates"),
+                              program.constraints.gates_per_opcode[0]);
         EXPECT_EQ(program.constraints.gates_per_opcode[0], EXPECTED_GATE_COUNT);
 
         // For MegaBuilder, also assert ultra ops count
         if constexpr (IsMegaBuilder<Builder>) {
             size_t actual_ultra_ops = builder.op_queue->get_current_subtable_size();
+            BB_OBSERVE_GATE_COUNT(
+                gate_count_fixture::honk_recursion_constants_key(observe_flavor, observe_mode, "ultra_ops"),
+                actual_ultra_ops);
             EXPECT_EQ(actual_ultra_ops, EXPECTED_ULTRA_OPS);
         }
     }
@@ -497,5 +505,6 @@ TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GateCountRootRollup)
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
 
     // Assert gate count
+    BB_OBSERVE_GATE_COUNT("ROOT_ROLLUP_GATE_COUNT", builder.get_num_finalized_gates_inefficient());
     EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), ROOT_ROLLUP_GATE_COUNT);
 }

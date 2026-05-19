@@ -661,6 +661,13 @@ case "$cmd" in
     prep
     barretenberg/cpp/bootstrap.sh chonk_input_update
     ;;
+  "ci-gate-count-update")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=0
+    prep
+    barretenberg/cpp/bootstrap.sh gate_count_update
+    ;;
   "ci-grind-test")
     export CI=1
     export USE_TEST_CACHE=0

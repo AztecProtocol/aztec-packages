@@ -67,6 +67,11 @@ function main {
   if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && { has_label "ci-refresh-chonk" || head_commit_has_marker "--ci-refresh-chonk"; }; then
     chonk_input_update_requested=1
   fi
+  local gate_count_update=0
+  local gate_count_update_requested=0
+  if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ] && { has_label "ci-refresh-gates" || head_commit_has_marker "--ci-refresh-gates"; }; then
+    gate_count_update_requested=1
+  fi
   local ci_skip_requested=0
   if has_label "ci-skip" || head_commit_has_marker "--ci-skip"; then
     ci_skip_requested=1
@@ -90,12 +95,30 @@ function main {
     exit 1
   fi
 
+  if [ "$ci_skip_requested" -eq 0 ] && [ "$gate_count_update_requested" -eq 1 ] && [ "${#explicit_ci_mode_labels[@]}" -gt 0 ]; then
+    echo "ERROR: ci-refresh-gates cannot be combined with explicit CI mode labels: $(join_by ', ' "${explicit_ci_mode_labels[@]}"). Remove the mode label, or use ci-skip/--ci-skip to skip without refreshing gate counts." >&2
+    exit 1
+  fi
+
+  if [ "$ci_skip_requested" -eq 0 ] && [ "$gate_count_update_requested" -eq 1 ] && [ "$chonk_input_update_requested" -eq 1 ]; then
+    echo "ERROR: ci-refresh-gates and ci-refresh-chonk cannot run in the same PR run. Apply one label/marker at a time so each refresh pushes a clean diff." >&2
+    exit 1
+  fi
+
   # Chonk input updates are side-effecting internal PR-only work. The main CI
   # run behaves like ci-skip until post-actions regenerate and push the diff.
   if [ "$chonk_input_update_requested" -eq 1 ] && [ "$ci_skip_requested" -eq 0 ]; then
     chonk_input_update=1
   fi
   echo "CHONK_INPUT_UPDATE_REQUESTED=$chonk_input_update" >> $GITHUB_ENV
+
+  # Gate-count refresh follows the same shape: main CI skipped, the refresh
+  # script runs in post-actions and pushes the updated fixture + regenerated
+  # header back to the PR.
+  if [ "$gate_count_update_requested" -eq 1 ] && [ "$ci_skip_requested" -eq 0 ]; then
+    gate_count_update=1
+  fi
+  echo "GATE_COUNT_UPDATE_REQUESTED=$gate_count_update" >> $GITHUB_ENV
 
   # Determine CI mode based on event, labels, and target branch
   local ci_mode
@@ -125,6 +148,9 @@ function main {
     fi
   elif [ "$chonk_input_update" -eq 1 ]; then
     echo "WARNING: Skipping main CI because Chonk input refresh was requested; the update step will run after this step succeeds." >&2
+    ci_mode="skip"
+  elif [ "$gate_count_update" -eq 1 ]; then
+    echo "WARNING: Skipping main CI because gate-count refresh was requested; the update step will run after this step succeeds." >&2
     ci_mode="skip"
   elif has_label "ci-release-pr"; then
     ci_mode="release-pr"

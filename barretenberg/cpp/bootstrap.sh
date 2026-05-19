@@ -417,6 +417,15 @@ function chonk_input_update {
   scripts/ci_update_chonk_inputs.sh
 }
 
+function gate_count_update {
+  echo_header "bb gate-count refresh"
+  # Build the test binaries that own the pinned gate-count assertions.
+  cmake --preset "$native_preset"
+  cmake --build --preset "$native_preset" \
+    --target dsl_tests stdlib_eccvm_verifier_tests stdlib_honk_verifier_tests
+  scripts/ci_update_gate_counts.sh
+}
+
 case "$cmd" in
   "")
     build

@@ -1,6 +1,7 @@
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_fixture.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -147,6 +148,7 @@ TEST_F(AvmRecursionConstraintTest, DISABLED_GateCountAndVKCheck)
     auto builder = create_circuit<Builder>(program, metadata);
 
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
+    BB_OBSERVE_GATE_COUNT("GOBLIN_AVM_GATE_COUNT", program.constraints.gates_per_opcode[0]);
     EXPECT_EQ(program.constraints.gates_per_opcode[0], GOBLIN_AVM_GATE_COUNT);
 
     auto prover_instance = std::make_shared<ProverInstance>(builder);

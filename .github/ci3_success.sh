@@ -66,11 +66,25 @@ function handle_chonk_input_update {
   ./.github/ci3.sh chonk-input-update
 }
 
+function handle_gate_count_update {
+  local github_repository="$1"
+  if [ "${GATE_COUNT_UPDATE_REQUESTED:-0}" -eq 0 ]; then
+    return 1
+  fi
+  echo_header "Gate-Count Update"
+  export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$github_repository}"
+  ./.github/ci3.sh gate-count-update
+}
+
 function main {
   echo_header "CI3 Post-Actions"
   # Get repository from git remote
   local github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
   if handle_chonk_input_update "${github_repository}"; then
+    echo_header "Post-Actions Complete"
+    return
+  fi
+  if handle_gate_count_update "${github_repository}"; then
     echo_header "Post-Actions Complete"
     return
   fi

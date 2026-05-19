@@ -2,6 +2,7 @@
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_fixture.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 
 #include <gtest/gtest.h>
@@ -136,5 +137,6 @@ TEST_F(ChonkRecursionConstraintTest, GateCountChonkRecursion)
     // Verify the gate count was recorded
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
+    BB_OBSERVE_GATE_COUNT("CHONK_RECURSION_GATES", program.constraints.gates_per_opcode[0]);
     EXPECT_EQ(program.constraints.gates_per_opcode[0], CHONK_RECURSION_GATES);
 }

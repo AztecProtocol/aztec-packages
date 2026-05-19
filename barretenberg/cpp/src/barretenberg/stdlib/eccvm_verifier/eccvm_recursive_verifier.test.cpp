@@ -1,6 +1,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_fixture.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
@@ -154,6 +155,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         }
 
         // Check that the size of the recursive verifier is consistent with historical expectation
+        BB_OBSERVE_GATE_COUNT("ECCVM_RECURSIVE_VERIFIER_GATE_COUNT", outer_circuit.get_num_finalized_gates());
         ASSERT_EQ(outer_circuit.get_num_finalized_gates(), acir_format::ECCVM_RECURSIVE_VERIFIER_GATE_COUNT)
             << "Ultra-arithmetized ECCVM Recursive verifier gate count changed! Update this value if you are sure this "
                "is expected.";

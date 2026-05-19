@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_fixture.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/test_utils/proof_structures.hpp"
 #include "barretenberg/honk/proof_length.hpp"
@@ -291,6 +292,11 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
             const auto expected_gate_count = std::get<0>(acir_format::HONK_RECURSION_CONSTANTS<RecursiveFlavor>());
+            const auto observe_flavor =
+                acir_format::gate_count_fixture::honk_recursion_flavor_key<RecursiveFlavor>();
+            BB_OBSERVE_GATE_COUNT(
+                acir_format::gate_count_fixture::honk_recursion_constants_key(observe_flavor, "ConstantTrue", "gates"),
+                outer_circuit.get_num_finalized_gates());
             ASSERT_EQ(outer_circuit.get_num_finalized_gates(), expected_gate_count)
                 << "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
                    "are sure this is expected.";

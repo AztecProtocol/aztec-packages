@@ -1,0 +1,41 @@
+{
+  "$comment": "Canonical pinned gate-count fixture. Edit by running tests with BB_GATE_COUNT_OBSERVED_DIR set (or PR label ci-refresh-gates / head-commit marker --ci-refresh-gates), then regenerating gate_count_constants.hpp via gen_gate_count_constants.py. See barretenberg/cpp/scripts/README.md and barretenberg/cpp/CLAUDE.md.",
+  "ROOT_ROLLUP_GATE_COUNT": 6351394,
+  "CHONK_RECURSION_GATES": 1563553,
+  "ECCVM_RECURSIVE_VERIFIER_GATE_COUNT": 220788,
+  "GOBLIN_AVM_GATE_COUNT": 3316528,
+  "FINALIZED_GOBLIN_AVM_GATE_COUNT": 3316544,
+  "INIT_KERNEL_GATE_COUNT": 13449,
+  "INIT_KERNEL_ECC_ROWS_BASE": 623,
+  "INIT_KERNEL_ULTRA_OPS": 70,
+  "INNER_KERNEL_GATE_COUNT_HN": 31092,
+  "INNER_KERNEL_ECC_ROWS_BASE": 1312,
+  "INNER_KERNEL_ULTRA_OPS": 149,
+  "TAIL_KERNEL_GATE_COUNT": 17323,
+  "TAIL_KERNEL_ECC_ROWS_BASE": 656,
+  "TAIL_KERNEL_ULTRA_OPS": 72,
+  "HIDING_KERNEL_GATE_COUNT": 39627,
+  "HIDING_KERNEL_ECC_ROWS_BASE": 4872,
+  "HIDING_KERNEL_ULTRA_OPS": 334,
+  "HONK_RECURSION_CONSTANTS": {
+    "UltraRecursive_Ultra": {
+      "ConstantTrue": [681670, 0],
+      "Witness":      [682727, 0]
+    },
+    "UltraZKRecursive_Ultra": {
+      "ConstantTrue": [703410, 0],
+      "Witness":      [704563, 0]
+    },
+    "UltraRecursive_Mega": {
+      "ConstantTrue": [11848, 73],
+      "Witness":      [12905, 73]
+    },
+    "UltraZKRecursive_Mega": {
+      "ConstantTrue": [14506, 77],
+      "Witness":      [15659, 77]
+    },
+    "MegaZKRecursive_Ultra": {
+      "ConstantTrue": [856820, 0]
+    }
+  }
+}

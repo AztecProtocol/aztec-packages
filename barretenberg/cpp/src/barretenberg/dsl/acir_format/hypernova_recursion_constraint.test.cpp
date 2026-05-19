@@ -4,6 +4,7 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
+#include "barretenberg/dsl/acir_format/gate_count_fixture.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
@@ -627,14 +628,17 @@ TEST_F(HypernovaRecursionConstraintTest, InitKernelGateCount)
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
     // Assert gate count
+    BB_OBSERVE_GATE_COUNT("INIT_KERNEL_GATE_COUNT", program.constraints.gates_per_opcode[0]);
     EXPECT_EQ(program.constraints.gates_per_opcode[0], INIT_KERNEL_GATE_COUNT);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    BB_OBSERVE_GATE_COUNT("INIT_KERNEL_ECC_ROWS_BASE", actual_ecc_rows - MSM_ROWS_OFFSET);
     EXPECT_EQ(actual_ecc_rows, INIT_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    BB_OBSERVE_GATE_COUNT("INIT_KERNEL_ULTRA_OPS", actual_ultra_ops);
     EXPECT_EQ(actual_ultra_ops, INIT_KERNEL_ULTRA_OPS);
 }
 
@@ -660,14 +664,17 @@ TEST_F(HypernovaRecursionConstraintTest, InnerKernelGateCount)
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 2);
 
     // Assert gate counts (HN verification + OINK verification)
+    BB_OBSERVE_GATE_COUNT("INNER_KERNEL_GATE_COUNT_HN", program.constraints.gates_per_opcode[0]);
     EXPECT_EQ(program.constraints.gates_per_opcode[0], INNER_KERNEL_GATE_COUNT_HN);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    BB_OBSERVE_GATE_COUNT("INNER_KERNEL_ECC_ROWS_BASE", actual_ecc_rows - MSM_ROWS_OFFSET);
     EXPECT_EQ(actual_ecc_rows, INNER_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    BB_OBSERVE_GATE_COUNT("INNER_KERNEL_ULTRA_OPS", actual_ultra_ops);
     EXPECT_EQ(actual_ultra_ops, INNER_KERNEL_ULTRA_OPS);
 }
 
@@ -692,14 +699,17 @@ TEST_F(HypernovaRecursionConstraintTest, TailKernelGateCount)
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
     // Assert gate count
+    BB_OBSERVE_GATE_COUNT("TAIL_KERNEL_GATE_COUNT", program.constraints.gates_per_opcode[0]);
     EXPECT_EQ(program.constraints.gates_per_opcode[0], TAIL_KERNEL_GATE_COUNT);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    BB_OBSERVE_GATE_COUNT("TAIL_KERNEL_ECC_ROWS_BASE", actual_ecc_rows - MSM_ROWS_OFFSET);
     EXPECT_EQ(actual_ecc_rows, TAIL_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    BB_OBSERVE_GATE_COUNT("TAIL_KERNEL_ULTRA_OPS", actual_ultra_ops);
     EXPECT_EQ(actual_ultra_ops, TAIL_KERNEL_ULTRA_OPS);
 }
 
@@ -724,14 +734,17 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
     EXPECT_EQ(program.constraints.gates_per_opcode.size(), 1);
 
     // Assert gate count
+    BB_OBSERVE_GATE_COUNT("HIDING_KERNEL_GATE_COUNT", program.constraints.gates_per_opcode[0]);
     EXPECT_EQ(program.constraints.gates_per_opcode[0], HIDING_KERNEL_GATE_COUNT);
 
     // Assert ECC row count
     size_t actual_ecc_rows = kernel.op_queue->get_num_rows();
+    BB_OBSERVE_GATE_COUNT("HIDING_KERNEL_ECC_ROWS_BASE", actual_ecc_rows - MSM_ROWS_OFFSET);
     EXPECT_EQ(actual_ecc_rows, HIDING_KERNEL_ECC_ROWS);
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
+    BB_OBSERVE_GATE_COUNT("HIDING_KERNEL_ULTRA_OPS", actual_ultra_ops);
     EXPECT_EQ(actual_ultra_ops, HIDING_KERNEL_ULTRA_OPS);
 }
 
