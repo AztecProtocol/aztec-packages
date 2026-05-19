@@ -4,6 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
+ultrahonk_bench_dir=ultrahonk-bench-inputs
 
 function build {
   cache_load_image consensys/web3signer:25.11.0
@@ -135,11 +136,17 @@ function build_bench_capture {
     client_flows/storage_proof
 }
 
-# Captures Chonk IVC inputs for refreshing the pinned tarball.
-# Chonk benchmark commands live in barretenberg/cpp/bootstrap.sh.
+# Builds benchmark fixtures that are still owned by yarn-project.
+# Chonk benchmark inputs are pinned and managed by barretenberg/cpp.
 function build_bench {
   rm -rf bench-out && mkdir -p bench-out
-  build_bench_capture
+
+  rm -rf "$ultrahonk_bench_dir" && mkdir -p "$ultrahonk_bench_dir"
+  if ! cache_download "bb-ultrahonk-bench-inputs-$hash.tar.gz"; then
+    export BASE_PARITY_BENCH_DIR="$(pwd)/$ultrahonk_bench_dir"
+    yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
+    cache_upload "bb-ultrahonk-bench-inputs-$hash.tar.gz" "$ultrahonk_bench_dir"
+  fi
 }
 
 function bench {
