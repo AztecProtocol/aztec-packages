@@ -28,12 +28,6 @@ export class RevertCode {
   }
   static readonly OK: RevertCode = new RevertCode(RevertCodeEnum.OK);
   static readonly REVERTED: RevertCode = new RevertCode(RevertCodeEnum.REVERTED);
-  /** @deprecated Use REVERTED instead. */
-  static readonly APP_LOGIC_REVERTED: RevertCode = RevertCode.REVERTED;
-  /** @deprecated Use REVERTED instead. */
-  static readonly TEARDOWN_REVERTED: RevertCode = RevertCode.REVERTED;
-  /** @deprecated Use REVERTED instead. */
-  static readonly BOTH_REVERTED: RevertCode = RevertCode.REVERTED;
 
   public getCode(): RevertCodeEnum {
     return this.code;

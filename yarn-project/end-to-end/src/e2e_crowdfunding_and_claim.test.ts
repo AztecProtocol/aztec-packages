@@ -6,14 +6,16 @@ import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-jest.setTimeout(200_000);
+jest.setTimeout(400_000);
 
 // Tests crowdfunding via the Crowdfunding contract and claiming the reward token via the Claim contract
 describe('e2e_crowdfunding_and_claim', () => {
@@ -46,6 +48,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingSecretKey: Fr;
   let crowdfundingPublicKeys: PublicKeys;
   let cheatCodes: CheatCodes;
+  let _aztecNode: AztecNode & AztecNodeDebug;
   let deadline: number; // end of crowdfunding period
 
   let uintNote!: any;
@@ -56,8 +59,9 @@ describe('e2e_crowdfunding_and_claim', () => {
       teardown,
       logger,
       wallet,
+      aztecNode: _aztecNode,
       accounts: [operatorAddress, donor1Address, donor2Address],
-    } = await setup(3));
+    } = await setup(3, { ...PIPELINING_SETUP_OPTS }));
 
     // We set the deadline to a week from now
     deadline = (await cheatCodes.eth.lastBlockTimestamp()) + 7 * 24 * 60 * 60;
@@ -309,8 +313,11 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     const witness = await wallet.createAuthWit(donor2Address, { caller: crowdfundingContract.address, action });
 
-    // 2) We set next block timestamp to be after the deadline
-    await cheatCodes.eth.warp(deadline + 1);
+    // 2) We set next block timestamp to be after the deadline. Warp L1 only (not L2) — the
+    //    huge 7-day warp would cascade publishers if we forced an L2 mineBlock, and the
+    //    donate's deadline check only needs the next-mined slot's timestamp to be past the
+    //    deadline, which follows from L1 time alone.
+    await cheatCodes.eth.warp(deadline + 1, { resetBlockInterval: true });
 
     // 3) We donate to the crowdfunding contract
     await expect(

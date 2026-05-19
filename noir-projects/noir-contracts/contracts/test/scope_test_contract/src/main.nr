@@ -145,7 +145,6 @@ pub contract ScopeTest {
             assert_eq(read_value, value);
         }
 
-
         #[test]
         unconstrained fn owner_can_view_own_notes() {
             let (mut env, contract_address) = setup();

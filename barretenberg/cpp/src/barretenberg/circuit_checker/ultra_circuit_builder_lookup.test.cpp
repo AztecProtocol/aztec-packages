@@ -77,9 +77,10 @@ TEST_F(UltraCircuitBuilderLookup, StepSizeCoefficients)
     for (size_t i = 0; i < num_lookups; ++i) {
         const auto& table = builder.get_table(multi_table.basic_table_ids[i]);
         EXPECT_EQ(builder.blocks.lookup.q_3()[i], fr(table.table_index)); // unique table identifier
-        EXPECT_EQ(builder.blocks.lookup.q_lookup()[i], fr(1));            // gate selector should be "on"
-        EXPECT_EQ(builder.blocks.lookup.q_1()[i], fr(0));                 // unused in lookup gates
-        EXPECT_EQ(builder.blocks.lookup.q_4()[i], fr(0));                 // unused in lookup gates
+        EXPECT_EQ(builder.blocks.lookup.gate_selector_for(bb::GateKind::Lookup)[i],
+                  fr(1));                                 // gate selector should be "on"
+        EXPECT_EQ(builder.blocks.lookup.q_1()[i], fr(0)); // unused in lookup gates
+        EXPECT_EQ(builder.blocks.lookup.q_4()[i], fr(0)); // unused in lookup gates
     }
 
     EXPECT_TRUE(CircuitChecker::check(builder));

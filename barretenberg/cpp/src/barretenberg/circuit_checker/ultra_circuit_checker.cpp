@@ -376,22 +376,22 @@ void UltraCircuitChecker::populate_values(
     values.q_r = block.q_2()[idx];
     values.q_o = block.q_3()[idx];
     values.q_4 = block.q_4()[idx];
-    values.q_arith = block.q_arith()[idx];
-    values.q_delta_range = block.q_delta_range()[idx];
-    values.q_elliptic = block.q_elliptic()[idx];
-    values.q_memory = block.q_memory()[idx];
-    values.q_nnf = block.q_nnf()[idx];
-    values.q_lookup = block.q_lookup()[idx];
-    values.q_poseidon2_external = block.q_poseidon2_external()[idx];
+    values.q_arith = read_gate_selector(block, GateKind::Arith, idx);
+    values.q_delta_range = read_gate_selector(block, GateKind::DeltaRange, idx);
+    values.q_elliptic = read_gate_selector(block, GateKind::Elliptic, idx);
+    values.q_memory = read_gate_selector(block, GateKind::Memory, idx);
+    values.q_nnf = read_gate_selector(block, GateKind::Nnf, idx);
+    values.q_lookup = read_gate_selector(block, GateKind::Lookup, idx);
+    values.q_poseidon2_external = read_gate_selector(block, GateKind::Poseidon2Ext, idx);
     if constexpr (IsMegaBuilder<Builder>) {
         values.q_5 = block.q_5()[idx];
-        values.q_poseidon2_external_initial = block.q_poseidon2_external_initial()[idx];
-        values.q_poseidon2_quad_internal = block.q_poseidon2_quad_internal()[idx];
-        values.q_poseidon2_quad_internal_terminal = block.q_poseidon2_quad_internal_terminal()[idx];
-        values.q_poseidon2_transition_entry = block.q_poseidon2_transition_entry()[idx];
-        values.q_busread = block.q_busread()[idx];
+        values.q_poseidon2_external_initial = read_gate_selector(block, GateKind::Poseidon2ExtInitial, idx);
+        values.q_poseidon2_quad_internal = read_gate_selector(block, GateKind::Poseidon2QuadInt, idx);
+        values.q_poseidon2_quad_internal_terminal = read_gate_selector(block, GateKind::Poseidon2QuadIntTerminal, idx);
+        values.q_poseidon2_transition_entry = read_gate_selector(block, GateKind::Poseidon2TransitionEntry, idx);
+        values.q_busread = read_gate_selector(block, GateKind::BusRead, idx);
     } else {
-        values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
+        values.q_poseidon2_internal = read_gate_selector(block, GateKind::Poseidon2Int, idx);
     }
 }
 
@@ -433,7 +433,7 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
     // Processed blocks check
     auto block = builder.blocks.delta_range;
     for (size_t idx = 0; idx < block.size(); idx++) {
-        if (block.q_delta_range()[idx] == 0) {
+        if (block.gate_selector_for(GateKind::DeltaRange)[idx] == 0) {
             continue;
         }
         bb::fr w1 = builder.get_variable(block.w_l()[idx]);

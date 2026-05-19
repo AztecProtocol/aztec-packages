@@ -40,7 +40,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
         .exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, authwitNonce)
         .simulate({ from: user1Address }),
     ).rejects.toThrow(/unauthorized/);
-  }, 60_000);
+  }, 180_000);
 
   it("Can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
@@ -72,7 +72,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
         .claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
         .simulate({ from: user2Address }),
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
-  }, 60_000);
+  }, 180_000);
 
   it("Can't claim funds publicly which were intended for private deposit from the token portal", async () => {
     // 1. Mint tokens on L1

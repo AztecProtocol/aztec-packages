@@ -78,6 +78,15 @@ template <typename Curve> struct ClaimBatcher_ {
         }
         if (shifted) {
             // r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
+            //
+            // This scalar is the verifier-side to-be-shifted-by-one PCS contract: every commitment in
+            // `shifted.commitments` is required to be a commitment to a polynomial with constant term zero.
+            // A commitment to a polynomial with poly[0] != 0 opens to G(r)/r = poly[0]/r + G_shift(r) on
+            // the commitment side, whereas the claimed MLE evaluation poly_shift(u) reconstructs to
+            // G_shift(r) at the Gemini challenge. The two sides differ by poly[0]/r, the Shplonk quotient
+            // is then not a polynomial, and the KZG pairing check rejects with overwhelming probability
+            // over the FS challenges.
+            // Regression: commitment_schemes/shplonk/shplemini.test.cpp::ToBeShiftedNonZeroConstantTermRejected.
             shifted->scalar =
                 r_challenge.invert() * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
         }

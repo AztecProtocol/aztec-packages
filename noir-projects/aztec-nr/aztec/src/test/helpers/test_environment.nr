@@ -1,7 +1,8 @@
 use crate::protocol::{
-    abis::function_selector::FunctionSelector,
+    abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
-    traits::{Deserialize, FromField, Packable, Serialize},
+    constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
+    traits::{Deserialize, Empty, FromField, Packable, Serialize},
 };
 
 use crate::{
@@ -91,14 +92,26 @@ pub struct TestEnvironment {
 pub struct PrivateContextOptions {
     contract_address: Option<AztecAddress>,
     anchor_block_number: Option<u32>,
+    gas_limits: Option<Gas>,
+    teardown_gas_limits: Option<Gas>,
+    max_fees_per_gas: Option<GasFees>,
+    max_priority_fees_per_gas: Option<GasFees>,
 }
 
 impl PrivateContextOptions {
-    /// Creates a new `PrivateContextOptions` with default values, i.e. the same as if using the `private_context`
-    /// method instead of `private_context_opts`. Use the `at_anchor_block_number` and other methods to set the desired
+    /// Creates a new `PrivateContextOptions` with default values, i.e. the same as if using
+    /// [`TestEnvironment::private_context`] instead of [`TestEnvironment::private_context_opts`]. Use
+    /// [`at_anchor_block_number`](PrivateContextOptions::at_anchor_block_number) and other methods to set the desired
     /// configuration values.
     pub fn new() -> Self {
-        Self { contract_address: Option::none(), anchor_block_number: Option::none() }
+        Self {
+            contract_address: Option::none(),
+            anchor_block_number: Option::none(),
+            gas_limits: Option::none(),
+            teardown_gas_limits: Option::none(),
+            max_fees_per_gas: Option::none(),
+            max_priority_fees_per_gas: Option::none(),
+        }
     }
 
     /// Sets the desired anchor block number to base the private context in. Only past block numbers can be specified.
@@ -114,6 +127,61 @@ impl PrivateContextOptions {
     pub fn at_contract_address(&mut self, contract_address: AztecAddress) -> Self {
         self.contract_address = Option::some(contract_address);
         *self
+    }
+
+    /// Sets the gas limits for the transaction.
+    ///
+    /// If not set, defaults to the maximum the protocol allows.
+    pub fn with_gas_limits(&mut self, gas_limits: Gas) -> Self {
+        self.gas_limits = Option::some(gas_limits);
+        *self
+    }
+
+    /// Sets the teardown gas limits for the transaction.
+    ///
+    /// If not set, defaults to 1/8 of the protocol maximum.
+    pub fn with_teardown_gas_limits(&mut self, teardown_gas_limits: Gas) -> Self {
+        self.teardown_gas_limits = Option::some(teardown_gas_limits);
+        *self
+    }
+
+    /// Sets the maximum fees per gas unit the sender is willing to pay.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_fees_per_gas(&mut self, max_fees_per_gas: GasFees) -> Self {
+        self.max_fees_per_gas = Option::some(max_fees_per_gas);
+        *self
+    }
+
+    /// Sets the maximum priority fees per gas unit.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_priority_fees_per_gas(&mut self, max_priority_fees_per_gas: GasFees) -> Self {
+        self.max_priority_fees_per_gas = Option::some(max_priority_fees_per_gas);
+        *self
+    }
+
+    /// Sets all gas settings at once.
+    ///
+    /// Equivalent to calling [`with_gas_limits`](PrivateContextOptions::with_gas_limits),
+    /// [`with_teardown_gas_limits`](PrivateContextOptions::with_teardown_gas_limits),
+    /// [`with_max_fees_per_gas`](PrivateContextOptions::with_max_fees_per_gas), and
+    /// [`with_max_priority_fees_per_gas`](PrivateContextOptions::with_max_priority_fees_per_gas) individually.
+    pub fn with_gas_settings(&mut self, gas_settings: GasSettings) -> Self {
+        self.gas_limits = Option::some(gas_settings.gas_limits);
+        self.teardown_gas_limits = Option::some(gas_settings.teardown_gas_limits);
+        self.max_fees_per_gas = Option::some(gas_settings.max_fees_per_gas);
+        self.max_priority_fees_per_gas = Option::some(gas_settings.max_priority_fees_per_gas);
+        *self
+    }
+
+    fn resolve_gas_settings(self) -> GasSettings {
+        resolve_gas_settings(
+            self.gas_limits,
+            self.teardown_gas_limits,
+            self.max_fees_per_gas,
+            self.max_priority_fees_per_gas,
+        )
     }
 }
 
@@ -135,6 +203,10 @@ struct UtilityContextOptions {
 pub struct CallPrivateOptions<let N: u32, let T: u32> {
     additional_scopes: [AztecAddress; N],
     authorized_utility_call_targets: [AztecAddress; T],
+    gas_limits: Option<Gas>,
+    teardown_gas_limits: Option<Gas>,
+    max_fees_per_gas: Option<GasFees>,
+    max_priority_fees_per_gas: Option<GasFees>,
 }
 
 impl CallPrivateOptions<0, 0> {
@@ -143,7 +215,14 @@ impl CallPrivateOptions<0, 0> {
     /// The default values are the same as if using [`TestEnvironment::call_private`] instead of
     /// [`TestEnvironment::call_private_opts`].
     pub fn new() -> Self {
-        CallPrivateOptions { additional_scopes: [], authorized_utility_call_targets: [] }
+        CallPrivateOptions {
+            additional_scopes: [],
+            authorized_utility_call_targets: [],
+            gas_limits: Option::none(),
+            teardown_gas_limits: Option::none(),
+            max_fees_per_gas: Option::none(),
+            max_priority_fees_per_gas: Option::none(),
+        }
     }
 }
 
@@ -159,7 +238,14 @@ impl<let N: u32, let T: u32> CallPrivateOptions<N, T> {
         self,
         additional_scopes: [AztecAddress; N_2],
     ) -> CallPrivateOptions<N_2, T> {
-        CallPrivateOptions { additional_scopes, authorized_utility_call_targets: self.authorized_utility_call_targets }
+        CallPrivateOptions {
+            additional_scopes,
+            authorized_utility_call_targets: self.authorized_utility_call_targets,
+            gas_limits: self.gas_limits,
+            teardown_gas_limits: self.teardown_gas_limits,
+            max_fees_per_gas: self.max_fees_per_gas,
+            max_priority_fees_per_gas: self.max_priority_fees_per_gas,
+        }
     }
 
     /// Authorizes cross-contract utility calls to the given target contracts during this call.
@@ -170,7 +256,69 @@ impl<let N: u32, let T: u32> CallPrivateOptions<N, T> {
         self,
         targets: [AztecAddress; T_2],
     ) -> CallPrivateOptions<N, T_2> {
-        CallPrivateOptions { additional_scopes: self.additional_scopes, authorized_utility_call_targets: targets }
+        CallPrivateOptions {
+            additional_scopes: self.additional_scopes,
+            authorized_utility_call_targets: targets,
+            gas_limits: self.gas_limits,
+            teardown_gas_limits: self.teardown_gas_limits,
+            max_fees_per_gas: self.max_fees_per_gas,
+            max_priority_fees_per_gas: self.max_priority_fees_per_gas,
+        }
+    }
+
+    /// Sets the gas limits for the transaction.
+    ///
+    /// If not set, defaults to the maximum the protocol allows.
+    pub fn with_gas_limits(mut self, gas_limits: Gas) -> Self {
+        self.gas_limits = Option::some(gas_limits);
+        self
+    }
+
+    /// Sets the teardown gas limits for the transaction.
+    ///
+    /// If not set, defaults to 1/8 of the protocol maximum.
+    pub fn with_teardown_gas_limits(mut self, teardown_gas_limits: Gas) -> Self {
+        self.teardown_gas_limits = Option::some(teardown_gas_limits);
+        self
+    }
+
+    /// Sets the maximum fees per gas unit the sender is willing to pay.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_fees_per_gas(mut self, max_fees_per_gas: GasFees) -> Self {
+        self.max_fees_per_gas = Option::some(max_fees_per_gas);
+        self
+    }
+
+    /// Sets the maximum priority fees per gas unit.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_priority_fees_per_gas(mut self, max_priority_fees_per_gas: GasFees) -> Self {
+        self.max_priority_fees_per_gas = Option::some(max_priority_fees_per_gas);
+        self
+    }
+
+    /// Convenience method to set all four gas settings fields at once.
+    ///
+    /// Equivalent to calling [`with_gas_limits`](CallPrivateOptions::with_gas_limits),
+    /// [`with_teardown_gas_limits`](CallPrivateOptions::with_teardown_gas_limits),
+    /// [`with_max_fees_per_gas`](CallPrivateOptions::with_max_fees_per_gas), and
+    /// [`with_max_priority_fees_per_gas`](CallPrivateOptions::with_max_priority_fees_per_gas) individually.
+    pub fn with_gas_settings(mut self, gas_settings: GasSettings) -> Self {
+        self.gas_limits = Option::some(gas_settings.gas_limits);
+        self.teardown_gas_limits = Option::some(gas_settings.teardown_gas_limits);
+        self.max_fees_per_gas = Option::some(gas_settings.max_fees_per_gas);
+        self.max_priority_fees_per_gas = Option::some(gas_settings.max_priority_fees_per_gas);
+        self
+    }
+
+    fn resolve_gas_settings(self) -> GasSettings {
+        resolve_gas_settings(
+            self.gas_limits,
+            self.teardown_gas_limits,
+            self.max_fees_per_gas,
+            self.max_priority_fees_per_gas,
+        )
     }
 }
 
@@ -297,10 +445,123 @@ impl DeployOptions {
     }
 }
 
+/// Configuration values for [`TestEnvironment::call_public_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
+/// ```noir
+/// env.call_public_opts(caller, CallPublicOptions::new().with_max_fees_per_gas(GasFees::new(1, 1)),
+/// MyContract::at(addr).fn());
+/// ```
+///
+/// Gas settings fields are not cross-validated - nonsense combinations (e.g. `teardown_gas_limits` larger than
+/// `gas_limits`) will be forwarded as-is and may be rejected by simulation.
+pub struct CallPublicOptions {
+    gas_limits: Option<Gas>,
+    teardown_gas_limits: Option<Gas>,
+    max_fees_per_gas: Option<GasFees>,
+    max_priority_fees_per_gas: Option<GasFees>,
+}
+
+impl CallPublicOptions {
+    /// Creates a new `CallPublicOptions` with default values, i.e. the same as if using
+    /// [`TestEnvironment::call_public`] without the `_opts` variant.
+    pub fn new() -> Self {
+        Self {
+            gas_limits: Option::none(),
+            teardown_gas_limits: Option::none(),
+            max_fees_per_gas: Option::none(),
+            max_priority_fees_per_gas: Option::none(),
+        }
+    }
+
+    /// Sets the gas limits for the transaction.
+    ///
+    /// If not set, defaults to the maximum the protocol allows.
+    pub fn with_gas_limits(&mut self, gas_limits: Gas) -> Self {
+        self.gas_limits = Option::some(gas_limits);
+        *self
+    }
+
+    /// Sets the teardown gas limits for the transaction.
+    ///
+    /// If not set, defaults to 1/8 of the protocol maximum.
+    pub fn with_teardown_gas_limits(&mut self, teardown_gas_limits: Gas) -> Self {
+        self.teardown_gas_limits = Option::some(teardown_gas_limits);
+        *self
+    }
+
+    /// Sets the maximum fees per gas unit the sender is willing to pay.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_fees_per_gas(&mut self, max_fees_per_gas: GasFees) -> Self {
+        self.max_fees_per_gas = Option::some(max_fees_per_gas);
+        *self
+    }
+
+    /// Sets the maximum priority fees per gas unit.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_priority_fees_per_gas(&mut self, max_priority_fees_per_gas: GasFees) -> Self {
+        self.max_priority_fees_per_gas = Option::some(max_priority_fees_per_gas);
+        *self
+    }
+
+    /// Convenience method to set all four gas settings fields at once.
+    ///
+    /// Equivalent to calling [`with_gas_limits`](CallPublicOptions::with_gas_limits),
+    /// [`with_teardown_gas_limits`](CallPublicOptions::with_teardown_gas_limits),
+    /// [`with_max_fees_per_gas`](CallPublicOptions::with_max_fees_per_gas), and
+    /// [`with_max_priority_fees_per_gas`](CallPublicOptions::with_max_priority_fees_per_gas) individually.
+    pub fn with_gas_settings(&mut self, gas_settings: GasSettings) -> Self {
+        self.gas_limits = Option::some(gas_settings.gas_limits);
+        self.teardown_gas_limits = Option::some(gas_settings.teardown_gas_limits);
+        self.max_fees_per_gas = Option::some(gas_settings.max_fees_per_gas);
+        self.max_priority_fees_per_gas = Option::some(gas_settings.max_priority_fees_per_gas);
+        *self
+    }
+
+    fn resolve_gas_settings(self) -> GasSettings {
+        resolve_gas_settings(
+            self.gas_limits,
+            self.teardown_gas_limits,
+            self.max_fees_per_gas,
+            self.max_priority_fees_per_gas,
+        )
+    }
+}
+
+/// Resolves `GasSettings` from per-component options, applying defaults matching the TXE's built-in values when an
+/// option is `None`.
+fn resolve_gas_settings(
+    gas_limits: Option<Gas>,
+    teardown_gas_limits: Option<Gas>,
+    max_fees_per_gas: Option<GasFees>,
+    max_priority_fees_per_gas: Option<GasFees>,
+) -> GasSettings {
+    GasSettings::new(
+        gas_limits
+            .unwrap_or(
+                Gas::new(
+                    MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+                    MAX_PROCESSABLE_L2_GAS,
+                ),
+            ),
+        teardown_gas_limits
+            .unwrap_or(
+                Gas::new(
+                    MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 8,
+                    MAX_PROCESSABLE_L2_GAS / 8,
+                ),
+            ),
+        max_fees_per_gas.unwrap_or(GasFees::empty()),
+        max_priority_fees_per_gas.unwrap_or(GasFees::empty()),
+    )
+}
+
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
     pub unconstrained fn new() -> Self {
         assert_compatible_oracle_version();
+        txe_oracles::assert_compatible_txe_oracle_version();
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
             // deploying multiple contracts and creating accounts, they could end up with identical
@@ -356,8 +617,8 @@ impl TestEnvironment {
         self.public_context_opts(PublicContextOptions { contract_address: Option::none() }, f)
     }
 
-    /// Variant of `public_context` which allows specifying the contract address in which the public context will
-    /// execute, which will affect note and nullifier siloing, storage access, etc.
+    /// Variant of [`TestEnvironment::public_context`] which allows specifying the contract address in which the
+    /// public context will execute, which will affect note and nullifier siloing, storage access, etc.
     pub unconstrained fn public_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
@@ -415,33 +676,32 @@ impl TestEnvironment {
     /// });
     /// ```
     pub unconstrained fn private_context<Env, T>(self: Self, f: unconstrained fn[Env](&mut PrivateContext) -> T) -> T {
-        self.private_context_opts(
-            PrivateContextOptions { contract_address: Option::none(), anchor_block_number: Option::none() },
-            f,
-        )
+        self.private_context_opts(PrivateContextOptions::new(), f)
     }
 
-    /// Variant of `private_context` which allows specifying the contract address in which the private context will
-    /// execute, which will affect note and nullifier siloing, storage access, etc.
+    /// Variant of [`TestEnvironment::private_context`] which allows specifying the contract address in which the
+    /// private context will execute, which will affect note and nullifier siloing, storage access, etc.
     pub unconstrained fn private_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
         f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
-        self.private_context_opts(
-            PrivateContextOptions { contract_address: Option::some(addr), anchor_block_number: Option::none() },
-            f,
-        )
+        self.private_context_opts(PrivateContextOptions::new().at_contract_address(addr), f)
     }
 
-    /// Variant of `private_context` which allows specifying multiple configuration values via `PrivateContextOptions`.
+    /// Variant of [`TestEnvironment::private_context`] which allows specifying multiple configuration values via
+    /// [`PrivateContextOptions`].
     pub unconstrained fn private_context_opts<Env, T>(
         _self: Self,
         opts: PrivateContextOptions,
         f: unconstrained fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         let mut context = PrivateContext::new(
-            txe_oracles::set_private_txe_context(opts.contract_address, opts.anchor_block_number),
+            txe_oracles::set_private_txe_context(
+                opts.contract_address,
+                opts.anchor_block_number,
+                opts.resolve_gas_settings(),
+            ),
             0,
         );
 
@@ -482,8 +742,8 @@ impl TestEnvironment {
         self.utility_context_opts(UtilityContextOptions { contract_address: Option::none() }, f)
     }
 
-    /// Variant of `utility_context` which allows specifying the contract address in which the utility context will
-    /// execute, which will affect note and storage access.
+    /// Variant of [`TestEnvironment::utility_context`] which allows specifying the contract address in which the
+    /// utility context will execute, which will affect note and storage access.
     pub unconstrained fn utility_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
@@ -686,7 +946,8 @@ impl TestEnvironment {
         self.call_private_opts(from, CallPrivateOptions::new(), call)
     }
 
-    /// Variant of `call_private` which allows specifying multiple configuration values via `CallPrivateOptions`.
+    /// Variant of [`TestEnvironment::call_private`] which allows specifying multiple configuration values via
+    /// [`CallPrivateOptions`], including additional account scopes, authorized utility call targets, and gas settings.
     pub unconstrained fn call_private_opts<let M: u32, let N: u32, let S: u32, let U: u32, T>(
         _self: Self,
         from: AztecAddress,
@@ -705,6 +966,7 @@ impl TestEnvironment {
             /*is_static=*/ false,
             opts.additional_scopes,
             opts.authorized_utility_call_targets,
+            opts.resolve_gas_settings(),
         );
 
         T::deserialize(serialized_return_values)
@@ -747,6 +1009,13 @@ impl TestEnvironment {
             /*is_static=*/ true,
             opts.additional_scopes,
             opts.authorized_utility_call_targets,
+            // Views never produce a tx, so gas settings don't influence behaviour - we pass defaults.
+            resolve_gas_settings(
+                Option::none(),
+                Option::none(),
+                Option::none(),
+                Option::none(),
+            ),
         );
 
         T::deserialize(serialized_return_values)
@@ -871,12 +1140,26 @@ impl TestEnvironment {
     where
         T: Deserialize,
     {
+        _self.call_public_opts(from, CallPublicOptions::new(), call)
+    }
+
+    /// Variant of [`TestEnvironment::call_public`] which allows specifying gas settings via [`CallPublicOptions`].
+    pub unconstrained fn call_public_opts<let M: u32, let N: u32, T>(
+        _self: Self,
+        from: AztecAddress,
+        opts: CallPublicOptions,
+        call: PublicCall<M, N, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
         let serialized_return_values = txe_oracles::public_call_new_flow(
             Option::some(from),
             call.target_contract,
             call.selector,
             call.args,
             false,
+            opts.resolve_gas_settings(),
         );
         T::deserialize(serialized_return_values)
     }
@@ -894,8 +1177,14 @@ impl TestEnvironment {
             call.selector,
             call.args,
             false,
+            // Incognito calls bypass the standard sender pathway; gas defaults are fine here.
+            resolve_gas_settings(
+                Option::none(),
+                Option::none(),
+                Option::none(),
+                Option::none(),
+            ),
         );
-
         T::deserialize(serialized_return_values)
     }
 
@@ -914,6 +1203,13 @@ impl TestEnvironment {
             call.selector,
             call.args,
             true,
+            // Views never produce a tx, so gas settings don't influence behaviour - we pass defaults.
+            resolve_gas_settings(
+                Option::none(),
+                Option::none(),
+                Option::none(),
+                Option::none(),
+            ),
         );
 
         T::deserialize(serialized_return_values)

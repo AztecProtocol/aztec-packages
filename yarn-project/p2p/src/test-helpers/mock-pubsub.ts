@@ -23,15 +23,13 @@ import type { MemPools } from '../mem_pools/interface.js';
 import { DummyPeerDiscoveryService, DummyPeerManager, LibP2PService } from '../services/index.js';
 import type { P2PReqRespConfig } from '../services/reqresp/config.js';
 import type { ConnectionSampler } from '../services/reqresp/connection-sampler/connection_sampler.js';
-import {
-  type ReqRespInterface,
-  type ReqRespResponse,
-  type ReqRespSubProtocol,
-  type ReqRespSubProtocolHandler,
-  type ReqRespSubProtocolHandlers,
-  type ReqRespSubProtocolValidators,
-  type SubProtocolMap,
-  responseFromBuffer,
+import type {
+  ReqRespInterface,
+  ReqRespResponse,
+  ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
+  ReqRespSubProtocolHandlers,
+  ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
 import { ReqRespStatus } from '../services/reqresp/status.js';
 import { GossipSubEvent } from '../types/index.js';
@@ -89,8 +87,8 @@ export function getMockPubSubP2PServiceFactory(
 
 /**
  * Mock implementation of ReqRespInterface that routes requests to other peers' handlers through the mock network.
- * When a peer calls sendBatchRequest, the mock iterates over network peers and invokes their registered handler
- * for the sub-protocol, simulating the request-response protocol without actual libp2p streams.
+ * When a peer calls sendRequestToPeer, the mock looks up the target peer's registered handler for the
+ * sub-protocol and invokes it, simulating the request-response protocol without actual libp2p streams.
  */
 class MockReqResp implements ReqRespInterface {
   private handlers: Partial<ReqRespSubProtocolHandlers> = {};
@@ -130,46 +128,6 @@ class MockReqResp implements ReqRespInterface {
 
   getHandler(subProtocol: ReqRespSubProtocol): ReqRespSubProtocolHandler | undefined {
     return this.handlers[subProtocol];
-  }
-
-  async sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeer: PeerId | undefined,
-    _timeoutMs?: number,
-    _maxPeers?: number,
-    _maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = [];
-    const peers = this.network.getReqRespPeers().filter(p => !p.peerId.equals(this.peerId));
-    const targetPeers = pinnedPeer ? peers.filter(p => p.peerId.equals(pinnedPeer)) : peers;
-    const delayMs = this.network.getPropagationDelayMs();
-
-    if (delayMs > 0) {
-      await sleep(delayMs);
-    }
-
-    for (const request of requests) {
-      const requestBuffer = request.toBuffer();
-      for (const peer of targetPeers) {
-        const handler = peer.getHandler(subProtocol);
-        if (!handler) {
-          continue;
-        }
-        try {
-          const responseBuffer = await handler(this.peerId, requestBuffer);
-          if (responseBuffer.length > 0) {
-            const response = responseFromBuffer(subProtocol, responseBuffer);
-            responses.push(response as InstanceType<SubProtocolMap[SubProtocol]['response']>);
-            break;
-          }
-        } catch (err) {
-          this.logger.debug(`Mock reqresp handler error from peer ${peer.peerId}`, { err });
-        }
-      }
-    }
-
-    return responses;
   }
 
   async sendRequestToPeer(

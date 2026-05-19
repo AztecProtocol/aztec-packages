@@ -98,7 +98,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: ${{ steps.checkout-ref.outputs.ref }}
           fetch-depth: 1
@@ -106,7 +106,7 @@ jobs:
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 22
 
@@ -142,10 +142,18 @@ jobs:
           fi
           echo "AZTEC_DOCKER_IMAGE=$AZTEC_DOCKER_IMAGE" >> $GITHUB_ENV
 
-          # Only use the separate prover-agent image for official semver builds;
-          # for custom images, let the deploy script fall back to AZTEC_DOCKER_IMAGE
+          # Use the CRS-baked prover-agent image when it exists; otherwise let the
+          # deploy script fall back to AZTEC_DOCKER_IMAGE and download CRS on startup.
           if [[ -n "${{ inputs.semver }}" ]]; then
-            echo "PROVER_AGENT_DOCKER_IMAGE=aztecprotocol/aztec-prover-agent:${{ inputs.semver }}" >> $GITHUB_ENV
+            PROVER_AGENT_DOCKER_IMAGE="aztecprotocol/aztec-prover-agent:${{ inputs.semver }}"
+
+            echo "Checking if prover agent image exists: $PROVER_AGENT_DOCKER_IMAGE"
+            if docker manifest inspect "$PROVER_AGENT_DOCKER_IMAGE" > /dev/null 2>&1; then
+              echo "PROVER_AGENT_DOCKER_IMAGE=$PROVER_AGENT_DOCKER_IMAGE" >> $GITHUB_ENV
+            else
+              echo "Prover agent image does not exist: $PROVER_AGENT_DOCKER_IMAGE"
+              echo "Falling back to AZTEC_DOCKER_IMAGE for prover agents."
+            fi
           fi
 
       - name: Store the GCP key in a file
@@ -162,12 +170,12 @@ jobs:
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
 
       - name: Setup gcloud and install GKE auth plugin
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
         with:
           install_components: "gke-gcloud-auth-plugin"
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: "1.7.5"
           terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output

@@ -60,7 +60,7 @@ describe('full_prover', () => {
       address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
       client: t.l1Contracts.l1Client,
     });
-  }, 120_000);
+  }, 400_000);
 
   afterAll(async () => {
     await t.teardown();

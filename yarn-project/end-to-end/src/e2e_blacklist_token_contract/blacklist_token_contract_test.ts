@@ -14,7 +14,14 @@ import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
+import {
+  type EndToEndContext,
+  type SetupOptions,
+  deployAccounts,
+  publicDeployAccounts,
+  setup,
+  teardown,
+} from '../fixtures/setup.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
@@ -78,8 +85,9 @@ export class BlacklistTokenContractTest {
    * 2. Publicly deploy accounts, deploy token contract and a "bad account".
    */
   async applyBaseSetup() {
-    // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
-    jest.setTimeout(120_000);
+    // Bumped from 2 min: pipelined cadence (~24s/dependent-tx) makes the 3-account deploy plus token/bad-account/
+    // proxy deploys exceed the original window.
+    jest.setTimeout(600_000);
 
     this.logger.info('Deploying 3 accounts');
     const { deployedAccounts } = await deployAccounts(
@@ -139,9 +147,10 @@ export class BlacklistTokenContractTest {
     ).toEqual(new Role().withAdmin().toNoirStruct());
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh context');
     this.context = await setup(0, {
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
     });

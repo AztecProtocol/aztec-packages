@@ -301,6 +301,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epoch,
       checkpointNumber,
       BlockNumber.ZERO,
+      CheckpointNumber(checkpointNumber - 1),
       proposer,
       publisher,
       attestorAddress,
@@ -405,7 +406,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -1047,6 +1048,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
         epoch,
         checkpointNumber,
         BlockNumber.ZERO,
+        CheckpointNumber(checkpointNumber - 1),
         proposer,
         publisher,
         attestorAddress,

@@ -41,7 +41,6 @@ describe('P2P Client', () => {
     txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
 
     p2pService = mock<P2PService>();
-    p2pService.sendBatchRequest.mockResolvedValue([]);
 
     l1Constants = EmptyL1RollupConstants;
     txCollection = mock<TxCollection>();
@@ -50,6 +49,7 @@ describe('P2P Client', () => {
     epochCache = mock<EpochCacheInterface>();
     epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
     epochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
+    epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     attestationPool = await createTestAttestationPool();
 
