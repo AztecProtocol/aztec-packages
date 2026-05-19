@@ -73,9 +73,8 @@ template <typename AffinePoint> class StandardAffinePoint {
 
     [[nodiscard]] constexpr bool on_curve() const noexcept { return point.on_curve(); }
 
-    // Always returns the raw coordinates, when an operation results in infinity these will be (0,0).
-    // If a point at infinity is constructed with non-zero coordinates, we likely want to preserve those.
-    // TODO(MW): Clarify - docs here no longer true
+    // Always returns Noir standard coordinates. For the point at infinity this is always (0, 0). If that point was
+    // constructed via AffinePoint with a different representation, those non-zero coordinates are preserved in .point.
     constexpr const BaseField& x() const noexcept { return x_coord; }
 
     constexpr const BaseField& y() const noexcept { return y_coord; }
