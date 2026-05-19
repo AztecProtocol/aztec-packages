@@ -4,16 +4,31 @@ use crate::{
         DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_HASH, DEFAULT_OVPK_M_HASH,
         DEFAULT_TPK_M_HASH, DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
     },
-    hash::poseidon2_hash_with_separator,
-    point::validate_on_curve,
+    hash::{poseidon2_hash, poseidon2_hash_with_separator},
     traits::{Deserialize, Hash, Serialize},
 };
 
-use crate::point::Point;
-use std::{default::Default, meta::derive};
+use std::{default::Default, embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
+
+// TODO(MW): manually defining here for now. Will be removed - but noir doesnt seem to have a native one?
+// TODO(MW): combine one fn for checking on curve and non-inf?
+pub fn validate_on_curve(p: EmbeddedCurvePoint) {
+    // y^2 == x^3 - 17
+    let x = p.x;
+    let y = p.y;
+    // p.is_infinite() <==> x == y == 0, considered on the curve:
+    if !p.is_infinite() {
+        assert_eq(y * y, x * x * x - 17, "Point not on curve");
+    }
+}
+
+// TODO(MW): manually inserting is_infinite = 0 just so tests etc pass with hash result. Will be removed.
+fn temp_serialize_with_inf(p: EmbeddedCurvePoint) -> [Field; 3] {
+    [p.x, p.y, p.is_infinite() as Field]
+}
 
 pub trait ToPoint {
-    fn to_point(self) -> Point;
+    fn to_point(self) -> EmbeddedCurvePoint;
 }
 
 /// Hashes a public key point under the canonical single-public-key domain separator.
@@ -25,11 +40,11 @@ pub fn hash_public_key(p: Point) -> Field {
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct IvpkM {
-    pub inner: Point,
+    pub inner: EmbeddedCurvePoint,
 }
 
 impl ToPoint for IvpkM {
-    fn to_point(self) -> Point {
+    fn to_point(self) -> EmbeddedCurvePoint {
         self.inner
     }
 }
@@ -59,7 +74,7 @@ impl Default for PublicKeys {
         PublicKeys {
             npk_m_hash: DEFAULT_NPK_M_HASH,
             ivpk_m: IvpkM {
-                inner: Point { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y, is_infinite: false },
+                inner: EmbeddedCurvePoint { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y },
             },
             ovpk_m_hash: DEFAULT_OVPK_M_HASH,
             tpk_m_hash: DEFAULT_TPK_M_HASH,
@@ -69,6 +84,10 @@ impl Default for PublicKeys {
 
 impl PublicKeys {
     pub fn hash(self) -> PublicKeysHash {
+        // PublicKeysHash::from_field(poseidon2_hash_with_separator(
+        //     self.serialize(),
+        //     DOM_SEP__PUBLIC_KEYS_HASH as Field,
+        // ))
         PublicKeysHash::from_field(poseidon2_hash_with_separator(
             [self.npk_m_hash, self.ivpk_m.hash(), self.ovpk_m_hash, self.tpk_m_hash],
             DOM_SEP__PUBLIC_KEYS_HASH as Field,
@@ -88,16 +107,17 @@ impl PublicKeys {
     /// As with [`Self::validate_on_curve`], the other three keys are now exposed only as hashes
     /// and this property must be enforced PXE-side.
     pub fn validate_non_infinity(self) {
-        assert_eq(self.ivpk_m.inner.is_infinite, false, "IvpkM is the point at infinity");
+        assert_eq(self.ivpk_m.inner.is_infinite(), false, "IvpkM is the point at infinity");
     }
 }
 
+// TODO(MW): Remove now that we just use EmbeddedCurvePoint?
 pub struct AddressPoint {
-    pub inner: Point,
+    pub inner: EmbeddedCurvePoint,
 }
 
 impl ToPoint for AddressPoint {
-    fn to_point(self) -> Point {
+    fn to_point(self) -> EmbeddedCurvePoint {
         self.inner
     }
 }
@@ -107,11 +127,11 @@ mod test {
         DEFAULT_NPK_M_HASH, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_HASH, DEFAULT_OVPK_M_X,
         DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_HASH, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y,
     };
-    use crate::point::Point;
     use crate::{
         public_keys::{hash_public_key, IvpkM, PublicKeys},
         traits::{Deserialize, Serialize},
     };
+    use std::embedded_curve_ops::EmbeddedCurvePoint;
     use std::ops::Neg;
 
     global PUBLIC_KEYS_LENGTH: u32 = 6;
@@ -142,7 +162,7 @@ mod test {
     unconstrained fn compute_public_keys_hash() {
         let keys = PublicKeys {
             npk_m_hash: 11,
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
             ovpk_m_hash: 22,
             tpk_m_hash: 33,
         };
@@ -159,7 +179,7 @@ mod test {
     unconstrained fn test_validate_on_curve() {
         let keys = PublicKeys {
             npk_m_hash: 0,
-            ivpk_m: IvpkM { inner: Point::generator().double() },
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint::generator().double() },
             ovpk_m_hash: 0,
             tpk_m_hash: 0,
         };
@@ -171,7 +191,7 @@ mod test {
     unconstrained fn test_validate_not_on_curve() {
         let keys = PublicKeys {
             npk_m_hash: 0,
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
             ovpk_m_hash: 0,
             tpk_m_hash: 0,
         };
@@ -183,7 +203,7 @@ mod test {
     unconstrained fn test_validate_non_infinity() {
         let keys = PublicKeys {
             npk_m_hash: 0,
-            ivpk_m: IvpkM { inner: Point::generator().double() },
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint::generator().double() },
             ovpk_m_hash: 0,
             tpk_m_hash: 0,
         };
@@ -195,7 +215,7 @@ mod test {
     unconstrained fn test_validate_infinity() {
         let keys = PublicKeys {
             npk_m_hash: 0,
-            ivpk_m: IvpkM { inner: Point::point_at_infinity() },
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint::point_at_infinity() },
             ovpk_m_hash: 0,
             tpk_m_hash: 0,
         };
@@ -219,7 +239,7 @@ mod test {
     unconstrained fn serde() {
         let keys = PublicKeys {
             npk_m_hash: 11,
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
             ovpk_m_hash: 22,
             tpk_m_hash: 33,
         };

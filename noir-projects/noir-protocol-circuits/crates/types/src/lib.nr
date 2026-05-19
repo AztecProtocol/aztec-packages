@@ -10,7 +10,6 @@ pub mod debug;
 pub mod side_effect;
 pub mod utils;
 pub mod public_keys;
-pub mod point;
 pub mod scalar;
 pub mod constants;
 mod constants_tests;

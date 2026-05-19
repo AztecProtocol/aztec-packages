@@ -13,8 +13,9 @@ pub contract ContractInstanceRegistry {
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, PartialAddress},
             constants::{
-                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS, CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
-                CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, DEFAULT_UPDATE_DELAY, MINIMUM_UPDATE_DELAY,
+                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS, CONTRACT_INSTANCE_LENGTH,
+                CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE, CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, DEFAULT_UPDATE_DELAY,
+                MINIMUM_UPDATE_DELAY,
             },
             contract_class_id::ContractClassId,
             public_keys::PublicKeys,
@@ -106,9 +107,9 @@ pub contract ContractInstanceRegistry {
         // body, I have removed that check.
         assert_compatible_oracle_version();
 
-        // 4 prefix fields (salt, class_id, init_hash, immutables_hash) + 6 public-key fields + 1
-        // universal_deploy flag = 11.
-        let serialized_params: [Field; 11] = [salt, contract_class_id.to_field(), initialization_hash, immutables_hash]
+        // 4 prefix fields (salt, class_id, init_hash, immutables_hash) + 5 public-key fields + 1
+        // universal_deploy flag = 10.
+        let serialized_params: [Field; 10] = [salt, contract_class_id.to_field(), initialization_hash, immutables_hash]
             .concat(public_keys.serialize())
             .concat([universal_deploy.to_field()]);
 

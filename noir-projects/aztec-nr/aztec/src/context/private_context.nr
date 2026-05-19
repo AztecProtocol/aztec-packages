@@ -45,6 +45,7 @@ use crate::protocol::{
     traits::{Empty, ToField},
     utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
+use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 /// # PrivateContext
 ///

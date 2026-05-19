@@ -5,12 +5,11 @@ use super::{
     key_validation_hint::KeyValidationHint,
     key_validation_requests_validator::KeyValidationRequestsValidator,
 };
-use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
+use std::embedded_curve_ops::{EmbeddedCurvePoint, fixed_base_scalar_mul as derive_public_key};
 use types::{
     abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     address::AztecAddress,
     hash::compute_app_siloed_secret_key,
-    point::Point,
     public_keys::hash_public_key,
     scalar::Scalar,
     side_effect::Scoped,
@@ -74,7 +73,7 @@ impl TestBuilder {
         let contract_address = AztecAddress::from_field(456654);
 
         let sk_m = Scalar::from_field(sk);
-        let pk_m: Point = derive_public_key(sk_m).into();
+        let pk_m: EmbeddedCurvePoint = derive_public_key(sk_m);
         let pk_m_hash = hash_public_key(pk_m);
 
         let key_type_domain_separator = 123321;

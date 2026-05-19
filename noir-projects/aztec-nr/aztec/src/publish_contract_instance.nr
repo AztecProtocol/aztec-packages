@@ -5,7 +5,7 @@ use crate::{context::PrivateContext, oracle::get_contract_instance::get_contract
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+    constants::{CONTRACT_INSTANCE_LENGTH, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS},
     traits::{Serialize, ToField},
 };
 
@@ -26,10 +26,8 @@ pub fn publish_contract_instance_for_public_execution(context: &mut PrivateConte
     // target/contract_instance_registry_contract-ContractInstanceRegistry.json --nr -o
     // ./contracts/contract_instance_registry_contract/src/interface
     //
-    // PublicKeys serializes to 6 fields (npk_m_hash, ivpk_m as a 3-field point with
-    // is_infinite, ovpk_m_hash, tpk_m_hash). Total args: 4 (salt, class_id, init_hash,
-    // immutables_hash) + 6 (public_keys) + 1 (universal_deploy) = 11.
-    let mut serialized_args = [0; 11];
+    // PublicKeys serializes to 5 fields (npk_m_hash, ivpk_m as a 2-field point, ovpk_m_hash, tpk_m_hash). Total args: 4 (salt, class_id, init_hash, immutables_hash) + 5 (public_keys) + 1 (universal_deploy) = 10.
+    let mut serialized_args = [0; 10];
     serialized_args[0] = instance.salt;
     serialized_args[1] = instance.contract_class_id.to_field();
     serialized_args[2] = instance.initialization_hash;
@@ -37,11 +35,11 @@ pub fn publish_contract_instance_for_public_execution(context: &mut PrivateConte
 
     let serialized_public_keys = instance.public_keys.serialize();
 
-    for i in 0..6 {
+    for i in 0..5 {
         serialized_args[i + 4] = serialized_public_keys[i];
     }
 
-    serialized_args[10] = universal_deploy as Field;
+    serialized_args[9] = universal_deploy as Field;
 
     let _call_result = context.call_private_function(
         CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
