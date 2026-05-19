@@ -156,7 +156,12 @@ template <typename Curve> struct ShpleminiVerifierOutput_<Curve, true> {
     bool consistency_checked;
 };
 
-template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
+// `HasGeminiMasking` controls whether the flavor commits to a `gemini_masking_poly` whose
+// commitment is interleaved between Shplonk:Q and the first AllEntities commitment. Defaults to
+// `HasZK` so legacy ZK flavors (UltraZK, etc.) keep the original layout; flavors that opt out
+// (e.g. MegaZKFlavor — translator provides masking in the joint Chonk flow) set this to false
+// at the call site.
+template <typename Curve, bool HasZK = false, bool HasGeminiMasking = HasZK> class ShpleminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -315,7 +320,7 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         constant_term_accumulator +=
             gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
-        remove_repeated_commitments(commitments, scalars, repeated_commitments, HasZK);
+        remove_repeated_commitments(commitments, scalars, repeated_commitments, HasGeminiMasking);
         // An optional boolean flag for SmallSubgroupIPAVerifier to check the consistency of the Libra evaluations
         bool consistency_checked = true;
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
@@ -455,11 +460,12 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
     static void remove_repeated_commitments(std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
                                             const RepeatedCommitmentsData& repeated_commitments,
-                                            bool has_zk)
+                                            bool has_gemini_masking_commitment)
     {
-        // The commitments/scalars vectors start with Shplonk:Q (and Gemini:masking_poly_comm if ZK)
-        // before the prover polynomial commitments, so offset the AllEntities indices accordingly.
-        const size_t offset = has_zk ? 2 : 1;
+        // The commitments/scalars vectors start with Shplonk:Q (and Gemini:masking_poly_comm when
+        // the flavor commits to a per-circuit masking polynomial) before the prover polynomial
+        // commitments, so offset the AllEntities indices accordingly.
+        const size_t offset = has_gemini_masking_commitment ? 2 : 1;
 
         const auto& r1 = repeated_commitments.first;
         const auto& r2 = repeated_commitments.second;

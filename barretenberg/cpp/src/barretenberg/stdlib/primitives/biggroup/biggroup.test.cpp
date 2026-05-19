@@ -291,8 +291,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
-                x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+                stdlib::bigfield_test_access::set_limb_element(
+                    x_coord, 3, field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68)));
+                x_coord.set_limb_max(3, uint256_t(1) << 68);
 
                 // Skip curve check since we're intentionally creating an invalid point
                 // Note: is_infinity is auto-detected as false since coords are non-zero
@@ -313,8 +314,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
                 // Manipulate the limbs to create an invalid value
                 // Set the highest limb to a very large value that would make the total >= modulus
-                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68));
-                y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+                stdlib::bigfield_test_access::set_limb_element(
+                    y_coord, 3, field_ct::from_witness(&builder, bb::fr(uint256_t(1) << 68)));
+                y_coord.set_limb_max(3, uint256_t(1) << 68);
 
                 // Skip curve check since we're intentionally creating an invalid point
                 // Note: is_infinity is auto-detected as false since coords are non-zero
@@ -1190,7 +1192,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P * x;
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            std::cerr << "builder after mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x().get_value().lo);
@@ -1295,7 +1297,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             // Multiply using specified scalar length
             element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            std::cerr << "builder after mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             fq c_x_result(c.x().get_value().lo);
@@ -1341,7 +1343,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P.scalar_mul(x, max_num_bits);
-            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            std::cerr << "builder after mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             num_gates = builder.get_num_finalized_gates_inefficient();
 
             EXPECT_EQ(is_infinity(c), expect_infinity);
@@ -1533,8 +1535,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Set offset generator to be a point at infinity: (0, 0) with is_infinity = 1.
         for (size_t i = 0; i < BaseField::NUM_LIMBS; ++i) {
-            builder.set_variable(offset_G.x().binary_basis_limbs[i].element.get_witness_index(), 0);
-            builder.set_variable(offset_G.y().binary_basis_limbs[i].element.get_witness_index(), 0);
+            builder.set_variable(offset_G.x().get_limb(i).element.get_witness_index(), 0);
+            builder.set_variable(offset_G.y().get_limb(i).element.get_witness_index(), 0);
         }
         builder.set_variable(offset_G.is_point_at_infinity().get_witness_index(), 1);
 
@@ -1563,8 +1565,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         // Set the first masked point to be a point at infinity: (0, 0) with is_infinity = 1.
         for (size_t i = 0; i < BaseField::NUM_LIMBS; ++i) {
-            builder.set_variable(masked_points[0].x().binary_basis_limbs[i].element.get_witness_index(), 0);
-            builder.set_variable(masked_points[0].y().binary_basis_limbs[i].element.get_witness_index(), 0);
+            builder.set_variable(masked_points[0].x().get_limb(i).element.get_witness_index(), 0);
+            builder.set_variable(masked_points[0].y().get_limb(i).element.get_witness_index(), 0);
         }
         builder.set_variable(masked_points[0].is_point_at_infinity().get_witness_index(), 1);
 

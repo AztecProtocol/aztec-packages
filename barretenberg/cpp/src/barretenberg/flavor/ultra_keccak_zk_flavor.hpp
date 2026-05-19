@@ -46,7 +46,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     using AllValues = UltraFlavor::AllValues_<HasZK>;
     using ProverPolynomials = UltraFlavor::ProverPolynomials_<HasZK>;
     using PartiallyEvaluatedMultivariates = UltraFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
-    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey, HasZK>;
 
     // Override ProverUnivariates and ExtendedEdges to include gemini_masking_poly
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;

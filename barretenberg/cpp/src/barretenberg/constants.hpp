@@ -47,6 +47,9 @@ static constexpr uint32_t NUM_MASKED_ROWS = 3;
 // but the gate separator vanishes there, so the first row where relations are active is TRACE_OFFSET.
 static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
+// Number of wires in Ultra and Mega arithmetization
+static constexpr uint32_t NUM_WIRES = 4;
+
 static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
@@ -59,7 +62,7 @@ static constexpr size_t NUM_ZERO_ROWS = 1;
 // The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
 static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
 
-static constexpr size_t CHONK_MAX_NUM_APPS = 36;
+static constexpr size_t CHONK_MAX_NUM_APPS = 34;
 static constexpr size_t compute_chonk_max_num_circuits()
 {
     return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +

@@ -70,10 +70,10 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     using BF = typename Flavor::BF;
 
     const auto compute_four_limbs = [](const BF& in) {
-        auto result = std::array<FF, 4>{ FF(in.binary_basis_limbs[0].element),
-                                         FF(in.binary_basis_limbs[1].element),
-                                         FF(in.binary_basis_limbs[2].element),
-                                         FF(in.binary_basis_limbs[3].element) };
+        auto result = std::array<FF, 4>{ FF(in.get_limb(0).element),
+                                         FF(in.get_limb(1).element),
+                                         FF(in.get_limb(2).element),
+                                         FF(in.get_limb(3).element) };
         // Ensure extracted limbs are witnesses, not constants
         for (const auto& limb : result) {
             BB_ASSERT(!limb.is_constant());
@@ -82,11 +82,11 @@ void put_translation_data_in_relation_parameters_impl(RelationParameters<typenam
     };
 
     const auto compute_five_limbs = [](const BF& in) {
-        auto result = std::array<FF, 5>{ FF(in.binary_basis_limbs[0].element),
-                                         FF(in.binary_basis_limbs[1].element),
-                                         FF(in.binary_basis_limbs[2].element),
-                                         FF(in.binary_basis_limbs[3].element),
-                                         FF(in.prime_basis_limb) };
+        auto result = std::array<FF, 5>{ FF(in.get_limb(0).element),
+                                         FF(in.get_limb(1).element),
+                                         FF(in.get_limb(2).element),
+                                         FF(in.get_limb(3).element),
+                                         FF(in.get_prime_basis_limb()) };
         // Ensure extracted limbs are witnesses, not constants
         for (const auto& limb : result) {
             BB_ASSERT(!limb.is_constant());
@@ -153,7 +153,7 @@ typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Fl
     // For recursive verification, mark the accumulated result's prime basis limb as used
     // (it can be recovered from binary basis limbs, so no need to constrain it further)
     if constexpr (IsRecursive) {
-        mark_witness_as_used(accumulated_result.prime_basis_limb);
+        mark_witness_as_used(accumulated_result.get_prime_basis_limb());
     }
 
     // Use accumulated_result from ECCVM verifier

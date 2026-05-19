@@ -276,7 +276,7 @@ template <class Builder_> class HidingKernelIO {
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
-    using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
+    using TableCommitments = std::array<G1, NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;

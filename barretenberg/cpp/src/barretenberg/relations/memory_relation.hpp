@@ -48,7 +48,10 @@ template <typename FF_> class MemoryRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_memory.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in[AllEntities::EntityId::q_memory].is_zero();
+    }
 
     /**
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
@@ -74,23 +77,23 @@ template <typename FF_> class MemoryRelationImpl {
         const auto& eta_two_m = ParameterCoefficientAccumulator(params.eta_two);
         const auto& eta_three_m = ParameterCoefficientAccumulator(params.eta_three);
 
-        auto w_1_m = CoefficientAccumulator(in.w_l);
-        auto w_2_m = CoefficientAccumulator(in.w_r);
-        auto w_3_m = CoefficientAccumulator(in.w_o);
-        auto w_4_m = CoefficientAccumulator(in.w_4);
-        auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
-        auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
-        auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
-        auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        auto w_1_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        auto w_2_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto w_3_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        auto w_4_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4]);
+        auto w_1_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto w_2_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        auto w_3_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+        auto w_4_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]);
 
-        auto q_1_m = CoefficientAccumulator(in.q_l);
-        auto q_2_m = CoefficientAccumulator(in.q_r);
-        auto q_3_m = CoefficientAccumulator(in.q_o);
-        auto q_4_m = CoefficientAccumulator(in.q_4);
-        auto q_m_m = CoefficientAccumulator(in.q_m);
-        auto q_c_m = CoefficientAccumulator(in.q_c);
+        auto q_1_m = CoefficientAccumulator(in[AllEntities::EntityId::q_l]);
+        auto q_2_m = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+        auto q_3_m = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+        auto q_4_m = CoefficientAccumulator(in[AllEntities::EntityId::q_4]);
+        auto q_m_m = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
+        auto q_c_m = CoefficientAccumulator(in[AllEntities::EntityId::q_c]);
 
-        auto q_memory_m = CoefficientAccumulator(in.q_memory);
+        auto q_memory_m = CoefficientAccumulator(in[AllEntities::EntityId::q_memory]);
 
         /**
          * MEMORY
@@ -201,7 +204,7 @@ template <typename FF_> class MemoryRelationImpl {
          *
          * We apply the following checks for the sorted records:
          *
-         * 1. If adjacent indicies match and next access is a read, then the adjacent values must match.
+         * 1. If adjacent indices match and next access is a read, then the adjacent values must match.
          * 2. The index increases by {0, 1}
          * 3. The _next_ gate access is either a READ or a WRITE (i.e., boolean).
          */

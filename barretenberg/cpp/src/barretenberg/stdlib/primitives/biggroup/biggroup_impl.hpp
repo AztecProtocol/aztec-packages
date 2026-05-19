@@ -47,11 +47,11 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert
     // This works because: (1) after reduction, each limb is non-negative and range-constrained,
     // so sum=0 iff all limbs=0; (2) max sum is 8 * 2^68 ≈ 2^71 << n ≈ 2^254, so no native wraparound.
     field_ct limb_sum = 0;
-    for (const auto& limb : _x.binary_basis_limbs) {
-        limb_sum += limb.element;
+    for (size_t i = 0; i < Fq::NUM_LIMBS; ++i) {
+        limb_sum += _x.get_limb(i).element;
     }
-    for (const auto& limb : _y.binary_basis_limbs) {
-        limb_sum += limb.element;
+    for (size_t i = 0; i < Fq::NUM_LIMBS; ++i) {
+        limb_sum += _y.get_limb(i).element;
     }
     _is_infinity = limb_sum.is_zero();
 
@@ -76,6 +76,8 @@ element<C, Fq, Fr, G>::element(const Fq& x_in,
     , _y(y_in)
     , _is_infinity(is_infinity.normalize())
 {
+    BB_ASSERT(!(_x.is_constant() && _y.is_constant() && !_is_infinity.is_constant()),
+              "biggroup: constant coordinates with non-constant infinity flag");
     if (assert_on_curve) {
         validate_on_curve();
     }

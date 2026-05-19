@@ -100,6 +100,7 @@ namespace bb {
 template <typename FF_> class LogDerivLookupRelationImpl {
   public:
     using FF = FF_;
+    static constexpr bool HAS_LOGDERIVATIVE_INVERSE_COMPUTATION = true;
     static constexpr size_t TABLE_TERMS = 1; // the number of table terms in the lookup relation
     // 1 + polynomial degree of this relation
     static constexpr size_t INVERSE_SUBRELATION_LENGTH = 5; // both subrelations are degree 4
@@ -121,7 +122,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         // Ensure the input does not contain a lookup gate or data that is being read
-        return in.q_lookup.is_zero() && in.lookup_read_counts.is_zero();
+        return in[AllEntities::EntityId::q_lookup].is_zero() && in[AllEntities::EntityId::lookup_read_counts].is_zero();
     }
 
     /**
@@ -142,7 +143,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     }
 
     // Get the inverse polynomial for this relation
-    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in) { return in.lookup_inverses; }
+    template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
+    {
+        return in[AllEntities::EntityId::lookup_inverses];
+    }
 
     /**
      * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
@@ -164,8 +168,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     {
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto row_has_write = CoefficientAccumulator(in.lookup_read_tags);
-        const auto row_has_read = CoefficientAccumulator(in.q_lookup);
+        const auto row_has_write = CoefficientAccumulator(in[AllEntities::EntityId::lookup_read_tags]);
+        const auto row_has_read = CoefficientAccumulator(in[AllEntities::EntityId::q_lookup]);
         // Relation checking: is_read_gate == 1 || read_tag == 1
         // Important note: the relation written below assumes that is_read_gate and read_tag are boolean values, which
         // is guaranteed by the boolean_check subrelation. If not, fixing one of the two, the return value is a linear
@@ -204,10 +208,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto beta_sqr = ParameterCoefficientAccumulator(params.beta_sqr);
         const auto beta_cube = ParameterCoefficientAccumulator(params.beta_cube);
 
-        auto table_1 = CoefficientAccumulator(in.table_1);
-        auto table_2 = CoefficientAccumulator(in.table_2);
-        auto table_3 = CoefficientAccumulator(in.table_3);
-        auto table_4 = CoefficientAccumulator(in.table_4);
+        auto table_1 = CoefficientAccumulator(in[AllEntities::EntityId::table_1]);
+        auto table_2 = CoefficientAccumulator(in[AllEntities::EntityId::table_2]);
+        auto table_3 = CoefficientAccumulator(in[AllEntities::EntityId::table_3]);
+        auto table_4 = CoefficientAccumulator(in[AllEntities::EntityId::table_4]);
 
         // degree          1     0           1         0          1         0        =   1
         auto result = (table_2 * beta) + (table_3 * beta_sqr) + (table_4 * beta_cube);
@@ -227,18 +231,18 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto beta_sqr = ParameterCoefficientAccumulator(params.beta_sqr);
         const auto beta_cube = ParameterCoefficientAccumulator(params.beta_cube);
 
-        auto w_1 = CoefficientAccumulator(in.w_l);
-        auto w_2 = CoefficientAccumulator(in.w_r);
-        auto w_3 = CoefficientAccumulator(in.w_o);
+        auto w_1 = CoefficientAccumulator(in[AllEntities::EntityId::w_l]);
+        auto w_2 = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto w_3 = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
 
-        auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
-        auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
-        auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
+        auto w_1_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto w_2_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        auto w_3_shift = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
 
-        auto table_index = CoefficientAccumulator(in.q_o);
-        auto negative_column_1_step_size = CoefficientAccumulator(in.q_r);
-        auto negative_column_2_step_size = CoefficientAccumulator(in.q_m);
-        auto negative_column_3_step_size = CoefficientAccumulator(in.q_c);
+        auto table_index = CoefficientAccumulator(in[AllEntities::EntityId::q_o]);
+        auto negative_column_1_step_size = CoefficientAccumulator(in[AllEntities::EntityId::q_r]);
+        auto negative_column_2_step_size = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
+        auto negative_column_3_step_size = CoefficientAccumulator(in[AllEntities::EntityId::q_c]);
 
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
@@ -289,7 +293,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
             for (size_t j : chunk.range(num_rows)) {
                 size_t i = j + start_index;
                 // We only compute the inverse if this row contains a lookup gate or data that has been looked up
-                if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
+                if (polynomials.q_lookup().get(i) == 1 || polynomials.lookup_read_tags().get(i) == 1) {
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                     auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
                     auto value = compute_lookup_term<FF>(row, relation_parameters) *
@@ -331,10 +335,10 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // allows to re-use the values accumulated by the accumulator of the size smaller than
         // the size of Accumulator declared above
 
-        const auto inverses_m = CoefficientAccumulator(in.lookup_inverses); // Degree 1
+        const auto inverses_m = CoefficientAccumulator(in[AllEntities::EntityId::lookup_inverses]); // Degree 1
         const Accumulator inverses(inverses_m);
-        const auto read_counts_m = CoefficientAccumulator(in.lookup_read_counts); // Degree 1
-        const auto read_selector_m = CoefficientAccumulator(in.q_lookup);         // Degree 1
+        const auto read_counts_m = CoefficientAccumulator(in[AllEntities::EntityId::lookup_read_counts]); // Degree 1
+        const auto read_selector_m = CoefficientAccumulator(in[AllEntities::EntityId::q_lookup]);         // Degree 1
 
         const auto inverse_exists = compute_inverse_exists<Accumulator>(in);   // Degree 2
         const auto lookup_term = compute_lookup_term<Accumulator>(in, params); // Degree 2
@@ -355,7 +359,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         std::get<1>(accumulator) += tmp; // Deg 4 (5)
 
         // We should make sure that the read_tag is a boolean value
-        const auto read_tag_m = CoefficientAccumulator(in.lookup_read_tags);
+        const auto read_tag_m = CoefficientAccumulator(in[AllEntities::EntityId::lookup_read_tags]);
         const auto read_tag = BooleanCheckerAccumulator(read_tag_m);
         // degree                          1         1                       0(1) =  2
         std::get<2>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;

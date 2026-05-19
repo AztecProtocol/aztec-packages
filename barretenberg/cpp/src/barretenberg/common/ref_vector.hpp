@@ -50,6 +50,15 @@ template <typename T> class RefVector {
         }
     }
 
+    template <std::size_t N>
+    RefVector(std::span<T, N> sp)
+        : storage(sp.size())
+    {
+        for (std::size_t i = 0; i < sp.size(); ++i) {
+            storage[i] = &sp[i];
+        }
+    }
+
     // Note: making this a constructor gives problems in prover_instance.cpp.
     static RefVector from_span(const std::span<T>& span)
     {

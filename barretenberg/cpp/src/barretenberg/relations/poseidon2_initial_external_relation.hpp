@@ -32,7 +32,7 @@ template <typename FF_> class Poseidon2InitialExternalRelationImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_external_initial.is_zero();
+        return in[AllEntities::EntityId::q_poseidon2_external_initial].is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -44,16 +44,16 @@ template <typename FF_> class Poseidon2InitialExternalRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoeffAcc = typename Accumulator::CoefficientAccumulator;
 
-        const auto x_0 = CoeffAcc(in.w_l);
-        const auto x_1 = CoeffAcc(in.w_r);
-        const auto x_2 = CoeffAcc(in.w_o);
-        const auto x_3 = CoeffAcc(in.w_4);
-        const auto y_0 = CoeffAcc(in.w_l_shift);
-        const auto y_1 = CoeffAcc(in.w_r_shift);
-        const auto y_2 = CoeffAcc(in.w_o_shift);
-        const auto y_3 = CoeffAcc(in.w_4_shift);
+        const auto x_0 = CoeffAcc(in[AllEntities::EntityId::w_l]);
+        const auto x_1 = CoeffAcc(in[AllEntities::EntityId::w_r]);
+        const auto x_2 = CoeffAcc(in[AllEntities::EntityId::w_o]);
+        const auto x_3 = CoeffAcc(in[AllEntities::EntityId::w_4]);
+        const auto y_0 = CoeffAcc(in[AllEntities::EntityId::w_l_shift]);
+        const auto y_1 = CoeffAcc(in[AllEntities::EntityId::w_r_shift]);
+        const auto y_2 = CoeffAcc(in[AllEntities::EntityId::w_o_shift]);
+        const auto y_3 = CoeffAcc(in[AllEntities::EntityId::w_4_shift]);
 
-        const auto q_sel = CoeffAcc(in.q_poseidon2_external_initial);
+        const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_external_initial]);
         const auto q_by_scaling = Accumulator(q_sel * scaling_factor);
 
         // Shared partial sums for M_E:

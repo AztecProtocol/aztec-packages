@@ -6,6 +6,7 @@
 #pragma once
 
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -25,7 +26,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     using FF = Flavor::FF;
     using Curve = Flavor::Curve;
     using Commitment = Flavor::Commitment;
-    using VerifierCommitments = Flavor::VerifierCommitments;
+    using VerifierCommitments = typename VerifierCommitmentsConstructor<Flavor>::Commitments;
     using Transcript = Flavor::Transcript;
     using Accumulator = MultilinearBatchingVerifierClaim<Curve>;
     using OinkVerifier = bb::OinkVerifier<Flavor>;
@@ -92,6 +93,6 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     /**
      * @brief Utility to perform batch mul of commitments.
      */
-    template <size_t N> Commitment batch_mul(const RefArray<Commitment, N>& _points, std::vector<FF>& scalars);
+    template <size_t N> Commitment batch_mul(std::span<Commitment, N> _points, std::vector<FF>& scalars);
 };
 } // namespace bb

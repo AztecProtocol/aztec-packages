@@ -543,3 +543,35 @@ TEST(PlookupTests, Secp256k1GeneratorSliceSizeBound)
         EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(300), bb::fr(0), false), std::runtime_error);
     }
 }
+
+/**
+ * @brief Invariant check for SHA-256 input multitables: basic-table sizes match declared slice_sizes.
+ *
+ * @details Each SHA-256 input multitable (MAJ_INPUT, CH_INPUT, WITNESS_INPUT) is a 1-to-1 decomposition
+ * lookup: each slot reads a single key in [0, slice_sizes[slot]) and the backing basic table is generated
+ * by iterating `i = 0 .. 2^bits_per_slice`. Soundness requires basic.size() == slice_sizes[slot]; a larger
+ * basic table admits keys outside the declared range and lets a prover witness an out-of-range slice.
+ *
+ */
+TEST(PlookupTests, Sha256InputMultiTablesMatchBasicTableSizes)
+{
+    const std::array<MultiTableId, 3> sha256_input_tables = {
+        MultiTableId::SHA256_MAJ_INPUT,
+        MultiTableId::SHA256_CH_INPUT,
+        MultiTableId::SHA256_WITNESS_INPUT,
+    };
+
+    for (auto mt_id : sha256_input_tables) {
+        const auto& mt = get_multitable(mt_id);
+        ASSERT_EQ(mt.basic_table_ids.size(), mt.slice_sizes.size())
+            << "MultiTable id=" << static_cast<size_t>(mt_id)
+            << ": basic_table_ids and slice_sizes have different sizes";
+
+        for (size_t slot = 0; slot < mt.slice_sizes.size(); ++slot) {
+            const auto basic = create_basic_table(mt.basic_table_ids[slot], 1);
+            EXPECT_EQ(basic.size(), mt.slice_sizes[slot])
+                << "MultiTable id=" << static_cast<size_t>(mt_id) << " slot=" << slot << ": basic-table size "
+                << basic.size() << " != declared slice_size " << mt.slice_sizes[slot];
+        }
+    }
+}

@@ -18,7 +18,7 @@ HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
     MegaCircuitBuilder& builder,
     GateCounter<MegaCircuitBuilder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
-    [[maybe_unused]] const std::shared_ptr<IVCBase>& ivc_base,
+    [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
@@ -76,7 +76,7 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
     UltraCircuitBuilder& builder,
     GateCounter<UltraCircuitBuilder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
-    [[maybe_unused]] const std::shared_ptr<IVCBase>& ivc_base,
+    [[maybe_unused]] const std::shared_ptr<Chonk>& ivc_base,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& honk_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& avm_recursion_data,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
@@ -161,7 +161,7 @@ void process_hn_recursion_constraints(
     GateCounter<MegaCircuitBuilder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
-    const std::shared_ptr<IVCBase>& ivc_base)
+    const std::shared_ptr<Chonk>& ivc_base)
 {
     using StdlibVerificationKey = Chonk::RecursiveVerificationKey;
     using StdlibVKAndHash = Chonk::RecursiveVKAndHash;
@@ -250,14 +250,9 @@ void process_hn_recursion_constraints(
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
-        auto mock_ivc = create_mock_chonk_from_constraints(hn_recursion_data.first);
-        process_with_ivc(mock_ivc);
+        process_with_ivc(create_mock_chonk_from_constraints(hn_recursion_data.first));
     } else {
-        auto chonk = std::dynamic_pointer_cast<Chonk>(ivc_base);
-        if (!chonk) {
-            throw_or_abort("process_hn_recursion_constraints: ivc_base is not a Chonk instance");
-        }
-        process_with_ivc(chonk);
+        process_with_ivc(ivc_base);
     }
 }
 

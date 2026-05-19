@@ -528,7 +528,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      **/
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
     {
-        BB_ASSERT_LTE(tag, this->current_tag);
+        BB_ASSERT_LTE(tag, this->_current_tag);
         // If we've already assigned this tag to this variable, return (can happen due to copy constraints)
         if (this->real_variable_tags[this->real_variable_index[variable_index]] == tag) {
             return;
@@ -546,7 +546,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     void set_tau_at_index(const uint32_t tag_index, const uint32_t tau_index)
     {
-        this->_tau.insert({ tag_index, tau_index });
+        auto [it, inserted] = this->_tau.insert({ tag_index, tau_index });
+        BB_ASSERT_DEBUG(inserted, "tag reuse detected");
     }
     /**
      * @brief Add a transposition to tau.
@@ -568,8 +569,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     uint32_t get_new_tag()
     {
-        this->current_tag++;
-        return this->current_tag;
+        this->_current_tag++;
+        return this->_current_tag;
     }
 
     RangeList create_range_list(const uint64_t target_range);

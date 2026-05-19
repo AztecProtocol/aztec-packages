@@ -336,21 +336,13 @@ TEST_F(ChonkTests, BadProofFailure)
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
         Chonk ivc{ NUM_CIRCUITS };
 
-        size_t num_public_inputs = 0;
-
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
-            ivc.accumulate(circuit, vk);
-
-            if (idx == 1) {
-                num_public_inputs = circuit.num_public_inputs();
-            }
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
 
             if (idx == 2) {
                 tamper_with_proof(ivc.verification_queue[0].proof,
-                                  num_public_inputs); // tamper with first proof
+                                  ivc.verification_queue[0].honk_vk->num_public_inputs); // tamper with first proof
             }
         }
         auto proof = ivc.prove();
@@ -365,13 +357,11 @@ TEST_F(ChonkTests, BadProofFailure)
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
-            ivc.accumulate(circuit, vk);
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
 
             if (idx == 1) {
                 tamper_with_proof(ivc.verification_queue[1].proof,
-                                  circuit.num_public_inputs()); // tamper with second proof
+                                  ivc.verification_queue[1].honk_vk->num_public_inputs); // tamper with second proof
             }
         }
         auto proof = ivc.prove();
@@ -558,8 +548,7 @@ TEST_F(ChonkTests, AccumulatorBinding)
     TestSettings settings_two{ .log2_num_gates = SMALL_LOG_2_NUM_GATES + 1 };
 
     for (size_t circuit_idx = 0; circuit_idx < num_circuits; ++circuit_idx) {
-        auto [circuit, vk] = producer_two.create_next_circuit_and_vk(invalid_chonk, settings_two);
-        invalid_chonk.accumulate(circuit, vk);
+        producer_two.construct_and_accumulate_next_circuit(invalid_chonk, settings_two);
 
         // *** ACCUMULATOR SUBSTITUTION ***
         // After the first app is accumulated, replace prover_accumulator with another one.

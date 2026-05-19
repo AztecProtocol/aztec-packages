@@ -35,7 +35,7 @@ static void compare_ultra_blocks_and_verification_keys(
         block_idx++;
     }
 
-    typename OuterFlavor::CommitmentLabels labels;
+    const auto& labels = OuterFlavor::commitment_labels();
     for (auto [vk_0, vk_1, label] :
          zip_view(verification_keys[0]->get_all(), verification_keys[1]->get_all(), labels.get_precomputed())) {
         if (vk_0 != vk_1) {

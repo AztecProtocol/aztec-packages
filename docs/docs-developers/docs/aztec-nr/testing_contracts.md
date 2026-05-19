@@ -41,7 +41,7 @@ aztec test
 2. Run `aztec test`
 
 :::warning
-Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the TXE (Test eXecution Environment) oracle resolver.
+Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the test environment oracle resolver provided by the `aztec` CLI.
 :::
 
 ## Basic test structure
@@ -348,3 +348,25 @@ unconstrained fn test_missing_authwit() {
 }
 
 ```
+
+## Test environment oracle versioning
+
+The test environment uses an oracle interface to communicate between your Noir test code and the `aztec test` CLI. This interface is versioned so that mismatches between the Aztec.nr dependency used to compile the test and the CLI version are detected automatically.
+
+The version uses two components, `major.minor`, with the same compatibility rules as [PXE oracle versioning](../foundational-topics/pxe/index.md#oracle-versioning):
+
+- **`major`** must match exactly. A major bump means oracles were removed or had their signatures changed, and a test environment on a different major cannot safely run the test.
+- **`minor`** indicates additive changes (new oracles). The test environment uses a best-effort approach: a test compiled against a higher `minor` is still allowed to run, and an error is only thrown if the test actually invokes an oracle the test environment does not know about.
+
+### Resolving a version mismatch
+
+If you see an error like _"Incompatible test environment version: The test was compiled with a newer version of Aztec.nr than your test environment supports"_, the test uses oracles from a newer Aztec.nr than your `aztec test` CLI supports.
+
+To fix it, make sure your `aztec` CLI version and the `aztec` dependency in the test crate's `Nargo.toml` are on the same release. Note that the test crate's Aztec.nr version can differ from the contract crate's version, depending on your project configuration. For example, if your CLI is on `v4.3.0`, the test crate's `Nargo.toml` should reference the matching tag:
+
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.3.0", directory="aztec" }
+```
+
+If the test environment reports a version that _should_ include every oracle the test needs but an oracle is still missing, this is likely a bug rather than a version problem.

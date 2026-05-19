@@ -63,7 +63,10 @@ template <typename FF_> class EllipticRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_elliptic.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in[AllEntities::EntityId::q_elliptic].is_zero();
+    }
 
     static constexpr FF get_curve_b()
     {
@@ -90,16 +93,16 @@ template <typename FF_> class EllipticRelationImpl {
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        auto x_3_m = CoefficientAccumulator(in.w_r_shift);
-        auto y_1_m = CoefficientAccumulator(in.w_o);
-        auto y_2_m = CoefficientAccumulator(in.w_4_shift);
+        auto x_3_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r_shift]);
+        auto y_1_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o]);
+        auto y_2_m = CoefficientAccumulator(in[AllEntities::EntityId::w_4_shift]);
 
-        auto x_1_m = CoefficientAccumulator(in.w_r);
-        auto x_2_m = CoefficientAccumulator(in.w_l_shift);
-        auto y_3_m = CoefficientAccumulator(in.w_o_shift);
-        auto q_elliptic_m = CoefficientAccumulator(in.q_elliptic);
-        auto q_is_double_m = CoefficientAccumulator(in.q_m);
-        auto q_sign_m = CoefficientAccumulator(in.q_l);
+        auto x_1_m = CoefficientAccumulator(in[AllEntities::EntityId::w_r]);
+        auto x_2_m = CoefficientAccumulator(in[AllEntities::EntityId::w_l_shift]);
+        auto y_3_m = CoefficientAccumulator(in[AllEntities::EntityId::w_o_shift]);
+        auto q_elliptic_m = CoefficientAccumulator(in[AllEntities::EntityId::q_elliptic]);
+        auto q_is_double_m = CoefficientAccumulator(in[AllEntities::EntityId::q_m]);
+        auto q_sign_m = CoefficientAccumulator(in[AllEntities::EntityId::q_l]);
 
         // We efficiently construct the following:
         auto x2_sub_x1_m = (x_2_m - x_1_m);                         // (x2 - x1)

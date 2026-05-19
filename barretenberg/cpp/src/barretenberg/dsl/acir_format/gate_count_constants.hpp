@@ -27,7 +27,7 @@ template <typename Builder> inline constexpr size_t BIG_QUAD = 2 + ZERO_GATE + M
 template <typename Builder> inline constexpr size_t LOGIC_XOR_32 = 6 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t LOGIC_AND_32 = 6 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t RANGE_32 = 2744 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t SHA256_COMPRESSION = 6702 + ZERO_GATE + MEGA_OFFSET<Builder>;
+template <typename Builder> inline constexpr size_t SHA256_COMPRESSION = 6703 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t AES128_ENCRYPTION = 1559 + ZERO_GATE + MEGA_OFFSET<Builder>;
 
 // The mega offset works differently for ECDSA opcodes because of the use of ROM tables, which use indices that
@@ -124,6 +124,7 @@ inline constexpr size_t CHONK_RECURSION_GATES = 1616793;
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
+
 inline constexpr size_t INIT_KERNEL_GATE_COUNT = 13877;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 656 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 75;
@@ -139,9 +140,9 @@ inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 689 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 77;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 39725;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 4905 + MSM_ROWS_OFFSET;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 339;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 38940;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 4773 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 331;
 
 // ========================================
 // ECCVM Recursive Verifier Constants

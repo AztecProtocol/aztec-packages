@@ -153,10 +153,10 @@ class PrivateFunctionExecutionMockCircuitProducer {
     }
 
     /**
-     * @brief Precompute the verification key for the given circuit.
+     * @brief Precompute the verification key for an accumulated app circuit (MegaFlavor shape).
+     *        For the hiding kernel, see `get_hiding_kernel_verification_key`.
      */
-    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in,
-                                                                 bool is_hiding_kernel = false)
+    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
     {
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
@@ -166,12 +166,21 @@ class PrivateFunctionExecutionMockCircuitProducer {
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
 
-        if (is_hiding_kernel) {
-            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
-            return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-        }
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
         return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    }
+
+    /**
+     * @brief Precompute the hiding-kernel verification key (MegaZKFlavor shape — reduced
+     *        precomputed entity set, distinct C++ type from `MegaFlavor::VerificationKey`).
+     */
+    static std::shared_ptr<Chonk::MegaZKVerificationKey> get_hiding_kernel_verification_key(ClientCircuit& builder_in)
+    {
+        MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+        builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+
+        auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
+        return std::make_shared<Chonk::MegaZKVerificationKey>(prover_instance->get_precomputed());
     }
 
     /**
@@ -264,11 +273,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return circuit;
     }
 
-    /**
-     * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
-     */
-    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(
-        Chonk& ivc, TestSettings settings = {}, bool check_circuit_size = false)
+    void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {}, bool check_circuit_sizes = false)
     {
         // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
         const bool is_hiding_kernel = ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1;
@@ -276,14 +281,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
             settings = TestSettings{};
         }
         auto circuit =
-            create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_size);
-        return { circuit, get_verification_key(circuit, is_hiding_kernel) };
-    }
-
-    void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {}, bool check_circuit_sizes = false)
-    {
-        auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings, check_circuit_sizes);
-        ivc.accumulate(circuit, vk);
+            create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_sizes);
+        if (is_hiding_kernel) {
+            ivc.accumulate_hiding_kernel(circuit, get_hiding_kernel_verification_key(circuit));
+        } else {
+            ivc.accumulate(circuit, get_verification_key(circuit));
+        }
     }
 };
 

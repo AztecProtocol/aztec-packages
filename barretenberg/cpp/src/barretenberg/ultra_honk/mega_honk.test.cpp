@@ -189,8 +189,8 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
     for (size_t i = 0; i < prover_instance_1->dyadic_size(); ++i) {
-        if (prover_instance_1->polynomials.q_arith[i] != 0) {
-            prover_instance_1->polynomials.w_l.at(i) += 1;
+        if (prover_instance_1->polynomials.q_arith()[i] != 0) {
+            prover_instance_1->polynomials.w_l().at(i) += 1;
             break;
         }
     }
@@ -308,36 +308,35 @@ TYPED_TEST(MegaHonkTests, WitnessPolynomialsMasked)
             EXPECT_TRUE(has_masking) << label << " should be masked";
         };
 
-        auto check_unmasked = [](const auto& poly, const std::string& label) {
-            for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
-                EXPECT_TRUE(poly[NUM_ZERO_ROWS + j].is_zero()) << label << " should not be masked";
-            }
-        };
-
         auto& polys = prover_instance->polynomials;
-        check_masked(polys.w_l, "w_l");
-        check_masked(polys.w_r, "w_r");
-        check_masked(polys.w_o, "w_o");
-        check_masked(polys.w_4, "w_4");
-        check_masked(polys.z_perm, "z_perm");
-        check_masked(polys.lookup_read_counts, "lookup_read_counts");
-        check_masked(polys.lookup_read_tags, "lookup_read_tags");
-        check_masked(polys.lookup_inverses, "lookup_inverses");
-        check_unmasked(polys.kernel_calldata, "kernel_calldata");
-        check_masked(polys.kernel_calldata_read_counts, "kernel_calldata_read_counts");
-        check_masked(polys.kernel_calldata_inverses, "kernel_calldata_inverses");
-        check_masked(polys.first_app_calldata, "first_app_calldata");
-        check_masked(polys.first_app_calldata_read_counts, "first_app_calldata_read_counts");
-        check_masked(polys.first_app_calldata_inverses, "first_app_calldata_inverses");
-        check_masked(polys.second_app_calldata, "second_app_calldata");
-        check_masked(polys.second_app_calldata_read_counts, "second_app_calldata_read_counts");
-        check_masked(polys.second_app_calldata_inverses, "second_app_calldata_inverses");
-        check_masked(polys.third_app_calldata, "third_app_calldata");
-        check_masked(polys.third_app_calldata_read_counts, "third_app_calldata_read_counts");
-        check_masked(polys.third_app_calldata_inverses, "third_app_calldata_inverses");
-        check_masked(polys.return_data, "return_data");
-        check_masked(polys.return_data_read_counts, "return_data_read_counts");
-        check_masked(polys.return_data_inverses, "return_data_inverses");
+        check_masked(polys.w_l(), "w_l");
+        check_masked(polys.w_r(), "w_r");
+        check_masked(polys.w_o(), "w_o");
+        check_masked(polys.w_4(), "w_4");
+        check_masked(polys.z_perm(), "z_perm");
+        if constexpr (Flavor::HasLogDerivLookup) {
+            check_masked(polys.lookup_read_counts(), "lookup_read_counts");
+            check_masked(polys.lookup_read_tags(), "lookup_read_tags");
+            check_masked(polys.lookup_inverses(), "lookup_inverses");
+        }
+        if constexpr (Flavor::HasDataBus) {
+            check_masked(polys.kernel_calldata_read_counts(), "kernel_calldata_read_counts");
+            check_masked(polys.kernel_calldata_inverses(), "kernel_calldata_inverses");
+            if constexpr (Flavor::NUM_BUS_COLUMNS >= 2) {
+                check_masked(polys.first_app_calldata(), "first_app_calldata");
+                check_masked(polys.first_app_calldata_read_counts(), "first_app_calldata_read_counts");
+                check_masked(polys.first_app_calldata_inverses(), "first_app_calldata_inverses");
+                check_masked(polys.second_app_calldata(), "second_app_calldata");
+                check_masked(polys.second_app_calldata_read_counts(), "second_app_calldata_read_counts");
+                check_masked(polys.second_app_calldata_inverses(), "second_app_calldata_inverses");
+                check_masked(polys.third_app_calldata(), "third_app_calldata");
+                check_masked(polys.third_app_calldata_read_counts(), "third_app_calldata_read_counts");
+                check_masked(polys.third_app_calldata_inverses(), "third_app_calldata_inverses");
+                check_masked(polys.return_data(), "return_data");
+                check_masked(polys.return_data_read_counts(), "return_data_read_counts");
+                check_masked(polys.return_data_inverses(), "return_data_inverses");
+            }
+        }
     }
 }
 
@@ -375,8 +374,9 @@ TYPED_TEST(MegaHonkTests, RepeatedCommitmentsIndicesCorrect)
         commitments.push_back(ck.commit(poly));
     }
 
-    // Same offset logic as remove_repeated_commitments
-    constexpr size_t offset = Flavor::HasZK ? 2 : 1;
+    // Same offset logic as remove_repeated_commitments: leading commitments are Shplonk:Q (+1)
+    // and the gemini_masking_poly commitment when the flavor commits to one (+1 more).
+    constexpr size_t offset = flavor_has_gemini_masking<Flavor>() ? 2 : 1;
     for (size_t i = 0; i < repeated.first.count; i++) {
         EXPECT_EQ(commitments[repeated.first.original_start + offset + i],
                   commitments[repeated.first.duplicate_start + offset + i])
@@ -407,7 +407,7 @@ TYPED_TEST(MegaHonkTests, MaliciousEccOpWireInOffsetAreaRejected)
 
             auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
             if (tamper) {
-                prover_instance->polynomials.ecc_op_wire_1.at(2) = FF(42);
+                prover_instance->polynomials.ecc_op_wire_1().at(2) = FF(42);
             }
             auto verification_key =
                 std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());

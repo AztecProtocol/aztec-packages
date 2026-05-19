@@ -38,16 +38,16 @@ static_assert(
     ProofLength::Honk<UltraFlavor>::expected_proof_size<stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>>(
         UltraFlavor::VIRTUAL_LOG_N) == 410,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::PROOF_LENGTH == 1358, "CHONK_PROOF_LENGTH changed - update constants.nr");
-static_assert(ChonkProof::HIDING_OINK_LENGTH == 108,
+static_assert(ChonkProof::PROOF_LENGTH == 1271, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(ChonkProof::HIDING_OINK_LENGTH == 48,
               "ChonkProof::HIDING_OINK_LENGTH changed - update CHONK_HIDING_OINK_LENGTH in constants.nr "
               "and run `yarn remake-constants`");
-static_assert(ChonkProof::JOINT_PROOF_LENGTH == 504,
+static_assert(ChonkProof::JOINT_PROOF_LENGTH == 477,
               "ChonkProof::JOINT_PROOF_LENGTH changed - update CHONK_JOINT_PROOF_LENGTH in constants.nr "
               "and run `yarn remake-constants`");
 static_assert(MegaFlavor::VerificationKey::calc_num_data_types() == 163,
               "MEGA_VK_LENGTH_IN_FIELDS changed - update constants.nr");
-static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 163,
+static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 115,
               "MegaZK VK size changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 102,
               "MultilinearBatching proof size changed - update constants.nr");

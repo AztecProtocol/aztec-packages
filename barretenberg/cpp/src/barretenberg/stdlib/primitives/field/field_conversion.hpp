@@ -71,8 +71,8 @@ template <typename Field> class StdlibCodec {
 
         static constexpr bb::fr shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
         std::vector<fr> result(2);
-        result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
-        result[1] = input.binary_basis_limbs[2].element + (input.binary_basis_limbs[3].element * shift);
+        result[0] = input.get_limb(0).element + (input.get_limb(1).element * shift);
+        result[1] = input.get_limb(2).element + (input.get_limb(3).element * shift);
         return result;
     }
 
