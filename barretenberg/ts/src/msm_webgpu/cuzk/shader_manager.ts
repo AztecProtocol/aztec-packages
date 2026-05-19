@@ -10,6 +10,7 @@ import {
   batch_affine_finalize_apply as batch_affine_finalize_apply_shader,
   batch_affine_finalize_collect as batch_affine_finalize_collect_shader,
   batch_affine_fused_revcarry as batch_affine_fused_revcarry_shader,
+  batch_affine_fused_wg_scan as batch_affine_fused_wg_scan_shader,
   batch_affine_init as batch_affine_init_shader,
   batch_affine_schedule as batch_affine_schedule_shader,
   batch_inverse as batch_inverse_shader,
@@ -42,6 +43,7 @@ import {
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
+  packed_field as packed_field_funcs,
   smvp_bn254 as smvp_bn254_shader,
   smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
@@ -873,6 +875,57 @@ ${packLines.join('\n')}
         fr_pow_funcs,
         bigint_by_funcs,
         by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Workgroup-scan fused batch-affine round kernel (v2). Mirrors the
+   * `bench_batch_affine` design (TPB threads cooperating over a
+   * BATCH_SIZE=TPB*BS pair slice with one fr_inv_by_a per workgroup)
+   * but with bucket-indirect loads via pair_target_meta. Every
+   * field-element variable is `PackedField`; no per-load unpack at
+   * the kernel level.
+   */
+  public gen_batch_affine_fused_wg_scan_shader(tpb: number, bs: number): string {
+    if (tpb <= 0 || bs <= 0 || !Number.isInteger(tpb) || !Number.isInteger(bs)) {
+      throw new Error(`gen_batch_affine_fused_wg_scan_shader: tpb (${tpb}) and bs (${bs}) must be positive integers`);
+    }
+    if ((tpb & (tpb - 1)) !== 0) {
+      throw new Error(`gen_batch_affine_fused_wg_scan_shader: tpb (${tpb}) must be a power of two (Hillis-Steele scan)`);
+    }
+    const batch_size = tpb * bs;
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      batch_affine_fused_wg_scan_shader,
+      {
+        tpb,
+        bs,
+        batch_size,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+        packed_field_funcs,
       },
     );
   }
