@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
+import { BatchCall, NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx, TxExecutionResult } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -184,24 +184,33 @@ describe('full_prover', () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
-    // Per AZIP-8 / AZIP-9 rebase: deploy Parent + Child and prove a 4-call private chain to
-    // regenerate `private-kernel-inner/Prover.toml`. The Token transfers below pack into
-    // init_2 / init_3, never invoking plain `inner`; this nested chain
-    // (entrypoint → parent.private_nested_static_call → parent.private_call → child.private_get_value)
-    // is 4 private apps and the planner splits it as init_3 + inner. `proveInteraction` alone is
-    // enough to capture `pushTestData('private-kernel-inner', ...)`; no need to land the tx.
-    logger.info(`Deploying Parent + Child contracts to exercise inner kernel`);
+    // Deploy Parent + Child and prove three private chains to regenerate
+    // `private-kernel-inner{,-2,-3}/Prover.toml`. The Token transfers below pack into init_2 /
+    // init_3 and never invoke plain `inner` / `inner_2` / `inner_3`. The planner is N=3 greedy,
+    // so we exercise it with three transactions:
+    //   - 4 apps (entrypoint → parent.private_nested_static_call → parent.private_call →
+    //     child.private_get_value) → init_3 + inner
+    //   - 5 apps (BatchCall: nested chain + one extra leaf call) → init_3 + inner_2
+    //   - 6 apps (BatchCall: nested chain + two extra leaf calls) → init_3 + inner_3
+    // `proveInteraction` alone is enough to capture `pushTestData('private-kernel-inner{,-2,-3}',
+    // ...)`; no need to land the txs.
+    logger.info(`Deploying Parent + Child contracts to exercise inner kernels`);
     const { contract: childContract } = await ChildContract.deploy(provenWallet).send({ from: sender });
     const { contract: parentContract } = await ParentContract.deploy(provenWallet).send({ from: sender });
-    // Seed a note in child so the static private_get_value read below has something to return.
+    // Seed a note in child so the static private_get_value reads below have something to return.
     await childContract.methods.private_set_value(42n, sender).send({ from: sender });
-    const innerKernelInteraction = parentContract.methods.private_nested_static_call(
-      childContract.address,
-      await childContract.methods.private_get_value.selector(),
-      [42n, sender],
-    );
-    logger.info(`Proving nested-call tx to populate inner kernel test data`);
-    await proveInteraction(provenWallet, innerKernelInteraction, { from: sender });
+    const getValueSelector = await childContract.methods.private_get_value.selector();
+    const nestedChain = () =>
+      parentContract.methods.private_nested_static_call(childContract.address, getValueSelector, [42n, sender]);
+    const extraLeaf = () => childContract.methods.private_get_value(42n, sender);
+    logger.info(`Proving 4-app nested-call tx to populate private-kernel-inner test data`);
+    await proveInteraction(provenWallet, nestedChain(), { from: sender });
+    logger.info(`Proving 5-app batched tx to populate private-kernel-inner-2 test data`);
+    await proveInteraction(provenWallet, new BatchCall(provenWallet, [nestedChain(), extraLeaf()]), { from: sender });
+    logger.info(`Proving 6-app batched tx to populate private-kernel-inner-3 test data`);
+    await proveInteraction(provenWallet, new BatchCall(provenWallet, [nestedChain(), extraLeaf(), extraLeaf()]), {
+      from: sender,
+    });
 
     // Create the two transactions
     const { result: privateBalance } = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
@@ -271,7 +280,11 @@ describe('full_prover', () => {
     (
       [
         'private-kernel-init',
+        'private-kernel-init-2',
+        'private-kernel-init-3',
         'private-kernel-inner',
+        'private-kernel-inner-2',
+        'private-kernel-inner-3',
         'private-kernel-tail',
         'private-kernel-tail-to-public',
         'private-kernel-reset',
