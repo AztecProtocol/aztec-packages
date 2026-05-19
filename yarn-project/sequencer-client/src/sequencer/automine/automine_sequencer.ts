@@ -9,6 +9,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { TestDateProvider } from '@aztec/foundation/timer';
+import { isErrorClass } from '@aztec/foundation/types';
 import type { P2PClient as ConcreteP2PClient, P2P } from '@aztec/p2p';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, type L2Block, type L2BlockSource } from '@aztec/stdlib/block';
@@ -60,6 +61,11 @@ export type AutomineSequencerDeps = {
   archiver: Pick<Archiver, 'rollbackTo'>;
   /** L1 tx utils whose cached nonces must be reset after an L1 reorg. */
   l1TxUtils: Pick<L1TxUtils, 'resetNonce'>[];
+  /**
+   * Optional extra cleanup hook awaited inside {@link AutomineSequencer.stop}. Used by the
+   * factory to shut down the PublisherManager funding loop after the queue and poller drain.
+   */
+  stopExtras?: () => Promise<void>;
   /** How often to poll the mempool for new txs while running. Defaults to 50ms. */
   pollIntervalMs?: number;
   log?: Logger;
@@ -90,6 +96,7 @@ export class AutomineSequencer {
   private readonly deps: AutomineSequencerDeps;
 
   private running = false;
+  private stopped = false;
   private paused = false;
   private mempoolPoller?: RunningPromise;
   private publisher?: SequencerPublisher;
@@ -137,14 +144,20 @@ export class AutomineSequencer {
     this.mempoolPoller.start();
   }
 
-  /** Stops the sequencer. Drains the queue, unsubscribes the mempool poller. */
+  /**
+   * Stops the sequencer. Drains the queue, unsubscribes the mempool poller, and runs any
+   * registered {@link AutomineSequencerDeps.stopExtras} hook (e.g. the PublisherManager's
+   * funding loop). Idempotent: subsequent calls return without re-running cleanup.
+   */
   public async stop(): Promise<void> {
-    if (!this.running) {
+    if (this.stopped) {
       return;
     }
+    this.stopped = true;
     this.running = false;
     await this.mempoolPoller?.stop();
     await this.queue.end();
+    await this.deps.stopExtras?.();
     this.log.info('AutomineSequencer stopped');
   }
 

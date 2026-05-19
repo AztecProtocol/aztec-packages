@@ -99,6 +99,18 @@ export async function createAutomineSequencer({
   const feeRecipient = validatorClient.getFeeRecipientForAttestor(attestor);
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, dateProvider, log.createChild('eth-cheat-codes'));
 
+  // Include the funder's L1TxUtils in the reorg reset list so funding-tx nonces don't
+  // go stale after L1 rollbacks. Dedupe by sender address in case the funder reuses a
+  // publisher's signer.
+  const reorgResetL1TxUtils = (() => {
+    if (!funderL1TxUtils) {
+      return l1TxUtils;
+    }
+    const funderAddress = funderL1TxUtils.getSenderAddress().toString();
+    const alreadyIncluded = l1TxUtils.some(utils => utils.getSenderAddress().toString() === funderAddress);
+    return alreadyIncluded ? l1TxUtils : [...l1TxUtils, funderL1TxUtils];
+  })();
+
   const automineSequencer = new AutomineSequencer({
     publisherFactory,
     checkpointsBuilder,
@@ -121,7 +133,8 @@ export async function createAutomineSequencer({
     signatureContext: { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
     config,
     archiver,
-    l1TxUtils,
+    l1TxUtils: reorgResetL1TxUtils,
+    stopExtras: () => publisherManager.stop(),
     log: log.createChild('automine-sequencer'),
   });
 
