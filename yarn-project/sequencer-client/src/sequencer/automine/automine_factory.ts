@@ -38,7 +38,9 @@ export type CreateAutomineSequencerArgs = {
   checkpointsBuilder: FullNodeCheckpointsBuilder;
   globalVariableBuilder: GlobalVariableBuilder;
   worldStateSynchronizer: WorldStateSynchronizer;
-  archiver: L2BlockSource & L1ToL2MessageSource & Pick<Archiver, 'rollbackTo'>;
+  archiver: L2BlockSource &
+    L1ToL2MessageSource &
+    Pick<Archiver, 'rollbackTo' | 'addBlock' | 'addProposedCheckpoint' | 'syncImmediate'>;
   p2pClient: P2P & Pick<ConcreteP2PClient, 'sync'>;
   l1Constants: { l1GenesisTime: bigint; slotDuration: number; ethereumSlotDuration: number; rollupManaLimit: number };
   log: Logger;

@@ -6,7 +6,6 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
-import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { isErrorClass } from '@aztec/foundation/types';
@@ -62,8 +61,11 @@ export type AutomineSequencerDeps = {
   feeRecipient: AztecAddress;
   signatureContext: CoordinationSignatureContext;
   config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
-  /** Archiver used to roll back in-memory state to a previous L2 block during reorgs. */
-  archiver: Pick<Archiver, 'rollbackTo'>;
+  /**
+   * Archiver used to push locally-built blocks and proposed checkpoints into the in-memory
+   * store, force an immediate L1 sync after publishing, and roll back state during reorgs.
+   */
+  archiver: Pick<Archiver, 'rollbackTo' | 'addBlock' | 'addProposedCheckpoint' | 'syncImmediate'>;
   /** L1 tx utils whose cached nonces must be reset after an L1 reorg. */
   l1TxUtils: Pick<L1TxUtils, 'resetNonce'>[];
   /**
@@ -376,6 +378,22 @@ export class AutomineSequencer {
     const emptyAttestations = CommitteeAttestationsAndSigners.empty(this.deps.signatureContext);
     const emptyAttestationsSignature = Signature.empty();
 
+    // Push the block and proposed checkpoint into the archiver locally BEFORE publishing to L1.
+    // This avoids racing the archiver's L1 polling: if the L1 publish happened first, polling
+    // could surface the checkpoint and reject our subsequent local push as duplicate. Pushing
+    // first means the archiver already has the proposed entry when L1 polling fires; the L1
+    // sync path then promotes the existing proposed checkpoint via promoteProposedToCheckpointed
+    // rather than re-adding it.
+    await this.deps.archiver.addBlock(buildResult.block);
+    await this.deps.archiver.addProposedCheckpoint({
+      header: checkpoint.header,
+      checkpointNumber,
+      startBlock: BlockNumber(buildResult.block.number),
+      blockCount: 1,
+      totalManaUsed: checkpoint.header.totalManaUsed.toBigInt(),
+      feeAssetPriceModifier,
+    });
+
     await this.publisher.enqueueProposeCheckpoint(checkpoint, emptyAttestations, emptyAttestationsSignature);
     const result = await this.publisher.sendRequests(SlotNumber(targetSlot));
 
@@ -390,25 +408,16 @@ export class AutomineSequencer {
       throw new Error(`AutomineSequencer: propose did not succeed for slot ${targetSlot}`);
     }
 
+    // Force one full L1-sync cycle synchronously. The local addBlock/addProposedCheckpoint
+    // above advances the proposed tip, but tips.checkpointed and the L1->L2 inbox tree state
+    // only advance when the archiver observes the L1-confirmed checkpoint via its sync loop.
+    await this.deps.archiver.syncImmediate();
+
     // Sync the date provider to the L1 block timestamp we just mined.
     const newL1Ts = await this.deps.ethCheatCodes.lastBlockTimestamp();
     this.deps.dateProvider.setTime(newL1Ts * 1000);
 
     this.lastBuiltSlot = targetSlot;
-
-    // Wait for the archiver to surface the new checkpoint as its proposed tip. Without this,
-    // the next mempool-driven build picks up a stale tip and L1 rejects the propose with
-    // Rollup__InvalidArchive (we built our header pointing at the pre-publish lastArchive,
-    // but L1's lastArchive has already advanced).
-    await retryUntil(
-      async () => {
-        const tips = await this.deps.l2BlockSource.getL2Tips();
-        return tips.proposedCheckpoint.checkpoint.number >= checkpointNumber;
-      },
-      `archiver sync to checkpoint ${checkpointNumber}`,
-      this.deps.l1Constants.slotDuration * 2,
-      0.05,
-    );
 
     this.log.verbose(`Automine checkpoint published`, {
       checkpointNumber,
