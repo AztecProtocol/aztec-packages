@@ -205,7 +205,7 @@ template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkVerifier<MegaAppFlavor>;
 template class OinkVerifier<MegaKernelFlavor>;
-template class OinkVerifier<MegaAppRecursiveFlavor_<MegaCircuitBuilder>>;
-template class OinkVerifier<MegaKernelRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaAppRecursiveFlavor>;
+template class OinkVerifier<MegaKernelRecursiveFlavor>;
 
 } // namespace bb

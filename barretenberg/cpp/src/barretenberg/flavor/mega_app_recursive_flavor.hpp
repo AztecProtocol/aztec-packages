@@ -14,12 +14,13 @@ namespace bb {
 
 /**
  * @brief Recursive counterpart to MegaAppFlavor.
- * @details Used when an Ultra/Mega circuit recursively verifies a folding proof of an app circuit.
- * Mirrors MegaAppFlavor's entity/relation set with stdlib curve types.
+ * @details Used when a Mega kernel circuit recursively verifies a folding proof of a prior app.
+ * The recursive verifier always lives inside `MegaCircuitBuilder`, so this is a plain
+ * (non-template) class.
  */
-template <typename BuilderType> class MegaAppRecursiveFlavor_ {
+class MegaAppRecursiveFlavor {
   public:
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = MegaCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;

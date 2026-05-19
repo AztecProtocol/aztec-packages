@@ -69,8 +69,8 @@ class Chonk {
     using Transcript = NativeTranscript;
     // Recursive types
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
-    using AppRecursiveFlavor = MegaAppRecursiveFlavor_<bb::MegaCircuitBuilder>;
-    using KernelRecursiveFlavor = MegaKernelRecursiveFlavor_<bb::MegaCircuitBuilder>;
+    using AppRecursiveFlavor = MegaAppRecursiveFlavor;
+    using KernelRecursiveFlavor = MegaKernelRecursiveFlavor;
     using StdlibFF = RecursiveFlavor::FF;
     using RecursiveCommitment = RecursiveFlavor::Commitment;
     using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;

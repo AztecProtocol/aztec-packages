@@ -181,9 +181,7 @@ template class MultilinearBatchingVerifier<MultilinearBatchingFlavor>;
 template class MultilinearBatchingVerifier<MultilinearBatchingFlavor, MegaAppFlavor>;
 template class MultilinearBatchingVerifier<MultilinearBatchingFlavor, MegaKernelFlavor>;
 template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor>;
-template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor,
-                                           MegaAppRecursiveFlavor_<MegaCircuitBuilder>>;
-template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor,
-                                           MegaKernelRecursiveFlavor_<MegaCircuitBuilder>>;
+template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor, MegaAppRecursiveFlavor>;
+template class MultilinearBatchingVerifier<MultilinearBatchingRecursiveFlavor, MegaKernelRecursiveFlavor>;
 
 } // namespace bb

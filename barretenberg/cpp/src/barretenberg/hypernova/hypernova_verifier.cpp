@@ -160,6 +160,6 @@ template class HypernovaFoldingVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>
 template class HypernovaFoldingVerifier<MegaFlavor>;
 template class HypernovaFoldingVerifier<MegaAppFlavor>;
 template class HypernovaFoldingVerifier<MegaKernelFlavor>;
-template class HypernovaFoldingVerifier<MegaAppRecursiveFlavor_<MegaCircuitBuilder>>;
-template class HypernovaFoldingVerifier<MegaKernelRecursiveFlavor_<MegaCircuitBuilder>>;
+template class HypernovaFoldingVerifier<MegaAppRecursiveFlavor>;
+template class HypernovaFoldingVerifier<MegaKernelRecursiveFlavor>;
 } // namespace bb
