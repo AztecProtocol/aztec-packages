@@ -41,7 +41,7 @@ count, and to ensure any promoted-but-unflattened entries have no redirect publi
 | GLV split | Halve scalar bit length at cost of doubling point count | `n_input <= 2^13` native, `n_input <= 2^16` WASM, or caller supplies external GLV table | threshold at `scalar_multiplication.cpp:535`; split/double at `:2831` | Sign convention for phi point, input scalar mutation/restoration asymmetry, memory pressure at crossover |
 | Effective bit budget | Avoid windows above the actual largest scalar MSB | After Phase 1, `effective_num_bits` is highest non-empty `msb_hist` bin | `scalar_multiplication.cpp:2919` | Off-by-one in histogram bins; interaction with GLV halves and zero sentinel |
 | Trivial MSM fallback | Pippenger scaffolding dominates very sparse or tiny active sets | `pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER` (`24`) after zero counting | `scalar_multiplication.cpp:2891`; constant in header | Correct Montgomery lifecycle before `trivial_msm_threaded`; preserving `PolynomialSpan::start_index` semantics |
-| Variable-window split | Mixed scalar sizes waste high-bit windows on small scalars | Grid over `b_star`; upper population must be minority, at least 64 and 5% active; predicted split cost must be <= 85% unsplit | `choose_var_window_split` at `scalar_multiplication.cpp:721`; region dispatch at `:4574` | Boundary inclusion `msb >= b_star - 1`, last-window widths, `capacity_hi = n_large` while iterating `n`, upper schedule overflow |
+| Variable-window split | Mixed scalar sizes waste high-bit windows on small scalars | Removed after traced Chonk runs showed a net regression | deleted `choose_var_window_split` cost model and upper-region dispatch | Keep deleted unless a new benchmark suite proves a retuned split model wins |
 | Small-set peel | Split lower region too small to amortize Pippenger | If split fires and `n_small` per thread is below trivial threshold, compute small set with Straus and run Pippenger only on large set | `scalar_multiplication.cpp:2989` | Currently comments mention dedup integration, but Phase A runs later so dedup data is unavailable; verify this is harmless or dead code |
 | Round-parallel pipeline | Legacy per-thread work balance and repeated bucket reductions | Main path after dispatch: stages 1-7 over window batches sized by arena budget | staged lambda starts around `scalar_multiplication.cpp:3690` | Race-free cursor reuse, per-window capacity, Stage 1 and Stage 4 decode equivalence |
 | SIMD digit extraction | Scalar decoding is compute-heavy and non-vectorized | `SIMD_BATCH = 64`; 4-wide `uint32_t` vector helpers selected by per-window path | `scalar_multiplication.cpp:3728` | Strict aliasing/layout assumptions, tail handling, all-included mask path |
@@ -78,8 +78,7 @@ enabled through hints. Review it as a separate feature before judging the whole 
 1. Make all correctness tests pass with dedup disabled and enabled separately. If disabling
    dedup fixes `ChonkTests.TestCircuitSizes`, keep the review scoped until Phase A is repaired.
 2. Lock down algebraic equivalence tests for the staged pipeline using random scalars,
-   sparse scalars, duplicate-heavy scalars, GLV threshold boundaries, and forced split via
-   `VAR_WINDOW_FORCE_SPLIT`.
+   sparse scalars, duplicate-heavy scalars, and GLV threshold boundaries.
 3. Review memory safety after correctness: arena sizing mirrors, worker scratch lifetimes,
    overflow bounds, and capacity assumptions.
 4. Only then treat benchmark numbers as meaningful. Several choices are calibrated constants
@@ -129,7 +128,6 @@ The branch has local MSM tracing and ablation switches in `scalar_multiplication
   reduction round.
 - `BB_MSM_NO_GLV=1` disables inline and shared batched GLV.
 - `BB_MSM_NO_DEDUP=1` ignores dedup hints and sizes the arena accordingly.
-- `BB_MSM_NO_VAR_SPLIT=1` disables the variable-window split heuristic.
 
 Useful trace fields:
 
@@ -146,7 +144,6 @@ For the `ecdsar1+transfer_0_recursions+sponsored_fpc` flow, compare the full bra
 BB_MSM_TRACE=1
 BB_MSM_TRACE=1 BB_MSM_NO_GLV=1
 BB_MSM_TRACE=1 BB_MSM_NO_DEDUP=1
-BB_MSM_TRACE=1 BB_MSM_NO_VAR_SPLIT=1
 BB_MSM_TRACE=1 BB_MSM_NO_GLV=1 BB_MSM_NO_DEDUP=1
 ```
 
@@ -247,7 +244,7 @@ traced branch baseline of 3.66 s, not the uninstrumented 3.46 s.
 | Run | `ChonkAPI::prove` | Delta vs traced branch | Implication |
 | --- | --- | --- | --- |
 | Traced branch | 3.66 s | baseline | Full branch with tracing |
-| `BB_MSM_NO_VAR_SPLIT=1` | 3.64 s | -20 ms | Variable split is a small wallclock regression |
+| `BB_MSM_NO_VAR_SPLIT=1` | 3.64 s | -20 ms | Variable split was a small wallclock regression before removal |
 | `BB_MSM_NO_DEDUP=1` | 3.75 s | +90 ms | Dedup saves about 90 ms under tracing |
 
 Dedup payload by hinted label, sorted by `zero_count + duplicate_excess` ("bucket adds
@@ -313,7 +310,7 @@ Variable-window split looks like an anti-optimization on this Chonk flow:
 The predictor fires 31 times and loses about 1.4 ms per split decision. The current rule
 accepts a split when predicted cost is at most 85% of unsplit; on this workload the predictor
 is either overestimating split savings or the unsplit path has become fast enough that this
-margin is now too generous. Disable variable split by default, or retune it, before audit.
+margin was too generous. The variable split path has since been removed from the branch.
 
 IPA structure from the same trace: one Grumpkin IPA opening uses `poly_length=32768`, 15
 rounds, 30 Pippenger calls, and 15 `batch_mul_with_endomorphism` calls. The round ladder is
@@ -328,11 +325,11 @@ Updated attribution for this flow:
 | Non-dedup, non-GLV, non-var-split rewrite | ~960 ms saved | Main headline; keep focus here |
 | Dedup | ~90 ms saved | Real and well targeted; mostly Honk wires |
 | GLV | ~40 ms saved | Small contributor from prior ablation |
-| Variable-window split | ~44 ms regression | Disable or retune |
+| Variable-window split | ~44 ms regression | Removed |
 
 Concrete actions from this trace:
 
-1. Disable `choose_var_window_split` by default, or make its threshold much stricter.
+1. Keep `choose_var_window_split` removed unless a new benchmark suite justifies rebuilding it.
 2. Keep dedup as a targeted Chonk optimization, but fix the cap/arena correctness bugs before
    defending it for merge.
 3. Consider replacing the ECCVM transcript accumulator dedup case with a cheaper zero-heavy
