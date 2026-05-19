@@ -9,7 +9,6 @@
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/eccvm/eccvm_translation_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -20,6 +19,8 @@
 #include <vector>
 
 namespace bb {
+template <typename Transcript> class TranslationData;
+
 /**
  * @brief A Curve-agnostic ZK protocol to prove inner products of small vectors.
  *

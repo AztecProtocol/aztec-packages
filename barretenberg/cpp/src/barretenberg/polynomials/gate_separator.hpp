@@ -15,6 +15,8 @@
 #include <vector>
 namespace bb {
 
+template <typename Fr> class Polynomial;
+
 template <typename FF> struct GateSeparatorPolynomial {
     /**
      * @brief The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$

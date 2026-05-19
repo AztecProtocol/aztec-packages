@@ -5,15 +5,19 @@
 // =====================
 
 #pragma once
+#include <memory>
 #include <string>
 #include <utility>
 
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue_fwd.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
 namespace bb {
+
+struct EccOpCode;
+struct UltraOp;
 
 template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaExecutionTraceBlocks> {
   private:
@@ -49,19 +53,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     void apply_databus_selectors(BusId bus_idx);
 
   public:
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
-                        bool is_write_vk_mode = false)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(is_write_vk_mode)
-        , op_queue(std::move(op_queue_in))
-    {
-        BB_BENCH();
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
-        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
-        op_queue->initialize_new_subtable();
-
-        // Set indices to constants corresponding to Goblin ECC op codes
-        set_goblin_ecc_op_code_constant_variables();
-    };
+    explicit MegaCircuitBuilder_(bool is_write_vk_mode = false);
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, bool is_write_vk_mode = false);
 
     /**
      * @brief Constructor from data generated from ACIR
@@ -82,17 +75,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                         const std::vector<FF>& witness_values,
                         const std::vector<uint32_t>& public_inputs,
-                        const bool is_write_vk_mode)
-        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(witness_values, public_inputs, is_write_vk_mode)
-        , op_queue(std::move(op_queue_in))
-    {
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
-        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
-        op_queue->initialize_new_subtable();
-
-        // Set indices to constants corresponding to Goblin ECC op codes
-        set_goblin_ecc_op_code_constant_variables();
-    };
+                        const bool is_write_vk_mode);
 
     /**
      * @brief Convert op code to the witness index for the corresponding op index in the builder
@@ -100,24 +83,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @param op_code
      * @return uint32_t
      */
-    uint32_t get_ecc_op_idx(const EccOpCode& op_code)
-    {
-        if (op_code.add) {
-            return add_accum_op_idx;
-        }
-        if (op_code.mul) {
-            return mul_accum_op_idx;
-        }
-        if (op_code.eq && op_code.reset) {
-            return equality_op_idx;
-        }
-        if (!op_code.add && !op_code.mul && !op_code.eq && !op_code.reset) {
-            return null_op_idx;
-        }
-
-        throw_or_abort("Invalid op code");
-        return 0;
-    }
+    uint32_t get_ecc_op_idx(const EccOpCode& op_code);
 
     void finalize_circuit();
 

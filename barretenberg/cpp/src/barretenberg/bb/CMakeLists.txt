@@ -12,6 +12,7 @@ if (NOT(FUZZING))
         env
         api
         circuit_checker
+        op_queue
         vm2_stub
         ${TRACY_LIBS}
         tracy_mem
@@ -51,6 +52,7 @@ if (NOT(FUZZING))
             env
             api
             circuit_checker
+            op_queue
             vm2
             ${TRACY_LIBS}
             libdeflate::libdeflate_static

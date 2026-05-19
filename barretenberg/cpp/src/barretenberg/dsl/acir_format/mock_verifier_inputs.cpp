@@ -3,8 +3,13 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/mock_avm_proof_constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace acir_format {

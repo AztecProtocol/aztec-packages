@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #pragma once
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"

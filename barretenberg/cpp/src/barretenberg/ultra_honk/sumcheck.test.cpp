@@ -1,5 +1,6 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"

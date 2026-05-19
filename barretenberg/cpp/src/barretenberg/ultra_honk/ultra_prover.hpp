@@ -5,21 +5,14 @@
 // =====================
 
 #pragma once
-#include "barretenberg/flavor/mega_flavor.hpp"
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
-#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_flavor.hpp"
-#ifdef STARKNET_GARAGA_FLAVORS
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
-#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
-#endif
+#include "barretenberg/flavor/flavor_fwd.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
+
+#include <memory>
 
 namespace bb {
 

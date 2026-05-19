@@ -47,7 +47,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     BB_ASSERT(points.size() == scalars.size(), "biggroup_goblin: points and scalars lengths not equal.");
 
     // Check that the internal accumulator is zero?
-    BB_ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+    BB_ASSERT(ecc_op_queue_accumulator_is_empty(builder->op_queue));
 
     // Loop over all points and scalars
     size_t num_points = points.size();

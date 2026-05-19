@@ -9,7 +9,7 @@
 //
 #pragma once
 #include "barretenberg/chonk/batched_honk_translator/batched_honk_translator_verifier.hpp"
-#include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/chonk/chonk_stdlib_proof.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
@@ -89,8 +89,7 @@ template <bool IsRecursive> class ChonkVerifier {
      *   1. MegaZK proof of the hiding kernel
      *   2. Databus consistency (kernel return data == calldata)
      *   3. Goblin proof (Merge + ECCVM + Translator) - reduces to pairing points and IPA claim
-     *   Returns Output (GoblinVerifier::ReductionResult) containing pairing points and IPA claim for deferred
-     *   verification. Both pairing verification and IPA verification are deferred.
+     *   Returns Output (ReductionResult for recursive, bool for native)
      *
      * Native mode (IsRecursive=false):
      *   Performs full verification including:

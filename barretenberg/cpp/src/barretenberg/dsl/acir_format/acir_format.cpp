@@ -7,6 +7,7 @@
 #include "acir_format.hpp"
 
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/chonk/chonk_base.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"

@@ -4,14 +4,26 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
-#include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/chonk/chonk_stdlib_proof.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <fstream>
 
 namespace bb {
+
+static_assert(ChonkProof::HIDING_OINK_LENGTH == ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS);
+static_assert(ChonkProof::JOINT_PROOF_LENGTH ==
+              TranslatorFlavor::COMMITTED_SUMCHECK_PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES);
+static_assert(ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS == ChonkProof::HIDING_OINK_LENGTH + MERGE_PROOF_SIZE +
+                                                                 ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH +
+                                                                 ChonkProof::JOINT_PROOF_LENGTH);
+static_assert(ChonkProof::PROOF_LENGTH ==
+              ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS +
+                  stdlib::recursion::honk::HidingKernelIO<bb::MegaCircuitBuilder>::PUBLIC_INPUTS_SIZE);
 
 /**
  * @brief Serialize Chonk Proof to a flat vector of field elements.
@@ -19,7 +31,7 @@ namespace bb {
 template <bool IsRecursive>
 std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_field_elements() const
 {
-    HonkProof proof;
+    typename ChonkProof_<IsRecursive>::HonkProof proof;
 
     proof.insert(proof.end(), hiding_oink_proof.begin(), hiding_oink_proof.end());
     proof.insert(proof.end(), merge_proof.begin(), merge_proof.end());
@@ -39,7 +51,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
 {
     // Fixed-size components
     constexpr size_t merge_size = MERGE_PROOF_SIZE;
-    constexpr size_t eccvm_size = ECCVMFlavor::PROOF_LENGTH;
+    constexpr size_t eccvm_size = 608;
     constexpr size_t ipa_size = IPA_PROOF_LENGTH;
     constexpr size_t joint_size = JOINT_PROOF_LENGTH;
 
@@ -53,20 +65,21 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
 
     auto it = fields.begin();
 
-    HonkProof hiding_oink_proof(it, it + static_cast<std::ptrdiff_t>(mega_zk_oink_length));
+    typename ChonkProof_<IsRecursive>::HonkProof hiding_oink_proof(
+        it, it + static_cast<std::ptrdiff_t>(mega_zk_oink_length));
     it += static_cast<std::ptrdiff_t>(mega_zk_oink_length);
 
-    HonkProof merge_proof_out(it, it + static_cast<std::ptrdiff_t>(merge_size));
+    typename ChonkProof_<IsRecursive>::HonkProof merge_proof_out(it, it + static_cast<std::ptrdiff_t>(merge_size));
     it += static_cast<std::ptrdiff_t>(merge_size);
 
-    HonkProof eccvm_proof_out(it, it + static_cast<std::ptrdiff_t>(eccvm_size));
+    typename ChonkProof_<IsRecursive>::HonkProof eccvm_proof_out(it, it + static_cast<std::ptrdiff_t>(eccvm_size));
     it += static_cast<std::ptrdiff_t>(eccvm_size);
 
-    HonkProof ipa_proof_out(it, it + static_cast<std::ptrdiff_t>(ipa_size));
+    typename ChonkProof_<IsRecursive>::HonkProof ipa_proof_out(it, it + static_cast<std::ptrdiff_t>(ipa_size));
     it += static_cast<std::ptrdiff_t>(ipa_size);
 
     // Remainder is the joint_proof
-    HonkProof joint_proof_out(it, fields.end());
+    typename ChonkProof_<IsRecursive>::HonkProof joint_proof_out(it, fields.end());
 
     return ChonkProof_{ std::move(hiding_oink_proof),
                         std::move(merge_proof_out),

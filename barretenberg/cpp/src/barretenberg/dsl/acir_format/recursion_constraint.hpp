@@ -5,8 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/chonk_base.hpp"
+#include "barretenberg/chonk/chonk_types.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/gate_counter.hpp"
@@ -19,6 +18,7 @@
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "recursion_constraint.hpp"
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace acir_format {
@@ -39,37 +39,37 @@ constexpr bool is_hypernova_proof_type(uint32_t proof_type)
            proof_type == PROOF_TYPE::HN_FINAL;
 }
 
-// Convert ACIR PROOF_TYPE to Chonk::QUEUE_TYPE. Throws for non-HyperNova types.
+// Convert ACIR PROOF_TYPE to ChonkQueueType. Throws for non-HyperNova types.
 // Note: QUEUE_TYPE::MEGA is internal to Chonk and has no ACIR equivalent.
-inline Chonk::QUEUE_TYPE proof_type_to_chonk_queue_type(uint32_t proof_type)
+inline ChonkQueueType proof_type_to_chonk_queue_type(uint32_t proof_type)
 {
     switch (proof_type) {
     case PROOF_TYPE::OINK:
-        return Chonk::QUEUE_TYPE::OINK;
+        return ChonkQueueType::OINK;
     case PROOF_TYPE::HN:
-        return Chonk::QUEUE_TYPE::HN;
+        return ChonkQueueType::HN;
     case PROOF_TYPE::HN_TAIL:
-        return Chonk::QUEUE_TYPE::HN_TAIL;
+        return ChonkQueueType::HN_TAIL;
     case PROOF_TYPE::HN_FINAL:
-        return Chonk::QUEUE_TYPE::HN_FINAL;
+        return ChonkQueueType::HN_FINAL;
     default:
         throw_or_abort("proof_type_to_chonk_queue_type: invalid type " + std::to_string(proof_type));
     }
 }
 
 // Inverse of proof_type_to_chonk_queue_type. Throws for MEGA (no ACIR equivalent).
-inline PROOF_TYPE queue_type_to_proof_type(Chonk::QUEUE_TYPE queue_type)
+inline PROOF_TYPE queue_type_to_proof_type(ChonkQueueType queue_type)
 {
     switch (queue_type) {
-    case Chonk::QUEUE_TYPE::OINK:
+    case ChonkQueueType::OINK:
         return PROOF_TYPE::OINK;
-    case Chonk::QUEUE_TYPE::HN:
+    case ChonkQueueType::HN:
         return PROOF_TYPE::HN;
-    case Chonk::QUEUE_TYPE::HN_TAIL:
+    case ChonkQueueType::HN_TAIL:
         return PROOF_TYPE::HN_TAIL;
-    case Chonk::QUEUE_TYPE::HN_FINAL:
+    case ChonkQueueType::HN_FINAL:
         return PROOF_TYPE::HN_FINAL;
-    case Chonk::QUEUE_TYPE::MEGA:
+    case ChonkQueueType::MEGA:
         throw_or_abort("queue_type_to_proof_type: MEGA has no ACIR equivalent");
     }
     throw_or_abort("queue_type_to_proof_type: unknown type");
@@ -84,11 +84,11 @@ static_assert(PROOF_TYPE::HN_FINAL == 7);
 static_assert(PROOF_TYPE::HN_TAIL == 8);
 
 // QUEUE_TYPE ordering (internal, but catch unexpected changes)
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::OINK) == 0);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN) == 1);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_TAIL) == 2);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::HN_FINAL) == 3);
-static_assert(static_cast<uint8_t>(Chonk::QUEUE_TYPE::MEGA) == 4);
+static_assert(static_cast<uint8_t>(ChonkQueueType::OINK) == 0);
+static_assert(static_cast<uint8_t>(ChonkQueueType::HN) == 1);
+static_assert(static_cast<uint8_t>(ChonkQueueType::HN_TAIL) == 2);
+static_assert(static_cast<uint8_t>(ChonkQueueType::HN_FINAL) == 3);
+static_assert(static_cast<uint8_t>(ChonkQueueType::MEGA) == 4);
 } // namespace detail
 
 /**

@@ -7,8 +7,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/polynomial_stats.hpp"

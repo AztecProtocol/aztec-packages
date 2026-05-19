@@ -66,21 +66,17 @@ class ECCOpQueue {
     /**
      * @brief Instantiate an initial ECC op subtable.
      */
-    ECCOpQueue() { initialize_new_subtable(); }
+    ECCOpQueue();
 
     /**
      * @brief Initialize a new subtable for eccvm and ultra ops with the given merge settings.
      *
      */
-    void initialize_new_subtable()
-    {
-        eccvm_ops_table.create_new_subtable();
-        ultra_ops_table.create_new_subtable();
-    }
+    void initialize_new_subtable();
 
-    size_t num_subtables() const { return eccvm_ops_table.num_subtables(); }
+    size_t num_subtables() const;
 
-    size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
+    size_t get_current_subtable_size() const;
 
     /**
      * @brief Compute the fixed append offset for the final APPEND merge.
@@ -88,202 +84,100 @@ class ECCOpQueue {
      * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
      * matching the appender flavor's ecc_op_wire layout.
      */
-    size_t get_append_offset() const
-    {
-        constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots - zk_op_slots;
-    }
+    size_t get_append_offset() const;
 
-    void merge()
-    {
-        eccvm_ops_table.merge();
-        ultra_ops_table.merge();
-    }
+    void merge();
 
-    void merge_fixed_append(size_t ultra_fixed_offset)
-    {
-        eccvm_ops_table.merge();
-        ultra_ops_table.merge_with_fixed_append_offset(ultra_fixed_offset);
-    }
+    void merge_fixed_append(size_t ultra_fixed_offset);
 
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns()
-    {
-        auto [column_polynomials, hiding_op] = ultra_ops_table.construct_zk_columns();
-        this->hiding_op_for_eccvm = hiding_op;
-        this->has_hiding_op = true;
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns();
 
-        return column_polynomials;
-    }
-
-    std::vector<std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH>> construct_subtable_columns() const
-    {
-        return ultra_ops_table.construct_subtable_columns();
-    }
+    std::vector<std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH>> construct_subtable_columns() const;
 
     // Construct column polynomials for the full aggregate ultra ops table
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(
-        const bool include_zk_ops = true) const
-    {
-        return ultra_ops_table.construct_table_columns(include_zk_ops);
-    }
+        const bool include_zk_ops = true) const;
 
     // Construct column polynomials for the aggregate table up to and including the tail subtable.
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_table_columns_up_to_tail() const
-    {
-        return ultra_ops_table.construct_table_columns_up_to_tail();
-    }
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_table_columns_up_to_tail() const;
 
     // Construct column polynomials for the most recently merged subtable
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns() const
-    {
-        return ultra_ops_table.construct_current_ultra_ops_subtable_columns();
-    }
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_current_ultra_ops_subtable_columns() const;
 
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
-    void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
+    void construct_full_eccvm_ops_table();
 
     // Reconstruct the ZK-prefixed full table of ultra ops in contiguous memory from the independent subtables.
-    void construct_zk_reconstructed_ultra_ops_table()
-    {
-        ultra_ops_zk_reconstructed = ultra_ops_table.get_zk_reconstructed_ultra_ops();
-    }
+    void construct_zk_reconstructed_ultra_ops_table();
 
     // Reconstruct the non-ZK full table of ultra ops in contiguous memory from the independent subtables.
-    void construct_no_zk_reconstructed_ultra_ops_table()
-    {
-        ultra_ops_no_zk_reconstructed = ultra_ops_table.get_no_zk_reconstructed_ultra_ops();
-    }
+    void construct_no_zk_reconstructed_ultra_ops_table();
 
     // Excludes the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows
-    size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
-    size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
+    size_t get_ultra_ops_table_num_rows() const;
+    size_t get_ultra_ops_count() const; // actual operation count without padding
     // Excludes the optional ZK prefix, same as get_ultra_ops_table_num_rows.
-    size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
+    size_t get_ultra_ops_table_num_rows_up_to_tail() const;
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
     // The hiding op is always prepended at index 0.
-    std::vector<ECCVMOperation>& get_eccvm_ops()
-    {
-        if (eccvm_ops_reconstructed.empty()) {
-            construct_full_eccvm_ops_table();
-            // Prepend the hiding op at index 0 (required for ZK)
-            if (!has_hiding_op) {
-                throw_or_abort("Hiding op must be set before calling get_eccvm_ops()");
-            }
-            eccvm_ops_reconstructed.insert(eccvm_ops_reconstructed.begin(), hiding_op_for_eccvm);
-        }
-        return eccvm_ops_reconstructed;
-    }
+    std::vector<ECCVMOperation>& get_eccvm_ops();
 
-    std::vector<UltraOp>& get_no_zk_reconstructed_ultra_ops()
-    {
-        if (ultra_ops_no_zk_reconstructed.empty()) {
-            construct_no_zk_reconstructed_ultra_ops_table();
-        }
-        return ultra_ops_no_zk_reconstructed;
-    }
+    std::vector<UltraOp>& get_no_zk_reconstructed_ultra_ops();
 
-    std::vector<UltraOp>& get_zk_reconstructed_ultra_ops()
-    {
-        if (ultra_ops_zk_reconstructed.empty()) {
-            construct_zk_reconstructed_ultra_ops_table();
-        }
-        return ultra_ops_zk_reconstructed;
-    }
+    std::vector<UltraOp>& get_zk_reconstructed_ultra_ops();
 
     /**
      * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit
      */
-    size_t get_num_msm_rows() const { return eccvm_row_tracker.get_num_msm_rows(); }
+    size_t get_num_msm_rows() const;
 
     /**
      * @brief Get the number of rows for the current ECCVM circuit.
      * @note This count does not include the hiding op.
      */
-    size_t get_num_rows() const { return eccvm_row_tracker.get_num_rows(); }
+    size_t get_num_rows() const;
 
     /**
      * @brief Get number of muls for the current ECCVM circuit
      */
-    uint32_t get_number_of_muls() const { return eccvm_row_tracker.get_number_of_muls(); }
+    uint32_t get_number_of_muls() const;
 
     /**
      * @brief A fuzzing only method for setting eccvm ops directly
      *
      */
-    void set_eccvm_ops_for_fuzzing(std::vector<ECCVMOperation>& eccvm_ops_in)
-    {
-        eccvm_ops_reconstructed = eccvm_ops_in;
-    }
+    void set_eccvm_ops_for_fuzzing(std::vector<ECCVMOperation>& eccvm_ops_in);
 
     /**
      * @brief A testing only method that adds an erroneous equality op to the eccvm ops
      * @brief May be used to ensure that ECCVM responds as expected when encountering a bad op
      *
      */
-    void add_erroneous_equality_op_for_testing()
-    {
-        EccOpCode op_code{ .eq = true, .reset = true };
-        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = Point::random_element() });
-    }
+    void add_erroneous_equality_op_for_testing();
 
     /**
      * @brief Write empty row to queue
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing()
-    {
-        append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
-        accumulator.self_set_infinity();
-    }
+    void empty_row_for_testing();
 
-    Point get_accumulator() { return accumulator; }
+    Point get_accumulator();
 
     /**
      * @brief Write point addition op to queue and natively perform addition
      *
      * @param to_add
      */
-    UltraOp add_accumulate(const Point& to_add)
-    {
-        // Update the accumulator natively
-        accumulator = accumulator + to_add;
-        EccOpCode op_code{ .add = true };
-        // Store the eccvm operation
-        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = to_add });
-
-        // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(op_code, to_add);
-    }
+    UltraOp add_accumulate(const Point& to_add);
 
     /**
      * @brief Write multiply and add op to queue and natively perform operation
      *
      * @param to_add
      */
-    UltraOp mul_accumulate(const Point& to_mul, const Fr& scalar)
-    {
-        BB_BENCH_NAME("ECCOpQueue::mul_accumulate");
-        // Update the accumulator natively
-        accumulator = accumulator + to_mul * scalar;
-        EccOpCode op_code{ .mul = true };
-
-        // Construct and store the operation in the ultra op format
-        UltraOp ultra_op = construct_and_populate_ultra_ops(op_code, to_mul, scalar);
-
-        // Store the eccvm operation
-        append_eccvm_op(ECCVMOperation{
-            .op_code = op_code,
-            .base_point = to_mul,
-            .z1 = ultra_op.z_1,
-            .z2 = ultra_op.z_2,
-            .mul_scalar_full = scalar,
-        });
-
-        return ultra_op;
-    }
+    UltraOp mul_accumulate(const Point& to_mul, const Fr& scalar);
 
     /**
      * @brief Writes a no-op to the ultra ops table but adds no eccvm operations.
@@ -291,12 +185,7 @@ class ECCOpQueue {
      * @details Adds two zero rows (one no-op = NUM_ROWS_PER_OP rows) to the ultra ops table. Translator needs two
      * leading zero rows for polynomial shiftability.
      */
-    UltraOp no_op_ultra_only()
-    {
-        UltraOp no_op{};
-        ultra_ops_table.push(no_op);
-        return no_op;
-    }
+    UltraOp no_op_ultra_only();
 
     /**
      * @brief Writes randomness to the ultra ops table but adds no eccvm operations.
@@ -305,38 +194,14 @@ class ECCOpQueue {
      * commitment and evaluations of its corresponding columns
      * @return UltraOp
      */
-    UltraOp random_op_ultra_only()
-    {
-        UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,
-                                                 .random_value_1 = Fr::random_element(),
-                                                 .random_value_2 = Fr::random_element() },
-                           .x_lo = Fr::random_element(),
-                           .x_hi = Fr::random_element(),
-                           .y_lo = Fr::random_element(),
-                           .y_hi = Fr::random_element(),
-                           .z_1 = Fr::random_element(),
-                           .z_2 = Fr::random_element(),
-                           .return_is_infinity = false };
-        ultra_ops_table.push(random_op);
-        return random_op;
-    }
+    UltraOp random_op_ultra_only();
 
     /**
      * @brief Write equality op using internal accumulator point
      *
      * @return current internal accumulator point (prior to reset to 0)
      */
-    UltraOp eq_and_reset()
-    {
-        auto expected = accumulator;
-        accumulator.self_set_infinity();
-        EccOpCode op_code{ .eq = true, .reset = true };
-        // Store eccvm operation
-        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });
-
-        // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(op_code, expected);
-    }
+    UltraOp eq_and_reset();
 
     /**
      * @brief Add a hiding op with random Px, Py values to both ECCVM and Ultra ops tables.
@@ -364,17 +229,7 @@ class ECCOpQueue {
      * @param Py Random field element (not necessarily a valid y-coordinate on BN254)
      * @return The UltraOp that was pushed to the table (for use by circuit builder to add gates)
      */
-    UltraOp append_hiding_op(const Fq& Px, const Fq& Py)
-    {
-        auto [ultra_op, eccvm_op] = UltraEccOpsTable::make_hiding_op_pair(Px, Py);
-
-        hiding_op_for_eccvm = eccvm_op;
-        has_hiding_op = true;
-        ultra_ops_table.push(ultra_op);
-
-        // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
-        return ultra_op;
-    }
+    UltraOp append_hiding_op(const Fq& Px, const Fq& Py);
 
   private:
     // === Hiding Op State ===
@@ -394,11 +249,7 @@ class ECCOpQueue {
      * @brief Append an eccvm operation to the eccvm ops table; update the eccvm row tracker
      *
      */
-    void append_eccvm_op(const ECCVMOperation& op)
-    {
-        eccvm_row_tracker.update_cached_msms(op);
-        eccvm_ops_table.push(op);
-    }
+    void append_eccvm_op(const ECCVMOperation& op);
     /**
      * @brief Given an ecc operation and its inputs, decompose into ultra format and populate ultra_ops
      *
@@ -407,47 +258,7 @@ class ECCOpQueue {
      * @param scalar
      * @return UltraOp
      */
-    UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
-    {
-        UltraOp ultra_op;
-        ultra_op.op_code = op_code;
-
-        // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
-        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-        uint256_t x_256(point.x);
-        uint256_t y_256(point.y);
-        ultra_op.return_is_infinity = point.is_point_at_infinity();
-        // if we have a point at infinity, set x/y to zero
-        // in the biggroup_goblin class we use `assert_equal` statements to validate
-        // the original in-circuit coordinate values are also zero
-        if (point.is_point_at_infinity()) {
-            x_256 = 0;
-            y_256 = 0;
-        }
-        ultra_op.x_lo = Fr(x_256.slice(0, CHUNK_SIZE));
-        ultra_op.x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
-        ultra_op.y_lo = Fr(y_256.slice(0, CHUNK_SIZE));
-        ultra_op.y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
-
-        // Split scalar into 128 bit endomorphism scalars
-        Fr z_1 = 0;
-        Fr z_2 = 0;
-        auto converted = scalar.from_montgomery_form();
-        uint256_t converted_u256(scalar);
-        // if our scalar is small, don't split.
-        if (converted_u256.get_msb() < 128) {
-            ultra_op.z_1 = scalar;
-            ultra_op.z_2 = 0;
-        } else {
-            Fr::split_into_endomorphism_scalars(converted, z_1, z_2);
-            ultra_op.z_1 = z_1.to_montgomery_form();
-            ultra_op.z_2 = z_2.to_montgomery_form();
-        }
-
-        ultra_ops_table.push(ultra_op);
-
-        return ultra_op;
-    }
+    UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero());
 };
 
 } // namespace bb

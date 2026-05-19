@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>

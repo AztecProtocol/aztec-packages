@@ -10,7 +10,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 
 #include "arithmetic_constraints.hpp"
-#include "barretenberg/chonk/chonk.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -18,7 +17,6 @@
 #include "ec_operations.hpp"
 #include "ecdsa_constraints.hpp"
 #include "honk_recursion_constraint.hpp"
-#include "hypernova_recursion_constraint.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "multi_scalar_mul.hpp"
@@ -27,6 +25,7 @@
 #include "recursion_constraint.hpp"
 #include "sha256_constraint.hpp"
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 

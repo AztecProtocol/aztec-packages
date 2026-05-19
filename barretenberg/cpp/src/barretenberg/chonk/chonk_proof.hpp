@@ -6,21 +6,24 @@
 
 #pragma once
 
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/streams.hpp"
-#include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/goblin/types.hpp"
-#include "barretenberg/honk/proof_length.hpp"
+#include "barretenberg/constants.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/honk/types/public_inputs_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
 #include <msgpack/sbuffer_decl.hpp>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+#include <vector>
 
 namespace bb {
+
+namespace stdlib {
+template <typename Builder> class Proof;
+template <typename Builder> class field_t;
+} // namespace stdlib
 
 /**
  * @brief Chonk proof type.
@@ -36,7 +39,7 @@ namespace bb {
  */
 template <bool IsRecursive = false> struct ChonkProof_ {
     using Builder = std::conditional_t<IsRecursive, UltraCircuitBuilder, void>;
-    using HonkProof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, ::bb::HonkProof>;
+    using HonkProof = std::conditional_t<IsRecursive, stdlib::Proof<Builder>, std::vector<bb::fr>>;
     using FF = std::conditional_t<IsRecursive, stdlib::field_t<Builder>, bb::fr>;
 
     HonkProof hiding_oink_proof; // Hiding kernel Oink (pre-sumcheck only)
@@ -46,15 +49,14 @@ template <bool IsRecursive = false> struct ChonkProof_ {
     HonkProof joint_proof;       // Translator Oink + joint sumcheck + joint PCS
 
     // Sub-proof sizes (in field elements, excluding public inputs).
-    static constexpr size_t HIDING_OINK_LENGTH = ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
+    static constexpr size_t HIDING_OINK_LENGTH = 108;
 
     // Joint proof = translator proof structure (with committed sumcheck) + MegaZK evaluations.
-    static constexpr size_t JOINT_PROOF_LENGTH =
-        TranslatorFlavor::COMMITTED_SUMCHECK_PROOF_LENGTH + MegaZKFlavor::NUM_ALL_ENTITIES;
+    static constexpr size_t JOINT_PROOF_LENGTH = 499;
 
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        HIDING_OINK_LENGTH + MERGE_PROOF_SIZE + ECCVMFlavor::PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
-    static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS + bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
+        HIDING_OINK_LENGTH + MERGE_PROOF_SIZE + 608 + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+    static constexpr size_t PROOF_LENGTH = PROOF_LENGTH_WITHOUT_PUB_INPUTS + HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
 
     // Default constructor
     ChonkProof_() = default;

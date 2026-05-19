@@ -6,8 +6,7 @@
 
 #pragma once
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"

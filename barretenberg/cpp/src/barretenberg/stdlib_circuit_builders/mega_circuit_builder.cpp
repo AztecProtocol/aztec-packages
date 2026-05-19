@@ -6,9 +6,11 @@
 
 #include "mega_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -17,6 +19,33 @@ using namespace bb;
 using namespace bb::crypto;
 
 namespace bb {
+
+template <typename FF>
+MegaCircuitBuilder_<FF>::MegaCircuitBuilder_(bool is_write_vk_mode)
+    : MegaCircuitBuilder_(std::make_shared<ECCOpQueue>(), is_write_vk_mode)
+{}
+
+template <typename FF>
+MegaCircuitBuilder_<FF>::MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, bool is_write_vk_mode)
+    : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(is_write_vk_mode)
+    , op_queue(std::move(op_queue_in))
+{
+    BB_BENCH();
+    op_queue->initialize_new_subtable();
+    set_goblin_ecc_op_code_constant_variables();
+}
+
+template <typename FF>
+MegaCircuitBuilder_<FF>::MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
+                                             const std::vector<FF>& witness_values,
+                                             const std::vector<uint32_t>& public_inputs,
+                                             const bool is_write_vk_mode)
+    : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(witness_values, public_inputs, is_write_vk_mode)
+    , op_queue(std::move(op_queue_in))
+{
+    op_queue->initialize_new_subtable();
+    set_goblin_ecc_op_code_constant_variables();
+}
 
 template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
 {
@@ -225,6 +254,25 @@ template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_cons
     add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
     mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
     equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
+}
+
+template <typename FF> uint32_t MegaCircuitBuilder_<FF>::get_ecc_op_idx(const EccOpCode& op_code)
+{
+    if (op_code.add) {
+        return add_accum_op_idx;
+    }
+    if (op_code.mul) {
+        return mul_accum_op_idx;
+    }
+    if (op_code.eq && op_code.reset) {
+        return equality_op_idx;
+    }
+    if (!op_code.add && !op_code.mul && !op_code.eq && !op_code.reset) {
+        return null_op_idx;
+    }
+
+    throw_or_abort("Invalid op code");
+    return 0;
 }
 
 /**

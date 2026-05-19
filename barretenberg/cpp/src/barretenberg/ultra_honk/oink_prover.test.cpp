@@ -1,4 +1,5 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/ultra_honk/mega_circuit_test_helper.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"

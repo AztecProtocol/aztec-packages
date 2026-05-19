@@ -230,32 +230,7 @@ class UltraEccOpsTable {
      * Ultra representation since the hiding op performs no scalar multiplication.
      */
     static std::pair<UltraOp, ECCVMOperation> make_hiding_op_pair(const curve::BN254::BaseField& Px,
-                                                                  const curve::BN254::BaseField& Py)
-    {
-        using Fr = curve::BN254::ScalarField;
-        using Point = curve::BN254::AffineElement;
-
-        EccOpCode op_code{ .eq = true, .reset = true };
-        Point base_point;
-        base_point.x = Px;
-        base_point.y = Py;
-
-        constexpr size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-        uint256_t x_256(Px);
-        uint256_t y_256(Py);
-        UltraOp ultra_op{
-            .op_code = op_code,
-            .x_lo = Fr(x_256.slice(0, CHUNK_SIZE)),
-            .x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .y_lo = Fr(y_256.slice(0, CHUNK_SIZE)),
-            .y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .z_1 = Fr(0),
-            .z_2 = Fr(0),
-            .return_is_infinity = false,
-        };
-        ECCVMOperation eccvm_op{ .op_code = op_code, .base_point = base_point };
-        return { ultra_op, eccvm_op };
-    }
+                                                                  const curve::BN254::BaseField& Py);
 
   private:
     using Curve = curve::BN254;
@@ -280,29 +255,8 @@ class UltraEccOpsTable {
     // Returns the number of rows in the Ultra execution trace (each op occupies NUM_ROWS_PER_OP rows).
     // NOTE: this count covers the merged subtables only and EXCLUDES the ZK prefix (zk_ops, size ZK_ULTRA_OPS).
     // Callers that need the full polynomial size (e.g. for sizing a commitment key) must add ZK_ULTRA_OPS.
-    size_t num_ultra_rows() const
-    {
-        if (!has_fixed_append_offset()) {
-            return table.size() * NUM_ROWS_PER_OP;
-        }
-        BB_ASSERT(!table.get().empty(), "Fixed-append set but no subtables present");
-        // Last subtable starts at fixed_append_offset (in op units), preceded by APPEND_TRACE_OFFSET zero rows.
-        const size_t last_subtable_rows = table.get().back().size() * NUM_ROWS_PER_OP;
-        return (fixed_append_offset.value() * NUM_ROWS_PER_OP) + APPEND_TRACE_OFFSET + last_subtable_rows;
-    }
-    size_t ultra_table_size_up_to_tail() const
-    {
-        BB_ASSERT_EQ(
-            table.get_current_subtable_size(),
-            0UL,
-            "Current subtable should be merged before computing the size of table of operations up to the tail.");
-        BB_ASSERT_GT(table.num_subtables(), 1UL, "Cannot compute tail table size without at least two tables.");
-        size_t size = 0;
-        for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; ++subtable_idx) {
-            size += table.get()[subtable_idx].size() * NUM_ROWS_PER_OP;
-        }
-        return size;
-    }
+    size_t num_ultra_rows() const;
+    size_t ultra_table_size_up_to_tail() const;
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
     bool has_fixed_append_offset() const { return fixed_append_offset.has_value(); }
@@ -312,187 +266,36 @@ class UltraEccOpsTable {
         BB_ASSERT(!has_fixed_append_offset(), "Cannot perform regular merge after fixed-location append");
         table.merge();
     }
-    void merge_with_fixed_append_offset(size_t offset)
-    {
-        BB_ASSERT(!has_fixed_append_offset(), "Can only perform fixed-location append once");
-
-        size_t prior_subtables_size = 0;
-        for (const auto& subtable : table.get()) {
-            prior_subtables_size += subtable.size();
-        }
-        BB_ASSERT_LTE(prior_subtables_size,
-                      offset,
-                      "Merged table size exceeds fixed append offset. This means that there are too many ops before "
-                      "the last subtable. The last subtable doesn't fit at the end of the op queue.");
-
-        fixed_append_offset = offset;
-        table.merge();
-    }
+    void merge_with_fixed_append_offset(size_t offset);
 
     size_t get_current_subtable_size() const { return table.get_current_subtable_size(); }
 
-    std::vector<UltraOp> get_no_zk_reconstructed_ultra_ops() const
-    {
-        return get_reconstructed(/*include_zk_ops=*/false);
-    }
+    std::vector<UltraOp> get_no_zk_reconstructed_ultra_ops() const;
 
-    std::vector<UltraOp> get_zk_reconstructed_ultra_ops() const { return get_reconstructed(/*include_zk_ops=*/true); }
+    std::vector<UltraOp> get_zk_reconstructed_ultra_ops() const;
 
   private:
     // Reconstruct the full table of ultra ops in contiguous memory. When include_zk_ops is set, the result includes
     // the ZK prefix at the front. Under fixed-location append, the result then has gap no-ops up to the fixed offset,
     // the APPEND_TRACE_OFFSET zero preamble, then the most recently merged subtable.
-    std::vector<UltraOp> get_reconstructed(const bool include_zk_ops) const
-    {
-        BB_ASSERT_EQ(get_current_subtable_size(),
-                     0UL,
-                     "current subtable should be merged before reconstructing the full table of operations.");
-        BB_ASSERT(!include_zk_ops || has_zk_ops(), "ZK ops must be constructed before reconstructing the Ultra table.");
-
-        std::vector<UltraOp> reconstructed_table;
-        reconstructed_table.reserve(1 << CONST_OP_QUEUE_LOG_SIZE);
-
-        if (include_zk_ops) {
-            reconstructed_table.insert(reconstructed_table.end(), zk_ops.begin(), zk_ops.end());
-        }
-
-        if (!has_fixed_append_offset()) {
-            for (const auto& subtable : table.get()) {
-                reconstructed_table.insert(reconstructed_table.end(), subtable.begin(), subtable.end());
-            }
-            return reconstructed_table;
-        }
-
-        // Previously-merged subtables (everything except the most recent)
-        for (size_t idx = 0; idx + 1 < table.num_subtables(); ++idx) {
-            const auto& subtable = table.get()[idx];
-            reconstructed_table.insert(reconstructed_table.end(), subtable.begin(), subtable.end());
-        }
-
-        // Pad with no-ops up to fixed offset + APPEND_TRACE_OFFSET preamble
-        constexpr size_t preamble_op_slots = APPEND_TRACE_OFFSET / NUM_ROWS_PER_OP;
-        const size_t zk_offset_ops = include_zk_ops ? zk_ops.size() : 0;
-        const size_t target_op_count = fixed_append_offset.value() + zk_offset_ops + preamble_op_slots;
-        BB_ASSERT_LTE(
-            reconstructed_table.size(), target_op_count, "Current table size is larger than fixed append offset.");
-        reconstructed_table.insert(
-            reconstructed_table.end(), target_op_count - reconstructed_table.size(), UltraOp{ /* no-op */ });
-
-        // Final subtable
-        const auto& final_subtable = table.get().back();
-        reconstructed_table.insert(reconstructed_table.end(), final_subtable.begin(), final_subtable.end());
-        return reconstructed_table;
-    }
+    std::vector<UltraOp> get_reconstructed(const bool include_zk_ops) const;
 
   public:
-    std::pair<ColumnPolynomials, ECCVMOperation> construct_zk_columns()
-    {
-        BB_ASSERT(!has_zk_ops(), "ZK ops should only be constructed once.");
-
-        // Construct the table of ops
-        for (size_t idx = 0; idx < ECC_NUM_NO_OPS_START; idx++) {
-            zk_ops.push_back(UltraOp{ /* no_op */ });
-        }
-
-        // Each random op contributes 8 fresh Fr values to the column polynomials, masking commitments and
-        // evaluations of the columns in the merge protocol and Translator.
-        for (size_t idx = 0; idx < ECC_NUM_RANDOM_OPS_START; idx++) {
-            zk_ops.push_back(UltraOp{ .op_code = EccOpCode{ .is_random_op = true,
-                                                            .random_value_1 = Fr::random_element(),
-                                                            .random_value_2 = Fr::random_element() },
-                                      .x_lo = Fr::random_element(),
-                                      .x_hi = Fr::random_element(),
-                                      .y_lo = Fr::random_element(),
-                                      .y_hi = Fr::random_element(),
-                                      .z_1 = Fr::random_element(),
-                                      .z_2 = Fr::random_element(),
-                                      .return_is_infinity = false });
-        }
-
-        using Fq = curve::BN254::BaseField;
-        auto [hiding_ultra_op, hiding_eccvm_op] = make_hiding_op_pair(Fq::random_element(), Fq::random_element());
-        zk_ops.push_back(hiding_ultra_op);
-
-        const size_t poly_size = (zk_ops.size() * NUM_ROWS_PER_OP);
-        BB_ASSERT_EQ(poly_size, ZK_ULTRA_OPS);
-
-        // Construct the column polynomials
-        ColumnPolynomials column_polynomials;
-        for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(poly_size);
-        }
-
-        size_t i = 0;
-        for (const auto& op : zk_ops) {
-            write_op_to_polynomials(column_polynomials, op, i);
-            i += NUM_ROWS_PER_OP;
-        }
-
-        return { column_polynomials, hiding_eccvm_op };
-    }
+    std::pair<ColumnPolynomials, ECCVMOperation> construct_zk_columns();
 
     // Construct column polynomials for all subtables
-    std::vector<ColumnPolynomials> construct_subtable_columns() const
-    {
-        std::vector<ColumnPolynomials> subtable_columns;
-
-        for (size_t idx = 0; idx < table.num_subtables(); idx++) {
-            const auto& subtable = table.get()[idx];
-            const size_t poly_size = (subtable.size() * NUM_ROWS_PER_OP);
-            ColumnPolynomials columns = construct_columns_in_range(poly_size, idx, idx + 1);
-            subtable_columns.push_back(std::move(columns));
-        }
-
-        return subtable_columns;
-    }
+    std::vector<ColumnPolynomials> construct_subtable_columns() const;
 
     // Construct column polynomials for the full ultra ecc ops table
-    ColumnPolynomials construct_table_columns(const bool include_zk_ops = true) const
-    {
-        BB_ASSERT(!include_zk_ops || has_zk_ops(),
-                  "ZK ops must be constructed before constructing the full Ultra table with ZK ops.");
-        return construct_columns_in_range(
-            num_ultra_rows(), 0, table.num_subtables(), include_zk_ops, fixed_append_offset);
-    }
+    ColumnPolynomials construct_table_columns(const bool include_zk_ops = true) const;
 
     // Construct column polynomials for the aggregate table up to and including the tail subtable.
-    ColumnPolynomials construct_table_columns_up_to_tail() const
-    {
-        BB_ASSERT(has_zk_ops(), "ZK ops should have been constructed before constructing the table up to tail");
-        BB_ASSERT_GT(table.num_subtables(),
-                     1UL,
-                     "There should be at least two subtables (including the tail) to construct the table up to tail");
-        BB_ASSERT_GT(table.num_subtables(), 0UL, "Cannot construct table up to tail without a current subtable");
-
-        return construct_columns_in_range(
-            ultra_table_size_up_to_tail(), 0, table.num_subtables() - 1, /*include_zk_ops=*/true);
-    }
+    ColumnPolynomials construct_table_columns_up_to_tail() const;
 
     // Construct the columns of the most recently merged subtable.
     // Under fixed-location append, the returned polynomials carry APPEND_TRACE_OFFSET leading zero rows so their
     // commitments match the appender's ecc_op_wire commitments.
-    ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
-    {
-        BB_ASSERT(table.num_subtables() > 0, "Cannot construct current subtable columns with no merged subtables");
-        const size_t leading_zeros = has_fixed_append_offset() ? APPEND_TRACE_OFFSET : 0;
-        const auto& subtable = table.get().back();
-        const size_t poly_size = leading_zeros + (subtable.size() * NUM_ROWS_PER_OP);
-
-        ColumnPolynomials column_polynomials;
-        if (poly_size == 0) {
-            return column_polynomials;
-        }
-        for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(poly_size);
-        }
-
-        size_t row = leading_zeros;
-        for (const auto& op : subtable) {
-            write_op_to_polynomials(column_polynomials, op, row);
-            row += NUM_ROWS_PER_OP;
-        }
-        return column_polynomials;
-    }
+    ColumnPolynomials construct_current_ultra_ops_subtable_columns() const;
 
   private:
     /**
@@ -502,17 +305,7 @@ class UltraEccOpsTable {
      * @param op The operation to write
      * @param row_idx The starting row index (will write to row_idx and row_idx+1)
      */
-    static void write_op_to_polynomials(ColumnPolynomials& column_polynomials, const UltraOp& op, const size_t row_idx)
-    {
-        column_polynomials[0].at(row_idx) = !op.op_code.is_random_op ? op.op_code.value() : op.op_code.random_value_1;
-        column_polynomials[1].at(row_idx) = op.x_lo;
-        column_polynomials[2].at(row_idx) = op.x_hi;
-        column_polynomials[3].at(row_idx) = op.y_lo;
-        column_polynomials[0].at(row_idx + 1) = !op.op_code.is_random_op ? 0 : op.op_code.random_value_2;
-        column_polynomials[1].at(row_idx + 1) = op.y_hi;
-        column_polynomials[2].at(row_idx + 1) = op.z_1;
-        column_polynomials[3].at(row_idx + 1) = op.z_2;
-    }
+    static void write_op_to_polynomials(ColumnPolynomials& column_polynomials, const UltraOp& op, const size_t row_idx);
 
     /**
      * @brief Construct column polynomials covering subtables [start, end), optionally with a ZK prefix and an
@@ -531,51 +324,7 @@ class UltraEccOpsTable {
         const size_t subtable_start_idx,
         const size_t subtable_end_idx,
         const bool include_zk_ops = false,
-        const std::optional<size_t> fixed_append_offset_for_last = std::nullopt) const
-    {
-        const size_t final_poly_size = poly_size + (include_zk_ops ? ZK_ULTRA_OPS : 0);
-
-        ColumnPolynomials column_polynomials;
-        if (final_poly_size == 0) {
-            return column_polynomials;
-        }
-        for (auto& poly : column_polynomials) {
-            poly = Polynomial<Fr>(final_poly_size);
-        }
-
-        size_t row = 0;
-
-        if (include_zk_ops) {
-            BB_ASSERT(has_zk_ops(), "ZK ops should have been constructed before including them in the columns");
-            for (const auto& op : zk_ops) {
-                write_op_to_polynomials(column_polynomials, op, row);
-                row += NUM_ROWS_PER_OP;
-            }
-        }
-
-        // Lay out subtables sequentially. If a fixed-append target is set, exclude the last-in-range subtable
-        // from the sequential pass; it is placed at the fixed offset below.
-        const size_t sequential_end =
-            fixed_append_offset_for_last.has_value() ? subtable_end_idx - 1 : subtable_end_idx;
-        for (size_t idx = subtable_start_idx; idx < sequential_end; ++idx) {
-            for (const auto& op : table.get()[idx]) {
-                write_op_to_polynomials(column_polynomials, op, row);
-                row += NUM_ROWS_PER_OP;
-            }
-        }
-
-        if (fixed_append_offset_for_last.has_value()) {
-            const size_t zk_prefix_rows = include_zk_ops ? ZK_ULTRA_OPS : 0;
-            size_t append_row =
-                zk_prefix_rows + (fixed_append_offset_for_last.value() * NUM_ROWS_PER_OP) + APPEND_TRACE_OFFSET;
-            for (const auto& op : table.get()[subtable_end_idx - 1]) {
-                write_op_to_polynomials(column_polynomials, op, append_row);
-                append_row += NUM_ROWS_PER_OP;
-            }
-        }
-
-        return column_polynomials;
-    }
+        const std::optional<size_t> fixed_append_offset_for_last = std::nullopt) const;
 };
 
 } // namespace bb

@@ -5,8 +5,10 @@
 // =====================
 
 #pragma once
-#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+
+#include <memory>
+#include <vector>
 
 namespace bb {
 /**

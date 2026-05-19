@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/chonk/chonk_types.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -21,6 +22,7 @@ namespace bb {
 class IVCBase {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
   public:
+    using QUEUE_TYPE = ChonkQueueType;
     using ClientCircuit = MegaCircuitBuilder;
     using MegaVerificationKey = MegaZKFlavor::VerificationKey;
 

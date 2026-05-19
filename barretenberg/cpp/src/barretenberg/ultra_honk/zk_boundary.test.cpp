@@ -13,6 +13,7 @@
  */
 #include <gtest/gtest.h>
 
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/ultra_honk/mega_circuit_test_helper.hpp"

@@ -2,6 +2,7 @@
 #include "../pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
+#include "barretenberg/eccvm/eccvm_translation_data.hpp"
 
 #include <array>
 #include <gtest/gtest.h>

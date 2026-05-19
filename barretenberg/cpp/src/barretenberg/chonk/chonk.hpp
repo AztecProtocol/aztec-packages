@@ -40,6 +40,7 @@ class Chonk : public IVCBase {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 
   public:
+    using QUEUE_TYPE = ChonkQueueType;
     using Flavor = MegaFlavor;
     using MegaVerificationKey = Flavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
@@ -114,8 +115,6 @@ class Chonk : public IVCBase {
      *
      * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
      */
-    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
-
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or HN

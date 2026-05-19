@@ -2,6 +2,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_ultra_honk_dispatch.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
