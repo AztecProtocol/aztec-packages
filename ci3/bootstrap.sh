@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
-hash=$(cache_content_hash ^ci3)
+function get_hash {
+  cache_content_hash ^ci3
+}
 
 function test_cmds {
+  local hash
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    hash=disabled-cache
+  else
+    hash=$(get_hash)
+  fi
+
   for f in tests/*; do
     echo "$hash ./ci3/$f"
   done

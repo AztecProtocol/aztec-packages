@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 function download_solc {
   # Read solc path from foundry.toml and extract version (e.g., "./solc-0.8.27" -> "0.8.27")
@@ -33,12 +44,13 @@ function download_solc {
 }
 
 # We rely on noir-projects for the verifier contract.
-export hash=$(cache_content_hash \
-  .rebuild_patterns \
-  ../noir/.rebuild_patterns \
-  ../noir-projects/noir-protocol-circuits \
-  ../barretenberg/cpp/.rebuild_patterns
-)
+function get_hash {
+  cache_content_hash \
+    .rebuild_patterns \
+    ../noir/.rebuild_patterns \
+    ../noir-projects/noir-protocol-circuits \
+    ../barretenberg/cpp/.rebuild_patterns
+}
 
 function build_src {
   echo_header "l1-contracts build_src"
@@ -46,16 +58,11 @@ function build_src {
   # Download solc binary
   download_solc
 
-  # Deps install
-  npm_install_deps
-
+  local hash=$(get_hash)
   local artifact=l1-contracts-src-$hash.tar.gz
   if ! cache_download $artifact; then
     # Clean
     rm -rf broadcast cache out serve
-
-    # Install
-    forge install
 
     # Ensure libraries are at the correct version
     git submodule update --init --recursive ./lib
@@ -77,6 +84,7 @@ function build_src {
 function build_verifier {
   echo_header "l1-contracts build_verifier"
 
+  local hash=$(get_hash)
   local artifact=l1-contracts-verifier-$hash.tar.gz
   if ! cache_download $artifact; then
     mkdir -p generated
@@ -111,6 +119,13 @@ function build {
 }
 
 function test_cmds {
+  local hash
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    hash=disabled-cache
+  else
+    hash=$(get_hash)
+  fi
+
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"
@@ -194,6 +209,12 @@ function gas_report {
 }
 
 function bench_cmds {
+  local hash
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    hash=disabled-cache
+  else
+    hash=$(get_hash)
+  fi
   echo "$hash l1-contracts/bootstrap.sh bench"
 }
 
@@ -494,7 +515,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"

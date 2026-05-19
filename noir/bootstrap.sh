@@ -1,10 +1,36 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 set -eou pipefail
 
-noir_commit=$(git -C noir-repo rev-parse HEAD)
-export hash=$(hash_str $noir_commit $(cache_content_hash .rebuild_patterns))
+function get_noir_commit {
+  git -C noir-repo rev-parse HEAD
+}
+
+function get_hash {
+  hash_str $(get_noir_commit) $(cache_content_hash .rebuild_patterns)
+}
+
+function ensure_build_metadata {
+  if [ -z "${hash:-}" ]; then
+    local noir_commit=$(get_noir_commit)
+    export hash=$(hash_str $noir_commit $(cache_content_hash .rebuild_patterns))
+    export GIT_COMMIT=$noir_commit
+    export SOURCE_DATE_EPOCH=0
+    export GIT_DIRTY=false
+  fi
+}
 
 # Must be in dependency order for releasing.
 export js_projects="
@@ -16,13 +42,10 @@ export js_projects="
 "
 export js_include=$(printf " --include @noir-lang/%s" $js_projects)
 
-export GIT_COMMIT=$noir_commit
-export SOURCE_DATE_EPOCH=0
-export GIT_DIRTY=false
-
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
+  ensure_build_metadata
 
   if ! cache_download noir-$hash.tar.gz; then
     # Serialize cargo operations to avoid race conditions with avm-transpiler
@@ -38,6 +61,7 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
+  ensure_build_metadata
 
   # Workaround to not need to install wasm-opt.
   # It's cursed, llvm will use it without permission if it finds it in PATH.
@@ -97,10 +121,11 @@ function install_deps {
   ) 200>/tmp/rustup.lock
 }
 
-export -f build_native build_packages install_deps
+export -f get_noir_commit get_hash ensure_build_metadata build_native build_packages install_deps
 
 function build {
   echo_header "noir build"
+  ensure_build_metadata
 
   if semver check $REF_NAME; then
     # REF_NAME matches semver meaning we are doing a release
@@ -167,7 +192,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"

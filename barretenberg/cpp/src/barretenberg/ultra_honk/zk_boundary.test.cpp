@@ -13,10 +13,9 @@
  */
 #include <gtest/gtest.h>
 
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
+#include "barretenberg/ultra_honk/mega_circuit_test_helper.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -43,7 +42,7 @@ class ZKBoundaryTests : public ::testing::Test {
     static std::shared_ptr<ProverInstance> build_instance()
     {
         Builder builder;
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        MegaCircuitTestHelper::construct_simple_circuit(builder);
         return std::make_shared<ProverInstance>(builder);
     }
 
@@ -208,7 +207,7 @@ TEST_F(ZKBoundaryTests, ProveAndVerifyMegaZK)
 TEST_F(ZKBoundaryTests, CorruptionInActiveRegionFailsProof)
 {
     Builder builder;
-    GoblinMockCircuits::construct_simple_circuit(builder);
+    MegaCircuitTestHelper::construct_simple_circuit(builder);
 
     // Build two instances from the same circuit
     auto builder_copy = builder;

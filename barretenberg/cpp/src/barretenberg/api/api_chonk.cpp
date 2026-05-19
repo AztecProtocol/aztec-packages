@@ -2,7 +2,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/json_output.hpp"
 #include "barretenberg/api/log.hpp"
-#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
@@ -33,9 +33,9 @@ namespace { // anonymous namespace
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response =
-        bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .use_zk_flavor = flags.use_zk_flavor }
-            .execute();
+    auto response = bbapi::ChonkComputeVk{ .circuit = { .name = "", .bytecode = std::move(bytecode) },
+                                           .use_zk_flavor = flags.use_zk_flavor }
+                        .execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {

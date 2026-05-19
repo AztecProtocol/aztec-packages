@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
-NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 
 if [ "$#" -lt 1 ]; then
-  echo_stderr "Usage: $0 <tar.gz_file_to_download_and_extract>"
+  echo "Usage: $0 <tar.gz_file_to_download_and_extract>" >&2
   exit 1
 fi
 
 if [[ "$1" == *"disabled-cache"* ]]; then
-  echo_stderr "Not using cache for $1 due to uncommitted changes/files."
+  echo "Not using cache for $1 due to uncommitted changes/files." >&2
   exit 1
 fi
 if [ "${NO_CACHE:-0}" -eq 1 ]; then
-  # Skip download if NO_CACHE is 1
-  echo_stderr "Not using cache for $1 because NO_CACHE=1."
+  echo "Not using cache for $1 because NO_CACHE=1." >&2
   exit 1
 fi
+
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
 # Get the tar.gz file name from the argument
 tar_file="$1"
 out_dir="${2:-.}"

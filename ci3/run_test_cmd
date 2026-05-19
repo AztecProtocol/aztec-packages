@@ -4,7 +4,19 @@
 # - Cache checking
 # - Redis publishing (started/failed/flaked events)
 # - Flake detection and owner notification
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+
+if [ -z "${COMMIT_MSG:-}" ]; then
+  export COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+fi
+
+if [ -z "${COMMIT_AUTHOR:-}" ]; then
+  export COMMIT_AUTHOR="$(git log -1 --pretty=format:"%an")"
+fi
+
+if [ -z "${COMMIT_HASH:-}" ]; then
+  export COMMIT_HASH=$(git rev-parse HEAD)
+fi
 
 # We must enable job control to ensure our test runs in it's own process group.
 # Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.

@@ -1,18 +1,47 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
 
-export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
-export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
-export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
-hash=$(hash_str \
-  $(../noir/bootstrap.sh hash) \
-  $(cache_content_hash \
-    .rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns))
+function export_tool_paths {
+  export AZTEC=$(realpath ../yarn-project/aztec/scripts/aztec.sh)
+  export BB=$(realpath ../barretenberg/cpp/build/bin/bb)
+  export NARGO=$(realpath ../noir/noir-repo/target/release/nargo)
+}
+
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  hash_str \
+    $(../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      .rebuild_patterns \
+      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+      ../barretenberg/*/.rebuild_patterns)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
 
 function build_box {
+  export_tool_paths
   cd boxes/$1
   yarn build
 }
@@ -24,7 +53,9 @@ function test_box {
 function build {
   echo_header "boxes build"
   npm_install_deps
+  export_tool_paths
 
+  local hash=$(get_hash)
   if ! cache_download boxes-$hash.tar.gz; then
     denoise 'yarn build'
     cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist,src/contracts/target,contracts/target}
@@ -37,6 +68,7 @@ function test {
 }
 
 function test_cmds {
+  local hash=$(get_test_hash)
   for box in react vite vanilla; do
     echo "$hash:ISOLATE=1:NET=1:CPUS=4 ./boxes/scripts/run_test.sh $box chromium"
   done
@@ -111,7 +143,7 @@ case "$cmd" in
     build
     ;;
   "hash")
-    echo $hash
+    get_hash
     ;;
   *)
     default_cmd_handler "$@"

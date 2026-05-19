@@ -1,9 +1,13 @@
+#pragma once
+
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/env/hardware_concurrency.hpp"
+#include <cerrno>
 #include <cstdlib>
 #include <ctime>
+#include <exception>
 #include <fcntl.h>
-#include <iostream>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <unistd.h>

@@ -4,6 +4,7 @@
 #include "barretenberg/commitment_schemes/pcs_test_utils.hpp"
 #include "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"

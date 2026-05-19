@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
 #include "barretenberg/smt_verification/terms/term.hpp"

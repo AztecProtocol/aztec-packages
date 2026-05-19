@@ -4,6 +4,8 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+#pragma once
+
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>

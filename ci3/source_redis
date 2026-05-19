@@ -2,13 +2,21 @@
 
 # Declare CI_REDIS host, allowing override.
 export CI_REDIS=${CI_REDIS:-localhost}
+metadata_cmd=0
+case "${BOOTSTRAP_CMD:-}" in
+  hash|*_cmds)
+    metadata_cmd=1
+    ;;
+esac
 
 # If we haven't yet checked for redis availability.
 if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   # Start by setting it as not available.
   export CI_REDIS_AVAILABLE=0
 
-  if nc -z $CI_REDIS 6379 &>/dev/null; then
+  if [ "$metadata_cmd" -eq 1 ]; then
+    :
+  elif nc -z $CI_REDIS 6379 &>/dev/null; then
     # Redis is found at given host, we're done.
     export CI_REDIS_AVAILABLE=1
   elif [ -f ~/.ssh/build_instance_key ] && [ "${CI_SSM_MODE:-0}" -eq 0 ]; then
@@ -43,7 +51,7 @@ if [ -z "${DASHBOARD_URL:-}" ]; then
   # We override to localhost if we're running local redis.
   export DASHBOARD_URL="http://ci.aztec-labs.com"
 
-  if command -v docker &>/dev/null && docker ps | grep -q "ci-redis"; then
+  if [ "$metadata_cmd" -eq 0 ] && [ "$CI" -eq 0 ] && command -v docker &>/dev/null && docker ps | grep -q "ci-redis"; then
     if [ -z "$(docker ps -q --filter "name=^/ci-dashboard$")" ]; then
       echo_stderr "Building local ci dashboard..."
       (cd $ci3/dashboard && docker build -t aztecprotocol/ci-dashboard:latest .) &>/dev/null

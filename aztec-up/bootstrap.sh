@@ -1,7 +1,38 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
 
-hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash))
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
+
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  hash_str $(cache_content_hash ^aztec-up/) $(../yarn-project/bootstrap.sh hash)
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
+
+function cache_upload_will_skip {
+  local artifact=$1
+  [[ "$artifact" == *"disabled-cache"* ]] || [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]
+}
 
 # Bare aliases ("nightly", "latest") resolve to this major version.
 DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
@@ -70,16 +101,23 @@ EOF
     export PATH="/tmp/verdaccio-pkg/bin:$PATH"
   fi
 
+  local hash=$(get_hash)
   local base_hash=$(cache_content_hash ^aztec-up/Dockerfile.base)
-  if ! cache_download aztec-up-test-base-image-$base_hash.zst; then
+  local base_artifact=aztec-up-test-base-image-$base_hash.zst
+  if ! cache_download $base_artifact; then
     docker build -t aztecprotocol/aztec-up-test-base -f Dockerfile.base .
-    docker save aztecprotocol/aztec-up-test-base:latest > aztec-up-test-base-image
-    cache_upload aztec-up-test-base-image-$base_hash.zst aztec-up-test-base-image
+    if cache_upload_will_skip "$base_artifact"; then
+      cache_upload "$base_artifact" .
+    else
+      docker save aztecprotocol/aztec-up-test-base:latest > aztec-up-test-base-image
+      cache_upload "$base_artifact" aztec-up-test-base-image
+    fi
   else
     docker load < aztec-up-test-base-image
   fi
 
-  if ! cache_download aztec-up-test-image-$hash.zst; then
+  local test_artifact=aztec-up-test-image-$hash.zst
+  if ! cache_download $test_artifact; then
     rm -rf verdaccio-storage
     verdaccio --config /tmp/verdaccio-config.yaml --listen 4873 &>/dev/null &
     verdaccio_pid=$!
@@ -116,15 +154,20 @@ EOF
     rm -rf /tmp/npm-prime
 
     docker build -t aztecprotocol/aztec-up-test .
-    docker save aztecprotocol/aztec-up-test:latest > aztec-up-test-image
 
-    cache_upload aztec-up-test-image-$hash.zst aztec-up-test-image
+    if cache_upload_will_skip "$test_artifact"; then
+      cache_upload "$test_artifact" .
+    else
+      docker save aztecprotocol/aztec-up-test:latest > aztec-up-test-image
+      cache_upload "$test_artifact" aztec-up-test-image
+    fi
   else
     docker load < aztec-up-test-image
   fi
 }
 
 function test_cmds {
+  local hash=$(get_test_hash)
   for test in amm_flow bridge_and_claim basic_install counter_contract default_scaffold no_shadow_user_bins; do
     echo "$hash:TIMEOUT=15m aztec-up/scripts/run_test.sh $test"
   done
