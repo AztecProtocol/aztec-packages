@@ -428,6 +428,44 @@ const wallet = await EmbeddedWallet.create(nodeUrl, {
 
 The old fields still work but will be removed in a future release.
 
+### [Aztec.nr] Ephemeral arrays replace capsule arrays in PXE oracle interfaces
+
+Oracle interfaces between Aztec.nr and PXE now use a new `EphemeralArray` type (`aztec::ephemeral::EphemeralArray`) instead of `CapsuleArray`. Ephemeral arrays live in memory and are scoped by contract call frame, so they no longer need to be addressed by `(contract_address, scope)`. Several public message-discovery and validation functions lost their `recipient`, `scope`, and `contract_address` parameters as a result.
+
+Most contracts are not affected, as the macro-generated `sync_state` and `process_message` functions handle these APIs automatically. Only contracts that call these functions directly need to update.
+
+**Migration:**
+
+```diff
+  attempt_note_discovery(
+      contract_address,
+      tx_hash,
+      unique_note_hashes_in_tx,
+      first_nullifier_in_tx,
+-     recipient,
+      compute_note_hash,
+      compute_note_nullifier,
+      owner,
+      storage_slot,
+      randomness,
+      note_type_id,
+      packed_note,
+  );
+
+- enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash, scope);
++ enqueue_note_for_validation(contract_address, owner, storage_slot, randomness, note_nonce, packed_note, note_hash, nullifier, tx_hash);
+
+- enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash, scope);
++ enqueue_event_for_validation(contract_address, event_type_id, randomness, serialized_event, event_commitment, tx_hash);
+
+- validate_and_store_enqueued_notes_and_events(contract_address, scope);
++ validate_and_store_enqueued_notes_and_events(scope);
+```
+
+The `sync_inbox` function and the `OffchainInboxSync` type now return `EphemeralArray<OffchainMessageWithContext>` instead of `CapsuleArray<OffchainMessageWithContext>`. Custom message handlers that bind the returned array to an explicit type must update the type annotation.
+
+**Impact**: Contracts that call the above functions directly (rather than relying on macro-generated code) will fail to compile until the trailing `recipient`, `scope`, and `contract_address` parameters are removed.
+
 ## 4.2.0-aztecnr-rc.2
 
 ### Custom token FPCs removed from default public setup allowlist
