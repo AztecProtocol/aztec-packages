@@ -796,12 +796,12 @@ describe('aztec node', () => {
           indexWithinCheckpoint: IndexWithinCheckpoint(2),
         });
 
-        let observedGlobals: GlobalVariables | undefined;
-        globalVariablesBuilder.buildCheckpointGlobalVariables.mockImplementation(async () => {
+        globalVariablesBuilder.buildCheckpointGlobalVariables.mockImplementation(() => {
           throw new Error('buildCheckpointGlobalVariables should not be called in case A');
         });
-        worldState.fork.mockImplementation(async () => {
-          // The simulator has finished case-A globals composition by the time fork is invoked.
+        // The simulator has finished case-A globals composition by the time fork is invoked, so
+        // throwing here lets us inspect what was decided without spinning up the full AVM processor.
+        worldState.fork.mockImplementation(() => {
           throw new Error('stop-after-globals');
         });
         // We can't easily read `newGlobalVariables` from outside; instead assert via the verbose log.
@@ -815,7 +815,7 @@ describe('aztec node', () => {
         // verbose log carries the simulated globals; pull them out and assert field-for-field.
         const call = verboseSpy.mock.calls.find(c => /Simulating public calls/.test(String(c[0])));
         expect(call).toBeDefined();
-        observedGlobals = (call![1] as any).globalVariables;
+        const observedGlobals: GlobalVariables = (call![1] as any).globalVariables;
         expect(observedGlobals).toEqual(
           GlobalVariables.from({ ...latestGlobals, blockNumber: BlockNumber(8) }).toInspect(),
         );
