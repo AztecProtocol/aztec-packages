@@ -817,27 +817,19 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
 
 void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
-    // Lambda to convert an Acir::Expression to a witness index
-    auto acir_expression_to_witness_or_constant = [](const Acir::Expression& expr) {
-        // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
-        // that the data coming from Noir is in the correct form.
+    // Lambda to convert an Acir::Expression to a witness index. Noir always emits a single unscaled witness term for
+    // memory op indices and values, so anything else is a malformed input.
+    auto acir_expression_to_witness = [](const Acir::Expression& expr) -> uint32_t {
         BB_ASSERT(expr.mul_terms.empty(), "MemoryOp should not have multiplication terms");
-        BB_ASSERT_LTE(expr.linear_combinations.size(), 1U, "MemoryOp should have at most one linear term");
+        BB_ASSERT_EQ(expr.linear_combinations.size(), 1U, "MemoryOp expression must be a single witness");
 
-        const fr a_scaling = expr.linear_combinations.size() == 1
-                                 ? from_buffer_with_bound_checks(std::get<0>(expr.linear_combinations[0]))
-                                 : fr::zero();
+        const fr a_scaling = from_buffer_with_bound_checks(std::get<0>(expr.linear_combinations[0]));
         const fr constant_term = from_buffer_with_bound_checks(expr.q_c);
 
-        bool is_witness = a_scaling == fr::one() && constant_term == fr::zero();
-        bool is_constant = a_scaling == fr::zero();
-        BB_ASSERT(is_witness || is_constant, "MemoryOp expression must be a witness or a constant");
+        BB_ASSERT(a_scaling == fr::one() && constant_term == fr::zero(),
+                  "MemoryOp expression must be a single unscaled witness with no constant term");
 
-        return WitnessOrConstant<bb::fr>{
-            .index = is_witness ? std::get<1>(expr.linear_combinations[0]).value : bb::stdlib::IS_CONSTANT,
-            .value = is_constant ? constant_term : fr::zero(),
-            .is_constant = is_constant,
-        };
+        return std::get<1>(expr.linear_combinations[0]).value;
     };
 
     // Lambda to determine whether a memory operation is a read or write operation
@@ -862,11 +854,11 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
         block.type = BlockType::RAM;
     }
 
-    // Update the ranges of the index using the array length
-    WitnessOrConstant<bb::fr> index = acir_expression_to_witness_or_constant(mem_op.op.index);
-    WitnessOrConstant<bb::fr> value = acir_expression_to_witness_or_constant(mem_op.op.value);
-
-    MemOp acir_mem_op = MemOp{ .access_type = access_type, .index = index, .value = value };
+    MemOp acir_mem_op = MemOp{
+        .access_type = access_type,
+        .index = acir_expression_to_witness(mem_op.op.index),
+        .value = acir_expression_to_witness(mem_op.op.value),
+    };
     block.trace.push_back(acir_mem_op);
 }
 

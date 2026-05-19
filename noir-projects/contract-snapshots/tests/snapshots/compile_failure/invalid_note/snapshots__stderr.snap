@@ -22,9 +22,9 @@ error: InvalidNote has a packed length of 9 fields, which exceeds the maximum al
       6: process_message_plaintext
              at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:76:13
       7: process_private_note_msg
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:27:9
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:46:9
       8: attempt_note_discovery
-             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:64:28
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:83:28
       9: attempt_note_nonce_discovery
              at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr:46:27
      10: generate_contract_library_method_compute_note_hash

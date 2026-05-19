@@ -94,8 +94,8 @@ void process_ROM_operations(Builder& builder,
 
     rom_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
-        field_ct value = to_field_ct(op.value, builder);
-        field_ct index = to_field_ct(op.index, builder);
+        field_ct value = field_ct::from_witness_index(&builder, op.value);
+        field_ct index = field_ct::from_witness_index(&builder, op.index);
 
         switch (op.access_type) {
         case AccessType::Read:
@@ -118,8 +118,8 @@ void process_RAM_operations(Builder& builder,
 
     ram_table_ct table(&builder, init);
     for (const auto& op : constraint.trace) {
-        field_ct value = to_field_ct(op.value, builder);
-        field_ct index = to_field_ct(op.index, builder);
+        field_ct value = field_ct::from_witness_index(&builder, op.value);
+        field_ct index = field_ct::from_witness_index(&builder, op.index);
 
         switch (op.access_type) {
         case AccessType::Read:
@@ -151,8 +151,8 @@ void process_call_data_operations(Builder& builder,
         calldata_array.set_values(init); // Initialize the data in the bus array
 
         for (const auto& op : constraint.trace) {
-            field_ct value = to_field_ct(op.value, builder);
-            field_ct index = to_field_ct(op.index, builder);
+            field_ct value = field_ct::from_witness_index(&builder, op.value);
+            field_ct index = field_ct::from_witness_index(&builder, op.index);
 
             switch (op.access_type) {
             case AccessType::Read:

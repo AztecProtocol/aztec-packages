@@ -6,7 +6,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -14,22 +14,16 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { TxPoolV2, TxPoolV2Events } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
-import type { ConnectionSampler } from '../reqresp/connection-sampler/connection_sampler.js';
-import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
-import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
-import { ReqRespStatus } from '../reqresp/status.js';
+import type { BlockTxsSource } from '../reqresp/protocols/block_txs/block_txs_reqresp.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './config.js';
-import { FastTxCollection } from './fast_tx_collection.js';
 import type { FileStoreTxSource } from './file_store_tx_source.js';
-import { type FastCollectionRequest, TxCollection } from './tx_collection.js';
+import { type FastCollectionRequest, type IReqRespTxsCollector, TxCollection } from './tx_collection.js';
 import type { TxSource } from './tx_source.js';
 
 describe('TxCollection', () => {
   let txCollection: TestTxCollection;
 
-  let reqResp: MockProxy<Pick<ReqRespInterface, 'sendBatchRequest' | 'sendRequestToPeer'>>;
-  const connectionSampler = mock<ConnectionSampler>();
-  const mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler });
+  const mockP2PService = mock<BatchTxRequesterLibP2PService>();
   let nodes: MockProxy<TxSource>[];
   let txPool: MockProxy<TxPoolV2>;
   let constants: L1RollupConstants;
@@ -81,32 +75,37 @@ describe('TxCollection', () => {
     });
   };
 
-  const setReqRespTxs = (txs: Tx[]) => {
-    reqResp.sendBatchRequest.mockImplementation(async (_subProtocol, hashes) => {
-      await sleep(1);
+  const blockTxsSourceFromL2Block = (b: L2Block): BlockTxsSource => ({
+    txHashes: b.body.txEffects.map(e => e.txHash),
+    archive: b.archive.root,
+  });
 
-      //NOTE: The type of hashes is Array<TxHashArray>
-      //Hashes is array of arrays
-      return hashes
-        .flat()
-        .map(h => {
-          return txs.find(tx => {
-            return tx.txHash.equals(h as TxHash);
-          });
-        })
-        .filter(tx => tx !== undefined) as any[];
-    });
+  const blockTxsSourceMatches = (actual: BlockTxsSource, expected: BlockTxsSource) =>
+    actual.txHashes.length === expected.txHashes.length &&
+    expected.txHashes.every((h, i) => h.equals(actual.txHashes[i]!)) &&
+    actual.archive.equals(expected.archive);
+
+  const expectLastReqRespCollectorArgs = (getArgs: () => Parameters<IReqRespTxsCollector>) => {
+    const args = getArgs();
+    expect(args[1]).toBeDefined();
+    expect(blockTxsSourceMatches(args[1], blockTxsSourceFromL2Block(block))).toBe(true);
+    expect(args[2]).toBeUndefined();
   };
 
-  const expectReqRespToHaveBeenCalledWith = (txHashes: TxHash[], opts: { pinnedPeer?: PeerId } = {}) => {
-    expect(reqResp.sendBatchRequest).toHaveBeenCalledWith(
-      ReqRespSubProtocol.TX,
-      chunkTxHashesRequest(txHashes),
-      opts.pinnedPeer,
-      expect.any(Number),
-      expect.any(Number),
-      expect.any(Number),
-    );
+  const setReqRespResponse = (promise: Promise<Tx[]>) => {
+    let lastArgs: Parameters<IReqRespTxsCollector> | undefined;
+    txCollection.reqRespTxsCollector = jest.fn<IReqRespTxsCollector>().mockImplementation((...x) => {
+      lastArgs = x;
+      return promise;
+    });
+    return () => {
+      expect(lastArgs).toBeDefined();
+      return lastArgs!;
+    };
+  };
+
+  const setReqRespTxs = (txs: Tx[]) => {
+    return setReqRespResponse(Promise.resolve(txs));
   };
 
   const expectTxsMinedInPool = (txs: Tx[]) => {
@@ -116,10 +115,6 @@ describe('TxCollection', () => {
   const sortByHash = (txs: Tx[]) => txs.sort((a, b) => a.txHash.toString().localeCompare(b.txHash.toString()));
 
   beforeEach(async () => {
-    reqResp = mock<Pick<ReqRespInterface, 'sendBatchRequest' | 'sendRequestToPeer'>>();
-    reqResp.sendBatchRequest.mockResolvedValue([]);
-    reqResp.sendRequestToPeer.mockResolvedValue({ status: ReqRespStatus.SUCCESS, data: Buffer.alloc(0) });
-
     nodes = [makeNode('node1'), makeNode('node2')];
 
     txPool = mock<TxPoolV2>();
@@ -139,7 +134,6 @@ describe('TxCollection', () => {
       txCollectionNodeRpcMaxBatchSize: 5,
       txCollectionFastMaxParallelRequestsPerNode: 2,
       txCollectionFastNodeIntervalMs: 100,
-      txCollectionMissingTxsCollectorType: 'old',
       txCollectionFileStoreFastDelayMs: 100,
     };
 
@@ -148,20 +142,20 @@ describe('TxCollection', () => {
     block = await makeL2Block();
     deadline = new Date(dateProvider.now() + 60 * 60 * 1000);
 
-    mockP2PService.reqResp = reqResp;
     txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+    setReqRespTxs([]);
   });
 
-  afterEach(async () => {
-    await txCollection.stop();
+  afterEach(() => {
+    txCollection.stop();
   });
 
-  describe('fast collection', () => {
+  describe('fast tx collection', () => {
     it('collects txs from nodes only', async () => {
       setNodeTxs(nodes[0], txs);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+      expect(txCollection.reqRespTxsCollector).not.toHaveBeenCalled();
       expectTxsMinedInPool(txs);
       expect(collected).toEqual(txs);
     });
@@ -192,11 +186,12 @@ describe('TxCollection', () => {
     it('collects leftover txs from reqresp', async () => {
       setNodeTxs(nodes[0], [txs[0]]);
       setNodeTxs(nodes[1], [txs[1]]);
-      setReqRespTxs([txs[2]]);
+      const argsGetter = setReqRespTxs([txs[2]]);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expectReqRespToHaveBeenCalledWith([txHashes[2]]);
+      expect(txCollection.reqRespTxsCollector).toHaveBeenCalledTimes(1);
+      expectLastReqRespCollectorArgs(argsGetter);
       expectTxsMinedInPool([txs[0]]);
       expectTxsMinedInPool([txs[1]]);
       expectTxsMinedInPool([txs[2]]);
@@ -205,24 +200,40 @@ describe('TxCollection', () => {
 
     it('collects via reqresp if no nodes are configured', async () => {
       txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, [], dateProvider);
-      setReqRespTxs(txs);
+      const argsGetter = setReqRespTxs(txs);
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
-      expectReqRespToHaveBeenCalledWith(txHashes);
+      expect(txCollection.reqRespTxsCollector).toHaveBeenCalledTimes(1);
+      expectLastReqRespCollectorArgs(argsGetter);
       expectTxsMinedInPool(txs);
+      expect(collected).toEqual(txs);
+    });
+
+    it('starts reqresp immediately when no nodes are configured', async () => {
+      // Large initial wait — if reqresp were gated by it, the collection would take ~10s.
+      config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
+      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, [], dateProvider);
+      setReqRespTxs(txs);
+
+      const startTime = dateProvider.now();
+      const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
+
+      expect(txCollection.reqRespTxsCollector).toHaveBeenCalledTimes(1);
+      expect(dateProvider.now() - startTime).toBeLessThan(1000);
       expect(collected).toEqual(txs);
     });
 
     it('keeps retrying txs not found until deadline', async () => {
       deadline = new Date(dateProvider.now() + 2000);
       setNodeTxs(nodes[0], [txs[0]]);
-      setReqRespTxs([txs[1]]);
+      const argsGetter = setReqRespTxs([txs[1]]);
 
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       // Allow 5ms tolerance: setTimeout in RequestTracker can fire slightly before dateProvider.now() catches up
       expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
       expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-      expectReqRespToHaveBeenCalledWith([txHashes[1], txHashes[2]]);
+      expect(txCollection.reqRespTxsCollector).toHaveBeenCalledTimes(1);
+      expectLastReqRespCollectorArgs(argsGetter);
       expectTxsMinedInPool([txs[0]]);
       expectTxsMinedInPool([txs[1]]);
       expect(collected).toEqual([txs[0], txs[1]]);
@@ -233,8 +244,8 @@ describe('TxCollection', () => {
       txs = await Promise.all(times(4, () => makeTx()));
       txHashes = txs.map(tx => tx.txHash);
 
-      const reqRespPromise = promiseWithResolvers<TxArray[]>();
-      reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+      const collectorPromise = promiseWithResolvers<Tx[]>();
+      setReqRespResponse(collectorPromise.promise);
       const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
       await sleep(1000);
@@ -243,7 +254,7 @@ describe('TxCollection', () => {
 
       // Simulate a tx found in a node, another one via reqresp, and a third one added to the pool via gossipsub
       setNodeTxs(nodes[0], [txs[0]]);
-      reqRespPromise.resolve([new TxArray(...[txs[1]])]);
+      collectorPromise.resolve([txs[1]]);
       txCollection.handleTxsAddedToPool({ txs: [txs[2]], source: 'test' });
       jest.clearAllMocks();
 
@@ -276,15 +287,15 @@ describe('TxCollection', () => {
       const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
       expect(collected).toEqual([]);
       expect(nodes[0].getTxsByHash).not.toHaveBeenCalled();
-      expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+      expect(txCollection.reqRespTxsCollector).not.toHaveBeenCalled();
     });
 
     describe('cancellation signals', () => {
       /** Captures the FastCollectionRequest during collectFast, before it's removed in finally. */
       const captureRequest = () => {
         let captured: FastCollectionRequest | undefined;
-        const origCollectFast = txCollection.fastCollection.collectFast.bind(txCollection.fastCollection);
-        jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation((request, opts) => {
+        const origCollectFast = txCollection.collectFast.bind(txCollection);
+        jest.spyOn(txCollection, 'collectFast').mockImplementation((request, opts) => {
           captured = request;
           return origCollectFast(request, opts);
         });
@@ -294,8 +305,8 @@ describe('TxCollection', () => {
       // Step 1: notFinished() respects requestTracker.checkCancelled()
       it('stops node collection loop when tracker is externally cancelled', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
-        const reqRespPromise = promiseWithResolvers<TxArray[]>();
-        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+        const collectorPromise = promiseWithResolvers<Tx[]>();
+        setReqRespResponse(collectorPromise.promise);
 
         const getRequest = captureRequest();
         const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
@@ -305,7 +316,7 @@ describe('TxCollection', () => {
         expect(request).toBeDefined();
 
         request.requestTracker.cancel();
-        reqRespPromise.resolve([]);
+        collectorPromise.resolve([]);
 
         const collected = await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
@@ -318,9 +329,10 @@ describe('TxCollection', () => {
         txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
 
         setNodeTxs(nodes[0], txs);
+        setReqRespTxs([]);
         const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
 
-        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(txCollection.reqRespTxsCollector).not.toHaveBeenCalled();
         expect(collected).toEqual(txs);
       });
 
@@ -329,10 +341,11 @@ describe('TxCollection', () => {
         deadline = new Date(dateProvider.now() + 200);
         config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 10_000 };
         txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        setReqRespTxs([]);
 
         const collected = await txCollection.collectFastForBlock(block, txHashes, { deadline });
 
-        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(txCollection.reqRespTxsCollector).not.toHaveBeenCalled();
         expect(dateProvider.now()).toBeGreaterThanOrEqual(+deadline - 5);
         expect(collected).toEqual([]);
       });
@@ -346,6 +359,7 @@ describe('TxCollection', () => {
           txCollectionFastNodeIntervalMs: 30_000,
         };
         txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        setReqRespTxs([]);
 
         // Nodes return nothing, so node loops will sleep for 30s between retries
         const getRequest = captureRequest();
@@ -372,6 +386,7 @@ describe('TxCollection', () => {
           txCollectionFastNodeIntervalMs: 5_000,
         };
         txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        setReqRespTxs([]);
 
         const getRequest = captureRequest();
         const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
@@ -380,13 +395,13 @@ describe('TxCollection', () => {
         const request = getRequest();
         expect(request).toBeDefined();
         // Reqresp should not have started yet — we're still in the initial wait
-        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(txCollection.reqRespTxsCollector).not.toHaveBeenCalled();
 
         request.requestTracker.cancel();
         await collectionPromise;
 
         // Should have exited without ever starting reqresp
-        expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
+        expect(txCollection.reqRespTxsCollector).not.toHaveBeenCalled();
         expect(dateProvider.now()).toBeLessThan(+deadline);
       });
 
@@ -395,18 +410,19 @@ describe('TxCollection', () => {
         deadline = new Date(dateProvider.now() + 10_000);
         config = { ...config, txCollectionFastNodesTimeoutBeforeReqRespMs: 1 };
         txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
+        setReqRespTxs([]);
 
-        const reqRespPromise = promiseWithResolvers<TxArray[]>();
-        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+        const collectorPromise = promiseWithResolvers<Tx[]>();
+        setReqRespResponse(collectorPromise.promise);
 
         const getRequest = captureRequest();
         const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
         await sleep(200);
-        expect(reqResp.sendBatchRequest).toHaveBeenCalled();
+        expect(txCollection.reqRespTxsCollector).toHaveBeenCalled();
 
         getRequest().requestTracker.cancel();
-        reqRespPromise.resolve([]);
+        collectorPromise.resolve([]);
 
         await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
@@ -425,8 +441,8 @@ describe('TxCollection', () => {
       // Step 5: requestTracker.cancel() in stop()
       it('stop() cancels all request trackers', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
-        const reqRespPromise = promiseWithResolvers<TxArray[]>();
-        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+        const collectorPromise = promiseWithResolvers<Tx[]>();
+        setReqRespResponse(collectorPromise.promise);
 
         const getRequest = captureRequest();
         const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
@@ -436,24 +452,24 @@ describe('TxCollection', () => {
         expect(request).toBeDefined();
         expect(request.requestTracker.checkCancelled()).toBe(false);
 
-        await txCollection.stop();
+        txCollection.stop();
 
         expect(request.requestTracker.checkCancelled()).toBe(true);
-        reqRespPromise.resolve([]);
+        collectorPromise.resolve([]);
         await collectionPromise;
       });
 
       // Step 8: stopCollectingForBlocksUpTo cancels in-flight fast collection
       it('stopCollectingForBlocksUpTo cancels in-flight fast collection', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
-        const reqRespPromise = promiseWithResolvers<TxArray[]>();
-        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+        const collectorPromise = promiseWithResolvers<Tx[]>();
+        setReqRespResponse(collectorPromise.promise);
 
         const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
         await sleep(100);
         txCollection.stopCollectingForBlocksUpTo(block.number);
-        reqRespPromise.resolve([]);
+        collectorPromise.resolve([]);
 
         const collected = await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
@@ -463,14 +479,14 @@ describe('TxCollection', () => {
       // Step 9: stopCollectingForBlocksAfter cancels in-flight fast collection
       it('stopCollectingForBlocksAfter cancels in-flight fast collection', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
-        const reqRespPromise = promiseWithResolvers<TxArray[]>();
-        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+        const collectorPromise = promiseWithResolvers<Tx[]>();
+        setReqRespResponse(collectorPromise.promise);
 
         const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
         await sleep(100);
         txCollection.stopCollectingForBlocksAfter(BlockNumber(block.number - 1));
-        reqRespPromise.resolve([]);
+        collectorPromise.resolve([]);
 
         const collected = await collectionPromise;
         expect(dateProvider.now()).toBeLessThan(+deadline);
@@ -480,19 +496,19 @@ describe('TxCollection', () => {
       // Step 17: request is cleaned up by finally block (not by stopCollectingForBlocks)
       it('request is cleaned up by finally block after stopCollectingForBlocksUpTo', async () => {
         deadline = new Date(dateProvider.now() + 10_000);
-        const reqRespPromise = promiseWithResolvers<TxArray[]>();
-        reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
+        const collectorPromise = promiseWithResolvers<Tx[]>();
+        setReqRespResponse(collectorPromise.promise);
 
         const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
         await sleep(100);
-        expect(txCollection.fastCollection.requests.size).toBe(1);
+        expect(txCollection.requests.size).toBe(1);
 
         txCollection.stopCollectingForBlocksUpTo(block.number);
-        reqRespPromise.resolve([]);
+        collectorPromise.resolve([]);
         await collectionPromise;
 
-        expect(txCollection.fastCollection.requests.size).toBe(0);
+        expect(txCollection.requests.size).toBe(0);
       });
     });
   });
@@ -520,22 +536,21 @@ describe('TxCollection', () => {
         fileStoreSources,
         dateProvider,
       );
+      setReqRespTxs([]);
     });
 
     it('collects txs from file store after configured delay', async () => {
       setFileStoreTxs(fileStoreSources[0], txs);
 
-      await txCollection.start();
-      deadline = new Date(dateProvider.now() + 500);
+      // Long deadline so the collection ends when file store finds the txs (not when deadline fires)
+      deadline = new Date(dateProvider.now() + 5000);
       const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
-      // File store should not have been called yet (delay hasn't elapsed)
+      // File store should not have been called yet (delays haven't elapsed)
       expect(fileStoreSources[0].getTxsByHash).not.toHaveBeenCalled();
 
-      // Advance time past the configured file store delay
-      dateProvider.setTime(dateProvider.now() + 200);
-      // Allow the async sleep resolution and worker processing to complete
-      await sleep(200);
+      // Wait for: node wait (200ms default) + file store delay (100ms) + worker processing
+      await sleep(500);
       await collectionPromise;
 
       // File store should now have been called for each tx
@@ -545,33 +560,28 @@ describe('TxCollection', () => {
     it('does not download txs from file store if found via P2P before delay expires', async () => {
       setFileStoreTxs(fileStoreSources[0], txs);
 
-      await txCollection.start();
-      deadline = new Date(dateProvider.now() + 500);
+      // Long deadline so the collection ends when all txs are found (not when deadline fires)
+      deadline = new Date(dateProvider.now() + 5000);
       const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
-      // Simulate all txs found via P2P before delay expires
+      // Simulate all txs found via P2P before delay expires — this cancels the tracker immediately
       txCollection.handleTxsAddedToPool({ txs, source: 'test' });
 
-      // Now advance time past the delay
-      dateProvider.setTime(dateProvider.now() + 200);
       await sleep(100);
       await collectionPromise;
 
-      // File store should not have downloaded any txs because they were all found
+      // File store should not have downloaded any txs because they were all found before the delay
       const allCalls = fileStoreSources.flatMap(s => s.getTxsByHash.mock.calls);
       expect(allCalls.length).toBe(0);
     });
   });
 });
 
-class TestFastTxCollection extends FastTxCollection {
+class TestTxCollection extends TxCollection {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   declare requests: Set<FastCollectionRequest>;
-  declare collectFast: (request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) => Promise<void>;
-}
-
-class TestTxCollection extends TxCollection {
-  declare fastCollection: TestFastTxCollection;
   declare fileStoreFastCollection: TxCollection['fileStoreFastCollection'];
   declare handleTxsAddedToPool: TxPoolV2Events['txs-added'];
+  declare collectFast: (request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) => Promise<void>;
+  declare reqRespTxsCollector?: IReqRespTxsCollector;
 }

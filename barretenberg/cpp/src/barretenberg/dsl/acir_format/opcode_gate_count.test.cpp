@@ -476,8 +476,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -512,8 +512,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -548,8 +548,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Write,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -588,8 +588,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     // Kernel calldata

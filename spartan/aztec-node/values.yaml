@@ -147,13 +147,15 @@ node:
     validatorsAlways: []
     validatorsNever: []
     # Penalty amounts for different offense types
-    prunePenalty: ""
     dataWithholdingPenalty: ""
+    dataWithholdingToleranceSlots: ""
     inactivityPenalty: ""
     inactivityTargetPercentage: ""
     invalidBlockPenalty: ""
+    invalidCheckpointProposalPenalty: ""
     proposeInvalidAttestationsPenalty: ""
     attestDescendantOfInvalidPenalty: ""
+    attestInvalidCheckpointProposalPenalty: ""
     unknownPenalty: ""
     # Slasher behavior configuration
     gracePeriodL2Slots: ""

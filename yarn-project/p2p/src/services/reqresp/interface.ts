@@ -254,14 +254,6 @@ export interface ReqRespInterface {
     validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
   ): Promise<void>;
   stop(): Promise<void>;
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeer: PeerId | undefined,
-    timeoutMs?: number,
-    maxPeers?: number,
-    maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>;
   sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,

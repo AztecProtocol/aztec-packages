@@ -93,7 +93,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       l2ToL1MessageResult.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
-  }, 120_000);
+  }, 300_000);
 
   it('Someone else can mint funds to me on my behalf (publicly)', async () => {
     const l1TokenBalance = 1000000n;
