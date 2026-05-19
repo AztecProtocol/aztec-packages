@@ -1569,7 +1569,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         log: this.log,
       });
 
-      // If sequencer is not initialized, we just set these values to zero for simulation.
+      // Simulation always zeroes these regardless of whether a sequencer is configured on this
+      // node — the simulator does not represent the proposer's payout addresses.
       const coinbase = EthAddress.ZERO;
       const feeRecipient = AztecAddress.ZERO;
       const checkpointGlobals = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
@@ -1580,19 +1581,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       );
       newGlobalVariables = GlobalVariables.from({ blockNumber, ...checkpointGlobals });
       targetCheckpoint = checkpointNumber;
-      nextCheckpointMessages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber).catch(err => {
-        if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
-          this.log.warn(
-            `L1-to-L2 messages for checkpoint ${checkpointNumber} are not ready yet (simulating without them)`,
-          );
-        } else {
-          this.log.error(
-            `Failed to get L1-to-L2 messages for checkpoint ${checkpointNumber} (simulating without them)`,
-            err,
-          );
-        }
-        return undefined;
-      });
     }
 
     const publicProcessorFactory = new PublicProcessorFactory(
@@ -1610,8 +1598,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       hasProposedCheckpoint,
     });
 
-    // Ensure world-state has caught up with the latest block we loaded from the archiver
+    // Ensure world-state has caught up with the latest block we loaded from the archiver before
+    // fetching L1-to-L2 messages or forking, so all reads observe a coherent view.
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
+
+    // Fetch L1-to-L2 messages only when opening a new checkpoint, after sync so the archiver
+    // has had a chance to advance to the tip we observed.
+    if (targetCheckpoint !== undefined) {
+      nextCheckpointMessages = await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
+        if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
+          this.log.warn(
+            `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
+          );
+        } else {
+          this.log.error(
+            `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
+            err,
+          );
+        }
+        return undefined;
+      });
+    }
 
     // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
     await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
