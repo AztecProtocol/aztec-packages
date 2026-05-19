@@ -249,7 +249,6 @@ describe('sequencer', () => {
     rollupContract.getManaTarget.mockResolvedValue(10_000n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
     globalVariableBuilder.buildCheckpointGlobalVariables.mockResolvedValue(omit(globalVariables, 'blockNumber'));
 
     p2p = mock<P2P>({

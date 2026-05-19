@@ -1,4 +1,4 @@
-import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
+import type { RollupContract, SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -19,6 +19,10 @@ export class TXEFeeProvider implements FeeProvider {
 }
 
 export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
+  public getRollupContract(): RollupContract {
+    throw new Error('TXEGlobalVariablesBuilder does not expose a rollup contract');
+  }
+
   public buildCheckpointGlobalVariables(
     _coinbase: EthAddress,
     _feeRecipient: AztecAddress,

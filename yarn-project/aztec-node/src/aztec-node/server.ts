@@ -40,6 +40,7 @@ import {
   SequencerClient,
   type SequencerPublisher,
 } from '@aztec/sequencer-client';
+import { buildCheckpointSimulationOverridesPlan } from '@aztec/sequencer-client/chain-state-overrides';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
@@ -67,6 +68,7 @@ import {
   type CheckpointData,
   CheckpointReexecutionTracker,
   L1PublishedData,
+  type ProposedCheckpointData,
   type PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import type {
@@ -76,6 +78,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
+import { getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
@@ -113,6 +116,7 @@ import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@az
 import {
   type FeeProvider,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
+  GlobalVariables,
   type IndexedTxEffect,
   PublicSimulationOutput,
   type SimulationOverrides,
@@ -1488,15 +1492,108 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const latestBlockNumber = l2Tips.proposed.number;
     const blockNumber = BlockNumber.add(latestBlockNumber, 1);
 
-    // If sequencer is not initialized, we just set these values to zero for simulation.
-    const coinbase = EthAddress.ZERO;
-    const feeRecipient = AztecAddress.ZERO;
+    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+    // True in two states: idle (no in-progress proposed checkpoint), or the latest proposed block is
+    // also the terminating block of a pending proposed checkpoint. False mid-checkpoint when blocks
+    // have been added past the last L1-confirmed boundary but no proposed-checkpoint entry exists yet.
+    const atCheckpointBoundary = l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number;
 
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      blockNumber,
-      coinbase,
-      feeRecipient,
-    );
+    let newGlobalVariables: GlobalVariables;
+    let nextCheckpointMessages: Fr[] | undefined;
+    let targetCheckpoint: CheckpointNumber | undefined;
+
+    if (!atCheckpointBoundary) {
+      // Case A: continuation in an in-progress checkpoint. Every block in a checkpoint shares the
+      // same CheckpointGlobalVariables (slot, timestamp, gasFees, coinbase, feeRecipient), so we
+      // reuse the latest proposed block's globals verbatim and only bump the block number.
+      const latestBlockData = await this.blockSource.getBlockData({ number: latestBlockNumber });
+      if (!latestBlockData) {
+        throw new Error(`Latest proposed block ${latestBlockNumber} has no header on this node`);
+      }
+      newGlobalVariables = GlobalVariables.from({
+        ...latestBlockData.header.globalVariables,
+        blockNumber,
+      });
+      nextCheckpointMessages = undefined;
+    } else {
+      // Case B: opening a new checkpoint. Compute fresh globals.
+      // Slot is archiver-anchored (not wall-clock) so simulation depends on local L1 sync, not
+      // local time. The +1 sequencer pipelining slot adjustment is deliberately not mirrored here:
+      // PXE callers re-simulate as the archiver advances, and in the proposed-parent case the slot
+      // is pinned via the overrides plan anyway.
+      const l1Timestamp = await this.blockSource.getL1Timestamp();
+      if (l1Timestamp === undefined) {
+        throw new Error('Cannot simulate public calls: archiver has not synced an L1 timestamp yet');
+      }
+      const l1Constants = await this.blockSource.getL1Constants();
+      const targetSlot = getSlotAtNextL1Block(l1Timestamp, l1Constants);
+
+      let proposedCheckpointData: ProposedCheckpointData | undefined;
+      let checkpointNumber: CheckpointNumber;
+
+      if (hasProposedCheckpoint) {
+        // Extend the proposed parent: target checkpoint is parent + 1, and the parent's data feeds
+        // into the overrides plan so getManaMinFeeAt sees the chain state propose() will write.
+        proposedCheckpointData = await this.blockSource.getProposedCheckpointData();
+        const expectedNumber = l2Tips.proposedCheckpoint.checkpoint.number;
+        const expectedLastBlock = l2Tips.proposedCheckpoint.block.number;
+        const actualLastBlock = proposedCheckpointData
+          ? BlockNumber(proposedCheckpointData.startBlock + proposedCheckpointData.blockCount - 1)
+          : undefined;
+        if (
+          !proposedCheckpointData ||
+          proposedCheckpointData.checkpointNumber !== expectedNumber ||
+          actualLastBlock !== expectedLastBlock
+        ) {
+          throw new Error(
+            `Torn L2 tips snapshot: getL2Tips() reported proposed checkpoint ${expectedNumber} ending at block ${expectedLastBlock}, but getProposedCheckpointData() reported ${
+              proposedCheckpointData?.checkpointNumber ?? 'undefined'
+            } / ${actualLastBlock ?? 'undefined'}. Retry the simulation.`,
+          );
+        }
+        checkpointNumber = CheckpointNumber(proposedCheckpointData.checkpointNumber + 1);
+      } else {
+        proposedCheckpointData = undefined;
+        checkpointNumber = CheckpointNumber(l2Tips.checkpointed.checkpoint.number + 1);
+      }
+
+      // Build the overrides plan always: even with no proposed parent, the plan pins chain tips
+      // to `checkpointedCheckpointNumber` so the prune trigger doesn't fire during simulation.
+      const overridesPlan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber,
+        proposedCheckpointData,
+        invalidateToPendingCheckpointNumber: undefined,
+        checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
+        rollup: this.globalVariableBuilder.getRollupContract(),
+        signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
+        log: this.log,
+      });
+
+      // If sequencer is not initialized, we just set these values to zero for simulation.
+      const coinbase = EthAddress.ZERO;
+      const feeRecipient = AztecAddress.ZERO;
+      const checkpointGlobals = await this.globalVariableBuilder.buildCheckpointGlobalVariables(
+        coinbase,
+        feeRecipient,
+        targetSlot,
+        overridesPlan,
+      );
+      newGlobalVariables = GlobalVariables.from({ blockNumber, ...checkpointGlobals });
+      targetCheckpoint = checkpointNumber;
+      nextCheckpointMessages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber).catch(err => {
+        if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
+          this.log.warn(
+            `L1-to-L2 messages for checkpoint ${checkpointNumber} are not ready yet (simulating without them)`,
+          );
+        } else {
+          this.log.error(
+            `Failed to get L1-to-L2 messages for checkpoint ${checkpointNumber} (simulating without them)`,
+            err,
+          );
+        }
+        return undefined;
+      });
+    }
 
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
@@ -1509,34 +1606,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       globalVariables: newGlobalVariables.toInspect(),
       txHash,
       blockNumber,
+      atCheckpointBoundary,
+      hasProposedCheckpoint,
     });
 
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
-
-    // If we detect the next block would start a new checkpoint, then insert L1-to-L2 messages into
-    // the world state tree so simulation can take them into account. We detect if the next block would
-    // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
-    // which means the next block would be the first block of the next checkpoint.
-    const targetCheckpoint = CheckpointNumber(
-      (l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1,
-    );
-    const nextCheckpointMessages: Fr[] | undefined =
-      l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
-        ? await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
-            if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
-              this.log.warn(
-                `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
-              );
-            } else {
-              this.log.error(
-                `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
-                err,
-              );
-            }
-            return undefined;
-          })
-        : undefined;
 
     // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
     await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
@@ -1544,7 +1619,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (nextCheckpointMessages !== undefined) {
       this.log.debug(
         `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
-        { checkpointNumber: l2Tips.proposedCheckpoint.checkpoint.number + 1 },
+        { checkpointNumber: targetCheckpoint },
       );
       await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
     }
