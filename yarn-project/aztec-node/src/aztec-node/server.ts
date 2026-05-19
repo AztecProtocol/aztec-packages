@@ -756,6 +756,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         if (config.slashBroadcastedInvalidCheckpointProposalPenalty > 0n) {
           broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
             p2pClient,
+            archiver,
             epochCache,
             config,
           );

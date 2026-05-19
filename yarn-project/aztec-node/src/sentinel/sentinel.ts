@@ -185,12 +185,29 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.runningPromise.start();
   }
 
-  /** Loads initial slot and initializes blockstream. We will not process anything at or before the initial slot. */
+  /**
+   * Loads initial slot and initializes blockstream. We will not process anything at or before
+   * the initial slot. Floors at the archiver's synced L2 slot so the sentinel keeps making
+   * forward progress when L1 is advancing but L2 has no activity (the synced slot is driven by
+   * L1 sync, not by L2 blocks). Falls back to the wallclock if the archiver isn't ready yet
+   * (cold start).
+   */
   protected async init() {
-    this.initialSlot = this.epochCache.getSlotNow();
+    this.initialSlot = await this.getCurrentSlot();
     const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
     this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
+  }
+
+  /**
+   * Returns the L2 slot the sentinel should treat as "current": the archiver's last fully
+   * synced L2 slot, falling back to the wallclock slot when the archiver isn't ready yet
+   * (cold start). Anchoring to the synced slot keeps timing arithmetic (initial floor,
+   * per-slot lag, end-of-epoch buffer, stats-range fallback) from speculating ahead of where
+   * L1 actually is.
+   */
+  protected async getCurrentSlot(): Promise<SlotNumber> {
+    return (await this.archiver.getSyncedL2SlotNumber()) ?? this.epochCache.getSlotNow();
   }
 
   public stop() {
@@ -357,9 +374,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * Process data for two L2 slots ago.
    * Note that we do not process historical data, since we rely on p2p data for processing,
    * and we don't have that data if we were offline during the period.
+   *
+   * `currentSlot` is anchored to the archiver's last synced L2 slot rather than the wallclock,
+   * so the per-slot lag (`isReadyToProcess`) and the end-of-epoch buffer (`processEpochEnds`)
+   * advance with archiver.
    */
   public async work() {
-    const currentSlot = this.epochCache.getSlotNow();
+    const currentSlot = await this.getCurrentSlot();
     try {
       // Manually sync the block stream to ensure we have the latest data.
       // Note we never `start` the blockstream, so it loops at the same pace as we do.
@@ -592,7 +613,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       ? fromEntries(await Promise.all(validators.map(async v => [v.toString(), await this.store.getHistory(v)])))
       : await this.store.getHistories();
 
-    const slotNow = this.epochCache.getSlotNow();
+    const slotNow = await this.getCurrentSlot();
     fromSlot ??= SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     toSlot ??= this.lastProcessedSlot ?? slotNow;
 
@@ -620,7 +641,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return undefined;
     }
 
-    const slotNow = this.epochCache.getSlotNow();
+    const slotNow = await this.getCurrentSlot();
     const effectiveFromSlot =
       fromSlot ?? SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     const effectiveToSlot = toSlot ?? this.lastProcessedSlot ?? slotNow;

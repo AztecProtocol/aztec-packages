@@ -108,6 +108,32 @@ describe('sentinel', () => {
     await kvStore.close();
   });
 
+  describe('init', () => {
+    beforeEach(() => {
+      archiver.getBlockNumber.mockResolvedValue(BlockNumber(0));
+    });
+
+    it('floors initialSlot at the archiver synced L2 slot when available', async () => {
+      const syncedSlot = SlotNumber(7);
+      epochCache.getSlotNow.mockReturnValue(SlotNumber(20));
+      archiver.getSyncedL2SlotNumber.mockResolvedValue(syncedSlot);
+
+      await sentinel.callProductionInit();
+
+      expect(sentinel.getInitialSlot()).toEqual(syncedSlot);
+    });
+
+    it('falls back to the wallclock slot when the archiver is not yet synced', async () => {
+      const wallclockSlot = SlotNumber(20);
+      epochCache.getSlotNow.mockReturnValue(wallclockSlot);
+      archiver.getSyncedL2SlotNumber.mockResolvedValue(undefined);
+
+      await sentinel.callProductionInit();
+
+      expect(sentinel.getInitialSlot()).toEqual(wallclockSlot);
+    });
+  });
+
   describe('getSlotActivity', () => {
     let signers: Secp256k1Signer[];
     let validators: EthAddress[];
@@ -1002,6 +1028,11 @@ class TestSentinel extends Sentinel {
   public override init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
     return Promise.resolve();
+  }
+
+  /** Invokes the production Sentinel.init() so tests can assert its initialSlot logic. */
+  public callProductionInit() {
+    return super.init();
   }
 
   public override getSlotActivity(slot: SlotNumber, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {

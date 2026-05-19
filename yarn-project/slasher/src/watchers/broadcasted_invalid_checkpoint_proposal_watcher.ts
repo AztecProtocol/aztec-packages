@@ -4,6 +4,7 @@ import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { P2PClient, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { OffenseType } from '@aztec/stdlib/slashing';
@@ -46,7 +47,8 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 
   constructor(
     private readonly p2pClient: P2PProposalsForSlotSource,
-    private readonly epochCache: Pick<EpochCacheInterface, 'getCurrentAndNextSlot' | 'getL1Constants'>,
+    private readonly l2BlockSource: Pick<L2BlockSource, 'getSyncedL2SlotNumber'>,
+    private readonly epochCache: Pick<EpochCacheInterface, 'getSlotNow' | 'getL1Constants'>,
     config: BroadcastedInvalidCheckpointProposalWatcherConfig,
     scanSlotLookback = DEFAULT_SCAN_SLOT_LOOKBACK,
   ) {
@@ -75,13 +77,16 @@ export class BroadcastedInvalidCheckpointProposalWatcher
     return this.runningPromise.stop();
   }
 
-  /** Scans newly closed slots, plus a small lookback for late-arriving proposals. */
+  /**
+   * Scans newly closed slots, plus a small lookback for late-arriving proposals. Anchors
+   * `currentSlot` at the archiver's last synced L2 slot.
+   */
   public async scan(): Promise<void> {
     if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
       return;
     }
 
-    const { currentSlot } = this.epochCache.getCurrentAndNextSlot();
+    const currentSlot = (await this.l2BlockSource.getSyncedL2SlotNumber()) ?? this.epochCache.getSlotNow();
     if (currentSlot <= SlotNumber(SCAN_SLOT_LAG)) {
       return;
     }
