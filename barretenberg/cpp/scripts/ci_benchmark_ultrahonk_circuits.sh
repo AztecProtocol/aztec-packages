@@ -9,9 +9,10 @@
 #   - <circuit_name>.json (the circuit artifact with bytecode)
 #   - witness.gz (the compressed witness)
 
-source $(git rev-parse --show-toplevel)/ci3/source
-source $(git rev-parse --show-toplevel)/ci3/source_redis
-source $(git rev-parse --show-toplevel)/ci3/source_cache
+own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
+source "$root/ci3/source_redis"
+source "$root/ci3/source_cache"
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <circuit_name> <inputs_folder> <cpus>"
@@ -19,7 +20,7 @@ if [[ $# -ne 3 ]]; then
   exit 1
 fi
 
-cd "$(dirname "$0")/.."
+cd "$own_dir/.."
 
 circuit_name="$1"
 inputs_folder="$2"
