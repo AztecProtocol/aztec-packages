@@ -483,42 +483,11 @@ with `-W threads=y -W shared-memory=y -S threads=y`. Branch HEAD is the current 
 | `schnorr+deploy_tokenContract_with_registration+sponsored_fpc` | 5.55 | 4.32 | -22.2% | 14.99 | 11.08 | -26.1% |
 | **Sum** | **73.81** | **59.28** | **-19.7%** | **206.04** | **158.38** | **-23.1%** |
 
-The four open arena-overflow reproductions from earlier in the doc are all resolved at the
-current branch state:
+Outcome at current branch for the prior arena-overflow reproductions:
 
 | Prior abort | Outcome at current branch |
 | --- | --- |
 | transfer_1 native, no flags | Proves in 6.16 s |
 | transfer_0 wasm | Proves in 8.71 s |
 | transfer_0 native + `BB_MSM_NO_GLV=1` | Proves in 3.47 s |
-| Dedup cap fallback assertion | Replaced with flattened-cluster publish; ChonkTests.TestCircuitSizes status to confirm |
-
-### Reading the matrix
-
-- **Native deltas cluster tightly at -20% to -23%** across every "normal" flow. Single-run
-  noise on a given flow is about 30 ms (~1%) from the earlier 5-run stability check on
-  transfer_0_sponsored, so the matrix deltas are far outside noise.
-- **WASM deltas are uniformly 3-5 points larger than native** (-24% to -28%). This is
-  consistent with the rewrite's biggest wins (Bernstein-Yang inversion and batch-affine
-  bucket accumulation) paying more in a runtime with higher per-mul constants. For the
-  browser-wasm prover that end users hit, the rewrite is a stronger headline than the
-  native number.
-- **`storage_proof_7_layers` is an outlier** at -12.1% / -14.3%, both the slowest flow and
-  the one where the rewrite helps least. Likely the bottleneck has shifted to non-MSM work
-  or to a size band the new path improves less aggressively. Worth a per-stage `print_bench`
-  + MSM trace pass on this flow before final review sign-off; it is the realistic
-  worst-case for prover UX and the rewrite's value proposition is weakest there.
-- Schnorr and ECDSA-R1 deploy flows behave identically up to ~0.3 s, so signature scheme is
-  not a meaningful axis.
-
-### Caveats
-
-- All cells are single-run. Stability on transfer_0_sponsored (5 native runs after var-split
-  removal) gave a 30 ms peak-to-peak range, so anything within ~50 ms of a baseline cell
-  should be read as "not different." The matrix deltas (1.0-6.2 s absolute) are well past
-  that.
-- WASM runs go through wasmtime 43, not a browser. Browser-wasm numbers are typically
-  1.3-2x slower due to V8 worker-pool and SharedArrayBuffer overhead, but the deltas should
-  carry across since both branch and baseline pay the same envelope.
-- The matrix only measures `ChonkAPI::prove`. Memory matrix (peak RSS via
-  `--memory_profile_out`) is the natural next data point and is not yet captured.
+| Dedup cap fallback assertion | Replaced with flattened-cluster publish |
