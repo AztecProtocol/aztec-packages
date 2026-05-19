@@ -85,7 +85,13 @@ fi
 
 if ! command -v gcloud &> /dev/null; then
   log "Installing gcloud..."
-  curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$os-$(arch).tar.gz
+  # Google's gcloud archive names use x86_64/arm, not ci3's amd64/arm64.
+  case "$(arch)" in
+    amd64) gcloud_arch=x86_64 ;;
+    arm64) gcloud_arch=arm ;;
+    *)     die "Unsupported architecture for gcloud install: $(arch)" ;;
+  esac
+  curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$(os)-$gcloud_arch.tar.gz
   tar -xzf google-cloud-cli.tar.gz
   rm google-cloud-cli.tar.gz
 

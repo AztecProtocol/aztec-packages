@@ -1,7 +1,6 @@
 import type { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -162,7 +161,7 @@ export interface IUtilityExecutionOracle {
     scope: AztecAddress,
   ): Promise<void>;
   decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
-  getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
+  getSharedSecrets(address: AztecAddress, ephPksSlot: Fr, contractAddress: AztecAddress): Promise<Fr>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
   callUtilityFunction(

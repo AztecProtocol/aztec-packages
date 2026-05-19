@@ -476,7 +476,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run Backwards Compatibility E2E Tests
-        timeout-minutes: 330
+        timeout-minutes: 60
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -489,7 +489,7 @@ jobs:
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 300
+          AWS_SHUTDOWN_TIME: 60
         run: ./.github/ci3.sh compat-e2e
 
   # Publishes the release (npm, Docker, GitHub release, aztec-up scripts, etc.).
