@@ -531,23 +531,23 @@ describe('Config', () => {
   describe('envToTyped', () => {
     interface EnvFixture {
       port: number;
-      name: string;
+      network: string;
       enabled: boolean;
     }
 
     const mappings: ConfigMappingsType<EnvFixture> = {
       port: {
-        description: 'port',
-        env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+        description: 'aztec port',
+        env: 'AZTEC_PORT',
         ...numberConfigHelper(8080),
       },
-      name: {
-        description: 'name',
+      network: {
+        description: 'aztec network',
         env: 'NETWORK',
-        defaultValue: 'default-name',
+        defaultValue: 'default-network',
       },
       enabled: {
-        description: 'enabled',
+        description: 'is enabled',
         ...booleanConfigHelper(false),
       },
     };
@@ -555,7 +555,7 @@ describe('Config', () => {
     it('emits only keys present in the env source, not defaults', () => {
       const result = envToTyped(mappings, { L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: '9090' });
       expect(result).toEqual({ port: 9090 });
-      expect('name' in result).toBe(false);
+      expect('network' in result).toBe(false);
       expect('enabled' in result).toBe(false);
     });
 
@@ -566,7 +566,7 @@ describe('Config', () => {
       });
       expect(result.port).toBe(3000);
       expect(typeof result.port).toBe('number');
-      expect(result.name).toBe('testnet');
+      expect(result.network).toBe('testnet');
     });
 
     it('honors fallback env vars', () => {
@@ -653,9 +653,9 @@ describe('Config', () => {
     }
 
     const mappings: ConfigMappingsType<CliFixture> = {
-      port: { description: 'port', ...numberConfigHelper(8080) },
-      host: { description: 'host', defaultValue: 'localhost' },
-      enabled: { description: 'enabled', ...booleanConfigHelper(false) },
+      port: { description: 'aztec port', ...numberConfigHelper(8080) },
+      host: { description: 'network host', defaultValue: 'localhost' },
+      enabled: { description: 'is enabled', ...booleanConfigHelper(false) },
     };
 
     it('emits only keys with defined values', () => {
