@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { P2PClient } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
@@ -22,15 +23,18 @@ import { BroadcastedInvalidCheckpointProposalWatcher } from './broadcasted_inval
 
 describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
   let p2pClient: MockProxy<Pick<P2PClient, 'getProposalsForSlot'>>;
-  let epochCache: MockProxy<Pick<EpochCacheInterface, 'getCurrentAndNextSlot' | 'getL1Constants'>>;
+  let l2BlockSource: MockProxy<Pick<L2BlockSource, 'getSyncedL2SlotNumber'>>;
+  let epochCache: MockProxy<Pick<EpochCacheInterface, 'getSlotNow' | 'getL1Constants'>>;
   let config: SlasherConfig;
   let watcher: BroadcastedInvalidCheckpointProposalWatcher;
   let handler: jest.MockedFunction<(args: WantToSlashArgs[]) => void>;
 
   beforeEach(() => {
     p2pClient = mock<Pick<P2PClient, 'getProposalsForSlot'>>();
-    epochCache = mock<Pick<EpochCacheInterface, 'getCurrentAndNextSlot' | 'getL1Constants'>>();
-    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(12), nextSlot: SlotNumber(13) });
+    l2BlockSource = mock<Pick<L2BlockSource, 'getSyncedL2SlotNumber'>>();
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(12));
+    epochCache = mock<Pick<EpochCacheInterface, 'getSlotNow' | 'getL1Constants'>>();
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(12));
     epochCache.getL1Constants.mockReturnValue({
       ...EmptyL1RollupConstants,
       epochDuration: 8,
@@ -40,7 +44,7 @@ describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
       ...DefaultSlasherConfig,
       slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
     };
-    watcher = new BroadcastedInvalidCheckpointProposalWatcher(p2pClient, epochCache, config, 4);
+    watcher = new BroadcastedInvalidCheckpointProposalWatcher(p2pClient, l2BlockSource, epochCache, config, 4);
     handler = jest.fn();
     watcher.on(WANT_TO_SLASH_EVENT, handler);
   });
@@ -218,12 +222,61 @@ describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
+  it('anchors the scan at the archiver synced L2 slot, not the wallclock', async () => {
+    p2pClient.getProposalsForSlot.mockResolvedValue({ blockProposals: [], checkpointProposals: [] });
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(9));
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(20));
+
+    await watcher.scan();
+
+    expect(p2pClient.getProposalsForSlot.mock.calls.map(([slot]) => slot)).toEqual([
+      SlotNumber(4),
+      SlotNumber(5),
+      SlotNumber(6),
+      SlotNumber(7),
+    ]);
+  });
+
+  it('falls back to the wallclock when the archiver has not yet synced', async () => {
+    p2pClient.getProposalsForSlot.mockResolvedValue({ blockProposals: [], checkpointProposals: [] });
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(undefined);
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(12));
+
+    await watcher.scan();
+
+    expect(p2pClient.getProposalsForSlot.mock.calls.map(([slot]) => slot)).toEqual([
+      SlotNumber(7),
+      SlotNumber(8),
+      SlotNumber(9),
+      SlotNumber(10),
+    ]);
+  });
+
+  it('does not expand the scan window when L1 stalls but wallclock keeps moving', async () => {
+    p2pClient.getProposalsForSlot.mockResolvedValue({ blockProposals: [], checkpointProposals: [] });
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(12));
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(12));
+
+    await watcher.scan();
+    p2pClient.getProposalsForSlot.mockClear();
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(50));
+
+    await watcher.scan();
+
+    expect(p2pClient.getProposalsForSlot.mock.calls.map(([slot]) => slot)).toEqual([
+      SlotNumber(7),
+      SlotNumber(8),
+      SlotNumber(9),
+      SlotNumber(10),
+    ]);
+  });
+
   it('only expands beyond the lookback for newly closed slots', async () => {
     p2pClient.getProposalsForSlot.mockResolvedValue({ blockProposals: [], checkpointProposals: [] });
 
     await watcher.scan();
     p2pClient.getProposalsForSlot.mockClear();
-    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(13), nextSlot: SlotNumber(14) });
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(13));
 
     await watcher.scan();
 
