@@ -46,6 +46,11 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     throw new Error('TXE Archiver does not implement "getRegistryAddress"');
   }
 
+  // getL1Constants and getL1Timestamp are reachable from AztecNodeService.simulatePublicCalls in
+  // its Case B (opening a new checkpoint) branch. TXE does not instantiate a PXE service and does
+  // not call node.simulatePublicCalls directly, so the throws below are never hit in practice;
+  // if a future caller wires simulatePublicCalls into TXE, return synthetic values consistent
+  // with TXE's 1-block-per-checkpoint convention instead.
   public getL1Constants(): Promise<L1RollupConstants> {
     throw new Error('TXE Archiver does not implement "getL1Constants"');
   }

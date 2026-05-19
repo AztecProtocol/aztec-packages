@@ -19,6 +19,9 @@ export class TXEFeeProvider implements FeeProvider {
 }
 
 export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
+  // getRollupContract is reachable from AztecNodeService.simulatePublicCalls (it feeds the
+  // SimulationOverridesPlan that the Case B branch builds). TXE does not run the PXE service
+  // and never invokes node.simulatePublicCalls, so this throw is unreachable in practice.
   public getRollupContract(): RollupContract {
     throw new Error('TXEGlobalVariablesBuilder does not expose a rollup contract');
   }
