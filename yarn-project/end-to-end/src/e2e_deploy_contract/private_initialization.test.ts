@@ -11,6 +11,7 @@ import { PrivateInitTestContract } from '@aztec/noir-test-contracts.js/PrivateIn
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest } from './deploy_test.js';
 
@@ -25,7 +26,7 @@ describe('e2e_deploy_contract private initialization', () => {
   let aztecNode: AztecNode;
 
   beforeAll(async () => {
-    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
     await publishContractClass(wallet, InitTestContract.artifact).then(c => c.send({ from: defaultAccountAddress }));
   });
 

@@ -2,7 +2,7 @@ import { StorageProofTestContract } from '@aztec/noir-test-contracts.js/StorageP
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, setup, teardown } from '../fixtures/setup.js';
 import { buildStorageProofCapsules, loadStorageProofArgs } from './fixtures/storage_proof_fixture.js';
 
@@ -13,7 +13,7 @@ describe('Storage proof', () => {
   let contract: StorageProofTestContract;
 
   beforeAll(async () => {
-    ctx = await setup(1, { ...PIPELINING_SETUP_OPTS });
+    ctx = await setup(1, { ...AUTOMINE_E2E_OPTS });
     ({ contract } = await StorageProofTestContract.deploy(ctx.wallet).send({ from: ctx.accounts[0] }));
   });
 
