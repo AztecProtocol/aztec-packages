@@ -10,6 +10,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
@@ -19,6 +20,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
+#include <cstdlib>
 #include <numeric>
 #include <string>
 #include <utility>
@@ -101,6 +103,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static constexpr size_t poly_length = 1UL << log_poly_length;
     static_assert(log_poly_length >= 1, "log_poly_length must be at least 1");
 
+    static bool trace_enabled() { return std::getenv("BB_IPA_TRACE") != nullptr; }
+
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of
 // IPA specifically
 #ifdef IPA_TEST
@@ -154,6 +158,16 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         BB_BENCH_NAME("IPA::compute_opening_proof");
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
+        const bool ipa_trace_enabled = trace_enabled();
+        if (ipa_trace_enabled) {
+            info("BB_IPA_TRACE {\"curve\":\"",
+                 Curve::name,
+                 "\",\"event\":\"start\",\"poly_length\":",
+                 poly_length,
+                 ",\"log_poly_length\":",
+                 log_poly_length,
+                 "}");
+        }
 
         // Step 1.
         // Done in `add_claim_to_hash_buffer`.
@@ -224,6 +238,15 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Perform IPA reduction rounds
         for (size_t i = 0; i < log_poly_length; i++) {
             round_size /= 2;
+            if (ipa_trace_enabled) {
+                info("BB_IPA_TRACE {\"curve\":\"",
+                     Curve::name,
+                     "\",\"event\":\"round\",\"round\":",
+                     i,
+                     ",\"round_size\":",
+                     round_size,
+                     ",\"pippenger_calls\":2,\"batch_mul_with_endomorphism_calls\":1}");
+            }
             // Run scalar products in parallel
             auto inner_prods = parallel_for_heuristic(
                 round_size,

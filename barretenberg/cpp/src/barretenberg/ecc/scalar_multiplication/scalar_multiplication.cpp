@@ -1,6 +1,7 @@
 #include "./scalar_multiplication.hpp"
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -12,6 +13,7 @@
 #include <atomic>
 #include <bit>
 #include <cerrno>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -49,6 +51,18 @@ namespace round_parallel_detail {
 // around `pippenger_round_parallel_jacobian_fast`, which has external linkage via
 // `extern template` declarations in the header.
 namespace {
+
+[[nodiscard]] inline bool msm_env_flag(const char* name) noexcept
+{
+    return std::getenv(name) != nullptr;
+}
+
+using MsmClock = std::chrono::steady_clock;
+
+[[nodiscard]] inline uint64_t elapsed_ms(MsmClock::time_point start, MsmClock::time_point end) noexcept
+{
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+}
 
 // Bulk-copy a 64-byte affine point (BN254 / Grumpkin layout: 8 × uint64_t).
 // On wasm, V8 TurboFan compiles the default struct copy to 8 i64 loads/stores; explicit
@@ -2470,7 +2484,9 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
         return 0; // trivial path
     }
 
-    const bool use_glv = external_glv_provided || (n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
+    const bool force_no_glv = round_parallel_detail::msm_env_flag("BB_MSM_NO_GLV");
+    const bool use_glv =
+        !force_no_glv && (external_glv_provided || (n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD));
     const size_t n = use_glv ? 2 * n_input : n_input;
     const size_t NUM_BITS = use_glv ? size_t{ 128 } : FULL_NUM_BITS;
     BB_ASSERT_LTE(n,
@@ -2679,8 +2695,13 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     using ScalarField = typename Curve::ScalarField;
     using BaseField = typename Curve::BaseField;
 
+    const bool trace_enabled = round_parallel_detail::msm_env_flag("BB_MSM_TRACE");
+    const auto trace_total_start = round_parallel_detail::MsmClock::now();
     const size_t n_input = scalars_span.size();
     if (n_input == 0) {
+        if (trace_enabled) {
+            info("BB_MSM_TRACE {\"curve\":\"", Curve::name, "\",\"path\":\"empty\",\"n_input\":0,\"total_ms\":0}");
+        }
         return Curve::Group::point_at_infinity;
     }
 
@@ -2693,7 +2714,24 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         const size_t num_threads_dispatch = std::max<size_t>(1, std::min(n_input, max_threads));
         const size_t pts_per_thread = (n_input + num_threads_dispatch - 1) / num_threads_dispatch;
         if (pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER) {
-            return trivial_msm_threaded<Curve>(scalars_span, all_points);
+            const Element result = trivial_msm_threaded<Curve>(scalars_span, all_points);
+            if (trace_enabled) {
+                const auto trace_total_end = round_parallel_detail::MsmClock::now();
+                info("BB_MSM_TRACE {\"curve\":\"",
+                     Curve::name,
+                     "\",\"path\":\"trivial_pre\",\"n_input\":",
+                     n_input,
+                     ",\"threads\":",
+                     num_threads_dispatch,
+                     ",\"pts_per_thread\":",
+                     pts_per_thread,
+                     ",\"use_glv\":false,\"dedup_hint\":",
+                     dedup_hint ? "true" : "false",
+                     ",\"dedup_active\":false,\"split\":false,\"total_ms\":",
+                     round_parallel_detail::elapsed_ms(trace_total_start, trace_total_end),
+                     "}");
+            }
+            return result;
         }
     }
 
@@ -2714,8 +2752,10 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // to n=2^16; native to n=2^13 (clang's branchless bias-decode is fast enough that the 2×
     // point-count cost dominates above that). Threshold is platform-conditional in the
     // hoisted GLV_SMALL_N_THRESHOLD declaration.
+    const bool force_no_glv = round_parallel_detail::msm_env_flag("BB_MSM_NO_GLV");
+    const bool external_glv_provided = !force_no_glv && !external_glv_doubled.empty();
     const bool use_glv =
-        !external_glv_doubled.empty() ? true : (n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
+        external_glv_provided ? true : (!force_no_glv && n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
 
     // Stage 6 splits into 6a (per-thread bucket partials over the contiguous-by-schedule-
     // index partition) and 6b (cross-thread bucket reduction over a uniform-width digit
@@ -2730,14 +2770,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                   "working scalar indices must fit in the 29-bit schedule payload");
     std::span<ScalarField> scalars;
     std::span<const AffineElement> points;
-    const bool inline_glv_double = use_glv && external_glv_doubled.empty();
+    const bool inline_glv_double = use_glv && !external_glv_provided;
 
     // Activation gate: caller-supplied hint opts this MSM into the dedup pre-pass.
     // Hint-driven so polynomials with low duplicate density (PC counters, range checks)
     // skip the O(n) tagging cost. The small-n bail above (pts_per_thread <
     // MIN_PTS_PER_THREAD_FOR_PIPPENGER) already shed every case where dedup wouldn't fit
     // — n ≥ MIN_PTS_PER_THREAD_FOR_PIPPENGER * 1 = 24 here.
-    const bool dedup_active = dedup_hint;
+    const bool force_no_dedup = round_parallel_detail::msm_env_flag("BB_MSM_NO_DEDUP");
+    const bool dedup_active = dedup_hint && !force_no_dedup;
 
     // ---------------------------------------------------------------------------------------
     // Arena setup (pre-Phase-1).
@@ -2751,8 +2792,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // We size the buffer using `compute_arena_bytes_for_msm`, whose conservative bound
     // dominates the inline-tight (P + W + S) sum for any wpb we choose below.
     // ---------------------------------------------------------------------------------------
-    const size_t arena_total_bytes =
-        compute_arena_bytes_for_msm<Curve>(n_input, !external_glv_doubled.empty(), dedup_active);
+    const size_t arena_total_bytes = compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active);
     std::unique_ptr<std::byte[]> local_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
     std::byte* arena_data = nullptr;
     size_t arena_capacity = 0;
@@ -2806,6 +2846,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // build, chunked tree-reduce, redirect_lookup) runs sequentially after the parallel_for
     // — see `dedup_finalize_parallel`.
     // ---------------------------------------------------------------------------------------
+    const auto trace_phase1_start = round_parallel_detail::MsmClock::now();
     using round_parallel_detail::MSB_ZERO_SENTINEL;
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
     auto msb_per_scalar = arena_alloc.template operator()<uint8_t>(n);
@@ -2886,6 +2927,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             msb_hist[b] += per_thread_msb_hist[t][b];
         }
     }
+    const auto trace_phase1_end = round_parallel_detail::MsmClock::now();
+    const uint64_t trace_phase1_ms = round_parallel_detail::elapsed_ms(trace_phase1_start, trace_phase1_end);
     const size_t n_active_early = n - static_cast<size_t>(msb_hist[0]);
 
     // ---------------------------------------------------------------------------------------
@@ -2906,7 +2949,32 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             });
             std::span<const ScalarField> scalars_const(scalars.data(), n);
             PolynomialSpan<const ScalarField> ps(0, scalars_const);
-            return trivial_msm_threaded<Curve>(ps, points);
+            const Element result = trivial_msm_threaded<Curve>(ps, points);
+            if (trace_enabled) {
+                const auto trace_total_end = round_parallel_detail::MsmClock::now();
+                info("BB_MSM_TRACE {\"curve\":\"",
+                     Curve::name,
+                     "\",\"path\":\"trivial_post_profile\",\"n_input\":",
+                     n_input,
+                     ",\"n_working\":",
+                     n,
+                     ",\"n_active\":",
+                     n_active_early,
+                     ",\"use_glv\":",
+                     use_glv ? "true" : "false",
+                     ",\"external_glv\":",
+                     external_glv_provided ? "true" : "false",
+                     ",\"dedup_hint\":",
+                     dedup_hint ? "true" : "false",
+                     ",\"dedup_active\":",
+                     dedup_active ? "true" : "false",
+                     ",\"phase1_ms\":",
+                     trace_phase1_ms,
+                     ",\"total_ms\":",
+                     round_parallel_detail::elapsed_ms(trace_total_start, trace_total_end),
+                     "}");
+            }
+            return result;
         }
     }
 
@@ -2949,7 +3017,10 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // model — the typical NO_SPLIT path then degenerates to a single-region uniform-window schedule.
     auto var_window_decision = round_parallel_detail::choose_var_window_split(
         msb_hist, n, effective_num_bits, n_input, num_logical_threads_for_c);
-    if (const char* force = std::getenv("VAR_WINDOW_FORCE_SPLIT")) {
+    const bool force_no_var_split = round_parallel_detail::msm_env_flag("BB_MSM_NO_VAR_SPLIT");
+    if (force_no_var_split) {
+        var_window_decision = {};
+    } else if (const char* force = std::getenv("VAR_WINDOW_FORCE_SPLIT")) {
         size_t fb = 0;
         size_t force_window_bits_lo = 0;
         size_t force_window_bits_hi = 0;
@@ -3676,6 +3747,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // result for every subsequent batch (and SPLIT upper region). The flag is captured by
     // the per-region `run_batch` lambda below.
     bool phase_a_done = false;
+    uint64_t trace_dedup_ms = 0;
 
     // Per-region batch body. The driver invokes this twice (lower + upper on SPLIT, lower-only
     // on NO_SPLIT). Parameters are passed explicitly rather than through a struct ref:
@@ -4117,6 +4189,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // spans index by the same scalar_idx and a duplicate scalar always picks the
         // SAME orig_idx → SAME point per region.
         if (dedup_active && windows_in_batch > 0 && !phase_a_done) {
+            const auto trace_dedup_start = round_parallel_detail::MsmClock::now();
             BB_BENCH_NAME("MSM::PhaseA_dedup_detect");
             uint32_t* sched_w0 = schedule.data();
             // Pre-Phase-A bucket sort: Stage 4 emits each bucket's run in scalar-emit
@@ -4169,6 +4242,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 dedup_state.n_dedup_extras = dedup_cluster_count.load(std::memory_order_relaxed);
             }
             phase_a_done = true;
+            trace_dedup_ms +=
+                round_parallel_detail::elapsed_ms(trace_dedup_start, round_parallel_detail::MsmClock::now());
         }
 
         // Schedule patch post-pass: tags cluster-member entries with SKIP/REDIRECT bits.
@@ -4210,6 +4285,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
 
         bool chunk_partition_done = false;
         if (dedup_active && windows_in_batch > 0 && phase_a_done && !phase_a_done_at_batch_start) {
+            const auto trace_dedup_patch_start = round_parallel_detail::MsmClock::now();
             BB_BENCH_NAME("MSM::dedup_patch_schedule");
             const uint32_t* const rl_data = dedup_state.redirect_lookup.data();
             const size_t bs_stride = bucket_stride + 1;
@@ -4225,6 +4301,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 }
             });
             chunk_partition_done = true;
+            trace_dedup_ms +=
+                round_parallel_detail::elapsed_ms(trace_dedup_patch_start, round_parallel_detail::MsmClock::now());
         }
 
         // Per-window chunk partition at schedule-index granularity (chunk_start[t] = t·m/T).
@@ -4577,6 +4655,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // graph for run_batch and lets it apply per-call-site specialization on the lambda body
     // (regions[]+outer-for-loop costs ~6% Stage 6a wall on the chonk fixture, despite the
     // body being identical, presumably from reduced inlining at the single dynamic call site).
+    const auto trace_pipeline_start = round_parallel_detail::MsmClock::now();
     {
         const size_t window_bits_lo_R = var_window_decision.is_split ? var_window_decision.window_bits_lo : window_bits;
         const size_t B_lo_R = (size_t{ 1 } << (window_bits_lo_R - 1)) + 1;
@@ -4625,6 +4704,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                       /*is_upper=*/true);
         }
     }
+    const uint64_t trace_pipeline_ms =
+        round_parallel_detail::elapsed_ms(trace_pipeline_start, round_parallel_detail::MsmClock::now());
 
     // Stage 7 horner: walk high-to-low, doubling by `window_bits_per_window[w]` between adjacent windows.
     // Init from the top window to skip a wasted doubling on identity.
@@ -4652,6 +4733,57 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 input_scalars[i].self_to_montgomery_form();
             }
         });
+    }
+
+    if (trace_enabled) {
+        const auto trace_total_end = round_parallel_detail::MsmClock::now();
+        info("BB_MSM_TRACE {\"curve\":\"",
+             Curve::name,
+             "\",\"path\":\"pippenger_round_parallel\",\"n_input\":",
+             n_input,
+             ",\"n_working\":",
+             n,
+             ",\"n_active\":",
+             n_active_early,
+             ",\"use_glv\":",
+             use_glv ? "true" : "false",
+             ",\"external_glv\":",
+             external_glv_provided ? "true" : "false",
+             ",\"dedup_hint\":",
+             dedup_hint ? "true" : "false",
+             ",\"dedup_active\":",
+             dedup_active ? "true" : "false",
+             ",\"dedup_clusters\":",
+             dedup_state.n_dedup_extras,
+             ",\"effective_num_bits\":",
+             effective_num_bits,
+             ",\"window_bits\":",
+             window_bits,
+             ",\"split\":",
+             var_window_decision.is_split ? "true" : "false",
+             ",\"b_star\":",
+             var_window_decision.b_star,
+             ",\"n_large\":",
+             n_large,
+             ",\"windows_lo\":",
+             sched.W_lo,
+             ",\"windows_hi\":",
+             sched.W_hi,
+             ",\"windows_per_batch_lo\":",
+             windows_per_batch_lo,
+             ",\"windows_per_batch_hi\":",
+             windows_per_batch_hi,
+             ",\"arena_bytes\":",
+             arena_total_bytes,
+             ",\"phase1_ms\":",
+             trace_phase1_ms,
+             ",\"dedup_ms\":",
+             trace_dedup_ms,
+             ",\"pipeline_ms\":",
+             trace_pipeline_ms,
+             ",\"total_ms\":",
+             round_parallel_detail::elapsed_ms(trace_total_start, trace_total_end),
+             "}");
     }
 
     return result;
@@ -4704,6 +4836,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     BB_ASSERT_EQ(point_arrays.size(), K);
     out_results.assign(K, Curve::Group::point_at_infinity);
 
+    const bool force_no_glv = round_parallel_detail::msm_env_flag("BB_MSM_NO_GLV");
+    const bool force_no_dedup = round_parallel_detail::msm_env_flag("BB_MSM_NO_DEDUP");
     auto hint_for = [&](size_t m) noexcept -> bool { return m < dedup_hints.size() && dedup_hints[m] != 0; };
 
     if (K == 0) {
@@ -4760,7 +4894,8 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         // n[m] <= group_max_n; if group_max_n is in the small-N regime, every MSM
         // is too, so they all want GLV. If group_max_n is in the large-N regime,
         // no MSM in the group wants GLV (they'd be slower with it).
-        group_uses_glv[g] = (glv_groups[g].group_max_n <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
+        group_uses_glv[g] =
+            !force_no_glv && (glv_groups[g].group_max_n <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
     }
 
     // Build ONE shared GLV-doubled buffer covering the union of every GLV-using group's
@@ -4841,12 +4976,12 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
             continue;
         }
         const size_t g = msm_to_group[m];
-        const bool ext_glv =
-            (g != std::numeric_limits<size_t>::max() && group_uses_glv[g] && !glv_groups[g].doubled.empty());
+        const bool ext_glv = !force_no_glv && g != std::numeric_limits<size_t>::max() && group_uses_glv[g] &&
+                             !glv_groups[g].doubled.empty();
         // The internal short-circuits to trivial_msm_threaded for tiny MSMs, so the hint
         // alone is the right arena-sizing predicate (over-sizing for a path that bails
         // is harmless — under-sizing would crash).
-        const bool dedup_active_m = hint_for(m);
+        const bool dedup_active_m = hint_for(m) && !force_no_dedup;
         const size_t bytes = compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, dedup_active_m);
         shared_arena_bytes = std::max(shared_arena_bytes, bytes);
     }
@@ -4870,7 +5005,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
 
         const size_t g = msm_to_group[m];
         std::span<const AffineElement> external_glv;
-        if (g != std::numeric_limits<size_t>::max() && group_uses_glv[g]) {
+        if (!force_no_glv && g != std::numeric_limits<size_t>::max() && group_uses_glv[g]) {
             // `group.doubled` is interleaved `[P_0, φP_0, …]` of length 2*Nmax. The
             // first 2*n entries are exactly the per-MSM `[P_0, φP_0, …, P_{n-1}, φP_{n-1}]`
             // view, regardless of whether n == Nmax (uniform batch) or n < Nmax (ragged).

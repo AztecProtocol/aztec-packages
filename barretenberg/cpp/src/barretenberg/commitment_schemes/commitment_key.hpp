@@ -11,13 +11,17 @@
  */
 
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -36,6 +40,92 @@ template <class Curve> class CommitmentKey {
 
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
+
+    struct DedupTraceStats {
+        size_t zero_count = 0;
+        size_t duplicate_groups = 0;
+        size_t duplicate_members = 0;
+        size_t duplicate_excess = 0;
+    };
+
+    static bool dedup_trace_enabled() { return std::getenv("BB_COMMITMENT_DEDUP_TRACE") != nullptr; }
+
+    static DedupTraceStats compute_dedup_trace_stats(std::span<const Fr> coefficients)
+    {
+        DedupTraceStats stats;
+        std::vector<std::array<uint64_t, 4>> nonzero_values;
+        nonzero_values.reserve(coefficients.size());
+        for (const auto& coefficient : coefficients) {
+            if (coefficient.is_zero()) {
+                ++stats.zero_count;
+                continue;
+            }
+            nonzero_values.push_back(
+                { coefficient.data[0], coefficient.data[1], coefficient.data[2], coefficient.data[3] });
+        }
+        std::sort(nonzero_values.begin(), nonzero_values.end());
+        for (size_t i = 0; i < nonzero_values.size();) {
+            size_t j = i + 1;
+            while (j < nonzero_values.size() && nonzero_values[j] == nonzero_values[i]) {
+                ++j;
+            }
+            const size_t group_size = j - i;
+            if (group_size > 1) {
+                ++stats.duplicate_groups;
+                stats.duplicate_members += group_size;
+                stats.duplicate_excess += group_size - 1;
+            }
+            i = j;
+        }
+        return stats;
+    }
+
+    static void trace_commitment_dedup_candidate(std::string_view label,
+                                                 size_t batch_index,
+                                                 size_t start_index,
+                                                 std::span<const Fr> coefficients,
+                                                 bool has_duplicates_hint,
+                                                 bool include_stats)
+    {
+        if (!include_stats) {
+            info("BB_COMMITMENT_DEDUP_TRACE {\"curve\":\"",
+                 Curve::name,
+                 "\",\"label\":\"",
+                 label,
+                 "\",\"batch_index\":",
+                 batch_index,
+                 ",\"start_index\":",
+                 start_index,
+                 ",\"size\":",
+                 coefficients.size(),
+                 ",\"dedup_hint\":",
+                 has_duplicates_hint ? "true" : "false",
+                 "}");
+            return;
+        }
+        const DedupTraceStats stats = compute_dedup_trace_stats(coefficients);
+        info("BB_COMMITMENT_DEDUP_TRACE {\"curve\":\"",
+             Curve::name,
+             "\",\"label\":\"",
+             label,
+             "\",\"batch_index\":",
+             batch_index,
+             ",\"start_index\":",
+             start_index,
+             ",\"size\":",
+             coefficients.size(),
+             ",\"dedup_hint\":",
+             has_duplicates_hint ? "true" : "false",
+             ",\"zero_count\":",
+             stats.zero_count,
+             ",\"duplicate_groups\":",
+             stats.duplicate_groups,
+             ",\"duplicate_members\":",
+             stats.duplicate_members,
+             ",\"duplicate_excess\":",
+             stats.duplicate_excess,
+             "}");
+    }
 
   protected:
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
@@ -80,6 +170,10 @@ template <class Curve> class CommitmentKey {
                                   consumed_srs,
                                   " points with an SRS of size ",
                                   get_monomial_size()));
+        }
+        if (dedup_trace_enabled()) {
+            trace_commitment_dedup_candidate(
+                "<single>", 0, polynomial.start_index, polynomial.span, has_duplicates_hint, has_duplicates_hint);
         }
         return scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table, has_duplicates_hint);
     };
@@ -127,6 +221,13 @@ template <class Curve> class CommitmentKey {
 
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript)
         {
+            if (CommitmentKey::dedup_trace_enabled()) {
+                for (size_t i = 0; i < wires.size(); ++i) {
+                    const bool has_hint = i < has_duplicates_hints.size() && has_duplicates_hints[i] != 0;
+                    CommitmentKey::trace_commitment_dedup_candidate(
+                        labels[i], i, wires[i].start_index(), wires[i].coeffs(), has_hint, has_hint);
+                }
+            }
             std::vector<Commitment> commitments = key->batch_commit(wires, has_duplicates_hints);
 
             // Adjust commitments for wires with masking tails: C' = C_short + commit(tail)
