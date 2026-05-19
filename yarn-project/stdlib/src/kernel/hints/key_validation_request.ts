@@ -3,6 +3,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { PublicKey } from '../../keys/public_key.js';
+
 /**
  * Request for validating keys used in the app.
  *

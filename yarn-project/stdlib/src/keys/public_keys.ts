@@ -8,7 +8,6 @@ import {
 } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
@@ -16,7 +15,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type PublicKey, hashPublicKey } from './public_key.js';
+import { PublicKey } from './public_key.js';
 
 /**
  * A non-owner's view of an account's master public keys.
@@ -61,7 +60,7 @@ export class PublicKeys {
     }
     return new PublicKeys(
       Fr.fromPlainObject(obj.npkMHash),
-      Point.fromPlainObject(obj.ivpkM),
+      PublicKey.fromPlainObject(obj.ivpkM),
       Fr.fromPlainObject(obj.ovpkMHash),
       Fr.fromPlainObject(obj.tpkMHash),
     );
@@ -71,11 +70,7 @@ export class PublicKeys {
     if (this.isEmpty()) {
       return Fr.ZERO;
     }
-    // Mirror Noir's `PublicKeys::hash`: hash the four single-key digests under
-    // DOM_SEP__PUBLIC_KEYS_HASH. `ivpk_m` must be reduced to its single-key digest first
-    // (Poseidon2 over [x, y]); passing the Point directly would inadvertently include
-    // `is_infinite` and produce a different value.
-    const ivpkMHash = await hashPublicKey(this.ivpkM);
+    const ivpkMHash = await this.ivpkM.hash();
     return poseidon2HashWithSeparator(
       [this.npkMHash, ivpkMHash, this.ovpkMHash, this.tpkMHash],
       DomainSeparator.PUBLIC_KEYS_HASH,
@@ -94,21 +89,21 @@ export class PublicKeys {
     // the underlying X/Y points.
     return new PublicKeys(
       new Fr(DEFAULT_NPK_M_HASH),
-      new Point(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
+      new PublicKey(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
       new Fr(DEFAULT_OVPK_M_HASH),
       new Fr(DEFAULT_TPK_M_HASH),
     );
   }
 
   static async random(): Promise<PublicKeys> {
-    const npkM = await Point.random();
-    const ovpkM = await Point.random();
-    const tpkM = await Point.random();
+    const npkM = await PublicKey.random();
+    const ovpkM = await PublicKey.random();
+    const tpkM = await PublicKey.random();
     return new PublicKeys(
-      await hashPublicKey(npkM),
-      await Point.random(),
-      await hashPublicKey(ovpkM),
-      await hashPublicKey(tpkM),
+      await npkM.hash(),
+      await PublicKey.random(),
+      await ovpkM.hash(),
+      await tpkM.hash(),
     );
   }
 
@@ -121,6 +116,12 @@ export class PublicKeys {
     );
   }
 
+  /**
+   * Converts the PublicKeys instance into a Buffer.
+   * This method should be used when encoding the address for storage, transmission or serialization purposes.
+   *
+   * @returns A Buffer representation of the PublicKeys instance.
+   */
   toBuffer(): Buffer {
     return serializeToBuffer([this.npkMHash, this.ivpkM, this.ovpkMHash, this.tpkMHash]);
   }
@@ -128,7 +129,7 @@ export class PublicKeys {
   static fromBuffer(buffer: Buffer | BufferReader): PublicKeys {
     const reader = BufferReader.asReader(buffer);
     const npkMHash = Fr.fromBuffer(reader);
-    const ivpkM = reader.readObject(Point);
+    const ivpkM = reader.readObject(PublicKey);
     const ovpkMHash = Fr.fromBuffer(reader);
     const tpkMHash = Fr.fromBuffer(reader);
     return new PublicKeys(npkMHash, ivpkM, ovpkMHash, tpkMHash);
@@ -178,13 +179,7 @@ export class PublicKeys {
 
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {
     const reader = FieldReader.asReader(fields);
-    const npkMHash = reader.readField();
-    const ivpkMX = reader.readField();
-    const ivpkMY = reader.readField();
-    const ivpkMIsInfinite = reader.readBoolean();
-    const ovpkMHash = reader.readField();
-    const tpkMHash = reader.readField();
-    return new PublicKeys(npkMHash, new Point(ivpkMX, ivpkMY, ivpkMIsInfinite), ovpkMHash, tpkMHash);
+    return new PublicKeys(reader.readField(), reader.readObject(PublicKey), reader.readField(), reader.readField());
   }
 
   toString() {
