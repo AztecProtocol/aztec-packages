@@ -5,6 +5,7 @@ import {
   batch_affine_apply as batch_affine_apply_shader,
   batch_affine_apply_scatter as batch_affine_apply_scatter_shader,
   batch_affine_dispatch_args as batch_affine_dispatch_args_shader,
+  ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
   bench_batch_affine as bench_batch_affine_shader,
   batch_affine_finalize as batch_affine_finalize_shader,
   batch_affine_finalize_apply as batch_affine_finalize_apply_shader,
@@ -760,6 +761,52 @@ ${packLines.join('\n')}
         fr_pow_funcs,
         bigint_by_funcs,
         by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Standalone single-dispatch microbench for the ba_rev_packed_carry
+   * batch-affine scheme — packed 8x u32 storage, per-thread BS-pair
+   * descending suffix-product, single fr_inv_by_a per thread, ascending
+   * lean affine apply. No bucket indirection, no scheduler inputs. Used
+   * to validate that the M2 22-24 ns/pair number is achievable in the
+   * idealised standalone setting and to quantify the gap to integration.
+   */
+  public gen_ba_rev_packed_carry_bench_shader(tpb: number, bs: number): string {
+    if (tpb <= 0 || bs <= 0 || !Number.isInteger(tpb) || !Number.isInteger(bs)) {
+      throw new Error(`gen_ba_rev_packed_carry_bench_shader: tpb (${tpb}) and bs (${bs}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_rev_packed_carry_bench_shader,
+      {
+        tpb,
+        bs,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+        packed_field_funcs,
       },
     );
   }
