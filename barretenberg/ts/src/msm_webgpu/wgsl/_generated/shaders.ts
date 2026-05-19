@@ -2735,7 +2735,7 @@ var<storage, read> pair_target_meta: array<u32>;
 @group(0) @binding(6)
 var<storage, read_write> prefix_buf: array<vec4<u32>>;
 @group(0) @binding(7)
-var<storage, read> count_buf: array<atomic<u32>>;
+var<storage, read_write> count_buf: array<atomic<u32>>;
 
 // params[0] = num_columns  (per-subtask pool stride)
 // params[1] = input_size   (per-subtask val_idx stride)
@@ -2760,21 +2760,19 @@ fn main(
 
     let n = atomicLoad(&count_buf[subtask_idx]);
     let batch_base = wg_idx * BATCH_SIZE;
-    if (batch_base >= n) {
-        return;
-    }
 
     let pool_base = subtask_idx * num_columns;
     let vi_offset = subtask_idx * input_size;
 
-    let remaining = n - batch_base;
-    let batch_len = min(BATCH_SIZE, remaining);
+    var batch_len: u32 = 0u;
+    if (batch_base < n) {
+        batch_len = min(BATCH_SIZE, n - batch_base);
+    }
 
     let chunk_start = tid * BS;
     var chunk_len: u32 = 0u;
     if (chunk_start < batch_len) {
-        let chunk_end_unclamped = chunk_start + BS;
-        let chunk_end = min(chunk_end_unclamped, batch_len);
+        let chunk_end = min(chunk_start + BS, batch_len);
         chunk_len = chunk_end - chunk_start;
     }
 
@@ -2841,10 +2839,10 @@ fn main(
     workgroupBarrier();
 
     // Phase D — back-walk this thread's chunk, emit lean affine adds.
-    if (chunk_len == 0u) {
-        return;
-    }
-
+    // Threads with chunk_len == 0 (overshoot dispatch or end-of-pool
+    // padding) skip the work loop entirely but stay live through any
+    // future workgroup-uniform code (currently none — D is the last
+    // phase).
     var block_excl_prefix: PackedField = get_r_packed();
     if (tid > 0u) {
         block_excl_prefix = wg_fwd[tid - 1u];
@@ -9901,11 +9899,10 @@ export const packed_field = `// Packed 256-bit field-element type and primitive 
 // overhead vs the BigInt calling convention used by the legacy
 // msm_webgpu/ shaders.
 //
-// PRECONDITION: this partial must be included after \`bigint_funcs\`,
-// \`montgomery_product_funcs\`, \`field_funcs\`, \`by_inverse_a_funcs\`, and
-// after the {{{ dec_unpack }}} / {{{ dec_pack }}} substitution blocks
-// have rendered \`unpack256_to_limbs\` / \`pack_limbs_to_256\` into the
-// shader.
+// PRECONDITION: this partial must be included after bigint_funcs,
+// montgomery_product_funcs, field_funcs, by_inverse_a_funcs, and after
+// the host has injected unpack256_to_limbs and pack_limbs_to_256 (those
+// come from the decoupledPackUnpackWgsl() generator in shader_manager).
 
 struct PackedField {
     lo: vec4<u32>,
@@ -9969,14 +9966,19 @@ fn get_zero_packed() -> PackedField {
     return PackedField(vec4<u32>(0u), vec4<u32>(0u));
 }
 
+fn get_r() -> BigInt {
+    var r: BigInt;
+{{{ r_limbs }}}
+    return r;
+}
+
 fn get_p_packed() -> PackedField {
     var p: BigInt = get_p();
     return pack_field(&p);
 }
 
 fn get_r_packed() -> PackedField {
-    var r: BigInt;
-{{{ r_limbs }}}
+    var r: BigInt = get_r();
     return pack_field(&r);
 }
 

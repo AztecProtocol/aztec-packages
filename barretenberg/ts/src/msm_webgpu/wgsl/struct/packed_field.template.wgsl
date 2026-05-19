@@ -16,11 +16,10 @@
 // overhead vs the BigInt calling convention used by the legacy
 // msm_webgpu/ shaders.
 //
-// PRECONDITION: this partial must be included after `bigint_funcs`,
-// `montgomery_product_funcs`, `field_funcs`, `by_inverse_a_funcs`, and
-// after the {{{ dec_unpack }}} / {{{ dec_pack }}} substitution blocks
-// have rendered `unpack256_to_limbs` / `pack_limbs_to_256` into the
-// shader.
+// PRECONDITION: this partial must be included after bigint_funcs,
+// montgomery_product_funcs, field_funcs, by_inverse_a_funcs, and after
+// the host has injected unpack256_to_limbs and pack_limbs_to_256 (those
+// come from the decoupledPackUnpackWgsl() generator in shader_manager).
 
 struct PackedField {
     lo: vec4<u32>,
@@ -84,14 +83,19 @@ fn get_zero_packed() -> PackedField {
     return PackedField(vec4<u32>(0u), vec4<u32>(0u));
 }
 
+fn get_r() -> BigInt {
+    var r: BigInt;
+{{{ r_limbs }}}
+    return r;
+}
+
 fn get_p_packed() -> PackedField {
     var p: BigInt = get_p();
     return pack_field(&p);
 }
 
 fn get_r_packed() -> PackedField {
-    var r: BigInt;
-{{{ r_limbs }}}
+    var r: BigInt = get_r();
     return pack_field(&r);
 }
 

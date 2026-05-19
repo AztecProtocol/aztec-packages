@@ -147,17 +147,21 @@ async function createPipeline(
   const module = device.createShaderModule({ code });
   const info = await module.getCompilationInfo();
   let hasError = false;
+  const errLines: string[] = [];
   for (const msg of info.messages) {
     const line = `[shader ${cacheKey}] ${msg.type}: ${msg.message} (line ${msg.lineNum}, col ${msg.linePos})`;
     if (msg.type === 'error') {
       console.error(line);
+      log('err', line);
+      errLines.push(line);
       hasError = true;
     } else {
       console.warn(line);
+      log('warn', line);
     }
   }
   if (hasError) {
-    throw new Error(`WGSL compile failed for ${cacheKey}`);
+    throw new Error(`WGSL compile failed for ${cacheKey}: ${errLines.join(' | ')}`);
   }
   const layout = device.createBindGroupLayout({
     entries: [
@@ -168,7 +172,7 @@ async function createPipeline(
       { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
       { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
-      { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+      { binding: 7, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
       { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
     ],
   });
