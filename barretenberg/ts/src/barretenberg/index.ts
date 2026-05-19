@@ -5,6 +5,10 @@ import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interf
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 
+const DEFAULT_BB_CRS_SIZE = 2 ** 18;
+// Keep the iOS default separate so it can diverge when mobile memory limits require it.
+const IOS_BB_CRS_SIZE = 2 ** 18;
+
 export {
   UltraHonkBackend,
   UltraHonkVerifierBackend,
@@ -100,9 +104,9 @@ export class Barretenberg extends AsyncApi {
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
     // Use `self` instead of `window` so this check also works inside Web Workers.
     if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
-      return 2 ** 18;
+      return IOS_BB_CRS_SIZE;
     }
-    return 2 ** 20;
+    return DEFAULT_BB_CRS_SIZE;
   }
 
   async acirGetCircuitSizes(
