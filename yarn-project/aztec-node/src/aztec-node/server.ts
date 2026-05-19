@@ -78,7 +78,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
-import { getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
+import { getNextL1SlotTimestamp, getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
@@ -192,6 +192,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
     protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
+    protected readonly dateProvider: DateProvider,
     protected readonly packageVersion: string,
     private peerProofVerifier: ClientProtocolCircuitVerifier,
     private rpcProofVerifier: ClientProtocolCircuitVerifier,
@@ -930,6 +931,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         globalVariableBuilder,
         feeProvider,
         epochCache,
+        dateProvider,
         packageVersion,
         peerProofVerifier,
         rpcProofVerifier,
@@ -1517,16 +1519,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       nextCheckpointMessages = undefined;
     } else {
       // Case B: opening a new checkpoint. Compute fresh globals.
-      // Slot is archiver-anchored (not wall-clock) so simulation depends on local L1 sync, not
-      // local time. The +1 sequencer pipelining slot adjustment is deliberately not mirrored here:
-      // PXE callers re-simulate as the archiver advances, and in the proposed-parent case the slot
-      // is pinned via the overrides plan anyway.
-      const l1Timestamp = await this.blockSource.getL1Timestamp();
-      if (l1Timestamp === undefined) {
-        throw new Error('Cannot simulate public calls: archiver has not synced an L1 timestamp yet');
-      }
+      // Slot is wall-clock anchored to match `FeeProviderImpl.computeCurrentMinFees` exactly so
+      // the simulator's `gasFees` agree with what the wallet observes via `getCurrentMinFees`.
+      // Mirroring the wallet's path is what keeps fee enforcement consistent across the two
+      // call sites; an archiver-anchored slot diverges whenever the local archiver lags wall-clock
+      // by an L2 slot, which is routine in e2e tests with short anvil intervals.
+      const rollupContract = this.globalVariableBuilder.getRollupContract();
       const l1Constants = await this.blockSource.getL1Constants();
-      const targetSlot = getSlotAtNextL1Block(l1Timestamp, l1Constants);
+      const lastCheckpointOnL1 = await rollupContract.getPendingCheckpoint();
+      const earliestTimestamp = getTimestampForSlot(SlotNumber.add(lastCheckpointOnL1.slotNumber, 1), l1Constants);
+      const nextEthTimestamp = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), l1Constants);
+      const targetTimestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
+      const targetSlot = getSlotAtTimestamp(targetTimestamp, l1Constants);
 
       let proposedCheckpointData: ProposedCheckpointData | undefined;
       let checkpointNumber: CheckpointNumber;
@@ -1579,7 +1583,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
             proposedCheckpointData,
             invalidateToPendingCheckpointNumber: undefined,
             checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-            rollup: this.globalVariableBuilder.getRollupContract(),
+            rollup: rollupContract,
             signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
             log: this.log,
           })

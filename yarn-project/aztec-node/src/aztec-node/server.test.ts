@@ -33,7 +33,12 @@ import {
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
+import {
+  EmptyL1RollupConstants,
+  getNextL1SlotTimestamp,
+  getSlotAtTimestamp,
+  getTimestampForSlot,
+} from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -103,6 +108,7 @@ describe('aztec node', () => {
   let node: TestAztecNodeService;
   let feePayer: AztecAddress;
   let epochCache: EpochCache;
+  let dateProvider: MockDateProvider;
   let nodeConfig: AztecNodeConfig;
 
   const chainId = new Fr(12345);
@@ -203,11 +209,12 @@ describe('aztec node', () => {
     // We never request any info from the rollup contract here, since only the `getEpochAndSlotInNextL1Slot` method
     // on the epoch cache is used so a simple mock will suffice.
     const rollupContract = mock<RollupContract>();
+    dateProvider = new MockDateProvider();
     // We pass MockDateProvider to the epoch cache to have control over the next slot timestamp
     epochCache = new EpochCache(
       rollupContract,
       { ...EmptyL1RollupConstants, lagInEpochsForValidatorSet: 0, lagInEpochsForRandao: 0 },
-      new MockDateProvider(),
+      dateProvider,
     );
 
     node = new TestAztecNodeService(
@@ -229,6 +236,7 @@ describe('aztec node', () => {
       globalVariablesBuilder,
       feeProvider,
       epochCache,
+      dateProvider,
       getPackageVersion(),
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
@@ -682,13 +690,27 @@ describe('aztec node', () => {
 
     describe('next-block globals', () => {
       // Constants used across the simulator-shape tests below. We use a non-trivial l1GenesisTime
-      // so getSlotAtNextL1Block produces a deterministic slot we can assert on.
+      // so the wall-clock slot computation produces a deterministic slot we can assert on.
       const L1_CONSTANTS = {
         ...EmptyL1RollupConstants,
         l1GenesisTime: 1_700_000_000n,
         slotDuration: 24,
         ethereumSlotDuration: 12,
       };
+
+      // Slot of the most-recent checkpoint on L1. The simulator reads `slotNumber + 1` from this
+      // and combines it with wall-clock to pick a target slot. We park it well in the past so the
+      // wall-clock path dominates in tests that don't explicitly bump it.
+      const L1_PENDING_CHECKPOINT_SLOT = SlotNumber(0);
+
+      /** Returns the slot the simulator should target given the mock DateProvider and L1 state. */
+      function expectedSimulatorSlot(opts: { nowInSeconds?: number; lastL1Slot?: SlotNumber } = {}) {
+        const now = opts.nowInSeconds ?? NOW_S;
+        const lastSlot = opts.lastL1Slot ?? L1_PENDING_CHECKPOINT_SLOT;
+        const earliest = getTimestampForSlot(SlotNumber.add(lastSlot, 1), L1_CONSTANTS);
+        const nextEth = getNextL1SlotTimestamp(now, L1_CONSTANTS);
+        return getSlotAtTimestamp(earliest > nextEth ? earliest : nextEth, L1_CONSTANTS);
+      }
 
       /** Builds an L2Tips stub for the simulator tests. */
       function makeSimTips(args: {
@@ -747,6 +769,11 @@ describe('aztec node', () => {
           feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
         } as any);
         rollupContractForBuilder.getManaTarget.mockResolvedValue(10_000n);
+        // The simulator anchors its slot selection on `getPendingCheckpoint().slotNumber + 1` and
+        // wall-clock — keep the on-L1 slot pinned at zero so the wall-clock path drives the target.
+        rollupContractForBuilder.getPendingCheckpoint.mockResolvedValue({
+          slotNumber: L1_PENDING_CHECKPOINT_SLOT,
+        } as any);
         globalVariablesBuilder.getRollupContract.mockReturnValue(rollupContractForBuilder);
         // Default checkpoint globals — tests override the slotNumber assertion where it matters.
         globalVariablesBuilder.buildCheckpointGlobalVariables.mockResolvedValue({
@@ -830,9 +857,8 @@ describe('aztec node', () => {
             checkpointedBlock: BlockNumber(10),
           }),
         );
-        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
 
-        const expectedSlot = getSlotAtNextL1Block(1_700_001_000n, L1_CONSTANTS);
+        const expectedSlot = expectedSimulatorSlot();
 
         await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
 
@@ -857,7 +883,6 @@ describe('aztec node', () => {
             checkpointedBlock: BlockNumber(14),
           }),
         );
-        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
         l2BlockSource.getProposedCheckpointData.mockResolvedValue(
           makeProposedCheckpoint({
             checkpointNumber: CheckpointNumber(5),
@@ -886,7 +911,6 @@ describe('aztec node', () => {
             checkpointedBlock: BlockNumber(17),
           }),
         );
-        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
         l2BlockSource.getProposedCheckpointData.mockResolvedValue(
           makeProposedCheckpoint({
             checkpointNumber: CheckpointNumber(5),
@@ -920,7 +944,11 @@ describe('aztec node', () => {
         expect(l1ToL2MessageSource.getL1ToL2Messages).toHaveBeenCalledWith(CheckpointNumber(6));
       });
 
-      it('slot anchoring — Date.now does not influence the simulated slot', async () => {
+      it('slot anchoring — wall-clock drives the simulated slot', async () => {
+        // The simulator anchors its slot computation on `dateProvider.nowInSeconds()`, mirroring
+        // `FeeProviderImpl.computeCurrentMinFees` so that wallet-side fee estimates match the
+        // values the simulator passes to `getManaMinFeeAt`. Advancing the date provider must
+        // move the simulated slot forward.
         const tx = await mockTxForRollup(0xb0003);
         l2BlockSource.getL2Tips.mockResolvedValue(
           makeSimTips({
@@ -931,20 +959,23 @@ describe('aztec node', () => {
             checkpointedBlock: BlockNumber(10),
           }),
         );
-        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
 
-        const dateNowSpy = jest.spyOn(Date, 'now');
-        dateNowSpy.mockReturnValue(1_000_000_000_000);
+        const nowSpy = jest.spyOn(dateProvider, 'nowInSeconds');
+
+        nowSpy.mockReturnValue(NOW_S);
         await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
         const firstSlot = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0][2];
+        expect(firstSlot).toEqual(expectedSimulatorSlot({ nowInSeconds: NOW_S }));
 
         globalVariablesBuilder.buildCheckpointGlobalVariables.mockClear();
-        dateNowSpy.mockReturnValue(1_000_000_000_000 + 60 * 60 * 1000); // +1 hour
+        const laterNow = NOW_S + 60 * 60; // +1 hour
+        nowSpy.mockReturnValue(laterNow);
         await expect(node.simulatePublicCalls(tx)).rejects.toThrow('stop-after-globals');
         const secondSlot = globalVariablesBuilder.buildCheckpointGlobalVariables.mock.calls[0][2];
+        expect(secondSlot).toEqual(expectedSimulatorSlot({ nowInSeconds: laterNow }));
 
-        expect(secondSlot).toEqual(firstSlot);
-        dateNowSpy.mockRestore();
+        expect(secondSlot).toBeGreaterThan(firstSlot);
+        nowSpy.mockRestore();
       });
 
       it('coherency guard — torn snapshot throws a typed error', async () => {
@@ -957,7 +988,6 @@ describe('aztec node', () => {
             checkpointed: CheckpointNumber(4),
           }),
         );
-        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
         // Returned checkpointNumber doesn't match tips.proposedCheckpoint.checkpoint.number.
         l2BlockSource.getProposedCheckpointData.mockResolvedValue(
           makeProposedCheckpoint({
@@ -980,7 +1010,6 @@ describe('aztec node', () => {
             checkpointed: CheckpointNumber(4),
           }),
         );
-        l2BlockSource.getL1Timestamp.mockResolvedValue(1_700_001_000n);
         // Returned checkpoint number matches, but startBlock+blockCount-1 = 17+2-1 = 18 != tips' 20.
         l2BlockSource.getProposedCheckpointData.mockResolvedValue(
           makeProposedCheckpoint({
@@ -991,22 +1020,6 @@ describe('aztec node', () => {
         );
 
         await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/Torn L2 tips snapshot/);
-      });
-
-      it('archiver-not-synced — getL1Timestamp undefined throws a typed error', async () => {
-        const tx = await mockTxForRollup(0xb0005);
-        l2BlockSource.getL2Tips.mockResolvedValue(
-          makeSimTips({
-            proposedBlock: BlockNumber(10),
-            proposedCheckpoint: CheckpointNumber(3),
-            proposedCheckpointBlock: BlockNumber(10),
-            checkpointed: CheckpointNumber(3),
-            checkpointedBlock: BlockNumber(10),
-          }),
-        );
-        l2BlockSource.getL1Timestamp.mockResolvedValue(undefined);
-
-        await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/archiver has not synced an L1 timestamp/);
       });
     });
   });
@@ -1076,6 +1089,7 @@ describe('aztec node', () => {
           globalVariablesBuilder,
           feeProvider,
           epochCache,
+          dateProvider,
           getPackageVersion(),
           new TestCircuitVerifier(),
           new TestCircuitVerifier(),
@@ -1267,6 +1281,7 @@ describe('aztec node', () => {
           globalVariablesBuilder,
           feeProvider,
           epochCache,
+          dateProvider,
           getPackageVersion(),
           new TestCircuitVerifier(),
           new TestCircuitVerifier(),
@@ -1339,6 +1354,7 @@ describe('aztec node', () => {
         globalVariablesBuilder,
         mock<FeeProvider>(),
         epochCache,
+        dateProvider,
         getPackageVersion(),
         new TestCircuitVerifier(),
         new TestCircuitVerifier(),
