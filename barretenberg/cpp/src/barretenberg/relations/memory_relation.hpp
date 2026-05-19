@@ -204,7 +204,7 @@ template <typename FF_> class MemoryRelationImpl {
          *
          * We apply the following checks for the sorted records:
          *
-         * 1. If adjacent indicies match and next access is a read, then the adjacent values must match.
+         * 1. If adjacent indices match and next access is a read, then the adjacent values must match.
          * 2. The index increases by {0, 1}
          * 3. The _next_ gate access is either a READ or a WRITE (i.e., boolean).
          */
