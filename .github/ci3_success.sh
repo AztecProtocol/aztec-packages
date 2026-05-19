@@ -56,10 +56,24 @@ function handle_benchmarks {
   fi
 }
 
+function handle_chonk_input_update {
+  local github_repository="$1"
+  if [ "${CHONK_INPUT_UPDATE_REQUESTED:-0}" -eq 0 ]; then
+    return 1
+  fi
+  echo_header "Chonk Input Update"
+  export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$github_repository}"
+  ./.github/ci3.sh chonk-input-update
+}
+
 function main {
   echo_header "CI3 Post-Actions"
   # Get repository from git remote
   local github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
+  if handle_chonk_input_update "${github_repository}"; then
+    echo_header "Post-Actions Complete"
+    return
+  fi
   save_cache "${github_repository}"
   handle_squash_merge "${github_repository}"
   handle_benchmarks
