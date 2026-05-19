@@ -1,5 +1,5 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { Fr, Point } from '@aztec/aztec.js/fields';
+import { Fr } from '@aztec/aztec.js/fields';
 import {
   ARCHIVE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
@@ -1152,24 +1152,18 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getSharedSecret(
+  async aztec_utl_getSharedSecrets(
     foreignAddress: ForeignCallSingle,
-    foreignEphPKField0: ForeignCallSingle,
-    foreignEphPKField1: ForeignCallSingle,
-    foreignEphPKField2: ForeignCallSingle,
+    foreignEphPksSlot: ForeignCallSingle,
     foreignContractAddress: ForeignCallSingle,
   ) {
     const address = AztecAddress.fromField(fromSingle(foreignAddress));
-    const ephPK = Point.fromFields([
-      fromSingle(foreignEphPKField0),
-      fromSingle(foreignEphPKField1),
-      fromSingle(foreignEphPKField2),
-    ]);
+    const ephPksSlot = fromSingle(foreignEphPksSlot);
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
-    const secret = await this.handlerAsUtility().getSharedSecret(address, ephPK, contractAddress);
+    const responseSlot = await this.handlerAsUtility().getSharedSecrets(address, ephPksSlot, contractAddress);
 
-    return toForeignCallResult([toSingle(secret)]);
+    return toForeignCallResult([toSingle(responseSlot)]);
   }
 
   // eslint-disable-next-line camelcase
