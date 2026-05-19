@@ -7,9 +7,9 @@ global GET_SHARED_SECRETS_REQUEST_SLOT: Field =
 #[oracle(aztec_utl_getSharedSecrets)]
 unconstrained fn get_shared_secrets_oracle(
     address: AztecAddress,
-    eph_pks_slot: Field,
+    eph_pks: EphemeralArray<Point>,
     contract_address: AztecAddress,
-) -> Field {}
+) -> EphemeralArray<Field> {}
 
 /// Convenience wrapper around [`get_shared_secrets`] for a single ephemeral public key.
 pub unconstrained fn get_shared_secret(
@@ -48,8 +48,7 @@ pub unconstrained fn get_shared_secrets<let N: u32>(
         EphemeralArray::at(GET_SHARED_SECRETS_REQUEST_SLOT).clear();
     eph_pks.for_each(|pk| request_array.push(pk));
 
-    let response_slot = get_shared_secrets_oracle(address, request_array.slot, contract_address);
-    let response_array: EphemeralArray<Field> = EphemeralArray::at(response_slot);
+    let response_array = get_shared_secrets_oracle(address, request_array, contract_address);
     assert(
         response_array.len() == eph_pks.len(),
         "get_shared_secrets: response length does not match request length",
