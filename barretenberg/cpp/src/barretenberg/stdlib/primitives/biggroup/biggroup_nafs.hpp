@@ -464,9 +464,12 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }
 
-    // The most significant NAF entry is always (+1) as we are working with scalars < 2^{max_num_bits}.
-    // Recall that true represents (-1) and false represents (+1).
+    // The most significant NAF entry is always (+1) for scalars < 2^{max_num_bits} (false = +1).
+    // We need to pin it to false: `process_strauss_msm_rounds` does not consume `naf_entries[0]`
+    // (it hardcodes the +1 contribution via `get_chain_initial_entry`), so the 0-th naf entry is
+    // effectively used only for reconstructing the scalar.
     naf_entries[0] = bool_ct(witness_ct(builder, false), /*use_range_constraint*/ true);
+    naf_entries[0].fix_witness();
     naf_entries[0].set_origin_tag(scalar.get_origin_tag());
 
     // validate correctness of NAF
