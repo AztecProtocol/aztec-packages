@@ -1,19 +1,15 @@
 /// <reference types="@webgpu/types" />
-// Standalone WebGPU bench + correctness oracle for the
-// `ba_rev_packed_carry` batch-affine scheme: per-thread descending
-// suffix-product, single fr_inv_by_a per thread, ascending lean
-// apply, with packed 8x u32 storage at the I/O boundary and 13-bit
-// BigInt limbs in every register-resident variable.
+// Standalone WebGPU bench for the canonical ba_rev_packed_carry kernel
+// (recovered from commit eab3a3e). SoA-packed 8x u32 storage across 4
+// input planes (A.x, A.y, P.x, P.y), strided per-thread access
+// e = t + i*T, single fr_inv_by_a per S-chunk, lean affine apply with
+// resident-accumulator load-carry. Each timed sample submits DISP back-
+// to-back dispatches in one command encoder to amortise submit+drain.
 //
-// Inputs: TOTAL_PAIRS on-curve BN254 G1 affine pairs (P_i, Q_i),
-// stored flat. Thread `tid` consumes pairs[tid * BS .. (tid+1) * BS).
-// The kernel writes R_i = P_i + Q_i to outputs_x[i] / outputs_y[i];
-// we decode packed Mont form back to canonical and compare to noble's
-// reference P.add(Q).
-//
-// Sweep dimension: BS (per-thread batch size) at fixed TPB=64. Default
-// sweep covers BS in {8, 12, 16, 20, 24} to bracket the M2 sweet spot.
-// Override via ?bs=S or ?tpb=T.
+// Math: bucket-accumulate streaming chain (R_i = A_i + P_i where A_0 is
+// the seed, A_{i+1} := P_i). With random P.x != A.x inputs, every dx is
+// nonzero so the batched inverse is well-defined. Sanity check reads
+// the first packed elem of R.x and asserts non-zero.
 
 import { ShaderManager } from '../../src/msm_webgpu/cuzk/shader_manager.js';
 import { BN254_CURVE_CONFIG } from '../../src/msm_webgpu/cuzk/curve_config.js';
@@ -21,20 +17,17 @@ import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { compute_misc_params } from '../../src/msm_webgpu/cuzk/utils.js';
 import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
 import { makeResultsClient } from './results_post.js';
-import { bn254 } from '@noble/curves/bn254';
 
-const G1 = bn254.G1.ProjectivePoint;
-const FR_ORDER = bn254.fields.Fr.ORDER;
+const DEFAULT_PAIRS = 1 << 17; // 131072
+const DEFAULT_WGI = 64;
+const DEFAULT_DISP = 8;
+const DEFAULT_S_SWEEP: readonly number[] = [16, 32, 64];
+const PG = 2; // 8 packed u32 / 4 = 2 vec4 groups per element
 
-const DEFAULT_TOTAL_PAIRS = 1 << 16;
-let TOTAL_PAIRS = DEFAULT_TOTAL_PAIRS;
-
-const DEFAULT_TPB = 64;
-let TPB = DEFAULT_TPB;
-const DEFAULT_BS_SWEEP: readonly number[] = [8, 12, 16, 20, 24];
-let BS_SWEEP: readonly number[] = DEFAULT_BS_SWEEP;
-
-let SKIP_CORRECTNESS = false;
+let PAIRS = DEFAULT_PAIRS;
+let WGI = DEFAULT_WGI;
+let DISP = DEFAULT_DISP;
+let S_SWEEP: readonly number[] = DEFAULT_S_SWEEP;
 
 function makeRng(seed: number): () => number {
   let state = (seed >>> 0) || 1;
@@ -55,45 +48,69 @@ function randomBelow(p: bigint, rng: () => number): bigint {
   }
 }
 
+function bigintToPackedU32x8(v: bigint): Uint32Array {
+  const w = new Uint32Array(8);
+  let x = v;
+  for (let i = 0; i < 8; i++) {
+    w[i] = Number(x & 0xffffffffn);
+    x >>= 32n;
+  }
+  return w;
+}
+
+// SoA layout: 4 planes (A.x, A.y, P.x, P.y), each plane = PG * N vec4.
+// For plane c and pair e, vec4 indices = (c * PG + v) * N + e for v in
+// [0, PG). The flat Uint32Array index is that times 4.
+function packAffineSoAPacked(pairs: number, R: bigint, p: bigint, rng: () => number): Uint32Array {
+  const N = pairs;
+  const buf = new Uint32Array(4 * PG * N * 4);
+  for (let e = 0; e < N; e++) {
+    let pxM: bigint;
+    let qxM: bigint;
+    do {
+      pxM = (randomBelow(p, rng) * R) % p;
+      qxM = (randomBelow(p, rng) * R) % p;
+    } while (pxM === qxM);
+    const coords = [pxM, (randomBelow(p, rng) * R) % p, qxM, (randomBelow(p, rng) * R) % p];
+    for (let c = 0; c < 4; c++) {
+      const words = bigintToPackedU32x8(coords[c]);
+      for (let v = 0; v < PG; v++) {
+        const base = ((c * PG + v) * N + e) * 4;
+        buf[base + 0] = words[4 * v + 0];
+        buf[base + 1] = words[4 * v + 1];
+        buf[base + 2] = words[4 * v + 2];
+        buf[base + 3] = words[4 * v + 3];
+      }
+    }
+  }
+  return buf;
+}
+
 function median(xs: number[]): number {
   if (xs.length === 0) return NaN;
   const s = xs.slice().sort((a, b) => a - b);
   return s[Math.floor(s.length / 2)];
 }
 
-function biToLe32u32(v: bigint): Uint32Array {
-  const out = new Uint32Array(8);
-  let x = v;
-  for (let i = 0; i < 8; i++) {
-    out[i] = Number(x & 0xffffffffn);
-    x >>= 32n;
-  }
-  return out;
-}
-
-function le32u32ToBi(u32: Uint32Array, off: number): bigint {
-  let v = 0n;
-  for (let i = 7; i >= 0; i--) v = (v << 32n) | BigInt(u32[off + i] >>> 0);
-  return v;
-}
-
 interface PerSizeResult {
-  bs: number;
-  tpb: number;
+  s: number;
+  wgi: number;
+  T: number;
   num_wgs: number;
-  total_pairs: number;
+  pairs: number;
+  disp: number;
+  total_ops: number;
   median_ms: number;
   min_ms: number;
   max_ms: number;
-  ns_per_pair: number;
+  ns_per_op: number;
   samples_ms: number[];
-  correctness: 'pass' | 'fail' | 'skipped';
-  correctness_first_fail?: { i: number; expected_x: string; got_x: string; expected_y: string; got_y: string };
+  sanity_ok: boolean;
 }
 
 interface BenchState {
   state: 'boot' | 'running' | 'done' | 'error';
-  params: { reps: number; total: number; tpb: number; bs_sweep: readonly number[]; skip_correctness: boolean } | null;
+  params: { reps: number; pairs: number; wgi: number; disp: number; s_sweep: readonly number[] } | null;
   results: PerSizeResult[];
   error: string | null;
   log: string[];
@@ -162,10 +179,8 @@ async function createPipeline(
     entries: [
       { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
-      { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
-      { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
-      { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
-      { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+      { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+      { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
     ],
   });
   const pipeline = await device.createComputePipelineAsync({
@@ -175,241 +190,143 @@ async function createPipeline(
   return { pipeline, layout };
 }
 
-interface PointPair {
-  p: { x: bigint; y: bigint };
-  q: { x: bigint; y: bigint };
-  r: { x: bigint; y: bigint };
+async function readNonZero(device: GPUDevice, out: GPUBuffer, u32Count: number): Promise<boolean> {
+  const bytes = u32Count * 4;
+  const staging = device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+  const enc = device.createCommandEncoder();
+  enc.copyBufferToBuffer(out, 0, staging, 0, bytes);
+  device.queue.submit([enc.finish()]);
+  await device.queue.onSubmittedWorkDone();
+  await staging.mapAsync(GPUMapMode.READ);
+  const u32 = new Uint32Array(staging.getMappedRange().slice(0));
+  staging.unmap();
+  staging.destroy();
+  for (let i = 0; i < u32.length; i++) {
+    if (u32[i] !== 0) return true;
+  }
+  return false;
 }
 
-function buildPairs(n: number, seed: number): PointPair[] {
-  const rng = makeRng(seed);
-  const out: PointPair[] = [];
-  for (let i = 0; i < n; i++) {
-    let p: { x: bigint; y: bigint };
-    let q: { x: bigint; y: bigint };
-    let r: { x: bigint; y: bigint };
-    for (;;) {
-      const sp = randomBelow(FR_ORDER, rng);
-      const sq = randomBelow(FR_ORDER, rng);
-      const pp = G1.BASE.multiply(sp);
-      const qp = G1.BASE.multiply(sq);
-      if (pp.is0() || qp.is0()) continue;
-      const pa = pp.toAffine();
-      const qa = qp.toAffine();
-      if (pa.x === qa.x) continue;
-      const rp = pp.add(qp);
-      if (rp.is0()) continue;
-      const ra = rp.toAffine();
-      p = pa;
-      q = qa;
-      r = ra;
-      break;
+async function timeDispatch(
+  device: GPUDevice,
+  pipeline: GPUComputePipeline,
+  bind: GPUBindGroup,
+  numWgs: number,
+  reps: number,
+  passes: number,
+): Promise<number[]> {
+  // warmup
+  {
+    const enc = device.createCommandEncoder();
+    for (let pIdx = 0; pIdx < passes; pIdx++) {
+      const pass = enc.beginComputePass();
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, bind);
+      pass.dispatchWorkgroups(numWgs, 1, 1);
+      pass.end();
     }
-    out.push({ p, q, r });
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
   }
-  return out;
+  const samples: number[] = [];
+  for (let r = 0; r < reps; r++) {
+    const enc = device.createCommandEncoder();
+    for (let pIdx = 0; pIdx < passes; pIdx++) {
+      const pass = enc.beginComputePass();
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, bind);
+      pass.dispatchWorkgroups(numWgs, 1, 1);
+      pass.end();
+    }
+    const t0 = performance.now();
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    samples.push(performance.now() - t0);
+  }
+  return samples;
 }
 
 async function runOne(
   device: GPUDevice,
   sm: ShaderManager,
-  bs: number,
+  s: number,
   reps: number,
   R: bigint,
   p: bigint,
-  pairs: PointPair[],
+  seed: number,
 ): Promise<PerSizeResult> {
-  const perThread = bs;
-  if (TOTAL_PAIRS % (TPB * perThread) !== 0) {
-    throw new Error(
-      `TOTAL_PAIRS=${TOTAL_PAIRS} must be a multiple of TPB*BS=${TPB * perThread}`,
-    );
+  if (PAIRS % s !== 0) {
+    throw new Error(`PAIRS=${PAIRS} must be a multiple of S=${s}`);
   }
-  const totalThreads = TOTAL_PAIRS / perThread;
-  const numWgs = totalThreads / TPB;
-  log('info', `=== BS=${bs}: TPB=${TPB} num_threads=${totalThreads} num_WGs=${numWgs}`);
+  const T = PAIRS / s;
+  const numWgs = Math.ceil(T / WGI);
+  log('info', `=== S=${s}: PAIRS=${PAIRS} T=${T} WGI=${WGI} numWgs=${numWgs} DISP=${DISP}`);
 
-  const code = sm.gen_ba_rev_packed_carry_bench_shader(TPB, bs);
-  const cacheKey = `bench-ba-rev-packed-carry-T${TPB}-S${bs}`;
+  const code = sm.gen_ba_rev_packed_carry_bench_shader(WGI, s);
+  const cacheKey = `bench-ba-rev-packed-carry-W${WGI}-S${s}`;
   log('info', `compiling shader (${code.length} chars)`);
-  (window as unknown as Record<string, unknown>)[`__shader_bs${bs}`] = code;
+  (window as unknown as Record<string, unknown>)[`__shader_s${s}`] = code;
   const { pipeline, layout } = await createPipeline(device, code, cacheKey);
 
-  const fieldBytes = 32; // 8 x u32 = 2 vec4
-  const bufBytes = TOTAL_PAIRS * fieldBytes;
+  const rng = makeRng(seed);
+  const inU32 = packAffineSoAPacked(PAIRS, R, p, rng);
+  const inBuf = device.createBuffer({
+    size: inU32.byteLength,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(inBuf, 0, inU32);
+  const dummy = device.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE });
+  const outBytes = 2 * PG * PAIRS * 4 * 4;
+  const outBuf = device.createBuffer({
+    size: outBytes,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+  });
+  const paramsBuf = device.createBuffer({
+    size: 16,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(paramsBuf, 0, new Uint32Array([PAIRS, T, 0, 0]));
 
-  const pxAB = new ArrayBuffer(bufBytes);
-  const pyAB = new ArrayBuffer(bufBytes);
-  const qxAB = new ArrayBuffer(bufBytes);
-  const qyAB = new ArrayBuffer(bufBytes);
-
-  const px32 = new Uint32Array(pxAB);
-  const py32 = new Uint32Array(pyAB);
-  const qx32 = new Uint32Array(qxAB);
-  const qy32 = new Uint32Array(qyAB);
-
-  for (let i = 0; i < TOTAL_PAIRS; i++) {
-    const { p: pp, q: qq } = pairs[i];
-    const pxM = (pp.x * R) % p;
-    const pyM = (pp.y * R) % p;
-    const qxM = (qq.x * R) % p;
-    const qyM = (qq.y * R) % p;
-    px32.set(biToLe32u32(pxM), i * 8);
-    py32.set(biToLe32u32(pyM), i * 8);
-    qx32.set(biToLe32u32(qxM), i * 8);
-    qy32.set(biToLe32u32(qyM), i * 8);
-  }
-
-  const mkSb = (size: number, copyDst: boolean, copySrc: boolean): GPUBuffer => {
-    let usage = GPUBufferUsage.STORAGE;
-    if (copyDst) usage |= GPUBufferUsage.COPY_DST;
-    if (copySrc) usage |= GPUBufferUsage.COPY_SRC;
-    return device.createBuffer({ size, usage });
-  };
-
-  const pxBuf = mkSb(bufBytes, true, false);
-  const pyBuf = mkSb(bufBytes, true, false);
-  const qxBuf = mkSb(bufBytes, true, false);
-  const qyBuf = mkSb(bufBytes, true, false);
-  const oxBuf = mkSb(bufBytes, false, true);
-  const oyBuf = mkSb(bufBytes, false, true);
-
-  device.queue.writeBuffer(pxBuf, 0, pxAB);
-  device.queue.writeBuffer(pyBuf, 0, pyAB);
-  device.queue.writeBuffer(qxBuf, 0, qxAB);
-  device.queue.writeBuffer(qyBuf, 0, qyAB);
-
-  const bindGroup = device.createBindGroup({
+  const bind = device.createBindGroup({
     layout,
     entries: [
-      { binding: 0, resource: { buffer: pxBuf } },
-      { binding: 1, resource: { buffer: pyBuf } },
-      { binding: 2, resource: { buffer: qxBuf } },
-      { binding: 3, resource: { buffer: qyBuf } },
-      { binding: 4, resource: { buffer: oxBuf } },
-      { binding: 5, resource: { buffer: oyBuf } },
+      { binding: 0, resource: { buffer: inBuf } },
+      { binding: 1, resource: { buffer: dummy } },
+      { binding: 2, resource: { buffer: outBuf } },
+      { binding: 3, resource: { buffer: paramsBuf } },
     ],
   });
 
-  const dispatch = async (): Promise<number> => {
-    const encoder = device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(0, bindGroup);
-    pass.dispatchWorkgroups(numWgs, 1, 1);
-    pass.end();
-    const t0 = performance.now();
-    device.queue.submit([encoder.finish()]);
-    await device.queue.onSubmittedWorkDone();
-    return performance.now() - t0;
-  };
-
-  await dispatch();
-  log('info', 'warmup dispatch returned');
-
-  let correctness: 'pass' | 'fail' | 'skipped' = 'skipped';
-  let correctness_first_fail: PerSizeResult['correctness_first_fail'];
-
-  if (!SKIP_CORRECTNESS) {
-    const stagingX = device.createBuffer({
-      size: bufBytes,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const stagingY = device.createBuffer({
-      size: bufBytes,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const enc = device.createCommandEncoder();
-    enc.copyBufferToBuffer(oxBuf, 0, stagingX, 0, bufBytes);
-    enc.copyBufferToBuffer(oyBuf, 0, stagingY, 0, bufBytes);
-    device.queue.submit([enc.finish()]);
-    await Promise.all([stagingX.mapAsync(GPUMapMode.READ), stagingY.mapAsync(GPUMapMode.READ)]);
-    const gpuX = new Uint32Array(stagingX.getMappedRange().slice(0));
-    const gpuY = new Uint32Array(stagingY.getMappedRange().slice(0));
-    stagingX.unmap();
-    stagingY.unmap();
-    stagingX.destroy();
-    stagingY.destroy();
-
-    const rInv = (() => {
-      let g = R % p;
-      let r = p;
-      let x = 0n;
-      let y = 1n;
-      while (g !== 0n) {
-        const q = r / g;
-        [r, g] = [g, r - q * g];
-        [x, y] = [y, x - q * y];
-      }
-      return ((x % p) + p) % p;
-    })();
-
-    let mismatches = 0;
-    const MAX_REPORTED = 4;
-    for (let i = 0; i < TOTAL_PAIRS; i++) {
-      const gxM = le32u32ToBi(gpuX, i * 8);
-      const gyM = le32u32ToBi(gpuY, i * 8);
-      const gx = (gxM * rInv) % p;
-      const gy = (gyM * rInv) % p;
-      const ex = pairs[i].r.x;
-      const ey = pairs[i].r.y;
-      if (gx !== ex || gy !== ey) {
-        mismatches++;
-        if (!correctness_first_fail) {
-          correctness_first_fail = {
-            i,
-            expected_x: ex.toString(),
-            got_x: gx.toString(),
-            expected_y: ey.toString(),
-            got_y: gy.toString(),
-          };
-        }
-        if (mismatches > MAX_REPORTED) break;
-      }
-    }
-    correctness = mismatches === 0 ? 'pass' : 'fail';
-    if (mismatches === 0) {
-      log('ok', `correctness: pass (${TOTAL_PAIRS}/${TOTAL_PAIRS} pairs match noble reference)`);
-    } else {
-      log('err', `correctness: FAIL (${mismatches}+ mismatches; first @ i=${correctness_first_fail!.i})`);
-      log('err', `  expected R.x = ${correctness_first_fail!.expected_x.slice(0, 24)}...`);
-      log('err', `  got      R.x = ${correctness_first_fail!.got_x.slice(0, 24)}...`);
-    }
-  }
-
-  const samples: number[] = [];
-  for (let r = 0; r < reps; r++) {
-    samples.push(await dispatch());
-  }
+  const samples = await timeDispatch(device, pipeline, bind, numWgs, reps, DISP);
+  const sanityOk = await readNonZero(device, outBuf, 8);
   const med = median(samples);
-  const mn = Math.min(...samples);
-  const mx = Math.max(...samples);
-  const nsPerPair = (med * 1e6) / TOTAL_PAIRS;
+  const totalOps = PAIRS * DISP;
+  const nsPerOp = (med * 1e6) / totalOps;
 
   log(
-    correctness === 'fail' ? 'err' : 'ok',
-    `BS=${bs}: median=${med.toFixed(3)}ms min=${mn.toFixed(3)}ms max=${mx.toFixed(3)}ms ns/pair=${nsPerPair.toFixed(1)} correctness=${correctness}`,
+    sanityOk ? 'ok' : 'err',
+    `S=${s}: median=${med.toFixed(3)}ms min=${Math.min(...samples).toFixed(3)}ms max=${Math.max(...samples).toFixed(3)}ms ns/op=${nsPerOp.toFixed(2)} sanity=${sanityOk ? 'OK' : 'FAIL'}`,
   );
 
-  pxBuf.destroy();
-  pyBuf.destroy();
-  qxBuf.destroy();
-  qyBuf.destroy();
-  oxBuf.destroy();
-  oyBuf.destroy();
+  inBuf.destroy();
+  dummy.destroy();
+  outBuf.destroy();
+  paramsBuf.destroy();
 
   return {
-    bs,
-    tpb: TPB,
+    s,
+    wgi: WGI,
+    T,
     num_wgs: numWgs,
-    total_pairs: TOTAL_PAIRS,
+    pairs: PAIRS,
+    disp: DISP,
+    total_ops: totalOps,
     median_ms: med,
-    min_ms: mn,
-    max_ms: mx,
-    ns_per_pair: nsPerPair,
+    min_ms: Math.min(...samples),
+    max_ms: Math.max(...samples),
+    ns_per_op: nsPerOp,
     samples_ms: samples,
-    correctness,
-    correctness_first_fail,
+    sanity_ok: sanityOk,
   };
 }
 
@@ -419,41 +336,46 @@ function parseParams() {
   if (!Number.isFinite(reps) || reps <= 0 || reps > 50) {
     throw new Error(`?reps must be in (0, 50], got ${qp.get('reps')}`);
   }
-  const totalStr = qp.get('total');
-  if (totalStr !== null) {
-    const total = parseInt(totalStr, 10);
-    if (!Number.isFinite(total) || total <= 0 || total > (1 << 20)) {
-      throw new Error(`?total must be in (0, 2^20], got ${totalStr}`);
+  const pairsStr = qp.get('pairs');
+  if (pairsStr !== null) {
+    const v = parseInt(pairsStr, 10);
+    if (!Number.isFinite(v) || v <= 0 || v > (1 << 20)) {
+      throw new Error(`?pairs must be in (0, 2^20], got ${pairsStr}`);
     }
-    TOTAL_PAIRS = total;
+    PAIRS = v;
   }
-  const tpbStr = qp.get('tpb');
-  if (tpbStr !== null) {
-    const tpb = parseInt(tpbStr, 10);
-    if (!Number.isFinite(tpb) || tpb <= 0 || tpb > 1024) {
-      throw new Error(`?tpb must be in (0, 1024], got ${tpbStr}`);
+  const wgiStr = qp.get('wgi');
+  if (wgiStr !== null) {
+    const v = parseInt(wgiStr, 10);
+    if (!Number.isFinite(v) || v <= 0 || v > 1024) {
+      throw new Error(`?wgi must be in (0, 1024], got ${wgiStr}`);
     }
-    TPB = tpb;
+    WGI = v;
   }
-  const bsStr = qp.get('bs');
-  if (bsStr !== null) {
-    const list = bsStr.split(',').map(s => parseInt(s, 10));
-    for (const s of list) {
-      if (!Number.isFinite(s) || s <= 0 || s > 64) {
-        throw new Error(`?bs entries must be in (0, 64], got ${s}`);
+  const dispStr = qp.get('disp');
+  if (dispStr !== null) {
+    const v = parseInt(dispStr, 10);
+    if (!Number.isFinite(v) || v <= 0 || v > 64) {
+      throw new Error(`?disp must be in (0, 64], got ${dispStr}`);
+    }
+    DISP = v;
+  }
+  const sStr = qp.get('s');
+  if (sStr !== null) {
+    const list = sStr.split(',').map(v => parseInt(v, 10));
+    for (const v of list) {
+      if (!Number.isFinite(v) || v <= 0 || v > 256) {
+        throw new Error(`?s entries must be in (0, 256], got ${v}`);
       }
     }
-    BS_SWEEP = list;
+    S_SWEEP = list;
   }
-  for (const s of BS_SWEEP) {
-    if (TOTAL_PAIRS % (TPB * s) !== 0) {
-      throw new Error(`BS=${s} with TPB=${TPB} does not divide TOTAL_PAIRS=${TOTAL_PAIRS}`);
+  for (const v of S_SWEEP) {
+    if (PAIRS % v !== 0) {
+      throw new Error(`S=${v} does not divide PAIRS=${PAIRS}`);
     }
   }
-  if (qp.get('skip_correctness') === '1') {
-    SKIP_CORRECTNESS = true;
-  }
-  return { reps, total: TOTAL_PAIRS, tpb: TPB, bs_sweep: BS_SWEEP, skip_correctness: SKIP_CORRECTNESS };
+  return { reps, pairs: PAIRS, wgi: WGI, disp: DISP, s_sweep: S_SWEEP };
 }
 
 async function main() {
@@ -465,7 +387,7 @@ async function main() {
     benchState.params = params;
     log(
       'info',
-      `params: reps=${params.reps} total=${params.total} tpb=${params.tpb} bs=[${params.bs_sweep.join(',')}] skip_correctness=${params.skip_correctness}`,
+      `params: reps=${params.reps} pairs=${params.pairs} wgi=${params.wgi} disp=${params.disp} s=[${params.s_sweep.join(',')}]`,
     );
 
     benchState.state = 'running';
@@ -476,21 +398,18 @@ async function main() {
     const miscParams = compute_misc_params(p, 13);
     const R = miscParams.r;
 
-    log('info', `generating ${TOTAL_PAIRS} on-curve pairs via noble (this can take a few seconds)…`);
-    const t0 = performance.now();
-    const pairs = buildPairs(TOTAL_PAIRS, 0xc0ffee);
-    log('info', `pair generation done in ${(performance.now() - t0).toFixed(0)} ms`);
+    const sm = new ShaderManager(4, PAIRS, BN254_CURVE_CONFIG, false);
 
-    const sm = new ShaderManager(4, TOTAL_PAIRS, BN254_CURVE_CONFIG, false);
-
-    for (const bs of BS_SWEEP) {
+    let seed = 0x7b10;
+    for (const s of S_SWEEP) {
       try {
-        const r = await runOne(device, sm, bs, params.reps, R, p, pairs);
+        const r = await runOne(device, sm, s, params.reps, R, p, seed);
         benchState.results.push(r);
-        resultsClient.postProgress({ kind: 'batch_done', bs, median_ms: r.median_ms, ns_per_pair: r.ns_per_pair, correctness: r.correctness });
+        resultsClient.postProgress({ kind: 'batch_done', s, median_ms: r.median_ms, ns_per_op: r.ns_per_op, sanity_ok: r.sanity_ok });
+        seed += 0x10;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        log('err', `BS=${bs} failed: ${msg} — STOPPING sweep at first failure`);
+        log('err', `S=${s} failed: ${msg} — STOPPING sweep at first failure`);
         benchState.state = 'error';
         benchState.error = msg;
         return;

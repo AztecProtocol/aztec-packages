@@ -766,23 +766,23 @@ ${packLines.join('\n')}
   }
 
   /**
-   * Standalone single-dispatch microbench for the ba_rev_packed_carry
-   * batch-affine scheme — packed 8x u32 storage, per-thread BS-pair
-   * descending suffix-product, single fr_inv_by_a per thread, ascending
-   * lean affine apply. No bucket indirection, no scheduler inputs. Used
-   * to validate that the M2 22-24 ns/pair number is achievable in the
-   * idealised standalone setting and to quantify the gap to integration.
+   * Standalone microbench for the recovered ba_rev_packed_carry kernel:
+   * SoA-packed 8x u32 storage across 4 input planes (A.x, A.y, P.x, P.y),
+   * strided per-thread access (e = t + i*T), forward prefix-product +
+   * single fr_inv_by_a + backward peel with resident-accumulator
+   * load-carry (A_{i+1} := P_i). The canonical kernel that hit ~22
+   * ns/pair on M2 / Chrome 148.
    */
-  public gen_ba_rev_packed_carry_bench_shader(tpb: number, bs: number): string {
-    if (tpb <= 0 || bs <= 0 || !Number.isInteger(tpb) || !Number.isInteger(bs)) {
-      throw new Error(`gen_ba_rev_packed_carry_bench_shader: tpb (${tpb}) and bs (${bs}) must be positive integers`);
+  public gen_ba_rev_packed_carry_bench_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_rev_packed_carry_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
     }
     const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       ba_rev_packed_carry_bench_shader,
       {
-        tpb,
-        bs,
+        workgroup_size,
+        s,
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -806,7 +806,6 @@ ${packLines.join('\n')}
         fr_pow_funcs,
         bigint_by_funcs,
         by_inverse_a_funcs,
-        packed_field_funcs,
       },
     );
   }
