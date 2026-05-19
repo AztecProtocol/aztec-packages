@@ -548,7 +548,7 @@ TEST(PlookupTests, Sha256InputMultiTablesMatchBasicTableSizes)
             << ": basic_table_ids and slice_sizes have different sizes";
 
         for (size_t slot = 0; slot < mt.slice_sizes.size(); ++slot) {
-            const auto basic = create_basic_table(mt.basic_table_ids[slot], 0);
+            const auto basic = create_basic_table(mt.basic_table_ids[slot], 1);
             EXPECT_EQ(basic.size(), mt.slice_sizes[slot])
                 << "MultiTable id=" << static_cast<size_t>(mt_id) << " slot=" << slot << ": basic-table size "
                 << basic.size() << " != declared slice_size " << mt.slice_sizes[slot];

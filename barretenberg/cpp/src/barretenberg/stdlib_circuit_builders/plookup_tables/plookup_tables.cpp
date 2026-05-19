@@ -241,6 +241,8 @@ ReadData<bb::fr> get_lookup_accumulators(const MultiTableId id,
 
 BasicTable create_basic_table(const BasicTableId id, const size_t index)
 {
+    BB_ASSERT_GT(index, 0U, "Table index must be greater than 0");
+
     // we have >50 basic fixed base tables so we match with some logic instead of a switch statement
     auto id_var = static_cast<size_t>(id);
     if (id_var >= static_cast<size_t>(FIXED_BASE_0_0) && id_var < static_cast<size_t>(FIXED_BASE_1_0)) {
