@@ -1,3 +1,4 @@
+import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { GovernanceProposerContract, type RollupContract } from '@aztec/ethereum/contracts';
@@ -5,11 +6,10 @@ import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import type { P2P } from '@aztec/p2p';
+import type { P2PClient as ConcreteP2PClient, P2P } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -38,8 +38,8 @@ export type CreateAutomineSequencerArgs = {
   checkpointsBuilder: FullNodeCheckpointsBuilder;
   globalVariableBuilder: GlobalVariableBuilder;
   worldStateSynchronizer: WorldStateSynchronizer;
-  archiver: L2BlockSource & L1ToL2MessageSource;
-  p2pClient: P2P;
+  archiver: L2BlockSource & L1ToL2MessageSource & Pick<Archiver, 'rollbackTo'>;
+  p2pClient: P2P & Pick<ConcreteP2PClient, 'sync'>;
   l1Constants: { l1GenesisTime: bigint; slotDuration: number; ethereumSlotDuration: number; rollupManaLimit: number };
   log: Logger;
 };
@@ -99,15 +99,6 @@ export async function createAutomineSequencer({
   const feeRecipient = validatorClient.getFeeRecipientForAttestor(attestor);
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, dateProvider, log.createChild('eth-cheat-codes'));
 
-  if (!('rollbackTo' in archiver) || typeof (archiver as any).rollbackTo !== 'function') {
-    throw new Error('AutomineSequencer requires an archiver with a rollbackTo method');
-  }
-  const archiverWithRollback = archiver as { rollbackTo: (blockNumber: BlockNumber) => Promise<void> };
-  const archiverRollback = (blockNumber: BlockNumber) => archiverWithRollback.rollbackTo(blockNumber);
-  const resetPublisherNonces = () => l1TxUtils.forEach(utils => utils.resetNonce());
-  const p2pClientWithSync = p2pClient as { sync?: () => Promise<void> };
-  const syncP2P = p2pClientWithSync.sync ? () => p2pClientWithSync.sync!() : () => Promise.resolve();
-
   const automineSequencer = new AutomineSequencer({
     publisherFactory,
     checkpointsBuilder,
@@ -129,9 +120,8 @@ export async function createAutomineSequencer({
     feeRecipient,
     signatureContext: { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
     config,
-    archiverRollback,
-    resetPublisherNonces,
-    syncP2P,
+    archiver,
+    l1TxUtils,
     log: log.createChild('automine-sequencer'),
   });
 

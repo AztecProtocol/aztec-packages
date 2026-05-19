@@ -1,3 +1,5 @@
+import type { Archiver } from '@aztec/archiver';
+import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { EthCheatCodes } from '@aztec/ethereum/test';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -7,7 +9,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { TestDateProvider } from '@aztec/foundation/timer';
-import type { P2P } from '@aztec/p2p';
+import type { P2PClient as ConcreteP2PClient, P2P } from '@aztec/p2p';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, type L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { getPreviousCheckpointOutHashes } from '@aztec/stdlib/checkpoint';
@@ -45,7 +47,8 @@ export type AutomineSequencerDeps = {
   worldState: WorldStateSynchronizer;
   l2BlockSource: L2BlockSource;
   l1ToL2MessageSource: L1ToL2MessageSource;
-  p2pClient: P2P;
+  /** P2P client; must also expose `sync()` for post-rollback pool recovery. */
+  p2pClient: P2P & Pick<ConcreteP2PClient, 'sync'>;
   ethCheatCodes: EthCheatCodes;
   dateProvider: TestDateProvider;
   l1Constants: AutomineSequencerConstants;
@@ -53,23 +56,10 @@ export type AutomineSequencerDeps = {
   feeRecipient: AztecAddress;
   signatureContext: CoordinationSignatureContext;
   config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
-  /**
-   * Rolls the archiver's internal state back to the given L2 block number.
-   * Required for `revertToCheckpoint` to work correctly after an L1 reorg.
-   */
-  archiverRollback: (targetL2BlockNumber: BlockNumber) => Promise<void>;
-  /**
-   * Resets the cached nonce on all L1 tx publishers so they re-fetch the real chain nonce
-   * after an L1 reorg. Without this, publishers use a stale nonce from before the reorg.
-   */
-  resetPublisherNonces: () => void;
-  /**
-   * Forces one work cycle on the P2P block stream so it immediately processes any
-   * `chain-pruned` event emitted by the archiver after a rollback. Without this, the
-   * P2P pool may not have restored rolled-back txs to pending by the time the next
-   * build runs.
-   */
-  syncP2P: () => Promise<void>;
+  /** Archiver used to roll back in-memory state to a previous L2 block during reorgs. */
+  archiver: Pick<Archiver, 'rollbackTo'>;
+  /** L1 tx utils whose cached nonces must be reset after an L1 reorg. */
+  l1TxUtils: Pick<L1TxUtils, 'resetNonce'>[];
   /** How often to poll the mempool for new txs while running. Defaults to 50ms. */
   pollIntervalMs?: number;
   log?: Logger;
@@ -429,13 +419,13 @@ export class AutomineSequencer {
     // Roll the archiver back to the last block of targetCheckpoint before the L1 reorg,
     // since the archiver needs to fetch the target checkpoint's L1 block hash during rollback.
     const lastBlockInCheckpoint = BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
-    await this.deps.archiverRollback(lastBlockInCheckpoint);
+    await this.deps.archiver.rollbackTo(lastBlockInCheckpoint);
 
     // Force the P2P block stream to run one cycle immediately so it processes the
     // chain-pruned event triggered by the archiver rollback above. Without this, the
     // P2P pool may not have restored rolled-back txs to pending by the time the next
     // build runs.
-    await this.deps.syncP2P();
+    await this.deps.p2pClient.sync();
 
     // Force world-state to process the archiver's prune event immediately, so the next build
     // doesn't try to insert nullifiers that were already in the pruned checkpoints.
@@ -454,7 +444,7 @@ export class AutomineSequencer {
     // don't get re-mined, then reset the publisher nonce tracker so the next propose tx
     // uses the correct nonce for the post-reorg chain state.
     await this.deps.ethCheatCodes.rpcCall('anvil_dropAllTransactions', []);
-    this.deps.resetPublisherNonces();
+    this.deps.l1TxUtils.forEach(utils => utils.resetNonce());
 
     // Reset slot bookkeeping so the next build picks up at the correct slot.
     this.lastBuiltSlot = Number(checkpointData.header.slotNumber);
