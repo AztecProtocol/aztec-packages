@@ -25,10 +25,10 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import type { FullNodeCheckpointsBuilder } from '@aztec/validator-client';
 
-import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
-import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import type { SequencerConfig } from './config.js';
+import type { GlobalVariableBuilder } from '../../global_variable_builder/global_builder.js';
+import type { SequencerPublisherFactory } from '../../publisher/sequencer-publisher-factory.js';
+import type { SequencerPublisher } from '../../publisher/sequencer-publisher.js';
+import type { SequencerConfig } from '../config.js';
 
 /**
  * L1 rollup constants needed by the AutomineSequencer. Same as SequencerRollupConstants

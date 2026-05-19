@@ -17,9 +17,9 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import { type FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
-import { type SequencerClientConfig, getPublisherConfigFromSequencerConfig } from '../config.js';
-import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
+import { type SequencerClientConfig, getPublisherConfigFromSequencerConfig } from '../../config.js';
+import type { GlobalVariableBuilder } from '../../global_variable_builder/global_builder.js';
+import { SequencerPublisherFactory } from '../../publisher/sequencer-publisher-factory.js';
 import { AutomineSequencer } from './automine_sequencer.js';
 
 /** Arguments for {@link createAutomineSequencer}. */
