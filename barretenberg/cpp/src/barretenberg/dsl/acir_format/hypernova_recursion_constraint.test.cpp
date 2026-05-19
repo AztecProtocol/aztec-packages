@@ -164,9 +164,8 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         // Use centralized conversion from QUEUE_TYPE to PROOF_TYPE
         PROOF_TYPE proof_type = queue_type_to_proof_type(input.type);
 
-        auto fields =
-            input.is_kernel() ? input.kernel_honk_vk->to_field_elements() : input.app_honk_vk->to_field_elements();
-        auto hash = input.is_kernel() ? input.kernel_honk_vk->hash() : input.app_honk_vk->hash();
+        auto fields = input.vk_to_field_elements();
+        auto hash = input.vk_hash();
         RecursionConstraint constraint =
             recursion_data_to_recursion_constraint(witness,
                                                    input.proof, // proof contains the public inputs at this stage

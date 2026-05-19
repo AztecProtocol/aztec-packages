@@ -157,6 +157,14 @@ class Chonk {
         {
             return is_kernel() ? kernel_honk_vk->num_public_inputs : app_honk_vk->num_public_inputs;
         }
+
+        // Uniform accessors over the kind-tagged VK pair. Centralizing the App/Kernel branch here
+        // keeps callers free of `is_kernel() ? kernel_honk_vk->X : app_honk_vk->X` ternaries.
+        [[nodiscard]] std::vector<FF> vk_to_field_elements() const
+        {
+            return is_kernel() ? kernel_honk_vk->to_field_elements() : app_honk_vk->to_field_elements();
+        }
+        [[nodiscard]] FF vk_hash() const { return is_kernel() ? kernel_honk_vk->hash() : app_honk_vk->hash(); }
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
@@ -189,6 +197,13 @@ class Chonk {
         {}
 
         [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
+
+        // num_public_inputs of the in-circuit VK (resolved as a stdlib field value).
+        [[nodiscard]] size_t vk_num_public_inputs() const
+        {
+            return static_cast<size_t>(uint64_t(is_kernel() ? kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
+                                                            : app_honk_vk_and_hash->vk->num_public_inputs.get_value()));
+        }
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 

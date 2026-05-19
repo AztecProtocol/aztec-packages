@@ -185,16 +185,10 @@ void process_hn_recursion_constraints(
         // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
         // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
         if (builder.is_write_vk_mode()) {
-            // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
                 auto key_fields = fields_from_witnesses(builder, constraint.key);
-                if (queue_entry.is_kernel()) {
-                    populate_fields(builder, key_fields, queue_entry.kernel_honk_vk->to_field_elements());
-                    builder.set_variable(constraint.key_hash, queue_entry.kernel_honk_vk->hash());
-                } else {
-                    populate_fields(builder, key_fields, queue_entry.app_honk_vk->to_field_elements());
-                    builder.set_variable(constraint.key_hash, queue_entry.app_honk_vk->hash());
-                }
+                populate_fields(builder, key_fields, queue_entry.vk_to_field_elements());
+                builder.set_variable(constraint.key_hash, queue_entry.vk_hash());
             }
         }
 
@@ -239,9 +233,7 @@ void process_hn_recursion_constraints(
             // `io_for<kind>` resolves to the stdlib IO type (`KernelIO` / `AppIO`).
             const size_t expected_io_size = bb::dispatch_kind(
                 queue_entry.kind, [&]<bb::CircuitKind K>() -> size_t { return bb::io_for<K>::PUBLIC_INPUTS_SIZE; });
-            size_t vk_num_public_inputs = static_cast<size_t>(uint64_t(
-                queue_entry.is_kernel() ? queue_entry.kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
-                                        : queue_entry.app_honk_vk_and_hash->vk->num_public_inputs.get_value()));
+            const size_t vk_num_public_inputs = queue_entry.vk_num_public_inputs();
             BB_ASSERT_EQ(expected_io_size,
                          vk_num_public_inputs,
                          "process_hn_recursion_constraints: IO size mismatch with VK num_public_inputs");
