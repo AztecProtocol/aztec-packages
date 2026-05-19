@@ -125,13 +125,17 @@ function buildUniformCSR(N: number, B: number, perBucket: number): CSR {
 function buildSkewedCSR(N: number, B: number, rng: () => number): CSR {
   const bucket = new Uint32Array(N);
   const counts = new Uint32Array(B);
-  // LCG low bits have short periods; mix high bits of two calls into
-  // the bucket index to get a real uniform-random scalar assignment
-  // (so Poisson-skewed counts, not perfectly-even-with-cyclic-RNG).
+  // LCG low bits have short periods (low 12 bits cycle every 4096
+  // calls, which equals B in the default config), so direct modulo
+  // produces a degenerate "every bucket gets exactly N/B points"
+  // distribution. Compose a uniform 32-bit integer from the high
+  // halves of two RNG draws via unsigned arithmetic (multiplication
+  // to avoid the signed-i32 quirk of JS bitwise ops) and reduce.
   for (let i = 0; i < N; i++) {
     const hi = (rng() >>> 16) & 0xffff;
     const lo = (rng() >>> 16) & 0xffff;
-    const b = ((hi << 16) | lo) % B;
+    const v = hi * 0x10000 + lo;
+    const b = v % B;
     bucket[i] = b;
     counts[b]++;
   }

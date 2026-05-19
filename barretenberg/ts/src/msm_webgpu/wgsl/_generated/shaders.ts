@@ -2065,6 +2065,12 @@ fn store_bucket(plane: u32, b: u32, B: u32, val: ptr<function, BigInt>) {
     bucket_sums[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
 }
 
+fn get_r() -> BigInt {
+    var r: BigInt;
+{{{ r_limbs }}}
+    return r;
+}
+
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let T = params.x;
