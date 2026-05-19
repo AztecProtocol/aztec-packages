@@ -239,7 +239,7 @@ class Chonk {
     Chonk(size_t num_circuits);
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                               const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
+                                               const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
 
     [[nodiscard("Pairing points should be accumulated")]] std::
         tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, StdlibFF>

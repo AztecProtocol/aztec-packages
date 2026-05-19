@@ -126,9 +126,9 @@ Chonk::Chonk(size_t num_circuits)
  * @param circuit
  */
 void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                                  const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
+                                                  const std::vector<StdlibCircuitVKAndHash>& input_keys)
 {
-    bool vkeys_provided = !input_keys.empty();
+    const bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided) {
         BB_ASSERT_EQ(verification_queue.size(),
                      input_keys.size(),
@@ -136,23 +136,24 @@ void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                      "stdlib verification queue instantiation.");
     }
 
-    BB_ASSERT(!vkeys_provided, "Per-kind StdlibVerificationQueue does not yet support externally supplied stdlib VKs");
-    (void)input_keys;
-
+    size_t input_idx = 0;
     while (!verification_queue.empty()) {
         const VerifierInputs& entry = verification_queue.front();
 
-        // Construct stdlib proof directly from the internal native queue data
         StdlibProof stdlib_proof(circuit, entry.proof);
 
         if (entry.is_kernel()) {
-            auto stdlib_vk_and_hash = std::make_shared<KernelRecursiveVKAndHash>(circuit, entry.kernel_honk_vk);
+            auto stdlib_vk_and_hash = vkeys_provided
+                                          ? std::get<std::shared_ptr<KernelRecursiveVKAndHash>>(input_keys[input_idx])
+                                          : std::make_shared<KernelRecursiveVKAndHash>(circuit, entry.kernel_honk_vk);
             stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash, entry.type);
         } else {
-            auto stdlib_vk_and_hash = std::make_shared<AppRecursiveVKAndHash>(circuit, entry.app_honk_vk);
+            auto stdlib_vk_and_hash = vkeys_provided
+                                          ? std::get<std::shared_ptr<AppRecursiveVKAndHash>>(input_keys[input_idx])
+                                          : std::make_shared<AppRecursiveVKAndHash>(circuit, entry.app_honk_vk);
             stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash, entry.type);
         }
-
+        ++input_idx;
         verification_queue.pop_front(); // the native data is not needed beyond this point
     }
 }

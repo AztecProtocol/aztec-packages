@@ -11,7 +11,9 @@
 #pragma once
 
 #include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 
@@ -48,6 +50,13 @@ enum class CircuitKind : uint8_t {
 using CircuitVerificationKey = std::variant<std::shared_ptr<MegaAppFlavor::VerificationKey>,
                                             std::shared_ptr<MegaKernelFlavor::VerificationKey>,
                                             std::shared_ptr<MegaZKFlavor::VerificationKey>>;
+
+/**
+ * @brief Stdlib (in-circuit) VK + hash pair, kind-tagged via variant. Folding-only kinds; the
+ * hiding kernel doesn't go through `instantiate_stdlib_verification_queue`.
+ */
+using StdlibCircuitVKAndHash = std::variant<std::shared_ptr<MegaAppRecursiveFlavor::VKAndHash>,
+                                            std::shared_ptr<MegaKernelRecursiveFlavor::VKAndHash>>;
 
 /**
  * @brief Compile-time mapping from `CircuitKind` to its proof flavor. Single source of truth: any

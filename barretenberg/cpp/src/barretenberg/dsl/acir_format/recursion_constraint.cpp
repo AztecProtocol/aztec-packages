@@ -163,9 +163,11 @@ void process_hn_recursion_constraints(
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
     const std::shared_ptr<Chonk>& ivc_base)
 {
-    using StdlibVerificationKey = Chonk::RecursiveVerificationKey;
-    using StdlibVKAndHash = Chonk::RecursiveVKAndHash;
     using StdlibFF = Chonk::RecursiveFlavor::FF;
+    using AppStdlibVK = Chonk::AppRecursiveFlavor::VerificationKey;
+    using AppStdlibVKAndHash = Chonk::AppRecursiveVKAndHash;
+    using KernelStdlibVK = Chonk::KernelRecursiveFlavor::VerificationKey;
+    using KernelStdlibVKAndHash = Chonk::KernelRecursiveVKAndHash;
 
     // Validate hn_recursion_data constraints/indices size match
     BB_ASSERT_EQ(hn_recursion_data.first.size(),
@@ -196,15 +198,21 @@ void process_hn_recursion_constraints(
             }
         }
 
-        // Construct a stdlib verification key for each constraint based on the verification key witness indices
-        // therein
-        std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
+        // Construct a kind-tagged stdlib VK + hash for each constraint, picking the flavor that matches
+        // the corresponding queue entry (App vs Kernel). The witness layout differs per kind, so the
+        // dispatch must happen here rather than inside Chonk.
+        std::vector<bb::StdlibCircuitVKAndHash> stdlib_vk_and_hashs;
         stdlib_vk_and_hashs.reserve(hn_recursion_data.first.size());
-        for (const auto& constraint : hn_recursion_data.first) {
-            stdlib_vk_and_hashs.push_back(std::make_shared<StdlibVKAndHash>(
-                std::make_shared<StdlibVerificationKey>(
-                    StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
-                StdlibFF::from_witness_index(&builder, constraint.key_hash)));
+        for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
+            auto hash = StdlibFF::from_witness_index(&builder, constraint.key_hash);
+            if (queue_entry.is_kernel()) {
+                stdlib_vk_and_hashs.emplace_back(std::make_shared<KernelStdlibVKAndHash>(
+                    std::make_shared<KernelStdlibVK>(KernelStdlibVK::from_witness_indices(builder, constraint.key)),
+                    hash));
+            } else {
+                stdlib_vk_and_hashs.emplace_back(std::make_shared<AppStdlibVKAndHash>(
+                    std::make_shared<AppStdlibVK>(AppStdlibVK::from_witness_indices(builder, constraint.key)), hash));
+            }
         }
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
         ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
