@@ -32,14 +32,72 @@ import {
   divsteps_bench as divsteps_bench_shader,
   ec_bn254 as ec_bn254_funcs,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
+  ba_affine_only_bench as ba_affine_only_bench_shader,
+  ba_apply_m_bench as ba_apply_m_bench_shader,
+  ba_apply_tight_bench as ba_apply_tight_bench_shader,
+  ba_arith_floor_bench as ba_arith_floor_bench_shader,
+  ba_blelloch_scan_bench as ba_blelloch_scan_bench_shader,
+  ba_hs_scan_bench as ba_hs_scan_bench_shader,
+  ba_rbs_scan_bench as ba_rbs_scan_bench_shader,
+  ba_rbs_fwd_bench as ba_rbs_fwd_bench_shader,
+  ba_rbs_seed_bench as ba_rbs_seed_bench_shader,
+  ba_rbs_bwd_bench as ba_rbs_bwd_bench_shader,
+  ba_tile_scan_bench as ba_tile_scan_bench_shader,
+  ba_tile_apply_bench as ba_tile_apply_bench_shader,
+  ba_wgtile_bench as ba_wgtile_bench_shader,
+  ba_sg_bench as ba_sg_bench_shader,
+  ba_seg_bwd_bench as ba_seg_bwd_bench_shader,
+  ba_seg_fwd_bench as ba_seg_fwd_bench_shader,
+  ba_seg_inv_bench as ba_seg_inv_bench_shader,
+  montmul_resident_bench as montmul_resident_bench_shader,
+  montmul_realism_bench as montmul_realism_bench_shader,
+  ba_fused_tight_bench as ba_fused_tight_bench_shader,
+  ba_apply_il_bench as ba_apply_il_bench_shader,
+  ba_apply_serial_bench as ba_apply_serial_bench_shader,
+  ba_fused_il_bench as ba_fused_il_bench_shader,
+  ba_apply_soa_bench as ba_apply_soa_bench_shader,
+  ba_apply_ilp_bench as ba_apply_ilp_bench_shader,
+  ba_fused_soa_bench as ba_fused_soa_bench_shader,
+  ba_msm_bucket_bench as ba_msm_bucket_bench_shader,
+  ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
+  ba_msm_bucket_f32 as ba_msm_bucket_f32_shader,
+  mm_distinct_f32 as mm_distinct_f32_shader,
+  ba_coop_inv_bench as ba_coop_inv_bench_shader,
+  ba_pipe_inv_bench as ba_pipe_inv_bench_shader,
+  ba_pipe_inv_noinv_bench as ba_pipe_inv_noinv_bench_shader,
+  mb_abl_loadonly as mb_abl_loadonly_shader,
+  mb_abl_fwdonly as mb_abl_fwdonly_shader,
+  mb_abl_noinv as mb_abl_noinv_shader,
+  mb_abl_nopeel as mb_abl_nopeel_shader,
+  ap_ladder_a0 as ap_ladder_a0_shader,
+  ap_ladder_a1 as ap_ladder_a1_shader,
+  ap_ladder_a2 as ap_ladder_a2_shader,
+  ap_ladder_a3 as ap_ladder_a3_shader,
+  ap_ladder_a4 as ap_ladder_a4_shader,
+  ap_ladder_a5 as ap_ladder_a5_shader,
+  mb_ladder_b0 as mb_ladder_b0_shader,
+  mb_ladder_b1 as mb_ladder_b1_shader,
+  mb_ladder_b2 as mb_ladder_b2_shader,
+  mb_ladder_b3 as mb_ladder_b3_shader,
+  mb_ladder_b4 as mb_ladder_b4_shader,
+  mb_ladder_b5 as mb_ladder_b5_shader,
+  ba_invonly_bench as ba_invonly_bench_shader,
+  ba_invonly_soa_bench as ba_invonly_soa_bench_shader,
+  ba_invonly_wg_bench as ba_invonly_wg_bench_shader,
+  ba_wgamort_bench as ba_wgamort_bench_shader,
+  ba_serial_bench as ba_serial_bench_shader,
   field as field_funcs,
+  field_binop_bench as field_binop_bench_shader,
   field_mul_bench_f32 as field_mul_bench_f32_shader,
   field_mul_bench_u32 as field_mul_bench_u32_shader,
   fr_inv_bench as fr_inv_bench_shader,
+  jac_add_bench as jac_add_bench_shader,
   fr_pow as fr_pow_funcs,
   horner_reduce_bn254 as horner_reduce_bn254_shader,
   mont_pro_product as montgomery_product_funcs,
+  montmul_pressure_bench as montmul_pressure_bench_shader,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
+  mont_karat_lean as montgomery_product_karat_lean_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
   smvp_bn254 as smvp_bn254_shader,
@@ -65,6 +123,7 @@ import {
   gen_r_limbs,
   gen_mu_limbs,
   gen_wgsl_limbs_code,
+  gen_wgsl_limbs_code_f32,
 } from './utils.js';
 import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
 
@@ -118,6 +177,14 @@ export class ShaderManager {
   public num_limbs_f32_22: number;
   public n0_f32_22: bigint;
   public p_limbs_f32_22_str: string;
+  // Montgomery-domain bridge constants between the u32 (R_u32 = 2^260
+  // mod p) and f32-22 (R_f = 2^264 mod p) representations, as f32-22
+  // limb initializers. K_F = R_f^2·R_u32^{-1} mod p (load correction:
+  // z·R_u32 -> z·R_f). D_F = R_f^3·R_u32^{-1} mod p (inversion
+  // correction: prod^{-1}·R_f^{-1}·R_u32 -> prod^{-1}·R_f). See
+  // ba_msm_bucket_f32.template.wgsl's MONTGOMERY DOMAIN INVARIANT header.
+  public k_f_limbs_str: string;
+  public d_f_limbs_str: string;
   // 9 × 29-bit BY limb representation of `p` for the BY safegcd inverse
   // path. Used by gen_apply_matrix_bench_shader (and in future sub-steps,
   // by the fr_inv_by wiring). The initializer string is comma-separated
@@ -189,6 +256,15 @@ export class ShaderManager {
     this.num_limbs_f32_22 = params_f32_22.num_words;
     this.n0_f32_22 = params_f32_22.n0;
     this.p_limbs_f32_22_str = gen_p_limbs_f32(this.p, this.num_limbs_f32_22, 22);
+    // Domain-bridge constants. r_f = R_f mod p, r_u32_inv = R_u32^{-1}
+    // mod p (= this.rinv). K_F = R_f^2·R_u32^{-1} mod p,
+    // D_F = R_f^3·R_u32^{-1} mod p. Emitted as f32-22 limb initializers.
+    const r_f = params_f32_22.r % this.p;
+    const r_u32_inv = this.rinv % this.p;
+    const k_f_val = (((r_f * r_f) % this.p) * r_u32_inv) % this.p;
+    const d_f_val = (((((r_f * r_f) % this.p) * r_f) % this.p) * r_u32_inv) % this.p;
+    this.k_f_limbs_str = gen_wgsl_limbs_code_f32(k_f_val, 'k', this.num_limbs_f32_22, 22);
+    this.d_f_limbs_str = gen_wgsl_limbs_code_f32(d_f_val, 'd', this.num_limbs_f32_22, 22);
 
     // BY safegcd 9 × 29-bit representation of p and 58-bit p_inv split.
     // Both feed `gen_apply_matrix_bench_shader` (and downstream by_inverse
@@ -1139,6 +1215,1638 @@ ${mont_src}
 ${entry_src}`;
   }
 
+  // Bench-only entry shader for a chained binary field op (fr_add / fr_sub).
+  // Assembles structs + bigint + the production Karatsuba+Yuval Montgomery
+  // body (which also defines `get_p()` and the NUM_WORDS/MASK consts that
+  // bigint + field reference) + field (fr_add/fr_sub/fr_reduce) + the
+  // per-thread bench entry. Mirrors gen_field_mul_bench_u32_shader.
+  public gen_field_binop_bench_shader(
+    workgroup_size: number,
+    op_fn: 'fr_add' | 'fr_sub',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(field_binop_bench_shader, {
+      workgroup_size,
+      op_fn,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Bench-only entry shader for chained UNCONDITIONAL Jacobian point add
+  // (`add_points_no_collision` — straight-line add-2007-bl, no x1==x2 /
+  // doubling / identity fallback). Assembles structs + bigint + Mont
+  // (defines get_p) + field (fr_add/fr_sub) + ec (add_points_no_collision,
+  // is_zero) + the per-thread bench entry. ec_bn254 needs r_limbs for its
+  // add_points_mixed* get_r inline, even though the bench only calls the
+  // no-collision Jacobian add.
+  public gen_jac_add_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const ec_src = mustache.render(ec_bn254_funcs, { r_limbs: this.r_limbs });
+    const entry_src = mustache.render(jac_add_bench_shader, { workgroup_size });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${ec_src}
+${entry_src}`;
+  }
+
+  // Register-pressure montmul microbench. Mirrors gen_field_mul_bench_u32
+  // but each thread holds L=`live` independent (a,b) BigInt pairs in
+  // private register-arrays. Same montmul function as field-mul: pick
+  // 'karat' (Karatsuba+Yuval, fully unrolled, large footprint) or 'cios'
+  // (mitschabaude loop-based, small footprint) to expose how throughput
+  // collapses (or doesn't) as live-set size grows.
+  public gen_montmul_pressure_bench_shader(
+    workgroup_size: number,
+    live: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const entry_src = mustache.render(montmul_pressure_bench_shader, {
+      workgroup_size,
+      live,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${entry_src}`;
+  }
+
+  // Isolation bench: affine-add FORMULA only (post-inverse), operands in
+  // registers. structs + bigint + Mont (get_p) + field (fr_sub) + entry.
+  public gen_ba_affine_only_bench_shader(
+    workgroup_size: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_affine_only_bench_shader, { workgroup_size });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Two-kernel pipeline stage 2, AoS, M distinct pairs per thread (loop,
+  // not chained — amortises launch without raising peak live set).
+  public gen_ba_apply_m_bench_shader(
+    workgroup_size: number,
+    m: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_apply_m_bench_shader, { workgroup_size, m });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Two-kernel pipeline stage 2, AoS, lean-temporary affine formula,
+  // M distinct pairs per thread.
+  public gen_ba_apply_tight_bench_shader(
+    workgroup_size: number,
+    m: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_apply_tight_bench_shader, { workgroup_size, m });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Two-kernel pipeline stage 2, AoS, software-pipelined (stage-
+  // interleaved) lean affine apply: M INDEPENDENT pairs/thread, the
+  // formula computed stage-by-stage across all M so the M montmuls
+  // within each stage are mutually independent and pipeline.
+  public gen_ba_apply_il_bench_shader(
+    workgroup_size: number,
+    m: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_apply_il_bench_shader, { workgroup_size, m });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Two-kernel pipeline stage 2, AoS, lean affine apply, M INDEPENDENT
+  // pairs/thread processed STRICTLY SERIALLY (no array<BigInt,M>, no
+  // state carried between the M iterations). Peak live BigInt set = one
+  // pair's working set regardless of M; M only amortises the fixed
+  // per-thread launch/occupancy overhead. Strided pair assignment.
+  public gen_ba_apply_serial_bench_shader(
+    workgroup_size: number,
+    m: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_apply_serial_bench_shader, { workgroup_size, m });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Single-kernel BATCHED-inverse batch-affine in cleanest minimal-live
+  // form: per-thread CH-pair chunk, forward running product in a
+  // prefix-only private array<BigInt,CH>, ONE fr_inv_by_a per chunk,
+  // backward peel + lean formula with dx recomputed (free) in the
+  // backward pass. The batched-inverse math is byte-identical to
+  // gen_ba_fused_tight_bench_shader, so this is a thin alias.
+  public gen_ba_fused_serial_bench_shader(
+    workgroup_size: number,
+    chunk: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    return this.gen_ba_fused_tight_bench_shader(workgroup_size, chunk, mont_variant);
+  }
+
+  // Profiling: montmul throughput vs a resident private array of `res`
+  // BigInts (proxy for the prefix-array pressure).
+  public gen_montmul_resident_bench_shader(workgroup_size: number, res: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(montmul_resident_bench_shader, {
+      workgroup_size,
+      res,
+      res_decl: Math.max(1, res),
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Montmul-realism microbench. Same structs + bigint + production
+  // Karatsuba+Yuval Mont (this.mont_product_src, identical to the
+  // standalone field_mul_bench_u32 'karat' / montmul_resident res=0
+  // baseline so ns/op is per-single-montmul comparable) + field
+  // (fr_sub). `mode` selects the per-iteration loop body; all bodies do
+  // the SAME montmul count per iter (1 for chain_invariant, 3 for the
+  // others). The host divides wall time by n*k*mpi where mpi is the
+  // montmuls-per-iter for the chosen mode, so ns/op is per single
+  // montmul regardless of mode.
+  public gen_montmul_realism_bench_shader(
+    workgroup_size: number,
+    mode:
+      | 'chain_invariant'
+      | 'chain_distinct'
+      | 'chain_indep'
+      | 'chain_distinct_hard'
+      | 'chain_sq_hard',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const bodies: Record<typeof mode, string> = {
+      // Degenerate baseline: 1 montmul/iter, b INVARIANT, single feedback
+      // accumulator (reproduces the existing standalone montmul probe).
+      chain_invariant: `        a = montgomery_product(&a, &b);`,
+      // 3-montmul DAG with DISTINCT operands mirroring the affine
+      // formula's montmul structure (lambda -> lambda^2 / lambda*t0).
+      // a,b,c evolve so the next iter's operands are distinct and
+      // data-dependent. 3 montmul + 3 sub/iter.
+      chain_distinct: [
+        `        var t1 = montgomery_product(&a, &b);`,
+        `        var t2 = montgomery_product(&t1, &t1);`,
+        `        var t3 = montgomery_product(&t1, &c);`,
+        `        a = fr_sub(&t2, &t3);`,
+        `        b = fr_sub(&t3, &c);`,
+        `        c = fr_sub(&a, &b);`,
+      ].join('\n'),
+      // 3 INDEPENDENT montmuls/iter (no intra-iter dependency) — pure
+      // throughput ceiling with distinct operands. a,c,e evolve.
+      // 3 montmul + 3 sub/iter.
+      chain_indep: [
+        `        var u1 = montgomery_product(&a, &b);`,
+        `        var u2 = montgomery_product(&c, &d);`,
+        `        var u3 = montgomery_product(&e, &f);`,
+        `        a = fr_sub(&u1, &u2);`,
+        `        c = fr_sub(&u2, &u3);`,
+        `        e = fr_sub(&u3, &u1);`,
+      ].join('\n'),
+      // PROBE 1: DCE/CSE/hoist-proof DISTINCT-operand montmul. Each iter
+      // reloads operand B fresh from the ys storage buffer at an index
+      // derived from the running product's low limb (loop-carried,
+      // unknowable at compile time), so the compiler cannot hoist the
+      // load, CSE the product, or DCE the chain. a evolves and feeds
+      // both the next product and the next index. 1 montmul/iter (mpi=1)
+      // => ns/op is a bulletproof per-single-distinct-montmul number.
+      chain_distinct_hard: [
+        `        let idx = (a.limbs[0u] ^ b.limbs[0u]) % (n * 3u);`,
+        `        var bb = ys[idx];`,
+        `        a = montgomery_product(&a, &bb);`,
+      ].join('\n'),
+      // PROBE 2 (branch B: no dedicated Montgomery square exists in this
+      // stack — montgomery/*.template.wgsl + shader_manager expose only
+      // montgomery_product). DCE-proof SQUARING-form chain: same storage-
+      // reload anti-DCE skeleton as chain_distinct_hard, but the measured
+      // op is the squaring form montgomery_product(&a, &a). The reloaded
+      // bb is mixed into a (fr_sub) BETWEEN squarings so a stays data-
+      // dependent on storage and the chain cannot be hoisted/DCE'd, while
+      // the timed montmul is x*x. Compared head-to-head with
+      // chain_distinct_hard this reveals whether the squaring form is any
+      // cheaper than the distinct-operand form on this GPU stack.
+      // 1 montmul/iter (mpi=1).
+      chain_sq_hard: [
+        `        let idx = (a.limbs[0u] ^ c.limbs[0u]) % (n * 3u);`,
+        `        var bb = ys[idx];`,
+        `        a = montgomery_product(&a, &a);`,
+        `        a = fr_sub(&a, &bb);`,
+      ].join('\n'),
+    };
+    const entry_src = mustache.render(montmul_realism_bench_shader, {
+      workgroup_size,
+      body: bodies[mode],
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Decisive primitive: cooperative block Blelloch parallel prefix-product.
+  public gen_ba_blelloch_scan_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_blelloch_scan_bench_shader, {
+      workgroup_size,
+      blk: workgroup_size * 2,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Hillis-Steele full-occupancy parallel prefix-product scan.
+  public gen_ba_hs_scan_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_hs_scan_bench_shader, {
+      workgroup_size,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Segmented batch-affine, kernel 1/3 (forward, prefix→global).
+  public gen_ba_seg_fwd_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_seg_fwd_bench_shader, { workgroup_size });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Segmented batch-affine, kernel 2/3 (the only kernel with inversion).
+  public gen_ba_seg_inv_bench_shader(): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_seg_inv_bench_shader, { r_limbs: this.r_limbs });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Segmented batch-affine, kernel 3/3 (backward peel + lean formula).
+  public gen_ba_seg_bwd_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_seg_bwd_bench_shader, { workgroup_size });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Register-blocked work-efficient parallel prefix-product scan (also
+  // the pipeline's forward kernel). Each thread owns rblk consecutive
+  // pairs; full-occupancy Phase-1 chain + tiny Hillis-Steele over TPB
+  // thread totals.
+  public gen_ba_rbs_scan_bench_shader(workgroup_size: number, rblk: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_rbs_scan_bench_shader, {
+      workgroup_size,
+      rblk,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Pipeline forward kernel: identical Phase-1/Phase-2 to the RBS scan
+  // microbench but skips the per-pair prefix global write (FIX C) and
+  // emits only per-thread exclusive prefix/suffix of the thread totals
+  // (thpre, thsuf) and the per-block total (blocktot).
+  public gen_ba_rbs_fwd_bench_shader(workgroup_size: number, rblk: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_rbs_fwd_bench_shader, {
+      workgroup_size,
+      rblk,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Register-blocked seed kernel: single-thread two-pass exclusive scan
+  // over the per-thread totals + ONE fr_inv_by_a ⇒ thseed[t]=1/thtot[t].
+  public gen_ba_rbs_seed_bench_shader(): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_rbs_seed_bench_shader, { r_limbs: this.r_limbs });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Register-blocked backward kernel: fully-local backward peel + lean
+  // affine formula (recomputes within-thread exclusive prefixes).
+  public gen_ba_rbs_bwd_bench_shader(workgroup_size: number, rblk: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_rbs_bwd_bench_shader, {
+      workgroup_size,
+      rblk,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Fully-parallel tile forward kernel: 1 thread/pair, Hillis-Steele
+  // inclusive prefix + inclusive suffix dx scans over a TPB-wide tile;
+  // emits per-tile total dx product.
+  public gen_ba_tile_scan_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_tile_scan_bench_shader, {
+      workgroup_size,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Fully-parallel tile apply kernel: 1 thread/pair, reconstructs
+  // inv_dx = tileseed * exclPrefix * exclSuffix (no inversion) + lean
+  // affine formula.
+  public gen_ba_tile_apply_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_tile_apply_bench_shader, {
+      workgroup_size,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Profiling: the arithmetic floor of one batch-affine pair (no array,
+  // no inversion, all operands in registers, chained).
+  public gen_ba_arith_floor_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_arith_floor_bench_shader, { workgroup_size });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Fused single-kernel batch-affine: prefix-only private storage (dx
+  // recomputed free in the backward pass) + lean affine formula.
+  public gen_ba_fused_tight_bench_shader(
+    workgroup_size: number,
+    ch: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_fused_tight_bench_shader, {
+      workgroup_size,
+      ch,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Single-kernel BATCHED-inverse batch-affine, software-pipelined: same
+  // batched-inverse math as gen_ba_fused_tight_bench_shader (one
+  // fr_inv_by_a per `chunk`, inv_dx_i = 1/dx_i) but with the lean affine
+  // formula stage-interleaved across the chunk so independent montmuls
+  // pipeline. Same partials set as the fused-tight generator.
+  public gen_ba_fused_il_bench_shader(
+    workgroup_size: number,
+    chunk: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_fused_il_bench_shader, {
+      workgroup_size,
+      chunk,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Single fused workgroup-tile batch-affine: ONE kernel, ONE global
+  // pass, zero global intermediate buffers; the batch-inverse is done
+  // cooperatively in workgroup shared memory (lane-0 serial prefix /
+  // suffix walk + one fr_inv_by_a per tile).
+  public gen_ba_wgtile_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_wgtile_bench_shader, {
+      workgroup_size,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Single fused subgroup-shuffle batch-affine: ONE kernel, ONE global
+  // pass, ZERO global intermediate buffers, ZERO workgroup shared memory,
+  // ZERO workgroupBarrier. The prefix/suffix products and the broadcast
+  // of the per-subgroup total/inverse are done with hardware subgroup
+  // shuffles; one fr_inv_by_a per subgroup.
+  public gen_ba_sg_bench_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_sg_bench_shader, {
+      workgroup_size,
+      num_words: this.num_words,
+      r_limbs: this.r_limbs,
+    });
+    // WGSL requires `enable` directives before all other module
+    // declarations, so it is prepended to the fully-assembled source
+    // rather than living inside the (last-concatenated) entry template.
+    return `enable subgroups;
+${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Two-kernel pipeline stage 2, SoA + scheduled affine apply.
+  public gen_ba_apply_soa_bench_shader(
+    workgroup_size: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_apply_soa_bench_shader, { workgroup_size });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Software-pipelined (stage-interleaved) fully-coalesced SoA+vec4
+  // lean-affine apply: each thread owns W INDEPENDENT pairs and runs the
+  // lean formula stage-by-stage across all W lanes, so every montmul
+  // stage issues W mutually independent montmuls back-to-back (hides
+  // montmul dependency-chain latency vs the W=1 apply_precomputed_k1
+  // baseline). Same partials set + SoA layout as gen_ba_apply_soa_bench_
+  // shader (structs+bigint+mont+field only; no fr_pow/get_r — the apply
+  // uses only montgomery_product / fr_sub).
+  public gen_ba_apply_ilp_bench_shader(
+    workgroup_size: number,
+    w: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(ba_apply_ilp_bench_shader, { workgroup_size, w });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  // Single-kernel batched-inverse batch-affine with fully-coalesced
+  // SoA+vec4 layout and strided chunk assignment. Same batched-inverse
+  // math as gen_ba_fused_tight_bench_shader (1 fr_inv_by_a per `chunk`
+  // pairs); only the memory layout and chunk striding differ.
+  public gen_ba_fused_soa_bench_shader(
+    workgroup_size: number,
+    chunk: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_fused_soa_bench_shader, {
+      workgroup_size,
+      chunk,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // MSM-integrated bucket-accumulate batch-affine: each thread owns ONE
+  // resident accumulator A (registers across the chunk) and folds a
+  // streamed, coalesced SoA chunk of S independent points into it with
+  // the unconditional lean affine add. Same batched-inverse math as
+  // gen_ba_fused_tight_bench_shader (ONE fr_inv_by_a per S adds); only
+  // the second operand is streamed from global memory like the
+  // montmul-realism load pattern. Same partials set as fused-tight.
+  // Generate the value-identity decoupled pack/unpack between a packed
+  // 254-bit integer stored as 8x u32 (32 bytes) and the 20x 13-bit-limb
+  // BigInt arithmetic representation. Straight-line, zero loop-carried
+  // bit-cursor dependency chain: NUM_WORDS mutually-independent
+  // compile-time-constant-indexed limb extractions on the unpack side,
+  // and at most PACKED+1 dependent or-of-shift expressions on the pack
+  // side (one expression per output u32 word, each driven by the small
+  // set of limbs whose bit window overlaps [32*j, 32*j+32). Produces the
+  // bit-identical integer to a serial bit-cursor (sum limbs[i]*2^(WS*i)
+  // == sum w[j]*2^(32*j)); same Montgomery domain, no R correction.
+  private decoupledPackUnpackWgsl(): { unpack: string; pack: string } {
+    const WS = this.word_size;
+    const NW = this.num_words;
+    const PACKED = 8;
+    const LIMB_MASK = (1 << WS) - 1;
+
+    const unpackLines: string[] = [];
+    for (let i = 0; i < NW; i++) {
+      const bitpos = WS * i;
+      const w0 = Math.floor(bitpos / 32);
+      const s0 = bitpos % 32;
+      let expr = `(w[${w0}u] >> ${s0}u)`;
+      if (s0 + WS > 32 && w0 + 1 < PACKED) {
+        expr = `(${expr} | (w[${w0 + 1}u] << ${32 - s0}u))`;
+      }
+      unpackLines.push(`    b.limbs[${i}u] = ${expr} & ${LIMB_MASK}u;`);
+    }
+    const unpack = `fn unpack256_to_limbs(w: array<u32, 8>) -> BigInt {
+    var b: BigInt;
+${unpackLines.join('\n')}
+    return b;
+}`;
+
+    const wordTerms: string[][] = Array.from({ length: PACKED }, () => []);
+    for (let i = 0; i < NW; i++) {
+      const bitpos = WS * i;
+      const w0 = Math.floor(bitpos / 32);
+      const s0 = bitpos % 32;
+      const limbExpr = `(b.limbs[${i}u] & ${LIMB_MASK}u)`;
+      if (w0 < PACKED) {
+        wordTerms[w0].push(s0 === 0 ? limbExpr : `(${limbExpr} << ${s0}u)`);
+      }
+      if (s0 + WS > 32 && w0 + 1 < PACKED) {
+        wordTerms[w0 + 1].push(`(${limbExpr} >> ${32 - s0}u)`);
+      }
+    }
+    const packLines: string[] = [];
+    for (let j = 0; j < PACKED; j++) {
+      const terms = wordTerms[j];
+      packLines.push(`    w[${j}u] = ${terms.length ? terms.join(' | ') : '0u'};`);
+    }
+    const pack = `fn pack_limbs_to_256(bp: ptr<function, BigInt>) -> array<u32, 8> {
+    let b = *bp;
+    var w: array<u32, 8>;
+${packLines.join('\n')}
+    return w;
+}`;
+
+    return { unpack, pack };
+  }
+
+  // Recovery of the canonical ba_rev_packed_carry bench kernel
+  // (~22 ns/pair on M2 / Chrome 148, -55% vs production batch-affine).
+  // Identical arithmetic + bench-harness layout to
+  // gen_ba_msm_bucket_bench_shader, with packed 8x u32 SoA storage
+  // (2 vec4<u32>/elem) and decoupled in-register pack/unpack on every
+  // global load/store. mont_variant is fixed to karat (the fastest
+  // available; the f32-22 path was measured 1.9x slower).
+  public gen_ba_rev_packed_carry_bench_shader(workgroup_size: number, s: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc('karat');
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const dec = this.decoupledPackUnpackWgsl();
+    const entry_src = mustache.render(ba_rev_packed_carry_bench_shader, {
+      workgroup_size,
+      s,
+      r_limbs: this.r_limbs,
+      dec_unpack: dec.unpack,
+      dec_pack: dec.pack,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  public gen_ba_msm_bucket_bench_shader(
+    workgroup_size: number,
+    s: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_msm_bucket_bench_shader, {
+      workgroup_size,
+      s,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // The f32-22 Mont stack and the u32 field stack BOTH declare a global
+  // `const N0` (u32 = n0 in the karat mont template; f32 = N0/N0_SCALED
+  // in mont_pro_product_f32_22_sos3uv3). `gen_field_mul_bench_f32_shader`
+  // only ever uses the f32 stack alone so the clash never surfaced
+  // there, but ba_msm_bucket_f32 / mm_distinct_f32 combine both stacks
+  // in one module. Rename the f32 stack's colliding globals to a
+  // f32-specific name (N0_SCALED first so the N0 pass cannot truncate
+  // it). All references live inside the f32 stack source, so a
+  // word-boundary token rename is exact.
+  private f32StackDisambiguated(): string {
+    let src = this.gen_montgomery_product_f32_22_sos3uv3_shader();
+    src = src.replace(/\bN0_SCALED\b/g, 'N0_F32_SCALED');
+    src = src.replace(/\bN0\b/g, 'N0_F32');
+    return src;
+  }
+
+  // f32-22 sibling of gen_ba_msm_bucket_bench_shader. Same partial set
+  // (structs, bigint, mont karat, field, fr_pow, bigint_by, by_a — for
+  // BigInt, montgomery_product, get_r_cubed, fr_inv_by_a) PLUS the
+  // f32-22 Mont stack (mulhilo_22 + bigint_f32 + montgomery_product_f32
+  // via gen_montgomery_product_f32_22_sos3uv3_shader, mirroring the
+  // assembly in gen_field_mul_bench_f32_shader). The entry template
+  // carries BigIntF32 across the chunk and does all montmuls in the
+  // f32-22 representation; the ONE inversion bridges to u32 fr_inv_by_a.
+  // K_F / D_F domain-bridge constants are emitted as f32-22 limb inits.
+  public gen_ba_msm_bucket_f32_shader(workgroup_size: number, s: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc('karat');
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const f32_src = this.f32StackDisambiguated();
+    const entry_src = mustache.render(ba_msm_bucket_f32_shader, {
+      workgroup_size,
+      s,
+      r_limbs: this.r_limbs,
+      k_f_limbs: this.k_f_limbs_str,
+      d_f_limbs: this.d_f_limbs_str,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${f32_src}
+${entry_src}`;
+  }
+
+  // f32-22 sibling of the montmul_realism chain_distinct_hard probe.
+  // DCE-proof distinct-operand f32-22 montmul microbench: only the
+  // f32-22 Mont stack is needed (mulhilo_22 + bigint_f32 +
+  // montgomery_product_f32). Directly comparable to the u32
+  // mm_distinct_hard per-single-montmul ns/op.
+  public gen_mm_distinct_f32_shader(workgroup_size: number): string {
+    const f32_src = this.f32StackDisambiguated();
+    const entry_src = mustache.render(mm_distinct_f32_shader, { workgroup_size });
+    return `${f32_src}
+${entry_src}`;
+  }
+
+  // TWO-LEVEL COOPERATIVE Montgomery batch-inversion batch-affine.
+  // A workgroup of W threads cooperatively performs EXACTLY ONE
+  // fr_inv_by_a amortised over W*c independent pairs while the launched
+  // thread count stays at the GPU saturation knee (threads = N/c, c
+  // small). Phase A: per-thread forward prefix product of c dx. Phase
+  // B: O(log W) Hillis-Steele scans over the W per-thread totals + ONE
+  // fr_inv_by_a of the W-wide grand product (logarithmic, NOT the O(W)
+  // serial lane-0 combine of gen_ba_wgamort_bench_shader). Phase C:
+  // per-thread backward peel + lean affine formula. Same partial set,
+  // SoA+vec4 layout and per-pair math as gen_ba_msm_bucket_bench_shader.
+  // do_invert=false swaps the single fr_inv_by_a(grand) for `grand`
+  // itself (the ONLY change) for a confound-free per-pair modinv twin.
+  public gen_ba_coop_inv_bench_shader(
+    workgroup_size: number,
+    c: number,
+    do_invert: boolean,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_coop_inv_bench_shader, {
+      workgroup_size,
+      s: c,
+      r_limbs: this.r_limbs,
+      inv_call: do_invert ? 'fr_inv_by_a(grand)' : 'grand',
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Shared assembly for the msm_bucket_s16 micro-ablation variants.
+  // Identical partial set (structs, bigint, mont karat, field, fr_pow,
+  // bigint_by, by_a) and template params as gen_ba_msm_bucket_bench_shader;
+  // only the entry template differs so cost deltas isolate one removed
+  // component while memory/occupancy is held constant.
+  private genMsmBucketAblation(workgroup_size: number, s: number, entryTpl: string): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc('karat');
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(entryTpl, {
+      workgroup_size,
+      s,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // ABLATION 1: pure memory floor (loads + store, zero field arithmetic).
+  public gen_mb_abl_loadonly_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_abl_loadonly_shader);
+  }
+
+  // ABLATION 2: loads + forward acc*=dx montmul chain + store (no inv,
+  // no backward peel, no lean apply).
+  public gen_mb_abl_fwdonly_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_abl_fwdonly_shader);
+  }
+
+  // ABLATION 3: full kernel with fr_inv_by_a replaced by a cheap copy
+  // stand-in (amortised inversion cost removed, all montmuls remain).
+  public gen_mb_abl_noinv_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_abl_noinv_shader);
+  }
+
+  // ABLATION 4: loads + forward product + real fr_inv_by_a + store inv
+  // (no backward peel, no lean apply).
+  public gen_mb_abl_nopeel_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_abl_nopeel_shader);
+  }
+
+  // LADDER A: progressive-ablation decomposition of apply_precomputed_k1.
+  // Identical partial set and assembly order as
+  // gen_ba_apply_tight_bench_shader (the apply_precomputed_k1 anchor) so
+  // the AoS layout / 1-pair-per-thread launch geometry / runBA4 packer
+  // match the anchor exactly; only the entry template (one added op
+  // group per rung) differs, every loaded/computed value folded into the
+  // stored output so no rung can be dead-code-eliminated.
+  private genApplyLadder(workgroup_size: number, entryTpl: string): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc('karat');
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = mustache.render(entryTpl, { workgroup_size, m: 1 });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
+  public gen_ap_ladder_a0_shader(workgroup_size: number): string {
+    return this.genApplyLadder(workgroup_size, ap_ladder_a0_shader);
+  }
+
+  public gen_ap_ladder_a1_shader(workgroup_size: number): string {
+    return this.genApplyLadder(workgroup_size, ap_ladder_a1_shader);
+  }
+
+  public gen_ap_ladder_a2_shader(workgroup_size: number): string {
+    return this.genApplyLadder(workgroup_size, ap_ladder_a2_shader);
+  }
+
+  public gen_ap_ladder_a3_shader(workgroup_size: number): string {
+    return this.genApplyLadder(workgroup_size, ap_ladder_a3_shader);
+  }
+
+  public gen_ap_ladder_a4_shader(workgroup_size: number): string {
+    return this.genApplyLadder(workgroup_size, ap_ladder_a4_shader);
+  }
+
+  public gen_ap_ladder_a5_shader(workgroup_size: number): string {
+    return this.genApplyLadder(workgroup_size, ap_ladder_a5_shader);
+  }
+
+  // LADDER B: progressive-ablation decomposition of msm_bucket_s16.
+  // Reuses genMsmBucketAblation so the SoA+vec4 layout, S-chunk and
+  // 8192-thread launch geometry / runFusedSoa packer match the
+  // msm_bucket_s16 anchor exactly; only the entry template (one added op
+  // group per rung) differs, every loaded/computed value folded into the
+  // stored output so no rung can be dead-code-eliminated. mbB5 is the
+  // byte-identical real ba_msm_bucket body (reproduces the ~27 anchor).
+  public gen_mb_ladder_b0_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_ladder_b0_shader);
+  }
+
+  public gen_mb_ladder_b1_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_ladder_b1_shader);
+  }
+
+  public gen_mb_ladder_b2_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_ladder_b2_shader);
+  }
+
+  public gen_mb_ladder_b3_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_ladder_b3_shader);
+  }
+
+  public gen_mb_ladder_b4_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_ladder_b4_shader);
+  }
+
+  public gen_mb_ladder_b5_shader(workgroup_size: number, s: number): string {
+    return this.genMsmBucketAblation(workgroup_size, s, mb_ladder_b5_shader);
+  }
+
+  // Shared assembly for the per-thread software-pipelined ba_pipe_inv
+  // variants. Identical partial set (structs, bigint, mont karat, field,
+  // fr_pow, bigint_by, by_a) and assembly order as
+  // gen_ba_msm_bucket_bench_shader; the only template difference is the
+  // entry, which uses the `g` (sub-chunk size) mustache constant so its
+  // loops unroll and its array<BigInt,g> prefix buffers are
+  // constant-sized.
+  private genPipeInv(workgroup_size: number, g: number, entryTpl: string): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc('karat');
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(entryTpl, {
+      workgroup_size,
+      g,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Per-thread software-pipelined double-buffered batch-affine: each
+  // thread owns TWO independent sub-chunks A and B of `g` pairs (2*g
+  // pairs/thread). The two fr_inv_by_a calls share no operand (invA
+  // depends only on accA, invB only on accB) so the GPU overlaps the
+  // two long data-dependent inversion latencies with each other and
+  // with the surrounding inverse-independent montmul work. NO workgroup
+  // memory and NO workgroupBarrier(): pure per-thread, so cross-thread
+  // latency hiding is preserved. Per-pair math byte-identical to
+  // gen_ba_msm_bucket_bench_shader; reuses runFusedSoa with chunk=2*g.
+  public gen_ba_pipe_inv_bench_shader(workgroup_size: number, g: number): string {
+    return this.genPipeInv(workgroup_size, g, ba_pipe_inv_bench_shader);
+  }
+
+  // Confound-free modinv-isolation twin of gen_ba_pipe_inv_bench_shader:
+  // the kernel is byte-identical EXCEPT both fr_inv_by_a(...) calls are
+  // replaced by their argument (nothing else changes). full - noinv =
+  // the pipelined-layout modinv cost, directly comparable to the coop
+  // and msm_bucket numbers.
+  public gen_ba_pipe_inv_noinv_bench_shader(workgroup_size: number, g: number): string {
+    return this.genPipeInv(workgroup_size, g, ba_pipe_inv_noinv_bench_shader);
+  }
+
+  // Two-kernel pipeline stage 1, workgroup-amortised inversion (one
+  // fr_inv_by_a per workgroup via a thread-0 sequential combine).
+  public gen_ba_invonly_wg_bench_shader(
+    workgroup_size: number,
+    ch: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_invonly_wg_bench_shader, {
+      workgroup_size,
+      ch,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Single-kernel TWO-LEVEL workgroup-amortised batch-affine: per-thread
+  // chunk batch-inverse (C pairs/thread => PAIRS/C threads, good
+  // occupancy) plus a workgroup-level prefix/suffix combine so there is
+  // exactly ONE fr_inv_by_a per workgroup, amortised over TPB*C pairs.
+  // ONE kernel, ONE global pass, ZERO global scratch buffers. Same
+  // partials set and lean affine formula as gen_ba_fused_tight_bench_shader.
+  public gen_ba_wgamort_bench_shader(
+    workgroup_size: number,
+    chunk: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_wgamort_bench_shader, {
+      workgroup_size,
+      chunk,
+      r_limbs: this.r_limbs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Two-kernel pipeline stage 1, SoA inverse-only. skip_dxs recomputes dx
+  // in the backward pass instead of caching it (halves the private array).
+  public gen_ba_invonly_soa_bench_shader(
+    workgroup_size: number,
+    ch: number,
+    skip_dxs: boolean,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_invonly_soa_bench_shader, {
+      workgroup_size,
+      ch,
+      r_limbs: this.r_limbs,
+      skip_dxs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Isolation bench: proposed per-thread serial Montgomery batch-inverse
+  // (prefix in private registers, no cross-thread scan, no workgroup mem).
+  // Same partial surface as gen_fr_inv_bench_shader's `fr_inv_by_a` variant
+  // (fr_inv_by_a lives in the by_inverse_a partial). `ch` = pairs/thread
+  // (compile-time chunk). `do_invert=false` skips the single fr_inv_by_a so
+  // the non-inversion overhead can be measured in isolation.
+  public gen_ba_serial_bench_shader(
+    workgroup_size: number,
+    ch: number,
+    do_invert: boolean,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_serial_bench_shader, {
+      workgroup_size,
+      ch,
+      r_limbs: this.r_limbs,
+      do_invert: do_invert ? 'true' : 'false',
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
+  // Two-kernel pipeline stage 1: inverse-only (writes inv_dx/pair, no
+  // affine formula). Same partial surface as gen_ba_serial_bench_shader.
+  public gen_ba_invonly_bench_shader(
+    workgroup_size: number,
+    ch: number,
+    mont_variant: 'karat' | 'cios' | 'karat_lean' = 'karat',
+    skip_dxs = false,
+  ): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.pickMontSrc(mont_variant);
+    const field_src = mustache.render(field_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const fr_pow_src = mustache.render(fr_pow_funcs, {
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      r_limbs: this.r_limbs,
+      r_cubed_limbs: this.r_cubed_limbs,
+      p_minus_2_limbs: this.p_minus_2_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+    });
+    const bigint_by_src = mustache.render(bigint_by_funcs, { num_words: this.num_words });
+    const by_a_src = this.renderByInverseAFuncs();
+    const entry_src = mustache.render(ba_invonly_bench_shader, {
+      workgroup_size,
+      ch,
+      r_limbs: this.r_limbs,
+      skip_dxs,
+    });
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${fr_pow_src}
+${bigint_by_src}
+${by_a_src}
+${entry_src}`;
+  }
+
   // Bench-only entry shader for the BY `by_divsteps` primitive. Assembles
   // the BY helpers (bigint_by) + the by_inverse partial (which hosts the
   // `Mat` struct and `by_divsteps`) + the per-thread bench entry.
@@ -1423,7 +3131,44 @@ ${entry_src}`;
   // sub-sub-products → inner combines → outer combine → Yuval reduce →
   // final canonicalize) via mustache `{{#each}}` sections. The TS here
   // just provides the index arrays + r_inv limb constants.
+  // Render the CIOS (mitschabaude) montgomery_product partial body. Smaller
+  // register footprint than the fully-unrolled Karatsuba+Yuval body — slower
+  // in the 1-BigInt chained microbench but a stronger candidate in
+  // register-pressured composite kernels (affine add, batch-affine).
+  private renderCiosMont(): string {
+    return mustache.render(montgomery_product_funcs, {
+      num_words: this.num_words,
+      word_size: this.word_size,
+      n0: this.n0,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+      p_limbs: this.p_limbs,
+    });
+  }
+
+  private pickMontSrc(variant: 'karat' | 'cios' | 'karat_lean'): string {
+    if (variant === 'cios') return this.renderCiosMont();
+    if (variant === 'karat_lean') return this.renderKaratLeanMont();
+    return this.mont_product_src;
+  }
+
+  // Same Karatsuba+Yuval math/context as renderKaratYuvalMont, rendered
+  // into the lean template (2N-wide accumulator as an addressable
+  // `var t: array<u32,2N>` instead of 40 individually-named live scalars).
+  private renderKaratLeanMont(): string {
+    const ctx = this.buildKaratCtx();
+    return mustache.render(montgomery_product_karat_lean_funcs, {
+      ...ctx,
+      double_words: this.num_words * 2,
+    });
+  }
+
   private renderKaratYuvalMont(): string {
+    return mustache.render(montgomery_product_karat_yuval_funcs, this.buildKaratCtx());
+  }
+
+  private buildKaratCtx(): Record<string, unknown> {
     const N = this.num_words; // 20
     const WS = this.word_size; // 13
     const W = 1n << BigInt(WS);
@@ -1522,7 +3267,7 @@ ${entry_src}`;
     const extract: Array<{ out_k: number; src_slot: number }> = [];
     for (let i = 0; i < N; i++) extract.push({ out_k: i, src_slot: N + i });
 
-    return mustache.render(montgomery_product_karat_yuval_funcs, {
+    return {
       num_words: N,
       word_size: WS,
       n0: this.n0,
@@ -1542,7 +3287,7 @@ ${entry_src}`;
       standard_writes,
       final_drain,
       extract,
-    });
+    };
   }
 
   // Renders mont_pro_product_f32_22_sos3uv3.template.wgsl. The .wgsl owns
