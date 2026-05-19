@@ -287,6 +287,48 @@ in the span of the actual rows at levels $k+1,\ldots,d-1$ on the tail-halving
 support. The boundary-slice branch-sum argument in Appendix B is evidence for
 this dependence, but it is no longer the preferred formulation of the proof.
 
+The containment reduces to a quotient interpolation statement. Put $h=k+1$ and
+$D=d-h$. After factoring the common nonzero row multiplier $\ell_h(s)$, the
+higher rows depend only on
+
+$$
+q=q_h(s).
+$$
+
+The distinct quotient columns are
+
+$$
+Q_D=\{2^D-1,\;2^{D-1},\;2^{D-1}-1,\;\ldots,\;2,\;1,\;0\},
+$$
+
+of size $2D$. The rows from levels $h,\ldots,d-1$ become the same Step-A/B row
+system on $Q_D$, with local levels $0,\ldots,D-1$ and parameters
+$u_h,\ldots,u_{d-1}$ and $r_h,\ldots,r_{d-1}$.
+
+**Quotient interpolation lemma (reduced target).** *For the quotient support
+$Q_D$, the $2D$ Step-A/B rows have full rank. Therefore every row*
+
+$$
+q\longmapsto X^q
+$$
+
+*restricted to $Q_D$ lies in their span. In particular, taking $X=r_k^2$ gives
+the virtual row needed above.*
+
+This lemma is the current algebraic core. It is verified for the relevant small
+quotient depths by exact rational rank computation. A promising proof is by
+specialising $u_i=\tfrac12$ and $r_i=0$: after removing nonzero row scalars, the
+quotient matrix has rows
+
+$$
+A_t(q)=\mathbf 1_{q\ge 2^t}\,\tau^{\lfloor q/2^t\rfloor-1},\qquad
+B_t(q)=\mathbf 1_{q<2^t},
+$$
+
+on $Q_D$, and exact checks show this specialised matrix has rank $2D$ for
+$D\le 8$. The remaining work is to write the finite-difference/triangular
+argument for this specialised matrix uniformly in $D$.
+
 ---
 
 ## 8. Status
@@ -313,13 +355,13 @@ this dependence, but it is no longer the preferred formulation of the proof.
 |---|---|
 | Full closed form at $d=3,4,5$ | direct computation in `SHPLEMINI_ZK_SMALL_CASES.md` |
 | Branch-sum diagnostics at $d=3,4,5$ | boundary-slice cancellations match the row-dependence picture |
+| Quotient interpolation specialisation | exact rational full-rank checks through quotient depth $D=8$ |
 
 **Open:**
 
-1. **Extend the row-dependence mechanism from $k=d-2$ to lower levels.** At
-$\tau=r_k$, the level-$k$ rows produce a virtual level-$(k+1)$ evaluation at
-$r_k^2$. Need to show this virtual row lies in the span of the actual rows at
-levels $k+1,\ldots,d-1$ on the tail-halving support.
+1. **Prove the quotient interpolation lemma.** This would put the virtual
+level-$(k+1)$ row in the span of the actual higher rows for every
+$k<d-2$, proving all remaining positive divisors $\tau-r_k$.
 
 2. **Relate the boundary branch-sum proof to row dependence.** Appendix B proves the
 $u_{d-2}=0$ slice by a pairwise swap, but §7 proves the full top-adjacent
@@ -342,7 +384,7 @@ of the row dependence; this has not been written out.
 |---|---|---|
 | $\tau + r_k$ for $k = 0, \ldots, d-1$ | $\tau = -r_k$ | Lemma A (proved) |
 | $\tau - r_{d-2}$ | $\tau = r_{d-2}$ | explicit row dependence (proved) |
-| $\tau - r_k$ for $k = 1, \ldots, d-3$ | $\tau = r_k$ | virtual-row dependence (open) |
+| $\tau - r_k$ for $k = 1, \ldots, d-3$ | $\tau = r_k$ | quotient interpolation lemma (open) |
 | $\tau^{E-4} - r_0^{E-4}$ | $\tau^{E-4} = r_0^{E-4}$ | refined Lemma P at level 0 (open) |
 | $r_0^2, \tau^2$ | $r_0 = 0, \tau = 0$ | residual from level-0 / Lemma C powers (open) |
 | $L_0(u_{<k})L_{2^k-1}(u_{<k})$ | Lagrange zero loci | $\ell_k$ content from level-$k$ peel (open) |
