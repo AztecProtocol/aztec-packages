@@ -1,0 +1,47 @@
+name: Aztec Foundation CI bot hello
+
+on:
+  pull_request:
+    branches:
+      - next
+    paths:
+      - .github/workflows/aztec-foundation-ci-bot-hello.yml
+
+permissions:
+  contents: read
+
+jobs:
+  auth-test:
+    name: Slack auth.test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Aztec Foundation CI Slack bot secret
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "::error::AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN is not configured"
+            exit 1
+          fi
+
+          curl -fsS \
+            -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            https://slack.com/api/auth.test > slack-auth.json
+
+          python3 - <<'PY'
+          import json
+          import sys
+
+          with open("slack-auth.json", encoding="utf-8") as f:
+              data = json.load(f)
+          if not data.get("ok"):
+              print(f"::error::Slack auth.test failed: {data}", file=sys.stderr)
+              sys.exit(1)
+          print(
+              "Aztec Foundation CI Slack bot authenticated "
+              f"team={data.get('team')} team_id={data.get('team_id')} "
+              f"user_id={data.get('user_id')} bot_id={data.get('bot_id')}"
+          )
+          PY
