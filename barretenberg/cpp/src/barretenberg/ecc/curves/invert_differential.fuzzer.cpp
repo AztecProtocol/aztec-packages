@@ -5,15 +5,20 @@
  * Reuses the FieldVM driver from `multi_field.fuzzer.cpp` to generate diverse
  * field elements via sequences of arithmetic operations.  After each VM phase
  * it takes the last element produced (the highest-indexed non-zero slot in the
- * VM's internal state, with a fallback to slot 0) and computes its inverse two
- * different ways:
+ * VM's internal state, with a fallback to slot 0) and computes its inverse
+ * three different ways:
  *
  *   - A: `pow(modulus_minus_two)` — Fermat's little theorem (modexp).
- *   - B: `bernstein_yang::invert_bernsteinyang19(non_mont, p, p_inv_62)` — variable-time safegcd.
+ *   - B: `invert_bernsteinyang19<Native5x64>` — safegcd, 5×64-bit limb kernel
+ *        (selected on native targets, BATCH=62).
+ *   - C: `invert_bernsteinyang19<Wasm9x29>` — safegcd, 9×29-bit limb kernel
+ *        (selected on WASM targets, BATCH=58).
  *
- * Results are compared in canonical (non-Montgomery) form.  Any discrepancy
- * triggers an abort with full diagnostic output (field type, input, both
- * outputs, Montgomery check `a * A ?= 1` and `a * B ?= 1`).
+ * All three are compared in canonical (non-Montgomery) form.  Any discrepancy
+ * triggers an abort with full diagnostic output (field type, input, all three
+ * outputs, plus Montgomery checks `a * X ?= 1` for each).  Cross-checking the
+ * WASM kernel here gives it libFuzzer coverage even though libFuzzer itself
+ * doesn't run under WASM — both kernels are plain C++ classes.
  *
  * Only 254-bit primes are tested (BN254 Fr/Fq, Grumpkin shares the BN254
  * curves), since the 5-limb signed BY state requires p < 2^255 and the
@@ -74,6 +79,24 @@ static void import_state_with_reduction(FieldVM<Field>& vm, const std::vector<ui
 // Fetches `a_raw` (the non-Montgomery integer) from the VM's uint state and
 // computes a^{-1} two ways; aborts on mismatch.
 // ---------------------------------------------------------------
+template <typename Field> static Field raw_to_montgomery(const uint256_t& raw)
+{
+    Field f{ raw.data[0], raw.data[1], raw.data[2], raw.data[3] };
+    f.self_to_montgomery_form();
+    return f;
+}
+
+static void print_limbs(const char* label, const uint256_t& v)
+{
+    std::fprintf(stderr,
+                 "  %s = 0x%016lx%016lx%016lx%016lx\n",
+                 label,
+                 (unsigned long)v.data[3],
+                 (unsigned long)v.data[2],
+                 (unsigned long)v.data[1],
+                 (unsigned long)v.data[0]);
+}
+
 template <typename Field> static void differential_check_inverse(const Field& a_mont, const uint256_t& a_raw)
 {
     if (a_raw == 0) {
@@ -81,58 +104,45 @@ template <typename Field> static void differential_check_inverse(const Field& a_
     }
 
     // A: Fermat via pow. We bypass field::invert() (which now dispatches into
-    // BY) by calling pow(modulus_minus_two) directly, so both paths are
+    // BY) by calling pow(modulus_minus_two) directly, so the paths are
     // genuinely independent implementations.
     Field fermat_inv = a_mont.pow(Field::modulus_minus_two);
 
-    // B: Bernstein-Yang safegcd, called with the raw (non-Montgomery) value.
-    constexpr uint64_t p_inv_62 = bernstein_yang::p_inv_mod_2k_from_montgomery_r_inv(Field::Params::r_inv);
+    // B, C: Bernstein-Yang safegcd, called with the raw (non-Montgomery) value
+    // on both the Native5x64 (BATCH=62) and Wasm9x29 (BATCH=58) kernels.
+    // Each kernel needs its own p_inv_mod_2^BATCH constant.
     constexpr uint256_t p_uint = Field::modulus;
-    uint256_t by_inv_raw = bernstein_yang::invert_bernsteinyang19(a_raw, p_uint, p_inv_62);
-    // Lift back into Montgomery form so we can compare field values directly.
-    Field by_inv{ by_inv_raw.data[0], by_inv_raw.data[1], by_inv_raw.data[2], by_inv_raw.data[3] };
-    by_inv.self_to_montgomery_form();
+    constexpr uint64_t p_inv_native =
+        bernstein_yang::Native5x64::p_inv_mod_2k_from_montgomery_r_inv(Field::Params::r_inv);
+    constexpr uint64_t p_inv_wasm = bernstein_yang::Wasm9x29::p_inv_mod_2k_from_montgomery_r_inv(Field::Params::r_inv);
 
-    if (fermat_inv != by_inv) {
-        std::fprintf(stderr, "\n[invert_differential.fuzzer] MISMATCH\n");
-        std::fprintf(stderr, "  field: %s\n", typeid(Field).name());
-        std::fprintf(stderr,
-                     "  a_raw = 0x%016lx%016lx%016lx%016lx\n",
-                     (unsigned long)a_raw.data[3],
-                     (unsigned long)a_raw.data[2],
-                     (unsigned long)a_raw.data[1],
-                     (unsigned long)a_raw.data[0]);
-        uint256_t fa = static_cast<uint256_t>(fermat_inv);
-        uint256_t fb = static_cast<uint256_t>(by_inv);
-        std::fprintf(stderr,
-                     "  fermat = 0x%016lx%016lx%016lx%016lx\n",
-                     (unsigned long)fa.data[3],
-                     (unsigned long)fa.data[2],
-                     (unsigned long)fa.data[1],
-                     (unsigned long)fa.data[0]);
-        std::fprintf(stderr,
-                     "  BY     = 0x%016lx%016lx%016lx%016lx\n",
-                     (unsigned long)fb.data[3],
-                     (unsigned long)fb.data[2],
-                     (unsigned long)fb.data[1],
-                     (unsigned long)fb.data[0]);
-        uint256_t check_fermat = static_cast<uint256_t>(a_mont * fermat_inv);
-        uint256_t check_by = static_cast<uint256_t>(a_mont * by_inv);
-        std::fprintf(stderr,
-                     "  a * fermat = 0x%016lx%016lx%016lx%016lx  (expect 1)\n",
-                     (unsigned long)check_fermat.data[3],
-                     (unsigned long)check_fermat.data[2],
-                     (unsigned long)check_fermat.data[1],
-                     (unsigned long)check_fermat.data[0]);
-        std::fprintf(stderr,
-                     "  a * BY     = 0x%016lx%016lx%016lx%016lx  (expect 1)\n",
-                     (unsigned long)check_by.data[3],
-                     (unsigned long)check_by.data[2],
-                     (unsigned long)check_by.data[1],
-                     (unsigned long)check_by.data[0]);
-        std::fflush(stderr);
-        std::abort();
+    uint256_t native_inv_raw =
+        bernstein_yang::invert_bernsteinyang19<bernstein_yang::Native5x64>(a_raw, p_uint, p_inv_native);
+    uint256_t wasm_inv_raw =
+        bernstein_yang::invert_bernsteinyang19<bernstein_yang::Wasm9x29>(a_raw, p_uint, p_inv_wasm);
+
+    Field native_inv = raw_to_montgomery<Field>(native_inv_raw);
+    Field wasm_inv = raw_to_montgomery<Field>(wasm_inv_raw);
+
+    const bool native_ok = (fermat_inv == native_inv);
+    const bool wasm_ok = (fermat_inv == wasm_inv);
+    if (native_ok && wasm_ok) {
+        return;
     }
+
+    std::fprintf(stderr, "\n[invert_differential.fuzzer] MISMATCH\n");
+    std::fprintf(stderr, "  field:       %s\n", typeid(Field).name());
+    std::fprintf(stderr, "  native_ok:   %s\n", native_ok ? "yes" : "NO");
+    std::fprintf(stderr, "  wasm_ok:     %s\n", wasm_ok ? "yes" : "NO");
+    print_limbs("a_raw     ", a_raw);
+    print_limbs("fermat    ", static_cast<uint256_t>(fermat_inv));
+    print_limbs("BY native ", static_cast<uint256_t>(native_inv));
+    print_limbs("BY wasm   ", static_cast<uint256_t>(wasm_inv));
+    print_limbs("a*fermat  ", static_cast<uint256_t>(a_mont * fermat_inv));
+    print_limbs("a*native  ", static_cast<uint256_t>(a_mont * native_inv));
+    print_limbs("a*wasm    ", static_cast<uint256_t>(a_mont * wasm_inv));
+    std::fflush(stderr);
+    std::abort();
 }
 
 // Pick the last element produced: highest-indexed non-zero slot of the VM's
