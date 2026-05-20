@@ -283,6 +283,26 @@ pub contract AvmTest {
         input.to_le_bits()
     }
 
+    // Exercises Schnorr signature verification in public. The grumpkin-Poseidon2 variant
+    // (schnorr v0.4.0+) only relies on EC arithmetic and Poseidon2, both of which the public AVM
+    // supports. Inputs are parameters rather than constants; when bulk_testing routes them in
+    // from calldata, Noir can't constant-fold the verify away and MSM+Poseidon2 actually execute.
+    #[contract_library_method]
+    fn _schnorr_verify_signature(
+        pubkey_x: Field,
+        pubkey_y: Field,
+        sig_s_lo: Field,
+        sig_s_hi: Field,
+        sig_e_lo: Field,
+        sig_e_hi: Field,
+        message: Field,
+    ) -> bool {
+        let public_key = std::embedded_curve_ops::EmbeddedCurvePoint::new(pubkey_x, pubkey_y);
+        let sig_s = std::embedded_curve_ops::EmbeddedCurveScalar::new(sig_s_lo, sig_s_hi);
+        let sig_e = std::embedded_curve_ops::EmbeddedCurveScalar::new(sig_e_lo, sig_e_hi);
+        schnorr::verify_signature(public_key, (sig_s, sig_e), message)
+    }
+
     // Helper functions to demonstrate an internal call stack in error messages
     #[contract_library_method]
     fn inner_helper_with_failed_assertion() {
@@ -856,6 +876,7 @@ pub contract AvmTest {
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
         expected_immutables_hash: Field,
+        schnorr_inputs: [Field; 7],
         skip_strictly_limited_side_effects: bool,
     ) {
         aztec::oracle::logging::debug_log("biwise_ops");
@@ -877,6 +898,17 @@ pub contract AvmTest {
         let _ = sha256::sha256_var(args_u8, args_u8.len());
         aztec::oracle::logging::debug_log("poseidon2_hash");
         let _ = poseidon::poseidon2::Poseidon2::hash(args_field, args_field.len());
+        aztec::oracle::logging::debug_log("schnorr_verify_signature");
+        let schnorr_ok = _schnorr_verify_signature(
+            schnorr_inputs[0],
+            schnorr_inputs[1],
+            schnorr_inputs[2],
+            schnorr_inputs[3],
+            schnorr_inputs[4],
+            schnorr_inputs[5],
+            schnorr_inputs[6],
+        );
+        assert(schnorr_ok, "Schnorr signature should verify");
         aztec::oracle::logging::debug_log("pedersen_hash");
         let _ = std::hash::pedersen_hash(args_field);
         aztec::oracle::logging::debug_log("pedersen_hash_with_index");
@@ -948,5 +980,30 @@ pub contract AvmTest {
         let first_bit = _to_le_bits(args_field[0])[0];
         assert(first_bit);
         //let _ = nested_call_to_nothing_recovers();
+    }
+}
+
+mod test {
+    use std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar};
+
+    // Pins the same vector as `_schnorr_verify_signature` in the contract above (mirroring the C++
+    // pinned_test_vector_large) so a regression in the schnorr lib or noir submodule is caught at
+    // `nargo test` time rather than only when running the AVM end-to-end test.
+    #[test]
+    unconstrained fn schnorr_pinned_vector_verifies() {
+        let public_key = EmbeddedCurvePoint::new(
+            0x065812e335a97c2108ea8cf4ccfe2f9dd6b117a0714f5e18461575be93f61da6,
+            0x1a915003e8ec534f9a15d926a7ded478e178468ccc4f28e236e67450a55ac622,
+        );
+        let sig_s = EmbeddedCurveScalar::new(
+            0xf3bc3b7147acb9c621fd9f72dbf15ffa,
+            0x08599f379f0301dfefdbd0272554454d,
+        );
+        let sig_e = EmbeddedCurveScalar::new(
+            0x97065383ebbbd76620398792bd259bc2,
+            0x2ceaee87f45b7a417f0ffb05451a8c92,
+        );
+        let message: Field = 0x0123456789abcdef0fedcba9876543210123456789abcdef0fedcba987654321;
+        assert(schnorr::verify_signature(public_key, (sig_s, sig_e), message));
     }
 }
