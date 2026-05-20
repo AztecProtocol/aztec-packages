@@ -5,7 +5,7 @@
 // WHY: the full MSM bucket-accumulate super-kernel amortises one field
 // inversion across S affine adds via the batched-inverse trick. Knowing
 // the raw cost RATIO — how many field multiplies one inversion buys —
-// tells us how aggressively that amortisation has to work, and is the
+// tells us how aggressively that amortisation 9 to work, and is the
 // number to watch when a new inverse variant is swapped in. Measuring
 // each op alone (not inside the super-kernel) removes the register-
 // pressure compounding that distorts a per-op figure taken from the
@@ -195,6 +195,22 @@ async function compileOne(
       log('err', line);
       errLines.push(line);
       hasError = true;
+      // Diagnostic: dump source context + code points around the error so
+      // an "invalid character" can be pinpointed exactly. Goes through
+      // log() -> the page panel AND benchState.log, which postFinal POSTs
+      // to /results (i.e. /tmp/msm-webgpu-results.jsonl).
+      const src = code.split('\n');
+      const ln = Number(m.lineNum) || 0;
+      for (let d = -4; d <= 4; d++) {
+        const idx = ln - 1 + d;
+        if (idx >= 0 && idx < src.length) log('err', `${d === 0 ? '>>' : '  '}${idx + 1}: ${src[idx]}`);
+      }
+      const offending = src[ln - 1] ?? '';
+      const cps: string[] = [];
+      for (let j = 0; j < Math.min(offending.length, 80); j++) {
+        cps.push(`U+${(offending.codePointAt(j) ?? 0).toString(16)}`);
+      }
+      log('err', `line ${ln} codepoints: ${cps.join(' ')}`);
     } else {
       console.warn(line);
     }

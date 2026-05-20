@@ -12,10 +12,14 @@
 
 // Standalone throughput microbench for one base-field inversion — a
 // Bernstein-Yang safegcd inverse. The inverse is parameterised: the
-// `{{> inverse_funcs }}` partial and the `{{ inv_fn }}` call name are
-// host-supplied (gen_bench_field_inv_shader's `variant` arg), so the
-// same kernel benches `by_inverse_a` (Option A, BATCH=26 / NUM_OUTER=29)
-// or `by_inverse_loop` (register-minimal, BATCH=12 / NUM_OUTER=62).
+// inverse-functions partial and the inverse-call name are host-supplied
+// (gen_bench_field_inv_shader's `variant` arg), so the same kernel
+// benches `by_inverse_a` (Option A, BATCH=26 / NUM_OUTER=29) or
+// `by_inverse_loop` (register-minimal, BATCH=12 / NUM_OUTER=62).
+//
+// NOTE: do not write Mustache tags (double-brace, or > / # forms) in
+// these comments — Mustache renders them regardless of WGSL comment
+// syntax; a partial tag would inline a whole partial mid-comment.
 //
 // GOAL: isolate the ns-per-inversion of one field inverse, free of the
 // register-pressure interactions of the full MSM super-kernel, so it
@@ -81,6 +85,15 @@ fn store_packed(buf_idx: u32, val: ptr<function, BigInt>) {
     sink[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
 }
 
+// Montgomery 1 (R mod p). The safegcd inverse never calls it, but the
+// included fr_pow partial does, and WGSL validates every function in the
+// module — so this kernel-level definition must exist.
+fn get_r() -> BigInt {
+    var r: BigInt;
+{{{ r_limbs }}}
+    return r;
+}
+
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let threads = params.x;
@@ -103,8 +116,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         // plausible ITERS (< 2^13), so `operand` stays a well-formed,
         // nonzero BigInt.
         operand.limbs[0] = operand.limbs[0] + 1u;
-        // The inverse routine: {{ inv_fn }} resolves to fr_inv_by_a or
-        // fr_inv_by_loop per the host-selected variant.
+        // The inverse routine resolves to fr_inv_by_a or fr_inv_by_loop
+        // per the host-selected variant.
         var inv: BigInt = {{ inv_fn }}(operand);
         for (var k: u32 = 0u; k < NUM_WORDS; k = k + 1u) {
             s.limbs[k] = s.limbs[k] ^ inv.limbs[k];
