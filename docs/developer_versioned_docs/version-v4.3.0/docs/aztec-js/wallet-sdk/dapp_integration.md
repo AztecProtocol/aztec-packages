@@ -15,7 +15,7 @@ This guide shows how a dApp connects to an Aztec wallet extension using `@aztec/
 ## Install
 
 ```bash
-yarn add @aztec/wallet-sdk@4.2.0 @aztec/aztec.js@4.2.0
+yarn add @aztec/wallet-sdk@4.3.0 @aztec/aztec.js@4.3.0
 ```
 
 Common imports:
