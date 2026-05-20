@@ -14,6 +14,11 @@ import {
   ba_pair_disjoint_tree_bench as ba_pair_disjoint_tree_bench_shader,
   ba_planner_bench as ba_planner_bench_shader,
   ba_planner_v2_bench as ba_planner_v2_bench_shader,
+  ba_planner_v2_prod as ba_planner_v2_prod_shader,
+  ba_marshal_pairs_prod as ba_marshal_pairs_prod_shader,
+  ba_pair_disjoint_tree_prod as ba_pair_disjoint_tree_prod_shader,
+  ba_scatter_pairs_prod as ba_scatter_pairs_prod_shader,
+  ba_carry_copy_prod as ba_carry_copy_prod_shader,
   ba_scatter_pairs_bench as ba_scatter_pairs_bench_shader,
   ba_tail_reduce_bench as ba_tail_reduce_bench_shader,
   ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
@@ -911,6 +916,111 @@ ${packLines.join('\n')}
       csr_to_v2_active_sums_shader,
       { workgroup_size, recompile: this.recompile },
       {},
+    );
+  }
+
+  /**
+   * Production v2 GPU planner. Same algorithm as
+   * gen_ba_planner_v2_bench_shader, additionally emits per-level
+   * dispatch_args triples into totals[4..6] (marshal/disjoint/scatter)
+   * and totals[7..9] (carry) so the host orchestrator can drive the
+   * four downstream prod kernels via dispatchWorkgroupsIndirect with
+   * zero pad-chunk waste. wgi must match the workgroup size used to
+   * compile the four downstream prod kernels.
+   */
+  public gen_ba_planner_v2_prod_shader(workgroup_size: number, per_thread: number, s: number, wgi: number, pair_cap: number = 64): string {
+    if (workgroup_size <= 0 || per_thread <= 0 || s <= 0 || wgi <= 0 || pair_cap <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(per_thread) || !Number.isInteger(s) || !Number.isInteger(wgi) || !Number.isInteger(pair_cap)) {
+      throw new Error(`gen_ba_planner_v2_prod_shader: positive integer args required`);
+    }
+    return mustache.render(
+      ba_planner_v2_prod_shader,
+      { workgroup_size, per_thread, pair_cap, s, wgi, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Marshal pairs — prod variant. Reads num_chunks from
+   * totals[3] (storage), dispatched indirectly off totals[4..6].
+   */
+  public gen_ba_marshal_pairs_prod_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_marshal_pairs_prod_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    return mustache.render(
+      ba_marshal_pairs_prod_shader,
+      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Disjoint pair-sum tree — prod variant. Reads T_curr from
+   * totals[3] (storage), always uses the final-mode strided write.
+   */
+  public gen_ba_pair_disjoint_tree_prod_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_pair_disjoint_tree_prod_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_pair_disjoint_tree_prod_shader,
+      {
+        workgroup_size,
+        s,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Scatter pairs — prod variant. Reads T from totals[3] (storage).
+   */
+  public gen_ba_scatter_pairs_prod_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_scatter_pairs_prod_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    return mustache.render(
+      ba_scatter_pairs_prod_shader,
+      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Carry copy — prod variant. Reads num_carries from totals[1] (storage).
+   */
+  public gen_ba_carry_copy_prod_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_carry_copy_prod_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(
+      ba_carry_copy_prod_shader,
+      { workgroup_size, num_words: this.num_words, recompile: this.recompile },
+      { structs },
     );
   }
 
