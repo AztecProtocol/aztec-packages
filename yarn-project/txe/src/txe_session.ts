@@ -1,4 +1,3 @@
-import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -54,16 +53,16 @@ import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
-import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './txe_oracle_version.js';
+import {
+  MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
+  MAX_OFFCHAIN_EFFECT_LEN,
+  TXE_ORACLE_VERSION_MAJOR,
+  TXE_ORACLE_VERSION_MINOR,
+} from './txe_oracle_version.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
-
-// Arbitrarily set at 64 because we need a bound. Nothing inherent about it.
-export const MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY = 64;
-// Must match MAX_OFFCHAIN_EFFECT_LEN in noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr.
-export const MAX_OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN;
 
 /**
  * A TXE Session can be in one of four states, which change as the test progresses and different oracles are called.

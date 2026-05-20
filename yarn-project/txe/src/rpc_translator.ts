@@ -20,12 +20,9 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { GasSettings } from '@aztec/stdlib/gas';
 
+import { MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
-import {
-  MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
-  MAX_OFFCHAIN_EFFECT_LEN,
-  type TXESessionStateHandler,
-} from './txe_session.js';
+import type { TXESessionStateHandler } from './txe_session.js';
 import {
   type ForeignCallArray,
   type ForeignCallSingle,
