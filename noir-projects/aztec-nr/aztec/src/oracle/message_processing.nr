@@ -13,7 +13,7 @@ pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> Ephe
     EphemeralArray::at(result_slot)
 }
 
-#[oracle(aztec_utl_getPendingTaggedLogs_v2)]
+#[oracle(aztec_utl_getPendingTaggedLogs)]
 unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> Field {}
 
 /// Validates note/event requests stored in ephemeral arrays.
@@ -33,7 +33,7 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     );
 }
 
-#[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2)]
+#[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents)]
 unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     note_validation_requests_array_slot: Field,
     event_validation_requests_array_slot: Field,
@@ -46,23 +46,23 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
 pub(crate) unconstrained fn get_logs_by_tag(
     requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<Option<LogRetrievalResponse>> {
-    let response_slot = get_logs_by_tag_v2_oracle(requests.slot);
+    let response_slot = get_logs_by_tag_oracle(requests.slot);
     EphemeralArray::at(response_slot)
 }
 
-#[oracle(aztec_utl_getLogsByTag_v2)]
-unconstrained fn get_logs_by_tag_v2_oracle(request_array_slot: Field) -> Field {}
+#[oracle(aztec_utl_getLogsByTag)]
+unconstrained fn get_logs_by_tag_oracle(request_array_slot: Field) -> Field {}
 
 /// Resolves message contexts for tx hashes in an ephemeral request array and returns a response ephemeral array.
 pub(crate) unconstrained fn get_message_contexts_by_tx_hash(
     requests: EphemeralArray<Field>,
 ) -> EphemeralArray<Option<MessageContext>> {
-    let response_slot = get_message_contexts_by_tx_hash_v2_oracle(requests.slot);
+    let response_slot = get_message_contexts_by_tx_hash_oracle(requests.slot);
     EphemeralArray::at(response_slot)
 }
 
-#[oracle(aztec_utl_getMessageContextsByTxHash_v2)]
-unconstrained fn get_message_contexts_by_tx_hash_v2_oracle(request_array_slot: Field) -> Field {}
+#[oracle(aztec_utl_getMessageContextsByTxHash)]
+unconstrained fn get_message_contexts_by_tx_hash_oracle(request_array_slot: Field) -> Field {}
 
 /// Fetches all effects of a settled transaction by its hash.
 pub unconstrained fn get_tx_effect(tx_hash: Field) -> Option<TxEffect> {
