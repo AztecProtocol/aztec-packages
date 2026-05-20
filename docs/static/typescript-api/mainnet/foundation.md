@@ -1416,7 +1416,7 @@ type NetworkConfigMap = z.infer<typeof NetworkConfigMapSchema>
 
 ### NetworkNames
 ```typescript
-type NetworkNames = "local" | "staging-ignition" | "staging-public" | "testnet" | "mainnet" | "next-net" | "devnet"
+type NetworkNames = "local" | "staging-public" | "testnet" | "mainnet" | "next-net" | "devnet"
 ```
 
 ### PartialBy

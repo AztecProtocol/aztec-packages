@@ -58,13 +58,12 @@ Functionally, it is `v1`.
 It deploys the following networks:
 
 - staging-public, which is used to test changes before releasing to testnet
-- staging-ignition, which is use to test changes before releasing to mainnet
 
 Release-please has been configured on `v2`. When the release-please PR is merged, it creates a clean tag at the next minor version.
 
 For example, at the time of writing, we are at `v2.0.3-rc.4`. When the release please PR is merged, it will create a tag `v2.0.4`.
 
-This will cause ci3.yml to run a release, and then deploy-staging-networks.yml to run and deploy the two networks mentioned above as well as `testnet`.
+This will cause ci3.yml to run a release, and then deploy-staging-networks.yml to run and deploy the staging network mentioned above as well as `testnet`.
 
 #### hotfixes
 
