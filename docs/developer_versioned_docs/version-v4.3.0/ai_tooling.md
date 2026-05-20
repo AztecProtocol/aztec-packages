@@ -65,14 +65,7 @@ Start here if you're unsure what to set up.
 
 ### Claude Code
 
-Install the Aztec and Noir plugins from the marketplace. These include the MCP servers plus additional skills, commands, and agents:
-
-```bash
-/plugin marketplace add critesjosh/aztec-claude-plugin
-/plugin install aztec@aztec-plugins
-```
-
-Or add the MCP servers directly:
+Add the MCP servers:
 
 ```bash
 claude mcp add aztec -- npx @aztec/mcp-server@latest
