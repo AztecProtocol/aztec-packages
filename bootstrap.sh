@@ -480,7 +480,7 @@ function release_github {
 
 function release {
   # Our releases are controlled by the REF_NAME environment variable, which should be a valid semver (but can have a leading v).
-  # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
+  # We ensure there is a github release for our REF_NAME.
   # We derive a dist tag from our prerelease portion of our REF_NAME semver. It is latest if no prerelease.
   # Our steps:
   #   barretenberg/cpp => upload binaries to github release
