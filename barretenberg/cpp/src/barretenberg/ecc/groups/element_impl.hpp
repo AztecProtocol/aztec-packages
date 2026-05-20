@@ -63,6 +63,10 @@ constexpr element<Fq, Fr, T>& element<Fq, Fr, T>::operator=(element&& other) noe
     return *this;
 }
 
+// Warning: variable-time — calls `z.invert()` (Bernstein-Yang safegcd).  Do not
+// use on points derived from secret material (signing nonces, private keys, DH
+// shared secrets).  For those, call `to_affine_const_time()` explicitly; the
+// implicit conversion does NOT pick up the const-time path.
 template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator affine_element<Fq, Fr, T>() const noexcept
 {
     if (is_point_at_infinity()) {
@@ -478,6 +482,8 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_const_time(const Fr& scalar, numeric:
     return R0;
 }
 
+// Warning: variable-time via the implicit affine conversion above.  For
+// secret-input points use `normalize_const_time()`.
 template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T> element<Fq, Fr, T>::normalize() const noexcept
 {
     const affine_element<Fq, Fr, T> converted = *this;

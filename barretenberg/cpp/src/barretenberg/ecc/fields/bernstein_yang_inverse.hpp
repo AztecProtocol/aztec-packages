@@ -70,6 +70,13 @@ class Native5x64 {
     // reductions, plenty of headroom).
     static constexpr int REDUCE_INTERVAL = 4;
 
+    // Worst-case iteration cap inside reduce_to_canonical.  After
+    // REDUCE_INTERVAL iters between reductions, |d|, |e| ≤ (2^(REDUCE_INTERVAL+1) - 1)·p,
+    // so reducing requires that many subtractions plus one break iter.
+    static constexpr int REDUCE_TO_CANONICAL_MAX_ITERS = 36;
+    static_assert((1U << (REDUCE_INTERVAL + 1)) <= REDUCE_TO_CANONICAL_MAX_ITERS,
+                  "REDUCE_INTERVAL too large for reduce_to_canonical iteration bound");
+
     Native5x64() noexcept
         : l{}
     {}
@@ -96,10 +103,11 @@ class Native5x64 {
             l[i] = v;
         }
     }
-    // Bound 36 covers |x| ≤ 32p worst case under REDUCE_INTERVAL = 4.
+    // Iter cap chosen by the REDUCE_TO_CANONICAL_MAX_ITERS / REDUCE_INTERVAL
+    // static_assert above; see those constants for the magnitude argument.
     void reduce_to_canonical(const Native5x64& p) noexcept
     {
-        for (int it = 0; it < 36; ++it) {
+        for (int it = 0; it < REDUCE_TO_CANONICAL_MAX_ITERS; ++it) {
             if (is_negative()) {
                 add_inplace(p);
             } else if (ge(p)) {
@@ -128,7 +136,8 @@ class Native5x64 {
     // 2^BATCH is the low BATCH bits of -r_inv.
     static constexpr u64 p_inv_mod_2k_from_montgomery_r_inv(u64 r_inv) noexcept
     {
-        return ((u64)(-(i64)r_inv)) & ((1ULL << BATCH) - 1);
+        // r_inv = -p^{-1} mod 2^64, so 0 - r_inv = p^{-1} mod 2^64.
+        return (0ULL - r_inv) & ((1ULL << BATCH) - 1);
     }
 
   private:
@@ -184,6 +193,13 @@ struct NativeMatrix {
         out[4] = (u64)c;
         out[5] = (u64)(c >> 64);
     }
+    // Sign-preserving exact /2^BATCH on the 6-limb signed `t`.  Sign of the
+    // result lives in bit 63 of r.l[4], which is bit 61 of t[5].  This is the
+    // sign of t iff t[5] is just sign-extension of the actual magnitude — i.e.,
+    // iff |t| < 2^319.  BY guarantees this: |M·(x,y) + k·p| ≤ 2^324 in the
+    // (d,e) row and ≤ 2^319 in the (f,g) row, both with |result/2^62| < 2^263 < 2^319.
+    // A future change widening the matrix entries or state without re-running
+    // this analysis will silently corrupt the sign bit.
     static Native5x64 arithmetic_shift_by_batch(const u64 t[6]) noexcept
     {
         Native5x64 r;
@@ -259,7 +275,7 @@ inline void Native5x64::apply_divstep_matrix(const DivstepMatrix& m,
     auto apply_corrected_row = [&](i64 a, const Native5x64& da, i64 b, const Native5x64& eb, Native5x64& out) {
         u64 t[6];
         NativeMatrix::signed_linear_combination(a, da, b, eb, t);
-        u64 k = (((u64)(-(i64)t[0])) * p_inv_mod_2k) & MASK_BATCH;
+        u64 k = ((0ULL - t[0]) * p_inv_mod_2k) & MASK_BATCH;
         u64 kp[6] = {};
         u64 carry = 0;
         for (int i = 0; i < 5; ++i) {

@@ -33,6 +33,13 @@ class Wasm9x29 {
     // every iter saves ~3× reduce_to_canonical calls per inversion.
     static constexpr int REDUCE_INTERVAL = 4;
 
+    // Worst-case iteration cap inside reduce_to_canonical.  After
+    // REDUCE_INTERVAL iters between reductions, |d|, |e| ≤ (2^(REDUCE_INTERVAL+1) - 1)·p,
+    // so reducing requires that many subtractions plus one break iter.
+    static constexpr int REDUCE_TO_CANONICAL_MAX_ITERS = 36;
+    static_assert((1U << (REDUCE_INTERVAL + 1)) <= REDUCE_TO_CANONICAL_MAX_ITERS,
+                  "REDUCE_INTERVAL too large for reduce_to_canonical iteration bound");
+
     Wasm9x29() noexcept
         : l{}
     {}
@@ -95,7 +102,8 @@ class Wasm9x29 {
                                      u64 p_inv_mod_2k) noexcept;
     static constexpr u64 p_inv_mod_2k_from_montgomery_r_inv(u64 r_inv) noexcept
     {
-        return ((u64)(-(i64)r_inv)) & ((1ULL << BATCH) - 1);
+        // r_inv = -p^{-1} mod 2^64, so 0 - r_inv = p^{-1} mod 2^64.
+        return (0ULL - r_inv) & ((1ULL << BATCH) - 1);
     }
 
   private:
@@ -130,11 +138,12 @@ class Wasm9x29 {
     }
 };
 
-// Bound 36 covers |x| ≤ 32p worst case under REDUCE_INTERVAL = 4.
+// Iter cap chosen by the REDUCE_TO_CANONICAL_MAX_ITERS / REDUCE_INTERVAL
+// static_assert above; see those constants for the magnitude argument.
 inline void Wasm9x29::reduce_to_canonical(const Wasm9x29& p) noexcept
 {
     normalise();
-    for (int it = 0; it < 36; ++it) {
+    for (int it = 0; it < REDUCE_TO_CANONICAL_MAX_ITERS; ++it) {
         if (is_negative()) {
             add_inplace(p);
             continue;
@@ -240,8 +249,8 @@ inline void Wasm9x29::apply_divstep_matrix(const DivstepMatrix& m,
         const i64 ne1 = q_lo * d1 + r_lo * e1 + q_hi * d0 + r_hi * e0;
         const u64 t_d = ((u64)nd0 & LIMB_MASK) | (((u64)(nd1 + (nd0 >> LIMB_BITS)) & LIMB_MASK) << LIMB_BITS);
         const u64 t_e = ((u64)ne0 & LIMB_MASK) | (((u64)(ne1 + (ne0 >> LIMB_BITS)) & LIMB_MASK) << LIMB_BITS);
-        const u64 k_d = (((u64)(-(i64)t_d)) * p_inv_mod_2k) & MASK_BATCH;
-        const u64 k_e = (((u64)(-(i64)t_e)) * p_inv_mod_2k) & MASK_BATCH;
+        const u64 k_d = ((0ULL - t_d) * p_inv_mod_2k) & MASK_BATCH;
+        const u64 k_e = ((0ULL - t_e) * p_inv_mod_2k) & MASK_BATCH;
         const i64 kd_lo = (i64)(k_d & LIMB_MASK), kd_hi = (i64)(k_d >> LIMB_BITS);
         const i64 ke_lo = (i64)(k_e & LIMB_MASK), ke_hi = (i64)(k_e >> LIMB_BITS);
         i64 cd = (nd1 + kd_lo * p.l[1] + kd_hi * p.l[0] + ((nd0 + kd_lo * p.l[0]) >> LIMB_BITS)) >> LIMB_BITS;
