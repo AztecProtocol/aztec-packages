@@ -271,9 +271,9 @@ describe('e2e_epochs/epochs_equivocation', () => {
       ),
     );
 
-    // TODO(A-980): assert the equivocating proposer of the first slot is eventually slashed
-    // for the DUPLICATE_PROPOSAL offense. Slasher is currently disabled in the harness
-    // (slasherEnabled: false) and enabling it requires plumbing offense submission and
-    // waiting for the slasher's offense window.
+    // TODO: assert the equivocating proposer of the first slot is eventually slashed
+    // for the DUPLICATE_PROPOSAL offense. Detection is implemented by CheckpointEquivocationWatcher,
+    // but the assertion is still gated on the harness enabling the slasher (slasherEnabled: false today)
+    // and waiting for the slasher's offense window.
   });
 });
