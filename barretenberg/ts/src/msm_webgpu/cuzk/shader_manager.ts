@@ -6,11 +6,13 @@ import {
   batch_affine_apply_scatter as batch_affine_apply_scatter_shader,
   batch_affine_dispatch_args as batch_affine_dispatch_args_shader,
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
+  ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
   ba_marshal_pairs_bench as ba_marshal_pairs_bench_shader,
   ba_marshal_tree_l0_bench as ba_marshal_tree_l0_bench_shader,
   ba_pair_disjoint_bench as ba_pair_disjoint_bench_shader,
   ba_pair_disjoint_tree_bench as ba_pair_disjoint_tree_bench_shader,
+  ba_planner_bench as ba_planner_bench_shader,
   ba_scatter_pairs_bench as ba_scatter_pairs_bench_shader,
   ba_tail_reduce_bench as ba_tail_reduce_bench_shader,
   ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
@@ -785,6 +787,56 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_marshal_chain_bench_shader,
       { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Fused super-kernel for the v3 pipeline: combines marshal + disjoint
+   * + scatter into one kernel. Per chunk-thread: reads chunk_plan +
+   * scatter_plan, gathers from active_sums_old, computes batched-
+   * inverse pair sums in registers, writes directly to active_sums_new.
+   * Carry is a separate kernel.
+   */
+  public gen_ba_fused_super_bench_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_fused_super_bench_shader,
+      {
+        workgroup_size, s,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, fr_pow_funcs, bigint_by_funcs, by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * GPU-side bin-packing planner for the v3 pipeline. One thread per
+   * bucket; atomicAdd reserves global per-pair / per-carry / per-new-
+   * slot offsets; the thread writes chunk_plan + scatter_plan +
+   * carry_plan + new_counts + new_offsets for its bucket. Pair-count
+   * loop bounded by compile-time `pair_cap` (defaults to 64 — covers
+   * Poisson(λ=32) max-count without issue).
+   */
+  public gen_ba_planner_bench_shader(workgroup_size: number, s: number, pair_cap: number = 64): string {
+    if (workgroup_size <= 0 || s <= 0 || pair_cap <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
+      throw new Error(`gen_ba_planner_bench_shader: workgroup_size (${workgroup_size}), s (${s}), and pair_cap (${pair_cap}) must be positive integers`);
+    }
+    return mustache.render(
+      ba_planner_bench_shader,
+      { workgroup_size, s, pair_cap, num_words: this.num_words, recompile: this.recompile },
       { structs },
     );
   }
