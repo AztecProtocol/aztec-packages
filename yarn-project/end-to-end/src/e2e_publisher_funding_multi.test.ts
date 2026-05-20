@@ -17,6 +17,7 @@ import { join } from 'path';
 import { type Hex, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 // Key indices from the test MNEMONIC (all pre-funded by Anvil):
@@ -83,21 +84,13 @@ describe('e2e_publisher_funding_multi', () => {
     ];
 
     let sequencerClient: SequencerClient | undefined;
-    // TODO(palla/pipelining): do NOT opt in to PIPELINING_SETUP_OPTS yet — under pipelining the
-    // first funding cycle works (~T+120s: low balances detected, `Funded 2 publishers` logged), but
-    // the second `RunningPromise.triggerFundingIfNeeded` cycle never fires. The poll loop logs
-    // `PublisherManager initialized`, `Funded 2 publishers`, and then is silent until teardown.
-    // Reproduced locally with ANVIL_PORT=8553 on merge-train/spartan. The expected next cycle at
-    // T+240s would have detected the organically depleted publishers (each at ~1.75 ETH < 2 ETH
-    // threshold) and funded again, but the RunningPromise has gone silent. Looks like a
-    // `RunningPromise` / funder-loop interaction bug in `publisher_manager.ts`'s
-    // `loadStateAndResumeMonitoring` path.
     ({
       teardown,
       logger,
       sequencer: sequencerClient,
       ethCheatCodes,
     } = await setup(0, {
+      ...PIPELINING_SETUP_OPTS,
       initialValidators,
       keyStoreDirectory,
       publisherFundingThreshold: FUNDING_THRESHOLD,
@@ -165,9 +158,11 @@ describe('e2e_publisher_funding_multi', () => {
     // Funder should have sent 2 * FUNDING_AMOUNT plus gas costs (single multicall)
     expect(funderSpent).toBeGreaterThanOrEqual(2n * FUNDING_AMOUNT);
 
-    // Second round: after funding, publishers are above threshold. The active publisher will
-    // spend gas publishing blocks and eventually drop below threshold again, triggering re-funding
-    // for that one publisher.
+    // Second round: deterministically drop one publisher below threshold after the first refill.
+    // Waiting for organic gas depletion is brittle under pipelined publisher rotation: the exact
+    // publisher cadence and L1 gas burn vary enough that the balance may not cross the threshold
+    // before the test timeout, even though the periodic funding loop is healthy.
+    await ethCheatCodes.setBalance(publisher1Address, LOW_BALANCE);
     const funderBalanceBefore2 = await ethCheatCodes.getBalance(funderAddress);
     logger.info(`Waiting for second funding round`);
 

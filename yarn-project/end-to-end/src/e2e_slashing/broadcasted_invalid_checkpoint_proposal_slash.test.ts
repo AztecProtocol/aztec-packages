@@ -221,7 +221,8 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         aztecProofSubmissionEpochs: 1024,
-        enableProposerPipelining: false,
+        enableProposerPipelining: true,
+        inboxLag: 2,
         mockGossipSubNetwork: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / AZTEC_EPOCH_DURATION,
@@ -264,7 +265,7 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
       {
         ...t.ctx.aztecNodeConfig,
         dontStartSequencer: true,
-        enableProposerPipelining: false,
+        enableProposerPipelining: true,
         slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
         slashSelfAllowed: true,
       },
