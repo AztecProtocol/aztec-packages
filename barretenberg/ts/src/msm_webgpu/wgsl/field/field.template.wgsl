@@ -16,24 +16,16 @@ fn fr_reduce(a: ptr<function, BigInt>) -> BigInt {
 }
 
 fn fr_sub(a: ptr<function, BigInt>, b: ptr<function, BigInt>) -> BigInt {
+    // (a - b) mod p, branch-free. a, b in [0, p), so a + p is in [p, 2p):
+    // (a + p) - b never underflows and lands in [0, 2p), which fr_reduce
+    // folds to [0, p). a == b gives a + p - b = p, and fr_reduce(p) is
+    // canonical 0 — so no special-case is needed (the old code needed an
+    // explicit a == b short-circuit because its a < b branch produced a
+    // non-canonical p). No bigint_gt / bigint_eq, no divergent branch.
+    var p: BigInt = get_p();
+    var t: BigInt;
+    bigint_add(a, &p, &t);
     var res: BigInt;
-
-    // Short-circuit a == b to canonical 0. Without this, the "a < b" branch
-    // below would return p - (b - a) = p - 0 = p (value 0 mod p but limbs
-    // != 0), which breaks is_zero() checks downstream in the EC shaders.
-    if (bigint_eq(a, b)) {
-        return res; // fresh BigInt, limbs all 0
-    }
-
-    var c = bigint_gt(a, b);
-    if (c == 0u) { // a < b
-        var r: BigInt;
-        bigint_sub(b, a, &r);
-        var p = get_p();
-        bigint_sub(&p, &r, &res);
-        return res;
-    } else { // a > b
-        bigint_sub(a, b, &res);
-        return res;
-    }
+    bigint_sub(&t, b, &res);
+    return fr_reduce(&res);
 }

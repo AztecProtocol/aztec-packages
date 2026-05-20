@@ -19,6 +19,8 @@ import {
   ba_tail_reduce_bench as ba_tail_reduce_bench_shader,
   ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
   bench_batch_affine as bench_batch_affine_shader,
+  bench_field_mul as bench_field_mul_shader,
+  bench_field_inv as bench_field_inv_shader,
   batch_affine_finalize as batch_affine_finalize_shader,
   batch_affine_finalize_apply as batch_affine_finalize_apply_shader,
   batch_affine_finalize_collect as batch_affine_finalize_collect_shader,
@@ -38,6 +40,10 @@ import {
   // NUM_OUTER=29. Hosts MatA, bya_divsteps, bya_apply_matrix_{fg,de}, the
   // bya_reduce_to_canonical helper chain, and the fr_inv_by_a driver.
   by_inverse_a as by_inverse_a_funcs,
+  // Register-minimal BY safegcd inverse (BATCH=12 / NUM_OUTER=62, rolling
+  // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
+  // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
+  by_inverse_loop as by_inverse_loop_funcs,
   bpr_bn254 as bpr_bn254_shader,
   convert_point_coords_and_decompose_scalars,
   convert_points_only as convert_points_only_shader,
@@ -822,6 +828,75 @@ ${packLines.join('\n')}
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
         field_funcs, fr_pow_funcs, bigint_by_funcs, by_inverse_a_funcs,
+      },
+    );
+  }
+
+  /**
+   * Standalone field-multiply throughput microbench. Each thread runs
+   * `iters` mutually-independent `montgomery_product` calls on
+   * per-iteration-perturbed operands; total ops = threads * iters.
+   * Pulls in only structs / bigint / montgomery — the multiply needs
+   * nothing else. Used by dev/msm-webgpu/bench-field-ops to measure
+   * ns-per-multiply in isolation.
+   */
+  public gen_bench_field_mul_shader(workgroup_size: number, iters: number): string {
+    if (workgroup_size <= 0 || iters <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(iters)) {
+      throw new Error(`gen_bench_field_mul_shader: workgroup_size (${workgroup_size}) and iters (${iters}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      bench_field_mul_shader,
+      {
+        workgroup_size, iters,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+      },
+    );
+  }
+
+  /**
+   * Standalone field-inversion throughput microbench. Each thread runs
+   * `iters` mutually-independent inverse calls on per-iteration-perturbed
+   * operands; total ops = threads * iters. `variant` picks the inverse:
+   * 'a' = fr_inv_by_a (Option A, BATCH=26), 'loop' = fr_inv_by_loop
+   * (register-minimal, BATCH=12). Pulls in the full inverse stack
+   * (structs / bigint / montgomery / field / fr_pow / bigint_by) plus the
+   * selected inverse partial. Used by dev/msm-webgpu/bench-field-ops to
+   * measure ns-per-inversion in isolation.
+   */
+  public gen_bench_field_inv_shader(
+    workgroup_size: number,
+    iters: number,
+    variant: 'a' | 'loop' = 'a',
+  ): string {
+    if (workgroup_size <= 0 || iters <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(iters)) {
+      throw new Error(`gen_bench_field_inv_shader: workgroup_size (${workgroup_size}) and iters (${iters}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
+    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    return mustache.render(
+      bench_field_inv_shader,
+      {
+        workgroup_size, iters, inv_fn,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
       },
     );
   }

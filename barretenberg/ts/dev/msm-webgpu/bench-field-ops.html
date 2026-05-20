@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Field multiply vs inversion throughput microbench (WebGPU)</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; line-height: 1.45; }
+      h1 { font-size: 1.25rem; }
+      #log { background: #0b1020; color: #e6e6e6;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px; padding: 0.75rem; border-radius: 6px;
+        white-space: pre-wrap; overflow-x: auto; min-height: 8rem; }
+      .ok { color: #6ee7b7; } .err { color: #fca5a5; } .warn { color: #fde68a; }
+    </style>
+  </head>
+  <body>
+    <h1>Field multiply vs inversion throughput microbench</h1>
+    <p>
+      Isolated ns-per-operation for one base-field <code>montgomery_product</code> (10M ops)
+      vs one <code>fr_inv_by_a</code> inversion (1M ops). The headline is the ratio —
+      how many field multiplies one inversion costs.
+    </p>
+    <p>Query params: <code>?mul_threads=100000&amp;mul_iters=100&amp;inv_threads=10000&amp;inv_iters=100&amp;wg=64&amp;reps=6&amp;validate=1</code></p>
+    <div id="log"></div>
+    <script type="module" src="./bench-field-ops.ts"></script>
+  </body>
+</html>

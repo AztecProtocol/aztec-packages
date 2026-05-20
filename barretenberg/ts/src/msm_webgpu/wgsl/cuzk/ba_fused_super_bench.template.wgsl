@@ -96,7 +96,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // Forward: compute S dx values and accumulate prefix product.
     // Read pair indices from chunk_plan, load .x for each operand, compute dx.
-    var pref: array<BigInt, {{ s }}>;
+    // pref holds the prefix products PACKED (8x u32) rather than as
+    // 20-limb BigInt: it is the only per-thread array that scales with
+    // S, so packing it ~2.5x cuts the dominant register cost. acc stays
+    // limb-form (it feeds montgomery_product directly).
+    var pref: array<array<u32, 8>, {{ s }}>;
     var acc: BigInt = get_r();
     for (var k: u32 = 0u; k < S; k = k + 1u) {
         let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
@@ -109,7 +113,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         } else {
             acc = montgomery_product(&acc, &dx);
         }
-        pref[k] = acc;
+        pref[k] = pack_limbs_to_256(&acc);
     }
 
     // Single inversion per chunk.
@@ -130,7 +134,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (k == 0u) {
             inv_dx = inv;
         } else {
-            var pp = pref[k - 1u];
+            var pw = pref[k - 1u];
+            var pp = unpack256_to_limbs(pw);
             inv_dx = montgomery_product(&inv, &pp);
         }
 
