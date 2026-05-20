@@ -1,5 +1,5 @@
 """
-Symbolic and numerical verification for SHPLEMINI_ZK_FILTRATION_SKETCH.md.
+Symbolic and numerical verification for SHPLEMINI_ZK_FILTRATION_PROOF.md.
 
 Verifies, at d = 3 (symbolic) and d = 4 (symbolic block structure + numerical det):
 
@@ -54,7 +54,7 @@ def adapted_rows(d, S, tau, rs, us):
     """Rows (D_0', M_0^new, D_1', M_1^new, ..., D_{d-1}', M_{d-1}^new).
 
     D_k' = D_k / (tau + r_k) = ell_k * phi_{q_k}(tau, -r_k).
-    M_k^new = M_k + r_k * D_k'  (Step B from SHPLEMINI_ZK.md §3).
+    M_k^new = M_k + r_k * D_k'  (Step B from SHPLEMINI_ZK_FILTRATION_PROOF.md §0).
     """
     rows, labels = [], []
     for t in range(d):
@@ -358,7 +358,36 @@ def verify_d4_numeric_det():
         print(f"  tau={tau_v}: detB/expected = {ratio}  {'OK' if ok else 'FAIL'}")
 
 
+def verify_lemma5():
+    """Verify Lemma 5 (the Casoratian identity used in Lemma 6's proof):
+        X_2 X_{E-1} - X_3 X_{E-2} = tau * r_0 * phi_{E-4}(tau,-r_0) * A_0^+ * A_0^-
+    where X_m := (1-u_0) phi_m(tau,-r_0) - u_0 phi_{m-1}(tau,-r_0).
+    Checked symbolically at E in {8, 12, 16, 20, 24, 28, 32, 64}.
+    """
+    print("\n" + "=" * 60)
+    print("Lemma 5 (Casoratian) symbolic verification")
+    print("=" * 60)
+    tau_, r0_, u0_ = sp.symbols("tau r0 u0")
+
+    def phi_local(m):
+        if m <= 0: return sp.Integer(0)
+        return sum(tau_ ** (m - 1 - j) * (-r0_) ** j for j in range(m))
+
+    def X_local(m):
+        return sp.expand((1 - u0_) * phi_local(m) - u0_ * phi_local(m - 1))
+
+    Aplus = u0_ + (1 - u0_) * r0_
+    Aminus = u0_ - (1 - u0_) * tau_
+
+    for E in [8, 12, 16, 20, 24, 28, 32, 64]:
+        LHS = sp.expand(X_local(2) * X_local(E - 1) - X_local(3) * X_local(E - 2))
+        RHS = sp.expand(tau_ * r0_ * phi_local(E - 4) * Aplus * Aminus)
+        diff = sp.simplify(LHS - RHS)
+        print(f"  E={E:>3}: LHS - RHS = {diff}  {'OK' if diff == 0 else 'FAIL'}")
+
+
 if __name__ == "__main__":
     verify_d3_symbolic()
     verify_d4_symbolic_structure()
     verify_d4_numeric_det()
+    verify_lemma5()
