@@ -2,12 +2,14 @@ import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
   bigintConfigHelper,
   booleanConfigHelper,
+  composeConfigMappings,
   floatConfigHelper,
   numberConfigHelper,
   parseCommaSeparated,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import { slashDataWithholdingToleranceSlotsConfigMappings } from '@aztec/stdlib/config';
+import type { OwnSlasherConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import { slasherDefaultEnv } from './generated/slasher-defaults.js';
 
@@ -39,7 +41,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashSelfAllowed: false,
 };
 
-export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
+const ownSlasherConfigMappings: ConfigMappingsType<OwnSlasherConfig> = {
   slashOverridePayload: {
     env: 'SLASH_OVERRIDE_PAYLOAD',
     description: 'An Ethereum address for a slash payload to vote for unconditionally.',
@@ -62,12 +64,6 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     env: 'SLASH_DATA_WITHHOLDING_PENALTY',
     description: 'Penalty amount for slashing validators for data withholding (set to 0 to disable).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashDataWithholdingPenalty),
-  },
-  slashDataWithholdingToleranceSlots: {
-    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
-    description:
-      'Number of full L2 slots that must elapse after a checkpoint slot before declaring its txs missing and slashing its attesters for data withholding.',
-    ...numberConfigHelper(DefaultSlasherConfig.slashDataWithholdingToleranceSlots),
   },
   slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',
@@ -165,3 +161,8 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     ...booleanConfigHelper(DefaultSlasherConfig.slashSelfAllowed),
   },
 };
+
+export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = composeConfigMappings(
+  slashDataWithholdingToleranceSlotsConfigMappings,
+  ownSlasherConfigMappings,
+);

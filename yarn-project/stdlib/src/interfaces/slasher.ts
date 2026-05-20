@@ -3,7 +3,9 @@ import { schemas, zodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-export interface SlasherConfig {
+import type { SlashDataWithholdingToleranceSlotsConfig } from '../config/slasher-shared-config.js';
+
+export interface OwnSlasherConfig {
   slashOverridePayload?: EthAddress;
   slashSelfAllowed?: boolean; // Whether to allow slashes to own validators
   slashValidatorsAlways: EthAddress[]; // Array of validator addresses
@@ -16,7 +18,6 @@ export interface SlasherConfig {
    * txs missing and slashing the checkpoint's attesters for data withholding. With tolerance
    * = N and checkpoint slot S, the check fires at the start of slot `S + N + 1`.
    */
-  slashDataWithholdingToleranceSlots: number;
   slashInactivityPenalty: bigint;
   slashBroadcastedInvalidBlockPenalty: bigint;
   slashBroadcastedInvalidCheckpointProposalPenalty: bigint;
@@ -31,6 +32,8 @@ export interface SlasherConfig {
   slashGracePeriodL2Slots: number; // Number of L2 slots to wait after genesis before slashing for most offenses
   slashExecuteRoundsLookBack: number; // How many rounds to look back when searching for a round to execute
 }
+
+export type SlasherConfig = OwnSlasherConfig & SlashDataWithholdingToleranceSlotsConfig;
 
 export const SlasherConfigSchema = zodFor<SlasherConfig>()(
   z.object({
