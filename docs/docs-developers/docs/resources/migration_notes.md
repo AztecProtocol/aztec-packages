@@ -556,6 +556,15 @@ The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
 + });
 ```
 
+### [CLI] `aztec init` now scaffolds a Counter example template
+
+`aztec init` previously created a blank contract crate. It now scaffolds a runnable **Counter** example contract with a constructor, `increment`, and `get_counter` functions, plus a test suite, so new developers have a working starting point ([#22751](https://github.com/AztecProtocol/aztec-packages/pull/22751)).
+
+- `aztec init` — scaffolds the Counter example (new default).
+- `aztec new <NAME>` — still scaffolds a blank contract, either as a new standalone project or as a new crate added to an existing workspace.
+
+**Impact**: any scripts, CI jobs, or onboarding docs that ran `aztec init` expecting an empty contract starting point now get the Counter example. Use `aztec new <NAME>` for the blank scaffold. The existing Counter tutorial under [`docs/tutorials/contract_tutorials`](../tutorials/contract_tutorials/counter_contract.md) is unaffected because it uses `aztec new`.
+
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 
 `aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
