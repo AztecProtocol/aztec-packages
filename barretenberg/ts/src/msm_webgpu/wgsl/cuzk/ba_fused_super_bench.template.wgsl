@@ -47,6 +47,7 @@ const PG: u32 = 2u;
 @group(0) @binding(2) var<storage, read>       active_sums_old: array<vec4<u32>>;
 @group(0) @binding(3) var<storage, read_write> active_sums_new: array<vec4<u32>>;
 @group(0) @binding(4) var<uniform>             params:          vec4<u32>;
+@group(0) @binding(5) var<storage, read_write> pref_scratch:    array<vec4<u32>>;
 
 fn load_active_x(idx: u32, M: u32) -> BigInt {
     let plane_base = 0u * PG * M;
@@ -84,6 +85,32 @@ fn get_r() -> BigInt {
     return r;
 }
 
+// pref_scratch holds the forward prefix products, two vec4 per entry.
+// Layout is thread-major — global slot = t*S + k — so each thread's S
+// entries are contiguous. The thread writes them in the forward pass and
+// reads them back in the backward pass; a small contiguous per-thread
+// block stays cache-resident across that gap. A k-major layout coalesces
+// the cross-thread transactions but scatters each thread's data and
+// measured ~18% slower at S=16 — cache locality wins here. Living in a
+// storage buffer (not a per-thread private array) means occupancy no
+// longer scales with S.
+fn store_pref(slot: u32, val: ptr<function, BigInt>) {
+    let base = 2u * slot;
+    let w = pack_limbs_to_256(val);
+    pref_scratch[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    pref_scratch[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+}
+
+fn load_pref(slot: u32) -> BigInt {
+    let base = 2u * slot;
+    let q0 = pref_scratch[base + 0u];
+    let q1 = pref_scratch[base + 1u];
+    var w: array<u32, 8>;
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let T = params.x;
@@ -94,13 +121,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let chunk_base = 2u * S * t;
 
-    // Forward: compute S dx values and accumulate prefix product.
-    // Read pair indices from chunk_plan, load .x for each operand, compute dx.
-    // pref holds the prefix products PACKED (8x u32) rather than as
-    // 20-limb BigInt: it is the only per-thread array that scales with
-    // S, so packing it ~2.5x cuts the dominant register cost. acc stays
-    // limb-form (it feeds montgomery_product directly).
-    var pref: array<array<u32, 8>, {{ s }}>;
+    // Forward: compute S dx values and accumulate the prefix product.
+    // Read pair indices from chunk_plan, load .x for each operand, compute
+    // dx. Each running product is written to pref_scratch (a storage
+    // buffer) so no per-thread state scales with S.
     var acc: BigInt = get_r();
     for (var k: u32 = 0u; k < S; k = k + 1u) {
         let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
@@ -113,37 +137,55 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         } else {
             acc = montgomery_product(&acc, &dx);
         }
-        pref[k] = pack_limbs_to_256(&acc);
+        store_pref(t * S + k, &acc);
     }
 
     // Single inversion per chunk.
     var inv: BigInt = {{ inv_fn }}(acc);
 
     // Backward peel: emit S pair sums, scatter to active_sums_new.
+    //
+    // Operations are ordered to minimise the simultaneously-live BigInt
+    // set, which (with pref now in a buffer) is the kernel's register
+    // peak. Each coordinate is loaded just before first use, and the
+    // running-inverse update runs before r_y so p_rx / dx_back are freed
+    // and never sit live across it. Peak live set: 6 BigInts.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
         let k = S - 1u - jj;
         let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
         let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
 
-        var p_lx: BigInt = load_active_x(idx_l, M_old);
-        var p_ly: BigInt = load_active_y(idx_l, M_old);
-        var p_rx: BigInt = load_active_x(idx_r, M_old);
-        var p_ry: BigInt = load_active_y(idx_r, M_old);
-
+        // inv_dx = 1 / dx_k, from the running inverse and the stored
+        // prefix product. Uses the pre-update `inv`.
         var inv_dx: BigInt;
         if (k == 0u) {
             inv_dx = inv;
         } else {
-            var pw = pref[k - 1u];
-            var pp = unpack256_to_limbs(pw);
+            var pp: BigInt = load_pref(t * S + (k - 1u));
             inv_dx = montgomery_product(&inv, &pp);
         }
 
+        // lambda = (p_ry - p_ly) / dx_k. p_ry is consumed immediately.
+        var p_ly: BigInt = load_active_y(idx_l, M_old);
+        var p_ry: BigInt = load_active_y(idx_r, M_old);
         var lambda: BigInt = fr_sub(&p_ry, &p_ly);
         lambda = montgomery_product(&lambda, &inv_dx);
+
+        // r_x = lambda^2 - p_lx - p_rx.
+        var p_lx: BigInt = load_active_x(idx_l, M_old);
+        var p_rx: BigInt = load_active_x(idx_r, M_old);
         var r_x: BigInt = montgomery_product(&lambda, &lambda);
         r_x = fr_sub(&r_x, &p_lx);
         r_x = fr_sub(&r_x, &p_rx);
+
+        // Advance the running inverse here, before r_y: p_rx and dx_back
+        // are freed and do not sit live across the r_y computation.
+        if (k > 0u) {
+            var dx_back: BigInt = fr_sub(&p_rx, &p_lx);
+            inv = montgomery_product(&inv, &dx_back);
+        }
+
+        // r_y = lambda * (p_lx - r_x) - p_ly.
         var r_y: BigInt = fr_sub(&p_lx, &r_x);
         r_y = montgomery_product(&lambda, &r_y);
         r_y = fr_sub(&r_y, &p_ly);
@@ -151,11 +193,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let dst_idx = scatter_plan[t * S + k];
         store_active_new(0u, dst_idx, M_new, &r_x);
         store_active_new(1u, dst_idx, M_new, &r_y);
-
-        if (k > 0u) {
-            var dx_back: BigInt = fr_sub(&p_rx, &p_lx);
-            inv = montgomery_product(&inv, &dx_back);
-        }
     }
 
     {{{ recompile }}}

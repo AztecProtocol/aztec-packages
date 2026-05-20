@@ -41,7 +41,7 @@ const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per wind
 const DEFAULT_N = 1 << 16; // points per window (= MSM size)
 const DEFAULT_C = 15; // Pippenger window bits
 const DEFAULT_NUMBITS = 254; // scalar field bits
-const DEFAULT_S = 16;
+const DEFAULT_S = 8; // chunk size; 8 is fastest — more chunks = more parallel threads
 const DEFAULT_WGI = 64;
 const DEFAULT_REPS = 3;
 
@@ -411,6 +411,12 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
     carryPlanBufs.push(cyb);
   }
 
+  // pref_scratch: the fused kernel's forward prefix products, moved out of
+  // per-thread private memory into a storage buffer so occupancy no longer
+  // scales with S. Sized for the largest level; smaller levels use a prefix.
+  const maxTChunks = Math.max(...levelPlans.map(p => p.tChunks));
+  const prefScratchBuf = storageBuf(device, maxTChunks * S * 8 * 4);
+
   // --- Layouts ---
   const plannerLayout = device.createBindGroupLayout({
     entries: [0, 1, 2, 3, 4, 5, 6, 7]
@@ -428,6 +434,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
       { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+      { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
     ],
   });
   const carryLayout = device.createBindGroupLayout({
@@ -504,6 +511,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
           { binding: 2, resource: { buffer: activeIn } },
           { binding: 3, resource: { buffer: activeOut } },
           { binding: 4, resource: { buffer: fusedParams } },
+          { binding: 5, resource: { buffer: prefScratchBuf } },
         ],
       }),
       carryBind: device.createBindGroup({
