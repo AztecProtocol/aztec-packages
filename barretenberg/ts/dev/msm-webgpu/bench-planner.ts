@@ -1,43 +1,56 @@
 /// <reference types="@webgpu/types" />
 // Standalone microbench for the GPU bin-packing planner kernel.
 // Isolates the planner from the rest of the MSM pipeline so we can
-// pin down the minimum time required to build a per-level plan
-// (chunk_plan + scatter_plan + carry_plan + new_counts/offsets) on
-// the GPU.
+// pin down the time required to build one per-level plan on the GPU.
+//
+// Production scale: an MSM splits each scalar into ceil(num_bits / c)
+// Pippenger windows; each window is an independent bucket-method
+// sub-problem of 2^(c-1) buckets. The planner dispatches one
+// workgroup per window — workgroup w plans window w on its own, with
+// no cross-workgroup communication. One dispatch covers all windows.
 //
 // Inputs (synthetic, host-built upfront):
-//   counts[B]   per-bucket active count drawn from Poisson(lambda).
-//   offsets[B+1] prefix sum of counts.
+//   counts[windows * 2^(c-1)]   per-bucket active count ~ Poisson(λ),
+//                               with a deterministic sprinkle of empty
+//                               and small (0-3) buckets injected so the
+//                               finalize-and-drop path is exercised.
+//   offsets[windows * 2^(c-1)]  per-window prefix sum of counts.
 //
-// Each planner dispatch is one workgroup of TPB threads. Each thread
-// handles PER_THREAD buckets. B = TPB * PER_THREAD.
+// Each window's 2^(c-1) buckets are handled by one workgroup of TPB
+// threads, PER_THREAD = 2^(c-1) / TPB buckets per thread.
+//
+// Finalize-and-drop: a bucket with count 1 is already reduced — the
+// planner emits no carry for it and sets new_count = 0, so it drops
+// out of deeper levels. Indirect-dispatch args: the planner writes
+// per-level consumer workgroup counts into the `meta` buffer. See
+// ba_planner_v2_bench.template.wgsl.
 //
 // Timing methodology:
-//   - Compile pipeline.
-//   - Warmup (1 dispatch).
-//   - For each rep:
-//       Encode DISP back-to-back dispatches in ONE command encoder.
-//       performance.now() right before submit and after await.
-//   - Per-planner time = sample / DISP.
-//   - Report min, median, max across reps.
+//   - Compile pipeline; warmup (1 dispatch of `windows` workgroups).
+//   - For each rep: encode DISP back-to-back dispatches in ONE command
+//     encoder; performance.now() around submit + await.
+//   - Per-planner time = sample / DISP  (one planner = all windows).
+//   - Report min / median / max across reps.
 //
 // Validation (?validate=1):
-//   - Run 1 dispatch.
-//   - Read back chunk_plan, scatter_plan, carry_plan, new_counts,
-//     new_offsets, totals.
-//   - Cross-check against a host-side bin-pack reference.
+//   - Run 1 dispatch; read back every output buffer.
+//   - Cross-check against a host-side multi-window bin-pack reference.
+//
+// Query params:
+//   ?c=15&num_bits=254&lambda=32&s=16&tpb=256&wgi=64&disp=64&reps=5&validate=1
 
 import { ShaderManager } from '../../src/msm_webgpu/cuzk/shader_manager.js';
 import { BN254_CURVE_CONFIG } from '../../src/msm_webgpu/cuzk/curve_config.js';
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { makeResultsClient } from './results_post.js';
 
-let BUCKETS = 4096;
+let C = 15; // Pippenger window size in bits
+let NUM_BITS = 254; // scalar bit-length (BN254 scalar field)
 let LAMBDA = 32; // mean per-bucket count
-let S = 16;
-let TPB = 256;
-let PER_THREAD = 16; // BUCKETS / TPB
-let DISP = 128;
+let S = 16; // chunk size in pairs
+let TPB = 256; // workgroup size; one window = TPB * PER_THREAD buckets
+let WGI = 64; // consumer-kernel workgroup size (sizes the indirect-dispatch args)
+let DISP = 64; // back-to-back dispatches per timed rep
 let REPS = 5;
 let VALIDATE = false;
 
@@ -65,64 +78,155 @@ function poisson(lambda: number, rng: () => number): number {
   return k - 1;
 }
 
-function buildSyntheticCounts(B: number, lambda: number, seed: number): { counts: Uint32Array; offsets: Uint32Array } {
+// Poisson per-bucket counts for `windows` windows of `bucketsPerWindow`
+// buckets each. `offsets` is a per-window prefix sum (each window's
+// buckets index into that window's own point pool).
+function buildSyntheticCounts(
+  windows: number,
+  bucketsPerWindow: number,
+  lambda: number,
+  seed: number,
+): { counts: Uint32Array; offsets: Uint32Array } {
   const rng = makeRng(seed);
-  const counts = new Uint32Array(B);
-  for (let b = 0; b < B; b++) counts[b] = poisson(lambda, rng);
-  const offsets = new Uint32Array(B + 1);
-  for (let b = 0; b < B; b++) offsets[b + 1] = offsets[b] + counts[b];
+  const total = windows * bucketsPerWindow;
+  const counts = new Uint32Array(total);
+  for (let b = 0; b < total; b++) counts[b] = poisson(lambda, rng);
+  // Inject a deterministic sprinkle of empty / small buckets (counts
+  // 0,1,2,3) so the finalize-and-drop, empty-bucket and small-bucket
+  // paths are exercised — Poisson(λ=32) alone never produces them.
+  // ~1/16 of buckets; realistic for structured level-0 inputs and for
+  // every deeper tree level.
+  for (let b = 0; b < total; b += 16) {
+    counts[b] = Math.floor(b / 16) % 4;
+  }
+  const offsets = new Uint32Array(total);
+  for (let w = 0; w < windows; w++) {
+    let acc = 0;
+    for (let i = 0; i < bucketsPerWindow; i++) {
+      const b = w * bucketsPerWindow + i;
+      offsets[b] = acc;
+      acc += counts[b];
+    }
+  }
   return { counts, offsets };
 }
 
-// Host-side bin-pack reference. Returns the EXACT same outputs the GPU
-// planner is expected to produce (modulo per-bucket atomic-ordering
-// differences, which the v2 planner avoids — its order matches host).
-function buildHostReference(counts: Uint32Array, offsets: Uint32Array, S: number) {
-  const B = counts.length;
+// Host-side multi-window bin-pack reference: produces the exact output
+// the GPU planner is expected to write, in the same per-window layout,
+// for byte-for-byte ?validate=1 cross-checks. chunksPerWindow /
+// carriesPerWindow are sized to the largest window and become the
+// per-window output strides passed to the kernel via `params`.
+//
+// Finalize-and-drop: a bucket with count exactly 1 is already reduced;
+// it produces no pair and no carry, and gets new_count = 0.
+function buildHostReference(
+  counts: Uint32Array,
+  offsets: Uint32Array,
+  s: number,
+  windows: number,
+  bucketsPerWindow: number,
+  wgi: number,
+) {
+  // count == 1 -> finalize-and-drop: no carry. count 0 also -> 0.
+  const carryOf = (cnt: number): number => (cnt === 1 ? 0 : cnt & 1);
+  // Pass 1: per-window pair / carry tallies.
+  const perWindowPairs = new Uint32Array(windows);
+  const perWindowCarries = new Uint32Array(windows);
+  for (let w = 0; w < windows; w++) {
+    let p = 0;
+    let c = 0;
+    for (let i = 0; i < bucketsPerWindow; i++) {
+      const cnt = counts[w * bucketsPerWindow + i];
+      p += cnt >>> 1;
+      c += carryOf(cnt);
+    }
+    perWindowPairs[w] = p;
+    perWindowCarries[w] = c;
+  }
+  // Uniform per-window output strides = largest window.
+  let chunksPerWindow = 1;
+  let carriesPerWindow = 1;
+  for (let w = 0; w < windows; w++) {
+    chunksPerWindow = Math.max(chunksPerWindow, Math.ceil(perWindowPairs[w] / s));
+    carriesPerWindow = Math.max(carriesPerWindow, perWindowCarries[w]);
+  }
+  const chunkPlan = new Uint32Array(windows * chunksPerWindow * s * 2);
+  const scatterPlan = new Uint32Array(windows * chunksPerWindow * s);
+  const carryPlan = new Uint32Array(windows * carriesPerWindow * 2);
+  const newCounts = new Uint32Array(windows * bucketsPerWindow);
+  const newOffsets = new Uint32Array(windows * bucketsPerWindow);
+  // meta = [3*windows per-window totals] + [6 indirect-dispatch args].
+  const meta = new Uint32Array(3 * windows + 6);
   let totalPairs = 0;
   let totalCarries = 0;
   let totalNew = 0;
-  const newCounts = new Uint32Array(B);
-  const newOffsets = new Uint32Array(B + 1);
-  // First pass: compute new_counts and accumulate totals.
-  for (let b = 0; b < B; b++) {
-    const n = counts[b];
-    const pc = Math.floor(n / 2);
-    const cf = n & 1;
-    newCounts[b] = pc + cf;
-    totalPairs += pc;
-    totalCarries += cf;
-    totalNew += pc + cf;
-  }
-  for (let b = 0; b < B; b++) newOffsets[b + 1] = newOffsets[b] + newCounts[b];
-  const numChunks = Math.max(1, Math.ceil(totalPairs / S));
-  const chunkPlan = new Uint32Array(2 * numChunks * S);
-  const scatterPlan = new Uint32Array(numChunks * S);
-  const carryPlan = new Uint32Array(2 * Math.max(1, totalCarries));
-  let pairOff = 0;
-  let carryOff = 0;
-  for (let b = 0; b < B; b++) {
-    const n = counts[b];
-    const pc = Math.floor(n / 2);
-    const cf = n & 1;
-    const bucketBase = offsets[b];
-    for (let j = 0; j < pc; j++) {
-      const slot = pairOff + j;
-      const chunkId = Math.floor(slot / S);
-      const slotInChunk = slot % S;
-      const cpBase = 2 * (chunkId * S + slotInChunk);
-      chunkPlan[cpBase + 0] = bucketBase + 2 * j;
-      chunkPlan[cpBase + 1] = bucketBase + 2 * j + 1;
-      scatterPlan[chunkId * S + slotInChunk] = newOffsets[b] + j;
+  // Pass 2: fill each window's plan region.
+  for (let w = 0; w < windows; w++) {
+    const windowChunkBase = w * chunksPerWindow;
+    const windowCarryBase = w * carriesPerWindow;
+    let pairOff = 0;
+    let carryOff = 0;
+    let newOff = 0;
+    for (let i = 0; i < bucketsPerWindow; i++) {
+      const b = w * bucketsPerWindow + i;
+      const cnt = counts[b];
+      const pc = cnt >>> 1;
+      const cf = carryOf(cnt);
+      const nc = pc + cf;
+      newCounts[b] = nc;
+      newOffsets[b] = newOff;
+      const bucketBase = offsets[b];
+      for (let j = 0; j < pc; j++) {
+        const slotInWindow = pairOff + j;
+        const globalChunk = windowChunkBase + Math.floor(slotInWindow / s);
+        const slotInChunk = slotInWindow % s;
+        const flatSlot = globalChunk * s + slotInChunk;
+        chunkPlan[2 * flatSlot + 0] = bucketBase + 2 * j;
+        chunkPlan[2 * flatSlot + 1] = bucketBase + 2 * j + 1;
+        scatterPlan[flatSlot] = newOff + j;
+      }
+      if (cf) {
+        const cs = windowCarryBase + carryOff;
+        carryPlan[2 * cs + 0] = bucketBase + cnt - 1;
+        carryPlan[2 * cs + 1] = newOff + pc;
+      }
+      pairOff += pc;
+      carryOff += cf;
+      newOff += nc;
     }
-    if (cf) {
-      carryPlan[2 * carryOff + 0] = bucketBase + n - 1;
-      carryPlan[2 * carryOff + 1] = newOffsets[b] + pc;
-      carryOff++;
-    }
-    pairOff += pc;
+    meta[3 * w + 0] = pairOff;
+    meta[3 * w + 1] = carryOff;
+    meta[3 * w + 2] = newOff;
+    totalPairs += pairOff;
+    totalCarries += carryOff;
+    totalNew += newOff;
   }
-  return { chunkPlan, scatterPlan, carryPlan, newCounts, newOffsets, totalPairs, totalCarries, totalNew, numChunks };
+  // Indirect-dispatch args (level-wide): workgroup counts for a consumer
+  // of workgroup size `wgi` walking the full windows*stride layout.
+  const wgiSafe = Math.max(wgi, 1);
+  const chunkWgs = Math.ceil((windows * chunksPerWindow) / wgiSafe);
+  const carryWgs = Math.ceil((windows * carriesPerWindow) / wgiSafe);
+  meta[3 * windows + 0] = chunkWgs;
+  meta[3 * windows + 1] = 1;
+  meta[3 * windows + 2] = 1;
+  meta[3 * windows + 3] = carryWgs;
+  meta[3 * windows + 4] = 1;
+  meta[3 * windows + 5] = 1;
+  return {
+    chunkPlan,
+    scatterPlan,
+    carryPlan,
+    newCounts,
+    newOffsets,
+    meta,
+    chunksPerWindow,
+    carriesPerWindow,
+    chunkWgs,
+    carryWgs,
+    totalPairs,
+    totalCarries,
+    totalNew,
+  };
 }
 
 function median(xs: number[]): number {
@@ -132,16 +236,24 @@ function median(xs: number[]): number {
 }
 
 interface BenchResult {
-  buckets: number;
+  c: number;
+  num_bits: number;
+  windows: number;
+  buckets_per_window: number;
+  total_buckets: number;
   lambda: number;
   s: number;
   tpb: number;
+  wgi: number;
   per_thread: number;
+  chunks_per_window: number;
+  carries_per_window: number;
+  chunk_dispatch_wgs: number;
+  carry_dispatch_wgs: number;
   disp: number;
   reps: number;
   total_pairs: number;
   total_carries: number;
-  num_chunks: number;
   per_dispatch_us: { min: number; median: number; max: number };
   wall_samples_ms: number[];
   validated: boolean;
@@ -162,9 +274,13 @@ const resultsClient = makeResultsClient({ page: 'bench-planner' });
 
 async function postFinal(): Promise<void> {
   await resultsClient.postResults({
-    state: benchState.state, params: benchState.params, results: benchState.results,
-    error: benchState.error, log: benchState.log,
-    userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency,
+    state: benchState.state,
+    params: benchState.params,
+    results: benchState.results,
+    error: benchState.error,
+    log: benchState.log,
+    userAgent: navigator.userAgent,
+    hardwareConcurrency: navigator.hardwareConcurrency,
   });
 }
 
@@ -186,8 +302,14 @@ async function compileOne(device: GPUDevice, code: string, key: string, layout: 
   const errLines: string[] = [];
   for (const m of info.messages) {
     const line = `[shader ${key}] ${m.type}: ${m.message} (line ${m.lineNum}, col ${m.linePos})`;
-    if (m.type === 'error') { console.error(line); log('err', line); errLines.push(line); hasError = true; }
-    else { console.warn(line); }
+    if (m.type === 'error') {
+      console.error(line);
+      log('err', line);
+      errLines.push(line);
+      hasError = true;
+    } else {
+      console.warn(line);
+    }
   }
   if (hasError) throw new Error(`WGSL compile failed for ${key}: ${errLines.slice(0, 4).join(' | ')}`);
   return device.createComputePipelineAsync({
@@ -210,25 +332,45 @@ async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number
 }
 
 async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult> {
-  log('info', `=== B=${BUCKETS} λ=${LAMBDA} S=${S} TPB=${TPB} PER=${PER_THREAD} DISP=${DISP} REPS=${REPS}`);
-  if (TPB * PER_THREAD !== BUCKETS) throw new Error(`BUCKETS=${BUCKETS} must equal TPB*PER_THREAD=${TPB * PER_THREAD}`);
+  const windows = Math.ceil(NUM_BITS / C);
+  const bucketsPerWindow = 2 ** (C - 1);
+  if (bucketsPerWindow % TPB !== 0) {
+    throw new Error(`2^(C-1)=${bucketsPerWindow} must be a positive multiple of TPB=${TPB}`);
+  }
+  const perThread = bucketsPerWindow / TPB;
+  const totalBuckets = windows * bucketsPerWindow;
+  log(
+    'info',
+    `=== C=${C} num_bits=${NUM_BITS} windows=${windows} buckets/window=${bucketsPerWindow} ` +
+      `total=${totalBuckets} λ=${LAMBDA} S=${S} TPB=${TPB} WGI=${WGI} PER=${perThread} DISP=${DISP} REPS=${REPS}`,
+  );
 
-  const { counts, offsets } = buildSyntheticCounts(BUCKETS, LAMBDA, 0x5fa11);
+  const { counts, offsets } = buildSyntheticCounts(windows, bucketsPerWindow, LAMBDA, 0x5fa11);
   let totalActive = 0;
-  let cMin = 99999, cMax = 0;
-  for (let b = 0; b < BUCKETS; b++) {
+  let cMin = 0xffffffff;
+  let cMax = 0;
+  let cZeros = 0;
+  let cOnes = 0;
+  for (let b = 0; b < totalBuckets; b++) {
     totalActive += counts[b];
     if (counts[b] > cMax) cMax = counts[b];
     if (counts[b] < cMin) cMin = counts[b];
+    if (counts[b] === 0) cZeros++;
+    if (counts[b] === 1) cOnes++;
   }
-  log('info', `synthetic counts: min=${cMin} max=${cMax} totalActive=${totalActive}`);
+  log('info', `synthetic counts: min=${cMin} max=${cMax} totalActive=${totalActive} zero=${cZeros} one(finalized)=${cOnes}`);
 
-  const ref = buildHostReference(counts, offsets, S);
-  log('info', `host reference: totalPairs=${ref.totalPairs} totalCarries=${ref.totalCarries} numChunks=${ref.numChunks}`);
+  const ref = buildHostReference(counts, offsets, S, windows, bucketsPerWindow, WGI);
+  log(
+    'info',
+    `host reference: totalPairs=${ref.totalPairs} totalCarries=${ref.totalCarries} ` +
+      `chunksPerWindow=${ref.chunksPerWindow} carriesPerWindow=${ref.carriesPerWindow} ` +
+      `dispatchWgs(chunk=${ref.chunkWgs} carry=${ref.carryWgs})`,
+  );
 
-  // Allocate output buffers sized for the host-computed plan.
-  // For a real MSM these sizes would be conservative max bounds; here
-  // we use exact host values for tighter validation.
+  // Output buffers are sized for the host-computed plan. For a real MSM
+  // these would be conservative max bounds; here exact host values give
+  // tighter validation.
   const mkStorage = (bytes: number, copySrc = false, copyDst = false): GPUBuffer => {
     let usage = GPUBufferUsage.STORAGE;
     if (copySrc) usage |= GPUBufferUsage.COPY_SRC;
@@ -246,17 +388,17 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
   const carryPlanBytes = ref.carryPlan.byteLength;
   const newCountsBytes = ref.newCounts.byteLength;
   const newOffsetsBytes = ref.newOffsets.byteLength;
-  const totalsBytes = 16;
+  const metaBytes = ref.meta.byteLength;
 
   const chunkPlanBuf = mkStorage(chunkPlanBytes, true);
   const scatterPlanBuf = mkStorage(scatterPlanBytes, true);
   const carryPlanBuf = mkStorage(carryPlanBytes, true);
   const newCountsBuf = mkStorage(newCountsBytes, true);
   const newOffsetsBuf = mkStorage(newOffsetsBytes, true);
-  const totalsBuf = mkStorage(totalsBytes, true);
+  const metaBuf = mkStorage(metaBytes, true);
 
   const paramsBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-  device.queue.writeBuffer(paramsBuf, 0, new Uint32Array([BUCKETS, S, 0, 0]));
+  device.queue.writeBuffer(paramsBuf, 0, new Uint32Array([ref.chunksPerWindow, ref.carriesPerWindow, WGI, 0]));
 
   const layout = device.createBindGroupLayout({
     entries: [
@@ -271,7 +413,12 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
       { binding: 8, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
     ],
   });
-  const pipeline = await compileOne(device, sm.gen_ba_planner_v2_bench_shader(TPB, PER_THREAD, S, 64), `planner-v2-T${TPB}-P${PER_THREAD}-S${S}`, layout);
+  const pipeline = await compileOne(
+    device,
+    sm.gen_ba_planner_v2_bench_shader(TPB, C, NUM_BITS, S, 64),
+    `planner-v2-c${C}-T${TPB}-S${S}`,
+    layout,
+  );
   const bind = device.createBindGroup({
     layout,
     entries: [
@@ -282,28 +429,28 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
       { binding: 4, resource: { buffer: carryPlanBuf } },
       { binding: 5, resource: { buffer: newCountsBuf } },
       { binding: 6, resource: { buffer: newOffsetsBuf } },
-      { binding: 7, resource: { buffer: totalsBuf } },
+      { binding: 7, resource: { buffer: metaBuf } },
       { binding: 8, resource: { buffer: paramsBuf } },
     ],
   });
 
-  // Warmup.
+  // Warmup: one dispatch of `windows` workgroups.
   {
     const enc = device.createCommandEncoder();
     const pass = enc.beginComputePass();
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bind);
-    pass.dispatchWorkgroups(1, 1, 1);
+    pass.dispatchWorkgroups(windows, 1, 1);
     pass.end();
     device.queue.submit([enc.finish()]);
     await device.queue.onSubmittedWorkDone();
   }
   log('info', 'warmup done');
 
-  // Validation (one dispatch, read back, compare against host reference).
+  // Validation: the warmup dispatch already ran; read back and compare.
   let validated = false;
   if (VALIDATE) {
-    const gpuTotals = await readbackU32(device, totalsBuf, totalsBytes);
+    const gpuMeta = await readbackU32(device, metaBuf, metaBytes);
     const gpuNewCounts = await readbackU32(device, newCountsBuf, newCountsBytes);
     const gpuNewOffsets = await readbackU32(device, newOffsetsBuf, newOffsetsBytes);
     const gpuChunkPlan = await readbackU32(device, chunkPlanBuf, chunkPlanBytes);
@@ -311,32 +458,52 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
     const gpuCarryPlan = await readbackU32(device, carryPlanBuf, carryPlanBytes);
 
     const mismatches: string[] = [];
-    if (gpuTotals[0] !== ref.totalPairs) mismatches.push(`totals[0]: gpu=${gpuTotals[0]} ref=${ref.totalPairs}`);
-    if (gpuTotals[1] !== ref.totalCarries) mismatches.push(`totals[1]: gpu=${gpuTotals[1]} ref=${ref.totalCarries}`);
-    if (gpuTotals[2] !== ref.totalNew) mismatches.push(`totals[2]: gpu=${gpuTotals[2]} ref=${ref.totalNew}`);
-    for (let b = 0; b < BUCKETS && mismatches.length < 8; b++) {
-      if (gpuNewCounts[b] !== ref.newCounts[b]) mismatches.push(`newCounts[${b}]: gpu=${gpuNewCounts[b]} ref=${ref.newCounts[b]}`);
-      if (gpuNewOffsets[b] !== ref.newOffsets[b]) mismatches.push(`newOffsets[${b}]: gpu=${gpuNewOffsets[b]} ref=${ref.newOffsets[b]}`);
+    for (let w = 0; w < windows && mismatches.length < 8; w++) {
+      if (gpuMeta[3 * w + 0] !== ref.meta[3 * w + 0])
+        mismatches.push(`totals[pairs,w=${w}]: gpu=${gpuMeta[3 * w + 0]} ref=${ref.meta[3 * w + 0]}`);
+      if (gpuMeta[3 * w + 1] !== ref.meta[3 * w + 1])
+        mismatches.push(`totals[carries,w=${w}]: gpu=${gpuMeta[3 * w + 1]} ref=${ref.meta[3 * w + 1]}`);
+      if (gpuMeta[3 * w + 2] !== ref.meta[3 * w + 2])
+        mismatches.push(`totals[new,w=${w}]: gpu=${gpuMeta[3 * w + 2]} ref=${ref.meta[3 * w + 2]}`);
     }
-    // chunk_plan/scatter_plan: compare element-wise.
+    for (let i = 0; i < 6; i++) {
+      const idx = 3 * windows + i;
+      if (gpuMeta[idx] !== ref.meta[idx])
+        mismatches.push(`dispatchArgs[${i}]: gpu=${gpuMeta[idx]} ref=${ref.meta[idx]}`);
+    }
+    for (let b = 0; b < totalBuckets && mismatches.length < 12; b++) {
+      if (gpuNewCounts[b] !== ref.newCounts[b])
+        mismatches.push(`newCounts[${b}]: gpu=${gpuNewCounts[b]} ref=${ref.newCounts[b]}`);
+      if (gpuNewOffsets[b] !== ref.newOffsets[b])
+        mismatches.push(`newOffsets[${b}]: gpu=${gpuNewOffsets[b]} ref=${ref.newOffsets[b]}`);
+    }
     let cpFails = 0;
     for (let i = 0; i < ref.chunkPlan.length; i++) {
-      if (gpuChunkPlan[i] !== ref.chunkPlan[i]) { cpFails++; if (cpFails <= 3) mismatches.push(`chunkPlan[${i}]: gpu=${gpuChunkPlan[i]} ref=${ref.chunkPlan[i]}`); }
+      if (gpuChunkPlan[i] !== ref.chunkPlan[i]) {
+        cpFails++;
+        if (cpFails <= 3) mismatches.push(`chunkPlan[${i}]: gpu=${gpuChunkPlan[i]} ref=${ref.chunkPlan[i]}`);
+      }
     }
     let spFails = 0;
     for (let i = 0; i < ref.scatterPlan.length; i++) {
-      if (gpuScatterPlan[i] !== ref.scatterPlan[i]) { spFails++; if (spFails <= 3) mismatches.push(`scatterPlan[${i}]: gpu=${gpuScatterPlan[i]} ref=${ref.scatterPlan[i]}`); }
+      if (gpuScatterPlan[i] !== ref.scatterPlan[i]) {
+        spFails++;
+        if (spFails <= 3) mismatches.push(`scatterPlan[${i}]: gpu=${gpuScatterPlan[i]} ref=${ref.scatterPlan[i]}`);
+      }
     }
     let cyFails = 0;
-    for (let i = 0; i < 2 * ref.totalCarries; i++) {
-      if (gpuCarryPlan[i] !== ref.carryPlan[i]) { cyFails++; if (cyFails <= 3) mismatches.push(`carryPlan[${i}]: gpu=${gpuCarryPlan[i]} ref=${ref.carryPlan[i]}`); }
+    for (let i = 0; i < ref.carryPlan.length; i++) {
+      if (gpuCarryPlan[i] !== ref.carryPlan[i]) {
+        cyFails++;
+        if (cyFails <= 3) mismatches.push(`carryPlan[${i}]: gpu=${gpuCarryPlan[i]} ref=${ref.carryPlan[i]}`);
+      }
     }
     if (mismatches.length === 0 && cpFails === 0 && spFails === 0 && cyFails === 0) {
       validated = true;
       log('ok', 'validation: PASS — GPU planner output byte-equivalent to host reference');
     } else {
       log('err', `validation: FAIL — ${cpFails} chunkPlan, ${spFails} scatterPlan, ${cyFails} carryPlan mismatches; first few:`);
-      for (const m of mismatches.slice(0, 10)) log('err', `  ${m}`);
+      for (const m of mismatches.slice(0, 12)) log('err', `  ${m}`);
     }
   }
 
@@ -348,7 +515,7 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
       const pass = enc.beginComputePass();
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, bind);
-      pass.dispatchWorkgroups(1, 1, 1);
+      pass.dispatchWorkgroups(windows, 1, 1);
       pass.end();
     }
     const t0 = performance.now();
@@ -366,16 +533,38 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
   log(
     'ok',
     `per-planner: min=${perDispatchMin.toFixed(2)}μs median=${perDispatchMed.toFixed(2)}μs max=${perDispatchMax.toFixed(2)}μs` +
-    `  (total wall: min=${mn.toFixed(2)}ms median=${med.toFixed(2)}ms max=${mx.toFixed(2)}ms over DISP=${DISP})`,
+      `  (one planner = all ${windows} windows; total wall min=${mn.toFixed(2)}ms median=${med.toFixed(2)}ms over DISP=${DISP})`,
   );
 
-  countsBuf.destroy(); offsetsBuf.destroy(); chunkPlanBuf.destroy(); scatterPlanBuf.destroy();
-  carryPlanBuf.destroy(); newCountsBuf.destroy(); newOffsetsBuf.destroy(); totalsBuf.destroy();
+  countsBuf.destroy();
+  offsetsBuf.destroy();
+  chunkPlanBuf.destroy();
+  scatterPlanBuf.destroy();
+  carryPlanBuf.destroy();
+  newCountsBuf.destroy();
+  newOffsetsBuf.destroy();
+  metaBuf.destroy();
   paramsBuf.destroy();
 
   return {
-    buckets: BUCKETS, lambda: LAMBDA, s: S, tpb: TPB, per_thread: PER_THREAD, disp: DISP, reps: REPS,
-    total_pairs: ref.totalPairs, total_carries: ref.totalCarries, num_chunks: ref.numChunks,
+    c: C,
+    num_bits: NUM_BITS,
+    windows,
+    buckets_per_window: bucketsPerWindow,
+    total_buckets: totalBuckets,
+    lambda: LAMBDA,
+    s: S,
+    tpb: TPB,
+    wgi: WGI,
+    per_thread: perThread,
+    chunks_per_window: ref.chunksPerWindow,
+    carries_per_window: ref.carriesPerWindow,
+    chunk_dispatch_wgs: ref.chunkWgs,
+    carry_dispatch_wgs: ref.carryWgs,
+    disp: DISP,
+    reps: REPS,
+    total_pairs: ref.totalPairs,
+    total_carries: ref.totalCarries,
     per_dispatch_us: { min: perDispatchMin, median: perDispatchMed, max: perDispatchMax },
     wall_samples_ms: samples,
     validated,
@@ -384,15 +573,16 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
 
 function parseParams() {
   const qp = new URLSearchParams(window.location.search);
-  if (qp.get('buckets')) BUCKETS = parseInt(qp.get('buckets')!, 10);
+  if (qp.get('c')) C = parseInt(qp.get('c')!, 10);
+  if (qp.get('num_bits')) NUM_BITS = parseInt(qp.get('num_bits')!, 10);
   if (qp.get('lambda')) LAMBDA = parseInt(qp.get('lambda')!, 10);
   if (qp.get('s')) S = parseInt(qp.get('s')!, 10);
   if (qp.get('tpb')) TPB = parseInt(qp.get('tpb')!, 10);
-  if (qp.get('per')) PER_THREAD = parseInt(qp.get('per')!, 10);
+  if (qp.get('wgi')) WGI = parseInt(qp.get('wgi')!, 10);
   if (qp.get('disp')) DISP = parseInt(qp.get('disp')!, 10);
   if (qp.get('reps')) REPS = parseInt(qp.get('reps')!, 10);
   if (qp.get('validate') === '1') VALIDATE = true;
-  return { buckets: BUCKETS, lambda: LAMBDA, s: S, tpb: TPB, per: PER_THREAD, disp: DISP, reps: REPS, validate: VALIDATE };
+  return { c: C, num_bits: NUM_BITS, lambda: LAMBDA, s: S, tpb: TPB, wgi: WGI, disp: DISP, reps: REPS, validate: VALIDATE };
 }
 
 async function main() {
@@ -404,7 +594,8 @@ async function main() {
     benchState.state = 'running';
     const device = await get_device();
     log('info', 'WebGPU device acquired');
-    const sm = new ShaderManager(4, BUCKETS, BN254_CURVE_CONFIG, false);
+    const totalBuckets = Math.ceil(NUM_BITS / C) * 2 ** (C - 1);
+    const sm = new ShaderManager(4, totalBuckets, BN254_CURVE_CONFIG, false);
     const r = await runOne(device, sm);
     benchState.results.push(r);
     resultsClient.postProgress({ kind: 'planner_done', per_dispatch_us: r.per_dispatch_us, validated: r.validated });
@@ -419,5 +610,12 @@ async function main() {
 }
 
 main()
-  .catch(e => { const msg = e instanceof Error ? e.message : String(e); log('err', `unhandled: ${msg}`); benchState.state = 'error'; benchState.error = msg; })
-  .finally(() => { postFinal().catch(() => {}); });
+  .catch(e => {
+    const msg = e instanceof Error ? e.message : String(e);
+    log('err', `unhandled: ${msg}`);
+    benchState.state = 'error';
+    benchState.error = msg;
+  })
+  .finally(() => {
+    postFinal().catch(() => {});
+  });

@@ -6,6 +6,7 @@ import {
   batch_affine_apply_scatter as batch_affine_apply_scatter_shader,
   batch_affine_dispatch_args as batch_affine_dispatch_args_shader,
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
+  ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
   ba_marshal_pairs_bench as ba_marshal_pairs_bench_shader,
@@ -826,20 +827,50 @@ ${packLines.join('\n')}
   }
 
   /**
-   * v2 GPU planner: single-kernel scan + scatter. One workgroup of TPB
-   * threads handles all B buckets via per-thread local scan + workgroup-
-   * wide Hillis-Steele scan + per-thread scatter. No atomics, no host
-   * sync, single dispatch. Scales to B <= TPB * PER_THREAD within one
-   * workgroup (e.g. 256 * 32 = 8192 buckets).
+   * v2 GPU planner: single-kernel scan + scatter, one workgroup per
+   * Pippenger window. The MSM splits each scalar into
+   * ceil(num_bits / c) windows; each window is an independent
+   * bucket-method sub-problem of 2^(c-1) buckets. This kernel
+   * dispatches one workgroup per window — workgroup w plans window w
+   * via per-thread local scan + workgroup-wide Hillis-Steele scan +
+   * per-thread scatter, with no cross-workgroup communication. One
+   * window's 2^(c-1) buckets must fit one workgroup, so 2^(c-1) must
+   * be a positive multiple of workgroup_size
+   * (per_thread = 2^(c-1) / workgroup_size).
    */
-  public gen_ba_planner_v2_bench_shader(workgroup_size: number, per_thread: number, s: number, pair_cap: number = 64): string {
-    if (workgroup_size <= 0 || per_thread <= 0 || s <= 0 || pair_cap <= 0 ||
-        !Number.isInteger(workgroup_size) || !Number.isInteger(per_thread) || !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
+  public gen_ba_planner_v2_bench_shader(
+    workgroup_size: number,
+    c: number,
+    num_bits: number,
+    s: number,
+    pair_cap: number = 64,
+  ): string {
+    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
+        !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
       throw new Error(`gen_ba_planner_v2_bench_shader: positive integer args required`);
     }
+    const buckets_per_window = 2 ** (c - 1);
+    const num_windows = Math.ceil(num_bits / c);
+    if (buckets_per_window % workgroup_size !== 0) {
+      throw new Error(
+        `gen_ba_planner_v2_bench_shader: buckets_per_window (2^(c-1)=${buckets_per_window}) ` +
+          `must be a positive multiple of workgroup_size (${workgroup_size})`,
+      );
+    }
+    const per_thread = buckets_per_window / workgroup_size;
     return mustache.render(
       ba_planner_v2_bench_shader,
-      { workgroup_size, per_thread, pair_cap, s, num_words: this.num_words, recompile: this.recompile },
+      {
+        workgroup_size,
+        buckets_per_window,
+        per_thread,
+        num_windows,
+        pair_cap,
+        s,
+        num_words: this.num_words,
+        recompile: this.recompile,
+      },
       { structs },
     );
   }
@@ -940,6 +971,22 @@ ${packLines.join('\n')}
     }
     return mustache.render(
       ba_carry_copy_bench_shader,
+      { workgroup_size, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Bin-packed pair-tree: finalize-copy kernel. Harvests a bucket's
+   * accumulated sum into bucket_result[b] at the level it reaches
+   * count 1 (the planner's finalize-and-drop). Pure memory shuffle.
+   */
+  public gen_ba_finalize_copy_bench_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(
+      ba_finalize_copy_bench_shader,
       { workgroup_size, num_words: this.num_words, recompile: this.recompile },
       { structs },
     );
