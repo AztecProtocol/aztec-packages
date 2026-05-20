@@ -25,6 +25,7 @@ import type { GpuContext } from './gpu_context.js';
 import { ShaderManager } from './shader_manager.js';
 import { create_bind_group_layout, execute_pipeline, execute_pipeline_indirect } from './gpu.js';
 import { runTreeReduce } from './smvp_tree.js';
+import { runSmvpV2PairTree } from './smvp_v2_pair_tree.js';
 
 // Per-stage profiling budgets for the per-round loop. Sized to cover
 // every active round of every family at every benchmark size, including
@@ -154,6 +155,18 @@ export const smvp_batch_affine_gpu = async (
   // consumption are unaffected. Mutually exclusive with use_tree_reduce
   // (tree path takes precedence if both are set). Currently bn254 only.
   fused_revcarry = false,
+  // When true, replace the entire round-loop (schedule + batch_inverse_parallel
+  // + apply_scatter) with the v2 bin-packed pair-tree orchestrator
+  // (runSmvpV2PairTree). The orchestrator runs the per-bucket
+  // accumulate on PACKED 8x u32 storage via csr_to_v2_* + planner_v2_prod +
+  // indirect-dispatch marshal / disjoint / scatter / carry + v2_to_running.
+  // ba_init still runs first (it seeds running_x/y / bucket_active /
+  // bucket_cursor from the CSR row pointers) and the existing
+  // finalize_collect / finalize_apply / BPR / horner stages consume the
+  // running_x/y / bucket_active that runSmvpV2PairTree writes. Forces
+  // packed = true. Mutually exclusive with use_tree_reduce (which takes
+  // precedence). Currently bn254 only.
+  use_v2_pair_tree = false,
 ): Promise<void> => {
   // The tree-reduce path needs to mid-flush commandEncoder so its CSR
   // reads see the current call's transpose output (not stale data from
@@ -166,12 +179,13 @@ export const smvp_batch_affine_gpu = async (
   const num_words = shaderManager.num_words;
   const limb_byte_length = num_words * 4;
   // PACKED 8×u32 (32 B/element) storage for the running_x/y field
-  // workspace. Implied by the fused round path (tree-reduce takes
-  // precedence and is mutually exclusive). Arithmetic still unpacks to
-  // the BigInt limb layout in-register; only the storage bytes change.
-  // pair_delta / pair_inv / pair_prefix are NOT packed — they are unused
-  // on the fused round path and consumed BigInt-layout by finalize.
-  const packed = fused_revcarry && !use_tree_reduce;
+  // workspace. Implied by the fused round path or the v2 pair-tree
+  // orchestrator (tree-reduce takes precedence and is mutually
+  // exclusive). Arithmetic still unpacks to the BigInt limb layout
+  // in-register; only the storage bytes change. pair_delta / pair_inv /
+  // pair_prefix are NOT packed -- they are unused on the fused / v2
+  // round paths and consumed BigInt-layout by finalize.
+  const packed = (fused_revcarry || use_v2_pair_tree) && !use_tree_reduce;
   const field_elem_byte_length = packed ? 32 : limb_byte_length;
 
   // WINDOWS_PER_BATCH pools the pair pools of WPB consecutive subtasks
@@ -952,6 +966,47 @@ export const smvp_batch_affine_gpu = async (
     // They get GC'd after the caller submits + finishes commandEncoder.
     // No explicit `.destroy()` here — destroying buffers referenced by
     // a pending bind group invalidates the encoder.
+  } else if (use_v2_pair_tree) {
+    // 2''. v2 bin-packed pair-tree orchestrator. Replaces the per-round
+    // schedule + batch_inverse_parallel + apply_scatter loop with a
+    // single per-window submit chain (csr_to_v2_meta +
+    // csr_to_v2_active_sums + per-level planner_v2_prod +
+    // indirect-dispatch marshal_prod + pair_disjoint_tree_prod +
+    // scatter_pairs_prod + carry_copy_prod + v2_to_running). Writes
+    // running_x / running_y / bucket_active in the packed 8x u32 layout
+    // the existing finalize_collect + finalize_apply consume.
+    //
+    // ba_init above already seeded running_x / running_y / bucket_active
+    // from val_idx[row_begin] and the per-bucket non-empty flags; the
+    // v2_to_running adapter overwrites those for non-empty buckets and
+    // (re)writes bucket_active for all of them. Empty buckets keep
+    // init's zero state, which finalize_collect skips via
+    // bucket_active == 0.
+    //
+    // Mid-flush the caller's encoder so init + upstream transpose (CSR
+    // row_ptr and val_idx) are visible to the orchestrator's reads
+    // before they happen. runSmvpV2PairTree runs its own command
+    // encoder + single submit + onSubmittedWorkDone internally; we
+    // hand a fresh encoder to the caller for finalize and downstream
+    // BPR / horner stages.
+    device.queue.submit([commandEncoder.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    await runSmvpV2PairTree({
+      device,
+      shaderManager,
+      num_subtasks,
+      num_columns,
+      input_size,
+      val_idx_buf: all_csc_val_idxs_sb,
+      row_ptr_buf: all_csc_col_ptr_sb,
+      point_x_buf: point_x_sb,
+      point_y_buf: point_y_sb,
+      running_x_buf: running_x_sb,
+      running_y_buf: running_y_sb,
+      bucket_active_buf: bucket_active_sb,
+    });
+    commandEncoder = device.createCommandEncoder();
+    commandEncoderRef.current = commandEncoder;
   } else {
   // 2. Round loop, cross-subtask parallel.
   //

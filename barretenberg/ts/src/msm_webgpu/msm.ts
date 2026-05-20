@@ -256,6 +256,17 @@ export const compute_bn254_msm_batch_affine = async (
   // batch_inverse_parallel + apply_scatter dispatches. Init / schedule /
   // finalize stay unchanged (same BigInt-layout buffers). bn254 only.
   fused_revcarry = false,
+  // Opt-in: replace the cuZK schedule + batch_inverse_parallel +
+  // apply_scatter round-loop with the v2 bin-packed pair-tree orchestrator
+  // (cuzk/smvp_v2_pair_tree.ts). Per window: csr_to_v2_meta +
+  // csr_to_v2_active_sums + per-level planner_v2_prod + indirect-dispatch
+  // marshal / disjoint / scatter / carry + v2_to_running. Writes the same
+  // running_x / running_y / bucket_active outputs the existing
+  // finalize_collect + finalize_apply consume, so BPR / horner stay
+  // unchanged. Forces packed 8x u32 storage (the prod kernels' native
+  // layout). Mutually exclusive with use_tree_reduce; takes precedence
+  // over fused_revcarry. bn254 only.
+  use_v2_pair_tree = false,
 ): Promise<{ x: bigint; y: bigint }> =>
   compute_curve_msm(
     // Cached path: `baseAffinePoints` is ignored. Uint8Array cast keeps
@@ -275,6 +286,7 @@ export const compute_bn254_msm_batch_affine = async (
     bpr_inner_loop,
     use_tree_reduce,
     fused_revcarry,
+    use_v2_pair_tree,
   );
 
 // GLV cold-path entry points (compute_bn254_msm_glv and
@@ -514,6 +526,12 @@ const compute_curve_msm = async (
   // apply_scatter dispatches. Init / schedule / finalize unchanged.
   // Forwarded into smvp_batch_affine_gpu. bn254 only.
   fused_revcarry = false,
+  // Opt-in: replace the cuZK schedule + batch_inverse_parallel +
+  // apply_scatter round-loop with the v2 bin-packed pair-tree orchestrator
+  // (runSmvpV2PairTree). Forces packed 8x u32 storage; mutually exclusive
+  // with use_tree_reduce; takes precedence over fused_revcarry. See
+  // compute_bn254_msm_batch_affine for the full description.
+  use_v2_pair_tree = false,
 ): Promise<{ x: bigint; y: bigint }> => {
   const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
@@ -524,9 +542,9 @@ const compute_curve_msm = async (
   // BigInt limb layout in-register; only storage-buffer bytes change.
   // The final gpu_horner_sums_* result buffer and the raw point input
   // stay BigInt-layout so host decoding is unchanged. Tree-reduce takes
-  // precedence (mutually exclusive with fused), so packed implies the
-  // batch_affine fused round path.
-  const packed = fused_revcarry && !use_tree_reduce;
+  // precedence (mutually exclusive with fused / v2-pair-tree); the v2
+  // pair-tree orchestrator natively works on packed 8x u32 storage.
+  const packed = (fused_revcarry || use_v2_pair_tree) && !use_tree_reduce;
   const effective_scalar_byte_length = glv_override?.scalar_byte_length ?? curveConfig.scalarByteLength;
   const input_size = cached_bases ? cached_bases.input_size : (scalars as Buffer).length / effective_scalar_byte_length;
 
@@ -966,6 +984,7 @@ const compute_curve_msm = async (
       cached_bases !== undefined && context !== undefined,
       use_tree_reduce,
       fused_revcarry,
+      use_v2_pair_tree,
     );
     // Tree-reduce path may have replaced the encoder; re-bind so
     // subsequent BPR / readback operations target the active encoder.
