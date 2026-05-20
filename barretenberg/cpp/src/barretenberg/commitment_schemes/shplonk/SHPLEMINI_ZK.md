@@ -305,8 +305,7 @@ of size $2D$. The rows from levels $h,\ldots,d-1$ become the same Step-A/B row
 system on $Q_D$, with local levels $0,\ldots,D-1$ and parameters
 $u_h,\ldots,u_{d-1}$ and $r_h,\ldots,r_{d-1}$.
 
-**Quotient interpolation lemma (reduced target).** *For the quotient support
-$Q_D$, the $2D$ Step-A/B rows have full rank. Therefore every row*
+**Quotient interpolation lemma.** *For the quotient support $Q_D$, the $2D$ Step-A/B rows have full rank. Therefore every row*
 
 $$
 q\longmapsto X^q
@@ -315,23 +314,154 @@ $$
 *restricted to $Q_D$ lies in their span. In particular, taking $X=r_k^2$ gives
 the virtual row needed above.*
 
-This lemma is the current algebraic core. It is verified for the relevant small
-quotient depths by exact rational rank computation. A promising proof is by
-specialising $u_i=\tfrac12$ and $r_i=0$: after removing nonzero row scalars, the
-quotient matrix has rows
+*Proof.* It is enough to show one specialisation has full rank. Specialise
+$u_i=\tfrac12$ and $r_i=0$, and keep $\tau=T$ as an indeterminate with
+$T\notin\{0,1\}$. After removing nonzero row scalars, the quotient rows are
 
 $$
-A_t(q)=\mathbf 1_{q\ge 2^t}\,\tau^{\lfloor q/2^t\rfloor-1},\qquad
+A_t(q)=\mathbf 1_{q\ge 2^t}\,T^{\lfloor q/2^t\rfloor-1},\qquad
 B_t(q)=\mathbf 1_{q<2^t},
 $$
 
-on $Q_D$, and exact checks show this specialised matrix has rank $2D$ for
-$D\le 8$. The remaining work is to write the finite-difference/triangular
-argument for this specialised matrix uniformly in $D$.
+for $t=0,\ldots,D-1$ and $q\in Q_D$.
+
+Let $(c_q)_{q\in Q_D}$ be a linear relation among the columns. The $B_t$ rows give
+
+$$
+\sum_{q<2^t}c_q=0\qquad(t=0,\ldots,D-1).
+$$
+
+Thus $c_0=0$, $c_1=0$, and for $j=1,\ldots,D-2$,
+
+$$
+c_{2^j}+c_{2^{j+1}-1}=0.
+$$
+
+The row $A_{D-1}$ gives the final top relation
+
+$$
+c_{2^{D-1}}+c_{2^D-1}=0.
+$$
+
+Set $a_j:=c_{2^j}$ for $1\le j\le D-1$; then the paired coefficients are
+$c_{2^{j+1}-1}=-a_j$. For $t=0,\ldots,D-2$, the row $A_t$ becomes
+
+$$
+\sum_{j=t+1}^{D-1}
+a_j\,T^{2^{j-t}-1}\bigl(1-T^{2^{j-t}-1}\bigr)=0.
+$$
+
+This is triangular when read from $t=D-2$ down to $t=0$: the leading variable
+in the $t$-th equation is $a_{t+1}$ with coefficient $T(1-T)\ne0$. Hence
+$a_{D-1}=a_{D-2}=\cdots=a_1=0$, and all $c_q=0$. The specialised matrix has
+full column rank $2D$, so the generic quotient matrix has full rank. $\square$
+
+Combining the quotient interpolation lemma with the virtual-row identity proves
+all remaining positive divisors:
+
+$$
+(\tau-r_k)\mid\det\tilde B^{(D')}\qquad(1\le k\le d-3).
+$$
+
 
 ---
 
-## 8. Status
+## 8. Top-pair quotient
+
+The same quotient-interpolation lemma also isolates the level-$0$ residual.
+Let $W$ be the row span of the higher rows
+
+$$
+D_1',M_1^{\mathrm{new}},\ldots,D_{d-1}',M_{d-1}^{\mathrm{new}}.
+$$
+
+For $s\in S$, write $q=q_1(s)$. After factoring the common multiplier
+$\ell_1(s)$, the higher rows depend only on $q$. Their distinct quotient
+columns are $Q_{d-1}$, hence the quotient interpolation lemma says
+
+$$
+W=\{s\mapsto \ell_1(s)f(q_1(s)):\ q_1(s)\in Q_{d-1}\}.
+$$
+
+The only duplicated $q_1$-fibres in $S$ are the top pair
+$\{E-1,E-2\}$, with $q_1=2^{d-1}-1$, and the low pair $\{3,2\}$, with
+$q_1=1$. Therefore the cokernel of $W$ is two-dimensional. A convenient basis
+of annihilating functionals is
+
+$$
+C_q(R):=\frac{R(E_{2q+1})}{u_0}-\frac{R(E_{2q})}{1-u_0},
+$$
+
+for $q=2^{d-1}-1$ and $q=1$.
+
+Set $t=\tau$, $r=r_0$, $u=u_0$, and $v=1-u$. For $q\ge1$, define
+
+$$
+P_q:=v(t^{2q+1}+r^{2q+1})-u(t^{2q}-r^{2q}),
+$$
+
+$$
+Q_q:=tr\bigl(v(t^{2q}-r^{2q})-u(t^{2q-1}+r^{2q-1})\bigr).
+$$
+
+Since the Step-A row has already removed the common $(t+r)$ factor,
+
+$$
+C_q(D_0')=\frac{P_q}{uv(t+r)},\qquad
+C_q(M_0^{\mathrm{new}})=\frac{Q_q}{uv(t+r)}.
+$$
+
+Now put $A=2^{d-1}-1$. With $x=t^2$, $y=r^2$,
+
+$$
+P_q=((1-u)t-u)x^q+(u+(1-u)r)y^q,
+$$
+
+$$
+Q_q=r((1-u)t-u)x^q-t(u+(1-u)r)y^q.
+$$
+
+Thus
+
+$$
+\begin{aligned}
+P_AQ_1-P_1Q_A
+&= -((1-u)t-u)(u+(1-u)r)(t+r)t^2r^2(t^{2A-2}-r^{2A-2})\\
+&= A_0^{-}(t)A_0^{+}(r)(t+r)t^2r^2(t^{E-4}-r^{E-4}).
+\end{aligned}
+$$
+
+Consequently the projected determinant of the two level-$0$ rows in the
+cokernel of $W$ is
+
+$$
+\det\begin{pmatrix}
+C_A(D_0') & C_A(M_0^{\mathrm{new}})\\
+C_1(D_0') & C_1(M_0^{\mathrm{new}})
+\end{pmatrix}
+=
+\frac{A_0^{-}(\tau)A_0^{+}(r_0)\tau^2r_0^2
+(\tau^{E-4}-r_0^{E-4})}{u_0^2(1-u_0)^2(\tau+r_0)}.
+$$
+
+On the divisor $\tau^{E-4}=r_0^{E-4}$, away from the harmless localisation
+where $u_0(1-u_0)(\tau+r_0)\ne0$, the two level-$0$ rows have dependent images
+modulo $W$. Hence all rows of $\tilde B$ are dependent. Since
+$\det\tilde B$ is a polynomial, the vanishing extends across the excluded
+localisation factors:
+
+$$
+(\tau^{E-4}-r_0^{E-4})\mid \det\tilde B^{(D')}.
+$$
+
+The same calculation also accounts for the theorem factors
+$r_0^2\tau^2A_0^+(r_0)A_0^-(\tau)$ inside the level-$0$ residual, but the
+global multiplicity bookkeeping for these factors is left to the final degree
+comparison.
+
+---
+
+## 9. Status
 
 **Fully proved:**
 
@@ -347,6 +477,8 @@ argument for this specialised matrix uniformly in $D$.
 | Lemma P | parity-disjoint support at $\tau = r_k$ |
 | Parity vanishing of $\Lambda_k$ at $\tau = r_k$ | corollary of Lemma P |
 | Top-adjacent divisor | $(\tau-r_{d-2})\mid\det\tilde B^{(D')}$ by explicit row dependence |
+| Lower positive divisors | $(\tau-r_k)\mid\det\tilde B^{(D')}$ for $1\le k\le d-3$ by quotient interpolation |
+| Top-pair alternant | $(\tau^{E-4}-r_0^{E-4})\mid\det\tilde B^{(D')}$ by the level-$0$ cokernel calculation |
 | Slice closure at $k = d-2, u_{d-2} = 0, \tau = r_{d-2}$, $d \ge 3$ | Appendix B — pairwise swap exhausts contributing partitions |
 
 **Numerically verified (not symbolically proved at the full-polynomial level):**
@@ -355,45 +487,38 @@ argument for this specialised matrix uniformly in $D$.
 |---|---|
 | Full closed form at $d=3,4,5$ | direct computation in `SHPLEMINI_ZK_SMALL_CASES.md` |
 | Branch-sum diagnostics at $d=3,4,5$ | boundary-slice cancellations match the row-dependence picture |
-| Quotient interpolation specialisation | exact rational full-rank checks through quotient depth $D=8$ |
 
 **Open:**
 
-1. **Prove the quotient interpolation lemma.** This would put the virtual
-level-$(k+1)$ row in the span of the actual higher rows for every
-$k<d-2$, proving all remaining positive divisors $\tau-r_k$.
-
-2. **Relate the boundary branch-sum proof to row dependence.** Appendix B proves the
+1. **Relate the boundary branch-sum proof to row dependence.** Appendix B proves the
 $u_{d-2}=0$ slice by a pairwise swap, but §7 proves the full top-adjacent
 divisor directly. The slice cancellation should be a Laplace-expansion shadow
 of the row dependence; this has not been written out.
 
-3. **Top-pair alternant $\tau^{E-4} - r_0^{E-4}$.** Conjectured to follow from a refined Lemma P at level 0, on the cyclotomic divisor of $\tau^{E-4} = r_0^{E-4}$. Not yet formulated precisely.
+2. **Lagrange factors $L_0(u_{<k})L_{2^k-1}(u_{<k})$ and affine factors $A_k^{\pm}$.** Conjectured to come from the same level-adjacent row/column structure that produces the positive divisors. The level-$0$ affine factors are visible in §8; the higher affine factors are not yet derived.
 
-4. **Lagrange factors $L_0(u_{<k})L_{2^k-1}(u_{<k})$ and affine factors $A_k^{\pm}$.** Conjectured to come from the same level-adjacent row/column structure that produces the positive divisors. Not yet derived.
+3. **Sign $(-1)^d$.** Column-shuffle count, expected to follow once the rest is in place.
 
-5. **Sign $(-1)^d$.** Column-shuffle count, expected to follow once the rest is in place.
-
-6. **Degree match.** Show the listed divisors saturate $\det\tilde B^{(D')}$ — no additional polynomial factors. Standard once the divisors are confirmed.
+4. **Degree match.** Show the listed divisors saturate $\det\tilde B^{(D')}$ — no additional polynomial factors. Standard once the divisors are confirmed.
 
 ---
 
-## 9. The complete factor-to-mechanism map (target)
+## 10. The complete factor-to-mechanism map (target)
 
 | factor in the theorem | divisor locus | mechanism |
 |---|---|---|
 | $\tau + r_k$ for $k = 0, \ldots, d-1$ | $\tau = -r_k$ | Lemma A (proved) |
 | $\tau - r_{d-2}$ | $\tau = r_{d-2}$ | explicit row dependence (proved) |
-| $\tau - r_k$ for $k = 1, \ldots, d-3$ | $\tau = r_k$ | quotient interpolation lemma (open) |
-| $\tau^{E-4} - r_0^{E-4}$ | $\tau^{E-4} = r_0^{E-4}$ | refined Lemma P at level 0 (open) |
-| $r_0^2, \tau^2$ | $r_0 = 0, \tau = 0$ | residual from level-0 / Lemma C powers (open) |
+| $\tau - r_k$ for $k = 1, \ldots, d-3$ | $\tau = r_k$ | virtual row + quotient interpolation (proved) |
+| $\tau^{E-4} - r_0^{E-4}$ | $\tau^{E-4} = r_0^{E-4}$ | level-$0$ cokernel determinant (proved) |
+| $r_0^2, \tau^2$ | $r_0 = 0, \tau = 0$ | visible in level-$0$ cokernel determinant; multiplicity still tied to degree match |
 | $L_0(u_{<k})L_{2^k-1}(u_{<k})$ | Lagrange zero loci | $\ell_k$ content from level-$k$ peel (open) |
 | $A_k^\pm$ | affine loci | level-adjacent residual structure (open) |
 | $(-1)^d$ | sign | column shuffle (open) |
 
-The proved entries provide the negative linear divisors and the top-adjacent
-positive divisor. The lower positive divisors and the non-linear/top-pair
-factors are the remaining structural work.
+The proved entries provide all linear $\tau\pm r_k$ divisors and the top-pair
+alternant. The $u$-dependent factors and final degree/sign bookkeeping are the
+remaining structural work.
 
 ---
 
