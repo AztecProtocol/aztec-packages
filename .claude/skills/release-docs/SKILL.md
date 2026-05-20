@@ -84,6 +84,18 @@ state (the old version); they are still valid if the upgrade reuses the same
 contracts, but ask the user to confirm whether any addresses will change at
 upgrade time.
 
+**Run all work on the tag, not `next`.** Cut on the tag so the snapshot
+reflects what shipped. Then stash, switch to `next`, pop. Backport any newer
+docs from `next` into the snapshot as an explicit step *after* the cut.
+
+### Unversioned root pages
+
+Pages under `docs/docs/` (`networks.md`, `index.md`) are configured "no
+versioning" in `docusaurus.config.js` and aren't snapshotted. Edits land
+directly on `next` and become live. Treat them as post-release-live: if `next`
+already has a newer version, port it in and bump the version field rather than
+reverting to the tag's older copy.
+
 ### Step 3: Verify Aztec CLI Version
 
 ```bash
@@ -335,6 +347,14 @@ There is no dedicated `getting_started_on_testnet.md` page. Instead:
   that also need updating
 
 ### Step 11: Run `yarn build` and Fix Issues
+
+**Run after Step 13.** Docusaurus validates `lastVersion` against existing
+versioned dirs, so the build fails if the config points to a version that
+hasn't been cut yet. Actual order: 5–10, 13 (cut), then 11 (build), 12.
+
+**`rc` tags are still mainnet.** Always pass `RELEASE_TYPE=mainnet` explicitly
+for rc-suffixed mainnet builds. The API-doc generation scripts fall back to
+`testnet` for `rc` strings when `RELEASE_TYPE` is unset.
 
 Set the environment variables matching the release type so the build preprocessor
 resolves version placeholders correctly:
