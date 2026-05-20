@@ -79,6 +79,23 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator af
     return result;
 }
 
+template <class Fq, class Fr, class T>
+constexpr affine_element<Fq, Fr, T> element<Fq, Fr, T>::to_affine_const_time() const noexcept
+{
+    if (is_point_at_infinity()) {
+        affine_element<Fq, Fr, T> result;
+        result.x = Fq(0);
+        result.y = Fq(0);
+        result.self_set_infinity();
+        return result;
+    }
+    Fq z_inv = z.invert_const_time();
+    Fq zz_inv = z_inv.sqr();
+    Fq zzz_inv = zz_inv * z_inv;
+    affine_element<Fq, Fr, T> result(x * zz_inv, y * zzz_inv);
+    return result;
+}
+
 template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_dbl() noexcept
 {
     if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
@@ -465,6 +482,12 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T> element<Fq, 
 {
     const affine_element<Fq, Fr, T> converted = *this;
     return element(converted);
+}
+
+template <class Fq, class Fr, class T>
+constexpr element<Fq, Fr, T> element<Fq, Fr, T>::normalize_const_time() const noexcept
+{
+    return element(to_affine_const_time());
 }
 
 template <class Fq, class Fr, class T> element<Fq, Fr, T> element<Fq, Fr, T>::infinity()

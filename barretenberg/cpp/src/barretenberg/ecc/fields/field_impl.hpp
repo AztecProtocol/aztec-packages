@@ -411,6 +411,14 @@ template <class T> constexpr field<T> field<T>::invert() const noexcept
     return pow(modulus_minus_two);
 }
 
+template <class T> constexpr field<T> field<T>::invert_const_time() const noexcept
+{
+    if (*this == zero()) {
+        bb::assert_failure("Trying to invert zero in the field");
+    }
+    return pow(modulus_minus_two);
+}
+
 template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) noexcept
 {
     batch_invert(std::span{ coeffs, n });
