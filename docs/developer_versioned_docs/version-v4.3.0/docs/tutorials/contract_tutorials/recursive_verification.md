@@ -225,30 +225,34 @@ The contract demonstrates several important patterns:
 
 ### Create the Contract Project
 
-Use `aztec new` to generate the contract project structure:
+Use `aztec new` to generate the workspace:
 
 ```bash
-aztec new --name ValueNotEqual contract
+aztec new ValueNotEqual
 ```
 
-The `aztec new` wrapper stops parsing arguments at the first positional, so `--name` must come **before** the `contract` path — otherwise the flag is silently dropped and the Nargo package ends up named `contract`. The Nargo package name (`--name`) is independent of the Noir contract name declared inside `main.nr`; the artifact filename downstream is driven by the contract name.
-
-This creates:
+This creates a two-crate workspace under `ValueNotEqual/`: the contract crate is named `ValueNotEqual_contract` and the test crate is named `ValueNotEqual_test`, both derived from the positional argument. The Noir `contract` identifier declared inside `main.nr` is independent of the crate name and determines the compiled artifact filename.
 
 ```tree
-contract/
-├── src/
-│   └── main.nr      # Contract code
-└── Nargo.toml       # Contract configuration
+ValueNotEqual/
+├── Nargo.toml                       # [workspace] members
+├── ValueNotEqual_contract/
+│   ├── src/
+│   │   └── main.nr                  # Contract code
+│   └── Nargo.toml                   # Contract package (type = "contract")
+└── ValueNotEqual_test/
+    ├── src/
+    │   └── lib.nr                   # Noir tests
+    └── Nargo.toml                   # Test package (type = "lib")
 ```
 
 ### Contract Configuration
 
-Update `contract/contract/Nargo.toml` with the required dependencies:
+Update `ValueNotEqual/ValueNotEqual_contract/Nargo.toml` with the required dependencies:
 
 ```toml
 [package]
-name = "ValueNotEqual"
+name = "ValueNotEqual_contract"
 type = "contract"
 authors = ["[YOUR_NAME]"]
 
@@ -257,7 +261,7 @@ aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v4.3.0", di
 bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v4.3.0", directory = "barretenberg/noir/bb_proof_verification" }
 ```
 
-**Key differences from the circuit's Nargo.toml** (in `contract/contract/Nargo.toml`):
+**Key differences from the circuit's Nargo.toml** (in `ValueNotEqual/ValueNotEqual_contract/Nargo.toml`):
 
 - `type = "contract"` (not `"bin"`)
 - Depends on `aztec` for Aztec-specific features
@@ -265,7 +269,7 @@ bb_proof_verification = { git = "https://github.com/AztecProtocol/aztec-packages
 
 ### Contract Structure
 
-Replace the contents of `contract/contract/src/main.nr` with:
+Replace the contents of `ValueNotEqual/ValueNotEqual_contract/src/main.nr` with:
 
 ```rust title="full_contract" showLineNumbers 
 use aztec::macros::aztec;
@@ -462,7 +466,7 @@ Create the following files in your project root directory.
   "name": "recursive-verification-tutorial",
   "type": "module",
   "scripts": {
-    "ccc": "cd contract && aztec compile && aztec codegen target -o contract/artifacts",
+    "ccc": "cd ValueNotEqual && aztec compile && aztec codegen target -o ../artifacts",
     "data": "tsx scripts/generate_data.ts",
     "recursion": "tsx index.ts"
   },
@@ -532,8 +536,8 @@ yarn ccc
 
 This generates:
 
-- `contract/target/ValueNotEqual.json` - Contract artifact (bytecode, ABI, etc.)
-- `contract/contract/artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
+- `ValueNotEqual/target/ValueNotEqual_contract-ValueNotEqual.json` - Contract artifact (bytecode, ABI, etc.)
+- `artifacts/ValueNotEqual.ts` - TypeScript class for deploying and interacting with the contract
 
 ### Proof Generation Script
 

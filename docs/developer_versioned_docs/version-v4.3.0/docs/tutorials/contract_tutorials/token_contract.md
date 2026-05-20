@@ -49,7 +49,7 @@ yarn add @aztec/aztec.js@v4.3.0 @aztec/accounts@v4.3.0 @aztec/kv-store@v4.3.0 @a
 
 ## Contract structure
 
-The `aztec init` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
+The `aztec new` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
 
 ```rust
 use aztec::macros::aztec;
