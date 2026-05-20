@@ -894,13 +894,10 @@ impl PrivateContext {
     /// filter for relevant logs without scanning all of them.
     /// * `log` - The log data that will be publicly broadcast (so make sure it's already been encrypted before you
     /// call this function). Private logs are bounded in size (`PRIVATE_LOG_CIPHERTEXT_LEN`), to encourage all logs
-    /// from all smart contracts look identical.
-    /// * `length` - The actual length of `log` (measured in number of Fields). Although the input log has a max
-    /// size of `PRIVATE_LOG_CIPHERTEXT_LEN`, the latter values of the array might all be 0's for small logs. This
-    /// `length` should reflect the trimmed length of the array. The protocol's kernel circuits can then append
-    /// random fields as "padding" after the `length`, so that the logs of this smart contract look
-    /// indistinguishable from (the same length as) the logs of all other applications. It's up to wallets how much
-    /// padding to apply, so ideally all wallets should agree on standards for this.
+    /// from all smart contracts look identical. The protocol's kernel circuits can then append random fields as
+    /// "padding" after the log's length, so that the logs of this smart contract look indistinguishable from (the
+    /// same length as) the logs of all other applications. It's up to wallets how much padding to apply, so
+    /// ideally all wallets should agree on standards for this.
     ///
     /// ## Safety
     ///
@@ -909,67 +906,34 @@ impl PrivateContext {
     /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
     /// ([`crate::messages::message_delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
     /// handle tagging automatically.
-    // TODO(F-555): remove this function in favor of `emit_private_log_vec_unsafe`
-    #[deprecated("use `emit_private_log_vec_unsafe` instead")]
-    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32) {
-        let counter = self.next_counter();
-        let full_log = [tag].concat(log);
-        self.private_logs.push(PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }
-            .count(counter));
+    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
+        self.emit_raw_note_log_unsafe(tag, log, 0);
     }
 
-    /// `BoundedVec`-based variant of [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
-    ///
-    /// See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) for the full description of private
-    /// log semantics.
-    // TODO(F-555): once `emit_private_log_unsafe` is removed, rename this function to drop the `_vec` suffix.
-    pub fn emit_private_log_vec_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
-        self.emit_raw_note_log_vec_unsafe(tag, log, 0);
-    }
-
-    // TODO: rename.
     /// Emits a private log that is explicitly tied to a newly-emitted note_hash, to convey to the kernel: "this log
     /// relates to this note".
     ///
     /// This linkage is important in case the note gets squashed (due to being read later in this same tx), since we
     /// can then squash the log as well.
     ///
-    /// See `emit_private_log_unsafe` for more info about private log emission.
+    /// See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) for more info about private log
+    /// emission.
     ///
     /// # Arguments
-    /// * `tag` - A tag placed at `fields[0]`. See `emit_private_log_unsafe`.
-    /// * `log` - The log data as an array of Field elements
-    /// * `length` - The actual length of the `log` (measured in number of Fields).
+    /// * `tag` - A tag placed at `fields[0]`. See
+    ///   [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
+    /// * `log` - The log data as a `BoundedVec` of Field elements.
     /// * `note_hash_counter` - The side-effect counter that was assigned to the new note_hash when it was pushed to
     /// this `PrivateContext`.
     ///
     /// Important: If your application logic requires the log to always be emitted regardless of note squashing,
-    /// consider using `emit_private_log_unsafe` instead, or emitting additional events.
+    /// consider using [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) instead, or emitting
+    /// additional events.
     ///
     /// ## Safety
     ///
     /// Same as [`PrivateContext::emit_private_log_unsafe`]: the `tag` should be domain-separated.
-    // TODO(F-555): remove this function in favor of `emit_raw_note_log_vec_unsafe`
-    #[deprecated("use `emit_raw_note_log_vec_unsafe` instead")]
     pub fn emit_raw_note_log_unsafe(
-        &mut self,
-        tag: Field,
-        log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN],
-        length: u32,
-        note_hash_counter: u32,
-    ) {
-        let counter = self.next_counter();
-        let full_log = [tag].concat(log);
-        let private_log = PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter };
-        self.private_logs.push(private_log.count(counter));
-    }
-
-    /// `BoundedVec`-based variant of [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe).
-    ///
-    /// See [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe) for the full description of
-    /// note-tied private log semantics.
-    // TODO(F-555): once `emit_raw_note_log_unsafe` is removed, rename this function to drop the `_vec` suffix.
-    pub fn emit_raw_note_log_vec_unsafe(
         &mut self,
         tag: Field,
         log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
