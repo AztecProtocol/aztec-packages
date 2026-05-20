@@ -30,6 +30,8 @@ template <typename Builder> class databus {
 
         /**
          * @brief Set the entries of the bus vector from possibly unnormalized or constant inputs
+         * @details Creates a databus read gate for each slot to bind the bus entry to its corresponding witness in the
+         * main wires.
          * @note A builder/context is assumed to be known at this stage, otherwise the first read will fail if index is
          * constant
          *

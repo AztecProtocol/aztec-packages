@@ -30,7 +30,9 @@ void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entri
                  static_cast<size_t>(0),
                  "bus_vector::set_values: bus_idx already written.");
 
-    // Initialize the bus vector entries from the input entries which are un-normalized and possibly constants
+    // Initialize the bus vector entries from the input entries which are un-normalized and possibly constants.
+    // append_to_bus_vector creates a binding init-read for each appended entry. The bus column is not part of the
+    // copy-constraint permutation, so this is what links bus_column[i] to its main-wire witness.
     for (const auto& entry : entries_in) {
         if (entry.is_constant()) { // create a constant witness from the constant
             auto const_var_idx = context->put_constant_variable(entry.get_value());
@@ -38,7 +40,6 @@ void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entri
         } else { // normalize the raw entry
             entries.emplace_back(entry.normalize());
         }
-        // Add the entry to the bus vector data
         context->append_to_bus_vector(bus_idx, entries.back().get_witness_index());
     }
     length = entries.size();
