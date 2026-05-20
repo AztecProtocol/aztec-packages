@@ -66,8 +66,11 @@ type TXEForeignCallInput = {
 
 const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
   z.object({
+    // Nargo generates session_id as a u64, which may exceed Number.MAX_SAFE_INTEGER.
+    // Zod 4's `.int()` enforces the safe-integer bound, so we drop it here and only require
+    // the value to be a non-negative number (it is used solely as a Map key).
     // eslint-disable-next-line camelcase
-    session_id: z.number().int().nonnegative(),
+    session_id: z.number().nonnegative(),
     function: z.string() as z.ZodType<TXEOracleFunctionName>,
     // eslint-disable-next-line camelcase
     root_path: z.string(),
@@ -266,7 +269,7 @@ class TXEDispatcher {
 
 const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
   // eslint-disable-next-line camelcase
-  resolve_foreign_call: z.function().args(TXEForeignCallInputSchema).returns(ForeignCallResultSchema),
+  resolve_foreign_call: z.function({ input: z.tuple([TXEForeignCallInputSchema]), output: ForeignCallResultSchema }),
 };
 
 /**

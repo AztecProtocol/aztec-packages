@@ -21,11 +21,13 @@
 <h3>Fields</h3>
 <ul class="sidebar-list">
 <li><a href="#structfield.address">address</a></li>
+<li><a href="#structfield.call_self">call_self</a></li>
 <li><a href="#structfield.context">context</a></li>
 <li><a href="#structfield.storage">storage</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
+<li><a href="#call">call</a></li>
 <li><a href="#new">new</a></li>
 </ul>
 <h2>In module contract_self_utility</h2>
@@ -36,10 +38,11 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_utility</a></div>
 <h1>Struct <span id="struct" class="struct">ContractSelfUtility</span></h1>
-<pre><code>pub struct ContractSelfUtility&lt;Storage&gt; {
+<pre><code>pub struct ContractSelfUtility&lt;Storage, CallSelf&gt; {
     pub address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     pub storage: Storage,
     pub context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>,
+    pub call_self: CallSelf,
 }
 </code></pre>
 <div class="comments">
@@ -50,6 +53,8 @@ marked with <code>&quot;utility&quot;</code> by the Aztec macro system and is ac
 <ul>
 <li><code>Storage</code>: The contract's storage struct (defined with <a href="../../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a>, or <code>()</code> if
 the contract has no storage</li>
+<li><code>CallSelf</code>: Macro-generated type for calling the contract's own utility functions (same type
+as <code>CallSelf</code> in [<code>PrivateUtilityCalls</code>])</li>
 </ul></div>
 <h2>Fields</h2>
 <div id="structfield.address" class="struct-field"><code class="code-header">address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
@@ -72,15 +77,32 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <div class="padded-description"><div class="comments">
 <p>The utility execution context.</p>
 </div>
+</div><div id="structfield.call_self" class="struct-field"><code class="code-header">call_self: CallSelf</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling this contract's own utility functions.</p>
+<p>Example API:</p>
+<pre><code>self.call_self.some_utility_function(args)</code></pre></div>
 </div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html" class="struct">ContractSelfUtility</a>&lt;Storage&gt;</code></h3>
+<h3><code class="code-header">impl&lt;CallSelf, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html" class="struct">ContractSelfUtility</a>&lt;Storage, CallSelf&gt;</code></h3>
 
-<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>, storage: Storage) -> Self</code>
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>, storage: Storage, call_self: CallSelf) -> Self</code>
 
 <div class="padded-description"><div class="comments">
 <p>Creates a new <code>ContractSelfUtility</code> instance for a utility function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
+</div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    _self: Self,
+    call: <a href="../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a utility contract call from another utility function.</p>
+<p>Note: only same-contract utility calls are currently supported. See TODO(F-29).</p>
+<h4>Example</h4>
+<pre><code>self.call(Token::at(address).get_balance_of(owner));</code></pre></div>
 </div></div></main>
 </span>
 </body>

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { makeTuple } from '../array/array.js';
 import { Fr } from '../curves/bn254/index.js';
 import { schemas } from '../schemas/index.js';
@@ -42,10 +44,14 @@ export class SiblingPath<N extends number> {
   }
 
   static schemaFor<N extends number>(size: N) {
-    return schemas.Buffer.transform(b => SiblingPath.fromBuffer(b) as SiblingPath<N>).refine(
-      path => path.pathSize === size,
-      path => ({ message: `Expected sibling path size ${size} but got ${path.pathSize}` }),
-    );
+    return schemas.Buffer.transform(b => SiblingPath.fromBuffer(b) as SiblingPath<N>).superRefine((path, ctx) => {
+      if (path.pathSize !== size) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Expected sibling path size ${size} but got ${path.pathSize}`,
+        });
+      }
+    });
   }
 
   toJSON() {

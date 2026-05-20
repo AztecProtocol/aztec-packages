@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -78,6 +78,7 @@ new AztecAddress(buffer: Fr | Buffer<ArrayBufferLike>)
 
 **Properties**
 - `_branding: "AztecAddress"` - Brand.
+- `static NULL_MSG_SENDER: AztecAddress` - Null msg sender address. Not part of the protocol contracts tree.
 - `static schema: unknown`
 - `size: unknown`
 - `static SIZE_IN_BYTES: number`
@@ -1848,6 +1849,7 @@ new Tag(value: Fr)
 **Methods**
 - `static compute(preTag: PreTag) => Promise<Tag>`
 - `equals(other: Tag) => boolean`
+- `static random() => Tag`
 - `toJSON() => string`
 - `toString() => string`
 
@@ -2138,6 +2140,7 @@ new TxProvingResult(privateExecutionResult: PrivateExecutionResult, publicInputs
 **Methods**
 - `static from(fields: FieldsOf<TxProvingResult>) => TxProvingResult`
 - `getOffchainEffects() => OffchainEffect[]`
+- `getTxHash() => Promise<TxHash>`
 - `static random() => Promise<TxProvingResult>`
 - `toTx() => Promise<Tx>`
 
@@ -2295,6 +2298,7 @@ A basic value.
 Defines artifact of a contract.
 
 **Properties**
+- `aztecVersion: string` - The version of the Aztec stack that compiled this artifact.
 - `fileMap: DebugFileMap` - The map of file ID to the source code and path of the file.
 - `functions: FunctionArtifact[]` - The functions of the contract. Includes private and utility functions, plus the public dispatch function.
 - `name: string` - The name of the contract.
@@ -2612,8 +2616,17 @@ Interface to a handler of events emitted.
 
 Interface to the local view of the chain. Implemented by world-state and l2-tips-store.
 
+Extends: `L2TipsProvider`
+
 **Methods**
 - `getL2BlockHash(number: number) => Promise<string | undefined>`
+- `getL2Tips() => Promise<L2Tips>`
+
+### L2TipsProvider
+
+Provides the current chain tips. Implemented by world-state, l2-tips-store, and AztecNode.
+
+**Methods**
 - `getL2Tips() => Promise<L2Tips>`
 
 ### NodeInfo
@@ -2906,6 +2919,12 @@ Computes the partial address defined as the hash of the contract class id and sa
 ```typescript
 function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) => Promise<Fr>
 ```
+
+### computePrivateEventCommitment
+```typescript
+function computePrivateEventCommitment(randomness: Fr, eventSelector: Fr, content: Fr[]) => Promise<Fr>
+```
+Computes the commitment of a private event from its preimage.
 
 ### computePrivateFunctionLeaf
 ```typescript
@@ -3482,6 +3501,12 @@ A named type.
 type APPROXIMATE_MAX_DA_GAS_PER_BLOCK = number
 ```
 Approximate max DA gas limit. Arbitrary, assuming 4 blocks per checkpoint — users should use gas estimation.
+
+### ARTIFACT_VERSION_BEFORE_INJECTION
+```typescript
+type ARTIFACT_VERSION_BEFORE_INJECTION = "FROM_RELEASE_BEFORE_VERSION_INJECTION"
+```
+Placeholder version injected into artifacts compiled before aztecVersion was added. Remove.
 
 ### AbiDecoded
 ```typescript
