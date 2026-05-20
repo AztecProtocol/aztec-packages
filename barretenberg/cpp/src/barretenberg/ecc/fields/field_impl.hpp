@@ -399,7 +399,7 @@ template <class T> constexpr field<T> field<T>::invert() const noexcept
         constexpr uint64_t p_inv_mod_2k = bernstein_yang::p_inv_mod_2k_from_montgomery_r_inv(T::r_inv);
         field non_mont = from_montgomery_form_reduced();
         uint256_t a{ non_mont.data[0], non_mont.data[1], non_mont.data[2], non_mont.data[3] };
-        uint256_t inv = bernstein_yang::invert_bernsteinyang19(a, p_uint, p_inv_mod_2k);
+        uint256_t inv = bernstein_yang::invert_vartime(a, p_uint, p_inv_mod_2k);
         field result{ inv.data[0], inv.data[1], inv.data[2], inv.data[3] };
         result.self_to_montgomery_form();
         return result;

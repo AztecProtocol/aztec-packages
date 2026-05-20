@@ -17,7 +17,7 @@
 // — k is determined by the low BATCH bits of M·(d, e) and p⁻¹ mod 2^BATCH.
 //
 // Native5x64 and Wasm9x29 wrap the platform-specific limb representation
-// behind the same static interface so `invert_bernsteinyang19` below is a
+// behind the same static interface so `invert_vartime` below is a
 // single algorithm for both targets.
 
 #pragma once
@@ -306,7 +306,7 @@ using State = Native5x64;
  * @pre p odd prime, p < 2^255, 0 ≤ a < p.
  */
 template <class S = State>
-inline uint256_t invert_bernsteinyang19(const uint256_t& a, const uint256_t& p, u64 p_inv_mod_2k) noexcept
+inline uint256_t invert_vartime(const uint256_t& a, const uint256_t& p, u64 p_inv_mod_2k) noexcept
 {
     if (a == uint256_t(0)) {
         return uint256_t(0);
@@ -338,7 +338,7 @@ inline constexpr u64 p_inv_mod_2k_from_montgomery_r_inv(u64 r_inv) noexcept
     return State::p_inv_mod_2k_from_montgomery_r_inv(r_inv);
 }
 
-// True iff `invert_bernsteinyang19` is usable for field params T: the active
+// True iff `invert_vartime` is usable for field params T: the active
 // kernel must be compilable on this toolchain (Native5x64 needs __int128, the
 // WASM kernel is unconditional) and T's modulus must fit BY's < 2^255
 // precondition.  Used to gate the dispatch in `field::invert()`.

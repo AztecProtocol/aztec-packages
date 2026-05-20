@@ -258,7 +258,7 @@ $$
 
 In code, this is the
 `if (f.is_negative()) { d.neg(); d.reduce_to_canonical(P); }` at the end of
-`invert_bernsteinyang19`.
+`invert_vartime`.
 
 ---
 
@@ -269,7 +269,7 @@ behind `Native5x64` and `Wasm9x29`.
 
 | Math description | Code |
 | --- | --- |
-| $\Phi = \begin{pmatrix} f & d \\ g & e \end{pmatrix}$ | `S P(p), f = P, g(a), d, e = S::one()` in `invert_bernsteinyang19` |
+| $\Phi = \begin{pmatrix} f & d \\ g & e \end{pmatrix}$ | `S P(p), f = P, g(a), d, e = S::one()` in `invert_vartime` |
 | Auxiliary divstep counter $\delta$ | local `i64 delta` |
 | Product of one batch of divsteps | `S::compute_divstep_matrix(delta, f.low_64(), g.low_64())` |
 | $M = \begin{pmatrix} u & v \\ q & r \end{pmatrix} 2^{-B}$ | `DivstepMatrix { u, v, q, r }`; the denominator is the implicit `2^BATCH` |

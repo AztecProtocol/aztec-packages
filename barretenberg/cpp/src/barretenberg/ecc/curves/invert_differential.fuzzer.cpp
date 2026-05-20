@@ -9,9 +9,9 @@
  * three different ways:
  *
  *   - A: `pow(modulus_minus_two)` — Fermat's little theorem (modexp).
- *   - B: `invert_bernsteinyang19<Native5x64>` — safegcd, 5×64-bit limb kernel
+ *   - B: `invert_vartime<Native5x64>` — safegcd, 5×64-bit limb kernel
  *        (selected on native targets, BATCH=62).
- *   - C: `invert_bernsteinyang19<Wasm9x29>` — safegcd, 9×29-bit limb kernel
+ *   - C: `invert_vartime<Wasm9x29>` — safegcd, 9×29-bit limb kernel
  *        (selected on WASM targets, BATCH=58).
  *
  * All three are compared in canonical (non-Montgomery) form.  Any discrepancy
@@ -116,10 +116,8 @@ template <typename Field> static void differential_check_inverse(const Field& a_
         bernstein_yang::Native5x64::p_inv_mod_2k_from_montgomery_r_inv(Field::Params::r_inv);
     constexpr uint64_t p_inv_wasm = bernstein_yang::Wasm9x29::p_inv_mod_2k_from_montgomery_r_inv(Field::Params::r_inv);
 
-    uint256_t native_inv_raw =
-        bernstein_yang::invert_bernsteinyang19<bernstein_yang::Native5x64>(a_raw, p_uint, p_inv_native);
-    uint256_t wasm_inv_raw =
-        bernstein_yang::invert_bernsteinyang19<bernstein_yang::Wasm9x29>(a_raw, p_uint, p_inv_wasm);
+    uint256_t native_inv_raw = bernstein_yang::invert_vartime<bernstein_yang::Native5x64>(a_raw, p_uint, p_inv_native);
+    uint256_t wasm_inv_raw = bernstein_yang::invert_vartime<bernstein_yang::Wasm9x29>(a_raw, p_uint, p_inv_wasm);
 
     Field native_inv = raw_to_montgomery<Field>(native_inv_raw);
     Field wasm_inv = raw_to_montgomery<Field>(wasm_inv_raw);
