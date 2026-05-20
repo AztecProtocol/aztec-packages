@@ -177,7 +177,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersionV2([major]: ACVMField[], [minor]: ACVMField[]) {
+  aztec_utl_assertCompatibleOracleVersion([major]: ACVMField[], [minor]: ACVMField[]) {
     this.handlerAsMisc().assertCompatibleOracleVersion(
       Fr.fromString(major).toNumber(),
       Fr.fromString(minor).toNumber(),
@@ -246,27 +246,8 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
-  // TODO(https://linear.app/aztec-labs/issue/F-651): drop this
   // eslint-disable-next-line camelcase
   async aztec_utl_getBlockHashMembershipWitness(
-    [anchorBlockHash]: ACVMField[],
-    [blockHash]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
-    const parsedBlockHash = BlockHash.fromString(blockHash);
-
-    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(parsedAnchorBlockHash, parsedBlockHash);
-    if (!witness) {
-      throw new Error(
-        `Block hash ${parsedBlockHash.toString()} not found in the archive tree at anchor block ${parsedAnchorBlockHash.toString()}.`,
-      );
-    }
-    return witness.toNoirRepresentation();
-  }
-
-  // TODO(https://linear.app/aztec-labs/issue/F-651): rename to aztec_utl_getBlockHashMembershipWitness
-  // eslint-disable-next-line camelcase
-  async aztec_utl_getBlockHashMembershipWitnessV2(
     [anchorBlockHash]: ACVMField[],
     [blockHash]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {

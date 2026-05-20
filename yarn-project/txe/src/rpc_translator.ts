@@ -302,7 +302,7 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersionV2(foreignMajor: ForeignCallSingle, foreignMinor: ForeignCallSingle) {
+  aztec_utl_assertCompatibleOracleVersion(foreignMajor: ForeignCallSingle, foreignMinor: ForeignCallSingle) {
     const major = fromSingle(foreignMajor).toNumber();
     const minor = fromSingle(foreignMinor).toNumber();
 
@@ -808,28 +808,8 @@ export class RPCTranslator {
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
-  // TODO(https://linear.app/aztec-labs/issue/F-651): drop this
   // eslint-disable-next-line camelcase
   async aztec_utl_getBlockHashMembershipWitness(
-    foreignAnchorBlockHash: ForeignCallSingle,
-    foreignBlockHash: ForeignCallSingle,
-  ) {
-    const anchorBlockHash = blockHashFromSingle(foreignAnchorBlockHash);
-    const blockHash = blockHashFromSingle(foreignBlockHash);
-
-    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
-
-    if (!witness) {
-      throw new Error(
-        `Block hash ${blockHash.toString()} not found in the archive tree at anchor block ${anchorBlockHash.toString()}.`,
-      );
-    }
-    return toForeignCallResult(witness.toNoirRepresentation());
-  }
-
-  // TODO(https://linear.app/aztec-labs/issue/F-651): rename to aztec_utl_getBlockHashMembershipWitness
-  // eslint-disable-next-line camelcase
-  async aztec_utl_getBlockHashMembershipWitnessV2(
     foreignAnchorBlockHash: ForeignCallSingle,
     foreignBlockHash: ForeignCallSingle,
   ) {
