@@ -123,59 +123,94 @@ function bucketSplit(n: number): { pc: number; cf: number; nc: number } {
   return { pc, cf, nc: pc + cf };
 }
 
-// Build level 0. active_sums is numWindows fixed regions of wstride (= n)
-// slots; window w owns [w*wstride, (w+1)*wstride). Each window assigns n
-// random points to BW buckets (off-curve is fine — the affine formula is
-// pure field arithmetic and random x's never collide). A global
-// [pad_l, pad_r, discard] trio sits at the end. Returns the Montgomery
-// SoA buffer for the GPU and the normal-form points per slot for replay.
+// Build level 0 from a synthetic decompose output — the per-(window,point)
+// bucket indices the scalar-decomposition phase emits. The GPU transpose
+// (counting-sort) turns it into a per-window CSR, then csr_to_v2
+// materialises level-0 active_sums + counts/offsets on-device. active_sums
+// is numWindows windows of wstride (= n) slots; a global [pad_l, pad_r,
+// discard] trio sits at the end. Points enter in Montgomery form — the
+// representation the prover hands us.
+//
+// A c-bit window recodes to an odd signed Booth digit; its magnitude is
+// one of BW = 2^(c-1) odd values and the digit sign is a point negation
+// (a decompose-phase concern, not exercised by this synthetic stand-in).
+//
+// Returns the synthetic decompose output (chunks) + the Montgomery point
+// pool (pointX, pointY for the GPU; poolPt + padPts for the replay model);
+// the pad-only SoA buffer; and the host counts/offsets the planner uses.
+// The slot->point model is built post-run from the GPU's actual val_idx.
 function buildL0(numWindows: number, BW: number, npw: number, R: bigint, rng: () => number) {
   const wstride = npw;
+  const inputSize = npw; // points per window/subtask
   const M = numWindows * wstride + 3;
-  const buf = new Uint32Array(2 * PG * M * 4);
+  const totalSlots = numWindows * inputSize;
 
-  // One independent random point per slot. The windows are independent
-  // sub-problems, so each (window, slot) is just its own synthetic point;
-  // a bucket owns a contiguous run of slots, whatever points land there.
-  const placed: Pt[] = new Array(M);
-  for (let s = 0; s < M; s++) placed[s] = { x: randomBelow(FP, rng), y: randomBelow(FP, rng) };
-  if (placed[M - 3].x === placed[M - 2].x) placed[M - 2].x = (placed[M - 2].x + 1n) % FP;
+  // Montgomery point pool: `inputSize` distinct points. cuZK val_idx maps
+  // each (window, slot) to a pool index; a point recurs once per window.
+  const poolPt: Pt[] = new Array(inputSize);
+  for (let i = 0; i < inputSize; i++) poolPt[i] = { x: randomBelow(FP, rng), y: randomBelow(FP, rng) };
+  const pointX = new Uint32Array(inputSize * 8);
+  const pointY = new Uint32Array(inputSize * 8);
+  for (let i = 0; i < inputSize; i++) {
+    pointX.set(bigintToPackedU32x8((poolPt[i].x * R) % FP), i * 8);
+    pointY.set(bigintToPackedU32x8((poolPt[i].y * R) % FP), i * 8);
+  }
 
-  // Per-window bucket assignment → global counts / offsets.
-  const counts = new Uint32Array(numWindows * BW);
-  const offsets = new Uint32Array(numWindows * BW);
+  // Synthetic decompose output: per (window, point) a bucket index in
+  // [0, BW). chunks is subtask-major — chunks[w*inputSize + i] — exactly
+  // the cuZK transpose's all_csr_col_idx input.
+  const chunks = new Uint32Array(totalSlots);
+  // Host counting-sort of chunks -> per-window counts + global offsets,
+  // the order-independent reference the planner uses (the GPU transpose
+  // reproduces these; its val_idx is checked separately, post-run).
+  const rowPtr = new Uint32Array(numWindows * (BW + 1));
+  const initCounts = new Uint32Array(numWindows * BW);
+  const initOffsets = new Uint32Array(numWindows * BW);
   let maxCount = 0;
   for (let w = 0; w < numWindows; w++) {
     const cw = new Uint32Array(BW);
-    for (let i = 0; i < npw; i++) {
+    const viBase = w * inputSize;
+    for (let i = 0; i < inputSize; i++) {
       const hi = (rng() >>> 16) & 0xffff;
       const lo = (rng() >>> 16) & 0xffff;
-      cw[(hi * 0x10000 + lo) % BW]++;
+      const b = (hi * 0x10000 + lo) % BW;
+      chunks[viBase + i] = b;
+      cw[b]++;
     }
-    let acc = w * wstride;
+    const rpBase = w * (BW + 1);
+    for (let b = 0; b < BW; b++) rowPtr[rpBase + b + 1] = rowPtr[rpBase + b] + cw[b];
     for (let b = 0; b < BW; b++) {
       const g = w * BW + b;
-      counts[g] = cw[b];
-      offsets[g] = acc;
-      acc += cw[b];
+      initCounts[g] = cw[b];
+      initOffsets[g] = w * wstride + rowPtr[rpBase + b]; // global active_sums offset
       if (cw[b] > maxCount) maxCount = cw[b];
     }
   }
 
-  // SoA layout the kernels expect: flat vec4 = plane*PG*M + PG*slot + half
-  // (the two PG vec4s of one element are CONSECUTIVE).
-  const writeElem = (planeIdx: number, slot: number, v: bigint) => {
-    const w8 = bigintToPackedU32x8((v * R) % FP);
+  // Pad trio: 2 distinct-x points (pad_l, pad_r) + a discard slot.
+  const padPts: Pt[] = [];
+  for (let j = 0; j < 3; j++) padPts.push({ x: randomBelow(FP, rng), y: randomBelow(FP, rng) });
+  if (padPts[0].x === padPts[1].x) padPts[1].x = (padPts[1].x + 1n) % FP;
+
+  // padBuf: a full-M SoA buffer with only the 3 pad slots set (Montgomery).
+  // Written once to bufA/bufB; the converter / level loop fill the real
+  // region, the pad trio survives.
+  const padBuf = new Uint32Array(2 * PG * M * 4);
+  for (let j = 0; j < 3; j++) {
+    const slot = totalSlots + j;
+    const xw = bigintToPackedU32x8((padPts[j].x * R) % FP);
+    const yw = bigintToPackedU32x8((padPts[j].y * R) % FP);
     for (let q = 0; q < PG; q++) {
-      const base = (planeIdx * PG * M + PG * slot + q) * 4;
-      for (let k = 0; k < 4; k++) buf[base + k] = w8[4 * q + k];
+      const xb = (PG * slot + q) * 4;
+      const yb = (PG * M + PG * slot + q) * 4;
+      for (let k = 0; k < 4; k++) {
+        padBuf[xb + k] = xw[4 * q + k];
+        padBuf[yb + k] = yw[4 * q + k];
+      }
     }
-  };
-  for (let s = 0; s < M; s++) {
-    writeElem(0, s, placed[s].x);
-    writeElem(1, s, placed[s].y);
   }
-  return { initBuf: buf, initCounts: counts, initOffsets: offsets, M, slotPt: placed, maxCount };
+
+  return { chunks, pointX, pointY, padBuf, poolPt, padPts, initCounts, initOffsets, M, maxCount };
 }
 
 function makeSoABuf(device: GPUDevice, M: number): GPUBuffer {
@@ -311,7 +346,7 @@ async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number
 function storageBuf(device: GPUDevice, bytes: number): GPUBuffer {
   return device.createBuffer({
     size: Math.max(bytes, 4),
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
   });
 }
 
@@ -336,7 +371,8 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   log('info', `total: ${N_TOTAL} insertions, ${B_TOTAL} buckets, lambda=${lambda.toFixed(2)}, S=${S} WGI=${WGI} reps=${REPS}`);
 
   const rng = makeRng(0x9111);
-  const { initBuf, initCounts, initOffsets, M, slotPt, maxCount } = buildL0(NUM_WINDOWS, BW, NPTS, R, rng);
+  const { chunks, pointX, pointY, padBuf, poolPt, padPts, initCounts, initOffsets, M, maxCount } =
+    buildL0(NUM_WINDOWS, BW, NPTS, R, rng);
   const padL = M - 3;
   const padR = M - 2;
   const discard = M - 1;
@@ -374,7 +410,10 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   // --- GPU buffers (created once, reused across reps) ---
   const bufA = makeSoABuf(device, M);
   const bufB = makeSoABuf(device, M);
-  device.queue.writeBuffer(bufB, 0, initBuf); // pad trio (real region rewritten by L0)
+  // Pad trio: written once into both ping-pong buffers. The converter and
+  // the level loop only ever touch the real region, so the trio survives.
+  device.queue.writeBuffer(bufA, 0, padBuf);
+  device.queue.writeBuffer(bufB, 0, padBuf);
   const bucketResult = makeSoABuf(device, B_TOTAL);
 
   const countsBufs = [storageBuf(device, B_TOTAL * 4), storageBuf(device, B_TOTAL * 4)];
@@ -467,6 +506,56 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   const finalizePipe = await compileOne(device, sm.gen_ba_finalize_copy_bench_shader(WGI), `finalize-W${WGI}`, finalizeLayout);
   log('info', '4 pipelines compiled');
 
+  // --- Pippenger pre-steps: cuZK transpose (counting-sort) + csr_to_v2.
+  // The transpose turns the synthetic decompose output (per-(window,point)
+  // bucket indices) into a per-window CSR; csr_to_v2 then materialises
+  // level-0 active_sums + counts/offsets. Buckets per window = BW = 2^(c-1)
+  // (odd-Booth digit magnitude), so num_columns = BW end to end. ---
+  const chunksBuf = storageBuf(device, chunks.byteLength);
+  const pointXBuf = storageBuf(device, pointX.byteLength);
+  const pointYBuf = storageBuf(device, pointY.byteLength);
+  device.queue.writeBuffer(chunksBuf, 0, chunks);
+  device.queue.writeBuffer(pointXBuf, 0, pointX);
+  device.queue.writeBuffer(pointYBuf, 0, pointY);
+  // Transpose outputs, produced on-device each rep. rowPtr / curr are
+  // atomic-accumulated, so both are zeroed before the count / scatter.
+  const rowPtrBuf = storageBuf(device, NUM_WINDOWS * (BW + 1) * 4);
+  const valIdxBuf = storageBuf(device, N_TOTAL * 4);
+  const currBuf = storageBuf(device, NUM_WINDOWS * BW * 4);
+  const xposeParams = uniformBuf(device, new Uint32Array([Math.ceil(NPTS / BW), BW, NPTS, 0]));
+  const convActiveParams = uniformBuf(device, new Uint32Array([N_TOTAL, M, 0, 0]));
+  const convMetaParams = uniformBuf(device, new Uint32Array([BW, B_TOTAL, NPTS, 0]));
+
+  const bgl = (types: GPUBufferBindingType[]): GPUBindGroupLayout =>
+    device.createBindGroupLayout({
+      entries: types.map((type, binding) => ({ binding, visibility: GPUShaderStage.COMPUTE, buffer: { type } })),
+    });
+  const mkBind = (layout: GPUBindGroupLayout, buffers: GPUBuffer[]): GPUBindGroup =>
+    device.createBindGroup({ layout, entries: buffers.map((buffer, binding) => ({ binding, resource: { buffer } })) });
+
+  const xposeCountLayout = bgl(['read-only-storage', 'storage', 'uniform']);
+  const xposeScanLayout = bgl(['storage', 'uniform']);
+  const xposeScatterLayout = bgl(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+  const convActiveLayout = bgl(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+  const convMetaLayout = bgl(['read-only-storage', 'storage', 'storage', 'uniform']);
+
+  const xposeCountPipe = await compileOne(device, sm.gen_transpose_count_shader(WGI), `xpose-count-W${WGI}`, xposeCountLayout);
+  const xposeScanPipe = await compileOne(device, sm.gen_transpose_scan_shader(NUM_WINDOWS), 'xpose-scan', xposeScanLayout);
+  const xposeScatterPipe = await compileOne(device, sm.gen_transpose_scatter_shader(WGI), `xpose-scatter-W${WGI}`, xposeScatterLayout);
+  const convActivePipe = await compileOne(device, sm.gen_csr_to_v2_active_sums_shader(WGI), `csr2v2-active-W${WGI}`, convActiveLayout);
+  const convMetaPipe = await compileOne(device, sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta-W${WGI}`, convMetaLayout);
+
+  const xposeCountBind = mkBind(xposeCountLayout, [chunksBuf, rowPtrBuf, xposeParams]);
+  const xposeScanBind = mkBind(xposeScanLayout, [rowPtrBuf, xposeParams]);
+  const xposeScatterBind = mkBind(xposeScatterLayout, [chunksBuf, rowPtrBuf, valIdxBuf, currBuf, xposeParams]);
+  const convActiveBind = mkBind(convActiveLayout, [valIdxBuf, pointXBuf, pointYBuf, bufA, convActiveParams]);
+  const convMetaBind = mkBind(convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams]);
+
+  const nXposePts = Math.ceil(NPTS / WGI);
+  const nConvActive = Math.ceil(N_TOTAL / WGI);
+  const nConvMeta = Math.ceil(B_TOTAL / WGI);
+  log('info', '5 pre-step pipelines compiled (transpose x3 + csr_to_v2 x2)');
+
   // --- Per-level bind groups + uniforms (built once, reused each rep) ---
   const finalizeParams = uniformBuf(device, new Uint32Array([B_TOTAL, M, 0, 0]));
   const numWgsFinalize = Math.ceil(B_TOTAL / WGI);
@@ -540,7 +629,11 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
 
   // --- Timestamp query set (reused across reps) ---
   const KINDS = ['planner', 'fused', 'carry', 'finalize'];
-  const passCount = levels * KINDS.length;
+  // Per rep, a prologue of Pippenger pre-steps (3 transpose: count / scan
+  // / scatter, then 2 csr_to_v2) followed by KINDS passes per level.
+  const PRE_XPOSE = 3;
+  const PRE = PRE_XPOSE + 2;
+  const passCount = PRE + levels * KINDS.length;
   const tsEnabled = device.features.has('timestamp-query');
   if (!tsEnabled) log('warn', 'timestamp-query unavailable — per-component timing skipped');
   const querySet = tsEnabled ? device.createQuerySet({ type: 'timestamp', count: passCount * 2 }) : null;
@@ -554,16 +647,9 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   // One pipeline run: re-initialise the mutable buffers, encode all
   // passes, time the single submit, read the per-pass timestamps.
   const runOnce = async (rep: number): Promise<number> => {
-    // Re-init level-0 inputs (bufB's pad trio survives; its real region
-    // is rewritten by level 0).
-    device.queue.writeBuffer(bufA, 0, initBuf);
-    device.queue.writeBuffer(countsBufs[0], 0, initCounts);
-    device.queue.writeBuffer(offsetsBufs[0], 0, initOffsets);
-    await device.queue.onSubmittedWorkDone(); // drain re-init before timing
-
     const enc = device.createCommandEncoder();
     let passIdx = 0;
-    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, numWgs: number) => {
+    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1) => {
       const desc: GPUComputePassDescriptor = {};
       if (querySet) {
         desc.timestampWrites = {
@@ -575,10 +661,23 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       const pass = enc.beginComputePass(desc);
       pass.setPipeline(pipe);
       pass.setBindGroup(0, bind);
-      pass.dispatchWorkgroups(Math.max(1, numWgs), 1, 1);
+      pass.dispatchWorkgroups(Math.max(1, nx), Math.max(1, ny), 1);
       pass.end();
       passIdx++;
     };
+    // Pippenger pre-steps, each timed as its own kind. cuZK transpose
+    // (count / scan / scatter): the counting-sort turns the synthetic
+    // decompose output into a per-window CSR. count accumulates into
+    // rowPtr and scatter into curr, so both are zeroed first.
+    enc.clearBuffer(rowPtrBuf);
+    enc.clearBuffer(currBuf);
+    dispatch(xposeCountPipe, xposeCountBind, nXposePts, NUM_WINDOWS);
+    dispatch(xposeScanPipe, xposeScanBind, NUM_WINDOWS);
+    dispatch(xposeScatterPipe, xposeScatterBind, nXposePts, NUM_WINDOWS);
+    // csr_to_v2: CSR -> level-0 active_sums + counts/offsets. The bufA /
+    // bufB pad trios were written once and survive.
+    dispatch(convActivePipe, convActiveBind, nConvActive);
+    dispatch(convMetaPipe, convMetaBind, nConvMeta);
     for (let lv = 0; lv < levels; lv++) {
       const lb = levelBinds[lv];
       dispatch(plannerPipe, lb.plannerBind, NUM_WINDOWS);
@@ -602,21 +701,31 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       const ts = new BigUint64Array(tsStaging.getMappedRange().slice(0));
       tsStaging.unmap();
       const byKind = [0, 0, 0, 0];
+      let transpose = 0;
+      let convert = 0;
       const fusedPerLevel: number[] = [];
       for (let i = 0; i < passCount; i++) {
         const dur = Number(ts[2 * i + 1] - ts[2 * i]);
-        const k = i % KINDS.length;
+        if (i < PRE_XPOSE) {
+          transpose += dur; // count / scan / scatter
+          continue;
+        }
+        if (i < PRE) {
+          convert += dur; // csr_to_v2 active_sums + meta
+          continue;
+        }
+        const k = (i - PRE) % KINDS.length;
         byKind[k] += dur;
-        if (k === 1) fusedPerLevel[(i / KINDS.length) | 0] = dur;
+        if (k === 1) fusedPerLevel[((i - PRE) / KINDS.length) | 0] = dur;
       }
-      const sumPasses = byKind.reduce((a, b) => a + b, 0);
+      const sumPasses = transpose + convert + byKind.reduce((a, b) => a + b, 0);
       const gpuSpan = Number(ts[passCount * 2 - 1] - ts[0]);
       const ms = (x: number): string => (x / 1e6).toFixed(2);
       log(
         'info',
-        `rep ${rep} (${tag}): wall=${wall.toFixed(2)}ms | planner ${ms(byKind[0])}  fused ${ms(byKind[1])}  ` +
-          `carry ${ms(byKind[2])}  finalize ${ms(byKind[3])}  inter-pass ${ms(gpuSpan - sumPasses)}  ` +
-          `submit ${ms(wall * 1e6 - gpuSpan)}  (ms)`,
+        `rep ${rep} (${tag}): wall=${wall.toFixed(2)}ms | transpose ${ms(transpose)}  convert ${ms(convert)}  ` +
+          `planner ${ms(byKind[0])}  fused ${ms(byKind[1])}  carry ${ms(byKind[2])}  finalize ${ms(byKind[3])}  ` +
+          `inter-pass ${ms(gpuSpan - sumPasses)}  submit ${ms(wall * 1e6 - gpuSpan)}  (ms)`,
       );
       log(
         'info',
@@ -641,8 +750,26 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
 
   let validated = false;
   if (VALIDATE) {
-    log('info', 'validating (host pipeline replay — may take a while at full scale)...');
-    validated = hostReplayValidate(slotPt, levelPlans, levelCounts, levelOffsets, gpuResult, R, rinv);
+    log('info', 'validating (transpose CSR check + host pipeline replay)...');
+    // The cuZK transpose assigns within-bucket val_idx slots by atomic
+    // arrival, so its order is not host-predictable. checkTranspose
+    // confirms the GPU CSR groups `chunks` correctly; the replay then
+    // models slot->point from that same val_idx, so host and GPU pair-
+    // trees share an association (the affine sum of off-curve points is
+    // association-dependent).
+    const gpuRowPtr = await readbackU32(device, rowPtrBuf, NUM_WINDOWS * (BW + 1) * 4);
+    const gpuValIdx = await readbackU32(device, valIdxBuf, N_TOTAL * 4);
+    const xposeOk = checkTranspose(chunks, gpuRowPtr, gpuValIdx, NUM_WINDOWS, BW, NPTS);
+    let replayOk = false;
+    if (xposeOk) {
+      const slotPt: Pt[] = new Array(M);
+      for (let s = 0; s < N_TOTAL; s++) slotPt[s] = poolPt[gpuValIdx[s]];
+      for (let j = 0; j < 3; j++) slotPt[N_TOTAL + j] = padPts[j];
+      replayOk = hostReplayValidate(slotPt, levelPlans, levelCounts, levelOffsets, gpuResult, R, rinv);
+    } else {
+      log('err', 'skipping replay — transpose CSR is malformed');
+    }
+    validated = xposeOk && replayOk;
   } else {
     log('info', 'validation skipped (add ?validate=1 for a full host-replay check)');
   }
@@ -664,6 +791,16 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   chunkPlanBufs.forEach(b => b.destroy());
   scatterPlanBufs.forEach(b => b.destroy());
   carryPlanBufs.forEach(b => b.destroy());
+  prefScratchBuf.destroy();
+  chunksBuf.destroy();
+  rowPtrBuf.destroy();
+  valIdxBuf.destroy();
+  currBuf.destroy();
+  pointXBuf.destroy();
+  pointYBuf.destroy();
+  xposeParams.destroy();
+  convActiveParams.destroy();
+  convMetaParams.destroy();
   querySet?.destroy();
   tsResolve?.destroy();
   tsStaging?.destroy();
@@ -682,6 +819,60 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
     validated,
     sanity_ok: sanity,
   };
+}
+
+// Verify the GPU transpose produced a correct per-window CSR of `chunks`:
+// every point sits in the bucket its chunk names, and each window's
+// val_idx is a permutation of [0, npts). Order-independent — it catches a
+// real count / scan / scatter bug without depending on the (atomic-
+// arrival) within-bucket ordering.
+function checkTranspose(
+  chunks: Uint32Array,
+  gpuRowPtr: Uint32Array,
+  gpuValIdx: Uint32Array,
+  numWindows: number,
+  BW: number,
+  npts: number,
+): boolean {
+  let fails = 0;
+  const sample: string[] = [];
+  const note = (m: string): void => {
+    fails++;
+    if (sample.length < 8) sample.push(m);
+  };
+  for (let w = 0; w < numWindows; w++) {
+    const rpBase = w * (BW + 1);
+    const viBase = w * npts;
+    if (gpuRowPtr[rpBase] !== 0 || gpuRowPtr[rpBase + BW] !== npts) {
+      note(`window ${w}: rowPtr endpoints [${gpuRowPtr[rpBase]}, ${gpuRowPtr[rpBase + BW]}] != [0, ${npts}]`);
+      continue;
+    }
+    const seen = new Uint8Array(npts);
+    for (let b = 0; b < BW; b++) {
+      const hi = gpuRowPtr[rpBase + b + 1];
+      for (let p = gpuRowPtr[rpBase + b]; p < hi && p < npts; p++) {
+        const pt = gpuValIdx[viBase + p];
+        if (pt >= npts || seen[pt]) {
+          note(`window ${w} bucket ${b} slot ${p}: out-of-range / duplicate point ${pt}`);
+          continue;
+        }
+        seen[pt] = 1;
+        if (chunks[viBase + pt] !== b) {
+          note(`window ${w}: point ${pt} placed in bucket ${b}, chunk says ${chunks[viBase + pt]}`);
+        }
+      }
+    }
+    let unseen = 0;
+    for (let i = 0; i < npts; i++) if (!seen[i]) unseen++;
+    if (unseen > 0) note(`window ${w}: ${unseen} point(s) missing from val_idx`);
+  }
+  if (fails === 0) {
+    log('ok', 'transpose: PASS — GPU CSR groups chunks correctly (counts, offsets, binning)');
+    return true;
+  }
+  log('err', `transpose: FAIL — ${fails} error(s):`);
+  for (const s of sample) log('err', `  ${s}`);
+  return false;
 }
 
 // Replay the whole pipeline on the host in normal-form field arithmetic
