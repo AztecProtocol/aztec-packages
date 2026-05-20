@@ -863,16 +863,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Retrieves the app-siloed shared secret for a given address and ephemeral public key.
-   * @param address - The address to get the secret for.
-   * @param ephPk - The ephemeral public key to get the secret for.
+   * Retrieves app-siloed shared secrets for multiple ephemeral public keys stored in an ephemeral array.
+   * @param address - The recipient address.
+   * @param ephPksSlot - Ephemeral array slot containing the serialized Points.
    * @param contractAddress - The contract address for app-siloing (validated against execution context).
-   * @returns The app-siloed shared secret as a Field.
+   * @returns The slot of a new ephemeral array containing the computed shared secrets.
    */
-  public async getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr> {
+  public async getSharedSecrets(address: AztecAddress, ephPksSlot: Fr, contractAddress: AztecAddress): Promise<Fr> {
     if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(
-        `getSharedSecret called with contract address ${contractAddress}, expected ${this.contractAddress}`,
+        `getSharedSecrets called with contract address ${contractAddress}, expected ${this.contractAddress}`,
       );
     }
     const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
@@ -880,7 +880,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-    return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
+
+    const ephPkFields = this.ephemeralArrayService.readArrayAt(ephPksSlot);
+    const secrets = await Promise.all(
+      ephPkFields.map(fields =>
+        deriveAppSiloedSharedSecret(addressSecret, Point.fromFields(fields), this.contractAddress),
+      ),
+    );
+
+    return this.ephemeralArrayService.newArray(secrets.map(s => [s]));
   }
 
   public pushEphemeral(slot: Fr, elements: Fr[]): number {

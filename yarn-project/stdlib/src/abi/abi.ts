@@ -222,10 +222,11 @@ export const FunctionDebugMetadataSchema = z.object({
         }),
       ),
     }),
-    acir_locations: z.record(z.number()),
-    brillig_locations: z.record(z.record(z.number())),
+    acir_locations: z.record(z.string(), z.number()),
+    brillig_locations: z.record(z.string(), z.record(z.string(), z.number())),
   }),
   files: z.record(
+    z.string(),
     z.object({
       source: z.string(),
       path: z.string(),
@@ -376,7 +377,7 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
     functions: z.array(FunctionArtifactSchema),
     nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
     outputs: z.object({
-      structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
+      structs: z.record(z.string(), z.array(AbiTypeSchema)).transform(structs => {
         for (const [key, value] of Object.entries(structs)) {
           // We are manually ordering events and functions in the abi by path.
           // The path ordering is arbitrary, and only needed to ensure deterministic order.
@@ -388,9 +389,9 @@ export const ContractArtifactSchema = zodFor<ContractArtifact>()(
         }
         return structs;
       }),
-      globals: z.record(z.array(AbiValueSchema)),
+      globals: z.record(z.string(), z.array(AbiValueSchema)),
     }),
-    storageLayout: z.record(z.object({ slot: schemas.Fr })),
+    storageLayout: z.record(z.string(), z.object({ slot: schemas.Fr })),
     fileMap: z.record(
       z.coerce.number(),
       z.object({

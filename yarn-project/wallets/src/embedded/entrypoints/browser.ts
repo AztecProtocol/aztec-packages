@@ -34,6 +34,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled ?? false,
       dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
+      autoSync: false,
       ...mergedConfigOverrides,
     });
 

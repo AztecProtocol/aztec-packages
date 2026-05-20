@@ -36,7 +36,7 @@ export type NormalizedBlockParameter =
   | { archive: Fr }
   | { tag: Exclude<BlockTag, 'latest'> };
 
-export const NormalizedBlockParameterSchema: z.ZodType<NormalizedBlockParameter, z.ZodTypeDef, unknown> = z.union([
+export const NormalizedBlockParameterSchema: z.ZodType<NormalizedBlockParameter, unknown> = z.union([
   z.object({ number: BlockNumberSchema }).strict(),
   z.object({ hash: BlockHash.schema }).strict(),
   z.object({ archive: schemas.Fr }).strict(),
@@ -52,7 +52,7 @@ export const NormalizedBlockParameterSchema: z.ZodType<NormalizedBlockParameter,
  */
 export type BlockParameter = NormalizedBlockParameter | BlockNumber | BlockHash | BlockTag;
 
-export const BlockParameterSchema: z.ZodType<BlockParameter, z.ZodTypeDef, unknown> = z.union([
+export const BlockParameterSchema: z.ZodType<BlockParameter, unknown> = z.union([
   NormalizedBlockParameterSchema,
   BlockHash.schema,
   BlockTagSchema,

@@ -559,13 +559,13 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('getSharedSecret', () => {
+    describe('getSharedSecrets', () => {
       it('returns different shared secrets for different contract addresses', async () => {
         // Generate a deterministic ephemeral public key
         const ephSk = GrumpkinScalar.random();
         const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
 
-        // Derive keys so we can mock getMasterSecretKey (used by getSharedSecret)
+        // Derive keys so we can mock getMasterSecretKey (used by getSharedSecrets)
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
         keyStore.getMasterSecretKey.mockImplementation((publicKey: Point) => {
           if (publicKey.equals(ownerCompleteAddress.publicKeys.masterIncomingViewingPublicKey)) {
@@ -603,8 +603,15 @@ describe('Utility Execution test suite', () => {
         const oracleA = makeOracle(contractAddressA);
         const oracleB = makeOracle(contractAddressB);
 
-        const secretA = await oracleA.getSharedSecret(owner, ephPk, contractAddressA);
-        const secretB = await oracleB.getSharedSecret(owner, ephPk, contractAddressB);
+        const slotA = Fr.random();
+        oracleA.pushEphemeral(slotA, ephPk.toFields());
+        const responseSlotA = await oracleA.getSharedSecrets(owner, slotA, contractAddressA);
+        const [secretA] = oracleA.getEphemeral(responseSlotA, 0);
+
+        const slotB = Fr.random();
+        oracleB.pushEphemeral(slotB, ephPk.toFields());
+        const responseSlotB = await oracleB.getSharedSecrets(owner, slotB, contractAddressB);
+        const [secretB] = oracleB.getEphemeral(responseSlotB, 0);
 
         // After app-siloing, different contracts must get different shared secrets for the same
         // (address, ephPk) pair. This prevents cross-contract decryption attacks.
@@ -618,8 +625,10 @@ describe('Utility Execution test suite', () => {
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
         keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
 
+        const slot = Fr.random();
+        utilityExecutionOracle.pushEphemeral(slot, ephPk.toFields());
         const wrongAddress = await AztecAddress.random();
-        await expect(utilityExecutionOracle.getSharedSecret(owner, ephPk, wrongAddress)).rejects.toThrow(/expected/);
+        await expect(utilityExecutionOracle.getSharedSecrets(owner, slot, wrongAddress)).rejects.toThrow(/expected/);
       });
     });
   });

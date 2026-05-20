@@ -14,7 +14,15 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { LogId } from '@aztec/stdlib/logs';
-import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
+import {
+  AbiDecodedSchema,
+  type ApiSchemaFor,
+  getSchemaParameters,
+  getSchemaReturnType,
+  optional,
+  schemas,
+  zodFor,
+} from '@aztec/stdlib/schemas';
 import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 import {
   Capsule,
@@ -545,56 +553,60 @@ const OffchainOutputSchema = z.object({
  * This is the single source of truth for method schemas - batch schemas are derived from this.
  */
 const WalletMethodSchemas = {
-  getChainInfo: z
-    .function()
-    .args()
-    .returns(z.object({ chainId: schemas.Fr, version: schemas.Fr })),
-  getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
-  getContractClassMetadata: z.function().args(schemas.Fr).returns(ContractClassMetadataSchema),
-  getPrivateEvents: z
-    .function()
-    .args(EventMetadataDefinitionSchema, PrivateEventFilterSchema)
-    .returns(z.array(PrivateEventSchema)),
-  registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
-  getAddressBook: z
-    .function()
-    .args()
-    .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
-  getAccounts: z
-    .function()
-    .args()
-    .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
-  registerContract: z
-    .function()
-    .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
-    .returns(ContractInstanceWithAddressSchema),
-  registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
-  simulateTx: z
-    .function()
-    .args(ExecutionPayloadSchema, SimulateOptionsSchema)
-    .returns(TxSimulationResultWithAppOffset.schema),
-  executeUtility: z
-    .function()
-    .args(
+  getChainInfo: z.function({ input: z.tuple([]), output: z.object({ chainId: schemas.Fr, version: schemas.Fr }) }),
+  getContractMetadata: z.function({ input: z.tuple([schemas.AztecAddress]), output: ContractMetadataSchema }),
+  getContractClassMetadata: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassMetadataSchema }),
+  getPrivateEvents: z.function({
+    input: z.tuple([EventMetadataDefinitionSchema, PrivateEventFilterSchema]),
+    output: z.array(PrivateEventSchema),
+  }),
+  registerSender: z.function({
+    input: z.tuple([schemas.AztecAddress, optional(z.string())]),
+    output: schemas.AztecAddress,
+  }),
+  getAddressBook: z.function({
+    input: z.tuple([]),
+    output: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
+  }),
+  getAccounts: z.function({
+    input: z.tuple([]),
+    output: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
+  }),
+  registerContract: z.function({
+    input: z.tuple([ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
+    output: ContractInstanceWithAddressSchema,
+  }),
+  registerContractClass: z.function({ input: z.tuple([ContractArtifactSchema]), output: z.void() }),
+  simulateTx: z.function({
+    input: z.tuple([ExecutionPayloadSchema, SimulateOptionsSchema]),
+    output: TxSimulationResultWithAppOffset.schema,
+  }),
+  executeUtility: z.function({
+    input: z.tuple([
       FunctionCall.schema,
       z.object({
         scopes: z.array(schemas.AztecAddress),
         authWitnesses: optional(z.array(AuthWitness.schema)),
       }),
-    )
-    .returns(UtilityExecutionResult.schema),
-  profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
-  sendTx: z
-    .function()
-    .args(ExecutionPayloadSchema, SendOptionsSchema)
-    .returns(
-      z.union([
-        z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
-        z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
-      ]),
-    ),
-  createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
-  requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
+    ]),
+    output: UtilityExecutionResult.schema,
+  }),
+  profileTx: z.function({
+    input: z.tuple([ExecutionPayloadSchema, ProfileOptionsSchema]),
+    output: TxProfileResult.schema,
+  }),
+  sendTx: z.function({
+    input: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
+    output: z.union([
+      z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
+      z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
+    ]),
+  }),
+  createAuthWit: z.function({
+    input: z.tuple([schemas.AztecAddress, MessageHashOrIntentSchema]),
+    output: AuthWitness.schema,
+  }),
+  requestCapabilities: z.function({ input: z.tuple([AppCapabilitiesSchema]), output: WalletCapabilitiesSchema }),
 };
 
 /**
@@ -605,19 +617,19 @@ const WalletMethodSchemas = {
 function createBatchSchemas<T extends Record<string, z.ZodFunction<z.ZodTuple<any, any>, z.ZodTypeAny>>>(
   methodSchemas: T,
 ) {
-  const names = Object.keys(methodSchemas) as (keyof T)[];
+  const names = Object.keys(methodSchemas) as Extract<keyof T, string>[];
 
   const namesAndArgs = names.map(name =>
     z.object({
       name: z.literal(name),
-      args: methodSchemas[name].parameters(),
+      args: getSchemaParameters(methodSchemas[name]),
     }),
   );
 
   const namesAndReturns = names.map(name =>
     z.object({
       name: z.literal(name),
-      result: methodSchemas[name].returnType(),
+      result: getSchemaReturnType(methodSchemas[name]),
     }),
   );
 
@@ -636,5 +648,5 @@ export { BatchedMethodSchema, BatchedResultSchema };
 export const WalletSchema: ApiSchemaFor<Wallet> = {
   ...WalletMethodSchemas,
   // @ts-expect-error - ApiSchemaFor cannot properly type generic methods with readonly arrays
-  batch: z.function().args(z.array(BatchedMethodSchema)).returns(z.array(BatchedResultSchema)),
+  batch: z.function({ input: z.tuple([z.array(BatchedMethodSchema)]), output: z.array(BatchedResultSchema) }),
 };
