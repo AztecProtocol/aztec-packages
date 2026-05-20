@@ -228,8 +228,8 @@ inline void Wasm9x29::apply_matrix(
         const u64 t_e = ((u64)ne0 & LIMB_MASK) | (((u64)(ne1 + (ne0 >> LIMB_BITS)) & LIMB_MASK) << LIMB_BITS);
         const u64 k_d = (((u64)(-(i64)t_d)) * p_inv) & MASK_BATCH;
         const u64 k_e = (((u64)(-(i64)t_e)) * p_inv) & MASK_BATCH;
-        const i64 kd_lo = k_d & LIMB_MASK, kd_hi = k_d >> LIMB_BITS;
-        const i64 ke_lo = k_e & LIMB_MASK, ke_hi = k_e >> LIMB_BITS;
+        const i64 kd_lo = (i64)(k_d & LIMB_MASK), kd_hi = (i64)(k_d >> LIMB_BITS);
+        const i64 ke_lo = (i64)(k_e & LIMB_MASK), ke_hi = (i64)(k_e >> LIMB_BITS);
         i64 cd = (nd1 + kd_lo * p.l[1] + kd_hi * p.l[0] + ((nd0 + kd_lo * p.l[0]) >> LIMB_BITS)) >> LIMB_BITS;
         i64 ce = (ne1 + ke_lo * p.l[1] + ke_hi * p.l[0] + ((ne0 + ke_lo * p.l[0]) >> LIMB_BITS)) >> LIMB_BITS;
 
