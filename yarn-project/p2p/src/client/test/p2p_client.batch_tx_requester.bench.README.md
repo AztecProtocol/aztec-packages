@@ -1,6 +1,6 @@
-# ProposalTxCollector Benchmarks
+# BatchTxRequester Benchmarks
 
-This benchmark suite measures **how quickly a proposer node can fetch missing transactions from P2P peers** when building a block proposal. It compares two alternative transaction-collection implementations under several controlled "who-has-which-txs" distributions.
+This benchmark suite measures **how quickly a proposer node can fetch missing transactions from P2P peers** when building a block proposal under several controlled "who-has-which-txs" distributions.
 
 ## Purpose
 
@@ -10,12 +10,6 @@ This benchmark answers:
 
 - How long does it take to fetch **N missing txs** (N ∈ **{10, 50, 100, 500}**)?
 - How do different **peer availability patterns** affect performance?
-- Which collector strategy performs better under each pattern?
-
-The suite compares two collectors:
-
-- **`BatchTxRequesterCollector`** (collector type: `batch-requester`)
-- **`SendBatchRequestCollector`** (collector type: `send-batch-request`)
 
 ## Architecture
 
@@ -24,7 +18,7 @@ The benchmark runs a small simulated network on localhost:
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Test Process (Driver)                        │
-│   p2p_client.proposal_tx_collector.bench.test.ts                    │
+│   p2p_client.batch_tx_requester.bench.test.ts                       │
 │   ┌─────────────────────────────────────────────────────────────┐   │
 │   │            WorkerClientManager                              │   │
 │   │         (src/testbench/worker_client_manager.ts)            │   │
@@ -34,7 +28,7 @@ The benchmark runs a small simulated network on localhost:
 │         ▼                    ▼                    ▼                 │
 │   ┌───────────┐        ┌───────────┐        ┌───────────┐           │
 │   │ Worker 0  │◄──────►│ Worker 1  │◄──────►│ Worker N-1│           │
-│   │ (Collector│  P2P   │(Responder)│  P2P   │(Responder)│           │
+│   │(Aggregator│  P2P   │(Responder)│  P2P   │(Responder)│           │
 │   │  Node)    │        │           │        │           │           │
 │   │ TxPool:[] │        │ TxPool:   │        │ TxPool:   │           │
 │   │           │        │ [txs...]  │        │ [txs...]  │           │
@@ -54,12 +48,12 @@ Using separate OS processes makes the setup closer to real networking behavior (
 
 The network is intentionally asymmetric:
 
-- **Worker 0 is the collector/proposer node**
+- **Worker 0 is the aggregator/proposer node**
   - Starts with an **empty tx pool** (`[]`)
-  - Is the only worker instructed to run the collector for each `BENCH_REQRESP` command
+  - Is the only worker instructed to run `BatchTxRequester` for each `BENCH_REQRESP` command
 - **Workers 1..N-1 are responder peers**
   - Locally generate and filter txs according to the distribution pattern
-  - Respond to req/resp queries made by Worker 0's collector
+  - Respond to req/resp queries made by Worker 0's `BatchTxRequester`
 
 This models a proposer that has only `txHashes` in a proposal and must fetch the full tx bodies from the network.
 
@@ -72,7 +66,7 @@ Each benchmark case generates `missingTxCount` mock txs and assigns them to peer
 **Every responder peer has every transaction.**
 
 - Simulates the best-case: high replication / high gossip success
-- Expectation: collector should quickly succeed; differences mostly reflect collector overhead and batching strategy
+- Expectation: the requester should quickly succeed; differences mostly reflect requester overhead and batching strategy
 
 ### `sparse`
 
@@ -81,7 +75,7 @@ Each benchmark case generates `missingTxCount` mock txs and assigns them to peer
 Each responder is bucketed and holds txs whose index falls into its bucket or the "next" bucket (striped by tx index).
 
 - Simulates partial propagation, churn, or uneven mempool convergence
-- Expectation: collector must query multiple peers and cope with "misses"
+- Expectation: the requester must query multiple peers and cope with "misses"
 
 ### `pinned-only`
 
@@ -92,33 +86,13 @@ Each responder is bucketed and holds txs whose index falls into its bucket or th
 
 > **Guardrail:** the pinned peer index must be within `(0, numberOfPeers)` (Worker 0 cannot be pinned).
 
-## Collectors Under Test
-
-### `BatchTxRequesterCollector` (`batch-requester`)
-
-```typescript
-new BatchTxRequesterCollector(p2pService, logger, new DateProvider())
-```
-
-Uses the P2P service plus internal logic to fetch missing txs, coordinating requests in a batched or staged way.
-
-### `SendBatchRequestCollector` (`send-batch-request`)
-
-```typescript
-const maxPeers = 10;
-const maxRetryAttempts = Math.max(peerIds.length, 3);
-new SendBatchRequestCollector(p2pService, maxPeers, maxRetryAttempts)
-```
-
-Explicitly caps the number of peers it will involve (`maxPeers`) and uses a retry budget derived from peer count.
-
 ## Test Parameters
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | `PEERS_PER_RUN` | 30 | Number of worker processes spawned |
 | `MISSING_TX_COUNTS` | 10, 50, 100, 500 | Number of missing transactions to fetch |
-| `TIMEOUT_MS` | 30,000 ms | Collector timeout per case |
+| `TIMEOUT_MS` | 30,000 ms | Per-case timeout for the requester |
 | `TEST_TIMEOUT_MS` | 600,000 ms | Overall Jest timeout (10 minutes) |
 
 ## Running
@@ -127,13 +101,13 @@ From the p2p package:
 
 ```bash
 cd yarn-project/p2p
-yarn test src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts
+yarn test src/client/test/p2p_client.batch_tx_requester.bench.test.ts
 ```
 
 Or from repo root:
 
 ```bash
-yarn test p2p_client.proposal_tx_collector.bench.test.ts
+yarn test p2p_client.batch_tx_requester.bench.test.ts
 ```
 
 The benchmark is intentionally long due to spawning many processes and running multiple cases.
@@ -145,13 +119,11 @@ The benchmark is intentionally long due to spawning many processes and running m
 If no env vars are set, the suite prints a table:
 
 ```
-| Collector           | Distribution | Missing | Duration (ms) | Fetched | Success |
-|---------------------|--------------|---------|---------------|---------|---------|
-| batch-requester     | pinned-only  |      10 |           123 |      10 |   Yes   |
-| send-batch-request  | pinned-only  |      10 |           145 |      10 |   Yes   |
+| Distribution | Missing | Duration (ms) | Fetched | Success |
+|--------------|---------|---------------|---------|---------|
+| pinned-only  |      10 |           123 |      10 |   Yes   |
+| pinned-only  |      50 |           145 |      50 |   Yes   |
 ```
-
-Plus a comparison summary stating which collector was faster per `(distribution, missing)` pair.
 
 ### JSON metrics (for CI/dashboards)
 
@@ -160,8 +132,8 @@ BENCH_OUTPUT=/path/results.json yarn test ...
 ```
 
 Writes JSON metrics like:
-- `ProposalTxCollector/<collector>/<distribution>/missing_<N>/duration` (ms)
-- `ProposalTxCollector/<collector>/<distribution>/missing_<N>/fetched` (txs)
+- `BatchTxRequester/<distribution>/missing_<N>/duration` (ms)
+- `BatchTxRequester/<distribution>/missing_<N>/fetched` (txs)
 
 ### Markdown file output
 
@@ -175,14 +147,14 @@ Writes the pretty table + summary to disk.
 
 For each case the benchmark records:
 
-- `durationMs`: wall-clock time spent inside the collector call
-- `fetchedCount`: how many txs were returned by the collector
+- `durationMs`: wall-clock time spent inside the requester call
+- `fetchedCount`: how many txs were returned by the requester
 - `success`: `fetchedCount === missingTxCount`
 
 **Guidelines:**
 
 - **Always check `Success` first.** A faster run that fetched fewer txs is not a win.
-- Compare collectors **within the same distribution + missing count** only.
+- Compare runs **within the same distribution + missing count** only.
 - Expect `pinned-only` to highlight pinned-peer behavior (fast if pinned peer is used effectively; slow if the algorithm wastes time sampling other peers).
 - Expect `sparse` to be the most "network-like" stress case, since many peers won't have each requested tx.
 
@@ -193,7 +165,7 @@ Inside each worker, the benchmark intentionally reduces variability:
 - **Unlimited rate limits** are installed so the req/resp rate limiter doesn't dominate results
 - **Deterministic tx generation** ensures all workers see the same tx set without large IPC payloads
 
-This makes the benchmark better for *comparing collectors* (A vs B), but it is **not** a perfect model of production networking conditions.
+This makes the benchmark better for tracking regressions, but it is **not** a perfect model of production networking conditions.
 
 ## Limitations
 
@@ -207,9 +179,7 @@ This benchmark does **not** measure:
 
 | File | Purpose |
 |------|---------|
-| `p2p_client.proposal_tx_collector.bench.test.ts` | Test suite (cases, distributions, output formatting) |
-| `proposal_tx_collector_worker.ts` | Collector-specific worker implementation |
-| `proposal_tx_collector_worker_protocol.ts` | IPC message types and serialization |
+| `p2p_client.batch_tx_requester.bench.test.ts` | Test suite (cases, distributions, output formatting) |
 | `src/testbench/worker_client_manager.ts` | Worker process manager (forking, IPC, orchestration) |
 | `src/testbench/p2p_client_testbench_worker.ts` | General testbench worker implementation |
 | `src/test-helpers/testbench-utils.ts` | Shared mocks and utilities (InMemoryTxPool, InMemoryAttestationPool, etc.) |

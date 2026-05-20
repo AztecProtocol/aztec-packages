@@ -26,6 +26,12 @@ import type { EpochProvingJobData } from './epoch-proving-job-data.js';
 import { EpochProvingJob } from './epoch-proving-job.js';
 
 describe('epoch-proving-job', () => {
+  const mockFork = () => {
+    const fork = mock<MerkleTreeWriteOperations>();
+    fork[Symbol.asyncDispose].mockImplementation(() => fork.close());
+    return fork;
+  };
+
   // Dependencies
   let prover: MockProxy<EpochProver>;
   let publisher: MockProxy<ProverNodePublisher>;
@@ -86,7 +92,7 @@ describe('epoch-proving-job', () => {
     l2BlockSource = mock<L2BlockSource>();
     worldState = mock<WorldStateSynchronizer>();
     publicProcessorFactory = mock<PublicProcessorFactory>();
-    db = mock<MerkleTreeWriteOperations>();
+    db = mockFork();
     publicProcessor = mock<PublicProcessor>();
     metrics = new ProverNodeJobMetrics(
       getTelemetryClient().getMeter('EpochProvingJob'),
@@ -199,6 +205,62 @@ describe('epoch-proving-job', () => {
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
 
+  it('waits for in-flight checkpoint processing to settle after a block processing failure', async () => {
+    const forkDbs = times(NUM_BLOCKS, () => mockFork());
+    let nextFork = 0;
+    worldState.fork.mockImplementation(() => Promise.resolve(forkDbs[nextFork++]));
+    prover.startNewBlock.mockResolvedValue(undefined);
+
+    let processCalls = 0;
+    let resolveSecondProcessStarted!: () => void;
+    const secondProcessStarted = new Promise<void>(resolve => {
+      resolveSecondProcessStarted = resolve;
+    });
+    let releaseSecondProcess!: () => void;
+    const secondProcessMayFinish = new Promise<void>(resolve => {
+      releaseSecondProcess = resolve;
+    });
+
+    publicProcessorFactory.create.mockImplementation(() => {
+      const processor = mock<PublicProcessor>();
+      processor.process.mockImplementation(async txs => {
+        const txsArray = await toArray(txs);
+        processCalls++;
+
+        if (processCalls === 1) {
+          await secondProcessStarted;
+          throw new Error('Failed to process tx');
+        }
+
+        if (processCalls === 2) {
+          resolveSecondProcessStarted();
+          await secondProcessMayFinish;
+        }
+
+        const processedTxs = await Promise.all(txsArray.map(tx => mock<ProcessedTx>({ hash: tx.getTxHash() })));
+        return [processedTxs, [], txsArray, [], []];
+      });
+      return processor;
+    });
+
+    const job = createJob({ parallelBlockLimit: 2 });
+    const runPromise = job.run();
+
+    await secondProcessStarted;
+    const runResolvedBeforeSecondProcessFinished = await Promise.race([
+      runPromise.then(() => true),
+      sleep(50).then(() => false),
+    ]);
+
+    releaseSecondProcess();
+    await runPromise;
+
+    expect(runResolvedBeforeSecondProcessFinished).toBe(false);
+    expect(job.getState()).toEqual('failed');
+    expect(forkDbs[1].close).toHaveBeenCalled();
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+  });
+
   it('times out if deadline is hit', async () => {
     prover.startNewBlock.mockImplementation(() => sleep(200));
     const deadline = new Date(Date.now() + 100);
@@ -216,6 +278,42 @@ describe('epoch-proving-job', () => {
     await job.stop();
 
     expect(job.getState()).toEqual('stopped');
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+  });
+
+  it('aborts public processing when stopped externally', async () => {
+    prover.startNewBlock.mockResolvedValue(undefined);
+
+    let processStarted!: () => void;
+    const processStartedPromise = new Promise<void>(resolve => {
+      processStarted = resolve;
+    });
+    let abortSignal: AbortSignal | undefined;
+
+    publicProcessor.process.mockImplementation(async (txs, opts) => {
+      const signal = opts?.signal;
+      if (!signal) {
+        throw new Error('Expected public processor abort signal');
+      }
+      abortSignal = signal;
+      processStarted();
+      await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }));
+
+      const txsArray = await toArray(txs);
+      const processedTxs = await Promise.all(txsArray.map(tx => mock<ProcessedTx>({ hash: tx.getTxHash() })));
+      return [processedTxs, [], txsArray, [], []];
+    });
+
+    const job = createJob({ parallelBlockLimit: 1 });
+    const runPromise = job.run();
+
+    await processStartedPromise;
+    await job.stop();
+    await runPromise;
+
+    expect(abortSignal?.aborted).toBe(true);
+    expect(job.getState()).toEqual('stopped');
+    expect(prover.addTxs).not.toHaveBeenCalled();
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
 

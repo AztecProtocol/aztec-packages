@@ -26,15 +26,17 @@ describe('EmbeddedWallet', () => {
   let wallet: TestWallet;
   let simulateTx: jest.MockedFunction<PXE['simulateTx']>;
   let proveTx: jest.MockedFunction<PXE['proveTx']>;
+  let sync: jest.MockedFunction<PXE['sync']>;
   let getPredictedMinFees: jest.MockedFunction<AztecNode['getPredictedMinFees']>;
   let getNodeInfo: jest.MockedFunction<AztecNode['getNodeInfo']>;
 
   beforeEach(() => {
     simulateTx = jest.fn();
     proveTx = jest.fn();
+    sync = jest.fn<PXE['sync']>().mockResolvedValue(undefined);
     getPredictedMinFees = jest.fn();
     getNodeInfo = jest.fn();
-    pxe = { simulateTx, proveTx } as unknown as PXE;
+    pxe = { simulateTx, proveTx, sync } as unknown as PXE;
     node = { getPredictedMinFees, getNodeInfo } as unknown as AztecNode;
     wallet = new TestWallet(pxe, node, {} as WalletDB, {} as AccountContractsProvider);
   });

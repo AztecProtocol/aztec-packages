@@ -127,7 +127,14 @@ pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PARITY_BASE_VK_INDEX: u32 = 21;
 pub global PARITY_ROOT_VK_INDEX: u32 = 22;
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
-// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
+// Important: Do not define indexes between 24 and 64. They are allocated for the variants of private kernel reset. Add new non-reset kernel indices at 65+.
+pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
+pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
+pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
+pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
+
+// Maximum number of apps absorbed by a single private kernel iteration.
+pub global MAX_APPS_PER_KERNEL: u32 = 3;
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -797,10 +804,6 @@ pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
-
-/// Domain separator for the secret hash stored in handshake notes produced by the handshake registry contract.
-/// Kept distinct from [`DOM_SEP__SECRET_HASH`] (which is specifically for L1 to L2 messages).
-pub global DOM_SEP__HANDSHAKE_SECRET_HASH: u32 = 3596796143;
 
 /// Domain separator for transaction nullifiers.
 ///

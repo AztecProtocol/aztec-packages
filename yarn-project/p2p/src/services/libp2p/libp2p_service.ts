@@ -74,7 +74,7 @@ import {
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -101,7 +101,6 @@ import {
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
   StatusMessage,
-  type SubProtocolMap,
   ValidationError,
   pingHandler,
   reqGoodbyeHandler,
@@ -112,6 +111,7 @@ import {
 import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
   P2PDuplicateAttestationCallback,
   P2PService,
@@ -156,6 +156,9 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
   private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
+
+  /** Callback invoked when a valid checkpoint attestation is accepted into the pool. */
+  private checkpointAttestationCallback?: P2PCheckpointAttestationCallback;
 
   /**
    * Callback for when a block is received from a peer.
@@ -237,6 +240,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       p2pPropagationTime,
+      skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
@@ -698,20 +702,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     setImmediate(() => void safeJob());
   }
 
-  /**
-   * Send a batch of requests to peers, and return the responses
-   * @param protocol - The request response protocol to use
-   * @param requests - The requests to send to the peers
-   * @returns The responses to the requests
-   */
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    protocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeerId: PeerId | undefined,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
-  }
-
   public sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
@@ -762,6 +752,10 @@ export class LibP2PService extends WithTracer implements P2PService {
    */
   public registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void {
     this.duplicateAttestationCallback = callback;
+  }
+
+  public registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void {
+    this.checkpointAttestationCallback = callback;
   }
 
   /**
@@ -1224,6 +1218,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     }
 
     // Attestation was added successfully - accept it so other nodes can also detect the equivocation
+    this.checkpointAttestationCallback?.(attestation);
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
@@ -1671,7 +1666,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   protected createRequestedTxValidator(): TxValidator {
-    return createTxValidatorForReqResponseReceivedTxs(this.proofVerifier, {
+    return createTxValidatorForOnDemandReceivedTxs(this.proofVerifier, {
       l1ChainId: this.config.l1ChainId,
       rollupVersion: this.config.rollupVersion,
     });

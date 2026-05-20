@@ -84,6 +84,7 @@ import { PrivateEventStore } from './storage/private_event_store/private_event_s
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
+import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
@@ -184,6 +185,7 @@ export class PXE {
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
+    private autoSync: boolean,
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
     private log: Logger,
@@ -296,6 +298,7 @@ export class PXE {
       l2TipsStore,
       simulator,
       proverEnabled,
+      config.autoSync,
       proofCreator,
       protocolContractsProvider,
       log,
@@ -538,7 +541,27 @@ export class PXE {
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
+  /**
+   * Syncs with the node only when `autoSync` is enabled.
+   * When `autoSync` is disabled, callers (typically a wallet) are
+   * responsible for invoking `pxe.sync()` at the right granularity.
+   */
+  async #maybeSync(): Promise<void> {
+    if (this.autoSync) {
+      await this.blockStateSynchronizer.sync();
+    }
+  }
+
   // Public API
+
+  /**
+   * Triggers a sync of PXE state with the node, regardless of the `autoSync` config flag. Use this to
+   * batch syncs across composite flows when `autoSync` is disabled (e.g. one sync per simulate+send
+   * instead of one per inner PXE call). Serialized through the job queue.
+   */
+  public sync(): Promise<void> {
+    return this.#putInJobQueue(() => this.blockStateSynchronizer.sync());
+  }
 
   /**
    * Returns the block header up to which the PXE has synced.
@@ -743,7 +766,7 @@ export class PXE {
         throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
       }
       const contractClass = await getContractClassFromArtifact(artifact);
-      await this.blockStateSynchronizer.sync();
+      await this.#maybeSync();
 
       const header = await this.anchorBlockStore.getBlockHeader();
 
@@ -794,7 +817,7 @@ export class PXE {
       const totalTimer = new Timer();
       try {
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -842,22 +865,20 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
-        // While not strictly necessary to store tagging cache contents in the DB since we sync tagging indexes from
-        // chain before sending new logs, the sync can only see logs already included in blocks. If we send another
-        // transaction before this one is included in a block from this PXE, and that transaction contains a log with
-        // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
-        // storing the tags here prevents linkage of txs sent from the same PXE.
-        const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
-        if (taggingIndexRangesUsedInTheTx.length > 0) {
-          const txHash = await txProvingResult.getTxHash();
-
-          await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
-          this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
-            taggingIndexRangesUsedInTheTx,
-          });
-        } else {
-          this.log.debug(`No tagging index ranges used in the tx`);
-        }
+        // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
+        // (which would link them) without having to rely on this tx being mined (and us seeing the indices being used
+        // onchain).
+        // Note that this must happen _after_ proving as it requires the proof's public inputs, from which the kernels
+        // may have removed some logs due to note-nullifier squashing - this may lead to range of tagging indices we've
+        // actually used to being reduced.
+        await persistSenderTaggingIndexRangesForTx(
+          this.senderTaggingStore,
+          privateExecutionResult.entrypoint.taggingIndexRanges,
+          publicInputs,
+          () => txProvingResult.getTxHash(),
+          jobId,
+          this.log,
+        );
 
         return txProvingResult;
       } catch (err: any) {
@@ -893,7 +914,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
@@ -1001,7 +1022,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
@@ -1138,7 +1159,7 @@ export class PXE {
       try {
         const totalTimer = new Timer();
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -1213,7 +1234,7 @@ export class PXE {
     let anchorBlockNumber: BlockNumber;
 
     await this.#putInJobQueue(async jobId => {
-      await this.blockStateSynchronizer.sync();
+      await this.#maybeSync();
 
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
       anchorBlockNumber = anchorBlockHeader.getBlockNumber();

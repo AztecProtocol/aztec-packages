@@ -281,12 +281,27 @@ describe('AztecNodeApiSchema', () => {
   it('getPrivateLogsByTags', async () => {
     const response = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
+
+    const responseWithOptionals = await context.client.getPrivateLogsByTags(
+      [SiloedTag.random()],
+      3,
+      BlockHash.random(),
+    );
+    expect(responseWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogsByTagsFromContract', async () => {
     const contractAddress = await AztecAddress.random();
     const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
+
+    const responseWithOptionals = await context.client.getPublicLogsByTagsFromContract(
+      contractAddress,
+      [Tag.random()],
+      3,
+      BlockHash.random(),
+    );
+    expect(responseWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('sendTx', async () => {
@@ -413,7 +428,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 1 },
         history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(1),
       slotWindow: 100,
@@ -438,7 +453,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 0 },
         history: [{ slot: SlotNumber(5), status: 'attestation-sent' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(5),
       slotWindow: 5,
@@ -722,19 +737,32 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(SiloedTag);
+    if (page !== undefined) {
+      expect(page).toBe(3);
+    }
+    if (referenceBlock !== undefined) {
+      expect(referenceBlock).toBeInstanceOf(BlockHash);
+    }
     return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
   }
   getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
-    _logsPerTag?: number,
+    page?: number,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
     expect(contractAddress).toBeInstanceOf(AztecAddress);
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Tag);
+    if (page !== undefined) {
+      expect(page).toBe(3);
+    }
+    if (referenceBlock !== undefined) {
+      expect(referenceBlock).toBeInstanceOf(BlockHash);
+    }
     return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
   }
   sendTx(tx: Tx): Promise<void> {

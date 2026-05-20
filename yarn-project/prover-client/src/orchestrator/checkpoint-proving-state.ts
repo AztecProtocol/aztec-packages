@@ -346,4 +346,17 @@ export class CheckpointProvingState {
       ? [this.blockProofs.getNode(rootLocation)?.provingOutput] // If there's only 1 block, its proof will be stored at the root.
       : this.blockProofs.getChildren(rootLocation).map(c => c?.provingOutput);
   }
+
+  /**
+   * Returns the block-level proof outputs that feed into the checkpoint root rollup.
+   * Used by `CheckpointSubTreeOrchestrator` to surface its sub-tree result.
+   */
+  public getSubTreeOutputProofs() {
+    return this.#getChildProofsForRoot();
+  }
+
+  /** Sibling path of the archive tree captured before any block in this checkpoint landed. */
+  public getLastArchiveSiblingPath() {
+    return this.lastArchiveSiblingPath;
+  }
 }

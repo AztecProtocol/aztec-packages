@@ -249,7 +249,7 @@ describe.each([
     expect(processedTxs[0].revertCode).toEqual(RevertCode.OK);
 
     // Second tx should revert in app logic (failed transfer)
-    expect(processedTxs[1].revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+    expect(processedTxs[1].revertCode).toEqual(RevertCode.REVERTED);
 
     // Third tx should succeed (mint), proving first contract is still accessible
     expect(processedTxs[2].revertCode).toEqual(RevertCode.OK);

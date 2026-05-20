@@ -466,14 +466,14 @@ variable "SLASH_INACTIVITY_PENALTY" {
   nullable    = true
 }
 
-variable "SLASH_PRUNE_PENALTY" {
-  description = "The slash prune penalty"
+variable "SLASH_DATA_WITHHOLDING_PENALTY" {
+  description = "The slash data withholding penalty"
   type        = string
   nullable    = true
 }
 
-variable "SLASH_DATA_WITHHOLDING_PENALTY" {
-  description = "The slash data withholding penalty"
+variable "SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS" {
+  description = "L2 slots to wait after a checkpoint slot before slashing for data withholding"
   type        = string
   nullable    = true
 }
@@ -502,6 +502,12 @@ variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
   nullable    = true
 }
 
+variable "SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash attest invalid checkpoint proposal penalty"
+  type        = string
+  nullable    = true
+}
+
 variable "SLASH_UNKNOWN_PENALTY" {
   description = "The slash unknown penalty"
   type        = string
@@ -510,6 +516,12 @@ variable "SLASH_UNKNOWN_PENALTY" {
 
 variable "SLASH_INVALID_BLOCK_PENALTY" {
   description = "The slash invalid block penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash invalid checkpoint proposal penalty"
   type        = string
   nullable    = true
 }
