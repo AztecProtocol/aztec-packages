@@ -240,9 +240,9 @@ function get_pr_number {
 
 function send_slack_message {
   local message=$1
-  local channel=${2:-"#devrel-docs-updates"}
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  local channel=${2:-"#docs-alerts"}
+  if [[ -z "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+    echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0
   fi
 
@@ -252,7 +252,7 @@ function send_slack_message {
 
   local response
   if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data"); then
     echo "Slack API request failed (curl error)" >&2
