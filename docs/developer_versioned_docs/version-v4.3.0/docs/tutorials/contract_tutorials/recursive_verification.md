@@ -338,6 +338,14 @@ pub contract ValueNotEqual {
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.3.0/docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L64" target="_blank" rel="noopener noreferrer">Source code: docs/examples/contracts/recursive_verification_contract/src/main.nr#L1-L64</a></sub></sup>
 
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `ValueNotEqual/ValueNotEqual_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+:::
+
 ### Storage Variables Explained
 
 The contract uses two [storage types](../../aztec-nr/framework-description/state_variables.md) with different characteristics:

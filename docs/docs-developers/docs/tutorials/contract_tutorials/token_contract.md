@@ -57,6 +57,14 @@ The `aztec new` command created a workspace with two crates: a `bob_token_contra
 }
 ```
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `bob_token_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+:::
+
 The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol.
 
 Make sure the Aztec.nr library is listed as a dependency in `bob_token_contract/Nargo.toml`:
