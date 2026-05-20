@@ -716,8 +716,8 @@ npx tsx index.ts
 You should see the complete privacy journey from transparent allocation to confidential usage. The final pair of log lines should look like:
 
 ```text
-📊 Alice has 100 public BOB tokens and 130 private BOB tokens
-📊 Bob's Clinic has 20 public BOB tokens and 50 private BOB tokens
+📊 Alice has 10 public BOB tokens and 130 private BOB tokens
+📊 Bob's Clinic has 10 public BOB tokens and 50 private BOB tokens
 ```
 
 If your output doesn't match, double-check that the local network is running and that you started this run with a fresh `aztec start --local-network`.
