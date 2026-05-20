@@ -3,7 +3,7 @@ import type { SendOptions } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import type { ApiSchema, Fr } from '@aztec/foundation/schemas';
-import { parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
+import { getSchemaParameters, parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
 import { NodeListener, TransportServer } from '@aztec/foundation/transport';
 import { ExecutionPayload, Tx } from '@aztec/stdlib/tx';
 
@@ -46,7 +46,7 @@ try {
       throw new Error(`Unknown method: ${msg.fn}`);
     }
     const jsonParams = JSON.parse(msg.args) as unknown[];
-    const args: any[] = await parseWithOptionals(jsonParams, schema[msg.fn].parameters());
+    const args: any[] = await parseWithOptionals(jsonParams, getSchemaParameters(schema[msg.fn]));
     // we have to erase the fn type in order to be able to spread ...args
     const handler: ((...args: any[]) => Promise<any>) | undefined =
       msg.fn in customMethods ? customMethods[msg.fn as keyof typeof customMethods] : undefined;

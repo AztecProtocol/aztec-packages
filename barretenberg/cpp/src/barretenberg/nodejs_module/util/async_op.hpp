@@ -78,17 +78,19 @@ class AsyncOperation : public Napi::AsyncWorker {
  * a Napi::ThreadSafeFunction, so the event loop returns immediately after launch
  * and is woken up only when the work is done.
  *
- * Usage: `auto* op = new ThreadedAsyncOperation(env, deferred, fn); op->Queue();`
- * The object self-destructs after resolving/rejecting the promise.
+ * Prevent use-after-free: the TSFN callback runs asynchronously on the JS thread
+ * (napi_tsfn_blocking only blocks on queue insertion, NOT on callback completion).
+ * Both the worker thread lambda and the callback capture a shared_ptr to keep the
+ * object alive until both are done.
+ *
+ * Usage: `ThreadedAsyncOperation::Run(env, deferred, fn);`
  */
-class ThreadedAsyncOperation {
+class ThreadedAsyncOperation : public std::enable_shared_from_this<ThreadedAsyncOperation> {
   public:
     ThreadedAsyncOperation(Napi::Env env, std::shared_ptr<Napi::Promise::Deferred> deferred, async_fn fn)
         : _fn(std::move(fn))
         , _deferred(std::move(deferred))
     {
-        // Create a no-op JS function as the TSFN target — we use the native callback form of BlockingCall
-        // to resolve/reject the promise, so the JS function is never actually called directly.
         auto dummy = Napi::Function::New(env, [](const Napi::CallbackInfo&) {});
         _completion_tsfn = Napi::ThreadSafeFunction::New(env, dummy, "ThreadedAsyncOpComplete", 0, 1);
     }
@@ -100,38 +102,45 @@ class ThreadedAsyncOperation {
 
     ~ThreadedAsyncOperation() = default;
 
-    void Queue()
+    static void Run(Napi::Env env, std::shared_ptr<Napi::Promise::Deferred> deferred, async_fn fn)
     {
-        std::thread([this]() {
-            try {
-                _fn(_result);
-                _success = true;
-            } catch (const std::exception& e) {
-                _error = e.what();
-                _success = false;
-            } catch (...) {
-                _error = "Unknown exception occurred during threaded async operation";
-                _success = false;
-            }
-
-            // Post completion back to the JS main thread
-            _completion_tsfn.BlockingCall(
-                this, [](Napi::Env env, Napi::Function /*js_callback*/, ThreadedAsyncOperation* op) {
-                    if (op->_success) {
-                        auto buf = Napi::Buffer<char>::Copy(env, op->_result.data(), op->_result.size());
-                        op->_deferred->Resolve(buf);
-                    } else {
-                        auto error = Napi::Error::New(env, op->_error);
-                        op->_deferred->Reject(error.Value());
-                    }
-                    // Release the TSFN and self-destruct
-                    op->_completion_tsfn.Release();
-                    delete op;
-                });
-        }).detach();
+        auto op = std::make_shared<ThreadedAsyncOperation>(env, std::move(deferred), std::move(fn));
+        op->Queue();
     }
 
   private:
+    void Queue()
+    {
+        auto self = shared_from_this();
+        std::thread([self]() {
+            try {
+                self->_fn(self->_result);
+                self->_success = true;
+            } catch (const std::exception& e) {
+                self->_error = e.what();
+                self->_success = false;
+            } catch (...) {
+                self->_error = "Unknown exception occurred during threaded async operation";
+                self->_success = false;
+            }
+
+            // Post completion to the JS main thread. The callback captures `self`
+            // (shared_ptr) so the object stays alive until the callback runs.
+            // napi_tsfn_blocking only blocks on queue insertion, not on callback
+            // completion, so we cannot use raw pointers here.
+            self->_completion_tsfn.BlockingCall([self](Napi::Env env, Napi::Function /*js_callback*/) {
+                if (self->_success) {
+                    auto buf = Napi::Buffer<char>::Copy(env, self->_result.data(), self->_result.size());
+                    self->_deferred->Resolve(buf);
+                } else {
+                    auto error = Napi::Error::New(env, self->_error);
+                    self->_deferred->Reject(error.Value());
+                }
+                self->_completion_tsfn.Release();
+            });
+        }).detach();
+    }
+
     async_fn _fn;
     std::shared_ptr<Napi::Promise::Deferred> _deferred;
     Napi::ThreadSafeFunction _completion_tsfn;

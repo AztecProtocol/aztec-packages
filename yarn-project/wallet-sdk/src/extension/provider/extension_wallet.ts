@@ -2,7 +2,7 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import { type Wallet, WalletSchema } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
-import { schemaHasMethod } from '@aztec/foundation/schemas';
+import { getSchemaReturnType, schemaHasMethod } from '@aztec/foundation/schemas';
 import type { FunctionsOf } from '@aztec/foundation/types';
 
 import { type EncryptedPayload, decrypt, encrypt } from '../../crypto.js';
@@ -160,7 +160,7 @@ export class ExtensionWallet {
               type: prop.toString() as keyof FunctionsOf<Wallet>,
               args,
             });
-            return WalletSchema[prop.toString() as keyof typeof WalletSchema].returnType().parseAsync(result);
+            return getSchemaReturnType(WalletSchema[prop.toString() as keyof typeof WalletSchema]).parseAsync(result);
           };
         } else {
           return target[prop as keyof ExtensionWallet];

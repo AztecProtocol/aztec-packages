@@ -22,7 +22,7 @@ export interface AztecNodeDebug {
 }
 
 export const AztecNodeDebugApiSchema: ApiSchemaFor<AztecNodeDebug> = {
-  mineBlock: z.function().returns(z.void()),
+  mineBlock: z.function({ input: z.tuple([]), output: z.void() }),
 };
 
 export function createAztecNodeDebugClient(
