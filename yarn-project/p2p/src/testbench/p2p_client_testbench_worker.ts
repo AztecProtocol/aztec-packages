@@ -279,7 +279,7 @@ async function runAggregatorBenchmark(
     const noopTxValidator: TxValidator = {
       validateTx: (_tx: Tx): Promise<TxValidationResult> => Promise.resolve({ result: 'valid' }),
     };
-    const validationCache = new SharedTxValidationCache(noopTxValidator, logger);
+    const validationCache = new SharedTxValidationCache(noopTxValidator, 5_000, logger);
 
     timer = new Timer();
     const tracker = RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs));

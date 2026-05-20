@@ -157,6 +157,7 @@ export async function createP2PClient(
   const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(proofVerifier, config);
   const txValidationCache = new SharedTxValidationCache(
     txValidatorForTxCollection,
+    config.txValidationCacheSize,
     logger.createChild('shared-tx-validation-cache'),
   );
   const nodeSources = [

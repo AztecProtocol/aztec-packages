@@ -23,7 +23,7 @@ describe('SharedTxValidationCache', () => {
   beforeEach(() => {
     validator = mock<TxValidator>();
     validator.validateTx.mockResolvedValue({ result: 'valid' });
-    cache = new SharedTxValidationCache(validator, createLogger('test'));
+    cache = new SharedTxValidationCache(validator, 100, createLogger('test'));
   });
 
   it('accepts a valid tx', async () => {
@@ -174,6 +174,24 @@ describe('SharedTxValidationCache', () => {
     expect(outcomes[0].status).toBe('accepted');
     expect(outcomes[1].status).toBe('invalid');
     expect(validator.validateTx).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-validates after a hash is evicted from the LRU', async () => {
+    const smallCache = new SharedTxValidationCache(validator, 2, createLogger('test'));
+    const tx1 = await makeTx();
+    const tx2 = await makeTx();
+    const tx3 = await makeTx();
+
+    await smallCache.submit(tx1);
+    await smallCache.submit(tx2);
+    await smallCache.submit(tx3);
+    expect(validator.validateTx).toHaveBeenCalledTimes(3);
+
+    // tx1 was the least recently used and should have been evicted; resubmitting re-runs the validator.
+    const replay = await makeTx(tx1.txHash);
+    const outcome = await smallCache.submit(replay);
+    expect(outcome.status).toBe('accepted');
+    expect(validator.validateTx).toHaveBeenCalledTimes(4);
   });
 
   it('skips after caching even when submitted from a different caller (cross-source dedup)', async () => {
