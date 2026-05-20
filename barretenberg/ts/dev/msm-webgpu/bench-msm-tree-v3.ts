@@ -222,11 +222,43 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, p: b
   log('info', `bucket counts: min=${minC} max=${maxC} small(<32)=${smallC}/${BUCKETS}`);
 
   // Plan-buffer sizing — must accommodate L0 max chunks.
-  // At L0: total pairs <= N/2 = 65536; max chunks = ceil(65536/S) = 4096.
-  // At deeper levels: shrinks. So max-allocated for L0.
-  const MAX_CHUNKS = Math.ceil(NPTS / 2 / S) + 16;  // pad
+  const MAX_CHUNKS = Math.ceil(NPTS / 2 / S) + 16;
   const MAX_PAIR_SLOTS = MAX_CHUNKS * S;
-  const MAX_CARRIES = BUCKETS;  // at most one carry per bucket
+  const MAX_CARRIES = BUCKETS;
+
+  // Host simulates the bin-packing iteration to compute the right
+  // dispatch size per level. The GPU planner does the same work to
+  // fill plan buffers; this host loop only computes sizes (T_chunks,
+  // T_carries) so the host can dispatch the fused + carry kernels at
+  // the correct size per level, avoiding pad-chunk waste.
+  //
+  // Without this, the fused kernel runs MAX_CHUNKS=4160 threads per
+  // level regardless of actual work. At L5 with only ~117 real chunks
+  // that's ~3979 pad-chunks each running a full fr_inv_by_a + S mont
+  // muls -- dominates wall time.
+  const perLevelTChunks: number[] = [];
+  const perLevelTCarries: number[] = [];
+  {
+    let cur = new Uint32Array(initCounts);
+    for (let lv = 0; lv < LEVELS; lv++) {
+      let totalPairs = 0;
+      let totalCarries = 0;
+      const next = new Uint32Array(cur.length);
+      for (let b = 0; b < cur.length; b++) {
+        const n = cur[b];
+        const p = (n / 2) | 0;
+        const c = n & 1;
+        totalPairs += p;
+        totalCarries += c;
+        next[b] = p + c;
+      }
+      perLevelTChunks.push(Math.max(1, Math.ceil(totalPairs / S)));
+      perLevelTCarries.push(Math.max(1, totalCarries));
+      cur = next;
+    }
+    log('info', `host-simulated per-level T_chunks: ${perLevelTChunks.join(', ')}`);
+    log('info', `host-simulated per-level T_carries: ${perLevelTCarries.join(', ')}`);
+  }
 
   const mkStorage = (bytes: number, copyDst = true, copySrc = false): GPUBuffer => {
     let usage = GPUBufferUsage.STORAGE;
@@ -344,17 +376,14 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, p: b
   let curActiveOut: GPUBuffer = bufB;
 
   const numWgsPlanner = Math.ceil(BUCKETS / WGI);
-  const numWgsFused = Math.ceil(MAX_CHUNKS / WGI);
-  const numWgsCarry = Math.ceil(MAX_CARRIES / WGI);
-  log('info', `dispatch sizes: planner=${numWgsPlanner} fused=${numWgsFused} carry=${numWgsCarry}`);
+  const numWgsFusedPerLevel = perLevelTChunks.map(t => Math.ceil(t / WGI));
+  const numWgsCarryPerLevel = perLevelTCarries.map(t => Math.ceil(t / WGI));
+  log('info', `numWgs: planner=${numWgsPlanner}, fused=${numWgsFusedPerLevel.join(',')}, carry=${numWgsCarryPerLevel.join(',')}`);
 
-  // Pre-write per-level params (since they depend on iteration index).
+  // Per-level params with the right-sized T from the host bin-pack simulator.
   for (let lv = 0; lv < LEVELS; lv++) {
-    // params.x = T_fused = MAX_CHUNKS (over-provisioned; planner-written
-    // chunk_plan/scatter_plan trailers point to pad => safe early-out
-    // is implicit because pads do harmless add+discard)
-    device.queue.writeBuffer(fusedParams[lv], 0, new Uint32Array([MAX_CHUNKS, M, M, 0]));
-    device.queue.writeBuffer(carryParams[lv], 0, new Uint32Array([MAX_CARRIES, M, M, 0]));
+    device.queue.writeBuffer(fusedParams[lv], 0, new Uint32Array([perLevelTChunks[lv], M, M, 0]));
+    device.queue.writeBuffer(carryParams[lv], 0, new Uint32Array([perLevelTCarries[lv], M, M, 0]));
   }
 
   // Pre-pad plan buffers (only need to do once; planner overwrites real
@@ -421,14 +450,14 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, p: b
       const pass = enc.beginComputePass();
       pass.setPipeline(fusedPipe);
       pass.setBindGroup(0, fusedBind);
-      pass.dispatchWorkgroups(numWgsFused, 1, 1);
+      pass.dispatchWorkgroups(numWgsFusedPerLevel[lv], 1, 1);
       pass.end();
     }
     {
       const pass = enc.beginComputePass();
       pass.setPipeline(carryPipe);
       pass.setBindGroup(0, carryBind);
-      pass.dispatchWorkgroups(numWgsCarry, 1, 1);
+      pass.dispatchWorkgroups(numWgsCarryPerLevel[lv], 1, 1);
       pass.end();
     }
 
