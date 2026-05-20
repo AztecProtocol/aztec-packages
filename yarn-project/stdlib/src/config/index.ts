@@ -2,4 +2,5 @@ export * from './chain-config.js';
 export * from './node-rpc-config.js';
 export * from './pipelining-config.js';
 export * from './sequencer-config.js';
+export * from './slasher-shared-config.js';
 export * from './validator-config.js';
