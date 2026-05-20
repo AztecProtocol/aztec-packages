@@ -38,8 +38,8 @@ pub contract ContractInstanceRegistry {
     }
 
     // Custom serialization is required because:
-    // - npk_m, ovpk_m, and tpk_m are exposed only as hashes (per AZIP-8) so we serialize the hashes directly.
-    // - For ivpk_m we drop the `is_infinite` flag (the PXE guarantees the point is non-infinity).
+    // - npk_m, ovpk_m, and tpk_m are exposed only as hashes so we serialize the hashes directly.
+    // - For ivpk_m we drop the `is_infinite` flag (we assume non-infinity).
     impl ContractInstancePublished {
         fn serialize_non_standard(self) -> [Field; 13] {
             [
@@ -107,7 +107,7 @@ pub contract ContractInstanceRegistry {
         // body, I have removed that check.
         assert_compatible_oracle_version();
 
-        // 4 prefix fields (salt, class_id, init_hash, immutables_hash) + 6 AZIP-8 public-key fields + 1
+        // 4 prefix fields (salt, class_id, init_hash, immutables_hash) + 6 public-key fields + 1
         // universal_deploy flag = 11.
         let serialized_params: [Field; 11] = [salt, contract_class_id.to_field(), initialization_hash, immutables_hash]
             .concat(public_keys.serialize())
@@ -141,7 +141,7 @@ pub contract ContractInstanceRegistry {
         );
 
         // Validate `ivpk_m` is on the Grumpkin curve and is not the point at infinity (preventing AVM
-        // DoS attacks). Per AZIP-8, the other three master keys are exposed as hashes and have no
+        // DoS attacks). The other three master keys are exposed as hashes and have no
         // curve-point to validate here.
         public_keys.validate_on_curve();
         public_keys.validate_non_infinity();

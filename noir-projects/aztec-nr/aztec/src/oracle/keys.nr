@@ -9,8 +9,7 @@ pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) 
 ///
 /// Three of the four master public keys are exposed only as hashes (per AZIP-8); `ivpk_m` is sent
 /// as its affine coordinates because address derivation and encrypt-to-address require the point
-/// in-circuit. `is_infinite` is not transmitted -- the PXE guarantees `ivpk_m` is a valid on-curve
-/// non-infinity point before persistence.
+/// in-circuit. This point is assumed to be non-infinite.
 #[oracle(aztec_utl_getPublicKeysAndPartialAddress)]
 unconstrained fn get_public_keys_and_partial_address_oracle(_address: AztecAddress) -> Option<[Field; 6]> {}
 

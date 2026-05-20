@@ -26,7 +26,7 @@ pub fn publish_contract_instance_for_public_execution(context: &mut PrivateConte
     // target/contract_instance_registry_contract-ContractInstanceRegistry.json --nr -o
     // ./contracts/contract_instance_registry_contract/src/interface
     //
-    // Per AZIP-8, PublicKeys serializes to 6 fields (npk_m_hash, ivpk_m as a 3-field point with
+    // PublicKeys serializes to 6 fields (npk_m_hash, ivpk_m as a 3-field point with
     // is_infinite, ovpk_m_hash, tpk_m_hash). Total args: 4 (salt, class_id, init_hash,
     // immutables_hash) + 6 (public_keys) + 1 (universal_deploy) = 11.
     let mut serialized_args = [0; 11];
