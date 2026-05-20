@@ -99,17 +99,20 @@ export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConf
   .merge(z.object({ maxPendingTxCount: z.number(), skipIncomingProposals: z.boolean().optional() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
-  getConfig: z.function().returns(AztecNodeAdminConfigSchema),
-  setConfig: z.function().args(AztecNodeAdminConfigSchema.partial()).returns(z.void()),
-  startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
-  rollbackTo: z.function().args(z.number(), optional(z.boolean()), optional(z.boolean())).returns(z.void()),
-  pauseSync: z.function().returns(z.void()),
-  resumeSync: z.function().returns(z.void()),
-  getSlashOffenses: z
-    .function()
-    .args(z.union([z.bigint(), z.literal('all'), z.literal('current')]))
-    .returns(z.array(OffenseSchema)),
-  reloadKeystore: z.function().returns(z.void()),
+  getConfig: z.function({ input: z.tuple([]), output: AztecNodeAdminConfigSchema }),
+  setConfig: z.function({ input: z.tuple([AztecNodeAdminConfigSchema.partial()]), output: z.void() }),
+  startSnapshotUpload: z.function({ input: z.tuple([z.string()]), output: z.void() }),
+  rollbackTo: z.function({
+    input: z.tuple([z.number(), optional(z.boolean()), optional(z.boolean())]),
+    output: z.void(),
+  }),
+  pauseSync: z.function({ input: z.tuple([]), output: z.void() }),
+  resumeSync: z.function({ input: z.tuple([]), output: z.void() }),
+  getSlashOffenses: z.function({
+    input: z.tuple([z.union([z.bigint(), z.literal('all'), z.literal('current')])]),
+    output: z.array(OffenseSchema),
+  }),
+  reloadKeystore: z.function({ input: z.tuple([]), output: z.void() }),
 };
 
 export function createAztecNodeAdminClient(
