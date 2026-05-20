@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 function build {
   echo_header "noir-projects build"
@@ -50,7 +61,11 @@ case "$cmd" in
     build
     ;;
   "hash")
-    hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+    if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+      echo disabled-cache
+    else
+      hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
+    fi
     ;;
   *)
     default_cmd_handler "$@"

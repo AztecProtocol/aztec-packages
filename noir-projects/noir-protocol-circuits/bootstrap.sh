@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Look at noir-contracts bootstrap.sh for some tips r.e. bash.
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 # entrypoint for mock circuits
 if [ -n "${NOIR_PROTOCOL_CIRCUITS_WORKING_DIR:-}" ]; then
@@ -10,20 +16,43 @@ fi
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
-export BB=${BB:-$(../../barretenberg/cpp/scripts/find-bb)}
-export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
-export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
+export BB=${BB:-$($root/barretenberg/cpp/scripts/find-bb)}
+export NARGO=${NARGO:-$root/noir/noir-repo/target/release/nargo}
+
+function get_bb_hash {
+  if [ -z "${BB_HASH:-}" ]; then
+    BB_HASH=$($root/barretenberg/cpp/bootstrap.sh hash)
+    export BB_HASH
+  fi
+  echo "$BB_HASH"
+}
+
+function get_noir_hash {
+  if [ -z "${NOIR_HASH:-}" ]; then
+    NOIR_HASH=$($root/noir/bootstrap.sh hash)
+    export NOIR_HASH
+  fi
+  echo "$NOIR_HASH"
+}
+export -f get_bb_hash get_noir_hash
 
 export key_dir=./target/keys
 mkdir -p $key_dir
 
 # Allows reusing this script when running from mock-protocol-circuits dir.
 project_name=$(basename "$PWD")
-# Hash of the entire protocol circuits.
-# Needed for test hash, as we presently don't have a program hash for each individual test.
-# Means if anything within the dir changes, the tests will rerun.
-export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+function get_circuits_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    # Hash of the entire protocol circuits.
+    # Needed for test hash, as we presently don't have a program hash for each individual test.
+    # Means if anything within the dir changes, the tests will rerun.
+    hash_str \
+      "$(get_noir_hash)" \
+      $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh")
+  fi
+}
 
 # Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
 readarray -t ivc_patterns < <(jq -r '.[]' "../chonk_circuits.json")
@@ -50,13 +79,14 @@ function compile {
   local name=${dir//-/_}
   local filename="$name.json"
   local json_path="./target/$filename"
+  local noir_hash=$(get_noir_hash)
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   local program_hash=$(dump_fail "$program_hash_cmd")
-  echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  echo_stderr "Hash preimage: $noir_hash-$program_hash"
+  local hash=$(hash_str "$noir_hash-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
   # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
   # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
   # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
@@ -88,7 +118,7 @@ function compile {
   # Add verification key to original json, similar to contracts.
   # This adds keyAsBytes and keyAsFields to the JSON artifact.
   local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-3")
+  local hash=$(hash_str "$(get_bb_hash)-$bytecode_hash-$name-3")
   local key_path="$key_dir/$name.vk.data.json"
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -189,6 +219,7 @@ function build {
 }
 
 function test_cmds {
+  local circuits_hash=$(get_circuits_hash)
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     local prefix="$circuits_hash"
     if [[ "$test" =~ checkpoint || "$package" =~ "blob" ]]; then
@@ -233,6 +264,7 @@ function format {
 }
 
 function bench_cmds {
+  local circuits_hash=$(get_circuits_hash)
   prefix="$circuits_hash noir-projects/noir-protocol-circuits/scripts/run_bench.sh"
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue

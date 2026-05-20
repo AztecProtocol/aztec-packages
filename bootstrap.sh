@@ -168,7 +168,13 @@ if [ "${1:-}" = "install_deps" ]; then
 fi
 
 ### START OF MAIN BOOTSTRAP SCRIPT #####################################################################################
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir} ;;
+  *) root=${root:-$PWD/$script_dir} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
@@ -500,11 +506,12 @@ function release_bb_github {
   if [ -n "$(semver prerelease $REF_NAME)" ]; then
     prerelease_flag="--prerelease"
   fi
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
   do_or_dryrun gh release create "$REF_NAME" \
     --repo "$bb_repo" \
     $prerelease_flag \
     --title "$REF_NAME" \
-    --notes "Release $REF_NAME — see https://github.com/AztecProtocol/aztec-packages/commits/$COMMIT_HASH"
+    --notes "Release $REF_NAME — see https://github.com/AztecProtocol/aztec-packages/commits/$commit_hash"
 }
 
 function release {
@@ -844,7 +851,8 @@ case "$cmd" in
     fi
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
-      echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
+      local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+      echo "Creating GitHub release from public repo context (COMMIT_HASH=$commit_hash)..."
       release_github
       echo "Fetching private source from aztec-packages-private..."
       git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"

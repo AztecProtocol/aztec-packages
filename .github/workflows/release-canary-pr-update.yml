@@ -74,7 +74,8 @@ jobs:
               --head "$CANARY_BRANCH" \
               --base next \
               --title "$PR_TITLE" \
-              --body "This PR tests certain CI labels periodically. Any failures in this branch log to alpha-team channel with slack.
+              --label "$PR_LABEL" \
+              --body "This PR tests certain CI labels periodically. Any failures in this branch log to #team-alph channel on slack
 
           This PR is automatically updated when \`**/bootstrap.sh\`, \`ci3/**\`, or \`yarn-project/**\` files are pushed to \`next\`.
 

@@ -255,7 +255,7 @@ template <typename LeafValueType>
 ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(std::string name,
                                                                                 uint32_t levels,
                                                                                 PersistedStoreType::SharedPtr dataStore)
-    : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
+    : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels, .initialized_from_block_ = std::nullopt }
     , dataStore_(dataStore)
     , cache_(levels)
 {
@@ -268,7 +268,7 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
     uint32_t levels,
     const block_number_t& referenceBlockNumber,
     PersistedStoreType::SharedPtr dataStore)
-    : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
+    : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels, .initialized_from_block_ = std::nullopt }
     , dataStore_(dataStore)
     , cache_(levels)
 {

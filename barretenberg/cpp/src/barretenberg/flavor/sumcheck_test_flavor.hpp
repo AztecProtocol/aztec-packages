@@ -1,3 +1,5 @@
+#pragma once
+
 /**
  * @file sumcheck_test_flavor.hpp
  * @brief Minimal test flavors for sumcheck testing without UltraFlavor dependencies

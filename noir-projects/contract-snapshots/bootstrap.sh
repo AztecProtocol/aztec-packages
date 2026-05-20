@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 # nargo binary path relative to the crate root (this directory)
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
@@ -24,7 +30,7 @@ function test {
 }
 
 function test_cmds {
-    if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+    if [ "${NO_CACHE:-0}" -eq 1 ] || [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
       hash=disabled-cache
     else
       hash=$(hash_str \

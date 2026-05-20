@@ -1,7 +1,24 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
-hash=$(../bootstrap.sh hash)
+function get_hash {
+  ../bootstrap.sh hash
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
+
 bench_fixtures_dir=example-app-ivc-inputs-out
 default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
 ultrahonk_bench_dir=ultrahonk-bench-inputs
@@ -11,28 +28,20 @@ function build {
   cache_load_image postgres:16-alpine
 }
 
-# Helper function to extract test names from a test file
-function extract_test_names {
-  local test_file="$1"
-  grep -oP "(it|test)\s*\(\s*['\"].*?['\"]" "$test_file" | \
-    sed -E "s/(it|test)\s*\(\s*['\"](.+)['\"]/\2/"
-}
-
-# Helper to generate DUMP_AVM_INPUTS_TO_DIR env var setting for a test (empty if not dumping)
-function set_dump_avm {
-  [ -n "${DUMP_AVM_INPUTS_TO_DIR:-}" ] && echo "DUMP_AVM_INPUTS_TO_DIR=${DUMP_AVM_INPUTS_TO_DIR}/$1"
-}
-
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  local hash=$(get_test_hash)
   local prefix="$hash:ISOLATE=1"
+  local dump_avm_base=${DUMP_AVM_INPUTS_TO_DIR:-}
 
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
-  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
+  local dump_avm=""
+  [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/e2e_block_building"
+  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $dump_avm $run_test_script simple e2e_block_building"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
@@ -40,12 +49,30 @@ function test_cmds {
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building).test.ts
   )
+  local name
+  local test_prefix
+  local test_name
+  local safe_test_name
+  local full_name
+  local parallel_tests=()
+  declare -A parallel_test_names=()
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
+    [[ "$test" == *.parallel.test.ts ]] && parallel_tests+=("$test")
+  done
+  if [ ${#parallel_tests[@]} -gt 0 ]; then
+    local extracted_test
+    local extracted_file
+    while IFS= read -r extracted_test; do
+      extracted_file=${extracted_test%%:*}
+      parallel_test_names[$extracted_file]+="${extracted_test#*:}"$'\n'
+    done < <(grep -H -oP "(it|test)\s*\(\s*['\"]\K.*?(?=['\"])" "${parallel_tests[@]}")
+  fi
+  for test in "${tests[@]}"; do
+    name=${test#*e2e_}
     name=e2e_${name%.test.ts}
 
     # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
-    local test_prefix="$prefix"
+    test_prefix="$prefix"
     case "$name" in
       e2e_p2p/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
@@ -56,14 +83,19 @@ function test_cmds {
     if [[ "$test" == *.parallel.test.ts ]]; then
       # Extract individual test names and create a command for each
       while IFS= read -r test_name; do
+        [ -n "$test_name" ] || continue
         # Create a safe name for the individual test (replace spaces with underscores)
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
-        local full_name="${name}_${safe_test_name}"
-        echo "$test_prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
-      done < <(extract_test_names "$test")
+        safe_test_name=${test_name// /_}
+        full_name="${name}_${safe_test_name}"
+        dump_avm=""
+        [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$full_name"
+        echo "$test_prefix:NAME=$full_name $dump_avm $run_test_script simple $test \"$test_name\""
+      done <<< "${parallel_test_names[$test]-}"
     else
       # Regular test file - run the whole file
-      echo "$test_prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
+      dump_avm=""
+      [ -n "$dump_avm_base" ] && dump_avm="DUMP_AVM_INPUTS_TO_DIR=$dump_avm_base/$name"
+      echo "$test_prefix:NAME=$name $dump_avm $run_test_script simple $test"
     fi
   done
 
@@ -111,6 +143,7 @@ function test {
 }
 
 function bench_cmds {
+  local hash=$(get_test_hash)
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
   echo "$hash:ISOLATE=1:CPUS=8:NAME=tx_stats BB_IVC_CONCURRENCY=1 BB_NUM_IVC_VERIFIERS=8 BENCH_OUTPUT=bench-out/tx_stats.bench.json yarn-project/end-to-end/scripts/run_test.sh simple tx_stats_bench"
   echo "$hash:ISOLATE=1:NAME=node_rpc_perf BENCH_OUTPUT=bench-out/node_rpc_perf.bench.json yarn-project/end-to-end/scripts/run_test.sh simple node_rpc_perf"
@@ -133,6 +166,7 @@ function bench_cmds {
 
 # Builds all benchmark fixtures (chonk IVC captures + UltraHonk circuit inputs).
 function build_bench {
+  local hash=$(get_hash)
   rm -rf bench-out && mkdir -p bench-out
 
   # Build chonk IVC captures
@@ -171,6 +205,7 @@ function bench {
 # Runs e2e tests with AVM circuit inputs dumping enabled, then packages and uploads them
 function test_and_collect_avm_inputs {
   echo_header "e2e tests with AVM circuit inputs dumping"
+  local hash=$(get_hash)
 
   # Fail if dump directory already exists to avoid mixing/overwriting results
   if [ -d "$default_avm_inputs_dump_dir" ]; then
@@ -201,6 +236,7 @@ function test_and_collect_avm_inputs {
 
 # Generates commands to run avm_check_circuit on all dumped AVM circuit inputs
 function avm_check_circuit_cmds {
+  local hash=$(get_test_hash)
   local bb_avm="barretenberg/cpp/build/bin/bb-avm"
   # Commands run from repo root via parallelize, so use path from top
   local dump_dir_from_top="yarn-project/end-to-end/$default_avm_inputs_dump_dir"
@@ -239,6 +275,7 @@ function avm_check_circuit_cmds {
 # Downloads cached AVM circuit inputs and runs check-circuit on all of them
 function avm_check_circuit {
   echo_header "AVM check-circuit on dumped inputs"
+  local hash=$(get_hash)
 
   # Use AVM_INPUTS_HASH if set (computed before build in CI), otherwise fall back to $hash
   local avm_hash=${AVM_INPUTS_HASH:-$hash}
@@ -263,6 +300,7 @@ function avm_check_circuit {
 function compat_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  local hash=$(get_test_hash)
   local prefix="$hash:ISOLATE=1"
   local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
 
@@ -271,16 +309,36 @@ function compat_test_cmds {
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|prover_*|kernelless_simulation).test.ts
   )
+  local parallel_tests=()
+  declare -A parallel_test_names=()
+  local test
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
+    [[ "$test" == *.parallel.test.ts ]] && parallel_tests+=("$test")
+  done
+  if [ ${#parallel_tests[@]} -gt 0 ]; then
+    local extracted_test
+    local extracted_file
+    while IFS= read -r extracted_test; do
+      extracted_file=${extracted_test%%:*}
+      parallel_test_names[$extracted_file]+="${extracted_test#*:}"$'\n'
+    done < <(grep -H -oP "(it|test)\s*\(\s*['\"]\K.*?(?=['\"])" "${parallel_tests[@]}")
+  fi
+
+  local name
+  local test_name
+  local safe_test_name
+  local full_name
+  for test in "${tests[@]}"; do
+    name=${test#*e2e_}
     name=e2e_${name%.test.ts}
 
     if [[ "$test" == *.parallel.test.ts ]]; then
       while IFS= read -r test_name; do
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
-        local full_name="compat_${version}_${name}_${safe_test_name}"
+        [ -n "$test_name" ] || continue
+        safe_test_name=${test_name// /_}
+        full_name="compat_${version}_${name}_${safe_test_name}"
         echo "$prefix:NAME=$full_name $compat_env $run_test_script simple $test \"$test_name\""
-      done < <(extract_test_names "$test")
+      done <<< "${parallel_test_names[$test]-}"
     else
       echo "$prefix:NAME=compat_${version}_${name} $compat_env $run_test_script simple $test"
     fi

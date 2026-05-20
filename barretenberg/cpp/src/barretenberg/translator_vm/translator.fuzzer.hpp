@@ -11,6 +11,8 @@
  * @date 2024-02-25
  *
  */
+#pragma once
+
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "translator_circuit_builder.hpp"

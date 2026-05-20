@@ -1,23 +1,55 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 # Get repo root for absolute paths
-REPO_ROOT=$(git rev-parse --show-toplevel)
+REPO_ROOT=$root
 
 export BB=${BB:-"$REPO_ROOT/barretenberg/cpp/build/bin/bb"}
 export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
-export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
-export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
 
 # Safety net: ensure all TS example yarn.lock files are empty on exit.
 # Both validate-ts and execute-examples (via Docker volume mount) can populate
 # these files, and their per-project cleanup may not run if processes are killed.
 trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
 
-hash=$(hash_str \
-  $BB_HASH \
-  $NOIR_HASH \
-  $(cache_content_hash .rebuild_patterns))
+function get_bb_hash {
+  if [ -z "${BB_HASH:-}" ]; then
+    BB_HASH=$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)
+    export BB_HASH
+  fi
+  echo "$BB_HASH"
+}
+
+function get_noir_hash {
+  if [ -z "${NOIR_HASH:-}" ]; then
+    NOIR_HASH=$("$REPO_ROOT/noir/bootstrap.sh" hash)
+    export NOIR_HASH
+  fi
+  echo "$NOIR_HASH"
+}
+
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  hash_str \
+    $(get_bb_hash) \
+    $(get_noir_hash) \
+    $(cache_content_hash .rebuild_patterns)
+}
 
 function compile-circuits {
   echo_header "Compiling vanilla Noir circuits"
@@ -77,7 +109,9 @@ function compile {
   # Use noir-contracts bootstrap with DOCS_WORKING_DIR pointing to parent (docs/).
   # Pass only contract packages so circuits in the shared docs workspace are not
   # treated as contract artifacts by the noir-contracts bootstrap.
-  DOCS_WORKING_DIR="$(cd .. && pwd)" \
+  BB_HASH=$(get_bb_hash) \
+    NOIR_HASH=$(get_noir_hash) \
+    DOCS_WORKING_DIR="$(cd .. && pwd)" \
     $REPO_ROOT/noir-projects/noir-contracts/bootstrap.sh compile "${contracts[@]}"
 }
 
@@ -210,6 +244,12 @@ function execute-examples {
 }
 
 function test_cmds {
+  local hash
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    hash=disabled-cache
+  else
+    hash=$(get_hash)
+  fi
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
 }
 
@@ -379,7 +419,7 @@ case "$cmd" in
     fi
     ;;
   "hash")
-    echo "$hash"
+    get_hash
     ;;
   compile-circuits)
     compile-circuits

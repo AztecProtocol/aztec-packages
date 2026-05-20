@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
-#include <iostream>
+#include <ostream>
+#include <string>
 
 namespace bb {
 

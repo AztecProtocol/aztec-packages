@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/bb/deps/cli11.hpp"
 #include <iomanip>
 #include <sstream>

@@ -1,7 +1,33 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
-hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
+function get_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
+  cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock
+}
+
+function get_test_hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ]; then
+    echo disabled-cache
+  else
+    get_hash
+  fi
+}
+
+function cache_upload_will_skip {
+  local artifact=$1
+  [[ "$artifact" == *"disabled-cache"* ]] || [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]] || [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]
+}
 
 function prepare_crs {
   echo_header "prepare crs for prover-agent image"
@@ -26,7 +52,7 @@ export -f prepare_crs
 
 function build_prover_agent_image {
   set -euo pipefail
-  local tag=$(git rev-parse HEAD)
+  local tag=${COMMIT_HASH:-$(git rev-parse HEAD)}
 
   if ! docker image inspect aztecprotocol/aztec:$tag &>/dev/null; then
     echo "Base image aztecprotocol/aztec:$tag not found. Run 'release-image/bootstrap.sh' first."
@@ -44,17 +70,18 @@ export -f build_prover_agent_image
 function build_image {
   set -euo pipefail
   cd ..
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
   if semver check $REF_NAME; then
     # We are a tagged release. Use the version from the tag.
     # We strip leading 'v' so that this is a valid semver.
     local version=${REF_NAME#v}
   else
     # Otherwise, use the commit hash as the version.
-    local version=$(git rev-parse HEAD)
+    local version=$commit_hash
   fi
   local previous_ids=$(docker images aztecprotocol/aztec --format "{{.ID}}" | uniq)
-  docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$(git rev-parse HEAD) .
-  docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+  docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$commit_hash .
+  docker tag aztecprotocol/aztec:$commit_hash aztecprotocol/aztec:latest
 
   # In CI, dump all files under /usr/src.
   if [ "$CI" -eq 1 ]; then
@@ -77,10 +104,16 @@ function build {
     exit 0
   fi
 
-  if ! cache_download release-image-base-$hash.zst; then
+  local hash=$(get_hash)
+  local base_artifact=release-image-base-$hash.zst
+  if ! cache_download $base_artifact; then
     denoise "cd .. && docker build -f release-image/Dockerfile.base -t aztecprotocol/release-image-base ."
-    docker save aztecprotocol/release-image-base:latest > release-image-base
-    cache_upload release-image-base-$hash.zst release-image-base
+    if cache_upload_will_skip "$base_artifact"; then
+      cache_upload "$base_artifact" .
+    else
+      docker save aztecprotocol/release-image-base:latest > release-image-base
+      cache_upload "$base_artifact" release-image-base
+    fi
   else
     docker load < release-image-base
   fi
@@ -97,6 +130,7 @@ function test_cmds {
     exit 0
   fi
 
+  local hash=$(get_test_hash)
   # Very simple sanity test.
   echo "$hash docker run --rm aztecprotocol/aztec --version"
 }
@@ -112,10 +146,11 @@ function release {
 
   # We strip leading 'v' so that this is a valid semver.
   tag=${REF_NAME#v}
-  docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$tag-$(arch)
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  docker tag aztecprotocol/aztec:$commit_hash aztecprotocol/aztec:$tag-$(arch)
   do_or_dryrun docker push aztecprotocol/aztec:$tag-$(arch)
 
-  docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent:$tag-$(arch)
+  docker tag aztecprotocol/aztec-prover-agent:$commit_hash aztecprotocol/aztec-prover-agent:$tag-$(arch)
   do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$tag-$(arch)
 
   # If doing a release in CI, update the remote manifest if we're the arm build.
@@ -155,8 +190,9 @@ function push {
     exit 1
   fi
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
-  do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH
-  do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$COMMIT_HASH
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  do_or_dryrun docker push aztecprotocol/aztec:$commit_hash
+  do_or_dryrun docker push aztecprotocol/aztec-prover-agent:$commit_hash
 }
 
 function push_pr {
@@ -167,11 +203,12 @@ function push_pr {
     exit 1
   fi
   echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
-  docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztecdev:$COMMIT_HASH
-  do_or_dryrun docker push aztecprotocol/aztecdev:$COMMIT_HASH
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  docker tag aztecprotocol/aztec:$commit_hash aztecprotocol/aztecdev:$commit_hash
+  do_or_dryrun docker push aztecprotocol/aztecdev:$commit_hash
   # Best-effort: push prover-agent image if available.
-  if docker tag aztecprotocol/aztec-prover-agent:$COMMIT_HASH aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH 2>/dev/null; then
-    do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$COMMIT_HASH || echo "Warning: failed to push prover-agent-dev image, continuing."
+  if docker tag aztecprotocol/aztec-prover-agent:$commit_hash aztecprotocol/aztec-prover-agent-dev:$commit_hash 2>/dev/null; then
+    do_or_dryrun docker push aztecprotocol/aztec-prover-agent-dev:$commit_hash || echo "Warning: failed to push prover-agent-dev image, continuing."
   else
     echo "Warning: prover-agent image not found locally, skipping push."
   fi

@@ -1,9 +1,44 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+if [ "${1:-}" = "hash" ] && [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+  echo disabled-cache
+  exit 0
+fi
+
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/..} ;;
+  *) root=${root:-$PWD/$script_dir/..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 function hash {
+  if [ "${NO_CACHE:-0}" -eq 1 ] && [ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]; then
+    echo disabled-cache
+    return
+  fi
+
   hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash)
 }
+
+function test_cmds {
+  :
+}
+
+function test {
+  :
+}
+
+case "$cmd" in
+  "hash")
+    echo $(hash)
+    exit
+    ;;
+  test|test_cmds)
+    $cmd
+    exit
+    ;;
+esac
 
 dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
 
@@ -75,14 +110,6 @@ function gke {
       exit 1
     fi
   fi
-}
-
-function test_cmds {
-  :
-}
-
-function test {
-  :
 }
 
 # Test sets for network scenario tests (split across two EC2 instances).
@@ -243,7 +270,8 @@ function bench_10tps {
   gcp_auth
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
-  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${COMMIT_HASH:0:10}}"
+  local commit_hash=${COMMIT_HASH:-$(git rev-parse HEAD)}
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${commit_hash:0:10}}"
   bench_10tps_cmds | parallelize 1
 
   local metadata="/tmp/n_tps_timing_data.json"
@@ -443,10 +471,7 @@ case "$cmd" in
     kubectl delete networkchaos --all --all-namespaces
     network_shaping "$namespace" "$chaos_values"
     ;;
-  "hash")
-    echo $(hash)
-    ;;
-  test|test_cmds|gke|build|gcp_auth)
+  gke|build|gcp_auth)
     $cmd
     ;;
   "test-kind-upgrade-rollup")

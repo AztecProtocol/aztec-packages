@@ -1,3 +1,5 @@
+#pragma once
+
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 #include <cassert>

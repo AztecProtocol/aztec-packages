@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+script_dir=${BASH_SOURCE[0]%/*}
+[ "$script_dir" = "${BASH_SOURCE[0]}" ] && script_dir=.
+case "$script_dir" in
+  /*) root=${root:-$script_dir/../..} ;;
+  *) root=${root:-$PWD/$script_dir/../..} ;;
+esac
+source "$root/ci3/source_bootstrap"
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 
 # Fairies want to run these tests on every PR
-if [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
+if [ "${NO_CACHE:-0}" -eq 1 ] || [ "${TARGET_BRANCH:-}" = "merge-train/fairies" ]; then
   hash=disabled-cache
 else
   hash=$(hash_str $(../../noir/bootstrap.sh hash) $(cache_content_hash "^noir-projects/aztec-nr"))
