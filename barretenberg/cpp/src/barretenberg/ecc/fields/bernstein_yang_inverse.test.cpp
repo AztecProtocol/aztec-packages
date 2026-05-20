@@ -29,8 +29,8 @@ template <class F> F from_raw(const uint256_t& a)
 template <class S, class F> uint256_t by_invert(const F& a)
 {
     constexpr uint256_t p = F::modulus;
-    constexpr uint64_t p_inv = S::p_inv_from_r_inv(F::Params::r_inv);
-    return bb::bernstein_yang::invert_bernsteinyang19<S>(to_raw(a), p, p_inv);
+    constexpr uint64_t p_inv_mod_2k = S::p_inv_mod_2k_from_montgomery_r_inv(F::Params::r_inv);
+    return bb::bernstein_yang::invert_bernsteinyang19<S>(to_raw(a), p, p_inv_mod_2k);
 }
 
 // Random a, BY result roundtripped through Montgomery must invert a.

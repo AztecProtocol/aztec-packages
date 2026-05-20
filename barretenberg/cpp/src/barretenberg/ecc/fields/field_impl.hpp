@@ -390,25 +390,22 @@ template <class T> constexpr field<T> field<T>::invert() const noexcept
     if (*this == zero()) {
         bb::assert_failure("Trying to invert zero in the field");
     }
-    // constexpr contexts keep Fermat (Bernstein-Yang is not constexpr).
+    // BY uses __int128 and is not constexpr-evaluable; compile-time inversions keep Fermat.
     if (std::is_constant_evaluated()) {
         return pow(modulus_minus_two);
     }
-#if defined(__SIZEOF_INT128__)
-    // 256-bit moduli (secp256k1/r1) don't fit the < 2^255 BY precondition and
-    // fall through to Fermat.
-    if constexpr (T::modulus_3 < (1ULL << 63)) {
+    if constexpr (bernstein_yang::supported_v<T>) {
         constexpr uint256_t p_uint = modulus;
-        constexpr uint64_t p_inv = bernstein_yang::p_inv_from_r_inv(T::r_inv);
+        constexpr uint64_t p_inv_mod_2k = bernstein_yang::p_inv_mod_2k_from_montgomery_r_inv(T::r_inv);
         field non_mont = from_montgomery_form_reduced();
         uint256_t a{ non_mont.data[0], non_mont.data[1], non_mont.data[2], non_mont.data[3] };
-        uint256_t inv = bernstein_yang::invert_bernsteinyang19(a, p_uint, p_inv);
+        uint256_t inv = bernstein_yang::invert_bernsteinyang19(a, p_uint, p_inv_mod_2k);
         field result{ inv.data[0], inv.data[1], inv.data[2], inv.data[3] };
         result.self_to_montgomery_form();
         return result;
+    } else {
+        return pow(modulus_minus_two);
     }
-#endif
-    return pow(modulus_minus_two);
 }
 
 template <class T> constexpr field<T> field<T>::invert_const_time() const noexcept

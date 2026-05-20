@@ -31,12 +31,12 @@ using numeric::uint256_t;
 using u64 = uint64_t;
 using i64 = int64_t;
 
-// The transition matrix produced by BATCH divsteps.  Combined with the
-// implicit "/ 2^BATCH" at the end of apply_matrix it represents the linear
+// The transition matrix produced by BATCH divsteps. With the implicit
+// "/ 2^BATCH" at the end of apply_divstep_matrix, it represents the linear
 // map (f, g) ↦ (M·(f, g) / 2^BATCH).  Each divstep doubles one matrix entry,
 // so after BATCH steps |u|, |v|, |q|, |r| ≤ 2^BATCH; they are signed (the
 // swap-and-subtract case introduces negatives).
-struct Mat {
+struct DivstepMatrix {
     i64 u, v, q, r;
 };
 
@@ -59,7 +59,7 @@ class Native5x64 {
     static constexpr int NUM_ITERATIONS = 12;
 
     // The Bezout coefficients (d, e) live mod p but during the iteration we
-    // hold them as signed integers in the state.  Each apply_matrix grows
+    // hold them as signed integers in the state.  Each matrix application grows
     // |d|, |e| by roughly a factor of 2 (matrix entry × value) plus an
     // additive p (from the 2-adic correction k·p), so without bringing them
     // back to [0, p) they would eventually overflow the state.
@@ -113,20 +113,23 @@ class Native5x64 {
     // BATCH branchy divsteps on the low 64 bits of (f, g); returns the
     // transition matrix M and updates δ.  Variable-time over the inner
     // branches — non-secret inputs only.
-    static Mat divsteps(i64& delta, u64 f_lo, u64 g_lo) noexcept;
+    static DivstepMatrix compute_divstep_matrix(i64& delta, u64 f_lo, u64 g_lo) noexcept;
     // (f, g) ← M·(f, g) / 2^BATCH and (d, e) ← (M·(d, e) + k·p) / 2^BATCH,
     // where k_i = -((M·(d, e))_i · p⁻¹) mod 2^BATCH (the 2-adic correction
     // that makes (M·(d, e))_i + k_i·p divisible by 2^BATCH).
-    static void apply_matrix(const Mat& m,
-                             Native5x64& f,
-                             Native5x64& g,
-                             Native5x64& d,
-                             Native5x64& e,
-                             const Native5x64& p,
-                             u64 p_inv) noexcept;
+    static void apply_divstep_matrix(const DivstepMatrix& m,
+                                     Native5x64& f,
+                                     Native5x64& g,
+                                     Native5x64& d,
+                                     Native5x64& e,
+                                     const Native5x64& p,
+                                     u64 p_inv_mod_2k) noexcept;
     // r_inv = -p⁻¹ mod 2^64 (barretenberg's Montgomery constant), so p⁻¹ mod
     // 2^BATCH is the low BATCH bits of -r_inv.
-    static constexpr u64 p_inv_from_r_inv(u64 r_inv) noexcept { return ((u64)(-(i64)r_inv)) & ((1ULL << BATCH) - 1); }
+    static constexpr u64 p_inv_mod_2k_from_montgomery_r_inv(u64 r_inv) noexcept
+    {
+        return ((u64)(-(i64)r_inv)) & ((1ULL << BATCH) - 1);
+    }
 
   private:
     static constexpr int N = 5;
@@ -167,9 +170,9 @@ class Native5x64 {
     friend struct NativeMatrix;
 };
 
-// 6-limb signed product helpers used by Native5x64::apply_matrix.
+// 6-limb signed product helpers used by Native5x64::apply_divstep_matrix.
 struct NativeMatrix {
-    static void linear_combo(i64 a, const Native5x64& x, i64 b, const Native5x64& y, u64 out[6]) noexcept
+    static void signed_linear_combination(i64 a, const Native5x64& x, i64 b, const Native5x64& y, u64 out[6]) noexcept
     {
         __int128 c = 0;
         for (int i = 0; i < 4; ++i) {
@@ -181,7 +184,7 @@ struct NativeMatrix {
         out[4] = (u64)c;
         out[5] = (u64)(c >> 64);
     }
-    static Native5x64 arsh62(const u64 t[6]) noexcept
+    static Native5x64 arithmetic_shift_by_batch(const u64 t[6]) noexcept
     {
         Native5x64 r;
         for (int i = 0; i < 4; ++i) {
@@ -201,9 +204,9 @@ struct NativeMatrix {
 // The matrix (u, v, q, r) tracks the same linear transform applied
 // symbolically; doubling u, v (or q, r) corresponds to the implicit /2 each
 // inner step performs.  After BATCH steps the low BATCH bits of the
-// transformed state are guaranteed zero, so apply_matrix's implicit
+// transformed state are guaranteed zero, so apply_divstep_matrix's implicit
 // "/ 2^BATCH" is an exact integer division.
-inline Mat Native5x64::divsteps(i64& delta, u64 f_lo, u64 g_lo) noexcept
+inline DivstepMatrix Native5x64::compute_divstep_matrix(i64& delta, u64 f_lo, u64 g_lo) noexcept
 {
     i64 u = 1, v = 0, q = 0, r = 1;
     for (int i = 0; i < BATCH; ++i) {
@@ -236,22 +239,27 @@ inline Mat Native5x64::divsteps(i64& delta, u64 f_lo, u64 g_lo) noexcept
     return { u, v, q, r };
 }
 
-inline void Native5x64::apply_matrix(
-    const Mat& m, Native5x64& f, Native5x64& g, Native5x64& d, Native5x64& e, const Native5x64& p, u64 p_inv) noexcept
+inline void Native5x64::apply_divstep_matrix(const DivstepMatrix& m,
+                                             Native5x64& f,
+                                             Native5x64& g,
+                                             Native5x64& d,
+                                             Native5x64& e,
+                                             const Native5x64& p,
+                                             u64 p_inv_mod_2k) noexcept
 {
     constexpr u64 MASK_BATCH = (1ULL << BATCH) - 1;
 
     u64 nf[6], ng[6];
-    NativeMatrix::linear_combo(m.u, f, m.v, g, nf);
-    NativeMatrix::linear_combo(m.q, f, m.r, g, ng);
-    f = NativeMatrix::arsh62(nf);
-    g = NativeMatrix::arsh62(ng);
+    NativeMatrix::signed_linear_combination(m.u, f, m.v, g, nf);
+    NativeMatrix::signed_linear_combination(m.q, f, m.r, g, ng);
+    f = NativeMatrix::arithmetic_shift_by_batch(nf);
+    g = NativeMatrix::arithmetic_shift_by_batch(ng);
 
-    // k = -t · p_inv mod 2^BATCH makes t + k·p divisible by 2^BATCH.
-    auto apply_de = [&](i64 a, const Native5x64& da, i64 b, const Native5x64& eb, Native5x64& out) {
+    // k = -t · p_inv_mod_2k mod 2^BATCH makes t + k·p divisible by 2^BATCH.
+    auto apply_corrected_row = [&](i64 a, const Native5x64& da, i64 b, const Native5x64& eb, Native5x64& out) {
         u64 t[6];
-        NativeMatrix::linear_combo(a, da, b, eb, t);
-        u64 k = (((u64)(-(i64)t[0])) * p_inv) & MASK_BATCH;
+        NativeMatrix::signed_linear_combination(a, da, b, eb, t);
+        u64 k = (((u64)(-(i64)t[0])) * p_inv_mod_2k) & MASK_BATCH;
         u64 kp[6] = {};
         u64 carry = 0;
         for (int i = 0; i < 5; ++i) {
@@ -266,11 +274,11 @@ inline void Native5x64::apply_matrix(
             t[i] = (u64)s;
             c = (u64)(s >> 64);
         }
-        out = NativeMatrix::arsh62(t);
+        out = NativeMatrix::arithmetic_shift_by_batch(t);
     };
     Native5x64 nd, ne;
-    apply_de(m.u, d, m.v, e, nd);
-    apply_de(m.q, d, m.r, e, ne);
+    apply_corrected_row(m.u, d, m.v, e, nd);
+    apply_corrected_row(m.q, d, m.r, e, ne);
     d = nd;
     e = ne;
 }
@@ -294,21 +302,21 @@ using State = Native5x64;
  * into a 2×2 matrix M and applies M to (f, g) / (d, e).  When g reaches 0,
  * gcd(p, a) = ±f and a⁻¹ = ±d mod p.  Returns 0 for a == 0.
  *
- * @param p_inv  p⁻¹ mod 2^BATCH (used by apply_matrix's 2-adic correction).
+ * @param p_inv_mod_2k  p⁻¹ mod 2^BATCH (used by apply_divstep_matrix's 2-adic correction).
  * @pre p odd prime, p < 2^255, 0 ≤ a < p.
  */
 template <class S = State>
-inline uint256_t invert_bernsteinyang19(const uint256_t& a, const uint256_t& p, u64 p_inv) noexcept
+inline uint256_t invert_bernsteinyang19(const uint256_t& a, const uint256_t& p, u64 p_inv_mod_2k) noexcept
 {
     if (a == uint256_t(0)) {
         return uint256_t(0);
     }
     S P(p), f = P, g(a), d, e = S::one();
-    // δ is Pornin's auxiliary used by divsteps to decide swap-vs-add cases.
+    // δ is Pornin's auxiliary used by the divstep rule to decide swap-vs-add cases.
     i64 delta = 1;
     for (int i = 0; i < S::NUM_ITERATIONS; ++i) {
-        Mat m = S::divsteps(delta, f.low_64(), g.low_64());
-        S::apply_matrix(m, f, g, d, e, P, p_inv);
+        DivstepMatrix m = S::compute_divstep_matrix(delta, f.low_64(), g.low_64());
+        S::apply_divstep_matrix(m, f, g, d, e, P, p_inv_mod_2k);
         if (g.is_zero()) {
             break;
         }
@@ -325,9 +333,21 @@ inline uint256_t invert_bernsteinyang19(const uint256_t& a, const uint256_t& p, 
     return d.to_uint256();
 }
 
-inline constexpr u64 p_inv_from_r_inv(u64 r_inv) noexcept
+inline constexpr u64 p_inv_mod_2k_from_montgomery_r_inv(u64 r_inv) noexcept
 {
-    return State::p_inv_from_r_inv(r_inv);
+    return State::p_inv_mod_2k_from_montgomery_r_inv(r_inv);
 }
+
+// True iff `invert_bernsteinyang19` is usable for field params T: the active
+// kernel must be compilable on this toolchain (Native5x64 needs __int128, the
+// WASM kernel is unconditional) and T's modulus must fit BY's < 2^255
+// precondition.  Used to gate the dispatch in `field::invert()`.
+template <class T>
+inline constexpr bool supported_v =
+#if defined(__SIZEOF_INT128__) || defined(__wasm__)
+    T::modulus_3 < (1ULL << 63);
+#else
+    false;
+#endif
 
 } // namespace bb::bernstein_yang

@@ -1,32 +1,20 @@
 # Bernstein–Yang modular inverse: the algorithm
 
-A self-contained derivation of the modular inverse algorithm implemented in
-`bernstein_yang_inverse.hpp`. We strip out the side-channel motivation and the
-broader safegcd discussion in the original paper and keep only the math that
-the code needs.
+A description of the modular inverse algorithm implemented in `bernstein_yang_inverse.hpp`.
 
 Throughout, $p$ is an **odd prime**, $0 < a < p$, and we want
 $$a^{-1} \bmod p.$$
 
 All quantities are integers; reductions modulo $p$ are made explicit when used.
 
-**Notation.** $\mathbb{Z}_p$ throughout denotes the ring of **$p$-adic integers**
-(the completion of $\mathbb{Z}$ with respect to the $p$-adic absolute value),
-not the cyclic group $\mathbb{Z}/p\mathbb{Z}$. For the latter we always write
-$\mathbb{Z}/p\mathbb{Z}$ or $\mathbb{F}_p$ explicitly. In particular $\mathbb{Z}_2$
-is the ring of $2$-adic integers; $\mathbb{Q}_2 = \mathbb{Z}_2[\tfrac{1}{2}]$
-is its fraction field. $|x|_2$ denotes the $2$-adic absolute value, with
-$|2^k u|_2 = 2^{-k}$ for $u$ a unit, and $\operatorname{val}_2(x) = -\log_2 |x|_2$ the
-$2$-adic valuation.
-
 ---
 
-## 1. Setup: the state matrix $\Phi$ and the reduction goal
+## 1. Setup
 
 We track a $2 \times 2$ integer matrix
 
 $$
-\Phi \;=\; \begin{pmatrix} f & d \\ g & e \end{pmatrix} \;\in\; M_2(\mathbb{Z}_2)
+\Phi \;=\; \begin{pmatrix} f & d \\ g & e \end{pmatrix}
 $$
 
 initialised at
@@ -34,9 +22,6 @@ initialised at
 $$
 \Phi_0 \;=\; \begin{pmatrix} p & 0 \\ a & 1 \end{pmatrix}, \qquad \det \Phi_0 \;=\; p.
 $$
-
-So $\Phi_0 \in M_2(\mathbb{Z}_2)$ but **not** in $\mathrm{SL}_2(\mathbb{Z}_2)$:
-$|\det \Phi_0|_2 = |p|_2 = 1$ (since $p$ is odd), but $\det \Phi_0 = p \ne \pm 1$.
 
 ### The kernel invariant
 
@@ -63,7 +48,7 @@ $$
 \Phi_N \;=\; \begin{pmatrix} \pm 1 & a^{-1} \bmod p \\ 0 & \star \end{pmatrix}.
 $$
 
-Why this is the target: when $g = 0$, the kernel invariant gives $e a \equiv 0 \pmod p$,
+When $g = 0$, the kernel invariant gives $e a \equiv 0 \pmod p$,
 hence (since $\gcd(a, p) = 1$) $p \mid e$, putting the bottom-right at a
 multiple of $p$. Independently, $f$ at termination equals $\pm \gcd(p, a) = \pm 1$,
 and the invariant collapses to $d a \equiv \pm 1 \pmod p$, giving
@@ -74,7 +59,7 @@ the inverse appearing as the top-right entry.**
 
 ---
 
-## 2. The three generators $L_a, L_b, L_c$
+## 2. The generators $L_a, L_b, L_c$
 
 The algorithm proceeds by repeated left multiplication: $\Phi \to L_n \Phi$,
 choosing $L_n$ from a fixed set of three matrices:
@@ -89,7 +74,7 @@ Each has $\det L_n = \tfrac{1}{2}$, so $L_n \in \mathrm{GL}_2(\mathbb{Z}[\tfrac{
 but not in $\mathrm{SL}_2$. They act on the rows of $\Phi$: equivalently, on
 $(f, g)$ and on $(d, e)$ in lockstep.
 
-### The choice rule (the divstep)
+### Divstep
 
 A small auxiliary integer $\delta$ is carried alongside $\Phi$, initialised at
 $\delta_0 = 1$. At every step, the parity of $g$ together with the sign of
@@ -124,7 +109,7 @@ measures the running deficit "extra divisions of $g$ over extra divisions of $f$
 
 Left multiplication by $L_n$ alone would leave $\Phi$ with non-integer entries
 in the right column (because $L_n$ has $\tfrac{1}{2}$ entries acting on
-$(d, e)$). To keep $\Phi \in M_2(\mathbb{Z}_2)$ we add a multiple of $p$ to the
+$(d, e)$). To keep the state integer-valued we add a multiple of $p$ to the
 right column before halving — a *2-adic correction* that vanishes modulo $p$
 and hence doesn't disturb the kernel invariant. The mechanics live in §6.
 
@@ -138,32 +123,9 @@ column ($d, e$) updates via left multiplication plus a $p$-shift.
 
 ---
 
-## 3. Why $g$ shrinks: convergence
+## 3. Convergence
 
-After enough divsteps $g$ reaches $0$. There are two convergence bounds in
-common use:
-
-$$
-N_{\mathrm{BY}}(b)      \;=\; \left\lceil \frac{49\,b + 80}{17} \right\rceil
-\qquad \text{(Bernstein–Yang 2019, original)}.
-$$
-
-$$
-N_{\mathrm{Pornin}}(b)  \;=\; \left\lceil \frac{49\,(b + 1)}{17} \right\rceil
-\qquad \text{(Pornin 2020, tighter, variable-time variant)}.
-$$
-
-For $b = 254$ (BN254 scalar field):
-- $N_{\mathrm{BY}}(254) = \lceil 12526 / 17 \rceil = \lceil 736.82\ldots \rceil = 737$.
-- $N_{\mathrm{Pornin}}(254) = \lceil 12495 / 17 \rceil = 735$ (exactly: $17 \cdot 735 = 12495$).
-
-The implementation cites the Pornin bound of $735$ in the comment around
-`NUM_ITERATIONS`. The looser BY-2019 bound of $737$ is also covered.
-
-Intuitively each $L_n$ halves *one of* $|f|, |g|$ (with a possible swap), so on
-average $\max(|f|, |g|)$ shrinks by about $1 / 1.7 \approx 0.588$ bits per
-step. The proof is a careful potential argument tracking the maximum of two
-log-magnitudes against $\delta$; we treat it as a black box here.
+The Bernstein--Yang/Pornin convergence proof guarantees $g = 0$ within 735 divsteps for 254-bit inputs; native runs $12 \cdot 62 = 744$ divsteps and wasm runs $13 \cdot 58 = 754$, so both cover the bound.
 
 ---
 
@@ -171,11 +133,11 @@ log-magnitudes against $\delta$; we treat it as a black box here.
 
 A single divstep touches only the lowest bit of $g$ (to read parity) and is a
 linear combination of $(f, g)$. So the next $\mathrm{BATCH}$ divsteps depend
-only on the low $\mathrm{BATCH}$ bits of $(f, g)$ — the high bits don't
+only on the low $\mathrm{BATCH}$ bits of $(f, g)$ — the high bits do not
 influence the choice between $L_a, L_b, L_c$ within those steps.
 
-Let $\mathrm{BATCH} = 62$ (the implementation's choice on native; $31$ on
-wasm). Run $\mathrm{BATCH}$ divsteps purely on the low $64$ bits of $(f, g)$,
+Let $\mathrm{BATCH} = 62$ (the implementation choice on native; $58$ on wasm).
+Run $\mathrm{BATCH}$ divsteps purely on the low $64$ bits of $(f, g)$,
 accumulating the result as a single $2 \times 2$ rational matrix
 
 $$
@@ -183,11 +145,6 @@ M \;=\; L_{n_{\mathrm{BATCH}-1}} \cdots L_{n_1} L_{n_0} \;=\; \begin{pmatrix} u 
 $$
 
 After clearing the implicit denominator, the *integer* part $\begin{pmatrix} u & v \\ q & r \end{pmatrix} = 2^{\mathrm{BATCH}} M$ has all four entries bounded by $|u|, |v|, |q|, |r| \le 2^{\mathrm{BATCH}}$ (each individual $L_n$ at most doubles one entry of the running product). With $\mathrm{BATCH} = 62$, the four entries fit in `int64_t`.
-
-**Termination of the batched loop.** Running
-$12 = \lceil 735 / 62 \rceil$ outer iterations $\times\; 62$ divsteps gives
-$744$ total divsteps, which exceeds both the Pornin bound ($735$) and the
-looser BY-2019 bound ($737$). The implementation's `NUM_ITERATIONS = 12`.
 
 ---
 
@@ -209,8 +166,8 @@ $\mathrm{BATCH}$ divsteps the bottom $\mathrm{BATCH}$ bits of the linear
 combinations are guaranteed zero — this is the "exact integer division"
 property of the divstep cascade.
 
-In the implementation this lives in `NativeMatrix::linear_combo` (the
-products) and `NativeMatrix::arsh62` (the right shift).
+In the implementation this lives in `NativeMatrix::signed_linear_combination` (the
+products) and `NativeMatrix::arithmetic_shift_by_batch` (the right shift).
 
 ---
 
@@ -251,31 +208,33 @@ to the right column, so the kernel invariant $\Phi \binom{1}{-a} \equiv 0 \pmod 
 is preserved.
 
 The same construction applied with $(q, r)$ and the second row of $M$ gives
-the new $e'$. This is `apply_de` in the implementation.
+the new $e'$. This is `apply_corrected_row` in the implementation.
 
 ---
 
 ## 7. State bounds: why 5 limbs
 
-The left column $(f, g)$ holds values that grow temporarily large during the
-matrix multiplication of §5 — to $318$ bits — then shrink back to $\sim 256$
-bits after the right shift. So $f, g$ only need $256$-bit storage as the
-*resting* state.
+`Native5x64` stores each state value in five signed 64-bit limbs. Four limbs
+would be enough for canonical field elements, but the BY state is not always
+canonical while a batched matrix is being applied.
 
-The right column $(d, e)$ is different. The 2-adic correction $+\, k \cdot p$
-grows them by roughly an additive $p$ per matrix application. Without periodic
-reduction modulo $p$, $|d|, |e|$ grow by a factor of $2 + O(1)$ per iteration.
-To keep them in bounded storage, the implementation reduces them to canonical
-form $[0, p)$ every $\mathrm{REDUCE\_INTERVAL} = 4$ iterations:
+For the left column, $f$ and $g$ are roughly 256-bit values between matrix
+applications. During §5, however, the products $u f$, $v g$, $q f$, and $r g$
+can be as large as $2^{62} \cdot 2^{256}$, and their sums need about 319 bits.
+Those sums are held in the temporary six-limb arrays inside
+`NativeMatrix::signed_linear_combination`; after the exact right shift by
+`BATCH`, $f$ and $g$ return to the normal state size.
 
-- Between reductions, $|d|, |e| \le 2^{4} \cdot p \approx 16 p \approx 2^{258}$.
-- $5$ signed $64$-bit limbs hold up to $\sim 2^{319}$ of headroom.
+For the right column, $d$ and $e$ need extra resting headroom too. The 2-adic
+correction adds $k \cdot p$ before the shift, and repeated matrix applications
+can move   00,p)1 The implementation therefore reduces them
+to canonical form every `REDUCE_INTERVAL = 4` iterations rather than after every
+matrix application.
 
-So $5$ limbs $\approx 320$ bits give comfortable margin.
-
-`Native5x64::reduce_to_canonical(p)` does the reduction by repeated conditional
-add/sub of $p$, looping up to $36$ times to absorb the maximum $\sim 32 p$ of
-headroom that $\mathrm{REDUCE\_INTERVAL} = 4$ can produce.
+Between reductions, $|d|$ and $|e|$ are bounded by roughly $32p$. Five signed
+64-bit limbs provide about 319 bits of magnitude, enough room for that growth.
+`Native5x64::reduce_to_canonical(p)` then repeatedly adds or subtracts $p$,
+with a loop bound of 36 to cover the same worst-case headroom.
 
 ---
 
@@ -283,7 +242,7 @@ headroom that $\mathrm{REDUCE\_INTERVAL} = 4$ can produce.
 
 After the iteration loop:
 
-- $g = 0$ (the convergence bound guarantees this within $\mathrm{NUM\_ITERATIONS}$ outer iterations).
+- $g = 0$.
 - $f = \pm \gcd(p, a) = \pm 1$.
 - Kernel invariant: $d \cdot a \equiv f \pmod{p}$, so $d \equiv \pm a^{-1} \pmod p$.
 
@@ -303,180 +262,131 @@ In code, this is the
 
 ---
 
-## 9. Structural framing: Bruhat, Bruhat–Tits, classical comparison
+## 9. Math-to-code map
 
-The story above is BY as an algorithm. The same content also has a clean
-algebraic restatement that places it inside the standard $p$-adic group theory.
+The implementation keeps the same mathematical state but hides the limb details
+behind `Native5x64` and `Wasm9x29`.
 
-### 9.1 The generators as Bruhat building blocks
-
-The three $L_n$ factor into the standard generating set of $\mathrm{GL}_2$ —
-elementary unipotents, the Weyl element, and a torus element:
-
-$$
-L_a = \underbrace{\begin{pmatrix} 1 & 0 \\ 0 & \tfrac{1}{2} \end{pmatrix}}_{\tau\ =\ \mathrm{diag}(1,\,1/2)},
-$$
-$$
-L_b = \underbrace{\begin{pmatrix} 1 & 0 \\ 1 & 1 \end{pmatrix}}_{E_{21}(1)} \cdot \tau,
-$$
-$$
-L_c = \underbrace{\begin{pmatrix} 0 & 1 \\ -1 & 0 \end{pmatrix}}_{w\ \text{(Weyl)}} \cdot \underbrace{\begin{pmatrix} 1 & 0 \\ -1 & 1 \end{pmatrix}}_{E_{21}(-1)} \cdot \tau.
-$$
-
-So the BY generating set is exactly the toolkit of the **Bruhat / Iwasawa
-decomposition** of $\mathrm{GL}_2(\mathbb{Q}_2)$: every element factors as
-$g = n \cdot t \cdot k$ with $n$ upper triangular unipotent, $t$ in the
-diagonal torus $T$, and $k$ in the maximal compact $K_0 = \mathrm{GL}_2(\mathbb{Z}_2)$.
-The torus element $\tau = \mathrm{diag}(1, \tfrac{1}{2})$ differs from a
-canonical $\mathrm{SL}_2$-torus element $\mathrm{diag}(x, x^{-1})$ only by a
-$\det^{-1/2}$ rescaling out of the $\mathrm{SL}_2$ center; on $\mathrm{PGL}_2$
-they coincide.
-
-### 9.2 BY as constructive Bruhat decomposition
-
-The reduction of §1–§8 then reads: starting from
-$$\Phi_0 = \begin{pmatrix} p & 0 \\ a & 1 \end{pmatrix},$$
-left-multiply by a *bounded-length word* in $\{E_{21}(\pm 1),\, w,\, \tau\}$
-(plus right-column $p$-shifts) to reach the form
-$$\Phi_N = \begin{pmatrix} \pm 1 & a^{-1} \bmod p \\ 0 & \star \end{pmatrix} \;\in\; N \cdot K_0.$$
-
-This is **a constructive Bruhat decomposition of $\Phi_0$**, with the divstep
-generators playing the role of elementary row operations and the $+k p$ shifts
-handling the $\mathbb{Z}_2$-integrality.
-
-### 9.3 Determinant tracking, the Bruhat–Tits tree, and the cheap-vs-rich trade-off
-
-Ignoring the $+kp$ correction (which only adds a multiple of $p$ to $\det$):
-
-$$\det \Phi_N \;=\; \Big(\prod_{n=0}^{N-1} \det L_n\Big) \cdot \det \Phi_0 \;=\; \frac{p}{2^N}.$$
-
-So $\det \Phi$ has $p$-adic valuation $1$ throughout — $\Phi \bmod p$ is always
-rank-$1$ — while its $2$-adic valuation slides from $0$ down to $-N$.
-
-The natural ambient group is
-
-$$G \;=\; \{\, M \in \mathrm{GL}_2(\mathbb{Q}_2) \;:\; \det M \in 2^{\mathbb{Z}} \,\},$$
-
-mapping to $\mathbb{Z}$ via $M \mapsto \operatorname{val}_2(\det M)$.
-Quotienting by scalar matrices and sign gives $\mathrm{PGL}_2(\mathbb{Q}_2)$,
-whose **Bruhat–Tits tree** is the regular tree of valence $3$. The divstep
-walk is a deterministic walk on this tree, with the three generators
-$L_a, L_b, L_c$ corresponding to the three outgoing edges from each vertex.
-
-**Why $N$ is linear in $b$, not bounded.** Note that $|\det \Phi_0|_2 = |p|_2 = 1$
-since $p$ is odd, so $\Phi_0 \in \mathrm{GL}_2(\mathbb{Z}_2)$, the maximal
-compact subgroup. By bounded-generation results over local rings (Klingenberg,
-Vaserstein) $\Phi_0$ admits a factorisation into $O(1)$ — small uniform
-constant — elementary matrices *over $\mathbb{Z}_2$*. **A uniform-constant
-bound exists.** But the parameters of those elementary matrices are arbitrary
-$2$-adic integers, each $b$ bits of data, whose computation is itself
-inversion-equivalent. The $L_n$ are restricted in compensation: only three
-matrices, $\det = \tfrac{1}{2}$ each, no $\mathbb{Z}_2$-parameter. The price is
-that they can only move $\operatorname{val}_2(\det \Phi)$ by $-1$ per step, so
-reducing $\Phi$ to canonical position takes $\Theta(b)$ steps. The cost
-balance:
-
-| Generating set | $|\text{generators}|$ | Word-length to reduce $\Phi_0$ | Per-generator bit cost |
-| --- | --- | --- | --- |
-| $\{E_{12}(x), E_{21}(y) : x, y \in \mathbb{Z}_2\}$ | $\infty$ (parameterised) | $O(1)$ uniform | $\Theta(b)$ |
-| $\{L_a, L_b, L_c\}$ (BY) | $3$ (finite) | $\Theta(b)$ | $O(1)$ |
-
-Total bit complexity is $\Theta(b)$ in both — that's the floor for modular
-inversion. What BY does is push *all* the complexity into the step count and
-none into the step cost. The BT-tree picture is the geometry that makes this
-trade-off precise: the deterministic walk on a regular trivalent tree with
-$O(1)$-bit choices at each vertex.
-
-### 9.4 What BY adds beyond the existence statement
-
-Bounded-length factorisations in $p$-adic linear groups are classical:
-
-| Setting | Bound | Reference |
-| --- | --- | --- |
-| $\mathrm{SL}_2(\mathbb{Z})$ | unbounded | classical |
-| $\mathrm{SL}_2(\mathbb{Z}[1/p])$ | $\le 5$ elementaries | Vsemirnov |
-| $\mathrm{SL}_2(\mathcal{O}_S)$, $|\mathcal{O}_S^\times| = \infty$ | $\le 9$ elementaries | Morgan–Rapinchuk–Sury 2017 |
-| $\mathrm{SL}_2$ over local rings | small constant | Klingenberg 1961, Vaserstein |
-| $\mathrm{GL}_2(\mathbb{Q}_p)$ Bruhat | $\le 2\,|\operatorname{val}_p(\det)| + O(1)$ in affine Weyl length | Iwahori–Matsumoto 1965 |
-
-These are all existence statements: the factorisation exists, with the stated
-bound. Constructive realisation (finding the factorisation, given the input)
-typically requires Dirichlet-style unit-finding or other non-trivial
-subroutines, with per-step cost not pinned down.
-
-What BY adds is everything that turns the existence statement into an
-algorithm:
-
-| Property | Generic Bruhat over $\mathbb{Q}_2$ | Bernstein–Yang |
-| --- | --- | --- |
-| Choice of next generator | Existential | **Deterministic** ($\delta$ + parity rule, no search) |
-| State representation | Allowed in $\mathbb{Q}_2$ | **Pinned to $M_2(\mathbb{Z}_2)$** throughout via $+k\,p$ correction |
-| Starting matrix | Arbitrary $g \in \mathrm{GL}_2(\mathbb{Q}_2)$ | Specific family $\Phi_0(a, p) = \begin{pmatrix} p & 0 \\ a & 1 \end{pmatrix}$ |
-| Word-length constant | Existential / asymptotic | **Explicit**: $\lceil 49(b+1)/17 \rceil$, with $b = \lceil \log_2 \max(p, a) \rceil$ |
-| Per-step cost | Existence, not computation | Constant work per step (parity check + add/shift) |
-
-So BY = **"a deterministic, $\mathbb{Z}_2$-integral, constructive realisation
-of Bruhat decomposition for the specific matrix family $\Phi_0(a, p)$ with an
-explicit linear word-length constant."** Each of those qualifiers is needed —
-removing any one drops BY back to a classical existence statement.
-
-### 9.5 Comparison to the classical $\mathrm{SL}_2(\mathbb{Z})$ story
-
-The Euclidean algorithm reduces any coprime $\binom{f}{g} \in \mathbb{Z}^2$ to
-$\binom{\pm 1}{0}$ by left multiplication from $\mathrm{SL}_2(\mathbb{Z})$,
-using the *parameterised* family of matrices
-$E_q = \begin{pmatrix} 0 & 1 \\ 1 & -q \end{pmatrix}$ for varying
-$q \in \mathbb{Z}$. BY replaces this:
-
-| | Euclidean / $\mathrm{SL}_2(\mathbb{Z})$ | Bernstein–Yang |
-| --- | --- | --- |
-| Generators | $\{E_q : q \in \mathbb{Z}_{\ge 1}\}$ (parameterised, infinite) | $\{L_a, L_b, L_c\}$ (fixed, finite) |
-| $\det$ per step | $-1$ | $\tfrac{1}{2}$ |
-| Ambient group | $\mathrm{GL}_2(\mathbb{Z})$ | $\mathrm{GL}_2(\mathbb{Z}[\tfrac{1}{2}])$ |
-| Word-length bound | $O(\log)$, no explicit constant | $\lceil 49(b+1)/17 \rceil$, explicit |
-| Target form | $\binom{\pm 1}{0}$ | upper triangular with $a^{-1}$ in position $(1, 2)$ |
-| Per-step branching | data-dependent quotient $q$ | $\delta$- and parity-driven choice from $3$ generators |
-
-The finite generating set is what makes Pornin's batching (§4) work: the next
-$\mathrm{BATCH}$ choices depend only on the low $\mathrm{BATCH}$ bits of
-$(f, g)$ together with $\delta$, so a single $u64$ register per pair plus a
-few bytes of state is enough to simulate them.
-
----
-
-## 10. Cost summary
-
-For a $254$-bit prime modulus with $\mathrm{BATCH} = 62$:
-
-| Quantity | Value |
+| Math description | Code |
 | --- | --- |
-| Divsteps per inversion (worst case) | $735$ |
-| Batched divsteps in one matrix | $62$ |
-| Outer iterations (matrix applications) | $12$ |
-| Multi-limb multiplications per inversion | $\sim 50$ (matrix × state) |
-| Modular multiplications per inversion | $1$ (final Montgomery housekeeping, outside this file) |
-| Limb add/sub operations per inversion | $\sim 750$ |
-| Branches | data-dependent inside `divsteps`, none outside |
-
-The cost is dominated by the matrix-times-state products (`linear_combo`,
-$\sim 50$ of them, each is $4$–$5$ multi-limb signed multiplies). Compared to
-Fermat's $a^{p-2}$ at $\sim 317$ modular multiplications, BY trades expensive
-modular arithmetic for cheap limb arithmetic.
+| $\Phi = \begin{pmatrix} f & d \\ g & e \end{pmatrix}$ | `S P(p), f = P, g(a), d, e = S::one()` in `invert_bernsteinyang19` |
+| Auxiliary divstep counter $\delta$ | local `i64 delta` |
+| Product of one batch of divsteps | `S::compute_divstep_matrix(delta, f.low_64(), g.low_64())` |
+| $M = \begin{pmatrix} u & v \\ q & r \end{pmatrix} 2^{-B}$ | `DivstepMatrix { u, v, q, r }`; the denominator is the implicit `2^BATCH` |
+| $M(f,g)/2^B$ | `apply_divstep_matrix`, using `NativeMatrix::signed_linear_combination` and `arithmetic_shift_by_batch` on native |
+| $k \equiv -t p^{-1} \pmod {2^B}$ | `apply_corrected_row` on native; streamed as `k_d`, `k_e` on wasm |
+| $p^{-1} \bmod 2^B$ from Montgomery metadata | `p_inv_mod_2k_from_montgomery_r_inv` |
+| Periodic reduction of $d,e$ modulo $p$ | `reduce_to_canonical(P)` every `REDUCE_INTERVAL` iterations |
+| Final sign correction $a^{-1} = \pm d$ | final `if (f.is_negative()) { d.neg(); ... }` |
+| Platform-specific limb representation | `using State = Native5x64` or `Wasm9x29` |
 
 ---
 
-## 11. Correctness summary in one paragraph
+## 10. Example
 
-We track the matrix $\Phi = \begin{pmatrix} f & d \\ g & e \end{pmatrix}$ with
-the kernel invariant $\Phi \binom{1}{-a} \equiv 0 \pmod p$, starting from
-$\Phi_0 = \begin{pmatrix} p & 0 \\ a & 1 \end{pmatrix}$. Each divstep is left
-multiplication by one of $L_a, L_b, L_c \in \mathrm{GL}_2(\mathbb{Z}[\tfrac{1}{2}])$
-(plus a right-column $p$-shift to keep $\Phi$ in $M_2(\mathbb{Z}_2)$),
-selected by the parity of $g$ and the sign of $\delta$, and monotonically
-shrinks $|g|$. We batch $\mathrm{BATCH}$ divsteps into a single rational
-$2 \times 2$ matrix $M$, then apply $M$ to the full-precision state with an
-exact $/2^{\mathrm{BATCH}}$ (left column) or with a 2-adic correction
-$+\, k \cdot p$ (right column). After $\le \lceil 49(b+1)/17 \rceil$ divsteps,
-$g = 0$, $f = \pm \gcd(p, a) = \pm 1$, and the kernel invariant collapses to
-$d \cdot a \equiv \pm 1 \pmod p$, so $a^{-1} \equiv \pm d \pmod p$ with the
-sign read from $f$.
+This example uses the same batched mechanics as the implementation, but with a toy $B = 3$ instead of native $B = 62$.
+
+Let
+
+$$
+p = 17, \qquad a = 3, \qquad
+\Phi_0 = \begin{pmatrix} f & d \\ g & e \end{pmatrix}
+       = \begin{pmatrix} 17 & 0 \\ 3 & 1 \end{pmatrix}, \qquad
+\delta_0 = 1.
+$$
+
+Since $17 \equiv 1 \pmod 8$, we have $p^{-1} \equiv 1 \pmod 8$. For each row
+of the right column, the correction is
+
+$$
+k \equiv -t \cdot p^{-1} \pmod 8,
+\qquad
+x^\prime = (t + k p) / 8.
+$$
+
+### Batch 0
+
+The first three divsteps are $L_c, L_b, L_a$. Their product is
+
+$$
+M_0 = \begin{pmatrix} 0 & 8 \\ -1 & 3 \end{pmatrix} \cdot 2^{-3}.
+$$
+
+Apply it to the left column:
+
+$$
+f^\prime = \frac{0 \cdot 17 + 8 \cdot 3}{8} = 3,
+\qquad
+g^\prime = \frac{-1 \cdot 17 + 3 \cdot 3}{8} = -1.
+$$
+
+Apply it to the right column. For $d^\prime$, $t = 0 \cdot 0 + 8 \cdot 1 = 8$,
+so $k = 0$ and $d^\prime = 1$. For $e^\prime$, $t = -1 \cdot 0 + 3 \cdot 1 = 3$,
+so $k \equiv -3 \equiv 5 \pmod 8$ and
+
+$$
+e^\prime = \frac{3 + 5 \cdot 17}{8} = 11.
+$$
+
+After batch 0,
+
+$$
+(f,g,d,e;\delta) = (3,-1,1,11;2).
+$$
+
+### Batch 1
+
+The next three divsteps are $L_c, L_a, L_b$, giving
+
+$$
+M_1 = \begin{pmatrix} 0 & 8 \\ -1 & 5 \end{pmatrix} \cdot 2^{-3}.
+$$
+
+For the left column,
+
+$$
+f^\prime = \frac{0 \cdot 3 + 8 \cdot (-1)}{8} = -1,
+\qquad
+g^\prime = \frac{-1 \cdot 3 + 5 \cdot (-1)}{8} = -1.
+$$
+
+For the right column, the first row gives $t = 88$ and $k = 0$, hence
+$d^\prime = 11$. The second row gives $t = -1 \cdot 1 + 5 \cdot 11 = 54$,
+so $k \equiv -54 \equiv 2 \pmod 8$ and
+
+$$
+e^\prime = \frac{54 + 2 \cdot 17}{8} = 11.
+$$
+
+After batch 1,
+
+$$
+(f,g,d,e;\delta) = (-1,-1,11,11;1).
+$$
+
+### Batch 2
+
+The next batch starts with the terminating divstep $L_c$; the remaining two
+low-bit divsteps keep $g = 0$. The accumulated matrix is
+
+$$
+M_2 = \begin{pmatrix} 0 & 8 \\ -1 & 1 \end{pmatrix} \cdot 2^{-3}.
+$$
+
+Applying it gives
+
+$$
+f^\prime = \frac{0 \cdot (-1) + 8 \cdot (-1)}{8} = -1,
+\qquad
+g^\prime = \frac{-1 \cdot (-1) + 1 \cdot (-1)}{8} = 0,
+$$
+
+and for the right column, $d^\prime = 11$ and $e^\prime = 0$.
+
+Now $g=0$. Since $f=-1$, the inverse is $-d \bmod p$:
+
+$$
+a^{-1} \equiv -11 \equiv 6 \pmod {17},
+\qquad
+3 \cdot 6 \equiv 1 \pmod {17}.
+$$

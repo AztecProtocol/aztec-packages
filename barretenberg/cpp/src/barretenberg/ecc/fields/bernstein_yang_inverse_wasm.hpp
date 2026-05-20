@@ -1,12 +1,12 @@
 // 9 × 29-bit-limb state.  Included from bernstein_yang_inverse.hpp; uses the
-// u64 / i64 / Mat names declared there.
+// u64 / i64 / DivstepMatrix names declared there.
 //
 // Why a different limb size from Native5x64: on wasm32 there is no native
 // 64×64→128 multiply, so i64 × u64 → __int128 lowers to a compiler-rt
 // __multi3 dispatch.  Pack the 254-bit state into 9 limbs of 29 bits each
 // instead: every limb-level product is then i29 × i29 = i58, fitting in a
 // single WASM i64.mul.  Choosing the per-iter BATCH as exactly 2 × LIMB_BITS
-// makes the "/ 2^BATCH" at the end of apply_matrix equivalent to dropping
+// makes the "/ 2^BATCH" at the end of apply_divstep_matrix equivalent to dropping
 // the bottom two 29-bit limbs (no sub-limb shift on the intermediate).
 
 #pragma once
@@ -82,12 +82,21 @@ class Wasm9x29 {
     }
     void reduce_to_canonical(const Wasm9x29& p) noexcept;
 
-    // See Native5x64 for the divsteps / apply_matrix / p_inv_from_r_inv
-    // contracts; the bodies differ only in limb representation.
-    static Mat divsteps(i64& delta, u64 f_lo, u64 g_lo) noexcept;
-    static void apply_matrix(
-        const Mat& m, Wasm9x29& f, Wasm9x29& g, Wasm9x29& d, Wasm9x29& e, const Wasm9x29& p, u64 p_inv) noexcept;
-    static constexpr u64 p_inv_from_r_inv(u64 r_inv) noexcept { return ((u64)(-(i64)r_inv)) & ((1ULL << BATCH) - 1); }
+    // See Native5x64 for the batched divstep matrix, matrix application,
+    // and p_inv_mod_2k_from_montgomery_r_inv contracts; the bodies differ only
+    // in limb representation.
+    static DivstepMatrix compute_divstep_matrix(i64& delta, u64 f_lo, u64 g_lo) noexcept;
+    static void apply_divstep_matrix(const DivstepMatrix& m,
+                                     Wasm9x29& f,
+                                     Wasm9x29& g,
+                                     Wasm9x29& d,
+                                     Wasm9x29& e,
+                                     const Wasm9x29& p,
+                                     u64 p_inv_mod_2k) noexcept;
+    static constexpr u64 p_inv_mod_2k_from_montgomery_r_inv(u64 r_inv) noexcept
+    {
+        return ((u64)(-(i64)r_inv)) & ((1ULL << BATCH) - 1);
+    }
 
   private:
     static constexpr int N = 9;
@@ -144,7 +153,7 @@ inline void Wasm9x29::reduce_to_canonical(const Wasm9x29& p) noexcept
     }
 }
 
-inline Mat Wasm9x29::divsteps(i64& delta, u64 f_lo, u64 g_lo) noexcept
+inline DivstepMatrix Wasm9x29::compute_divstep_matrix(i64& delta, u64 f_lo, u64 g_lo) noexcept
 {
     i64 u = 1, v = 0, q = 0, r = 1;
     for (int i = 0; i < BATCH; ++i) {
@@ -184,8 +193,13 @@ inline Mat Wasm9x29::divsteps(i64& delta, u64 f_lo, u64 g_lo) noexcept
 // derives k_d, k_e from the low two limbs up front and folds k·p into the
 // per-limb formula from position 2 onward.  No 11-limb intermediate is
 // materialised — the JIT keeps the four running carries in registers.
-inline void Wasm9x29::apply_matrix(
-    const Mat& m, Wasm9x29& f, Wasm9x29& g, Wasm9x29& d, Wasm9x29& e, const Wasm9x29& p, u64 p_inv) noexcept
+inline void Wasm9x29::apply_divstep_matrix(const DivstepMatrix& m,
+                                           Wasm9x29& f,
+                                           Wasm9x29& g,
+                                           Wasm9x29& d,
+                                           Wasm9x29& e,
+                                           const Wasm9x29& p,
+                                           u64 p_inv_mod_2k) noexcept
 {
     constexpr u64 MASK_BATCH = (1ULL << BATCH) - 1;
     const i64 u_lo = m.u & (i64)LIMB_MASK, u_hi = m.u >> LIMB_BITS;
@@ -226,8 +240,8 @@ inline void Wasm9x29::apply_matrix(
         const i64 ne1 = q_lo * d1 + r_lo * e1 + q_hi * d0 + r_hi * e0;
         const u64 t_d = ((u64)nd0 & LIMB_MASK) | (((u64)(nd1 + (nd0 >> LIMB_BITS)) & LIMB_MASK) << LIMB_BITS);
         const u64 t_e = ((u64)ne0 & LIMB_MASK) | (((u64)(ne1 + (ne0 >> LIMB_BITS)) & LIMB_MASK) << LIMB_BITS);
-        const u64 k_d = (((u64)(-(i64)t_d)) * p_inv) & MASK_BATCH;
-        const u64 k_e = (((u64)(-(i64)t_e)) * p_inv) & MASK_BATCH;
+        const u64 k_d = (((u64)(-(i64)t_d)) * p_inv_mod_2k) & MASK_BATCH;
+        const u64 k_e = (((u64)(-(i64)t_e)) * p_inv_mod_2k) & MASK_BATCH;
         const i64 kd_lo = (i64)(k_d & LIMB_MASK), kd_hi = (i64)(k_d >> LIMB_BITS);
         const i64 ke_lo = (i64)(k_e & LIMB_MASK), ke_hi = (i64)(k_e >> LIMB_BITS);
         i64 cd = (nd1 + kd_lo * p.l[1] + kd_hi * p.l[0] + ((nd0 + kd_lo * p.l[0]) >> LIMB_BITS)) >> LIMB_BITS;

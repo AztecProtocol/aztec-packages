@@ -86,7 +86,7 @@ template <typename Field> static void differential_check_inverse(const Field& a_
     Field fermat_inv = a_mont.pow(Field::modulus_minus_two);
 
     // B: Bernstein-Yang safegcd, called with the raw (non-Montgomery) value.
-    constexpr uint64_t p_inv_62 = bernstein_yang::p_inv_from_r_inv(Field::Params::r_inv);
+    constexpr uint64_t p_inv_62 = bernstein_yang::p_inv_mod_2k_from_montgomery_r_inv(Field::Params::r_inv);
     constexpr uint256_t p_uint = Field::modulus;
     uint256_t by_inv_raw = bernstein_yang::invert_bernsteinyang19(a_raw, p_uint, p_inv_62);
     // Lift back into Montgomery form so we can compare field values directly.
