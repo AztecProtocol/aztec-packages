@@ -5,10 +5,13 @@ import {
   batch_affine_apply as batch_affine_apply_shader,
   batch_affine_apply_scatter as batch_affine_apply_scatter_shader,
   batch_affine_dispatch_args as batch_affine_dispatch_args_shader,
+  ba_carry_copy_bench as ba_carry_copy_bench_shader,
   ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
+  ba_marshal_pairs_bench as ba_marshal_pairs_bench_shader,
   ba_marshal_tree_l0_bench as ba_marshal_tree_l0_bench_shader,
   ba_pair_disjoint_bench as ba_pair_disjoint_bench_shader,
   ba_pair_disjoint_tree_bench as ba_pair_disjoint_tree_bench_shader,
+  ba_scatter_pairs_bench as ba_scatter_pairs_bench_shader,
   ba_tail_reduce_bench as ba_tail_reduce_bench_shader,
   ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
   bench_batch_affine as bench_batch_affine_shader,
@@ -782,6 +785,55 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_marshal_chain_bench_shader,
       { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Bin-packed pair-tree: marshal kernel that gathers operands from a
+   * generic active_sums buffer per chunk_plan. Works at any level
+   * (L0 active_sums = bucket-sorted point pool, L1+ = previous
+   * level's pair-sums + carries).
+   */
+  public gen_ba_marshal_pairs_bench_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_marshal_pairs_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    return mustache.render(
+      ba_marshal_pairs_bench_shader,
+      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Bin-packed pair-tree: scatter kernel that places the disjoint
+   * kernel's strided outputs at per-bucket destinations in
+   * active_sums_new per scatter_plan.
+   */
+  public gen_ba_scatter_pairs_bench_shader(workgroup_size: number, s: number): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_scatter_pairs_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    return mustache.render(
+      ba_scatter_pairs_bench_shader,
+      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Bin-packed pair-tree: carry-copy kernel. Propagates the odd-count
+   * carry element forward to the next level without modification.
+   * Pure memory shuffle.
+   */
+  public gen_ba_carry_copy_bench_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_carry_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(
+      ba_carry_copy_bench_shader,
+      { workgroup_size, num_words: this.num_words, recompile: this.recompile },
       { structs },
     );
   }

@@ -132,6 +132,7 @@ const pageMap = {
   "bench-msm-chain": "/dev/msm-webgpu/bench-msm-chain.html",
   "bench-ba-pair-disjoint": "/dev/msm-webgpu/bench-ba-pair-disjoint.html",
   "bench-msm-tree": "/dev/msm-webgpu/bench-msm-tree.html",
+  "bench-msm-tree-v2": "/dev/msm-webgpu/bench-msm-tree-v2.html",
   "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
   sanity: "/dev/msm-webgpu/index.html",
 };
