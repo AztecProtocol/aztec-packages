@@ -16,6 +16,6 @@ export interface P2PBootstrapApi {
 }
 
 export const P2PBootstrapApiSchema: ApiSchemaFor<P2PBootstrapApi> = {
-  getEncodedEnr: z.function().returns(z.string()),
-  getRoutingTable: z.function().returns(z.array(z.string())),
+  getEncodedEnr: z.function({ input: z.tuple([]), output: z.string() }),
+  getRoutingTable: z.function({ input: z.tuple([]), output: z.array(z.string()) }),
 };

@@ -53,7 +53,7 @@ describe('versioning', () => {
 
   describe('json-rpc', () => {
     type TestApi = { get: () => Promise<number> };
-    const TestApiSchema: ApiSchemaFor<TestApi> = { get: z.function().returns(z.number()) };
+    const TestApiSchema: ApiSchemaFor<TestApi> = { get: z.function({ input: z.tuple([]), output: z.number() }) };
 
     let context: JsonRpcTestContext<TestApi>;
     let versions: Partial<ComponentsVersions>;
@@ -110,7 +110,7 @@ describe('versioning', () => {
       // Create a schema that expects a string parameter
       type TestApiWithParam = { getWithParam: (value: string) => Promise<number> };
       const TestApiWithParamSchema: ApiSchemaFor<TestApiWithParam> = {
-        getWithParam: z.function().args(z.string()).returns(z.number()),
+        getWithParam: z.function({ input: z.tuple([z.string()]), output: z.number() }),
       };
 
       // Server handler with correct version
