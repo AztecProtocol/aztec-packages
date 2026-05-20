@@ -15,7 +15,7 @@ void range_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto range_check_PX_0 = FF(0);
+    [[maybe_unused]] const auto& range_check_PX_0 = range_check_detail::range_check_PX_0_v<FF_>;
     const auto range_check_R7_0 = in.get(C::range_check_u16_r7);
     const auto range_check_PX_1 = in.get(C::range_check_u16_r0);
     const auto range_check_R7_1 = range_check_R7_0 * FF(65536);

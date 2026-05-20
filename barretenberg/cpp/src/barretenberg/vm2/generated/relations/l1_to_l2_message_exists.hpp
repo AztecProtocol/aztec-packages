@@ -10,6 +10,14 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace l1_to_l2_message_exists_detail {
+template <typename FF> inline const FF constants_L1_TO_L2_MSG_TREE_LEAF_COUNT_v = FF(68719476736UL);
+template <typename FF> inline const FF constants_MEM_TAG_U1_v = FF(1);
+} // namespace l1_to_l2_message_exists_detail
+
 template <typename FF_> class l1_to_l2_message_existsImpl {
   public:
     using FF = FF_;

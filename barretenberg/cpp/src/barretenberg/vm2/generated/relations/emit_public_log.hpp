@@ -10,6 +10,18 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace emit_public_log_detail {
+template <typename FF> inline const FF constants_FLAT_PUBLIC_LOGS_HEADER_LENGTH_v = FF(1);
+template <typename FF> inline const FF constants_FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH_v = FF(4096);
+template <typename FF> inline const FF constants_PUBLIC_LOG_HEADER_LENGTH_v = FF(2);
+template <typename FF> inline const FF constants_MEM_TAG_FF_v = FF(0);
+template <typename FF> inline const FF constants_AVM_MEMORY_SIZE_v = FF(4294967296UL);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX_v = FF(522);
+} // namespace emit_public_log_detail
+
 template <typename FF_> class emit_public_logImpl {
   public:
     using FF = FF_;

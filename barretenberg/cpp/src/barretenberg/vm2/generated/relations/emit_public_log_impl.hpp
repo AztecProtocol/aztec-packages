@@ -15,12 +15,16 @@ void emit_public_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_FLAT_PUBLIC_LOGS_HEADER_LENGTH = FF(1);
-    const auto constants_FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH = FF(4096);
-    const auto constants_PUBLIC_LOG_HEADER_LENGTH = FF(2);
-    const auto constants_MEM_TAG_FF = FF(0);
-    const auto constants_AVM_MEMORY_SIZE = FF(4294967296UL);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(522);
+    [[maybe_unused]] const auto& constants_FLAT_PUBLIC_LOGS_HEADER_LENGTH =
+        emit_public_log_detail::constants_FLAT_PUBLIC_LOGS_HEADER_LENGTH_v<FF_>;
+    [[maybe_unused]] const auto& constants_FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH =
+        emit_public_log_detail::constants_FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH_v<FF_>;
+    [[maybe_unused]] const auto& constants_PUBLIC_LOG_HEADER_LENGTH =
+        emit_public_log_detail::constants_PUBLIC_LOG_HEADER_LENGTH_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_FF = emit_public_log_detail::constants_MEM_TAG_FF_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_MEMORY_SIZE = emit_public_log_detail::constants_AVM_MEMORY_SIZE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX =
+        emit_public_log_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX_v<FF_>;
     const auto emit_public_log_LATCH_CONDITION = in.get(C::emit_public_log_end) + in.get(C::precomputed_first_row);
     const auto emit_public_log_NOT_END = (in.get(C::emit_public_log_sel) - in.get(C::emit_public_log_end));
     const auto emit_public_log_TOTAL_LOG_FIELDS_SIZE =

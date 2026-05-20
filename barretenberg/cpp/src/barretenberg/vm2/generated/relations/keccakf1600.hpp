@@ -10,6 +10,71 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace keccakf1600_detail {
+template <typename FF> inline const FF constants_MEM_TAG_U64_v = FF(5);
+template <typename FF> inline const FF constants_AVM_HIGHEST_MEM_ADDRESS_v = FF(4294967295UL);
+template <typename FF> inline const FF constants_AVM_BITWISE_AND_OP_ID_v = FF(1);
+template <typename FF> inline const FF constants_AVM_BITWISE_XOR_OP_ID_v = FF(4);
+template <typename FF> inline const FF constants_AVM_KECCAKF1600_NUM_ROUNDS_v = FF(24);
+template <typename FF> inline const FF constants_AVM_KECCAKF1600_STATE_SIZE_v = FF(25);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_01_v = FF(36);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_01_v = FF(268435456);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_02_v = FF(3);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_02_v = FF(8);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_03_v = FF(41);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_03_v = FF(8388608);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_04_v = FF(18);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_04_v = FF(262144);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_10_v = FF(1);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_10_v = FF(2);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_11_v = FF(44);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_11_v = FF(1048576);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_12_v = FF(10);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_12_v = FF(1024);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_13_v = FF(45);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_13_v = FF(524288);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_14_v = FF(2);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_14_v = FF(4);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_20_v = FF(62);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_20_v = FF(4);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_21_v = FF(6);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_21_v = FF(64);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_22_v = FF(43);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_22_v = FF(2097152);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_23_v = FF(15);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_23_v = FF(32768);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_24_v = FF(61);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_24_v = FF(8);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_30_v = FF(28);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_30_v = FF(268435456);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_31_v = FF(55);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_31_v = FF(512);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_32_v = FF(25);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_32_v = FF(33554432);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_33_v = FF(21);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_33_v = FF(2097152);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_34_v = FF(56);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_34_v = FF(256);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_40_v = FF(27);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_40_v = FF(134217728);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_41_v = FF(20);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_41_v = FF(1048576);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_42_v = FF(39);
+template <typename FF> inline const FF keccakf1600_POW_ROT_64_MIN_LEN_42_v = FF(33554432);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_43_v = FF(8);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_43_v = FF(256);
+template <typename FF> inline const FF keccakf1600_ROT_LEN_44_v = FF(14);
+template <typename FF> inline const FF keccakf1600_POW_ROT_LEN_44_v = FF(16384);
+template <typename FF>
+inline const FF keccakf1600_POW_64_MIN_1_v = FF(uint256_t{ 18446744073709551615UL, 0UL, 0UL, 0UL });
+template <typename FF>
+inline const FF keccakf1600_HIGHEST_SLICE_ADDRESS_v =
+    (constants_AVM_HIGHEST_MEM_ADDRESS_v<FF> - constants_AVM_KECCAKF1600_STATE_SIZE_v<FF>)+FF(1);
+} // namespace keccakf1600_detail
+
 template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;

@@ -10,6 +10,49 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace tx_context_detail {
+template <typename FF> inline const FF constants_AVM_TX_PHASE_VALUE_SETUP_v = FF(3);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX_v = FF(19);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX_v = FF(20);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX_v = FF(21);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX_v = FF(22);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX_v = FF(23);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX_v = FF(24);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX_v = FF(25);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX_v = FF(377);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX_v = FF(378);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX_v = FF(379);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX_v = FF(380);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX_v = FF(381);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX_v = FF(382);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX_v = FF(383);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX_v = FF(384);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX_v = FF(522);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX_v = FF(4684);
+template <typename FF>
+inline const FF constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT_v =
+    FF(uint256_t{ 7857218953590834006UL, 1035077911422412533UL, 9995325351514877897UL, 1411117032600729283UL });
+template <typename FF> inline const FF constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE_v = FF(1);
+template <typename FF>
+inline const FF constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT_v =
+    FF(uint256_t{ 1521641569468562450UL, 665739211013355724UL, 15332520522532078145UL, 1150206617693738821UL });
+template <typename FF> inline const FF constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE_v = FF(1);
+} // namespace tx_context_detail
+
 template <typename FF_> class tx_contextImpl {
   public:
     using FF = FF_;

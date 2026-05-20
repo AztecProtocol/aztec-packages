@@ -15,8 +15,9 @@ void sha256_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_U32 = FF(4);
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    [[maybe_unused]] const auto& constants_MEM_TAG_U32 = sha256_mem_detail::constants_MEM_TAG_U32_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_HIGHEST_MEM_ADDRESS =
+        sha256_mem_detail::constants_AVM_HIGHEST_MEM_ADDRESS_v<FF_>;
     const auto sha256_LATCH_CONDITION = in.get(C::sha256_end) + in.get(C::precomputed_first_row);
     const auto sha256_NOT_END = (in.get(C::sha256_sel) - in.get(C::sha256_end));
     const auto sha256_STATE_READ_CONDITION = (in.get(C::sha256_start) - in.get(C::sha256_mem_out_of_range_err));

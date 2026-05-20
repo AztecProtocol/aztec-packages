@@ -10,6 +10,20 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace update_check_detail {
+template <typename FF> inline const FF constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS_v = FF(2);
+template <typename FF> inline const FF constants_UPDATED_CLASS_IDS_SLOT_v = FF(1);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX_v = FF(4);
+template <typename FF> inline const FF constants_TIMESTAMP_OF_CHANGE_BIT_SIZE_v = FF(32);
+template <typename FF> inline const FF constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN_v = FF(3);
+template <typename FF> inline const FF constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE_v = FF(144);
+template <typename FF> inline const FF constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT_v = FF(4015149901UL);
+template <typename FF> inline const FF update_check_TWO_POW_32_v = FF(4294967296UL);
+} // namespace update_check_detail
+
 template <typename FF_> class update_checkImpl {
   public:
     using FF = FF_;

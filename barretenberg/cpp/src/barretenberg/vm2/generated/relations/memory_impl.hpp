@@ -15,7 +15,7 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_FF = FF(0);
+    [[maybe_unused]] const auto& constants_MEM_TAG_FF = memory_detail::constants_MEM_TAG_FF_v<FF_>;
     const auto memory_GLOBAL_ADDR = in.get(C::memory_space_id) * FF(4294967296UL) + in.get(C::memory_address);
     const auto memory_NEXT_GLOBAL_ADDR =
         in.get(C::memory_space_id_shift) * FF(4294967296UL) + in.get(C::memory_address_shift);

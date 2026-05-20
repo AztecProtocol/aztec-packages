@@ -15,7 +15,7 @@ void sloadImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_FF = FF(0);
+    [[maybe_unused]] const auto& constants_MEM_TAG_FF = sload_detail::constants_MEM_TAG_FF_v<FF_>;
 
     { // SLOAD_FF_OUTPUT_TAG
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;

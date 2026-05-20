@@ -15,12 +15,18 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
 {
     using C = ColumnAndShifts;
 
-    const auto constants_NULLIFIER_TREE_HEIGHT = FF(42);
-    const auto constants_MAX_PROTOCOL_CONTRACTS = FF(11);
-    const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
-    const auto constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX = FF(8);
-    const auto constants_DOM_SEP__SILOED_NULLIFIER = FF(57496191);
-    const auto constants_DOM_SEP__NULLIFIER_MERKLE = FF(1157584160);
+    [[maybe_unused]] const auto& constants_NULLIFIER_TREE_HEIGHT =
+        contract_instance_retrieval_detail::constants_NULLIFIER_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto& constants_MAX_PROTOCOL_CONTRACTS =
+        contract_instance_retrieval_detail::constants_MAX_PROTOCOL_CONTRACTS_v<FF_>;
+    [[maybe_unused]] const auto& constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS =
+        contract_instance_retrieval_detail::constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX =
+        contract_instance_retrieval_detail::constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__SILOED_NULLIFIER =
+        contract_instance_retrieval_detail::constants_DOM_SEP__SILOED_NULLIFIER_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__NULLIFIER_MERKLE =
+        contract_instance_retrieval_detail::constants_DOM_SEP__NULLIFIER_MERKLE_v<FF_>;
     const auto contract_instance_retrieval_NOT_EXISTS = (FF(1) - in.get(C::contract_instance_retrieval_exists));
 
     {

@@ -15,9 +15,11 @@ void nullifier_existsImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_NULLIFIER_TREE_HEIGHT = FF(42);
-    const auto constants_MEM_TAG_U1 = FF(1);
-    const auto constants_DOM_SEP__NULLIFIER_MERKLE = FF(1157584160);
+    [[maybe_unused]] const auto& constants_NULLIFIER_TREE_HEIGHT =
+        nullifier_exists_detail::constants_NULLIFIER_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_U1 = nullifier_exists_detail::constants_MEM_TAG_U1_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__NULLIFIER_MERKLE =
+        nullifier_exists_detail::constants_DOM_SEP__NULLIFIER_MERKLE_v<FF_>;
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;

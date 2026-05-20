@@ -10,6 +10,13 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace poseidon2_hash_detail {
+template <typename FF> inline const FF poseidon2_hash_TWOPOW64_v = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
+} // namespace poseidon2_hash_detail
+
 template <typename FF_> class poseidon2_hashImpl {
   public:
     using FF = FF_;

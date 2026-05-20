@@ -15,8 +15,8 @@ void eccImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto ecc_INFINITY_X = FF(0);
-    const auto ecc_INFINITY_Y = FF(0);
+    [[maybe_unused]] const auto& ecc_INFINITY_X = ecc_detail::ecc_INFINITY_X_v<FF_>;
+    [[maybe_unused]] const auto& ecc_INFINITY_Y = ecc_detail::ecc_INFINITY_Y_v<FF_>;
     const auto ecc_X_DIFF = (in.get(C::ecc_q_x) - in.get(C::ecc_p_x));
     const auto ecc_Y_DIFF = (in.get(C::ecc_q_y) - in.get(C::ecc_p_y));
     const auto ecc_COMPUTED_R_X =

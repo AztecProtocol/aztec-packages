@@ -10,6 +10,13 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace instr_fetching_detail {
+template <typename FF> inline const FF constants_AVM_PC_SIZE_IN_BITS_v = FF(32);
+} // namespace instr_fetching_detail
+
 template <typename FF_> class instr_fetchingImpl {
   public:
     using FF = FF_;

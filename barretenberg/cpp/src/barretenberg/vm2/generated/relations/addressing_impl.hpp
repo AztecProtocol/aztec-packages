@@ -15,8 +15,9 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_U32 = FF(4);
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    [[maybe_unused]] const auto& constants_MEM_TAG_U32 = addressing_detail::constants_MEM_TAG_U32_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_HIGHEST_MEM_ADDRESS =
+        addressing_detail::constants_AVM_HIGHEST_MEM_ADDRESS_v<FF_>;
     const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_ =
         in.get(C::execution_sel_op_is_relative_wire_0_) * in.get(C::execution_sel_op_is_address_0_);
     const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_ =

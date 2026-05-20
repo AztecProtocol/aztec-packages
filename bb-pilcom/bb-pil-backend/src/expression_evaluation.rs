@@ -50,6 +50,24 @@ impl PolynomialExpression {
         })
     }
 
+    // Variant used when emitting a *namespace-scope* `inline const FF <name>_v`
+    // definition for a constant alias. Other aliases referenced from this
+    // expression are themselves namespace-scope variable templates, so the
+    // reference must be rewritten as `<name>_v<FF>` to bind the template
+    // parameter at the call site. This method assumes the expression contains
+    // no column references; callers must establish that first.
+    pub fn instantiate_namespace_scope(&self, ff_param: &str) -> String {
+        self.instantiate_with_handler(|placeholder| match placeholder {
+            ExpressionPlaceholder::Column(col) => {
+                panic!(
+                    "instantiate_namespace_scope called on expression that references column {}",
+                    col
+                )
+            }
+            ExpressionPlaceholder::Alias(alias) => format!("{}_v<{}>", alias, ff_param),
+        })
+    }
+
     // Once we want to write an expression to a file, we need to instantiate the placeholders.
     // This method creates an instantiated string given a way to instantiate the placeholders.
     fn instantiate_with_handler<F>(&self, handler: F) -> String
@@ -90,7 +108,7 @@ fn merge_maps(
 
 pub fn get_alias_expressions_in_order<F: FieldElement>(
     analyzed: &Analyzed<F>,
-) -> Vec<(String, PolynomialExpression)> {
+) -> Vec<(String, PolynomialExpression, bool)> {
     let alias_polys_in_order = analyzed
         .intermediate_polys_in_source_order()
         .iter()
@@ -109,13 +127,63 @@ pub fn get_alias_expressions_in_order<F: FieldElement>(
         .map(|(sym, _)| sanitize_name(&sym.absolute_name))
         .collect::<HashSet<_>>();
 
+    // Intermediates lookup (PolyID -> defining expression). Reused for the
+    // is_constant_expression walker — same shape used by the degree walker.
+    let intermediates = build_intermediates_map(analyzed);
+    let mut is_constant_cache: HashMap<PolyID, bool> = HashMap::new();
+
     alias_polys_in_order
         .iter()
         .map(|(sym, pil_expr)| {
             let expr = compute_expression(pil_expr, &alias_names);
-            (sanitize_name(&sym.absolute_name), expr)
+            let is_constant =
+                is_constant_expression(pil_expr, &intermediates, &mut is_constant_cache);
+            (sanitize_name(&sym.absolute_name), expr, is_constant)
         })
         .collect_vec()
+}
+
+/// Returns true if the expression evaluates to a compile-time field constant —
+/// that is, contains no references to columns, publics, or challenges; only
+/// `Number` literals and references to other intermediate aliases that are
+/// themselves constant.
+///
+/// Memoised per `PolyID` so an intermediate's constness is computed at most
+/// once across the whole pass.
+pub fn is_constant_expression<F: FieldElement>(
+    expr: &AlgebraicExpression<F>,
+    intermediates: &HashMap<PolyID, &AlgebraicExpression<F>>,
+    cache: &mut HashMap<PolyID, bool>,
+) -> bool {
+    match expr {
+        AlgebraicExpression::Number(_) => true,
+        AlgebraicExpression::Reference(r) => {
+            // A `next` reference is always a column read — never compile-time constant.
+            if r.next {
+                return false;
+            }
+            match r.poly_id.ptype {
+                PolynomialType::Intermediate => {
+                    if let Some(&v) = cache.get(&r.poly_id) {
+                        return v;
+                    }
+                    let inner = intermediates[&r.poly_id];
+                    let v = is_constant_expression(inner, intermediates, cache);
+                    cache.insert(r.poly_id, v);
+                    v
+                }
+                _ => false, // Committed / Constant (fixed column) / Public — all column-like.
+            }
+        }
+        AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation { left, right, .. }) => {
+            is_constant_expression(left, intermediates, cache)
+                && is_constant_expression(right, intermediates, cache)
+        }
+        AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation { expr, .. }) => {
+            is_constant_expression(expr, intermediates, cache)
+        }
+        AlgebraicExpression::PublicReference(_) | AlgebraicExpression::Challenge(_) => false,
+    }
 }
 
 /// Compute the polynomial degree of an expression with memoization across

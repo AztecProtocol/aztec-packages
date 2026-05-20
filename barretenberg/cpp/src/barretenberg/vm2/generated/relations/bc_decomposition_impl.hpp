@@ -15,7 +15,8 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto bc_decomposition_WINDOW_SIZE = FF(37);
+    [[maybe_unused]] const auto& bc_decomposition_WINDOW_SIZE =
+        bc_decomposition_detail::bc_decomposition_WINDOW_SIZE_v<FF_>;
     const auto bc_decomposition_LATCH_CONDITION =
         in.get(C::precomputed_first_row) + in.get(C::bc_decomposition_last_of_contract);
 

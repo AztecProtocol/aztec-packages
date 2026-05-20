@@ -10,6 +10,13 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace bc_decomposition_detail {
+template <typename FF> inline const FF bc_decomposition_WINDOW_SIZE_v = FF(37);
+} // namespace bc_decomposition_detail
+
 template <typename FF_> class bc_decompositionImpl {
   public:
     using FF = FF_;

@@ -10,6 +10,18 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace send_l2_to_l1_msg_detail {
+template <typename FF>
+inline const FF constants_MAX_ETH_ADDRESS_VALUE_v =
+    FF(uint256_t{ 18446744073709551615UL, 18446744073709551615UL, 4294967295UL, 0UL });
+template <typename FF> inline const FF constants_MAX_L2_TO_L1_MSGS_PER_TX_v = FF(8);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX_v = FF(514);
+} // namespace send_l2_to_l1_msg_detail
+
 template <typename FF_> class send_l2_to_l1_msgImpl {
   public:
     using FF = FF_;

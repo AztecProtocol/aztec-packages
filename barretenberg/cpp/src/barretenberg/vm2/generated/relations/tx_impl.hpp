@@ -15,20 +15,30 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_NULLIFIER_TREE_HEIGHT = FF(42);
-    const auto constants_MAX_NOTE_HASHES_PER_TX = FF(64);
-    const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);
-    const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
-    const auto constants_FEE_JUICE_ADDRESS = FF(5);
-    const auto constants_FEE_JUICE_BALANCES_SLOT = FF(1);
-    const auto constants_AVM_TX_PHASE_VALUE_START = FF(0);
-    const auto constants_AVM_TX_PHASE_VALUE_LAST = FF(11);
-    const auto constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX = FF(29);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(450);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(514);
-    const auto constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX = FF(4683);
-    const auto constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT = FF(4015149901UL);
-    const auto constants_DOM_SEP__NULLIFIER_MERKLE = FF(1157584160);
+    [[maybe_unused]] const auto& constants_NULLIFIER_TREE_HEIGHT = tx_detail::constants_NULLIFIER_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto& constants_MAX_NOTE_HASHES_PER_TX = tx_detail::constants_MAX_NOTE_HASHES_PER_TX_v<FF_>;
+    [[maybe_unused]] const auto& constants_MAX_NULLIFIERS_PER_TX = tx_detail::constants_MAX_NULLIFIERS_PER_TX_v<FF_>;
+    [[maybe_unused]] const auto& constants_MAX_L2_TO_L1_MSGS_PER_TX =
+        tx_detail::constants_MAX_L2_TO_L1_MSGS_PER_TX_v<FF_>;
+    [[maybe_unused]] const auto& constants_FEE_JUICE_ADDRESS = tx_detail::constants_FEE_JUICE_ADDRESS_v<FF_>;
+    [[maybe_unused]] const auto& constants_FEE_JUICE_BALANCES_SLOT =
+        tx_detail::constants_FEE_JUICE_BALANCES_SLOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_TX_PHASE_VALUE_START =
+        tx_detail::constants_AVM_TX_PHASE_VALUE_START_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_TX_PHASE_VALUE_LAST =
+        tx_detail::constants_AVM_TX_PHASE_VALUE_LAST_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX =
+        tx_detail::constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX =
+        tx_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX =
+        tx_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX =
+        tx_detail::constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT =
+        tx_detail::constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__NULLIFIER_MERKLE =
+        tx_detail::constants_DOM_SEP__NULLIFIER_MERKLE_v<FF_>;
     const auto tx_LATCH_CONDITION = in.get(C::tx_end_phase) + in.get(C::precomputed_first_row);
     const auto tx_NOT_PHASE_END = (in.get(C::tx_sel) - in.get(C::tx_end_phase));
     const auto tx_REM_COUNT_MINUS_1 = (in.get(C::tx_remaining_phase_counter) - FF(1));

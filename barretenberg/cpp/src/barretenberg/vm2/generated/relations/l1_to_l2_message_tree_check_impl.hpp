@@ -15,8 +15,10 @@ void l1_to_l2_message_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations&
 {
     using C = ColumnAndShifts;
 
-    const auto constants_L1_TO_L2_MSG_TREE_HEIGHT = FF(36);
-    const auto constants_DOM_SEP__MERKLE_HASH = FF(2982624097UL);
+    [[maybe_unused]] const auto& constants_L1_TO_L2_MSG_TREE_HEIGHT =
+        l1_to_l2_message_tree_check_detail::constants_L1_TO_L2_MSG_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__MERKLE_HASH =
+        l1_to_l2_message_tree_check_detail::constants_DOM_SEP__MERKLE_HASH_v<FF_>;
     const auto l1_to_l2_message_tree_check_LEAF_VALUE_MSG_HASH_DIFF =
         (in.get(C::l1_to_l2_message_tree_check_leaf_value) - in.get(C::l1_to_l2_message_tree_check_msg_hash));
 

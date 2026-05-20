@@ -15,52 +15,90 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_U1 = FF(1);
-    const auto constants_MEM_TAG_U32 = FF(4);
-    const auto constants_AVM_SUBTRACE_ID_EXECUTION = FF(1);
-    const auto constants_AVM_SUBTRACE_ID_ALU = FF(2);
-    const auto constants_AVM_SUBTRACE_ID_BITWISE = FF(4);
-    const auto constants_AVM_SUBTRACE_ID_CAST = FF(8);
-    const auto constants_AVM_SUBTRACE_ID_CALLDATA_COPY = FF(16);
-    const auto constants_AVM_SUBTRACE_ID_RETURNDATA_COPY = FF(32);
-    const auto constants_AVM_SUBTRACE_ID_SET = FF(64);
-    const auto constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE = FF(128);
-    const auto constants_AVM_SUBTRACE_ID_EMITPUBLICLOG = FF(256);
-    const auto constants_AVM_SUBTRACE_ID_POSEIDON2_PERM = FF(512);
-    const auto constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION = FF(1024);
-    const auto constants_AVM_SUBTRACE_ID_KECCAKF1600 = FF(2048);
-    const auto constants_AVM_SUBTRACE_ID_ECC = FF(4096);
-    const auto constants_AVM_SUBTRACE_ID_TO_RADIX = FF(8192);
-    const auto constants_AVM_DYN_GAS_ID_CALLDATACOPY = FF(1);
-    const auto constants_AVM_DYN_GAS_ID_RETURNDATACOPY = FF(2);
-    const auto constants_AVM_DYN_GAS_ID_TORADIX = FF(4);
-    const auto constants_AVM_DYN_GAS_ID_BITWISE = FF(8);
-    const auto constants_AVM_DYN_GAS_ID_EMITPUBLICLOG = FF(16);
-    const auto constants_AVM_DYN_GAS_ID_SSTORE = FF(32);
-    const auto constants_AVM_EXEC_OP_ID_GETENVVAR = FF(1);
-    const auto constants_AVM_EXEC_OP_ID_MOV = FF(2);
-    const auto constants_AVM_EXEC_OP_ID_JUMP = FF(4);
-    const auto constants_AVM_EXEC_OP_ID_JUMPI = FF(8);
-    const auto constants_AVM_EXEC_OP_ID_CALL = FF(16);
-    const auto constants_AVM_EXEC_OP_ID_STATICCALL = FF(32);
-    const auto constants_AVM_EXEC_OP_ID_INTERNALCALL = FF(64);
-    const auto constants_AVM_EXEC_OP_ID_INTERNALRETURN = FF(128);
-    const auto constants_AVM_EXEC_OP_ID_RETURN = FF(256);
-    const auto constants_AVM_EXEC_OP_ID_REVERT = FF(512);
-    const auto constants_AVM_EXEC_OP_ID_SUCCESSCOPY = FF(1024);
-    const auto constants_AVM_EXEC_OP_ID_RETURNDATASIZE = FF(2048);
-    const auto constants_AVM_EXEC_OP_ID_DEBUGLOG = FF(4096);
-    const auto constants_AVM_EXEC_OP_ID_SLOAD = FF(8192);
-    const auto constants_AVM_EXEC_OP_ID_SSTORE = FF(16384);
-    const auto constants_AVM_EXEC_OP_ID_NOTEHASH_EXISTS = FF(32768);
-    const auto constants_AVM_EXEC_OP_ID_EMIT_NOTEHASH = FF(65536);
-    const auto constants_AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS = FF(131072);
-    const auto constants_AVM_EXEC_OP_ID_NULLIFIER_EXISTS = FF(262144);
-    const auto constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER = FF(524288);
-    const auto constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG = FF(1048576);
-    const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
-    const auto constants_DOM_SEP__PUBLIC_LEAF_SLOT = FF(1247650290);
-    const auto constants_DOM_SEP__WRITTEN_SLOTS_MERKLE = FF(2292766212UL);
+    [[maybe_unused]] const auto& constants_MEM_TAG_U1 = execution_detail::constants_MEM_TAG_U1_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_U32 = execution_detail::constants_MEM_TAG_U32_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_EXECUTION =
+        execution_detail::constants_AVM_SUBTRACE_ID_EXECUTION_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_ALU = execution_detail::constants_AVM_SUBTRACE_ID_ALU_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_BITWISE =
+        execution_detail::constants_AVM_SUBTRACE_ID_BITWISE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_CAST =
+        execution_detail::constants_AVM_SUBTRACE_ID_CAST_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_CALLDATA_COPY =
+        execution_detail::constants_AVM_SUBTRACE_ID_CALLDATA_COPY_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_RETURNDATA_COPY =
+        execution_detail::constants_AVM_SUBTRACE_ID_RETURNDATA_COPY_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_SET = execution_detail::constants_AVM_SUBTRACE_ID_SET_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE =
+        execution_detail::constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_EMITPUBLICLOG =
+        execution_detail::constants_AVM_SUBTRACE_ID_EMITPUBLICLOG_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_POSEIDON2_PERM =
+        execution_detail::constants_AVM_SUBTRACE_ID_POSEIDON2_PERM_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION =
+        execution_detail::constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_KECCAKF1600 =
+        execution_detail::constants_AVM_SUBTRACE_ID_KECCAKF1600_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_ECC = execution_detail::constants_AVM_SUBTRACE_ID_ECC_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_SUBTRACE_ID_TO_RADIX =
+        execution_detail::constants_AVM_SUBTRACE_ID_TO_RADIX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_DYN_GAS_ID_CALLDATACOPY =
+        execution_detail::constants_AVM_DYN_GAS_ID_CALLDATACOPY_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_DYN_GAS_ID_RETURNDATACOPY =
+        execution_detail::constants_AVM_DYN_GAS_ID_RETURNDATACOPY_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_DYN_GAS_ID_TORADIX =
+        execution_detail::constants_AVM_DYN_GAS_ID_TORADIX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_DYN_GAS_ID_BITWISE =
+        execution_detail::constants_AVM_DYN_GAS_ID_BITWISE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_DYN_GAS_ID_EMITPUBLICLOG =
+        execution_detail::constants_AVM_DYN_GAS_ID_EMITPUBLICLOG_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_DYN_GAS_ID_SSTORE =
+        execution_detail::constants_AVM_DYN_GAS_ID_SSTORE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_GETENVVAR =
+        execution_detail::constants_AVM_EXEC_OP_ID_GETENVVAR_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_MOV = execution_detail::constants_AVM_EXEC_OP_ID_MOV_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_JUMP = execution_detail::constants_AVM_EXEC_OP_ID_JUMP_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_JUMPI =
+        execution_detail::constants_AVM_EXEC_OP_ID_JUMPI_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_CALL = execution_detail::constants_AVM_EXEC_OP_ID_CALL_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_STATICCALL =
+        execution_detail::constants_AVM_EXEC_OP_ID_STATICCALL_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_INTERNALCALL =
+        execution_detail::constants_AVM_EXEC_OP_ID_INTERNALCALL_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_INTERNALRETURN =
+        execution_detail::constants_AVM_EXEC_OP_ID_INTERNALRETURN_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_RETURN =
+        execution_detail::constants_AVM_EXEC_OP_ID_RETURN_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_REVERT =
+        execution_detail::constants_AVM_EXEC_OP_ID_REVERT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_SUCCESSCOPY =
+        execution_detail::constants_AVM_EXEC_OP_ID_SUCCESSCOPY_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_RETURNDATASIZE =
+        execution_detail::constants_AVM_EXEC_OP_ID_RETURNDATASIZE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_DEBUGLOG =
+        execution_detail::constants_AVM_EXEC_OP_ID_DEBUGLOG_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_SLOAD =
+        execution_detail::constants_AVM_EXEC_OP_ID_SLOAD_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_SSTORE =
+        execution_detail::constants_AVM_EXEC_OP_ID_SSTORE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_NOTEHASH_EXISTS =
+        execution_detail::constants_AVM_EXEC_OP_ID_NOTEHASH_EXISTS_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_EMIT_NOTEHASH =
+        execution_detail::constants_AVM_EXEC_OP_ID_EMIT_NOTEHASH_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS =
+        execution_detail::constants_AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_NULLIFIER_EXISTS =
+        execution_detail::constants_AVM_EXEC_OP_ID_NULLIFIER_EXISTS_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER =
+        execution_detail::constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG =
+        execution_detail::constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT =
+        execution_detail::constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_LEAF_SLOT =
+        execution_detail::constants_DOM_SEP__PUBLIC_LEAF_SLOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__WRITTEN_SLOTS_MERKLE =
+        execution_detail::constants_DOM_SEP__WRITTEN_SLOTS_MERKLE_v<FF_>;
     const auto execution_SEL_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
     {

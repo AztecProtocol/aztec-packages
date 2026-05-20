@@ -10,6 +10,14 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace notehash_exists_detail {
+template <typename FF> inline const FF constants_NOTE_HASH_TREE_LEAF_COUNT_v = FF(4398046511104UL);
+template <typename FF> inline const FF constants_MEM_TAG_U1_v = FF(1);
+} // namespace notehash_exists_detail
+
 template <typename FF_> class notehash_existsImpl {
   public:
     using FF = FF_;

@@ -15,7 +15,8 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_DOM_SEP__PUBLIC_BYTECODE = FF(260313585);
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_BYTECODE =
+        bc_hashing_detail::constants_DOM_SEP__PUBLIC_BYTECODE_v<FF_>;
     const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_end) + in.get(C::precomputed_first_row);
     const auto bc_hashing_FIRST_FIELD =
         constants_DOM_SEP__PUBLIC_BYTECODE + in.get(C::bc_hashing_size_in_bytes) * FF(4294967296UL);

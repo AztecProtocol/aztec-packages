@@ -10,6 +10,13 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace bc_hashing_detail {
+template <typename FF> inline const FF constants_DOM_SEP__PUBLIC_BYTECODE_v = FF(260313585);
+} // namespace bc_hashing_detail
+
 template <typename FF_> class bc_hashingImpl {
   public:
     using FF = FF_;

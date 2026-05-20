@@ -15,8 +15,8 @@ void scalar_mulImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto ecc_INFINITY_X = FF(0);
-    const auto ecc_INFINITY_Y = FF(0);
+    [[maybe_unused]] const auto& ecc_INFINITY_X = scalar_mul_detail::ecc_INFINITY_X_v<FF_>;
+    [[maybe_unused]] const auto& ecc_INFINITY_Y = scalar_mul_detail::ecc_INFINITY_Y_v<FF_>;
     const auto scalar_mul_LATCH_CONDITION = in.get(C::scalar_mul_end) + in.get(C::precomputed_first_row);
     const auto scalar_mul_SHOULD_PASS = in.get(C::scalar_mul_sel_not_end) * (FF(1) - in.get(C::scalar_mul_bit));
 

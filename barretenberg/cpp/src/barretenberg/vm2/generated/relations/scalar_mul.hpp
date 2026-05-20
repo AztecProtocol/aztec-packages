@@ -10,6 +10,14 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace scalar_mul_detail {
+template <typename FF> inline const FF ecc_INFINITY_X_v = FF(0);
+template <typename FF> inline const FF ecc_INFINITY_Y_v = FF(0);
+} // namespace scalar_mul_detail
+
 template <typename FF_> class scalar_mulImpl {
   public:
     using FF = FF_;

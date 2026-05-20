@@ -15,9 +15,10 @@ void ecc_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
-    const auto ecc_INFINITY_X = FF(0);
-    const auto ecc_INFINITY_Y = FF(0);
+    [[maybe_unused]] const auto& constants_AVM_HIGHEST_MEM_ADDRESS =
+        ecc_mem_detail::constants_AVM_HIGHEST_MEM_ADDRESS_v<FF_>;
+    [[maybe_unused]] const auto& ecc_INFINITY_X = ecc_mem_detail::ecc_INFINITY_X_v<FF_>;
+    [[maybe_unused]] const auto& ecc_INFINITY_Y = ecc_mem_detail::ecc_INFINITY_Y_v<FF_>;
     const auto ecc_add_mem_P_X3 = in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x);
     const auto ecc_add_mem_P_Y2 = in.get(C::ecc_add_mem_p_y) * in.get(C::ecc_add_mem_p_y);
     const auto ecc_add_mem_Q_X3 = in.get(C::ecc_add_mem_q_x) * in.get(C::ecc_add_mem_q_x) * in.get(C::ecc_add_mem_q_x);

@@ -10,6 +10,21 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace address_derivation_detail {
+template <typename FF> inline const FF constants_GRUMPKIN_ONE_X_v = FF(1);
+template <typename FF>
+inline const FF constants_GRUMPKIN_ONE_Y_v =
+    FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL });
+template <typename FF> inline const FF constants_DOM_SEP__SALTED_INITIALIZATION_HASH_v = FF(2763052992UL);
+template <typename FF> inline const FF constants_DOM_SEP__PUBLIC_KEYS_HASH_v = FF(777457226);
+template <typename FF> inline const FF constants_DOM_SEP__SINGLE_PUBLIC_KEY_HASH_v = FF(3452068255UL);
+template <typename FF> inline const FF constants_DOM_SEP__PARTIAL_ADDRESS_v = FF(2103633018);
+template <typename FF> inline const FF constants_DOM_SEP__CONTRACT_ADDRESS_V2_v = FF(4099338721UL);
+} // namespace address_derivation_detail
+
 template <typename FF_> class address_derivationImpl {
   public:
     using FF = FF_;

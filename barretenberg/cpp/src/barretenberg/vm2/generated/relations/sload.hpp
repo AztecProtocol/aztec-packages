@@ -10,6 +10,13 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace sload_detail {
+template <typename FF> inline const FF constants_MEM_TAG_FF_v = FF(0);
+} // namespace sload_detail
+
 template <typename FF_> class sloadImpl {
   public:
     using FF = FF_;

@@ -15,30 +15,50 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_AVM_TX_PHASE_VALUE_SETUP = FF(3);
-    const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX = FF(19);
-    const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX = FF(20);
-    const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX = FF(21);
-    const auto constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX = FF(22);
-    const auto constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX = FF(23);
-    const auto constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX = FF(24);
-    const auto constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX = FF(25);
-    const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX = FF(377);
-    const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX = FF(378);
-    const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX = FF(379);
-    const auto constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX = FF(380);
-    const auto constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX = FF(381);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX = FF(382);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX = FF(383);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX = FF(384);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(522);
-    const auto constants_AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX = FF(4684);
-    const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT =
-        FF(uint256_t{ 7857218953590834006UL, 1035077911422412533UL, 9995325351514877897UL, 1411117032600729283UL });
-    const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
-    const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT =
-        FF(uint256_t{ 1521641569468562450UL, 665739211013355724UL, 15332520522532078145UL, 1150206617693738821UL });
-    const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
+    [[maybe_unused]] const auto& constants_AVM_TX_PHASE_VALUE_SETUP =
+        tx_context_detail::constants_AVM_TX_PHASE_VALUE_SETUP_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX =
+        tx_context_detail::constants_AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT =
+        tx_context_detail::constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE =
+        tx_context_detail::constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT =
+        tx_context_detail::constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE =
+        tx_context_detail::constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE_v<FF_>;
     const auto tx_NOT_LAST_ROW = in.get(C::tx_sel) * in.get(C::tx_sel_shift);
     const auto tx_SEL_CAN_EMIT_NOTE_HASH = in.get(C::tx_is_public_call_request) + in.get(C::tx_sel_append_note_hash);
     const auto tx_SEL_CAN_EMIT_NULLIFIER = in.get(C::tx_is_public_call_request) + in.get(C::tx_sel_append_nullifier);

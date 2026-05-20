@@ -15,8 +15,9 @@ void notehash_existsImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_NOTE_HASH_TREE_LEAF_COUNT = FF(4398046511104UL);
-    const auto constants_MEM_TAG_U1 = FF(1);
+    [[maybe_unused]] const auto& constants_NOTE_HASH_TREE_LEAF_COUNT =
+        notehash_exists_detail::constants_NOTE_HASH_TREE_LEAF_COUNT_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_U1 = notehash_exists_detail::constants_MEM_TAG_U1_v<FF_>;
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;

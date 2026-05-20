@@ -15,7 +15,8 @@ void emit_notehashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MAX_NOTE_HASHES_PER_TX = FF(64);
+    [[maybe_unused]] const auto& constants_MAX_NOTE_HASHES_PER_TX =
+        emit_notehash_detail::constants_MAX_NOTE_HASHES_PER_TX_v<FF_>;
     const auto execution_REMAINING_NOTE_HASH_WRITES =
         (constants_MAX_NOTE_HASHES_PER_TX - in.get(C::execution_prev_num_note_hashes_emitted));
 

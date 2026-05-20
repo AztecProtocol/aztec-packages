@@ -15,9 +15,10 @@ void get_contract_instanceImpl<FF_>::accumulate(ContainerOverSubrelations& evals
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_FF = FF(0);
-    const auto constants_MEM_TAG_U1 = FF(1);
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    [[maybe_unused]] const auto& constants_MEM_TAG_FF = get_contract_instance_detail::constants_MEM_TAG_FF_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_U1 = get_contract_instance_detail::constants_MEM_TAG_U1_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_HIGHEST_MEM_ADDRESS =
+        get_contract_instance_detail::constants_AVM_HIGHEST_MEM_ADDRESS_v<FF_>;
     const auto get_contract_instance_WRITES_OUT_OF_BOUNDS =
         (FF(1) - in.get(C::get_contract_instance_is_valid_writes_in_bounds));
     const auto get_contract_instance_DST_OFFSET_DIFF_MAX =

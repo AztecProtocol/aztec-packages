@@ -15,10 +15,12 @@ void sha256Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
-    const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
+    [[maybe_unused]] const auto& constants_AVM_BITWISE_AND_OP_ID =
+        sha256_detail::constants_AVM_BITWISE_AND_OP_ID_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_BITWISE_XOR_OP_ID =
+        sha256_detail::constants_AVM_BITWISE_XOR_OP_ID_v<FF_>;
+    [[maybe_unused]] const auto& sha256_NUM_ROUNDS = sha256_detail::sha256_NUM_ROUNDS_v<FF_>;
     const auto sha256_SEL_NO_ERR = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_err));
-    const auto sha256_NUM_ROUNDS = FF(64);
     const auto sha256_COMPUTED_W =
         in.get(C::sha256_helper_w0) + in.get(C::sha256_w_s_0) + in.get(C::sha256_helper_w9) + in.get(C::sha256_w_s_1);
     const auto sha256_TMP_1 = in.get(C::sha256_h) + in.get(C::sha256_s_1) + in.get(C::sha256_ch) +

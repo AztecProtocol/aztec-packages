@@ -15,8 +15,9 @@ void keccak_memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_U64 = FF(5);
-    const auto constants_AVM_KECCAKF1600_STATE_SIZE = FF(25);
+    [[maybe_unused]] const auto& constants_MEM_TAG_U64 = keccak_memory_detail::constants_MEM_TAG_U64_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_KECCAKF1600_STATE_SIZE =
+        keccak_memory_detail::constants_AVM_KECCAKF1600_STATE_SIZE_v<FF_>;
     const auto keccak_memory_LATCH_CONDITION = in.get(C::keccak_memory_end) + in.get(C::precomputed_first_row);
     const auto keccak_memory_TAG_MIN_U64 = (in.get(C::keccak_memory_tag) - constants_MEM_TAG_U64);
 

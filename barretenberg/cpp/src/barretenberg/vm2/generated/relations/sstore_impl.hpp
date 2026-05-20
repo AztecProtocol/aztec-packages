@@ -15,8 +15,10 @@ void sstoreImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = FF(63);
-    const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
+    [[maybe_unused]] const auto& constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX =
+        sstore_detail::constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE =
+        sstore_detail::constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE_v<FF_>;
     const auto execution_REMAINING_DATA_WRITES = ((constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX +
                                                    constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE) -
                                                   in.get(C::execution_prev_written_public_data_slots_tree_size));

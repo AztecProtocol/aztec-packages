@@ -10,6 +10,20 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace note_hash_tree_check_detail {
+template <typename FF> inline const FF constants_NOTE_HASH_TREE_HEIGHT_v = FF(42);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX_v = FF(169);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX_v = FF(386);
+template <typename FF> inline const FF constants_DOM_SEP__SILOED_NOTE_HASH_v = FF(3361878420UL);
+template <typename FF> inline const FF constants_DOM_SEP__UNIQUE_NOTE_HASH_v = FF(226850429);
+template <typename FF> inline const FF constants_DOM_SEP__NOTE_HASH_NONCE_v = FF(1721808740);
+template <typename FF> inline const FF constants_DOM_SEP__MERKLE_HASH_v = FF(2982624097UL);
+} // namespace note_hash_tree_check_detail
+
 template <typename FF_> class note_hash_tree_checkImpl {
   public:
     using FF = FF_;

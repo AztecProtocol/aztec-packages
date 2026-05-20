@@ -15,7 +15,8 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_DOM_SEP__PUBLIC_CALLDATA = FF(2760353947UL);
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_CALLDATA =
+        calldata_hashing_detail::constants_DOM_SEP__PUBLIC_CALLDATA_v<FF_>;
     const auto calldata_hashing_LATCH_CONDITION = in.get(C::calldata_hashing_end) + in.get(C::precomputed_first_row);
     const auto calldata_hashing_PADDING_1 =
         (in.get(C::calldata_hashing_sel) - in.get(C::calldata_hashing_sel_not_padding_1));

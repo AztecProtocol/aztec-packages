@@ -15,7 +15,7 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_AVM_MEMORY_SIZE = FF(4294967296UL);
+    [[maybe_unused]] const auto& constants_AVM_MEMORY_SIZE = data_copy_detail::constants_AVM_MEMORY_SIZE_v<FF_>;
     const auto data_copy_LATCH_CONDITION = in.get(C::data_copy_end) + in.get(C::precomputed_first_row);
     const auto data_copy_READ_INDEX_UPPER_BOUND =
         (in.get(C::data_copy_src_data_size) - in.get(C::data_copy_offset_plus_size)) *

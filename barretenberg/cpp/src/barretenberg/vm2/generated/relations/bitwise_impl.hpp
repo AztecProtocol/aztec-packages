@@ -15,10 +15,12 @@ void bitwiseImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_FF = FF(0);
-    const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
-    const auto constants_AVM_BITWISE_OR_OP_ID = FF(2);
-    const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
+    [[maybe_unused]] const auto& constants_MEM_TAG_FF = bitwise_detail::constants_MEM_TAG_FF_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_BITWISE_AND_OP_ID =
+        bitwise_detail::constants_AVM_BITWISE_AND_OP_ID_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_BITWISE_OR_OP_ID = bitwise_detail::constants_AVM_BITWISE_OR_OP_ID_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_BITWISE_XOR_OP_ID =
+        bitwise_detail::constants_AVM_BITWISE_XOR_OP_ID_v<FF_>;
     const auto bitwise_LATCH_CONDITION = in.get(C::bitwise_end) + in.get(C::precomputed_first_row);
     const auto bitwise_NOT_END = (in.get(C::bitwise_sel) - in.get(C::bitwise_end));
     const auto bitwise_TAG_A_DIFF = (in.get(C::bitwise_tag_a) - constants_MEM_TAG_FF);

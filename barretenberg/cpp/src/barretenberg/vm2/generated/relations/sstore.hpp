@@ -10,6 +10,14 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace sstore_detail {
+template <typename FF> inline const FF constants_MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX_v = FF(63);
+template <typename FF> inline const FF constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE_v = FF(1);
+} // namespace sstore_detail
+
 template <typename FF_> class sstoreImpl {
   public:
     using FF = FF_;

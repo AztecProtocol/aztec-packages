@@ -10,6 +10,17 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace ff_gt_detail {
+template <typename FF> inline const FF ff_gt_POW_128_v = FF(uint256_t{ 0UL, 0UL, 1UL, 0UL });
+template <typename FF>
+inline const FF ff_gt_P_LO_v = FF(uint256_t{ 4891460686036598785UL, 2896914383306846353UL, 0UL, 0UL });
+template <typename FF>
+inline const FF ff_gt_P_HI_v = FF(uint256_t{ 13281191951274694749UL, 3486998266802970665UL, 0UL, 0UL });
+} // namespace ff_gt_detail
+
 template <typename FF_> class ff_gtImpl {
   public:
     using FF = FF_;

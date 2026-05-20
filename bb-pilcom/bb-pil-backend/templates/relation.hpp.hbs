@@ -10,6 +10,17 @@
 
 namespace bb::{{snakeCase root_name}} {
 
+{{#if (len constant_alias_defs)}}
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace {{name}}_detail {
+{{#each constant_alias_defs as |alias|}}
+template <typename FF> inline const FF {{alias.name}}_v = {{alias.ns_expr}};
+{{/each}}
+} // namespace {{name}}_detail
+{{/if}}
+
 template <typename FF_> class {{name}}Impl {
     public:
         using FF = FF_;
@@ -23,7 +34,10 @@ template <typename FF_> class {{name}}Impl {
         {
             using C = ColumnAndShifts;
 
-            {{#each skippable_alias_defs as |alias|}}
+            {{#each skippable_constant_alias_defs as |alias|}}
+            [[maybe_unused]] const auto& {{alias.name}} = {{../name}}_detail::{{alias.name}}_v<FF>;
+            {{/each}}
+            {{#each skippable_nonconstant_alias_defs as |alias|}}
             const auto {{alias.name}} = {{alias.expr}};
             {{/each}}
 

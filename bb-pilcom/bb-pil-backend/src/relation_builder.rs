@@ -62,8 +62,8 @@ pub trait RelationBuilder {
         identities: &[BBIdentity],
         subrelation_lengths: &[u64],
         skippable_if: &Option<BBIdentity>,
-        alias_polys_in_order: &Vec<(String, PolynomialExpression)>,
-        alias_polys_in_skippable: &Vec<(String, PolynomialExpression)>,
+        alias_polys_in_order: &Vec<(String, PolynomialExpression, bool)>,
+        alias_polys_in_skippable: &Vec<(String, PolynomialExpression, bool)>,
     );
 }
 
@@ -122,7 +122,7 @@ impl RelationBuilder for BBFiles {
         let alias_expressions_in_order = get_alias_expressions_in_order(analyzed);
         let alias_names = alias_expressions_in_order
             .iter()
-            .map(|(name, _)| name.clone())
+            .map(|(name, _, _)| name.clone())
             .collect::<HashSet<_>>();
 
         // These identities' terminal objects are either fields, columns, or alias expressions.
@@ -168,7 +168,7 @@ impl RelationBuilder for BBFiles {
 
             let used_alias_defs_in_order = alias_expressions_in_order
                 .iter()
-                .filter(|(name, _)| filtered_aliases.contains(name))
+                .filter(|(name, _, _)| filtered_aliases.contains(name))
                 .cloned()
                 .collect_vec();
             let used_alias_defs_in_skippable = skippable_if
@@ -178,7 +178,7 @@ impl RelationBuilder for BBFiles {
                         get_transitive_aliases_for_identities(&[id], &alias_expressions_in_order);
                     alias_expressions_in_order
                         .iter()
-                        .filter(|(name, _)| transitive_aliases.contains(name))
+                        .filter(|(name, _, _)| transitive_aliases.contains(name))
                         .cloned()
                         .collect_vec()
                 })
@@ -236,8 +236,8 @@ impl RelationBuilder for BBFiles {
         identities: &[BBIdentity],
         subrelation_lengths: &[u64],
         skippable_if: &Option<BBIdentity>,
-        alias_defs_in_order: &Vec<(String, PolynomialExpression)>,
-        alias_defs_in_skippable: &Vec<(String, PolynomialExpression)>,
+        alias_defs_in_order: &Vec<(String, PolynomialExpression, bool)>,
+        alias_defs_in_skippable: &Vec<(String, PolynomialExpression, bool)>,
     ) {
         let mut handlebars = Handlebars::new();
         handlebars.register_escape_fn(|s| s.to_string()); // No escaping
@@ -251,6 +251,54 @@ impl RelationBuilder for BBFiles {
             // .map(|(idx, id)| (idx, id.label.as_ref().unwrap_or(&id.identity).clone()))
             .collect_vec();
 
+        // Constant aliases (`is_constant == true`) are emitted at namespace
+        // scope as `template <typename FF> inline const FF <name>_v = ...;`
+        // inside a `<relation>_detail` namespace in the .hpp. Inside the
+        // `accumulate(...)` body we rebind them with
+        // `const auto& <name> = <relation>_detail::<name>_v<FF_>;` so the
+        // existing constraint strings (which reference aliases bare) keep
+        // working. This avoids the per-call `FF(uint256_t{...})` Montgomery
+        // construction that bloats compile time across multi-flavor
+        // instantiations.
+        let constant_alias_defs = alias_defs_in_order
+            .iter()
+            .filter(|(_, _, is_constant)| *is_constant)
+            .map(|(name, expr, _)| {
+                json!({
+                    "name": name,
+                    "ns_expr": expr.instantiate_namespace_scope("FF"),
+                })
+            })
+            .collect_vec();
+        let nonconstant_alias_defs = alias_defs_in_order
+            .iter()
+            .filter(|(_, _, is_constant)| !*is_constant)
+            .map(|(name, expr, _)| {
+                json!({
+                    "name": name,
+                    "expr": expr.instantiate(),
+                })
+            })
+            .collect_vec();
+
+        // skippable_if is rendered inline inside the .hpp's `skip()`. Use the
+        // same partitioning for its aliases.
+        let skippable_constant_alias_defs = alias_defs_in_skippable
+            .iter()
+            .filter(|(_, _, is_constant)| *is_constant)
+            .map(|(name, _, _)| json!({ "name": name }))
+            .collect_vec();
+        let skippable_nonconstant_alias_defs = alias_defs_in_skippable
+            .iter()
+            .filter(|(_, _, is_constant)| !*is_constant)
+            .map(|(name, expr, _)| {
+                json!({
+                    "name": name,
+                    "expr": expr.instantiate(),
+                })
+            })
+            .collect_vec();
+
         let data = &json!({
             "root_name": root_name,
             "name": name,
@@ -261,25 +309,15 @@ impl RelationBuilder for BBFiles {
                     "label": id.label.clone(),
                 })
             }).collect_vec(),
-            "alias_defs": alias_defs_in_order.iter().map(|(name, expr)| {
-                json!({
-                    "name": name,
-                    // Aliases do not use `View`.
-                    "expr": expr.instantiate(),
-                })
-            }).collect_vec(),
+            "constant_alias_defs": constant_alias_defs,
+            "nonconstant_alias_defs": nonconstant_alias_defs,
             "skippable_if": skippable_if.as_ref().map(|id|
                 // Skippable does not use `View`.
                 id.expression.instantiate()),
             "subrelation_lengths": subrelation_lengths,
             "labels": sorted_labels,
-            "skippable_alias_defs": alias_defs_in_skippable.iter().map(|(name, expr)| {
-                json!({
-                    "name": name,
-                    // Aliases do not use `View`.
-                    "expr": expr.instantiate(),
-                })
-            }).collect_vec(),
+            "skippable_constant_alias_defs": skippable_constant_alias_defs,
+            "skippable_nonconstant_alias_defs": skippable_nonconstant_alias_defs,
         });
 
         handlebars
@@ -325,7 +363,7 @@ impl RelationBuilder for BBFiles {
 
 fn get_transitive_aliases_for_identities(
     identities: &[&BBIdentity],
-    alias_expressions_in_order: &Vec<(String, PolynomialExpression)>,
+    alias_expressions_in_order: &Vec<(String, PolynomialExpression, bool)>,
 ) -> HashSet<String> {
     let mut aliases = identities
         .iter()
@@ -335,7 +373,7 @@ fn get_transitive_aliases_for_identities(
     // Index aliases by name.
     let indexed_aliases = alias_expressions_in_order
         .iter()
-        .map(|(name, expr)| (name, expr.get_aliases()))
+        .map(|(name, expr, _)| (name, expr.get_aliases()))
         .collect::<HashMap<_, _>>();
 
     // Take transitive closure.

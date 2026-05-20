@@ -15,11 +15,16 @@ void emit_nullifierImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_NULLIFIER_TREE_HEIGHT = FF(42);
-    const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(450);
-    const auto constants_DOM_SEP__SILOED_NULLIFIER = FF(57496191);
-    const auto constants_DOM_SEP__NULLIFIER_MERKLE = FF(1157584160);
+    [[maybe_unused]] const auto& constants_NULLIFIER_TREE_HEIGHT =
+        emit_nullifier_detail::constants_NULLIFIER_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto& constants_MAX_NULLIFIERS_PER_TX =
+        emit_nullifier_detail::constants_MAX_NULLIFIERS_PER_TX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX =
+        emit_nullifier_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__SILOED_NULLIFIER =
+        emit_nullifier_detail::constants_DOM_SEP__SILOED_NULLIFIER_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__NULLIFIER_MERKLE =
+        emit_nullifier_detail::constants_DOM_SEP__NULLIFIER_MERKLE_v<FF_>;
     const auto execution_REMAINING_NULLIFIER_WRITES =
         (constants_MAX_NULLIFIERS_PER_TX - in.get(C::execution_prev_num_nullifiers_emitted));
     const auto execution_SUCCESSFUL_WRITE =

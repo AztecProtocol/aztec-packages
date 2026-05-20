@@ -15,10 +15,12 @@ void send_l2_to_l1_msgImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MAX_ETH_ADDRESS_VALUE =
-        FF(uint256_t{ 18446744073709551615UL, 18446744073709551615UL, 4294967295UL, 0UL });
-    const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX = FF(514);
+    [[maybe_unused]] const auto& constants_MAX_ETH_ADDRESS_VALUE =
+        send_l2_to_l1_msg_detail::constants_MAX_ETH_ADDRESS_VALUE_v<FF_>;
+    [[maybe_unused]] const auto& constants_MAX_L2_TO_L1_MSGS_PER_TX =
+        send_l2_to_l1_msg_detail::constants_MAX_L2_TO_L1_MSGS_PER_TX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX =
+        send_l2_to_l1_msg_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX_v<FF_>;
     const auto execution_REMAINING_L2_TO_L1_MSG_WRITES =
         (constants_MAX_L2_TO_L1_MSGS_PER_TX - in.get(C::execution_prev_num_l2_to_l1_messages));
 

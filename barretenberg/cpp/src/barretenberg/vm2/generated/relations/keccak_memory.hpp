@@ -10,6 +10,14 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace keccak_memory_detail {
+template <typename FF> inline const FF constants_MEM_TAG_U64_v = FF(5);
+template <typename FF> inline const FF constants_AVM_KECCAKF1600_STATE_SIZE_v = FF(25);
+} // namespace keccak_memory_detail
+
 template <typename FF_> class keccak_memoryImpl {
   public:
     using FF = FF_;

@@ -10,6 +10,19 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace public_data_check_detail {
+template <typename FF> inline const FF constants_PUBLIC_DATA_TREE_HEIGHT_v = FF(40);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX_v = FF(385);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX_v = FF(4619);
+template <typename FF> inline const FF constants_DOM_SEP__PUBLIC_LEAF_SLOT_v = FF(1247650290);
+template <typename FF> inline const FF constants_DOM_SEP__PUBLIC_DATA_MERKLE_v = FF(3756303423UL);
+} // namespace public_data_check_detail
+
 template <typename FF_> class public_data_checkImpl {
   public:
     using FF = FF_;

@@ -15,14 +15,18 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_GRUMPKIN_ONE_X = FF(1);
-    const auto constants_GRUMPKIN_ONE_Y =
-        FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL });
-    const auto constants_DOM_SEP__SALTED_INITIALIZATION_HASH = FF(2763052992UL);
-    const auto constants_DOM_SEP__PUBLIC_KEYS_HASH = FF(777457226);
-    const auto constants_DOM_SEP__SINGLE_PUBLIC_KEY_HASH = FF(3452068255UL);
-    const auto constants_DOM_SEP__PARTIAL_ADDRESS = FF(2103633018);
-    const auto constants_DOM_SEP__CONTRACT_ADDRESS_V2 = FF(4099338721UL);
+    [[maybe_unused]] const auto& constants_GRUMPKIN_ONE_X = address_derivation_detail::constants_GRUMPKIN_ONE_X_v<FF_>;
+    [[maybe_unused]] const auto& constants_GRUMPKIN_ONE_Y = address_derivation_detail::constants_GRUMPKIN_ONE_Y_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__SALTED_INITIALIZATION_HASH =
+        address_derivation_detail::constants_DOM_SEP__SALTED_INITIALIZATION_HASH_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_KEYS_HASH =
+        address_derivation_detail::constants_DOM_SEP__PUBLIC_KEYS_HASH_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__SINGLE_PUBLIC_KEY_HASH =
+        address_derivation_detail::constants_DOM_SEP__SINGLE_PUBLIC_KEY_HASH_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__PARTIAL_ADDRESS =
+        address_derivation_detail::constants_DOM_SEP__PARTIAL_ADDRESS_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__CONTRACT_ADDRESS_V2 =
+        address_derivation_detail::constants_DOM_SEP__CONTRACT_ADDRESS_V2_v<FF_>;
     const auto address_derivation_X3 = in.get(C::address_derivation_incoming_viewing_key_x) *
                                        in.get(C::address_derivation_incoming_viewing_key_x) *
                                        in.get(C::address_derivation_incoming_viewing_key_x);

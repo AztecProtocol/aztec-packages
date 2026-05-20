@@ -10,6 +10,28 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace alu_detail {
+template <typename FF> inline const FF constants_MEM_TAG_FF_v = FF(0);
+template <typename FF> inline const FF constants_MEM_TAG_U1_v = FF(1);
+template <typename FF> inline const FF constants_MEM_TAG_U128_v = FF(6);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_ADD_v = FF(1);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_SUB_v = FF(2);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_MUL_v = FF(4);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_DIV_v = FF(8);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_FDIV_v = FF(16);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_EQ_v = FF(32);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_LT_v = FF(64);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_LTE_v = FF(128);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_NOT_v = FF(256);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_SHL_v = FF(512);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_SHR_v = FF(1024);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_ALU_TRUNCATE_v = FF(2048);
+template <typename FF> inline const FF alu_TWO_POW_64_v = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
+} // namespace alu_detail
+
 template <typename FF_> class aluImpl {
   public:
     using FF = FF_;

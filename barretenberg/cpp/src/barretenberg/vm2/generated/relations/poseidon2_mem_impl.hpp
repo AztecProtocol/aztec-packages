@@ -15,8 +15,9 @@ void poseidon2_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_FF = FF(0);
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    [[maybe_unused]] const auto& constants_MEM_TAG_FF = poseidon2_mem_detail::constants_MEM_TAG_FF_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_HIGHEST_MEM_ADDRESS =
+        poseidon2_mem_detail::constants_AVM_HIGHEST_MEM_ADDRESS_v<FF_>;
     const auto poseidon2_perm_mem_INPUT_TAG_DIFF_0 =
         (in.get(C::poseidon2_perm_mem_input_tag_0_) - constants_MEM_TAG_FF);
     const auto poseidon2_perm_mem_INPUT_TAG_DIFF_1 =

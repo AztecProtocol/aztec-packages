@@ -10,6 +10,58 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace execution_detail {
+template <typename FF> inline const FF constants_MEM_TAG_U1_v = FF(1);
+template <typename FF> inline const FF constants_MEM_TAG_U32_v = FF(4);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_EXECUTION_v = FF(1);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_ALU_v = FF(2);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_BITWISE_v = FF(4);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_CAST_v = FF(8);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_CALLDATA_COPY_v = FF(16);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_RETURNDATA_COPY_v = FF(32);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_SET_v = FF(64);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE_v = FF(128);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_EMITPUBLICLOG_v = FF(256);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_POSEIDON2_PERM_v = FF(512);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_SHA256_COMPRESSION_v = FF(1024);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_KECCAKF1600_v = FF(2048);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_ECC_v = FF(4096);
+template <typename FF> inline const FF constants_AVM_SUBTRACE_ID_TO_RADIX_v = FF(8192);
+template <typename FF> inline const FF constants_AVM_DYN_GAS_ID_CALLDATACOPY_v = FF(1);
+template <typename FF> inline const FF constants_AVM_DYN_GAS_ID_RETURNDATACOPY_v = FF(2);
+template <typename FF> inline const FF constants_AVM_DYN_GAS_ID_TORADIX_v = FF(4);
+template <typename FF> inline const FF constants_AVM_DYN_GAS_ID_BITWISE_v = FF(8);
+template <typename FF> inline const FF constants_AVM_DYN_GAS_ID_EMITPUBLICLOG_v = FF(16);
+template <typename FF> inline const FF constants_AVM_DYN_GAS_ID_SSTORE_v = FF(32);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_GETENVVAR_v = FF(1);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_MOV_v = FF(2);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_JUMP_v = FF(4);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_JUMPI_v = FF(8);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_CALL_v = FF(16);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_STATICCALL_v = FF(32);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_INTERNALCALL_v = FF(64);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_INTERNALRETURN_v = FF(128);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_RETURN_v = FF(256);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_REVERT_v = FF(512);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_SUCCESSCOPY_v = FF(1024);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_RETURNDATASIZE_v = FF(2048);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_DEBUGLOG_v = FF(4096);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_SLOAD_v = FF(8192);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_SSTORE_v = FF(16384);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_NOTEHASH_EXISTS_v = FF(32768);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_EMIT_NOTEHASH_v = FF(65536);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS_v = FF(131072);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_NULLIFIER_EXISTS_v = FF(262144);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_EMIT_NULLIFIER_v = FF(524288);
+template <typename FF> inline const FF constants_AVM_EXEC_OP_ID_SENDL2TOL1MSG_v = FF(1048576);
+template <typename FF> inline const FF constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT_v = FF(6);
+template <typename FF> inline const FF constants_DOM_SEP__PUBLIC_LEAF_SLOT_v = FF(1247650290);
+template <typename FF> inline const FF constants_DOM_SEP__WRITTEN_SLOTS_MERKLE_v = FF(2292766212UL);
+} // namespace execution_detail
+
 template <typename FF_> class executionImpl {
   public:
     using FF = FF_;

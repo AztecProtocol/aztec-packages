@@ -10,6 +10,13 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace class_id_derivation_detail {
+template <typename FF> inline const FF constants_DOM_SEP__CONTRACT_CLASS_ID_v = FF(3923495515UL);
+} // namespace class_id_derivation_detail
+
 template <typename FF_> class class_id_derivationImpl {
   public:
     using FF = FF_;

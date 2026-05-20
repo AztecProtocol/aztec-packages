@@ -15,15 +15,22 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
-    const auto constants_UPDATED_CLASS_IDS_SLOT = FF(1);
-    const auto constants_AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX = FF(4);
-    const auto constants_TIMESTAMP_OF_CHANGE_BIT_SIZE = FF(32);
-    const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN = FF(3);
-    const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE = FF(144);
-    const auto constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT = FF(4015149901UL);
+    [[maybe_unused]] const auto& constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS =
+        update_check_detail::constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS_v<FF_>;
+    [[maybe_unused]] const auto& constants_UPDATED_CLASS_IDS_SLOT =
+        update_check_detail::constants_UPDATED_CLASS_IDS_SLOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX =
+        update_check_detail::constants_AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_TIMESTAMP_OF_CHANGE_BIT_SIZE =
+        update_check_detail::constants_TIMESTAMP_OF_CHANGE_BIT_SIZE_v<FF_>;
+    [[maybe_unused]] const auto& constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN =
+        update_check_detail::constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN_v<FF_>;
+    [[maybe_unused]] const auto& constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE =
+        update_check_detail::constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT =
+        update_check_detail::constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT_v<FF_>;
+    [[maybe_unused]] const auto& update_check_TWO_POW_32 = update_check_detail::update_check_TWO_POW_32_v<FF_>;
     const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
-    const auto update_check_TWO_POW_32 = FF(4294967296UL);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;

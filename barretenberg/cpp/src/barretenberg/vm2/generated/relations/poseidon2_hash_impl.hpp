@@ -15,8 +15,8 @@ void poseidon2_hashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
+    [[maybe_unused]] const auto& poseidon2_hash_TWOPOW64 = poseidon2_hash_detail::poseidon2_hash_TWOPOW64_v<FF_>;
     const auto poseidon2_hash_LATCH_CONDITION = in.get(C::poseidon2_hash_end) + in.get(C::precomputed_first_row);
-    const auto poseidon2_hash_TWOPOW64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
     const auto poseidon2_hash_IV = poseidon2_hash_TWOPOW64 * in.get(C::poseidon2_hash_input_len);
     const auto poseidon2_hash_PADDED_LEN = in.get(C::poseidon2_hash_input_len) + in.get(C::poseidon2_hash_padding);
     const auto poseidon2_hash_NEXT_ROUND_COUNT = (in.get(C::poseidon2_hash_num_perm_rounds_rem) - FF(1));

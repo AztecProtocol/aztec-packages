@@ -10,6 +10,16 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace bc_retrieval_detail {
+template <typename FF> inline const FF constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS_v = FF(21);
+template <typename FF> inline const FF constants_AVM_RETRIEVED_BYTECODES_TREE_HEIGHT_v = FF(5);
+template <typename FF> inline const FF constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE_v = FF(1);
+template <typename FF> inline const FF constants_DOM_SEP__RETRIEVED_BYTECODES_MERKLE_v = FF(2789215184UL);
+} // namespace bc_retrieval_detail
+
 template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;

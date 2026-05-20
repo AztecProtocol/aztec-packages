@@ -15,10 +15,14 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS = FF(21);
-    const auto constants_AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = FF(5);
-    const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
-    const auto constants_DOM_SEP__RETRIEVED_BYTECODES_MERKLE = FF(2789215184UL);
+    [[maybe_unused]] const auto& constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS =
+        bc_retrieval_detail::constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_RETRIEVED_BYTECODES_TREE_HEIGHT =
+        bc_retrieval_detail::constants_AVM_RETRIEVED_BYTECODES_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE =
+        bc_retrieval_detail::constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__RETRIEVED_BYTECODES_MERKLE =
+        bc_retrieval_detail::constants_DOM_SEP__RETRIEVED_BYTECODES_MERKLE_v<FF_>;
     const auto bc_retrieval_REMAINING_BYTECODES = ((constants_MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
                                                     constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) -
                                                    in.get(C::bc_retrieval_prev_retrieved_bytecodes_tree_size));

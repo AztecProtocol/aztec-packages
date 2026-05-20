@@ -10,6 +10,14 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace sha256_mem_detail {
+template <typename FF> inline const FF constants_MEM_TAG_U32_v = FF(4);
+template <typename FF> inline const FF constants_AVM_HIGHEST_MEM_ADDRESS_v = FF(4294967295UL);
+} // namespace sha256_mem_detail
+
 template <typename FF_> class sha256_memImpl {
   public:
     using FF = FF_;

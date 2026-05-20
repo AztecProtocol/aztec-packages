@@ -10,6 +10,17 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace emit_nullifier_detail {
+template <typename FF> inline const FF constants_NULLIFIER_TREE_HEIGHT_v = FF(42);
+template <typename FF> inline const FF constants_MAX_NULLIFIERS_PER_TX_v = FF(64);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX_v = FF(450);
+template <typename FF> inline const FF constants_DOM_SEP__SILOED_NULLIFIER_v = FF(57496191);
+template <typename FF> inline const FF constants_DOM_SEP__NULLIFIER_MERKLE_v = FF(1157584160);
+} // namespace emit_nullifier_detail
+
 template <typename FF_> class emit_nullifierImpl {
   public:
     using FF = FF_;

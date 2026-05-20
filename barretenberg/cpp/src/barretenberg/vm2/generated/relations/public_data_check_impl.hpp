@@ -15,11 +15,18 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_PUBLIC_DATA_TREE_HEIGHT = FF(40);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(385);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4619);
-    const auto constants_DOM_SEP__PUBLIC_LEAF_SLOT = FF(1247650290);
-    const auto constants_DOM_SEP__PUBLIC_DATA_MERKLE = FF(3756303423UL);
+    [[maybe_unused]] const auto& constants_PUBLIC_DATA_TREE_HEIGHT =
+        public_data_check_detail::constants_PUBLIC_DATA_TREE_HEIGHT_v<FF_>;
+    [[maybe_unused]] const auto&
+        constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX =
+            public_data_check_detail::
+                constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX =
+        public_data_check_detail::constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_LEAF_SLOT =
+        public_data_check_detail::constants_DOM_SEP__PUBLIC_LEAF_SLOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_DOM_SEP__PUBLIC_DATA_MERKLE =
+        public_data_check_detail::constants_DOM_SEP__PUBLIC_DATA_MERKLE_v<FF_>;
     const auto public_data_check_CLK_DIFF = in.get(C::public_data_check_not_end) *
                                             (in.get(C::public_data_check_clk_shift) - in.get(C::public_data_check_clk));
     const auto public_data_check_LEAF_EXISTS = (FF(1) - in.get(C::public_data_check_leaf_not_exists));

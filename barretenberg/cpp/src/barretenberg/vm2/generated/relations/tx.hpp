@@ -10,6 +10,27 @@
 
 namespace bb::avm2 {
 
+// Constant PIL aliases hoisted to namespace scope so the FF(uint256_t{…})
+// Montgomery conversions are evaluated once per FF specialization rather
+// than once per call of every flavor's `accumulate`.
+namespace tx_detail {
+template <typename FF> inline const FF constants_NULLIFIER_TREE_HEIGHT_v = FF(42);
+template <typename FF> inline const FF constants_MAX_NOTE_HASHES_PER_TX_v = FF(64);
+template <typename FF> inline const FF constants_MAX_NULLIFIERS_PER_TX_v = FF(64);
+template <typename FF> inline const FF constants_MAX_L2_TO_L1_MSGS_PER_TX_v = FF(8);
+template <typename FF> inline const FF constants_FEE_JUICE_ADDRESS_v = FF(5);
+template <typename FF> inline const FF constants_FEE_JUICE_BALANCES_SLOT_v = FF(1);
+template <typename FF> inline const FF constants_AVM_TX_PHASE_VALUE_START_v = FF(0);
+template <typename FF> inline const FF constants_AVM_TX_PHASE_VALUE_LAST_v = FF(11);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX_v = FF(29);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX_v = FF(450);
+template <typename FF>
+inline const FF constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX_v = FF(514);
+template <typename FF> inline const FF constants_AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX_v = FF(4683);
+template <typename FF> inline const FF constants_DOM_SEP__PUBLIC_STORAGE_MAP_SLOT_v = FF(4015149901UL);
+template <typename FF> inline const FF constants_DOM_SEP__NULLIFIER_MERKLE_v = FF(1157584160);
+} // namespace tx_detail
+
 template <typename FF_> class txImpl {
   public:
     using FF = FF_;

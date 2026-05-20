@@ -15,12 +15,12 @@ void ff_gtImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
+    [[maybe_unused]] const auto& ff_gt_POW_128 = ff_gt_detail::ff_gt_POW_128_v<FF_>;
+    [[maybe_unused]] const auto& ff_gt_P_LO = ff_gt_detail::ff_gt_P_LO_v<FF_>;
+    [[maybe_unused]] const auto& ff_gt_P_HI = ff_gt_detail::ff_gt_P_HI_v<FF_>;
     const auto ff_gt_START = in.get(C::ff_gt_sel_gt) + in.get(C::ff_gt_sel_dec);
     const auto ff_gt_LATCH_CONDITION = in.get(C::ff_gt_end) + in.get(C::precomputed_first_row);
     const auto ff_gt_NOT_END = (in.get(C::ff_gt_sel) - in.get(C::ff_gt_end));
-    const auto ff_gt_POW_128 = FF(uint256_t{ 0UL, 0UL, 1UL, 0UL });
-    const auto ff_gt_P_LO = FF(uint256_t{ 4891460686036598785UL, 2896914383306846353UL, 0UL, 0UL });
-    const auto ff_gt_P_HI = FF(uint256_t{ 13281191951274694749UL, 3486998266802970665UL, 0UL, 0UL });
     const auto ff_gt_A_SUB_B_LO =
         ((in.get(C::ff_gt_a_lo) - in.get(C::ff_gt_b_lo)) - FF(1)) + in.get(C::ff_gt_borrow) * ff_gt_POW_128;
     const auto ff_gt_A_SUB_B_HI = ((in.get(C::ff_gt_a_hi) - in.get(C::ff_gt_b_hi)) - in.get(C::ff_gt_borrow));

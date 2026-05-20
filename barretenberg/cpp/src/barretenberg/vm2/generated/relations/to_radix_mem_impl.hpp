@@ -15,9 +15,9 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_U1 = FF(1);
-    const auto constants_MEM_TAG_U8 = FF(2);
-    const auto constants_AVM_MEMORY_SIZE = FF(4294967296UL);
+    [[maybe_unused]] const auto& constants_MEM_TAG_U1 = to_radix_mem_detail::constants_MEM_TAG_U1_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_U8 = to_radix_mem_detail::constants_MEM_TAG_U8_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_MEMORY_SIZE = to_radix_mem_detail::constants_AVM_MEMORY_SIZE_v<FF_>;
     const auto to_radix_mem_LATCH_CONDITION = in.get(C::to_radix_mem_last) + in.get(C::precomputed_first_row);
     const auto to_radix_mem_RADIX_MIN_TWO = (in.get(C::to_radix_mem_radix) - FF(2));
     const auto to_radix_mem_SEL_INVALID_NUM_LIMBS_ERR =

@@ -15,21 +15,24 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_FF = FF(0);
-    const auto constants_MEM_TAG_U1 = FF(1);
-    const auto constants_MEM_TAG_U128 = FF(6);
-    const auto constants_AVM_EXEC_OP_ID_ALU_ADD = FF(1);
-    const auto constants_AVM_EXEC_OP_ID_ALU_SUB = FF(2);
-    const auto constants_AVM_EXEC_OP_ID_ALU_MUL = FF(4);
-    const auto constants_AVM_EXEC_OP_ID_ALU_DIV = FF(8);
-    const auto constants_AVM_EXEC_OP_ID_ALU_FDIV = FF(16);
-    const auto constants_AVM_EXEC_OP_ID_ALU_EQ = FF(32);
-    const auto constants_AVM_EXEC_OP_ID_ALU_LT = FF(64);
-    const auto constants_AVM_EXEC_OP_ID_ALU_LTE = FF(128);
-    const auto constants_AVM_EXEC_OP_ID_ALU_NOT = FF(256);
-    const auto constants_AVM_EXEC_OP_ID_ALU_SHL = FF(512);
-    const auto constants_AVM_EXEC_OP_ID_ALU_SHR = FF(1024);
-    const auto constants_AVM_EXEC_OP_ID_ALU_TRUNCATE = FF(2048);
+    [[maybe_unused]] const auto& constants_MEM_TAG_FF = alu_detail::constants_MEM_TAG_FF_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_U1 = alu_detail::constants_MEM_TAG_U1_v<FF_>;
+    [[maybe_unused]] const auto& constants_MEM_TAG_U128 = alu_detail::constants_MEM_TAG_U128_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_ADD = alu_detail::constants_AVM_EXEC_OP_ID_ALU_ADD_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_SUB = alu_detail::constants_AVM_EXEC_OP_ID_ALU_SUB_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_MUL = alu_detail::constants_AVM_EXEC_OP_ID_ALU_MUL_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_DIV = alu_detail::constants_AVM_EXEC_OP_ID_ALU_DIV_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_FDIV =
+        alu_detail::constants_AVM_EXEC_OP_ID_ALU_FDIV_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_EQ = alu_detail::constants_AVM_EXEC_OP_ID_ALU_EQ_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_LT = alu_detail::constants_AVM_EXEC_OP_ID_ALU_LT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_LTE = alu_detail::constants_AVM_EXEC_OP_ID_ALU_LTE_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_NOT = alu_detail::constants_AVM_EXEC_OP_ID_ALU_NOT_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_SHL = alu_detail::constants_AVM_EXEC_OP_ID_ALU_SHL_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_SHR = alu_detail::constants_AVM_EXEC_OP_ID_ALU_SHR_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_EXEC_OP_ID_ALU_TRUNCATE =
+        alu_detail::constants_AVM_EXEC_OP_ID_ALU_TRUNCATE_v<FF_>;
+    [[maybe_unused]] const auto& alu_TWO_POW_64 = alu_detail::alu_TWO_POW_64_v<FF_>;
     const auto alu_IS_NOT_FF = (FF(1) - in.get(C::alu_sel_is_ff));
     const auto alu_IS_NOT_U128 = (FF(1) - in.get(C::alu_sel_is_u128));
     const auto alu_SHIFT_OPS = in.get(C::alu_sel_op_shl) + in.get(C::alu_sel_op_shr);
@@ -49,7 +52,6 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto alu_SEL_MUL_U128 =
         in.get(C::alu_sel_op_mul) * in.get(C::alu_sel_is_u128) * (FF(1) - in.get(C::alu_sel_err));
     const auto alu_SEL_DIV_U128 = in.get(C::alu_sel_div_no_err) * in.get(C::alu_sel_is_u128);
-    const auto alu_TWO_POW_64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
     const auto alu_DECOMPOSED_A =
         (in.get(C::alu_sel_op_mul) * in.get(C::alu_sel_is_u128) + in.get(C::alu_sel_shift_ops_no_overflow)) *
             in.get(C::alu_ia) +

@@ -15,61 +15,79 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_MEM_TAG_U64 = FF(5);
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
-    const auto constants_AVM_BITWISE_AND_OP_ID = FF(1);
-    const auto constants_AVM_BITWISE_XOR_OP_ID = FF(4);
-    const auto constants_AVM_KECCAKF1600_NUM_ROUNDS = FF(24);
-    const auto constants_AVM_KECCAKF1600_STATE_SIZE = FF(25);
+    [[maybe_unused]] const auto& constants_MEM_TAG_U64 = keccakf1600_detail::constants_MEM_TAG_U64_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_HIGHEST_MEM_ADDRESS =
+        keccakf1600_detail::constants_AVM_HIGHEST_MEM_ADDRESS_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_BITWISE_AND_OP_ID =
+        keccakf1600_detail::constants_AVM_BITWISE_AND_OP_ID_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_BITWISE_XOR_OP_ID =
+        keccakf1600_detail::constants_AVM_BITWISE_XOR_OP_ID_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_KECCAKF1600_NUM_ROUNDS =
+        keccakf1600_detail::constants_AVM_KECCAKF1600_NUM_ROUNDS_v<FF_>;
+    [[maybe_unused]] const auto& constants_AVM_KECCAKF1600_STATE_SIZE =
+        keccakf1600_detail::constants_AVM_KECCAKF1600_STATE_SIZE_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_01 = keccakf1600_detail::keccakf1600_ROT_LEN_01_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_01 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_01_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_02 = keccakf1600_detail::keccakf1600_ROT_LEN_02_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_02 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_02_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_03 = keccakf1600_detail::keccakf1600_ROT_LEN_03_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_03 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_03_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_04 = keccakf1600_detail::keccakf1600_ROT_LEN_04_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_04 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_04_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_10 = keccakf1600_detail::keccakf1600_ROT_LEN_10_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_10 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_10_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_11 = keccakf1600_detail::keccakf1600_ROT_LEN_11_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_11 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_11_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_12 = keccakf1600_detail::keccakf1600_ROT_LEN_12_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_12 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_12_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_13 = keccakf1600_detail::keccakf1600_ROT_LEN_13_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_13 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_13_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_14 = keccakf1600_detail::keccakf1600_ROT_LEN_14_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_14 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_14_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_20 = keccakf1600_detail::keccakf1600_ROT_LEN_20_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_20 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_20_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_21 = keccakf1600_detail::keccakf1600_ROT_LEN_21_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_21 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_21_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_22 = keccakf1600_detail::keccakf1600_ROT_LEN_22_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_22 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_22_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_23 = keccakf1600_detail::keccakf1600_ROT_LEN_23_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_23 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_23_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_24 = keccakf1600_detail::keccakf1600_ROT_LEN_24_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_24 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_24_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_30 = keccakf1600_detail::keccakf1600_ROT_LEN_30_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_30 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_30_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_31 = keccakf1600_detail::keccakf1600_ROT_LEN_31_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_31 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_31_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_32 = keccakf1600_detail::keccakf1600_ROT_LEN_32_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_32 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_32_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_33 = keccakf1600_detail::keccakf1600_ROT_LEN_33_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_33 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_33_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_34 = keccakf1600_detail::keccakf1600_ROT_LEN_34_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_34 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_34_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_40 = keccakf1600_detail::keccakf1600_ROT_LEN_40_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_40 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_40_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_41 = keccakf1600_detail::keccakf1600_ROT_LEN_41_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_41 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_41_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_42 = keccakf1600_detail::keccakf1600_ROT_LEN_42_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_64_MIN_LEN_42 =
+        keccakf1600_detail::keccakf1600_POW_ROT_64_MIN_LEN_42_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_43 = keccakf1600_detail::keccakf1600_ROT_LEN_43_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_43 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_43_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_ROT_LEN_44 = keccakf1600_detail::keccakf1600_ROT_LEN_44_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_ROT_LEN_44 = keccakf1600_detail::keccakf1600_POW_ROT_LEN_44_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_POW_64_MIN_1 = keccakf1600_detail::keccakf1600_POW_64_MIN_1_v<FF_>;
+    [[maybe_unused]] const auto& keccakf1600_HIGHEST_SLICE_ADDRESS =
+        keccakf1600_detail::keccakf1600_HIGHEST_SLICE_ADDRESS_v<FF_>;
     const auto keccakf1600_LATCH_CONDITION = in.get(C::keccakf1600_end) + in.get(C::precomputed_first_row);
-    const auto keccakf1600_ROT_LEN_01 = FF(36);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_01 = FF(268435456);
-    const auto keccakf1600_ROT_LEN_02 = FF(3);
-    const auto keccakf1600_POW_ROT_LEN_02 = FF(8);
-    const auto keccakf1600_ROT_LEN_03 = FF(41);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_03 = FF(8388608);
-    const auto keccakf1600_ROT_LEN_04 = FF(18);
-    const auto keccakf1600_POW_ROT_LEN_04 = FF(262144);
-    const auto keccakf1600_ROT_LEN_10 = FF(1);
-    const auto keccakf1600_POW_ROT_LEN_10 = FF(2);
-    const auto keccakf1600_ROT_LEN_11 = FF(44);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_11 = FF(1048576);
-    const auto keccakf1600_ROT_LEN_12 = FF(10);
-    const auto keccakf1600_POW_ROT_LEN_12 = FF(1024);
-    const auto keccakf1600_ROT_LEN_13 = FF(45);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_13 = FF(524288);
-    const auto keccakf1600_ROT_LEN_14 = FF(2);
-    const auto keccakf1600_POW_ROT_LEN_14 = FF(4);
-    const auto keccakf1600_ROT_LEN_20 = FF(62);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_20 = FF(4);
-    const auto keccakf1600_ROT_LEN_21 = FF(6);
-    const auto keccakf1600_POW_ROT_LEN_21 = FF(64);
-    const auto keccakf1600_ROT_LEN_22 = FF(43);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_22 = FF(2097152);
-    const auto keccakf1600_ROT_LEN_23 = FF(15);
-    const auto keccakf1600_POW_ROT_LEN_23 = FF(32768);
-    const auto keccakf1600_ROT_LEN_24 = FF(61);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_24 = FF(8);
-    const auto keccakf1600_ROT_LEN_30 = FF(28);
-    const auto keccakf1600_POW_ROT_LEN_30 = FF(268435456);
-    const auto keccakf1600_ROT_LEN_31 = FF(55);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_31 = FF(512);
-    const auto keccakf1600_ROT_LEN_32 = FF(25);
-    const auto keccakf1600_POW_ROT_LEN_32 = FF(33554432);
-    const auto keccakf1600_ROT_LEN_33 = FF(21);
-    const auto keccakf1600_POW_ROT_LEN_33 = FF(2097152);
-    const auto keccakf1600_ROT_LEN_34 = FF(56);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_34 = FF(256);
-    const auto keccakf1600_ROT_LEN_40 = FF(27);
-    const auto keccakf1600_POW_ROT_LEN_40 = FF(134217728);
-    const auto keccakf1600_ROT_LEN_41 = FF(20);
-    const auto keccakf1600_POW_ROT_LEN_41 = FF(1048576);
-    const auto keccakf1600_ROT_LEN_42 = FF(39);
-    const auto keccakf1600_POW_ROT_64_MIN_LEN_42 = FF(33554432);
-    const auto keccakf1600_ROT_LEN_43 = FF(8);
-    const auto keccakf1600_POW_ROT_LEN_43 = FF(256);
-    const auto keccakf1600_ROT_LEN_44 = FF(14);
-    const auto keccakf1600_POW_ROT_LEN_44 = FF(16384);
     const auto keccakf1600_STATE_RHO_00 = in.get(C::keccakf1600_state_theta_00);
     const auto keccakf1600_STATE_PI_00 = keccakf1600_STATE_RHO_00;
     const auto keccakf1600_STATE_PI_01 = in.get(C::keccakf1600_state_rho_30);
@@ -96,9 +114,6 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto keccakf1600_STATE_PI_42 = in.get(C::keccakf1600_state_rho_04);
     const auto keccakf1600_STATE_PI_43 = in.get(C::keccakf1600_state_rho_34);
     const auto keccakf1600_STATE_PI_44 = in.get(C::keccakf1600_state_rho_14);
-    const auto keccakf1600_POW_64_MIN_1 = FF(uint256_t{ 18446744073709551615UL, 0UL, 0UL, 0UL });
-    const auto keccakf1600_HIGHEST_SLICE_ADDRESS =
-        (constants_AVM_HIGHEST_MEM_ADDRESS - constants_AVM_KECCAKF1600_STATE_SIZE) + FF(1);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
