@@ -45,7 +45,7 @@ import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } 
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS } from './constants.js';
+import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -53,12 +53,7 @@ import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
-import {
-  MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY,
-  MAX_OFFCHAIN_EFFECT_LEN,
-  TXE_ORACLE_VERSION_MAJOR,
-  TXE_ORACLE_VERSION_MINOR,
-} from './txe_oracle_version.js';
+import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './txe_oracle_version.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
