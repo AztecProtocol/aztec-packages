@@ -1,7 +1,10 @@
 //! Checks if the graph built on columns as vertices and relations as edges is a single graph component.
 //! sel columns are filtered out from the graph.
-use crate::checks::utils::{collect_poly_ids, declared_committed_poly_ids, format_source};
-use powdr_ast::analyzed::{Analyzed, PolyID, PolynomialType};
+use crate::checks::utils::{declared_committed_poly_ids, format_source};
+use crate::expression_evaluation::{
+    build_intermediates_map, collect_poly_ids_through_intermediates,
+};
+use powdr_ast::analyzed::{AlgebraicExpression, Analyzed, PolyID, PolynomialType};
 use powdr_number::FieldElement;
 use powdr_parser_util::SourceRef;
 use std::collections::{HashMap, HashSet};
@@ -20,11 +23,7 @@ fn is_sel_column(name: &str) -> bool {
     name.split('.').last().unwrap_or("").eq("sel")
 }
 
-fn add_undirected_edge(
-    adjacency: &mut HashMap<PolyID, HashSet<PolyID>>,
-    a: PolyID,
-    b: PolyID,
-) {
+fn add_undirected_edge(adjacency: &mut HashMap<PolyID, HashSet<PolyID>>, a: PolyID, b: PolyID) {
     if a == b {
         return;
     }
@@ -33,7 +32,10 @@ fn add_undirected_edge(
 }
 
 /// Returns the connected components of the graph.
-fn components(vertices: &HashSet<PolyID>, adjacency: &HashMap<PolyID, HashSet<PolyID>>) -> Vec<HashSet<PolyID>> {
+fn components(
+    vertices: &HashSet<PolyID>,
+    adjacency: &HashMap<PolyID, HashSet<PolyID>>,
+) -> Vec<HashSet<PolyID>> {
     let mut comps: Vec<HashSet<PolyID>> = Vec::new();
     let mut visited: HashSet<PolyID> = HashSet::new();
 
@@ -69,27 +71,27 @@ fn fmt_poly(poly_id: PolyID, info: &HashMap<PolyID, VertexInfo>) -> String {
     }
 }
 
-fn fmt_components_summary(
-    comps: &[HashSet<PolyID>],
-    info: &HashMap<PolyID, VertexInfo>,
-) -> String {
+fn fmt_components_summary(comps: &[HashSet<PolyID>], info: &HashMap<PolyID, VertexInfo>) -> String {
     let mut parts: Vec<String> = Vec::new();
     for comp in comps.iter() {
         let mut nodes: Vec<PolyID> = comp.iter().copied().collect();
         nodes.sort_by_key(|id| info.get(id).map(|v| v.name.clone()).unwrap_or_default());
 
-        let sample: Vec<String> = nodes
-            .iter()
-            .map(|&id| fmt_poly(id, info))
-            .collect();
+        let sample: Vec<String> = nodes.iter().map(|&id| fmt_poly(id, info)).collect();
 
-        parts.push(format!("size={} sample=[{}]\n", comp.len(), sample.join(", ")));
+        parts.push(format!(
+            "size={} sample=[{}]\n",
+            comp.len(),
+            sample.join(", ")
+        ));
     }
     parts.join("; ")
 }
 
 /// Checks if the graph built on columns as vertices and relations as edges is a single graph component.
-pub(crate) fn single_graph_component_check<T: FieldElement>(analyzed: &Analyzed<T>) -> Result<(), String> {
+pub(crate) fn single_graph_component_check<T: FieldElement>(
+    analyzed: &Analyzed<T>,
+) -> Result<(), String> {
     let declared_committed = declared_committed_poly_ids(analyzed);
 
     // Collect committed columns, excluding `sel`.
@@ -109,7 +111,9 @@ pub(crate) fn single_graph_component_check<T: FieldElement>(analyzed: &Analyzed<
         adjacency.entry(v).or_default();
     }
 
-    for identity in analyzed.identities_with_inlined_intermediate_polynomials() {
+    let intermediates: HashMap<PolyID, &AlgebraicExpression<T>> = build_intermediates_map(analyzed);
+    let mut poly_id_cache: HashMap<PolyID, HashSet<PolyID>> = HashMap::new();
+    for identity in &analyzed.identities {
         let mut refs: HashSet<PolyID> = HashSet::new();
         for expr in identity
             .left
@@ -119,12 +123,19 @@ pub(crate) fn single_graph_component_check<T: FieldElement>(analyzed: &Analyzed<
             .chain(identity.right.selector.iter())
             .chain(identity.right.expressions.iter())
         {
-            collect_poly_ids(expr, &mut refs);
+            collect_poly_ids_through_intermediates(
+                expr,
+                &intermediates,
+                &mut poly_id_cache,
+                &mut refs,
+            );
         }
 
         let mut committed_refs: Vec<PolyID> = refs
             .into_iter()
-            .filter(|poly_id| poly_id.ptype == PolynomialType::Committed && vertices.contains(poly_id))
+            .filter(|poly_id| {
+                poly_id.ptype == PolynomialType::Committed && vertices.contains(poly_id)
+            })
             .collect();
         committed_refs.sort();
         committed_refs.dedup();
@@ -179,7 +190,9 @@ mod tests {
         let analyzed = analyze_string::<GoldilocksField>(input);
         let result = single_graph_component_check(&analyzed);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Graph is not a single component"));
+        assert!(result
+            .unwrap_err()
+            .contains("Graph is not a single component"));
     }
 
     #[test]
@@ -195,7 +208,9 @@ mod tests {
         let analyzed = analyze_string::<GoldilocksField>(input);
         let result = single_graph_component_check(&analyzed);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Graph is not a single component"));
+        assert!(result
+            .unwrap_err()
+            .contains("Graph is not a single component"));
     }
 
     #[test]
@@ -211,5 +226,3 @@ mod tests {
         assert!(result.is_ok());
     }
 }
-
- 
