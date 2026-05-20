@@ -51,8 +51,9 @@ class InteractionBuilderInterface {
 // A concatenate that works with movable objects.
 template <typename T> std::vector<T> concatenate_jobs(std::vector<T>&& first, auto&&... rest)
 {
+    const size_t total_size = first.size() + (rest.size() + ...);
     std::vector<T> result = std::move(first);
-    result.reserve(first.size() + (rest.size() + ...));
+    result.reserve(total_size);
     (std::move(rest.begin(), rest.end(), std::back_inserter(result)), ...);
     return result;
 }
