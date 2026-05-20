@@ -28,13 +28,31 @@ import { DefaultMnemonic } from '../mnemonic.js';
 // Define an interface for options
 export interface AztecStartOption {
   flag: string;
+  /** Second flag for boolean options with no config default (e.g. `--foo` and `--no-foo`). */
+  companionFlag?: string;
   description: string;
   defaultValue: any;
   printDefault?: (val: any) => string;
   env: EnvVar | undefined;
   fallback?: EnvVar[];
   parseVal?: (val: string) => any;
+  isBoolean?: boolean;
 }
+
+/** Commander negatable boolean: register only the form that sets the non-default value. */
+export const booleanCliFlags = (
+  baseFlag: string,
+  defaultValue: boolean | undefined,
+): { flag: string; companionFlag?: string } => {
+  const base = baseFlag.startsWith('--') ? baseFlag.slice(2) : baseFlag;
+  if (defaultValue === true) {
+    return { flag: `--no-${base}` };
+  }
+  if (defaultValue === false) {
+    return { flag: `--${base}` };
+  }
+  return { flag: `--${base}`, companionFlag: `--no-${base}` };
+};
 
 export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping<unknown>>) => {
   const options: AztecStartOption[] = [];
@@ -45,14 +63,18 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
       continue;
     }
     const isBoolean = isBooleanConfigValue(configMappings, key as keyof typeof configMappings);
+    const namespacedBase = `${namespace}.${key}`;
+    const booleanFlags = isBoolean ? booleanCliFlags(namespacedBase, def as boolean | undefined) : undefined;
     options.push({
-      flag: `--${namespace}.${key}${isBoolean ? '' : ' <value>'}`,
+      flag: booleanFlags?.flag ?? `--${namespacedBase}${isBoolean ? '' : ' <value>'}`,
+      companionFlag: booleanFlags?.companionFlag,
       description,
       defaultValue: def,
       printDefault,
       env: env,
       fallback,
       parseVal: parseEnv,
+      isBoolean,
     });
   }
   return options;
@@ -63,12 +85,21 @@ const configToFlag = (
   configMapping: ConfigMapping<unknown>,
   overrideDefaultValue?: any,
 ): AztecStartOption => {
-  if (!configMapping.isBoolean) {
-    flag += ' <value>';
+  const defaultValue = overrideDefaultValue !== undefined ? overrideDefaultValue : configMapping.defaultValue;
+
+  let primaryFlag = flag;
+  let companionFlag: string | undefined;
+  if (configMapping.isBoolean) {
+    const booleanFlags = booleanCliFlags(flag, defaultValue as boolean | undefined);
+    primaryFlag = booleanFlags.flag;
+    companionFlag = booleanFlags.companionFlag;
+  } else {
+    primaryFlag += ' <value>';
   }
 
   const flagConfig: AztecStartOption = {
-    flag,
+    flag: primaryFlag,
+    companionFlag,
     env: undefined,
     defaultValue: undefined,
     parseVal: configMapping.parseEnv,
@@ -130,7 +161,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       env: 'MNEMONIC',
     },
     {
-      flag: '--local-network.testAccounts',
+      ...booleanCliFlags('--local-network.testAccounts', true),
       description: 'Deploy test accounts on local network start',
       env: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(true),
@@ -280,13 +311,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     ...getOptions('proverAgent', proverAgentConfigMappings),
   ],
   'P2P SUBSYSTEM': [
-    {
-      flag: '--p2p-enabled [value]',
-      description: 'Enable P2P subsystem',
-      env: 'P2P_ENABLED',
-      ...booleanConfigHelper(),
-    },
-    ...getOptions('p2p', p2pConfigMappings),
+    configToFlag('--p2p-enabled', p2pConfigMappings.p2pEnabled),
+    ...getOptions('p2p', omitConfigMappings(p2pConfigMappings, ['p2pEnabled'])),
   ],
   'P2P BOOTSTRAP': [
     {

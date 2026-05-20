@@ -161,15 +161,28 @@ const getDefaultOrEnvValue = (opt: AztecStartOption) => {
   return undefined;
 };
 
+function registerCliOption(cmd: Command, flag: string, opt: AztecStartOption, defaultValue: unknown) {
+  const description = `${opt.description} (default: ${opt.defaultValue}) ($${opt.env})`;
+  // Commander mishandles positive boolean flags when a parseArg is combined with default false.
+  // Env parsing still uses opt.parseVal via getDefaultOrEnvValue.
+  if (opt.isBoolean && !flag.includes('<')) {
+    const booleanDefault = defaultValue === undefined ? undefined : Boolean(defaultValue);
+    cmd.option(flag, description, booleanDefault);
+    return;
+  }
+  cmd.option(flag, description, opt.parseVal ? opt.parseVal : val => val, defaultValue);
+}
+
 // Function to add options dynamically
 export const addOptions = (cmd: Command, options: AztecStartOption[]) => {
   options.forEach(opt => {
-    cmd.option(
-      opt.flag,
-      `${opt.description} (default: ${opt.defaultValue}) ($${opt.env})`,
-      opt.parseVal ? opt.parseVal : val => val,
-      getDefaultOrEnvValue(opt),
-    );
+    const defaultValue = getDefaultOrEnvValue(opt);
+    if (opt.companionFlag) {
+      registerCliOption(cmd, opt.flag, opt, defaultValue);
+      registerCliOption(cmd, opt.companionFlag, opt, undefined);
+      return;
+    }
+    registerCliOption(cmd, opt.flag, opt, defaultValue);
   });
 };
 

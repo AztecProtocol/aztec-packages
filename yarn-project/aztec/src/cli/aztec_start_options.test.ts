@@ -109,12 +109,23 @@ describe('aztec_start_options commander integration', () => {
     expect(opts['localNetwork.testAccounts']).toBe(true);
   });
 
-  it('parses optional boolean flag values', () => {
-    const cmd = buildCommandWith(['P2P SUBSYSTEM']);
+  it('parses negatable boolean flags for p2p and version check', () => {
+    const p2pCmd = buildCommandWith(['P2P SUBSYSTEM']);
+    expect(p2pCmd.parse(['node', 'cli', '--p2p-enabled']).opts().p2pEnabled).toBe(true);
+    expect(buildCommandWith(['P2P SUBSYSTEM']).parse(['node', 'cli']).opts().p2pEnabled).toBe(false);
 
-    expect(cmd.parse(['node', 'cli', '--p2p-enabled']).opts().p2pEnabled).toBe(true);
-    expect(cmd.parse(['node', 'cli', '--p2p-enabled', 'false']).opts().p2pEnabled).toBe(false);
-    expect(cmd.parse(['node', 'cli']).opts().p2pEnabled).toBe(false);
+    expect(buildCommandWith(['MISC']).parse(['node', 'cli']).opts().enableVersionCheck).toBe(true);
+    expect(
+      buildCommandWith(['MISC']).parse(['node', 'cli', '--no-enable-version-check']).opts().enableVersionCheck,
+    ).toBe(false);
+  });
+
+  it('parses negatable local network testAccounts flag', () => {
+    const cmd = buildCommandWith(['LOCAL_NETWORK']);
+    expect(cmd.parse(['node', 'cli']).opts()['localNetwork.testAccounts']).toBe(true);
+    expect(cmd.parse(['node', 'cli', '--no-local-network.testAccounts']).opts()['localNetwork.testAccounts']).toBe(
+      false,
+    );
   });
 
   it('uses numeric defaults from P2P mappings', () => {
