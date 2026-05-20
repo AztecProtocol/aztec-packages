@@ -61,10 +61,6 @@ const ownValidatorClientConfigMappings: ConfigMappingsType<OwnValidatorClientCon
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
-  skipProposalSlotValidation: {
-    description: 'Accept proposal validation regardless of slot timing (for testing only)',
-    ...booleanConfigHelper(false),
-  },
 };
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = composeConfigMappings(

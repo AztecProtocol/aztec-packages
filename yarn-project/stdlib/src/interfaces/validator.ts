@@ -54,9 +54,6 @@ export type OwnValidatorClientConfig = {
 
   /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
   attestToEquivocatedProposals?: boolean;
-
-  /** Accept proposal validation regardless of slot timing (for testing only) */
-  skipProposalSlotValidation?: boolean;
 };
 
 /**
