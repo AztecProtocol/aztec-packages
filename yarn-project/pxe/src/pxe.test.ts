@@ -53,6 +53,7 @@ describe('PXE', () => {
       rollupAddress: EthAddress.random(),
       l1ChainId: 31337,
       rollupVersion: 1,
+      autoSync: true,
     };
 
     // Mock getNodeInfo which is called during PXE creation

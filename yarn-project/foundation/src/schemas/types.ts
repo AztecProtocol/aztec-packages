@@ -1,6 +1,6 @@
 import type { ZodType } from 'zod';
 
-export type ZodFor<T> = ZodType<T, any, any>;
+export type ZodFor<T> = ZodType<T, any>;
 
 /**
  * Creates a schema validator that enforces all properties of type T are present in the schema.
@@ -26,7 +26,7 @@ export type ZodFor<T> = ZodType<T, any, any>;
  * ```
  */
 export function zodFor<T>() {
-  return (schema => schema) as <S extends ZodType<any, any, any>>(
+  return (schema => schema) as <S extends ZodType<any, any>>(
     schema: keyof T extends keyof S['_output']
       ? keyof S['_output'] extends keyof T
         ? S
