@@ -5,6 +5,7 @@ import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
+import type { BlockTxsRequest, BlockTxsResponse } from '../index.js';
 import type { ReqRespInterface } from '../interface.js';
 import type { IPeerCollection } from './peer_collection.js';
 import type { BatchRequestTxValidatorConfig, IBatchRequestTxValidator } from './tx_validator.js';
@@ -39,6 +40,12 @@ export interface BatchTxRequesterLibP2PService {
   txValidatorConfig: BatchRequestTxValidatorConfig;
   /** Peer scoring for penalizing peers */
   peerScoring: IPeerPenalizer;
+  /** Validate the requested block transactions request-response consistency */
+  validateRequestedBlockTxsConsistency: (
+    request: BlockTxsRequest,
+    response: BlockTxsResponse,
+    peerId: PeerId,
+  ) => Promise<boolean>;
 }
 
 export interface BatchTxRequesterOptions {

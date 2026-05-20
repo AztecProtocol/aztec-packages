@@ -53,7 +53,10 @@ describe('p2p client integration batch txs', () => {
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
     connectionSampler = mock<ConnectionSampler>();
-    mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler });
+    mockP2PService = mock<BatchTxRequesterLibP2PService>({
+      connectionSampler,
+      validateRequestedBlockTxsConsistency: () => Promise.resolve(true),
+    });
     txValidator = {
       validateRequestedTx: () => Promise.resolve({ result: 'valid' }),
       validateRequestedTxs: txs => Promise.resolve(txs.map(() => ({ result: 'valid' }))),
