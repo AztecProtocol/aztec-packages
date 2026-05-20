@@ -22,7 +22,7 @@ A Manifest V3 service worker has a 5-minute inactivity timeout and limited WASM 
 ## Install
 
 ```bash
-yarn add @aztec/wallet-sdk@4.2.0 @aztec/aztec.js@4.2.0 @aztec/pxe@4.2.0
+yarn add @aztec/wallet-sdk@4.3.0 @aztec/aztec.js@4.3.0 @aztec/pxe@4.3.0
 ```
 
 ## Content script
