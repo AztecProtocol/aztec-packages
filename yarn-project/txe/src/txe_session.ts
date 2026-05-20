@@ -1,3 +1,4 @@
+import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -24,7 +25,6 @@ import {
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
   Oracle,
-  PrivateExecutionOracle,
   UtilityExecutionOracle,
 } from '@aztec/pxe/simulator';
 import {
@@ -50,6 +50,7 @@ import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
+import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
@@ -58,6 +59,11 @@ import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
+
+// Arbitrarily set at 64 because we need a bound. Nothing inherent about it.
+export const MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY = 64;
+// Must match MAX_OFFCHAIN_EFFECT_LEN in noir-projects/aztec-nr/aztec/src/test/helpers/txe_oracles.nr.
+export const MAX_OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN;
 
 /**
  * A TXE Session can be in one of four states, which change as the test progresses and different oracles are called.
@@ -111,7 +117,7 @@ export type TXEOracleFunctionName = Exclude<
 
 export interface TXESessionStateHandler {
   /** Records the TXE oracle version reported by the Noir test code for diagnostics. */
-  setTxeOracleVersion(version: { major: number; minor: number }): void;
+  setTxeOracleVersion(major: number, minor: number): void;
 
   enterTopLevelState(): Promise<void>;
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
@@ -397,7 +403,16 @@ export class TXESession implements TXESessionStateHandler {
 
   getLastCallOffchainEffects(): { effects: Fr[][] } {
     this.lastCallInfo.queried = true;
-    return { effects: this.lastCallInfo.offchainEffects };
+    const effects = this.lastCallInfo.offchainEffects;
+
+    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
+      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
+    }
+    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
+      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
+    }
+
+    return { effects };
   }
 
   getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
@@ -405,9 +420,19 @@ export class TXESession implements TXESessionStateHandler {
     return { txHash, anchorBlockTimestamp };
   }
 
-  setTxeOracleVersion(version: { major: number; minor: number }): void {
-    this.txeOracleVersion = version;
-    this.logger.debug(`Test compiled with test oracle version ${version.major}.${version.minor}`);
+  setTxeOracleVersion(major: number, minor: number): void {
+    if (major !== TXE_ORACLE_VERSION_MAJOR) {
+      const hint =
+        major > TXE_ORACLE_VERSION_MAJOR
+          ? 'The test was compiled with a newer version of Aztec.nr than your test environment supports. Upgrade your test environment to a compatible version.'
+          : 'The test was compiled with an older version of Aztec.nr than your test environment supports. Recompile the test with a compatible version of Aztec.nr.';
+      throw new Error(
+        `Incompatible test environment version: ${hint} See https://docs.aztec.network/errors/12 (expected test oracle major version ${TXE_ORACLE_VERSION_MAJOR}, got ${major})`,
+      );
+    }
+
+    this.txeOracleVersion = { major, minor };
+    this.logger.debug(`Test compiled with test oracle version ${major}.${minor}`);
   }
 
   async enterTopLevelState() {
@@ -489,7 +514,7 @@ export class TXESession implements TXESessionStateHandler {
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
-    this.oracleHandler = new PrivateExecutionOracle({
+    this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
@@ -530,7 +555,7 @@ export class TXESession implements TXESessionStateHandler {
     // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
     this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
 
-    return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
+    return (this.oracleHandler as TXEPrivateExecutionOracle).getPrivateContextInputs();
   }
 
   async enterPublicState(contractAddress?: AztecAddress) {

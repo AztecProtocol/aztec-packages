@@ -70,25 +70,19 @@ export interface IUtilityExecutionOracle {
   getNoteHashMembershipWitness(
     anchorBlockHash: BlockHash,
     noteHash: Fr,
-  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
   getBlockHashMembershipWitness(
     anchorBlockHash: BlockHash,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
-  getNullifierMembershipWitness(
-    anchorBlockHash: BlockHash,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined>;
-  getPublicDataWitness(anchorBlockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
-  getLowNullifierMembershipWitness(
-    anchorBlockHash: BlockHash,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined>;
-  getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined>;
+  getNullifierMembershipWitness(anchorBlockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness>;
+  getPublicDataWitness(anchorBlockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness>;
+  getLowNullifierMembershipWitness(anchorBlockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness>;
+  getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader>;
   getPublicKeysAndPartialAddress(
     account: AztecAddress,
   ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined>;
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
+  getAuthWitness(messageHash: Fr): Promise<Fr[]>;
   getNotes(
     owner: AztecAddress | undefined,
     storageSlot: Fr,
@@ -160,7 +154,7 @@ export interface IUtilityExecutionOracle {
     numEntries: number,
     scope: AztecAddress,
   ): Promise<void>;
-  decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
+  decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer | undefined>;
   getSharedSecrets(address: AztecAddress, ephPksSlot: Fr, contractAddress: AztecAddress): Promise<Fr>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;

@@ -223,13 +223,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param noteHash - The note hash to find in the note hash tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public getNoteHashMembershipWitness(
+  public async getNoteHashMembershipWitness(
     blockHash: BlockHash,
     noteHash: Fr,
-  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    return this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getNoteHashMembershipWitness(blockHash, noteHash),
     );
+    if (!witness) {
+      throw new Error(
+        `Note hash ${noteHash} not found in the note hash tree at anchor block hash ${blockHash.toString()}.`,
+      );
+    }
+    return witness;
   }
 
   /**
@@ -261,13 +267,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  public getNullifierMembershipWitness(
-    blockHash: BlockHash,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    return this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+  public async getNullifierMembershipWitness(blockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier),
     );
+    if (!witness) {
+      throw new Error(`Nullifier witness not found for nullifier ${nullifier} at block hash ${blockHash.toString()}.`);
+    }
+    return witness;
   }
 
   /**
@@ -279,13 +286,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public getLowNullifierMembershipWitness(
+  public async getLowNullifierMembershipWitness(
     blockHash: BlockHash,
     nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    return this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+  ): Promise<NullifierMembershipWitness> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getLowNullifierMembershipWitness(blockHash, nullifier),
     );
+    if (!witness) {
+      throw new Error(
+        `Low nullifier witness not found for nullifier ${nullifier} at block hash ${blockHash.toString()}.`,
+      );
+    }
+    return witness;
   }
 
   /**
@@ -294,10 +307,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
+  public async getPublicDataWitness(blockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness> {
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(blockHash, () =>
       this.aztecNode.getPublicDataWitness(blockHash, leafSlot),
     );
+    if (!witness) {
+      throw new Error(`Public data witness not found for slot ${leafSlot} at block hash ${blockHash.toString()}.`);
+    }
+    return witness;
   }
 
   /**
@@ -305,7 +322,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param blockNumber - The number of a block of which to get the block header.
    * @returns Block extracted from a block with block number `blockNumber`.
    */
-  public async getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader | undefined> {
+  public async getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader> {
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
@@ -317,7 +334,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
 
     const block = await this.aztecNode.getBlock(blockNumber);
-    return block?.header;
+    if (!block?.header) {
+      throw new Error(`Block header not found for block ${blockNumber}.`);
+    }
+    return block.header;
   }
 
   /**
@@ -364,8 +384,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param messageHash - Hash of the message to authenticate.
    * @returns Authentication witness for the requested message hash, or undefined if not found.
    */
-  public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
+  public getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+    const witness = this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness;
+    if (!witness) {
+      throw new Error(`Unknown auth witness for message hash ${messageHash}`);
+    }
+    return Promise.resolve(witness);
   }
 
   /**
@@ -861,9 +885,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
-  public decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
-    const aes128 = new Aes128();
-    return aes128.decryptBufferCBC(ciphertext, iv, symKey);
+  public async decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer | undefined> {
+    try {
+      const aes128 = new Aes128();
+      return await aes128.decryptBufferCBC(ciphertext, iv, symKey);
+    } catch {
+      return undefined;
+    }
   }
 
   /**
