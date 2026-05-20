@@ -168,8 +168,7 @@ async function compileAll(
         roStorageEntry(1),
         roStorageEntry(2),
         rwStorageEntry(3),
-        rwStorageEntry(4),
-        uniformEntry(5),
+        uniformEntry(4),
       ],
     }),
     planner: device.createBindGroupLayout({
@@ -368,7 +367,7 @@ export async function runSmvpV2PairTree(opts: SmvpV2PairTreeOptions): Promise<Sm
   const M = scratch.M;
 
   device.queue.writeBuffer(scratch.metaParams, 0, new Uint32Array([num_columns, num_columns, 0, 0]));
-  device.queue.writeBuffer(scratch.activeParams, 0, new Uint32Array([input_size, 0, 0, 0]));
+  device.queue.writeBuffer(scratch.activeParams, 0, new Uint32Array([input_size, M, 0, 0]));
   device.queue.writeBuffer(scratch.plannerParams, 0, new Uint32Array([num_columns, 0, 0, 0]));
   device.queue.writeBuffer(scratch.marshalConsts, 0, new Uint32Array([M, 0, 0, 0]));
   device.queue.writeBuffer(scratch.scatterConsts, 0, new Uint32Array([M, 0, 0, 0]));
@@ -426,9 +425,8 @@ export async function runSmvpV2PairTree(opts: SmvpV2PairTreeOptions): Promise<Sm
         { binding: 0, resource: valIdxView },
         { binding: 1, resource: { buffer: point_x_buf } },
         { binding: 2, resource: { buffer: point_y_buf } },
-        { binding: 3, resource: { buffer: scratch.activeA, offset: 0, size: PG * M * PG_VEC4_BYTES } },
-        { binding: 4, resource: { buffer: scratch.activeA, offset: PG * M * PG_VEC4_BYTES, size: PG * M * PG_VEC4_BYTES } },
-        { binding: 5, resource: { buffer: scratch.activeParams } },
+        { binding: 3, resource: { buffer: scratch.activeA } },
+        { binding: 4, resource: { buffer: scratch.activeParams } },
       ],
     });
     directPass(pipelines.csrActive, activeBind, Math.ceil(input_size / wgi));
