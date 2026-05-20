@@ -90,16 +90,23 @@ describe('e2e_expiration_timestamp', () => {
 
   describe('when requesting expiration timestamp lower than the next block', () => {
     let expirationTimestamp: bigint;
+    let latestBlockTimestamp: bigint;
 
     beforeEach(async () => {
+      // The prior test's `cheatCodes.eth.warp` can invalidate a pipelined block (the proposer
+      // builds N+1 during slot N, but L1 jumped past slot N+1's deadline). The archiver then
+      // prunes that block asynchronously, opening a race where `getBlockData('latest')`
+      // resolves a block number that's deleted by the time the row is read. We cache the
+      // timestamp here so `runInvalidatesTest` doesn't need a second read mid-cycle.
       const header = (await aztecNode.getBlockData('latest'))?.header;
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
+      latestBlockTimestamp = header.globalVariables.timestamp;
       // 1n lower than two slots ahead. Under proposer pipelining the anchor block may already
       // have advanced one slot past the latest mined header, so the next slot to be mined is
       // typically two slots ahead; this expiration sits just below that slot's start.
-      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration * 2n - 1n;
+      expirationTimestamp = latestBlockTimestamp + aztecSlotDuration * 2n - 1n;
     });
 
     describe('with no enqueued public calls', () => {
@@ -142,11 +149,7 @@ describe('e2e_expiration_timestamp', () => {
     // L1 time past the expiration. Submitting the proven tx must then be rejected by the node because
     // the next slot's timestamp (derived from L1 time) is greater than the tx expiration.
     async function runInvalidatesTest(enqueuePublicCall: boolean) {
-      const header = (await aztecNode.getBlockData('latest'))?.header;
-      if (!header) {
-        throw new Error('Block header not found in invalidates-the-transaction setup');
-      }
-      const requestedExpiration = header.globalVariables.timestamp + aztecSlotDuration * 5n;
+      const requestedExpiration = latestBlockTimestamp + aztecSlotDuration * 5n;
 
       const provenTx = await proveInteraction(
         wallet,

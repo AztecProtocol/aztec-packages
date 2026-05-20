@@ -378,15 +378,6 @@ tests:
     owners:
       - *martin
 
-  # http://ci.aztec-labs.com/97be94f0ae50ea78
-  # Under proposer pipelining, the previous "invalidates the transaction" test warps L1 past the
-  # pipelined block's slot, triggering an archiver reorg. The next test's `getBlockData('latest')`
-  # races the prune and briefly returns undefined, surfacing as this thrown error at line 147.
-  - regex: "src/e2e_expiration_timestamp.test.ts"
-    error_regex: "Block header not found in invalidates-the-transaction setup"
-    owners:
-      - *palla
-
   - regex: "yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_"
     error_regex: "timeout: sending signal"
     owners:
