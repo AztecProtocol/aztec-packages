@@ -46,6 +46,7 @@
 #include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
+#include "relations/poseidon2_perm.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
@@ -62,9 +63,6 @@
 #include "relations/tx_context.hpp"
 #include "relations/tx_discard.hpp"
 #include "relations/update_check.hpp"
-
-// Optimized Relations
-#include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_address_derivation.hpp"
@@ -141,16 +139,14 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 120;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2940;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2775;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 364;
-    static constexpr size_t NUM_WIRES = 2499;
-    static constexpr size_t NUM_ALL_ENTITIES = 3424;
+    static constexpr size_t NUM_WIRES = 2334;
+    static constexpr size_t NUM_ALL_ENTITIES = 3259;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
-        // Optimized Relations
-        avm2::optimized_poseidon2_perm<FF_>,
         // Relations
         avm2::address_derivation<FF_>,
         avm2::addressing<FF_>,
@@ -194,6 +190,7 @@ struct AvmFlavorVariables {
         avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
+        avm2::poseidon2_perm<FF_>,
         avm2::public_data_check<FF_>,
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,

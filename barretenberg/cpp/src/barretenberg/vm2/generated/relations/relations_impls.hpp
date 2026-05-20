@@ -45,6 +45,7 @@
 #include "barretenberg/vm2/generated/relations/nullifier_exists_impl.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_hash_impl.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_mem_impl.hpp"
+#include "barretenberg/vm2/generated/relations/poseidon2_perm_impl.hpp"
 #include "barretenberg/vm2/generated/relations/public_data_check_impl.hpp"
 #include "barretenberg/vm2/generated/relations/public_data_squash_impl.hpp"
 #include "barretenberg/vm2/generated/relations/range_check_impl.hpp"
@@ -61,6 +62,3 @@
 #include "barretenberg/vm2/generated/relations/tx_discard_impl.hpp"
 #include "barretenberg/vm2/generated/relations/tx_impl.hpp"
 #include "barretenberg/vm2/generated/relations/update_check_impl.hpp"
-
-// Optimized Relations
-#include "barretenberg/vm2/optimized/relations/poseidon2_perm_impl.hpp"
