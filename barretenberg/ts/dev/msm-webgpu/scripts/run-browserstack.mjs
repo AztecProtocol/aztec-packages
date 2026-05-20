@@ -137,6 +137,7 @@ const pageMap = {
   "bench-planner": "/dev/msm-webgpu/bench-planner.html",
   "bench-csr-to-v2": "/dev/msm-webgpu/bench-csr-to-v2.html",
   "bench-msm-oracle": "/dev/msm-webgpu/bench-msm-oracle.html",
+  "bench-msm-oracle-prod": "/dev/msm-webgpu/bench-msm-oracle-prod.html",
   "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
   sanity: "/dev/msm-webgpu/index.html",
 };

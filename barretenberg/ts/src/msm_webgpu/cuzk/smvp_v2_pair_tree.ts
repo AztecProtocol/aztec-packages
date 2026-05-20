@@ -339,15 +339,6 @@ function destroyScratch(scratch: Scratch): void {
   scratch.v2RunParams.destroy();
 }
 
-function buildPadPair(M: number): Uint32Array {
-  const padPair = new Uint32Array(2 * PG * 2 * 4);
-  for (let i = 0; i < padPair.length; i++) {
-    padPair[i] = (0x9e3779b9 * (i + 1)) >>> 0;
-  }
-  if (padPair[0] === padPair[PG * 4]) padPair[PG * 4] ^= 1;
-  return padPair;
-}
-
 /**
  * Run the v2 pair-tree MSM bucket-accumulate for ALL pippenger windows
  * in a single GPU submit.
@@ -384,12 +375,11 @@ export async function runSmvpV2PairTree(opts: SmvpV2PairTreeOptions): Promise<Sm
   device.queue.writeBuffer(scratch.carryConsts, 0, new Uint32Array([M, M, 0, 0]));
   device.queue.writeBuffer(scratch.v2RunParams, 0, new Uint32Array([num_columns, M, 0, 0]));
 
-  const padPair = buildPadPair(M);
-  const padOff = PG * (M - 2) * PG_VEC4_BYTES;
-  device.queue.writeBuffer(scratch.activeA, padOff, padPair as BufferSource);
-  device.queue.writeBuffer(scratch.activeB, padOff, padPair as BufferSource);
-  device.queue.writeBuffer(scratch.activeA, PG * M * PG_VEC4_BYTES + padOff, padPair as BufferSource);
-  device.queue.writeBuffer(scratch.activeB, PG * M * PG_VEC4_BYTES + padOff, padPair as BufferSource);
+  // Pad pair init isn't needed under indirect dispatch: the marshal /
+  // disjoint / scatter / carry kernels only execute for thread IDs in
+  // [0, num_chunks_or_num_carries) per the planner-emitted totals, so
+  // chunk_plan / scatter_plan / carry_plan tail entries that would
+  // reference the pad slots are never read.
 
   const encoder = device.createCommandEncoder();
   let totalPasses = 0;
