@@ -392,6 +392,12 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, reps: number, R
   let levelIdx = 0;
   const levelTimings: LevelTiming[] = [];
   const dummy = device.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE });
+  // Pre-pass: enqueue plan uploads and encode all-level passes. The
+  // device queue processes the writeBuffer calls in order before the
+  // single submit; the GPU inserts barriers between dependent storage
+  // reads/writes within the encoder. One submit + one await amortises
+  // submit overhead across the entire bucket-accumulate.
+  const allPasses: PassSpec[] = [];
 
   const startTime = performance.now();
 
@@ -461,24 +467,20 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, reps: number, R
       });
     }
 
-    // Bundle this level's 4 kernel dispatches into a single command
-    // encoder + single submit + single await. Submit overhead amortises
-    // across the level's kernels.
-    const passes: PassSpec[] = [
-      { pipeline: marshalPipe, bind: marshalBind, numWgs },
-      { pipeline: disjointPipe, bind: disjointBind, numWgs },
-      { pipeline: scatterPipe, bind: scatterBind, numWgs },
-    ];
+    // Stash level's passes into the outer pass list to be timed as a
+    // single batched submit across ALL levels.
+    allPasses.push({ pipeline: marshalPipe, bind: marshalBind, numWgs });
+    allPasses.push({ pipeline: disjointPipe, bind: disjointBind, numWgs });
+    allPasses.push({ pipeline: scatterPipe, bind: scatterBind, numWgs });
     if (plan.numCarries > 0 && carryBind) {
       const carryWgs = Math.ceil(plan.numCarries / WGI);
-      passes.push({ pipeline: carryPipe, bind: carryBind, numWgs: carryWgs });
+      allPasses.push({ pipeline: carryPipe, bind: carryBind, numWgs: carryWgs });
     }
-    const levelMs = await timeBatched(device, passes);
     levelTimings.push({
       T, pairs: plan.totalPairs, carries: plan.numCarries,
-      marshal_ms: 0, disjoint_ms: 0, scatter_ms: 0, carry_ms: 0,  // unused — batched
+      marshal_ms: 0, disjoint_ms: 0, scatter_ms: 0, carry_ms: 0,
     });
-    log('info', `  L${levelIdx} batched_ms=${levelMs.toFixed(2)} (4 kernels in one submit)`);
+    log('info', `  L${levelIdx} encoded (T=${T}, pairs=${plan.totalPairs})`);
 
     // Cleanup level-local buffers.
     chunkPlanBuf.destroy();
@@ -495,7 +497,12 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, reps: number, R
     levelIdx++;
   }
 
-  const wall = performance.now() - startTime;
+  // Single batched submit for ALL levels.
+  const wallSubmit = performance.now();
+  const totalWall = await timeBatched(device, allPasses);
+  log('info', `batched ${allPasses.length} passes in one submit: ${totalWall.toFixed(2)}ms`);
+
+  const wall = performance.now() - startTime; // includes plan-build + upload + GPU time
   const sanity = await readNonZero(device, curIn, 8);
 
   bufA.destroy();
@@ -504,15 +511,15 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, reps: number, R
   tempOutBuf.destroy();
   dummy.destroy();
 
-  const nsPerInpt = (wall * 1e6) / NPTS;
+  const nsPerInpt = (totalWall * 1e6) / NPTS;
   log(
     sanity ? 'ok' : 'err',
-    `pipeline: ${levelIdx} levels, ${totalPairAdds} pair-adds, total_wall=${wall.toFixed(2)}ms, ns/in-pt=${nsPerInpt.toFixed(2)}, sanity=${sanity ? 'OK' : 'FAIL'}`,
+    `pipeline: ${levelIdx} levels, ${totalPairAdds} pair-adds, single-submit GPU wall=${totalWall.toFixed(2)}ms, total incl plan-upload=${wall.toFixed(2)}ms, ns/in-pt=${nsPerInpt.toFixed(2)}, sanity=${sanity ? 'OK' : 'FAIL'}`,
   );
 
   return {
     s: S, wgi: WGI, pairs: NPTS, buckets: BUCKETS, levels: levelIdx,
-    total_pair_adds: totalPairAdds, total_wall_ms: wall, level_timings: levelTimings,
+    total_pair_adds: totalPairAdds, total_wall_ms: totalWall, level_timings: levelTimings,
     ns_per_inpt: nsPerInpt, sanity_ok: sanity,
   };
 }
