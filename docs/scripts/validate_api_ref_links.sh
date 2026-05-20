@@ -215,8 +215,8 @@ get_pr_context() {
 # Args: $1 = message text
 send_slack_message() {
   local message=$1
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  if [[ -z "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+    echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0
   fi
 
@@ -226,7 +226,7 @@ send_slack_message() {
 
   local response
   if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data"); then
     echo "Slack API request failed (curl error)" >&2

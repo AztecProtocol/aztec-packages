@@ -25,7 +25,7 @@ set -euo pipefail
 #   GITHUB_REF - May contain PR number in format refs/pull/123/merge
 #   GITHUB_BASE_REF - Base branch name (set by GitHub Actions)
 #   GITHUB_TOKEN - GitHub token for gh CLI (set by GitHub Actions)
-#   SLACK_BOT_TOKEN - Required for sending Slack messages
+#   AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN - Required for sending Slack messages (has #docs-alerts access)
 #   CI - Set to 1 in CI environment
 
 # Only run in CI environment to avoid accidental local execution
@@ -37,8 +37,8 @@ fi
 # Function to send Slack message
 send_slack_message() {
   local message=$1
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  if [[ -z "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+    echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0
   fi
 
@@ -51,7 +51,7 @@ EOF
 )
   local response
   if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data"); then
     echo "Slack API request failed (curl error)" >&2
@@ -356,7 +356,7 @@ SLACK_CHANNEL="${SLACK_DOC_UPDATE_CHANNEL:-docs-alerts}"
 TS=""
 CHANNEL_ID=""
 
-if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+if [[ -n "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
   # Build the Slack message
   NOW=$(date -u '+%Y-%m-%d %H:%M UTC')
   SLACK_MESSAGE="📚 *Documentation References Updated*\\n\\nThe following source files changed in <$PR_URL|PR #$PR_NUMBER> are referenced by documentation:\\n"
@@ -381,7 +381,7 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
 
   # Look up channel ID
   CHANNEL_ID=$(curl -sS "https://slack.com/api/conversations.list?types=public_channel&limit=200" \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" | jq -r ".channels[] | select(.name==\"$SLACK_CHANNEL\") | .id" 2>/dev/null || echo "")
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" | jq -r ".channels[] | select(.name==\"$SLACK_CHANNEL\") | .id" 2>/dev/null || echo "")
 
   if [[ -n "$CHANNEL_ID" ]]; then
     # Search channel history for an existing message about this PR (paginate up to 1000 messages)
@@ -393,7 +393,7 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
       HISTORY_URL="https://slack.com/api/conversations.history?channel=$CHANNEL_ID&limit=200"
       [[ -n "$CURSOR" ]] && HISTORY_URL="${HISTORY_URL}&cursor=$CURSOR"
 
-      HISTORY_RESP=$(curl -sS "$HISTORY_URL" -H "Authorization: Bearer $SLACK_BOT_TOKEN")
+      HISTORY_RESP=$(curl -sS "$HISTORY_URL" -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN")
 
       EXISTING_TS=$(echo "$HISTORY_RESP" | \
         jq -r ".messages[]? | select(.text != null and .bot_id != null and (.text | contains(\"PR #$PR_NUMBER\"))) | .ts" 2>/dev/null | head -1 || echo "")
@@ -407,7 +407,7 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
       # Update existing message
       echo "Updating existing Slack message for PR #$PR_NUMBER..."
       RESP=$(curl -sS -X POST https://slack.com/api/chat.update \
-        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+        -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
         -H "Content-type: application/json" \
         -d "$(jq -n --arg c "$CHANNEL_ID" --arg ts "$EXISTING_TS" --arg t "$SLACK_MESSAGE" \
           '{channel:$c, ts:$ts, text:$t}')")
@@ -416,7 +416,7 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
       # Post new message
       echo "Sending Slack notification to #${SLACK_CHANNEL}..."
       RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
-        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+        -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
         -H "Content-type: application/json" \
         -d "$(jq -n --arg c "$CHANNEL_ID" --arg t "$SLACK_MESSAGE" '{channel:$c, text:$t}')")
       TS=$(echo "$RESP" | jq -r '.ts // empty')
@@ -433,5 +433,5 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
     echo "⚠ Could not find Slack channel #$SLACK_CHANNEL"
   fi
 else
-  echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
 fi

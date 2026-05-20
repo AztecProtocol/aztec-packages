@@ -584,7 +584,7 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
 **Requirements**:
 
 - `ANTHROPIC_API_KEY` must be set in CI secrets
-- `SLACK_BOT_TOKEN` must be set for Slack notifications
+- `AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN` must be set for Slack notifications (this bot has access to `#docs-alerts`)
 - Claude Code CLI must be installed (`@anthropic-ai/claude-code`)
 - The PR must not be a draft
 
