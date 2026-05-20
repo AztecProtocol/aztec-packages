@@ -509,7 +509,7 @@ function release_bb_github {
 
 function release {
   # Releases are triggered when REF_NAME is a valid semver (but can have a leading v).
-  # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
+  # We ensure there is a github release for our REF_NAME.
   # We derive a dist tag from our prerelease portion of our REF_NAME semver. It is latest if no prerelease.
   echo_header "release all"
   set -x
