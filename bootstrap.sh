@@ -466,6 +466,7 @@ function bench {
   mkdir -p bench-out
   bench_merge
   cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+
 }
 
 ### RELEASING ##########################################################################################################
@@ -652,6 +653,13 @@ case "$cmd" in
     export CI_FULL=1
     build_and_test full
     bench
+    ;;
+  "ci-chonk-input-update")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=0
+    prep
+    barretenberg/cpp/bootstrap.sh chonk_input_update
     ;;
   "ci-grind-test")
     export CI=1
