@@ -26,6 +26,11 @@ const sidebars = {
       id: "ai_tooling",
     },
     {
+      type: "doc",
+      id: "support",
+      label: "Get help",
+    },
+    {
       type: "link",
       label: "Aztec Starter Repository",
       href: "https://github.com/AztecProtocol/aztec-starter",

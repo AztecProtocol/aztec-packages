@@ -438,8 +438,19 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
-                to: "https://airtable.com/appMhZd7lsZS3v27R/pagxWYAHYYrnrrXmm/form",
-                label: "Join community",
+                to: "/developers/support",
+                label: "Get help & report issues",
+                className: "no-external-icon",
+              },
+              {
+                to: "https://discord.gg/aztec",
+                label: "Discord",
+                target: "_blank",
+                rel: "noopener noreferrer",
+              },
+              {
+                to: "https://forum.aztec.network",
+                label: "Forum",
                 target: "_blank",
                 rel: "noopener noreferrer",
               },
@@ -474,8 +485,16 @@ const config = {
             title: "Community",
             items: [
               {
+                label: "Get help & report issues",
+                to: "/developers/support",
+              },
+              {
                 label: "Forum",
                 href: "https://forum.aztec.network",
+              },
+              {
+                label: "Discord",
+                href: "https://discord.gg/aztec",
               },
               {
                 label: "Noir Discord",
