@@ -62,11 +62,11 @@ agent:
 
   node:
     env:
-      HARDWARE_CONCURRENCY: "32"
+      HARDWARE_CONCURRENCY: "16"
     resources:
       requests:
-        memory: "115Gi"
-        cpu: "31"
+        memory: "55Gi"
+        cpu: "15"
 
   affinity:
     nodeAffinity:
