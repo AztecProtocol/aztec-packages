@@ -213,9 +213,6 @@ type OwnP2PConfig = {
 
   /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
   skipIncomingProposals?: boolean;
-
-  /** Accept proposal gossip regardless of slot timing (for testing only). */
-  skipProposalSlotValidation?: boolean;
 };
 
 /** P2P client configuration values. */
@@ -520,10 +517,6 @@ const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
   },
   skipIncomingProposals: {
     description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
-    ...booleanConfigHelper(false),
-  },
-  skipProposalSlotValidation: {
-    description: 'Accept proposal gossip regardless of slot timing (for testing only)',
     ...booleanConfigHelper(false),
   },
   minTxPoolAgeMs: {

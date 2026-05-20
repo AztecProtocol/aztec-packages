@@ -33,6 +33,19 @@ export const pushProposedBlocksToArchiverConfigMappings: ConfigMappingsType<Push
   },
 };
 
+/** Testing-only flag to bypass proposal slot timing checks in validation and P2P gossip. */
+export interface SkipProposalSlotValidationConfig {
+  skipProposalSlotValidation?: boolean;
+}
+
+export const skipProposalSlotValidationConfigMappings: ConfigMappingsType<SkipProposalSlotValidationConfig> = {
+  skipProposalSlotValidation: {
+    description:
+      'Accept block/checkpoint proposals regardless of slot timing in validation and P2P gossip (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+};
+
 /** Validator block constraint config shared across validator-client and p2p. */
 type OwnValidatorConstraintsConfig = {
   /** Maximum L2 block gas for validation. Proposals exceeding this limit are rejected. */
@@ -45,7 +58,9 @@ type OwnValidatorConstraintsConfig = {
   validateMaxTxsPerCheckpoint?: number;
 };
 
-export type ValidatorConstraintsConfig = OwnValidatorConstraintsConfig & FishermanModeConfig;
+export type ValidatorConstraintsConfig = OwnValidatorConstraintsConfig &
+  FishermanModeConfig &
+  SkipProposalSlotValidationConfig;
 
 const ownValidatorConstraintsConfigMappings: ConfigMappingsType<OwnValidatorConstraintsConfig> = {
   validateMaxL2BlockGas: {
@@ -72,5 +87,6 @@ const ownValidatorConstraintsConfigMappings: ConfigMappingsType<OwnValidatorCons
 
 export const validatorConstraintsConfigMappings: ConfigMappingsType<ValidatorConstraintsConfig> = composeConfigMappings(
   fishermanModeConfigMappings,
+  skipProposalSlotValidationConfigMappings,
   ownValidatorConstraintsConfigMappings,
 );
