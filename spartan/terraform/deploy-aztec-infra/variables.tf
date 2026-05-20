@@ -24,49 +24,41 @@ variable "GCP_REGION" {
 variable "FULL_NODE_RESOURCE_PROFILE" {
   description = "Resource profile to use for the full node"
   type        = string
-  default     = "prod"
 }
 
 variable "P2P_BOOTSTRAP_RESOURCE_PROFILE" {
   description = "Resource profile to use for the p2p bootstrap"
   type        = string
-  default     = "prod"
 }
 
 variable "VALIDATOR_RESOURCE_PROFILE" {
   description = "Resource profile to use for the validator"
   type        = string
-  default     = "prod"
 }
 
 variable "PROVER_RESOURCE_PROFILE" {
   description = "Resource profile to use for the prover"
   type        = string
-  default     = "prod"
 }
 
 variable "RPC_RESOURCE_PROFILE" {
   description = "Resource profile to use for the rpc"
   type        = string
-  default     = "prod"
 }
 
 variable "BOT_RESOURCE_PROFILE" {
   description = "Resource profile to use for the bots"
   type        = string
-  default     = "prod"
 }
 
 variable "ARCHIVE_RESOURCE_PROFILE" {
   description = "Resource profile to use for the archive node"
   type        = string
-  default     = "prod"
 }
 
 variable "BLOB_SINK_RESOURCE_PROFILE" {
   description = "Resource profile to use for the blob sink"
   type        = string
-  default     = "prod"
 }
 
 variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {

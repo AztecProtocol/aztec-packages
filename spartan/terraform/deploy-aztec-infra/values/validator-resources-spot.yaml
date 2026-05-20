@@ -18,22 +18,3 @@ validator:
       operator: "Equal"
       value: "true"
       effect: "NoSchedule"
-
-  node:
-    resources:
-      requests:
-        cpu: "0.5"
-        memory: "2Gi"
-      limits:
-        cpu: "1.5"
-        memory: "6Gi"
-
-  statefulSet:
-    volumeClaimTemplates:
-      - metadata:
-          name: data
-        spec:
-          accessModes: [ReadWriteOnce]
-          resources:
-            requests:
-              storage: 16Gi
