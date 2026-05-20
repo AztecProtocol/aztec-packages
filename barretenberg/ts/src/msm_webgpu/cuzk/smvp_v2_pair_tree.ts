@@ -261,7 +261,12 @@ function allocScratch(
   tpb: number,
   per_thread: number,
 ): Scratch {
-  const M = input_size + 2;
+  // M = real slots (input_size) + 3 reserved tail slots: pad_left,
+  // pad_right, discard. Reserved slots aren't touched by the converter
+  // or by real bucket reductions (which only address [0, total_actives) <
+  // input_size), so the planner can safely pad-fill the last partial
+  // chunk of chunk_plan / scatter_plan with these constant indices.
+  const M = input_size + 3;
   const maxChunks = Math.max(1, Math.ceil(input_size / 2 / s) + 1);
 
   const mk = (bytes: number, extra: GPUBufferUsageFlags = 0): GPUBuffer =>
@@ -366,19 +371,34 @@ export async function runSmvpV2PairTree(opts: SmvpV2PairTreeOptions): Promise<Sm
   const scratch = allocScratch(device, num_columns, input_size, s, max_levels, tpb, per_thread);
   const M = scratch.M;
 
+  const padLeft = input_size;
+  const padRight = input_size + 1;
+  const discard = input_size + 2;
   device.queue.writeBuffer(scratch.metaParams, 0, new Uint32Array([num_columns, num_columns, 0, 0]));
   device.queue.writeBuffer(scratch.activeParams, 0, new Uint32Array([input_size, M, 0, 0]));
-  device.queue.writeBuffer(scratch.plannerParams, 0, new Uint32Array([num_columns, 0, 0, 0]));
+  device.queue.writeBuffer(scratch.plannerParams, 0, new Uint32Array([num_columns, padLeft, padRight, discard]));
   device.queue.writeBuffer(scratch.marshalConsts, 0, new Uint32Array([M, 0, 0, 0]));
   device.queue.writeBuffer(scratch.scatterConsts, 0, new Uint32Array([M, 0, 0, 0]));
   device.queue.writeBuffer(scratch.carryConsts, 0, new Uint32Array([M, M, 0, 0]));
   device.queue.writeBuffer(scratch.v2RunParams, 0, new Uint32Array([num_columns, M, 0, 0]));
 
-  // Pad pair init isn't needed under indirect dispatch: the marshal /
-  // disjoint / scatter / carry kernels only execute for thread IDs in
-  // [0, num_chunks_or_num_carries) per the planner-emitted totals, so
-  // chunk_plan / scatter_plan / carry_plan tail entries that would
-  // reference the pad slots are never read.
+  // Pad pair init. The planner's tail pad-fill writes chunk_plan entries
+  // (padLeft, padRight) and scatter_plan entries = discard for the
+  // unused slots of the last partial chunk. The disjoint kernel will
+  // then compute a (garbage) affine add of active_sums[padLeft] and
+  // active_sums[padRight] and scatter the result to
+  // active_sums_new[discard]. Pad slots must have distinct x so the
+  // affine-add formula doesn't divide by zero. Discard slot is a
+  // never-read tail slot reserved beyond the real bucket data.
+  const padPair = new Uint32Array(2 * PG * 4);
+  for (let i = 0; i < padPair.length; i++) padPair[i] = (0x9e3779b9 * (i + 1)) >>> 0;
+  if (padPair[0] === padPair[PG * 4]) padPair[PG * 4] ^= 1;
+  const planeXPadByteOff = PG * padLeft * PG_VEC4_BYTES;
+  const planeYPadByteOff = PG * M * PG_VEC4_BYTES + PG * padLeft * PG_VEC4_BYTES;
+  device.queue.writeBuffer(scratch.activeA, planeXPadByteOff, padPair as BufferSource);
+  device.queue.writeBuffer(scratch.activeA, planeYPadByteOff, padPair as BufferSource);
+  device.queue.writeBuffer(scratch.activeB, planeXPadByteOff, padPair as BufferSource);
+  device.queue.writeBuffer(scratch.activeB, planeYPadByteOff, padPair as BufferSource);
 
   const encoder = device.createCommandEncoder();
   let totalPasses = 0;

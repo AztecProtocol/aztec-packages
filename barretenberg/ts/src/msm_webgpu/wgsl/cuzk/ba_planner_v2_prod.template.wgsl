@@ -55,6 +55,9 @@ const WGI: u32 = {{ wgi }}u;
 @group(0) @binding(7) var<storage, read_write> totals:       array<u32>;
 @group(0) @binding(8) var<uniform>             params:       vec4<u32>;
 // params.x = B
+// params.y = pad_left_idx  (active_sums index used for chunk_plan tail pad left operand)
+// params.z = pad_right_idx (chunk_plan tail pad right operand; must differ from pad_left_idx in x)
+// params.w = discard_idx   (scatter_plan tail dst; slot that the next level never reads)
 
 var<workgroup> pair_scan:  array<u32, {{ workgroup_size }}>;
 var<workgroup> carry_scan: array<u32, {{ workgroup_size }}>;
@@ -122,12 +125,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         totals[0] = tp;
         totals[1] = tc;
         totals[2] = tn;
-        let num_chunks = max(1u, (tp + S - 1u) / S);
+        let num_chunks = (tp + S - 1u) / S;
         totals[3] = num_chunks;
-        totals[4] = max(1u, (num_chunks + WGI - 1u) / WGI);
+        totals[4] = (num_chunks + WGI - 1u) / WGI;
         totals[5] = 1u;
         totals[6] = 1u;
-        totals[7] = max(1u, (tc + WGI - 1u) / WGI);
+        totals[7] = (tc + WGI - 1u) / WGI;
         totals[8] = 1u;
         totals[9] = 1u;
     }
@@ -164,6 +167,21 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         local_pair_off += pc;
         local_carry_off += cf;
         local_new_off += nc;
+    }
+
+    workgroupBarrier();
+    if (tid == TPB - 1u) {
+        let tp = pair_scan[tid];
+        let num_chunks = (tp + S - 1u) / S;
+        let pad_end = num_chunks * S;
+        let pad_left = params.y;
+        let pad_right = params.z;
+        let discard = params.w;
+        for (var i: u32 = tp; i < pad_end; i = i + 1u) {
+            chunk_plan[2u * i + 0u] = pad_left;
+            chunk_plan[2u * i + 1u] = pad_right;
+            scatter_plan[i] = discard;
+        }
     }
 
     {{{ recompile }}}
