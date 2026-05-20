@@ -519,7 +519,12 @@ function release {
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
 
+  # release-image is first so arm64 can stitch the multi-arch manifest while amd64
+  # is still in the npm/cargo/github publish loop. arm64 otherwise idles for
+  # ~11 minutes in release-image/bootstrap.sh's "Waiting for amd64 image to be
+  # pushed..." poll.
   projects=(
+    release-image
     barretenberg/cpp
     barretenberg/ts
     barretenberg/rust
@@ -530,7 +535,6 @@ function release {
     boxes
     aztec-up
     playground
-    release-image
   )
   if [ $(arch) == arm64 ]; then
     projects=(
