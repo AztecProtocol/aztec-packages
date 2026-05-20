@@ -28,6 +28,15 @@ pass() { echo "${GREEN}✓${NC} $1"; ((CHECKED++)) || true; }
 ROOT_AGENTS="$ROOT/.claude/agents"
 [[ -d "$ROOT_AGENTS" ]] || { fail "root .claude/agents missing at $ROOT_AGENTS"; exit 1; }
 
+ROOT_AGENTS_MD="$ROOT/AGENTS.md"
+if [[ ! -L "$ROOT_AGENTS_MD" ]]; then
+  fail "AGENTS.md is not a symlink to CLAUDE.md"
+elif [[ "$(readlink "$ROOT_AGENTS_MD")" != "CLAUDE.md" ]]; then
+  fail "AGENTS.md points at $(readlink "$ROOT_AGENTS_MD"), expected CLAUDE.md"
+else
+  pass "AGENTS.md -> CLAUDE.md"
+fi
+
 # Every subdir .claude/ (excluding the root one) must expose an agents entry
 # that resolves to the same inode as the root agents/ directory.
 while IFS= read -r dir; do
@@ -62,8 +71,35 @@ done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path
 echo
 if (( FAIL == 0 )); then
   echo "${GREEN}All $CHECKED subdir .claude/ directories expose agents/ correctly.${NC}"
-  exit 0
 else
   echo "${RED}$FAIL subdir .claude/ directories are missing or have broken agents symlinks.${NC}"
+  exit 1
+fi
+
+while IFS= read -r dir; do
+  case "$dir" in
+    "$ROOT"/node_modules/*|*"/node_modules/"*) continue;;
+    "$ROOT"/noir/noir-repo/*) continue;;
+  esac
+  codex="$(dirname "$dir")/.codex"
+  if [[ ! -L "$codex" ]]; then
+    fail "${codex#$ROOT/} is missing or is not a symlink to .claude"
+    continue
+  fi
+  resolved=$(cd "$(dirname "$codex")" && cd "$(readlink "$codex")" 2>/dev/null && pwd -P) || resolved=""
+  claude_resolved=$(cd "$dir" && pwd -P)
+  if [[ "$resolved" != "$claude_resolved" ]]; then
+    fail "${codex#$ROOT/} resolves to $resolved, expected $claude_resolved"
+    continue
+  fi
+  pass "${codex#$ROOT/}"
+done < <(find "$ROOT" -type d -name .claude -not -path "$ROOT/noir/*" -not -path "$ROOT/**/node_modules/*")
+
+echo
+if (( FAIL == 0 )); then
+  echo "${GREEN}All checked .codex symlinks point at their sibling .claude directories.${NC}"
+  exit 0
+else
+  echo "${RED}$FAIL .claude/.codex layout checks failed.${NC}"
   exit 1
 fi
