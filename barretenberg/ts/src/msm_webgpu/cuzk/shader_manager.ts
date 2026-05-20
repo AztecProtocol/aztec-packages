@@ -13,6 +13,7 @@ import {
   ba_pair_disjoint_bench as ba_pair_disjoint_bench_shader,
   ba_pair_disjoint_tree_bench as ba_pair_disjoint_tree_bench_shader,
   ba_planner_bench as ba_planner_bench_shader,
+  ba_planner_v2_bench as ba_planner_v2_bench_shader,
   ba_scatter_pairs_bench as ba_scatter_pairs_bench_shader,
   ba_tail_reduce_bench as ba_tail_reduce_bench_shader,
   ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
@@ -819,6 +820,25 @@ ${packLines.join('\n')}
         montgomery_product_funcs: this.mont_product_src,
         field_funcs, fr_pow_funcs, bigint_by_funcs, by_inverse_a_funcs,
       },
+    );
+  }
+
+  /**
+   * v2 GPU planner: single-kernel scan + scatter. One workgroup of TPB
+   * threads handles all B buckets via per-thread local scan + workgroup-
+   * wide Hillis-Steele scan + per-thread scatter. No atomics, no host
+   * sync, single dispatch. Scales to B <= TPB * PER_THREAD within one
+   * workgroup (e.g. 256 * 32 = 8192 buckets).
+   */
+  public gen_ba_planner_v2_bench_shader(workgroup_size: number, per_thread: number, s: number, pair_cap: number = 64): string {
+    if (workgroup_size <= 0 || per_thread <= 0 || s <= 0 || pair_cap <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(per_thread) || !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
+      throw new Error(`gen_ba_planner_v2_bench_shader: positive integer args required`);
+    }
+    return mustache.render(
+      ba_planner_v2_bench_shader,
+      { workgroup_size, per_thread, pair_cap, s, num_words: this.num_words, recompile: this.recompile },
+      { structs },
     );
   }
 
