@@ -42,6 +42,7 @@ import {
   convert_points_only as convert_points_only_shader,
   csr_to_v2_active_sums as csr_to_v2_active_sums_shader,
   csr_to_v2_meta as csr_to_v2_meta_shader,
+  v2_to_running as v2_to_running_shader,
   decompose_scalars_signed_only as decompose_scalars_signed_only_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
   divsteps_bench as divsteps_bench_shader,
@@ -908,6 +909,25 @@ ${packLines.join('\n')}
     }
     return mustache.render(
       csr_to_v2_active_sums_shader,
+      { workgroup_size, recompile: this.recompile },
+      {},
+    );
+  }
+
+  /**
+   * Boundary adapter for the v2 pair-tree -> production finalize: copies
+   * the per-bucket reduced packed point out of the v2 combined-SoA
+   * active_sums buffer into the production running_x / running_y layout
+   * and writes bucket_active. One thread per (subtask, bucket_local);
+   * the caller binds running_x / running_y / bucket_active sub-views
+   * offset by subtask_idx * num_columns.
+   */
+  public gen_v2_to_running_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_v2_to_running_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(
+      v2_to_running_shader,
       { workgroup_size, recompile: this.recompile },
       {},
     );
