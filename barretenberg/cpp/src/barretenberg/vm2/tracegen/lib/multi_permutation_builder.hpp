@@ -96,7 +96,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
     // We need an extra "destination TABLE selector" which is the selector of the whole table.
     Column dst_table_selector;
 
-    // In a permutation (or lookup) you are trying to find a src suple of values
+    // In a permutation (or lookup) you are trying to find a src tuple of values
     // (a, b, c, ...) in some destination table. That is, you want a row number in the destination table.
     // The following map contains (a, b, c, ...) -> [row_number_1, row_number_2, ...].
     // That is, you can efficiently find all the rows in the destination table that match the src tuple.
