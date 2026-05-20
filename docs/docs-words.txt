@@ -360,6 +360,7 @@ unncessary
 unreverted
 unrleated
 unshield
+unspendable
 unstake
 unstakes
 usermod

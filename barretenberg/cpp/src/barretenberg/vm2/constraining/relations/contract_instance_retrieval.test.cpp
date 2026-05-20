@@ -48,10 +48,10 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
         .immutables_hash = FF(0x22222222ULL),
         .public_keys =
             PublicKeys{
-                .nullifier_key = { FF(0x100), FF(0x101) },
+                .nullifier_key_hash = FF(0x100),
                 .incoming_viewing_key = { FF(0x200), FF(0x201) },
-                .outgoing_viewing_key = { FF(0x300), FF(0x301) },
-                .tagging_key = { FF(0x400), FF(0x401) },
+                .outgoing_viewing_key_hash = FF(0x300),
+                .tagging_key_hash = FF(0x400),
             },
     };
 }
@@ -74,14 +74,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
     const auto original_class_id = FF(0xcafebabeULL);
     const auto init_hash = FF(0x11111111ULL);
     const auto immutables_hash = FF(0x22222222ULL);
-    const auto nullifier_key_x = FF(0x100);
-    const auto nullifier_key_y = FF(0x101);
+    const auto nullifier_key_hash = FF(0x100);
     const auto incoming_viewing_key_x = FF(0x200);
     const auto incoming_viewing_key_y = FF(0x201);
-    const auto outgoing_viewing_key_x = FF(0x300);
-    const auto outgoing_viewing_key_y = FF(0x301);
-    const auto tagging_key_x = FF(0x400);
-    const auto tagging_key_y = FF(0x401);
+    const auto outgoing_viewing_key_hash = FF(0x300);
+    const auto tagging_key_hash = FF(0x400);
 
     // Test complete valid trace with all constraints
     TestTraceContainer trace({
@@ -100,14 +97,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
           { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
           { C::contract_instance_retrieval_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
           { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
-          { C::contract_instance_retrieval_nullifier_key_x, nullifier_key_x },
-          { C::contract_instance_retrieval_nullifier_key_y, nullifier_key_y },
+          { C::contract_instance_retrieval_nullifier_key_hash, nullifier_key_hash },
           { C::contract_instance_retrieval_incoming_viewing_key_x, incoming_viewing_key_x },
           { C::contract_instance_retrieval_incoming_viewing_key_y, incoming_viewing_key_y },
-          { C::contract_instance_retrieval_outgoing_viewing_key_x, outgoing_viewing_key_x },
-          { C::contract_instance_retrieval_outgoing_viewing_key_y, outgoing_viewing_key_y },
-          { C::contract_instance_retrieval_tagging_key_x, tagging_key_x },
-          { C::contract_instance_retrieval_tagging_key_y, tagging_key_y },
+          { C::contract_instance_retrieval_outgoing_viewing_key_hash, outgoing_viewing_key_hash },
+          { C::contract_instance_retrieval_tagging_key_hash, tagging_key_hash },
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
@@ -156,18 +150,14 @@ TEST(ContractInstanceRetrievalConstrainingTest, MultipleInstancesTrace)
             { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
             { C::contract_instance_retrieval_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
             { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
-            { C::contract_instance_retrieval_nullifier_key_x, contract_instance.public_keys.nullifier_key.x },
-            { C::contract_instance_retrieval_nullifier_key_y, contract_instance.public_keys.nullifier_key.y },
+            { C::contract_instance_retrieval_nullifier_key_hash, contract_instance.public_keys.nullifier_key_hash },
             { C::contract_instance_retrieval_incoming_viewing_key_x,
               contract_instance.public_keys.incoming_viewing_key.x },
             { C::contract_instance_retrieval_incoming_viewing_key_y,
               contract_instance.public_keys.incoming_viewing_key.y },
-            { C::contract_instance_retrieval_outgoing_viewing_key_x,
-              contract_instance.public_keys.outgoing_viewing_key.x },
-            { C::contract_instance_retrieval_outgoing_viewing_key_y,
-              contract_instance.public_keys.outgoing_viewing_key.y },
-            { C::contract_instance_retrieval_tagging_key_x, contract_instance.public_keys.tagging_key.x },
-            { C::contract_instance_retrieval_tagging_key_y, contract_instance.public_keys.tagging_key.y },
+            { C::contract_instance_retrieval_outgoing_viewing_key_hash,
+              contract_instance.public_keys.outgoing_viewing_key_hash },
+            { C::contract_instance_retrieval_tagging_key_hash, contract_instance.public_keys.tagging_key_hash },
             { C::contract_instance_retrieval_deployer_protocol_contract_address,
               CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
             // Protocol Contract conditionals
@@ -277,14 +267,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
           { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
           { C::contract_instance_retrieval_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
           { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
-          { C::contract_instance_retrieval_nullifier_key_x, max_field },
-          { C::contract_instance_retrieval_nullifier_key_y, max_field },
+          { C::contract_instance_retrieval_nullifier_key_hash, max_field },
           { C::contract_instance_retrieval_incoming_viewing_key_x, max_field },
           { C::contract_instance_retrieval_incoming_viewing_key_y, max_field },
-          { C::contract_instance_retrieval_outgoing_viewing_key_x, max_field },
-          { C::contract_instance_retrieval_outgoing_viewing_key_y, max_field },
-          { C::contract_instance_retrieval_tagging_key_x, max_field },
-          { C::contract_instance_retrieval_tagging_key_y, max_field },
+          { C::contract_instance_retrieval_outgoing_viewing_key_hash, max_field },
+          { C::contract_instance_retrieval_tagging_key_hash, max_field },
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
@@ -473,14 +460,12 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
             { C::address_derivation_class_id, contract_instance_data.original_contract_class_id },
             { C::address_derivation_init_hash, contract_instance_data.initialization_hash },
             { C::address_derivation_immutables_hash, contract_instance_data.immutables_hash },
-            { C::address_derivation_nullifier_key_x, contract_instance_data.public_keys.nullifier_key.x },
-            { C::address_derivation_nullifier_key_y, contract_instance_data.public_keys.nullifier_key.y },
+            { C::address_derivation_nullifier_key_hash, contract_instance_data.public_keys.nullifier_key_hash },
             { C::address_derivation_incoming_viewing_key_x, contract_instance_data.public_keys.incoming_viewing_key.x },
             { C::address_derivation_incoming_viewing_key_y, contract_instance_data.public_keys.incoming_viewing_key.y },
-            { C::address_derivation_outgoing_viewing_key_x, contract_instance_data.public_keys.outgoing_viewing_key.x },
-            { C::address_derivation_outgoing_viewing_key_y, contract_instance_data.public_keys.outgoing_viewing_key.y },
-            { C::address_derivation_tagging_key_x, contract_instance_data.public_keys.tagging_key.x },
-            { C::address_derivation_tagging_key_y, contract_instance_data.public_keys.tagging_key.y },
+            { C::address_derivation_outgoing_viewing_key_hash,
+              contract_instance_data.public_keys.outgoing_viewing_key_hash },
+            { C::address_derivation_tagging_key_hash, contract_instance_data.public_keys.tagging_key_hash },
             // For update check lookup
             { C::update_check_sel, 1 },
             { C::update_check_address, contract_address },
@@ -553,14 +538,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
                   { C::address_derivation_class_id, 0 },        // zero since nullifier doesn't exist
                   { C::address_derivation_init_hash, 0 },       // zero since nullifier doesn't exist
                   { C::address_derivation_immutables_hash, 0 }, // zero since nullifier doesn't exist
-                  { C::address_derivation_nullifier_key_x, 0 },
-                  { C::address_derivation_nullifier_key_y, 0 },
+                  { C::address_derivation_nullifier_key_hash, 0 },
                   { C::address_derivation_incoming_viewing_key_x, 0 },
                   { C::address_derivation_incoming_viewing_key_y, 0 },
-                  { C::address_derivation_outgoing_viewing_key_x, 0 },
-                  { C::address_derivation_outgoing_viewing_key_y, 0 },
-                  { C::address_derivation_tagging_key_x, 0 },
-                  { C::address_derivation_tagging_key_y, 0 },
+                  { C::address_derivation_outgoing_viewing_key_hash, 0 },
+                  { C::address_derivation_tagging_key_hash, 0 },
                   // For update check lookup (only populated when nullifier exists)
                   { C::update_check_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::update_check_address, contract_address },
@@ -635,14 +617,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenAddressZero)
                   { C::address_derivation_class_id, 0 },        // zero since nullifier doesn't exist
                   { C::address_derivation_init_hash, 0 },       // zero since nullifier doesn't exist
                   { C::address_derivation_immutables_hash, 0 }, // zero since nullifier doesn't exist
-                  { C::address_derivation_nullifier_key_x, 0 },
-                  { C::address_derivation_nullifier_key_y, 0 },
+                  { C::address_derivation_nullifier_key_hash, 0 },
                   { C::address_derivation_incoming_viewing_key_x, 0 },
                   { C::address_derivation_incoming_viewing_key_y, 0 },
-                  { C::address_derivation_outgoing_viewing_key_x, 0 },
-                  { C::address_derivation_outgoing_viewing_key_y, 0 },
-                  { C::address_derivation_tagging_key_x, 0 },
-                  { C::address_derivation_tagging_key_y, 0 },
+                  { C::address_derivation_outgoing_viewing_key_hash, 0 },
+                  { C::address_derivation_tagging_key_hash, 0 },
                   // For update check lookup (only populated when nullifier exists)
                   { C::update_check_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::update_check_address, contract_address },
@@ -726,18 +705,14 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
                 { C::address_derivation_class_id, contract_instance_data.original_contract_class_id },
                 { C::address_derivation_init_hash, contract_instance_data.initialization_hash },
                 { C::address_derivation_immutables_hash, contract_instance_data.immutables_hash },
-                { C::address_derivation_nullifier_key_x, contract_instance_data.public_keys.nullifier_key.x },
-                { C::address_derivation_nullifier_key_y, contract_instance_data.public_keys.nullifier_key.y },
+                { C::address_derivation_nullifier_key_hash, contract_instance_data.public_keys.nullifier_key_hash },
                 { C::address_derivation_incoming_viewing_key_x,
                   contract_instance_data.public_keys.incoming_viewing_key.x },
                 { C::address_derivation_incoming_viewing_key_y,
                   contract_instance_data.public_keys.incoming_viewing_key.y },
-                { C::address_derivation_outgoing_viewing_key_x,
-                  contract_instance_data.public_keys.outgoing_viewing_key.x },
-                { C::address_derivation_outgoing_viewing_key_y,
-                  contract_instance_data.public_keys.outgoing_viewing_key.y },
-                { C::address_derivation_tagging_key_x, contract_instance_data.public_keys.tagging_key.x },
-                { C::address_derivation_tagging_key_y, contract_instance_data.public_keys.tagging_key.y },
+                { C::address_derivation_outgoing_viewing_key_hash,
+                  contract_instance_data.public_keys.outgoing_viewing_key_hash },
+                { C::address_derivation_tagging_key_hash, contract_instance_data.public_keys.tagging_key_hash },
                 // For update check lookup (only when nullifier exists)
                 { C::update_check_sel, 1 },
                 { C::update_check_address, FF(base_address + i) },

@@ -165,10 +165,10 @@ ContractInstance random_contract_instance()
                                   .initialization_hash = FF::random_element(),
                                   .immutables_hash = FF::random_element(),
                                   .public_keys = PublicKeys{
-                                      .nullifier_key = AffinePoint::random_element(),
+                                      .nullifier_key_hash = FF::random_element(),
                                       .incoming_viewing_key = AffinePoint::random_element(),
-                                      .outgoing_viewing_key = AffinePoint::random_element(),
-                                      .tagging_key = AffinePoint::random_element(),
+                                      .outgoing_viewing_key_hash = FF::random_element(),
+                                      .tagging_key_hash = FF::random_element(),
                                   } };
     return instance;
 }

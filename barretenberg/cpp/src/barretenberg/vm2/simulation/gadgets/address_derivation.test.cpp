@@ -124,7 +124,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     EXPECT_THROW(address_derivation.assert_derivation(derived_address + 1, instance), std::runtime_error);
 
     // Should fail on mutated instance for unseen address.
-    instance.public_keys.nullifier_key = AffinePoint::one();
+    instance.public_keys.nullifier_key_hash = FF(0xdeadbeef);
 
     public_keys_hash = hash_public_keys(instance.public_keys);
     preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address };

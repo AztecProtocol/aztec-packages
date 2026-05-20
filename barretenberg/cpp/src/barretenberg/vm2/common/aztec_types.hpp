@@ -85,16 +85,21 @@ enum class ContractInstanceMember : uint8_t {
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////
 
+// Only `incoming_viewing_key` is exposed as a point (since address derivation
+// needs the curve point in-circuit); the other three keys are exposed as their hashes.
 struct PublicKeys {
-    AffinePoint nullifier_key;
+    FF nullifier_key_hash;
     AffinePoint incoming_viewing_key;
-    AffinePoint outgoing_viewing_key;
-    AffinePoint tagging_key;
+    FF outgoing_viewing_key_hash;
+    FF tagging_key_hash;
 
     std::vector<FF> to_fields() const
     {
-        return { nullifier_key.x,        nullifier_key.y,        incoming_viewing_key.x, incoming_viewing_key.y,
-                 outgoing_viewing_key.x, outgoing_viewing_key.y, tagging_key.x,          tagging_key.y };
+        return { nullifier_key_hash,
+                 incoming_viewing_key.x,
+                 incoming_viewing_key.y,
+                 outgoing_viewing_key_hash,
+                 tagging_key_hash };
     }
 
     bool operator==(const PublicKeys& other) const = default;
@@ -103,14 +108,14 @@ struct PublicKeys {
     // TODO(fcarreiro): solve with macro
     void msgpack(auto pack_fn)
     {
-        pack_fn("masterNullifierPublicKey",
-                nullifier_key,
-                "masterIncomingViewingPublicKey",
+        pack_fn("npkMHash",
+                nullifier_key_hash,
+                "ivpkM",
                 incoming_viewing_key,
-                "masterOutgoingViewingPublicKey",
-                outgoing_viewing_key,
-                "masterTaggingPublicKey",
-                tagging_key);
+                "ovpkMHash",
+                outgoing_viewing_key_hash,
+                "tpkMHash",
+                tagging_key_hash);
     }
 };
 
