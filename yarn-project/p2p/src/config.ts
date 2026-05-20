@@ -20,9 +20,11 @@ import {
   type AllowedElement,
   type ChainConfig,
   type SequencerConfig,
+  type SlashDataWithholdingToleranceSlotsConfig,
   type ValidatorConstraintsConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
+  slashDataWithholdingToleranceSlotsConfigMappings,
   validatorConstraintsConfigMappings,
 } from '@aztec/stdlib/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
@@ -195,12 +197,6 @@ type OwnP2PConfig = {
   minTxPoolAgeMs: number;
 
   /**
-   * Number of full L2 slots to wait after a checkpoint's slot before declaring its txs missing
-   * for data-withholding slashing.
-   */
-  slashDataWithholdingToleranceSlots: number;
-
-  /**
    * Number of L2 slots after a mined block's slot to keep collecting its missing txs. Clamped
    * up so that collection always runs at least until the data-withholding slash verdict is
    * rendered (`block.slot + slashDataWithholdingToleranceSlots + 1`). Defaults to undefined,
@@ -217,6 +213,7 @@ type OwnP2PConfig = {
 
 /** P2P client configuration values. */
 export type P2PConfig = OwnP2PConfig &
+  SlashDataWithholdingToleranceSlotsConfig &
   P2PReqRespConfig &
   BatchTxRequesterConfig &
   ChainConfig &
@@ -524,12 +521,6 @@ const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
   },
-  slashDataWithholdingToleranceSlots: {
-    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
-    description:
-      'L2 slots to wait after a checkpoint slot before declaring its txs missing. Drives both the data-withholding slasher check and the missing-tx collection deadline.',
-    ...numberConfigHelper(3),
-  },
   p2pMissingTxCollectionDeadlineSlots: {
     env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_SLOTS',
     description:
@@ -546,6 +537,7 @@ const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = composeConfigMappings(
   ownP2PConfigMappings,
+  slashDataWithholdingToleranceSlotsConfigMappings,
   sharedSequencerConfigMappings,
   p2pReqRespConfigMappings,
   batchTxRequesterConfigMappings,
