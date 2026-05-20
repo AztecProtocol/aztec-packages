@@ -135,8 +135,9 @@ function buildL0WithRealPoints(
 
   const cursor = new Uint32Array(B);
   const writeElem = (planeIdx: number, dstIdx: number, words: Uint32Array, srcOff: number) => {
+    const planeBase = planeIdx * PG * M;
     for (let v = 0; v < PG; v++) {
-      const base = ((planeIdx * PG + v) * M + dstIdx) * 4;
+      const base = (planeBase + PG * dstIdx + v) * 4;
       buf[base + 0] = words[srcOff + 4 * v + 0];
       buf[base + 1] = words[srcOff + 4 * v + 1];
       buf[base + 2] = words[srcOff + 4 * v + 2];
@@ -481,9 +482,11 @@ async function runOracle(device: GPUDevice, sm: ShaderManager, R: bigint, Rinv: 
   const decodeAt = (slot: number): { x_mont: bigint; y_mont: bigint } => {
     const xWords = new Uint32Array(8);
     const yWords = new Uint32Array(8);
+    const planeBaseX = 0 * PG * M;
+    const planeBaseY = 1 * PG * M;
     for (let v = 0; v < PG; v++) {
-      const baseX = ((0 * PG + v) * M + slot) * 4;
-      const baseY = ((1 * PG + v) * M + slot) * 4;
+      const baseX = (planeBaseX + PG * slot + v) * 4;
+      const baseY = (planeBaseY + PG * slot + v) * 4;
       xWords[4 * v + 0] = result[baseX + 0];
       xWords[4 * v + 1] = result[baseX + 1];
       xWords[4 * v + 2] = result[baseX + 2];
