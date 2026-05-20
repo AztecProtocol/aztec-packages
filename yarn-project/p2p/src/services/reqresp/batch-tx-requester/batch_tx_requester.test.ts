@@ -10,7 +10,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { type BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
-import { Tx, TxArray, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -26,15 +26,11 @@ import { BatchTxRequester } from './batch_tx_requester.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD, DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { BatchTxRequesterLibP2PService, IPeerPenalizer } from './interface.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
-import type { IBatchRequestTxValidator } from './tx_validator.js';
 
 /** Mock tx validator for testing that always returns valid */
-class AlwaysValidTxValidator implements IBatchRequestTxValidator {
-  validateRequestedTx(_tx: Tx): Promise<TxValidationResult> {
+class AlwaysValidTxValidator implements TxValidator {
+  validateTx(_tx: Tx): Promise<TxValidationResult> {
     return Promise.resolve({ result: 'valid' });
-  }
-  validateRequestedTxs(txs: Tx[]): Promise<TxValidationResult[]> {
-    return Promise.resolve(txs.map(() => ({ result: 'valid' })));
   }
 }
 
@@ -49,7 +45,7 @@ describe('BatchTxRequester', () => {
   let connectionSampler: MockProxy<ConnectionSampler>;
   let reqResp: MockProxy<ReqRespInterface>;
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
-  let txValidator: IBatchRequestTxValidator;
+  let txValidator: TxValidator;
 
   beforeEach(async () => {
     logger = createLogger('test');
@@ -1191,13 +1187,12 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([2, 3, 7]); // Mark transactions at indices 2, 3, and 7 as invalid
 
-      const customValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const customValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => customValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
@@ -1271,13 +1266,12 @@ describe('BatchTxRequester', () => {
       // Validator that rejects transactions at specific indices
       // Even indices are rejected, odd indices are accepted
       const invalidTxIndices = new Set([0, 2, 4, 6, 8, 10]);
-      const mixedValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const mixedValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => mixedValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
@@ -1329,8 +1323,8 @@ describe('BatchTxRequester', () => {
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
 
       // Validator that throws errors for specific transactions
-      const throwingValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const throwingValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
 
           // Throw error for transactions at indices 1 and 3
@@ -1345,7 +1339,6 @@ describe('BatchTxRequester', () => {
 
           return Promise.resolve({ result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => throwingValidator.validateRequestedTx(tx))),
       };
 
       const peerTransactions = new Map([[peer.toString(), Array.from({ length: txCount }, (_, i) => i)]]);
@@ -1698,13 +1691,12 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([1, 6]); // Mark some transactions as invalid
 
-      const customValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const customValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => customValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
