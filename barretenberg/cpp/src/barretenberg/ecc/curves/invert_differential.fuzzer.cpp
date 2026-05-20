@@ -9,7 +9,7 @@
  * different ways:
  *
  *   - A: `pow(modulus_minus_two)` — Fermat's little theorem (modexp).
- *   - B: `bernstein_yang::invert_vt_safegcd(non_mont, p, p_inv_62)` — variable-time safegcd.
+ *   - B: `bernstein_yang::invert_bernsteinyang19(non_mont, p, p_inv_62)` — variable-time safegcd.
  *
  * Results are compared in canonical (non-Montgomery) form.  Any discrepancy
  * triggers an abort with full diagnostic output (field type, input, both
@@ -86,9 +86,9 @@ template <typename Field> static void differential_check_inverse(const Field& a_
     Field fermat_inv = a_mont.pow(Field::modulus_minus_two);
 
     // B: Bernstein-Yang safegcd, called with the raw (non-Montgomery) value.
-    constexpr uint64_t p_inv_62 = bernstein_yang::p_inv_62_from_r_inv(Field::Params::r_inv);
+    constexpr uint64_t p_inv_62 = bernstein_yang::p_inv_from_r_inv(Field::Params::r_inv);
     constexpr uint256_t p_uint = Field::modulus;
-    uint256_t by_inv_raw = bernstein_yang::invert_vt_safegcd(a_raw, p_uint, p_inv_62);
+    uint256_t by_inv_raw = bernstein_yang::invert_bernsteinyang19(a_raw, p_uint, p_inv_62);
     // Lift back into Montgomery form so we can compare field values directly.
     Field by_inv{ by_inv_raw.data[0], by_inv_raw.data[1], by_inv_raw.data[2], by_inv_raw.data[3] };
     by_inv.self_to_montgomery_form();
