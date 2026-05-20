@@ -858,35 +858,20 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getPendingTaggedLogs(
-    foreignPendingTaggedLogArrayBaseSlot: ForeignCallSingle,
-    foreignScope: ForeignCallSingle,
-  ) {
-    const pendingTaggedLogArrayBaseSlot = fromSingle(foreignPendingTaggedLogArrayBaseSlot);
+  async aztec_utl_getPendingTaggedLogs(foreignScope: ForeignCallSingle) {
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
-
-    await this.handlerAsUtility().getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot, scope);
-
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_getPendingTaggedLogs_v2(foreignScope: ForeignCallSingle) {
-    const scope = AztecAddress.fromField(fromSingle(foreignScope));
-    const slot = await this.handlerAsUtility().getPendingTaggedLogsV2(scope);
+    const slot = await this.handlerAsUtility().getPendingTaggedLogs(scope);
     return toForeignCallResult([toSingle(slot)]);
   }
 
   // eslint-disable-next-line camelcase
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
-    foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignMaxNotePackedLen: ForeignCallSingle,
     foreignMaxEventSerializedLen: ForeignCallSingle,
     foreignScope: ForeignCallSingle,
   ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
     const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
@@ -894,7 +879,6 @@ export class RPCTranslator {
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
-      contractAddress,
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
       maxNotePackedLen,
@@ -906,85 +890,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2(
-    foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignMaxNotePackedLen: ForeignCallSingle,
-    foreignMaxEventSerializedLen: ForeignCallSingle,
-    foreignScope: ForeignCallSingle,
-  ) {
-    const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
-    const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
-    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
-    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
-    const scope = AztecAddress.fromField(fromSingle(foreignScope));
-
-    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEventsV2(
-      noteValidationRequestsArrayBaseSlot,
-      eventValidationRequestsArrayBaseSlot,
-      maxNotePackedLen,
-      maxEventSerializedLen,
-      scope,
-    );
-
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
-  public async aztec_utl_getLogsByTag(
-    foreignContractAddress: ForeignCallSingle,
-    foreignLogRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignLogRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
-    foreignScope: ForeignCallSingle,
-  ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const logRetrievalRequestsArrayBaseSlot = fromSingle(foreignLogRetrievalRequestsArrayBaseSlot);
-    const logRetrievalResponsesArrayBaseSlot = fromSingle(foreignLogRetrievalResponsesArrayBaseSlot);
-    const scope = AztecAddress.fromField(fromSingle(foreignScope));
-
-    await this.handlerAsUtility().getLogsByTag(
-      contractAddress,
-      logRetrievalRequestsArrayBaseSlot,
-      logRetrievalResponsesArrayBaseSlot,
-      scope,
-    );
-
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
-  public async aztec_utl_getMessageContextsByTxHash(
-    foreignContractAddress: ForeignCallSingle,
-    foreignMessageContextRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignMessageContextResponsesArrayBaseSlot: ForeignCallSingle,
-    foreignScope: ForeignCallSingle,
-  ) {
-    const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
-    const messageContextRequestsArrayBaseSlot = fromSingle(foreignMessageContextRequestsArrayBaseSlot);
-    const messageContextResponsesArrayBaseSlot = fromSingle(foreignMessageContextResponsesArrayBaseSlot);
-    const scope = AztecAddress.fromField(fromSingle(foreignScope));
-
-    await this.handlerAsUtility().getMessageContextsByTxHash(
-      contractAddress,
-      messageContextRequestsArrayBaseSlot,
-      messageContextResponsesArrayBaseSlot,
-      scope,
-    );
-
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_utl_getLogsByTag_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
+  async aztec_utl_getLogsByTag(foreignRequestArrayBaseSlot: ForeignCallSingle) {
     const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
-    const responseSlot = await this.handlerAsUtility().getLogsByTagV2(requestArrayBaseSlot);
+    const responseSlot = await this.handlerAsUtility().getLogsByTag(requestArrayBaseSlot);
     return toForeignCallResult([toSingle(responseSlot)]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getMessageContextsByTxHash_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
+  async aztec_utl_getMessageContextsByTxHash(foreignRequestArrayBaseSlot: ForeignCallSingle) {
     const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
-    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHashV2(requestArrayBaseSlot);
+    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHash(requestArrayBaseSlot);
     return toForeignCallResult([toSingle(responseSlot)]);
   }
 
