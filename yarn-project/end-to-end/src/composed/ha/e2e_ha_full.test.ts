@@ -38,6 +38,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import {
   type HADatabaseConfig,
   cleanupHADatabase,
@@ -152,29 +153,30 @@ describe('HA Full Setup', () => {
       dateProvider,
       deployL1ContractsValues,
       genesis,
-    } = await setup(1, {
-      // TODO(palla/pipelining): add `...PIPELINING_SETUP_OPTS` once the pipelined HA +
-      // governance signaling path stops hitting the canProposeAtTime/InvalidProposer cascade
-      // that drains the publisher (B2-style; see PIPELINING_GOTCHAS.md § Agent C governance run).
-      initialValidators,
-      sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      minTxsPerBlock: 1,
-      archiverPollingIntervalMS: 200,
-      sequencerPollingIntervalMS: 200,
-      worldStateBlockCheckIntervalMS: 200,
-      blockCheckIntervalMS: 200,
-      startProverNode: true,
-      // Disable validation on this node
-      disableValidator: true,
-      skipAccountDeployment: true,
-      // Enable P2P for transaction gossip
-      p2pEnabled: true,
-      // Enable slashing for testing governance + slashing vote coordination
-      slasherEnabled: true,
-      slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-      slashingQuorum: 17, // >50% of 32 slots for tally quorum,
-    }));
+    } = await setup(
+      1,
+      {
+        ...PIPELINING_SETUP_OPTS,
+        initialValidators,
+        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        archiverPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+        startProverNode: true,
+        // Disable validation on this node
+        disableValidator: true,
+        skipAccountDeployment: true,
+        // Enable P2P for transaction gossip
+        p2pEnabled: true,
+        // Enable slashing for testing governance + slashing vote coordination
+        slasherEnabled: true,
+        slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
+        slashingQuorum: 17, // >50% of 32 slots for tally quorum,
+      },
+      { syncChainTip: 'checkpointed' },
+    ));
 
     if (!dateProvider) {
       throw new Error('dateProvider must be provided by setup for HA tests');
