@@ -1,5 +1,3 @@
-{{> structs }}
-
 // Multi-workgroup v2 planner — Pass 3 of 3: per-tile scatter.
 //
 // One workgroup per TILE buckets (same launch shape as pass 1). Reads

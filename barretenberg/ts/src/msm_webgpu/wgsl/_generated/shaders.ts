@@ -2618,9 +2618,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
 }
 `;
 
-export const ba_planner_v2_mwg_local = `{{> structs }}
-
-// Multi-workgroup v2 planner — Pass 1 of 3: per-tile local scan.
+export const ba_planner_v2_mwg_local = `// Multi-workgroup v2 planner — Pass 1 of 3: per-tile local scan.
 //
 // The single-workgroup ba_planner_v2_prod was limited by TPB *
 // PER_THREAD >= B; production B = num_columns >= 32768 blows out
@@ -2744,9 +2742,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 }
 `;
 
-export const ba_planner_v2_mwg_scan = `{{> structs }}
-
-// Multi-workgroup v2 planner — Pass 2 of 3: cross-tile scan + totals +
+export const ba_planner_v2_mwg_scan = `// Multi-workgroup v2 planner — Pass 2 of 3: cross-tile scan + totals +
 // pad-fill.
 //
 // Runs as a single small workgroup that scans the per-WG inclusive sums
@@ -2887,9 +2883,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
 }
 `;
 
-export const ba_planner_v2_mwg_scatter = `{{> structs }}
-
-// Multi-workgroup v2 planner — Pass 3 of 3: per-tile scatter.
+export const ba_planner_v2_mwg_scatter = `// Multi-workgroup v2 planner — Pass 3 of 3: per-tile scatter.
 //
 // One workgroup per TILE buckets (same launch shape as pass 1). Reads
 // the per-bucket local prefix offsets from pass 1 plus the per-WG

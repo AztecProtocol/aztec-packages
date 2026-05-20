@@ -50,6 +50,11 @@ const { values: argv } = parseArgs({
     buckets: { type: "string" },
     seed: { type: "string" },
     skew: { type: "string" },
+    logn: { type: "string" },
+    v2: { type: "string" },
+    fused: { type: "string" },
+    cpuoracle: { type: "string" },
+    oracle1: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
     "stall-ms": { type: "string", default: "180000" },
@@ -139,6 +144,7 @@ const pageMap = {
   "bench-msm-oracle": "/dev/msm-webgpu/bench-msm-oracle.html",
   "bench-msm-oracle-prod": "/dev/msm-webgpu/bench-msm-oracle-prod.html",
   "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
+  "bench-msm-e2e": "/dev/msm-webgpu/bench-msm-e2e.html",
   sanity: "/dev/msm-webgpu/index.html",
 };
 if (!pageMap[argv.page]) {
@@ -428,6 +434,11 @@ async function main() {
   if (argv.buckets) qp.set("buckets", String(argv.buckets));
   if (argv.seed) qp.set("seed", String(argv.seed));
   if (argv.skew) qp.set("skew", String(argv.skew));
+  if (argv.logn) qp.set("logn", String(argv.logn));
+  if (argv.v2) qp.set("v2", String(argv.v2));
+  if (argv.fused) qp.set("fused", String(argv.fused));
+  if (argv.cpuoracle) qp.set("cpuoracle", String(argv.cpuoracle));
+  if (argv.oracle1) qp.set("oracle1", String(argv.oracle1));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 

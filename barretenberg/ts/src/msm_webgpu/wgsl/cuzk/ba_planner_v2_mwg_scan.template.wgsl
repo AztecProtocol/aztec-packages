@@ -1,5 +1,3 @@
-{{> structs }}
-
 // Multi-workgroup v2 planner — Pass 2 of 3: cross-tile scan + totals +
 // pad-fill.
 //

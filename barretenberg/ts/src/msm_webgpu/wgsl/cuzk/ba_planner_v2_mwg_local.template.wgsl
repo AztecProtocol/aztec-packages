@@ -1,5 +1,3 @@
-{{> structs }}
-
 // Multi-workgroup v2 planner — Pass 1 of 3: per-tile local scan.
 //
 // The single-workgroup ba_planner_v2_prod was limited by TPB *
