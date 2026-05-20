@@ -1113,6 +1113,75 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    // Regression test: overwrite the naf witnesses with the malicious top-bit-flipped
+    // assignment (plus the `field_t::accumulate` intermediates that keep the big_add_gate chain
+    // satisfied) and check the circuit is rejected.
+    static void test_compute_naf_top_bit_rejects_malicious_witness()
+    {
+        if constexpr (scalar_ct::is_composite) {
+            GTEST_SKIP() << "composite-Fr reconstruction uses a different witness layout";
+        } else {
+            // `is_write_vk_mode = true` permits witness mutation via `set_variable`.
+            Builder builder(/*is_write_vk_mode=*/true);
+            const size_t num_rounds = fr::modulus.get_msb() + 1;
+            const uint256_t top_pow = uint256_t(1) << (num_rounds - 1);
+            const uint256_t range_size = uint256_t(1) << num_rounds;
+
+            fr scalar_val = fr::random_element();
+            while (scalar_val == fr::zero()) {
+                scalar_val = fr::random_element();
+            }
+
+            // Create a scalar witness
+            scalar_ct scalar = scalar_ct::from_witness(&builder, scalar_val);
+            auto naf = element_ct::compute_naf(scalar, num_rounds);
+            EXPECT_TRUE(CircuitChecker::check(builder)) << "honest circuit must verify before mutation";
+
+            // Rebalance: with `naf[0] = 1`, the integer reconstruction needs
+            // `lower_bits + skew ≡ scalar (mod r)`. Let `shifted_scalar ≡ (scalar + top_pow) (mod r)`
+            // reduced into `[0, range_size - 1]`; pick `skew` for parity, then
+            // `lower_bits_int = (range_size - 1 - shifted_scalar - skew) / 2` gives
+            // `naf[k] = bit_{num_rounds-1-k}(lower_bits_int)` for k ∈ [1, num_rounds - 1].
+            const uint256_t target_int = static_cast<uint256_t>(scalar_val + fr(top_pow));
+            const uint256_t shifted_scalar =
+                (target_int < top_pow) ? target_int + top_pow : target_int + top_pow - fr::modulus;
+            const uint64_t skew = shifted_scalar.get_bit(0) ? 0 : 1;
+            const uint256_t lower_bits_int = (range_size - 1 - shifted_scalar - skew) / 2;
+
+            // Overwrite naf witnesses with the malicious assignment.
+            builder.set_variable(naf[0].get_witness_index(), fr(1));
+            builder.set_variable(naf[num_rounds].get_witness_index(), fr(skew));
+            for (size_t k = 1; k < num_rounds; ++k) {
+                builder.set_variable(naf[k].get_witness_index(),
+                                     fr(lower_bits_int.get_bit(num_rounds - 1 - k) ? 1 : 0));
+            }
+
+            // Recompute the intermediate accumulator witnesses from the malicious naf bits.
+            const size_t num_inputs = num_rounds + 1;
+            const size_t num_gates = (num_inputs + 2) / 3;
+            const size_t padded_size = num_gates * 3;
+            const uint32_t accumulate_start_idx = naf[0].get_witness_index() + 1;
+
+            std::vector<fr> summands(padded_size, fr(0));
+            for (size_t i = 0; i < num_rounds; ++i) {
+                const fr naf_bit = builder.get_variable(naf[num_rounds - 1 - i].get_witness_index());
+                summands[i] = (fr(1) - fr(2) * naf_bit) * fr(uint256_t(1) << i);
+            }
+            summands[num_rounds] = -builder.get_variable(naf[num_rounds].get_witness_index());
+
+            fr accumulator = std::accumulate(summands.begin(), summands.end(), fr(0));
+            EXPECT_EQ(accumulator, scalar_val) << "rebalance arithmetic should give a field-equivalent reconstruction";
+            builder.set_variable(accumulate_start_idx, accumulator);
+            for (size_t gate_idx = 0; gate_idx + 1 < num_gates; ++gate_idx) {
+                accumulator -= summands[3 * gate_idx] + summands[(3 * gate_idx) + 1] + summands[(3 * gate_idx) + 2];
+                builder.set_variable(accumulate_start_idx + 1 + static_cast<uint32_t>(gate_idx), accumulator);
+            }
+
+            EXPECT_FALSE(CircuitChecker::check(builder))
+                << "compute_naf must reject the malicious top-bit-flipped NAF assignment";
+        }
+    }
+
     static void test_mul(InputType scalar_type = InputType::WITNESS, InputType point_type = InputType::WITNESS)
     {
         Builder builder;
@@ -2744,6 +2813,15 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_overflow_lower_half)
 {
     if constexpr (!HasGoblinBuilder<TypeParam>) {
         TestFixture::test_compute_naf_overflow_lower_half();
+    } else {
+        GTEST_SKIP() << "mega builder does not implement compute_naf function";
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf_top_bit_rejects_malicious_witness)
+{
+    if constexpr (!HasGoblinBuilder<TypeParam>) {
+        TestFixture::test_compute_naf_top_bit_rejects_malicious_witness();
     } else {
         GTEST_SKIP() << "mega builder does not implement compute_naf function";
     }

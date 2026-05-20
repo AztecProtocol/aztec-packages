@@ -29,7 +29,7 @@ export default defineConfig({
       'colorette',
       'detect-node',
       'pino',
-      'msgpackr/index-no-eval',
+      'msgpackr',
       'pako',
       'idb-keyval',
       'comlink',

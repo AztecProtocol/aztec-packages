@@ -22,18 +22,18 @@ template <typename G1> void ecc_generator_table<G1>::init_generator_tables()
         element base_point = G1::one;
 
         auto d2 = base_point.dbl();
-        std::array<element, 256> point_table;
-        point_table[128] = base_point;
-        for (size_t i = 1; i < 128; ++i) {
-            point_table[i + 128] = point_table[i + 127] + d2;
+        std::array<element, TABLE_SIZE> point_table;
+        point_table[TABLE_SIZE / 2] = base_point;
+        for (size_t i = 1; i < TABLE_SIZE / 2; ++i) {
+            point_table[i + TABLE_SIZE / 2] = point_table[i + TABLE_SIZE / 2 - 1] + d2;
         }
-        for (size_t i = 0; i < 128; ++i) {
-            point_table[127 - i] = -point_table[128 + i];
+        for (size_t i = 0; i < TABLE_SIZE / 2; ++i) {
+            point_table[TABLE_SIZE / 2 - 1 - i] = -point_table[TABLE_SIZE / 2 + i];
         }
-        element::batch_normalize(&point_table[0], 256);
+        element::batch_normalize(&point_table[0], TABLE_SIZE);
 
         auto beta = G1::Fq::cube_root_of_unity();
-        for (size_t i = 0; i < 256; ++i) {
+        for (size_t i = 0; i < TABLE_SIZE; ++i) {
             uint256_t endo_x = static_cast<uint256_t>(point_table[i].x * beta);
             uint256_t x = static_cast<uint256_t>(point_table[i].x);
             uint256_t y = static_cast<uint256_t>(point_table[i].y);
@@ -90,6 +90,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_xlo_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "xlo table key out of range");
     return { ecc_generator_table<G1>::generator_xlo_table[index].first,
              ecc_generator_table<G1>::generator_xlo_table[index].second };
 }
@@ -101,6 +102,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_xhi_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "xhi table key out of range");
     return { ecc_generator_table<G1>::generator_xhi_table[index].first,
              ecc_generator_table<G1>::generator_xhi_table[index].second };
 }
@@ -113,6 +115,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xlo_endo_values(const std::ar
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "xlo_endo table key out of range");
     return { ecc_generator_table<G1>::generator_endo_xlo_table[index].first,
              ecc_generator_table<G1>::generator_endo_xlo_table[index].second };
 }
@@ -125,6 +128,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xhi_endo_values(const std::ar
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "xhi_endo table key out of range");
     return { ecc_generator_table<G1>::generator_endo_xhi_table[index].first,
              ecc_generator_table<G1>::generator_endo_xhi_table[index].second };
 }
@@ -136,6 +140,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_ylo_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "ylo table key out of range");
     return { ecc_generator_table<G1>::generator_ylo_table[index].first,
              ecc_generator_table<G1>::generator_ylo_table[index].second };
 }
@@ -147,6 +152,7 @@ template <typename G1> std::array<bb::fr, 2> ecc_generator_table<G1>::get_yhi_va
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "yhi table key out of range");
     return { ecc_generator_table<G1>::generator_yhi_table[index].first,
              ecc_generator_table<G1>::generator_yhi_table[index].second };
 }
@@ -159,6 +165,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xyprime_values(const std::arr
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "xyprime table key out of range");
     return { ecc_generator_table<G1>::generator_xyprime_table[index].first,
              ecc_generator_table<G1>::generator_xyprime_table[index].second };
 }
@@ -171,6 +178,7 @@ std::array<bb::fr, 2> ecc_generator_table<G1>::get_xyprime_endo_values(const std
 {
     init_generator_tables();
     const size_t index = static_cast<size_t>(key[0]);
+    BB_ASSERT(index < TABLE_SIZE, "xyprime_endo table key out of range");
     return { ecc_generator_table<G1>::generator_endo_xyprime_table[index].first,
              ecc_generator_table<G1>::generator_endo_xyprime_table[index].second };
 }
@@ -180,7 +188,7 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_xlo_table(Ba
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -203,7 +211,7 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_xhi_table(Ba
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -227,7 +235,7 @@ BasicTable ecc_generator_table<G1>::generate_xlo_endo_table(BasicTableId id, con
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -251,7 +259,7 @@ BasicTable ecc_generator_table<G1>::generate_xhi_endo_table(BasicTableId id, con
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -274,7 +282,7 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_ylo_table(Ba
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -297,7 +305,7 @@ template <typename G1> BasicTable ecc_generator_table<G1>::generate_yhi_table(Ba
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -321,7 +329,7 @@ BasicTable ecc_generator_table<G1>::generate_xyprime_table(BasicTableId id, cons
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -345,7 +353,7 @@ BasicTable ecc_generator_table<G1>::generate_xyprime_endo_table(BasicTableId id,
     BasicTable table;
     table.id = id;
     table.table_index = table_index;
-    size_t table_size = 256;
+    size_t table_size = TABLE_SIZE;
     table.use_twin_keys = false;
 
     for (size_t i = 0; i < table_size; ++i) {
@@ -367,11 +375,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_xlo_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_xlo_values);
     }
@@ -382,11 +390,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_xhi_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_xhi_values);
     }
@@ -397,11 +405,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_xlo_endo_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_xlo_endo_values);
     }
@@ -412,11 +420,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_xhi_endo_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_xhi_endo_values);
     }
@@ -427,11 +435,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_ylo_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_ylo_values);
     }
@@ -442,11 +450,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_yhi_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_yhi_values);
     }
@@ -457,11 +465,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_xyprime_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_xyprime_values);
     }
@@ -472,11 +480,11 @@ template <typename G1>
 MultiTable ecc_generator_table<G1>::get_xyprime_endo_table(const MultiTableId id, const BasicTableId basic_id)
 {
     const size_t num_entries = 1;
-    MultiTable table(256, 0, 0, 1);
+    MultiTable table(TABLE_SIZE, 0, 0, 1);
 
     table.id = id;
     for (size_t i = 0; i < num_entries; ++i) {
-        table.slice_sizes.emplace_back(512);
+        table.slice_sizes.emplace_back(TABLE_SIZE);
         table.basic_table_ids.emplace_back(basic_id);
         table.get_table_values.emplace_back(&get_xyprime_endo_values);
     }

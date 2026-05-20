@@ -6,7 +6,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { mockLogger } from '../interfaces/utils.js';
-import { SqliteEncryptionError } from './errors.js';
 import { AztecSQLiteOPFSStore } from './store.js';
 
 function randomKey(): Uint8Array {
@@ -25,16 +24,16 @@ function cloneKey(k: Uint8Array): Uint8Array {
 describe('AztecSQLiteOPFSStore with encryption', () => {
   it('rejects keys that are not 32 bytes', async () => {
     const short = new Uint8Array(16);
-    const promise = AztecSQLiteOPFSStore.open(mockLogger, undefined, true, undefined, short);
-    await expect(promise).rejects.toThrow(SqliteEncryptionError);
-    await expect(promise).rejects.toMatchObject({ code: 'invalid_key_length' });
+    await expect(AztecSQLiteOPFSStore.open(mockLogger, undefined, true, undefined, short)).rejects.toThrow(
+      /encryptionKey must be 32 bytes/,
+    );
   });
 
   it('rejects encryption on ephemeral (:memory:) stores', async () => {
     const key = randomKey();
-    const promise = AztecSQLiteOPFSStore.open(mockLogger, undefined, true, undefined, key);
-    await expect(promise).rejects.toThrow(SqliteEncryptionError);
-    await expect(promise).rejects.toMatchObject({ code: 'encryption_not_supported_for_ephemeral' });
+    await expect(AztecSQLiteOPFSStore.open(mockLogger, undefined, true, undefined, key)).rejects.toThrow(
+      /not supported for ephemeral/,
+    );
   });
 
   it('round-trips values with the same key (persistent)', async () => {
@@ -52,7 +51,7 @@ describe('AztecSQLiteOPFSStore with encryption', () => {
     await b.delete();
   });
 
-  it('fails to open with the wrong key (throws SqliteEncryptionError, code=decrypt_failed)', async () => {
+  it('fails to open with the wrong key', async () => {
     const key = randomKey();
     const name = `test-wrong-${Date.now()}`;
     const dir = `/test-wrong-pool-${Date.now()}`;
@@ -60,20 +59,17 @@ describe('AztecSQLiteOPFSStore with encryption', () => {
     await a.openMap<string, string>('m').set('k1', 'v1');
     await a.close();
 
-    let caught: unknown;
-    try {
-      await AztecSQLiteOPFSStore.open(mockLogger, name, false, dir, randomKey());
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(SqliteEncryptionError);
-    expect((caught as SqliteEncryptionError).code).toBe('decrypt_failed');
+    await expect(async () => {
+      const b = await AztecSQLiteOPFSStore.open(mockLogger, name, false, dir, randomKey());
+      await b.openMap<string, string>('m').getAsync('k1');
+      await b.close();
+    }).rejects.toThrow();
 
     const c = await AztecSQLiteOPFSStore.open(mockLogger, name, false, dir, cloneKey(key));
     await c.delete();
   });
 
-  it('fails to open an encrypted DB without a key (throws SqliteEncryptionError, code=decrypt_failed)', async () => {
+  it('fails to open an encrypted DB without a key', async () => {
     const key = randomKey();
     const name = `test-nokey-${Date.now()}`;
     const dir = `/test-nokey-pool-${Date.now()}`;
@@ -81,14 +77,11 @@ describe('AztecSQLiteOPFSStore with encryption', () => {
     await a.openMap<string, string>('m').set('k1', 'v1');
     await a.close();
 
-    let caught: unknown;
-    try {
-      await AztecSQLiteOPFSStore.open(mockLogger, name, false, dir);
-    } catch (err) {
-      caught = err;
-    }
-    expect(caught).toBeInstanceOf(SqliteEncryptionError);
-    expect((caught as SqliteEncryptionError).code).toBe('decrypt_failed');
+    await expect(async () => {
+      const b = await AztecSQLiteOPFSStore.open(mockLogger, name, false, dir);
+      await b.openMap<string, string>('m').getAsync('k1');
+      await b.close();
+    }).rejects.toThrow();
 
     const c = await AztecSQLiteOPFSStore.open(mockLogger, name, false, dir, cloneKey(key));
     await c.delete();

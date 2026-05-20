@@ -337,10 +337,6 @@ export class ContractFunctionSimulator {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
 
-    const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-      await this.runUtility(syncCall, [], anchorBlockHeader, execScopes, jobId);
-    };
-
     const oracle = new UtilityExecutionOracle({
       contractAddress: call.to,
       authWitnesses: authwits,
@@ -362,7 +358,6 @@ export class ContractFunctionSimulator {
       scopes,
       simulator: this.simulator,
       hooks: this.hooks,
-      utilityExecutor,
     });
 
     try {

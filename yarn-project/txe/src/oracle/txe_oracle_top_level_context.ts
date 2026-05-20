@@ -752,9 +752,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     try {
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
       const simulator = new WASMSimulator();
-      const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-        await this.executeUtilityCall(syncCall, execScopes, jobId);
-      };
       const oracle = new UtilityExecutionOracle({
         contractAddress: call.to,
         authWitnesses: [],
@@ -778,7 +775,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         hooks: composeHooks({
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
-        utilityExecutor,
       });
       const acirExecutionResult = await simulator
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
