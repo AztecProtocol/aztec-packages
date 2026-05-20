@@ -85,58 +85,63 @@ export type ArchiverApi = Omit<
 >;
 
 export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
-  getRollupAddress: z.function().args().returns(schemas.EthAddress),
-  getRegistryAddress: z.function().args().returns(schemas.EthAddress),
-  getBlockNumber: z.function().args(optional(BlockQuerySchema)).returns(BlockNumberSchema.optional()),
-  getCheckpointNumber: z.function().args().returns(CheckpointNumberSchema),
-  getCheckpoint: z.function().args(CheckpointQuerySchema).returns(PublishedCheckpoint.schema.optional()),
-  getCheckpoints: z.function().args(CheckpointsQuerySchema).returns(z.array(PublishedCheckpoint.schema)),
-  getCheckpointData: z.function().args(CheckpointQuerySchema).returns(CheckpointDataSchema.optional()),
-  getCheckpointsData: z.function().args(CheckpointsQuerySchema).returns(z.array(CheckpointDataSchema)),
-  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
-  getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
-  getSyncedL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
-  getSyncedL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
-  getBlocksForSlot: z.function().args(schemas.SlotNumber).returns(z.array(L2Block.schema)),
-  isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
-  getL2Tips: z.function().args().returns(L2TipsSchema),
-  getPrivateLogsByTags: z
-    .function()
-    .args(z.array(SiloedTag.schema), optional(z.number().gte(0)))
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
-  getPublicLogsByTagsFromContract: z
-    .function()
-    .args(schemas.AztecAddress, z.array(Tag.schema), optional(z.number().gte(0)))
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
-  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
-  getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
-  getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
-  getContract: z
-    .function()
-    .args(schemas.AztecAddress, optional(schemas.BigInt))
-    .returns(ContractInstanceWithAddressSchema.optional()),
-  getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
-  registerContractFunctionSignatures: z.function().args(z.array(z.string())).returns(z.void()),
-  getL1ToL2Messages: z.function().args(CheckpointNumberSchema).returns(z.array(schemas.Fr)),
-  getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
-  getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
-  getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
-  isPruneDueAtSlot: z.function().args(schemas.SlotNumber).returns(z.boolean()),
-  getGenesisValues: z
-    .function()
-    .args()
-    .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
-  getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
-  getProposedCheckpointData: z
-    .function()
-    .args(optional(ProposedCheckpointQuerySchema))
-    .returns(ProposedCheckpointDataSchema.optional()),
-  syncImmediate: z.function().args().returns(z.void()),
-  isPendingChainInvalid: z.function().args().returns(z.boolean()),
-  getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),
-  getBlock: z.function().args(BlockQuerySchema).returns(L2Block.schema.optional()),
-  getBlocks: z.function().args(BlocksQuerySchema).returns(z.array(L2Block.schema)),
-  getBlockData: z.function().args(BlockQuerySchema).returns(BlockDataSchema.optional()),
-  getBlocksData: z.function().args(BlocksQuerySchema).returns(z.array(BlockDataSchema)),
+  getRollupAddress: z.function({ input: z.tuple([]), output: schemas.EthAddress }),
+  getRegistryAddress: z.function({ input: z.tuple([]), output: schemas.EthAddress }),
+  getBlockNumber: z.function({ input: z.tuple([optional(BlockQuerySchema)]), output: BlockNumberSchema.optional() }),
+  getCheckpointNumber: z.function({ input: z.tuple([]), output: CheckpointNumberSchema }),
+  getCheckpoint: z.function({ input: z.tuple([CheckpointQuerySchema]), output: PublishedCheckpoint.schema.optional() }),
+  getCheckpoints: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(PublishedCheckpoint.schema) }),
+  getCheckpointData: z.function({ input: z.tuple([CheckpointQuerySchema]), output: CheckpointDataSchema.optional() }),
+  getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
+  getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
+  getSettledTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema.optional() }),
+  getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: schemas.SlotNumber.optional() }),
+  getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
+  getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),
+  isEpochComplete: z.function({ input: z.tuple([EpochNumberSchema]), output: z.boolean() }),
+  getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
+  getPrivateLogsByTags: z.function({
+    input: z.tuple([z.array(SiloedTag.schema), optional(z.number().gte(0)), optional(BlockNumberSchema)]),
+    output: z.array(z.array(TxScopedL2Log.schema)),
+  }),
+  getPublicLogsByTagsFromContract: z.function({
+    input: z.tuple([
+      schemas.AztecAddress,
+      z.array(Tag.schema),
+      optional(z.number().gte(0)),
+      optional(BlockNumberSchema),
+    ]),
+    output: z.array(z.array(TxScopedL2Log.schema)),
+  }),
+  getPublicLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetPublicLogsResponseSchema }),
+  getContractClassLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetContractClassLogsResponseSchema }),
+  getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
+  getBytecodeCommitment: z.function({ input: z.tuple([schemas.Fr]), output: schemas.Fr }),
+  getContract: z.function({
+    input: z.tuple([schemas.AztecAddress, optional(schemas.BigInt)]),
+    output: ContractInstanceWithAddressSchema.optional(),
+  }),
+  getContractClassIds: z.function({ input: z.tuple([]), output: z.array(schemas.Fr) }),
+  registerContractFunctionSignatures: z.function({ input: z.tuple([z.array(z.string())]), output: z.void() }),
+  getL1ToL2Messages: z.function({ input: z.tuple([CheckpointNumberSchema]), output: z.array(schemas.Fr) }),
+  getL1ToL2MessageIndex: z.function({ input: z.tuple([schemas.Fr]), output: schemas.BigInt.optional() }),
+  getDebugFunctionName: z.function({
+    input: z.tuple([schemas.AztecAddress, schemas.FunctionSelector]),
+    output: optional(z.string()),
+  }),
+  getL1Constants: z.function({ input: z.tuple([]), output: L1RollupConstantsSchema }),
+  isPruneDueAtSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.boolean() }),
+  getGenesisValues: z.function({ input: z.tuple([]), output: z.object({ genesisArchiveRoot: schemas.Fr }) }),
+  getL1Timestamp: z.function({ input: z.tuple([]), output: schemas.BigInt.optional() }),
+  getProposedCheckpointData: z.function({
+    input: z.tuple([optional(ProposedCheckpointQuerySchema)]),
+    output: ProposedCheckpointDataSchema.optional(),
+  }),
+  syncImmediate: z.function({ input: z.tuple([]), output: z.void() }),
+  isPendingChainInvalid: z.function({ input: z.tuple([]), output: z.boolean() }),
+  getPendingChainValidationStatus: z.function({ input: z.tuple([]), output: ValidateCheckpointResultSchema }),
+  getBlock: z.function({ input: z.tuple([BlockQuerySchema]), output: L2Block.schema.optional() }),
+  getBlocks: z.function({ input: z.tuple([BlocksQuerySchema]), output: z.array(L2Block.schema) }),
+  getBlockData: z.function({ input: z.tuple([BlockQuerySchema]), output: BlockDataSchema.optional() }),
+  getBlocksData: z.function({ input: z.tuple([BlocksQuerySchema]), output: z.array(BlockDataSchema) }),
 };

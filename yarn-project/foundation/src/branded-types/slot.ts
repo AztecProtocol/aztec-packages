@@ -89,5 +89,5 @@ SlotNumber.ZERO = SlotNumber(0);
  */
 export const SlotNumberSchema = z
   .union([z.number(), z.bigint(), z.string()])
-  .pipe(z.coerce.number().int().min(0))
+  .pipe(z.coerce.number<string | number | bigint>().int().min(0))
   .transform(value => SlotNumber(value));

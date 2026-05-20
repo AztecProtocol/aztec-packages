@@ -367,7 +367,7 @@ export class TestWallet extends BaseWallet {
   }
 
   sync(): Promise<void> {
-    return this.pxe.debug.sync();
+    return this.pxe.sync();
   }
 
   stop(): Promise<void> {
