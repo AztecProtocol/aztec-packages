@@ -45,7 +45,6 @@ import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
-import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
@@ -747,15 +746,6 @@ export function makeBytes(size = 32, fill = 1): Buffer {
  */
 export function makeAztecAddress(seed = 1): AztecAddress {
   return AztecAddress.fromField(fr(seed));
-}
-
-/**
- * Makes arbitrary Schnorr signature.
- * @param seed - The seed to use for generating the Schnorr signature.
- * @returns A Schnorr signature.
- */
-export function makeSchnorrSignature(seed = 1): SchnorrSignature {
-  return new SchnorrSignature(Buffer.alloc(SchnorrSignature.SIZE, seed));
 }
 
 function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {

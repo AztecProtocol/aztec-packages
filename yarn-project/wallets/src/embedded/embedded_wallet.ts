@@ -1,7 +1,15 @@
 import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
-import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
+import type {
+  Aliased,
+  ExecuteUtilityOptions,
+  PrivateEvent,
+  PrivateEventFilter,
+  ProfileOptions,
+  SendOptions,
+  SimulateOptions,
+} from '@aztec/aztec.js/wallet';
 import { AccountManager, TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
@@ -10,8 +18,9 @@ import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
+import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -20,7 +29,9 @@ import {
   ExecutionPayload,
   SimulationOverrides,
   type TxExecutionRequest,
+  type TxProfileResult,
   TxStatus,
+  type UtilityExecutionResult,
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
@@ -131,6 +142,9 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
+    // PXE has autoSync disabled by the embedded wallet entrypoints, so we sync once here to cover
+    // both the inner simulateTx (via simulateViaEntrypoint) and the proveTx that super.sendTx
+    await this.pxe.sync();
     const feeOptions = await this.completeFeeOptions({
       from: opts.from,
       feePayer: executionPayload.feePayer,
@@ -194,6 +208,51 @@ export class EmbeddedWallet extends BaseWallet {
       ...opts,
       fee: { ...opts.fee, gasSettings },
     });
+  }
+
+  /**
+   * Overrides the base simulateTx to drive PXE syncing explicitly. The PXE created by the embedded
+   * wallet has autoSync disabled (so we can share one sync across simulate+send in sendTx); for
+   * standalone simulations we still need a fresh anchor block, which we provide here.
+   */
+  public override async simulateTx(
+    executionPayload: ExecutionPayload,
+    opts: SimulateOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
+    await this.pxe.sync();
+    return super.simulateTx(executionPayload, opts);
+  }
+
+  public override async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
+    await this.pxe.sync();
+    return super.profileTx(executionPayload, opts);
+  }
+
+  public override async executeUtility(
+    call: FunctionCall,
+    opts: ExecuteUtilityOptions,
+  ): Promise<UtilityExecutionResult> {
+    await this.pxe.sync();
+    return super.executeUtility(call, opts);
+  }
+
+  public override async getPrivateEvents<T>(
+    eventDef: EventMetadataDefinition,
+    eventFilter: PrivateEventFilter,
+  ): Promise<PrivateEvent<T>[]> {
+    await this.pxe.sync();
+    return super.getPrivateEvents<T>(eventDef, eventFilter);
+  }
+
+  public override async registerContract(
+    instance: ContractInstanceWithAddress,
+    artifact?: ContractArtifact,
+    secretKey?: Fr,
+  ): Promise<ContractInstanceWithAddress> {
+    // registerContract may call pxe.updateContract under the hood, which depends on a fresh anchor
+    // block to verify the current class id from the node.
+    await this.pxe.sync();
+    return super.registerContract(instance, artifact, secretKey);
   }
 
   /**

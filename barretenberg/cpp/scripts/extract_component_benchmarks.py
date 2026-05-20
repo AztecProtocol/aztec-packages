@@ -31,7 +31,7 @@ try:
     benchmarks = []
 
     # Key components to track (case-insensitive matching)
-    key_components = ["sumcheck", "pcs", "pippenger", "commitment", "circuit", "oink", "compute"]
+    key_components = ["sumcheck", "pcs", "pippenger", "commitment", "circuit", "oink", "compute", "decider", "BatchMergeProver", "BatchMergeVerifier"]
 
     for op_name, entries in data.items():
         # Check if this is a key component we want to track

@@ -56,7 +56,7 @@ describe('SafeJsonRpcServer', () => {
 
     it('calls an RPC function with incorrect parameter type', async () => {
       const response = await send({ method: 'getNote', params: [{ index: 1 }] });
-      expectError(response, 400, expect.stringContaining('Expected number, received object'));
+      expectError(response, 400, expect.stringContaining('Invalid input: expected number, received object'));
     });
 
     it('calls an RPC function with a primitive return type', async () => {
