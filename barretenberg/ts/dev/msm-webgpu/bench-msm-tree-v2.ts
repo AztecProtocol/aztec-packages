@@ -287,18 +287,20 @@ async function readNonZero(device: GPUDevice, buf: GPUBuffer, u32Count: number):
   return false;
 }
 
-async function timeOne(
-  device: GPUDevice,
-  pipeline: GPUComputePipeline,
-  bind: GPUBindGroup,
-  numWgs: number,
-): Promise<number> {
+interface PassSpec { pipeline: GPUComputePipeline; bind: GPUBindGroup; numWgs: number }
+
+// Encode multiple passes into one command encoder, submit once, await
+// once. Returns the total wall time. Submit-overhead is paid once
+// across all passes — the right way to measure a fused pipeline.
+async function timeBatched(device: GPUDevice, passes: PassSpec[]): Promise<number> {
   const enc = device.createCommandEncoder();
-  const pass = enc.beginComputePass();
-  pass.setPipeline(pipeline);
-  pass.setBindGroup(0, bind);
-  pass.dispatchWorkgroups(numWgs, 1, 1);
-  pass.end();
+  for (const p of passes) {
+    const pass = enc.beginComputePass();
+    pass.setPipeline(p.pipeline);
+    pass.setBindGroup(0, p.bind);
+    pass.dispatchWorkgroups(p.numWgs, 1, 1);
+    pass.end();
+  }
   const t0 = performance.now();
   device.queue.submit([enc.finish()]);
   await device.queue.onSubmittedWorkDone();
@@ -459,22 +461,24 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, reps: number, R
       });
     }
 
-    // Warmup (untimed, optional).
-    // Timed sequential dispatch — each kernel awaited so we get per-kernel ms.
-    const marshalMs = await timeOne(device, marshalPipe, marshalBind, numWgs);
-    const disjointMs = await timeOne(device, disjointPipe, disjointBind, numWgs);
-    const scatterMs = await timeOne(device, scatterPipe, scatterBind, numWgs);
-    let carryMs = 0;
+    // Bundle this level's 4 kernel dispatches into a single command
+    // encoder + single submit + single await. Submit overhead amortises
+    // across the level's kernels.
+    const passes: PassSpec[] = [
+      { pipeline: marshalPipe, bind: marshalBind, numWgs },
+      { pipeline: disjointPipe, bind: disjointBind, numWgs },
+      { pipeline: scatterPipe, bind: scatterBind, numWgs },
+    ];
     if (plan.numCarries > 0 && carryBind) {
       const carryWgs = Math.ceil(plan.numCarries / WGI);
-      carryMs = await timeOne(device, carryPipe, carryBind, carryWgs);
+      passes.push({ pipeline: carryPipe, bind: carryBind, numWgs: carryWgs });
     }
-
+    const levelMs = await timeBatched(device, passes);
     levelTimings.push({
       T, pairs: plan.totalPairs, carries: plan.numCarries,
-      marshal_ms: marshalMs, disjoint_ms: disjointMs, scatter_ms: scatterMs, carry_ms: carryMs,
+      marshal_ms: 0, disjoint_ms: 0, scatter_ms: 0, carry_ms: 0,  // unused — batched
     });
-    log('info', `  L${levelIdx} ms: marshal=${marshalMs.toFixed(2)} disjoint=${disjointMs.toFixed(2)} scatter=${scatterMs.toFixed(2)} carry=${carryMs.toFixed(2)}`);
+    log('info', `  L${levelIdx} batched_ms=${levelMs.toFixed(2)} (4 kernels in one submit)`);
 
     // Cleanup level-local buffers.
     chunkPlanBuf.destroy();
