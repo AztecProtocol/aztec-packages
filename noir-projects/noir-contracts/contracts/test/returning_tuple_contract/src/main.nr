@@ -5,9 +5,8 @@ use aztec::macros::aztec;
 pub contract ReturningTuple {
     use aztec::{
         macros::functions::{external, view},
-        protocol::{address::AztecAddress, traits::{Deserialize, FromField}},
+        protocol::{address::AztecAddress, point::EmbeddedCurvePoint, traits::{Deserialize, FromField}},
     };
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     #[external("private")]
     #[view]

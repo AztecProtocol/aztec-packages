@@ -5,10 +5,11 @@ use crate::{
         DEFAULT_TPK_M_HASH, DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
     },
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
+    point::EmbeddedCurvePoint,
     traits::{Deserialize, Hash, Serialize},
 };
 
-use std::{default::Default, embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
+use std::{default::Default, meta::derive};
 
 // TODO(MW): manually defining here for now. Will be removed - but noir doesnt seem to have a native one?
 // TODO(MW): combine one fn for checking on curve and non-inf?
@@ -129,9 +130,9 @@ mod test {
     };
     use crate::{
         public_keys::{hash_public_key, IvpkM, PublicKeys},
+        point::EmbeddedCurvePoint,
         traits::{Deserialize, Serialize},
     };
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
     use std::ops::Neg;
 
     global PUBLIC_KEYS_LENGTH: u32 = 6;

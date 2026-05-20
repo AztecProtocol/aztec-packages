@@ -1,6 +1,7 @@
-use std::embedded_curve_ops::EmbeddedCurvePoint;
 use std::hash::poseidon2_permutation;
 use std::option::Option;
+
+use crate::protocol::point::EmbeddedCurvePoint;
 
 global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 

@@ -24,7 +24,6 @@ mod test {
         constants::KEY_VALIDATION_REQUEST_LENGTH,
         traits::{Deserialize, Serialize},
     };
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     #[test]
     fn serialization_of_key_validation_request() {

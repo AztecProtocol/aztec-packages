@@ -1,5 +1,4 @@
-use crate::protocol::{address::{AztecAddress, PartialAddress}, point::Point, public_keys::{IvpkM, PublicKeys}};
-use std::embedded_curve_ops::EmbeddedCurvePoint;
+use crate::protocol::{address::{AztecAddress, PartialAddress}, point::EmbeddedCurvePoint, public_keys::{IvpkM, PublicKeys}};
 
 // TODO(F-498): review naming consistency
 pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {

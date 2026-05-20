@@ -1,5 +1,4 @@
-use crate::protocol::utils::field::sqrt;
-use std::embedded_curve_ops::EmbeddedCurvePoint;
+use crate::protocol::{point::EmbeddedCurvePoint, utils::field::sqrt};
 
 // I am storing the modulus minus 1 divided by 2 here because full modulus would throw "String literal too large" error
 // Full modulus is 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -46,10 +45,10 @@ pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<EmbeddedCurve
 }
 
 mod test {
+    use crate::protocol::point::EmbeddedCurvePoint;
     use crate::utils::point::{
         BN254_FR_MODULUS_DIV_2, get_sign_of_point, point_from_x_coord, point_from_x_coord_and_sign,
     };
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     #[test]
     unconstrained fn test_point_from_x_coord_and_sign() {

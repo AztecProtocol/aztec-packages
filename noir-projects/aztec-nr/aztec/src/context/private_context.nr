@@ -41,11 +41,11 @@ use crate::protocol::{
     },
     hash::compute_contract_class_log_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
+    point::EmbeddedCurvePoint,
     side_effect::{Counted, scoped::Scoped},
     traits::{Empty, ToField},
     utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
-use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 /// # PrivateContext
 ///

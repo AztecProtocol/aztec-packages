@@ -1,7 +1,7 @@
-use std::embedded_curve_ops::{EmbeddedCurvePoint, fixed_base_scalar_mul as derive_public_key};
+use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 use types::{
     abis::validation_requests::KeyValidationRequestAndSeparator,
-    hash::compute_app_siloed_secret_key, public_keys::hash_public_key, scalar::Scalar,
+    hash::compute_app_siloed_secret_key, point::EmbeddedCurvePoint, public_keys::hash_public_key, scalar::Scalar,
     side_effect::Scoped,
 };
 

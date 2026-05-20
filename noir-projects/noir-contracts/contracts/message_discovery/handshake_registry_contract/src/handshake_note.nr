@@ -1,9 +1,8 @@
 use aztec::{
     keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     macros::notes::note,
-    protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
+    protocol::{address::AztecAddress, point::EmbeddedCurvePoint, traits::{Deserialize, Packable, Serialize}},
 };
-use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 /// A record of a handshake established by the note's owner (the sender).
 ///

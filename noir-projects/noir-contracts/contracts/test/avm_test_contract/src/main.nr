@@ -19,7 +19,7 @@ pub contract AvmTest {
         get_contract_instance_immutables_hash_avm, get_contract_instance_initialization_hash_avm,
     };
     use aztec::protocol::abis::function_selector::FunctionSelector;
-    use aztec::protocol::{address::{AztecAddress, EthAddress}, scalar::Scalar};
+    use aztec::protocol::{address::{AztecAddress, EthAddress}, point::EmbeddedCurvePoint, scalar::Scalar};
     use aztec::protocol::{
         constants::{
             CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, FEE_JUICE_ADDRESS,
@@ -34,7 +34,7 @@ pub contract AvmTest {
     use aztec::state_vars::PublicMutable;
     use aztec::state_vars::StateVariable;
     use compressed_string::CompressedString;
-    use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+    use std::embedded_curve_ops::multi_scalar_mul;
 
     use auth_contract::AuthRegistry;
     use aztec::context::PublicContext;

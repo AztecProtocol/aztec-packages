@@ -34,9 +34,9 @@ mod test {
             key_validation_request_and_separator::KeyValidationRequestAndSeparator,
         },
         constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
+        point::EmbeddedCurvePoint,
         traits::{Deserialize, Serialize},
     };
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     #[test]
     fn serialization_of_key_validation_request_and_separator() {

@@ -2,10 +2,11 @@ use crate::protocol::{
     address::aztec_address::AztecAddress,
     constants::{DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY},
     hash::poseidon2_hash_with_separator,
+    point::EmbeddedCurvePoint,
     scalar::Scalar,
     traits::{FromField, ToField},
 };
-use std::{embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul}, ops::Neg};
+use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
 /// Computes a standard ECDH shared secret: secret * public_key = shared_secret.
 ///

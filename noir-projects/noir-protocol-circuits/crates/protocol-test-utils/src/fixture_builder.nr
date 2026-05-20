@@ -5,7 +5,6 @@ use crate::fixtures::{
     public_data_tree::empty_public_data_tree,
     vk_tree::{get_vk_data, vk_tree_root},
 };
-use std::embedded_curve_ops::EmbeddedCurvePoint;
 use types::{
     abis::{
         accumulated_data::{
@@ -81,6 +80,7 @@ use types::{
     },
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
+    point::EmbeddedCurvePoint,
     proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
     public_keys::PublicKeys,
     side_effect::{Counted, Ordered, Scoped},

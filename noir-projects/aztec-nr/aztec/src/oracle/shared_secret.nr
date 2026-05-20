@@ -1,6 +1,5 @@
 use crate::ephemeral::EphemeralArray;
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field};
-use std::embedded_curve_ops::EmbeddedCurvePoint;
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field, point::EmbeddedCurvePoint};
 
 global GET_SHARED_SECRETS_REQUEST_SLOT: Field = sha256_to_field("AZTEC_NR::GET_SHARED_SECRETS_REQUEST_SLOT".as_bytes());
 

@@ -10,11 +10,11 @@ use crate::{
     utils::field::sqrt,
 };
 
+use crate::point::EmbeddedCurvePoint;
+
 use crate::public_keys::AddressPoint;
 use std::{
-    embedded_curve_ops::{
-        EmbeddedCurvePoint, EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key,
-    },
+    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
     ops::Add,
 };
 use std::meta::derive;

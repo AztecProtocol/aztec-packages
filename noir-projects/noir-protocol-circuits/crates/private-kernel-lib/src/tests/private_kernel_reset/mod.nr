@@ -16,9 +16,7 @@ use crate::{
     reset::{KeyValidationHint, ReadRequestHintsBuilder, TransientDataSquashingHint},
 };
 use protocol_test_utils::{FixtureBuilder, pad_end, pad_end_with};
-use std::embedded_curve_ops::{
-    EmbeddedCurvePoint, EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key,
-};
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
@@ -37,6 +35,7 @@ use types::{
         LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
     },
     public_keys::hash_public_key,
+    point::EmbeddedCurvePoint,
     side_effect::{Counted, Scoped},
     traits::Empty,
     utils::arrays::find_first_index,
