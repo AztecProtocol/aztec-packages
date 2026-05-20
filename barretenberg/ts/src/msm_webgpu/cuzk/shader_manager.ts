@@ -15,6 +15,9 @@ import {
   ba_planner_bench as ba_planner_bench_shader,
   ba_planner_v2_bench as ba_planner_v2_bench_shader,
   ba_planner_v2_prod as ba_planner_v2_prod_shader,
+  ba_planner_v2_mwg_local as ba_planner_v2_mwg_local_shader,
+  ba_planner_v2_mwg_scan as ba_planner_v2_mwg_scan_shader,
+  ba_planner_v2_mwg_scatter as ba_planner_v2_mwg_scatter_shader,
   ba_marshal_pairs_prod as ba_marshal_pairs_prod_shader,
   ba_pair_disjoint_tree_prod as ba_pair_disjoint_tree_prod_shader,
   ba_scatter_pairs_prod as ba_scatter_pairs_prod_shader,
@@ -936,6 +939,63 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_planner_v2_prod_shader,
       { workgroup_size, per_thread, pair_cap, s, wgi, num_words: this.num_words, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Multi-workgroup v2 planner — Pass 1 of 3: per-tile local scan.
+   * One workgroup per TILE = workgroup_size * per_thread buckets.
+   * Together with gen_ba_planner_v2_mwg_scan_shader and
+   * gen_ba_planner_v2_mwg_scatter_shader replaces the single-WG
+   * gen_ba_planner_v2_prod_shader for B > a single workgroup tile.
+   */
+  public gen_ba_planner_v2_mwg_local_shader(workgroup_size: number, per_thread: number): string {
+    if (workgroup_size <= 0 || per_thread <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(per_thread)) {
+      throw new Error(`gen_ba_planner_v2_mwg_local_shader: positive integer args required`);
+    }
+    return mustache.render(
+      ba_planner_v2_mwg_local_shader,
+      { workgroup_size, per_thread, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Multi-workgroup v2 planner — Pass 2 of 3: cross-tile scan, totals,
+   * dispatch_args, pad-fill of the partial last chunk. Single small
+   * workgroup. per_thread must satisfy workgroup_size * per_thread >=
+   * the maximum supported num_wgs (= ceil(max_B / tile_size_pass1)).
+   * wgi must match the downstream prod kernels' workgroup size.
+   */
+  public gen_ba_planner_v2_mwg_scan_shader(workgroup_size: number, per_thread: number, s: number, wgi: number): string {
+    if (workgroup_size <= 0 || per_thread <= 0 || s <= 0 || wgi <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(per_thread) || !Number.isInteger(s) || !Number.isInteger(wgi)) {
+      throw new Error(`gen_ba_planner_v2_mwg_scan_shader: positive integer args required`);
+    }
+    return mustache.render(
+      ba_planner_v2_mwg_scan_shader,
+      { workgroup_size, per_thread, s, wgi, recompile: this.recompile },
+      { structs },
+    );
+  }
+
+  /**
+   * Multi-workgroup v2 planner — Pass 3 of 3: per-tile scatter. Launch
+   * shape mirrors pass 1 (one workgroup per TILE buckets). The
+   * pair_cap, s, workgroup_size, and per_thread values must match
+   * those used to compile pass 1 / pass 2 / the downstream prod
+   * kernels' chunk-size S.
+   */
+  public gen_ba_planner_v2_mwg_scatter_shader(workgroup_size: number, per_thread: number, s: number, pair_cap: number = 64): string {
+    if (workgroup_size <= 0 || per_thread <= 0 || s <= 0 || pair_cap <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(per_thread) || !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
+      throw new Error(`gen_ba_planner_v2_mwg_scatter_shader: positive integer args required`);
+    }
+    return mustache.render(
+      ba_planner_v2_mwg_scatter_shader,
+      { workgroup_size, per_thread, pair_cap, s, recompile: this.recompile },
       { structs },
     );
   }

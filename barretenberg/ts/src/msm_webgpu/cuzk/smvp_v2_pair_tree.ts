@@ -132,7 +132,9 @@ async function compilePipeline(
 interface Pipelines {
   csrMeta: GPUComputePipeline;
   csrActive: GPUComputePipeline;
-  planner: GPUComputePipeline;
+  plannerLocal: GPUComputePipeline;
+  plannerScan: GPUComputePipeline;
+  plannerScatter: GPUComputePipeline;
   marshal: GPUComputePipeline;
   disjoint: GPUComputePipeline;
   scatter: GPUComputePipeline;
@@ -141,7 +143,9 @@ interface Pipelines {
   layouts: {
     meta: GPUBindGroupLayout;
     active: GPUBindGroupLayout;
-    planner: GPUBindGroupLayout;
+    plannerLocal: GPUBindGroupLayout;
+    plannerScan: GPUBindGroupLayout;
+    plannerScatter: GPUBindGroupLayout;
     marshal: GPUBindGroupLayout;
     disjoint: GPUBindGroupLayout;
     scatter: GPUBindGroupLayout;
@@ -155,8 +159,10 @@ async function compileAll(
   sm: ShaderManager,
   wgi: number,
   s: number,
-  tpb: number,
-  per_thread: number,
+  tile_tpb: number,
+  tile_per_thread: number,
+  scan_tpb: number,
+  scan_per_thread: number,
 ): Promise<Pipelines> {
   const layouts: Pipelines['layouts'] = {
     meta: device.createBindGroupLayout({
@@ -171,17 +177,39 @@ async function compileAll(
         uniformEntry(4),
       ],
     }),
-    planner: device.createBindGroupLayout({
+    plannerLocal: device.createBindGroupLayout({
       entries: [
         roStorageEntry(0),
-        roStorageEntry(1),
+        rwStorageEntry(1),
         rwStorageEntry(2),
         rwStorageEntry(3),
         rwStorageEntry(4),
         rwStorageEntry(5),
+        uniformEntry(6),
+      ],
+    }),
+    plannerScan: device.createBindGroupLayout({
+      entries: [
+        rwStorageEntry(0),
+        rwStorageEntry(1),
+        rwStorageEntry(2),
+        rwStorageEntry(3),
+        uniformEntry(4),
+      ],
+    }),
+    plannerScatter: device.createBindGroupLayout({
+      entries: [
+        roStorageEntry(0),
+        roStorageEntry(1),
+        roStorageEntry(2),
+        roStorageEntry(3),
+        roStorageEntry(4),
+        roStorageEntry(5),
         rwStorageEntry(6),
         rwStorageEntry(7),
-        uniformEntry(8),
+        rwStorageEntry(8),
+        rwStorageEntry(9),
+        uniformEntry(10),
       ],
     }),
     marshal: device.createBindGroupLayout({
@@ -209,14 +237,26 @@ async function compileAll(
     }),
   };
 
-  const [csrMeta, csrActive, planner, marshal, disjoint, scatter, carry, v2ToRunning] = await Promise.all([
+  const [csrMeta, csrActive, plannerLocal, plannerScan, plannerScatter, marshal, disjoint, scatter, carry, v2ToRunning] = await Promise.all([
     compilePipeline(device, layouts.meta, sm.gen_csr_to_v2_meta_shader(wgi), `csr-meta-wg${wgi}`),
     compilePipeline(device, layouts.active, sm.gen_csr_to_v2_active_sums_shader(wgi), `csr-active-wg${wgi}`),
     compilePipeline(
       device,
-      layouts.planner,
-      sm.gen_ba_planner_v2_prod_shader(tpb, per_thread, s, wgi, 64),
-      `planner-v2-prod-T${tpb}-P${per_thread}-S${s}-W${wgi}`,
+      layouts.plannerLocal,
+      sm.gen_ba_planner_v2_mwg_local_shader(tile_tpb, tile_per_thread),
+      `planner-v2-mwg-local-T${tile_tpb}-P${tile_per_thread}`,
+    ),
+    compilePipeline(
+      device,
+      layouts.plannerScan,
+      sm.gen_ba_planner_v2_mwg_scan_shader(scan_tpb, scan_per_thread, s, wgi),
+      `planner-v2-mwg-scan-T${scan_tpb}-P${scan_per_thread}-S${s}-W${wgi}`,
+    ),
+    compilePipeline(
+      device,
+      layouts.plannerScatter,
+      sm.gen_ba_planner_v2_mwg_scatter_shader(tile_tpb, tile_per_thread, s, 64),
+      `planner-v2-mwg-scatter-T${tile_tpb}-P${tile_per_thread}-S${s}`,
     ),
     compilePipeline(device, layouts.marshal, sm.gen_ba_marshal_pairs_prod_shader(wgi, s), `marshal-prod-W${wgi}-S${s}`),
     compilePipeline(device, layouts.disjoint, sm.gen_ba_pair_disjoint_tree_prod_shader(wgi, s), `disjoint-prod-W${wgi}-S${s}`),
@@ -224,7 +264,7 @@ async function compileAll(
     compilePipeline(device, layouts.carry, sm.gen_ba_carry_copy_prod_shader(wgi), `carry-prod-W${wgi}`),
     compilePipeline(device, layouts.v2Run, sm.gen_v2_to_running_shader(wgi), `v2-to-running-wg${wgi}`),
   ]);
-  return { csrMeta, csrActive, planner, marshal, disjoint, scatter, carry, v2ToRunning, layouts };
+  return { csrMeta, csrActive, plannerLocal, plannerScan, plannerScatter, marshal, disjoint, scatter, carry, v2ToRunning, layouts };
 }
 
 interface Scratch {
@@ -236,20 +276,26 @@ interface Scratch {
   countsB: GPUBuffer;
   offsetsA: GPUBuffer;
   offsetsB: GPUBuffer;
+  bucketLocalPairOff: GPUBuffer;
+  bucketLocalCarryOff: GPUBuffer;
+  bucketLocalNewOff: GPUBuffer;
+  wgTotals: GPUBuffer;
   perLevelChunkPlan: GPUBuffer[];
   perLevelScatterPlan: GPUBuffer[];
   perLevelCarryPlan: GPUBuffer[];
   perLevelTotals: GPUBuffer[];
   metaParams: GPUBuffer;
   activeParams: GPUBuffer;
-  plannerParams: GPUBuffer;
+  plannerLocalParams: GPUBuffer;
+  plannerScanParams: GPUBuffer;
+  plannerScatterParams: GPUBuffer;
   marshalConsts: GPUBuffer;
   scatterConsts: GPUBuffer;
   carryConsts: GPUBuffer;
   v2RunParams: GPUBuffer;
   M: number;
   maxChunks: number;
-  perThread: number;
+  numTiles: number;
 }
 
 function allocScratch(
@@ -258,8 +304,7 @@ function allocScratch(
   input_size: number,
   s: number,
   max_levels: number,
-  tpb: number,
-  per_thread: number,
+  tile_size: number,
 ): Scratch {
   // M = real slots (input_size) + 3 reserved tail slots: pad_left,
   // pad_right, discard. Reserved slots aren't touched by the converter
@@ -268,6 +313,7 @@ function allocScratch(
   // chunk of chunk_plan / scatter_plan with these constant indices.
   const M = input_size + 3;
   const maxChunks = Math.max(1, Math.ceil(input_size / 2 / s) + 1);
+  const numTiles = Math.max(1, Math.ceil(num_columns / tile_size));
 
   const mk = (bytes: number, extra: GPUBufferUsageFlags = 0): GPUBuffer =>
     device.createBuffer({ size: bytes, usage: GPUBufferUsage.STORAGE | extra });
@@ -285,6 +331,12 @@ function allocScratch(
   const countsB = mk(countsBytes);
   const offsetsA = mk(offsetsBytes);
   const offsetsB = mk(offsetsBytes);
+
+  const bucketLocalBytes = num_columns * 4;
+  const bucketLocalPairOff = mk(bucketLocalBytes);
+  const bucketLocalCarryOff = mk(bucketLocalBytes);
+  const bucketLocalNewOff = mk(bucketLocalBytes);
+  const wgTotals = mk(3 * numTiles * 4);
 
   const perLevelChunkPlan: GPUBuffer[] = [];
   const perLevelScatterPlan: GPUBuffer[] = [];
@@ -305,7 +357,9 @@ function allocScratch(
     device.createBuffer({ size: Math.max(16, bytes), usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   const metaParams = ub(16);
   const activeParams = ub(16);
-  const plannerParams = ub(16);
+  const plannerLocalParams = ub(16);
+  const plannerScanParams = ub(16);
+  const plannerScatterParams = ub(16);
   const marshalConsts = ub(16);
   const scatterConsts = ub(16);
   const carryConsts = ub(16);
@@ -314,10 +368,12 @@ function allocScratch(
   return {
     activeA, activeB, chainBuf, tempOut,
     countsA, countsB, offsetsA, offsetsB,
+    bucketLocalPairOff, bucketLocalCarryOff, bucketLocalNewOff, wgTotals,
     perLevelChunkPlan, perLevelScatterPlan, perLevelCarryPlan, perLevelTotals,
-    metaParams, activeParams, plannerParams,
+    metaParams, activeParams,
+    plannerLocalParams, plannerScanParams, plannerScatterParams,
     marshalConsts, scatterConsts, carryConsts, v2RunParams,
-    M, maxChunks, perThread: per_thread,
+    M, maxChunks, numTiles,
   };
 }
 
@@ -330,13 +386,19 @@ function destroyScratch(scratch: Scratch): void {
   scratch.countsB.destroy();
   scratch.offsetsA.destroy();
   scratch.offsetsB.destroy();
+  scratch.bucketLocalPairOff.destroy();
+  scratch.bucketLocalCarryOff.destroy();
+  scratch.bucketLocalNewOff.destroy();
+  scratch.wgTotals.destroy();
   for (const b of scratch.perLevelChunkPlan) b.destroy();
   for (const b of scratch.perLevelScatterPlan) b.destroy();
   for (const b of scratch.perLevelCarryPlan) b.destroy();
   for (const b of scratch.perLevelTotals) b.destroy();
   scratch.metaParams.destroy();
   scratch.activeParams.destroy();
-  scratch.plannerParams.destroy();
+  scratch.plannerLocalParams.destroy();
+  scratch.plannerScanParams.destroy();
+  scratch.plannerScatterParams.destroy();
   scratch.marshalConsts.destroy();
   scratch.scatterConsts.destroy();
   scratch.carryConsts.destroy();
@@ -359,16 +421,26 @@ export async function runSmvpV2PairTree(opts: SmvpV2PairTreeOptions): Promise<Sm
     running_x_buf, running_y_buf, bucket_active_buf,
   } = opts;
   const s = opts.s ?? 16;
-  const tpb = opts.tpb ?? 256;
-  const per_thread = opts.per_thread ?? Math.max(1, Math.ceil(num_columns / tpb));
   const wgi = opts.wgi ?? 64;
   const max_levels = opts.max_levels ?? 8;
-  if (tpb * per_thread < num_columns) {
-    throw new Error(`smvp_v2_pair_tree: tpb*per_thread (${tpb}*${per_thread}=${tpb * per_thread}) must be >= num_columns (${num_columns}).`);
+
+  // Multi-workgroup planner sizing. TILE = tile_tpb * tile_per_thread
+  // is the bucket count handled by a single workgroup in passes 1 and
+  // 3. Pass 2 uses a single workgroup and must satisfy
+  // scan_tpb * scan_per_thread >= ceil(num_columns / TILE). The picked
+  // values (TILE=1024, scan capacity=1024) cover num_columns up to 2^20.
+  const tile_tpb = 256;
+  const tile_per_thread = 4;
+  const tile_size = tile_tpb * tile_per_thread;
+  const scan_tpb = 256;
+  const scan_per_thread = 4;
+  const numTiles = Math.max(1, Math.ceil(num_columns / tile_size));
+  if (scan_tpb * scan_per_thread < numTiles) {
+    throw new Error(`smvp_v2_pair_tree: scan_tpb*scan_per_thread (${scan_tpb}*${scan_per_thread}=${scan_tpb * scan_per_thread}) must be >= num_tiles (${numTiles}) for num_columns=${num_columns}.`);
   }
 
-  const pipelines = await compileAll(device, shaderManager, wgi, s, tpb, per_thread);
-  const scratch = allocScratch(device, num_columns, input_size, s, max_levels, tpb, per_thread);
+  const pipelines = await compileAll(device, shaderManager, wgi, s, tile_tpb, tile_per_thread, scan_tpb, scan_per_thread);
+  const scratch = allocScratch(device, num_columns, input_size, s, max_levels, tile_size);
   const M = scratch.M;
 
   const padLeft = input_size;
@@ -376,7 +448,9 @@ export async function runSmvpV2PairTree(opts: SmvpV2PairTreeOptions): Promise<Sm
   const discard = input_size + 2;
   device.queue.writeBuffer(scratch.metaParams, 0, new Uint32Array([num_columns, num_columns, 0, 0]));
   device.queue.writeBuffer(scratch.activeParams, 0, new Uint32Array([input_size, M, 0, 0]));
-  device.queue.writeBuffer(scratch.plannerParams, 0, new Uint32Array([num_columns, padLeft, padRight, discard]));
+  device.queue.writeBuffer(scratch.plannerLocalParams, 0, new Uint32Array([num_columns, 0, 0, 0]));
+  device.queue.writeBuffer(scratch.plannerScanParams, 0, new Uint32Array([numTiles, padLeft, padRight, discard]));
+  device.queue.writeBuffer(scratch.plannerScatterParams, 0, new Uint32Array([num_columns, 0, 0, 0]));
   device.queue.writeBuffer(scratch.marshalConsts, 0, new Uint32Array([M, 0, 0, 0]));
   device.queue.writeBuffer(scratch.scatterConsts, 0, new Uint32Array([M, 0, 0, 0]));
   device.queue.writeBuffer(scratch.carryConsts, 0, new Uint32Array([M, M, 0, 0]));
@@ -464,21 +538,49 @@ export async function runSmvpV2PairTree(opts: SmvpV2PairTreeOptions): Promise<Sm
       const carryPlanBuf = scratch.perLevelCarryPlan[lvl];
       const totalsBuf = scratch.perLevelTotals[lvl];
 
-      const plannerBind = device.createBindGroup({
-        layout: pipelines.layouts.planner,
+      const plannerLocalBind = device.createBindGroup({
+        layout: pipelines.layouts.plannerLocal,
+        entries: [
+          { binding: 0, resource: { buffer: curCounts } },
+          { binding: 1, resource: { buffer: scratch.bucketLocalPairOff } },
+          { binding: 2, resource: { buffer: scratch.bucketLocalCarryOff } },
+          { binding: 3, resource: { buffer: scratch.bucketLocalNewOff } },
+          { binding: 4, resource: { buffer: scratch.wgTotals } },
+          { binding: 5, resource: { buffer: nextCounts } },
+          { binding: 6, resource: { buffer: scratch.plannerLocalParams } },
+        ],
+      });
+      directPass(pipelines.plannerLocal, plannerLocalBind, numTiles);
+
+      const plannerScanBind = device.createBindGroup({
+        layout: pipelines.layouts.plannerScan,
+        entries: [
+          { binding: 0, resource: { buffer: scratch.wgTotals } },
+          { binding: 1, resource: { buffer: totalsBuf } },
+          { binding: 2, resource: { buffer: chunkPlanBuf } },
+          { binding: 3, resource: { buffer: scatterPlanBuf } },
+          { binding: 4, resource: { buffer: scratch.plannerScanParams } },
+        ],
+      });
+      directPass(pipelines.plannerScan, plannerScanBind, 1);
+
+      const plannerScatterBind = device.createBindGroup({
+        layout: pipelines.layouts.plannerScatter,
         entries: [
           { binding: 0, resource: { buffer: curCounts } },
           { binding: 1, resource: { buffer: curOffsets } },
-          { binding: 2, resource: { buffer: chunkPlanBuf } },
-          { binding: 3, resource: { buffer: scatterPlanBuf } },
-          { binding: 4, resource: { buffer: carryPlanBuf } },
-          { binding: 5, resource: { buffer: nextCounts } },
-          { binding: 6, resource: { buffer: nextOffsets } },
-          { binding: 7, resource: { buffer: totalsBuf } },
-          { binding: 8, resource: { buffer: scratch.plannerParams } },
+          { binding: 2, resource: { buffer: scratch.bucketLocalPairOff } },
+          { binding: 3, resource: { buffer: scratch.bucketLocalCarryOff } },
+          { binding: 4, resource: { buffer: scratch.bucketLocalNewOff } },
+          { binding: 5, resource: { buffer: scratch.wgTotals } },
+          { binding: 6, resource: { buffer: chunkPlanBuf } },
+          { binding: 7, resource: { buffer: scatterPlanBuf } },
+          { binding: 8, resource: { buffer: carryPlanBuf } },
+          { binding: 9, resource: { buffer: nextOffsets } },
+          { binding: 10, resource: { buffer: scratch.plannerScatterParams } },
         ],
       });
-      directPass(pipelines.planner, plannerBind, 1);
+      directPass(pipelines.plannerScatter, plannerScatterBind, numTiles);
 
       const marshalBind = device.createBindGroup({
         layout: pipelines.layouts.marshal,
