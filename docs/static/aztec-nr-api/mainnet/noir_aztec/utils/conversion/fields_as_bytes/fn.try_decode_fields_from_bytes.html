@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function try_decode_fields_from_bytes documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">try_decode_fields_from_bytes</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module fields_as_bytes</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.decode_fields_from_bytes.html">decode_fields_from_bytes</a></div></li>
+<li><a href="fn.encode_fields_as_bytes.html">encode_fields_as_bytes</a></div></li>
+<li><a href="fn.try_decode_fields_from_bytes.html">try_decode_fields_from_bytes</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">utils</a>::<a href="../index.html">conversion</a>::<a href="index.html">fields_as_bytes</a></div>
+<h1>Function <span class="fn">try_decode_fields_from_bytes</span></h1>
+<pre><code>pub fn try_decode_fields_from_bytes&lt;let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    bytes: <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.u8.html" class="primitive">u8</a>, N&gt;,
+) -> <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>, N / 32&gt;&gt;</code></pre>
+
+<div class="comments">
+<p>Decodes bytes back into fields, returning None on failure.</p>
+<p>Inverse of
+<a href="../../../../noir_aztec/utils/conversion/fields_as_bytes/fn.encode_fields_as_bytes.html"><code>encode_fields_as_bytes</code></a>.
+Returns <code>Option::none()</code> if the input length is not a multiple of 32, or if any 32-byte chunk is <code>&gt;=</code> the BN254
+field modulus.</p></div>
+</main>
+</span>
+</body>
+</html>
