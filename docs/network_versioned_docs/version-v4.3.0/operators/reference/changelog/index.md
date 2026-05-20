@@ -11,6 +11,32 @@ This changelog documents all configuration changes, new features, and breaking c
 
 ## Version history
 
+### [v4.3.0](./v4.3.md)
+
+Bundled binaries renamed under an `aztec-` prefix on `PATH`.
+
+**Key changes:**
+- `aztec-up` no longer places bare-named binaries (`forge`, `cast`, `nargo`, `bb`, `pxe`, `txe`, `validator-client`, `blob-client`, ...) on `PATH`; use the `aztec-` prefixed names instead
+
+**Migration difficulty**: Low
+
+[View full changelog →](./v4.3.md)
+
+---
+
+### [v4.2.0](./v4.2.md)
+
+New features and configuration options for node operators.
+
+**Key changes:**
+- Blob retrieval improvements with unified retry loop
+
+**Migration difficulty**: Low
+
+[View full changelog →](./v4.2.md)
+
+---
+
 ### [v4.x (Upgrade from Ignition)](./v4.md)
 
 Major upgrade from Ignition (v2.x) to Alpha (v4.x) with significant architectural changes.

@@ -494,7 +494,7 @@ FPCs that use only Fee Juice still work on all networks, since FeeJuice is a pro
 + const paymentMethod = new FeeJuicePaymentMethodWithClaim(senderAddress, claim);
 ```
 
-Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on devnet and local network.
+Similarly, the `fpc-public` and `fpc-private` CLI wallet payment methods use the reference Token-based FPC and will not work on public networks. Use `fee_juice` for direct Fee Juice payment, or `fpc-sponsored` on testnet, devnet, and local network.
 
 ### [Aztec.nr] Domain-separated tags on log emission
 

@@ -45,7 +45,7 @@ New accounts must be deployed before they can send transactions. Deployment requ
 
 ### Using the Sponsored FPC
 
-If your account doesn't have Fee Juice, use the [Sponsored FPC](./how_to_pay_fees.md#sponsored-fpc-devnet-and-local-only):
+If your account doesn't have Fee Juice, use the [Sponsored FPC](./how_to_pay_fees.md#sponsored-fpc):
 
 ```typescript title="deploy_account_sponsored_fpc" showLineNumbers 
 // Additional imports needed for account deployment examples
@@ -78,7 +78,7 @@ await deployMethod.send({
 
 
 :::info
-See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc-devnet-and-local-only) for more details on the Sponsored FPC and what this snippet means.
+See the [guide on fees](./how_to_pay_fees.md#sponsored-fpc) for more details on the Sponsored FPC and what this snippet means.
 :::
 
 ### Using Fee Juice
