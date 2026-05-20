@@ -295,32 +295,26 @@ describe('e2e_epochs/epochs_equivocation', () => {
       ),
     );
 
-    // Assert the equivocating proposer was flagged for slashing. The proposer key is held by both
-    // node A (which published to L1) and X (which broadcast a conflicting checkpoint via gossip);
-    // any observer node that synced both should detect the divergence and record the offense.
-    logger.warn(`Waiting for DUPLICATE_PROPOSAL offense against ${proposerAttester}`, {
+    // Every observing validator should have recorded the equivocation offense. A has been stopped
+    // above and D is a non-validator (no slasher), so we poll only B and C.
+    logger.warn(`Waiting for DUPLICATE_PROPOSAL offense on every observing node`, {
       proposerAttester,
       submissionSlot,
     });
-    // Poll only the live validator nodes: A has been stopped above and D is a non-validator (no slasher).
-    const slashingNodes = [nodeB, nodeC];
-    const offenses = await retryUntil(
+    const matchesOffense = (o: { offenseType: OffenseType; validator: { toString(): string }; epochOrSlot: bigint }) =>
+      o.offenseType === OffenseType.DUPLICATE_PROPOSAL &&
+      o.validator.toString() === proposerAttester.toString() &&
+      o.epochOrSlot === BigInt(submissionSlot);
+    await retryUntil(
       async () => {
-        const all = (await Promise.all(slashingNodes.map(n => n.getSlashOffenses('all')))).flat();
-        const matching = all.filter(
-          o =>
-            o.offenseType === OffenseType.DUPLICATE_PROPOSAL && o.validator.toString() === proposerAttester.toString(),
+        const found = await Promise.all(
+          [nodeB, nodeC].map(async n => (await n.getSlashOffenses('all')).some(matchesOffense)),
         );
-        if (matching.length > 0) {
-          return matching;
-        }
+        return found.every(Boolean);
       },
-      `DUPLICATE_PROPOSAL offense for ${proposerAttester}`,
+      `DUPLICATE_PROPOSAL offense on every observing node`,
       test.L2_SLOT_DURATION_IN_S * 4,
       0.5,
     );
-    logger.warn(`Detected equivocation offenses`, { offenses });
-    expect(offenses.length).toBeGreaterThan(0);
-    expect(offenses[0].epochOrSlot).toEqual(BigInt(submissionSlot));
   });
 });
