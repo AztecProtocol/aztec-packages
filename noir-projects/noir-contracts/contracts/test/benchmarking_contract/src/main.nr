@@ -113,7 +113,7 @@ pub contract Benchmarking {
             for j in 0..PRIVATE_LOG_CIPHERTEXT_LEN {
                 log.push(random_seed + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field);
             }
-            self.context.emit_private_log_vec_unsafe(0, log);
+            self.context.emit_private_log_unsafe(0, log);
         }
     }
 
