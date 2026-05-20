@@ -319,7 +319,9 @@ describe('e2e_p2p_add_rollup', () => {
         // Wait until the message is ready to be consumed (the rollup has reached the message's checkpoint).
         // Using waitForL1ToL2MessageReady rather than isL1ToL2MessageSynced because with `inboxLag > 0`
         // a synced message is not yet present in the latest checkpoint's inbox tree.
-        await waitForL1ToL2MessageReady(node, msgHash, { timeoutSeconds: 120 });
+        // Allow ample time: the new-rollup bridging step runs after warping ~500 epochs forward,
+        // and under heavy CI load checkpoint cadence can stretch well past two minutes.
+        await waitForL1ToL2MessageReady(node, msgHash, { timeoutSeconds: 300 });
 
         const { receipt } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
