@@ -52,6 +52,10 @@ let S = DEFAULT_S;
 let WGI = DEFAULT_WGI;
 let REPS = DEFAULT_REPS;
 let VALIDATE = false;
+// Field-inversion variant used by the fused super-kernel: 'a' =
+// fr_inv_by_a (Option A, BATCH=26), 'loop' = fr_inv_by_loop
+// (register-minimal, BATCH=12). Toggle with ?inv=loop.
+let INV_VARIANT: 'a' | 'loop' = 'a';
 
 const FP = BN254_BASE_FIELD;
 
@@ -451,7 +455,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
     `planner-v2-c${CBITS}-w${NUM_WINDOWS}`,
     plannerLayout,
   );
-  const fusedPipe = await compileOne(device, sm.gen_ba_fused_super_bench_shader(WGI, S), `fused-W${WGI}-S${S}`, fusedLayout);
+  const fusedPipe = await compileOne(device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT), `fused-W${WGI}-S${S}-${INV_VARIANT}`, fusedLayout);
   const carryPipe = await compileOne(device, sm.gen_ba_carry_copy_bench_shader(WGI), `carry-W${WGI}`, carryLayout);
   const finalizePipe = await compileOne(device, sm.gen_ba_finalize_copy_bench_shader(WGI), `finalize-W${WGI}`, finalizeLayout);
   log('info', '4 pipelines compiled');
@@ -779,7 +783,8 @@ function parseParams() {
   if (qp.get('wgi')) WGI = parseInt(qp.get('wgi')!, 10);
   if (qp.get('reps')) REPS = parseInt(qp.get('reps')!, 10);
   if (qp.get('validate') === '1') VALIDATE = true;
-  return { n: NPTS, c: CBITS, numbits: NUMBITS, s: S, wgi: WGI, reps: REPS, validate: VALIDATE };
+  if (qp.get('inv') === 'loop') INV_VARIANT = 'loop';
+  return { n: NPTS, c: CBITS, numbits: NUMBITS, s: S, wgi: WGI, reps: REPS, validate: VALIDATE, inv: INV_VARIANT };
 }
 
 async function main() {

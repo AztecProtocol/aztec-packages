@@ -808,15 +808,21 @@ ${packLines.join('\n')}
    * inverse pair sums in registers, writes directly to active_sums_new.
    * Carry is a separate kernel.
    */
-  public gen_ba_fused_super_bench_shader(workgroup_size: number, s: number): string {
+  public gen_ba_fused_super_bench_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'a' | 'loop' = 'a',
+  ): string {
     if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
     }
     const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
+    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
     return mustache.render(
       ba_fused_super_bench_shader,
       {
-        workgroup_size, s,
+        workgroup_size, s, inv_fn,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
@@ -827,7 +833,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, fr_pow_funcs, bigint_by_funcs, by_inverse_a_funcs,
+        field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
       },
     );
   }

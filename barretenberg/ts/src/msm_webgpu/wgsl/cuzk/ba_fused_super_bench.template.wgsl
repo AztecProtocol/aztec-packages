@@ -4,7 +4,7 @@
 {{> field_funcs }}
 {{> fr_pow_funcs }}
 {{> bigint_by_funcs }}
-{{> by_inverse_a_funcs }}
+{{> inverse_funcs }}
 
 {{{ dec_unpack }}}
 
@@ -18,7 +18,7 @@
 //   2. Read S destination indices from scatter_plan.
 //   3. Load S pair-x values from active_sums_old, compute S dx values
 //      and forward prefix product, all in registers.
-//   4. Single fr_inv_by_a on the prefix product.
+//   4. Single field inversion on the prefix product.
 //   5. Backward peel: per slot k from S-1 down to 0:
 //        - load .x and .y for both operands
 //        - lean affine add -> R_x, R_y
@@ -117,7 +117,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     // Single inversion per chunk.
-    var inv: BigInt = fr_inv_by_a(acc);
+    var inv: BigInt = {{ inv_fn }}(acc);
 
     // Backward peel: emit S pair sums, scatter to active_sums_new.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {

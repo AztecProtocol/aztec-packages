@@ -1,128 +1,49 @@
 // ============================================================================
-// Option "loop": register-MINIMAL Bernstein-Yang safegcd field inverse.
+// Option "loop": register-minimal Bernstein-Yang safegcd field inverse.
 //
-// Drop-in alternative to `fr_inv_by_a` (in by_inverse_a.template.wgsl). Same
-// signature and contract:  fr_inv_by_loop(a: BigInt) -> BigInt  returns the
-// Montgomery-form inverse of `a` for the BN254 scalar field `p` (= `get_p()`).
+// Drop-in alternative to `fr_inv_by_a`. Same signature / contract:
+//   fr_inv_by_loop(a: BigInt) -> BigInt  — Montgomery-form inverse of `a`.
 //
-// WHY THIS FILE EXISTS
-// --------------------
-//   The MSM compute kernel is register / occupancy bound. The current
-//   `by_inverse_a` apply_matrix functions are fully unrolled flat expressions
-//   that materialise ~110-230 named i32 locals each (all 20 f-limbs + 20
-//   g-limbs as locals, plus ~150 partial-product temporaries). That unrolled
-//   apply_matrix is the per-thread REGISTER PEAK of the whole kernel, so it
-//   caps achievable occupancy and therefore throughput. This file recomputes
-//   the SAME safegcd math with rolling loops instead of flat unrolls, trading
-//   instruction count (the kernel is NOT ALU-bound) for a much smaller live
-//   register set.
+// This is `by_inverse_a`'s algorithm — BATCH=26, NUM_OUTER=29, the identical
+// divstep sequence and k*p trick — with apply_matrix rewritten from a fully
+// unrolled flat expression (~150-230 live i32 locals, the inverse's register
+// peak) into a ROLLING LOOP (~20-25 live values). Same arithmetic, an order
+// of magnitude fewer registers.
 //
-// DESIGN
-// ------
-//   1. Rolling-loop apply_matrix. After BATCH=12 inner divsteps every 2x2
-//      matrix entry satisfies |u,v,q,r| <= 2^12 < 2^13, so each entry fits a
-//      SINGLE signed 13-bit limb (no lo/hi split). The product (u*x + v*y)
-//      then has a fixed one-limb lookahead: product limb j depends only on
-//      input limbs j and j-1. That collapses the multiply + carry into ONE
-//      rolling loop carrying ~20 live values (carry, one previous product
-//      limb, the 4 matrix entries, loop index, the BigInt pointers) instead
-//      of the ~150-230 simultaneously-live locals of the unrolled form.
+// The rolling apply_matrix is a faithful transliteration of `applyMatrix` in
+// the tested TS reference `src/msm_webgpu/cuzk/bernstein_yang_a.ts`:
+//   - BATCH=26 = 2*WORD_SIZE, so >>26 is a clean two-limb drop:
+//     out[j] = product-limb[j+2]. No bit-recombination.
+//   - Each matrix entry splits m = m_lo + m_hi*2^13; base-2^13 product limb i
+//     reads input limbs i and i-1, so the loop carries a one-limb input
+//     window (fp/gp) plus the running carry.
+//   - In place: the loop writes out[i-2] only after reading in[i], so the
+//     write trails the read by two limbs — no input snapshot needed.
 //
-//   2. BATCH = 12 divsteps per outer round  ->  NUM_OUTER = ceil(735/12) = 62.
-//      The Bernstein-Yang divstep bound for a 256-bit modulus is 735 divsteps.
-//      BATCH=12 is the LARGEST batch for which every matrix entry still fits a
-//      single 13-bit limb: a divstep grows |u,v,q,r| by at most a factor 2 per
-//      step, so after B steps |entry| <= 2^B; 2^12 < 2^13 fits, 2^13 does not.
-//      BATCH=12 also keeps the divstep window inside a SINGLE u32 (12 needed
-//      bits + 20 bits of headroom for sign propagation across the 12 steps),
-//      so there is no vec2<u32> window and no u64_* helpers — plain u32 ops.
+// All identifiers are namespaced byl_/BYL_ so this coexists with by_inverse_a.
+// Relies on the same external helpers: montgomery_product, get_p,
+// get_r_cubed, bigint_is_neg_2c, bigint_gte, the u64_* helpers (bigint_by),
+// the constants MASK / WORD_SIZE, and context vars num_words / p_inv_by_a_lo.
 //
-//   3. Exact /2^12 with a 13-bit limb base. Bernstein-Yang guarantees the low
-//      BATCH bits of (u*f+v*g) (resp. (q*f+r*g)) are zero, so >>12 is exact.
-//      The rolling loop first forms the base-2^13 product limbs P[i], then a
-//      fused one-limb-lookahead recombination emits  out[j] =
-//      (P[j] >> 12) | (P[j+1] << 1)  masked to 13 bits. Both happen in the
-//      same loop body (we keep the previous product limb in one register).
-//
-//   4. Merged f/g and d/e apply_matrix. The two are structurally identical:
-//      (m_a*x + m_b*y + k*p) >> 12. f/g passes k = 0 (the k*p term folds
-//      away); d/e passes the modular-cancellation coefficient k chosen so the
-//      low 12 bits cancel mod p (the standard safegcd k*p trick). One
-//      parametric function `byl_apply_matrix` serves both.
-//
-//   5. Rolling loops everywhere (divsteps, normalise, reduce-to-canonical),
-//      never flat unrolled expressions, even at the cost of more instructions.
-//
-// ESTIMATED PER-THREAD REGISTER FOOTPRINT
-// ---------------------------------------
-//   `byl_apply_matrix` peak live set (the kernel's apply_matrix is what
-//   currently dominates):
-//     - 4 matrix entries (u/v or q/r + the two it is called with) ......  4
-//     - k coefficient + p_inv scratch ..................................  2
-//     - loop index i ...................................................  1
-//     - rolling carry ..................................................  1
-//     - previous product limb P_prev ...................................  1
-//     - current s / product-limb scratch ...............................  2
-//     - 2 BigInt function-pointer operands (x/y or d/e) + p ptr ......... ~3
-//     - top-limb sign-extension scratch ................................  2
-//     ----------------------------------------------------------------------
-//     ~16-20 i32-equivalent registers, plus a handful of spill slack.
-//   Compare with the current unrolled `bya_apply_matrix_fg` /
-//   `bya_apply_matrix_de`: ~110-230 simultaneously-live i32 locals each.
-//   Expected reduction of the kernel register PEAK: roughly an order of
-//   magnitude (~150-230  ->  ~20), which is what unblocks occupancy.
-//
-// HOW TO WIRE IT IN
-// -----------------
-//   This file is a drop-in replacement for the `by_inverse_a_funcs` Mustache
-//   partial. To use it:
-//     - In shader_manager.ts, import this template alongside (or instead of)
-//       `by_inverse_a` and expose it as a partial, e.g.
-//         `import by_inverse_loop_funcs from '.../by_inverse_loop.template.wgsl'`
-//       and add `by_inverse_loop_funcs` to the partials object passed to
-//       `mustache.render(...)` for each shader that needs the inverse.
-//     - In the consuming WGSL shader, change the call site
-//         `fr_inv_by_a(...)`  ->  `fr_inv_by_loop(...)`.
-//   It relies on the SAME Mustache context variables as `by_inverse_a`
-//   (`{{ num_words }}`, `{{ p_inv_by_a_lo }}`) and the SAME external helpers
-//   assumed in scope from sibling partials: `montgomery_product`, `get_p`,
-//   `get_r_cubed`, `bigint_is_neg_2c`, `bigint_gte`, and the constants
-//   `MASK`, `WORD_SIZE`, `NUM_WORDS`. All identifiers added here are
-//   namespaced `byl_` / `BYL_` so this file can coexist with `by_inverse_a`'s
-//   `bya_` / `BYA_` names if both partials are ever included together.
-//
-// STATUS
-// ------
-//   The math is a faithful transliteration of the tested TypeScript reference
-//   `src/msm_webgpu/cuzk/bernstein_yang_a.ts` (`divsteps` + `applyMatrix`),
-//   re-derived for BATCH=12 (single-limb matrix entries, lookahead-1, explicit
-//   >>12 recombination) and matching `by_inverse_a`'s divstep decisions,
-//   matrix accumulation, k*p modular-cancellation trick and final Montgomery
-//   correction. It renders to structurally valid WGSL but has NOT been run on
-//   a GPU here. Before trusting it: wire it as above and run the MSM harness
-//   with `?validate=1` so the inverse is checked against the reference.
+// NOTE: never write Mustache tags inside these comments — Mustache renders
+// them regardless of WGSL comment syntax and a partial tag would inline a
+// whole partial mid-comment.
 // ============================================================================
 
-// Bernstein-Yang divstep bound for a 256-bit modulus.
-//   BATCH = 12  ->  NUM_OUTER = ceil(735 / 12) = 62.
-const BYL_BATCH: u32 = 12u;
-const BYL_NUM_OUTER: u32 = 62u;
-// Canonicalise d/e periodically so non-canonical limb magnitudes stay bounded.
+// Bernstein-Yang divstep bound for a 256-bit modulus is 735 divsteps.
+// BATCH=26 -> NUM_OUTER = ceil(735/26) = 29.
+const BYL_BATCH: u32 = 26u;
+const BYL_NUM_OUTER: u32 = 29u;
 const BYL_REDUCE_INTERVAL: u32 = 4u;
-// Worst-case add-p / sub-p iterations to bring a value into [0, p).
 const BYL_RTC_MAX_ITERS: u32 = 4u;
 
-const BYL_MASK13: u32 = (1u << 13u) - 1u;
-// Mask for the low BATCH=12 bits — used by the k*p modular-cancellation trick.
-const BYL_MASK_BATCH: u32 = (1u << 12u) - 1u;
+// Low BATCH=26 bits — used by the k*p modular-cancellation trick.
+const BYL_MASK_BATCH: u32 = (1u << 26u) - 1u;
+// p^(-1) mod 2^26 (Hensel-lifted), the same value by_inverse_a consumes.
+const BYL_P_INV_LO: u32 = {{ p_inv_by_a_lo }}u;
 
-// p^(-1) mod 2^12. `{{ p_inv_by_a_lo }}` is p^(-1) mod 2^26 (Hensel-lifted);
-// Hensel lifts are consistent across power-of-two moduli, so its low 12 bits
-// are exactly p^(-1) mod 2^12.
-const BYL_P_INV_LO12: u32 = {{ p_inv_by_a_lo }}u & BYL_MASK_BATCH;
-
-// 2x2 transition matrix produced by BYL_BATCH divsteps. Each entry is a signed
-// i32 with |entry| <= 2^12, so it fits a single signed 13-bit limb.
+// 2x2 transition matrix from BYL_BATCH divsteps. After 26 divsteps every
+// entry satisfies |u,v,q,r| <= 2^26, so a plain i32 holds it.
 struct BylMat {
     u: i32,
     v: i32,
@@ -131,32 +52,25 @@ struct BylMat {
 }
 
 // ============================================================================
-// byl_divsteps: BYL_BATCH branchy divsteps on the LOW 32 BITS of (f, g).
-//
-// Faithful transliteration of `divsteps` in bernstein_yang_a.ts, narrowed from
-// a 64-bit vec2<u32> window to a single u32: BATCH=12 needs only 12 low bits to
-// drive the decisions, and 32 bits leaves 20 bits of headroom for sign
-// propagation across the 12 steps. Plain u32 ops replace the u64_* helpers
-// (>>1 logical, +, -, &1 — the wrapped two's-complement low bits stay exact
-// because every decision reads only bit 0).
-//
-// Matrix entries grow by at most one shift-left or one add per step, so after
-// BYL_BATCH=12 steps |u,v,q,r| <= 2^12.
+// byl_divsteps: BYL_BATCH branchy divsteps on the low 64 bits of (f, g),
+// carried as a vec2<u32>. We need >= BATCH bits to drive the decisions; 64
+// leaves 38 bits of sign-propagation headroom. Transliteration of
+// `bya_divsteps` / the TS `divsteps`.
 // ============================================================================
-fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: u32, g_lo_in: u32) -> BylMat {
-    var f_lo: u32 = f_lo_in;
-    var g_lo: u32 = g_lo_in;
+fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: vec2<u32>, g_lo_in: vec2<u32>) -> BylMat {
+    var f_lo: vec2<u32> = f_lo_in;
+    var g_lo: vec2<u32> = g_lo_in;
     var u: i32 = 1;
     var v: i32 = 0;
     var q: i32 = 0;
     var r: i32 = 1;
     var d: i32 = *delta;
     for (var i: u32 = 0u; i < BYL_BATCH; i = i + 1u) {
-        if ((g_lo & 1u) != 0u) {
+        if (u64_low_bit(g_lo) != 0u) {
             if (d > 0) {
-                // delta > 0 and g odd: swap-and-subtract branch.
-                let nf: u32 = g_lo;
-                let ng: u32 = (g_lo - f_lo) >> 1u;
+                let nf: vec2<u32> = g_lo;
+                let diff: vec2<u32> = u64_sub(g_lo, f_lo);
+                let ng: vec2<u32> = u64_shr1(diff);
                 let nu: i32 = q << 1u;
                 let nv: i32 = r << 1u;
                 let nq: i32 = q - u;
@@ -169,8 +83,8 @@ fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: u32, g_lo_in: u32) -> BylMat
                 r = nr;
                 d = 1 - d;
             } else {
-                // delta <= 0 and g odd: add-and-halve branch.
-                g_lo = (g_lo + f_lo) >> 1u;
+                let sum: vec2<u32> = u64_add(g_lo, f_lo);
+                g_lo = u64_shr1(sum);
                 q = q + u;
                 r = r + v;
                 u = u << 1u;
@@ -178,8 +92,7 @@ fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: u32, g_lo_in: u32) -> BylMat
                 d = d + 1;
             }
         } else {
-            // g even: plain halve.
-            g_lo = g_lo >> 1u;
+            g_lo = u64_shr1(g_lo);
             u = u << 1u;
             v = v << 1u;
             d = d + 1;
@@ -190,23 +103,23 @@ fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: u32, g_lo_in: u32) -> BylMat
 }
 
 // ============================================================================
-// byl_low_u32: low 32 bits of a 20 x 13-bit BigInt with canonical limbs.
-// Limbs 0,1 contribute bits 0..25 exactly; limb 2 contributes bits 26..31
-// (its low 6 bits). The high bits of limb 2 are dropped — only the low 32
-// bits of the integer are needed to drive BYL_BATCH=12 divsteps.
+// byl_low_u64: low 64 bits of a 20 x 13-bit BigInt with canonical 13-bit
+// limbs (the apply_matrix output guarantees limbs 0..18 are canonical).
 // ============================================================================
-fn byl_low_u32(x: ptr<function, BigInt>) -> u32 {
+fn byl_low_u64(x: ptr<function, BigInt>) -> vec2<u32> {
     let l0: u32 = (*x).limbs[0] & MASK;
     let l1: u32 = (*x).limbs[1] & MASK;
     let l2: u32 = (*x).limbs[2] & MASK;
-    return l0 | (l1 << 13u) | (l2 << 26u);
+    let l3: u32 = (*x).limbs[3] & MASK;
+    let l4: u32 = (*x).limbs[4] & MASK;
+    let lo32: u32 = l0 | (l1 << 13u) | (l2 << 26u);
+    let hi32: u32 = (l2 >> 6u) | (l3 << 7u) | (l4 << 20u);
+    return vec2<u32>(lo32, hi32);
 }
 
 // ============================================================================
 // byl_normalise: carry-propagate so every limb in [0, NUM_WORDS-1) is a
 // canonical 13-bit value and the top limb absorbs the signed extension.
-// Rolling loop (no unroll). Mirrors `normalise` in the TS reference and
-// `bya_normalise` in by_inverse_a.
 // ============================================================================
 fn byl_normalise(x: ptr<function, BigInt>) {
     var c: i32 = 0;
@@ -220,133 +133,70 @@ fn byl_normalise(x: ptr<function, BigInt>) {
 }
 
 // ============================================================================
-// byl_apply_matrix: register-minimal rolling apply_matrix, MERGED for f/g and
-// d/e.
+// byl_apply_matrix_fg: (f, g) <- ((u*f + v*g) >> 26, (q*f + r*g) >> 26).
 //
-//   Computes, in place:
-//       x_new = (m_a * x + m_b * y + k * p) >> 12
-//       y_new = (m_c * x + m_d * y + k2 * p) >> 12   (when do_kp != 0)
-//   ... but this function does ONE row at a time:
-//       out  = (ma * X + mb * Y + k * P) >> 12
-//   so the caller invokes it twice per matrix (once for the f/d row, once for
-//   the g/e row). Doing one row per call keeps the live set minimal — only one
-//   pair (X,Y) and one output BigInt are touched.
-//
-// PARAMETERS
-//   ma, mb : signed 13-bit matrix entries for this row (|.| <= 2^12).
-//   x, y   : input BigInts (the safegcd f/g or d/e). NON-CANONICAL between
-//            outer rounds: limbs are signed with |limb| <= 2^15.
-//   p      : the modulus, canonical 13-bit limbs. Ignored when use_kp == 0.
-//   k      : the k*p modular-cancellation coefficient, in [0, 2^12). Pass 0
-//            (with use_kp == 0u) for the f/g row, which needs no k*p term.
-//   use_kp : 1u to fold k*p (the d/e rows), 0u for f/g.
-//   out    : destination BigInt.
-//
-// MATH
-//   Bernstein-Yang guarantees the low 12 bits of (ma*X + mb*Y) — and, with the
-//   k*p trick, of (ma*X + mb*Y + k*p) — are zero, so the >>12 is EXACT and
-//   integer-correct. With BATCH=12 each matrix entry and k fit one signed
-//   13-bit limb, so product limb j depends only on input limbs j and j-1:
-//   a fixed ONE-limb lookahead. The rolling loop forms the base-2^13 product
-//   limbs P[i] = ma*X[i] + mb*Y[i] (+ k*P_mod[i]) + carry, then a fused
-//   recombination emits  out[i-1] = (P[i-1] >> 12) | (P[i] << 1)  masked to
-//   13 bits. P_prev holds P[i-1] across one iteration.
-//
-// SIGN / RANGE
-//   Limbs of x,y in [0, NUM_WORDS-2] are non-negative-ish with |.| <= 2^15
-//   between rounds; the top limb x[NUM_WORDS-1] carries the signed extension
-//   of the whole integer and is sign-extended via arithmetic shifts before
-//   multiplying. Worst-case |s| <= |ma*X| + |mb*Y| + |k*P| + |carry|
-//   <= 2^12*2^15 + 2^12*2^15 + 2^12*2^13 + small ≈ 2^28.3 < 2^31, fits i32.
+// Rolling lookahead loop, in place. Iteration i forms the base-2^13 product
+// limb i of each row from input limbs i and i-1 (fp/gp hold the i-1 window),
+// propagates the carry, and stores out[i-2] = product-limb[i] (the >>26 drop).
+// The two top product limbs are emitted after the loop.
 // ============================================================================
-fn byl_apply_matrix(
-    ma: i32,
-    mb: i32,
-    x: ptr<function, BigInt>,
-    y: ptr<function, BigInt>,
-    p: ptr<function, BigInt>,
-    k: i32,
-    use_kp: u32,
-    out: ptr<function, BigInt>,
-) {
+fn byl_apply_matrix_fg(m: BylMat, f: ptr<function, BigInt>, g: ptr<function, BigInt>) {
     let top: u32 = {{ num_words }}u - 1u;
     let sign_shift: u32 = 32u - WORD_SIZE;
 
-    var carry: i32 = 0;
-    // P_prev holds the previous base-2^13 product limb P[i-1]; seeded so the
-    // first emitted output limb (out[0], from i = 1) is well-defined. P[0]'s
-    // low 12 bits are zero by the BY exactness / k*p invariant, so only its
-    // contribution to bit 12 (-> out[0] bit 0) matters and that is captured by
-    // the standard (P_prev >> 12) | (P_cur << 1) recombination once P_prev is
-    // the genuine P[0].
-    var p_prev: i32 = 0;
+    let u_lo: i32 = i32(u32(m.u) & MASK);
+    let u_hi: i32 = m.u >> WORD_SIZE;
+    let v_lo: i32 = i32(u32(m.v) & MASK);
+    let v_hi: i32 = m.v >> WORD_SIZE;
+    let q_lo: i32 = i32(u32(m.q) & MASK);
+    let q_hi: i32 = m.q >> WORD_SIZE;
+    let r_lo: i32 = i32(u32(m.r) & MASK);
+    let r_hi: i32 = m.r >> WORD_SIZE;
 
+    var cf: i32 = 0;
+    var cg: i32 = 0;
+    var fp: i32 = 0;
+    var gp: i32 = 0;
     for (var i: u32 = 0u; i < {{ num_words }}u; i = i + 1u) {
-        // Sign-extend the top limb; lower limbs are taken as-is (their stored
-        // magnitude already fits and is the intended signed value).
-        var xi: i32;
-        var yi: i32;
+        // Top limb carries the signed extension of the whole integer;
+        // lower limbs are canonical [0, 2^13).
+        var fi: i32;
+        var gi: i32;
         if (i == top) {
-            xi = (i32((*x).limbs[i]) << sign_shift) >> sign_shift;
-            yi = (i32((*y).limbs[i]) << sign_shift) >> sign_shift;
+            fi = (i32((*f).limbs[i]) << sign_shift) >> sign_shift;
+            gi = (i32((*g).limbs[i]) << sign_shift) >> sign_shift;
         } else {
-            xi = i32((*x).limbs[i]);
-            yi = i32((*y).limbs[i]);
+            fi = i32((*f).limbs[i]);
+            gi = i32((*g).limbs[i]);
         }
-
-        // Base-2^13 product limb of (ma*X + mb*Y + k*P). The k*p term —
-        // and the load of p[i] — is only needed for the d/e rows.
-        var s: i32 = ma * xi + mb * yi + carry;
-        if (use_kp != 0u) {
-            s = s + k * i32((*p).limbs[i]);
+        let nf: i32 = u_lo * fi + v_lo * gi + u_hi * fp + v_hi * gp + cf;
+        let ng: i32 = q_lo * fi + r_lo * gi + q_hi * fp + r_hi * gp + cg;
+        cf = nf >> WORD_SIZE;
+        cg = ng >> WORD_SIZE;
+        if (i >= 2u) {
+            (*f).limbs[i - 2u] = u32(nf) & MASK;
+            (*g).limbs[i - 2u] = u32(ng) & MASK;
         }
-        let p_cur: i32 = i32(u32(s) & MASK);
-        carry = s >> WORD_SIZE;
-
-        // Fused >>12 recombination, lookahead-1: out[i-1] uses P[i-1] and P[i].
-        if (i > 0u) {
-            let lo: i32 = (p_prev >> 12u) & 1;
-            let hi: i32 = p_cur << 1u;
-            (*out).limbs[i - 1u] = u32(lo | hi) & MASK;
-        }
-        p_prev = p_cur;
+        fp = fi;
+        gp = gi;
     }
-
-    // Top output limb: (P[top] + (carry << 13)) >> 12. The product spans
-    // NUM_WORDS+1 base-2^13 limbs; `carry` after the loop is that extra
-    // high limb. Sign-extend so a negative result keeps its sign.
-    let lo_top: i32 = (p_prev >> 12u) & 1;
-    let hi_top: i32 = carry << 1u;
-    let raw_top: i32 = lo_top | hi_top;
-    (*out).limbs[top] = u32((raw_top << sign_shift) >> sign_shift) & MASK;
+    // Two top product limbs: position 20 (= u_hi*f[19] + v_hi*g[19] + carry)
+    // splits into output limbs top-1 and top.
+    let nf_top: i32 = u_hi * fp + v_hi * gp + cf;
+    let ng_top: i32 = q_hi * fp + r_hi * gp + cg;
+    (*f).limbs[top - 1u] = u32(nf_top) & MASK;
+    (*g).limbs[top - 1u] = u32(ng_top) & MASK;
+    (*f).limbs[top] = u32(nf_top >> WORD_SIZE);
+    (*g).limbs[top] = u32(ng_top >> WORD_SIZE);
 }
 
 // ============================================================================
-// byl_apply_matrix_fg: (f, g) <- ((u*f + v*g) >> 12, (q*f + r*g) >> 12).
-// Two byl_apply_matrix rows with use_kp = 0. Reads from snapshots so the f-row
-// output does not corrupt the g-row inputs.
-// ============================================================================
-fn byl_apply_matrix_fg(m: BylMat, f: ptr<function, BigInt>, g: ptr<function, BigInt>) {
-    var f_in: BigInt = *f;
-    var g_in: BigInt = *g;
-    // The f/g rows use use_kp = 0, so byl_apply_matrix never dereferences
-    // the p pointer — pass &f_in as a harmless stand-in (no dummy BigInt).
-    byl_apply_matrix(m.u, m.v, &f_in, &g_in, &f_in, 0, 0u, f);
-    byl_apply_matrix(m.q, m.r, &f_in, &g_in, &f_in, 0, 0u, g);
-}
-
-// ============================================================================
-// byl_apply_matrix_de: (d, e) <- ((u*d + v*e + k_d*p) >> 12,
-//                                 (q*d + r*e + k_e*p) >> 12).
+// byl_apply_matrix_de: (d, e) <- ((u*d + v*e + k_d*p) >> 26,
+//                                 (q*d + r*e + k_e*p) >> 26).
 //
-// k_d, k_e are chosen so the low 12 bits of each numerator cancel mod p,
-// keeping the result an integer divisible by 2^12 and congruent mod p to
-// (u*d+v*e) / (q*d+r*e). This is the standard safegcd k*p trick; it matches
-// `bya_apply_matrix_de` and the d/e pass of `applyMatrix` in the TS reference.
-//
-//   k = ((-t) mod 2^12) * (p^-1 mod 2^12)  mod 2^12,  where t = low 12 bits
-//   of the numerator-before-k*p. Because limb 0 IS the bottom limb, t is just
-//   the low 12 bits of (u*d[0] + v*e[0]) — no lookahead needed to derive k.
+// k_d, k_e are chosen so the low 26 bits of each numerator cancel mod p
+// (standard safegcd k*p trick). Product limbs 0 and 1 are then zero; the
+// rolling loop starts at i=2 with cd/ce seeded to their carry-out.
 // ============================================================================
 fn byl_apply_matrix_de(
     m: BylMat,
@@ -354,28 +204,87 @@ fn byl_apply_matrix_de(
     e: ptr<function, BigInt>,
     p: ptr<function, BigInt>,
 ) {
-    var d_in: BigInt = *d;
-    var e_in: BigInt = *e;
+    let top: u32 = {{ num_words }}u - 1u;
+    let sign_shift: u32 = 32u - WORD_SIZE;
 
-    let d0: i32 = i32(d_in.limbs[0]);
-    let e0: i32 = i32(e_in.limbs[0]);
+    let u_lo: i32 = i32(u32(m.u) & MASK);
+    let u_hi: i32 = m.u >> WORD_SIZE;
+    let v_lo: i32 = i32(u32(m.v) & MASK);
+    let v_hi: i32 = m.v >> WORD_SIZE;
+    let q_lo: i32 = i32(u32(m.q) & MASK);
+    let q_hi: i32 = m.q >> WORD_SIZE;
+    let r_lo: i32 = i32(u32(m.r) & MASK);
+    let r_hi: i32 = m.r >> WORD_SIZE;
 
-    // Low 12 bits of the un-cancelled numerators (limb 0 is the bottom limb).
-    let t_d: u32 = u32(m.u * d0 + m.v * e0) & BYL_MASK_BATCH;
-    let t_e: u32 = u32(m.q * d0 + m.r * e0) & BYL_MASK_BATCH;
+    let d0: i32 = i32((*d).limbs[0]);
+    let e0: i32 = i32((*e).limbs[0]);
+    let d1: i32 = i32((*d).limbs[1]);
+    let e1: i32 = i32((*e).limbs[1]);
+    let p0: i32 = i32((*p).limbs[0]);
+    let p1: i32 = i32((*p).limbs[1]);
 
-    // k = (-t) * p^-1  mod 2^12.
+    // Pre-k*p product limbs 0 and 1 of (u*d+v*e) and (q*d+r*e).
+    let nd0: i32 = u_lo * d0 + v_lo * e0;
+    let ne0: i32 = q_lo * d0 + r_lo * e0;
+    let nd1: i32 = u_lo * d1 + v_lo * e1 + u_hi * d0 + v_hi * e0;
+    let ne1: i32 = q_lo * d1 + r_lo * e1 + q_hi * d0 + r_hi * e0;
+
+    // k = (-t) * p^-1 mod 2^26, where t = low 26 bits of the numerator.
+    let nd0_low: u32 = u32(nd0) & MASK;
+    let nd1_carry: u32 = u32(nd1 + (nd0 >> WORD_SIZE)) & MASK;
+    let t_d: u32 = (nd0_low | (nd1_carry << WORD_SIZE)) & BYL_MASK_BATCH;
+    let ne0_low: u32 = u32(ne0) & MASK;
+    let ne1_carry: u32 = u32(ne1 + (ne0 >> WORD_SIZE)) & MASK;
+    let t_e: u32 = (ne0_low | (ne1_carry << WORD_SIZE)) & BYL_MASK_BATCH;
+
     let neg_td: u32 = (~t_d + 1u) & BYL_MASK_BATCH;
     let neg_te: u32 = (~t_e + 1u) & BYL_MASK_BATCH;
-    let k_d: i32 = i32((neg_td * BYL_P_INV_LO12) & BYL_MASK_BATCH);
-    let k_e: i32 = i32((neg_te * BYL_P_INV_LO12) & BYL_MASK_BATCH);
+    let k_d: u32 = (neg_td * BYL_P_INV_LO) & BYL_MASK_BATCH;
+    let k_e: u32 = (neg_te * BYL_P_INV_LO) & BYL_MASK_BATCH;
+    let kd_lo: i32 = i32(k_d & MASK);
+    let kd_hi: i32 = i32(k_d >> WORD_SIZE);
+    let ke_lo: i32 = i32(k_e & MASK);
+    let ke_hi: i32 = i32(k_e >> WORD_SIZE);
 
-    byl_apply_matrix(m.u, m.v, &d_in, &e_in, p, k_d, 1u, d);
-    byl_apply_matrix(m.q, m.r, &d_in, &e_in, p, k_e, 1u, e);
+    // Carry into product limb 2: product limbs 0 and 1 (with k*p folded in)
+    // have zero low-13 bits; cd/ce are their carry-out.
+    var cd: i32 = (nd1 + kd_lo * p1 + kd_hi * p0 + ((nd0 + kd_lo * p0) >> WORD_SIZE)) >> WORD_SIZE;
+    var ce: i32 = (ne1 + ke_lo * p1 + ke_hi * p0 + ((ne0 + ke_lo * p0) >> WORD_SIZE)) >> WORD_SIZE;
+
+    var dp: i32 = d1;
+    var ep: i32 = e1;
+    for (var i: u32 = 2u; i < {{ num_words }}u; i = i + 1u) {
+        var di: i32;
+        var ei: i32;
+        if (i == top) {
+            di = (i32((*d).limbs[i]) << sign_shift) >> sign_shift;
+            ei = (i32((*e).limbs[i]) << sign_shift) >> sign_shift;
+        } else {
+            di = i32((*d).limbs[i]);
+            ei = i32((*e).limbs[i]);
+        }
+        let pi: i32 = i32((*p).limbs[i]);
+        let pim1: i32 = i32((*p).limbs[i - 1u]);
+        let nd: i32 = u_lo * di + v_lo * ei + u_hi * dp + v_hi * ep + kd_lo * pi + kd_hi * pim1 + cd;
+        let ne: i32 = q_lo * di + r_lo * ei + q_hi * dp + r_hi * ep + ke_lo * pi + ke_hi * pim1 + ce;
+        cd = nd >> WORD_SIZE;
+        ce = ne >> WORD_SIZE;
+        (*d).limbs[i - 2u] = u32(nd) & MASK;
+        (*e).limbs[i - 2u] = u32(ne) & MASK;
+        dp = di;
+        ep = ei;
+    }
+    let p_top: i32 = i32((*p).limbs[top]);
+    let nd_top: i32 = u_hi * dp + v_hi * ep + kd_hi * p_top + cd;
+    let ne_top: i32 = q_hi * dp + r_hi * ep + ke_hi * p_top + ce;
+    (*d).limbs[top - 1u] = u32(nd_top) & MASK;
+    (*e).limbs[top - 1u] = u32(ne_top) & MASK;
+    (*d).limbs[top] = u32(nd_top >> WORD_SIZE);
+    (*e).limbs[top] = u32(ne_top >> WORD_SIZE);
 }
 
 // ============================================================================
-// Driver helpers — rolling loops, mirrors of the by_inverse_a / TS equivalents.
+// Driver helpers — rolling loops.
 // ============================================================================
 
 fn byl_is_zero(x: ptr<function, BigInt>) -> bool {
@@ -423,14 +332,10 @@ fn byl_reduce_to_canonical(x: ptr<function, BigInt>, p: ptr<function, BigInt>) {
 }
 
 // ============================================================================
-// fr_inv_by_loop: Bernstein-Yang safegcd inverse driver.
-//   BATCH = 12, NUM_OUTER = 62, on the 20 x 13-bit BigInt representation.
-//   Register-minimal rolling apply_matrix.
-//
-// Same signature/contract as `fr_inv_by_a`: returns the Montgomery-form
-// inverse of `a`. The caller is responsible for the a == 0 case (the TS
-// reference returns 0 for a == 0; this driver, like `fr_inv_by_a`, assumes a
-// nonzero input from the batch-inverse prefix product).
+// fr_inv_by_loop: Bernstein-Yang safegcd inverse driver. BATCH=26,
+// NUM_OUTER=29 — identical structure to fr_inv_by_a, register-minimal
+// rolling apply_matrix. Returns the Montgomery-form inverse of `a`; assumes
+// `a` nonzero (the caller / batch-inverse prefix product guarantees this).
 // ============================================================================
 fn fr_inv_by_loop(a: BigInt) -> BigInt {
     var p_loc: BigInt = get_p();
@@ -449,8 +354,8 @@ fn fr_inv_by_loop(a: BigInt) -> BigInt {
     var done: bool = false;
     for (var iter: u32 = 0u; iter < BYL_NUM_OUTER; iter = iter + 1u) {
         if (done) { continue; }
-        let f_lo: u32 = byl_low_u32(&f);
-        let g_lo: u32 = byl_low_u32(&g);
+        let f_lo: vec2<u32> = byl_low_u64(&f);
+        let g_lo: vec2<u32> = byl_low_u64(&g);
         let m: BylMat = byl_divsteps(&delta, f_lo, g_lo);
         byl_apply_matrix_fg(m, &f, &g);
         byl_apply_matrix_de(m, &d, &e, &p_loc);
