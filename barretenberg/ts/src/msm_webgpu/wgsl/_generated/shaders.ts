@@ -2796,11 +2796,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         let pad_end = num_chunks * S;
         let pad_left = params.y;
         let pad_right = params.z;
-        let discard = params.w;
+        let discard_idx = params.w;
         for (var i: u32 = tp; i < pad_end; i = i + 1u) {
             chunk_plan[2u * i + 0u] = pad_left;
             chunk_plan[2u * i + 1u] = pad_right;
-            scatter_plan[i] = discard;
+            scatter_plan[i] = discard_idx;
         }
     }
 
