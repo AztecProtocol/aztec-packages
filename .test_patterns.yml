@@ -141,6 +141,14 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
+  # Under pipelining, the first `runInvalidatesTest` warps L1 time, which triggers an
+  # archiver prune that briefly leaves `getBlockData('latest')` returning no header.
+  # The second invocation races against the prune. See merge-train/spartan CI log
+  # http://ci.aztec-labs.com/1779271633316976
+  - regex: "src/e2e_expiration_timestamp.test.ts"
+    error_regex: "Block header not found in invalidates-the-transaction setup"
+    owners:
+      - *palla
 
   # yarn-project tests
   # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
