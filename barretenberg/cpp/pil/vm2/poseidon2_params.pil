@@ -1,4 +1,5 @@
 // Values taken from barretenberg/crypto/poseidon2/poseidon2_params.hpp
+// More information can also be found at barretenberg/crypto/poseidon2/poseidon2_quad_params.hpp
 
 // Note: These constants are solely used in poseidon2_perm.pil but the latter
 //       is not re-generated when we run `bb_pil`. We manually optimized the
@@ -17,6 +18,21 @@ namespace poseidon2_params;
     pol MU_1 = 5498568565063849786384470689962419967523752476452646391422913716315471115275;
     pol MU_2 = 148936322117705719734052984176402258788283488576388928671173547788498414613;
     pol MU_3 = 15456385653678559339152734484033356164266089951521103188900320352052358038155;
+
+    // Closed-form constants for the K_BRIDGE=56 partial-round chain in
+    // poseidon2_perm.pil.
+    //
+    // Algebraic source:  M_3 = diag(MU_1, MU_2, MU_3) + 1·1^T  acts on the 3 linear
+    // lanes of one Poseidon2 internal round. M3_ii is the diagonal entry on lane i;
+    // off-diagonal entries are all 1 and inlined at use site.
+    //   M3_ii = MU_i + 1
+    //
+    // Soundness precondition: MU_1, MU_2, MU_3 must be pairwise distinct so the
+    // linear-lane evolution is uniquely solvable. Holds on BN254 with the
+    // parameters above.
+    pol M3_11 = MU_1 + 1;
+    pol M3_22 = MU_2 + 1;
+    pol M3_33 = MU_3 + 1;
 
     // Round constants
     // Naming scheme is c_{round_count}_{input_count} where the counts are zero-indexed
