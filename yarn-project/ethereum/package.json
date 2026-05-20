@@ -59,7 +59,7 @@
     "lodash.pickby": "^4.5.0",
     "tslib": "^2.4.0",
     "viem": "npm:@aztec/viem@2.38.2",
-    "zod": "^3.23.8"
+    "zod": "^4"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

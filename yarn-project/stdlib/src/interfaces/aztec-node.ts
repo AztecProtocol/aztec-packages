@@ -507,177 +507,202 @@ const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
 const MAX_SIGNATURE_LEN = 10000;
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
-  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
+  getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
 
-  findLeavesIndexes: z
-    .function()
-    .args(BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
-    .returns(z.array(optional(dataInBlockSchemaFor(schemas.BigInt)))),
+  findLeavesIndexes: z.function({
+    input: z.tuple([BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN)]),
+    output: z.array(optional(dataInBlockSchemaFor(schemas.BigInt))),
+  }),
 
-  getNullifierMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(NullifierMembershipWitness.schema.optional()),
+  getNullifierMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: NullifierMembershipWitness.schema.optional(),
+  }),
 
-  getLowNullifierMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(NullifierMembershipWitness.schema.optional()),
+  getLowNullifierMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: NullifierMembershipWitness.schema.optional(),
+  }),
 
-  getPublicDataWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(PublicDataWitness.schema.optional()),
+  getPublicDataWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: PublicDataWitness.schema.optional(),
+  }),
 
-  getBlockHashMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, BlockHash.schema)
-    .returns(MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional()),
+  getBlockHashMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, BlockHash.schema]),
+    output: MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional(),
+  }),
 
-  getNoteHashMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(MembershipWitness.schemaFor(NOTE_HASH_TREE_HEIGHT).optional()),
+  getNoteHashMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: MembershipWitness.schemaFor(NOTE_HASH_TREE_HEIGHT).optional(),
+  }),
 
-  getL1ToL2MessageMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
+  getL1ToL2MessageMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional(),
+  }),
 
-  getL1ToL2MessageCheckpoint: z.function().args(schemas.Fr).returns(CheckpointNumberSchema.optional()),
+  getL1ToL2MessageCheckpoint: z.function({ input: z.tuple([schemas.Fr]), output: CheckpointNumberSchema.optional() }),
 
-  getL2ToL1Messages: z
-    .function()
-    .args(EpochNumberSchema)
-    .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
+  getL2ToL1Messages: z.function({
+    input: z.tuple([EpochNumberSchema]),
+    output: z.array(z.array(z.array(z.array(schemas.Fr)))),
+  }),
 
-  getBlockNumber: z.function().args(optional(ChainTipSchema)).returns(BlockNumberSchema),
+  getBlockNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: BlockNumberSchema }),
 
-  getCheckpointNumber: z.function().args(optional(ChainTipSchema)).returns(CheckpointNumberSchema),
+  getCheckpointNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: CheckpointNumberSchema }),
 
-  getChainTips: z.function().args().returns(ChainTipsSchema),
+  getChainTips: z.function({ input: z.tuple([]), output: ChainTipsSchema }),
 
-  getCheckpointsData: z.function().args(CheckpointsQuerySchema).returns(z.array(CheckpointDataSchema)),
+  getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
 
-  getBlock: z
-    .function()
-    .args(BlockParameterSchema, optional(BlockIncludeOptionsSchema))
-    .returns(BlockResponseSchema.optional()),
+  getBlock: z.function({
+    input: z.tuple([BlockParameterSchema, optional(BlockIncludeOptionsSchema)]),
+    output: BlockResponseSchema.optional(),
+  }),
 
-  getBlockData: z.function().args(BlockParameterSchema).returns(BlockDataSchema.optional()),
+  getBlockData: z.function({ input: z.tuple([BlockParameterSchema]), output: BlockDataSchema.optional() }),
 
-  getBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(BlocksIncludeOptionsSchema))
-    .returns(z.array(BlockResponseSchema)),
+  getBlocks: z.function({
+    input: z.tuple([
+      BlockNumberPositiveSchema,
+      z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN),
+      optional(BlocksIncludeOptionsSchema),
+    ]),
+    output: z.array(BlockResponseSchema),
+  }),
 
-  getCheckpoint: z
-    .function()
-    .args(CheckpointParameterSchema, optional(CheckpointIncludeOptionsSchema))
-    .returns(CheckpointResponseSchema.optional()),
+  getCheckpoint: z.function({
+    input: z.tuple([CheckpointParameterSchema, optional(CheckpointIncludeOptionsSchema)]),
+    output: CheckpointResponseSchema.optional(),
+  }),
 
-  getCheckpoints: z
-    .function()
-    .args(
+  getCheckpoints: z.function({
+    input: z.tuple([
       CheckpointNumberPositiveSchema,
       z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN),
       optional(CheckpointIncludeOptionsSchema),
-    )
-    .returns(z.array(CheckpointResponseSchema)),
+    ]),
+    output: z.array(CheckpointResponseSchema),
+  }),
 
-  isReady: z.function().returns(z.boolean()),
+  isReady: z.function({ input: z.tuple([]), output: z.boolean() }),
 
-  getNodeInfo: z.function().returns(NodeInfoSchema),
+  getNodeInfo: z.function({ input: z.tuple([]), output: NodeInfoSchema }),
 
-  getCurrentMinFees: z.function().returns(GasFees.schema),
+  getCurrentMinFees: z.function({ input: z.tuple([]), output: GasFees.schema }),
 
-  getPredictedMinFees: z
-    .function()
-    .args(optional(z.nativeEnum(ManaUsageEstimate)))
-    .returns(z.array(GasFees.schema)),
+  getPredictedMinFees: z.function({
+    input: z.tuple([optional(z.nativeEnum(ManaUsageEstimate))]),
+    output: z.array(GasFees.schema),
+  }),
 
-  getMaxPriorityFees: z.function().returns(GasFees.schema),
+  getMaxPriorityFees: z.function({ input: z.tuple([]), output: GasFees.schema }),
 
-  getNodeVersion: z.function().returns(z.string()),
+  getNodeVersion: z.function({ input: z.tuple([]), output: z.string() }),
 
-  getVersion: z.function().returns(z.number()),
+  getVersion: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getChainId: z.function().returns(z.number()),
+  getChainId: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getL1ContractAddresses: z.function().returns(L1ContractAddressesSchema),
+  getL1ContractAddresses: z.function({ input: z.tuple([]), output: L1ContractAddressesSchema }),
 
-  getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
+  getProtocolContractAddresses: z.function({ input: z.tuple([]), output: ProtocolContractAddressesSchema }),
 
-  registerContractFunctionSignatures: z
-    .function()
-    .args(z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL))
-    .returns(z.void()),
+  registerContractFunctionSignatures: z.function({
+    input: z.tuple([z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL)]),
+    output: z.void(),
+  }),
 
-  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
+  getPublicLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetPublicLogsResponseSchema }),
 
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
+  getContractClassLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetContractClassLogsResponseSchema }),
 
-  getPrivateLogsByTags: z
-    .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(BlockHash.schema))
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
+  getPrivateLogsByTags: z.function({
+    input: z.tuple([
+      z.array(SiloedTag.schema).max(MAX_RPC_LEN),
+      optional(z.number().gte(0)),
+      optional(BlockHash.schema),
+    ]),
+    output: z.array(z.array(TxScopedL2Log.schema)),
+  }),
 
-  getPublicLogsByTagsFromContract: z
-    .function()
-    .args(
+  getPublicLogsByTagsFromContract: z.function({
+    input: z.tuple([
       schemas.AztecAddress,
       z.array(Tag.schema).max(MAX_RPC_LEN),
       optional(z.number().gte(0)),
       optional(BlockHash.schema),
-    )
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
+    ]),
+    output: z.array(z.array(TxScopedL2Log.schema)),
+  }),
 
-  sendTx: z.function().args(Tx.schema).returns(z.void()),
+  sendTx: z.function({ input: z.tuple([Tx.schema]), output: z.void() }),
 
-  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
+  getTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema }),
 
-  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
+  getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
 
-  getPendingTxs: z
-    .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
-    .returns(z.array(Tx.schema)),
+  getPendingTxs: z.function({
+    input: z.tuple([
+      optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
+      optional(TxHash.schema),
+    ]),
+    output: z.array(Tx.schema),
+  }),
 
-  getPendingTxCount: z.function().returns(z.number()),
+  getPendingTxCount: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+  getTxByHash: z.function({ input: z.tuple([TxHash.schema]), output: Tx.schema.optional() }),
 
-  getTxsByHash: z.function().args(z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)).returns(z.array(Tx.schema)),
+  getTxsByHash: z.function({
+    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)]),
+    output: z.array(Tx.schema),
+  }),
 
-  getPublicStorageAt: z.function().args(BlockParameterSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
+  getPublicStorageAt: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.AztecAddress, schemas.Fr]),
+    output: schemas.Fr,
+  }),
 
-  getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
+  getValidatorsStats: z.function({ input: z.tuple([]), output: ValidatorsStatsSchema }),
 
-  getValidatorStats: z
-    .function()
-    .args(schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber))
-    .returns(SingleValidatorStatsSchema.optional()),
+  getValidatorStats: z.function({
+    input: z.tuple([schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber)]),
+    output: SingleValidatorStatsSchema.optional(),
+  }),
 
-  simulatePublicCalls: z
-    .function()
-    .args(Tx.schema, optional(z.boolean()), optional(SimulationOverrides.schema))
-    .returns(PublicSimulationOutput.schema),
+  simulatePublicCalls: z.function({
+    input: z.tuple([Tx.schema, optional(z.boolean()), optional(SimulationOverrides.schema)]),
+    output: PublicSimulationOutput.schema,
+  }),
 
-  isValidTx: z
-    .function()
-    .args(
+  isValidTx: z.function({
+    input: z.tuple([
       Tx.schema,
-      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
-    )
-    .returns(TxValidationResultSchema),
+      optional(
+        z.object({
+          isSimulation: optional(z.boolean()).optional(),
+          skipFeeEnforcement: optional(z.boolean()).optional(),
+        }),
+      ),
+    ]),
+    output: TxValidationResultSchema,
+  }),
 
-  getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+  getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
 
-  getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
+  getContract: z.function({
+    input: z.tuple([schemas.AztecAddress]),
+    output: ContractInstanceWithAddressSchema.optional(),
+  }),
 
-  getEncodedEnr: z.function().returns(z.string().optional()),
+  getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
 
-  getAllowedPublicSetup: z.function().args().returns(z.array(AllowedElementSchema)),
+  getAllowedPublicSetup: z.function({ input: z.tuple([]), output: z.array(AllowedElementSchema) }),
 };
 
 export function createAztecNodeClient(
