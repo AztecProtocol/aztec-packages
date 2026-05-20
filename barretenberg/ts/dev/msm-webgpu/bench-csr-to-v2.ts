@@ -44,7 +44,7 @@ function buildSyntheticCsr(
   numColumns: number,
   inputSize: number,
   seed: number,
-): { rowPtr: Uint32Array; valIdx: Uint32Array } {
+): { rowPtr: Uint32Array<ArrayBuffer>; valIdx: Uint32Array<ArrayBuffer> } {
   const rng = makeRng(seed);
   const rowPtr = new Uint32Array(numSubtasks * (numColumns + 1));
   const valIdx = new Uint32Array(numSubtasks * inputSize);
@@ -219,8 +219,9 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
   const basesYBuf = mk(basesBytes, false, true);
   const valIdxBuf = mk(valIdx.byteLength, false, true);
   const rowPtrBuf = mk(rowPtr.byteLength, false, true);
-  const activeXBuf = mk(totalSlots * 32, true);
-  const activeYBuf = mk(totalSlots * 32, true);
+  // Planar active_sums: 2 planes (x, y), PG=2 vec4 per element, M=totalSlots
+  // (no pad in this isolation bench) => 64 bytes/slot.
+  const activeBuf = mk(totalSlots * 64, true);
   const countsBuf = mk(totalBuckets * 4, true);
   const offsetsBuf = mk(totalBuckets * 4, true);
   device.queue.writeBuffer(basesXBuf, 0, basesX);
@@ -229,9 +230,9 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
   device.queue.writeBuffer(rowPtrBuf, 0, rowPtr);
 
   const paramsActiveBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-  device.queue.writeBuffer(paramsActiveBuf, 0, new Uint32Array([totalSlots, 0, 0, 0]));
+  device.queue.writeBuffer(paramsActiveBuf, 0, new Uint32Array([totalSlots, totalSlots, 0, 0]));
   const paramsMetaBuf = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-  device.queue.writeBuffer(paramsMetaBuf, 0, new Uint32Array([NUM_COLUMNS, totalBuckets, 0, 0]));
+  device.queue.writeBuffer(paramsMetaBuf, 0, new Uint32Array([NUM_COLUMNS, totalBuckets, INPUT_SIZE, 0]));
 
   const activeLayout = device.createBindGroupLayout({
     entries: [
@@ -239,8 +240,7 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
       { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
-      { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
-      { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+      { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
     ],
   });
   const metaLayout = device.createBindGroupLayout({
@@ -260,9 +260,8 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
       { binding: 0, resource: { buffer: valIdxBuf } },
       { binding: 1, resource: { buffer: basesXBuf } },
       { binding: 2, resource: { buffer: basesYBuf } },
-      { binding: 3, resource: { buffer: activeXBuf } },
-      { binding: 4, resource: { buffer: activeYBuf } },
-      { binding: 5, resource: { buffer: paramsActiveBuf } },
+      { binding: 3, resource: { buffer: activeBuf } },
+      { binding: 4, resource: { buffer: paramsActiveBuf } },
     ],
   });
   const metaBind = device.createBindGroup({
@@ -299,44 +298,33 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
 
   let validated = false;
   if (VALIDATE) {
-    const gpuActiveX = await readbackU32(device, activeXBuf, totalSlots * 32);
-    const gpuActiveY = await readbackU32(device, activeYBuf, totalSlots * 32);
+    const gpuActive = await readbackU32(device, activeBuf, totalSlots * 64);
     const gpuCounts = await readbackU32(device, countsBuf, totalBuckets * 4);
     const gpuOffsets = await readbackU32(device, offsetsBuf, totalBuckets * 4);
     const refBasesX = new Uint32Array(basesX.buffer, basesX.byteOffset, INPUT_SIZE * 8);
     const refBasesY = new Uint32Array(basesY.buffer, basesY.byteOffset, INPUT_SIZE * 8);
+    // Planar layout: x plane is u32 [0, 8*totalSlots), y plane follows.
+    const yPlaneU32 = totalSlots * 8;
 
     const mismatches: string[] = [];
     let xFails = 0;
     let yFails = 0;
-    for (let s = 0; s < NUM_SUBTASKS && mismatches.length < 16; s++) {
-      const viBase = s * INPUT_SIZE;
-      const probeStart = Math.max(0, INPUT_SIZE - 4);
-      for (const k of [0, 1, 7, INPUT_SIZE >> 1, probeStart, INPUT_SIZE - 1]) {
-        const slot = viBase + k;
-        const ptIdx = valIdx[slot];
-        for (let w = 0; w < 8; w++) {
-          const got = gpuActiveX[slot * 8 + w];
-          const want = refBasesX[ptIdx * 8 + w];
-          if (got !== want) {
-            xFails++;
-            if (mismatches.length < 8) mismatches.push(`activeX[s=${s} k=${k} w=${w}]: gpu=${got} ref=${want}`);
-          }
-          const gotY = gpuActiveY[slot * 8 + w];
-          const wantY = refBasesY[ptIdx * 8 + w];
-          if (gotY !== wantY) {
-            yFails++;
-            if (mismatches.length < 8) mismatches.push(`activeY[s=${s} k=${k} w=${w}]: gpu=${gotY} ref=${wantY}`);
-          }
+    for (let slot = 0; slot < totalSlots; slot++) {
+      const ptIdx = valIdx[slot];
+      for (let w = 0; w < 8; w++) {
+        const gx = gpuActive[slot * 8 + w];
+        const wx = refBasesX[ptIdx * 8 + w];
+        if (gx !== wx) {
+          xFails++;
+          if (mismatches.length < 8) mismatches.push(`activeX[slot=${slot} w=${w}]: gpu=${gx} ref=${wx}`);
+        }
+        const gy = gpuActive[yPlaneU32 + slot * 8 + w];
+        const wy = refBasesY[ptIdx * 8 + w];
+        if (gy !== wy) {
+          yFails++;
+          if (mismatches.length < 8) mismatches.push(`activeY[slot=${slot} w=${w}]: gpu=${gy} ref=${wy}`);
         }
       }
-    }
-    // Full-pass byte compare (cheap; the buffers are u32 arrays).
-    for (let k = 0; k < totalSlots * 8; k++) {
-      const ptIdx = valIdx[k >> 3];
-      const w = k & 7;
-      if (gpuActiveX[k] !== refBasesX[ptIdx * 8 + w]) xFails++;
-      if (gpuActiveY[k] !== refBasesY[ptIdx * 8 + w]) yFails++;
     }
     let mFails = 0;
     for (let s = 0; s < NUM_SUBTASKS; s++) {
@@ -344,7 +332,7 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
       const ccBase = s * NUM_COLUMNS;
       for (let b = 0; b < NUM_COLUMNS; b++) {
         const wantCount = rowPtr[rpBase + b + 1] - rowPtr[rpBase + b];
-        const wantOffset = rowPtr[rpBase + b];
+        const wantOffset = s * INPUT_SIZE + rowPtr[rpBase + b];
         if (gpuCounts[ccBase + b] !== wantCount) {
           mFails++;
           if (mismatches.length < 12) mismatches.push(`counts[s=${s} b=${b}]: gpu=${gpuCounts[ccBase + b]} ref=${wantCount}`);
@@ -443,8 +431,7 @@ async function runOne(device: GPUDevice, sm: ShaderManager): Promise<BenchResult
   basesYBuf.destroy();
   valIdxBuf.destroy();
   rowPtrBuf.destroy();
-  activeXBuf.destroy();
-  activeYBuf.destroy();
+  activeBuf.destroy();
   countsBuf.destroy();
   offsetsBuf.destroy();
   paramsActiveBuf.destroy();

@@ -1,11 +1,14 @@
 // Companion to csr_to_v2_active_sums: derives the per-bucket counts and
-// subtask-relative offsets that drive the v2 pair-tree planner.
+// GLOBAL offsets that drive the v2 pair-tree planner.
 //
 // row_ptr layout: per subtask, num_columns + 1 entries forming a
-// CSR-style prefix sum. row_ptr[s * (num_columns + 1) + b + 1] -
-// row_ptr[s * (num_columns + 1) + b] is the count of points in bucket
-// b of subtask s, and the begin value is the subtask-relative start
-// offset within val_idx and active_sums.
+// CSR-style prefix sum. row_ptr[s*(num_columns+1) + b + 1] -
+// row_ptr[s*(num_columns+1) + b] is bucket b's count; the begin value is
+// the subtask-relative start within val_idx / active_sums.
+//
+// The v2 planner indexes counts/offsets by global bucket id and expects
+// offsets in the global active_sums element space, so this shader adds
+// subtask * input_size to the subtask-relative begin.
 //
 // One thread per (subtask, bucket) emits one (count, offset) pair.
 
@@ -18,6 +21,7 @@ var<storage, read_write> active_offsets: array<u32>;
 
 // params[0] = num_columns
 // params[1] = total_buckets (num_subtasks * num_columns)
+// params[2] = input_size   (per-subtask slot stride; globalises offsets)
 @group(0) @binding(3)
 var<uniform> params: vec4<u32>;
 
@@ -31,6 +35,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     let num_columns = params[0];
+    let input_size = params[2];
     let subtask = id / num_columns;
     let bucket_local = id % num_columns;
     let rp_offset = subtask * (num_columns + 1u);
@@ -39,7 +44,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let end = row_ptr[rp_offset + bucket_local + 1u];
 
     active_counts[id] = end - begin;
-    active_offsets[id] = begin;
+    active_offsets[id] = subtask * input_size + begin;
 
     {{{ recompile }}}
 }
