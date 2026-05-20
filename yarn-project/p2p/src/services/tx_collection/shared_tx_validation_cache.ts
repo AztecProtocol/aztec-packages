@@ -1,3 +1,4 @@
+import { LruSet } from '@aztec/foundation/collection';
 import type { Logger } from '@aztec/foundation/log';
 import type { Tx, TxValidationResult, TxValidator } from '@aztec/stdlib/tx';
 
@@ -41,10 +42,10 @@ export class SharedTxValidationCache implements ISharedTxValidationCache {
   /**
    * Hashes that have validated successfully at least once. Membership here is the cache:
    * any future `submit` for one of these hashes short-circuits to `skipped` without invoking
-   * the validator. Entries are never removed — see the class-level caching policy for why
-   * invalid outcomes are not tracked here.
+   * the validator. Bounded LRU — see the class-level caching policy for why invalid outcomes
+   * are not tracked here. An evicted hash simply re-validates on next submission.
    */
-  private readonly validatedHashes = new Set<string>();
+  private readonly validatedHashes: LruSet<string>;
   /**
    * Per-hash FIFO of submissions awaiting validation. Presence of a key here means a
    * `processHash` drain loop is currently running for that hash; absence means no loop is
@@ -56,8 +57,11 @@ export class SharedTxValidationCache implements ISharedTxValidationCache {
 
   constructor(
     private readonly validator: TxValidator<Tx>,
+    maxSize: number,
     private readonly logger: Logger,
-  ) {}
+  ) {
+    this.validatedHashes = new LruSet<string>(maxSize);
+  }
 
   /** Submit a tx for validation. */
   public submit(tx: Tx): Promise<TxValidationOutcome> {

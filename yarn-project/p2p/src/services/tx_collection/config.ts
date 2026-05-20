@@ -22,6 +22,8 @@ export type TxCollectionConfig = {
   txCollectionFileStoreFastBackoffBaseMs: number;
   /** Max backoff time in ms for fast file store collection retries */
   txCollectionFileStoreFastBackoffMaxMs: number;
+  /** Max size of the tx validation cache (LRU) */
+  txValidationCacheSize: number;
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
@@ -84,6 +86,11 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
   txCollectionFileStoreFastBackoffMaxMs: {
     env: 'TX_COLLECTION_FILE_STORE_FAST_BACKOFF_MAX_MS',
     description: 'Max backoff time in ms for fast file store collection retries',
+    ...numberConfigHelper(5_000),
+  },
+  txValidationCacheSize: {
+    env: 'TX_VALIDATION_CACHE_SIZE',
+    description: 'Max size of the tx validation cache (LRU)',
     ...numberConfigHelper(5_000),
   },
 };
