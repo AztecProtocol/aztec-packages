@@ -40,6 +40,8 @@ import {
   bpr_bn254 as bpr_bn254_shader,
   convert_point_coords_and_decompose_scalars,
   convert_points_only as convert_points_only_shader,
+  csr_to_v2_active_sums as csr_to_v2_active_sums_shader,
+  csr_to_v2_meta as csr_to_v2_meta_shader,
   decompose_scalars_signed_only as decompose_scalars_signed_only_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
   divsteps_bench as divsteps_bench_shader,
@@ -891,6 +893,39 @@ ${packLines.join('\n')}
       ba_scatter_pairs_bench_shader,
       { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
       { structs },
+    );
+  }
+
+  /**
+   * Layout converter (active_sums materialization): copies packed
+   * 8×u32 base coords from cached_bases into bucket-major active_sums
+   * indexed by val_idx. One thread per (subtask, slot). Pure raw vec4
+   * copy — no field-element math.
+   */
+  public gen_csr_to_v2_active_sums_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_csr_to_v2_active_sums_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(
+      csr_to_v2_active_sums_shader,
+      { workgroup_size, recompile: this.recompile },
+      {},
+    );
+  }
+
+  /**
+   * Layout converter (meta derivation): writes per-bucket count and
+   * subtask-relative offset from cuZK row_ptr. One thread per
+   * (subtask, bucket).
+   */
+  public gen_csr_to_v2_meta_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_csr_to_v2_meta_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(
+      csr_to_v2_meta_shader,
+      { workgroup_size, recompile: this.recompile },
+      {},
     );
   }
 
