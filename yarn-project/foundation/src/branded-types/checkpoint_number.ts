@@ -103,7 +103,7 @@ CheckpointNumber.INITIAL = CheckpointNumber(1);
 function makeCheckpointNumberSchema(minValue: number) {
   return z
     .union([z.number(), z.bigint(), z.string()])
-    .pipe(z.coerce.number().int().min(minValue))
+    .pipe(z.coerce.number<string | number | bigint>().int().min(minValue))
     .transform(value => CheckpointNumber(value));
 }
 
