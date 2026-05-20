@@ -2,7 +2,7 @@
 source: tests/snapshots.rs
 expression: stderr
 ---
-error: #[aztec] expects 0 or 1 arguments, got 2
+error: User-defined 'sync_state' is not allowed. Use AztecConfig::custom_sync_state() to customize sync behavior.
   ┌─ std/panic.nr:8:12
   │
 8 │     assert(false, message);
@@ -10,8 +10,8 @@ error: #[aztec] expects 0 or 1 arguments, got 2
   │
   = Call stack:
     1: #[aztec]
-            at src/main.nr:4:1
+            at src/main.nr:5:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:103:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:146:9
 
 Aborting due to 1 previous error

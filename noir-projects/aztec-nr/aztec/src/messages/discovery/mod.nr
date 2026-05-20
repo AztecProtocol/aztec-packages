@@ -106,6 +106,20 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 /* message_context */ MessageContext,
 /* scope */ AztecAddress);
 
+/// Custom state synchronization handler.
+///
+/// When set via [`crate::macros::AztecConfig::custom_sync_state`], the generated `sync_state` function will call
+/// this handler instead of [`do_sync_state`]. It receives all of the same parameters, so it can run custom logic
+/// (e.g. fetching and decrypting custom logs) before, after, or instead of calling [`do_sync_state`].
+pub type CustomSyncHandler<Env> = unconstrained fn[Env](
+    /* contract_address */ AztecAddress,
+    /* compute_note_hash */ ComputeNoteHash,
+    /* compute_note_nullifier */ ComputeNoteNullifier,
+    /* process_custom_message */ Option<CustomMessageHandler<()>>,
+    /* offchain_inbox_sync */ Option<OffchainInboxSync<()>>,
+    /* scope */ AztecAddress,
+);
+
 /// Synchronizes the contract's private state with the network.
 ///
 /// As blocks are mined, it is possible for a contract's private state to change (e.g. with new notes being created),
