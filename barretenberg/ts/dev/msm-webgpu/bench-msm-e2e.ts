@@ -52,27 +52,30 @@ function median(xs: number[]): number {
   return s[Math.floor(s.length / 2)];
 }
 
+type RunMode = 'baseline' | 'fused' | 'v2';
+
 async function runPath(
   ctx: GpuContext,
   bases: CachedBases,
   scalars: Uint8Array,
-  fused: boolean,
+  mode: RunMode,
   reps: number,
 ): Promise<{ ms: number[]; xy: { x: bigint; y: bigint } }> {
-  const tag = fused ? 'fused' : 'baseline';
-  log(`[e2e] ${tag}: warm-up dispatch…`);
+  const fused = mode === 'fused';
+  const useV2 = mode === 'v2';
+  log(`[e2e] ${mode}: warm-up dispatch…`);
   await compute_bn254_msm_batch_affine(
-    ctx, bases, scalars as unknown as Buffer, false, {}, undefined, 'legacy', false, fused,
+    ctx, bases, scalars as unknown as Buffer, false, {}, undefined, 'legacy', false, fused, useV2,
   );
-  log(`[e2e] ${tag}: warm-up ok`);
+  log(`[e2e] ${mode}: warm-up ok`);
   const ms: number[] = [];
   let xy = { x: 0n, y: 0n };
   for (let r = 0; r < reps; r++) {
     const t0 = performance.now();
     xy = await compute_bn254_msm_batch_affine(
-      ctx, bases, scalars as unknown as Buffer, false, {}, undefined, 'legacy', false, fused,
+      ctx, bases, scalars as unknown as Buffer, false, {}, undefined, 'legacy', false, fused, useV2,
     );
-    log(`[e2e] ${tag}: rep ${r} = ${(performance.now() - t0).toFixed(1)} ms`);
+    log(`[e2e] ${mode}: rep ${r} = ${(performance.now() - t0).toFixed(1)} ms`);
     ms.push(performance.now() - t0);
   }
   return { ms, xy };
@@ -192,35 +195,66 @@ async function main() {
 
     if (qp.get('dump') === '1') (globalThis as unknown as { __msm_dump?: boolean }).__msm_dump = true;
 
+    // ?v2=1 enables the third path (use_v2_pair_tree). ?fused=0 disables
+    // the legacy packed-fused path so the harness reports just baseline
+    // vs v2 (useful for sizing N when fused alone isn't the comparand).
+    const runV2 = qp.get('v2') === '1';
+    const runFused = qp.get('fused') !== '0';
+
     log('[e2e] running BASELINE (fused_revcarry=false, BigInt bases)…');
     rc.postProgress({ kind: 'phase', phase: 'baseline_start' });
-    const base = await runPath(ctx, basesBI, scalars, false, reps);
+    const base = await runPath(ctx, basesBI, scalars, 'baseline', reps);
     const baseMed = median(base.ms);
     log(`[e2e] baseline median ${baseMed.toFixed(2)} ms  samples=[${base.ms.map(x => x.toFixed(1)).join(',')}]`);
     rc.postProgress({ kind: 'phase', phase: 'baseline_done', median_ms: baseMed });
 
-    log('[e2e] running FUSED (fused_revcarry=true, packed bases)…');
-    rc.postProgress({ kind: 'phase', phase: 'fused_start' });
-    const fused = await runPath(ctx, basesPK, scalars, true, reps);
-    const fusedMed = median(fused.ms);
-    log(`[e2e] fused median ${fusedMed.toFixed(2)} ms  samples=[${fused.ms.map(x => x.toFixed(1)).join(',')}]`);
+    let fused: { ms: number[]; xy: { x: bigint; y: bigint } } | null = null;
+    let fusedMed = 0;
+    if (runFused) {
+      log('[e2e] running FUSED (fused_revcarry=true, packed bases)…');
+      rc.postProgress({ kind: 'phase', phase: 'fused_start' });
+      fused = await runPath(ctx, basesPK, scalars, 'fused', reps);
+      fusedMed = median(fused.ms);
+      log(`[e2e] fused median ${fusedMed.toFixed(2)} ms  samples=[${fused.ms.map(x => x.toFixed(1)).join(',')}]`);
+    }
 
-    const sane = base.xy.x === fused.xy.x && base.xy.y === fused.xy.y;
-    log(`[e2e] correctness (baseline==fused): ${sane}`);
+    let v2: { ms: number[]; xy: { x: bigint; y: bigint } } | null = null;
+    let v2Med = 0;
+    if (runV2) {
+      log('[e2e] running V2 (use_v2_pair_tree=true, packed bases)…');
+      rc.postProgress({ kind: 'phase', phase: 'v2_start' });
+      v2 = await runPath(ctx, basesPK, scalars, 'v2', reps);
+      v2Med = median(v2.ms);
+      log(`[e2e] v2 median ${v2Med.toFixed(2)} ms  samples=[${v2.ms.map(x => x.toFixed(1)).join(',')}]`);
+      rc.postProgress({ kind: 'phase', phase: 'v2_done', median_ms: v2Med });
+    }
+
+    const fusedSane = fused !== null && base.xy.x === fused.xy.x && base.xy.y === fused.xy.y;
+    const v2Sane = v2 !== null && base.xy.x === v2.xy.x && base.xy.y === v2.xy.y;
+    if (fused) log(`[e2e] correctness (baseline==fused): ${fusedSane}`);
+    if (v2) log(`[e2e] correctness (baseline==v2): ${v2Sane}`);
     if (refAff) {
       const baseOk = base.xy.x === refAff.x && base.xy.y === refAff.y;
-      const fusedOk = fused.xy.x === refAff.x && fused.xy.y === refAff.y;
-      log(`[e2e] vs CPU oracle: baseline=${baseOk} fused=${fusedOk}`);
+      log(`[e2e] vs CPU oracle: baseline=${baseOk}`);
+      if (fused) log(`[e2e] vs CPU oracle: fused=${fused.xy.x === refAff.x && fused.xy.y === refAff.y}`);
+      if (v2) log(`[e2e] vs CPU oracle: v2=${v2.xy.x === refAff.x && v2.xy.y === refAff.y}`);
       log(`[e2e]   oracle.xy   = (${refAff.x}, ${refAff.y})`);
     }
     log(`[e2e]   baseline.xy = (${base.xy.x}, ${base.xy.y})`);
-    log(`[e2e]   fused.xy    = (${fused.xy.x}, ${fused.xy.y})`);
-    const speedup = baseMed / fusedMed;
-    log(`[e2e] RESULT: baseline ${baseMed.toFixed(2)} ms  fused ${fusedMed.toFixed(2)} ms  speedup ${speedup.toFixed(3)}x  sane=${sane}`);
+    if (fused) log(`[e2e]   fused.xy    = (${fused.xy.x}, ${fused.xy.y})`);
+    if (v2) log(`[e2e]   v2.xy       = (${v2.xy.x}, ${v2.xy.y})`);
+    const fusedSpeedup = fused ? baseMed / fusedMed : 0;
+    const v2Speedup = v2 ? baseMed / v2Med : 0;
+    log(
+      `[e2e] RESULT: baseline ${baseMed.toFixed(2)} ms` +
+        (fused ? `  fused ${fusedMed.toFixed(2)} ms (x${fusedSpeedup.toFixed(3)})` : '') +
+        (v2 ? `  v2 ${v2Med.toFixed(2)} ms (x${v2Speedup.toFixed(3)})` : '') +
+        `  fusedSane=${fusedSane} v2Sane=${v2Sane}`,
+    );
 
     await rc.postResults({
       state: 'done',
-      params: { logN, n, reps },
+      params: { logN, n, reps, fused: runFused, v2: runV2 },
       results: [
         {
           name: 'msm_e2e',
@@ -229,12 +263,17 @@ async function main() {
           reps,
           baseline_median_ms: baseMed,
           fused_median_ms: fusedMed,
+          v2_median_ms: v2Med,
           baseline_samples_ms: base.ms,
-          fused_samples_ms: fused.ms,
-          speedup,
-          sanity_ok: sane,
+          fused_samples_ms: fused?.ms ?? [],
+          v2_samples_ms: v2?.ms ?? [],
+          fused_speedup: fusedSpeedup,
+          v2_speedup: v2Speedup,
+          fused_sane: fusedSane,
+          v2_sane: v2Sane,
           baseline_xy: { x: base.xy.x.toString(), y: base.xy.y.toString() },
-          fused_xy: { x: fused.xy.x.toString(), y: fused.xy.y.toString() },
+          fused_xy: fused ? { x: fused.xy.x.toString(), y: fused.xy.y.toString() } : null,
+          v2_xy: v2 ? { x: v2.xy.x.toString(), y: v2.xy.y.toString() } : null,
         },
       ],
     });
