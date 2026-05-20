@@ -67,9 +67,9 @@ export class KeyStore {
     const completeAddress = await CompleteAddress.fromPublicKeysAndPartialAddress(publicKeys, partialAddress);
     const { address: account } = completeAddress;
 
-    // Per AZIP-8 "Security Considerations": the kernel no longer checks that nhpk/ovpk/tpk are
-    // on-curve or non-infinity, so the PXE/key-store must guarantee it before persistence.
-    // By design, the above derivation produces points that are on the curve and not at infinity.
+    // The kernel cannot check that nhpk/ovpk/tpk are on-curve or non-infinity, so the PXE/key-store
+    // must guarantee it before persistence. By design, the above derivation produces points that are on
+    // the curve and not at infinity.
 
     // The npk/ovpk/tpk hashes are already in publicKeys; ivpk_m_hash is computed for indexing.
     const masterIncomingViewingPublicKeyHash = await hashPublicKey(publicKeys.ivpkM);
@@ -290,8 +290,8 @@ export class KeyStore {
 
       // Non-DB computation — safe because no further IDB operations follow.
       // Integrity check: confirm the stored secret key still derives the requested hash. The check
-      // is hash-based rather than point-equal because the on-disk identifier is `pk_m_hash` post
-      // AZIP-8; cryptographic collision resistance of `hashPublicKey` makes this equivalent to a
+      // is hash-based rather than point-equal because the on-disk identifier is `pk_m_hash`;
+      // cryptographic collision resistance of `hashPublicKey` makes this equivalent to a
       // direct point comparison in practice.
       const derivedPkM = await derivePublicKeyFromSecretKey(skM);
       const derivedPkMHash = await hashPublicKey(derivedPkM);

@@ -115,7 +115,7 @@ describe('Keys', () => {
 
   describe('ovsk_app', () => {
     it('gets ovsk_app', async () => {
-      // Derive the ovpk_m_hash from the account secret. Use `hashPublicKey` (the AZIP-8
+      // Derive the ovpk_m_hash from the account secret. Use `hashPublicKey` (the
       // domain-separated hash over `[x, y]`) rather than `Point.hash()` (which hashes
       // `[x, y, is_infinite]` with no separator) -- the PXE's `KeyStore.addAccount` stores
       // master-key hashes computed via `hashPublicKey`, so this is what the

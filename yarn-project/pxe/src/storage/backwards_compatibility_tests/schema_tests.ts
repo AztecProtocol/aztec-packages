@@ -194,7 +194,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           originalContractClassId: new Fr(89n),
           initializationHash: new Fr(97n),
           immutablesHash: new Fr(103n),
-          // Per AZIP-8: only `ivpk_m` is exposed as a curve point; the other three master keys
+          // Only `ivpk_m` is exposed as a curve point; the other three master keys
           // are exposed as `hash_public_key` digests. Constructor signature is now
           // `(npkMHash, ivpkM, ovpkMHash, tpkMHash)`.
           publicKeys: new PublicKeys(new Fr(41n), new Point(new Fr(47n), new Fr(53n), false), new Fr(59n), new Fr(67n)),

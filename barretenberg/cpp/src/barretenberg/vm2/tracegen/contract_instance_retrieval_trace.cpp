@@ -64,7 +64,7 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_init_hash, event.contract_instance.initialization_hash },
                 { C::contract_instance_retrieval_immutables_hash, event.contract_instance.immutables_hash },
 
-                // Public keys (hinted). Per AZIP-8, only ivpk_m is held as a Grumpkin point;
+                // Public keys (hinted). Only ivpk_m is held as a Grumpkin point;
                 // the others are field-element hashes computed off-circuit by the PXE.
                 { C::contract_instance_retrieval_nullifier_key_hash,
                   event.contract_instance.public_keys.nullifier_key_hash },

@@ -74,7 +74,7 @@ FF compute_contract_class_id(const FF& artifact_hash, const FF& private_fn_root,
     return poseidon2::hash({ DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_fn_root, public_bytecode_commitment });
 }
 
-// Per AZIP-8, public_keys_hash combines the four hashes (with the ivpk_m one computed in-circuit
+// public_keys_hash combines the four hashes (with the ivpk_m one computed in-circuit
 // from its (x, y) coordinates) under DOM_SEP__PUBLIC_KEYS_HASH.
 FF hash_public_keys(const PublicKeys& public_keys)
 {

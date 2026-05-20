@@ -21,7 +21,7 @@ import { type PublicKey, hashPublicKey } from './public_key.js';
 /**
  * A non-owner's view of an account's master public keys.
  *
- * Per AZIP-8, only `ivpkM` is exposed as a point (since address derivation needs the curve
+ * Only `ivpkM` is exposed as a point (since address derivation needs the curve
  * point in-circuit); the other three keys are exposed as their `hashPublicKey` digests.
  */
 export class PublicKeys {

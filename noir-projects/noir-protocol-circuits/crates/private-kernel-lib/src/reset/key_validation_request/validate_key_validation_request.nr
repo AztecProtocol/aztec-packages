@@ -17,7 +17,7 @@ use types::{
 /// validation request" to the protocol's kernel circuits (which _are_
 /// allowed to see certain master secret keys (sk_m)).
 ///
-/// Per AZIP-8, the app circuit only sees `pk_m_hash` (not the raw point). The kernel derives the
+/// The app circuit only sees `pk_m_hash` (not the raw point). The kernel derives the
 /// point from `sk_m`, hashes it, and asserts equality. When a Key Validation Request tuple of
 /// (sk_app, pk_m_hash, app_address) is submitted to the kernel, it performs the following
 /// derivations to validate the relationship between the claimed sk_app and the user's pk_m:
@@ -26,7 +26,7 @@ use types::{
 ///         |                                        |
 ///         v                                        | We use the kernel to prove this
 ///  h(sk_m, app_address)                            | sk_app-pk_m_hash relationship, because app
-///         |                                        | circuits must not be trusted to see pk_m.
+///         |                                        | circuits must not be trusted to see sk_m.
 ///         v                                        |
 ///      sk_app  - - - - - - - - - - - - - - - - - -
 ///
@@ -57,13 +57,7 @@ pub fn validate_key_validation_request(
     // First we check that the hash of the derived public key matches the requested pk_m_hash.
     let pk_m: Point = derive_public_key(sk_m).into();
 
-    // Reject the point at infinity. Without this, an attacker could supply sk_m = 0 (which derives
-    // pk_m = O, the elliptic-curve identity) and validate against an `npk_m_hash` published for a
-    // maliciously-constructed contract instance that bakes in `hash_public_key(O)`. The pre-AZIP-8
-    // design had an equivalent guard at the contract level (`assert(!request.pk_m.is_infinite)`)
-    // which is no longer possible now that the contract sees only the hash. PXE-side guarantees on
-    // locally-derived keys only protect accounts created on that device; a contract publication
-    // that bakes in a malicious `npk_m_hash` would otherwise bypass them. Defense in depth.
+    // Safeguard against using a secret key equals to zero.
     assert_eq(pk_m.is_infinite, false, "Derived master public key cannot be the point at infinity");
 
     assert_eq(

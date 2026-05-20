@@ -364,12 +364,12 @@ export class Oracle {
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (result === undefined) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      // Wire shape (per AZIP-8): [npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, partial_address] = 6 fields.
+      // Wire shape: [npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, partial_address] = 6 fields.
       return [toACVMField(0), Array(6).fill(toACVMField(0))];
     } else {
       // Data was found so we set `some` to 1 and return it along with `value`.
       // The Noir side hand-decodes a `[Field; 6]` here (see aztec-nr/aztec/src/oracle/keys.nr), so we
-      // emit the AZIP-8 5-field PublicKeys shape (`is_infinite` excluded) + partial_address explicitly
+      // emit the 5-field PublicKeys shape + partial_address explicitly
       // rather than going through `publicKeys.toFields()` (which is the struct-flattened 6-field
       // wire for oracle returns that decode via struct shape).
       const { publicKeys, partialAddress } = result;

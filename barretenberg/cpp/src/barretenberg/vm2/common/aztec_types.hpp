@@ -85,7 +85,7 @@ enum class ContractInstanceMember : uint8_t {
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////
 
-// Per AZIP-8: only `incoming_viewing_key` is exposed as a point (since address derivation
+// Only `incoming_viewing_key` is exposed as a point (since address derivation
 // needs the curve point in-circuit); the other three keys are exposed as their hashes.
 struct PublicKeys {
     FF nullifier_key_hash;

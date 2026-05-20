@@ -753,7 +753,7 @@ impl PrivateContext {
     /// request validation of this claim, by making a "key validation request" to the protocol's kernel circuits (which
     /// _are_ allowed to see certain master secret keys).
     ///
-    /// Per AZIP-8, the app circuit only sees `pk_m_hash` (not the raw point). The kernel derives the
+    /// The app circuit only sees `pk_m_hash` (not the raw point). The kernel derives the
     /// point from `sk_m`, hashes it, and asserts equality. When a Key Validation Request tuple of
     /// (sk_app, pk_m_hash, app_address) is submitted to the kernel, it performs the following
     /// derivations to validate the relationship between the claimed sk_app and the user's pk_m_hash:
@@ -762,7 +762,7 @@ impl PrivateContext {
     ///         |                                        |
     ///         v                                        | We use the kernel to prove this
     ///  h(sk_m, app_address)                            | sk_app-pk_m_hash relationship, because app
-    ///         |                                        | circuits must not be trusted to see pk_m.
+    ///         |                                        | circuits must not be trusted to see sk_m.
     ///         v                                        |
     ///      sk_app  - - - - - - - - - - - - - - - - - -
     ///
@@ -785,9 +785,8 @@ impl PrivateContext {
             // that the siloed secret key corresponds to correct siloing of the master secret key that hashes to
             // `pk_m_hash`.
 
-            // Safety: The contract trusts the requested `pk_m_hash` here; the kernel reset circuit will discharge
-            // this request and prove that the returned `sk_app` is correctly siloed from a master secret key whose
-            // public key hashes to `pk_m_hash`.
+            // Safety: Kernels verify that the key validation request is valid and below we verify that a request for
+            // the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
             assert_eq(request.pk_m_hash, pk_m_hash, "Obtained key validation request for wrong pk_m_hash");
 

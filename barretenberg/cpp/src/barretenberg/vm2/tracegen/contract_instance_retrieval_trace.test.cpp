@@ -101,7 +101,7 @@ TEST(ContractInstanceRetrievalTraceGenTest, SingleEvent)
                       ROW_FIELD_EQ(contract_instance_retrieval_init_hash, 0x11111111ULL),
                       ROW_FIELD_EQ(contract_instance_retrieval_immutables_hash, 0x22222222ULL),
 
-                      // Public keys (per AZIP-8: ivpk_m as a point, others as hashes)
+                      // Public keys (ivpk_m as a point, others as hashes)
                       ROW_FIELD_EQ(contract_instance_retrieval_nullifier_key_hash, 0x100),
                       ROW_FIELD_EQ(contract_instance_retrieval_incoming_viewing_key_x, 0x200),
                       ROW_FIELD_EQ(contract_instance_retrieval_incoming_viewing_key_y, 0x201),

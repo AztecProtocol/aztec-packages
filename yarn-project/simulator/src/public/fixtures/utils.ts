@@ -233,7 +233,7 @@ export async function addNewContractInstanceToTx(
   contractInstance: ContractInstanceWithAddress,
   skipNullifierInsertion = false,
 ) {
-  // Per AZIP-8, only ivpk_m is broadcast as a point (x, y); the other three keys are hashes.
+  // Only ivpk_m is broadcast as a point (x, y); the other three keys are hashes.
   const publicKeysAsFields = [
     contractInstance.publicKeys.npkMHash,
     contractInstance.publicKeys.ivpkM.x,

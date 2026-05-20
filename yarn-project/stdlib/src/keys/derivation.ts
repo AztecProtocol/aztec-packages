@@ -107,7 +107,7 @@ export async function deriveKeys(secretKey: Fr) {
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
 
-  // Per AZIP-8, the non-owner-visible PublicKeys carries hashes for npk/ovpk/tpk and the raw
+  // The non-owner-visible PublicKeys carries hashes for npk/ovpk/tpk and the raw
   // point only for ivpk_m. The npk/ovpk/tpk raw points are also returned alongside so the key
   // store can persist them under `${account}-{n|ov|t}pk_m` (only their hashes live in publicKeys).
   // The ivpk_m point isn't returned separately because it already lives in publicKeys.ivpkM.

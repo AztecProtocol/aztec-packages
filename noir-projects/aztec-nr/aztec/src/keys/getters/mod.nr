@@ -41,7 +41,7 @@ mod test {
     use crate::test::helpers::test_environment::TestEnvironment;
     use std::test::OracleMock;
 
-    global KEY_ORACLE_RESPONSE_LENGTH: u32 = 6;
+    global KEY_ORACLE_RESPONSE_LENGTH: u32 = 6; // 3 key hashes + 1 key point + 1 partial address
 
     #[test(should_fail_with = "Invalid public keys hint for address")]
     unconstrained fn get_public_keys_fails_with_bad_hint() {

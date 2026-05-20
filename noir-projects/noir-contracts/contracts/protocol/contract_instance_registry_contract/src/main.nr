@@ -85,8 +85,7 @@ pub contract ContractInstanceRegistry {
     /// This function:
     /// 1. Verifies the contract class is registered in ContractClassRegistry (nullifier existence check).
     /// 2. Validates `ivpk_m` is on the Grumpkin curve and not the point at infinity (preventing AVM DoS via an invalid
-    /// point). Per AZIP-8, `npk_m`, `ovpk_m`, and `tpk_m` are exposed only as hashes and are not validated in-circuit;
-    /// the PXE is responsible for that check on locally-created accounts.
+    /// point). `npk_m`, `ovpk_m`, and `tpk_m` are exposed only as hashes and are not validated in-circuit.
     /// 3. Computes the deterministic contract address from the deployment parameters.
     /// 4. Emits the address as a nullifier (proving publication preventing duplicate deployment)
     ///    --> this address nullifier is then checked to exist by the AVM upon public function execution (if it doesn't
@@ -153,7 +152,7 @@ pub contract ContractInstanceRegistry {
         context.push_nullifier(address.to_field());
 
         // Broadcast deployment event. Version 2 carries hashes for npk/ovpk/tpk and the affine
-        // coordinates of ivpk only (per AZIP-8); see `serialize_non_standard`.
+        // coordinates of ivpk only; see `serialize_non_standard`.
         let event = ContractInstancePublished {
             CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
             contract_class_id,

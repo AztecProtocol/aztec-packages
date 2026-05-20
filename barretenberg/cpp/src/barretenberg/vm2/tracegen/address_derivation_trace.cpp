@@ -17,7 +17,7 @@ namespace bb::avm2::tracegen {
  *  Corresponds to the subtrace address_derivation.pil.
  *
  *  This trace is non memory-aware and does not handle any errors. It relies on the poseidon2,
- *  scalar_mul, and ecc traces to constrain correctness of the address. Per AZIP-8, only the
+ *  scalar_mul, and ecc traces to constrain correctness of the address. Only the
  *  incoming_viewing_key is held as a Grumpkin point; the other three master public keys are
  *  exposed as their hashes (DOM_SEP__SINGLE_PUBLIC_KEY_HASH). The address is derived as:
  *   1. salted_init_hash          = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr,

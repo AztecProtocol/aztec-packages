@@ -18,9 +18,7 @@ pub trait ToPoint {
 
 /// Hashes a public key point under the canonical single-public-key domain separator.
 ///
-/// Defined as `Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, x, y)` per AZIP-8. Only the affine
-/// coordinates are hashed; the `is_infinite` flag is intentionally excluded so that key hashes
-/// remain stable if/when the inf flag is removed from `Point`.
+/// Defined as `Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, x, y)`.
 pub fn hash_public_key(p: Point) -> Field {
     poseidon2_hash_with_separator([p.x, p.y], DOM_SEP__SINGLE_PUBLIC_KEY_HASH as Field)
 }

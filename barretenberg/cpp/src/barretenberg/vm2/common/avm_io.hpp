@@ -113,7 +113,7 @@ struct PublicInputs {
 ////////////////////////////////////////////////////////////////////////////
 // Hints (contracts)
 ////////////////////////////////////////////////////////////////////////////
-// Per AZIP-8: only ivpk_m is sent as a point; the others are field-element hashes.
+// Only ivpk_m is sent as a point; the others are field-element hashes.
 struct PublicKeysHint {
     FF npk_m_hash;
     AffinePoint ivpk_m;

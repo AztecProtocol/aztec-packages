@@ -6,7 +6,7 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 /**
  * Request for validating keys used in the app.
  *
- * Per AZIP-8, the master public key is exposed only as `pkMHash` (its `hashPublicKey` digest).
+ * The master public key is exposed only as `pkMHash` (its `hashPublicKey` digest).
  * The kernel reset circuit derives the corresponding point from the master secret key hint and
  * asserts that its hash matches `pkMHash`.
  */

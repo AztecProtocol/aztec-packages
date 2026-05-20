@@ -291,7 +291,7 @@ pub global DEFAULT_TPK_M_X: Field =
 pub global DEFAULT_TPK_M_Y: Field =
     0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f;
 
-// Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y, false })` for each non-ivpk key.
+// Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y })` for each non-ivpk key.
 // Used by `PublicKeys::default()` and the matching TS `PublicKeys.default()`. Verified by the
 // `compute_default_hash` test in public_keys.nr.
 pub global DEFAULT_NPK_M_HASH: Field =

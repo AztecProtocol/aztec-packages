@@ -3,7 +3,7 @@ use std::meta::derive;
 
 /// A request from an app circuit to the kernel for validation of a siloed app secret key.
 ///
-/// Per AZIP-8, the master public key is exposed only as its [`hash_public_key`](crate::public_keys::hash_public_key) digest -- apps
+/// The master public key is exposed only as its [`hash_public_key`](crate::public_keys::hash_public_key) digest -- apps
 /// must not see the raw point. The kernel reset circuit derives the point from the master secret
 /// key hint, hashes it, and asserts equality with `pk_m_hash`.
 #[derive(Deserialize, Eq, Serialize)]

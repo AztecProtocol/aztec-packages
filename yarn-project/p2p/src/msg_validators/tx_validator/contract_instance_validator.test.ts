@@ -57,7 +57,7 @@ describe('ContractInstanceTxValidator', () => {
     const address = opts?.address ?? correctAddress;
 
     // Serialize the event into fields matching the format expected by ContractInstancePublishedEvent.fromLog.
-    // After AZIP-8, fromLog reads from a buffer:
+    // fromLog reads from a buffer:
     //   [tag(32) | address(32) | version(32) | salt(32) | classId(32) | initHash(32) | publicKeys(160) | deployer(32)]
     // where publicKeys = npkMHash(32) + ivpkM(64 = x|y, no is_infinite) + ovpkMHash(32) + tpkMHash(32) = 5 Fr fields.
     const publicKeysBuffer = publicKeys.toBuffer();
