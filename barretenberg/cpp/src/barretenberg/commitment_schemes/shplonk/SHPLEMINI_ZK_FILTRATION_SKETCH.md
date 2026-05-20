@@ -1,21 +1,27 @@
 # Shplemini ZK Determinant — Filtration Reorganisation
 
-A reformulation of the determinant identity in `SHPLEMINI_ZK.md` as the
-following four-step computation:
+A reformulation of the determinant identity in `SHPLEMINI_ZK.md` along these
+lines:
 
 1. **Lemma A** (existing): extract $\prod_{k=0}^{d-1}(\tau + r_k)$ from $\det B$.
 2. **Row operation** (§2): replace each $M_k^{\mathrm{new}}$ by an explicit
    linear combination $N_k$ to make the matrix block-lower-triangular (§3).
 3. **Schur step** (§5, Step 1): pivot on the $D_0'(C_0) = 1$ entry; modifies
    no other row, deletes one row and one column.
-4. **Single Laplace expansion** (§5, Steps 3-4): expand along the residual
-   floating row $M_0^{\mathrm{new}}$ across the three columns of $C_{d-1}$.
-   One of the three terms vanishes (top-pair minor vanishing); the remaining
-   two-term sum produces the level-$0$ anomaly $\tau^{E-4} - r_0^{E-4}$.
+4. **Middle elimination** (§5, Step 3): use the invertibility of each middle
+   block $T_k$ to eliminate $M_0^{\mathrm{new}}$ from middle columns.
+5. **Boundary 3×3 identity** (§5, Step 4): the residual $(2d-1) \times (2d-1)$
+   determinant factors as $\bigl(\prod \det T_k\bigr)\cdot \det U_d$ where
+   $U_d$ is an explicit $3 \times 3$ polynomial matrix on $C_{d-1}$. The
+   single remaining structural identity is the closed form for $\det U_d$
+   (boxed in §6), verified by rational arithmetic at $d = 3, 4, 5$.
 
 The middle divisors $(\tau^2 - r_k^2)$ become diagonal entries of the
 block-lower-triangular form (Lemma 4), eliminating the need for §7's
-per-divisor row-dependence arguments.
+per-divisor row-dependence arguments. The level-$0$ anomaly $\tau^{E-4} - r_0^{E-4}$
+splits between $\mathsf{Mid}_0$ (the $\tau^2 - r_0^2$ factor, in $T_1$) and the
+$3 \times 3$ boundary block $U_d$ (the residual
+$(\tau^{E-4} - r_0^{E-4})/(\tau^2 - r_0^2)$).
 
 The triangularisation depends on one explicit row operation, derived from two
 multilinear-Lagrange identities (§2). The construction is verified
@@ -170,11 +176,13 @@ arguments) with a direct computation.
 
 ---
 
-## 5. Boundary handling: one Schur step plus one Laplace expansion
+## 5. Boundary handling: Schur step + middle elimination + 3×3 identity
 
 The block-lower-triangular form has row partition $(2, 2, \ldots, 2)$ and
 column partition $(1, 2, \ldots, 2, 3)$. The boundary imbalance — 1 column
-short at the left, 1 column extra at the right — is removed in two clean steps.
+short at the left, 1 column extra at the right — is resolved in three steps:
+a free Schur step at the left, an elimination of $M_0^{\mathrm{new}}$ from
+middle columns, and a single 3×3 determinant identity at the right.
 
 ### Step 1: Schur out $D_0'$ against $C_0$
 
@@ -199,86 +207,109 @@ column $C_0$ from the matrix, multiplying $\det$ by $1$.
 
 After Step 1 the matrix has rows
 $(M_0^{\mathrm{new}}, D_1', N_1, \ldots, D_{d-1}', N_{d-1})$
-on columns $C_1 \sqcup \cdots \sqcup C_{d-1}$. Sizes: $1 + 2(d-1) = 2d-1$ rows,
-$2(d-2) + 3 = 2d-1$ columns. The block-lower-triangular structure survives:
+on columns $C_1 \sqcup \cdots \sqcup C_{d-1}$, sizes $2d-1$ each. The
+block-lower-triangular structure survives, with row partition $(1, 2, \ldots, 2)$
+on column partition $(2, \ldots, 2, 3)$:
 
-- One floating row $M_0^{\mathrm{new}}$, supported on every column (since
-  $q_0(s) \ge 1$ for all $s \in S \setminus C_0$).
+- One floating row $M_0^{\mathrm{new}}$, supported on **every** column
+  (since $q_0(s) \ge 1$ for all $s \in S \setminus C_0$).
 - $d-2$ squared $2\times 2$ middle blocks $T_k$ on $C_k$ for $1 \le k \le d-2$.
 - One non-square $2 \times 3$ boundary block $T_{d-1}$ on $C_{d-1}$.
 
-The 1 floating row at the top must absorb 1 of the 3 columns in $C_{d-1}$ for
-the rest to fit into squared blocks.
+### Step 3: middle elimination of $M_0^{\mathrm{new}}$
 
-### Step 3: single Laplace expansion along $M_0^{\mathrm{new}}$ across $C_{d-1}$
+The floating row $M_0^{\mathrm{new}}$ has nonzero entries on **every** column.
+A naive Laplace expansion along this row across all $2d-2$ columns gives
+contributions from middle columns as well as from $C_{d-1}$, leaving a
+combinatorially heavy sum. Instead, we use the invertibility of each middle
+block $T_k$ (Lemma 4: $\det T_k \ne 0$ in $K$) to eliminate
+$M_0^{\mathrm{new}}|_{C_k}$ before doing the boundary expansion.
 
-Laplace-expand along the $M_0^{\mathrm{new}}$ row, choosing the pivot column
-from $C_{d-1}$. Any choice $c \in C_{d-1}$ leaves the middle blocks $T_1, \ldots, T_{d-2}$
-squared and intact, and leaves a $2 \times 2$ boundary minor
-$T_{d-1}[C_{d-1} \setminus \{c\}]$. *(Picking $c$ from a middle $C_k$ instead
-would break the squared-ness of that $T_k$, forcing a second expansion;
-picking from $C_{d-1}$ is the only choice that does not compound.)*
+For each $k \in \{1, \ldots, d-2\}$, solve the $2 \times 2$ system
+$$
+(M_0^{\mathrm{new}}|_{C_k}) \;=\; \alpha_k\,(D_k'|_{C_k}) \,+\, \beta_k\,(N_k|_{C_k}),
+$$
+uniquely solvable since $\det T_k \ne 0$, and replace
+$$
+M_0^{\mathrm{new}} \;\leftarrow\; M_0^{\mathrm{new}} - \alpha_k\,D_k' - \beta_k\,N_k.
+$$
+
+**Order matters.** Perform the eliminations in ascending $k$ order. Because
+$D_k'$ and $N_k$ vanish on $C_l$ for $l < k$ (staircase + Proposition 3),
+step $k$ leaves $M_0^{\mathrm{new}}$ unchanged on $C_1, \ldots, C_{k-1}$;
+only $C_l$ for $l \ge k$ are modified. So previously cleared blocks stay
+cleared.
+
+After all $d - 2$ steps, $M_0^{\mathrm{new}}$ (now denoted
+$M_{0,\mathrm{elim}}^{\mathrm{new}}$) is **zero on $C_1 \sqcup \cdots \sqcup C_{d-2}$**
+and (modified) nonzero on $C_{d-1}$. The coefficients $(\alpha_k, \beta_k)$ are
+rational functions in $K$ with $\det T_k$ in the denominator.
+
+### Step 4: the 3×3 boundary identity
+
+After Step 3, merge the floating row with the level-$(d-1)$ row pair into a
+single block of size 3 on $C_{d-1}$ (size 3). The matrix is now
+block-lower-triangular with row and column partitions both equal to
+$(2, 2, \ldots, 2, 3)$, so the determinant is the product of diagonal-block
+determinants:
 
 $$
 \det \tilde B
-\;=\; \prod_{k=1}^{d-2}\det T_k
-\;\cdot\;
-\sum_{c \in C_{d-1}}\, \varepsilon(c)\,M_0^{\mathrm{new}}(E_c)\,\det T_{d-1}[C_{d-1}\setminus\{c\}],
-$$
-
-where $\varepsilon(c) = \pm 1$ from the Laplace sign. The middle product is
-independent of $c$ and factors out.
-
-### Step 4: the two-term sum (top-pair vanishing)
-
-Of the three terms, the one with $c = 2^{d-1}$ has the leftover minor
-$\det T_{d-1}[\{E-1, E-2\}]$, which **vanishes**: those two top-pair columns
-are proportional in $(D_{d-1}', N_{d-1})$ after the row operation. (Observed
-symbolically at $d = 3, 4$; conjectural for general $d$, see §6.)
-
-So the sum reduces to two terms:
-
-$$
-\sum_{c \in C_{d-1}}\varepsilon(c)\, M_0^{\mathrm{new}}(E_c)\, \det T_{d-1}[C_{d-1}\setminus\{c\}]
 \;=\;
-\varepsilon_{E-1}\, M_0^{\mathrm{new}}(E_{E-1})\, \det T_{d-1}[\{E-2, 2^{d-1}\}]
-\;+\;
-\varepsilon_{E-2}\, M_0^{\mathrm{new}}(E_{E-2})\, \det T_{d-1}[\{E-1, 2^{d-1}\}].
+\prod_{k=1}^{d-2}\det T_k \;\cdot\; \det U_d,
+\qquad
+U_d \;:=\;
+\begin{pmatrix}
+M_{0,\mathrm{elim}}^{\mathrm{new}}(c_1) & M_{0,\mathrm{elim}}^{\mathrm{new}}(c_2) & M_{0,\mathrm{elim}}^{\mathrm{new}}(c_3) \\
+D_{d-1}'(c_1) & D_{d-1}'(c_2) & D_{d-1}'(c_3) \\
+N_{d-1}(c_1) & N_{d-1}(c_2) & N_{d-1}(c_3)
+\end{pmatrix},
 $$
 
-The two top-row entries are explicit polynomials:
-$M_0^{\mathrm{new}}(E_s) = \tau r_0 \phi_{s-1}(\tau, -r_0)$ for $s \in \{E-1, E-2\}$,
-of degrees $E-2$ and $E-3$ in $\tau, r_0$. The two leftover $2 \times 2$ minors
-are explicit polynomials carrying $A_0^+(r_0) A_0^-(\tau)$ and the level-$(d-1)$
-content.
+where $c_1, c_2, c_3$ enumerate $C_{d-1} = \{E-1, E-2, 2^{d-1}\}$.
 
-### The remaining identity
+The entries of $M_{0,\mathrm{elim}}^{\mathrm{new}}$ are rational with
+denominators dividing $\prod_{k=1}^{d-2}\det T_k$. Multiplying the top row of
+$U_d$ by this product clears all denominators, so the boxed identity for
+$\det U_d$ in §6 is in fact a polynomial identity in
+$K[\tau, r_0, r_{d-2}, r_{d-1}, u_0, \ldots, u_{d-1}]$ — the middle $r_k$'s do
+not appear because they have been absorbed into the $\det T_k$ middle product.
 
-Combined with Lemma A's prefactor and Lemma 4 for the middle product, the
-expected identity is
+### Verification at d = 3
 
+Direct symbolic computation gives
 $$
-\det B
-\;=\;
-\prod_{k=0}^{d-1}(\tau + r_k)
-\;\cdot\;
-\prod_{k=1}^{d-2}\det T_k
-\;\cdot\;
-\bigl[\text{two-term sum}\bigr]
-\;=\;
-(-1)^d r_0^2 \tau^2 (\tau^{E-4} - r_0^{E-4}) \prod_{k=1}^{d-2}(\tau^2 - r_k^2) (\tau + r_{d-1})\,\mathcal L\,\mathcal A.
+\det U_3 \;=\; -\,r_0^2\,\tau^2\,(r_0^2 + \tau^2)\,(\tau - r_1)\,(1 - u_0)\,u_0\,A_1^+(r_1)\,A_1^-(\tau).
 $$
+This matches the boxed formula in §6 (Strategy 1 outcome) at $d = 3$ with
+$E = 8$: $(\tau^{E-4} - r_0^{E-4})/(\tau^2 - r_0^2) = (\tau^4 - r_0^4)/(\tau^2 - r_0^2) = \tau^2 + r_0^2$,
+and the $\mathsf{Mid}_{d-2}$-content piece is $u_0(1 - u_0)(\tau - r_1) A_1^+ A_1^-$.
 
-So the two-term sum must equal
-$$
-r_0^2\, \tau^2\, (\tau^{E-4} - r_0^{E-4})\, A_0^+(r_0)\, A_0^-(\tau)\, (\tau + r_{d-1})
-$$
-up to an explicit unit and sign from $\varepsilon_{E-1}, \varepsilon_{E-2}$.
-This is the **single remaining identity** — see §6.
+Multiplied by $\det T_1 = -(\tau - r_0) A_0^+(r_0) A_0^-(\tau)$ and the
+Lemma-A prefactor $\prod (\tau + r_k)$, this reconstructs the theorem statement
+up to the overall $(-1)^d$ sign.
 
-The level-0 anomaly $\tau^{E-4} - r_0^{E-4}$ thus emerges as a two-term
-$\tau \leftrightarrow r_0$ "anti-symmetrisation" of $\phi$-polynomials — exactly
-the shape of $\tau^a - r_0^a$ factorisations.
+### General-$d$ identity
+
+The single remaining structural identity is the boxed formula of §6 for
+$\det U_d$. Three things to note:
+
+1. The non-binary cyclotomic factors of $\tau^{E-4} - r_0^{E-4}$
+   ($\Phi_3, \Phi_6, \Phi_7, \ldots$ at $d \ge 4$) sit entirely inside
+   $(\tau^{E-4} - r_0^{E-4})/(\tau^2 - r_0^2)$, which is itself entirely
+   inside $\det U_d$. The 3×3 block "sees" them via the high-degree polynomials
+   $M_0^{\mathrm{new}}(E_{E-1}), M_0^{\mathrm{new}}(E_{E-2}), M_0^{\mathrm{new}}(E_{2^{d-1}})$
+   that feed (via the eliminator) into the top row of $U_d$.
+
+2. The identity has the shape of a $\tau \leftrightarrow r_0$ anti-symmetric
+   $\phi$-product difference — exactly what Identity $(\ast)$ from
+   `SHPLEMINI_ZK.md` §1 telescopes.
+
+3. After the eliminator clears denominators, the polynomial identity for
+   $\det U_d$ involves only $\tau, r_0, r_{d-2}, r_{d-1}, u_0, \ldots, u_{d-1}$.
+   The middle $r_k$'s ($1 \le k \le d - 3$) are absent — they enter only via
+   the eliminator coefficients, which combine with $\det T_k$ to produce
+   polynomial output.
 
 ---
 
@@ -293,46 +324,103 @@ the shape of $\tau^a - r_0^a$ factorisations.
 | Row op $N_k$ triangularises (Proposition 3) | $(D_k', N_k)$ vanishes on $C_j$, $j < k$ | disjoint-support cancellation |
 | Block-lower-triangular form (§3) | with column order $C_0 \mid \cdots \mid C_{d-1}$ | staircase + Proposition 3 |
 | Middle block determinants (Lemma 4) | $\det T_k = L\cdot(\tau - r_{k-1})\cdot A_{k-1}^+\,A_{k-1}^-$ | direct $2\times 2$ determinant, sympy-verified at $d = 3, 4$ |
-| Top-pair minor vanishing | $\det T_{d-1}[\{E-1, E-2\}] = 0$ | observed symbolically at $d = 3, 4$; conjectural general $d$ |
+| Inner Laplace term vanishing | $\det \tilde B^{(c)} = 0$ for $c = 2^{d-1}$ | observed at $d = 3$; general pattern not pinned down |
 
 **Open.**
 
-The two-term sum of §5 (Step 4): two explicit products of degree-$(E-2)$ and
-degree-$(E-3)$ $\phi$-polynomials with degree-$O(1)$ minors must equal
-$\varepsilon \cdot r_0^2\,\tau^2\,(\tau^{E-4} - r_0^{E-4})\,A_0^+(r_0)\,A_0^-(\tau)\,(\tau + r_{d-1})$.
-This is one polynomial identity in $K[\tau, r_0, r_{d-1}, u_0, \ldots, u_{d-1}]$,
-and it has the shape of a $\tau \leftrightarrow r_0$ anti-symmetric difference
-of $\phi$-products. Two attack vectors:
+The boundary Laplace identity of §5 (Step 3): the signed sum of $2d-2$
+Laplace terms along the floating $M_0^{\mathrm{new}}$ row equals
+$r_0^2\,\tau^2\,(\tau^{E-4} - r_0^{E-4})\,A_0^+(r_0)\,A_0^-(\tau)\,(\tau + r_{d-1})$
+divided by the middle product. The simplification claimed in earlier drafts
+(that only the $c \in C_{d-1}$ terms contribute, leaving a two-term sum) is
+incorrect — middle Laplace terms also contribute. Possible attack vectors:
 
-1. **Direct symbolic computation.** Expand the two top-block minors and the
-   two $M_0^{\mathrm{new}}(E_s) = \tau r_0 \phi_{s-1}$ entries; check that the
-   signed difference factors as $\tau^{E-4} - r_0^{E-4}$ times the residual.
-   Identity $(\ast)$ of `SHPLEMINI_ZK.md` §1 is likely to do the heavy lifting,
-   since the shape "$\phi_a \cdot \phi_b - \phi_{a'} \cdot \phi_{b'}$" is
-   exactly what $(\ast)$ handles.
+1. **Eliminate $M_0^{\mathrm{new}}$ from middle columns first.** Use the
+   invertibility of each middle block $T_k$ to Gaussian-eliminate
+   $M_0^{\mathrm{new}}|_{C_k}$, after which the floating row is supported
+   only on $C_{d-1}$ and the Laplace expansion reduces to a $3\times3$
+   boundary determinant. This has now been checked exactly with rational
+   arithmetic for $d=3,4,5$; see the sharpened boundary lemma below.
+2. **Direct telescoping with Identity $(\ast)$.** Expand all $2d-2$ Laplace
+   terms in $\phi$-coordinates and look for $\tau \leftrightarrow r_0$
+   anti-symmetric cancellation patterns. Identity $(\ast)$ handles
+   "$\phi_a \phi_b - \phi_{a'} \phi_{b'}$" exactly, which is the shape that
+   should appear after the row op + Lemma 4 simplifications.
+3. **Specialisation $r_k = r^{2^k}$** (strategy (C) from
+   `SHPLEMINI_ZK_SMALL_CASES.md`). Still applies and is independent of how the
+   Laplace expansion is organised.
 
-2. **Specialisation $r_k = r^{2^k}$.** On this codimension-$(d-1)$ subvariety
-   the level-0 factor becomes $\tau^{E-4} - r^{E-4}$ and the higher $r_k$
-   collapse cleanly. Prove the identity on the subvariety, then lift —
-   strategy (C) from `SHPLEMINI_ZK_SMALL_CASES.md`.
 
-The proof of the top-pair-minor vanishing $\det T_{d-1}[\{E-1, E-2\}] = 0$ at
-general $d$ is a sub-task either way. It is observed symbolically at $d = 3, 4$
-and reduces to showing two specific columns of $(D_{d-1}', N_{d-1})$ are
-proportional, which by Lemma B and the row operation should be checkable in
-closed form.
+### Strategy 1 small-case outcome
+
+Carry out the rational middle-block elimination explicitly. For each
+$k=1,\ldots,d-2$, solve against the square block $T_k$ and subtract the
+corresponding linear combination of $D_k',N_k$ from the floating row
+$M_0^{\mathrm{new}}$. This kills the floating row on every middle block
+$C_1,\ldots,C_{d-2}$ and preserves the determinant over the localisation where
+$\prod_{k=1}^{d-2}\det T_k\ne0$.
+
+The residual determinant factors as
+
+$$
+\det\tilde B
+= \Bigl(\prod_{k=1}^{d-2}\det T_k\Bigr)\cdot \det U_d,
+$$
+
+where $U_d$ is the final $3\times3$ boundary matrix on
+$C_{d-1}=\{E-1,E-2,2^{d-1}\}$, with rows
+
+$$
+M_{0,\mathrm{elim}}^{\mathrm{new}},\qquad D_{d-1}',\qquad N_{d-1}.
+$$
+
+Exact rational checks at $d=3,4,5$ give the closed form
+
+$$
+\boxed{
+\det U_d
+= -\,r_0^2\tau^2\,
+\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}\,
+(\tau-r_{d-2})\,
+L_0(u_{<d-2})L_{2^{d-2}-1}(u_{<d-2})\,
+A_{d-2}^+(r_{d-2})A_{d-2}^-(\tau)
+}
+$$
+
+for all tested non-singular rational specialisations. This is exactly the
+missing shifted boundary factor: the square middle blocks provide the level
+$0,\ldots,d-3$ factors, while $\det U_d$ provides the final level $d-2$ factor
+and the reduced top residual after the level-$0$ middle block has removed
+$(\tau-r_0)A_0^+(r_0)A_0^-(\tau)$.
+
+Thus Strategy 1 appears to reduce the whole determinant proof to two uniform
+computations:
+
+1. Lemma 4 for the square blocks $T_k$.
+2. The boxed boundary determinant identity for $U_d$.
+
+Together with Lemma A, these two identities imply the full conjectured closed
+form. The small-case boundary determinant has constant sign $-1$; the global
+$(-1)^d$ sign then comes from the product/sign convention of the middle blocks
+and the fixed column ordering.
 
 **Not needed (drop from earlier statement).**
 
 - Degree saturation. The filtration approach computes $\det B$ *as* the
   expression of §5 — not as the product of divisibility theorems — so there is
   no "extra factor" to rule out.
-- Sign $(-1)^d$. Falls out of column-permutation count plus Laplace signs in
-  the computation, not a separate check.
-- Quotient interpolation lemma (`SHPLEMINI_ZK.md` §7). Superseded by Lemma 4.
+- Sign $(-1)^d$. Falls out of the sign of $\det U_d$ (uniformly $-1$ across
+  tested cases) combined with the middle-product sign and the column ordering,
+  not a separate check.
+- Quotient interpolation lemma (`SHPLEMINI_ZK.md` §7). Superseded by Lemma 4
+  for the middle and by the $\det U_d$ identity for the boundary.
 - Cyclic-shift framing on an $(E-4)$-dimensional Schur module. Was a
-  speculative shape for the level-0 anomaly; the Laplace formulation of §5 is
-  the concrete version and replaces it.
+  speculative shape for the level-0 anomaly; the concrete realisation is
+  $(\tau^{E-4} - r_0^{E-4})/(\tau^2 - r_0^2)$ appearing as a polynomial entry
+  in $\det U_d$.
+- Laplace expansion over the floating $M_0^{\mathrm{new}}$ row. Strategy 1
+  (middle elimination) routes around it, replacing a $(2d-2)$-term sum with
+  a single $3 \times 3$ determinant.
 
 ---
 
@@ -345,12 +433,13 @@ $q_t$-table / staircase / availability sets (§5).
 
 The following pieces of `SHPLEMINI_ZK.md` are superseded:
 §7 (top-adjacent row dependence and quotient interpolation lemma — replaced
-by Lemma 4), the cyclic-module conjecture for the level-$0$ factor (replaced
-by the Laplace sum of §5), and the per-divisor "Open" list of §8 (replaced by
-the single Laplace identity of §6).
+by Lemma 4 for the middle and the $\det U_d$ identity for the boundary), the
+cyclic-module conjecture for the level-$0$ factor (replaced by the
+$3 \times 3$ identity of §5/§6), and the per-divisor "Open" list of §8
+(replaced by the single boundary identity for $\det U_d$).
 
 Lemma C (§4 of `SHPLEMINI_ZK.md`) and Lemma P (§6) are not used directly in
 the filtration proof but remain valid as standalone results; Lemma P in
 particular gives the parity refinement of the column filtration at $\tau = r_k$
-and may be useful for the boundary Laplace identity if the direct symbolic
-approach proves combinatorially hard.
+and may be useful for proving the boundary $\det U_d$ identity at general $d$
+if the direct symbolic approach proves combinatorially hard.
