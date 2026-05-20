@@ -222,6 +222,18 @@ uint32_t MegaCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t&
     return value_witness_idx;
 }
 
+template <typename FF> void MegaCircuitBuilder_<FF>::create_databus_init_read_gate(BusId bus_idx, size_t slot_idx)
+{
+    auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
+    BB_ASSERT_LT(slot_idx, bus_vector.size());
+
+    const uint32_t value_witness_idx = bus_vector[slot_idx];
+    const uint32_t index_witness_idx = this->put_constant_variable(FF(static_cast<uint64_t>(slot_idx)));
+
+    create_databus_read_gate({ index_witness_idx, value_witness_idx }, bus_idx);
+    bus_vector.increment_read_count(slot_idx);
+}
+
 /**
  * @brief Create a databus lookup/read gate
  *

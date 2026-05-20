@@ -143,6 +143,13 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     uint32_t read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx);
 
     /**
+     * @brief Emit a busread gate at slot `slot_idx` whose value wire is the bus_vector entry at that slot.
+     * @details Creates a constant witness for the index, reuses the bus entry's existing witness as the
+     * value wire (no fresh allocation), and increments the slot's read_count.
+     */
+    void create_databus_init_read_gate(BusId bus_idx, size_t slot_idx);
+
+    /**
      * @brief Read from the specified calldata bus and create a corresponding databus read gate
      *
      */
@@ -162,9 +169,14 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return read_bus_vector(BusId::RETURNDATA, read_idx_witness_idx);
     };
 
+    /**
+     * @brief Append a witness to a bus column and bind the new slot to that witness via a busread gate.
+     */
     void append_to_bus_vector(const BusId bus_idx, const uint32_t& witness_idx)
     {
-        databus[static_cast<size_t>(bus_idx)].append(witness_idx);
+        auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
+        bus_vector.append(witness_idx);
+        create_databus_init_read_gate(bus_idx, bus_vector.size() - 1);
     }
 
     const BusVector& get_calldata(BusId idx) const { return databus[static_cast<size_t>(idx)]; }
