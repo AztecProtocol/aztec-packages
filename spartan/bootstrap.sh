@@ -399,6 +399,13 @@ case "$cmd" in
       fi
     fi
     ;;
+  "wait_for_l2_block")
+    env_file="$1"
+    source_env_basic "$env_file"
+    gcp_auth
+    source_network_env "$env_file"
+    ./scripts/wait_for_l2_block.sh "$NAMESPACE"
+    ;;
   "single_test")
     run_network_tests "$1" "$2"
     ;;
