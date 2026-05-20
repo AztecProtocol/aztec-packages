@@ -271,6 +271,14 @@ tests:
     owners:
       - *phil
 
+  # Timing-sensitive sentinel test added in #23286: observer sometimes records
+  # `blocks-missed` instead of `checkpoint-unvalidated` because the malicious
+  # node's invalid block proposal doesn't reach the observer in the target slot.
+  - regex: "src/e2e_p2p/sentinel_status_slash.parallel.test.ts"
+    skip: true
+    owners:
+      - *palla
+
   # Consistently times out — prune detection timing too tight for CI resources
   # See https://github.com/AztecProtocol/aztec-packages/pull/22392
   - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
