@@ -145,20 +145,6 @@ updating it is sufficient — you no longer need to edit hardcoded defaults in J
 **Network/operator docs** are updated separately in Step 13 after the version
 snapshot is created (the config update requires the versioned docs directory to exist).
 
-#### Hardcoded version references
-
-Some strings hardcode the version. Grep the source (and after Step 13, the new
-snapshot) for the old version and update each hit. Skip historical references
-(migration-note headings, changelog entries, "in vX, Y was removed" prose).
-
-```bash
-cd docs && grep -rn "<old_version>" src/ docs-developers/ docs-operate/ docs/
-```
-
-Known hits: `src/clientModules/docsgpt.js` (`heroDescription`),
-`developer_versioned_docs/version-v<new>/docs/aztec-js/wallet-sdk/{wallet,dapp}_integration.md`
-(`yarn add @aztec/*@<version>`).
-
 ### Step 6: Generate API Reference Docs
 
 Generate the Aztec.nr and TypeScript API documentation for the new version. The
@@ -459,6 +445,22 @@ Verify the new version appears in both `docs/developer_version_config.json` and
 Also verify that macros were resolved in the network versioned snapshot — check
 that `docs/network_versioned_docs/version-v<new_version>/` contains no raw
 `#release_version` or `#release_network` placeholders.
+
+#### Hardcoded version references
+
+Grep source and the new snapshot for the old version and update each hit. Skip
+historical refs (migration-note headings, changelog entries, "in vX, Y was
+removed" prose).
+
+```bash
+cd docs && grep -rn "<old_version>" src/ docs-developers/ docs-operate/ docs/ \
+  developer_versioned_docs/version-v<new_version>/ \
+  network_versioned_docs/version-v<new_version>/
+```
+
+Known hits: `src/clientModules/docsgpt.js` (`heroDescription`),
+`developer_versioned_docs/version-v<new_version>/docs/aztec-js/wallet-sdk/{wallet,dapp}_integration.md`
+(`yarn add @aztec/*@<version>`).
 
 ### Step 14: Review Recent Docs Updates on `next`
 
