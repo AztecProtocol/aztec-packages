@@ -2,7 +2,13 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import type { L2Tips } from '../block/l2_block_source.js';
-import { type EpochProvingJobState, type ProverNodeApi, ProverNodeApiSchema } from './prover-node.js';
+import {
+  type EpochProvingJobState,
+  type ProverNodeApi,
+  ProverNodeApiSchema,
+  type ProverNodeJobStatus,
+  type ProverNodeStatus,
+} from './prover-node.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
 describe('ProvingNodeApiSchema', () => {
@@ -24,6 +30,11 @@ describe('ProvingNodeApiSchema', () => {
   afterAll(() => {
     const all = Object.keys(ProverNodeApiSchema);
     expect([...tested].sort()).toEqual(all.sort());
+  });
+
+  it('getStatus', async () => {
+    const status = await context.client.getStatus();
+    expect(status).toEqual(await handler.getStatus());
   });
 
   it('getJobs', async () => {
@@ -57,6 +68,22 @@ describe('ProvingNodeApiSchema', () => {
 });
 
 class MockProverNode implements ProverNodeApi {
+  async getStatus(): Promise<ProverNodeStatus> {
+    const [l2Tips, worldState, jobs] = await Promise.all([
+      this.getL2Tips(),
+      this.getWorldStateSyncStatus(),
+      this.getJobs(),
+    ]);
+    return {
+      updatedAt: '2026-05-21T00:00:00.000Z',
+      proverId: '0x01',
+      currentEpoch: 1,
+      l2Tips,
+      worldState,
+      jobs,
+    };
+  }
+
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     return Promise.resolve({
       finalizedBlockNumber: BlockNumber(1),
@@ -80,7 +107,7 @@ class MockProverNode implements ProverNodeApi {
     });
   }
 
-  getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
+  getJobs(): Promise<ProverNodeJobStatus[]> {
     return Promise.resolve([
       { uuid: 'uuid1', status: 'initialized', epochNumber: 10 },
       { uuid: 'uuid2', status: 'processing', epochNumber: 10 },

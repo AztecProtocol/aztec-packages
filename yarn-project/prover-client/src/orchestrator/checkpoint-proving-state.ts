@@ -322,6 +322,33 @@ export class CheckpointProvingState {
     return allChildProofsReady && !!this.previousOutHashHint && !!this.startBlobAccumulator;
   }
 
+  public hasCheckpointRootProof() {
+    return !!this.checkpointRootProof?.provingOutput;
+  }
+
+  public getProvingProgress() {
+    const blocks = this.blocks.filter((block): block is BlockProvingState => !!block);
+    return blocks.reduce(
+      (progress, block) => {
+        const blockProgress = block.getProvingProgress();
+        progress.startedBlocks += 1;
+        progress.provenBlocks += block.hasBlockRootProof() ? 1 : 0;
+        progress.totalTxs += blockProgress.totalTxs;
+        progress.addedTxs += blockProgress.addedTxs;
+        progress.provenTxs += blockProgress.provenTxs;
+        return progress;
+      },
+      {
+        totalBlocks: this.totalNumBlocks,
+        startedBlocks: 0,
+        provenBlocks: 0,
+        totalTxs: 0,
+        addedTxs: 0,
+        provenTxs: 0,
+      },
+    );
+  }
+
   public verifyState() {
     return this.parentEpoch.verifyState();
   }

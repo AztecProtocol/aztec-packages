@@ -15,7 +15,7 @@ import {
   UnbalancedTreeStore,
   shaMerkleHash,
 } from '@aztec/foundation/trees';
-import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import type { ProverNodeProvingProgress, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   CheckpointConstantData,
@@ -156,6 +156,42 @@ export class EpochProvingState {
   // Returns true if we are still able to accept checkpoints, false otherwise.
   public isAcceptingCheckpoints() {
     return this.checkpoints.filter(c => !!c).length < this.totalNumCheckpoints;
+  }
+
+  public getProvingProgress(): Omit<
+    ProverNodeProvingProgress,
+    'active' | 'activeForks' | 'epochNumber' | 'pendingProvingJobs' | 'updatedAt'
+  > {
+    const checkpoints = this.checkpoints.filter((checkpoint): checkpoint is CheckpointProvingState => !!checkpoint);
+    return checkpoints.reduce(
+      (progress, checkpoint) => {
+        const checkpointProgress = checkpoint.getProvingProgress();
+        progress.startedCheckpoints += 1;
+        progress.provenCheckpoints += checkpoint.hasCheckpointRootProof() ? 1 : 0;
+        progress.totalBlocks += checkpointProgress.totalBlocks;
+        progress.startedBlocks += checkpointProgress.startedBlocks;
+        progress.provenBlocks += checkpointProgress.provenBlocks;
+        progress.totalTxs += checkpointProgress.totalTxs;
+        progress.addedTxs += checkpointProgress.addedTxs;
+        progress.provenTxs += checkpointProgress.provenTxs;
+        return progress;
+      },
+      {
+        totalCheckpoints: this.totalNumCheckpoints,
+        startedCheckpoints: 0,
+        provenCheckpoints: 0,
+        totalBlocks: 0,
+        startedBlocks: 0,
+        provenBlocks: 0,
+        totalTxs: 0,
+        addedTxs: 0,
+        provenTxs: 0,
+        cachedChonkVerifierProofs: this.cachedChonkVerifierProofs.size,
+        rootProofStarted: !!this.rootRollupProof?.isProving,
+        rootProofCompleted: !!this.rootRollupProof?.provingOutput,
+        finalBlobReady: !!this.finalBatchedBlob,
+      },
+    );
   }
 
   public setCheckpointRootRollupProof(
@@ -321,7 +357,11 @@ export class EpochProvingState {
     return new CheckpointPaddingRollupPrivateInputs();
   }
 
-  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs; batchedBlobInputs: BatchedBlob } {
+  public getEpochProofResult(): {
+    proof: Proof;
+    publicInputs: RootRollupPublicInputs;
+    batchedBlobInputs: BatchedBlob;
+  } {
     const provingOutput = this.rootRollupProof?.provingOutput;
 
     if (!provingOutput || !this.finalBatchedBlob) {

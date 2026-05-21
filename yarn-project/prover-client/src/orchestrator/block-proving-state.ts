@@ -428,6 +428,19 @@ export class BlockProvingState {
     return !!this.blockRootProof;
   }
 
+  public hasBlockRootProof() {
+    return !!this.blockRootProof?.provingOutput;
+  }
+
+  public getProvingProgress() {
+    const txProofs = Array.from({ length: this.totalNumTxs }, (_, txIndex) => this.baseOrMergeProofs.getLeaf(txIndex));
+    return {
+      totalTxs: this.totalNumTxs,
+      addedTxs: this.txs.length,
+      provenTxs: txProofs.filter(proof => !!proof?.provingOutput).length,
+    };
+  }
+
   public verifyState() {
     return this.parentCheckpoint.verifyState();
   }

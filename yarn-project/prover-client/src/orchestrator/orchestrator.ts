@@ -23,6 +23,7 @@ import type {
   EpochProver,
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
+  ProverNodeProvingProgress,
   PublicInputsAndRecursiveProof,
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
@@ -122,6 +123,20 @@ export class ProvingOrchestrator implements EpochProver {
 
   public getNumActiveForks() {
     return this.dbs.size;
+  }
+
+  public getProvingProgress(): ProverNodeProvingProgress | undefined {
+    if (!this.provingState) {
+      return undefined;
+    }
+    return {
+      active: this.provingState.verifyState(),
+      epochNumber: this.provingState.epochNumber,
+      activeForks: this.dbs.size,
+      pendingProvingJobs: this.pendingProvingJobs.length,
+      ...this.provingState.getProvingProgress(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   public async stop(): Promise<void> {
@@ -779,7 +794,9 @@ export class ProvingOrchestrator implements EpochProver {
         typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
       >,
     ) => {
-      this.logger.debug(`Got chonk verifier proof for tx index: ${txIndex}`, { txHash });
+      this.logger.debug(`Got chonk verifier proof for tx index: ${txIndex}`, {
+        txHash,
+      });
       txProvingState.setPublicChonkVerifierProof(result);
       this.provingState?.cachedChonkVerifierProofs.delete(txHash);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);

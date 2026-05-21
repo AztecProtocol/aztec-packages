@@ -16,6 +16,7 @@ import {
   type EpochProverManager,
   type EpochProvingJobState,
   type MerkleTreeWriteOperations,
+  type ProverNodeJobStatus,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -94,6 +95,7 @@ describe('prover-node', () => {
     txProvider = mock<TxProvider>();
 
     rollupContract = mock<RollupContract>();
+    rollupContract.getCurrentEpoch.mockResolvedValue(EpochNumber(123));
     publisherFactory = mock<ProverPublisherFactory>();
     publisherFactory.create.mockResolvedValue(publisher);
 
@@ -137,23 +139,37 @@ describe('prover-node', () => {
     checkpoints = await timesParallel(
       3,
       async i =>
-        await Checkpoint.random(CheckpointNumber(i + 1), { numBlocks: 1, startBlockNumber: startBlockNumber + i }),
+        await Checkpoint.random(CheckpointNumber(i + 1), {
+          numBlocks: 1,
+          startBlockNumber: startBlockNumber + i,
+        }),
     );
-    previousBlockHeader = BlockHeader.random({ blockNumber: BlockNumber(startBlockNumber - 1) });
+    previousBlockHeader = BlockHeader.random({
+      blockNumber: BlockNumber(startBlockNumber - 1),
+    });
     lastPublishedCheckpoint = {
       checkpoint: checkpoints.at(-1)!,
       attestations: [CommitteeAttestation.random()],
     } as PublishedCheckpoint;
 
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
-    l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
+    l2BlockSource.getL1Constants.mockResolvedValue({
+      ...EmptyL1RollupConstants,
+      l1GenesisTime: BigInt(l1GenesisTime),
+    });
     l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(checkpoints);
     l2BlockSource.getCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
     const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
     const latestHash = checkpoints.at(-1)!.hash().toString();
     const genesisTipId = {
-      block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      block: {
+        number: BlockNumber.ZERO,
+        hash: GENESIS_BLOCK_HEADER_HASH.toString(),
+      },
+      checkpoint: {
+        number: CheckpointNumber.ZERO,
+        hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
+      },
     };
     l2BlockSource.getL2Tips.mockResolvedValue({
       proposed: { number: latestBlockNumber, hash: latestHash },
@@ -173,7 +189,10 @@ describe('prover-node', () => {
 
     // Tx provider plays along and returns a tx whenever requested
     txProvider.getTxsForBlock.mockImplementation(block =>
-      Promise.resolve({ txs: block.body.txEffects.map(tx => makeTx(tx.txHash)), missingTxs: [] }),
+      Promise.resolve({
+        txs: block.body.txEffects.map(tx => makeTx(tx.txHash)),
+        missingTxs: [],
+      }),
     );
 
     jobs = [];
@@ -194,6 +213,16 @@ describe('prover-node', () => {
     expect(jobs[0].epochNumber).toEqual(EpochNumber.fromBigInt(10n));
     expect(jobs[0].job.getDeadline()).toEqual(new Date((l1GenesisTime + 10 + 2) * 1000));
     expect(proverNode.totalJobCount).toEqual(1);
+  });
+
+  it('returns the current epoch from the L1 rollup contract in status', async () => {
+    rollupContract.getCurrentEpoch.mockResolvedValue(EpochNumber(2800));
+
+    const status = await proverNode.getStatus();
+
+    expect(status.currentEpoch).toEqual(EpochNumber(2800));
+    expect(rollupContract.getCurrentEpoch).toHaveBeenCalledTimes(1);
+    expect(l2BlockSource.getBlockHeader).not.toHaveBeenCalled();
   });
 
   it('requests a publisher for each epoch', async () => {
@@ -217,7 +246,10 @@ describe('prover-node', () => {
   });
 
   it('does not start a proof if there is a tx missing from coordinator', async () => {
-    txProvider.getTxsForBlock.mockResolvedValue({ missingTxs: [TxHash.random()], txs: [] });
+    txProvider.getTxsForBlock.mockResolvedValue({
+      missingTxs: [TxHash.random()],
+      txs: [],
+    });
     await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
     expect(proverNode.totalJobCount).toEqual(0);
   });
@@ -261,13 +293,19 @@ describe('prover-node', () => {
       this.nextJobState = 'completed';
       const run = this.nextJobRun;
       this.nextJobRun = () => Promise.resolve();
+      const id = jobs.length.toString();
       const job = mock<EpochProvingJob>({
         run,
         getState: () => state,
         getEpochNumber: () => data.epochNumber,
         getDeadline: () => deadline,
+        getStatus: () => ({
+          uuid: id,
+          status: state,
+          epochNumber: data.epochNumber,
+        }),
       });
-      job.getId.mockReturnValue(jobs.length.toString());
+      job.getId.mockReturnValue(id);
       jobs.push({ epochNumber: data.epochNumber, job });
       this.totalJobCount++;
       return job;
@@ -277,9 +315,13 @@ describe('prover-node', () => {
       return super.triggerMonitors();
     }
 
-    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
+    public override getJobs(): Promise<ProverNodeJobStatus[]> {
       return Promise.resolve(
-        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: j.epochNumber })),
+        jobs.map(j => ({
+          uuid: j.job.getId(),
+          status: j.job.getState(),
+          epochNumber: j.epochNumber,
+        })),
       );
     }
   }

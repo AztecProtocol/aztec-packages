@@ -47,7 +47,11 @@ export class ServerEpochProver implements EpochProver {
   setBlockCompleted(blockNumber: BlockNumber, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
   }
-  finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
+  finalizeEpoch(): Promise<{
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+    batchedBlobInputs: BatchedBlob;
+  }> {
     return this.orchestrator.finalizeEpoch();
   }
   cancel(): void {
@@ -55,6 +59,9 @@ export class ServerEpochProver implements EpochProver {
   }
   getProverId(): EthAddress {
     return this.orchestrator.getProverId();
+  }
+  getProvingProgress() {
+    return this.orchestrator.getProvingProgress();
   }
   async stop(): Promise<void> {
     await this.facade.stop();

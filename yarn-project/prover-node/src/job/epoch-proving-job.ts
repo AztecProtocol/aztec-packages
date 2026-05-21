@@ -19,6 +19,9 @@ import {
   type EpochProvingJobState,
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
+  type ProverNodeJobProgress,
+  type ProverNodeJobStatus,
+  type ProverNodeProvingProgress,
 } from '@aztec/stdlib/interfaces/server';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -37,6 +40,28 @@ export type EpochProvingJobOptions = {
   skipSubmitProof?: boolean;
 };
 
+const EPOCH_SLOT_COUNT_FOR_PROGRESS = 32;
+
+type EpochProvingJobProgressCounters = Pick<
+  ProverNodeJobProgress,
+  | 'fromCheckpoint'
+  | 'toCheckpoint'
+  | 'fromBlock'
+  | 'toBlock'
+  | 'totalCheckpoints'
+  | 'processedCheckpoints'
+  | 'totalBlocks'
+  | 'processedBlocks'
+  | 'totalTxs'
+  | 'processedTxs'
+  | 'currentCheckpoint'
+  | 'currentCheckpointIndexInEpoch'
+  | 'currentCheckpointSlotInEpoch'
+  | 'currentBlock'
+  | 'currentBlockIndexInCheckpoint'
+  | 'currentBlockCountInCheckpoint'
+>;
+
 /**
  * Job that grabs a range of blocks from the unfinalized chain from L1, gets their txs given their hashes,
  * re-executes their public calls, generates a rollup proof, and submits it to L1. This job will update the
@@ -46,6 +71,12 @@ export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
   private log: Logger;
   private uuid: string;
+  private readonly startedAt = new Date();
+  private updatedAt = this.startedAt;
+  private stateEnteredAt = this.startedAt;
+  private finishedAt: Date | undefined;
+  private progress: EpochProvingJobProgressCounters;
+  private error: string | undefined;
 
   private runPromise: Promise<void> | undefined;
   private epochCheckPromise: RunningPromise | undefined;
@@ -66,6 +97,7 @@ export class EpochProvingJob implements Traceable {
     bindings?: LoggerBindings,
   ) {
     validateEpochProvingJobData(data);
+    this.progress = this.buildInitialProgress();
     this.uuid = crypto.randomUUID();
     this.log = createLogger('prover-node:epoch-proving-job', {
       ...bindings,
@@ -92,6 +124,71 @@ export class EpochProvingJob implements Traceable {
 
   public getProvingData(): EpochProvingJobData {
     return this.data;
+  }
+
+  public getStatus(): ProverNodeJobStatus {
+    return {
+      uuid: this.uuid,
+      status: this.state,
+      epochNumber: this.data.epochNumber,
+      progress: this.getProgress(),
+    };
+  }
+
+  private buildInitialProgress(): EpochProvingJobProgressCounters {
+    const checkpoints = this.data.checkpoints;
+    const blocks = checkpoints.flatMap(checkpoint => checkpoint.blocks);
+    return {
+      fromCheckpoint: checkpoints[0]?.number,
+      toCheckpoint: checkpoints.at(-1)?.number,
+      fromBlock: blocks[0]?.number,
+      toBlock: blocks.at(-1)?.number,
+      totalCheckpoints: checkpoints.length,
+      processedCheckpoints: 0,
+      totalBlocks: blocks.length,
+      processedBlocks: 0,
+      totalTxs: checkpoints.reduce(
+        (sum, checkpoint) =>
+          sum + checkpoint.blocks.reduce((blockSum, block) => blockSum + block.body.txEffects.length, 0),
+        0,
+      ),
+      processedTxs: 0,
+    };
+  }
+
+  private getProgress(): ProverNodeJobProgress {
+    return {
+      ...this.progress,
+      startedAt: this.startedAt.toISOString(),
+      updatedAt: this.updatedAt.toISOString(),
+      stateEnteredAt: this.stateEnteredAt.toISOString(),
+      finishedAt: this.finishedAt?.toISOString(),
+      deadline: this.deadline?.toISOString(),
+      percentage: this.getProgressPercentage(),
+      error: this.error,
+      proving: this.getProvingProgress(),
+    };
+  }
+
+  private getProgressPercentage() {
+    if (this.state === 'completed' || this.state === 'awaiting-prover' || this.state === 'publishing-proof') {
+      return 100;
+    }
+    if (this.progress.totalBlocks > 0) {
+      return Math.floor((this.progress.processedBlocks / this.progress.totalBlocks) * 100);
+    }
+    return 0;
+  }
+
+  private getProvingProgress(): ProverNodeProvingProgress | undefined {
+    const prover = this.prover as EpochProver & {
+      getProvingProgress?: () => ProverNodeProvingProgress | undefined;
+    };
+    try {
+      return prover.getProvingProgress?.();
+    } catch {
+      return undefined;
+    }
   }
 
   private get epochNumber() {
@@ -135,6 +232,18 @@ export class EpochProvingJob implements Traceable {
     const toCheckpoint = this.checkpoints.at(-1)!.number;
     const fromBlock = this.checkpoints[0].blocks[0].number;
     const toBlock = this.checkpoints.at(-1)!.blocks.at(-1)!.number;
+    this.progress = {
+      ...this.progress,
+      totalCheckpoints: epochSizeCheckpoints,
+      totalBlocks: epochSizeBlocks,
+      totalTxs: epochSizeTxs,
+      fromCheckpoint,
+      toCheckpoint,
+      fromBlock,
+      toBlock,
+    };
+    this.touchProgress();
+
     this.log.info(`Starting epoch ${epochNumber} proving job with checkpoints ${fromCheckpoint} to ${toCheckpoint}`, {
       fromBlock,
       toBlock,
@@ -177,6 +286,7 @@ export class EpochProvingJob implements Traceable {
         const checkpointTimer = new Timer();
 
         const checkpointIndex = checkpoint.number - fromCheckpoint;
+        this.markCheckpointStarted(checkpoint, checkpointIndex);
         const checkpointConstants = CheckpointConstantData.from({
           chainId,
           version,
@@ -212,6 +322,7 @@ export class EpochProvingJob implements Traceable {
           const block = checkpoint.blocks[blockIndex];
           const globalVariables = block.header.globalVariables;
           const txs = this.getTxs(block);
+          this.markBlockStarted(block.number, blockIndex, checkpoint.blocks.length);
 
           this.log.verbose(`Starting processing block ${block.number}`, {
             number: block.number,
@@ -254,17 +365,24 @@ export class EpochProvingJob implements Traceable {
           // Mark block as completed to pad it
           const expectedBlockHeader = block.header;
           await this.prover.setBlockCompleted(block.number, expectedBlockHeader);
+          this.markBlockProcessed(txs.length);
           this.metrics.recordBlockProcessing(blockTimer.ms());
         }
+        this.markCheckpointProcessed();
         this.metrics.recordCheckpointProcessing(checkpointTimer.ms());
       });
       this.metrics.recordAllCheckpointsProcessing(allCheckpointsTimer.ms());
 
       const executionTime = timer.ms();
 
+      this.markLocalProcessingComplete();
       this.progressState('awaiting-prover');
       const { publicInputs, proof, batchedBlobInputs } = await this.prover.finalizeEpoch();
-      this.log.info(`Finalized proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
+      this.log.info(`Finalized proof for epoch ${epochNumber}`, {
+        epochNumber,
+        uuid: this.uuid,
+        duration: timer.ms(),
+      });
 
       this.progressState('publishing-proof');
 
@@ -272,7 +390,7 @@ export class EpochProvingJob implements Traceable {
         this.log.info(
           `Proof publishing is disabled. Dropping valid proof for epoch ${epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`,
         );
-        this.state = 'completed';
+        this.progressState('completed');
         this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
         return;
       }
@@ -294,7 +412,7 @@ export class EpochProvingJob implements Traceable {
         epochNumber,
         uuid: this.uuid,
       });
-      this.state = 'completed';
+      this.progressState('completed');
       this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
       if (err && err.name === 'HaltExecutionError') {
@@ -305,9 +423,14 @@ export class EpochProvingJob implements Traceable {
         });
         return;
       }
-      this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
+      this.log.error(`Error running epoch ${epochNumber} prover job`, err, {
+        uuid: this.uuid,
+        epochNumber,
+      });
+      this.error = err instanceof Error ? err.message : String(err);
+      this.touchProgress();
       if (this.state === 'processing' || this.state === 'awaiting-prover' || this.state === 'publishing-proof') {
-        this.state = 'failed';
+        this.progressState('failed');
       }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
@@ -346,7 +469,59 @@ export class EpochProvingJob implements Traceable {
 
   private progressState(state: EpochProvingJobState) {
     this.checkState();
+    this.setState(state);
+  }
+
+  private setState(state: EpochProvingJobState) {
+    const now = new Date();
     this.state = state;
+    this.stateEnteredAt = now;
+    this.updatedAt = now;
+    if (EpochProvingJobTerminalState.includes(state)) {
+      this.finishedAt ??= now;
+    }
+  }
+
+  private touchProgress() {
+    this.updatedAt = new Date();
+  }
+
+  private markCheckpointStarted(checkpoint: Checkpoint, checkpointIndexInEpoch: number) {
+    this.progress.currentCheckpoint = checkpoint.number;
+    this.progress.currentCheckpointIndexInEpoch = checkpointIndexInEpoch;
+    this.progress.currentCheckpointSlotInEpoch = Number(checkpoint.header.slotNumber) % EPOCH_SLOT_COUNT_FOR_PROGRESS;
+    this.progress.currentBlock = undefined;
+    this.progress.currentBlockIndexInCheckpoint = undefined;
+    this.progress.currentBlockCountInCheckpoint = checkpoint.blocks.length;
+    this.touchProgress();
+  }
+
+  private markBlockStarted(blockNumber: number, blockIndexInCheckpoint: number, blockCountInCheckpoint: number) {
+    this.progress.currentBlock = blockNumber;
+    this.progress.currentBlockIndexInCheckpoint = blockIndexInCheckpoint;
+    this.progress.currentBlockCountInCheckpoint = blockCountInCheckpoint;
+    this.touchProgress();
+  }
+
+  private markBlockProcessed(txCount: number) {
+    this.progress.processedBlocks = Math.min(this.progress.totalBlocks, this.progress.processedBlocks + 1);
+    this.progress.processedTxs = Math.min(this.progress.totalTxs, this.progress.processedTxs + txCount);
+    this.touchProgress();
+  }
+
+  private markCheckpointProcessed() {
+    this.progress.processedCheckpoints = Math.min(
+      this.progress.totalCheckpoints,
+      this.progress.processedCheckpoints + 1,
+    );
+    this.touchProgress();
+  }
+
+  private markLocalProcessingComplete() {
+    this.progress.processedCheckpoints = this.progress.totalCheckpoints;
+    this.progress.processedBlocks = this.progress.totalBlocks;
+    this.progress.processedTxs = this.progress.totalTxs;
+    this.touchProgress();
   }
 
   private checkState() {
@@ -356,7 +531,7 @@ export class EpochProvingJob implements Traceable {
   }
 
   public async stop(state: EpochProvingJobTerminalState = 'stopped') {
-    this.state = state;
+    this.setState(state);
     this.prover.cancel();
     if (this.runPromise) {
       await this.runPromise;
@@ -375,9 +550,15 @@ export class EpochProvingJob implements Traceable {
         if (EpochProvingJobTerminalState.includes(this.state)) {
           return;
         }
-        this.log.warn('Stopping job due to deadline hit', { uuid: this.uuid, epochNumber: this.epochNumber });
+        this.log.warn('Stopping job due to deadline hit', {
+          uuid: this.uuid,
+          epochNumber: this.epochNumber,
+        });
         this.stop('timed-out').catch(err => {
-          this.log.error('Error stopping job', err, { uuid: this.uuid, epochNumber: this.epochNumber });
+          this.log.error('Error stopping job', err, {
+            uuid: this.uuid,
+            epochNumber: this.epochNumber,
+          });
         });
       }, timeout);
     }
@@ -436,7 +617,9 @@ export class EpochProvingJob implements Traceable {
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
     const { deadline } = this;
-    const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline });
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, {
+      deadline,
+    });
 
     if (failedTxs.length) {
       const failedTxHashes = await Promise.all(failedTxs.map(({ tx }) => tx.getTxHash()));

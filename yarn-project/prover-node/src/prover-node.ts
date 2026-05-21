@@ -9,7 +9,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource, L2Tips } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -19,6 +19,9 @@ import {
   EpochProvingJobTerminalState,
   type ITxProvider,
   type ProverNodeApi,
+  type ProverNodeChainTipState,
+  type ProverNodeJobStatus,
+  type ProverNodeStatus,
   type Service,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -57,6 +60,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private log = createLogger('prover-node');
 
   private jobs: Map<string, EpochProvingJob> = new Map();
+  private recentJobs: Map<string, ProverNodeJobStatus> = new Map();
+  private readonly maxRecentJobs = 100;
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
@@ -72,7 +77,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
-    protected readonly p2pClient: { getTxProvider(): ITxProvider } & Partial<Service>,
+    protected readonly p2pClient: {
+      getTxProvider(): ITxProvider;
+    } & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
     protected readonly rollupContract: RollupContract,
     protected readonly l1Metrics: L1Metrics,
@@ -187,17 +194,69 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return this.l2BlockSource.getL2Tips();
   }
 
+  /** Returns a complete prover-node dashboard status snapshot. */
+  public async getStatus(): Promise<ProverNodeStatus> {
+    const [currentEpoch, l2Tips, worldState] = await Promise.all([
+      this.rollupContract.getCurrentEpoch(),
+      this.getL2Tips(),
+      this.getWorldStateSyncStatus(),
+    ]);
+    return {
+      updatedAt: new Date(this.dateProvider.now()).toISOString(),
+      proverId: this.prover.getProverId().toString(),
+      currentEpoch,
+      chainTipState: await this.getChainTipState(l2Tips),
+      l2Tips,
+      worldState,
+      jobs: this.getJobStatuses(),
+    };
+  }
+
+  private async getChainTipState(l2Tips: L2Tips): Promise<ProverNodeChainTipState> {
+    const blockNumber = l2Tips.proposed.number;
+    const state: ProverNodeChainTipState = {
+      blockNumber,
+      blockHash: l2Tips.proposed.hash,
+    };
+
+    const block = await this.l2BlockSource.getL2Block(blockNumber).catch(() => undefined);
+    if (!block) {
+      return state;
+    }
+
+    const slotNumber = block.slot;
+    const slotInEpoch = Number(slotNumber) % 32;
+    state.slotNumber = slotNumber;
+    state.slotInEpoch = slotInEpoch;
+    state.checkpointNumber = block.checkpointNumber;
+    state.checkpointSlotInEpoch = slotInEpoch;
+    state.blockIndexInCheckpoint = block.indexWithinCheckpoint;
+
+    const blocksInSlot = await this.l2BlockSource.getBlocksForSlot(slotNumber).catch(() => undefined);
+    if (blocksInSlot?.length) {
+      state.blockCountInCheckpoint = blocksInSlot.length;
+    }
+
+    return state;
+  }
+
   /**
    * Starts a proving process and returns immediately.
    */
   public async startProof(epochNumber: EpochNumber) {
-    const job = await this.createProvingJob(epochNumber, { skipEpochCheck: true });
+    const job = await this.createProvingJob(epochNumber, {
+      skipEpochCheck: true,
+    });
     void this.runJob(job);
   }
 
   private async runJob(job: EpochProvingJob) {
     const epochNumber = job.getEpochNumber();
-    const ctx = { id: job.getId(), epochNumber, state: undefined as EpochProvingJobState | undefined };
+    const ctx = {
+      id: job.getId(),
+      epochNumber,
+      state: undefined as EpochProvingJobState | undefined,
+    };
 
     try {
       await job.run();
@@ -216,6 +275,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     } catch (err) {
       this.log.error(`Error proving epoch ${epochNumber}`, err, ctx);
     } finally {
+      this.recordRecentJob(job);
       this.jobs.delete(job.getId());
     }
   }
@@ -244,19 +304,33 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   /**
    * Returns an array of jobs being processed.
    */
-  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
-    return Promise.resolve(
-      Array.from(this.jobs.entries()).map(([uuid, job]) => ({
-        uuid,
-        status: job.getState(),
-        epochNumber: job.getEpochNumber(),
-      })),
-    );
+  public getJobs(): Promise<ProverNodeJobStatus[]> {
+    return Promise.resolve(this.getActiveJobStatuses());
   }
 
-  protected async getActiveJobsForEpoch(
-    epochNumber: EpochNumber,
-  ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
+  private getActiveJobStatuses(): ProverNodeJobStatus[] {
+    return Array.from(this.jobs.values()).map(job => job.getStatus());
+  }
+
+  private getJobStatuses(): ProverNodeJobStatus[] {
+    const active = this.getActiveJobStatuses();
+    const activeIds = new Set(active.map(job => job.uuid));
+    const recent = Array.from(this.recentJobs.values()).filter(job => !activeIds.has(job.uuid));
+    return [...active, ...recent];
+  }
+
+  private recordRecentJob(job: EpochProvingJob) {
+    this.recentJobs.set(job.getId(), job.getStatus());
+    while (this.recentJobs.size > this.maxRecentJobs) {
+      const oldest = this.recentJobs.keys().next().value;
+      if (!oldest) {
+        break;
+      }
+      this.recentJobs.delete(oldest);
+    }
+  }
+
+  protected async getActiveJobsForEpoch(epochNumber: EpochNumber): Promise<ProverNodeJobStatus[]> {
     const jobs = await this.getJobs();
     return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
   }
@@ -268,7 +342,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     }
   }
 
-  @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
+  @trackSpan('ProverNode.createProvingJob', epochNumber => ({
+    [Attributes.EPOCH_NUMBER]: epochNumber,
+  }))
   private async createProvingJob(epochNumber: EpochNumber, opts: { skipEpochCheck?: boolean } = {}) {
     this.checkMaximumPendingJobs();
 
@@ -310,7 +386,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return this.l2BlockSource.getL1Constants();
   }
 
-  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
+  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({
+    [Attributes.EPOCH_NUMBER]: epochNumber,
+  }))
   private async gatherEpochData(epochNumber: EpochNumber): Promise<EpochProvingJobData> {
     const checkpoints = await this.gatherCheckpoints(epochNumber);
     const txArray = await this.gatherTxs(epochNumber, checkpoints);
@@ -321,7 +399,14 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const [lastPublishedCheckpoint] = await this.l2BlockSource.getCheckpoints(checkpoints.at(-1)!.number, 1);
     const attestations = lastPublishedCheckpoint?.attestations ?? [];
 
-    return { checkpoints, txs, l1ToL2Messages, epochNumber, previousBlockHeader, attestations };
+    return {
+      checkpoints,
+      txs,
+      l1ToL2Messages,
+      epochNumber,
+      previousBlockHeader,
+      attestations,
+    };
   }
 
   private async gatherCheckpoints(epochNumber: EpochNumber) {
@@ -390,7 +475,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.l2BlockSource,
       this.jobMetrics,
       deadline,
-      { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
+      {
+        parallelBlockLimit,
+        skipSubmitProof: proverNodeDisableProofPublish,
+        ...opts,
+      },
       this.log.getBindings(),
     );
   }
