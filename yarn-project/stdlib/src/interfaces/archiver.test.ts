@@ -167,12 +167,23 @@ describe('ArchiverApiSchema', () => {
   it('getPrivateLogsByTags', async () => {
     const result = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
+
+    const resultWithOptionals = await context.client.getPrivateLogsByTags([SiloedTag.random()], 3, BlockNumber(4));
+    expect(resultWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogsByTagsFromContract', async () => {
     const contractAddress = await AztecAddress.random();
     const result = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
+
+    const resultWithOptionals = await context.client.getPublicLogsByTagsFromContract(
+      contractAddress,
+      [Tag.random()],
+      3,
+      BlockNumber(4),
+    );
+    expect(resultWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogs', async () => {
@@ -503,17 +514,30 @@ class MockArchiver implements ArchiverApi {
     expect(blockNumber).toEqual(BlockNumber(1));
     return Promise.resolve(`0x01`);
   }
-  getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, upToBlockNumber?: BlockNumber): Promise<TxScopedL2Log[][]> {
     expect(tags[0]).toBeInstanceOf(SiloedTag);
+    if (page !== undefined) {
+      expect(page).toBe(3);
+    }
+    if (upToBlockNumber !== undefined) {
+      expect(upToBlockNumber).toBe(BlockNumber(4));
+    }
     return Promise.resolve([tags.map(() => randomTxScopedPrivateL2Log())]);
   }
   getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
-    _logsPerTag?: number,
+    page?: number,
+    upToBlockNumber?: BlockNumber,
   ): Promise<TxScopedL2Log[][]> {
     expect(contractAddress).toBeInstanceOf(AztecAddress);
     expect(tags[0]).toBeInstanceOf(Tag);
+    if (page !== undefined) {
+      expect(page).toBe(3);
+    }
+    if (upToBlockNumber !== undefined) {
+      expect(upToBlockNumber).toBe(BlockNumber(4));
+    }
     return Promise.resolve([tags.map(() => randomTxScopedPrivateL2Log())]);
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {

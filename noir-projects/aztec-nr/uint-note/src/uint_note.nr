@@ -226,7 +226,7 @@ impl PartialUintNote {
         // inserted in public as the public values are provided and the note hash computed.
         let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
         let payload = BoundedVec::from_array([storage_slot, value.to_field()]);
-        context.emit_private_log_vec_unsafe(log_tag, payload);
+        context.emit_private_log_unsafe(log_tag, payload);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, value));
     }
 

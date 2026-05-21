@@ -51,7 +51,8 @@ binary, not to mutate the shared bencher.
 ## Available flows
 
 ```
-ecdsar1+transfer_1_recursions+sponsored_fpc   (default / most representative)
+ecdsar1+transfer_0_recursions+sponsored_fpc   (small smoke flow)
+ecdsar1+transfer_1_recursions+sponsored_fpc
 ecdsar1+transfer_1_recursions+private_fpc
 ecdsar1+storage_proof_7_layers+sponsored_fpc
 ```
@@ -62,10 +63,10 @@ Always re-download so that stale inputs (e.g. from before a VK-breaking change l
 
 ```bash
 cd barretenberg/cpp
-FLOW="ecdsar1+transfer_1_recursions+sponsored_fpc"
+FLOW="ecdsar1+transfer_0_recursions+sponsored_fpc"
 INPUTS_ROOT="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
 
-./scripts/test_chonk_standalone_vks_havent_changed.sh --download_pinned_inputs
+./scripts/chonk_inputs.sh download
 ```
 
 ## Step 2: Build bb
@@ -89,7 +90,7 @@ cmake --build --preset wasm-threads --target bb
 Set these variables first:
 
 ```bash
-FLOW="ecdsar1+transfer_1_recursions+sponsored_fpc"
+FLOW="ecdsar1+transfer_0_recursions+sponsored_fpc"
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 INPUTS_ROOT="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
 
@@ -159,7 +160,7 @@ done
 echo "Results in: $LOCAL_OUT/"
 ```
 
-To profile all three flows, loop `FLOW` over the three values in the Available flows section above.
+To profile multiple flows, loop `FLOW` over the values in the Available flows section above.
 
 ## Step 4: Generate a Perfetto link
 

@@ -126,6 +126,9 @@ bb-cpp-native-objects: bb-cpp-yarn
 bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn bb-cpp-format-check
 	$(call build,$@,barretenberg/cpp,build_native)
 
+bb-cpp-chonk-inputs:
+	$(call build,$@,barretenberg/cpp,download_chonk_inputs)
+
 # BB C++ WASM - Single-threaded WebAssembly build
 bb-cpp-wasm:
 	$(call build,$@,barretenberg/cpp,build_preset wasm)
@@ -227,15 +230,18 @@ bb-acir: noir bb-cpp-native bb-ts
 bb-docs:
 	$(call build,$@,barretenberg/docs)
 
-# BB Solidity - Solidity verifier contracts
-bb-sol: bb-cpp-native bb-crs
+# BB Solidity - Solidity verifier contracts.
+# Depends on l1-contracts-solc so that the foundry build uses the solc binary
+# pulled in by l1-contracts (see barretenberg/sol/foundry.toml) rather than
+# triggering a parallel svm download.
+bb-sol: bb-cpp-native bb-crs l1-contracts-solc
 	$(call build,$@,barretenberg/sol)
 
 #==============================================================================
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-native-tests: bb-cpp-native
+bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 	$(call test,$@,barretenberg/cpp,native)
 
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads
@@ -309,8 +315,16 @@ noir-projects: noir-protocol-circuits mock-protocol-circuits noir-contracts azte
 # L1 Contracts - Ethereum L1 smart contracts
 #==============================================================================
 
+# l1-contracts-solc: Download (or cache-hit) the pinned solc binary.
+# This is the single owner of the svm download. Other forge projects
+# (barretenberg/sol, docs/examples/solidity) point their foundry.toml at the
+# same binary, so they must wait on this target before invoking forge build,
+# otherwise parallel forge invocations race on ~/.svm.
+l1-contracts-solc:
+	$(call build,$@,l1-contracts,download_solc)
+
 # l1-contracts-src: Build all src/ contracts (fully independent!)
-l1-contracts-src:
+l1-contracts-src: l1-contracts-solc
 	$(call build,$@,l1-contracts,build_src)
 
 # l1-contracts-verifier: Build generated verifier and tests (depends on noir-protocol-circuits)

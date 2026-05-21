@@ -281,9 +281,9 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
      **********************************************************/
 
     auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
-    // Create threaded operation that runs on a dedicated std::thread (not libuv pool).
-    // This prevents libuv thread pool exhaustion when callbacks need libuv threads for I/O.
-    auto* op = new ThreadedAsyncOperation(
+    // Run on a dedicated std::thread (not libuv pool) to prevent libuv thread pool
+    // exhaustion when callbacks need libuv threads for I/O.
+    ThreadedAsyncOperation::Run(
         env, deferred, [data, tsfns, logger_tsfn, ws_ptr, cancellation_token](msgpack::sbuffer& result_buffer) {
             // Collect all thread-safe functions including logger for cleanup
             auto all_tsfns = tsfns.to_vector();
@@ -327,8 +327,6 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
             }
         });
 
-    op->Queue();
-
     return deferred->Promise();
 }
 
@@ -368,8 +366,8 @@ Napi::Value AvmSimulateNapi::simulateWithHintedDbs(const Napi::CallbackInfo& cb_
     // Create a deferred promise
     auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
 
-    // Create threaded operation that runs on a dedicated std::thread (not libuv pool)
-    auto* op = new ThreadedAsyncOperation(env, deferred, [data](msgpack::sbuffer& result_buffer) {
+    // Run on a dedicated std::thread (not libuv pool)
+    ThreadedAsyncOperation::Run(env, deferred, [data](msgpack::sbuffer& result_buffer) {
         try {
             // Deserialize inputs from msgpack
             avm2::AvmProvingInputs inputs;
@@ -392,8 +390,6 @@ Napi::Value AvmSimulateNapi::simulateWithHintedDbs(const Napi::CallbackInfo& cb_
             throw std::runtime_error("AVM simulation with hinted DBs failed with unknown exception");
         }
     });
-
-    op->Queue();
 
     return deferred->Promise();
 }

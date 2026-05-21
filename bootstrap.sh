@@ -250,7 +250,10 @@ function check_toolchains {
     toolchain_incompatible
   fi
   # Check clang version.
-  local clang_installed_version=$(clang++-20 --version | head -n1 | awk '{print $4}')
+  # Use -dumpversion (bare X.Y.Z) instead of parsing --version, whose first-line
+  # format differs across distros (e.g. Ubuntu prepends "Ubuntu " so the version
+  # is field 4, whereas plain LLVM puts it in field 3).
+  local clang_installed_version=$(clang++-20 -dumpversion)
   if ! check_minimum_version $expected_min_clang_version $clang_installed_version; then
     echo "Minimum clang version $expected_min_clang_version not found."
     toolchain_incompatible
@@ -463,6 +466,7 @@ function bench {
   mkdir -p bench-out
   bench_merge
   cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+
 }
 
 ### RELEASING ##########################################################################################################
@@ -472,7 +476,7 @@ function versions {
   anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
   node_version=$(node --version | cut -d 'v' -f 2)
   cmake_version=$(cmake --version | head -n1 | cut -d' ' -f3)
-  clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
+  clang_version=$(clang++-20 -dumpversion)
   zig_version=$(zig version)
   rustc_version=$(rustc --version | cut -d' ' -f2)
   wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
@@ -506,7 +510,7 @@ function release_bb_github {
 
 function release {
   # Releases are triggered when REF_NAME is a valid semver (but can have a leading v).
-  # We ensure there is a github release for our REF_NAME, if not on latest (in which case release-please creates it).
+  # We ensure there is a github release for our REF_NAME.
   # We derive a dist tag from our prerelease portion of our REF_NAME semver. It is latest if no prerelease.
   echo_header "release all"
   set -x
@@ -649,6 +653,13 @@ case "$cmd" in
     export CI_FULL=1
     build_and_test full
     bench
+    ;;
+  "ci-chonk-input-update")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=0
+    prep
+    barretenberg/cpp/bootstrap.sh chonk_input_update
     ;;
   "ci-grind-test")
     export CI=1
