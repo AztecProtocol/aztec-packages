@@ -160,9 +160,17 @@ export class ArchiverDataStoreUpdater {
 
   /**
    * Checks for local proposed blocks that do not match the ones to be checkpointed and prunes them.
-   * This method handles multiple checkpoints but returns after pruning the first conflict found.
-   * This is correct because pruning from the first conflict point removes all subsequent blocks,
-   * and when checkpoints are added afterward, they include all the correct blocks.
+   * Conflict detection is keyed on `blockNumber`: when a local proposed block and an L1
+   * checkpointed block share a block number but live at different slots (e.g. a different proposer
+   * mined the same block number one slot earlier), we still treat them as a conflict and prune.
+   * The trailing per-checkpoint prune that handles "local has extra trailing blocks within the
+   * same slot as the published checkpoint" remains scoped by slot to preserve pipelining: local
+   * blocks that live at a later slot than the checkpoint being processed represent speculation
+   * atop the just-confirmed tip (and may be referenced by a pending proposed checkpoint), so we
+   * leave them in place. This method handles multiple checkpoints but returns after pruning the
+   * first conflict found. This is correct because pruning from the first conflict point removes
+   * all subsequent blocks, and when checkpoints are added afterward, they include all the correct
+   * blocks.
    */
   private async pruneMismatchingLocalBlocks(checkpoints: PublishedCheckpoint[]): Promise<ReconcileCheckpointsResult> {
     const [lastCheckpointedBlockNumber, lastBlockNumber] = await Promise.all([
@@ -176,7 +184,7 @@ export class ArchiverDataStoreUpdater {
     }
 
     // Get all uncheckpointed local blocks
-    const uncheckpointedLocalBlocks = await this.stores.blocks.getBlocks({
+    const uncheckpointedLocalBlocks = await this.stores.blocks.getBlocksData({
       from: BlockNumber.add(lastCheckpointedBlockNumber, 1),
       limit: lastBlockNumber - lastCheckpointedBlockNumber,
     });
@@ -186,19 +194,19 @@ export class ArchiverDataStoreUpdater {
     for (const publishedCheckpoint of checkpoints) {
       const checkpointBlocks = publishedCheckpoint.checkpoint.blocks;
       const slot = publishedCheckpoint.checkpoint.slot;
-      const localBlocksInSlot = uncheckpointedLocalBlocks.filter(b => b.slot === slot);
 
       if (checkpointBlocks.length === 0) {
         this.log.warn(`Checkpoint ${publishedCheckpoint.checkpoint.number} for slot ${slot} has no blocks`);
         continue;
       }
 
-      // Find the first checkpoint block that conflicts with an existing local block and prune local afterwards
+      // Find the first checkpoint block that conflicts with an existing local block and prune local afterwards.
+      // Conflict detection joins on block number only — same block number at a different slot is still a conflict.
       for (const checkpointBlock of checkpointBlocks) {
         const blockNumber = checkpointBlock.number;
-        const existingBlock = localBlocksInSlot.find(b => b.number === blockNumber);
+        const existingBlock = uncheckpointedLocalBlocks.find(b => b.header.getBlockNumber() === blockNumber);
         const blockInfos = {
-          existingBlock: existingBlock?.toBlockInfo(),
+          existingBlock: existingBlock?.header.toInspect(),
           checkpointBlock: checkpointBlock.toBlockInfo(),
         };
 
@@ -210,20 +218,24 @@ export class ArchiverDataStoreUpdater {
         } else {
           this.log.info(`Conflict detected at block ${blockNumber} between checkpointed and local block`, blockInfos);
           const prunedBlocks = await this.removeBlocksAfter(BlockNumber(blockNumber - 1));
+          await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
           return { prunedBlocks, lastAlreadyInsertedBlockNumber };
         }
       }
 
-      // If local has more blocks than the checkpoint (e.g., local has [2,3,4] but checkpoint has [2,3]),
-      // we need to prune the extra local blocks so they match what was checkpointed
+      // If the sequencer locally proposed extra blocks within this checkpoint's slot (e.g. local has
+      // [N, N+1] but L1 confirmed just [N]), prune the extras. Scoped to the checkpoint's slot so we
+      // do not throw away speculative blocks at later slots that belong to a pending proposed checkpoint.
       const lastCheckpointBlockNumber = checkpointBlocks.at(-1)!.number;
-      const lastLocalBlockNumber = localBlocksInSlot.at(-1)?.number;
+      const localBlocksInSlot = uncheckpointedLocalBlocks.filter(b => b.header.getSlot() === slot);
+      const lastLocalBlockNumber = localBlocksInSlot.at(-1)?.header.getBlockNumber();
 
       if (lastLocalBlockNumber !== undefined && lastLocalBlockNumber > lastCheckpointBlockNumber) {
         this.log.warn(
           `Local chain for slot ${slot} ends at block ${lastLocalBlockNumber} but checkpoint ends at ${lastCheckpointBlockNumber}. Pruning blocks after block ${lastCheckpointBlockNumber}.`,
         );
         const prunedBlocks = await this.removeBlocksAfter(lastCheckpointBlockNumber);
+        await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
         return { prunedBlocks, lastAlreadyInsertedBlockNumber };
       }
     }
@@ -259,6 +271,19 @@ export class ArchiverDataStoreUpdater {
     });
     await this.l2TipsCache?.refresh();
     return result;
+  }
+
+  /**
+   * Evicts pending proposed checkpoints that referenced any of the just-pruned blocks. Pruned
+   * blocks invalidate all proposed checkpoints from the lowest pruned block's checkpoint number
+   * onwards: those checkpoints either reference the pruned blocks directly or chain off them.
+   */
+  private async evictProposedCheckpointsForPrunedBlocks(prunedBlocks: L2Block[]): Promise<void> {
+    if (prunedBlocks.length === 0) {
+      return;
+    }
+    const fromCheckpointNumber = prunedBlocks[0].checkpointNumber;
+    await this.stores.blocks.evictProposedCheckpointsFrom(fromCheckpointNumber);
   }
 
   /**
