@@ -70,6 +70,7 @@ import {
   mulhilo_22 as mulhilo_22_funcs,
   packed_field as packed_field_funcs,
   smvp_bn254 as smvp_bn254_shader,
+  straus_lookup_precompute_bn254 as straus_lookup_precompute_bn254_shader,
   smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
@@ -533,6 +534,32 @@ ${packLines.join('\n')}
         workgroup_size,
         num_columns: num_csr_cols,
         half_num_columns: num_csr_cols / 2,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        ec_funcs: ec_bn254_funcs,
+      },
+    );
+  }
+
+  public gen_straus_lookup_precompute_shader(n: number, workgroup_size = 64): string {
+    return mustache.render(
+      straus_lookup_precompute_bn254_shader,
+      {
+        n,
+        workgroup_size,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
         recompile: this.recompile,
       },
       {

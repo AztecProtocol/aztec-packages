@@ -9,8 +9,14 @@
 // The tests deliberately do NOT go through `compute_bn254_msm` or
 // `cached_bases`; the goal is to localise breakage to a single stage.
 
+import { bn254 } from "@noble/curves/bn254";
+import {
+  BN254_BASE_FIELD,
+  modInverse,
+} from "../../src/msm_webgpu/cuzk/bn254.js";
 import { BN254_CURVE_CONFIG } from "../../src/msm_webgpu/cuzk/curve_config.js";
 import { GpuContext } from "../../src/msm_webgpu/cuzk/gpu_context.js";
+import * as gpu from "../../src/msm_webgpu/cuzk/gpu.js";
 import {
   create_and_write_sb,
   create_and_write_ub,
@@ -19,7 +25,14 @@ import {
   create_bind_group,
   create_compute_pipeline,
   execute_pipeline,
+  create_sb,
 } from "../../src/msm_webgpu/cuzk/gpu.js";
+import { StrausKernels } from "../../src/msm_webgpu/cuzk/straus_kernels.js";
+import {
+  bigints_to_u8_for_gpu,
+  compute_misc_params,
+  from_words_le_without_assertion,
+} from "../../src/msm_webgpu/cuzk/utils.js";
 import { transpose_gpu_parallel } from "../../src/msm_webgpu/msm.js";
 
 export interface UnitTestResult {
@@ -496,6 +509,206 @@ export async function testTransposeAtChunkSize(
   }
 }
 
+// --------- straus lookup-precompute test ----------
+
+function mod(a: bigint, m = BN254_BASE_FIELD): bigint {
+  const r = a % m;
+  return r >= 0n ? r : r + m;
+}
+
+function jacobianToAffineQ(
+  x: bigint,
+  y: bigint,
+  z: bigint,
+): { x: bigint; y: bigint } | null {
+  if (mod(z) === 0n) return null;
+  const zInv = modInverse(z, BN254_BASE_FIELD);
+  const zInv2 = mod(zInv * zInv);
+  const zInv3 = mod(zInv2 * zInv);
+  return { x: mod(x * zInv2), y: mod(y * zInv3) };
+}
+
+function makeRng(seed: number): () => number {
+  let state = (seed >>> 0) || 1;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state;
+  };
+}
+
+function generateAffinePoints(
+  n: number,
+  seed: number,
+): Array<{ x: bigint; y: bigint }> {
+  const rand = makeRng(seed);
+  const points: Array<{ x: bigint; y: bigint }> = [];
+  for (let i = 0; i < n; i++) {
+    let s = 0n;
+    for (let k = 0; k < 8; k++) {
+      s = (s << 32n) | BigInt(rand());
+    }
+    s = s % bn254.fields.Fr.ORDER;
+    if (s === 0n) s = 1n;
+    const aff = bn254.G1.ProjectivePoint.BASE.multiply(s).toAffine();
+    points.push({ x: aff.x, y: aff.y });
+  }
+  return points;
+}
+
+function readBigIntAt(
+  buf: Uint32Array,
+  index: number,
+  numWords: number,
+  wordSize: number,
+): bigint {
+  const limbs = new Uint16Array(numWords);
+  for (let i = 0; i < numWords; i++) {
+    limbs[i] = buf[index * numWords + i] & 0xffff;
+  }
+  return from_words_le_without_assertion(limbs, numWords, wordSize);
+}
+
+export async function testStrausLookupPrecompute(
+  n: number,
+): Promise<UnitTestResult> {
+  const name = `straus_lookup_precompute n=${n}`;
+  try {
+    const context = await GpuContext.create();
+    const { device } = context;
+    const sm = context.getShaderManager(BN254_CURVE_CONFIG, 15, n);
+
+    const params = compute_misc_params(
+      BN254_BASE_FIELD,
+      BN254_CURVE_CONFIG.wordSize,
+    );
+    const numWords = params.num_words;
+    const wordSize = BN254_CURVE_CONFIG.wordSize;
+    const R = params.r;
+
+    const points = generateAffinePoints(n, n * 0xa5a5 + 1);
+
+    const xsMont = points.map((p) => (p.x * R) % BN254_BASE_FIELD);
+    const ysMont = points.map((p) => (p.y * R) % BN254_BASE_FIELD);
+    const baseXBytes = bigints_to_u8_for_gpu(xsMont, numWords, wordSize);
+    const baseYBytes = bigints_to_u8_for_gpu(ysMont, numWords, wordSize);
+    const baseXSb = create_and_write_sb(device, baseXBytes);
+    const baseYSb = create_and_write_sb(device, baseYBytes);
+
+    const lutByteLen = n * 8 * numWords * 4;
+    const lutXSb = create_sb(device, lutByteLen);
+    const lutYSb = create_sb(device, lutByteLen);
+    const lutZSb = create_sb(device, lutByteLen);
+
+    const workgroupSize = 64;
+    const { pipeline, layout } = await StrausKernels.compileLookupPrecompute(
+      device,
+      sm,
+      n,
+      gpu,
+      workgroupSize,
+    );
+    const bg = create_bind_group(device, layout, [
+      baseXSb,
+      baseYSb,
+      lutXSb,
+      lutYSb,
+      lutZSb,
+    ]);
+
+    const numWorkgroups = Math.ceil(n / workgroupSize);
+    const encoder = device.createCommandEncoder();
+    await execute_pipeline(encoder, pipeline, bg, numWorkgroups, 1, 1);
+
+    const [lutXData, lutYData, lutZData] = await read_from_gpu(device, encoder, [
+      lutXSb,
+      lutYSb,
+      lutZSb,
+    ]);
+
+    baseXSb.destroy();
+    baseYSb.destroy();
+    lutXSb.destroy();
+    lutYSb.destroy();
+    lutZSb.destroy();
+    context.destroy();
+
+    const lutX = new Uint32Array(
+      lutXData.buffer,
+      lutXData.byteOffset,
+      lutXData.byteLength / 4,
+    );
+    const lutY = new Uint32Array(
+      lutYData.buffer,
+      lutYData.byteOffset,
+      lutYData.byteLength / 4,
+    );
+    const lutZ = new Uint32Array(
+      lutZData.buffer,
+      lutZData.byteOffset,
+      lutZData.byteLength / 4,
+    );
+
+    const rInv = modInverse(R, BN254_BASE_FIELD);
+
+    for (let i = 0; i < n; i++) {
+      const baseProj = bn254.G1.ProjectivePoint.fromAffine(points[i]);
+      for (let k = 0; k < 8; k++) {
+        const flat = i * 8 + k;
+        const xMont = readBigIntAt(lutX, flat, numWords, wordSize);
+        const yMont = readBigIntAt(lutY, flat, numWords, wordSize);
+        const zMont = readBigIntAt(lutZ, flat, numWords, wordSize);
+        const x = mod(xMont * rInv);
+        const y = mod(yMont * rInv);
+        const z = mod(zMont * rInv);
+        const aff = jacobianToAffineQ(x, y, z);
+        const expectedProj = baseProj.multiply(BigInt(k + 1));
+        if (expectedProj.equals(bn254.G1.ProjectivePoint.ZERO)) {
+          if (aff !== null) {
+            return {
+              name,
+              ok: false,
+              detail: `i=${i} k=${k} expected identity, got (${aff.x.toString(
+                16,
+              )}, ${aff.y.toString(16)})`,
+            };
+          }
+          continue;
+        }
+        if (aff === null) {
+          return {
+            name,
+            ok: false,
+            detail: `i=${i} k=${k} got identity, expected (k+1)·base`,
+          };
+        }
+        const expectedAff = expectedProj.toAffine();
+        if (aff.x !== expectedAff.x || aff.y !== expectedAff.y) {
+          return {
+            name,
+            ok: false,
+            detail:
+              `i=${i} k=${k} mismatch\n` +
+              `  got x=${aff.x.toString(16)} y=${aff.y.toString(16)}\n` +
+              `  expected x=${expectedAff.x.toString(16)} y=${expectedAff.y.toString(16)}`,
+          };
+        }
+      }
+    }
+
+    return {
+      name,
+      ok: true,
+      detail: `${n} points × 8 lookup entries all matched (k+1)·base`,
+    };
+  } catch (err) {
+    return {
+      name,
+      ok: false,
+      detail: err instanceof Error ? `${err.message}\n${err.stack}` : String(err),
+    };
+  }
+}
+
 // --------- test runner ----------
 
 export async function runAllWgslUnitTests(): Promise<UnitTestResult[]> {
@@ -515,6 +728,10 @@ export async function runAllWgslUnitTests(): Promise<UnitTestResult[]> {
   results.push(await testTransposeAtChunkSize(15, 256));
   results.push(await testTransposeAtChunkSize(4, 256));
   results.push(await testTransposeAtChunkSize(16, 256));
+
+  for (const n of [1, 8, 64, 256, 1024]) {
+    results.push(await testStrausLookupPrecompute(n));
+  }
 
   return results;
 }
