@@ -14,18 +14,6 @@ node:
     cores: "8"
     hi-mem: "true"
 
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - node
-          topologyKey: "kubernetes.io/hostname"
-          namespaceSelector: {}
-
   persistence:
     enabled: true
   statefulSet:
@@ -64,7 +52,6 @@ broker:
       - "--max-old-space-size=65536"
     resources:
       requests:
-        # should land on a 8-core node
         cpu: "5"
         memory: "54Gi"
 
