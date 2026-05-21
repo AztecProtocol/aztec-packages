@@ -115,6 +115,14 @@ case "$cmd" in
     export JOB_ID="x-$cmd"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
+  wasm-bench)
+    # BrowserStack-driven Chonk bench on a fixed device matrix. Requires
+    # BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY in the remote env.
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
+    bootstrap_ec2 "./bootstrap.sh ci-wasm-bench"
+    ;;
   socket-fix)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-socket-fix"
@@ -475,6 +483,9 @@ case "$cmd" in
   # BENCHMARK PROCESSING #
   ########################
   gh-bench|gh-deploy-bench|gh-spartan-bench|gh-spartan-proving-bench|gh-spartan-block-capacity-bench)
+    cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
+    ;;
+  gh-wasm-bench-artifacts)
     cache_download ${cmd#gh-}-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
 

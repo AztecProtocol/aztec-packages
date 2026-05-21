@@ -1,0 +1,27 @@
+{
+  "name": "@aztec/wasm-bench",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "yarn@4.13.0",
+  "description": "Browser harness for benchmarking and profiling Chonk proving against the wasm bb binary.",
+  "type": "module",
+  "scripts": {
+    "build": "webpack --mode production",
+    "serve": "node scripts/serve-bench.mjs",
+    "browserstack": "node scripts/run-browserstack.mjs",
+    "test": "node scripts/test-config.mjs && node scripts/test-jsonl-to-bench.mjs && node scripts/test-jsonl-diff.mjs && node scripts/test-progress-diff.mjs && node scripts/test-write-trace-manifest.mjs && bash scripts/test-upload-rkapp-artifacts.sh"
+  },
+  "dependencies": {
+    "msgpackr": "^1.11.2",
+    "pako": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/pako": "^2.0.3",
+    "copy-webpack-plugin": "^12.0.2",
+    "html-webpack-plugin": "^5.6.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.6.3",
+    "webpack": "^5.99.6",
+    "webpack-cli": "^5.1.4"
+  }
+}

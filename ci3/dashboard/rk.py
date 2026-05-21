@@ -5,6 +5,7 @@ import boto3
 from botocore.exceptions import ClientError
 import gzip
 import json
+import mimetypes
 import os
 import re
 import requests
@@ -23,6 +24,7 @@ from rk_core import (
 )
 S3_LOGS_BUCKET = os.getenv('S3_LOGS_BUCKET', 'aztec-ci-artifacts')
 S3_LOGS_PREFIX = os.getenv('S3_LOGS_PREFIX', 'logs')
+LOGS_DISK_PATH = os.getenv('LOGS_DISK_PATH', '/logs-disk')
 
 _s3 = boto3.client('s3', region_name='us-east-2')
 DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', '')
@@ -123,6 +125,430 @@ def read_breakdown_from_s3(runtime, flow_name, sha):
 
     return None
 
+def wasm_bench_disk_root():
+    return Path(os.getenv('WASM_BENCH_DISK_ROOT', os.path.join(LOGS_DISK_PATH, 'bench', 'wasm-bench')))
+
+WASM_BENCH_TARGETS = {
+    'galaxy-s25-ultra': {
+        'label': 'Samsung Galaxy S25 Ultra',
+        'hardware': 'Snapdragon 8 Elite (2 Phoenix-L + 6 Phoenix-M)',
+        'browser': 'Android 15 Chrome',
+        'platform': 'Android 15 real device',
+    },
+    'iphone-15-pro': {
+        'label': 'iPhone 15 Pro',
+        'hardware': 'Apple A17 Pro (2P+4E)',
+        'browser': 'iOS Safari',
+        'platform': 'iOS real device',
+    },
+    'iphone-16': {
+        'label': 'iPhone 16',
+        'hardware': 'Apple A18 (2P+4E)',
+        'browser': 'iOS Safari',
+        'platform': 'iOS real device',
+    },
+    'macos': {
+        'label': 'macOS Sequoia Chrome',
+        'hardware': 'Apple M2 Mac mini (4P+4E)',
+        'browser': 'Chrome on macOS',
+        'platform': 'macOS Sequoia desktop',
+    },
+    'windows-chrome': {
+        'label': 'Windows 11 Chrome',
+        'hardware': 'CPU model not exposed by BrowserStack',
+        'browser': 'Chrome on Win64 x64',
+        'platform': 'Windows 11 desktop VM',
+    },
+    'windows-edge': {
+        'label': 'Windows 11 Edge',
+        'hardware': 'CPU model not exposed by BrowserStack',
+        'browser': 'Edge on Win64 x64',
+        'platform': 'Windows 11 desktop VM',
+    },
+    'pixel-9-pro-xl': {
+        'label': 'Google Pixel 9 Pro XL',
+        'hardware': 'Google Tensor G4 (1+3+4)',
+        'browser': 'Android 15 Chrome',
+        'platform': 'Android 15 real device',
+    },
+    'galaxy-s25': {
+        'label': 'Samsung Galaxy S25',
+        'hardware': 'Snapdragon 8 Elite',
+        'browser': 'Android 15 Chrome',
+        'platform': 'Android 15 real device',
+    },
+}
+
+def _ua_version(ua, token):
+    match = re.search(rf'{token}/([0-9.]+)', ua or '')
+    if not match:
+        return None
+    return match.group(1)
+
+def _ios_version(ua):
+    match = re.search(r'iPhone OS ([0-9_]+)', ua or '')
+    if not match:
+        return None
+    return match.group(1).replace('_', '.')
+
+def _runtime_browser(target, target_info, features):
+    ua = (features or {}).get('userAgent') or ''
+    if target == 'windows-edge':
+        version = _ua_version(ua, 'Edg')
+        return f"Edge {version} on Win64 x64" if version else target_info.get('browser')
+    if target == 'windows-chrome':
+        version = _ua_version(ua, 'Chrome')
+        return f"Chrome {version} on Win64 x64" if version else target_info.get('browser')
+    if target == 'macos':
+        version = _ua_version(ua, 'Chrome')
+        return f"Chrome {version} on macOS" if version else target_info.get('browser')
+    if target.startswith('iphone-'):
+        ios = _ios_version(ua)
+        safari = _ua_version(ua, 'Version')
+        if ios and safari:
+            return f"Safari {safari} on iOS {ios}"
+        return target_info.get('browser')
+    if target.startswith('galaxy-') or target.startswith('pixel-'):
+        version = _ua_version(ua, 'Chrome')
+        return f"Chrome {version} on Android 15" if version else target_info.get('browser')
+    return target_info.get('browser')
+
+def _runtime_spec(target_info, features):
+    spec = target_info.get('platform') or ''
+    hc = (features or {}).get('hardwareConcurrency')
+    if hc:
+        thread_spec = f"{hc} logical threads observed"
+        return f"{spec}; {thread_spec}" if spec else thread_spec
+    return spec
+
+def _runtime_hardware(target_info, features):
+    hardware = target_info.get('hardware') or target_info.get('chip') or ''
+    hc = (features or {}).get('hardwareConcurrency')
+    if 'not exposed' in hardware and hc:
+        return f"{hardware}; {hc} logical threads observed"
+    return hardware
+
+def _json_response(value, status=200):
+    return Response(json.dumps(value), mimetype='application/json', status=status)
+
+def _read_jsonl(text):
+    rows = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError as e:
+            rows.append({'error': f'invalid jsonl row: {e}'})
+    return rows
+
+def _wasm_bench_s3_prefix():
+    return f"{S3_LOGS_PREFIX}/bench/wasm-bench"
+
+def _read_wasm_bench_s3_bytes(run_id, relpath):
+    relpath = relpath.strip('/')
+    for key in (
+        f"{_wasm_bench_s3_prefix()}/{run_id}/{relpath}",
+        f"{_wasm_bench_s3_prefix()}/{run_id}/{relpath}.log.gz",
+    ):
+        try:
+            obj = _s3.get_object(Bucket=S3_LOGS_BUCKET, Key=key)
+            data = obj['Body'].read()
+            if key.endswith('.gz'):
+                data = gzip.decompress(data)
+            return data
+        except ClientError as e:
+            if e.response['Error']['Code'] != 'NoSuchKey':
+                print(f"S3 error reading wasm bench artifact {key}: {e}")
+        except Exception as e:
+            print(f"Error reading wasm bench artifact from S3: {e}")
+    return None
+
+def _read_wasm_bench_text(run_id, relpath, base_dir=None):
+    rel = Path(relpath)
+    if rel.is_absolute() or '..' in rel.parts:
+        return None
+
+    local_base = base_dir or wasm_bench_disk_root() / run_id
+    local_path = local_base / rel
+    if local_path.exists() and local_path.is_file():
+        return local_path.read_text(errors='replace')
+
+    data = _read_wasm_bench_s3_bytes(run_id, relpath)
+    if data is not None:
+        return data.decode('utf-8', errors='replace')
+    return None
+
+def _wasm_bench_run_id_from_manifest(manifest, fallback):
+    for key in ('runId', 'sourceCommit'):
+        value = manifest.get(key)
+        if value:
+            return value
+    artifact_name = manifest.get('artifactName', '')
+    match = re.search(r'wasm-bench-artifacts-([0-9a-f]{40})', artifact_name)
+    if match:
+        return match.group(1)
+    return fallback
+
+def _load_wasm_bench_manifest(path, root=None):
+    try:
+        manifest = json.loads(path.read_text())
+        if root and path.parent == root:
+            run_id = _wasm_bench_run_id_from_manifest(manifest, path.parent.name)
+        else:
+            run_id = path.parent.name
+        return run_id, manifest
+    except Exception as e:
+        print(f"Error loading wasm bench manifest {path}: {e}")
+        return path.parent.name, None
+
+def _list_wasm_bench_disk_runs():
+    root = wasm_bench_disk_root()
+    paths = []
+    if (root / 'trace-manifest.json').exists():
+        paths.append(root / 'trace-manifest.json')
+    paths.extend(root.glob('*/trace-manifest.json'))
+
+    runs = {}
+    for path in paths:
+        run_id, manifest = _load_wasm_bench_manifest(path, root)
+        if not manifest:
+            continue
+        traces = manifest.get('traces', [])
+        runs[run_id] = {
+            'id': run_id,
+            'source': 'disk',
+            'generatedAt': manifest.get('generatedAt'),
+            'artifactName': manifest.get('artifactName'),
+            'traceCount': manifest.get('traceCount', len(traces)),
+            'targets': sorted({trace.get('target') for trace in traces if trace.get('target')}),
+            'flows': sorted({trace.get('flow') for trace in traces if trace.get('flow')}),
+        }
+    return runs
+
+def _list_wasm_bench_s3_run_ids():
+    run_ids = set()
+    try:
+        prefix = f"{_wasm_bench_s3_prefix()}/"
+        paginator = _s3.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=S3_LOGS_BUCKET, Prefix=prefix):
+            for obj in page.get('Contents', []):
+                key = obj['Key']
+                rest = key[len(prefix):]
+                parts = rest.split('/', 1)
+                if len(parts) == 2 and parts[1] in ('trace-manifest.json', 'trace-manifest.json.log.gz'):
+                    run_ids.add(parts[0])
+    except Exception as e:
+        print(f"Error listing wasm bench S3 runs: {e}")
+    return sorted(run_ids)
+
+def _list_wasm_bench_runs():
+    runs = _list_wasm_bench_disk_runs()
+    for run_id in _list_wasm_bench_s3_run_ids():
+        if run_id in runs:
+            continue
+        manifest_text = _read_wasm_bench_text(run_id, 'trace-manifest.json')
+        if not manifest_text:
+            continue
+        try:
+            manifest = json.loads(manifest_text)
+        except json.JSONDecodeError:
+            continue
+        traces = manifest.get('traces', [])
+        runs[run_id] = {
+            'id': run_id,
+            'source': 's3',
+            'generatedAt': manifest.get('generatedAt'),
+            'artifactName': manifest.get('artifactName'),
+            'traceCount': manifest.get('traceCount', len(traces)),
+            'targets': sorted({trace.get('target') for trace in traces if trace.get('target')}),
+            'flows': sorted({trace.get('flow') for trace in traces if trace.get('flow')}),
+        }
+    return sorted(runs.values(), key=lambda run: run.get('generatedAt') or '', reverse=True)
+
+def _resolve_wasm_bench_run(run_id):
+    disk_runs = _list_wasm_bench_disk_runs()
+    for candidate_id in disk_runs:
+        if candidate_id == run_id or candidate_id.startswith(run_id):
+            base_dir = wasm_bench_disk_root() / candidate_id
+            if (wasm_bench_disk_root() / 'trace-manifest.json').exists() and not base_dir.exists():
+                base_dir = wasm_bench_disk_root()
+            manifest_text = _read_wasm_bench_text(candidate_id, 'trace-manifest.json', base_dir)
+            if manifest_text:
+                return candidate_id, 'disk', base_dir, json.loads(manifest_text)
+
+    for candidate_id in _list_wasm_bench_s3_run_ids():
+        if candidate_id == run_id or candidate_id.startswith(run_id):
+            manifest_text = _read_wasm_bench_text(candidate_id, 'trace-manifest.json')
+            if manifest_text:
+                return candidate_id, 's3', None, json.loads(manifest_text)
+    return None, None, None, None
+
+def _select_result_data(result_rows):
+    last_error = None
+    selected = None
+    for row in result_rows:
+        payload = row.get('payload') or {}
+        if payload.get('ok') and payload.get('data'):
+            selected = payload['data']
+        elif payload:
+            last_error = payload.get('error') or payload
+    return selected, last_error
+
+def _select_run_data(result_data, run_number):
+    runs = result_data.get('runs', []) if result_data else []
+    for run in runs:
+        if run.get('run') == run_number:
+            return run
+    return runs[0] if runs else {}
+
+def _summarize_bench_dump(bench_dump, limit=18):
+    if not bench_dump:
+        return {'top': [], 'roots': []}
+
+    components = []
+    for name, values in bench_dump.items():
+        entries = values if isinstance(values, list) else [values]
+        worker_ns = sum(float(entry.get('time') or 0) for entry in entries)
+        wall_ns = sum(
+            float(entry.get('time_max') or 0)
+            if int(entry.get('num_threads') or 1) > 1 and float(entry.get('time_max') or 0) > 0
+            else float(entry.get('time') or 0)
+            for entry in entries
+        )
+        if wall_ns <= 0:
+            continue
+        parents = sorted({entry.get('parent') for entry in entries if entry.get('parent')})
+        max_threads = max((int(entry.get('num_threads') or 1) for entry in entries), default=1)
+        calls = sum(int(entry.get('count') or 0) for entry in entries)
+        components.append({
+            'name': name,
+            'wallMs': wall_ns / 1_000_000,
+            'workerMs': worker_ns / 1_000_000,
+            'totalMs': wall_ns / 1_000_000,
+            'calls': calls,
+            'count': calls,
+            'parents': parents[:4],
+            'numThreads': max_threads,
+            'threaded': max_threads > 1,
+            'threadAmplification': worker_ns / wall_ns if wall_ns > 0 else None,
+            'isRoot': '_root' in parents,
+        })
+
+    components.sort(key=lambda item: item['wallMs'], reverse=True)
+    roots = [item for item in components if item['isRoot']]
+    roots.sort(key=lambda item: item['wallMs'], reverse=True)
+    return {'top': components[:limit], 'roots': roots}
+
+def _progress_timeline(progress_rows):
+    timeline = []
+    for row in progress_rows:
+        if row.get('kind') != 'progress':
+            continue
+        elapsed_ms = float(row.get('elapsedMs') or 0)
+        phase_ms = max(float(row.get('phaseMs') or 0), 0)
+        timeline.append({
+            'phase': row.get('phase'),
+            'prevPhase': row.get('prevPhase'),
+            'source': row.get('source'),
+            'phaseMs': phase_ms,
+            'elapsedMs': elapsed_ms,
+            'startMs': max(elapsed_ms - phase_ms, 0),
+            'endMs': elapsed_ms,
+            'timestamp': row.get('timestamp'),
+            'details': row.get('details') or {},
+        })
+    return sorted(timeline, key=lambda row: row['elapsedMs'])
+
+def _load_wasm_bench_run(run_id):
+    resolved_id, source, base_dir, manifest = _resolve_wasm_bench_run(run_id)
+    if not manifest:
+        return None
+
+    targets = []
+    for trace in manifest.get('traces', []):
+        target = trace.get('target', 'unknown')
+        result_text = _read_wasm_bench_text(resolved_id, trace.get('resultsPath', f'{target}/results.jsonl'), base_dir)
+        progress_text = _read_wasm_bench_text(resolved_id, trace.get('progressPath', f'{target}/progress.jsonl'), base_dir)
+        result_rows = _read_jsonl(result_text or '')
+        progress_rows = _read_jsonl(progress_text or '')
+        result_data, result_error = _select_result_data(result_rows)
+        run_data = _select_run_data(result_data, trace.get('run'))
+        phases = run_data.get('phases') or {}
+        cold_start = result_data.get('coldStart') if result_data else {}
+        features = result_data.get('features') if result_data else {}
+        target_info = WASM_BENCH_TARGETS.get(target, {
+            'label': target,
+            'hardware': 'unknown',
+            'browser': 'unknown',
+            'platform': 'unknown',
+        })
+        runtime_browser = _runtime_browser(target, target_info, features)
+        runtime_hardware = _runtime_hardware(target_info, features)
+        runtime_spec = _runtime_spec(target_info, features)
+        trace_path = trace.get('tracePath')
+        trace_url = f"/api/wasm-bench/artifact/{resolved_id}/{trace_path}" if trace_path else None
+
+        setup_ms = trace.get('setupMs', run_data.get('setupMs'))
+        prove_ms = trace.get('proveMs', run_data.get('proveMs'))
+        prove_total_ms = trace.get('proveTotalMs')
+        if prove_total_ms is None and setup_ms is not None and prove_ms is not None:
+            prove_total_ms = setup_ms + prove_ms
+        wall_ms = trace.get('wallMs', run_data.get('wallMs'))
+
+        targets.append({
+            **target_info,
+            'target': target,
+            'browser': runtime_browser,
+            'hardware': runtime_hardware,
+            'chip': runtime_hardware,
+            'spec': runtime_spec,
+            'platform': target_info.get('platform'),
+            'benchmark': trace.get('benchmark') or (result_data or {}).get('benchmark'),
+            'flow': trace.get('flow') or (result_data or {}).get('flow'),
+            'run': trace.get('run'),
+            'configuredThreads': trace.get('configuredThreads') or run_data.get('configuredThreads'),
+            'setupMs': setup_ms,
+            'proveMs': prove_ms,
+            'proveTotalMs': prove_total_ms,
+            'wallMs': wall_ms,
+            'overheadMs': wall_ms - prove_total_ms if wall_ms is not None and prove_total_ms is not None else None,
+            'phases': phases,
+            'coldStart': cold_start or {},
+            'preamble': (result_data or {}).get('preamble') or {},
+            'features': features or {},
+            'pageTimings': (result_data or {}).get('pageTimings') or {},
+            'threadsConfig': (result_data or {}).get('threadsConfig') or {},
+            'inputBytes': run_data.get('inputBytes'),
+            'decodedInputBytes': run_data.get('decodedInputBytes'),
+            'proofFieldCount': run_data.get('proofFieldCount'),
+            'hadTrace': run_data.get('hadTrace') if 'hadTrace' in run_data else bool(trace_path),
+            'traceBytes': trace.get('traceBytes') or run_data.get('traceBytes'),
+            'tracePath': trace_path,
+            'traceUrl': trace_url,
+            'posted': trace.get('posted') if 'posted' in trace else bool(result_data) or any(row.get('phase') == 'result_posted' for row in progress_rows),
+            'lastProgressPhase': trace.get('lastProgressPhase'),
+            'lastProgressAtMs': trace.get('lastProgressAtMs'),
+            'runnerError': trace.get('runnerError'),
+            'completedAt': trace.get('completedAt'),
+            'resultError': result_error,
+            'timeline': _progress_timeline(progress_rows),
+            'bench': _summarize_bench_dump(run_data.get('benchDump')),
+        })
+
+    targets.sort(key=lambda item: item.get('proveTotalMs') or float('inf'))
+    return {
+        'id': resolved_id,
+        'source': source,
+        'generatedAt': manifest.get('generatedAt'),
+        'artifactName': manifest.get('artifactName'),
+        'benchOut': manifest.get('benchOut'),
+        'traceCount': manifest.get('traceCount', len(targets)),
+        'flows': sorted({target.get('flow') for target in targets if target.get('flow')}),
+        'targets': targets,
+    }
+
 @auth.verify_password
 def verify_password(username, password):
     if username == "aztec" and password == DASHBOARD_PASSWORD:
@@ -202,6 +628,7 @@ def root() -> str:
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=staging', 'staging')}\n"
         f"{hyperlink('https://aztecprotocol.github.io/benchmark-page-data/bench?branch=next', 'next')}\n"
         f"{hyperlink('/chonk-breakdowns', 'chonk breakdowns')}\n"
+        f"{hyperlink('/wasm-bench', 'wasm bench browserstack')}\n"
         f"{RESET}"
         f"\n"
         f"CI Metrics:\n"
@@ -470,6 +897,54 @@ def get_breakdown(runtime, flow_name, sha):
         return Response(breakdown_data, mimetype='application/json')
 
     return Response('{"error": "Breakdown not found"}', mimetype='application/json', status=404)
+
+@app.route('/wasm-bench')
+@optional_auth
+def wasm_bench():
+    html_path = Path(__file__).parent / 'wasm-bench' / 'wasm-bench-viewer.html'
+    if html_path.exists():
+        return html_path.read_text()
+    return "Wasm bench viewer not found", 404
+
+@app.route('/api/wasm-bench/runs')
+@optional_auth
+def list_wasm_bench_runs():
+    return _json_response({'runs': _list_wasm_bench_runs()})
+
+@app.route('/api/wasm-bench/run/<run_id>')
+@optional_auth
+def get_wasm_bench_run(run_id):
+    run = _load_wasm_bench_run(run_id)
+    if run:
+        return _json_response(run)
+    return _json_response({'error': 'Wasm bench run not found'}, status=404)
+
+@app.route('/api/wasm-bench/artifact/<run_id>/<path:artifact_path>')
+@optional_auth
+def get_wasm_bench_artifact(run_id, artifact_path):
+    rel = Path(artifact_path)
+    if rel.is_absolute() or '..' in rel.parts:
+        return _json_response({'error': 'Invalid artifact path'}, status=400)
+
+    resolved_id, _, base_dir, _ = _resolve_wasm_bench_run(run_id)
+    if not resolved_id:
+        return _json_response({'error': 'Wasm bench run not found'}, status=404)
+
+    data = None
+    if base_dir:
+        local_path = base_dir / rel
+        if local_path.exists() and local_path.is_file():
+            data = local_path.read_bytes()
+    if data is None:
+        data = _read_wasm_bench_s3_bytes(resolved_id, artifact_path)
+    if data is None:
+        return _json_response({'error': 'Artifact not found'}, status=404)
+
+    mimetype = mimetypes.guess_type(artifact_path)[0] or 'application/octet-stream'
+    response = Response(data, mimetype=mimetype)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Cross-Origin-Resource-Policy'] = 'cross-origin'
+    return response
 
 
 @app.route('/grind')

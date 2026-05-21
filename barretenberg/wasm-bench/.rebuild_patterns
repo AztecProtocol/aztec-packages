@@ -1,0 +1,8 @@
+^barretenberg/wasm-bench/package.json$
+^barretenberg/wasm-bench/yarn.lock$
+^barretenberg/wasm-bench/tsconfig.json$
+^barretenberg/wasm-bench/webpack.config.js$
+^barretenberg/wasm-bench/wasm-bench.config.json$
+^barretenberg/wasm-bench/src/.*\.(ts|html)$
+^barretenberg/wasm-bench/scripts/.*\.(mjs|sh)$
+^barretenberg/wasm-bench/bootstrap\.sh$

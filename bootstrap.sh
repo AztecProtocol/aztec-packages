@@ -443,8 +443,9 @@ function bench_cmds {
 }
 
 function bench_merge {
+  mkdir -p bench-out
   find . -path "*/bench-out/*.bench.json" -type f -print0 | \
-  xargs -0 -I{} bash -c '
+  xargs -0 -r -I{} bash -c '
     dir=$1; \
     dir=${dir#./}; \
     dir=${dir%/bench-out*}; \
@@ -903,6 +904,40 @@ case "$cmd" in
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
     barretenberg/bootstrap.sh ci
+    ;;
+
+  # BrowserStack Chonk wasm bench.
+  "ci-wasm-bench")
+    export CI=1
+    export AVM=0
+    export AVM_TRANSPILER=0
+    export BROWSERSTACK_USERNAME="${BROWSERSTACK_USERNAME:-${BROWSERSTACK_USER_NAME:-}}"
+    : "${BROWSERSTACK_USERNAME:?BROWSERSTACK_USERNAME must be set for ci-wasm-bench}"
+    : "${BROWSERSTACK_ACCESS_KEY:?BROWSERSTACK_ACCESS_KEY must be set for ci-wasm-bench}"
+    export WASM_BENCH_RUNS="${WASM_BENCH_RUNS:-1}"
+    export WASM_BENCH_TRACE="${WASM_BENCH_TRACE:-1}"
+    export WASM_BENCH_PLATFORMS="${WASM_BENCH_PLATFORMS:-all}"
+    export WASM_BENCH_CONTINUE_ON_TARGET_FAILURES="${WASM_BENCH_CONTINUE_ON_TARGET_FAILURES:-1}"
+    export WASI_SDK_PREFIX=${WASI_SDK_PREFIX:-/opt/wasi-sdk}
+    barretenberg/cpp/scripts/chonk_inputs.sh download &
+    chonk_inputs_pid=$!
+    barretenberg/crs/bootstrap.sh
+    (cd barretenberg/cpp && AVM=0 AVM_TRANSPILER=0 cmake --preset wasm-threads -DAVM=OFF -DAVM_TRANSPILER_LIB= -DENABLE_WASM_BENCH=ON -B build-wasm-threads)
+    (cd barretenberg/cpp && AVM=0 AVM_TRANSPILER=0 cmake --build --preset wasm-threads --target barretenberg.wasm.gz)
+    wait "$chonk_inputs_pid"
+    barretenberg/wasm-bench/bootstrap.sh
+    barretenberg/wasm-bench/bootstrap.sh bench
+    wasm_bench_tree_hash="$(git rev-parse HEAD^{tree})"
+    wasm_bench_run_id="${WASM_BENCH_RUN_ID:-$(git rev-parse HEAD)}"
+    wasm_bench_dashboard_base="${WASM_BENCH_DASHBOARD_BASE_URL:-http://ci.aztec-labs.com/wasm-bench}"
+    node barretenberg/wasm-bench/scripts/write-trace-manifest.mjs \
+      --bench-out barretenberg/wasm-bench/bench-out \
+      --artifact-name "wasm-bench-artifacts-$wasm_bench_tree_hash.tar.gz" \
+      --run-id "$wasm_bench_run_id" \
+      --source-commit "$(git rev-parse HEAD)" \
+      --dashboard-url "$wasm_bench_dashboard_base?run=$wasm_bench_run_id"
+    barretenberg/wasm-bench/scripts/upload-rkapp-artifacts.sh barretenberg/wasm-bench/bench-out "$wasm_bench_run_id"
+    cache_upload "wasm-bench-artifacts-$wasm_bench_tree_hash.tar.gz" barretenberg/wasm-bench/bench-out
     ;;
 
   #######################

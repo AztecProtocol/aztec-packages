@@ -31,16 +31,19 @@ fi
 
 # Env vars to inject into the container.
 arg_env_vars=()
-for env in ${ENV_VARS_TO_INJECT:-}; do
+for env in ${ENV_VARS_TO_INJECT//,/ }; do
   if [ -n "${!env:-}" ]; then
-    echo "$env=${!env}"
-    arg_env_vars+=("-e" "$env=${!env}")
+    echo "$env=[injected]"
+    arg_env_vars+=("-e" "$env")
   fi
 done
 
 # Tests don't usually need network access, so disable it by default.
 network_arg="--net=none"
-[ "${NET:-0}" -eq 1 ] && network_arg=""
+if [ "${NET:-0}" -eq 1 ]; then
+  network_arg=""
+  [ "${HOST_NETWORK:-0}" -eq 1 ] && network_arg="--network host"
+fi
 
 # Set up tmp mount - default to tmpfs, optionally use $HOME/tmp
 if [ "${USE_HOME_TMP}" -eq 1 ]; then

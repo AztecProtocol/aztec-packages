@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/bbapi/bbapi_avm.hpp"
+#include "barretenberg/bbapi/bbapi_bench.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
@@ -75,6 +76,8 @@ using Command = NamedUnion<AvmProve,
                            ChonkBatchVerifierQueue,
                            ChonkBatchVerifierStop,
                            SrsInitGrumpkinSrs,
+                           BenchEnableTrace,
+                           BenchDump,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
@@ -139,6 +142,8 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    ChonkBatchVerifierQueue::Response,
                                    ChonkBatchVerifierStop::Response,
                                    SrsInitGrumpkinSrs::Response,
+                                   BenchEnableTrace::Response,
+                                   BenchDump::Response,
                                    Shutdown::Response>;
 
 /**

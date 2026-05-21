@@ -1,0 +1,268 @@
+{
+  "schema": "aztec.wasm-bench.config.v1",
+  "defaultBenchmark": "chonk-ivc",
+  "defaultMatrix": [
+    "windows-chrome",
+    "iphone-15-pro"
+  ],
+  "extendedMatrix": [
+    "macos",
+    "windows-chrome",
+    "windows-edge",
+    "iphone-15-pro",
+    "iphone-16",
+    "galaxy-s25-ultra",
+    "galaxy-s25",
+    "pixel-9-pro-xl"
+  ],
+  "matrixProfiles": {
+    "default": {
+      "label": "Customer/availability core",
+      "description": "Small CI default weighted toward the customer-survey surfaces that must stay healthy, while using BrowserStack targets that have proven page-start and proof completion.",
+      "targets": [
+        "windows-chrome",
+        "iphone-15-pro"
+      ]
+    },
+    "customer-balanced": {
+      "label": "Customer-balanced Automate coverage",
+      "description": "Broader review profile for representative desktop browser, desktop OS, and iOS Safari coverage while keeping the default short.",
+      "targets": [
+        "windows-chrome",
+        "iphone-15-pro",
+        "macos",
+        "windows-edge"
+      ]
+    },
+    "all": {
+      "label": "Extended catalogue",
+      "description": "Everything configured in this harness, including targets that may need explicit retry/smoke validation when BrowserStack availability is poor.",
+      "targets": [
+        "macos",
+        "windows-chrome",
+        "windows-edge",
+        "iphone-15-pro",
+        "iphone-16",
+        "galaxy-s25-ultra",
+        "galaxy-s25",
+        "pixel-9-pro-xl"
+      ]
+    }
+  },
+  "timeouts": {
+    "firstProgressMs": 30000,
+    "stallMs": 240000,
+    "deadlineMs": 1500000
+  },
+  "benchmarks": {
+    "chonk-ivc": {
+      "description": "Pinned Chonk IVC browser proving benchmark using the wasm-threads bb binary.",
+      "type": "chonk-ivc",
+      "defaultFlow": "ecdsar1+transfer_1_recursions+sponsored_fpc",
+      "inputKind": "pinned-chonk-ivc",
+      "headlineMetrics": [
+        "setupMs",
+        "proveMs",
+        "proveTotalMs",
+        "wallMs"
+      ],
+      "breakdownSources": [
+        "phaseTimings",
+        "bbBenchAggregate",
+        "perfettoTrace"
+      ]
+    }
+  },
+  "targets": {
+    "macos": {
+      "label": "macOS Sequoia Chrome (Apple M2 Mac mini)",
+      "chip": "Apple M2 base (4P+4E)",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "browser": "chrome",
+          "browser_version": "latest",
+          "os": "OS X",
+          "os_version": "Sequoia"
+        },
+        "resolution": "1920x1080"
+      },
+      "local": {
+        "scheme": "http",
+        "host": "localhost"
+      },
+      "timeouts": {
+        "firstProgressMs": 45000,
+        "sessionCreateMs": 45000,
+        "sessionAttempts": 2
+      }
+    },
+    "windows-chrome": {
+      "label": "Windows 11 Chrome (Win64 x64 VM)",
+      "chip": "BrowserStack Windows 11 desktop VM; CPU model not exposed",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "browser": "chrome",
+          "browser_version": "latest",
+          "os": "Windows",
+          "os_version": "11"
+        },
+        "resolution": "1920x1080"
+      },
+      "local": {
+        "scheme": "http",
+        "host": "localhost"
+      },
+      "timeouts": {
+        "firstProgressMs": 45000,
+        "sessionCreateMs": 30000,
+        "sessionAttempts": 2
+      }
+    },
+    "windows-edge": {
+      "label": "Windows 11 Edge (Win64 x64 VM)",
+      "chip": "BrowserStack Windows 11 desktop VM; CPU model not exposed",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "browser": "edge",
+          "browser_version": "latest",
+          "os": "Windows",
+          "os_version": "11"
+        },
+        "resolution": "1920x1080"
+      },
+      "local": {
+        "scheme": "http",
+        "host": "localhost"
+      },
+      "timeouts": {
+        "firstProgressMs": 45000,
+        "sessionCreateMs": 30000,
+        "sessionAttempts": 2
+      }
+    },
+    "iphone-15-pro": {
+      "label": "iPhone 15 Pro latest available iOS Safari",
+      "chip": "Apple A17 Pro (2P+4E)",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "real_mobile": true,
+          "os": "ios",
+          "os_version": "latest",
+          "device": "iPhone 15 Pro",
+          "browser": "iphone"
+        }
+      },
+      "local": {
+        "scheme": "https",
+        "host": "bs-local.com",
+        "port": 8443,
+        "httpsPorts": [
+          8443
+        ]
+      },
+      "benchOverrides": {
+        "memMaxPages": 16384
+      },
+      "timeouts": {
+        "firstProgressMs": 60000,
+        "sessionCreateMs": 45000,
+        "sessionAttempts": 2
+      }
+    },
+    "iphone-16": {
+      "label": "iPhone 16 latest available iOS Safari",
+      "chip": "Apple A18 (2P+4E)",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "real_mobile": true,
+          "os": "ios",
+          "os_version": "latest",
+          "device": "iPhone 16",
+          "browser": "iphone"
+        }
+      },
+      "local": {
+        "scheme": "https",
+        "host": "bs-local.com",
+        "port": 8443,
+        "httpsPorts": [
+          8443
+        ]
+      },
+      "benchOverrides": {
+        "memMaxPages": 16384
+      },
+      "timeouts": {
+        "firstProgressMs": 60000
+      }
+    },
+    "galaxy-s25-ultra": {
+      "label": "Samsung Galaxy S25 Ultra Android 15 Chrome",
+      "chip": "Snapdragon 8 Elite (2 Phoenix-L + 6 Phoenix-M)",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "real_mobile": true,
+          "os": "android",
+          "os_version": "15.0",
+          "device": "Samsung Galaxy S25 Ultra",
+          "browser": "android"
+        }
+      },
+      "local": {
+        "scheme": "http",
+        "host": "localhost"
+      },
+      "timeouts": {
+        "firstProgressMs": 45000
+      }
+    },
+    "galaxy-s25": {
+      "label": "Samsung Galaxy S25 Android 15 Chrome",
+      "chip": "Snapdragon 8 Elite",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "real_mobile": true,
+          "os": "android",
+          "os_version": "15.0",
+          "device": "Samsung Galaxy S25",
+          "browser": "android"
+        }
+      },
+      "local": {
+        "scheme": "http",
+        "host": "localhost"
+      },
+      "timeouts": {
+        "firstProgressMs": 45000
+      }
+    },
+    "pixel-9-pro-xl": {
+      "label": "Google Pixel 9 Pro XL Android 15 Chrome",
+      "chip": "Google Tensor G4 (1+3+4)",
+      "driver": "automate",
+      "browserstack": {
+        "caps": {
+          "real_mobile": true,
+          "os": "android",
+          "os_version": "15.0",
+          "device": "Google Pixel 9 Pro XL",
+          "browser": "android"
+        }
+      },
+      "local": {
+        "scheme": "http",
+        "host": "localhost"
+      },
+      "timeouts": {
+        "firstProgressMs": 45000
+      }
+    }
+  }
+}

@@ -28,7 +28,9 @@ using Commands = ::testing::Types<bbapi::CircuitProve,
                                   bbapi::ChonkProve,
                                   bbapi::ChonkComputeVk,
                                   bbapi::ChonkCheckPrecomputedVk,
-                                  bbapi::ChonkBatchVerify>;
+                                  bbapi::ChonkBatchVerify,
+                                  bbapi::BenchEnableTrace,
+                                  bbapi::BenchDump>;
 
 // Typed test suites
 template <typename T> class BBApiMsgpack : public ::testing::Test {};

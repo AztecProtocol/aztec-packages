@@ -74,7 +74,7 @@ function main {
 
   local explicit_ci_mode_labels=()
   local mode_label
-  for mode_label in ci-merge-queue ci-release-pr ci-full ci-full-no-test-cache ci-docs ci-barretenberg-full ci-barretenberg; do
+  for mode_label in ci-merge-queue ci-release-pr ci-full ci-full-no-test-cache ci-docs ci-barretenberg-full ci-wasm-bench ci-barretenberg; do
     if has_label "$mode_label"; then
       explicit_ci_mode_labels+=("$mode_label")
     fi
@@ -138,6 +138,8 @@ function main {
     ci_mode="docs"
   elif has_label "ci-barretenberg-full"; then
     ci_mode="barretenberg-full"
+  elif has_label "ci-wasm-bench"; then
+    ci_mode="wasm-bench"
   elif has_label "ci-barretenberg" || [ "$target_branch" == "merge-train/barretenberg" ]; then
     ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
@@ -149,15 +151,16 @@ function main {
   echo "CI_MODE=$ci_mode" >> $GITHUB_ENV
   echo "CI mode: $ci_mode"
 
-  # Determine if benchmarks should be uploaded (merge-queue, full, or full-no-test-cache modes)
-  if [[ "$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy" || "$ci_mode" == "full" || "$ci_mode" == "full-no-test-cache" ]]; then
-    echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
-  fi
+  # Determine if benchmarks should be uploaded.
+  case "$ci_mode" in
+    merge-queue|merge-queue-heavy|full|full-no-test-cache)
+      echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
+      ;;
+  esac
 
   # Determine the branch label for benchmark publishing.
   # Only merge-queue runs targeting "next" publish under "next" since those represent code about to land.
-  # Everything else (ci-full PRs, merge queues for other branches) publishes under "prs"
-  # to avoid polluting the main benchmark graphs.
+  # wasm-bench publishes to the rkapp page; everything else non-main publishes under "prs".
   local bench_branch
   if [[ ("$ci_mode" == "merge-queue" || "$ci_mode" == "merge-queue-heavy") && "$target_branch" == "next" ]]; then
     bench_branch="$target_branch"

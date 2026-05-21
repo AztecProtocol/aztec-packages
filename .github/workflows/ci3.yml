@@ -99,6 +99,10 @@ jobs:
           AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION: ${{ vars.AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION }}
           # For automatic documentation updates via Claude Code
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # BrowserStack credentials (used by ci-wasm-bench).
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME || secrets.BROWSERSTACK_USER_NAME || vars.BROWSERSTACK_USERNAME || vars.BROWSERSTACK_USER_NAME }}
+          BROWSERSTACK_USER_NAME: ${{ secrets.BROWSERSTACK_USER_NAME || secrets.BROWSERSTACK_USERNAME || vars.BROWSERSTACK_USER_NAME || vars.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
           # Nightly test env vars.
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
