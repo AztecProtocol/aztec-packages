@@ -5,14 +5,10 @@ fn fr_add(a: ptr<function, BigInt>, b: ptr<function, BigInt>) -> BigInt {
 }
 
 fn fr_reduce(a: ptr<function, BigInt>) -> BigInt {
-    var res: BigInt;
-    var p: BigInt = get_p();
-    var underflow = bigint_sub(a, &p, &res);
-    if (underflow == 1u) {
-        return *a;
-    }
-
-    return res;
+    // (a >= p) ? a - p : a, with the modulus as P_i immediates (no per-thread
+    // get_p() BigInt). conditional_reduce_constp lives in the montmul partial,
+    // always co-included wherever field_funcs is.
+    return conditional_reduce_constp(a);
 }
 
 fn fr_sub(a: ptr<function, BigInt>, b: ptr<function, BigInt>) -> BigInt {
@@ -22,9 +18,7 @@ fn fr_sub(a: ptr<function, BigInt>, b: ptr<function, BigInt>) -> BigInt {
     // canonical 0 — so no special-case is needed (the old code needed an
     // explicit a == b short-circuit because its a < b branch produced a
     // non-canonical p). No bigint_gt / bigint_eq, no divergent branch.
-    var p: BigInt = get_p();
-    var t: BigInt;
-    bigint_add(a, &p, &t);
+    var t: BigInt = bigint_add_const_p(a);
     var res: BigInt;
     bigint_sub(&t, b, &res);
     return fr_reduce(&res);

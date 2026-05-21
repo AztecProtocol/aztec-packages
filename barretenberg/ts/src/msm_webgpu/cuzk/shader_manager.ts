@@ -834,7 +834,7 @@ ${packLines.join('\n')}
   public gen_ba_fused_super_bench_shader(
     workgroup_size: number,
     s: number,
-    variant: 'a' | 'loop' = 'a',
+    variant: 'a' | 'loop' | 'pk' = 'a',
     tiled = false,
     l0_index_mode = false,
   ): string {
@@ -842,8 +842,8 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
-    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
     return mustache.render(
       ba_fused_super_bench_shader,
       {
@@ -1170,13 +1170,13 @@ ${packLines.join('\n')}
    * in a single dispatch, one workgroup per window, storageBarrier between
    * levels. Mirrors gen_ba_fused_super_bench_shader's partials; no per-pass s.
    */
-  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' = 'a'): string {
+  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' | 'pk' = 'a'): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_fused_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
-    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
     return mustache.render(
       ba_reduce_fused_bench_shader,
       {
@@ -2154,6 +2154,17 @@ ${entry_src}`;
     }
     const r_inv_consts = limbs.map((val, idx) => ({ idx, val }));
 
+    // Modulus limbs as individual compile-time constants P_0..P_{N-1} (same
+    // pattern as r_inv_consts). Lets montmul / field ops / the inverse fold p
+    // into immediates instead of holding a per-thread BigInt in scratch.
+    const p_limb_vals: number[] = [];
+    let pv = this.p;
+    for (let i = 0; i < N; i++) {
+      p_limb_vals.push(Number(pv & mask));
+      pv >>= BigInt(WS);
+    }
+    const p_consts = p_limb_vals.map((val, idx) => ({ idx, val }));
+
     const input_loads: Array<{ name: string; ptr: string; k: number }> = [];
     const chunks = [
       ['x_lo_lo', 'x_ptr', 0],
@@ -2247,6 +2258,7 @@ ${entry_src}`;
       p_inv_mod_2w: this.p_inv_mod_2w,
       p_limbs: this.p_limbs,
       r_inv_consts,
+      p_consts,
       input_loads,
       sum_lets,
       schoolbooks,

@@ -59,6 +59,14 @@ const P_INV_MOD_2W: u32 = {{ p_inv_mod_2w }}u;
 const R_INV_{{idx}}: u32 = {{val}}u;
 {{/r_inv_consts}}
 
+// Modulus limbs as individual compile-time constants. Used directly (no
+// per-thread `get_p()` BigInt in scratch) by the standard Mont reduce and
+// the const-modulus conditional reduce below. Also visible module-scope to
+// the field ops and the inverse partials.
+{{#p_consts}}
+const P_{{idx}}: u32 = {{val}}u;
+{{/p_consts}}
+
 fn get_p() -> BigInt {
     var p: BigInt;
 {{{ p_limbs }}}
@@ -66,8 +74,6 @@ fn get_p() -> BigInt {
 }
 
 fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {
-    var p = get_p();
-
     // === Input load: 40 named locals, one per limb. ===
 {{#input_loads}}
     let {{name}}: u32 = (*{{ptr}}).limbs[{{k}}u];
@@ -157,7 +163,7 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
         let t_mask: u32 = t{{i_std}} & MASK;
         let k_std: u32  = (t_mask * N0) & MASK;
 {{#standard_writes}}
-        t{{slot}} = t{{slot}} + k_std * p.limbs[{{p_idx}}u]{{#first}} + (t{{i_std}} >> WORD_SIZE){{/first}};
+        t{{slot}} = t{{slot}} + k_std * P_{{p_idx}}{{#first}} + (t{{i_std}} >> WORD_SIZE){{/first}};
 {{/standard_writes}}
     }
 
@@ -177,16 +183,37 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
     s.limbs[{{out_k}}u] = t{{src_slot}};
 {{/extract}}
 
-    return conditional_reduce(&s, &p);
+    return conditional_reduce_constp(&s);
 }
 
-fn conditional_reduce(x: ptr<function, BigInt>, y: ptr<function, BigInt>) -> BigInt {
-    var x_gt_y = bigint_gt(x, y);
-    var x_eq_y = bigint_eq(x, y);
-    if (x_gt_y == 1u || x_eq_y) {
-        var res: BigInt;
-        bigint_sub(x, y, &res);
-        return res;
+// x in [0, 2p): subtract the modulus iff x >= p, using P_i immediates (no
+// per-thread modulus in memory). Single unrolled borrow chain: if it never
+// underflows, x >= p and (x - p) is canonical; otherwise return x unchanged.
+fn conditional_reduce_constp(x: ptr<function, BigInt>) -> BigInt {
+    var res: BigInt;
+    var borrow: i32 = 0;
+{{#p_consts}}
+    {
+        let d: i32 = i32((*x).limbs[{{idx}}u]) - i32(P_{{idx}}) - borrow;
+        res.limbs[{{idx}}u] = u32(d) & MASK;
+        borrow = select(0, 1, d < 0);
     }
+{{/p_consts}}
+    if (borrow == 0) { return res; }
     return *x;
+}
+
+// a + p (full width, no reduce) using P_i immediates. a in [0, p) so the
+// result is in [p, 2p) and fits the 20x13-bit representation.
+fn bigint_add_const_p(a: ptr<function, BigInt>) -> BigInt {
+    var res: BigInt;
+    var carry: u32 = 0u;
+{{#p_consts}}
+    {
+        let s: u32 = (*a).limbs[{{idx}}u] + P_{{idx}} + carry;
+        res.limbs[{{idx}}u] = s & MASK;
+        carry = s >> WORD_SIZE;
+    }
+{{/p_consts}}
+    return res;
 }

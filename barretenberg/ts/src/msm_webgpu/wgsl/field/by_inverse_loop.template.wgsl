@@ -1315,6 +1315,24 @@ fn pk_to_bigint(x: ptr<function, Pk>) -> BigInt {
 
 fn pk_get_p() -> Pk { return pk_from_bigint(get_p()); }
 
+// Packed modulus word w (limb 2w | limb(2w+1)<<13) as a compile-time
+// immediate, from the module-scope P_i consts (montmul partial, always
+// co-included). No per-thread modulus copy in scratch.
+fn pk_p_word(w: u32) -> u32 {
+    switch w {
+        case 0u: { return P_0 | (P_1 << 13u); }
+        case 1u: { return P_2 | (P_3 << 13u); }
+        case 2u: { return P_4 | (P_5 << 13u); }
+        case 3u: { return P_6 | (P_7 << 13u); }
+        case 4u: { return P_8 | (P_9 << 13u); }
+        case 5u: { return P_10 | (P_11 << 13u); }
+        case 6u: { return P_12 | (P_13 << 13u); }
+        case 7u: { return P_14 | (P_15 << 13u); }
+        case 8u: { return P_16 | (P_17 << 13u); }
+        default: { return P_18 | (P_19 << 13u); }
+    }
+}
+
 // Low 64 bits from limbs 0..4 (words 0,1 and low limb of word 2).
 fn pk_low_u64(x: ptr<function, Pk>) -> vec2<u32> {
     let w0 = (*x).w[0];
@@ -1354,11 +1372,11 @@ fn pk_normalise(x: ptr<function, Pk>) {
 }
 
 // out = x + p, carry-propagated (combines add + normalise). Top limb absorbs.
-fn pk_add_p(x: ptr<function, Pk>, p: ptr<function, Pk>) {
+fn pk_add_p(x: ptr<function, Pk>) {
     var c: i32 = 0;
     for (var w: u32 = 0u; w < 10u; w = w + 1u) {
         let xw = (*x).w[w];
-        let pw = (*p).w[w];
+        let pw = pk_p_word(w);
         let lo: i32 = i32(xw & MASK) + i32(pw & MASK) + c;
         let olo: u32 = u32(lo) & MASK;
         c = lo >> 13u;
@@ -1369,11 +1387,11 @@ fn pk_add_p(x: ptr<function, Pk>, p: ptr<function, Pk>) {
     }
 }
 
-fn pk_sub_p(x: ptr<function, Pk>, p: ptr<function, Pk>) {
+fn pk_sub_p(x: ptr<function, Pk>) {
     var c: i32 = 0;
     for (var w: u32 = 0u; w < 10u; w = w + 1u) {
         let xw = (*x).w[w];
-        let pw = (*p).w[w];
+        let pw = pk_p_word(w);
         let lo: i32 = i32(xw & MASK) - i32(pw & MASK) + c;
         let olo: u32 = u32(lo) & MASK;
         c = lo >> 13u;
@@ -1399,28 +1417,29 @@ fn pk_neg(x: ptr<function, Pk>) {
 }
 
 // x >= p ? (compare from limb 19 down).
-fn pk_gte(x: ptr<function, Pk>, p: ptr<function, Pk>) -> bool {
+fn pk_gte(x: ptr<function, Pk>) -> bool {
     for (var idx: u32 = 0u; idx < 10u; idx = idx + 1u) {
         let w = 9u - idx;
+        let pw = pk_p_word(w);
         let xhi = ((*x).w[w] >> 13u) & MASK;
-        let phi = ((*p).w[w] >> 13u) & MASK;
+        let phi = (pw >> 13u) & MASK;
         if (xhi > phi) { return true; }
         if (xhi < phi) { return false; }
         let xlo = (*x).w[w] & MASK;
-        let plo = (*p).w[w] & MASK;
+        let plo = pw & MASK;
         if (xlo > plo) { return true; }
         if (xlo < plo) { return false; }
     }
     return true;
 }
 
-fn pk_reduce_to_canonical(x: ptr<function, Pk>, p: ptr<function, Pk>) {
+fn pk_reduce_to_canonical(x: ptr<function, Pk>) {
     pk_normalise(x);
     var done: bool = false;
     for (var it: u32 = 0u; it < BYL_RTC_MAX_ITERS; it = it + 1u) {
         if (done) { continue; }
-        if (pk_is_neg_2c(x)) { pk_add_p(x, p); }
-        else if (pk_gte(x, p)) { pk_sub_p(x, p); }
+        if (pk_is_neg_2c(x)) { pk_add_p(x); }
+        else if (pk_gte(x)) { pk_sub_p(x); }
         else { done = true; }
     }
 }
@@ -1461,13 +1480,13 @@ fn pk_apply_matrix_fg(m: BylMat, f: ptr<function, Pk>, g: ptr<function, Pk>) {
 }
 
 // (d,e) <- ((u*d+v*e+k_d*p)>>26, (q*d+r*e+k_e*p)>>26). k*p cancels low 26 bits.
-fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>, p: ptr<function, Pk>) {
+fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>) {
     let u_lo: i32 = i32(u32(m.u) & MASK); let u_hi: i32 = m.u >> 13u;
     let v_lo: i32 = i32(u32(m.v) & MASK); let v_hi: i32 = m.v >> 13u;
     let q_lo: i32 = i32(u32(m.q) & MASK); let q_hi: i32 = m.q >> 13u;
     let r_lo: i32 = i32(u32(m.r) & MASK); let r_hi: i32 = m.r >> 13u;
 
-    let dw0 = (*d).w[0]; let ew0 = (*e).w[0]; let pw0 = (*p).w[0];
+    let dw0 = (*d).w[0]; let ew0 = (*e).w[0]; let pw0 = pk_p_word(0u);
     let d0: i32 = i32(dw0 & MASK); let d1: i32 = i32((dw0 >> 13u) & MASK);
     let e0: i32 = i32(ew0 & MASK); let e1: i32 = i32((ew0 >> 13u) & MASK);
     let p0: i32 = i32(pw0 & MASK); let p1: i32 = i32((pw0 >> 13u) & MASK);
@@ -1489,11 +1508,11 @@ fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>, p: 
     var dp: i32 = d1; var ep: i32 = e1;
 
     for (var w: u32 = 1u; w < 10u; w = w + 1u) {
-        let dw = (*d).w[w]; let ew = (*e).w[w]; let pw = (*p).w[w];
+        let dw = (*d).w[w]; let ew = (*e).w[w]; let pw = pk_p_word(w);
         // even limb i = 2w
         let di_e: i32 = i32(dw & MASK); let ei_e: i32 = i32(ew & MASK);
         let pi_e: i32 = i32(pw & MASK);
-        let pim1_e: i32 = i32(((*p).w[w - 1u] >> 13u) & MASK);
+        let pim1_e: i32 = i32((pk_p_word(w - 1u) >> 13u) & MASK);
         let nd_e: i32 = u_lo * di_e + v_lo * ei_e + u_hi * dp + v_hi * ep + kd_lo * pi_e + kd_hi * pim1_e + cd;
         let ne_e: i32 = q_lo * di_e + r_lo * ei_e + q_hi * dp + r_hi * ep + ke_lo * pi_e + ke_hi * pim1_e + ce;
         cd = nd_e >> 13u; ce = ne_e >> 13u;
@@ -1514,7 +1533,7 @@ fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>, p: 
         (*e).w[w - 1u] = (u32(ne_e) & MASK) | ((u32(ne_o) & MASK) << 13u);
         dp = di_o; ep = ei_o;
     }
-    let p_top: i32 = i32(((*p).w[9] >> 13u) & MASK);
+    let p_top: i32 = i32((pk_p_word(9u) >> 13u) & MASK);
     let nd_top: i32 = u_hi * dp + v_hi * ep + kd_hi * p_top + cd;
     let ne_top: i32 = q_hi * dp + r_hi * ep + ke_hi * p_top + ce;
     (*d).w[9] = (u32(nd_top) & MASK) | (u32(nd_top >> 13u) << 13u);
@@ -1522,8 +1541,7 @@ fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>, p: 
 }
 
 fn fr_inv_by_loop_pk(a: BigInt) -> BigInt {
-    var p_loc: Pk = pk_get_p();
-    var f: Pk = p_loc;
+    var f: Pk = pk_get_p();
     var g: Pk = pk_from_bigint(a);
     var d: Pk;
     var e: Pk; e.w[0] = 1u;
@@ -1535,15 +1553,15 @@ fn fr_inv_by_loop_pk(a: BigInt) -> BigInt {
         let g_lo: vec2<u32> = pk_low_u64(&g);
         let m: BylMat = byl_divsteps_bl(&delta, f_lo, g_lo);
         pk_apply_matrix_fg(m, &f, &g);
-        pk_apply_matrix_de(m, &d, &e, &p_loc);
+        pk_apply_matrix_de(m, &d, &e);
         if (((iter + 1u) % BYL_REDUCE_INTERVAL) == 0u) {
-            pk_reduce_to_canonical(&d, &p_loc);
-            pk_reduce_to_canonical(&e, &p_loc);
+            pk_reduce_to_canonical(&d);
+            pk_reduce_to_canonical(&e);
         }
         if (pk_is_zero(&g)) { done = true; }
     }
-    pk_reduce_to_canonical(&d, &p_loc);
-    if (pk_is_neg_2c(&f)) { pk_neg(&d); pk_reduce_to_canonical(&d, &p_loc); }
+    pk_reduce_to_canonical(&d);
+    if (pk_is_neg_2c(&f)) { pk_neg(&d); pk_reduce_to_canonical(&d); }
     var dd: BigInt = pk_to_bigint(&d);
     var r_cubed: BigInt = get_r_cubed();
     return montgomery_product(&dd, &r_cubed);
