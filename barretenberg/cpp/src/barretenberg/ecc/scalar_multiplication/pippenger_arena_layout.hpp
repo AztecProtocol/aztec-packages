@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -247,5 +248,92 @@ template <typename Curve> struct PerWorkerArenaLayout {
         per_worker_bytes = align_up(per_worker_union_bytes + per_worker_per_wpb_layout, WORKER_SLAB_ALIGN);
     }
 };
+
+// Stride upper bound for `s.dense_buckets`: next_pow2(⌈(B-1)/T⌉), with a floor of 2.
+[[nodiscard]] inline size_t compute_dense_stride(size_t B_eff, size_t num_threads) noexcept
+{
+    const size_t per_thread = (B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 };
+    return std::max<size_t>(2, std::bit_ceil(per_thread));
+}
+
+// Upper bound on Σ_t buckets_per_thread[t][w] per window: B + T - 1 (adjacent threads
+// may share one boundary bucket). Returns 0 when B_eff == 0.
+[[nodiscard]] inline size_t compute_bucket_partials_max(size_t B_eff, size_t num_threads) noexcept
+{
+    return (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : size_t{ 0 };
+}
+
+// Per-OS-thread Stage 6a seam overflow capacity (per-window upper bound).
+[[nodiscard]] inline size_t compute_global_max_overflow_per_window(size_t n,
+                                                                   size_t num_threads,
+                                                                   size_t subchunk_entries_cap) noexcept
+{
+    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
+    return (global_max_chunk_len + subchunk_entries_cap - 1) / subchunk_entries_cap;
+}
+
+// Per-window byte cost for one window in a windows-per-batch slab. Identical formula
+// at three sites (sizer outer, sizer per-schedule lambda, live allocator); centralised
+// here so they cannot drift.
+//
+//   schedule      = 4·n
+//   HIST slot     = max(4·t·B, sizeof(ChunkOutput)·t + 96·t)            [H ∪ O overlay]
+//   DENSE slot    = 65 · bucket_partials_max(B, t)                      [bucket_partials_dense + present]
+//   bucket_start  = 8·(B+1)
+//   chunk arrays  = 8·(t+1) + 8·(t+1) + 8·t + 8·t + 8·t + 16·worker + 8·t
+//   dense_buckets = 87·worker·stride                                    [s.dense_buckets + aux]
+template <typename Curve>
+[[nodiscard]] inline size_t compute_per_window_bytes(
+    size_t num_threads, size_t B_eff, size_t n, size_t dense_stride, size_t worker_total) noexcept
+{
+    const size_t bucket_partials_max = compute_bucket_partials_max(B_eff, num_threads);
+    const size_t hist_h_bytes_pw = size_t{ 4 } * num_threads * B_eff;
+    const size_t hist_o_bytes_pw = (sizeof(ChunkOutput<Curve>) * num_threads) + (size_t{ 96 } * num_threads);
+    const size_t hist_slot_bytes_pw = std::max(hist_h_bytes_pw, hist_o_bytes_pw);
+    const size_t dense_slot_bytes_pw = size_t{ 65 } * bucket_partials_max;
+    return (size_t{ 4 } * n) + hist_slot_bytes_pw + dense_slot_bytes_pw + (size_t{ 8 } * (B_eff + 1)) +
+           (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * num_threads) +
+           (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) + (size_t{ 16 } * worker_total) +
+           (size_t{ 8 } * num_threads) + (size_t{ 87 } * worker_total * dense_stride);
+}
+
+// Phase-1 prologue bytes living in the per-MSM arena (msb_per_scalar, glv_scalars,
+// glv_points, per_thread_msb_hist). Two-copy duplicate eliminated.
+[[nodiscard]] inline size_t compute_phase_one_prologue_bytes(size_t n,
+                                                             bool use_glv,
+                                                             bool inline_glv_double,
+                                                             size_t profile_threads) noexcept
+{
+    return n                                                      // msb_per_scalar
+           + (use_glv ? size_t{ 32 } * n : size_t{ 0 })           // glv_scalars_storage
+           + (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) // glv_points_storage
+           + (profile_threads * size_t{ 1024 });                  // per_thread_msb_hist
+}
+
+struct PhaseACaps {
+    size_t members_cap;
+    size_t offsets_cap;
+};
+
+// Phase A per-worker caps. `members_cap = min(DEDUP_MAX_MEMBERS, n)` is tight (each
+// scalar contributes ≤ 1 cluster_member entry). `offsets_cap = cids_per_thread + 2`
+// covers the leading-zero sentinel + post-last terminator.
+[[nodiscard]] inline PhaseACaps compute_phase_a_caps(size_t n, size_t num_threads) noexcept
+{
+    return { std::min(DEDUP_MAX_MEMBERS, n), (DEDUP_MAX_CLUSTERS / num_threads) + 2 };
+}
+
+// Solve `wpb · per_window_bytes ≤ available_budget`, clamped to W_R and ≥ 1.
+// Mirrors the three identical wpb-pickers in the sizer and live allocator.
+[[nodiscard]] inline size_t solve_wpb(size_t per_window_bytes, size_t available_budget, size_t W_R) noexcept
+{
+    if (W_R == 0) {
+        return 1;
+    }
+    if (per_window_bytes == 0 || available_budget == 0) {
+        return std::max<size_t>(1, W_R);
+    }
+    return std::min(std::max<size_t>(1, available_budget / per_window_bytes), W_R);
+}
 
 } // namespace bb::scalar_multiplication::round_parallel_detail

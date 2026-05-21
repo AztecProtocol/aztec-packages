@@ -2183,93 +2183,28 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
 
     constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
 
-    const size_t dense_stride_est = std::max<size_t>(
-        2, std::bit_ceil((num_buckets > 1) ? ((num_buckets - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
-    const size_t bucket_partials_per_window_max = (num_buckets > 0) ? (num_buckets - 1 + num_threads - 1) : 0;
-
     // num_threads sizes the per-task arrays; worker_total sizes the per-OS-thread scratch
     // (FIFO-shared by every task that lands on that OS thread).
     const size_t worker_total_for_budget = num_threads;
-    // HIST slot — overlays two non-coexisting lifetime classes within one byte slab per
-    // window:
-    //   H (S1-S4): digit_cursors
-    //   O (S6b-S7): chunk_outputs + window_partial_sums
-    // H is dead before O is born (Stage 4 cursor ends before Stage 6b first writes
-    // chunk_outputs / window_partial_sums). Slot per-window = max(H, O).
-    //
-    // D-class (bucket_partials_dense + bucket_partials_present) used to overlay this
-    // slot at the D-region offset, but a 10× interleaved WASM Chonk bench showed Stage 6a
-    // regressed +1.29% (t=+58) because of L1-cache aliasing on the
-    // `dense[slot]/present[slot]` writes when D sat at the HIST-overlaid offset (see trace
-    // report at https://gist.github.com/AztecBot/8cc506ff429bdf5104fa02104c0e731b). D-class
-    // now has its own dedicated Zone-S slot below.
-    //
-    // Match the tight calc in `pippenger_round_parallel` (which uses B_eff); here
-    // num_buckets is the conservative upper bound on B_eff before the schedule is built.
-    // `digit_cursors` is a single per-(w, t, d) uint32 buffer that holds three roles
-    // across epoch H: Stage 1 fills it with bucket counts, Stage 2 overwrites each slot
-    // with that bucket's exclusive prefix-sum offset, and Stage 4 advances each (w, t)
-    // slice in place as its scatter cursor. One buffer, three meanings — bytes are not
-    // duplicated. Stage 2 also writes each digit's per-window total directly into
-    // bucket_start_all[w][d+1] (its own Zone S slot, sized as B_eff+1 per window), so
-    // Stage 3 can prefix-sum in place without a separate bucket_total_counts buffer.
-    const size_t hist_h_bytes_pw = (size_t{ 4 } * num_threads * num_buckets);                        // digit_cursors
-    const size_t hist_o_bytes_pw = (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) // chunk_outputs
-                                   + (size_t{ 96 } * num_threads); // window_partial_sums
-    const size_t hist_slot_bytes_pw = std::max(hist_h_bytes_pw, hist_o_bytes_pw);
-    // DENSE slot — dedicated Zone-S slot for the D-class buffers, isolated from the HIST
-    // slot's offset to avoid the L1 alias hot-spot on Stage 6a scatter writes.
-    const size_t dense_slot_bytes_pw =
-        (size_t{ 65 } * bucket_partials_per_window_max); // bucket_partials_dense + bucket_partials_present
+    const size_t dense_stride_est = round_parallel_detail::compute_dense_stride(num_buckets, num_threads);
 
-    const size_t per_window_bytes =
-        (size_t{ 4 } * n)                                              // schedule
-        + hist_slot_bytes_pw                                           // HIST slot (H ∪ O)
-        + dense_slot_bytes_pw                                          // DENSE slot (D)
-        + (size_t{ 8 } * (num_buckets + 1))                            // bucket_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_bucket_lo_all
-        + (size_t{ 8 } * num_threads)                                  // chunk_bucket_hi_all
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_lo
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_hi
-        + (size_t{ 16 } * worker_total_for_budget)                     // chunk_infos (per-OS-thread)
-        + (size_t{ 8 } * num_threads)                                  // bucket_partials_offsets
-        + (size_t{ 87 } * worker_total_for_budget * dense_stride_est); // s.dense_buckets + aux
+    // Pre-schedule conservative per-window cost: uses `num_buckets` (= 2^(c-1)+1) as the
+    // B upper bound. The lambda below recomputes once the actual schedule is built.
+    const size_t per_window_bytes = round_parallel_detail::compute_per_window_bytes<Curve>(
+        num_threads, num_buckets, n, dense_stride_est, worker_total_for_budget);
 
-    // Per-worker overflow capacity (per-window upper bound). Used by the struct's
-    // layout walk to size both the ThreadScratch overflow_slots/overflow_pts fields
-    // and the chunk_capacity for curr_pts/curr_buckets.
     constexpr size_t SUBCHUNK_ENTRIES_CAP_LOCAL = 2048;
-    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window =
-        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP_LOCAL - 1) / SUBCHUNK_ENTRIES_CAP_LOCAL;
+        round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP_LOCAL);
 
-    // Phase 1 prologue bytes that live in the per-MSM arena (rather than on the heap):
-    //   - msb_per_scalar       : n bytes
-    //   - glv_scalars_storage  : n * 32 bytes  (when use_glv)
-    //   - glv_points_storage   : n * 64 bytes  (when use_glv && inline-doubling path)
-    //   - per_thread_msb_hist  : profile_threads * 1024 bytes (256 * uint32_t per thread)
-    // The PhaseA scratch slab (one per worker) is only allocated when dedup is active.
-    // See `pippenger_round_parallel` for the mirrored allocation site.
     const bool inline_glv_double = use_glv && !external_glv_provided;
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
-    const size_t phase_one_prologue_bytes = n                                            // msb_per_scalar
-                                            + (use_glv ? size_t{ 32 } * n : size_t{ 0 }) // glv_scalars_storage
-                                            + (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) // glv_points_storage
-                                            + (profile_threads * size_t{ 1024 }); // per_thread_msb_hist
+    const size_t phase_one_prologue_bytes =
+        round_parallel_detail::compute_phase_one_prologue_bytes(n, use_glv, inline_glv_double, profile_threads);
 
-    // Per-worker cluster_members cap: n is a hard upper bound on cluster_members across
-    // all workers (each scalar contributes to at most one cluster_member entry), so
-    // min(DEDUP_MAX_MEMBERS, n) is exact and tighter than the constant for small-n MSMs.
-    // The publish-flatten step enforces this cap algorithmically: clusters that would
-    // overflow are skipped and fall through to the standard Stage 4/6a path with their
-    // original signed digits.
-    const size_t phase_a_cluster_members_cap = std::min(round_parallel_detail::DEDUP_MAX_MEMBERS, n);
-    // Per-worker cluster_offsets cap: clusters_opened is hard-capped at
-    // cids_per_thread = DEDUP_MAX_CLUSTERS / num_threads per worker; cluster_offsets
-    // holds clusters_opened + 1 entries. The +2 covers the leading-zero sentinel and
-    // the post-last terminator slot.
-    const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
+    const auto phase_a_caps = round_parallel_detail::compute_phase_a_caps(n, num_threads);
+    const size_t phase_a_cluster_members_cap = phase_a_caps.members_cap;
+    const size_t phase_a_cluster_offsets_cap = phase_a_caps.offsets_cap;
 
     // Zone W per-worker UNION via the canonical layout walk. Stage 6a, Stage 6b, and
     // Phase A overlay the same per-worker bytes; the struct returns the max-of-layouts
@@ -2291,23 +2226,14 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
                                   + phase_one_prologue_bytes;
 
     // wpb fallback when fixed_overhead has eaten the BATCH_MEM_BUDGET headroom: the inline
-    // `pick_wpb` in `pippenger_round_parallel` returns `W_R` (the whole region) — running
-    // every window in a single batch — when `available_budget == 0`. The arena sizer must
-    // mirror that fallback exactly or the post-decision (P + W + S) cursor overflows the
-    // pre-Phase-1 buffer. Previously this branch returned `wpb = 1` and relied on a
-    // `worst_case_arena = BATCH_MEM_BUDGET + 32K` floor, but that floor is wrong: with large
-    // num_threads the fixed_overhead alone already exceeds BATCH_MEM_BUDGET and the floor
-    // does not cover `fixed_overhead + num_windows * per_window_bytes`. Bumping wpb to
-    // num_windows here makes the conservative_arena formula track the inline path's tight
-    // calc to within the per_window_bytes alignment slop.
-    size_t windows_per_batch = 0;
-    if (BATCH_MEM_BUDGET <= fixed_overhead) {
-        windows_per_batch = num_windows;
-    } else {
-        const size_t available_budget = BATCH_MEM_BUDGET - fixed_overhead;
-        windows_per_batch = std::max<size_t>(1, available_budget / per_window_bytes);
-    }
-    windows_per_batch = std::min(windows_per_batch, num_windows);
+    // `solve_wpb` in `pippenger_round_parallel` returns `W_R` (the whole region) — running
+    // every window in a single batch — when `available_budget == 0`. Previously the sizer
+    // returned `wpb = 1` and relied on a `worst_case_arena = BATCH_MEM_BUDGET + 32K` floor;
+    // that floor failed for large num_threads where fixed_overhead alone exceeds the budget.
+    const size_t available_budget_outer =
+        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+    const size_t windows_per_batch =
+        round_parallel_detail::solve_wpb(per_window_bytes, available_budget_outer, num_windows);
     // Dedup state lives in the arena (allocated post-Phase-1, retained through Stage 6a).
     // Worst-case sizes: redirect_lookup is one uint32 per working scalar (4n bytes);
     // extra_points is the fixed DEDUP_MAX_CLUSTERS cap (≈1 MB) regardless of n.
@@ -2322,29 +2248,14 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
         for (size_t w = 0; w < layout_sched.num_windows; ++w) {
             B_eff_layout = std::max(B_eff_layout, static_cast<size_t>(layout_sched.num_buckets[w]));
         }
-        const size_t dense_stride_layout = std::max<size_t>(
-            2, std::bit_ceil((B_eff_layout > 1) ? ((B_eff_layout - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
-        const size_t bucket_partials_layout = (B_eff_layout > 0) ? (B_eff_layout - 1 + num_threads - 1) : 0;
-        const size_t hist_h_bytes_pw_layout = size_t{ 4 } * num_threads * B_eff_layout;
-        const size_t hist_o_bytes_pw_layout =
-            (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) + (size_t{ 96 } * num_threads);
-        const size_t hist_slot_bytes_pw_layout = std::max(hist_h_bytes_pw_layout, hist_o_bytes_pw_layout);
-        const size_t dense_slot_bytes_pw_layout = size_t{ 65 } * bucket_partials_layout;
-        const size_t per_window_bytes_layout =
-            (size_t{ 4 } * n) + hist_slot_bytes_pw_layout + dense_slot_bytes_pw_layout +
-            (size_t{ 8 } * (B_eff_layout + 1)) + (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * (num_threads + 1)) +
-            (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) +
-            (size_t{ 16 } * worker_total_for_budget) + (size_t{ 8 } * num_threads) +
-            (size_t{ 87 } * worker_total_for_budget * dense_stride_layout);
+        const size_t dense_stride_layout = round_parallel_detail::compute_dense_stride(B_eff_layout, num_threads);
+        const size_t per_window_bytes_layout = round_parallel_detail::compute_per_window_bytes<Curve>(
+            num_threads, B_eff_layout, n, dense_stride_layout, worker_total_for_budget);
 
-        size_t wpb = 0;
-        if (BATCH_MEM_BUDGET <= fixed_overhead) {
-            wpb = layout_sched.num_windows;
-        } else {
-            const size_t available_budget = BATCH_MEM_BUDGET - fixed_overhead;
-            wpb = std::max<size_t>(1, available_budget / per_window_bytes_layout);
-        }
-        wpb = std::min(wpb, static_cast<size_t>(layout_sched.num_windows));
+        const size_t available_budget =
+            (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+        const size_t wpb = round_parallel_detail::solve_wpb(
+            per_window_bytes_layout, available_budget, static_cast<size_t>(layout_sched.num_windows));
         return fixed_overhead + (wpb * per_window_bytes_layout) + 32768 + dedup_bytes;
     };
 
@@ -2693,99 +2604,23 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
     }
 
-    // s.dense_buckets stride upper bound. Used both for the budget calculation and the
-    // arena allocation. Stage 6 always rebalances now: stride = next_pow2(⌈(B-1)/T⌉)
-    // where each Stage-6b task owns a uniform bucket-index slice.
-    const size_t dense_stride_est =
-        std::max<size_t>(2, std::bit_ceil((B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
-    // Σ_t buckets_per_thread[t][w] per window. Each thread's slice covers a contiguous
-    // bucket-index range; adjacent threads may share a boundary bucket (counted twice
-    // in the sum). With T threads and T−1 possible shared boundaries, the sum is at
-    // most B + T − 1. For typical (uniform-random) scalar distributions, the sum is
-    // ≈ B; this bound is tight to within T.
-    const size_t bucket_partials_per_window_max = (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : 0;
-
-    // Per-window bytes for the uniform schedule. The removed split path had a second
-    // upper region with lower capacity; the production path now iterates [0, n) directly.
     const size_t worker_total_for_budget = num_threads;
-    // HIST slot — two non-coexisting lifetime classes share one byte slab per window:
-    //   H (S1-S4): digit_cursors
-    //   O (S6b-S7): chunk_outputs + window_partial_sums
-    // H dies before O is born (Stage 4's cursor advance ends before Stage 6b first writes
-    // chunk_outputs / window_partial_sums). Slot per-window = max(H, O).
-    //
-    // D-class (bucket_partials_dense + bucket_partials_present) used to overlay this
-    // slot at the D-region offset, but a 10× interleaved WASM Chonk bench showed Stage 6a
-    // regressed +1.29% (t=+58) due to L1 cache aliasing on the `dense[slot]/present[slot]`
-    // scatter writes when D sat at the HIST-overlaid offset (trace report:
-    // https://gist.github.com/AztecBot/8cc506ff429bdf5104fa02104c0e731b). D-class has its
-    // own dedicated Zone-S DENSE slot below; HIST keeps only H ↔ O.
-    //
-    // The single `digit_cursors` buffer carries the per-(w, t, d) Stage 1 counts AND the
-    // Stage 2 prefix-sum offsets (Stage 2 overwrites each slot with the offset Stage 4
-    // needs as a cursor), so H sizes as one uint32 per (w, t, d). Phase 5 additionally
-    // folds the per-window per-digit totals into bucket_start_all[w][d+1] (its own Zone S
-    // slot, sized B_eff+1 per window) so Stage 3 can prefix-sum in place without a
-    // separate bucket_total_counts buffer. At chonk (T=32, c=12, B_eff=2049):
-    //   H ≈ 4·32·2049 ≈ 256 KiB/window
-    //   O ≈ (sizeof(ChunkOutput)+96)·32 ≈ 5 KiB/window
-    //   D ≈ 65·2080 ≈ 135 KiB/window  (in its own DENSE slot)
-    // so HIST_SLOT ≈ 256 KiB/window — H-bound. Per-window swing total grows by
-    // D_pw - max(0, D_pw - (H_pw - O_pw)) ≈ 135 KiB/window vs the pre-fix layout; this
-    // additional swing is paid for by isolating the Stage 6a scatter from the H/O bytes.
-    const size_t hist_h_bytes_pw_shared = (size_t{ 4 } * num_threads * B_eff); // digit_cursors
-    const size_t hist_o_bytes_pw_shared =
-        (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) // chunk_outputs
-        + (size_t{ 96 } * num_threads);                                   // window_partial_sums
-    const size_t hist_slot_bytes_pw_shared = std::max(hist_h_bytes_pw_shared, hist_o_bytes_pw_shared);
-    // DENSE slot — dedicated Zone-S slot for the D-class buffers, isolated from the HIST
-    // slot's offset to avoid the L1 alias hot-spot on Stage 6a scatter writes.
-    const size_t dense_slot_bytes_pw_shared =
-        (size_t{ 65 } * bucket_partials_per_window_max); // bucket_partials_dense + bucket_partials_present
-
-    const size_t per_window_bytes_shared =
-        hist_slot_bytes_pw_shared                                      // HIST slot (H ∪ O)
-        + dense_slot_bytes_pw_shared                                   // DENSE slot (D)
-        + (size_t{ 8 } * (B_eff + 1))                                  // bucket_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_bucket_lo_all
-        + (size_t{ 8 } * num_threads)                                  // chunk_bucket_hi_all
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_lo
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_hi
-        + (size_t{ 16 } * worker_total_for_budget)                     // chunk_infos
-        + (size_t{ 8 } * num_threads)                                  // bucket_partials_offsets
-        + (size_t{ 87 } * worker_total_for_budget * dense_stride_est); // s.dense_buckets + aux
-
-    // Schedule contribution: capacity_R uint32 entries per window.
+    const size_t dense_stride_est = round_parallel_detail::compute_dense_stride(B_eff, num_threads);
+    const size_t bucket_partials_per_window_max =
+        round_parallel_detail::compute_bucket_partials_max(B_eff, num_threads);
     const size_t capacity_lo = n;
-    const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
+    const size_t per_window_bytes_lo = round_parallel_detail::compute_per_window_bytes<Curve>(
+        num_threads, B_eff, n, dense_stride_est, worker_total_for_budget);
 
-    // Per-OS-thread Stage 6a seam overflow scratch upper bound. Used as input to the
-    // canonical PerWorkerArenaLayout walk below.
-    const size_t global_max_chunk_len_for_budget = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window_for_budget =
-        (global_max_chunk_len_for_budget + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
+        round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
-    // Phase 1 prologue bytes living in the per-MSM arena — mirrors the formula in
-    // `compute_arena_bytes_for_msm`. Anyone adding a per-MSM arena buffer must update both
-    // sites or `windows_per_batch` drifts off the BATCH_MEM_BUDGET.
-    const size_t phase_one_prologue_bytes = n                                            // msb_per_scalar
-                                            + (use_glv ? size_t{ 32 } * n : size_t{ 0 }) // glv_scalars_storage
-                                            + (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) // glv_points_storage
-                                            + (profile_threads * size_t{ 1024 }); // per_thread_msb_hist
+    const size_t phase_one_prologue_bytes =
+        round_parallel_detail::compute_phase_one_prologue_bytes(n, use_glv, inline_glv_double, profile_threads);
 
-    // Per-worker cluster_members cap: n is a hard upper bound on cluster_members across
-    // all workers (each scalar contributes to at most one cluster_member entry), so
-    // min(DEDUP_MAX_MEMBERS, n) is exact and tighter than the constant for small-n MSMs.
-    // The publish-flatten step enforces this cap algorithmically: clusters that would
-    // overflow are skipped and fall through to the standard Stage 4/6a path with their
-    // original signed digits.
-    const size_t phase_a_cluster_members_cap = std::min(round_parallel_detail::DEDUP_MAX_MEMBERS, n);
-    // Per-worker cluster_offsets cap: clusters_opened is hard-capped at
-    // cids_per_thread = DEDUP_MAX_CLUSTERS / num_threads per worker; cluster_offsets
-    // holds clusters_opened + 1 entries. The +2 covers the leading-zero sentinel and
-    // the post-last terminator slot.
-    const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
+    const auto phase_a_caps = round_parallel_detail::compute_phase_a_caps(n, num_threads);
+    const size_t phase_a_cluster_members_cap = phase_a_caps.members_cap;
+    const size_t phase_a_cluster_offsets_cap = phase_a_caps.offsets_cap;
 
     // Zone W per-worker UNION via the canonical layout walk. The wpb-dependent Stage 6
     // tail is added separately after `windows_per_batch` is solved; here we only need
@@ -2808,16 +2643,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // Solve `wpb · per_window_bytes ≤ BATCH_MEM_BUDGET − fixed_overhead`.
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
-    auto pick_wpb = [&](size_t per_window_bytes_R, size_t W_R) -> size_t {
-        if (W_R == 0) {
-            return 1;
-        }
-        if (per_window_bytes_R == 0 || available_budget == 0) {
-            return std::max<size_t>(1, W_R);
-        }
-        return std::min(std::max<size_t>(1, available_budget / per_window_bytes_R), W_R);
-    };
-    const size_t windows_per_batch_lo = pick_wpb(per_window_bytes_lo, sched.W_lo);
+    const size_t windows_per_batch_lo =
+        round_parallel_detail::solve_wpb(per_window_bytes_lo, available_budget, sched.W_lo);
     const size_t windows_per_batch = windows_per_batch_lo;
 
     // Per-thread chunk-capacity scratch sizing. A thread's per-window slice is split into
