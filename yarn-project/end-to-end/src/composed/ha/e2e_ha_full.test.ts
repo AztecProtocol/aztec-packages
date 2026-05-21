@@ -38,7 +38,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 
-import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import {
   type HADatabaseConfig,
   cleanupHADatabase,
@@ -153,30 +152,26 @@ describe('HA Full Setup', () => {
       dateProvider,
       deployL1ContractsValues,
       genesis,
-    } = await setup(
-      1,
-      {
-        ...PIPELINING_SETUP_OPTS,
-        initialValidators,
-        sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
-        aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-        startProverNode: true,
-        // Disable validation on this node
-        disableValidator: true,
-        skipAccountDeployment: true,
-        // Enable P2P for transaction gossip
-        p2pEnabled: true,
-        // Enable slashing for testing governance + slashing vote coordination
-        slasherEnabled: true,
-        slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-        slashingQuorum: 17, // >50% of 32 slots for tally quorum,
-      },
-      { syncChainTip: 'checkpointed' },
-    ));
+    } = await setup(1, {
+      initialValidators,
+      sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
+      aztecTargetCommitteeSize: COMMITTEE_SIZE,
+      minTxsPerBlock: 1,
+      archiverPollingIntervalMS: 200,
+      sequencerPollingIntervalMS: 200,
+      worldStateBlockCheckIntervalMS: 200,
+      blockCheckIntervalMS: 200,
+      startProverNode: true,
+      // Disable validation on this node
+      disableValidator: true,
+      skipAccountDeployment: true,
+      // Enable P2P for transaction gossip
+      p2pEnabled: true,
+      // Enable slashing for testing governance + slashing vote coordination
+      slasherEnabled: true,
+      slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
+      slashingQuorum: 17, // >50% of 32 slots for tally quorum,
+    }));
 
     if (!dateProvider) {
       throw new Error('dateProvider must be provided by setup for HA tests');
@@ -481,28 +476,15 @@ describe('HA Full Setup', () => {
     const round = await governanceProposer.computeRound(blockSlot);
     logger.info(`Block slot ${blockSlot}, governance round ${round}`);
 
-    // Wait for at least one on-chain governance signal for our payload to land, then assert on
-    // the round *outcome* (payload-with-most-signals) rather than on a strict per-node duty
-    // count equality.
-    //
-    // Why not assert `l1VoteCount === uniqueSlots.size` like the previous version did? HA
-    // signing intentionally suppresses duplicate signatures across nodes for the same
-    // `(slot, validator)` duty: only one of the N HA peers actually emits the L1 tx for each
-    // scheduled slot. Under pipelining there is an additional build-slot-vs-target-slot offset
-    // where a vote signed in build slot N targets slot N+1, so at any measurement time the DB
-    // can have a duty row for slot S whose L1 tx hasn't mined yet. The old strict equality
-    // pinned the test to behavior that doesn't hold under either of those.
-    //
-    // What we actually care about: the HA cluster coordinated well enough that at least one
-    // successful governance signal landed for our payload, the round-winner converges on the
-    // payload we configured, no duty was double-signed for the same `(slot, validator)`, and
-    // every recorded duty ended in SIGNED state.
-    logger.info('Polling L1 for governance signals to confirm HA cluster coordination...');
+    // Poll until L1 vote count converges with the DB duties.
+    // The DB records a duty as "signed" when the crypto signature is produced, but before the L1 tx mines.
+    // We need to wait for all in-flight L1 txs to land before comparing.
+    logger.info('Polling L1 for governance votes and waiting for DB convergence...');
     const rollupAddr = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString() as `0x${string}`;
     const govProposerAddr =
       deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString() as `0x${string}`;
 
-    const { l1VoteCount, lastSignalSlot, payloadWithMostSignals } = await retryUntil(
+    const { l1VoteCount, governanceVoteDuties } = await retryUntil(
       async () => {
         const snapshotBlock = await deployL1ContractsValues.l1Client.getBlockNumber();
         const [roundData, l1VoteCountBig] = await Promise.all([
@@ -523,67 +505,55 @@ describe('HA Full Setup', () => {
         ]);
         const lastSignalSlot = Number(roundData.lastSignalSlot);
         const l1VoteCount = Number(l1VoteCountBig);
-        logger.info(
-          `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
-            `payloadWithMostSignals=${roundData.payloadWithMostSignals} ` +
-            `(snapshot at L1 block ${snapshotBlock})`,
-        );
         if (l1VoteCount === 0) {
           return undefined;
         }
-        return {
-          l1VoteCount,
-          lastSignalSlot,
-          payloadWithMostSignals: roundData.payloadWithMostSignals,
-        };
+
+        const dbResult = await mainPool.query<DutyRow>(
+          `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
+          [lastSignalSlot.toString()],
+        );
+        const governanceVoteDuties = dbResult.rows;
+        const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
+
+        logger.info(
+          `L1 round ${round}: lastSignalSlot=${lastSignalSlot}, l1VoteCount=${l1VoteCount}, ` +
+            `DB duties=${governanceVoteDuties.length}, uniqueSlots=${uniqueSlots.size} ` +
+            `(snapshot at L1 block ${snapshotBlock})`,
+        );
+
+        if (l1VoteCount < uniqueSlots.size) {
+          return undefined;
+        }
+        return { l1VoteCount, governanceVoteDuties };
       },
-      `L1 governance round to land >= 1 signal`,
-      120,
-      0.5,
+      'L1 vote count to match DB duties',
+      10,
+      0.2,
     );
 
-    // Outcome 1: the round leader payload is the one we configured all HA nodes to vote for.
-    // This is the strongest "governance state advanced toward our payload" assertion the
-    // contract exposes per-round short of executing the proposal (which needs QUORUM_SIZE
-    // signals -- defaults to ~151 and takes many minutes to reach, way beyond a unit-test
-    // budget).
     expect(l1VoteCount).toBeGreaterThan(0);
-    expect(payloadWithMostSignals.toLowerCase()).toBe(mockGovernancePayload.toString().toLowerCase());
-    logger.info(
-      `Governance round ${round} coordinated on payload ${payloadWithMostSignals}: ${l1VoteCount} signals on L1`,
-    );
 
-    // Outcome 2: every duty the HA cluster recorded for this round is in a healthy state, and
-    // no (slot, validator) pair was signed twice — i.e. HA dedup actually suppressed duplicates.
-    // We tolerate `uniqueDutySlots > l1VoteCount` (in-flight L1 txs that haven't mined yet) and
-    // `uniqueDutySlots < l1VoteCount` (duties that completed too recently to be visible at the
-    // snapshot read) — the only invariant we hold is "no two HA nodes both signed the same
-    // (slot, validator)".
-    const dbResult = await mainPool.query<DutyRow>(
-      `SELECT * FROM validator_duties WHERE slot::numeric <= $1 AND duty_type = 'GOVERNANCE_VOTE' ORDER BY slot, started_at`,
-      [lastSignalSlot.toString()],
-    );
-    const governanceVoteDuties = dbResult.rows;
+    if (governanceVoteDuties.length > 0) {
+      const dutyKeys = governanceVoteDuties.map(row => `${row.slot}-${row.validator_address}`);
+      const uniqueDutyKeys = new Set(dutyKeys);
+      expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length);
 
-    expect(governanceVoteDuties.length).toBeGreaterThan(0);
+      for (const duty of governanceVoteDuties) {
+        logger.info(
+          `  Governance vote duty: slot ${duty.slot}, validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
+        );
+        expect(duty.status).toBe(DutyStatus.SIGNED);
+        expect(duty.completed_at).toBeDefined();
+      }
 
-    const dutyKeys = governanceVoteDuties.map(row => `${row.slot}-${row.validator_address}`);
-    const uniqueDutyKeys = new Set(dutyKeys);
-    expect(uniqueDutyKeys.size).toBe(governanceVoteDuties.length);
-
-    for (const duty of governanceVoteDuties) {
+      const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
       logger.info(
-        `  Governance vote duty: slot ${duty.slot}, validator ${duty.validator_address}, node ${duty.node_id}, status ${duty.status}`,
+        `L1 vote count: ${l1VoteCount}, unique slots in DB with governance votes: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
       );
-      expect(duty.status).toBe(DutyStatus.SIGNED);
-      expect(duty.completed_at).toBeDefined();
+      expect(l1VoteCount).toBe(uniqueSlots.size);
+      logger.info(`Verified L1 votes (${l1VoteCount}) === unique slots with votes (${uniqueSlots.size})`);
     }
-
-    const uniqueSlots = new Set(governanceVoteDuties.map(row => row.slot));
-    logger.info(
-      `L1 vote count: ${l1VoteCount}, governance vote duties: ${governanceVoteDuties.length}, ` +
-        `unique slots with votes: ${uniqueSlots.size} (slots: ${[...uniqueSlots].join(', ')})`,
-    );
 
     logger.info('Governance voting with HA coordination and L1 verification complete');
   });
