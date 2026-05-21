@@ -128,6 +128,7 @@ describe('e2e_avm_simulator', () => {
               avmContractInstance.deployer,
               avmContractInstance.currentContractClassId,
               avmContractInstance.initializationHash,
+              avmContractInstance.immutablesHash,
             )
             .send({ from: defaultAccountAddress });
           expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
