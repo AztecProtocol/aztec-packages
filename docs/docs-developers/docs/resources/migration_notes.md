@@ -9,6 +9,28 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` now take `BoundedVec`
+
+The old array-based `emit_private_log_unsafe(tag, log: [Field; N], length)` and `emit_raw_note_log_unsafe(tag, log: [Field; N], length, note_hash_counter)` have been removed. The temporary `_vec_unsafe` variants introduced in a prior release have been renamed to take their place.
+
+```diff
+- context.emit_private_log_unsafe(tag, log_array, length);
++ context.emit_private_log_unsafe(tag, bounded_vec_log);
+
+- context.emit_raw_note_log_unsafe(tag, log_array, length, note_hash_counter);
++ context.emit_raw_note_log_unsafe(tag, bounded_vec_log, note_hash_counter);
+```
+
+If you were already using `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe`, simply drop the `_vec` from the function name:
+
+```diff
+- context.emit_private_log_vec_unsafe(tag, log);
++ context.emit_private_log_unsafe(tag, log);
+
+- context.emit_raw_note_log_vec_unsafe(tag, log, note_hash_counter);
++ context.emit_raw_note_log_unsafe(tag, log, note_hash_counter);
+```
+
 ### [bb.js / accounts / aztec.nr] Schnorr signatures switched to Poseidon2
 
 The Schnorr challenge hash function changed from `blake2s(pedersen(R.x, pubkey.x, pubkey.y) ‖ message)` to `Poseidon2(DST, R.x, pubkey.x, pubkey.y, message)`, where `DST = poseidon2_hash_bytes("schnorr_grumpkin_poseidon2")` is a domain separation tag binding signatures to this scheme. The change applies end-to-end across the native signer (`bb`), `@aztec/bb.js`, the noir verifier library (`noir-lang/schnorr` v0.2.0 → v0.4.0), and both standard Schnorr account contracts. The auth witness on-wire shape also changes from `[u8; 64]` (the serialized `(s, e)` bytes) to `[Field; 4]` (`[s.lo, s.hi, e.lo, e.hi]`, each scalar split into two 128-bit limbs).
