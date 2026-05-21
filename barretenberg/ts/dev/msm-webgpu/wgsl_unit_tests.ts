@@ -28,6 +28,8 @@ import {
   create_sb,
 } from "../../src/msm_webgpu/cuzk/gpu.js";
 import { StrausKernels } from "../../src/msm_webgpu/cuzk/straus_kernels.js";
+import { packHalfToU32Limbs, splitIntoEndomorphismScalars } from "../../src/msm_webgpu/straus/glv.js";
+import { referenceStrausMsm } from "../../src/msm_webgpu/straus/reference.js";
 import {
   bigints_to_u8_for_gpu,
   compute_misc_params,
@@ -709,6 +711,213 @@ export async function testStrausLookupPrecompute(
   }
 }
 
+// --------- straus_main single-chunk test ----------
+
+function generateScalars(n: number, seed: number): bigint[] {
+  const rand = makeRng(seed);
+  const out: bigint[] = [];
+  for (let i = 0; i < n; i++) {
+    let v = 0n;
+    for (let k = 0; k < 8; k++) v = (v << 32n) | BigInt(rand());
+    v = v % bn254.fields.Fr.ORDER;
+    if (v === 0n) v = 1n;
+    out.push(v);
+  }
+  return out;
+}
+
+function packHalvesU32(halves: bigint[]): Uint8Array {
+  const out = new Uint8Array(halves.length * 16);
+  const view = new DataView(out.buffer);
+  for (let i = 0; i < halves.length; i++) {
+    const limbs = packHalfToU32Limbs(halves[i]);
+    for (let j = 0; j < 4; j++) {
+      view.setUint32(i * 16 + j * 4, limbs[j], true);
+    }
+  }
+  return out;
+}
+
+export async function testStrausChunk(k: number): Promise<UnitTestResult> {
+  const name = `straus_main single-chunk k=${k}`;
+  try {
+    if (k <= 0 || k > 64) {
+      return { name, ok: false, detail: `k out of supported range: ${k}` };
+    }
+    const n = k;
+    const context = await GpuContext.create();
+    const { device } = context;
+    const sm = context.getShaderManager(BN254_CURVE_CONFIG, 15, n);
+
+    const params = compute_misc_params(
+      BN254_BASE_FIELD,
+      BN254_CURVE_CONFIG.wordSize,
+    );
+    const numWords = params.num_words;
+    const wordSize = BN254_CURVE_CONFIG.wordSize;
+    const R = params.r;
+
+    const points = generateAffinePoints(n, n * 0xdeadbeef + 17);
+    const scalars = generateScalars(n, n * 0xfee1d00d + 23);
+
+    const xsMont = points.map((p) => (p.x * R) % BN254_BASE_FIELD);
+    const ysMont = points.map((p) => (p.y * R) % BN254_BASE_FIELD);
+    const baseXSb = create_and_write_sb(
+      device,
+      bigints_to_u8_for_gpu(xsMont, numWords, wordSize),
+    );
+    const baseYSb = create_and_write_sb(
+      device,
+      bigints_to_u8_for_gpu(ysMont, numWords, wordSize),
+    );
+
+    const lutByteLen = n * 8 * numWords * 4;
+    const lutXSb = create_sb(device, lutByteLen);
+    const lutYSb = create_sb(device, lutByteLen);
+    const lutZSb = create_sb(device, lutByteLen);
+
+    const wgSize = 64;
+    const lookupCompiled = await StrausKernels.compileLookupPrecompute(
+      device,
+      sm,
+      n,
+      gpu,
+      wgSize,
+    );
+    const lookupBg = create_bind_group(device, lookupCompiled.layout, [
+      baseXSb,
+      baseYSb,
+      lutXSb,
+      lutYSb,
+      lutZSb,
+    ]);
+
+    const k1Halves: bigint[] = [];
+    const k2Halves: bigint[] = [];
+    for (const s of scalars) {
+      const { k1, k2 } = splitIntoEndomorphismScalars(s);
+      k1Halves.push(k1);
+      k2Halves.push(k2);
+    }
+    const k1Sb = create_and_write_sb(device, packHalvesU32(k1Halves));
+    const k2Sb = create_and_write_sb(device, packHalvesU32(k2Halves));
+
+    const partByteLen = numWords * 4;
+    const partXSb = create_sb(device, partByteLen);
+    const partYSb = create_sb(device, partByteLen);
+    const partZSb = create_sb(device, partByteLen);
+
+    const mainCompiled = await StrausKernels.compileStrausMain(
+      device,
+      sm,
+      n,
+      k,
+      gpu,
+      1,
+    );
+    const mainBg = create_bind_group(device, mainCompiled.layout, [
+      lutXSb,
+      lutYSb,
+      lutZSb,
+      k1Sb,
+      k2Sb,
+      partXSb,
+      partYSb,
+      partZSb,
+    ]);
+
+    const encoder = device.createCommandEncoder();
+    await execute_pipeline(
+      encoder,
+      lookupCompiled.pipeline,
+      lookupBg,
+      Math.ceil(n / wgSize),
+      1,
+      1,
+    );
+    await execute_pipeline(encoder, mainCompiled.pipeline, mainBg, 1, 1, 1);
+
+    const [partXData, partYData, partZData] = await read_from_gpu(
+      device,
+      encoder,
+      [partXSb, partYSb, partZSb],
+    );
+
+    baseXSb.destroy();
+    baseYSb.destroy();
+    lutXSb.destroy();
+    lutYSb.destroy();
+    lutZSb.destroy();
+    k1Sb.destroy();
+    k2Sb.destroy();
+    partXSb.destroy();
+    partYSb.destroy();
+    partZSb.destroy();
+    context.destroy();
+
+    const partX = new Uint32Array(
+      partXData.buffer,
+      partXData.byteOffset,
+      partXData.byteLength / 4,
+    );
+    const partY = new Uint32Array(
+      partYData.buffer,
+      partYData.byteOffset,
+      partYData.byteLength / 4,
+    );
+    const partZ = new Uint32Array(
+      partZData.buffer,
+      partZData.byteOffset,
+      partZData.byteLength / 4,
+    );
+
+    const rInv = modInverse(R, BN254_BASE_FIELD);
+    const xMont = readBigIntAt(partX, 0, numWords, wordSize);
+    const yMont = readBigIntAt(partY, 0, numWords, wordSize);
+    const zMont = readBigIntAt(partZ, 0, numWords, wordSize);
+    const x = mod(xMont * rInv);
+    const y = mod(yMont * rInv);
+    const z = mod(zMont * rInv);
+    const aff = jacobianToAffineQ(x, y, z);
+
+    const expected = referenceStrausMsm(points, scalars);
+    const expectedZero = expected.infinity === true;
+    if (expectedZero) {
+      if (aff !== null) {
+        return {
+          name,
+          ok: false,
+          detail: `expected identity, got (${aff.x.toString(16)}, ${aff.y.toString(16)})`,
+        };
+      }
+      return { name, ok: true };
+    }
+    if (aff === null) {
+      return {
+        name,
+        ok: false,
+        detail: `got identity, expected (${expected.x.toString(16)}, ${expected.y.toString(16)})`,
+      };
+    }
+    if (aff.x !== expected.x || aff.y !== expected.y) {
+      return {
+        name,
+        ok: false,
+        detail:
+          `mismatch\n  got      x=${aff.x.toString(16)} y=${aff.y.toString(16)}\n` +
+          `  expected x=${expected.x.toString(16)} y=${expected.y.toString(16)}`,
+      };
+    }
+    return { name, ok: true, detail: `n=k=${k} single-chunk matched reference` };
+  } catch (err) {
+    return {
+      name,
+      ok: false,
+      detail: err instanceof Error ? `${err.message}\n${err.stack}` : String(err),
+    };
+  }
+}
+
 // --------- test runner ----------
 
 export async function runAllWgslUnitTests(): Promise<UnitTestResult[]> {
@@ -731,6 +940,10 @@ export async function runAllWgslUnitTests(): Promise<UnitTestResult[]> {
 
   for (const n of [1, 8, 64, 256, 1024]) {
     results.push(await testStrausLookupPrecompute(n));
+  }
+
+  for (const k of [1, 2, 3, 4, 6, 8, 12, 16]) {
+    results.push(await testStrausChunk(k));
   }
 
   return results;

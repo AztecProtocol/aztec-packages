@@ -1,5 +1,7 @@
 import { ShaderManager } from "./shader_manager.js";
 
+export { fqCubeRootOfUnityMont } from "./straus_constants.js";
+
 export interface CompiledPipeline {
   pipeline: GPUComputePipeline;
   layout: GPUBindGroupLayout;
@@ -28,6 +30,21 @@ export class StrausKernels {
     workgroupSize = 64,
   ): string {
     return sm.gen_straus_lookup_precompute_shader(n, workgroupSize);
+  }
+
+  /**
+   * WGSL source for the `straus_main` kernel parameterised by compile-time
+   * `n` (active point count) and `numThreadMuls` (the per-thread chunk
+   * size). One thread per chunk produces the Jacobian partial sum for its
+   * `numThreadMuls` `(point, scalar)` pairs.
+   */
+  static renderStrausMain(
+    sm: ShaderManager,
+    n: number,
+    numThreadMuls: number,
+    workgroupSize = 64,
+  ): string {
+    return sm.gen_straus_main_shader(n, numThreadMuls, workgroupSize);
   }
 
   /**
@@ -76,6 +93,60 @@ export class StrausKernels {
       src,
       "main",
       `straus-lookup-precompute-n${n}`,
+    );
+    return { pipeline, layout };
+  }
+
+  /**
+   * Compile the `straus_main` compute pipeline for input size `n` and
+   * per-thread chunk size `numThreadMuls`. Bind-group layout (in binding
+   * order):
+   *   0: lut_x   (read-only storage, 8·N × BigInt)
+   *   1: lut_y   (read-only storage, 8·N × BigInt)
+   *   2: lut_z   (read-only storage, 8·N × BigInt)
+   *   3: k1_lims (read-only storage, 4·N × u32)
+   *   4: k2_lims (read-only storage, 4·N × u32)
+   *   5: part_x  (storage,           T × BigInt where T = ceil(N / numThreadMuls))
+   *   6: part_y  (storage,           T × BigInt)
+   *   7: part_z  (storage,           T × BigInt)
+   */
+  static async compileStrausMain(
+    device: GPUDevice,
+    sm: ShaderManager,
+    n: number,
+    numThreadMuls: number,
+    gpu: {
+      create_bind_group_layout: (
+        device: GPUDevice,
+        types: string[],
+      ) => GPUBindGroupLayout;
+      create_compute_pipeline: (
+        device: GPUDevice,
+        layouts: GPUBindGroupLayout[],
+        src: string,
+        entry: string,
+        cacheKey?: string,
+      ) => Promise<GPUComputePipeline>;
+    },
+    workgroupSize = 64,
+  ): Promise<CompiledPipeline> {
+    const src = StrausKernels.renderStrausMain(sm, n, numThreadMuls, workgroupSize);
+    const layout = gpu.create_bind_group_layout(device, [
+      "read-only-storage",
+      "read-only-storage",
+      "read-only-storage",
+      "read-only-storage",
+      "read-only-storage",
+      "storage",
+      "storage",
+      "storage",
+    ]);
+    const pipeline = await gpu.create_compute_pipeline(
+      device,
+      [layout],
+      src,
+      "main",
+      `straus-main-n${n}-k${numThreadMuls}`,
     );
     return { pipeline, layout };
   }

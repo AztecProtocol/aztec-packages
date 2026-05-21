@@ -71,6 +71,7 @@ import {
   packed_field as packed_field_funcs,
   smvp_bn254 as smvp_bn254_shader,
   straus_lookup_precompute_bn254 as straus_lookup_precompute_bn254_shader,
+  straus_main_bn254 as straus_main_bn254_shader,
   smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
@@ -82,6 +83,7 @@ import {
   transpose_parallel_scatter as transpose_parallel_scatter_shader,
   transpose_serial as transpose_serial_shader,
 } from '../wgsl/_generated/shaders.js';
+import { fqCubeRootOfUnityMont } from './straus_constants.js';
 import {
   compute_by_p_inv_a,
   compute_by_p_inv_split,
@@ -560,6 +562,45 @@ ${packLines.join('\n')}
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        ec_funcs: ec_bn254_funcs,
+      },
+    );
+  }
+
+  public gen_straus_main_shader(
+    n: number,
+    num_thread_muls: number,
+    workgroup_size = 64,
+  ): string {
+    const beta_mont = fqCubeRootOfUnityMont(this.num_words, this.word_size);
+    const beta_mont_limbs = gen_wgsl_limbs_code(
+      beta_mont,
+      "b",
+      this.num_words,
+      this.word_size,
+    );
+    return mustache.render(
+      straus_main_bn254_shader,
+      {
+        n,
+        num_thread_muls,
+        workgroup_size,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        beta_mont_limbs,
         recompile: this.recompile,
       },
       {
