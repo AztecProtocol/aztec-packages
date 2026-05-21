@@ -81,9 +81,11 @@ namespace bb::detail {
  * for it to reach num_workers_ before returning, guaranteeing no worker is
  * still inside do_iterations() when the next generation is published.
  *
- * Idle wait is yield-spin then 100 us sleep_for fallback. Neither path
- * lowers to i32.atomic.wait, so the V8 wasi-threads lost-wakeup race that
- * affects condition_variable-based pools does not apply here.
+ * Idle wait is yield-spin then 100 us sleep_for fallback on native. Browser WASM
+ * keeps yielding because std::this_thread::sleep_for lowers to WASI poll_oneoff,
+ * which is intentionally stubbed out in this build. Neither path lowers to
+ * i32.atomic.wait, so the V8 wasi-threads lost-wakeup race that affects
+ * condition_variable-based pools does not apply here.
  *
  * This is the same design as the round-parallel MSM's local pool — the MSM
  * dispatches parallel_for hundreds of times per proof, and per-call overhead
@@ -151,7 +153,11 @@ class ParallelForPool {
             std::this_thread::yield();
         }
         while (!pred()) {
+#ifdef __wasm__
+            std::this_thread::yield();
+#else
             std::this_thread::sleep_for(std::chrono::microseconds(100));
+#endif
         }
     }
 };
@@ -191,7 +197,11 @@ void ParallelForPool::worker_loop()
             ++idle_spins;
             std::this_thread::yield();
         } else {
+#ifdef __wasm__
+            std::this_thread::yield();
+#else
             std::this_thread::sleep_for(std::chrono::microseconds(100));
+#endif
         }
     }
 }
