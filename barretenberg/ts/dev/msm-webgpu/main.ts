@@ -127,6 +127,11 @@ function readLogN(): number {
   return Math.max(LOGN_MIN, Math.min(LOGN_MAX, raw));
 }
 
+function clampLogN(raw: number): number {
+  if (!Number.isFinite(raw)) return LOGN_MIN;
+  return Math.max(LOGN_MIN, Math.min(LOGN_MAX, raw));
+}
+
 function readMtThreads(): number {
   const raw = parseInt($mtThreads.value, 10);
   if (!Number.isFinite(raw)) return MT_THREADS_DEFAULT;
@@ -1386,15 +1391,93 @@ function hideProgress(): void {
   $progress.classList.remove('visible');
 }
 
+/**
+ * WebGPU-only autorun for headless integration testing (e.g. driving a
+ * single MSM on a BrowserStack real device). Unlike `msm-cross-check`,
+ * this never touches the WASM Pippenger and so does not require
+ * cross-origin isolation — it exercises exactly the WebGPU path the
+ * "Quick sanity check" button runs, at a URL-supplied logN, and posts
+ * the outcome to `/progress` + `/results` so a harness can read it from
+ * JSONL without scraping the DOM.
+ *
+ * The inputs are the first `n = 2^logN` real BN254 SRS G1 points (all
+ * distinct, so the batch-affine pair-tree never hits an x-coordinate
+ * collision) against fresh random Fr scalars.
+ */
+async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof makeResultsClient>): Promise<void> {
+  const logN = clampLogN(parseInt(qp.get('logn') ?? String(LOGN_MIN), 10));
+  // Emit one progress row up front so the harness can detect this run's
+  // id and arm its stall watchdog before the (single) MSM dispatches.
+  client.postProgress({ phase: 'start', logN, hasWebGpu: 'gpu' in navigator });
+  log('info', `[autorun] msm-webgpu logN=${logN} (n=${(1 << logN).toLocaleString()})`);
+  const t0 = performance.now();
+  try {
+    if (!('gpu' in navigator)) {
+      throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
+    }
+    // The boot block kicks off the SRS load; wait for it to land.
+    for (let i = 0; i < 1200 && srsBuf === null; i++) {
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (srsBuf === null) {
+      throw new Error('SRS not loaded within 10 minutes');
+    }
+    const inputs = await generateInputs(logN, false);
+    client.postProgress({ phase: 'inputs_ready', n: inputs.n });
+    const gpu = await runWebGpuOnce(inputs);
+    const totalMs = performance.now() - t0;
+    log('ok', `[autorun] msm-webgpu PASS in ${gpu.ms.toFixed(1)} ms (x=0x${gpu.xy.x.toString(16).slice(0, 16)}…)`);
+    await client.postResults({
+      state: 'done',
+      params: { logN, n: inputs.n, page: 'msm-webgpu-only' },
+      results: {
+        gpu_ms: gpu.ms,
+        total_ms: totalMs,
+        result_x: '0x' + gpu.xy.x.toString(16),
+        result_y: '0x' + gpu.xy.y.toString(16),
+      },
+      hasWebGpu: true,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
+    log('err', `[autorun] msm-webgpu FAILED: ${msg}`);
+    client.postProgress({ phase: 'error' });
+    await client.postResults({
+      state: 'error',
+      params: { logN, page: 'msm-webgpu-only' },
+      results: null,
+      error: msg,
+      hasWebGpu: 'gpu' in navigator,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
+  }
+}
+
 // Page-load boot: load the SRS only. The barretenberg WASM (which forks
 // `mt-threads` workers) stays cold until the user clicks Run / Run × 5 /
 // Sweep — ensureWasmBooted() takes care of the first-click boot. The SRS
 // fetch is just a download + JS-side decompression (no native workers),
 // so it's safe to run unconditionally at page load.
 (async () => {
+  const qp = new URLSearchParams(window.location.search);
+  const autorun = qp.get('autorun');
+  // The WebGPU-only autorun only consumes the first `2^logN` SRS points,
+  // so on a phone we skip the full 2^20 prefix (a 32 MB download + ~1M
+  // point decompress) that the interactive page loads up front.
+  const bootSrsPoints =
+    autorun === 'msm-webgpu' ? 1 << clampLogN(parseInt(qp.get('logn') ?? String(LOGN_MIN), 10)) : SRS_NUM_POINTS;
+  // Fire a beacon as soon as module evaluation reaches the boot block —
+  // before the SRS load — so a headless harness can tell "page never
+  // executed" (no row) from "stuck loading SRS / running" (boot row, no
+  // result).
+  const webgpuClient = autorun === 'msm-webgpu' ? makeResultsClient({ page: 'msm-webgpu-only' }) : null;
+  webgpuClient?.postProgress({ phase: 'boot', hasWebGpu: 'gpu' in navigator, userAgent: navigator.userAgent });
   setBusy(true, 'loading SRS…');
   try {
-    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
+    srsBuf = await loadSrsPoints(bootSrsPoints, event => {
       if (event.kind === 'info') {
         log('info', event.msg);
       } else if (event.kind === 'phase') {
@@ -1403,7 +1486,7 @@ function hideProgress(): void {
         hideProgress();
       }
     });
-    log('ok', `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
+    log('ok', `SRS loaded: ${bootSrsPoints.toLocaleString()} points available.`);
     log(
       'info',
       `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
@@ -1424,8 +1507,10 @@ function hideProgress(): void {
   //   ?use_tree_reduce=1          Route SMVP through tree-reduce pipeline
   // Results posted via the standard /results endpoint so the BS harness
   // can pick them up from JSONL.
-  const qp = new URLSearchParams(window.location.search);
-  const autorun = qp.get('autorun');
+  if (autorun === 'msm-webgpu') {
+    await runWebGpuAutorun(qp, webgpuClient!);
+    return;
+  }
   if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
     const tree = qp.get('use_tree_reduce') === '1';
