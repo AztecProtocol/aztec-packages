@@ -38,13 +38,12 @@ const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 
-// Defaults for the tunable pipeline-shape knobs (see MsmConfig). Each value
-// reproduces the pre-knob behaviour, so an unset config is a no-op.
-const DEFAULT_S = 8; // fused chunk size
-const DEFAULT_WGI = 64; // generic kernel workgroup size
+// Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
+// `reduceWg` are instead chosen per problem size — by pickC / pickS /
+// pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
+const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
-const DEFAULT_REDUCE_WG = 128; // fused-reduction workgroup size
-const DEFAULT_INV_VARIANT: 'a' | 'loop' = 'a';
+const DEFAULT_INV_VARIANT: 'a' | 'loop' = 'loop';
 
 /**
  * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
@@ -54,15 +53,15 @@ const DEFAULT_INV_VARIANT: 'a' | 'loop' = 'a';
 export interface MsmConfig {
   /** Pippenger window bits. Default: `pickC(n)`. */
   c?: number;
-  /** Fused-kernel chunk size (pairs batched per thread). Default 8. */
+  /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
   s?: number;
-  /** Generic kernel workgroup size. Default 64. */
+  /** Generic kernel workgroup size. Default 128. */
   wgi?: number;
-  /** Bucket-reduction workgroup size. Default 128. */
+  /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
   reduceWg?: number;
   /** Reduction leaf-partition log2. Default 1. */
   l0Log?: number;
-  /** GPU field-inversion variant. Default 'a'. */
+  /** GPU field-inversion variant. Default 'loop'. */
   invVariant?: 'a' | 'loop';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
@@ -296,13 +295,31 @@ async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number
   return out;
 }
 
-// Window bits per n — fastest c per size, measured by bench-c-sweep.
-function pickC(n: number): number {
+// Window bits per n — fastest c per size, measured by bench-c-sweep /
+// bench-msm-v2 on this GPU. Tiny-n entries pick a small c to shrink the
+// bucket reduction, which is the dominant fixed cost there.
+export function pickC(n: number): number {
   const logN = Math.round(Math.log2(n));
   const table: Record<number, number> = {
+    7: 4, 8: 4, 9: 5,
     10: 8, 11: 8, 12: 8, 13: 8, 14: 8, 15: 10, 16: 13, 17: 13, 18: 15, 19: 15, 20: 15,
   };
   return table[logN] ?? 13;
+}
+
+// Fused chunk size per n. Small n is occupancy-starved and wants fewer pairs
+// per chunk (more chunks -> more workgroups); large n is saturated and
+// prefers bigger chunks (better inversion amortisation). bench-msm-v2.
+function pickS(n: number): number {
+  const logN = Math.round(Math.log2(n));
+  return logN <= 11 ? 2 : logN <= 13 ? 4 : 8;
+}
+
+// Bucket-reduction workgroup size per c. Tracks the reduction stride: small c
+// stays near the GPU subgroup width (32); large c needs the full 128 to cover
+// its wide phases. bench-msm-v2 (c=8 -> 32, c=10 -> 64, c=13 -> 128).
+function pickReduceWg(c: number): number {
+  return c <= 9 ? 32 : c <= 12 ? 64 : 128;
 }
 
 // Per-level GPU dispatch wiring for one prepared scalar set.
@@ -422,10 +439,10 @@ export class MsmV2 {
     m.device = device;
     m.n = n;
     m.c = config?.c ?? pickC(n);
-    m.s = config?.s ?? DEFAULT_S;
+    m.s = config?.s ?? pickS(n);
     m.wgi = config?.wgi ?? DEFAULT_WGI;
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
-    m.reduceWg = config?.reduceWg ?? DEFAULT_REDUCE_WG;
+    m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     const wantProfile = config?.profile ?? false;

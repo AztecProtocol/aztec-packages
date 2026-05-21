@@ -12,7 +12,7 @@
 import { bn254 } from '@noble/curves/bn254';
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
-import { MsmV2 } from './msm_v2.js';
+import { MsmV2, pickC } from './msm_v2.js';
 
 const FP_MOD = BN254_BASE_FIELD;
 
@@ -65,12 +65,6 @@ function boothDigit(scalar: bigint, w: number, c: number): { bucket: number; sig
   const encode = (raw + 1) >>> 1;
   const bucket = (((encode - neg) >>> 0) ^ negMask) & valMask;
   return { bucket, sign: neg };
-}
-
-function pickC(n: number): number {
-  const logN = Math.round(Math.log2(n));
-  const table: Record<number, number> = { 16: 13, 17: 14, 18: 14, 19: 15, 20: 16 };
-  return table[logN] ?? 13;
 }
 
 // The MSM computed the "v2 way" — Booth-decode, per-window weighted digit
