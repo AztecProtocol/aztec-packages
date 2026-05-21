@@ -6,7 +6,7 @@ import { AztecAddress } from '../../aztec-address/index.js';
 import { PublicKeys } from '../../keys/public_keys.js';
 import { schemas, zodFor } from '../../schemas/index.js';
 
-const VERSION = 1 as const;
+const VERSION = 2 as const;
 
 /**
  * A contract instance is a concrete deployment of a contract class. It always references a contract class,
@@ -26,6 +26,8 @@ export interface ContractInstance {
   originalContractClassId: Fr;
   /** Hash of the selector and arguments to the constructor. */
   initializationHash: Fr;
+  /** Hash of Immutables Values the contract is deployed with. */
+  immutablesHash: Fr;
   /** Public keys associated with this instance. */
   publicKeys: PublicKeys;
 }
@@ -40,6 +42,7 @@ export const ContractInstanceSchema = zodFor<ContractInstance>()(
     currentContractClassId: schemas.Fr,
     originalContractClassId: schemas.Fr,
     initializationHash: schemas.Fr,
+    immutablesHash: schemas.Fr,
     publicKeys: PublicKeys.schema,
   }),
 );
@@ -54,12 +57,13 @@ export const ContractInstanceWithAddressSchema = zodFor<ContractInstanceWithAddr
  */
 export function contractInstanceFromPlainObject(obj: any): ContractInstance {
   return {
-    version: 1,
+    version: 2,
     salt: Fr.fromPlainObject(obj.salt),
     deployer: AztecAddress.fromPlainObject(obj.deployer),
     currentContractClassId: Fr.fromPlainObject(obj.currentContractClassId),
     originalContractClassId: Fr.fromPlainObject(obj.originalContractClassId),
     initializationHash: Fr.fromPlainObject(obj.initializationHash),
+    immutablesHash: Fr.fromPlainObject(obj.immutablesHash),
     publicKeys: PublicKeys.fromPlainObject(obj.publicKeys),
   };
 }

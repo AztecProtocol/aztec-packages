@@ -8,20 +8,25 @@ namespace bb::avm2::tracegen {
 
 void order_jobs_by_destination_columns(std::vector<std::unique_ptr<InteractionBuilderInterface>>& jobs)
 {
-    // Identify first occurrences of each fingerprint.
+    // Tag each job with whether its destination-columns fingerprint is being seen for the first
+    // time. The tag is captured up front so the partition predicate doesn't depend on the
+    // unique_ptrs, which the partition implementation may null out via moves.
     unordered_flat_set<size_t> seen_fingerprints;
-    unordered_flat_set<InteractionBuilderInterface*> first_occurrence_jobs;
+    std::vector<std::pair<bool, std::unique_ptr<InteractionBuilderInterface>>> tagged;
+    tagged.reserve(jobs.size());
 
-    for (const auto& job : jobs) {
+    for (auto& job : jobs) {
         auto fp = job->get_destination_columns_fingerprint();
         auto [_, inserted] = seen_fingerprints.insert(fp);
-        if (inserted) {
-            first_occurrence_jobs.insert(job.get());
-        }
+        tagged.emplace_back(inserted, std::move(job));
     }
 
     // Stable partition: first occurrences come first.
-    std::ranges::stable_partition(jobs, [&](const auto& job) { return first_occurrence_jobs.contains(job.get()); });
+    std::ranges::stable_partition(tagged, [](const auto& t) { return t.first; });
+
+    for (size_t i = 0; i < tagged.size(); ++i) {
+        jobs[i] = std::move(tagged[i].second);
+    }
 }
 
 } // namespace bb::avm2::tracegen

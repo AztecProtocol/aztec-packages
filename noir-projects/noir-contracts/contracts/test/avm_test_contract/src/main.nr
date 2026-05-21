@@ -16,7 +16,7 @@ pub contract AvmTest {
     use aztec::macros::{functions::{external, view}, storage::storage};
     use aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
-        get_contract_instance_initialization_hash_avm,
+        get_contract_instance_immutables_hash_avm, get_contract_instance_initialization_hash_avm,
     };
     use aztec::protocol::abis::function_selector::FunctionSelector;
     use aztec::protocol::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
@@ -389,20 +389,24 @@ pub contract AvmTest {
         [4, 5, 6] // Should not get here.
     }
 
+    // This function is called from avm/avm_simulator.test.ts to test retrieval
     #[external("public")]
     fn test_get_contract_instance(address: AztecAddress) {
         let deployer = get_contract_instance_deployer_avm(address);
         let class_id = get_contract_instance_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
+        let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
         assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
         assert(class_id.is_some(), "Contract instance not found when getting CLASS_ID!");
         assert(initialization_hash.is_some(), "Contract instance not found when getting INIT_HASH!");
+        assert(immutables_hash.is_some(), "Contract instance not found when getting IMMUTABLES_HASH!");
 
         // The values here should match those in `avm_simulator.test.ts`
         assert(deployer.unwrap().eq(AztecAddress::from_field(0x456)));
         assert(class_id.unwrap().eq(ContractClassId::from_field(0x789)));
         assert(initialization_hash.unwrap() == 0x101112);
+        assert(immutables_hash.unwrap() == 0x202221);
     }
 
     #[external("public")]
@@ -411,12 +415,14 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        expected_immutables_hash: Field,
     ) {
         _test_get_contract_instance_matches(
             address,
             expected_deployer,
             expected_class_id,
             expected_initialization_hash,
+            expected_immutables_hash,
         );
     }
 
@@ -426,19 +432,23 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        expected_immutables_hash: Field,
     ) {
         let deployer = get_contract_instance_deployer_avm(address);
         let class_id = get_contract_instance_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
+        let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
         assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
         assert(class_id.is_some(), "Contract instance not found when getting CLASS_ID!");
         assert(initialization_hash.is_some(), "Contract instance not found when getting INIT_HASH!");
+        assert(immutables_hash.is_some(), "Contract instance not found when getting IMMUTABLES_HASH!");
 
         // The values here should match those in `avm_simulator.test.ts`
         assert(deployer.unwrap().eq(expected_deployer));
         assert(class_id.unwrap().eq(expected_class_id));
         assert(initialization_hash.unwrap().eq(expected_initialization_hash));
+        assert(immutables_hash.unwrap().eq(expected_immutables_hash));
 
         // Get a Protocol Contract and it should exist
         aztec::oracle::logging::debug_log("Get Contract Instance Protocol Contract Instance");
@@ -842,6 +852,7 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        expected_immutables_hash: Field,
         skip_strictly_limited_side_effects: bool,
     ) {
         aztec::oracle::logging::debug_log("biwise_ops");
@@ -877,6 +888,7 @@ pub contract AvmTest {
             expected_deployer,
             expected_class_id,
             expected_initialization_hash,
+            expected_immutables_hash,
         );
         aztec::oracle::logging::debug_log("get_address");
         let _ = _get_address(self.address);
