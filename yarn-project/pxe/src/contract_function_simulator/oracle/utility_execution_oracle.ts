@@ -48,7 +48,6 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';

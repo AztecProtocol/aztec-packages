@@ -20,12 +20,10 @@ import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
 import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
-import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
