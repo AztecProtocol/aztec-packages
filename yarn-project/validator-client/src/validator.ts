@@ -79,6 +79,10 @@ const MAX_TRACKED_BAD_ATTESTATIONS = 10_000;
 const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
   'state_mismatch',
   'failed_txs',
+  'global_variables_mismatch',
+  'invalid_proposal',
+  'parent_block_wrong_slot',
+  'in_hash_mismatch',
 ];
 
 const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<CheckpointProposalValidationFailureReason, boolean> = {
