@@ -57,6 +57,7 @@ export default defineConfig({
       input: {
         index: path.join(__dirname, "index.html"),
         "field-verify": path.join(__dirname, "bench-field-verify.html"),
+        "field-ops": path.join(__dirname, "bench-field-ops.html"),
       },
     },
   },

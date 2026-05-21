@@ -35,14 +35,54 @@ import { BN254_BASE_FIELD, modInverse } from '../../src/msm_webgpu/cuzk/bn254.js
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
 const FP = BN254_BASE_FIELD;
-// Fixed pipeline-shape constants (the bench exposed these as URL params).
-const S = 8; // fused chunk size
-const WGI = 64; // generic kernel workgroup size
 const NUMBITS = 254; // scalar field bit length
-const L0_LOG = 1; // reduction leaf-partition log2
-const REDUCE_WG = 128; // fused-reduction workgroup size
-const INV_VARIANT: 'a' | 'loop' = 'a';
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
+
+// Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
+// `reduceWg` are instead chosen per problem size — by pickC / pickS /
+// pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
+const DEFAULT_WGI = 128; // generic kernel workgroup size
+const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
+const DEFAULT_INV_VARIANT: 'a' | 'loop' = 'loop';
+
+/**
+ * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
+ * value that reproduces current behaviour, so `{}` (or omitting it) is a no-op
+ * — which keeps A/B comparisons honest.
+ */
+export interface MsmConfig {
+  /** Pippenger window bits. Default: `pickC(n)`. */
+  c?: number;
+  /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
+  s?: number;
+  /** Generic kernel workgroup size. Default 128. */
+  wgi?: number;
+  /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
+  reduceWg?: number;
+  /** Reduction leaf-partition log2. Default 1. */
+  l0Log?: number;
+  /** GPU field-inversion variant. Default 'loop'. */
+  invVariant?: 'a' | 'loop';
+  /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
+  profile?: boolean;
+  /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
+  jacobianCrossover?: number;
+}
+
+/** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
+export interface ProfileBreakdown {
+  demont: number;
+  decompose: number;
+  transpose: number;
+  convert: number;
+  planner: number;
+  fused: number;
+  carry: number;
+  finalize: number;
+  redInit: number;
+  redFused: number;
+  wall: number;
+}
 
 // --- pure helpers (copied from bench-msm-tree-v2.ts) ---
 
@@ -255,44 +295,31 @@ async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number
   return out;
 }
 
-export interface BufDigest {
-  hash: string;
-  len: number;
-  nonzero: number;
-  head: number[];
-  tail: number[];
-}
-
-// FNV-1a over the u32 words plus length / nonzero-count / head+tail samples.
-// Content- and order-sensitive: identical buffers digest identically, so two
-// devices' per-stage buffers can be compared without shipping megabytes.
-function digestU32(a: Uint32Array): BufDigest {
-  let h = 0x811c9dc5 >>> 0;
-  let nonzero = 0;
-  for (let i = 0; i < a.length; i++) {
-    const v = a[i] >>> 0;
-    if (v !== 0) nonzero++;
-    for (let s = 0; s < 32; s += 8) {
-      h ^= (v >>> s) & 0xff;
-      h = Math.imul(h, 0x01000193) >>> 0;
-    }
-  }
-  return {
-    hash: (h >>> 0).toString(16).padStart(8, '0'),
-    len: a.length,
-    nonzero,
-    head: Array.from(a.subarray(0, Math.min(8, a.length))),
-    tail: Array.from(a.subarray(Math.max(0, a.length - 8))),
-  };
-}
-
-// Window bits per n — fastest c per size, measured by bench-c-sweep.
-function pickC(n: number): number {
+// Window bits per n — fastest c per size, measured by bench-c-sweep /
+// bench-msm-v2 on this GPU. Tiny-n entries pick a small c to shrink the
+// bucket reduction, which is the dominant fixed cost there.
+export function pickC(n: number): number {
   const logN = Math.round(Math.log2(n));
   const table: Record<number, number> = {
+    7: 4, 8: 4, 9: 5,
     10: 8, 11: 8, 12: 8, 13: 8, 14: 8, 15: 10, 16: 13, 17: 13, 18: 15, 19: 15, 20: 15,
   };
   return table[logN] ?? 13;
+}
+
+// Fused chunk size per n. Small n is occupancy-starved and wants fewer pairs
+// per chunk (more chunks -> more workgroups); large n is saturated and
+// prefers bigger chunks (better inversion amortisation). bench-msm-v2.
+function pickS(n: number): number {
+  const logN = Math.round(Math.log2(n));
+  return logN <= 11 ? 2 : logN <= 13 ? 4 : 8;
+}
+
+// Bucket-reduction workgroup size per c. Tracks the reduction stride: small c
+// stays near the GPU subgroup width (32); large c needs the full 128 to cover
+// its wide phases. bench-msm-v2 (c=8 -> 32, c=10 -> 64, c=13 -> 128).
+function pickReduceWg(c: number): number {
+  return c <= 9 ? 32 : c <= 12 ? 64 : 128;
 }
 
 // Per-level GPU dispatch wiring for one prepared scalar set.
@@ -318,6 +345,14 @@ export class MsmV2 {
   private bTotal!: number;
   private R!: bigint;
   private rinv!: bigint;
+  // --- tuning knobs (from MsmConfig; resolved in create) ---
+  private s!: number;
+  private wgi!: number;
+  private l0Log!: number;
+  private reduceWg!: number;
+  private invVariant!: 'a' | 'loop';
+  private profile = false;
+  private jacobianCrossover = 0;
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -374,13 +409,11 @@ export class MsmV2 {
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
-  // Per-stage buffers retained for collectDiagnostics() readback.
-  private scalarsRawBuf?: GPUBuffer;
-  private chunksBuf?: GPUBuffer;
-  private signsBuf?: GPUBuffer;
-  private valIdxBuf?: GPUBuffer;
-  private countsBufsRef: GPUBuffer[] = [];
-  private offsetsBufsRef: GPUBuffer[] = [];
+  // profiling (created in prepare when this.profile)
+  private querySet: GPUQuerySet | null = null;
+  private tsResolveBuf: GPUBuffer | null = null;
+  private tsStagingBuf: GPUBuffer | null = null;
+  private passCount = 0;
   private demontBind!: GPUBindGroup;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
@@ -398,19 +431,27 @@ export class MsmV2 {
    * Build the data-independent half of the pipeline: pipelines, layouts and
    * the Montgomery-form point pool. `pointsBuf` is `n × 64` little-endian
    * bytes — `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine
-   * (the harness / SRS layout). `c` defaults to a per-n window size.
+   * (the harness / SRS layout). `config` tunes the pipeline knobs; every field
+   * defaults to current behaviour (see {@link MsmConfig}).
    */
-  static async create(
-    device: GPUDevice,
-    n: number,
-    pointsBuf: Uint8Array,
-    c?: number,
-    opts?: { warmup?: boolean },
-  ): Promise<MsmV2> {
+  static async create(device: GPUDevice, n: number, pointsBuf: Uint8Array, config?: MsmConfig): Promise<MsmV2> {
     const m = new MsmV2();
     m.device = device;
     m.n = n;
-    m.c = c ?? pickC(n);
+    m.c = config?.c ?? pickC(n);
+    m.s = config?.s ?? pickS(n);
+    m.wgi = config?.wgi ?? DEFAULT_WGI;
+    m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
+    m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
+    m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
+    m.jacobianCrossover = config?.jacobianCrossover ?? 0;
+    const wantProfile = config?.profile ?? false;
+    m.profile = wantProfile && device.features.has('timestamp-query');
+    if (wantProfile && !m.profile) {
+      console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
+    }
+    // Pull the knobs into the local names the rest of create() uses.
+    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT } = m;
     m.numWindows = Math.ceil(NUMBITS / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
@@ -548,16 +589,12 @@ export class MsmV2 {
     // Warm-up: prepare + dispatch several times so the first timed run pays
     // no shader JIT / command-buffer cold start and sees ramped GPU clocks.
     // Dummy scalars (0x01..) give a representative bucket distribution.
-    // Diagnostics pass `warmup: false` so a single run is measured cleanly
-    // (and we don't hammer a crashing pipeline before reading state back).
-    if (opts?.warmup !== false) {
-      try {
-        const dummy = new Uint8Array(n * 32).fill(1);
-        m.prepare(dummy);
-        for (let w = 0; w < 5; w++) await m.run();
-      } catch (e) {
-        console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
-      }
+    try {
+      const dummy = new Uint8Array(n * 32).fill(1);
+      m.prepare(dummy);
+      for (let w = 0; w < 5; w++) await m.run();
+    } catch (e) {
+      console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
     }
     return m;
   }
@@ -582,6 +619,7 @@ export class MsmV2 {
     const BW = this.BW;
     const B_TOTAL = this.bTotal;
     const R = this.R;
+    const { s: S, wgi: WGI, reduceWg: REDUCE_WG } = this;
     const soa = (M: number): GPUBuffer => {
       const b = device.createBuffer({
         size: 2 * PG * M * 4 * 4,
@@ -879,27 +917,62 @@ export class MsmV2 {
       });
     }
 
-    this.scalarsRawBuf = scalarsRawBuf;
-    this.chunksBuf = chunksBuf;
-    this.signsBuf = signsBuf;
-    this.valIdxBuf = valIdxBuf;
-    this.countsBufsRef = countsBufs;
-    this.offsetsBufsRef = offsetsBufs;
+    // --- Profiling: (re)create the timestamp query set, sized to the pass
+    // count of the run() this prepare() set up. ---
+    this.querySet?.destroy();
+    this.querySet = null;
+    this.tsResolveBuf = null;
+    this.tsStagingBuf = null;
+    if (this.profile) {
+      let passes = 1; // demont
+      for (let bi = 0; bi < numBatches; bi++) {
+        passes += 6; // decompose + xpose x3 + conv x2
+        for (let lv = 0; lv < levels; lv++) passes += 3 + this.levelBinds[lv].fusedTiles.length;
+      }
+      passes += 2; // reduceInit + reduceFused
+      this.passCount = passes;
+      this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
+      this.tsResolveBuf = device.createBuffer({
+        size: passes * 16,
+        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+      });
+      this.tsStagingBuf = device.createBuffer({
+        size: passes * 16,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+      this.prepBuffers.push(this.tsResolveBuf, this.tsStagingBuf);
+    }
 
     this.preparedFor = scalarsBuf;
   }
 
   /**
    * Encode + submit the whole batched pipeline, then decode `red_buf` and
-   * host-combine the windows into the affine MSM result (normal form).
-   * Must be called after `prepare`. This is the timed phase.
+   * host-combine the windows into the affine MSM result (normal form). Must
+   * be called after `prepare`. This is the timed phase. When the instance was
+   * created with `profile`, the result carries a per-pass GPU breakdown;
+   * otherwise `profile` is `null`.
    */
-  async run(): Promise<{ x: bigint; y: bigint }> {
+  async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
+    const { wgi: WGI } = this;
     const device = this.device;
+    const wallT0 = performance.now();
     const enc = device.createCommandEncoder();
-    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1) => {
-      const pass = enc.beginComputePass();
+    const cats: string[] = [];
+    let passIdx = 0;
+    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1, cat = '') => {
+      const desc: GPUComputePassDescriptor = {};
+      if (this.profile && this.querySet) {
+        desc.timestampWrites = {
+          querySet: this.querySet,
+          beginningOfPassWriteIndex: 2 * passIdx,
+          endOfPassWriteIndex: 2 * passIdx + 1,
+        };
+        cats.push(cat);
+        passIdx++;
+      }
+      const pass = enc.beginComputePass(desc);
       pass.setPipeline(pipe);
       pass.setBindGroup(0, bind);
       pass.dispatchWorkgroups(Math.max(1, nx), Math.max(1, ny), 1);
@@ -907,33 +980,37 @@ export class MsmV2 {
     };
 
     // De-Montgomery the scalars once (batch-independent).
-    dispatch(this.demontPipe, this.demontBind, this.nXposePts);
+    dispatch(this.demontPipe, this.demontBind, this.nXposePts, 1, 'demont');
     // Lever G: outer loop over window batches.
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
-      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
+      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw, 'decompose');
       enc.clearBuffer(this.rowPtrBuf);
       enc.clearBuffer(this.currBuf);
-      dispatch(this.xposeCountPipe, this.xposeCountBind, this.nXposePts, tbw);
-      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows);
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw);
-      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI));
-      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta);
+      dispatch(this.xposeCountPipe, this.xposeCountBind, this.nXposePts, tbw, 'transpose');
+      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, 'transpose');
+      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw, 'transpose');
+      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, 'convert');
+      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1, 'convert');
       for (let lv = 0; lv < this.levels; lv++) {
         const lb = this.levelBinds[lv];
         const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
         const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
         const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
-        dispatch(this.plannerPipe, lb.plannerBind, this.batchWindows);
-        for (const tile of lb.fusedTiles) dispatch(fp, tile.bind, tile.nx);
-        dispatch(cp, lb.carryBind, lb.nCarry);
-        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize);
+        dispatch(this.plannerPipe, lb.plannerBind, this.batchWindows, 1, 'planner');
+        for (const tile of lb.fusedTiles) dispatch(fp, tile.bind, tile.nx, 1, 'fused');
+        dispatch(cp, lb.carryBind, lb.nCarry, 1, 'carry');
+        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1, 'finalize');
       }
     }
     // Bucket reduction over the global bucket_result.
-    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit);
-    dispatch(this.reduceFusedPipe, this.reduceFusedBind, this.numWindows);
+    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1, 'redInit');
+    dispatch(this.reduceFusedPipe, this.reduceFusedBind, this.numWindows, 1, 'redFused');
+    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
+      enc.resolveQuerySet(this.querySet, 0, passIdx * 2, this.tsResolveBuf, 0);
+      enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, passIdx * 16);
+    }
     // Gather each window's weighted sum L_w (slot w*STRIDE of red_buf's
     // x-plane||y-plane SoA) into a small staging buffer, encoded into the
     // same command list — the whole run is then one submit + one map.
@@ -956,25 +1033,29 @@ export class MsmV2 {
     }
     this.redStaging.unmap();
     this.windowSums = L;
-    return hostWindowCombine(L, this.c);
+    const result = hostWindowCombine(L, this.c);
+
+    // Per-pass GPU timestamps -> category breakdown (profiling mode only).
+    let profile: ProfileBreakdown | null = null;
+    if (this.profile && this.tsStagingBuf) {
+      await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
+      const ts = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
+      this.tsStagingBuf.unmap();
+      profile = {
+        demont: 0, decompose: 0, transpose: 0, convert: 0, planner: 0,
+        fused: 0, carry: 0, finalize: 0, redInit: 0, redFused: 0, wall: 0,
+      };
+      const acc = profile as unknown as Record<string, number>;
+      for (let i = 0; i < cats.length; i++) {
+        acc[cats[i]] += Number(ts[2 * i + 1] - ts[2 * i]) / 1e6;
+      }
+      profile.wall = performance.now() - wallT0;
+    }
+    return { x: result.x, y: result.y, profile };
   }
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */
   windowSums: Pt[] = [];
-
-  /** Pipeline shape (host-planned). Safe to read after a device loss. */
-  getMeta(): Record<string, number> {
-    return {
-      n: this.n,
-      c: this.c,
-      numWindows: this.numWindows,
-      numBatches: this.numBatches,
-      levels: this.levels,
-      BW: this.BW,
-      stride: this.stride,
-      bTotal: this.bTotal,
-    };
-  }
 
   /** Diagnostic: read back bucket_result. Element b's coords (Montgomery)
    * are at u32 offsets [PG*b*4] (x) and [PG*B_TOTAL*4 + PG*b*4] (y). */
@@ -983,168 +1064,13 @@ export class MsmV2 {
     return { buf, BW: this.BW, numWindows: this.numWindows, stride: this.stride, rinv: this.rinv };
   }
 
-  /**
-   * Read back every retained per-stage buffer and return a digest of each,
-   * in pipeline order, plus the decoded per-window sums and shape metadata.
-   * Compare the digests between two devices on identical (seeded) input: the
-   * first stage whose digest differs is where the GPU pipeline diverges.
-   * Safe to call after a `run()` that threw in the host combine — the GPU
-   * buffers and `windowSums` are already populated by then.
-   */
-  async collectDiagnostics(): Promise<{
-    meta: Record<string, number>;
-    digests: Record<string, BufDigest | { error: string } | null>;
-    failedAt: string | null;
-    windowSums: { x: string; y: string }[];
-  }> {
-    const digests: Record<string, BufDigest | { error: string } | null> = {};
-    let failedAt: string | null = null;
-    // Each readback is independent: a device-loss mid-collection still leaves
-    // the digests gathered so far, and the buffer that first failed localises
-    // where the GPU died.
-    const add = async (name: string, buf: GPUBuffer | undefined) => {
-      if (!buf) {
-        digests[name] = null;
-        return;
-      }
-      try {
-        digests[name] = digestU32(await readbackU32(this.device, buf, buf.size));
-      } catch (e) {
-        digests[name] = { error: e instanceof Error ? e.message : String(e) };
-        if (failedAt === null) failedAt = name;
-      }
-    };
-    // Pipeline order: integer pre-steps first (should be device-independent),
-    // then the EC accumulator and reduction outputs (use field inversion).
-    await add('scalarsRaw_demont', this.scalarsRawBuf);
-    await add('chunks_booth', this.chunksBuf);
-    await add('signs_booth', this.signsBuf);
-    await add('rowPtr_transpose', this.rowPtrBuf);
-    await add('valIdx_scatter', this.valIdxBuf);
-    await add('counts0_csr', this.countsBufsRef[0]);
-    await add('counts1_csr', this.countsBufsRef[1]);
-    await add('offsets0_csr', this.offsetsBufsRef[0]);
-    await add('offsets1_csr', this.offsetsBufsRef[1]);
-    await add('bucketResult_pairtree', this.bucketResultBuf);
-    await add('redBuf_reduction', this.redBuf);
-    const windowSums = this.windowSums.map(pt => ({
-      x: '0x' + pt.x.toString(16),
-      y: '0x' + pt.y.toString(16),
-    }));
-    return {
-      failedAt,
-      meta: {
-        n: this.n,
-        c: this.c,
-        numWindows: this.numWindows,
-        numBatches: this.numBatches,
-        levels: this.levels,
-        BW: this.BW,
-        stride: this.stride,
-        bTotal: this.bTotal,
-      },
-      digests,
-      windowSums,
-    };
-  }
-
-  /**
-   * Like `run()`, but submits each pipeline stage as its own command buffer
-   * and awaits `onSubmittedWorkDone()` after each — so a GPU device-loss
-   * (`VK_ERROR_DEVICE_LOST`) is attributed to the exact stage whose submit
-   * triggered it (`lostAt`). Slower than the batched `run()`; for diagnosis
-   * only. Returns the per-stage completion record.
-   */
-  async runStaged(): Promise<{
-    stages: { name: string; ok: boolean; ms: number }[];
-    lostAt: string | null;
-    lostReason: string | null;
-  }> {
-    if (this.preparedFor === null) throw new Error('MsmV2.runStaged: call prepare() first');
-    const device = this.device;
-    const stages: { name: string; ok: boolean; ms: number }[] = [];
-    let lostAt: string | null = null;
-    let lostReason: string | null = null;
-    let dead = false;
-    void device.lost.then(info => {
-      lostReason = `${info.reason}: ${info.message}`;
-    });
-    // A 4-byte canary mapped after every stage: a readback is a hard sync
-    // point, so an asynchronous device-loss surfaces here at (or one stage
-    // after) the kernel that triggered it, rather than only via the global
-    // `device.lost` promise long after all submits "completed".
-    const canary = device.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
-    const canaryStaging = device.createBuffer({ size: 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-    const disp = (enc: GPUCommandEncoder, pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1) => {
-      const pass = enc.beginComputePass();
-      pass.setPipeline(pipe);
-      pass.setBindGroup(0, bind);
-      pass.dispatchWorkgroups(Math.max(1, nx), Math.max(1, ny), 1);
-      pass.end();
-    };
-    const step = async (name: string, build: (enc: GPUCommandEncoder) => void) => {
-      if (dead) {
-        stages.push({ name, ok: false, ms: 0 });
-        return;
-      }
-      const enc = device.createCommandEncoder();
-      build(enc);
-      const t0 = performance.now();
-      device.queue.submit([enc.finish()]);
-      try {
-        await device.queue.onSubmittedWorkDone();
-        const probe = device.createCommandEncoder();
-        probe.copyBufferToBuffer(canary, 0, canaryStaging, 0, 4);
-        device.queue.submit([probe.finish()]);
-        await device.queue.onSubmittedWorkDone();
-        await canaryStaging.mapAsync(GPUMapMode.READ);
-        canaryStaging.unmap();
-        stages.push({ name, ok: true, ms: performance.now() - t0 });
-      } catch (e) {
-        dead = true;
-        lostAt = name;
-        lostReason = lostReason ?? (e instanceof Error ? e.message : String(e));
-        stages.push({ name, ok: false, ms: performance.now() - t0 });
-      }
-    };
-
-    await step('demont', e => disp(e, this.demontPipe, this.demontBind, this.nXposePts));
-    for (let bi = 0; bi < this.numBatches; bi++) {
-      const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
-      const tSlots = tbw * this.n;
-      await step(`b${bi}.decompose`, e => disp(e, this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw));
-      await step(`b${bi}.clear`, e => {
-        e.clearBuffer(this.rowPtrBuf);
-        e.clearBuffer(this.currBuf);
-      });
-      await step(`b${bi}.xposeCount`, e => disp(e, this.xposeCountPipe, this.xposeCountBind, this.nXposePts, tbw));
-      await step(`b${bi}.xposeScan`, e => disp(e, this.xposeScanPipe, this.xposeScanBind, this.batchWindows));
-      await step(`b${bi}.xposeScatter`, e => disp(e, this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw));
-      await step(`b${bi}.convActive`, e => disp(e, this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI)));
-      await step(`b${bi}.convMeta`, e => disp(e, this.convMetaPipe, this.convMetaBind, this.nConvMeta));
-      for (let lv = 0; lv < this.levels; lv++) {
-        const lb = this.levelBinds[lv];
-        const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
-        const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
-        const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
-        await step(`b${bi}.l${lv}.planner`, e => disp(e, this.plannerPipe, lb.plannerBind, this.batchWindows));
-        await step(`b${bi}.l${lv}.fused`, e => {
-          for (const tile of lb.fusedTiles) disp(e, fp, tile.bind, tile.nx);
-        });
-        await step(`b${bi}.l${lv}.carry`, e => disp(e, cp, lb.carryBind, lb.nCarry));
-        await step(`b${bi}.l${lv}.finalize`, e => disp(e, flp, lb.finalizeBinds[bi], this.numWgsFinalize));
-      }
-    }
-    await step('reduceInit', e => disp(e, this.reduceInitPipe, this.reduceInitBind, this.nReduceInit));
-    await step('reduceFused', e => disp(e, this.reduceFusedPipe, this.reduceFusedBind, this.numWindows));
-    return { stages, lostAt, lostReason };
-  }
-
   /** Release every GPU buffer owned by this instance. */
   destroy(): void {
     for (const b of this.prepBuffers) b.destroy();
     this.prepBuffers = [];
     this.preparedFor = null;
+    this.querySet?.destroy();
+    this.querySet = null;
     this.pointXBuf?.destroy();
     this.pointYBuf?.destroy();
   }

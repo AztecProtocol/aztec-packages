@@ -1668,22 +1668,31 @@ async function runMsmSweepAutorun(qp: URLSearchParams, client: ReturnType<typeof
       client.postProgress({ phase: 'size-begin', logN });
       try {
         const inputs = await generateInputs(logN, false, useRandomPoints);
-        // Skip MsmV2's built-in warm-up: it primes with all-0x01 dummy
-        // scalars, which collapse every point into ONE bucket — a maximally
-        // deep single-submit pair-tree that can trip a mobile GPU's watchdog.
-        // Warm with the real, well-distributed inputs instead.
-        const msm = await MsmV2.create(device, inputs.n, inputs.pointsBuf, undefined, { warmup: false });
+        // Branch's chosen defaults: loop inverse + per-size auto-tuned knobs
+        // (c / s / reduceWg). create() runs its own warm-up. `?profile=1`
+        // enables the per-pass GPU-timestamp breakdown.
+        const wantProfile = (qp.get('profile') ?? '0') === '1';
+        const msm = await MsmV2.create(device, inputs.n, inputs.pointsBuf, wantProfile ? { profile: true } : undefined);
         msm.prepare(inputs.scalarsBuf);
-        await msm.run();
         const ms: number[] = [];
+        const profs: Record<string, number>[] = [];
         for (let r = 0; r < reps; r++) {
           const t0 = performance.now();
-          await msm.run();
+          const res = (await msm.run()) as { profile?: Record<string, number> | null };
           ms.push(performance.now() - t0);
+          if (res.profile) profs.push(res.profile);
         }
         msm.destroy();
         const sorted = ms.slice().sort((a, b) => a - b);
         const med = sorted[Math.floor(sorted.length / 2)];
+        let profile: Record<string, number> | null = null;
+        if (profs.length) {
+          profile = {};
+          for (const k of Object.keys(profs[0])) {
+            const vs = profs.map(p => p[k]).sort((a, b) => a - b);
+            profile[k] = +vs[Math.floor(vs.length / 2)].toFixed(3);
+          }
+        }
         rows.push({
           logN,
           n: 1 << logN,
@@ -1691,8 +1700,9 @@ async function runMsmSweepAutorun(qp: URLSearchParams, client: ReturnType<typeof
           medianMs: +med.toFixed(3),
           minMs: +Math.min(...ms).toFixed(3),
           samples: ms.map(x => +x.toFixed(2)),
+          profile,
         });
-        client.postProgress({ phase: 'size-done', logN, medianMs: +med.toFixed(3) });
+        client.postProgress({ phase: 'size-done', logN, medianMs: +med.toFixed(3), profile });
         log('ok', `[msm-sweep] 2^${logN} (n=${(1 << logN).toLocaleString()}): median ${med.toFixed(2)} ms`);
       } catch (e) {
         const msg = e instanceof Error ? `${e.message}` : String(e);

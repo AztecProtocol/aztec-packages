@@ -905,14 +905,48 @@ ${packLines.join('\n')}
   public gen_bench_field_inv_shader(
     workgroup_size: number,
     iters: number,
-    variant: 'a' | 'loop' = 'a',
+    variant:
+      | 'a'
+      | 'loop'
+      | 'win'
+      | 'loop_bl'
+      | 'dsteps'
+      | 'dsteps_bl'
+      | 'amat'
+      | 'jumpy'
+      | 'bgcd'
+      | 'fermat'
+      | 'plain'
+      | 'v4'
+      | 'pk' = 'a',
   ): string {
     if (workgroup_size <= 0 || iters <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(iters)) {
       throw new Error(`gen_bench_field_inv_shader: workgroup_size (${workgroup_size}) and iters (${iters}) must be positive integers`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
-    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    // Every variant except 'a' lives in by_inverse_loop: 'loop'/'loop_bl' are
+    // the full inverse (branchy / branchless divsteps), 'dsteps'/'dsteps_bl'/
+    // 'amat' are the attribution wrappers, 'win' the static-unroll experiment.
+    // 'a' is the original unrolled-flat path.
+    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
+    const inv_fn_by_variant: Record<typeof variant, string> = {
+      a: 'fr_inv_by_a',
+      loop: 'fr_inv_by_loop',
+      loop_bl: 'fr_inv_by_loop_bl',
+      win: 'fr_inv_by_win',
+      dsteps: 'fr_inv_byl_divsteps_only',
+      dsteps_bl: 'fr_inv_byl_divsteps_bl_only',
+      amat: 'fr_inv_byl_applymatrix_only',
+      // From the fr_pow partial (always included): alternative inverse
+      // algorithms benched head-to-head against the safegcd loop.
+      jumpy: 'fr_inv', // Pornin jumpy K=12 safegcd (axby matrix-apply)
+      bgcd: 'fr_inv_bgcd', // binary ext-GCD, CTZ-bulk halving, no matrix
+      fermat: 'fr_pow_inv', // a^(p-2) Fermat exponentiation
+      plain: 'fr_inv_plain', // plain 1-divstep safegcd
+      v4: 'fr_inv_by_loop_v4', // vec4-register-packed safegcd (Adreno-targeted)
+      pk: 'fr_inv_by_loop_pk', // 2-limb/word packed safegcd (half scratch footprint)
+    };
+    const inv_fn = inv_fn_by_variant[variant];
     return mustache.render(
       bench_field_inv_shader,
       {

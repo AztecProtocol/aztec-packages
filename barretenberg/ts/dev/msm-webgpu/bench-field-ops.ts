@@ -52,20 +52,22 @@ import { compute_misc_params } from '../../src/msm_webgpu/cuzk/utils.js';
 import { BN254_BASE_FIELD, modInverse } from '../../src/msm_webgpu/cuzk/bn254.js';
 import { makeResultsClient } from './results_post.js';
 
-// BM1 (multiply) total ops fixed at 10M, BM2 (inversion) at 1M.
-const MUL_TOTAL_OPS = 10_000_000;
-const INV_TOTAL_OPS = 1_000_000;
+// BM1 (multiply) total ops, BM2 (inversion) total ops. Trimmed from
+// 10M/1M so the inversion bench finishes in bounded time on a slow mobile
+// GPU; ns/op is normalised so the smaller totals don't bias the result.
+const MUL_TOTAL_OPS = 1_000_000;
+const INV_TOTAL_OPS = 100_000;
 
 // Default thread/iter splits. threads * iters must equal the totals
 // above. Enough threads to saturate the GPU and amortise dispatch
 // overhead; iters large enough that per-thread loop body dominates the
 // thread's prologue/epilogue.
-let MUL_THREADS = 100_000; // x 100 iters = 10,000,000
-let MUL_ITERS = 100;
-let INV_THREADS = 10_000; // x 100 iters = 1,000,000
-let INV_ITERS = 100;
+let MUL_THREADS = 100_000; // x 10 iters = 1,000,000
+let MUL_ITERS = 10;
+let INV_THREADS = 10_000; // x 10 iters = 100,000
+let INV_ITERS = 10;
 let WG = 64; // workgroup size for both kernels
-let REPS = 6; // timed reps; rep 0 is the cold (DVFS-ramp) rep
+let REPS = 4; // timed reps; rep 0 is the cold (DVFS-ramp) rep
 let VALIDATE = false;
 
 const FP = BN254_BASE_FIELD;
@@ -122,7 +124,18 @@ function median(xs: number[]): number {
 }
 
 interface OpBenchResult {
-  name: 'field-multiply' | 'field-inversion' | 'field-inversion-loop';
+  name:
+    | 'field-multiply'
+    | 'field-inversion-loop'
+    | 'field-inversion-loop-bl'
+    | 'inv-dsteps'
+    | 'inv-dsteps-bl'
+    | 'inv-amat'
+    | 'inv-jumpy'
+    | 'inv-bgcd'
+    | 'inv-fermat'
+    | 'inv-plain'
+    | 'inv-v4';
   threads: number;
   iters_per_thread: number;
   total_ops: number;
@@ -142,13 +155,13 @@ interface BenchState {
   state: 'boot' | 'running' | 'done' | 'error';
   params: Record<string, unknown> | null;
   results: OpBenchResult[];
-  ratio: number | null;
-  ratioLoop: number | null;
+  // Per-bench inv/mul cost ratios, keyed by bench name.
+  ratios: Record<string, number> | null;
   error: string | null;
   log: string[];
 }
 
-const benchState: BenchState = { state: 'boot', params: null, results: [], ratio: null, ratioLoop: null, error: null, log: [] };
+const benchState: BenchState = { state: 'boot', params: null, results: [], ratios: null, error: null, log: [] };
 (window as unknown as { __bench: BenchState }).__bench = benchState;
 const resultsClient = makeResultsClient({ page: 'bench-field-ops' });
 (window as unknown as { __runId: string }).__runId = resultsClient.runId;
@@ -158,8 +171,7 @@ async function postFinal(): Promise<void> {
     state: benchState.state,
     params: benchState.params,
     results: benchState.results,
-    ratio: benchState.ratio,
-    ratioLoop: benchState.ratioLoop,
+    ratios: benchState.ratios,
     error: benchState.error,
     log: benchState.log,
     userAgent: navigator.userAgent,
@@ -309,6 +321,9 @@ async function runOpBench(
     key: string;
     // Host reference for one thread's sink — null skips validation.
     hostSink: ((seedValues: bigint[], threadIdx: number) => bigint) | null;
+    // Validate this bench even when the global ?validate flag is off (used
+    // to always prove the branchless inverse is bit-exact).
+    forceValidate?: boolean;
   },
 ): Promise<OpBenchResult> {
   const { name, threads, iters, workgroupSize, code, key } = cfg;
@@ -416,7 +431,7 @@ async function runOpBench(
 
   // Optional CPU cross-check: recompute one thread's XOR-folded sink.
   let validated = false;
-  if (VALIDATE && cfg.hostSink) {
+  if ((VALIDATE || cfg.forceValidate) && cfg.hostSink) {
     const gpuSink = await readbackU32(device, sinkBuf, sinkBytes);
     const checkThreads = Math.min(threads, 4);
     let allOk = true;
@@ -430,7 +445,7 @@ async function runOpBench(
     }
     validated = allOk;
     if (allOk) log('ok', `  validation PASS — ${checkThreads} thread sinks match CPU reference`);
-  } else if (VALIDATE) {
+  } else if (VALIDATE || cfg.forceValidate) {
     log('info', '  validation skipped (no host reference for this kernel)');
   }
 
@@ -616,57 +631,105 @@ async function main() {
     benchState.results.push(mulResult);
     resultsClient.postProgress({ kind: 'mul_done', ns_per_op: mulResult.ns_per_op });
 
-    // BM2 — field inversion via by_inverse_a (Option A), 1M ops.
-    const invCode = sm.gen_bench_field_inv_shader(WG, INV_ITERS, 'a');
-    const invResult = await runOpBench(device, sm, R, {
-      name: 'field-inversion',
-      threads: INV_THREADS,
-      iters: INV_ITERS,
-      workgroupSize: WG,
-      code: invCode,
-      key: `bench-field-inv-a-wg${WG}-it${INV_ITERS}`,
-      hostSink: VALIDATE ? hostInvSink(R, Rinv) : null,
-    });
-    benchState.results.push(invResult);
-    resultsClient.postProgress({ kind: 'inv_done', ns_per_op: invResult.ns_per_op });
+    // All inversion-class benches run INV_TOTAL_OPS ops at INV_ITERS per
+    // thread, so their ns/op compare 1:1 with each other and with mul. One
+    // "op" is one call to the host-selected inv_fn; the attribution wrappers
+    // each make BYL_NUM_OUTER component calls, the same count the full loop
+    // driver makes — so divsteps-only + apply_matrix-only reconstruct the
+    // loop inverse minus its driver/reduce/final-mont overhead.
+    type InvVariant =
+      | 'loop'
+      | 'loop_bl'
+      | 'dsteps'
+      | 'dsteps_bl'
+      | 'amat'
+      | 'jumpy'
+      | 'bgcd'
+      | 'fermat'
+      | 'plain'
+      | 'v4'
+      | 'pk';
+    // Variants that compute a real field inverse (have a host cross-check).
+    const FULL_INVERSE: ReadonlySet<InvVariant> = new Set<InvVariant>([
+      'loop',
+      'loop_bl',
+      'jumpy',
+      'bgcd',
+      'fermat',
+      'plain',
+      'v4',
+      'pk',
+    ]);
+    const runInv = async (
+      name: string,
+      variant: InvVariant,
+      forceValidate = false,
+      threads: number = INV_THREADS,
+      iters: number = INV_ITERS,
+    ): Promise<OpBenchResult> => {
+      const code = sm.gen_bench_field_inv_shader(WG, iters, variant);
+      const isFullInverse = FULL_INVERSE.has(variant);
+      const res = await runOpBench(device, sm, R, {
+        name: name as OpBenchResult['name'],
+        threads,
+        iters,
+        workgroupSize: WG,
+        code,
+        key: `bench-field-inv-${variant}-wg${WG}-th${threads}-it${iters}`,
+        hostSink: isFullInverse ? hostInvSink(R, Rinv) : null,
+        forceValidate,
+      });
+      benchState.results.push(res);
+      resultsClient.postProgress({ kind: `${variant}_t${threads}_done`, ns_per_op: res.ns_per_op });
+      return res;
+    };
 
-    // BM3 — field inversion via by_inverse_loop (register-minimal), 1M ops.
-    // Same op count as BM2 — the two variants compare directly — and both
-    // compute the same field inverse, so the CPU cross-check is identical.
-    const invLoopCode = sm.gen_bench_field_inv_shader(WG, INV_ITERS, 'loop');
-    const invLoopResult = await runOpBench(device, sm, R, {
-      name: 'field-inversion-loop',
-      threads: INV_THREADS,
-      iters: INV_ITERS,
-      workgroupSize: WG,
-      code: invLoopCode,
-      key: `bench-field-inv-loop-wg${WG}-it${INV_ITERS}`,
-      hostSink: VALIDATE ? hostInvSink(R, Rinv) : null,
-    });
-    benchState.results.push(invLoopResult);
-    resultsClient.postProgress({ kind: 'inv_loop_done', ns_per_op: invLoopResult.ns_per_op });
+    // OCCUPANCY SWEEP: same 100k total ops, varying thread count (iters
+    // derived). If ns/op falls sharply as threads rise, the inverse is
+    // occupancy/latency-bound (too few concurrent waves to hide the serial
+    // 29-iter dependency chain) rather than compute-bound. mul is benched at
+    // 100k threads, so this also removes the thread-count confound vs mul.
+    // Thread (occupancy) points spanning the production-relevant LOW end
+    // (reduceFused runs ~1 inverse-thread per workgroup) up to saturation.
+    // [threads, iters] chosen so total ops stay bounded at each point.
+    // th=10000 (iters=10) is the validation point — the host model's iter
+    // count matches there, so validated=true is meaningful; other points are
+    // timing-only (validated flag is a host-model artifact away from it=10).
+    const threadPts = [64, 1024, 10000, 65536];
+    const itersFor = (th: number) => (th === 10000 ? INV_ITERS : Math.max(1, Math.round((INV_THREADS * INV_ITERS) / th)));
+    const variants: Array<[InvVariant, string]> = [
+      ['loop', 'loop (u32-array rolling, 20w)'],
+      ['pk', 'pk (packed 2-limb/word, 10w)'],
+      ['v4', 'v4 (vec4-register-packed)'],
+    ];
+    const byVariant: Record<string, OpBenchResult[]> = {};
+    for (const [v] of variants) {
+      byVariant[v] = [];
+      for (const th of threadPts) {
+        byVariant[v].push(await runInv(`${v}-th${th}`, v, th === 10000, th, itersFor(th)));
+      }
+    }
+    const mul = mulResult.ns_per_op;
+    const at = (v: string, th: number) => byVariant[v][threadPts.indexOf(th)];
+    const ratios: Record<string, number> = {};
+    for (const [v] of variants) for (const th of threadPts) ratios[`${v}_th${th}`] = at(v, th).ns_per_op;
+    benchState.ratios = ratios;
 
-    const ratio = invResult.ns_per_op / mulResult.ns_per_op;
-    const ratioLoop = invLoopResult.ns_per_op / mulResult.ns_per_op;
-    benchState.ratio = ratio;
-    benchState.ratioLoop = ratioLoop;
-    log('ok', `field-multiply:           ${mulResult.ns_per_op.toFixed(2)} ns/op`);
-    log(
-      'ok',
-      `RATIO by_inverse_a:    1 inversion = ${ratio.toFixed(1)} field-multiplies ` +
-        `(${invResult.ns_per_op.toFixed(2)} ns/op)`,
-    );
-    log(
-      'ok',
-      `RATIO by_inverse_loop: 1 inversion = ${ratioLoop.toFixed(1)} field-multiplies ` +
-        `(${invLoopResult.ns_per_op.toFixed(2)} ns/op)`,
-    );
-    const loopSpeedup = invResult.ns_per_op / invLoopResult.ns_per_op;
-    log(
-      'ok',
-      `by_inverse_loop vs by_inverse_a: ${loopSpeedup.toFixed(2)}x ` +
-        `${loopSpeedup >= 1 ? 'faster' : 'slower'}`,
-    );
+    log('ok', `field-multiply: ${mul.toFixed(3)} ns/op`);
+    log('ok', `=== occupancy sweep: ns/op by thread count ===`);
+    for (const [v, label] of variants) {
+      const row = threadPts.map(th => `th${th}=${at(v, th).ns_per_op.toFixed(1)}`).join('  ');
+      log('ok', `${label.padEnd(32)} ${row}  validated@10k=${at(v, 10000).validated}`);
+    }
+    const sat = 65536;
+    const loopSat = at('loop', sat).ns_per_op;
+    const ranked = variants
+      .map(([v, label]) => [label, at(v, sat).ns_per_op, at(v, 10000).validated] as const)
+      .sort((a, b) => a[1] - b[1]);
+    log('ok', `=== at ${sat} threads (saturated) — speedup vs loop ===`);
+    for (const [label, ns, val] of ranked) {
+      log('ok', `${label.padEnd(32)} ${ns.toFixed(1)} ns/op  ${(loopSat / ns).toFixed(2)}x  validated=${val}`);
+    }
 
     benchState.state = 'done';
     log('ok', 'done');
