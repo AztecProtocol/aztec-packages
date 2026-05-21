@@ -143,8 +143,10 @@ function compile_all {
 
   get_projects | compile_project
 
-  # Run oracle version check for pxe after compilation
+  # Run oracle version checks after compilation
   cd pxe && yarn check_oracle_version
+  cd ..
+  cd txe && yarn check_txe_oracle_version
   cd ..
 
   cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
