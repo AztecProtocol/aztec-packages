@@ -52,6 +52,7 @@ interface Args {
   cppNamespace: string;
   cppWireNamespace: string;
   cppIncludeDir: string;
+  cppRuntimeInclude: string;
   uds: boolean;
   ffi: boolean;
   curveConstants: string;
@@ -70,6 +71,7 @@ function parseArgs(argv: string[]): Args {
     cppNamespace: "",
     cppWireNamespace: "wire",
     cppIncludeDir: "",
+    cppRuntimeInclude: "",
     uds: false,
     ffi: false,
     curveConstants: "",
@@ -108,6 +110,9 @@ function parseArgs(argv: string[]): Args {
       case "--cpp-include-dir":
         args.cppIncludeDir = argv[++i];
         break;
+      case "--cpp-runtime-include":
+        args.cppRuntimeInclude = argv[++i];
+        break;
       case "--uds":
         args.uds = true;
         break;
@@ -142,6 +147,13 @@ Optional:
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
+  --cpp-runtime-include <prefix>
+                           When set, the C++ --server emits a serve() that uses
+                           ipc-runtime (make_server + install_default_signal_handlers
+                           + IpcServer::run). <prefix> is the include path to
+                           ipc-runtime's headers, e.g. "ipc_runtime".
+                           When unset, serve() uses the lightweight header-only
+                           ipc_server.hpp template (UDS only, no signal handlers).
   --curve-constants <path> Generate TS curve constants from JSON at <path>
   --strip-method-prefix    Strip prefix from TS method names (e.g. BbCircuitProve -> circuitProve)`);
     process.exit(1);
@@ -448,6 +460,7 @@ function generate(args: Args) {
         commandsHeader: "",
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
+        runtimeInclude: args.cppRuntimeInclude || undefined,
       });
 
       cppFiles.push(
