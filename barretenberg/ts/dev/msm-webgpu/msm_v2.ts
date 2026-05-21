@@ -255,6 +255,37 @@ async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number
   return out;
 }
 
+export interface BufDigest {
+  hash: string;
+  len: number;
+  nonzero: number;
+  head: number[];
+  tail: number[];
+}
+
+// FNV-1a over the u32 words plus length / nonzero-count / head+tail samples.
+// Content- and order-sensitive: identical buffers digest identically, so two
+// devices' per-stage buffers can be compared without shipping megabytes.
+function digestU32(a: Uint32Array): BufDigest {
+  let h = 0x811c9dc5 >>> 0;
+  let nonzero = 0;
+  for (let i = 0; i < a.length; i++) {
+    const v = a[i] >>> 0;
+    if (v !== 0) nonzero++;
+    for (let s = 0; s < 32; s += 8) {
+      h ^= (v >>> s) & 0xff;
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  }
+  return {
+    hash: (h >>> 0).toString(16).padStart(8, '0'),
+    len: a.length,
+    nonzero,
+    head: Array.from(a.subarray(0, Math.min(8, a.length))),
+    tail: Array.from(a.subarray(Math.max(0, a.length - 8))),
+  };
+}
+
 // Window bits per n — fastest c per size, measured by bench-c-sweep.
 function pickC(n: number): number {
   const logN = Math.round(Math.log2(n));
@@ -343,6 +374,13 @@ export class MsmV2 {
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
+  // Per-stage buffers retained for collectDiagnostics() readback.
+  private scalarsRawBuf?: GPUBuffer;
+  private chunksBuf?: GPUBuffer;
+  private signsBuf?: GPUBuffer;
+  private valIdxBuf?: GPUBuffer;
+  private countsBufsRef: GPUBuffer[] = [];
+  private offsetsBufsRef: GPUBuffer[] = [];
   private demontBind!: GPUBindGroup;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
@@ -362,7 +400,13 @@ export class MsmV2 {
    * bytes — `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine
    * (the harness / SRS layout). `c` defaults to a per-n window size.
    */
-  static async create(device: GPUDevice, n: number, pointsBuf: Uint8Array, c?: number): Promise<MsmV2> {
+  static async create(
+    device: GPUDevice,
+    n: number,
+    pointsBuf: Uint8Array,
+    c?: number,
+    opts?: { warmup?: boolean },
+  ): Promise<MsmV2> {
     const m = new MsmV2();
     m.device = device;
     m.n = n;
@@ -504,12 +548,16 @@ export class MsmV2 {
     // Warm-up: prepare + dispatch several times so the first timed run pays
     // no shader JIT / command-buffer cold start and sees ramped GPU clocks.
     // Dummy scalars (0x01..) give a representative bucket distribution.
-    try {
-      const dummy = new Uint8Array(n * 32).fill(1);
-      m.prepare(dummy);
-      for (let w = 0; w < 5; w++) await m.run();
-    } catch (e) {
-      console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
+    // Diagnostics pass `warmup: false` so a single run is measured cleanly
+    // (and we don't hammer a crashing pipeline before reading state back).
+    if (opts?.warmup !== false) {
+      try {
+        const dummy = new Uint8Array(n * 32).fill(1);
+        m.prepare(dummy);
+        for (let w = 0; w < 5; w++) await m.run();
+      } catch (e) {
+        console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
     return m;
   }
@@ -831,6 +879,13 @@ export class MsmV2 {
       });
     }
 
+    this.scalarsRawBuf = scalarsRawBuf;
+    this.chunksBuf = chunksBuf;
+    this.signsBuf = signsBuf;
+    this.valIdxBuf = valIdxBuf;
+    this.countsBufsRef = countsBufs;
+    this.offsetsBufsRef = offsetsBufs;
+
     this.preparedFor = scalarsBuf;
   }
 
@@ -907,11 +962,170 @@ export class MsmV2 {
   /** Per-window weighted sums L_w (normal form), set by the last run(). */
   windowSums: Pt[] = [];
 
+  /** Pipeline shape (host-planned). Safe to read after a device loss. */
+  getMeta(): Record<string, number> {
+    return {
+      n: this.n,
+      c: this.c,
+      numWindows: this.numWindows,
+      numBatches: this.numBatches,
+      levels: this.levels,
+      BW: this.BW,
+      stride: this.stride,
+      bTotal: this.bTotal,
+    };
+  }
+
   /** Diagnostic: read back bucket_result. Element b's coords (Montgomery)
    * are at u32 offsets [PG*b*4] (x) and [PG*B_TOTAL*4 + PG*b*4] (y). */
   async debugBucketResult(): Promise<{ buf: Uint32Array; BW: number; numWindows: number; stride: number; rinv: bigint }> {
     const buf = await readbackU32(this.device, this.bucketResultBuf, 2 * PG * this.bTotal * 4 * 4);
     return { buf, BW: this.BW, numWindows: this.numWindows, stride: this.stride, rinv: this.rinv };
+  }
+
+  /**
+   * Read back every retained per-stage buffer and return a digest of each,
+   * in pipeline order, plus the decoded per-window sums and shape metadata.
+   * Compare the digests between two devices on identical (seeded) input: the
+   * first stage whose digest differs is where the GPU pipeline diverges.
+   * Safe to call after a `run()` that threw in the host combine — the GPU
+   * buffers and `windowSums` are already populated by then.
+   */
+  async collectDiagnostics(): Promise<{
+    meta: Record<string, number>;
+    digests: Record<string, BufDigest | { error: string } | null>;
+    failedAt: string | null;
+    windowSums: { x: string; y: string }[];
+  }> {
+    const digests: Record<string, BufDigest | { error: string } | null> = {};
+    let failedAt: string | null = null;
+    // Each readback is independent: a device-loss mid-collection still leaves
+    // the digests gathered so far, and the buffer that first failed localises
+    // where the GPU died.
+    const add = async (name: string, buf: GPUBuffer | undefined) => {
+      if (!buf) {
+        digests[name] = null;
+        return;
+      }
+      try {
+        digests[name] = digestU32(await readbackU32(this.device, buf, buf.size));
+      } catch (e) {
+        digests[name] = { error: e instanceof Error ? e.message : String(e) };
+        if (failedAt === null) failedAt = name;
+      }
+    };
+    // Pipeline order: integer pre-steps first (should be device-independent),
+    // then the EC accumulator and reduction outputs (use field inversion).
+    await add('scalarsRaw_demont', this.scalarsRawBuf);
+    await add('chunks_booth', this.chunksBuf);
+    await add('signs_booth', this.signsBuf);
+    await add('rowPtr_transpose', this.rowPtrBuf);
+    await add('valIdx_scatter', this.valIdxBuf);
+    await add('counts0_csr', this.countsBufsRef[0]);
+    await add('counts1_csr', this.countsBufsRef[1]);
+    await add('offsets0_csr', this.offsetsBufsRef[0]);
+    await add('offsets1_csr', this.offsetsBufsRef[1]);
+    await add('bucketResult_pairtree', this.bucketResultBuf);
+    await add('redBuf_reduction', this.redBuf);
+    const windowSums = this.windowSums.map(pt => ({
+      x: '0x' + pt.x.toString(16),
+      y: '0x' + pt.y.toString(16),
+    }));
+    return {
+      failedAt,
+      meta: {
+        n: this.n,
+        c: this.c,
+        numWindows: this.numWindows,
+        numBatches: this.numBatches,
+        levels: this.levels,
+        BW: this.BW,
+        stride: this.stride,
+        bTotal: this.bTotal,
+      },
+      digests,
+      windowSums,
+    };
+  }
+
+  /**
+   * Like `run()`, but submits each pipeline stage as its own command buffer
+   * and awaits `onSubmittedWorkDone()` after each — so a GPU device-loss
+   * (`VK_ERROR_DEVICE_LOST`) is attributed to the exact stage whose submit
+   * triggered it (`lostAt`). Slower than the batched `run()`; for diagnosis
+   * only. Returns the per-stage completion record.
+   */
+  async runStaged(): Promise<{
+    stages: { name: string; ok: boolean; ms: number }[];
+    lostAt: string | null;
+    lostReason: string | null;
+  }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.runStaged: call prepare() first');
+    const device = this.device;
+    const stages: { name: string; ok: boolean; ms: number }[] = [];
+    let lostAt: string | null = null;
+    let lostReason: string | null = null;
+    let dead = false;
+    void device.lost.then(info => {
+      lostReason = `${info.reason}: ${info.message}`;
+    });
+    const disp = (enc: GPUCommandEncoder, pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1) => {
+      const pass = enc.beginComputePass();
+      pass.setPipeline(pipe);
+      pass.setBindGroup(0, bind);
+      pass.dispatchWorkgroups(Math.max(1, nx), Math.max(1, ny), 1);
+      pass.end();
+    };
+    const step = async (name: string, build: (enc: GPUCommandEncoder) => void) => {
+      if (dead) {
+        stages.push({ name, ok: false, ms: 0 });
+        return;
+      }
+      const enc = device.createCommandEncoder();
+      build(enc);
+      const t0 = performance.now();
+      device.queue.submit([enc.finish()]);
+      try {
+        await device.queue.onSubmittedWorkDone();
+        stages.push({ name, ok: true, ms: performance.now() - t0 });
+      } catch (e) {
+        dead = true;
+        lostAt = name;
+        lostReason = lostReason ?? (e instanceof Error ? e.message : String(e));
+        stages.push({ name, ok: false, ms: performance.now() - t0 });
+      }
+    };
+
+    await step('demont', e => disp(e, this.demontPipe, this.demontBind, this.nXposePts));
+    for (let bi = 0; bi < this.numBatches; bi++) {
+      const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
+      const tSlots = tbw * this.n;
+      await step(`b${bi}.decompose`, e => disp(e, this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw));
+      await step(`b${bi}.clear`, e => {
+        e.clearBuffer(this.rowPtrBuf);
+        e.clearBuffer(this.currBuf);
+      });
+      await step(`b${bi}.xposeCount`, e => disp(e, this.xposeCountPipe, this.xposeCountBind, this.nXposePts, tbw));
+      await step(`b${bi}.xposeScan`, e => disp(e, this.xposeScanPipe, this.xposeScanBind, this.batchWindows));
+      await step(`b${bi}.xposeScatter`, e => disp(e, this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw));
+      await step(`b${bi}.convActive`, e => disp(e, this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI)));
+      await step(`b${bi}.convMeta`, e => disp(e, this.convMetaPipe, this.convMetaBind, this.nConvMeta));
+      for (let lv = 0; lv < this.levels; lv++) {
+        const lb = this.levelBinds[lv];
+        const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
+        const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
+        const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
+        await step(`b${bi}.l${lv}.planner`, e => disp(e, this.plannerPipe, lb.plannerBind, this.batchWindows));
+        await step(`b${bi}.l${lv}.fused`, e => {
+          for (const tile of lb.fusedTiles) disp(e, fp, tile.bind, tile.nx);
+        });
+        await step(`b${bi}.l${lv}.carry`, e => disp(e, cp, lb.carryBind, lb.nCarry));
+        await step(`b${bi}.l${lv}.finalize`, e => disp(e, flp, lb.finalizeBinds[bi], this.numWgsFinalize));
+      }
+    }
+    await step('reduceInit', e => disp(e, this.reduceInitPipe, this.reduceInitBind, this.nReduceInit));
+    await step('reduceFused', e => disp(e, this.reduceFusedPipe, this.reduceFusedBind, this.numWindows));
+    return { stages, lostAt, lostReason };
   }
 
   /** Release every GPU buffer owned by this instance. */

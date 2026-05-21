@@ -49,16 +49,20 @@ export function makeResultsClient(cfg: ResultsClientConfig): {
     },
     async postResults(payload) {
       console.log(`[results_post] POST /results runId=${runId} bytes≈${JSON.stringify(payload).length}`);
-      const p = tryPost("/results", payload);
-      if (p) {
-        try {
-          const r = await p;
-          console.log(`[results_post] /results -> HTTP ${r.status}`);
-        } catch (e) {
-          console.log(`[results_post] /results threw: ${(e as Error).message}`);
+      // The Cloudflare Quick Tunnel intermittently drops a large POST; retry
+      // a few times so a one-off network blip doesn't lose the result row.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const p = tryPost("/results", payload);
+        if (p) {
+          try {
+            const r = await p;
+            console.log(`[results_post] /results -> HTTP ${r.status} (attempt ${attempt + 1})`);
+            if (r.ok) return;
+          } catch (e) {
+            console.log(`[results_post] /results threw: ${(e as Error).message} (attempt ${attempt + 1})`);
+          }
         }
-      } else {
-        console.log(`[results_post] /results: tryPost returned null`);
+        await new Promise(res => setTimeout(res, 500));
       }
     },
   };

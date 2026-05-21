@@ -77,15 +77,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "POST" && (u.pathname === "/results" || u.pathname === "/progress")) {
+    let body = "";
     try {
-      const body = await readBody(req);
+      body = await readBody(req);
       const parsed = JSON.parse(body);
       const row = { ts: new Date().toISOString(), ...parsed };
       await appendFile(u.pathname === "/results" ? resultsFile : progressFile, JSON.stringify(row) + "\n");
+      process.stdout.write(`[post] ${u.pathname} ok bytes=${body.length}\n`);
       res.setHeader("Content-Type", "application/json");
       res.statusCode = 200;
       res.end(JSON.stringify({ ok: true }));
     } catch (e) {
+      process.stdout.write(`[post] ${u.pathname} REJECTED bytes=${body.length} err=${String(e).slice(0, 120)}\n`);
       res.statusCode = 400;
       res.end(JSON.stringify({ ok: false, error: String(e) }));
     }

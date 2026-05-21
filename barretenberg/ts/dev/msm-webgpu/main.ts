@@ -1499,6 +1499,114 @@ async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof m
   }
 }
 
+/**
+ * Per-stage diagnostic autorun: runs the v2 MSM once and reads back a digest
+ * of every pipeline-stage buffer (via `MsmV2.collectDiagnostics`), even when
+ * the host window-combine throws `value is not invertible`. Posting these
+ * from two devices on identical seeded input pinpoints the first stage whose
+ * GPU output diverges.
+ */
+async function runMsmDiagAutorun(qp: URLSearchParams, client: ReturnType<typeof makeResultsClient>): Promise<void> {
+  const logN = clampLogN(parseInt(qp.get('logn') ?? String(LOGN_MIN), 10));
+  const useRandomPoints = (qp.get('points') ?? 'random') !== 'srs';
+  const pointSource = useRandomPoints ? 'random' : 'srs';
+  client.postProgress({ phase: 'start', logN, points: pointSource, hasWebGpu: 'gpu' in navigator });
+  log('info', `[msm-diag] logN=${logN} points=${pointSource}`);
+  try {
+    if (!('gpu' in navigator)) {
+      throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
+    }
+    if (!useRandomPoints) {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS not loaded within 10 minutes');
+    }
+    const inputs = await generateInputs(logN, false, useRandomPoints);
+    // Host-side FNV-1a digests of the actual scalar/point bytes — posted via
+    // the reliable /progress channel so two devices can be checked for truly
+    // identical (seeded) input independently of any GPU readback.
+    const fnv = (a: Uint8Array): string => {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < a.length; i++) {
+        h ^= a[i];
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+      return (h >>> 0).toString(16).padStart(8, '0');
+    };
+    client.postProgress({
+      phase: 'inputs_ready',
+      n: inputs.n,
+      scalarDigest: fnv(inputs.scalarsBuf),
+      pointDigest: fnv(inputs.pointsBuf),
+    });
+    const device = await get_device();
+    let deviceLost: string | null = null;
+    void device.lost.then(info => {
+      deviceLost = `${info.reason}: ${info.message}`;
+      log('err', `[msm-diag] GPU device lost — ${deviceLost}`);
+    });
+    // No warm-up: measure a single clean run and avoid hammering a pipeline
+    // that may be crashing the device before we read its state back.
+    const msm = await MsmV2.create(device, inputs.n, inputs.pointsBuf, undefined, { warmup: false });
+    msm.prepare(inputs.scalarsBuf);
+    const meta = msm.getMeta();
+    client.postProgress({ phase: 'staged-begin', levels: meta.levels, numBatches: meta.numBatches });
+    // Per-stage submit: attributes a GPU device-loss to the exact kernel.
+    const staged = await msm.runStaged();
+    const okStages = staged.stages.filter(s => s.ok).length;
+    const lastOk = staged.stages.filter(s => s.ok).slice(-1)[0]?.name ?? null;
+    // Carry the headline (lostAt + which kernel) in a small /progress beacon —
+    // these post reliably even when a larger /results body is dropped.
+    client.postProgress({
+      phase: 'staged-end',
+      lostAt: staged.lostAt,
+      lastOkStage: lastOk,
+      okStages,
+      totalStages: staged.stages.length,
+      lostReason: (staged.lostReason ?? deviceLost ?? '').slice(0, 160),
+    });
+    // If the device survived, the buffers are valid — digest each stage so a
+    // numeric divergence (vs M2) is also visible. After a loss, readback is
+    // impossible (device dead), so digests are skipped.
+    let diag: Awaited<ReturnType<typeof msm.collectDiagnostics>> | null = null;
+    if (!staged.lostAt && deviceLost === null) {
+      diag = await msm.collectDiagnostics();
+    }
+    log(
+      staged.lostAt ? 'err' : 'ok',
+      `[msm-diag] staged run: lostAt=${staged.lostAt ?? 'none'} (${staged.stages.filter(s => s.ok).length}/${staged.stages.length} stages ok)`,
+    );
+    await client.postResults({
+      state: staged.lostAt || deviceLost ? 'device-lost' : 'staged-ok',
+      params: { logN, n: inputs.n, points: pointSource, page: 'msm-diag' },
+      results: {
+        lostAt: staged.lostAt,
+        lostReason: staged.lostReason ?? deviceLost,
+        meta,
+        stages: staged.stages,
+        digests: diag?.digests ?? null,
+        windowSums: diag?.windowSums ?? null,
+        failedAt: diag?.failedAt ?? null,
+      },
+      hasWebGpu: true,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
+    log('err', `[msm-diag] FAILED: ${msg}`);
+    client.postProgress({ phase: 'error' });
+    await client.postResults({
+      state: 'error',
+      params: { logN, points: pointSource, page: 'msm-diag' },
+      results: null,
+      error: msg,
+      hasWebGpu: 'gpu' in navigator,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
+  }
+}
+
 // Page-load boot: load the SRS only. The barretenberg WASM (which forks
 // `mt-threads` workers) stays cold until the user clicks Run / Run × 5 /
 // Sweep — ensureWasmBooted() takes care of the first-click boot. The SRS
@@ -1507,19 +1615,25 @@ async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof m
 (async () => {
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
-  // The WebGPU-only autorun only consumes the first `2^logN` SRS points,
-  // so on a phone we skip the full 2^20 prefix (a 32 MB download + ~1M
-  // point decompress) that the interactive page loads up front.
-  const bootSrsPoints =
-    autorun === 'msm-webgpu' ? 1 << clampLogN(parseInt(qp.get('logn') ?? String(LOGN_MIN), 10)) : SRS_NUM_POINTS;
+  // Both WebGPU autoruns (single-MSM and the per-stage diagnostic) run the
+  // GPU MSM headlessly and share the same SRS / beacon handling.
+  const wantsWebgpuAutorun = autorun === 'msm-webgpu' || autorun === 'msm-diag';
+  // The WebGPU autorun only consumes the first `2^logN` SRS points, so on a
+  // phone we skip the full 2^20 prefix (a 32 MB download + ~1M point
+  // decompress) that the interactive page loads up front.
+  const bootSrsPoints = wantsWebgpuAutorun
+    ? 1 << clampLogN(parseInt(qp.get('logn') ?? String(LOGN_MIN), 10))
+    : SRS_NUM_POINTS;
   // The WebGPU autorun defaults to random points, which need no SRS at all
   // — skip the CRS fetch entirely in that mode.
-  const skipSrsLoad = autorun === 'msm-webgpu' && (qp.get('points') ?? 'random') !== 'srs';
+  const skipSrsLoad = wantsWebgpuAutorun && (qp.get('points') ?? 'random') !== 'srs';
   // Fire a beacon as soon as module evaluation reaches the boot block —
   // before the SRS load — so a headless harness can tell "page never
   // executed" (no row) from "stuck loading SRS / running" (boot row, no
   // result).
-  const webgpuClient = autorun === 'msm-webgpu' ? makeResultsClient({ page: 'msm-webgpu-only' }) : null;
+  const webgpuClient = wantsWebgpuAutorun
+    ? makeResultsClient({ page: autorun === 'msm-diag' ? 'msm-diag' : 'msm-webgpu-only' })
+    : null;
   webgpuClient?.postProgress({ phase: 'boot', hasWebGpu: 'gpu' in navigator, userAgent: navigator.userAgent });
   setBusy(true, 'loading SRS…');
   try {
@@ -1559,6 +1673,10 @@ async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof m
   // can pick them up from JSONL.
   if (autorun === 'msm-webgpu') {
     await runWebGpuAutorun(qp, webgpuClient!);
+    return;
+  }
+  if (autorun === 'msm-diag') {
+    await runMsmDiagAutorun(qp, webgpuClient!);
     return;
   }
   if (autorun === 'msm-cross-check') {
