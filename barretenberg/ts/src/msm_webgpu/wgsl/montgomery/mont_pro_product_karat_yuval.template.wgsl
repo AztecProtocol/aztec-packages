@@ -2,6 +2,15 @@
 // Fully unrolled — all indices compile-time constants so WGSL→MSL can
 // SROA the temp slots into registers instead of thread-local memory.
 //
+// === Register-light grouped emit ===
+// The multiply is emitted grouped by half-product: each of P_lo, P_hi,
+// P_cr gets one scoped block that computes its 3 schoolbook sub-products
+// and folds the Karatsuba-combined result straight into the 40-limb
+// accumulator t. Only one group's 27 schoolbook outputs are live at a
+// time (not all 81) — identical arithmetic, same 225 multiplies, same
+// combine adds; just a tighter live-range schedule that roughly halves
+// the register peak, keeping small-register-file GPUs off the spill cliff.
+//
 // === Layout ===
 // 4 input chunks per operand (5 limbs each, named locals):
 //   x_lo_lo = x[0..4],  x_lo_hi = x[5..9]
@@ -76,75 +85,11 @@ fn get_p() -> BigInt {
 }
 
 fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {
-    // === Input load: 40 named locals, one per limb. ===
-{{#input_loads}}
-    let {{name}}: u32 = (*{{ptr}}).limbs[{{k}}u];
-{{/input_loads}}
-
-    // === Sums for inner Karatsuba: ===
-    // a_lo_sum[k] = x_lo_lo[k] + x_lo_hi[k], a_hi_sum = x_hi_lo + x_hi_hi.
-    // For P_cross outer: a_cr_lo[k] = x_lo_lo[k] + x_hi_lo[k], a_cr_hi =
-    // x_lo_hi + x_hi_hi. Then inner cross sum: a_cr_sum = a_cr_lo + a_cr_hi.
-{{#sum_lets}}
-    let {{name}}: u32 = {{lhs}} + {{rhs}};
-{{/sum_lets}}
-
-    // === 9 sub-sub-products (5×5 schoolbook each). ===
-    // Each output slot is a single `let` with a sum-of-products expression.
-{{#schoolbooks}}
-    // --- {{label}}: out_prefix={{out_prefix}}, a={{a_prefix}}, b={{b_prefix}} ---
-    let {{out_prefix}}_0: u32 = {{a_prefix}}_0 * {{b_prefix}}_0;
-    let {{out_prefix}}_1: u32 = {{a_prefix}}_0 * {{b_prefix}}_1 + {{a_prefix}}_1 * {{b_prefix}}_0;
-    let {{out_prefix}}_2: u32 = {{a_prefix}}_0 * {{b_prefix}}_2 + {{a_prefix}}_1 * {{b_prefix}}_1 + {{a_prefix}}_2 * {{b_prefix}}_0;
-    let {{out_prefix}}_3: u32 = {{a_prefix}}_0 * {{b_prefix}}_3 + {{a_prefix}}_1 * {{b_prefix}}_2 + {{a_prefix}}_2 * {{b_prefix}}_1 + {{a_prefix}}_3 * {{b_prefix}}_0;
-    let {{out_prefix}}_4: u32 = {{a_prefix}}_0 * {{b_prefix}}_4 + {{a_prefix}}_1 * {{b_prefix}}_3 + {{a_prefix}}_2 * {{b_prefix}}_2 + {{a_prefix}}_3 * {{b_prefix}}_1 + {{a_prefix}}_4 * {{b_prefix}}_0;
-    let {{out_prefix}}_5: u32 = {{a_prefix}}_1 * {{b_prefix}}_4 + {{a_prefix}}_2 * {{b_prefix}}_3 + {{a_prefix}}_3 * {{b_prefix}}_2 + {{a_prefix}}_4 * {{b_prefix}}_1;
-    let {{out_prefix}}_6: u32 = {{a_prefix}}_2 * {{b_prefix}}_4 + {{a_prefix}}_3 * {{b_prefix}}_3 + {{a_prefix}}_4 * {{b_prefix}}_2;
-    let {{out_prefix}}_7: u32 = {{a_prefix}}_3 * {{b_prefix}}_4 + {{a_prefix}}_4 * {{b_prefix}}_3;
-    let {{out_prefix}}_8: u32 = {{a_prefix}}_4 * {{b_prefix}}_4;
-{{/schoolbooks}}
-
-    // === Inner Karatsuba combine: form P_lo, P_hi, P_cross as named locals. ===
-    // For each, 19 outputs combining the 3 sub-sub-products. The mid term
-    // uses unsigned subtraction; underflow is impossible because the
-    // algebraic identity P_mid[m] = Σ a_lo·b_hi + a_hi·b_lo is non-neg
-    // per-limb at the lazy values.
-{{#inner_combines}}
-    // --- {{label}}: out_prefix={{out_prefix}}, ll={{ll_prefix}}, hh={{hh_prefix}}, c={{c_prefix}} ---
-    let {{out_prefix}}_0:  u32 = {{ll_prefix}}_0;
-    let {{out_prefix}}_1:  u32 = {{ll_prefix}}_1;
-    let {{out_prefix}}_2:  u32 = {{ll_prefix}}_2;
-    let {{out_prefix}}_3:  u32 = {{ll_prefix}}_3;
-    let {{out_prefix}}_4:  u32 = {{ll_prefix}}_4;
-    let {{out_prefix}}_5:  u32 = {{ll_prefix}}_5 + {{c_prefix}}_0 - {{ll_prefix}}_0 - {{hh_prefix}}_0;
-    let {{out_prefix}}_6:  u32 = {{ll_prefix}}_6 + {{c_prefix}}_1 - {{ll_prefix}}_1 - {{hh_prefix}}_1;
-    let {{out_prefix}}_7:  u32 = {{ll_prefix}}_7 + {{c_prefix}}_2 - {{ll_prefix}}_2 - {{hh_prefix}}_2;
-    let {{out_prefix}}_8:  u32 = {{ll_prefix}}_8 + {{c_prefix}}_3 - {{ll_prefix}}_3 - {{hh_prefix}}_3;
-    let {{out_prefix}}_9:  u32 = {{c_prefix}}_4 - {{ll_prefix}}_4 - {{hh_prefix}}_4;
-    let {{out_prefix}}_10: u32 = {{c_prefix}}_5 - {{ll_prefix}}_5 - {{hh_prefix}}_5 + {{hh_prefix}}_0;
-    let {{out_prefix}}_11: u32 = {{c_prefix}}_6 - {{ll_prefix}}_6 - {{hh_prefix}}_6 + {{hh_prefix}}_1;
-    let {{out_prefix}}_12: u32 = {{c_prefix}}_7 - {{ll_prefix}}_7 - {{hh_prefix}}_7 + {{hh_prefix}}_2;
-    let {{out_prefix}}_13: u32 = {{c_prefix}}_8 - {{ll_prefix}}_8 - {{hh_prefix}}_8 + {{hh_prefix}}_3;
-    let {{out_prefix}}_14: u32 = {{hh_prefix}}_4;
-    let {{out_prefix}}_15: u32 = {{hh_prefix}}_5;
-    let {{out_prefix}}_16: u32 = {{hh_prefix}}_6;
-    let {{out_prefix}}_17: u32 = {{hh_prefix}}_7;
-    let {{out_prefix}}_18: u32 = {{hh_prefix}}_8;
-{{/inner_combines}}
-
-    // === Outer combine: initialize temp[0..39]. ===
-    // Slots [0,18] = P_lo. Slots [20,38] = P_hi. Slots [10,28] += P_cr - P_lo - P_hi.
-    // We initialize as `var` (mutable) so the Yuval phase can mutate.
-{{#outer_init}}
-    var t{{slot}}: u32 = {{init_expr}};
-{{/outer_init}}
-
-    // === Outer Karatsuba cross combine: temp[k+10] += P_cr[k] - P_lo[k] - P_hi[k]. ===
-    // Unsigned subtraction is safe per the outer-level algebraic identity:
-    // P_mid_outer[k] = Σ x_lo·y_hi + x_hi·y_lo is non-neg per-limb.
-{{#outer_cross}}
-    t{{slot}} = t{{slot}} + p_cr_{{k}} - p_lo_{{k}} - p_hi_{{k}};
-{{/outer_cross}}
+    // === Grouped Karatsuba multiply + combine (generated). ===
+    // Per half-product (lo / hi / cr) a scoped block computes 3 schoolbook
+    // 5×5 sub-products and folds the Karatsuba-combined result straight
+    // into the 40-limb accumulator t0..t39. See renderKaratYuvalMont.
+{{{ multiply_body }}}
 
     // === Yuval reduce: 19 Yuval calls + 1 standard. ===
     // Each call extracts t_mask & carry from t{i}, then accumulates

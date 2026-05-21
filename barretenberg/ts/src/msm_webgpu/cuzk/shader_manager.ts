@@ -2094,68 +2094,77 @@ ${entry_src}`;
     }
     const p_limbs_consts = p_limb_vals.map((val, idx) => ({ idx, val }));
 
-    const input_loads: Array<{ name: string; ptr: string; k: number }> = [];
-    const chunks = [
-      ['x_lo_lo', 'x_ptr', 0],
-      ['x_lo_hi', 'x_ptr', 5],
-      ['x_hi_lo', 'x_ptr', 10],
-      ['x_hi_hi', 'x_ptr', 15],
-      ['y_lo_lo', 'y_ptr', 0],
-      ['y_lo_hi', 'y_ptr', 5],
-      ['y_hi_lo', 'y_ptr', 10],
-      ['y_hi_hi', 'y_ptr', 15],
-    ] as const;
-    for (const [prefix, ptr, base] of chunks) {
-      for (let k = 0; k < 5; k++) {
-        input_loads.push({ name: `${prefix}_${k}`, ptr, k: (base as number) + k });
-      }
-    }
-
-    const sum_lets: Array<{ name: string; lhs: string; rhs: string }> = [];
-    const sumDefs = [
-      ['a_lo_sum', 'x_lo_lo', 'x_lo_hi'],
-      ['b_lo_sum', 'y_lo_lo', 'y_lo_hi'],
-      ['a_hi_sum', 'x_hi_lo', 'x_hi_hi'],
-      ['b_hi_sum', 'y_hi_lo', 'y_hi_hi'],
-      ['a_cr_lo', 'x_lo_lo', 'x_hi_lo'],
-      ['a_cr_hi', 'x_lo_hi', 'x_hi_hi'],
-      ['b_cr_lo', 'y_lo_lo', 'y_hi_lo'],
-      ['b_cr_hi', 'y_lo_hi', 'y_hi_hi'],
-      ['a_cr_sum', 'a_cr_lo', 'a_cr_hi'],
-      ['b_cr_sum', 'b_cr_lo', 'b_cr_hi'],
-    ] as const;
-    for (const [name, lhs, rhs] of sumDefs) {
-      for (let k = 0; k < 5; k++) {
-        sum_lets.push({ name: `${name}_${k}`, lhs: `${lhs}_${k}`, rhs: `${rhs}_${k}` });
-      }
-    }
-
-    const schoolbooks = [
-      { label: 'PP_lo_LL = x_lo_lo · y_lo_lo', out_prefix: 'pp_lo_ll', a_prefix: 'x_lo_lo', b_prefix: 'y_lo_lo' },
-      { label: 'PP_lo_HH = x_lo_hi · y_lo_hi', out_prefix: 'pp_lo_hh', a_prefix: 'x_lo_hi', b_prefix: 'y_lo_hi' },
-      { label: 'PP_lo_C  = a_lo_sum · b_lo_sum', out_prefix: 'pp_lo_c', a_prefix: 'a_lo_sum', b_prefix: 'b_lo_sum' },
-      { label: 'PP_hi_LL = x_hi_lo · y_hi_lo', out_prefix: 'pp_hi_ll', a_prefix: 'x_hi_lo', b_prefix: 'y_hi_lo' },
-      { label: 'PP_hi_HH = x_hi_hi · y_hi_hi', out_prefix: 'pp_hi_hh', a_prefix: 'x_hi_hi', b_prefix: 'y_hi_hi' },
-      { label: 'PP_hi_C  = a_hi_sum · b_hi_sum', out_prefix: 'pp_hi_c', a_prefix: 'a_hi_sum', b_prefix: 'b_hi_sum' },
-      { label: 'PP_cr_LL = a_cr_lo  · b_cr_lo', out_prefix: 'pp_cr_ll', a_prefix: 'a_cr_lo', b_prefix: 'b_cr_lo' },
-      { label: 'PP_cr_HH = a_cr_hi  · b_cr_hi', out_prefix: 'pp_cr_hh', a_prefix: 'a_cr_hi', b_prefix: 'b_cr_hi' },
-      { label: 'PP_cr_C  = a_cr_sum · b_cr_sum', out_prefix: 'pp_cr_c', a_prefix: 'a_cr_sum', b_prefix: 'b_cr_sum' },
+    // ── Register-light grouped Karatsuba body ──────────────────────────
+    // Emit the 9 schoolbook 5×5 sub-products grouped by half-product
+    // (lo / hi / cr). Each group's 3 schoolbooks + 19-entry Karatsuba
+    // combine sit in one scoped { } block and fold straight into the
+    // 40-limb accumulator t0..t39 — so only one group's 27 schoolbook
+    // outputs are live at a time, not all 81. Identical arithmetic to a
+    // flat emit (same 225 multiplies, same combine adds); the tighter
+    // live-range schedule roughly halves the register peak.
+    const xlimb = (i: number): string => `(*x_ptr).limbs[${i}u]`;
+    const ylimb = (i: number): string => `(*y_ptr).limbs[${i}u]`;
+    const chunkSum = (limb: (i: number) => string, bases: number[], k: number): string =>
+      bases.map(b => limb(b + k)).join(' + ');
+    // 5×5 schoolbook column expressions over operand prefixes xp / yp.
+    const sbCol = (xp: string, yp: string): string[] => [
+      `${xp}0 * ${yp}0`,
+      `${xp}0 * ${yp}1 + ${xp}1 * ${yp}0`,
+      `${xp}0 * ${yp}2 + ${xp}1 * ${yp}1 + ${xp}2 * ${yp}0`,
+      `${xp}0 * ${yp}3 + ${xp}1 * ${yp}2 + ${xp}2 * ${yp}1 + ${xp}3 * ${yp}0`,
+      `${xp}0 * ${yp}4 + ${xp}1 * ${yp}3 + ${xp}2 * ${yp}2 + ${xp}3 * ${yp}1 + ${xp}4 * ${yp}0`,
+      `${xp}1 * ${yp}4 + ${xp}2 * ${yp}3 + ${xp}3 * ${yp}2 + ${xp}4 * ${yp}1`,
+      `${xp}2 * ${yp}4 + ${xp}3 * ${yp}3 + ${xp}4 * ${yp}2`,
+      `${xp}3 * ${yp}4 + ${xp}4 * ${yp}3`,
+      `${xp}4 * ${yp}4`,
     ];
-
-    const inner_combines = [
-      { label: 'P_lo from pp_lo_*', out_prefix: 'p_lo', ll_prefix: 'pp_lo_ll', hh_prefix: 'pp_lo_hh', c_prefix: 'pp_lo_c' },
-      { label: 'P_hi from pp_hi_*', out_prefix: 'p_hi', ll_prefix: 'pp_hi_ll', hh_prefix: 'pp_hi_hh', c_prefix: 'pp_hi_c' },
-      { label: 'P_cr from pp_cr_*', out_prefix: 'p_cr', ll_prefix: 'pp_cr_ll', hh_prefix: 'pp_cr_hh', c_prefix: 'pp_cr_c' },
+    // P_X[k] from this group's ll / hh / c schoolbook outputs — the inner
+    // Karatsuba combine, unchanged from the flat emit.
+    const pExpr = (k: number): string => {
+      if (k <= 4) return `ll${k}`;
+      if (k <= 8) return `ll${k} + c${k - 5} - ll${k - 5} - hh${k - 5}`;
+      if (k === 9) return `c4 - ll4 - hh4`;
+      if (k <= 13) return `c${k - 5} - ll${k - 5} - hh${k - 5} + hh${k - 10}`;
+      return `hh${k - 10}`;
+    };
+    // Per half-product: the 3 schoolbook chunk bases (a-chunk limb k =
+    // sum of x.limbs[base+k]) and the (t-offset, sign) the outer combine
+    // folds P_X[k] into. lo: t[k]+, t[k+10]-. hi: t[k+20]+, t[k+10]-.
+    // cr: t[k+10]+.
+    const kgroups: Array<{
+      tag: string;
+      llB: number[];
+      hhB: number[];
+      cB: number[];
+      folds: Array<{ off: number; sign: string }>;
+    }> = [
+      { tag: 'lo', llB: [0], hhB: [5], cB: [0, 5], folds: [{ off: 0, sign: '+' }, { off: 10, sign: '-' }] },
+      { tag: 'hi', llB: [10], hhB: [15], cB: [10, 15], folds: [{ off: 20, sign: '+' }, { off: 10, sign: '-' }] },
+      { tag: 'cr', llB: [0, 10], hhB: [5, 15], cB: [0, 5, 10, 15], folds: [{ off: 10, sign: '+' }] },
     ];
-
-    const outer_init: Array<{ slot: number; init_expr: string }> = [];
-    for (let k = 0; k < 19; k++) outer_init.push({ slot: k, init_expr: `p_lo_${k}` });
-    outer_init.push({ slot: 19, init_expr: '0u' });
-    for (let k = 0; k < 19; k++) outer_init.push({ slot: 20 + k, init_expr: `p_hi_${k}` });
-    outer_init.push({ slot: 39, init_expr: '0u' });
-
-    const outer_cross: Array<{ slot: number; k: number }> = [];
-    for (let k = 0; k < 19; k++) outer_cross.push({ slot: 10 + k, k });
+    const mb: string[] = [];
+    for (let s = 0; s < 2 * N; s++) mb.push(`    var t${s}: u32 = 0u;`);
+    for (const g of kgroups) {
+      mb.push('');
+      mb.push(`    {   // ===== half-product ${g.tag} =====`);
+      const emitSb = (out: string, xp: string, yp: string, bases: number[]): void => {
+        for (let k = 0; k < 5; k++) {
+          mb.push(`        let ${xp}${k}: u32 = ${chunkSum(xlimb, bases, k)};`);
+          mb.push(`        let ${yp}${k}: u32 = ${chunkSum(ylimb, bases, k)};`);
+        }
+        const cols = sbCol(xp, yp);
+        for (let m = 0; m < 9; m++) mb.push(`        let ${out}${m}: u32 = ${cols[m]};`);
+      };
+      emitSb('ll', `x${g.tag}l`, `y${g.tag}l`, g.llB);
+      emitSb('hh', `x${g.tag}h`, `y${g.tag}h`, g.hhB);
+      emitSb('c', `x${g.tag}c`, `y${g.tag}c`, g.cB);
+      for (let k = 0; k < 19; k++) {
+        const folds = g.folds.map(f => `t${k + f.off} = t${k + f.off} ${f.sign} p;`).join(' ');
+        mb.push(`        { let p: u32 = ${pExpr(k)}; ${folds} }`);
+      }
+      mb.push('    }');
+    }
+    const multiply_body = mb.join('\n');
 
     const yuval_iters: Array<{ i: number; writes: Array<{ slot: number; r_idx: number; first: boolean }> }> = [];
     for (let i = 0; i < N - 1; i++) {
@@ -2188,12 +2197,7 @@ ${entry_src}`;
       p_limbs: this.p_limbs,
       r_inv_consts,
       p_limbs_consts,
-      input_loads,
-      sum_lets,
-      schoolbooks,
-      inner_combines,
-      outer_init,
-      outer_cross,
+      multiply_body,
       yuval_iters,
       i_std,
       standard_writes,
