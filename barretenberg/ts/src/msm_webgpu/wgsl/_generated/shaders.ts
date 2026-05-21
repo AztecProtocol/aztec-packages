@@ -2790,38 +2790,37 @@ const WG: u32 = {{ workgroup_size }}u;
 var<workgroup> lds_pref: array<vec4<u32>, {{lds_pref_vecs}}u>;
 {{/lds_pref}}
 
-fn load_x(idx: u32, M: u32) -> BigInt {
+// FP is a field element kept in the compact 256-bit packed form (8 u32 = the
+// red_buf layout). The batch-affine code holds every live coordinate as an FP
+// (8 words) instead of unpacking it to a 20-word BigInt, then unpacks only
+// transiently inside the field-op wrappers below — cutting the affine-add's
+// per-lane footprint (~7 live coords) from 20 words each to 8.
+alias FP = array<u32, 8>;
+
+fn fp_of(q0: vec4<u32>, q1: vec4<u32>) -> FP {
+    return FP(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn load_x(idx: u32, M: u32) -> FP {
     let base = PG * idx;
-    let q0 = red_buf[base + 0u];
-    let q1 = red_buf[base + 1u];
-    var w: array<u32, 8>;
-    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
-    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-    return unpack256_to_limbs(w);
+    return fp_of(red_buf[base + 0u], red_buf[base + 1u]);
 }
 
-fn load_y(idx: u32, M: u32) -> BigInt {
+fn load_y(idx: u32, M: u32) -> FP {
     let base = PG * M + PG * idx;
-    let q0 = red_buf[base + 0u];
-    let q1 = red_buf[base + 1u];
-    var w: array<u32, 8>;
-    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
-    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-    return unpack256_to_limbs(w);
+    return fp_of(red_buf[base + 0u], red_buf[base + 1u]);
 }
 
-fn store_x(idx: u32, M: u32, val: ptr<function, BigInt>) {
+fn store_x(idx: u32, M: u32, v: FP) {
     let base = PG * idx;
-    let w = pack_limbs_to_256(val);
-    red_buf[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
-    red_buf[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+    red_buf[base + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
+    red_buf[base + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
 }
 
-fn store_y(idx: u32, M: u32, val: ptr<function, BigInt>) {
+fn store_y(idx: u32, M: u32, v: FP) {
     let base = PG * M + PG * idx;
-    let w = pack_limbs_to_256(val);
-    red_buf[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
-    red_buf[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+    red_buf[base + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
+    red_buf[base + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
 }
 
 fn get_r() -> BigInt {
@@ -2830,38 +2829,64 @@ fn get_r() -> BigInt {
     return r;
 }
 
-fn is_zero(v: ptr<function, BigInt>) -> bool {
-    let w = pack_limbs_to_256(v);
-    return (w[0] | w[1] | w[2] | w[3] | w[4] | w[5] | w[6] | w[7]) == 0u;
+fn get_r_packed() -> FP {
+    var r: BigInt = get_r();
+    return pack_limbs_to_256(&r);
 }
 
-fn store_pref(slot: u32, val: ptr<function, BigInt>) {
+fn is_zero(v: FP) -> bool {
+    return (v[0] | v[1] | v[2] | v[3] | v[4] | v[5] | v[6] | v[7]) == 0u;
+}
+
+// Field-op wrappers: unpack the packed operands to 20-word BigInts, run the
+// shared field op, repack. The 20-word forms live only for the op's duration.
+fn fr_add_p(a: FP, b: FP) -> FP {
+    var ba = unpack256_to_limbs(a);
+    var bb = unpack256_to_limbs(b);
+    var r = fr_add(&ba, &bb);
+    return pack_limbs_to_256(&r);
+}
+
+fn fr_sub_p(a: FP, b: FP) -> FP {
+    var ba = unpack256_to_limbs(a);
+    var bb = unpack256_to_limbs(b);
+    var r = fr_sub(&ba, &bb);
+    return pack_limbs_to_256(&r);
+}
+
+fn mmul_p(a: FP, b: FP) -> FP {
+    var ba = unpack256_to_limbs(a);
+    var bb = unpack256_to_limbs(b);
+    var r = montgomery_product(&ba, &bb);
+    return pack_limbs_to_256(&r);
+}
+
+fn inv_p(a: FP) -> FP {
+    var ba = unpack256_to_limbs(a);
+    var r = {{ inv_fn }}(ba);
+    return pack_limbs_to_256(&r);
+}
+
+fn store_pref(slot: u32, v: FP) {
     let base = 2u * slot;
-    let w = pack_limbs_to_256(val);
 {{#lds_pref}}
-    lds_pref[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
-    lds_pref[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+    lds_pref[base + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
+    lds_pref[base + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
 {{/lds_pref}}
 {{^lds_pref}}
-    pref_scratch[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
-    pref_scratch[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+    pref_scratch[base + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
+    pref_scratch[base + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
 {{/lds_pref}}
 }
 
-fn load_pref(slot: u32) -> BigInt {
+fn load_pref(slot: u32) -> FP {
     let base = 2u * slot;
 {{#lds_pref}}
-    let q0 = lds_pref[base + 0u];
-    let q1 = lds_pref[base + 1u];
+    return fp_of(lds_pref[base + 0u], lds_pref[base + 1u]);
 {{/lds_pref}}
 {{^lds_pref}}
-    let q0 = pref_scratch[base + 0u];
-    let q1 = pref_scratch[base + 1u];
+    return fp_of(pref_scratch[base + 0u], pref_scratch[base + 1u]);
 {{/lds_pref}}
-    var w: array<u32, 8>;
-    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
-    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-    return unpack256_to_limbs(w);
 }
 
 @compute
@@ -2891,16 +2916,16 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         let C = (ppw + WG - 1u) / WG;
 
         // ---- forward: prefix product of per-candidate denominators ----
-        var acc: BigInt = get_r();
+        var acc: FP = get_r_packed();
         for (var k: u32 = 0u; k < C; k = k + 1u) {
             let j2 = tid * C + k;
-            var denom: BigInt = get_r();
+            var denom: FP = get_r_packed();
             if (j2 < ppw) {
                 if (kind == 2u) {
                     let slot = base + (j2 + 1u) * pa;
                     if (is_present[slot] != 0u) {
-                        var y: BigInt = load_y(slot, M);
-                        denom = fr_add(&y, &y); // 2y
+                        let y: FP = load_y(slot, M);
+                        denom = fr_add_p(y, y); // 2y
                     }
                 } else {
                     var src: u32;
@@ -2913,12 +2938,12 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
                         src = base + (2u * j2 + 1u) * pa;
                     }
                     if (is_present[src] != 0u && is_present[dst] != 0u) {
-                        var x_s: BigInt = load_x(src, M);
-                        var x_d: BigInt = load_x(dst, M);
-                        var dx: BigInt = fr_sub(&x_s, &x_d);
-                        if (is_zero(&dx)) {
-                            var y_d: BigInt = load_y(dst, M);
-                            denom = fr_add(&y_d, &y_d);
+                        let x_s: FP = load_x(src, M);
+                        let x_d: FP = load_x(dst, M);
+                        let dx: FP = fr_sub_p(x_s, x_d);
+                        if (is_zero(dx)) {
+                            let y_d: FP = load_y(dst, M);
+                            denom = fr_add_p(y_d, y_d);
                         } else {
                             denom = dx;
                         }
@@ -2928,46 +2953,46 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             if (k == 0u) {
                 acc = denom;
             } else {
-                acc = montgomery_product(&acc, &denom);
+                acc = mmul_p(acc, denom);
             }
-            store_pref(scratch_base + k, &acc);
+            store_pref(scratch_base + k, acc);
         }
 
-        var inv: BigInt = {{ inv_fn }}(acc);
+        var inv: FP = inv_p(acc);
 
         // ---- backward peel ----
         for (var kk: u32 = 0u; kk < C; kk = kk + 1u) {
             let k = C - 1u - kk;
             let j2 = tid * C + k;
-            var inv_denom: BigInt;
+            var inv_denom: FP;
             if (k == 0u) {
                 inv_denom = inv;
             } else {
-                var pp: BigInt = load_pref(scratch_base + (k - 1u));
-                inv_denom = montgomery_product(&inv, &pp);
+                let pp: FP = load_pref(scratch_base + (k - 1u));
+                inv_denom = mmul_p(inv, pp);
             }
             if (j2 < ppw) {
                 if (kind == 2u) {
                     let slot = base + (j2 + 1u) * pa;
                     if (is_present[slot] != 0u) {
-                        var x: BigInt = load_x(slot, M);
-                        var y: BigInt = load_y(slot, M);
-                        var denom: BigInt = fr_add(&y, &y);
-                        var x2: BigInt = montgomery_product(&x, &x);
-                        var num: BigInt = fr_add(&x2, &x2);
-                        num = fr_add(&num, &x2);
-                        var lambda: BigInt = montgomery_product(&num, &inv_denom);
-                        var two_x: BigInt = fr_add(&x, &x);
-                        var r_x: BigInt = montgomery_product(&lambda, &lambda);
-                        r_x = fr_sub(&r_x, &two_x);
-                        var r_y: BigInt = fr_sub(&x, &r_x);
-                        r_y = montgomery_product(&lambda, &r_y);
-                        r_y = fr_sub(&r_y, &y);
+                        let x: FP = load_x(slot, M);
+                        let y: FP = load_y(slot, M);
+                        let denom: FP = fr_add_p(y, y);
+                        let x2: FP = mmul_p(x, x);
+                        var num: FP = fr_add_p(x2, x2);
+                        num = fr_add_p(num, x2);
+                        let lambda: FP = mmul_p(num, inv_denom);
+                        let two_x: FP = fr_add_p(x, x);
+                        var r_x: FP = mmul_p(lambda, lambda);
+                        r_x = fr_sub_p(r_x, two_x);
+                        var r_y: FP = fr_sub_p(x, r_x);
+                        r_y = mmul_p(lambda, r_y);
+                        r_y = fr_sub_p(r_y, y);
                         if (k > 0u) {
-                            inv = montgomery_product(&inv, &denom);
+                            inv = mmul_p(inv, denom);
                         }
-                        store_x(slot, M, &r_x);
-                        store_y(slot, M, &r_y);
+                        store_x(slot, M, r_x);
+                        store_y(slot, M, r_y);
                     }
                 } else {
                     var src: u32;
@@ -2982,50 +3007,50 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
                     let ps = is_present[src];
                     let pl = is_present[dst];
                     if (ps != 0u && pl != 0u) {
-                        var x_d: BigInt = load_x(dst, M);
-                        var x_s: BigInt = load_x(src, M);
-                        var y_d: BigInt = load_y(dst, M);
-                        var dx: BigInt = fr_sub(&x_s, &x_d);
-                        var r_x: BigInt;
-                        var r_y: BigInt;
-                        var denom_k: BigInt;
-                        if (is_zero(&dx)) {
+                        let x_d: FP = load_x(dst, M);
+                        let x_s: FP = load_x(src, M);
+                        let y_d: FP = load_y(dst, M);
+                        let dx: FP = fr_sub_p(x_s, x_d);
+                        var r_x: FP;
+                        var r_y: FP;
+                        var denom_k: FP;
+                        if (is_zero(dx)) {
                             // Equal operands: 2 * buckets[dst].
-                            denom_k = fr_add(&y_d, &y_d);
-                            var x2: BigInt = montgomery_product(&x_d, &x_d);
-                            var num: BigInt = fr_add(&x2, &x2);
-                            num = fr_add(&num, &x2);
-                            var lambda: BigInt = montgomery_product(&num, &inv_denom);
-                            var two_x: BigInt = fr_add(&x_d, &x_d);
-                            r_x = montgomery_product(&lambda, &lambda);
-                            r_x = fr_sub(&r_x, &two_x);
-                            r_y = fr_sub(&x_d, &r_x);
-                            r_y = montgomery_product(&lambda, &r_y);
-                            r_y = fr_sub(&r_y, &y_d);
+                            denom_k = fr_add_p(y_d, y_d);
+                            let x2: FP = mmul_p(x_d, x_d);
+                            var num: FP = fr_add_p(x2, x2);
+                            num = fr_add_p(num, x2);
+                            let lambda: FP = mmul_p(num, inv_denom);
+                            let two_x: FP = fr_add_p(x_d, x_d);
+                            r_x = mmul_p(lambda, lambda);
+                            r_x = fr_sub_p(r_x, two_x);
+                            r_y = fr_sub_p(x_d, r_x);
+                            r_y = mmul_p(lambda, r_y);
+                            r_y = fr_sub_p(r_y, y_d);
                         } else {
                             // buckets[dst] + buckets[src].
                             denom_k = dx;
-                            var y_s: BigInt = load_y(src, M);
-                            var lambda: BigInt = fr_sub(&y_s, &y_d);
-                            lambda = montgomery_product(&lambda, &inv_denom);
-                            r_x = montgomery_product(&lambda, &lambda);
-                            r_x = fr_sub(&r_x, &x_d);
-                            r_x = fr_sub(&r_x, &x_s);
-                            r_y = fr_sub(&x_d, &r_x);
-                            r_y = montgomery_product(&lambda, &r_y);
-                            r_y = fr_sub(&r_y, &y_d);
+                            let y_s: FP = load_y(src, M);
+                            var lambda: FP = fr_sub_p(y_s, y_d);
+                            lambda = mmul_p(lambda, inv_denom);
+                            r_x = mmul_p(lambda, lambda);
+                            r_x = fr_sub_p(r_x, x_d);
+                            r_x = fr_sub_p(r_x, x_s);
+                            r_y = fr_sub_p(x_d, r_x);
+                            r_y = mmul_p(lambda, r_y);
+                            r_y = fr_sub_p(r_y, y_d);
                         }
                         if (k > 0u) {
-                            inv = montgomery_product(&inv, &denom_k);
+                            inv = mmul_p(inv, denom_k);
                         }
-                        store_x(dst, M, &r_x);
-                        store_y(dst, M, &r_y);
+                        store_x(dst, M, r_x);
+                        store_y(dst, M, r_y);
                     } else if (ps != 0u && pl == 0u) {
                         // dst empty, src present: buckets[dst] = buckets[src].
-                        var x_s: BigInt = load_x(src, M);
-                        var y_s: BigInt = load_y(src, M);
-                        store_x(dst, M, &x_s);
-                        store_y(dst, M, &y_s);
+                        let x_s: FP = load_x(src, M);
+                        let y_s: FP = load_y(src, M);
+                        store_x(dst, M, x_s);
+                        store_y(dst, M, y_s);
                         is_present[dst] = 1u;
                     }
                 }
