@@ -496,8 +496,8 @@ variable "SLASH_DUPLICATE_ATTESTATION_PENALTY" {
   nullable    = true
 }
 
-variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
-  description = "The slash attest descendant of invalid penalty"
+variable "SLASH_PROPOSE_DESCENDANT_OF_INVALID_PENALTY" {
+  description = "The slash propose descendant of invalid penalty"
   type        = string
   nullable    = true
 }

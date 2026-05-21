@@ -43,7 +43,7 @@ describe('invalidate blocks test', () => {
   let node: AztecNode;
   let origMinTxsPerBlock: number | undefined;
   let origSlashProposeInvalidAttestationsPenalty: bigint | undefined;
-  let origSlashAttestDescendantOfInvalidPenalty: bigint | undefined;
+  let origSlashProposeDescendantOfInvalidPenalty: bigint | undefined;
   const health = new ChainHealth(config.NAMESPACE, logger);
 
   const waitForSequencersToApplyConfig = async (expected: Partial<AztecNodeAdminConfig>, description: string) => {
@@ -78,7 +78,7 @@ describe('invalidate blocks test', () => {
       skipCollectingAttestations: false,
       minTxsPerBlock: origMinTxsPerBlock,
       slashProposeInvalidAttestationsPenalty: origSlashProposeInvalidAttestationsPenalty,
-      slashAttestDescendantOfInvalidPenalty: origSlashAttestDescendantOfInvalidPenalty,
+      slashProposeDescendantOfInvalidPenalty: origSlashProposeDescendantOfInvalidPenalty,
     };
     await updateSequencersConfig(config, restoreConfig);
     // Ensure config has actually propagated before the next scenario test starts
@@ -107,7 +107,7 @@ describe('invalidate blocks test', () => {
     const first = configs?.[0];
     origMinTxsPerBlock = first?.minTxsPerBlock ?? origMinTxsPerBlock;
     origSlashProposeInvalidAttestationsPenalty = first?.slashProposeInvalidAttestationsPenalty;
-    origSlashAttestDescendantOfInvalidPenalty = first?.slashAttestDescendantOfInvalidPenalty;
+    origSlashProposeDescendantOfInvalidPenalty = first?.slashProposeDescendantOfInvalidPenalty;
 
     const initialCheckpointNumber = (await monitor.run()).checkpointNumber;
 
@@ -116,7 +116,7 @@ describe('invalidate blocks test', () => {
     await updateSequencersConfig(config, {
       skipCollectingAttestations: true,
       slashProposeInvalidAttestationsPenalty: 0n,
-      slashAttestDescendantOfInvalidPenalty: 0n,
+      slashProposeDescendantOfInvalidPenalty: 0n,
       minTxsPerBlock: 0,
     });
 
