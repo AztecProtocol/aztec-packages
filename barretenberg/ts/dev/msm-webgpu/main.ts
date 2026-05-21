@@ -1633,6 +1633,92 @@ async function runMsmDiagAutorun(qp: URLSearchParams, client: ReturnType<typeof 
   }
 }
 
+/**
+ * WebGPU MSM timing sweep across N = 2^logn_min .. 2^logn_max. For each size
+ * it builds random independent inputs, warms the v2 pipeline, and times the
+ * batched `run()` over `reps`, reporting the median ms. Buffers are freed per
+ * size. If the GPU device is lost mid-sweep (the batched single-submit can
+ * exceed a mobile GPU's watchdog at large N), it records that size and stops.
+ */
+async function runMsmSweepAutorun(qp: URLSearchParams, client: ReturnType<typeof makeResultsClient>): Promise<void> {
+  const lo = clampLogN(parseInt(qp.get('logn_min') ?? '10', 10));
+  const hi = clampLogN(parseInt(qp.get('logn_max') ?? '18', 10));
+  const reps = Math.max(1, Math.min(20, parseInt(qp.get('reps') ?? '3', 10)));
+  const useRandomPoints = (qp.get('points') ?? 'random') !== 'srs';
+  client.postProgress({ phase: 'sweep-begin', lo, hi, reps, hasWebGpu: 'gpu' in navigator });
+  log('info', `[msm-sweep] N=2^${lo}..2^${hi} reps=${reps} points=${useRandomPoints ? 'random' : 'srs'}`);
+  const rows: Record<string, unknown>[] = [];
+  let fatal: string | null = null;
+  try {
+    if (!('gpu' in navigator)) throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
+    if (!useRandomPoints) {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS not loaded within 10 minutes');
+    }
+    const device = await get_device();
+    let deviceLost: string | null = null;
+    void device.lost.then(info => {
+      deviceLost = `${info.reason}: ${info.message}`;
+    });
+    for (let logN = lo; logN <= hi; logN++) {
+      if (deviceLost) {
+        rows.push({ logN, n: 1 << logN, ok: false, error: `device-lost: ${deviceLost}` });
+        break;
+      }
+      client.postProgress({ phase: 'size-begin', logN });
+      try {
+        const inputs = await generateInputs(logN, false, useRandomPoints);
+        // Skip MsmV2's built-in warm-up: it primes with all-0x01 dummy
+        // scalars, which collapse every point into ONE bucket — a maximally
+        // deep single-submit pair-tree that can trip a mobile GPU's watchdog.
+        // Warm with the real, well-distributed inputs instead.
+        const msm = await MsmV2.create(device, inputs.n, inputs.pointsBuf, undefined, { warmup: false });
+        msm.prepare(inputs.scalarsBuf);
+        await msm.run();
+        const ms: number[] = [];
+        for (let r = 0; r < reps; r++) {
+          const t0 = performance.now();
+          await msm.run();
+          ms.push(performance.now() - t0);
+        }
+        msm.destroy();
+        const sorted = ms.slice().sort((a, b) => a - b);
+        const med = sorted[Math.floor(sorted.length / 2)];
+        rows.push({
+          logN,
+          n: 1 << logN,
+          ok: true,
+          medianMs: +med.toFixed(3),
+          minMs: +Math.min(...ms).toFixed(3),
+          samples: ms.map(x => +x.toFixed(2)),
+        });
+        client.postProgress({ phase: 'size-done', logN, medianMs: +med.toFixed(3) });
+        log('ok', `[msm-sweep] 2^${logN} (n=${(1 << logN).toLocaleString()}): median ${med.toFixed(2)} ms`);
+      } catch (e) {
+        const msg = e instanceof Error ? `${e.message}` : String(e);
+        rows.push({ logN, n: 1 << logN, ok: false, error: msg.slice(0, 200) });
+        client.postProgress({ phase: 'size-error', logN, error: msg.slice(0, 120) });
+        log('err', `[msm-sweep] 2^${logN} FAILED: ${msg}`);
+        break;
+      }
+    }
+    if (deviceLost && !rows.some(r => String(r.error ?? '').startsWith('device-lost'))) {
+      rows.push({ logN: null, ok: false, error: `device-lost: ${deviceLost}` });
+    }
+  } catch (e) {
+    fatal = e instanceof Error ? e.message : String(e);
+    log('err', `[msm-sweep] FATAL: ${fatal}`);
+  }
+  await client.postResults({
+    state: fatal ? 'error' : rows.every(r => r.ok) ? 'done' : 'partial',
+    params: { lo, hi, reps, points: useRandomPoints ? 'random' : 'srs', page: 'msm-sweep' },
+    results: { rows, fatal },
+    hasWebGpu: 'gpu' in navigator,
+    userAgent: navigator.userAgent,
+    hardwareConcurrency: navigator.hardwareConcurrency,
+  });
+}
+
 // Page-load boot: load the SRS only. The barretenberg WASM (which forks
 // `mt-threads` workers) stays cold until the user clicks Run / Run × 5 /
 // Sweep — ensureWasmBooted() takes care of the first-click boot. The SRS
@@ -1643,7 +1729,7 @@ async function runMsmDiagAutorun(qp: URLSearchParams, client: ReturnType<typeof 
   const autorun = qp.get('autorun');
   // Both WebGPU autoruns (single-MSM and the per-stage diagnostic) run the
   // GPU MSM headlessly and share the same SRS / beacon handling.
-  const wantsWebgpuAutorun = autorun === 'msm-webgpu' || autorun === 'msm-diag';
+  const wantsWebgpuAutorun = autorun === 'msm-webgpu' || autorun === 'msm-diag' || autorun === 'msm-sweep';
   // The WebGPU autorun only consumes the first `2^logN` SRS points, so on a
   // phone we skip the full 2^20 prefix (a 32 MB download + ~1M point
   // decompress) that the interactive page loads up front.
@@ -1658,7 +1744,7 @@ async function runMsmDiagAutorun(qp: URLSearchParams, client: ReturnType<typeof 
   // executed" (no row) from "stuck loading SRS / running" (boot row, no
   // result).
   const webgpuClient = wantsWebgpuAutorun
-    ? makeResultsClient({ page: autorun === 'msm-diag' ? 'msm-diag' : 'msm-webgpu-only' })
+    ? makeResultsClient({ page: autorun === 'msm-diag' ? 'msm-diag' : autorun === 'msm-sweep' ? 'msm-sweep' : 'msm-webgpu-only' })
     : null;
   webgpuClient?.postProgress({ phase: 'boot', hasWebGpu: 'gpu' in navigator, userAgent: navigator.userAgent });
   setBusy(true, 'loading SRS…');
@@ -1703,6 +1789,10 @@ async function runMsmDiagAutorun(qp: URLSearchParams, client: ReturnType<typeof 
   }
   if (autorun === 'msm-diag') {
     await runMsmDiagAutorun(qp, webgpuClient!);
+    return;
+  }
+  if (autorun === 'msm-sweep') {
+    await runMsmSweepAutorun(qp, webgpuClient!);
     return;
   }
   if (autorun === 'msm-cross-check') {
