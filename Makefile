@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan bb-mobile-app-android bb-mobile-app-ios bb-mobile-apps
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -209,6 +209,14 @@ bb-cpp-release-dir: bb-cpp-native bb-cpp-cross
 	$(call build,$@,barretenberg/cpp,build_release_dir)
 
 bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-android
+
+bb-mobile-app-android:
+	$(call run_command,$@,$(ROOT)/barretenberg/mobile-app,bash scripts/build-android.sh)
+
+bb-mobile-app-ios:
+	$(call run_command,$@,$(ROOT)/barretenberg/mobile-app,bash scripts/build-ios.sh)
+
+bb-mobile-apps: bb-mobile-app-android bb-mobile-app-ios
 
 # BB TypeScript - TypeScript bindings
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
