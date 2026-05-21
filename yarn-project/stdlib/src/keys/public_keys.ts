@@ -70,6 +70,9 @@ export class PublicKeys {
     if (this.isEmpty()) {
       return Fr.ZERO;
     }
+    // Mirror Noir's `PublicKeys::hash`: hash the four single-key digests under
+    // DOM_SEP__PUBLIC_KEYS_HASH. `ivpk_m` must be reduced to its single-key digest first
+    // (Poseidon2 over [x, y]); passing the Point directly would omit the DOM_SEP__SINGLE_PUBLIC_KEY_HASH
     const ivpkMHash = await hashPublicKey(this.ivpkM);
     return poseidon2HashWithSeparator(
       [this.npkMHash, ivpkMHash, this.ovpkMHash, this.tpkMHash],

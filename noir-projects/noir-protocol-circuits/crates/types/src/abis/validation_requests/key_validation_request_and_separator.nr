@@ -34,7 +34,6 @@ mod test {
             key_validation_request_and_separator::KeyValidationRequestAndSeparator,
         },
         constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-        point::EmbeddedCurvePoint,
         traits::{Deserialize, Serialize},
     };
 

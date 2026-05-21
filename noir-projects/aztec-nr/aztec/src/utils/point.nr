@@ -13,7 +13,7 @@ pub fn get_sign_of_point(p: EmbeddedCurvePoint) -> bool {
     !BN254_FR_MODULUS_DIV_2.lt(p.y)
 }
 
-/// Returns a `Point` in the Grumpkin curve given its x coordinate.
+/// Returns a `EmbeddedCurvePoint` in the Grumpkin curve given its x coordinate.
 ///
 /// Because not all values in the field are valid x coordinates of points in the curve (i.e. there is no corresponding
 /// y value in the field that satisfies the curve equation), it may not be possible to reconstruct a `Point`.
@@ -24,7 +24,7 @@ pub fn point_from_x_coord(x: Field) -> Option<EmbeddedCurvePoint> {
     sqrt(rhs).map(|y| EmbeddedCurvePoint { x, y })
 }
 
-/// Returns a `Point` in the Grumpkin curve given its x coordinate and sign for the y coordinate.
+/// Returns a `EmbeddedCurvePoint` in the Grumpkin curve given its x coordinate and sign for the y coordinate.
 ///
 /// Because not all values in the field are valid x coordinates of points in the curve (i.e. there is no corresponding
 /// y value in the field that satisfies the curve equation), it may not be possible to reconstruct a `Point`.

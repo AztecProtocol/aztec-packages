@@ -63,8 +63,7 @@ export class Point {
     if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
       return Point.fromBuffer(obj);
     }
-    const [x, y] = [Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y)];
-    return new this(x, y);
+    return new this(Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y));
   }
 
   /**
@@ -95,8 +94,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    const [x, y] = [Fr.fromBuffer(reader), Fr.fromBuffer(reader)];
-    return new this(x, y);
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**
@@ -134,11 +132,6 @@ export class Point {
    */
   toFields() {
     return [this.x, this.y];
-  }
-
-  // TODO(MW): manually inserting is_infinite = 0 just so tests etc pass with hash result. Will be removed.
-  tempToFieldsWithInf() {
-    return [this.x, this.y, new Fr(this.isInfinite)];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -285,10 +278,7 @@ export class Point {
   }
 
   hash() {
-    // TODO(MW): Temporary for tests/fixtures to pass while 3 elts are used. Will be removed.
-    // this will be overwritten by upstream public key hashing changes anyway.
-    return poseidon2Hash(this.tempToFieldsWithInf());
-    //return poseidon2Hash(this.toFields());
+    return poseidon2Hash(this.toFields());
   }
 
   /**
@@ -301,6 +291,7 @@ export class Point {
 
   isOnGrumpkin() {
     // TODO: Check this against how bb handles curve check and infinity point check
+    // TODO(MW): See message_pack comments
     if (this.inf) {
       return true;
     }

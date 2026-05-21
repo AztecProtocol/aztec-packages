@@ -80,7 +80,6 @@ use types::{
     },
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
-    point::EmbeddedCurvePoint,
     proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
     public_keys::PublicKeys,
     side_effect::{Counted, Ordered, Scoped},

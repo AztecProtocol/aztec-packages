@@ -4,24 +4,12 @@ use crate::{
         DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_HASH, DEFAULT_OVPK_M_HASH,
         DEFAULT_TPK_M_HASH, DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
     },
-    hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    point::EmbeddedCurvePoint,
+    hash::poseidon2_hash_with_separator,
+    point::{EmbeddedCurvePoint, validate_on_curve},
     traits::{Deserialize, Hash, Serialize},
 };
 
 use std::{default::Default, meta::derive};
-
-// TODO(MW): manually defining here for now. Will be removed - but noir doesnt seem to have a native one?
-// TODO(MW): combine one fn for checking on curve and non-inf?
-pub fn validate_on_curve(p: EmbeddedCurvePoint) {
-    // y^2 == x^3 - 17
-    let x = p.x;
-    let y = p.y;
-    // p.is_infinite() <==> x == y == 0, considered on the curve:
-    if !p.is_infinite() {
-        assert_eq(y * y, x * x * x - 17, "Point not on curve");
-    }
-}
 
 pub trait ToPoint {
     fn to_point(self) -> EmbeddedCurvePoint;
@@ -80,10 +68,6 @@ impl Default for PublicKeys {
 
 impl PublicKeys {
     pub fn hash(self) -> PublicKeysHash {
-        // PublicKeysHash::from_field(poseidon2_hash_with_separator(
-        //     self.serialize(),
-        //     DOM_SEP__PUBLIC_KEYS_HASH as Field,
-        // ))
         PublicKeysHash::from_field(poseidon2_hash_with_separator(
             [self.npk_m_hash, self.ivpk_m.hash(), self.ovpk_m_hash, self.tpk_m_hash],
             DOM_SEP__PUBLIC_KEYS_HASH as Field,

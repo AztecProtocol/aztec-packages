@@ -24,7 +24,6 @@ import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import { PublicKey } from '@aztec/stdlib/keys';
 import { ContractClassLog, ContractClassLogFields, FlatPublicLogs, PrivateLog } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
