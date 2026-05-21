@@ -55,10 +55,7 @@ describe('EC Instructions', () => {
         context,
       );
 
-      const actual = new Point(
-        context.machineState.memory.get(4).toFr(),
-        context.machineState.memory.get(5).toFr(),
-      );
+      const actual = new Point(context.machineState.memory.get(4).toFr(), context.machineState.memory.get(5).toFr());
       const expected = await Grumpkin.add(Grumpkin.generator, Grumpkin.generator);
       expect(actual).toEqual(expected);
     });
@@ -81,10 +78,7 @@ describe('EC Instructions', () => {
         context,
       );
 
-      const actual = new Point(
-        context.machineState.memory.get(4).toFr(),
-        context.machineState.memory.get(5).toFr(),
-      );
+      const actual = new Point(context.machineState.memory.get(4).toFr(), context.machineState.memory.get(5).toFr());
       const G3 = await Grumpkin.add(Grumpkin.generator, G2);
       expect(actual).toEqual(G3);
     });

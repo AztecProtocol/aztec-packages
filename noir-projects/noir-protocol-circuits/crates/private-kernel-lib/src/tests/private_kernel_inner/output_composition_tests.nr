@@ -13,7 +13,6 @@ use types::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_CALL, MAX_PRIVATE_LOGS_PER_TX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    point::EmbeddedCurvePoint,
     traits::{Empty, FromField},
     utils::arrays::subarray,
 };

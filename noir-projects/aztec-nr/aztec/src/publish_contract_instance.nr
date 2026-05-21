@@ -26,7 +26,8 @@ pub fn publish_contract_instance_for_public_execution(context: &mut PrivateConte
     // target/contract_instance_registry_contract-ContractInstanceRegistry.json -o
     // ./contracts/contract_instance_registry_contract/src/interface
     //
-    // PublicKeys serializes to 5 fields (npk_m_hash, ivpk_m as a 2-field point, ovpk_m_hash, tpk_m_hash). Total args: 4 (salt, class_id, init_hash, immutables_hash) + 5 (public_keys) + 1 (universal_deploy) = 10.
+    // PublicKeys serializes to 5 fields (npk_m_hash, ivpk_m as a 2-field point, ovpk_m_hash, tpk_m_hash). Total args: 4
+    // (salt, class_id, init_hash, immutables_hash) + 5 (public_keys) + 1 (universal_deploy) = 10.
     let mut serialized_args = [0; 10];
     serialized_args[0] = instance.salt;
     serialized_args[1] = instance.contract_class_id.to_field();

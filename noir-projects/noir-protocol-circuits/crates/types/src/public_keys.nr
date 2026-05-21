@@ -23,11 +23,6 @@ pub fn validate_on_curve(p: EmbeddedCurvePoint) {
     }
 }
 
-// TODO(MW): manually inserting is_infinite = 0 just so tests etc pass with hash result. Will be removed.
-fn temp_serialize_with_inf(p: EmbeddedCurvePoint) -> [Field; 3] {
-    [p.x, p.y, p.is_infinite() as Field]
-}
-
 pub trait ToPoint {
     fn to_point(self) -> EmbeddedCurvePoint;
 }
@@ -35,7 +30,7 @@ pub trait ToPoint {
 /// Hashes a public key point under the canonical single-public-key domain separator.
 ///
 /// Defined as `Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, x, y)`.
-pub fn hash_public_key(p: Point) -> Field {
+pub fn hash_public_key(p: EmbeddedCurvePoint) -> Field {
     poseidon2_hash_with_separator([p.x, p.y], DOM_SEP__SINGLE_PUBLIC_KEY_HASH as Field)
 }
 
@@ -129,13 +124,12 @@ mod test {
         DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_HASH, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y,
     };
     use crate::{
-        public_keys::{hash_public_key, IvpkM, PublicKeys},
         point::EmbeddedCurvePoint,
+        public_keys::{hash_public_key, IvpkM, PublicKeys},
         traits::{Deserialize, Serialize},
     };
-    use std::ops::Neg;
 
-    global PUBLIC_KEYS_LENGTH: u32 = 6;
+    global PUBLIC_KEYS_LENGTH: u32 = 5;
 
     /// Catches drift between the precomputed `DEFAULT_*_M_HASH` constants and the
     /// `DEFAULT_*_M_X/Y` curve points they're derived from. If anyone updates the X/Y
@@ -144,17 +138,17 @@ mod test {
     #[test]
     unconstrained fn default_hashes_match_default_points() {
         let npk = hash_public_key(
-            Point { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y, is_infinite: false },
+            EmbeddedCurvePoint { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y },
         );
         assert_eq(npk, DEFAULT_NPK_M_HASH);
 
         let ovpk = hash_public_key(
-            Point { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y, is_infinite: false },
+            EmbeddedCurvePoint { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y },
         );
         assert_eq(ovpk, DEFAULT_OVPK_M_HASH);
 
         let tpk = hash_public_key(
-            Point { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y, is_infinite: false },
+            EmbeddedCurvePoint { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y },
         );
         assert_eq(tpk, DEFAULT_TPK_M_HASH);
     }

@@ -13,9 +13,8 @@ pub contract ContractInstanceRegistry {
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, PartialAddress},
             constants::{
-                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS, CONTRACT_INSTANCE_LENGTH,
-                CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE, CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, DEFAULT_UPDATE_DELAY,
-                MINIMUM_UPDATE_DELAY,
+                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS, CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
+                CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, DEFAULT_UPDATE_DELAY, MINIMUM_UPDATE_DELAY,
             },
             contract_class_id::ContractClassId,
             public_keys::PublicKeys,

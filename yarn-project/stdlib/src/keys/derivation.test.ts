@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { computeAddress, computePreaddress } from './derivation.js';
-import { PublicKey } from './public_key.js';
+import { PublicKey, hashPublicKey } from './public_key.js';
 import { PublicKeys } from './public_keys.js';
 
 describe('🔑', () => {
@@ -53,10 +53,10 @@ describe('🔑', () => {
       '0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a7622f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a',
     );
     const publicKeys = new PublicKeys(
-      await npkM.hash(),
+      await hashPublicKey(npkM),
       ivpkM,
-      await ovpkM.hash(),
-      await tpkM.hash(),
+      await hashPublicKey(ovpkM),
+      await hashPublicKey(tpkM),
     );
     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
     const address = (await computeAddress(publicKeys, partialAddress)).toString();

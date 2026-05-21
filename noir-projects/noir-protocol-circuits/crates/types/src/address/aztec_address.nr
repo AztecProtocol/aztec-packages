@@ -138,8 +138,6 @@ impl AztecAddress {
         );
 
         // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
-        // TODO(F-553): Drop the `.to_embedded()` / `.into()` round-trip once the custom `Point` wrapper is removed and
-        // we use `EmbeddedCurvePoint` directly.
         let address_point: EmbeddedCurvePoint = derive_public_key(EmbeddedCurveScalar::from_field(
             pre_address,
         ))
@@ -198,7 +196,7 @@ fn check_is_positive() {
 fn check_embedded_curve_point_add() {
     // Choose a point not on the curve in the 2nd position.
     let p1 = EmbeddedCurvePoint::generator();
-    let key = NpkM { inner: EmbeddedCurvePoint { x: 1, y: 1 } };
+    let key = IvpkM { inner: EmbeddedCurvePoint { x: 1, y: 1 } };
     let _ = p1 + key.to_point();
 }
 

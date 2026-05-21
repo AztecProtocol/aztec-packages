@@ -22,7 +22,7 @@ import type { CompleteAddress, ContractInstance, PartialAddress } from '@aztec/s
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { PublicKey, type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
+import { PublicKey, type PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
@@ -689,7 +689,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       );
     }
     const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
-    const ivpkMHash = await recipientCompleteAddress.publicKeys.ivpkM.hash();
+    const ivpkMHash = await hashPublicKey(recipientCompleteAddress.publicKeys.ivpkM);
     const ivskM = await this.keyStore.getMasterSecretKey(ivpkMHash);
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
 

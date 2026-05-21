@@ -5,7 +5,6 @@ use types::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__TSK_M, PRIVATE_KERNEL_TAIL_VK_INDEX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    point::EmbeddedCurvePoint,
     side_effect::Scoped,
     traits::{Empty, FromField},
 };

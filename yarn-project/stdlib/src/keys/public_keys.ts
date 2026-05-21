@@ -15,7 +15,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { PublicKey } from './public_key.js';
+import { PublicKey, hashPublicKey } from './public_key.js';
 
 /**
  * A non-owner's view of an account's master public keys.
@@ -70,7 +70,7 @@ export class PublicKeys {
     if (this.isEmpty()) {
       return Fr.ZERO;
     }
-    const ivpkMHash = await this.ivpkM.hash();
+    const ivpkMHash = await hashPublicKey(this.ivpkM);
     return poseidon2HashWithSeparator(
       [this.npkMHash, ivpkMHash, this.ovpkMHash, this.tpkMHash],
       DomainSeparator.PUBLIC_KEYS_HASH,
@@ -100,10 +100,10 @@ export class PublicKeys {
     const ovpkM = await PublicKey.random();
     const tpkM = await PublicKey.random();
     return new PublicKeys(
-      await npkM.hash(),
+      await hashPublicKey(npkM),
       await PublicKey.random(),
-      await ovpkM.hash(),
-      await tpkM.hash(),
+      await hashPublicKey(ovpkM),
+      await hashPublicKey(tpkM),
     );
   }
 
@@ -149,27 +149,10 @@ export class PublicKeys {
 
   /**
    * Wire-format fields matching Noir's struct flattening of `PublicKeys`:
-   * `[npk_m_hash, ivpk_m.x, ivpk_m.y, ivpk_m.is_infinite, ovpk_m_hash, tpk_m_hash]` (6 fields).
-   *
-   * The `is_infinite` slot is `0` for `ivpkM` produced by `deriveKeys` (fixed-base scalar
-   * multiplication on Grumpkin cannot reach infinity for a non-zero scalar, and Poseidon-derived
-   * scalars are non-zero with cryptographically negligible exception). External flows that
-   * import pre-derived keys are responsible for maintaining this invariant (see the AZIP-8
-   * migration note "Security note (PXE side)"). The slot stays on the wire because the Noir
-   * struct's `Point` still carries the flag. AZIP-8's "drop `is_infinite`" goal applies to the
-   * address-derivation hash (via `hash_public_key`, computed elsewhere), not to the
-   * contract-call args wire.
-   * TODO(F-553): drop the `is_infinite` slot once `Point` no longer carries the flag.
+   * `[npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash]` (5 fields).
    */
   toFields(): Fr[] {
-    return [
-      this.npkMHash,
-      this.ivpkM.x,
-      this.ivpkM.y,
-      new Fr(this.ivpkM.isInfinite ? 1 : 0),
-      this.ovpkMHash,
-      this.tpkMHash,
-    ];
+    return [this.npkMHash, this.ivpkM.x, this.ivpkM.y, this.ovpkMHash, this.tpkMHash];
   }
 
   // Used in foundation/src/abi/encoder. Probably non-optimal but the encoder needs a refactor.

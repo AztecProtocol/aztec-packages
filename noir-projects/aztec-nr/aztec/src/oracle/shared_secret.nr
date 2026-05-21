@@ -11,7 +11,11 @@ unconstrained fn get_shared_secrets_oracle(
 ) -> Field {}
 
 /// Convenience wrapper around [`get_shared_secrets`] for a single ephemeral public key.
-pub unconstrained fn get_shared_secret(address: AztecAddress, eph_pk: EmbeddedCurvePoint, contract_address: AztecAddress) -> Field {
+pub unconstrained fn get_shared_secret(
+    address: AztecAddress,
+    eph_pk: EmbeddedCurvePoint,
+    contract_address: AztecAddress,
+) -> Field {
     get_shared_secrets::<1>(address, BoundedVec::from_array([eph_pk]), contract_address).get(0)
 }
 
