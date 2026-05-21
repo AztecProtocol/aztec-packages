@@ -123,7 +123,7 @@ TEST(VectorizedForTest, VectorizedForPointwiseMulExact)
         b.at(i) = Fr(i * 11 + 5);
     }
 
-    vectorized_for<VECTOR_FIELD_WIDTH>(0, SIZE, [&](auto ctx) { out[ctx] = a[ctx] * b[ctx]; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(0, SIZE, [&](auto ctx) { out[ctx] = a[ctx] * b[ctx]; });
 
     for (size_t i = 0; i < SIZE; ++i) {
         Fr ref = a[i] * b[i];
@@ -140,7 +140,7 @@ TEST(VectorizedForTest, VectorizedForTailExercised)
         b.at(i) = Fr(i * 11 + 5);
     }
 
-    vectorized_for<VECTOR_FIELD_WIDTH>(0, SIZE, [&](auto ctx) { out[ctx] = a[ctx] * b[ctx]; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(0, SIZE, [&](auto ctx) { out[ctx] = a[ctx] * b[ctx]; });
 
     for (size_t i = 0; i < SIZE; ++i) {
         Fr ref = a[i] * b[i];
@@ -156,7 +156,7 @@ TEST(VectorizedForTest, VectorizedForNonZeroStart)
         a.at(i) = Fr(i * 13 + 1);
     }
 
-    vectorized_for<VECTOR_FIELD_WIDTH>(3, 14, [&](auto ctx) { out[ctx] = a[ctx] + a[ctx]; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(3, 14, [&](auto ctx) { out[ctx] = a[ctx] + a[ctx]; });
 
     for (size_t i = 0; i < 3; ++i) {
         EXPECT_TRUE(out[i].is_zero()) << "i=" << i;
@@ -173,11 +173,11 @@ TEST(VectorizedForTest, VectorizedForNonZeroStart)
 TEST(VectorizedForTest, VectorizedForEmptyRange)
 {
     size_t counter = 0;
-    vectorized_for<VECTOR_FIELD_WIDTH>(5, 5, [&](auto) { ++counter; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(5, 5, [&](auto) { ++counter; });
     EXPECT_EQ(counter, 0u);
 
     counter = 0;
-    vectorized_for<VECTOR_FIELD_WIDTH>(5, 7, [&](auto) { ++counter; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(5, 7, [&](auto) { ++counter; });
     EXPECT_EQ(counter, 2u);
 }
 
@@ -191,7 +191,7 @@ TEST(VectorizedForTest, VectorizedForSelfReadMutable)
         p.at(i) = original[i];
     }
 
-    vectorized_for<VECTOR_FIELD_WIDTH>(0, SIZE, [&](auto ctx) { p[ctx] = p[ctx] + p[ctx]; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(0, SIZE, [&](auto ctx) { p[ctx] = p[ctx] + p[ctx]; });
 
     for (size_t i = 0; i < SIZE; ++i) {
         Fr ref = original[i] + original[i];
@@ -209,7 +209,7 @@ TEST(VectorizedForTest, VectorizedForSelfReadMutableTail)
         p.at(i) = original[i];
     }
 
-    vectorized_for<VECTOR_FIELD_WIDTH>(0, SIZE, [&](auto ctx) { p[ctx] = p[ctx] + p[ctx]; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(0, SIZE, [&](auto ctx) { p[ctx] = p[ctx] + p[ctx]; });
 
     for (size_t i = 0; i < SIZE; ++i) {
         Fr ref = original[i] + original[i];
@@ -230,7 +230,7 @@ TEST(VectorizedForTest, MixedKernelSelfPlusOther)
     }
     Fr scalar = Fr(7);
 
-    vectorized_for<VECTOR_FIELD_WIDTH>(0, SIZE, [&](auto ctx) { self[ctx] = self[ctx] + other[ctx] * scalar; });
+    vectorized_for<VECTOR_FIELD_WIDTH, Fr>(0, SIZE, [&](auto ctx) { self[ctx] = self[ctx] + other[ctx] * scalar; });
 
     for (size_t i = 0; i < SIZE; ++i) {
         Fr ref = self_orig[i] + other_vals[i] * scalar;
@@ -246,7 +246,7 @@ TEST(VectorizedForTest, VectorizedForIfEvenIndices)
         p.at(i) = Fr(i);
     }
 
-    vectorized_for_if<VECTOR_FIELD_WIDTH>(
+    vectorized_for_if<VECTOR_FIELD_WIDTH, Fr>(
         0, SIZE, [](size_t i) { return (i % 2) == 0; }, [&](auto ctx) { p[ctx] = p[ctx] + p[ctx]; });
 
     for (size_t i = 0; i < SIZE; ++i) {
@@ -268,7 +268,7 @@ TEST(VectorizedForTest, VectorizedForIfAllMatch)
         p.at(i) = original[i];
     }
 
-    vectorized_for_if<VECTOR_FIELD_WIDTH>(
+    vectorized_for_if<VECTOR_FIELD_WIDTH, Fr>(
         0, SIZE, [](size_t) { return true; }, [&](auto ctx) { p[ctx] = p[ctx] + p[ctx]; });
 
     for (size_t i = 0; i < SIZE; ++i) {
@@ -279,7 +279,7 @@ TEST(VectorizedForTest, VectorizedForIfAllMatch)
 TEST(VectorizedForTest, VectorizedForIfNoneMatch)
 {
     size_t counter = 0;
-    vectorized_for_if<VECTOR_FIELD_WIDTH>(0, 20, [](size_t) { return false; }, [&](auto) { ++counter; });
+    vectorized_for_if<VECTOR_FIELD_WIDTH, Fr>(0, 20, [](size_t) { return false; }, [&](auto) { ++counter; });
     EXPECT_EQ(counter, 0u);
 }
 
@@ -295,7 +295,7 @@ TEST(VectorizedForTest, VectorizedForIfTailOnly)
 
     auto pred = [](size_t i) { return i == 1 || i == 4 || i == 7; };
     size_t kernel_calls = 0;
-    vectorized_for_if<VECTOR_FIELD_WIDTH>(0, SIZE, pred, [&](auto ctx) {
+    vectorized_for_if<VECTOR_FIELD_WIDTH, Fr>(0, SIZE, pred, [&](auto ctx) {
         ++kernel_calls;
         p[ctx] = p[ctx] + p[ctx];
     });
@@ -313,7 +313,7 @@ TEST(VectorizedForTest, VectorizedForIfTailOnly)
 TEST(VectorizedForTest, VectorizedForIfPredicateCallOrder)
 {
     std::vector<size_t> log;
-    vectorized_for_if<VECTOR_FIELD_WIDTH>(
+    vectorized_for_if<VECTOR_FIELD_WIDTH, Fr>(
         5,
         17,
         [&](size_t i) {
