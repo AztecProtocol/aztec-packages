@@ -27,17 +27,19 @@ template <typename FF_> class ECCVMSetRelationImpl {
     static constexpr uint64_t THIRD_TERM_TAG = 3;  // (pc, P.x, P.y, msm_size)
 
     // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
+    // NOTE: the previous Z_PERM_INIT subrelation (`lagrange_first · z_perm = 0`) was moved
+    // to ECCVMShiftableInitRelation as part of centralizing all `lagrange_first · col = 0`
+    // pins. The grand product still requires `z_perm[lagrange_first row] = 0` — that
+    // initialization is now enforced there.
     enum SubrelationIndex : size_t {
         GRAND_PRODUCT = 0,
         LEFT_SHIFTABLE = 1,
-        Z_PERM_INIT = 2,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         22, // grand product construction sub-relation
         3,  // left-shiftable polynomial sub-relation
-        3   // z_perm initialization sub-relation
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
     // prover optimization to allow for skipping the computation of sub-relations at certain points in sumcheck.

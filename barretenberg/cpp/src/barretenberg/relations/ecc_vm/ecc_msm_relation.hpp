@@ -130,13 +130,20 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         DOUBLE_SHIFT_FORBIDS_ROUND_31 = 47,
         // MSM-start anchor: msm_transition must be 1 at the first row of every MSM block
         MSM_TRANSITION_AT_ACTIVE_START = 48,
+        // msm_pc is constant on every active row within an MSM segment (not the last row, where
+        // MSM_TRANSITION_PC pins the segment boundary). Without this, a malicious prover can
+        // swap msm_pc between two same-base MSMs on a single interior ADD row; the WNAF and
+        // point-table multisets still balance because both swapped tuples are valid writes, but
+        // the resulting MSM accumulators are swapped between segments — letting an op queue that
+        // should be rejected pass verification.
+        MSM_PC_CONTINUITY = 49,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 49> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    static constexpr std::array<size_t, 50> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
                                                                          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
