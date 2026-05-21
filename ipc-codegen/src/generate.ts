@@ -319,7 +319,6 @@ function generate(args: Args) {
           `${toSnakeCase(prefix)}_server.rs`,
           gen.generateServer(compiled),
         );
-        copyTemplate("rust", "ipc_server.rs", absOut);
       }
       if (args.client) {
         writeFile(
@@ -327,13 +326,12 @@ function generate(args: Args) {
           gen.generateApi(compiled),
         );
       }
-      // Backend templates (copied once, not overwritten)
+      // Backend templates (copied once, not overwritten). The `Backend` trait
+      // and `IpcError` type stay shared; ipc-runtime is consumed via the
+      // separate `ipc-runtime` crate.
       if (args.uds || args.ffi) {
         copyTemplateOnce("rust", "backend.rs", absOut);
         copyTemplateOnce("rust", "error.rs", absOut);
-      }
-      if (args.uds) {
-        copyTemplateOnce("rust", "uds_backend.rs", absOut);
       }
       if (args.ffi) {
         copyTemplateOnce("rust", "ffi_backend.rs", absOut);

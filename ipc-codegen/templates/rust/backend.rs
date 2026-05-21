@@ -42,3 +42,17 @@ pub trait Backend {
     /// Clean up resources and shutdown the backend.
     fn destroy(&mut self) -> Result<()>;
 }
+
+// Bridge impl so ipc_runtime::IpcClient (UDS / MPSC-SHM transport) plugs
+// directly into any generated <Service>Api as the Backend. Consumers using
+// only the FFI backend can ignore this — it requires the `ipc-runtime`
+// crate to be a dependency of the consumer's Cargo.toml.
+impl Backend for ipc_runtime::IpcClient {
+    fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
+        ipc_runtime::IpcClient::call(self, input)
+            .map_err(|e| super::error::IpcError::Backend(e.to_string()))
+    }
+    fn destroy(&mut self) -> Result<()> {
+        Ok(())
+    }
+}

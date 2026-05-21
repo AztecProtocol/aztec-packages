@@ -1,20 +1,22 @@
-//! Echo IPC client — uses GENERATED typed client (EchoApi) + UDS backend.
+//! Echo IPC client — uses GENERATED typed client (EchoApi) over ipc-runtime.
 //! Usage: echo_client --socket /tmp/echo.sock
 //! Exits 0 on success, 1 on failure.
 
 use echo_wire_compat::generated::echo_client::EchoApi;
 use echo_wire_compat::generated::echo_types::EchoInner;
-use echo_wire_compat::generated::error::Result;
-use echo_wire_compat::generated::uds_backend::UdsBackend;
+use echo_wire_compat::generated::error::{IpcError, Result};
+use ipc_runtime::IpcClient;
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    let socket_path = args.iter()
+    let socket_path = args
+        .iter()
         .position(|a| a == "--socket")
         .and_then(|i| args.get(i + 1))
         .expect("Usage: echo_client --socket <path>");
 
-    let backend = UdsBackend::connect(socket_path)?;
+    let backend =
+        IpcClient::from_path(socket_path).map_err(|e| IpcError::Backend(e.to_string()))?;
     let mut client = EchoApi::new(backend);
 
     // Test 1: EchoBytes

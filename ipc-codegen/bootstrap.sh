@@ -25,6 +25,12 @@ function build {
   # binaries that test_cmds emits commands against.
   examples/echo-schema/generate.sh
 
+  # Build ipc-runtime up front so Rust + C++ echo builds can link it.
+  (cd ../ipc-runtime && ./bootstrap.sh) >/dev/null 2>&1 || true
+  local IPC_RUNTIME_BUILD_DIR
+  IPC_RUNTIME_BUILD_DIR="$(cd ../ipc-runtime/cpp/build 2>/dev/null && pwd)" || IPC_RUNTIME_BUILD_DIR=""
+  export IPC_RUNTIME_LIB_DIR="$IPC_RUNTIME_BUILD_DIR"
+
   echo "Building Rust echo binaries..."
   (cd examples/rust/echo && cargo build --quiet)
 
@@ -36,18 +42,16 @@ function build {
     (cd examples/ts/echo && npm install --no-package-lock --quiet)
   fi
 
-  # C++ echo binaries link against ipc-runtime; build it first so libipc_runtime.a
-  # exists. msgpack-c headers come from bb's cmake build (we don't have a separate
-  # source for them yet). If either is missing we skip the C++ matrix pairs.
-  (cd ../ipc-runtime && ./bootstrap.sh) >/dev/null 2>&1 || true
-  local IPC_RUNTIME_LIB IPC_RUNTIME_INC
-  IPC_RUNTIME_LIB="$(cd ../ipc-runtime/cpp/build 2>/dev/null && pwd)/libipc_runtime.a" || true
+  # C++ echo binaries link against ipc-runtime (already built above). msgpack-c
+  # headers come from bb's cmake build (we don't have a separate source for them yet).
+  # If either is missing we skip the C++ matrix pairs.
+  local IPC_RUNTIME_LIB="$IPC_RUNTIME_BUILD_DIR/libipc_runtime.a"
+  local IPC_RUNTIME_INC
   IPC_RUNTIME_INC="$(cd ../ipc-runtime/cpp 2>/dev/null && pwd)" || true
   local MSGPACK_INC
   MSGPACK_INC="$(cd ../barretenberg/cpp/build/_deps/msgpack-c/src/msgpack-c/include 2>/dev/null && pwd)" || true
   if [ -f "$IPC_RUNTIME_LIB" ] && [ -n "${MSGPACK_INC:-}" ] && [ -d "$MSGPACK_INC" ]; then
     echo "Building C++ echo binaries..."
-    # THROW/RETHROW satisfy barretenberg's patched msgpack-c (the same source we pull in).
     # THROW/RETHROW satisfy barretenberg's patched msgpack-c (the same source we pull in).
     local CXX_FLAGS="-std=c++20 -I $MSGPACK_INC -I $IPC_RUNTIME_INC -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -DTHROW=throw -DRETHROW=throw"
     (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_server echo_server.cpp "$IPC_RUNTIME_LIB" -lpthread)
