@@ -10,7 +10,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         wsdb_ipc_client
         PUBLIC
         barretenberg
-        ipc
+        ipc_runtime
     )
 
     # aztec-wsdb binary (standalone world state database server)
@@ -26,7 +26,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         PRIVATE
         barretenberg
         world_state
-        ipc
+        ipc_runtime
         env
     )
     if(ENABLE_STACKTRACES)

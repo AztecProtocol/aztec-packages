@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/common/throw_or_abort.hpp"
 #include "ipc_server.hpp"
 #include "shm/spsc_shm.hpp"
 #include "shm_common.hpp"

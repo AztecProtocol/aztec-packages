@@ -12,7 +12,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         PUBLIC
         barretenberg
         wsdb_ipc_client
-        ipc
+        ipc_runtime
         vm2_sim
     )
     set_target_properties(wsdb_client PROPERTIES POSITION_INDEPENDENT_CODE ON)

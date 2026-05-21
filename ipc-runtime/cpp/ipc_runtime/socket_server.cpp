@@ -1,4 +1,4 @@
-#include "barretenberg/ipc/socket_server.hpp"
+#include "ipc_runtime/socket_server.hpp"
 #include <cerrno>
 #include <cstdint>
 #include <cstring>

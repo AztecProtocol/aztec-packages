@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/ipc/ipc_server.hpp"
+#include "ipc_runtime/ipc_server.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <string>

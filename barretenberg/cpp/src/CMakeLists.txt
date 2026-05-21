@@ -126,7 +126,9 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
-    add_subdirectory(barretenberg/ipc)
+    # ipc-runtime lives outside barretenberg/cpp/ so it's portable to non-bb services.
+    # CMake binary dir kept under build/ so artifacts land alongside other libs.
+    add_subdirectory(${CMAKE_SOURCE_DIR}/../../ipc-runtime/cpp ${CMAKE_BINARY_DIR}/ipc-runtime)
     add_subdirectory(barretenberg/wsdb)
     add_subdirectory(barretenberg/wsdb_client)
     add_subdirectory(barretenberg/nodejs_module)

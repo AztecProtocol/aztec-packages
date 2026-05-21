@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "ipc_runtime/shm/spsc_shm.hpp"
 #include <cassert>
 #include <cstring>
 #include <iostream>

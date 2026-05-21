@@ -1,8 +1,8 @@
-#include "barretenberg/ipc/ipc_client.hpp"
-#include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
-#include "barretenberg/ipc/shm_client.hpp"
-#include "barretenberg/ipc/shm_server.hpp"
+#include "ipc_runtime/ipc_client.hpp"
+#include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/shm/spsc_shm.hpp"
+#include "ipc_runtime/shm_client.hpp"
+#include "ipc_runtime/shm_server.hpp"
 #include <array>
 #include <atomic>
 #include <chrono>

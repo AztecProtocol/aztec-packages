@@ -6,7 +6,7 @@
 #include <string>
 
 #ifndef __wasm__
-#include "barretenberg/ipc/ipc_server.hpp"
+#include "ipc_runtime/ipc_server.hpp"
 #endif
 
 namespace bb {

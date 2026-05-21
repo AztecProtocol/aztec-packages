@@ -2,8 +2,8 @@
 #pragma once
 
 #include "barretenberg/common/try_catch_shim.hpp"
-#include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/wsdb/wsdb_execute.hpp"
+#include "ipc_runtime/ipc_client.hpp"
 
 #include <memory>
 #include <string>

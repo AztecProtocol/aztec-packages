@@ -1,4 +1,4 @@
-#include "barretenberg/ipc/socket_client.hpp"
+#include "ipc_runtime/socket_client.hpp"
 #include <cerrno>
 #include <cstdint>
 #include <cstring>

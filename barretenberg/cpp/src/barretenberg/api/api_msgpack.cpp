@@ -9,7 +9,7 @@
 #include <vector>
 
 #if !defined(__wasm__) && !defined(_WIN32)
-#include "barretenberg/ipc/ipc_server.hpp"
+#include "ipc_runtime/ipc_server.hpp"
 #include <csignal>
 #include <thread>
 #include <unistd.h>

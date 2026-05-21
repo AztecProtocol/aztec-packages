@@ -1,7 +1,7 @@
-#include "barretenberg/ipc/ipc_server.hpp"
-#include "barretenberg/ipc/mpsc_shm_server.hpp"
-#include "barretenberg/ipc/shm_server.hpp"
-#include "barretenberg/ipc/socket_server.hpp"
+#include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/mpsc_shm_server.hpp"
+#include "ipc_runtime/shm_server.hpp"
+#include "ipc_runtime/socket_server.hpp"
 #include <cstddef>
 #include <memory>
 #include <string>

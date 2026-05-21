@@ -1,10 +1,10 @@
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/wsdb/wsdb_execute.hpp"
+#include "ipc_runtime/ipc_server.hpp"
 
 #include <csignal>
 #include <cstdint>

@@ -1,1 +1,1 @@
-barretenberg_module(ipc_bench crypto_poseidon2 ipc)
+barretenberg_module(ipc_bench crypto_poseidon2 ipc_runtime)

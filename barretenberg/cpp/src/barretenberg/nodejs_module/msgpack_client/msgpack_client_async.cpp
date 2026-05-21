@@ -1,5 +1,5 @@
 #include "barretenberg/nodejs_module/msgpack_client/msgpack_client_async.hpp"
-#include "barretenberg/ipc/ipc_client.hpp"
+#include "ipc_runtime/ipc_client.hpp"
 #include "napi.h"
 #include <cstdint>
 #include <vector>

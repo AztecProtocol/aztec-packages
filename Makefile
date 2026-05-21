@@ -280,6 +280,13 @@ ipc-codegen:
 ipc-codegen-tests: ipc-codegen
 	$(call test,$@,ipc-codegen)
 
+.PHONY: ipc-runtime ipc-runtime-tests
+ipc-runtime:
+	$(call build,$@,ipc-runtime)
+
+ipc-runtime-tests: ipc-runtime
+	$(call test,$@,ipc-runtime)
+
 #==============================================================================
 # .claude tooling
 #==============================================================================

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/ipc/ipc_client.hpp"
+#include "ipc_runtime/ipc_client.hpp"
 #include "napi.h"
 #include <memory>
 

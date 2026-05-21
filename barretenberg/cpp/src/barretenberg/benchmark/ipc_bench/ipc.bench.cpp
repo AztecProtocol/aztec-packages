@@ -1,8 +1,8 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "ipc_runtime/ipc_client.hpp"
 #include <array>
 #include <atomic>
 #include <benchmark/benchmark.h>
