@@ -107,7 +107,7 @@ impl<T> EphemeralArray<T> {
 impl<T> Serialize for EphemeralArray<T> {
     let N: u32 = 1;
 
-    fn serialize(self) -> [Field; 1] {
+    fn serialize(self) -> [Field; Self::N] {
         [self.slot]
     }
 
@@ -121,7 +121,7 @@ impl<T> Serialize for EphemeralArray<T> {
 impl<T> Deserialize for EphemeralArray<T> {
     let N: u32 = 1;
 
-    fn deserialize(fields: [Field; 1]) -> Self {
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         Self { slot: fields[0] }
     }
 
