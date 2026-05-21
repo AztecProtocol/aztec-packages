@@ -49,6 +49,7 @@ import {
   convert_points_only as convert_points_only_shader,
   csr_to_v2_active_sums as csr_to_v2_active_sums_shader,
   csr_to_v2_meta as csr_to_v2_meta_shader,
+  decompose_scalars_booth as decompose_scalars_booth_shader,
   decompose_scalars_signed_only as decompose_scalars_signed_only_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
   divsteps_bench as divsteps_bench_shader,
@@ -467,6 +468,10 @@ ${packLines.join('\n')}
       },
       { extract_word_from_bytes_le_funcs },
     );
+  }
+
+  public gen_decompose_scalars_booth_shader(workgroup_size: number): string {
+    return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
   }
 
   public gen_transpose_shader(workgroup_size: number) {
@@ -925,13 +930,14 @@ ${packLines.join('\n')}
     num_bits: number,
     s: number,
     pair_cap: number = 64,
+    buckets_per_window_override?: number,
   ): string {
     if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
         !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
         !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
       throw new Error(`gen_ba_planner_v2_bench_shader: positive integer args required`);
     }
-    const buckets_per_window = 2 ** (c - 1);
+    const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
     const num_windows = Math.ceil(num_bits / c);
     if (buckets_per_window % workgroup_size !== 0) {
       throw new Error(
@@ -1014,13 +1020,13 @@ ${packLines.join('\n')}
    * indexed by val_idx. One thread per (subtask, slot). Pure raw vec4
    * copy — no field-element math.
    */
-  public gen_csr_to_v2_active_sums_shader(workgroup_size: number): string {
+  public gen_csr_to_v2_active_sums_shader(workgroup_size: number, with_sign = false): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_csr_to_v2_active_sums_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     return mustache.render(
       csr_to_v2_active_sums_shader,
-      { workgroup_size, recompile: this.recompile },
+      { workgroup_size, recompile: this.recompile, with_sign },
       {},
     );
   }

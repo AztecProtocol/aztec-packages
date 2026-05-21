@@ -1,0 +1,83 @@
+// Carry-free signed-Booth window decompose.
+//
+// Port of Constantine's signedWindowEncoding (barretenberg C++
+// scalar_multiplication.cpp, get_constantine_packed_digit). A c-bit
+// window's signed digit is a pure function of c+1 bits: the window's own
+// c bits plus the top bit of the window below it (the "lookback" bit,
+// a synthetic 0 for the bottom window). Reading that one shared bit is
+// what removes the carry chain a plain signed-digit recoder needs — so
+// every (point, window) digit is independent and the kernel is
+// embarrassingly parallel.
+//
+// Per (window, point) it writes a bucket index in [0, 2^(c-1)] (0 is the
+// zero digit) and a sign bit (1 => negate the point in this window). The
+// bucket feeds the transpose (all_csr_col_idx); the sign feeds point
+// negation at the csr_to_v2 gather. Scalars must be in normal (non-
+// Montgomery) form — the recoder slices raw integer bits.
+
+@group(0) @binding(0) var<storage, read>       scalars: array<u32>;
+@group(0) @binding(1) var<storage, read_write> chunks:  array<u32>;
+@group(0) @binding(2) var<storage, read_write> signs:   array<u32>;
+@group(0) @binding(3) var<uniform>             params:  vec4<u32>;
+// params.x = input_size   (points per window)
+// params.y = num_windows
+// params.z = window_bits  (c)
+// params.w = scalar_words (u32 words per scalar)
+
+const WORD_BITS: u32 = 32u;
+
+// Read `count` (<= 32) bits at absolute bit `bit_off` from scalar `s`,
+// little-endian. Bits past the scalar's words read as 0.
+fn read_bits(s: u32, scalar_words: u32, bit_off: u32, count: u32) -> u32 {
+    let base = s * scalar_words;
+    let word = bit_off / WORD_BITS;
+    let off = bit_off % WORD_BITS;
+    var v: u32 = 0u;
+    if (word < scalar_words) {
+        v = scalars[base + word] >> off;
+    }
+    if (off + count > WORD_BITS && word + 1u < scalar_words) {
+        v = v | (scalars[base + word + 1u] << (WORD_BITS - off));
+    }
+    if (count >= WORD_BITS) {
+        return v;
+    }
+    return v & ((1u << count) - 1u);
+}
+
+@compute
+@workgroup_size({{ workgroup_size }})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let p = gid.x;
+    let w = gid.y;
+    let input_size = params.x;
+    let num_windows = params.y;
+    if (p >= input_size || w >= num_windows) {
+        return;
+    }
+    let c = params.z;
+    let scalar_words = params.w;
+
+    // c+1-bit window: the window's c bits, with the lookback bit (top bit
+    // of the window below; synthetic 0 for window 0) shifted in as the LSB.
+    let win_bits = read_bits(p, scalar_words, w * c, c);
+    var lookback: u32 = 0u;
+    if (w > 0u) {
+        lookback = read_bits(p, scalar_words, w * c - 1u, 1u);
+    }
+    let raw = (win_bits << 1u) | lookback;
+
+    // Constantine signedWindowEncoding: bit c of raw is the sign; the
+    // magnitude is the conditionally-negated (raw + 1) >> 1.
+    let neg = (raw >> c) & 1u;
+    let neg_mask = 0u - neg;            // 0 or 0xFFFFFFFF
+    let val_mask = (1u << c) - 1u;
+    let encode = (raw + 1u) >> 1u;
+    let bucket = ((encode - neg) ^ neg_mask) & val_mask;
+
+    let idx = w * input_size + p;
+    chunks[idx] = bucket;
+    signs[idx] = neg;
+
+    {{{ recompile }}}
+}

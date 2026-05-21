@@ -15,8 +15,12 @@
 // [s*input_size, (s+1)*input_size), and input_size matches the v2
 // per-window stride, so the slot IS the active_sums element index.
 //
-// Sign handling: cuZK encodes signed slices via bucket index, not point
-// negation, so the converter does not flip y.
+// Sign handling: rendered with `with_sign` when fed by the carry-free
+// signed-Booth decompose, which emits a per-(window, point) sign bit. A
+// negative digit means the point is added negated, so when signs[...] is
+// set the y plane is sourced from new_point_y_neg (the precomputed field
+// negation -y); x is unchanged. Without `with_sign` the converter is a
+// plain copy (cuZK's signed-slice path folds the sign into the bucket).
 
 @group(0) @binding(0)
 var<storage, read> val_idx: array<u32>;
@@ -29,8 +33,19 @@ var<storage, read_write> active_sums: array<vec4<u32>>;
 
 // params[0] = total_slots (num_subtasks * input_size)
 // params[1] = M           (active_sums element stride; plane stride = PG*M)
+// params[2] = wstride     (per-window slot stride; with_sign only)
+// params[3] = input_size  (signs stride = per-window point count; with_sign)
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
+{{#with_sign}}
+// Precomputed field negation -y of every pool point, same layout as
+// new_point_y; selected per slot when the digit sign bit is set.
+@group(0) @binding(5)
+var<storage, read> new_point_y_neg: array<vec4<u32>>;
+// signs[window*input_size + pt_idx] == 1 => negate this point's y.
+@group(0) @binding(6)
+var<storage, read> signs: array<u32>;
+{{/with_sign}}
 
 const PG: u32 = 2u;
 
@@ -50,8 +65,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     active_sums[x_base]      = new_point_x[2u * pt_idx];
     active_sums[x_base + 1u] = new_point_x[2u * pt_idx + 1u];
+{{#with_sign}}
+    let window = slot / params[2];
+    let neg = signs[window * params[3] + pt_idx];
+    if (neg == 1u) {
+        active_sums[y_base]      = new_point_y_neg[2u * pt_idx];
+        active_sums[y_base + 1u] = new_point_y_neg[2u * pt_idx + 1u];
+    } else {
+        active_sums[y_base]      = new_point_y[2u * pt_idx];
+        active_sums[y_base + 1u] = new_point_y[2u * pt_idx + 1u];
+    }
+{{/with_sign}}
+{{^with_sign}}
     active_sums[y_base]      = new_point_y[2u * pt_idx];
     active_sums[y_base + 1u] = new_point_y[2u * pt_idx + 1u];
+{{/with_sign}}
 
     {{{ recompile }}}
 }
