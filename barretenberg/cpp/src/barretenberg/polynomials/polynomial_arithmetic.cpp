@@ -14,27 +14,8 @@
 #include "barretenberg/polynomials/vectorized_for.hpp"
 #include <math.h>
 #include <memory.h>
-#include <memory>
-#include <mutex>
 
 namespace bb::polynomial_arithmetic {
-
-namespace {
-
-template <typename Fr> std::shared_ptr<Fr[]> get_scratch_space(const size_t num_elements)
-{
-    static std::mutex scratch_mutex;
-    std::lock_guard lock(scratch_mutex);
-    static std::shared_ptr<Fr[]> working_memory = nullptr;
-    static size_t current_size = 0;
-    if (num_elements > current_size) {
-        working_memory = std::make_shared<Fr[]>(num_elements);
-        current_size = num_elements;
-    }
-    return working_memory;
-}
-
-} // namespace
 
 inline uint32_t reverse_bits(uint32_t x, uint32_t bit_length)
 {
@@ -77,6 +58,7 @@ template <typename Fr>
 void fft_inner_parallel(
     Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain, const Fr&, const std::vector<Fr*>& root_table)
 {
+    BB_ASSERT(coeffs != target, "fft_inner_parallel does not support in-place operation");
     parallel_for(domain.num_threads, [&](size_t j) {
         Fr temp_1;
         Fr temp_2;
@@ -220,29 +202,28 @@ template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 }
 
 // This function computes the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...).
+//
+// Build the product incrementally by multiplying in one root at a time. After the i-th iteration,
+// dest[0..i+1] holds the coefficients of ∏_{k=0}^{i} (X - roots[k]). Multiplying the existing
+// polynomial P(X) by (X - r) gives
+//     P(X) · X   shifts every coefficient up by one index, and
+//    -P(X) · r   scales every coefficient by -r.
+// Walking k high-to-low allows writing the shift-and-combine update in place with total cost O(n^2).
 template <typename Fr> void compute_linear_polynomial_product(const Fr* roots, Fr* dest, const size_t n)
 {
     if (n == 0) {
         return;
     }
 
-    auto scratch_space_ptr = get_scratch_space<Fr>(n);
-    auto scratch_space = scratch_space_ptr.get();
-    memcpy((void*)scratch_space, (void*)roots, n * sizeof(Fr));
-
-    dest[n] = 1;
-    dest[n - 1] = -compute_sum(scratch_space, n);
-
-    Fr temp;
-    Fr constant = 1;
-    for (size_t i = 0; i < n - 1; ++i) {
-        temp = 0;
-        for (size_t j = 0; j < n - 1 - i; ++j) {
-            scratch_space[j] = roots[j] * compute_sum(&scratch_space[j + 1], n - 1 - i - j);
-            temp += scratch_space[j];
+    dest[0] = -roots[0];
+    dest[1] = Fr(1);
+    for (size_t i = 1; i < n; ++i) {
+        const Fr r = roots[i];
+        dest[i + 1] = dest[i];
+        for (size_t k = i; k >= 1; --k) {
+            dest[k] = dest[k - 1] - r * dest[k];
         }
-        dest[n - 2 - i] = temp * constant;
-        constant *= Fr::neg_one();
+        dest[0] = -r * dest[0];
     }
 }
 
