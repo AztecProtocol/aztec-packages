@@ -10,6 +10,8 @@
 
 {{{ dec_pack }}}
 
+{{> field8_funcs }}
+
 // Fused recursive affine bucket reduction — the WHOLE 4-phase reduction in a
 // single dispatch. One workgroup per window: every level's data dependency is
 // then intra-workgroup, so a storageBarrier() between levels replaces the
@@ -30,6 +32,8 @@
 // montgomery_product identity); a COPY slot (dst absent, src present) copies.
 // Equal operands (dx == 0, a COPY-duplicated point added to itself) become a
 // double. See ba_reduce_init / the host 4-phase replay for the algorithm.
+//
+// Field elements are 8x u32 throughout (Lever 2); see field8_funcs.
 
 const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
@@ -42,66 +46,43 @@ const WG: u32 = {{ workgroup_size }}u;
 // params.x = num_levels   params.y = M (red_buf element stride)
 // params.z = maxc (pref_scratch slots per thread)   params.w = STRIDE
 
-fn load_x(idx: u32, M: u32) -> BigInt {
+fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;
     let q0 = red_buf[base + 0u];
     let q1 = red_buf[base + 1u];
-    var w: array<u32, 8>;
-    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
-    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-    return unpack256_to_limbs(w);
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn load_y(idx: u32, M: u32) -> BigInt {
+fn load_y(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * M + PG * idx;
     let q0 = red_buf[base + 0u];
     let q1 = red_buf[base + 1u];
-    var w: array<u32, 8>;
-    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
-    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-    return unpack256_to_limbs(w);
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn store_x(idx: u32, M: u32, val: ptr<function, BigInt>) {
+fn store_x(idx: u32, M: u32, val: array<u32, 8>) {
     let base = PG * idx;
-    let w = pack_limbs_to_256(val);
-    red_buf[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
-    red_buf[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+    red_buf[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    red_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
-fn store_y(idx: u32, M: u32, val: ptr<function, BigInt>) {
+fn store_y(idx: u32, M: u32, val: array<u32, 8>) {
     let base = PG * M + PG * idx;
-    let w = pack_limbs_to_256(val);
-    red_buf[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
-    red_buf[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+    red_buf[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    red_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
-fn get_r() -> BigInt {
-    var r: BigInt;
-{{{ r_limbs }}}
-    return r;
-}
-
-fn is_zero(v: ptr<function, BigInt>) -> bool {
-    let w = pack_limbs_to_256(v);
-    return (w[0] | w[1] | w[2] | w[3] | w[4] | w[5] | w[6] | w[7]) == 0u;
-}
-
-fn store_pref(slot: u32, val: ptr<function, BigInt>) {
+fn store_pref(slot: u32, val: array<u32, 8>) {
     let base = 2u * slot;
-    let w = pack_limbs_to_256(val);
-    pref_scratch[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
-    pref_scratch[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+    pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
-fn load_pref(slot: u32) -> BigInt {
+fn load_pref(slot: u32) -> array<u32, 8> {
     let base = 2u * slot;
     let q0 = pref_scratch[base + 0u];
     let q1 = pref_scratch[base + 1u];
-    var w: array<u32, 8>;
-    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
-    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
-    return unpack256_to_limbs(w);
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
 @compute
@@ -126,16 +107,16 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         let C = (ppw + WG - 1u) / WG;
 
         // ---- forward: prefix product of per-candidate denominators ----
-        var acc: BigInt = get_r();
+        var acc: array<u32, 8> = get_r_f8();
         for (var k: u32 = 0u; k < C; k = k + 1u) {
             let j2 = tid * C + k;
-            var denom: BigInt = get_r();
+            var denom: array<u32, 8> = get_r_f8();
             if (j2 < ppw) {
                 if (kind == 2u) {
                     let slot = base + (j2 + 1u) * pa;
                     if (is_present[slot] != 0u) {
-                        var y: BigInt = load_y(slot, M);
-                        denom = fr_add(&y, &y); // 2y
+                        let y: array<u32, 8> = load_y(slot, M);
+                        denom = fr_add_f8(y, y); // 2y
                     }
                 } else {
                     var src: u32;
@@ -148,12 +129,12 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
                         src = base + (2u * j2 + 1u) * pa;
                     }
                     if (is_present[src] != 0u && is_present[dst] != 0u) {
-                        var x_s: BigInt = load_x(src, M);
-                        var x_d: BigInt = load_x(dst, M);
-                        var dx: BigInt = fr_sub(&x_s, &x_d);
-                        if (is_zero(&dx)) {
-                            var y_d: BigInt = load_y(dst, M);
-                            denom = fr_add(&y_d, &y_d);
+                        let x_s: array<u32, 8> = load_x(src, M);
+                        let x_d: array<u32, 8> = load_x(dst, M);
+                        let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
+                        if (is_zero_f8(dx)) {
+                            let y_d: array<u32, 8> = load_y(dst, M);
+                            denom = fr_add_f8(y_d, y_d);
                         } else {
                             denom = dx;
                         }
@@ -163,46 +144,50 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
             if (k == 0u) {
                 acc = denom;
             } else {
-                acc = montgomery_product(&acc, &denom);
+                acc = montgomery_product_f8(acc, denom);
             }
-            store_pref(scratch_base + k, &acc);
+            store_pref(scratch_base + k, acc);
         }
 
-        var inv: BigInt = {{ inv_fn }}(acc);
+        // Single inversion per chunk. The safegcd inverse is 20x13-limb; the
+        // reduction is 8x u32, so expand on the way in and contract the result.
+        var acc20: BigInt = unpack256_to_limbs(acc);
+        var inv20: BigInt = {{ inv_fn }}(acc20);
+        var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
 
         // ---- backward peel ----
         for (var kk: u32 = 0u; kk < C; kk = kk + 1u) {
             let k = C - 1u - kk;
             let j2 = tid * C + k;
-            var inv_denom: BigInt;
+            var inv_denom: array<u32, 8>;
             if (k == 0u) {
                 inv_denom = inv;
             } else {
-                var pp: BigInt = load_pref(scratch_base + (k - 1u));
-                inv_denom = montgomery_product(&inv, &pp);
+                let pp: array<u32, 8> = load_pref(scratch_base + (k - 1u));
+                inv_denom = montgomery_product_f8(inv, pp);
             }
             if (j2 < ppw) {
                 if (kind == 2u) {
                     let slot = base + (j2 + 1u) * pa;
                     if (is_present[slot] != 0u) {
-                        var x: BigInt = load_x(slot, M);
-                        var y: BigInt = load_y(slot, M);
-                        var denom: BigInt = fr_add(&y, &y);
-                        var x2: BigInt = montgomery_product(&x, &x);
-                        var num: BigInt = fr_add(&x2, &x2);
-                        num = fr_add(&num, &x2);
-                        var lambda: BigInt = montgomery_product(&num, &inv_denom);
-                        var two_x: BigInt = fr_add(&x, &x);
-                        var r_x: BigInt = montgomery_product(&lambda, &lambda);
-                        r_x = fr_sub(&r_x, &two_x);
-                        var r_y: BigInt = fr_sub(&x, &r_x);
-                        r_y = montgomery_product(&lambda, &r_y);
-                        r_y = fr_sub(&r_y, &y);
+                        let x: array<u32, 8> = load_x(slot, M);
+                        let y: array<u32, 8> = load_y(slot, M);
+                        let denom: array<u32, 8> = fr_add_f8(y, y);
+                        let x2: array<u32, 8> = montgomery_product_f8(x, x);
+                        var num: array<u32, 8> = fr_add_f8(x2, x2);
+                        num = fr_add_f8(num, x2);
+                        let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
+                        let two_x: array<u32, 8> = fr_add_f8(x, x);
+                        var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+                        r_x = fr_sub_f8(r_x, two_x);
+                        var r_y: array<u32, 8> = fr_sub_f8(x, r_x);
+                        r_y = montgomery_product_f8(lambda, r_y);
+                        r_y = fr_sub_f8(r_y, y);
                         if (k > 0u) {
-                            inv = montgomery_product(&inv, &denom);
+                            inv = montgomery_product_f8(inv, denom);
                         }
-                        store_x(slot, M, &r_x);
-                        store_y(slot, M, &r_y);
+                        store_x(slot, M, r_x);
+                        store_y(slot, M, r_y);
                     }
                 } else {
                     var src: u32;
@@ -217,50 +202,50 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
                     let ps = is_present[src];
                     let pl = is_present[dst];
                     if (ps != 0u && pl != 0u) {
-                        var x_d: BigInt = load_x(dst, M);
-                        var x_s: BigInt = load_x(src, M);
-                        var y_d: BigInt = load_y(dst, M);
-                        var dx: BigInt = fr_sub(&x_s, &x_d);
-                        var r_x: BigInt;
-                        var r_y: BigInt;
-                        var denom_k: BigInt;
-                        if (is_zero(&dx)) {
+                        let x_d: array<u32, 8> = load_x(dst, M);
+                        let x_s: array<u32, 8> = load_x(src, M);
+                        let y_d: array<u32, 8> = load_y(dst, M);
+                        let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
+                        var r_x: array<u32, 8>;
+                        var r_y: array<u32, 8>;
+                        var denom_k: array<u32, 8>;
+                        if (is_zero_f8(dx)) {
                             // Equal operands: 2 * buckets[dst].
-                            denom_k = fr_add(&y_d, &y_d);
-                            var x2: BigInt = montgomery_product(&x_d, &x_d);
-                            var num: BigInt = fr_add(&x2, &x2);
-                            num = fr_add(&num, &x2);
-                            var lambda: BigInt = montgomery_product(&num, &inv_denom);
-                            var two_x: BigInt = fr_add(&x_d, &x_d);
-                            r_x = montgomery_product(&lambda, &lambda);
-                            r_x = fr_sub(&r_x, &two_x);
-                            r_y = fr_sub(&x_d, &r_x);
-                            r_y = montgomery_product(&lambda, &r_y);
-                            r_y = fr_sub(&r_y, &y_d);
+                            denom_k = fr_add_f8(y_d, y_d);
+                            let x2: array<u32, 8> = montgomery_product_f8(x_d, x_d);
+                            var num: array<u32, 8> = fr_add_f8(x2, x2);
+                            num = fr_add_f8(num, x2);
+                            let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
+                            let two_x: array<u32, 8> = fr_add_f8(x_d, x_d);
+                            r_x = montgomery_product_f8(lambda, lambda);
+                            r_x = fr_sub_f8(r_x, two_x);
+                            r_y = fr_sub_f8(x_d, r_x);
+                            r_y = montgomery_product_f8(lambda, r_y);
+                            r_y = fr_sub_f8(r_y, y_d);
                         } else {
                             // buckets[dst] + buckets[src].
                             denom_k = dx;
-                            var y_s: BigInt = load_y(src, M);
-                            var lambda: BigInt = fr_sub(&y_s, &y_d);
-                            lambda = montgomery_product(&lambda, &inv_denom);
-                            r_x = montgomery_product(&lambda, &lambda);
-                            var x_sum: BigInt = fr_add(&x_d, &x_s);
-                            r_x = fr_sub(&r_x, &x_sum);
-                            r_y = fr_sub(&x_d, &r_x);
-                            r_y = montgomery_product(&lambda, &r_y);
-                            r_y = fr_sub(&r_y, &y_d);
+                            let y_s: array<u32, 8> = load_y(src, M);
+                            var lambda: array<u32, 8> = fr_sub_f8(y_s, y_d);
+                            lambda = montgomery_product_f8(lambda, inv_denom);
+                            r_x = montgomery_product_f8(lambda, lambda);
+                            let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
+                            r_x = fr_sub_f8(r_x, x_sum);
+                            r_y = fr_sub_f8(x_d, r_x);
+                            r_y = montgomery_product_f8(lambda, r_y);
+                            r_y = fr_sub_f8(r_y, y_d);
                         }
                         if (k > 0u) {
-                            inv = montgomery_product(&inv, &denom_k);
+                            inv = montgomery_product_f8(inv, denom_k);
                         }
-                        store_x(dst, M, &r_x);
-                        store_y(dst, M, &r_y);
+                        store_x(dst, M, r_x);
+                        store_y(dst, M, r_y);
                     } else if (ps != 0u && pl == 0u) {
                         // dst empty, src present: buckets[dst] = buckets[src].
-                        var x_s: BigInt = load_x(src, M);
-                        var y_s: BigInt = load_y(src, M);
-                        store_x(dst, M, &x_s);
-                        store_y(dst, M, &y_s);
+                        let x_s: array<u32, 8> = load_x(src, M);
+                        let y_s: array<u32, 8> = load_y(src, M);
+                        store_x(dst, M, x_s);
+                        store_y(dst, M, y_s);
                         is_present[dst] = 1u;
                     }
                 }

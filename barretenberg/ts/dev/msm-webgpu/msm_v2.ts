@@ -587,7 +587,7 @@ export class MsmV2 {
     m.convMetaPipe = await compileOne(device, sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
     m.reduceInitPipe = await compileOne(device, sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
     m.reduceFusedPipe = await compileOne(
-      device, sm.gen_ba_reduce_fused_bench_shader(REDUCE_WG, INV_VARIANT), `reduce-fused`, m.reduceFusedLayout,
+      device, sm.gen_ba_reduce_fused_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB), `reduce-fused`, m.reduceFusedLayout,
     );
 
     // Warm-up: prepare + dispatch several times so the first timed run pays

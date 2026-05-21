@@ -59,6 +59,7 @@ import {
   ec_bn254 as ec_bn254_funcs,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
   field as field_funcs,
+  field8 as field8_funcs,
   field_mul_bench_f32 as field_mul_bench_f32_shader,
   field_mul_bench_u32 as field_mul_bench_u32_shader,
   fr_inv_bench as fr_inv_bench_shader,
@@ -825,6 +826,30 @@ ${packLines.join('\n')}
   }
 
   /**
+   * Lever 2 mustache context for the 8x u32 live field form (field8_funcs
+   * partial): p / R as eight 32-bit words for the native fr_add_f8 /
+   * fr_sub_f8 and the get_r_f8 seed, plus the 0..7 unroll index list.
+   */
+  private f8Context() {
+    const words8 = (v: bigint): number[] => {
+      const out: number[] = [];
+      let x = v;
+      for (let i = 0; i < 8; i++) {
+        out.push(Number(x & 0xffffffffn));
+        x >>= 32n;
+      }
+      return out;
+    };
+    return {
+      p8_consts: words8(this.p).map((val, idx) => ({ idx, val })),
+      r8_csv: words8(this.r)
+        .map(v => `${v >>> 0}u`)
+        .join(', '),
+      f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i })),
+    };
+  }
+
+  /**
    * Fused super-kernel for the v3 pipeline: combines marshal + disjoint
    * + scatter into one kernel. Per chunk-thread: reads chunk_plan +
    * scatter_plan, gathers from active_sums_old, computes batched-
@@ -845,20 +870,7 @@ ${packLines.join('\n')}
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
-    // Lever 2: field elements live as 8x u32. p and R as eight 32-bit
-    // words — for the native fr_add_f8 / fr_sub_f8 and the get_r_f8 seed.
-    const words8 = (v: bigint): number[] => {
-      const out: number[] = [];
-      let x = v;
-      for (let i = 0; i < 8; i++) {
-        out.push(Number(x & 0xffffffffn));
-        x >>= 32n;
-      }
-      return out;
-    };
-    const p8_consts = words8(this.p).map((val, idx) => ({ idx, val }));
-    const r8_csv = words8(this.r).map(v => `${v >>> 0}u`).join(', ');
-    const f8_words = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i }));
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_fused_super_bench_shader,
       {
@@ -875,7 +887,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
       },
     );
   }
@@ -1153,17 +1165,24 @@ ${packLines.join('\n')}
    * in a single dispatch, one workgroup per window, storageBarrier between
    * levels. Mirrors gen_ba_fused_super_bench_shader's partials; no per-pass s.
    */
-  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_fused_bench_shader(
+    workgroup_size: number,
+    variant: 'a' | 'loop' | 'pk' = 'pk',
+    addsub: 'native' | 'unpack' = 'native',
+  ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_fused_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_fused_bench_shader,
       {
         workgroup_size, inv_fn,
+        addsub_unpack: addsub === 'unpack',
+        p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
@@ -1174,7 +1193,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
       },
     );
   }
