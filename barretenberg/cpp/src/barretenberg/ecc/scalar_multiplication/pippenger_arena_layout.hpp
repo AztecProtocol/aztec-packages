@@ -56,8 +56,7 @@ inline constexpr size_t DEDUP_MAX_MEMBERS = 32768;
 // Uniform window schedule produced by `build_var_window_schedule`. Holds the
 // per-window `c` value and bucket count for downstream sizing/dispatch.
 struct VariableWindowSchedule {
-    size_t W_lo = 0;                                                      // # of windows
-    size_t num_windows = 0;                                               // = W_lo
+    size_t num_windows = 0;
     std::array<uint8_t, VAR_WINDOW_MAX_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
     std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
     std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> num_buckets{};           // 2^(window_bits_w - 1) + 1
@@ -122,12 +121,12 @@ inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t 
 {
     VariableWindowSchedule sched{};
 
-    auto fill_region = [&](size_t bits_in_region, size_t window_bits_R, size_t out_offset) -> size_t {
-        size_t bits_remaining = bits_in_region;
+    auto fill_windows = [&](size_t bits_to_cover, size_t window_bits_default, size_t out_offset) -> size_t {
+        size_t bits_remaining = bits_to_cover;
         size_t w = out_offset;
         size_t bit_offset = (w == 0) ? 0 : sched.bit_base[w - 1] + sched.window_bits_per_window[w - 1];
         while (bits_remaining > 0) {
-            const size_t window_bits_w = std::min<size_t>(window_bits_R, bits_remaining);
+            const size_t window_bits_w = std::min<size_t>(window_bits_default, bits_remaining);
             sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
             sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
             sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
@@ -142,8 +141,7 @@ inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t 
     };
 
     const size_t total_bits = num_bits + 2;
-    sched.W_lo = fill_region(total_bits, window_bits_unsplit, /*out_offset=*/0);
-    sched.num_windows = sched.W_lo;
+    sched.num_windows = fill_windows(total_bits, window_bits_unsplit, /*out_offset=*/0);
     return sched;
 }
 

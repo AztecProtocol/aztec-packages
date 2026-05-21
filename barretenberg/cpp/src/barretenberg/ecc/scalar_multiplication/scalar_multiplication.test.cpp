@@ -116,10 +116,10 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
                                   phase_one_prologue_bytes;
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
-    const size_t windows_per_batch =
-        (per_window_bytes_lo == 0 || available_budget == 0)
-            ? std::max<size_t>(1, sched.W_lo)
-            : std::min(std::max<size_t>(1, available_budget / per_window_bytes_lo), static_cast<size_t>(sched.W_lo));
+    const size_t windows_per_batch = (per_window_bytes_lo == 0 || available_budget == 0)
+                                         ? std::max<size_t>(1, sched.num_windows)
+                                         : std::min(std::max<size_t>(1, available_budget / per_window_bytes_lo),
+                                                    static_cast<size_t>(sched.num_windows));
 
     auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
     auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };

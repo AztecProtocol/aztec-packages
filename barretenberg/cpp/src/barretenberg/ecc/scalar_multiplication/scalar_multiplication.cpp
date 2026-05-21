@@ -211,18 +211,6 @@ inline void record_msb(int msb, uint8_t& dst, std::array<uint32_t, 256>& th_hist
     ++th_hist[static_cast<size_t>(msb) + 1];
 }
 
-// One window range. The driver iterates the schedule's windows in batches. Bundles the
-// numerics that bind the for-loop bounds and lambda call arguments.
-struct RegionView {
-    size_t window_start = 0;  // first window index in the global schedule
-    size_t window_count = 0;  // # of windows owned by this region
-    size_t window_bits_R = 0; // typical c (matches window_bits_per_window for all but possibly the last window)
-    size_t B_R = 0;           // typical bucket count = (1 << (window_bits_R - 1)) + 1
-    size_t capacity_R = 0;    // schedule capacity per window (= n)
-    size_t n_iter = 0;        // # of scalar indices iterated (= n)
-    size_t windows_per_batch = 0;
-};
-
 /**
  * @brief Build a uniform window schedule.
  */
@@ -2287,7 +2275,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch_lo =
-        round_parallel_detail::solve_wpb(per_window_bytes_lo, available_budget, sched.W_lo);
+        round_parallel_detail::solve_wpb(per_window_bytes_lo, available_budget, sched.num_windows);
     const size_t windows_per_batch = windows_per_batch_lo;
 
     // Per-thread chunk-capacity scratch sizing. A thread's per-window slice is split into
@@ -2678,22 +2666,13 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // result for every subsequent batch.
     bool phase_a_done = false;
 
-    // Batch body. Parameters are passed explicitly rather than through RegionView so the hot
-    // loops see simple scalar arguments after inlining.
-    auto run_batch = [&](size_t batch_start,
-                         size_t windows_in_batch,
-                         size_t window_bits_R,
-                         size_t B_R,
-                         size_t n_iter,
-                         size_t capacity_R) noexcept {
-        static_cast<void>(window_bits_R);
-        static_cast<void>(n_iter);
+    auto run_batch = [&](size_t batch_start, size_t windows_in_batch, size_t B_R) noexcept {
         // Per-(w, t) slot stride uses `B_eff` = max(num_buckets, B_lo, B_hi); each call
         // iterates only the region's first B_R entries. The arena was sized for B_eff per slot.
         const size_t bucket_stride = B_eff;
-        // Per-window slice params. The LAST window of a region has window_bits_w < window_bits_R when the region's
-        // bit count doesn't divide evenly by window_bits_R, and the Booth recoder must use that narrower
-        // window_bits_w (not window_bits_R) or it encroaches on the next region's bits and emits a wrong digit.
+        // Per-window slice params. The final window can be narrower when the bit budget
+        // does not divide evenly by the default window size; the Booth recoder must use
+        // that narrower width or it encroaches on bits beyond the schedule.
         constexpr size_t SCALAR_UINT64_LIMBS = sizeof(ScalarField) / sizeof(uint64_t);
         std::array<round_parallel_detail::ConstantineSliceParams, 128> slice_params{};
         std::array<round_parallel_detail::ConstantineSliceParamsU32, 128> slice_params_u32{};
@@ -2796,8 +2775,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 uint32_t* my_counts = digit_cursors.data() + (((w * num_threads) + tid) * bucket_stride);
                 std::memset(my_counts, 0, B_R * sizeof(uint32_t));
             }
-            const size_t start = tid * n_iter / num_threads;
-            const size_t end = (tid + 1) * n_iter / num_threads;
+            const size_t start = tid * n / num_threads;
+            const size_t end = (tid + 1) * n / num_threads;
 
             alignas(16) std::array<uint32_t, SIMD_BATCH> packed_buf{};
             // Pack the per-block filter into a uint64 bitmask. When every scalar in the block
@@ -2966,15 +2945,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // that the WASM JIT does not hoist (~13 ns/iter penalty observed).
         auto stage4_emit = [&]<bool DedupKnown>(size_t tid) noexcept {
             [[maybe_unused]] const uint32_t* const rl_data = dedup_state.redirect_lookup.data();
-            const size_t start = tid * n_iter / num_threads;
-            const size_t end = (tid + 1) * n_iter / num_threads;
+            const size_t start = tid * n / num_threads;
+            const size_t end = (tid + 1) * n / num_threads;
             std::array<uint32_t*, 128> cursors{};
             std::array<const size_t*, 128> bucket_starts{};
             std::array<uint32_t*, 128> schedules{};
             for (size_t w = 0; w < windows_in_batch; ++w) {
                 cursors[w] = digit_cursors.data() + (((w * num_threads) + tid) * bucket_stride);
                 bucket_starts[w] = bucket_start_all.data() + (w * (bucket_stride + 1));
-                schedules[w] = schedule.data() + (w * capacity_R);
+                schedules[w] = schedule.data() + (w * n);
             }
 
             alignas(16) std::array<uint32_t, SIMD_BATCH> packed_buf{};
@@ -3195,7 +3174,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             const uint32_t* const rl_data = dedup_state.redirect_lookup.data();
             const size_t bs_stride = bucket_stride + 1;
             const size_t br = B_R;
-            const size_t cap_R = capacity_R;
+            const size_t cap_R = n;
             bb::parallel_for(num_threads, [&, rl_data, bs_stride, br, cap_R](size_t tid) noexcept {
                 BB_BENCH_NAME("MSM::dedup_patch_schedule/worker");
                 for (size_t w = tid; w < windows_in_batch; w += num_threads) {
@@ -3361,7 +3340,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                     if (cs_lo == cs_hi) {
                         continue;
                     }
-                    const uint32_t* sched_w = schedule.data() + (w * capacity_R);
+                    const uint32_t* sched_w = schedule.data() + (w * n);
                     const size_t* bucket_start = bucket_start_all.data() + (w * (bucket_stride + 1));
                     AffineElement* dst_dense =
                         bucket_partials_dense.data() + bucket_partials_offsets[(tid * windows_in_batch) + w];
@@ -3554,21 +3533,10 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
 
     // Uniform-schedule dispatch over all windows.
     {
-        const size_t window_bits_lo_R = window_bits;
-        const size_t B_lo_R = (size_t{ 1 } << (window_bits_lo_R - 1)) + 1;
-        const round_parallel_detail::RegionView lower = {
-            .window_start = 0,
-            .window_count = sched.W_lo,
-            .window_bits_R = window_bits_lo_R,
-            .B_R = B_lo_R,
-            .capacity_R = n,
-            .n_iter = n,
-            .windows_per_batch = windows_per_batch_lo,
-        };
-        const size_t lower_end = lower.window_start + lower.window_count;
-        for (size_t batch_start = lower.window_start; batch_start < lower_end; batch_start += lower.windows_per_batch) {
-            const size_t windows_in_batch = std::min(lower.windows_per_batch, lower_end - batch_start);
-            run_batch(batch_start, windows_in_batch, lower.window_bits_R, lower.B_R, lower.n_iter, lower.capacity_R);
+        const size_t B_R = (size_t{ 1 } << (window_bits - 1)) + 1;
+        for (size_t batch_start = 0; batch_start < sched.num_windows; batch_start += windows_per_batch) {
+            const size_t windows_in_batch = std::min(windows_per_batch, sched.num_windows - batch_start);
+            run_batch(batch_start, windows_in_batch, B_R);
         }
     }
 
