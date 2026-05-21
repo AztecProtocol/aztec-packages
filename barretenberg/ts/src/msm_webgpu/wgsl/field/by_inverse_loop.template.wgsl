@@ -65,38 +65,37 @@ fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: vec2<u32>, g_lo_in: vec2<u32
     var q: i32 = 0;
     var r: i32 = 1;
     var d: i32 = *delta;
+    // Branchless divsteps: the three cases (swap / add / shift) are folded
+    // into per-variable `select`s so every lane runs identical control flow.
+    // A wide-wave GPU otherwise serialises all three case-bodies on any wave
+    // whose lanes land in different cases. Every `new_*` is formed from the
+    // pre-iteration f/g/u/v/q/r/d, then the seven are committed together.
     for (var i: u32 = 0u; i < BYL_BATCH; i = i + 1u) {
-        if (u64_low_bit(g_lo) != 0u) {
-            if (d > 0) {
-                let nf: vec2<u32> = g_lo;
-                let diff: vec2<u32> = u64_sub(g_lo, f_lo);
-                let ng: vec2<u32> = u64_shr1(diff);
-                let nu: i32 = q << 1u;
-                let nv: i32 = r << 1u;
-                let nq: i32 = q - u;
-                let nr: i32 = r - v;
-                f_lo = nf;
-                g_lo = ng;
-                u = nu;
-                v = nv;
-                q = nq;
-                r = nr;
-                d = 1 - d;
-            } else {
-                let sum: vec2<u32> = u64_add(g_lo, f_lo);
-                g_lo = u64_shr1(sum);
-                q = q + u;
-                r = r + v;
-                u = u << 1u;
-                v = v << 1u;
-                d = d + 1;
-            }
-        } else {
-            g_lo = u64_shr1(g_lo);
-            u = u << 1u;
-            v = v << 1u;
-            d = d + 1;
-        }
+        let g_odd: bool = u64_low_bit(g_lo) != 0u;
+        let swap: bool = g_odd && (d > 0);
+        let addc: bool = g_odd && (d <= 0);
+
+        // u64_sub / u64_add wrap on the low 64 bits; computing both
+        // unconditionally is harmless — the unused one is just discarded.
+        let g_minus_f: vec2<u32> = u64_sub(g_lo, f_lo);
+        let g_plus_f: vec2<u32> = u64_add(g_lo, f_lo);
+        let g_pre: vec2<u32> = select(select(g_lo, g_plus_f, addc), g_minus_f, swap);
+
+        let new_f: vec2<u32> = select(f_lo, g_lo, swap);
+        let new_g: vec2<u32> = u64_shr1(g_pre);
+        let new_u: i32 = select(u << 1u, q << 1u, swap);
+        let new_v: i32 = select(v << 1u, r << 1u, swap);
+        let new_q: i32 = select(select(q, q + u, addc), q - u, swap);
+        let new_r: i32 = select(select(r, r + v, addc), r - v, swap);
+        let new_d: i32 = select(d + 1, 1 - d, swap);
+
+        f_lo = new_f;
+        g_lo = new_g;
+        u = new_u;
+        v = new_v;
+        q = new_q;
+        r = new_r;
+        d = new_d;
     }
     *delta = d;
     return BylMat(u, v, q, r);

@@ -19,11 +19,13 @@
 //   3. Load S pair-x values from active_sums_old, compute S dx values
 //      and forward prefix product, all in registers.
 //   4. Single field inversion on the prefix product.
-//   5. Backward peel: per slot k from S-1 down to 0:
+//   5. Inverse pass: per slot k from S-1 down to 0, derive
+//      inv_dx[k] = 1/dx_k from the running inverse and write it back to
+//      pref_scratch. The running inverse is loop-carried only here.
+//   6. Backward peel: per slot k, read inv_dx[k]:
 //        - load .x and .y for both operands
 //        - lean affine add -> R_x, R_y
 //        - write directly to active_sums_new at scatter_plan[t*S + k]
-//        - update inv for next (smaller-k) iteration
 //
 // vs v2 (4 kernels: marshal, disjoint, scatter, carry): the chain_buf
 // and tempOut scratch buffers are eliminated. All intermediate state
@@ -202,27 +204,43 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Single inversion per chunk.
     var inv: BigInt = {{ inv_fn }}(acc);
 
-    // Backward peel: emit S pair sums, scatter to active_sums_new.
-    //
-    // Operations are ordered to minimise the simultaneously-live BigInt
-    // set, which (with pref now in a buffer) is the kernel's register
-    // peak. Each coordinate is loaded just before first use, and the
-    // running-inverse update runs before r_y so p_rx / dx_back are freed
-    // and never sit live across it. Peak live set: 6 BigInts.
+    // Inverse pass: walk k descending, derive inv_dx[k] = 1/dx_k from the
+    // running inverse + the stored forward prefix products, and write it
+    // back into pref_scratch slot k. The running `inv` is loop-carried
+    // only in this montmul-only loop, so it is NOT live across the
+    // affine-add peel below — the peel's register peak is one BigInt
+    // lower. store_pref(k) is safe: a later (smaller-k) iteration only
+    // reads slots < k, and an earlier (larger-k) one only wrote slots > k.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
         let k = S - 1u - jj;
-        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
-
-        // inv_dx = 1 / dx_k, from the running inverse and the stored
-        // prefix product. Uses the pre-update `inv`.
         var inv_dx: BigInt;
         if (k == 0u) {
             inv_dx = inv;
         } else {
             var pp: BigInt = load_pref(pref_base + (k - 1u));
             inv_dx = montgomery_product(&inv, &pp);
+            // Advance the running inverse by dx_k for the next iteration;
+            // dx_k is recomputed from the slot's x-coordinates.
+            let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
+            let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+            var p_lx: BigInt = load_active_x(idx_l, M_old);
+            var p_rx: BigInt = load_active_x(idx_r, M_old);
+            var dx_back: BigInt = fr_sub(&p_rx, &p_lx);
+            inv = montgomery_product(&inv, &dx_back);
         }
+        store_pref(pref_base + k, &inv_dx);
+    }
+
+    // Backward peel: emit S pair sums, scatter to active_sums_new. Reads
+    // the per-slot inverse inv_dx[k] from pref_scratch — no running
+    // inverse is live across the affine add. Each coordinate is loaded
+    // just before first use to minimise the simultaneously-live set.
+    for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
+        let k = S - 1u - jj;
+        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
+        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+
+        var inv_dx: BigInt = load_pref(pref_base + k);
 
         // lambda = (p_ry - p_ly) / dx_k. p_ry is consumed immediately.
         var p_ly: BigInt = load_active_y(idx_l, M_old);
@@ -236,13 +254,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var r_x: BigInt = montgomery_product(&lambda, &lambda);
         var x_sum: BigInt = fr_add(&p_lx, &p_rx);
         r_x = fr_sub(&r_x, &x_sum);
-
-        // Advance the running inverse here, before r_y: p_rx and dx_back
-        // are freed and do not sit live across the r_y computation.
-        if (k > 0u) {
-            var dx_back: BigInt = fr_sub(&p_rx, &p_lx);
-            inv = montgomery_product(&inv, &dx_back);
-        }
 
         // r_y = lambda * (p_lx - r_x) - p_ly.
         var r_y: BigInt = fr_sub(&p_lx, &r_x);

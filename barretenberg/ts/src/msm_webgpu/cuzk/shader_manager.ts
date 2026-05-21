@@ -2083,6 +2083,17 @@ ${entry_src}`;
     }
     const r_inv_consts = limbs.map((val, idx) => ({ idx, val }));
 
+    // p limbs as individual constants — montgomery_product references them
+    // at compile-time positions so the compiler emits immediates instead of
+    // a 20-register live `p`. Same limb decomposition as `gen_p_limbs`.
+    const p_limb_vals: number[] = [];
+    let pv = this.p;
+    for (let i = 0; i < N; i++) {
+      p_limb_vals.push(Number(pv & mask));
+      pv >>= BigInt(WS);
+    }
+    const p_limbs_consts = p_limb_vals.map((val, idx) => ({ idx, val }));
+
     const input_loads: Array<{ name: string; ptr: string; k: number }> = [];
     const chunks = [
       ['x_lo_lo', 'x_ptr', 0],
@@ -2176,6 +2187,7 @@ ${entry_src}`;
       p_inv_mod_2w: this.p_inv_mod_2w,
       p_limbs: this.p_limbs,
       r_inv_consts,
+      p_limbs_consts,
       input_loads,
       sum_lets,
       schoolbooks,

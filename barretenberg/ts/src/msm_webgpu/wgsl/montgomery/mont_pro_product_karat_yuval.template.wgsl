@@ -59,6 +59,16 @@ const P_INV_MOD_2W: u32 = {{ p_inv_mod_2w }}u;
 const R_INV_{{idx}}: u32 = {{val}}u;
 {{/r_inv_consts}}
 
+// The modulus limbs, in the same individual-const form. montgomery_product
+// reads these only at compile-time-constant positions (the fully-unrolled
+// standard Montgomery reduce), so the compiler folds them to immediates
+// instead of holding p as a 20-register value live across the whole
+// multiply. get_p() below still materialises p for the rare caller that
+// needs an addressable BigInt (conditional_reduce, the field ops).
+{{#p_limbs_consts}}
+const P_LIMB_{{idx}}: u32 = {{val}}u;
+{{/p_limbs_consts}}
+
 fn get_p() -> BigInt {
     var p: BigInt;
 {{{ p_limbs }}}
@@ -66,8 +76,6 @@ fn get_p() -> BigInt {
 }
 
 fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {
-    var p = get_p();
-
     // === Input load: 40 named locals, one per limb. ===
 {{#input_loads}}
     let {{name}}: u32 = (*{{ptr}}).limbs[{{k}}u];
@@ -157,7 +165,7 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
         let t_mask: u32 = t{{i_std}} & MASK;
         let k_std: u32  = (t_mask * N0) & MASK;
 {{#standard_writes}}
-        t{{slot}} = t{{slot}} + k_std * p.limbs[{{p_idx}}u]{{#first}} + (t{{i_std}} >> WORD_SIZE){{/first}};
+        t{{slot}} = t{{slot}} + k_std * P_LIMB_{{p_idx}}{{#first}} + (t{{i_std}} >> WORD_SIZE){{/first}};
 {{/standard_writes}}
     }
 
@@ -177,15 +185,19 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
     s.limbs[{{out_k}}u] = t{{src_slot}};
 {{/extract}}
 
-    return conditional_reduce(&s, &p);
+    return conditional_reduce(&s);
 }
 
-fn conditional_reduce(x: ptr<function, BigInt>, y: ptr<function, BigInt>) -> BigInt {
-    var x_gt_y = bigint_gt(x, y);
-    var x_eq_y = bigint_eq(x, y);
+// conditional_reduce runs after the unrolled multiply/reduce, when only `s`
+// is still live — its local `var p` does not overlap the multiply's
+// register peak, so materialising p here is free.
+fn conditional_reduce(x: ptr<function, BigInt>) -> BigInt {
+    var p = get_p();
+    var x_gt_y = bigint_gt(x, &p);
+    var x_eq_y = bigint_eq(x, &p);
     if (x_gt_y == 1u || x_eq_y) {
         var res: BigInt;
-        bigint_sub(x, y, &res);
+        bigint_sub(x, &p, &res);
         return res;
     }
     return *x;

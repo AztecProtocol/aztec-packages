@@ -1583,11 +1583,13 @@ export const ba_fused_super_bench = `{{> structs }}
 //   3. Load S pair-x values from active_sums_old, compute S dx values
 //      and forward prefix product, all in registers.
 //   4. Single field inversion on the prefix product.
-//   5. Backward peel: per slot k from S-1 down to 0:
+//   5. Inverse pass: per slot k from S-1 down to 0, derive
+//      inv_dx[k] = 1/dx_k from the running inverse and write it back to
+//      pref_scratch. The running inverse is loop-carried only here.
+//   6. Backward peel: per slot k, read inv_dx[k]:
 //        - load .x and .y for both operands
 //        - lean affine add -> R_x, R_y
 //        - write directly to active_sums_new at scatter_plan[t*S + k]
-//        - update inv for next (smaller-k) iteration
 //
 // vs v2 (4 kernels: marshal, disjoint, scatter, carry): the chain_buf
 // and tempOut scratch buffers are eliminated. All intermediate state
@@ -1766,27 +1768,43 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Single inversion per chunk.
     var inv: BigInt = {{ inv_fn }}(acc);
 
-    // Backward peel: emit S pair sums, scatter to active_sums_new.
-    //
-    // Operations are ordered to minimise the simultaneously-live BigInt
-    // set, which (with pref now in a buffer) is the kernel's register
-    // peak. Each coordinate is loaded just before first use, and the
-    // running-inverse update runs before r_y so p_rx / dx_back are freed
-    // and never sit live across it. Peak live set: 6 BigInts.
+    // Inverse pass: walk k descending, derive inv_dx[k] = 1/dx_k from the
+    // running inverse + the stored forward prefix products, and write it
+    // back into pref_scratch slot k. The running \`inv\` is loop-carried
+    // only in this montmul-only loop, so it is NOT live across the
+    // affine-add peel below — the peel's register peak is one BigInt
+    // lower. store_pref(k) is safe: a later (smaller-k) iteration only
+    // reads slots < k, and an earlier (larger-k) one only wrote slots > k.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
         let k = S - 1u - jj;
-        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
-
-        // inv_dx = 1 / dx_k, from the running inverse and the stored
-        // prefix product. Uses the pre-update \`inv\`.
         var inv_dx: BigInt;
         if (k == 0u) {
             inv_dx = inv;
         } else {
             var pp: BigInt = load_pref(pref_base + (k - 1u));
             inv_dx = montgomery_product(&inv, &pp);
+            // Advance the running inverse by dx_k for the next iteration;
+            // dx_k is recomputed from the slot's x-coordinates.
+            let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
+            let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+            var p_lx: BigInt = load_active_x(idx_l, M_old);
+            var p_rx: BigInt = load_active_x(idx_r, M_old);
+            var dx_back: BigInt = fr_sub(&p_rx, &p_lx);
+            inv = montgomery_product(&inv, &dx_back);
         }
+        store_pref(pref_base + k, &inv_dx);
+    }
+
+    // Backward peel: emit S pair sums, scatter to active_sums_new. Reads
+    // the per-slot inverse inv_dx[k] from pref_scratch — no running
+    // inverse is live across the affine add. Each coordinate is loaded
+    // just before first use to minimise the simultaneously-live set.
+    for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
+        let k = S - 1u - jj;
+        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
+        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+
+        var inv_dx: BigInt = load_pref(pref_base + k);
 
         // lambda = (p_ry - p_ly) / dx_k. p_ry is consumed immediately.
         var p_ly: BigInt = load_active_y(idx_l, M_old);
@@ -1800,13 +1818,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var r_x: BigInt = montgomery_product(&lambda, &lambda);
         var x_sum: BigInt = fr_add(&p_lx, &p_rx);
         r_x = fr_sub(&r_x, &x_sum);
-
-        // Advance the running inverse here, before r_y: p_rx and dx_back
-        // are freed and do not sit live across the r_y computation.
-        if (k > 0u) {
-            var dx_back: BigInt = fr_sub(&p_rx, &p_lx);
-            inv = montgomery_product(&inv, &dx_back);
-        }
 
         // r_y = lambda * (p_lx - r_x) - p_ly.
         var r_y: BigInt = fr_sub(&p_lx, &r_x);
@@ -11587,38 +11598,37 @@ fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: vec2<u32>, g_lo_in: vec2<u32
     var q: i32 = 0;
     var r: i32 = 1;
     var d: i32 = *delta;
+    // Branchless divsteps: the three cases (swap / add / shift) are folded
+    // into per-variable \`select\`s so every lane runs identical control flow.
+    // A wide-wave GPU otherwise serialises all three case-bodies on any wave
+    // whose lanes land in different cases. Every \`new_*\` is formed from the
+    // pre-iteration f/g/u/v/q/r/d, then the seven are committed together.
     for (var i: u32 = 0u; i < BYL_BATCH; i = i + 1u) {
-        if (u64_low_bit(g_lo) != 0u) {
-            if (d > 0) {
-                let nf: vec2<u32> = g_lo;
-                let diff: vec2<u32> = u64_sub(g_lo, f_lo);
-                let ng: vec2<u32> = u64_shr1(diff);
-                let nu: i32 = q << 1u;
-                let nv: i32 = r << 1u;
-                let nq: i32 = q - u;
-                let nr: i32 = r - v;
-                f_lo = nf;
-                g_lo = ng;
-                u = nu;
-                v = nv;
-                q = nq;
-                r = nr;
-                d = 1 - d;
-            } else {
-                let sum: vec2<u32> = u64_add(g_lo, f_lo);
-                g_lo = u64_shr1(sum);
-                q = q + u;
-                r = r + v;
-                u = u << 1u;
-                v = v << 1u;
-                d = d + 1;
-            }
-        } else {
-            g_lo = u64_shr1(g_lo);
-            u = u << 1u;
-            v = v << 1u;
-            d = d + 1;
-        }
+        let g_odd: bool = u64_low_bit(g_lo) != 0u;
+        let swap: bool = g_odd && (d > 0);
+        let addc: bool = g_odd && (d <= 0);
+
+        // u64_sub / u64_add wrap on the low 64 bits; computing both
+        // unconditionally is harmless — the unused one is just discarded.
+        let g_minus_f: vec2<u32> = u64_sub(g_lo, f_lo);
+        let g_plus_f: vec2<u32> = u64_add(g_lo, f_lo);
+        let g_pre: vec2<u32> = select(select(g_lo, g_plus_f, addc), g_minus_f, swap);
+
+        let new_f: vec2<u32> = select(f_lo, g_lo, swap);
+        let new_g: vec2<u32> = u64_shr1(g_pre);
+        let new_u: i32 = select(u << 1u, q << 1u, swap);
+        let new_v: i32 = select(v << 1u, r << 1u, swap);
+        let new_q: i32 = select(select(q, q + u, addc), q - u, swap);
+        let new_r: i32 = select(select(r, r + v, addc), r - v, swap);
+        let new_d: i32 = select(d + 1, 1 - d, swap);
+
+        f_lo = new_f;
+        g_lo = new_g;
+        u = new_u;
+        v = new_v;
+        q = new_q;
+        r = new_r;
+        d = new_d;
     }
     *delta = d;
     return BylMat(u, v, q, r);
@@ -12711,6 +12721,16 @@ const P_INV_MOD_2W: u32 = {{ p_inv_mod_2w }}u;
 const R_INV_{{idx}}: u32 = {{val}}u;
 {{/r_inv_consts}}
 
+// The modulus limbs, in the same individual-const form. montgomery_product
+// reads these only at compile-time-constant positions (the fully-unrolled
+// standard Montgomery reduce), so the compiler folds them to immediates
+// instead of holding p as a 20-register value live across the whole
+// multiply. get_p() below still materialises p for the rare caller that
+// needs an addressable BigInt (conditional_reduce, the field ops).
+{{#p_limbs_consts}}
+const P_LIMB_{{idx}}: u32 = {{val}}u;
+{{/p_limbs_consts}}
+
 fn get_p() -> BigInt {
     var p: BigInt;
 {{{ p_limbs }}}
@@ -12718,8 +12738,6 @@ fn get_p() -> BigInt {
 }
 
 fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {
-    var p = get_p();
-
     // === Input load: 40 named locals, one per limb. ===
 {{#input_loads}}
     let {{name}}: u32 = (*{{ptr}}).limbs[{{k}}u];
@@ -12809,7 +12827,7 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
         let t_mask: u32 = t{{i_std}} & MASK;
         let k_std: u32  = (t_mask * N0) & MASK;
 {{#standard_writes}}
-        t{{slot}} = t{{slot}} + k_std * p.limbs[{{p_idx}}u]{{#first}} + (t{{i_std}} >> WORD_SIZE){{/first}};
+        t{{slot}} = t{{slot}} + k_std * P_LIMB_{{p_idx}}{{#first}} + (t{{i_std}} >> WORD_SIZE){{/first}};
 {{/standard_writes}}
     }
 
@@ -12829,15 +12847,19 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
     s.limbs[{{out_k}}u] = t{{src_slot}};
 {{/extract}}
 
-    return conditional_reduce(&s, &p);
+    return conditional_reduce(&s);
 }
 
-fn conditional_reduce(x: ptr<function, BigInt>, y: ptr<function, BigInt>) -> BigInt {
-    var x_gt_y = bigint_gt(x, y);
-    var x_eq_y = bigint_eq(x, y);
+// conditional_reduce runs after the unrolled multiply/reduce, when only \`s\`
+// is still live — its local \`var p\` does not overlap the multiply's
+// register peak, so materialising p here is free.
+fn conditional_reduce(x: ptr<function, BigInt>) -> BigInt {
+    var p = get_p();
+    var x_gt_y = bigint_gt(x, &p);
+    var x_eq_y = bigint_eq(x, &p);
     if (x_gt_y == 1u || x_eq_y) {
         var res: BigInt;
-        bigint_sub(x, y, &res);
+        bigint_sub(x, &p, &res);
         return res;
     }
     return *x;
