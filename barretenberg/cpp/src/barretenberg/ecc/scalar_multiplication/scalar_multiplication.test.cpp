@@ -1042,18 +1042,30 @@ TYPED_TEST(ScalarMultiplicationTest, OffsetSpan)
 }
 TYPED_TEST(ScalarMultiplicationTest, LargeNNonGLV)
 {
+#ifdef __wasm__
+    GTEST_SKIP() << "Large synthetic MSM coverage is native-only; WASM coverage comes from integration flows.";
+#endif
     this->test_large_n_non_glv();
 }
 TYPED_TEST(ScalarMultiplicationTest, MSMSingleDigitMegaRun)
 {
+#ifdef __wasm__
+    GTEST_SKIP() << "Large synthetic MSM coverage is native-only; WASM coverage comes from integration flows.";
+#endif
     this->test_msm_single_digit_mega_run();
 }
 TYPED_TEST(ScalarMultiplicationTest, MSMDedupCapAndCarry)
 {
+#ifdef __wasm__
+    GTEST_SKIP() << "Large synthetic MSM coverage is native-only; WASM coverage comes from integration flows.";
+#endif
     this->test_msm_dedup_cap_and_carry();
 }
 TYPED_TEST(ScalarMultiplicationTest, MSMDedupManySmallClustersCap)
 {
+#ifdef __wasm__
+    GTEST_SKIP() << "Large synthetic MSM coverage is native-only; WASM coverage comes from integration flows.";
+#endif
     this->test_msm_dedup_many_small_clusters_cap();
 }
 
@@ -1284,6 +1296,7 @@ template <class Curve> class VariableWindowSplitDispatchTest : public ::testing:
     }
 };
 
+#ifndef __wasm__
 using VariableWindowCurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
 TYPED_TEST_SUITE(VariableWindowSplitDispatchTest, VariableWindowCurveTypes);
 
@@ -1323,6 +1336,7 @@ TYPED_TEST(VariableWindowSplitDispatchTest, ForceSplitBitwiseIdentity)
 {
     this->test_force_split_bitwise_identity();
 }
+#endif
 
 // Non-templated test for explicit small inputs
 TEST(ScalarMultiplication, SmallInputsExplicit)
