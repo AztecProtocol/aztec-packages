@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
 # ipc-runtime — UDS + MPSC-SHM transport library for IPC services.
 #
-# This package owns the *runtime* counterpart to ipc-codegen: where
-# ipc-codegen emits protocol/dispatch/types, ipc-runtime provides the
-# IpcServer / IpcClient primitives that move bytes between processes.
+# Standalone-buildable: cmake + a C++20 compiler + POSIX is all that's
+# required. No barretenberg deps, no msgpack dep, no Tracy/TBB/lmdb
+# machinery. gtest is fetched via FetchContent the first time tests are
+# built (cached locally between runs in cpp/build/_deps/).
 #
-# Today the library is built and tested via barretenberg/cpp/'s CMake tree
-# (which includes ipc-runtime/cpp/ as an add_subdirectory and provides
-# msgpack + gtest). Standalone-buildable mode — for the foundation/labs
-# split when services without barretenberg consume it — is a planned
-# follow-up. For now this bootstrap delegates to barretenberg's build.
+# Cross-compile via standard CMake toolchain knobs, e.g. with zig:
+#   CXX=$(git rev-parse --show-toplevel)/barretenberg/cpp/scripts/zig-c++.sh \
+#   CXXFLAGS="-target aarch64-linux-gnu" \
+#   ./bootstrap.sh
+#
+# Tests are skipped automatically when cross-compiling.
 
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(cache_content_hash .rebuild_patterns)
 
+BUILD_DIR=${BUILD_DIR:-cpp/build}
+
 function build {
   echo_header "ipc-runtime build"
-  # The ipc_runtime target is part of barretenberg/cpp/'s CMake tree.
-  # Build it via barretenberg's bootstrap so we inherit gtest + msgpack
-  # + the toolchain settings already configured there.
-  (cd ../barretenberg/cpp && cmake --preset default && cmake --build --preset default --target ipc_runtime ipc_runtime_tests)
+  cmake -B "$BUILD_DIR" -S cpp -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
+  cmake --build "$BUILD_DIR" --target ipc_runtime ipc_runtime_tests
 }
 
 function test_cmds {
@@ -30,7 +32,11 @@ function test_cmds {
 function test {
   echo_header "ipc-runtime test"
   build
-  ../barretenberg/cpp/build/bin/ipc_runtime_tests
+  "$BUILD_DIR"/ipc_runtime_tests
+}
+
+function clean {
+  rm -rf "$BUILD_DIR"
 }
 
 case "$cmd" in
