@@ -43,7 +43,7 @@ const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 // pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
 const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
-const DEFAULT_INV_VARIANT: 'a' | 'loop' = 'loop';
+const DEFAULT_INV_VARIANT: 'a' | 'loop' | 'pk' = 'pk';
 
 /**
  * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
@@ -61,8 +61,8 @@ export interface MsmConfig {
   reduceWg?: number;
   /** Reduction leaf-partition log2. Default 1. */
   l0Log?: number;
-  /** GPU field-inversion variant. Default 'loop'. */
-  invVariant?: 'a' | 'loop';
+  /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
+  invVariant?: 'a' | 'loop' | 'pk';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -350,7 +350,7 @@ export class MsmV2 {
   private wgi!: number;
   private l0Log!: number;
   private reduceWg!: number;
-  private invVariant!: 'a' | 'loop';
+  private invVariant!: 'a' | 'loop' | 'pk';
   private profile = false;
   private jacobianCrossover = 0;
   private stride!: number; // reduction STRIDE = 2^(c-1)

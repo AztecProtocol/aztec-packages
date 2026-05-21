@@ -834,7 +834,7 @@ ${packLines.join('\n')}
   public gen_ba_fused_super_bench_shader(
     workgroup_size: number,
     s: number,
-    variant: 'a' | 'loop' = 'a',
+    variant: 'a' | 'loop' | 'pk' = 'a',
     tiled = false,
     l0_index_mode = false,
   ): string {
@@ -842,8 +842,8 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
-    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
     return mustache.render(
       ba_fused_super_bench_shader,
       {
@@ -1136,13 +1136,13 @@ ${packLines.join('\n')}
    * in a single dispatch, one workgroup per window, storageBarrier between
    * levels. Mirrors gen_ba_fused_super_bench_shader's partials; no per-pass s.
    */
-  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' = 'a'): string {
+  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' | 'pk' = 'a'): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_fused_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
-    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
     return mustache.render(
       ba_reduce_fused_bench_shader,
       {
