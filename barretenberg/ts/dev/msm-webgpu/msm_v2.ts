@@ -35,14 +35,55 @@ import { BN254_BASE_FIELD, modInverse } from '../../src/msm_webgpu/cuzk/bn254.js
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
 const FP = BN254_BASE_FIELD;
-// Fixed pipeline-shape constants (the bench exposed these as URL params).
-const S = 8; // fused chunk size
-const WGI = 64; // generic kernel workgroup size
 const NUMBITS = 254; // scalar field bit length
-const L0_LOG = 1; // reduction leaf-partition log2
-const REDUCE_WG = 128; // fused-reduction workgroup size
-const INV_VARIANT: 'a' | 'loop' = 'a';
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
+
+// Defaults for the tunable pipeline-shape knobs (see MsmConfig). Each value
+// reproduces the pre-knob behaviour, so an unset config is a no-op.
+const DEFAULT_S = 8; // fused chunk size
+const DEFAULT_WGI = 64; // generic kernel workgroup size
+const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
+const DEFAULT_REDUCE_WG = 128; // fused-reduction workgroup size
+const DEFAULT_INV_VARIANT: 'a' | 'loop' = 'a';
+
+/**
+ * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
+ * value that reproduces current behaviour, so `{}` (or omitting it) is a no-op
+ * — which keeps A/B comparisons honest.
+ */
+export interface MsmConfig {
+  /** Pippenger window bits. Default: `pickC(n)`. */
+  c?: number;
+  /** Fused-kernel chunk size (pairs batched per thread). Default 8. */
+  s?: number;
+  /** Generic kernel workgroup size. Default 64. */
+  wgi?: number;
+  /** Bucket-reduction workgroup size. Default 128. */
+  reduceWg?: number;
+  /** Reduction leaf-partition log2. Default 1. */
+  l0Log?: number;
+  /** GPU field-inversion variant. Default 'a'. */
+  invVariant?: 'a' | 'loop';
+  /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
+  profile?: boolean;
+  /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
+  jacobianCrossover?: number;
+}
+
+/** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
+export interface ProfileBreakdown {
+  demont: number;
+  decompose: number;
+  transpose: number;
+  convert: number;
+  planner: number;
+  fused: number;
+  carry: number;
+  finalize: number;
+  redInit: number;
+  redFused: number;
+  wall: number;
+}
 
 // --- pure helpers (copied from bench-msm-tree-v2.ts) ---
 
@@ -287,6 +328,14 @@ export class MsmV2 {
   private bTotal!: number;
   private R!: bigint;
   private rinv!: bigint;
+  // --- tuning knobs (from MsmConfig; resolved in create) ---
+  private s!: number;
+  private wgi!: number;
+  private l0Log!: number;
+  private reduceWg!: number;
+  private invVariant!: 'a' | 'loop';
+  private profile = false;
+  private jacobianCrossover = 0;
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -343,6 +392,11 @@ export class MsmV2 {
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
+  // profiling (created in prepare when this.profile)
+  private querySet: GPUQuerySet | null = null;
+  private tsResolveBuf: GPUBuffer | null = null;
+  private tsStagingBuf: GPUBuffer | null = null;
+  private passCount = 0;
   private demontBind!: GPUBindGroup;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
@@ -360,13 +414,27 @@ export class MsmV2 {
    * Build the data-independent half of the pipeline: pipelines, layouts and
    * the Montgomery-form point pool. `pointsBuf` is `n × 64` little-endian
    * bytes — `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine
-   * (the harness / SRS layout). `c` defaults to a per-n window size.
+   * (the harness / SRS layout). `config` tunes the pipeline knobs; every field
+   * defaults to current behaviour (see {@link MsmConfig}).
    */
-  static async create(device: GPUDevice, n: number, pointsBuf: Uint8Array, c?: number): Promise<MsmV2> {
+  static async create(device: GPUDevice, n: number, pointsBuf: Uint8Array, config?: MsmConfig): Promise<MsmV2> {
     const m = new MsmV2();
     m.device = device;
     m.n = n;
-    m.c = c ?? pickC(n);
+    m.c = config?.c ?? pickC(n);
+    m.s = config?.s ?? DEFAULT_S;
+    m.wgi = config?.wgi ?? DEFAULT_WGI;
+    m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
+    m.reduceWg = config?.reduceWg ?? DEFAULT_REDUCE_WG;
+    m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
+    m.jacobianCrossover = config?.jacobianCrossover ?? 0;
+    const wantProfile = config?.profile ?? false;
+    m.profile = wantProfile && device.features.has('timestamp-query');
+    if (wantProfile && !m.profile) {
+      console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
+    }
+    // Pull the knobs into the local names the rest of create() uses.
+    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT } = m;
     m.numWindows = Math.ceil(NUMBITS / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
@@ -534,6 +602,7 @@ export class MsmV2 {
     const BW = this.BW;
     const B_TOTAL = this.bTotal;
     const R = this.R;
+    const { s: S, wgi: WGI, reduceWg: REDUCE_WG } = this;
     const soa = (M: number): GPUBuffer => {
       const b = device.createBuffer({
         size: 2 * PG * M * 4 * 4,
@@ -831,20 +900,62 @@ export class MsmV2 {
       });
     }
 
+    // --- Profiling: (re)create the timestamp query set, sized to the pass
+    // count of the run() this prepare() set up. ---
+    this.querySet?.destroy();
+    this.querySet = null;
+    this.tsResolveBuf = null;
+    this.tsStagingBuf = null;
+    if (this.profile) {
+      let passes = 1; // demont
+      for (let bi = 0; bi < numBatches; bi++) {
+        passes += 6; // decompose + xpose x3 + conv x2
+        for (let lv = 0; lv < levels; lv++) passes += 3 + this.levelBinds[lv].fusedTiles.length;
+      }
+      passes += 2; // reduceInit + reduceFused
+      this.passCount = passes;
+      this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
+      this.tsResolveBuf = device.createBuffer({
+        size: passes * 16,
+        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+      });
+      this.tsStagingBuf = device.createBuffer({
+        size: passes * 16,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+      this.prepBuffers.push(this.tsResolveBuf, this.tsStagingBuf);
+    }
+
     this.preparedFor = scalarsBuf;
   }
 
   /**
    * Encode + submit the whole batched pipeline, then decode `red_buf` and
-   * host-combine the windows into the affine MSM result (normal form).
-   * Must be called after `prepare`. This is the timed phase.
+   * host-combine the windows into the affine MSM result (normal form). Must
+   * be called after `prepare`. This is the timed phase. When the instance was
+   * created with `profile`, the result carries a per-pass GPU breakdown;
+   * otherwise `profile` is `null`.
    */
-  async run(): Promise<{ x: bigint; y: bigint }> {
+  async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
+    const { wgi: WGI } = this;
     const device = this.device;
+    const wallT0 = performance.now();
     const enc = device.createCommandEncoder();
-    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1) => {
-      const pass = enc.beginComputePass();
+    const cats: string[] = [];
+    let passIdx = 0;
+    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1, cat = '') => {
+      const desc: GPUComputePassDescriptor = {};
+      if (this.profile && this.querySet) {
+        desc.timestampWrites = {
+          querySet: this.querySet,
+          beginningOfPassWriteIndex: 2 * passIdx,
+          endOfPassWriteIndex: 2 * passIdx + 1,
+        };
+        cats.push(cat);
+        passIdx++;
+      }
+      const pass = enc.beginComputePass(desc);
       pass.setPipeline(pipe);
       pass.setBindGroup(0, bind);
       pass.dispatchWorkgroups(Math.max(1, nx), Math.max(1, ny), 1);
@@ -852,33 +963,37 @@ export class MsmV2 {
     };
 
     // De-Montgomery the scalars once (batch-independent).
-    dispatch(this.demontPipe, this.demontBind, this.nXposePts);
+    dispatch(this.demontPipe, this.demontBind, this.nXposePts, 1, 'demont');
     // Lever G: outer loop over window batches.
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
-      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
+      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw, 'decompose');
       enc.clearBuffer(this.rowPtrBuf);
       enc.clearBuffer(this.currBuf);
-      dispatch(this.xposeCountPipe, this.xposeCountBind, this.nXposePts, tbw);
-      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows);
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw);
-      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI));
-      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta);
+      dispatch(this.xposeCountPipe, this.xposeCountBind, this.nXposePts, tbw, 'transpose');
+      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, 'transpose');
+      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw, 'transpose');
+      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, 'convert');
+      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1, 'convert');
       for (let lv = 0; lv < this.levels; lv++) {
         const lb = this.levelBinds[lv];
         const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
         const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
         const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
-        dispatch(this.plannerPipe, lb.plannerBind, this.batchWindows);
-        for (const tile of lb.fusedTiles) dispatch(fp, tile.bind, tile.nx);
-        dispatch(cp, lb.carryBind, lb.nCarry);
-        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize);
+        dispatch(this.plannerPipe, lb.plannerBind, this.batchWindows, 1, 'planner');
+        for (const tile of lb.fusedTiles) dispatch(fp, tile.bind, tile.nx, 1, 'fused');
+        dispatch(cp, lb.carryBind, lb.nCarry, 1, 'carry');
+        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1, 'finalize');
       }
     }
     // Bucket reduction over the global bucket_result.
-    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit);
-    dispatch(this.reduceFusedPipe, this.reduceFusedBind, this.numWindows);
+    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1, 'redInit');
+    dispatch(this.reduceFusedPipe, this.reduceFusedBind, this.numWindows, 1, 'redFused');
+    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
+      enc.resolveQuerySet(this.querySet, 0, passIdx * 2, this.tsResolveBuf, 0);
+      enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, passIdx * 16);
+    }
     // Gather each window's weighted sum L_w (slot w*STRIDE of red_buf's
     // x-plane||y-plane SoA) into a small staging buffer, encoded into the
     // same command list — the whole run is then one submit + one map.
@@ -901,7 +1016,25 @@ export class MsmV2 {
     }
     this.redStaging.unmap();
     this.windowSums = L;
-    return hostWindowCombine(L, this.c);
+    const result = hostWindowCombine(L, this.c);
+
+    // Per-pass GPU timestamps -> category breakdown (profiling mode only).
+    let profile: ProfileBreakdown | null = null;
+    if (this.profile && this.tsStagingBuf) {
+      await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
+      const ts = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
+      this.tsStagingBuf.unmap();
+      profile = {
+        demont: 0, decompose: 0, transpose: 0, convert: 0, planner: 0,
+        fused: 0, carry: 0, finalize: 0, redInit: 0, redFused: 0, wall: 0,
+      };
+      const acc = profile as unknown as Record<string, number>;
+      for (let i = 0; i < cats.length; i++) {
+        acc[cats[i]] += Number(ts[2 * i + 1] - ts[2 * i]) / 1e6;
+      }
+      profile.wall = performance.now() - wallT0;
+    }
+    return { x: result.x, y: result.y, profile };
   }
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */
@@ -919,6 +1052,8 @@ export class MsmV2 {
     for (const b of this.prepBuffers) b.destroy();
     this.prepBuffers = [];
     this.preparedFor = null;
+    this.querySet?.destroy();
+    this.querySet = null;
     this.pointXBuf?.destroy();
     this.pointYBuf?.destroy();
   }

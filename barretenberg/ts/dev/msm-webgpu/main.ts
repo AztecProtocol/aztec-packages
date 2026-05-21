@@ -27,7 +27,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { type ProfileCapture } from '../../src/msm_webgpu/index.js';
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmV2 } from './msm_v2.js';
+import { MsmV2, type MsmConfig } from './msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { runAllWgslUnitTests } from './wgsl_unit_tests.js';
@@ -60,6 +60,26 @@ const SRS_NUM_POINTS = 1 << LOGN_MAX;
 const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
 const SWEEP_REPS = 5;
+
+// GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
+// Lets index.html A/B-test a knob against the WASM Pippenger, e.g. ?s=4&wgi=128.
+const gpuKnobs: MsmConfig = (() => {
+  const q = new URLSearchParams(window.location.search);
+  const optInt = (k: string): number | undefined => {
+    const raw = q.get(k);
+    if (raw === null) return undefined;
+    const v = Number(raw);
+    return Number.isInteger(v) && v > 0 ? v : undefined;
+  };
+  return {
+    c: optInt('c'),
+    s: optInt('s'),
+    wgi: optInt('wgi'),
+    reduceWg: optInt('reducewg'),
+    l0Log: optInt('l0log'),
+    invVariant: q.get('inv') === 'loop' ? 'loop' : undefined,
+  };
+})();
 
 // Default to the machine's reported logical thread count, capped at
 // MT_THREADS_MAX. Falls back to 4 if `navigator.hardwareConcurrency`
@@ -475,9 +495,13 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       msmV2 = null;
       msmV2LogN = null;
     }
-    log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points (pipelines, SRS, warm-up)`);
+    const knobStr = Object.entries(gpuKnobs)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(' ');
+    log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    msmV2 = await MsmV2.create(gpuDevice, inputs.n, inputs.pointsBuf);
+    msmV2 = await MsmV2.create(gpuDevice, inputs.n, inputs.pointsBuf, gpuKnobs);
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }

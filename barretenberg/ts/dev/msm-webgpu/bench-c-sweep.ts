@@ -14,10 +14,11 @@
 //
 // Query params (all optional):
 //   ?minlogn=10 ?maxlogn=20 ?cmin=7 ?cmax=17 ?reps=15 ?warmup=3
+//   ?s= ?wgi= ?reducewg= ?l0log= ?inv=a|loop  (pipeline knobs, forwarded to MsmV2)
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
-import { MsmV2 } from './msm_v2.js';
+import { MsmV2, type MsmConfig } from './msm_v2.js';
 import { loadSrsPoints } from './srs.js';
 
 // BN254 base field modulus. Scalars are reduced mod p: MsmV2 hands the GPU
@@ -37,6 +38,22 @@ const C_MIN = intParam('cmin', 7);
 const C_MAX = intParam('cmax', 17);
 const REPS = intParam('reps', 15);
 const WARMUP = intParam('warmup', 3);
+
+// Pipeline-knob overrides forwarded to every MsmV2 (unset = current behaviour),
+// so a c-sweep can be run at a chosen S / workgroup size / etc.
+const optInt = (key: string): number | undefined => {
+  const raw = qp.get(key);
+  if (raw === null) return undefined;
+  const v = Number(raw);
+  return Number.isInteger(v) && v > 0 ? v : undefined;
+};
+const KNOBS: MsmConfig = {
+  s: optInt('s'),
+  wgi: optInt('wgi'),
+  reduceWg: optInt('reducewg'),
+  l0Log: optInt('l0log'),
+  invVariant: qp.get('inv') === 'loop' ? 'loop' : undefined,
+};
 
 // MsmV2.pickC's current table (logN -> c); sizes outside it fall back to 13.
 const CURRENT_PICKC: Record<number, number> = {
@@ -140,7 +157,7 @@ async function sweepCell(
 ): Promise<Cell> {
   let msm: MsmV2 | null = null;
   try {
-    msm = await MsmV2.create(device, n, points, c);
+    msm = await MsmV2.create(device, n, points, { ...KNOBS, c });
     msm.prepare(scalars);
     for (let w = 0; w < WARMUP; w++) await msm.run();
     const times: number[] = [];
