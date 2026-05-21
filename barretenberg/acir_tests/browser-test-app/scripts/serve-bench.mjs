@@ -59,7 +59,12 @@ function safeJoin(root, requestPath) {
 }
 
 async function serveFile(res, filePath) {
-  const info = await stat(filePath);
+  let info;
+  try {
+    info = await stat(filePath);
+  } catch {
+    return send(res, 404, "not found");
+  }
   if (!info.isFile()) return send(res, 404, "not found");
   setHeaders(res);
   res.writeHead(200, {
@@ -125,7 +130,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, JSON.stringify({ ok: true }), { "Content-Type": "application/json" });
     }
     if (req.method !== "GET") return send(res, 405, "method not allowed");
-    return serveFile(res, safeJoin(distDir, url.pathname === "/" ? "/index.html" : url.pathname));
+    return await serveFile(res, safeJoin(distDir, url.pathname === "/" ? "/index.html" : url.pathname));
   } catch (error) {
     send(res, error?.code === "ENOENT" ? 404 : 500, JSON.stringify({ ok: false, error: error?.message ?? String(error) }), {
       "Content-Type": "application/json",
