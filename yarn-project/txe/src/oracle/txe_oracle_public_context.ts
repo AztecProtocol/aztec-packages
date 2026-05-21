@@ -122,6 +122,36 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return value;
   }
 
+  returndataSize(): Promise<Fr> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  returndataCopy(_rdOffset: number, _copySize: number): Promise<Fr[]> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  call(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<Fr[]> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  staticCall(_l2Gas: number, _daGas: number, _address: AztecAddress, _argsLength: number, _args: Fr[]): Promise<Fr[]> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
+  successCopy(): Promise<Fr> {
+    throw new Error(
+      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
+    );
+  }
+
   async close(): Promise<L2Block> {
     this.logger.debug('Exiting Public Context, building block with collected side effects', {
       blockNumber: this.globalVariables.blockNumber,
