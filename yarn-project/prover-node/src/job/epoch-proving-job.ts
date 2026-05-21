@@ -38,6 +38,8 @@ export type EpochProvingJobOptions = {
   parallelBlockLimit?: number;
   skipEpochCheck?: boolean;
   skipSubmitProof?: boolean;
+  startedAt?: Date;
+  dataReadyAt?: Date;
 };
 
 const EPOCH_SLOT_COUNT_FOR_PROGRESS = 32;
@@ -71,9 +73,11 @@ export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
   private log: Logger;
   private uuid: string;
-  private readonly startedAt = new Date();
-  private updatedAt = this.startedAt;
-  private stateEnteredAt = this.startedAt;
+  private readonly startedAt: Date;
+  private readonly dataReadyAt: Date | undefined;
+  private readonly runStartedAt: Date;
+  private updatedAt: Date;
+  private stateEnteredAt: Date;
   private finishedAt: Date | undefined;
   private progress: EpochProvingJobProgressCounters;
   private error: string | undefined;
@@ -96,6 +100,12 @@ export class EpochProvingJob implements Traceable {
     private config: EpochProvingJobOptions,
     bindings?: LoggerBindings,
   ) {
+    const now = new Date();
+    this.startedAt = config.startedAt ?? now;
+    this.dataReadyAt = config.dataReadyAt;
+    this.runStartedAt = now;
+    this.updatedAt = now;
+    this.stateEnteredAt = this.startedAt;
     validateEpochProvingJobData(data);
     this.progress = this.buildInitialProgress();
     this.uuid = crypto.randomUUID();
@@ -160,6 +170,8 @@ export class EpochProvingJob implements Traceable {
     return {
       ...this.progress,
       startedAt: this.startedAt.toISOString(),
+      dataReadyAt: this.dataReadyAt?.toISOString(),
+      runStartedAt: this.runStartedAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
       stateEnteredAt: this.stateEnteredAt.toISOString(),
       finishedAt: this.finishedAt?.toISOString(),

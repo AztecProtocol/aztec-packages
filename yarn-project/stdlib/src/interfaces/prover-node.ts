@@ -51,6 +51,8 @@ export type ProverNodeProvingProgress = {
 
 export type ProverNodeJobProgress = {
   startedAt: string;
+  dataReadyAt?: string;
+  runStartedAt?: string;
   updatedAt: string;
   stateEnteredAt: string;
   finishedAt?: string;
@@ -143,6 +145,8 @@ const ProverNodeProvingProgressSchema = z
 const ProverNodeJobProgressSchema = z
   .object({
     startedAt: z.string(),
+    dataReadyAt: z.string().optional(),
+    runStartedAt: z.string().optional(),
     updatedAt: z.string(),
     stateEnteredAt: z.string(),
     finishedAt: z.string().optional(),

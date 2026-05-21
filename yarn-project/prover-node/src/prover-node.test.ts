@@ -16,7 +16,6 @@ import {
   type EpochProverManager,
   type EpochProvingJobState,
   type MerkleTreeWriteOperations,
-  type ProverNodeJobStatus,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -171,6 +170,7 @@ describe('prover-node', () => {
         hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
       },
     };
+    l2BlockSource.getL2Block.mockResolvedValue(undefined);
     l2BlockSource.getL2Tips.mockResolvedValue({
       proposed: { number: latestBlockNumber, hash: latestHash },
       checkpointed: {
@@ -265,6 +265,28 @@ describe('prover-node', () => {
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
+  it('does not mark an epoch processed while an active job only covers a partial epoch', async () => {
+    const partialJob = promiseWithResolvers<void>();
+    l2BlockSource.getCheckpointsForEpoch
+      .mockResolvedValueOnce(checkpoints.slice(0, 2))
+      .mockResolvedValue(checkpoints);
+    proverNode.nextJobRun = () => partialJob.promise;
+    proverNode.nextJobState = 'processing';
+
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    const handledWhilePartialJobActive = await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    expect(handledWhilePartialJobActive).toBe(false);
+    expect(proverNode.totalJobCount).toEqual(1);
+
+    partialJob.resolve();
+    await retryUntil(async () => (await proverNode.getJobs()).length === 0, 'partial job completed', 5);
+
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    expect(proverNode.totalJobCount).toEqual(2);
+  });
+
   it('restarts a proof on a reorg', async () => {
     proverNode.nextJobState = 'reorg';
     await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
@@ -294,6 +316,7 @@ describe('prover-node', () => {
       const run = this.nextJobRun;
       this.nextJobRun = () => Promise.resolve();
       const id = jobs.length.toString();
+      const blocks = data.checkpoints.flatMap(checkpoint => checkpoint.blocks);
       const job = mock<EpochProvingJob>({
         run,
         getState: () => state,
@@ -303,6 +326,22 @@ describe('prover-node', () => {
           uuid: id,
           status: state,
           epochNumber: data.epochNumber,
+          progress: {
+            startedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            stateEnteredAt: new Date().toISOString(),
+            fromCheckpoint: data.checkpoints[0]?.number,
+            toCheckpoint: data.checkpoints.at(-1)?.number,
+            fromBlock: blocks[0]?.number,
+            toBlock: blocks.at(-1)?.number,
+            totalCheckpoints: data.checkpoints.length,
+            processedCheckpoints: 0,
+            totalBlocks: blocks.length,
+            processedBlocks: 0,
+            totalTxs: 0,
+            processedTxs: 0,
+            percentage: 0,
+          },
         }),
       });
       job.getId.mockReturnValue(id);
@@ -313,16 +352,6 @@ describe('prover-node', () => {
 
     public override triggerMonitors() {
       return super.triggerMonitors();
-    }
-
-    public override getJobs(): Promise<ProverNodeJobStatus[]> {
-      return Promise.resolve(
-        jobs.map(j => ({
-          uuid: j.job.getId(),
-          status: j.job.getState(),
-          epochNumber: j.epochNumber,
-        })),
-      );
     }
   }
 });

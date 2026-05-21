@@ -136,6 +136,12 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       });
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
       if (activeJobs.length > 0) {
+        if (!(await this.activeJobsCoverEpoch(epochNumber, activeJobs))) {
+          this.log.warn(`Not marking proof for ${epochNumber} as started since active jobs only cover a partial epoch`, {
+            activeJobs: activeJobs.map(job => job.uuid),
+          });
+          return false;
+        }
         this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
           activeJobs: activeJobs.map(job => job.uuid),
         });
@@ -335,6 +341,15 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
   }
 
+  private async activeJobsCoverEpoch(epochNumber: EpochNumber, activeJobs: ProverNodeJobStatus[]): Promise<boolean> {
+    const checkpoints = await this.gatherCheckpoints(epochNumber);
+    const latestCheckpoint = checkpoints.at(-1)?.number;
+    if (latestCheckpoint === undefined) {
+      return false;
+    }
+    return activeJobs.some(job => (job.progress?.toCheckpoint ?? 0) >= latestCheckpoint);
+  }
+
   private checkMaximumPendingJobs() {
     const { proverNodeMaxPendingJobs: maxPendingJobs } = this.config;
     if (maxPendingJobs > 0 && this.jobs.size >= maxPendingJobs) {
@@ -346,6 +361,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     [Attributes.EPOCH_NUMBER]: epochNumber,
   }))
   private async createProvingJob(epochNumber: EpochNumber, opts: { skipEpochCheck?: boolean } = {}) {
+    const startedAt = new Date(this.dateProvider.now());
     this.checkMaximumPendingJobs();
 
     this.publisher = await this.publisherFactory.create();
@@ -376,7 +392,12 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     // Set deadline for this job to run. It will abort if it takes too long.
     const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
     const deadline = new Date(Number(deadlineTs) * 1000);
-    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory, this.publisher, opts);
+    const dataReadyAt = new Date(this.dateProvider.now());
+    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory, this.publisher, {
+      ...opts,
+      startedAt,
+      dataReadyAt,
+    });
     this.jobs.set(job.getId(), job);
     return job;
   }
