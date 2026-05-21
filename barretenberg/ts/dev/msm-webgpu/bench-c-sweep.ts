@@ -14,7 +14,7 @@
 //
 // Query params (all optional):
 //   ?minlogn=10 ?maxlogn=20 ?cmin=7 ?cmax=17 ?reps=15 ?warmup=3
-//   ?s= ?wgi= ?reducewg= ?l0log= ?inv=a|loop  (pipeline knobs, forwarded to MsmV2)
+//   ?s= ?wgi= ?reducewg= ?l0log= ?inv=a|loop|pk  (pipeline knobs, forwarded to MsmV2)
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
@@ -52,7 +52,8 @@ const KNOBS: MsmConfig = {
   wgi: optInt('wgi'),
   reduceWg: optInt('reducewg'),
   l0Log: optInt('l0log'),
-  invVariant: qp.get('inv') === 'loop' ? 'loop' : undefined,
+  invVariant:
+    qp.get('inv') === 'a' ? 'a' : qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'pk' ? 'pk' : undefined,
 };
 
 // MsmV2.pickC's current table (logN -> c); sizes outside it fall back to 13.

@@ -56,9 +56,10 @@ let VALIDATE = false;
 // which is how the batched path is exercised at small n under ?validate=1.
 let BATCHES = 0;
 // Field-inversion variant used by the fused super-kernel: 'a' =
-// fr_inv_by_a (Option A, BATCH=26), 'loop' = fr_inv_by_loop
-// (register-minimal, BATCH=12). Toggle with ?inv=loop.
-let INV_VARIANT: 'a' | 'loop' = 'a';
+// fr_inv_by_a, 'loop' = fr_inv_by_loop, 'pk' = fr_inv_by_loop_pk
+// (2x13-packed safegcd, half the inverse footprint — the default).
+// Override with ?inv=a|loop|pk.
+let INV_VARIANT: 'a' | 'loop' | 'pk' = 'pk';
 // Reduction leaf-partition size as log2(L0). Phase A is L0-1 levels, so
 // L0=2 (L0_LOG=1) minimises the level count. Tune with ?l0log=.
 const DEFAULT_L0_LOG = 1;
@@ -1559,7 +1560,7 @@ function parseParams() {
   if (qp.get('wgi')) WGI = parseInt(qp.get('wgi')!, 10);
   if (qp.get('reps')) REPS = parseInt(qp.get('reps')!, 10);
   if (qp.get('validate') === '1') VALIDATE = true;
-  if (qp.get('inv') === 'loop') INV_VARIANT = 'loop';
+  { const iv = qp.get('inv'); if (iv === 'a' || iv === 'loop' || iv === 'pk') INV_VARIANT = iv; }
   if (qp.get('l0log')) L0_LOG = parseInt(qp.get('l0log')!, 10);
   if (qp.get('redwg')) REDUCE_WG = parseInt(qp.get('redwg')!, 10);
   if (qp.get('batches')) BATCHES = parseInt(qp.get('batches')!, 10);

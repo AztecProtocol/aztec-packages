@@ -77,7 +77,8 @@ const gpuKnobs: MsmConfig = (() => {
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
-    invVariant: q.get('inv') === 'loop' ? 'loop' : undefined,
+    invVariant:
+      q.get('inv') === 'a' ? 'a' : q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
   };
 })();
 

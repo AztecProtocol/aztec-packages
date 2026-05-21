@@ -7,7 +7,7 @@
 // must not change the MSM result), and the breakdown shows where it moved.
 //
 // Real on-curve SRS points + mod-p random scalars. Query params (all optional):
-//   ?n=16384  ?c=  ?s=  ?wgi=  ?reducewg=  ?l0log=  ?inv=a|loop
+//   ?n=16384  ?c=  ?s=  ?wgi=  ?reducewg=  ?l0log=  ?inv=a|loop|pk
 //   ?reps=20  ?warmup=5  ?profile=0   (per-pass GPU breakdown is on by default)
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
@@ -38,7 +38,8 @@ const config: MsmConfig = {
   wgi: optInt('wgi'),
   reduceWg: optInt('reducewg'),
   l0Log: optInt('l0log'),
-  invVariant: qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'a' ? 'a' : undefined,
+  invVariant:
+    qp.get('inv') === 'a' ? 'a' : qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'pk' ? 'pk' : undefined,
   profile: qp.get('profile') !== '0',
 };
 

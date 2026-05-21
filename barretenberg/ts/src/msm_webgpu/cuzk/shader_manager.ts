@@ -834,7 +834,7 @@ ${packLines.join('\n')}
   public gen_ba_fused_super_bench_shader(
     workgroup_size: number,
     s: number,
-    variant: 'a' | 'loop' | 'pk' = 'a',
+    variant: 'a' | 'loop' | 'pk' = 'pk',
     tiled = false,
     l0_index_mode = false,
   ): string {
@@ -1136,7 +1136,7 @@ ${packLines.join('\n')}
    * in a single dispatch, one workgroup per window, storageBarrier between
    * levels. Mirrors gen_ba_fused_super_bench_shader's partials; no per-pass s.
    */
-  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' | 'pk' = 'a'): string {
+  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' | 'pk' = 'pk'): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_fused_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
