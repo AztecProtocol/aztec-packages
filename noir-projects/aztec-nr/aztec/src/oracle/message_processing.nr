@@ -1,6 +1,8 @@
 use crate::ephemeral::EphemeralArray;
 use crate::messages::processing::{
-    log_retrieval_request::LogRetrievalRequest, MessageContext, pending_tagged_log::PendingTaggedLog,
+    event_validation_request::EventValidationRequest,
+    log_retrieval_request::LogRetrievalRequest, MessageContext,
+    NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
 };
 use crate::protocol::address::AztecAddress;
 use crate::protocol::blob_data::TxEffect;
@@ -8,24 +10,23 @@ use crate::protocol::blob_data::TxEffect;
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
 /// returns them in an ephemeral array with an oracle-allocated base slot.
 pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> EphemeralArray<PendingTaggedLog> {
-    let result_slot = get_pending_tagged_logs_oracle(scope);
-    EphemeralArray::at(result_slot)
+    get_pending_tagged_logs_oracle(scope)
 }
 
 #[oracle(aztec_utl_getPendingTaggedLogs)]
-unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> Field {}
+unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> EphemeralArray<PendingTaggedLog> {}
 
 /// Validates note/event requests stored in ephemeral arrays.
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
-    note_validation_requests_array_slot: Field,
-    event_validation_requests_array_slot: Field,
+    note_validation_requests: EphemeralArray<NoteValidationRequest>,
+    event_validation_requests: EphemeralArray<EventValidationRequest>,
     max_note_packed_len: Field,
     max_event_serialized_len: Field,
     scope: AztecAddress,
 ) {
     validate_and_store_enqueued_notes_and_events_oracle(
-        note_validation_requests_array_slot,
-        event_validation_requests_array_slot,
+        note_validation_requests,
+        event_validation_requests,
         max_note_packed_len,
         max_event_serialized_len,
         scope,
@@ -34,8 +35,8 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
 
 #[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents)]
 unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
-    note_validation_requests_array_slot: Field,
-    event_validation_requests_array_slot: Field,
+    note_validation_requests: EphemeralArray<NoteValidationRequest>,
+    event_validation_requests: EphemeralArray<EventValidationRequest>,
     max_note_packed_len: Field,
     max_event_serialized_len: Field,
     scope: AztecAddress,
@@ -48,23 +49,25 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
 pub(crate) unconstrained fn get_logs_by_tag(
     requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<Field> {
-    let response_slot = get_logs_by_tag_oracle(requests.slot);
-    EphemeralArray::at(response_slot)
+    get_logs_by_tag_oracle(requests)
 }
 
 #[oracle(aztec_utl_getLogsByTag)]
-unconstrained fn get_logs_by_tag_oracle(request_array_slot: Field) -> Field {}
+unconstrained fn get_logs_by_tag_oracle(
+    requests: EphemeralArray<LogRetrievalRequest>,
+) -> EphemeralArray<Field> {}
 
 /// Resolves message contexts for tx hashes in an ephemeral request array and returns a response ephemeral array.
 pub(crate) unconstrained fn get_message_contexts_by_tx_hash(
     requests: EphemeralArray<Field>,
 ) -> EphemeralArray<Option<MessageContext>> {
-    let response_slot = get_message_contexts_by_tx_hash_oracle(requests.slot);
-    EphemeralArray::at(response_slot)
+    get_message_contexts_by_tx_hash_oracle(requests)
 }
 
 #[oracle(aztec_utl_getMessageContextsByTxHash)]
-unconstrained fn get_message_contexts_by_tx_hash_oracle(request_array_slot: Field) -> Field {}
+unconstrained fn get_message_contexts_by_tx_hash_oracle(
+    requests: EphemeralArray<Field>,
+) -> EphemeralArray<Option<MessageContext>> {}
 
 /// Fetches all effects of a settled transaction by its hash.
 pub unconstrained fn get_tx_effect(tx_hash: Field) -> Option<TxEffect> {
