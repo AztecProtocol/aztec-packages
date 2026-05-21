@@ -110,7 +110,7 @@ describe('AttestationsBlockWatcher', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it('should emit WANT_TO_SLASH_EVENT for attestors when checkpoint built on invalid parent', () => {
+  it('should emit WANT_TO_SLASH_EVENT for proposer when checkpoint built on invalid parent', () => {
     // First, handle an invalid checkpoint using the pre-configured data
     const invalidCheckpointValidationResult: ValidateCheckpointNegativeResult = {
       valid: false,
@@ -175,19 +175,62 @@ describe('AttestationsBlockWatcher', () => {
 
     expect(handler).toHaveBeenCalledWith([
       {
-        validator: attestor1,
+        validator: proposer2,
         amount: config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
         offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         epochOrSlot: 2n,
-      },
-      {
-        validator: attestor2,
-        amount: config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
-        offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
-        epochOrSlot: 2n,
-      },
-    ] satisfies WantToSlashArgs[]);
+      } satisfies WantToSlashArgs,
+    ]);
     expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('should not emit a descendant-of-invalid slash when no proposer is found for the descendant', () => {
+    const invalidCheckpointValidationResult: ValidateCheckpointNegativeResult = {
+      valid: false,
+      reason: 'insufficient-attestations',
+      checkpoint: checkpointInfo,
+      committee,
+      epoch: EpochNumber(1),
+      seed: 0n,
+      attestors: [],
+      attestations: [],
+    };
+
+    watcher.handleInvalidCheckpoint({
+      type: 'invalidCheckpointDetected',
+      validationResult: invalidCheckpointValidationResult,
+    });
+
+    const childCheckpointInfo: CheckpointInfo = {
+      archive: Fr.random(),
+      lastArchive: checkpointInfo.archive,
+      slotNumber: SlotNumber(2),
+      checkpointNumber: CheckpointNumber(2),
+      timestamp: BigInt(Math.floor(Date.now() / 1000)),
+    };
+
+    // Both calls (one in slashProposer for the descendant being invalid, one in
+    // slashProposerOnAncestorInvalid) return undefined: no proposer is emitted.
+    epochCache.getProposerFromEpochCommittee.mockReturnValue(undefined);
+
+    const childValidationResult: ValidateCheckpointNegativeResult = {
+      valid: false,
+      reason: 'insufficient-attestations',
+      checkpoint: childCheckpointInfo,
+      committee,
+      epoch: EpochNumber(1),
+      seed: 0n,
+      attestors: [],
+      attestations: [],
+    };
+
+    handler.mockClear();
+    watcher.handleInvalidCheckpoint({
+      type: 'invalidCheckpointDetected',
+      validationResult: childValidationResult,
+    });
+
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('should not process the same invalid checkpoint twice', () => {

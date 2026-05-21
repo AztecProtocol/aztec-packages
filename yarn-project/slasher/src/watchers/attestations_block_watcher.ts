@@ -25,10 +25,12 @@ const MAX_INVALID_CHECKPOINTS = 100;
 type AttestationsBlockWatcherConfig = Pick<SlasherConfig, (typeof AttestationsBlockWatcherConfigKeys)[number]>;
 
 /**
- * This watcher is responsible for detecting invalid blocks and creating slashing arguments for offenders.
- * An invalid block is one that doesn't have enough attestations or has incorrect attestations.
- * The proposer of an invalid block should be slashed.
- * If there's another block consecutive to the invalid one, its proposer and attestors should also be slashed.
+ * This watcher is responsible for detecting invalid checkpoints published to L1 and creating slashing arguments.
+ * An invalid checkpoint is one that doesn't have enough attestations or has incorrect attestations.
+ * The proposer of an invalid checkpoint is slashed for the bad attestations.
+ * If a checkpoint published to L1 builds on an invalid checkpoint, its proposer is also slashed for
+ * descending from invalid (attestors of the descendant are not slashed: under pipelining the next
+ * proposer may have started building optimistically before the parent's invalidity was visible on L1).
  */
 export class AttestationsBlockWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private log: Logger = createLogger('attestations-block-watcher');
@@ -101,35 +103,48 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     // Slash the proposer of the invalid checkpoint
     this.slashProposer(event.validationResult);
 
-    // Check if the parent of this checkpoint is invalid as well, if so, we will slash its attestors as well
-    this.slashAttestorsOnAncestorInvalid(event.validationResult);
+    // Check if the parent of this checkpoint is invalid as well, if so, we will slash its proposer for
+    // publishing a descendant of an invalid checkpoint to L1.
+    this.slashProposerOnAncestorInvalid(event.validationResult);
   }
 
-  private slashAttestorsOnAncestorInvalid(validationResult: ValidateCheckpointNegativeResult) {
+  private slashProposerOnAncestorInvalid(validationResult: ValidateCheckpointNegativeResult) {
     const checkpoint = validationResult.checkpoint;
 
     const parentArchive = checkpoint.lastArchive.toString();
-    if (this.invalidArchiveRoots.has(parentArchive)) {
-      const attestors = validationResult.attestors;
-      this.log.info(
-        `Want to slash attestors of checkpoint ${checkpoint.checkpointNumber} built on invalid checkpoint`,
-        {
-          ...checkpoint,
-          ...attestors,
-          parentArchive,
-        },
-      );
-
-      this.emit(
-        WANT_TO_SLASH_EVENT,
-        attestors.map(attestor => ({
-          validator: attestor,
-          amount: this.config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
-          offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
-          epochOrSlot: BigInt(SlotNumber(checkpoint.slotNumber)),
-        })),
-      );
+    if (!this.invalidArchiveRoots.has(parentArchive)) {
+      return;
     }
+
+    const epochCommitteeInfo = {
+      committee: validationResult.committee,
+      seed: validationResult.seed,
+      epoch: validationResult.epoch,
+      isEscapeHatchOpen: false,
+    };
+    const proposer = this.epochCache.getProposerFromEpochCommittee(epochCommitteeInfo, checkpoint.slotNumber);
+
+    if (!proposer) {
+      this.log.warn(
+        `No proposer found for descendant checkpoint ${checkpoint.checkpointNumber} at slot ${checkpoint.slotNumber}`,
+      );
+      return;
+    }
+
+    const args: WantToSlashArgs = {
+      validator: proposer,
+      amount: this.config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
+      offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
+      epochOrSlot: BigInt(SlotNumber(checkpoint.slotNumber)),
+    };
+
+    this.log.info(`Want to slash proposer of checkpoint ${checkpoint.checkpointNumber} built on invalid checkpoint`, {
+      ...checkpoint,
+      ...args,
+      parentArchive,
+    });
+
+    this.emit(WANT_TO_SLASH_EVENT, [args]);
   }
 
   private slashProposer(validationResult: ValidateCheckpointNegativeResult) {
