@@ -1,10 +1,9 @@
 // In-browser MSM comparison harness for the BN254 WebGPU port.
 //   Compares, for sizes 2^16..2^20 over a real prefix of the public SRS:
-//     - WebGPU MSM via `compute_bn254_msm_batch_affine` (this repo's
-//       WGSL port; runs on the warm path with a persistent GpuContext,
-//       precomputed Montgomery-form SRS bases per logN, and one warm-up
-//       dispatch before timed measurements — matches the tal-webgpu
-//       Bn254Grid measurement protocol)
+//     - WebGPU MSM via the v2 pair-tree pipeline (`MsmV2`, msm_v2.ts —
+//       the memory-bounded carry-free-Booth / pair-tree / fused-reduction
+//       port; runs on the warm path with a persistent GPUDevice, an MsmV2
+//       rebuilt per logN, and one warm-up dispatch before timed runs)
 //     - Barretenberg WASM Pippenger, single-threaded (numThreads = 1)
 //     - Barretenberg WASM Pippenger, multi-threaded (numThreads = hw)
 //   The WASM path uses `bb_native_pippenger_bn254`, a direct WASM export
@@ -26,13 +25,9 @@
 
 import { bn254 } from '@noble/curves/bn254';
 
-import {
-  CachedBases,
-  compute_bn254_msm_batch_affine,
-  GpuContext,
-  precompute_bn254_bases,
-  type ProfileCapture,
-} from '../../src/msm_webgpu/index.js';
+import { type ProfileCapture } from '../../src/msm_webgpu/index.js';
+import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
+import { MsmV2 } from './msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { runAllWgslUnitTests } from './wgsl_unit_tests.js';
@@ -112,19 +107,15 @@ let wasmStPippenger: WasmPippengerHandle | null = null;
 let wasmMtPippenger: WasmPippengerHandle | null = null;
 let wasmStBootInFlight: Promise<WasmPippengerHandle> | null = null;
 let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
-// Persistent WebGPU state. One GpuContext (one GPUDevice + pipeline +
-// shader caches) is reused across every WebGPU dispatch on the page; one
-// CachedBases (Montgomery-form SRS sized to the current logN) is held
-// alongside it and regenerated when logN changes. Without this, every
-// dispatch re-acquires a device, recompiles all six pipelines, re-uploads
-// the SRS, and re-runs Stage-1 Barrett/Montgomery convert — the per-call
-// floor on Dawn/Tint is >100 ms even before the MSM begins. We also do
-// one warm-up dispatch per (context, bases) so the first timed dispatch
-// doesn't pay shader JIT.
-let gpuContext: GpuContext | null = null;
-let cachedBases: CachedBases | null = null;
-let cachedBasesLogN: number | null = null;
-let webgpuWarmedUp = false;
+// Persistent WebGPU state. One GPUDevice is reused across every dispatch
+// on the page; one MsmV2 (the v2 pair-tree pipeline — buffers, pipelines,
+// the Montgomery-form SRS for the current logN) is held alongside it and
+// rebuilt when logN changes. Without this, every dispatch would re-acquire
+// a device and recompile every pipeline. MsmV2.create runs one warm-up
+// dispatch so the first timed run doesn't pay shader JIT.
+let gpuDevice: GPUDevice | null = null;
+let msmV2: MsmV2 | null = null;
+let msmV2LogN: number | null = null;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
 // this between reps / sizes so Stop becomes effective at the next yield.
@@ -203,7 +194,7 @@ function setBusy(busy: boolean, text = ''): void {
   $runSweep.disabled = busy || !ready || !WASM_AVAILABLE;
   // Stop is only meaningful while something is in flight, WASM is booted,
   // or a GPU context is alive (so the user can free GPU memory on demand).
-  $stop.disabled = !busy && wasmStPippenger === null && wasmMtPippenger === null && gpuContext === null;
+  $stop.disabled = !busy && wasmStPippenger === null && wasmMtPippenger === null && gpuDevice === null;
   $status.textContent = text;
 }
 
@@ -291,26 +282,25 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
   }
   $mtThreads.disabled = false;
   log('info', `[stop] WASM workers terminated`);
-  // Tear down persistent WebGPU state too. Destroying the GpuContext
-  // invalidates the device and every cached pipeline / buffer (including
-  // CachedBases — `cached.destroy()` on top is belt-and-braces). Next
-  // run lazily re-creates everything via ensureWebGpuWarmed.
-  if (cachedBases !== null || gpuContext !== null) {
+  // Tear down persistent WebGPU state too. Destroying the device
+  // invalidates every buffer / pipeline it owns (MsmV2's included —
+  // `msmV2.destroy()` on top is belt-and-braces). Next run lazily
+  // re-creates everything via ensureWebGpuWarmed.
+  if (msmV2 !== null || gpuDevice !== null) {
     try {
-      cachedBases?.destroy();
+      msmV2?.destroy();
     } catch (err) {
-      log('warn', `[stop/gpu] cachedBases.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
+      log('warn', `[stop/gpu] msmV2.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
     try {
-      gpuContext?.destroy();
+      gpuDevice?.destroy();
     } catch (err) {
-      log('warn', `[stop/gpu] gpuContext.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
+      log('warn', `[stop/gpu] device.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
-    cachedBases = null;
-    cachedBasesLogN = null;
-    gpuContext = null;
-    webgpuWarmedUp = false;
-    log('info', `[stop] GPU context destroyed`);
+    msmV2 = null;
+    msmV2LogN = null;
+    gpuDevice = null;
+    log('info', `[stop] GPU device destroyed`);
   }
 }
 
@@ -464,47 +454,34 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
 }
 
 /**
- * Lazily bring the WebGPU side to a warmed-up state for `inputs.n`:
- *   1. Create a `GpuContext` on first call (caches device + pipelines +
- *      shader code across every subsequent dispatch).
- *   2. Run `precompute_bn254_bases` over the SRS slice when n changes
- *      (Stage-1 Barrett/Montgomery convert; output lives on the device).
- *   3. Fire one warm-up `compute_bn254_msm_batch_affine` so the next
- *      dispatch doesn't eat Dawn/Tint shader JIT.
- *
- * Each step is logged with its own timing so the user can see what the
- * cold tal-webgpu-style ~90 ms target is being amortised against.
+ * Lazily bring the WebGPU side to a warmed-up `MsmV2` for `inputs.n`:
+ *   1. Acquire a `GPUDevice` on first call (reused across every dispatch).
+ *   2. Build an `MsmV2` when n changes — compiles the v2 pair-tree
+ *      pipelines, host-converts + uploads the SRS slice to Montgomery form,
+ *      and runs one warm-up dispatch so the next timed run pays no JIT.
  */
-async function ensureWebGpuWarmed(inputs: TestInputs): Promise<{ ctx: GpuContext; bases: CachedBases }> {
+async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
   const logN = Math.log2(inputs.n);
-  if (gpuContext === null) {
-    log('info', '[gpu-warm] creating persistent GpuContext (one-time)');
+  if (gpuDevice === null) {
+    log('info', '[gpu-warm] acquiring GPUDevice (one-time)');
     const t0 = performance.now();
-    gpuContext = await GpuContext.create();
-    log('ok', `[gpu-warm] context ready in ${(performance.now() - t0).toFixed(0)} ms`);
+    gpuDevice = await get_device();
+    log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
-  if (cachedBases === null || cachedBasesLogN !== logN) {
-    if (cachedBases !== null) {
-      log('info', `[gpu-warm] logN changed (${cachedBasesLogN} → ${logN}); freeing old bases`);
-      cachedBases.destroy();
-      cachedBases = null;
-      cachedBasesLogN = null;
-      webgpuWarmedUp = false;
+  if (msmV2 === null || msmV2LogN !== logN) {
+    if (msmV2 !== null) {
+      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
+      msmV2.destroy();
+      msmV2 = null;
+      msmV2LogN = null;
     }
-    log('info', `[gpu-warm] precomputing Montgomery-form SRS bases for ${inputs.n.toLocaleString()} points`);
+    log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points (pipelines, SRS, warm-up)`);
     const t0 = performance.now();
-    cachedBases = await precompute_bn254_bases(gpuContext, inputs.pointsBuf as unknown as Buffer, false);
-    cachedBasesLogN = logN;
-    log('ok', `[gpu-warm] precompute done in ${(performance.now() - t0).toFixed(0)} ms`);
+    msmV2 = await MsmV2.create(gpuDevice, inputs.n, inputs.pointsBuf);
+    msmV2LogN = logN;
+    log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
-  if (!webgpuWarmedUp) {
-    log('info', '[gpu-warm] warm-up dispatch (shader JIT, command buffer)…');
-    const t0 = performance.now();
-    await compute_bn254_msm_batch_affine(gpuContext, cachedBases, inputs.scalarsBuf as unknown as Buffer, false);
-    webgpuWarmedUp = true;
-    log('ok', `[gpu-warm] warm-up done in ${(performance.now() - t0).toFixed(0)} ms`);
-  }
-  return { ctx: gpuContext, bases: cachedBases };
+  return msmV2;
 }
 
 async function runWebGpuOnce(
@@ -513,30 +490,19 @@ async function runWebGpuOnce(
   if (!('gpu' in navigator)) {
     throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
   }
-  const { ctx, bases } = await ensureWebGpuWarmed(inputs);
+  const msm = await ensureWebGpuWarmed(inputs);
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
-  // Pre-allocate the profile_capture out-param. The library writes
-  // `.profile` (per-pass GPU times), `.cpu_phases` (CPU phase totals,
-  // populated whenever capture is present), and `.gpu_readback`
-  // (GPU wall vs. profiled-sum vs. readback overhead) into this object
-  // before the await resolves.
-  const capture: ProfileCapture = { profile: null };
-  const useTreeReduce = new URLSearchParams(window.location.search).get('use_tree_reduce') === '1';
-  if (useTreeReduce) log('info', '[gpu] use_tree_reduce=1 — routing SMVP through tree-reduce pipeline');
+  // Plan the level tree for these scalars + (re)build the data-dependent
+  // buffers — untimed setup, outside the `t0` window so the measurement is
+  // GPU-only. `run` then encodes + submits the whole batched pipeline.
+  msm.prepare(inputs.scalarsBuf);
   const t0 = performance.now();
-  const gpu = await compute_bn254_msm_batch_affine(
-    ctx,
-    bases,
-    inputs.scalarsBuf as unknown as Buffer,
-    false,
-    {},
-    capture,
-    'legacy',
-    useTreeReduce,
-  );
+  const gpu = await msm.run();
   const ms = performance.now() - t0;
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
-  return { ms, xy: gpu, capture };
+  // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
+  // a null-profile capture, so the GPU column there simply renders empty.
+  return { ms, xy: gpu, capture: { profile: null } };
 }
 
 async function runWasmOnce(inputs: TestInputs, role: WasmRole): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
@@ -1215,8 +1181,8 @@ $probeGpu?.addEventListener('click', async () => {
  * been "right after `[gpu] dispatch`" with no further detail — checking
  * the input shape here separates "we sent garbage" from "GPU went
  * sideways on a valid input". On the warm path, the sanity check also
- * exercises `GpuContext.create` and `precompute_bn254_bases` — a hang
- * during context creation will show up in the `[gpu-warm]` lines.
+ * exercises `get_device` and `MsmV2.create` — a hang during device
+ * acquisition or pipeline compile shows up in the `[gpu-warm]` lines.
  */
 $runSanity.addEventListener('click', async () => {
   $log.innerHTML = '';
