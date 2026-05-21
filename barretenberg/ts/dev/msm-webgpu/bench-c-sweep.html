@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MsmV2 c-sweep — fastest window size per MSM size</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        max-width: 1200px;
+        margin: 1.5rem auto;
+        padding: 0 1rem;
+        line-height: 1.45;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      p {
+        color: #334155;
+      }
+      table {
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        border: 1px solid #cbd5e1;
+        padding: 3px 9px;
+        text-align: right;
+        font-size: 12px;
+      }
+      thead th,
+      tbody th {
+        background: #f1f5f9;
+      }
+      td.best {
+        background: #bbf7d0;
+        font-weight: 700;
+      }
+      td.err {
+        background: #fecaca;
+        color: #991b1b;
+        text-align: center;
+      }
+      td.pending {
+        color: #cbd5e1;
+        text-align: center;
+      }
+      #log {
+        background: #0b1020;
+        color: #e6e6e6;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        padding: 0.75rem;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        max-height: 26rem;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MsmV2 c-sweep — fastest Pippenger window size per MSM size</h1>
+    <p>
+      Median <code>run()</code> wall time in ms for each (size, window-bits <code>c</code>) pair of the v2 WebGPU MSM.
+      Green = fastest <code>c</code> for that row — the value <code>MsmV2.pickC</code> should return. Params:
+      <code>?minlogn=10&amp;maxlogn=20&amp;cmin=7&amp;cmax=17&amp;reps=15&amp;warmup=3</code>
+    </p>
+    <div id="table"></div>
+    <div id="log"></div>
+    <script type="module" src="./bench-c-sweep.ts"></script>
+  </body>
+</html>
