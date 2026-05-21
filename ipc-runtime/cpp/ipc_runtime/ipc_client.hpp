@@ -7,7 +7,7 @@
 #include <string>
 #include <sys/types.h>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief Abstract interface for IPC client
@@ -75,4 +75,4 @@ class IpcClient {
     static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name, size_t client_id);
 };
 
-} // namespace bb::ipc
+} // namespace ipc

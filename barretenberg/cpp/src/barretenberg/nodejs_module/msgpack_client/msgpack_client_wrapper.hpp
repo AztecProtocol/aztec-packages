@@ -32,7 +32,7 @@ class MsgpackClientWrapper : public Napi::ObjectWrap<MsgpackClientWrapper> {
     static Napi::Function get_class(Napi::Env env);
 
   private:
-    std::unique_ptr<bb::ipc::IpcClient> client_;
+    std::unique_ptr<ipc::IpcClient> client_;
     bool connected_ = false;
 };
 

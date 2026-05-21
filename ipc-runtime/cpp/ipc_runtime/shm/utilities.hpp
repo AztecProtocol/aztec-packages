@@ -18,7 +18,7 @@
     } while (0)
 #endif
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief Get current monotonic time in nanoseconds
@@ -37,4 +37,4 @@ inline uint64_t mono_ns_now()
     return (static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL) + static_cast<uint64_t>(ts.tv_nsec);
 }
 
-} // namespace bb::ipc
+} // namespace ipc

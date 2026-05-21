@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <utility>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief IPC client implementation using shared memory
@@ -105,4 +105,4 @@ class ShmClient : public IpcClient {
     std::optional<SpscShm> response_ring_; // Client reads from this
 };
 
-} // namespace bb::ipc
+} // namespace ipc

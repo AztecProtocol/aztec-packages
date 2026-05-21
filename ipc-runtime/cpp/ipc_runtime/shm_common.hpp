@@ -7,7 +7,7 @@
 #include <span>
 #include <stdexcept>
 
-namespace bb::ipc {
+namespace ipc {
 
 inline bool ring_send_msg(SpscShm& ring, const void* data, size_t len, uint64_t timeout_ns)
 {
@@ -58,4 +58,4 @@ inline std::span<const uint8_t> ring_receive_msg(SpscShm& ring, uint64_t timeout
     return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr) + 4, msg_len);
 }
 
-} // namespace bb::ipc
+} // namespace ipc

@@ -19,7 +19,7 @@
 #include <sys/epoll.h> // epoll on Linux
 #endif
 
-namespace bb::ipc {
+namespace ipc {
 
 SocketServer::SocketServer(std::string socket_path, int initial_max_clients)
     : socket_path_(std::move(socket_path))
@@ -570,4 +570,4 @@ void SocketServer::disconnect_client(int client_id)
 
 #endif
 
-} // namespace bb::ipc
+} // namespace ipc

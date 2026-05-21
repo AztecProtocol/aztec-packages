@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace bb::ipc {
+namespace ipc {
 
 // ----- MpscConsumer Implementation -----
 
@@ -381,4 +381,4 @@ void MpscProducer::publish(size_t n)
     }
 }
 
-} // namespace bb::ipc
+} // namespace ipc

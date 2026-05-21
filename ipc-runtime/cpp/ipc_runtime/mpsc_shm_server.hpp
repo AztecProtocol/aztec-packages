@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief IPC server implementation using shared memory with multi-client support
@@ -151,4 +151,4 @@ class MpscShmServer : public IpcServer {
     std::vector<SpscShm> response_rings_;
 };
 
-} // namespace bb::ipc
+} // namespace ipc

@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <utility>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief IPC server implementation using shared memory
@@ -149,4 +149,4 @@ class ShmServer : public IpcServer {
     std::optional<SpscShm> response_ring_; // Server writes to this
 };
 
-} // namespace bb::ipc
+} // namespace ipc

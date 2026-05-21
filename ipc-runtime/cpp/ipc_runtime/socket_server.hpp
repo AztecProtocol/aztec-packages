@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief IPC server implementation using Unix domain sockets
@@ -52,4 +52,4 @@ class SocketServer : public IpcServer {
     int num_clients_ = 0;
 };
 
-} // namespace bb::ipc
+} // namespace ipc

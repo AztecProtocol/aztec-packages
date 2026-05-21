@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <vector>
 
-using namespace bb::ipc;
+using namespace ipc;
 
 namespace {
 

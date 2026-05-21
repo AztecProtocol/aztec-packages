@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief Exception thrown by handler to signal graceful shutdown
@@ -211,4 +211,4 @@ class IpcServer {
     virtual void wakeup_all() {};
 };
 
-} // namespace bb::ipc
+} // namespace ipc

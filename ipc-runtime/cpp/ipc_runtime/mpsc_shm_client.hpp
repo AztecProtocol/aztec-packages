@@ -11,7 +11,7 @@
 #include <string>
 #include <utility>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief IPC client for multi-client shared memory server
@@ -108,4 +108,4 @@ class MpscShmClient : public IpcClient {
     std::optional<SpscShm> response_ring_;
 };
 
-} // namespace bb::ipc
+} // namespace ipc

@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief Shared doorbell for waking consumer
@@ -152,4 +152,4 @@ class MpscProducer {
     size_t producer_id_ = 0;
 };
 
-} // namespace bb::ipc
+} // namespace ipc

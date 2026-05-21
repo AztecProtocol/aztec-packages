@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <string>
 
-namespace bb::ipc {
+namespace ipc {
 
 constexpr size_t SPSC_CACHELINE = 64;
 
@@ -177,4 +177,4 @@ class SpscShm {
     bool previous_had_space_ = false; // Adaptive spinning: producer only spins if previous call found space
 };
 
-} // namespace bb::ipc
+} // namespace ipc

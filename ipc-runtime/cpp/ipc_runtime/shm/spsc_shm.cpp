@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace bb::ipc {
+namespace ipc {
 
 namespace {
 
@@ -542,4 +542,4 @@ void SpscShm::debug_dump(const char* prefix) const
               << " | wrap_head=" << (wrap_head == UINT64_MAX ? "NONE" : std::to_string(wrap_head)) << '\n';
 }
 
-} // namespace bb::ipc
+} // namespace ipc

@@ -31,7 +31,7 @@ int os_sync_wake_by_address_any(void* addr, size_t size, uint32_t flags);
 #include <unistd.h>
 #endif
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief Atomic compare-and-wait operation
@@ -108,4 +108,4 @@ inline int futex_wake(volatile uint32_t* addr, int n)
 #endif
 }
 
-} // namespace bb::ipc
+} // namespace ipc

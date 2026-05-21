@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-namespace bb::ipc {
+namespace ipc {
 
 std::unique_ptr<IpcClient> IpcClient::create_socket(const std::string& socket_path)
 {
@@ -23,4 +23,4 @@ std::unique_ptr<IpcClient> IpcClient::create_mpsc_shm(const std::string& base_na
     return std::make_unique<MpscShmClient>(base_name, client_id);
 }
 
-} // namespace bb::ipc
+} // namespace ipc

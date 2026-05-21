@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <vector>
 
-namespace bb::ipc {
+namespace ipc {
 
 /**
  * @brief IPC client implementation using Unix domain sockets
@@ -40,4 +40,4 @@ class SocketClient : public IpcClient {
     std::vector<uint8_t> recv_buffer_; // Internal buffer for socket recv
 };
 
-} // namespace bb::ipc
+} // namespace ipc

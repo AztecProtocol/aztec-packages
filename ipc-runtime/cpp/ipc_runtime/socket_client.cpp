@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <utility>
 
-namespace bb::ipc {
+namespace ipc {
 
 SocketClient::SocketClient(std::string socket_path)
     : socket_path_(std::move(socket_path))
@@ -116,4 +116,4 @@ void SocketClient::close_internal()
     }
 }
 
-} // namespace bb::ipc
+} // namespace ipc

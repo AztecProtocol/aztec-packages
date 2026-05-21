@@ -10,6 +10,8 @@
 set(IPC_RUNTIME_SOURCES
     ipc_runtime/ipc_client.cpp
     ipc_runtime/ipc_server.cpp
+    ipc_runtime/serve_helper.cpp
+    ipc_runtime/signal_handlers.cpp
     ipc_runtime/socket_client.cpp
     ipc_runtime/socket_server.cpp
     ipc_runtime/shm/mpsc_shm.cpp
@@ -19,6 +21,8 @@ set(IPC_RUNTIME_SOURCES
 set(IPC_RUNTIME_HEADERS
     ipc_runtime/ipc_client.hpp
     ipc_runtime/ipc_server.hpp
+    ipc_runtime/serve_helper.hpp
+    ipc_runtime/signal_handlers.hpp
     ipc_runtime/socket_client.hpp
     ipc_runtime/socket_server.hpp
     ipc_runtime/mpsc_shm_client.hpp
