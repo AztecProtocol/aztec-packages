@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BN254 base-field WebGPU vs JS baseline</title>
+    <style>
+      body {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        max-width: 900px;
+        margin: 1.5rem auto;
+        padding: 0 1rem;
+      }
+      #log {
+        background: #0b1020;
+        color: #e6e6e6;
+        padding: 0.75rem;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        min-height: 12rem;
+      }
+      #log .ok {
+        color: #6ee7b7;
+      }
+      #log .err {
+        color: #fca5a5;
+      }
+      #log .warn {
+        color: #fde68a;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>BN254 base-field: WebGPU vs JS baseline (montmul / fr_add / fr_sub)</h1>
+    <p>
+      Runs <code>n</code> random base-field pairs through the production u32 Karatsuba
+      Montgomery product, <code>fr_add</code>, and <code>fr_sub</code> on the GPU and
+      cross-checks every output against a JS BigInt baseline. Auto-runs on load.
+      Params: <code>?n=1048576&amp;seed=1&amp;wg=64&amp;chunk=131072</code>.
+    </p>
+    <div id="log"></div>
+    <script type="module" src="./bench-field-verify.ts"></script>
+  </body>
+</html>

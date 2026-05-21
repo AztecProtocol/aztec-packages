@@ -54,7 +54,10 @@ export default defineConfig({
     target: "es2022",
     minify: false,
     rollupOptions: {
-      input: { index: path.join(__dirname, "index.html") },
+      input: {
+        index: path.join(__dirname, "index.html"),
+        "field-verify": path.join(__dirname, "bench-field-verify.html"),
+      },
     },
   },
 });

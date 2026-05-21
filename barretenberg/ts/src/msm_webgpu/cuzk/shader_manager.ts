@@ -1784,6 +1784,43 @@ ${mont_src}
 ${entry_src}`;
   }
 
+  // Correctness-verification shader for the base-field primitives the MSM
+  // actually uses: one Karatsuba Montgomery product, one `fr_add`, and one
+  // `fr_sub` per thread, each writing to its own output array. The host
+  // cross-checks every output against a BigInt reference — used by
+  // `bench-field-verify` to confirm a device's WebGPU field arithmetic
+  // matches a JS baseline (e.g. to localise a mobile-GPU divergence).
+  public gen_field_verify_u32_shader(workgroup_size: number): string {
+    const structs_src = mustache.render(structs, { num_words: this.num_words });
+    const bigint_src = mustache.render(bigint_funcs, {});
+    const mont_src = this.mont_product_src;
+    const field_src = mustache.render(field_funcs, {});
+    const entry_src = `
+@group(0) @binding(0) var<storage, read>       xs:  array<BigInt>;
+@group(0) @binding(1) var<storage, read>       ys:  array<BigInt>;
+@group(0) @binding(2) var<storage, read_write> mul: array<BigInt>;
+@group(0) @binding(3) var<storage, read_write> add: array<BigInt>;
+@group(0) @binding(4) var<storage, read_write> sub: array<BigInt>;
+@group(0) @binding(5) var<uniform>             params: vec4<u32>;
+
+@compute @workgroup_size(${workgroup_size})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let n = params.x;
+    let tid = gid.x;
+    if (tid >= n) { return; }
+    var a = xs[tid];
+    var b = ys[tid];
+    mul[tid] = montgomery_product(&a, &b);
+    add[tid] = fr_add(&a, &b);
+    sub[tid] = fr_sub(&a, &b);
+}`;
+    return `${structs_src}
+${bigint_src}
+${mont_src}
+${field_src}
+${entry_src}`;
+  }
+
   // Bench-only entry shader for the BY `by_divsteps` primitive. Assembles
   // the BY helpers (bigint_by) + the by_inverse partial (which hosts the
   // `Mat` struct and `by_divsteps`) + the per-thread bench entry.
