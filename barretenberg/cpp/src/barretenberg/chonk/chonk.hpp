@@ -155,7 +155,8 @@ class Chonk {
         // Uniform accessor: returns num_public_inputs from whichever VK is populated.
         [[nodiscard]] size_t num_public_inputs() const
         {
-            return is_kernel() ? kernel_honk_vk->num_public_inputs : app_honk_vk->num_public_inputs;
+            return static_cast<size_t>(is_kernel() ? kernel_honk_vk->num_public_inputs
+                                                   : app_honk_vk->num_public_inputs);
         }
 
         // Uniform accessors over the kind-tagged VK pair. Centralizing the App/Kernel branch here
@@ -313,9 +314,6 @@ class Chonk {
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
 
-    void debug_incoming_circuit(ClientCircuit& circuit,
-                                const std::shared_ptr<ProverInstance>& prover_instance,
-                                const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
 
     PublicInputsResult process_kernel_public_inputs(std::vector<StdlibFF>& public_inputs,
@@ -324,7 +322,10 @@ class Chonk {
     PublicInputsResult process_app_public_inputs(std::vector<StdlibFF>& public_inputs,
                                                  AppWitnessCommitments& witness_commitments);
 
-    void accumulate_and_fold(ClientCircuit& circuit, CircuitKind kind, QUEUE_TYPE queue_type);
+    void accumulate_and_fold(ClientCircuit& circuit,
+                             CircuitKind kind,
+                             QUEUE_TYPE queue_type,
+                             const CircuitVerificationKey& vk);
 
     void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk);
 

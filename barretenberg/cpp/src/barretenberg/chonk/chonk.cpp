@@ -85,27 +85,6 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
 
     info("======= END OF DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 }
-
-void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
-                                   const std::shared_ptr<ProverInstance>& prover_instance,
-                                   const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
-{
-    info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
-
-    info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
-    info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
-    info("Did we find a failure? ", circuit.failed() ? "true" : "false");
-    if (circuit.failed()) {
-        info("\t\t\tError message? ", circuit.err());
-    }
-
-    // Compare precomputed VK with the one generated during accumulation
-    auto vk = std::make_shared<MegaVerificationKey>(prover_instance->get_precomputed());
-    info("Does the precomputed vk match with the one generated during accumulation? ",
-         vk->compare(*precomputed_vk, MegaFlavor::CommitmentLabels().get_precomputed()) ? "true" : "false");
-
-    info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
-}
 #endif
 
 // Constructor
@@ -580,37 +559,25 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
     num_circuits_accumulated++;
 }
 
-/**
- * @brief Perform HyperNova folding for a circuit and produce the corresponding merge proof.
- *
- * @details Handles OINK (first app), HN (inner folding), HN_TAIL (last pre-tail), and HN_FINAL (tail + decider).
- *
- * @param circuit The circuit to fold
- * @param precomputed_vk Precomputed verification key for the circuit
- * @param queue_type The folding type for this circuit
- * @param prover_instance Pre-built prover instance (from debug path) or nullptr
- */
 namespace {
 // Templated body of accumulate_and_fold. Dispatched on InstanceFlavor (MegaAppFlavor for apps,
 // MegaKernelFlavor for kernels). The Hypernova accumulator is flavor-agnostic so apps and kernels
 // fold into the same `prover_accumulator`.
 template <typename InstanceFlavor>
-std::pair<HonkProof, std::shared_ptr<typename InstanceFlavor::VerificationKey>> run_oink_or_fold(
-    Chonk& chonk,
-    Chonk::ClientCircuit& circuit,
-    Chonk::QUEUE_TYPE queue_type,
-    const std::shared_ptr<Chonk::Transcript>& accumulation_transcript)
+HonkProof run_oink_or_fold(Chonk& chonk,
+                           Chonk::ClientCircuit& circuit,
+                           Chonk::QUEUE_TYPE queue_type,
+                           const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk,
+                           const std::shared_ptr<Chonk::Transcript>& accumulation_transcript)
 {
     using PI = ProverInstance_<InstanceFlavor>;
-    using VK = typename InstanceFlavor::VerificationKey;
+    BB_ASSERT(vk != nullptr, "Chonk::accumulate_and_fold - VK expected for the provided circuit");
 
     auto prover_instance = std::make_shared<PI>(circuit);
     // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials.
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
-
-    auto vk = std::make_shared<VK>(prover_instance->get_precomputed());
 
     Chonk::FoldingProver prover(accumulation_transcript);
     HonkProof proof;
@@ -639,11 +606,14 @@ std::pair<HonkProof, std::shared_ptr<typename InstanceFlavor::VerificationKey>> 
         BB_ASSERT(false, "Unexpected queue type");
         break;
     }
-    return { std::move(proof), std::move(vk) };
+    return proof;
 }
 } // namespace
 
-void Chonk::accumulate_and_fold(ClientCircuit& circuit, CircuitKind kind, QUEUE_TYPE queue_type)
+void Chonk::accumulate_and_fold(ClientCircuit& circuit,
+                                CircuitKind kind,
+                                QUEUE_TYPE queue_type,
+                                const CircuitVerificationKey& vk)
 {
     BB_BENCH_NAME("Chonk::accumulate_and_fold");
 
@@ -670,13 +640,13 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit, CircuitKind kind, QUEUE_
     queue_entry.type = queue_type;
     queue_entry.kind = kind;
     if (kind == CircuitKind::Kernel) {
-        auto [p, vk] = run_oink_or_fold<KernelFlavor>(*this, circuit, queue_type, prover_accumulation_transcript);
-        proof = std::move(p);
-        queue_entry.kernel_honk_vk = std::move(vk);
+        auto kernel_vk = std::get<std::shared_ptr<KernelVerificationKey>>(vk);
+        proof = run_oink_or_fold<KernelFlavor>(*this, circuit, queue_type, kernel_vk, prover_accumulation_transcript);
+        queue_entry.kernel_honk_vk = std::move(kernel_vk);
     } else {
-        auto [p, vk] = run_oink_or_fold<AppFlavor>(*this, circuit, queue_type, prover_accumulation_transcript);
-        proof = std::move(p);
-        queue_entry.app_honk_vk = std::move(vk);
+        auto app_vk = std::get<std::shared_ptr<AppVerificationKey>>(vk);
+        proof = run_oink_or_fold<AppFlavor>(*this, circuit, queue_type, app_vk, prover_accumulation_transcript);
+        queue_entry.app_honk_vk = std::move(app_vk);
     }
     queue_entry.proof = std::move(proof);
 
@@ -725,11 +695,7 @@ void Chonk::accumulate(ClientCircuit& circuit, CircuitKind kind, const CircuitVe
     case CircuitKind::App:
     case CircuitKind::Kernel: {
         BB_ASSERT(queue_type != QUEUE_TYPE::MEGA, "App/Kernel cannot be the final circuit; use HidingKernel");
-        // Variant is currently only used for runtime kind/VK consistency at the boundary; the VK is
-        // re-derived inside `run_oink_or_fold` from the prover instance. TODO: thread the
-        // precomputed VK through to skip that re-derivation.
-        (void)vk;
-        accumulate_and_fold(circuit, kind, queue_type);
+        accumulate_and_fold(circuit, kind, queue_type, vk);
 
         if (queue_type == QUEUE_TYPE::HN_FINAL) {
             prover_accumulator = ProverAccumulator(); // Free; no longer needed before the hiding-kernel fold.
