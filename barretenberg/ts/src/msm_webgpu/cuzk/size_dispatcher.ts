@@ -1,39 +1,43 @@
 import { TrivialMsm } from "./trivial_msm.js";
 
 /**
- * Per-`logN` `NUM_THREAD_MULS` (= `k`) recommendation populated from the
- * P8 BrowserStack M2 confirmation run. Sizes outside the keys fall back
- * to `PICK_NTM_DEFAULT`.
+ * Per-`logN` `NUM_THREAD_MULS` (= `k`) recommendation derived from the
+ * P8 BrowserStack M2 confirmation sweep (Apple M2 base, macOS Sequoia,
+ * Chrome 148, `hardwareConcurrency=8`; reps=5, warmup=2).
  *
- * The numbers below are placeholders sized from static reasoning about
- * the algorithm (more threads at smaller `n` so the per-chunk doubling
- * cost amortises). They must be replaced with the actual M2 medians
- * once the P8 driver lands a confirmed JSONL on the gist.
+ * Best-`k` was `1` across every logN in `[4, 11]` and `2` at logN=12,
+ * with cell time growing monotonically with `k` over the sweep — i.e.
+ * the per-thread doubling cost the plan expected to amortise away
+ * didn't, because the lookup_precompute + straus_main + log2(T)
+ * combine_fold + to_affine dispatch chain has a ~17 ms fixed encoder
+ * tail on M2 that dominates at every swept size. Sizes outside the
+ * sweep fall back to `PICK_NTM_DEFAULT`.
  */
 const PICK_NTM_TABLE: Readonly<Record<number, number>> = {
   4: 1,
   5: 1,
   6: 1,
-  7: 2,
-  8: 2,
-  9: 3,
-  10: 4,
-  11: 4,
-  12: 6,
-  13: 8,
-  14: 8,
-  15: 12,
-  16: 16,
+  7: 1,
+  8: 1,
+  9: 1,
+  10: 1,
+  11: 1,
+  12: 2,
 };
-const PICK_NTM_DEFAULT = 16;
+const PICK_NTM_DEFAULT = 1;
 
 /**
  * Largest `n` where the TrivialMsm small-MSM path is faster than MsmV2.
- * Replace with the actual M2 crossover once P8 measures it. Below the
- * crossover the dispatcher routes to TrivialMsm; above it routes to the
- * production MsmV2 Pippenger path.
+ *
+ * The P8 M2 sweep found NO logN in `[4, 12]` where TrivialMsm beats the
+ * production MsmV2 Pippenger pipeline — TrivialMsm's median is 0.34x-0.74x
+ * MsmV2's at every cell (MsmV2 wins everywhere, ratio worsens as N grows).
+ * Setting the crossover to `0` makes `compute_bn254_msm_auto` always route
+ * to MsmV2 by default; the M2 sweep result lives in PR #23475's gist for
+ * future reference. Raise this constant once an optimisation lands that
+ * actually moves the crossover into TrivialMsm's favour at some N.
  */
-export const PICK_NTM_CROSSOVER_N = 1 << 14;
+export const PICK_NTM_CROSSOVER_N = 0;
 
 /**
  * Choose the per-thread chunk size `k` (NUM_THREAD_MULS) for a given

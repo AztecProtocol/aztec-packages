@@ -22,6 +22,7 @@ import { BN254_BASE_FIELD } from "../../src/msm_webgpu/cuzk/bn254.js";
 import { get_device } from "../../src/msm_webgpu/cuzk/gpu.js";
 import { bn254 } from "@noble/curves/bn254";
 import { MsmV2 } from "./msm_v2.js";
+import { makeResultsClient } from "./results_post.js";
 import { loadSrsPoints } from "./srs.js";
 import { TrivialMsm } from "./trivial_msm.js";
 
@@ -70,6 +71,8 @@ interface SweepState {
 }
 const benchState: SweepState = { state: "boot", rows: [], error: null };
 (window as unknown as { __bench: SweepState }).__bench = benchState;
+
+const results = makeResultsClient({ page: "bench-nt-sweep" });
 
 const $log = document.getElementById("log") as HTMLDivElement;
 const $table = document.getElementById("table") as HTMLDivElement;
@@ -303,12 +306,23 @@ async function main(): Promise<void> {
             : `  2^${logN} k=${k}: median ${cell.median.toFixed(2)}ms  min ${cell.min.toFixed(2)}ms` +
               (cell.verifyOk === true ? " ✓" : ""),
         );
+        results.postProgress({
+          logN,
+          ntm: k,
+          cell,
+          bestNtm: row.bestNtm,
+        });
       }
 
       const v2 = await timeMsmV2(device, n, points, scalars);
       row.msmV2Median = v2.median;
       row.msmV2Err = v2.err;
       renderTable();
+      results.postProgress({
+        logN,
+        msmV2: { median: v2.median, err: v2.err },
+        bestNtm: row.bestNtm,
+      });
       if (v2.err) {
         log(`  2^${logN} MsmV2: ERROR — ${v2.err}`);
       } else if (v2.median !== null) {
@@ -337,11 +351,38 @@ async function main(): Promise<void> {
     );
     benchState.state = "done";
     log("done");
+    await results.postResults({
+      state: "done",
+      rows: benchState.rows,
+      summary: Object.fromEntries(
+        benchState.rows
+          .filter((r) => r.bestNtm !== null)
+          .map((r) => [r.logN, r.bestNtm]),
+      ),
+      crossover: crossover?.logN ?? null,
+      params: {
+        minLogN: MIN_LOGN,
+        maxLogN: MAX_LOGN,
+        ntmList: NTM_LIST,
+        reps: REPS,
+        warmup: WARMUP,
+        verify: VERIFY,
+      },
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
   } catch (e) {
     const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ""}` : String(e);
     log(`FATAL: ${msg}`);
     benchState.state = "error";
     benchState.error = msg;
+    await results.postResults({
+      state: "error",
+      error: msg,
+      rows: benchState.rows,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
   }
 }
 

@@ -260,19 +260,22 @@ export const create_compute_pipeline = async (
   try {
     const info = await m.getCompilationInfo();
     let hasError = false;
+    const errLines: string[] = [];
     for (const msg of info.messages) {
       const tag = `[shader ${cacheKey ?? entryPoint}]`;
       const where = `line ${msg.lineNum}, col ${msg.linePos}`;
       const line = `${tag} ${msg.type}: ${msg.message} (${where})`;
       if (msg.type === 'error') {
         console.error(line);
+        errLines.push(line);
         hasError = true;
       } else {
         console.warn(line);
       }
     }
     if (hasError) {
-      throw new Error(`WGSL compile failed for ${cacheKey ?? entryPoint} — see DevTools console for line numbers`);
+      const detail = errLines.slice(0, 4).join('\n  ');
+      throw new Error(`WGSL compile failed for ${cacheKey ?? entryPoint}\n  ${detail}`);
     }
   } catch (e) {
     // Re-throw our own descriptive error; let other errors fall through

@@ -37,18 +37,15 @@ fn get_beta_mont() -> BigInt {
     return b;
 }
 
-fn get_p() -> BigInt {
-    var p_const: BigInt;
-{{{ p_limbs }}}
-    return p_const;
-}
-
 fn fr_cond_neg(y: BigInt, flag: u32) -> BigInt {
+    if (flag == 0u) {
+        return y;
+    }
     var p_const: BigInt = get_p();
     var y_copy: BigInt = y;
     var neg: BigInt;
     let _b = bigint_sub(&p_const, &y_copy, &neg);
-    return select(y, neg, flag != 0u);
+    return neg;
 }
 
 // Read the 5-bit signed-Booth raw window for window `w` from a 128-bit

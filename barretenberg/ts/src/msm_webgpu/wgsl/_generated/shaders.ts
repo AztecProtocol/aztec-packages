@@ -9643,18 +9643,15 @@ fn get_beta_mont() -> BigInt {
     return b;
 }
 
-fn get_p() -> BigInt {
-    var p_const: BigInt;
-{{{ p_limbs }}}
-    return p_const;
-}
-
 fn fr_cond_neg(y: BigInt, flag: u32) -> BigInt {
+    if (flag == 0u) {
+        return y;
+    }
     var p_const: BigInt = get_p();
     var y_copy: BigInt = y;
     var neg: BigInt;
     let _b = bigint_sub(&p_const, &y_copy, &neg);
-    return select(y, neg, flag != 0u);
+    return neg;
 }
 
 // Read the 5-bit signed-Booth raw window for window \`w\` from a 128-bit
@@ -9784,6 +9781,12 @@ export const straus_to_affine_bn254 = `// Final Jacobian → affine conversion f
 {{> fr_pow_funcs }}
 {{> bigint_by_funcs }}
 {{> by_inverse_a_funcs }}
+
+fn get_r() -> BigInt {
+    var r: BigInt;
+{{{ r_limbs }}}
+    return r;
+}
 
 @group(0) @binding(0) var<storage, read>       part_x:   array<BigInt>;
 @group(0) @binding(1) var<storage, read>       part_y:   array<BigInt>;

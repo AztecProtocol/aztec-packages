@@ -18,6 +18,12 @@
 {{> bigint_by_funcs }}
 {{> by_inverse_a_funcs }}
 
+fn get_r() -> BigInt {
+    var r: BigInt;
+{{{ r_limbs }}}
+    return r;
+}
+
 @group(0) @binding(0) var<storage, read>       part_x:   array<BigInt>;
 @group(0) @binding(1) var<storage, read>       part_y:   array<BigInt>;
 @group(0) @binding(2) var<storage, read>       part_z:   array<BigInt>;
