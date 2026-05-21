@@ -48,6 +48,30 @@ export class StrausKernels {
   }
 
   /**
+   * WGSL source for one pairwise-fold pass of the tree-reduction kernel.
+   * Re-dispatched by the host with the input count halved each pass
+   * (ping-pong-swapping the in/out buffers) until only one partial
+   * remains. `tIn` is the compile-time input count for THIS pass.
+   */
+  static renderStrausCombineFold(
+    sm: ShaderManager,
+    tIn: number,
+    workgroupSize = 64,
+  ): string {
+    return sm.gen_straus_combine_fold_shader(tIn, workgroupSize);
+  }
+
+  /**
+   * WGSL source for the final Jacobian → affine conversion kernel.
+   * Reads `part_{x,y,z}[0]`, runs one `fr_inv_by_a(z)`, writes
+   * `(x · z_inv², y · z_inv³)` to `result_{x,y}[0]`. Identity input
+   * produces zero result fields (host interprets as ∞).
+   */
+  static renderStrausToAffine(sm: ShaderManager): string {
+    return sm.gen_straus_to_affine_shader();
+  }
+
+  /**
    * Compile the lookup-precompute compute pipeline for input size `n`.
    * Bind-group layout (in binding order):
    *   0: base_x (read-only storage, N × BigInt)
@@ -147,6 +171,97 @@ export class StrausKernels {
       src,
       "main",
       `straus-main-n${n}-k${numThreadMuls}`,
+    );
+    return { pipeline, layout };
+  }
+
+  /**
+   * Compile the combine-fold pipeline for compile-time input count `tIn`.
+   * Bind-group layout (in binding order):
+   *   0: in_x  (read-only storage,  T_in × BigInt)
+   *   1: in_y  (read-only storage,  T_in × BigInt)
+   *   2: in_z  (read-only storage,  T_in × BigInt)
+   *   3: out_x (storage,            ceil(T_in/2) × BigInt)
+   *   4: out_y (storage,            ceil(T_in/2) × BigInt)
+   *   5: out_z (storage,            ceil(T_in/2) × BigInt)
+   */
+  static async compileStrausCombineFold(
+    device: GPUDevice,
+    sm: ShaderManager,
+    tIn: number,
+    gpu: {
+      create_bind_group_layout: (
+        device: GPUDevice,
+        types: string[],
+      ) => GPUBindGroupLayout;
+      create_compute_pipeline: (
+        device: GPUDevice,
+        layouts: GPUBindGroupLayout[],
+        src: string,
+        entry: string,
+        cacheKey?: string,
+      ) => Promise<GPUComputePipeline>;
+    },
+    workgroupSize = 64,
+  ): Promise<CompiledPipeline> {
+    const src = StrausKernels.renderStrausCombineFold(sm, tIn, workgroupSize);
+    const layout = gpu.create_bind_group_layout(device, [
+      "read-only-storage",
+      "read-only-storage",
+      "read-only-storage",
+      "storage",
+      "storage",
+      "storage",
+    ]);
+    const pipeline = await gpu.create_compute_pipeline(
+      device,
+      [layout],
+      src,
+      "main",
+      `straus-combine-fold-t${tIn}`,
+    );
+    return { pipeline, layout };
+  }
+
+  /**
+   * Compile the final Jacobian → affine kernel. Bind-group layout:
+   *   0: part_x   (read-only storage, ≥1 × BigInt; uses index 0)
+   *   1: part_y   (read-only storage, ≥1 × BigInt; uses index 0)
+   *   2: part_z   (read-only storage, ≥1 × BigInt; uses index 0)
+   *   3: result_x (storage,           ≥1 × BigInt; writes index 0)
+   *   4: result_y (storage,           ≥1 × BigInt; writes index 0)
+   */
+  static async compileStrausToAffine(
+    device: GPUDevice,
+    sm: ShaderManager,
+    gpu: {
+      create_bind_group_layout: (
+        device: GPUDevice,
+        types: string[],
+      ) => GPUBindGroupLayout;
+      create_compute_pipeline: (
+        device: GPUDevice,
+        layouts: GPUBindGroupLayout[],
+        src: string,
+        entry: string,
+        cacheKey?: string,
+      ) => Promise<GPUComputePipeline>;
+    },
+  ): Promise<CompiledPipeline> {
+    const src = StrausKernels.renderStrausToAffine(sm);
+    const layout = gpu.create_bind_group_layout(device, [
+      "read-only-storage",
+      "read-only-storage",
+      "read-only-storage",
+      "storage",
+      "storage",
+    ]);
+    const pipeline = await gpu.create_compute_pipeline(
+      device,
+      [layout],
+      src,
+      "main",
+      "straus-to-affine",
     );
     return { pipeline, layout };
   }

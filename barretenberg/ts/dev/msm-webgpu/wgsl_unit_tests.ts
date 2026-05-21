@@ -1121,6 +1121,252 @@ export async function testStrausMultiThread(
   }
 }
 
+// --------- straus end-to-end test (lookup + main + combine-fold + to-affine) ----------
+
+export async function testStrausEndToEnd(
+  n: number,
+  k: number,
+): Promise<UnitTestResult> {
+  const name = `straus end-to-end n=${n} k=${k}`;
+  try {
+    if (k <= 0 || n <= 0) {
+      return { name, ok: false, detail: `bad inputs n=${n} k=${k}` };
+    }
+    const T0 = Math.ceil(n / k);
+    const context = await GpuContext.create();
+    const { device } = context;
+    const sm = context.getShaderManager(BN254_CURVE_CONFIG, 15, n);
+
+    const params = compute_misc_params(
+      BN254_BASE_FIELD,
+      BN254_CURVE_CONFIG.wordSize,
+    );
+    const numWords = params.num_words;
+    const wordSize = BN254_CURVE_CONFIG.wordSize;
+    const R = params.r;
+
+    const points = generateAffinePoints(n, n * 0xfeedface + k * 7);
+    const scalars = generateScalars(n, n * 0xfaceb00c + k * 13);
+
+    const xsMont = points.map((p) => (p.x * R) % BN254_BASE_FIELD);
+    const ysMont = points.map((p) => (p.y * R) % BN254_BASE_FIELD);
+    const baseXSb = create_and_write_sb(
+      device,
+      bigints_to_u8_for_gpu(xsMont, numWords, wordSize),
+    );
+    const baseYSb = create_and_write_sb(
+      device,
+      bigints_to_u8_for_gpu(ysMont, numWords, wordSize),
+    );
+
+    const lutByteLen = n * 8 * numWords * 4;
+    const lutXSb = create_sb(device, lutByteLen);
+    const lutYSb = create_sb(device, lutByteLen);
+    const lutZSb = create_sb(device, lutByteLen);
+
+    const wgSize = 64;
+    const lookupCompiled = await StrausKernels.compileLookupPrecompute(
+      device,
+      sm,
+      n,
+      gpu,
+      wgSize,
+    );
+    const lookupBg = create_bind_group(device, lookupCompiled.layout, [
+      baseXSb,
+      baseYSb,
+      lutXSb,
+      lutYSb,
+      lutZSb,
+    ]);
+
+    const k1Halves: bigint[] = [];
+    const k2Halves: bigint[] = [];
+    for (const s of scalars) {
+      const split = splitIntoEndomorphismScalars(s);
+      k1Halves.push(split.k1);
+      k2Halves.push(split.k2);
+    }
+    const k1Sb = create_and_write_sb(device, packHalvesU32(k1Halves));
+    const k2Sb = create_and_write_sb(device, packHalvesU32(k2Halves));
+
+    const partByteLen = T0 * numWords * 4;
+    const partASb = {
+      x: create_sb(device, partByteLen),
+      y: create_sb(device, partByteLen),
+      z: create_sb(device, partByteLen),
+    };
+    const partBSb = {
+      x: create_sb(device, partByteLen),
+      y: create_sb(device, partByteLen),
+      z: create_sb(device, partByteLen),
+    };
+
+    const mainCompiled = await StrausKernels.compileStrausMain(
+      device,
+      sm,
+      n,
+      k,
+      gpu,
+      wgSize,
+    );
+    const mainBg = create_bind_group(device, mainCompiled.layout, [
+      lutXSb,
+      lutYSb,
+      lutZSb,
+      k1Sb,
+      k2Sb,
+      partASb.x,
+      partASb.y,
+      partASb.z,
+    ]);
+
+    const encoder = device.createCommandEncoder();
+    await execute_pipeline(
+      encoder,
+      lookupCompiled.pipeline,
+      lookupBg,
+      Math.ceil(n / wgSize),
+      1,
+      1,
+    );
+    await execute_pipeline(
+      encoder,
+      mainCompiled.pipeline,
+      mainBg,
+      Math.ceil(T0 / wgSize),
+      1,
+      1,
+    );
+
+    let srcSet = partASb;
+    let dstSet = partBSb;
+    let tCur = T0;
+    while (tCur > 1) {
+      const foldCompiled = await StrausKernels.compileStrausCombineFold(
+        device,
+        sm,
+        tCur,
+        gpu,
+        wgSize,
+      );
+      const foldBg = create_bind_group(device, foldCompiled.layout, [
+        srcSet.x,
+        srcSet.y,
+        srcSet.z,
+        dstSet.x,
+        dstSet.y,
+        dstSet.z,
+      ]);
+      const tNext = Math.ceil(tCur / 2);
+      await execute_pipeline(
+        encoder,
+        foldCompiled.pipeline,
+        foldBg,
+        Math.ceil(tNext / wgSize),
+        1,
+        1,
+      );
+      const tmp = srcSet;
+      srcSet = dstSet;
+      dstSet = tmp;
+      tCur = tNext;
+    }
+
+    const resultXSb = create_sb(device, numWords * 4);
+    const resultYSb = create_sb(device, numWords * 4);
+    const toAffineCompiled = await StrausKernels.compileStrausToAffine(
+      device,
+      sm,
+      gpu,
+    );
+    const toAffineBg = create_bind_group(device, toAffineCompiled.layout, [
+      srcSet.x,
+      srcSet.y,
+      srcSet.z,
+      resultXSb,
+      resultYSb,
+    ]);
+    await execute_pipeline(encoder, toAffineCompiled.pipeline, toAffineBg, 1, 1, 1);
+
+    const [resXData, resYData] = await read_from_gpu(device, encoder, [
+      resultXSb,
+      resultYSb,
+    ]);
+
+    baseXSb.destroy();
+    baseYSb.destroy();
+    lutXSb.destroy();
+    lutYSb.destroy();
+    lutZSb.destroy();
+    k1Sb.destroy();
+    k2Sb.destroy();
+    partASb.x.destroy();
+    partASb.y.destroy();
+    partASb.z.destroy();
+    partBSb.x.destroy();
+    partBSb.y.destroy();
+    partBSb.z.destroy();
+    resultXSb.destroy();
+    resultYSb.destroy();
+    context.destroy();
+
+    const resX = new Uint32Array(
+      resXData.buffer,
+      resXData.byteOffset,
+      resXData.byteLength / 4,
+    );
+    const resY = new Uint32Array(
+      resYData.buffer,
+      resYData.byteOffset,
+      resYData.byteLength / 4,
+    );
+    const xMont = readBigIntAt(resX, 0, numWords, wordSize);
+    const yMont = readBigIntAt(resY, 0, numWords, wordSize);
+    const rInv = modInverse(R, BN254_BASE_FIELD);
+    const xAff = mod(xMont * rInv);
+    const yAff = mod(yMont * rInv);
+    const gotZero = xMont === 0n && yMont === 0n;
+
+    const expected = referenceStrausMsm(points, scalars);
+    const expectedZero = expected.infinity === true;
+
+    if (expectedZero) {
+      if (!gotZero) {
+        return {
+          name,
+          ok: false,
+          detail: `expected identity, got (${xAff.toString(16)}, ${yAff.toString(16)})`,
+        };
+      }
+      return { name, ok: true, detail: `n=${n} k=${k} result is identity` };
+    }
+    if (gotZero) {
+      return {
+        name,
+        ok: false,
+        detail: `got identity, expected (${expected.x.toString(16)}, ${expected.y.toString(16)})`,
+      };
+    }
+    if (xAff !== expected.x || yAff !== expected.y) {
+      return {
+        name,
+        ok: false,
+        detail:
+          `mismatch (n=${n}, k=${k})\n  got      x=${xAff.toString(16)} y=${yAff.toString(16)}\n` +
+          `  expected x=${expected.x.toString(16)} y=${expected.y.toString(16)}`,
+      };
+    }
+    return { name, ok: true, detail: `n=${n} k=${k} end-to-end matched reference` };
+  } catch (err) {
+    return {
+      name,
+      ok: false,
+      detail: err instanceof Error ? `${err.message}\n${err.stack}` : String(err),
+    };
+  }
+}
+
 // --------- test runner ----------
 
 export async function runAllWgslUnitTests(): Promise<UnitTestResult[]> {
@@ -1155,6 +1401,16 @@ export async function runAllWgslUnitTests(): Promise<UnitTestResult[]> {
   for (const n of [16, 64, 256, 1024]) {
     for (const k of [1, 2, 4, 8]) {
       results.push(await testStrausMultiThread(n, k));
+    }
+  }
+
+  // P5 end-to-end: lookup + main + combine-fold loop + to-affine; affine
+  // (x, y) compared directly with referenceStrausMsm. Lower fan-out than
+  // the P4 grid because each cell now also runs the per-pass fold dispatches
+  // and the BY inverse.
+  for (const n of [16, 256, 1024]) {
+    for (const k of [1, 4, 16]) {
+      results.push(await testStrausEndToEnd(n, k));
     }
   }
 

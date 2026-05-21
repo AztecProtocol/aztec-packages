@@ -118,6 +118,27 @@ describe("StrausKernels: straus_main renderer", () => {
     }
   });
 
+  it("renders the combine-fold kernel with the correct T_IN", () => {
+    const sm = makeSm();
+    for (const tIn of [2, 7, 16, 256, 1024]) {
+      const src = StrausKernels.renderStrausCombineFold(sm, tIn, 64);
+      expect(src).toMatch(new RegExp(`const T_IN: u32 = ${tIn}u;`));
+      expect(src).toContain("sum = add_points(sum, other)");
+      expect(src).toContain("@binding(0) var<storage, read>       in_x");
+      expect(src).toContain("@binding(3) var<storage, read_write> out_x");
+    }
+  });
+
+  it("renders the to-affine kernel with single-thread dispatch and the BY inverse", () => {
+    const sm = makeSm();
+    const src = StrausKernels.renderStrausToAffine(sm);
+    expect(src).toMatch(/@workgroup_size\(1\)/);
+    expect(src).toContain("fr_inv_by_a");
+    expect(src).toContain("montgomery_product");
+    expect(src).toMatch(/@binding\(0\) var<storage, read>\s+part_x/);
+    expect(src).toMatch(/@binding\(3\) var<storage, read_write> result_x/);
+  });
+
   it("β-Mont in the new representation is a primitive cube root of unity mod q", () => {
     const betaMont = fqCubeRootOfUnityMont(20, 13);
     const q = BN254_BASE_FIELD;

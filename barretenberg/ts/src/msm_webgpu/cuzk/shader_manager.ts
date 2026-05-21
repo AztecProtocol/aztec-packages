@@ -70,8 +70,10 @@ import {
   mulhilo_22 as mulhilo_22_funcs,
   packed_field as packed_field_funcs,
   smvp_bn254 as smvp_bn254_shader,
+  straus_combine_fold_bn254 as straus_combine_fold_bn254_shader,
   straus_lookup_precompute_bn254 as straus_lookup_precompute_bn254_shader,
   straus_main_bn254 as straus_main_bn254_shader,
+  straus_to_affine_bn254 as straus_to_affine_bn254_shader,
   smvp_tree_entry_bucket_id as smvp_tree_entry_bucket_id_shader,
   smvp_tree_phase1 as smvp_tree_phase1_shader,
   smvp_tree_phase2 as smvp_tree_phase2_shader,
@@ -570,6 +572,65 @@ ${packLines.join('\n')}
         montgomery_product_funcs: this.mont_product_src,
         field_funcs,
         ec_funcs: ec_bn254_funcs,
+      },
+    );
+  }
+
+  public gen_straus_combine_fold_shader(
+    t_in: number,
+    workgroup_size = 64,
+  ): string {
+    return mustache.render(
+      straus_combine_fold_bn254_shader,
+      {
+        t_in,
+        workgroup_size,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        ec_funcs: ec_bn254_funcs,
+      },
+    );
+  }
+
+  public gen_straus_to_affine_shader(): string {
+    return mustache.render(
+      straus_to_affine_bn254_shader,
+      {
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        ec_funcs: ec_bn254_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        by_inverse_a_funcs,
       },
     );
   }
