@@ -27,6 +27,7 @@ option(IPC_RUNTIME_BUILD_TESTS "Build ipc-runtime unit tests" ON)
 # ---- Library ---------------------------------------------------------------
 
 add_library(ipc_runtime STATIC
+    ipc_runtime/c_abi.cpp
     ipc_runtime/ipc_client.cpp
     ipc_runtime/ipc_server.cpp
     ipc_runtime/serve_helper.cpp
