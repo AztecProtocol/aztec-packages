@@ -198,19 +198,21 @@ The operator-facing CLI reference (`docs/docs-operate/operators/reference/cli-re
 is auto-generated from `aztec start --help`. Regenerate it so the doc matches
 the CLI shipped with the release.
 
+Pass the release version with `-v` so the script verifies the locally-installed
+`aztec` CLI matches before running. The mismatch is fatal in non-interactive
+mode (use `-f` to bypass).
+
 ```bash
 cd docs
-yarn generate:operator-cli-reference
+yarn generate:operator-cli-reference -v v<new_version>
 ```
 
-**Prerequisite:** the locally-installed `aztec` CLI must match the release
-version (the same prerequisite the developer CLI references have in
-`/release-docs`). If `aztec --version` reports the wrong version, install the
-matching one first.
+If `aztec --version` reports a different version, install the matching one
+first with `aztec-up v<new_version>` and retry.
 
 The script captures `aztec start --help`, retries on the dockerized-CLI
 stdout-truncation race, and writes the file. Verify the resulting file is
-~950+ lines and the last section (`TXE`) is present.
+~950+ lines and ends with `Starts Aztec TXE with options`.
 
 ### Step 6: Build and Validate
 

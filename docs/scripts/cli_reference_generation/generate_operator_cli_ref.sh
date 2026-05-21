@@ -41,6 +41,10 @@ FORCE_MODE=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -v|--version)
+      if [[ $# -lt 2 ]]; then
+        echo "ERROR: $1 requires a value (e.g. -v v4.3.0)" >&2
+        exit 1
+      fi
       TARGET_VERSION="$2"
       shift 2
       ;;
@@ -93,7 +97,7 @@ if [[ -n "$TARGET_VERSION" ]]; then
     echo "WARNING: aztec CLI version mismatch" >&2
     echo "  Installed: ${INSTALLED_VER:-unknown}" >&2
     echo "  Target:    $TARGET_NORMALIZED" >&2
-    echo "  To fix:    aztec-up $TARGET_NORMALIZED" >&2
+    echo "  To fix:    aztec-up v$TARGET_NORMALIZED" >&2
     echo "" >&2
 
     if [[ "$FORCE_MODE" == true ]]; then
@@ -116,22 +120,23 @@ fi
 
 HELP_FILE="$(mktemp)"
 TMP="$(mktemp)"
-trap 'rm -f "$HELP_FILE" "$TMP"' EXIT
+trap 'rm -f "$HELP_FILE" "$TMP"' EXIT INT TERM
 
 # Capture into a file (not a shell variable) to avoid mid-line truncation when
 # the dockerized CLI's stdout closes before the parent flushes. Detect a
-# successful capture by checking for the tail sentinel — the truncation drops
-# the trailing TXE section, so its presence means stdout fully flushed.
+# successful capture by looking for the actual last help line ("Starts Aztec
+# TXE with options"), not just the "TXE" section header — truncation can
+# drop the trailing flag and its description while still emitting the header.
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-  COLUMNS=200 aztec start --help >"$HELP_FILE" 2>&1
+  COLUMNS=200 aztec start --help >"$HELP_FILE" 2>/dev/null
 
-  if grep -qE '^[[:space:]]*TXE[[:space:]]*$' "$HELP_FILE"; then
+  if grep -qF 'Starts Aztec TXE with options' "$HELP_FILE"; then
     break
   fi
 
   LINES="$(wc -l < "$HELP_FILE")"
   if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
-    echo "WARN: 'aztec start --help' output missing trailing TXE section (attempt $attempt/$MAX_ATTEMPTS, $LINES lines), retrying..." >&2
+    echo "WARN: 'aztec start --help' output truncated, trailing TXE description missing (attempt $attempt/$MAX_ATTEMPTS, $LINES lines), retrying..." >&2
     sleep 1
   else
     echo "ERROR: 'aztec start --help' kept producing truncated output after $MAX_ATTEMPTS attempts ($LINES lines)." >&2
