@@ -493,9 +493,13 @@ async function runWebGpuOnce(
   const msm = await ensureWebGpuWarmed(inputs);
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
   // Plan the level tree for these scalars + (re)build the data-dependent
-  // buffers — untimed setup, outside the `t0` window so the measurement is
-  // GPU-only. `run` then encodes + submits the whole batched pipeline.
+  // buffers — untimed setup, outside the `t0` window.
   msm.prepare(inputs.scalarsBuf);
+  // prepare() reallocates every data-dependent buffer; the first run() on
+  // those fresh buffers pays a one-time first-use cost (driver lazy
+  // zero-init / first-touch). Warm it out of the timed window so the
+  // measurement is steady-state GPU, matching the bench's reused buffers.
+  await msm.run();
   const t0 = performance.now();
   const gpu = await msm.run();
   const ms = performance.now() - t0;

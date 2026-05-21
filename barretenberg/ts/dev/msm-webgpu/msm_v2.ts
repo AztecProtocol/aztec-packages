@@ -96,23 +96,6 @@ function leBytesToBigint(buf: Uint8Array, byteOff: number): bigint {
 const fsub = (a: bigint, b: bigint): bigint => (a - b + FP) % FP;
 const fmul = (a: bigint, b: bigint): bigint => (a * b) % FP;
 
-// Affine point addition — the exact formula ba_fused_super applies.
-function affineAdd(a: Pt, b: Pt): Pt {
-  const lam = fmul(fsub(b.y, a.y), modInverse(fsub(b.x, a.x), FP));
-  const x3 = fsub(fsub(fmul(lam, lam), a.x), b.x);
-  const y3 = fsub(fmul(lam, fsub(a.x, x3)), a.y);
-  return { x: x3, y: y3 };
-}
-
-// Affine point doubling — the exact formula ba_reduce_fused applies.
-function affineDouble(p: Pt): Pt {
-  const x2 = fmul(p.x, p.x);
-  const lam = fmul((x2 + x2 + x2) % FP, modInverse((p.y + p.y) % FP, FP));
-  const x3 = fsub(fmul(lam, lam), (p.x + p.x) % FP);
-  const y3 = fsub(fmul(lam, fsub(p.x, x3)), p.y);
-  return { x: x3, y: y3 };
-}
-
 // Per-bucket pair / carry / new-count — matches ba_planner_v2's
 // finalize-and-drop (a count-1 bucket finalizes: no carry, nc = 0).
 function bucketSplit(n: number): { pc: number; cf: number; nc: number } {
@@ -187,14 +170,51 @@ function buildPadBuf(Mb: number, padPts: Pt[], R: bigint): Uint32Array {
 }
 
 // Window combine: Horner fold of the per-window weighted sums into the final
-// MSM point — acc = Σ_w L_w · 2^(w·c).
+// MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian coordinates
+// (a = 0) so every step is inversion-free; one inverse converts back to affine.
 function hostWindowCombine(L: Pt[], c: number): Pt {
-  let acc = L[L.length - 1];
+  const fadd = (a: bigint, b: bigint): bigint => (a + b) % FP;
+  // acc in Jacobian (X, Y, Z); the seed window is affine, so Z = 1.
+  let X = L[L.length - 1].x;
+  let Y = L[L.length - 1].y;
+  let Z = 1n;
   for (let w = L.length - 2; w >= 0; w--) {
-    for (let d = 0; d < c; d++) acc = affineDouble(acc);
-    acc = affineAdd(acc, L[w]);
+    for (let d = 0; d < c; d++) {
+      // Jacobian doubling, a = 0 (EFD dbl-2009-l).
+      const A = fmul(X, X);
+      const B = fmul(Y, Y);
+      const Bsq = fmul(B, B);
+      const xB = fadd(X, B);
+      const s = fsub(fmul(xB, xB), fadd(A, Bsq));
+      const D = fadd(s, s);
+      const E = fadd(fadd(A, A), A);
+      const X3 = fsub(fmul(E, E), fadd(D, D));
+      const Bsq4 = fadd(fadd(Bsq, Bsq), fadd(Bsq, Bsq));
+      const yz = fmul(Y, Z);
+      Y = fsub(fmul(E, fsub(D, X3)), fadd(Bsq4, Bsq4));
+      Z = fadd(yz, yz);
+      X = X3;
+    }
+    // Jacobian + affine mixed addition (EFD madd-2007-bl).
+    const Z1Z1 = fmul(Z, Z);
+    const U2 = fmul(L[w].x, Z1Z1);
+    const S2 = fmul(fmul(L[w].y, Z), Z1Z1);
+    const H = fsub(U2, X);
+    const HH = fmul(H, H);
+    const I = fadd(fadd(HH, HH), fadd(HH, HH));
+    const J = fmul(H, I);
+    const r = fadd(fsub(S2, Y), fsub(S2, Y));
+    const V = fmul(X, I);
+    const X3 = fsub(fsub(fmul(r, r), J), fadd(V, V));
+    const yJ = fmul(Y, J);
+    const zH = fadd(Z, H);
+    Y = fsub(fmul(r, fsub(V, X3)), fadd(yJ, yJ));
+    Z = fsub(fsub(fmul(zH, zH), Z1Z1), HH);
+    X = X3;
   }
-  return acc;
+  const zInv = modInverse(Z, FP);
+  const zInv2 = fmul(zInv, zInv);
+  return { x: fmul(X, zInv2), y: fmul(Y, fmul(zInv2, zInv)) };
 }
 
 async function compileOne(
@@ -318,7 +338,8 @@ export class MsmV2 {
   private numWgsFinalize = 0;
   private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
   private currBuf!: GPUBuffer; // cleared each batch by run()
-  private redBuf!: GPUBuffer; // read back + decoded by run()
+  private redBuf!: GPUBuffer; // gathered + decoded by run()
+  private redStaging!: GPUBuffer; // small mappable L_w gather target
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
   private demontBind!: GPUBindGroup;
   private decomposeBinds!: GPUBindGroup[];
@@ -478,12 +499,13 @@ export class MsmV2 {
       device, sm.gen_ba_reduce_fused_bench_shader(REDUCE_WG, INV_VARIANT), `reduce-fused`, m.reduceFusedLayout,
     );
 
-    // Warm-up: prepare + dispatch once so the first timed run pays no shader
-    // JIT / command-buffer cold start. Non-trivial dummy scalars (0x01..).
+    // Warm-up: prepare + dispatch several times so the first timed run pays
+    // no shader JIT / command-buffer cold start and sees ramped GPU clocks.
+    // Dummy scalars (0x01..) give a representative bucket distribution.
     try {
       const dummy = new Uint8Array(n * 32).fill(1);
       m.prepare(dummy);
-      await m.run();
+      for (let w = 0; w < 5; w++) await m.run();
     } catch (e) {
       console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -708,6 +730,11 @@ export class MsmV2 {
       redBuf, isPresentBuf, reducePrefScratch, reduceFusedParams, scheduleBuf,
     ]);
     this.redBuf = redBuf;
+    this.redStaging = device.createBuffer({
+      size: NUM_WINDOWS * 64,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    this.prepBuffers.push(this.redStaging);
     this.nReduceInit = Math.ceil(RED_M / WGI);
 
     // --- Per-level bind groups ---
@@ -850,20 +877,27 @@ export class MsmV2 {
     // Bucket reduction over the global bucket_result.
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit);
     dispatch(this.reduceFusedPipe, this.reduceFusedBind, this.numWindows);
+    // Gather each window's weighted sum L_w (slot w*STRIDE of red_buf's
+    // x-plane||y-plane SoA) into a small staging buffer, encoded into the
+    // same command list — the whole run is then one submit + one map.
+    const yPlane = 32 * this.redM;
+    for (let w = 0; w < this.numWindows; w++) {
+      const g = 32 * w * this.stride;
+      enc.copyBufferToBuffer(this.redBuf, g, this.redStaging, w * 64, 32);
+      enc.copyBufferToBuffer(this.redBuf, yPlane + g, this.redStaging, w * 64 + 32, 32);
+    }
     device.queue.submit([enc.finish()]);
-    await device.queue.onSubmittedWorkDone();
+    await this.redStaging.mapAsync(GPUMapMode.READ);
 
-    // Decode red_buf: per window the weighted sum L_w sits in slot w*STRIDE
-    // (Montgomery form); Horner-combine the windows into the final point.
-    const red = await readbackU32(device, this.redBuf, 2 * PG * this.redM * 4 * 4);
-    const total = this.numWindows * this.stride;
+    // Decode L_w (Montgomery form) and Horner-combine the windows.
+    const red = new Uint32Array(this.redStaging.getMappedRange());
     const L: Pt[] = new Array(this.numWindows);
     for (let w = 0; w < this.numWindows; w++) {
-      const g = w * this.stride;
-      const x = (packedU32x8ToBigint(red, PG * g * 4) * this.rinv) % FP;
-      const y = (packedU32x8ToBigint(red, PG * total * 4 + PG * g * 4) * this.rinv) % FP;
+      const x = (packedU32x8ToBigint(red, w * 16) * this.rinv) % FP;
+      const y = (packedU32x8ToBigint(red, w * 16 + 8) * this.rinv) % FP;
       L[w] = { x, y };
     }
+    this.redStaging.unmap();
     this.windowSums = L;
     return hostWindowCombine(L, this.c);
   }
