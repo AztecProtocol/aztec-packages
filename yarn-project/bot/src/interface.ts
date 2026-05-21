@@ -22,11 +22,11 @@ export interface BotRunnerApi {
 }
 
 export const BotRunnerApiSchema: ApiSchemaFor<BotRunnerApi> = {
-  start: z.function().args().returns(z.void()),
-  stop: z.function().args().returns(z.void()),
-  run: z.function().args().returns(z.void()),
-  setup: z.function().args().returns(z.void()),
-  getInfo: z.function().args().returns(BotInfoSchema),
-  getConfig: z.function().args().returns(BotConfigSchema),
-  update: z.function().args(BotConfigSchema).returns(z.void()),
+  start: z.function({ input: z.tuple([]), output: z.void() }),
+  stop: z.function({ input: z.tuple([]), output: z.void() }),
+  run: z.function({ input: z.tuple([]), output: z.void() }),
+  setup: z.function({ input: z.tuple([]), output: z.void() }),
+  getInfo: z.function({ input: z.tuple([]), output: BotInfoSchema }),
+  getConfig: z.function({ input: z.tuple([]), output: BotConfigSchema }),
+  update: z.function({ input: z.tuple([BotConfigSchema]), output: z.void() }),
 };

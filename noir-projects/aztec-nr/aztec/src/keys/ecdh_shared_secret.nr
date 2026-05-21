@@ -27,7 +27,7 @@ pub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {
 /// Computes an app-siloed shared secret from a raw ECDH shared secret point and a contract address.
 ///
 /// `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, contract_address)`
-pub(crate) fn compute_app_siloed_shared_secret(shared_secret: Point, contract_address: AztecAddress) -> Field {
+pub fn compute_app_siloed_shared_secret(shared_secret: Point, contract_address: AztecAddress) -> Field {
     poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y, contract_address.to_field()],
         DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET,

@@ -37,8 +37,8 @@
 <p>This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
 emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
 sender, and hence about the shared secret.</p>
-<p>The value persists through nested calls, meaning all calls down the stack will use the same 'senderForTags' value
-(unless it is replaced).</p>
+<p>Returns the initial default unless the current contract call has overridden it via <code>set_sender_for_tags</code>.
+Overrides made by other contracts in the call stack are not visible here.</p>
 </div>
 </main>
 </span>
