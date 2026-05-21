@@ -20,7 +20,7 @@ import 'jest-extended';
 import { type Hex, type TransactionSerialized, recoverTransactionAddress } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { MNEMONIC } from './fixtures/fixtures.js';
+import { MNEMONIC, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -76,6 +76,7 @@ describe('e2e_multi_eoa', () => {
         sequencer: sequencerClient,
         ethCheatCodes,
       } = await setup(2, {
+        ...PIPELINING_SETUP_OPTS,
         archiverPollingIntervalMS: 200,
         sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
@@ -184,7 +185,14 @@ describe('e2e_multi_eoa', () => {
       spies.forEach(spy => spy.mockRestore());
     };
 
-    it('publishers are rotated by the sequencer', async () => {
+    // TODO(palla/pipelining): publisher rotation is a legacy-only flow. The mock returns a valid-looking
+    // tx hash so `Multicall3.forward()` doesn't throw, and pipelining has no concept of "primary publisher
+    // failed mid-proposal, retry the same proposal with a secondary EOA" — rotation only happens across
+    // slot boundaries, not within a single CheckpointProposalJob. Under pipelining we observe
+    // `DELETE_FORK failed: Fork not found` + `propose_action_not_successful` + L1 tx timeout instead of
+    // the legacy rotation behavior the test asserts on. See `PIPELINING_GOTCHAS.md § "Publisher rotation
+    // tests depend on same-proposal retry (no analog under pipelining)"`.
+    it.skip('publishers are rotated by the sequencer', async () => {
       // Helpers to identify which accounts are expected to be used
       const getSortedAddressesByBalance = async (addressAndKeys: { address: `0x${string}` }[]) => {
         const addressesWithBalance = await Promise.all(
@@ -204,9 +212,10 @@ describe('e2e_multi_eoa', () => {
         return sequencerKeysAndAddresses.findIndex(ka => ka.address === address);
       };
 
-      // We should be at L2 block 2
+      // We should be at L2 block 2 or later (empty pipelined checkpoints can land between setup
+      // and the first assertion, so accept >=2 rather than pinning to exactly 2).
       const blockNumber = await aztecNode.getBlockNumber();
-      expect(blockNumber).toBe(2);
+      expect(blockNumber).toBeGreaterThanOrEqual(2);
 
       // This means that 2 of our accounts have been used to send blocks to L1.
       // We want to figure out which ones these are, they will be in the 'MINED' state within the sequencer

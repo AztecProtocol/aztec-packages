@@ -75,13 +75,16 @@ export class CrossChainMessagingTest {
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up cross chain messaging test');
+    // Recompute requireEpochProven from the merged options so per-call startProverNode is honored.
+    this.requireEpochProven = opts.startProverNode ?? this.setupOptions.startProverNode ?? false;
     this.context = await setup(0, {
       ...this.setupOptions,
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
-      l1ContractsArgs: this.deployL1ContractsArgs,
+      l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
     });
     await this.applyBaseSetup();
   }

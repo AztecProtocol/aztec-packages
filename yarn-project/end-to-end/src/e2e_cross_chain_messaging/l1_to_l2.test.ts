@@ -12,6 +12,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
@@ -28,11 +29,11 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   beforeEach(async () => {
     t = new CrossChainMessagingTest(
       'l1_to_l2',
-      // 12s/4s pipelined slot cadence so setup fits in the 300s jest hook; 30x wallet fee padding
-      // because pipelining lets the per-L2-gas fee evolve up to ~20x between PXE snapshot and
-      // inclusion. Both mirror the defaults injected by setup.ts on PR #23150.
-      { minTxsPerBlock: 1, aztecSlotDuration: 12, ethereumSlotDuration: 4, walletMinFeePadding: 30 },
-      { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4, inboxLag: 2 },
+      // PIPELINING_SETUP_OPTS sets minTxsPerBlock=0; this test needs minTxsPerBlock=1 because it
+      // manually mines blocks one tx at a time via advanceBlock() and counts checkpoints, so empty
+      // pipelined checkpoints interleaving between txs would break the exact block-number assertions.
+      { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 },
+      { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
     );
     await t.setup();
 

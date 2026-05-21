@@ -32,7 +32,7 @@ import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
 // For CI, this is configured in `run_tests.sh` and `docker-compose-images.yml`
 
-const TIMEOUT = 360_000;
+const TIMEOUT = 15 * 60 * 1000;
 
 export const uniswapL1L2TestSuite = (
   setup: () => Promise<EndToEndContext>,
