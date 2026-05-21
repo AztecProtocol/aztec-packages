@@ -117,48 +117,35 @@ function bench_cmds {
   for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers client_flows/storage_proof; do
     echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"
   done
-
-  for dir in $bench_fixtures_dir/*; do
-    for runtime in native wasm; do
-      echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"
-    done
-  done
-  echo "$hash:ISOLATE=1:NET=1:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh ../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
-
-  # UltraHonk circuit benchmarks at different CPU counts (run serially for cache/bandwidth isolation)
-  for cpus in 8 16 32; do
-    echo "$hash:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base ../../yarn-project/end-to-end/$ultrahonk_bench_dir $cpus"
-  done
 }
 
-# Builds all benchmark fixtures (chonk IVC captures + UltraHonk circuit inputs).
-function build_bench {
-  rm -rf bench-out && mkdir -p bench-out
-
-  # Build chonk IVC captures
-  export CAPTURE_IVC_FOLDER=$bench_fixtures_dir
+# Live-capture Chonk IVC inputs from the e2e stack into $bench_fixtures_dir.
+# Slow: used only when explicitly refreshing the pinned tarball.
+function build_bench_capture {
+  export CAPTURE_IVC_FOLDER=${CAPTURE_IVC_FOLDER:-$bench_fixtures_dir}
   export BENCHMARK_CONFIG=key_flows
   export LOG_LEVEL=error
   export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
-  rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
-  if ! cache_download bb-chonk-captures-$hash.tar.gz; then
-    parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
-      client_flows/account_deployments \
-      client_flows/deployments \
-      client_flows/bridging \
-      client_flows/transfers \
-      client_flows/amm \
-      client_flows/storage_proof
-    cache_upload bb-chonk-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
-  fi
+  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
+  parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    client_flows/account_deployments \
+    client_flows/deployments \
+    client_flows/bridging \
+    client_flows/transfers \
+    client_flows/amm \
+    client_flows/storage_proof
+}
 
-  # Build UltraHonk circuit benchmark inputs (bytecode + witness pairs)
-  rm -rf $ultrahonk_bench_dir && mkdir -p $ultrahonk_bench_dir
-  if ! cache_download bb-ultrahonk-bench-inputs-$hash.tar.gz; then
-    # Generate base parity circuit inputs (use absolute path since test runs from ivc-integration)
-    export BASE_PARITY_BENCH_DIR=$(pwd)/$ultrahonk_bench_dir
+# Builds benchmark fixtures that are still owned by yarn-project.
+# Chonk benchmark inputs are pinned and managed by barretenberg/cpp.
+function build_bench {
+  rm -rf bench-out && mkdir -p bench-out
+
+  rm -rf "$ultrahonk_bench_dir" && mkdir -p "$ultrahonk_bench_dir"
+  if ! cache_download "bb-ultrahonk-bench-inputs-$hash.tar.gz"; then
+    export BASE_PARITY_BENCH_DIR="$(pwd)/$ultrahonk_bench_dir"
     yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
-    cache_upload bb-ultrahonk-bench-inputs-$hash.tar.gz $ultrahonk_bench_dir
+    cache_upload "bb-ultrahonk-bench-inputs-$hash.tar.gz" "$ultrahonk_bench_dir"
   fi
 }
 

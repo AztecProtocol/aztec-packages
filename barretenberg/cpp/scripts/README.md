@@ -28,8 +28,9 @@ There are scripts that:
 4. If `ssh` worked, the setup is complete.
 
 ## How
+- `./scripts/chonk_inputs.sh download && ./scripts/ci_benchmark_ivc_flows.sh native` is the shortest local path for a pinned Chonk flow benchmark. The benchmark script defaults to the sponsored `transfer_0` flow and accepts an explicit flow directory as its second argument.
 - `./scripts/benchmark_example_ivc_flow_remote.sh` copies the example flow input you'd like to run to the remote machine, runs `bb prove`, and analyze the results.
-    - For the script to work you need to have the example flows downloaded locally, by `AZTEC_CACHE_COMMIT=origin/next~3 FORCE_CACHE_DOWNLOAD=1 yarn-project/end-to-end/bootstrap.sh build_bench`
+    - The script downloads the pinned Chonk example flows into `yarn-project/end-to-end/example-app-ivc-inputs-out` when they are missing or stale.
 - If you have other special needs, look inside the above scripts and see what parameters you can give, or use `./scripts/benchmark_remote.sh`.
 
 Chonk proving must always be measured on real example app flows via `benchmark_example_ivc_flow_remote.sh` — there is no synthetic chonk benchmark, and there should not be one. Running synthetic Chonk benchmarks gives misleading numbers because the mock circuits do not reflect production proving costs.

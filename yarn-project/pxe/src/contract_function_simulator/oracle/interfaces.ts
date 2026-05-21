@@ -112,38 +112,17 @@ export interface IUtilityExecutionOracle {
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress): Promise<void>;
-  getPendingTaggedLogsV2(scope: AztecAddress): Promise<Fr>;
+  getPendingTaggedLogs(scope: AztecAddress): Promise<Fr>;
   validateAndStoreEnqueuedNotesAndEvents(
-    contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
     scope: AztecAddress,
   ): Promise<void>;
-  getLogsByTag(
-    contractAddress: AztecAddress,
-    logRetrievalRequestsArrayBaseSlot: Fr,
-    logRetrievalResponsesArrayBaseSlot: Fr,
-    scope: AztecAddress,
-  ): Promise<void>;
-  validateAndStoreEnqueuedNotesAndEventsV2(
-    noteValidationRequestsArrayBaseSlot: Fr,
-    eventValidationRequestsArrayBaseSlot: Fr,
-    maxNotePackedLen: number,
-    maxEventSerializedLen: number,
-    scope: AztecAddress,
-  ): Promise<void>;
-  getLogsByTagV2(requestArrayBaseSlot: Fr): Promise<Fr>;
-  getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getLogsByTag(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getMessageContextsByTxHash(requestArrayBaseSlot: Fr): Promise<Fr>;
   getTxEffect(txHash: TxHash): Promise<TxEffect | null>;
-  getMessageContextsByTxHash(
-    contractAddress: AztecAddress,
-    messageContextRequestsArrayBaseSlot: Fr,
-    messageContextResponsesArrayBaseSlot: Fr,
-    scope: AztecAddress,
-  ): Promise<void>;
   setCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope: AztecAddress): void;
   getCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): Promise<Fr[] | null>;
   deleteCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): void;

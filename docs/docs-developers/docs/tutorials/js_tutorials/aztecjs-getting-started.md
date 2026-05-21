@@ -7,7 +7,7 @@ references: ["docs/examples/ts/aztecjs_getting_started/index.ts"]
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will retrieve the local network and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
+In this guide, we will retrieve the local network and deploy a pre-written token contract to it using Aztec.js. [Check out the source code](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). We will then use Aztec.js to interact with this contract and transfer tokens.
 
 Before starting, make sure to be running Aztec local network at version #include_version_without_prefix. Check out [the guide](../../../getting_started_on_local_network.md) for info about that.
 
@@ -118,7 +118,7 @@ Bob is now the minter, so he can mint some tokens to himself:
 
 :::info
 
-Have a look at the [contract source](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). Notice is that the `mint_to_private` function we used above actually starts a partial note. This allows the total balance to increase while keeping the recipient private! How cool is that?
+Have a look at the [contract source](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr). Notice is that the `mint_to_private` function we used above actually starts a partial note. This allows the total balance to increase while keeping the recipient private! How cool is that?
 
 :::
 

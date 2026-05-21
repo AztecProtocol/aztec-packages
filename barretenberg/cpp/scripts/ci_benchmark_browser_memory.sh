@@ -2,10 +2,17 @@
 # Runs a in-browser memory benchmark for Chonk proving.
 # This is used to get as realistic as possible memory usage for the proving of a private transaction in a browser setting.
 
-source $(git rev-parse --show-toplevel)/ci3/source
-cd ..
+own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
+source "$root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
+cd "$own_dir/.."
 
-flow_folder=${1:-"ecdsar1+transfer_0_recursions+sponsored_fpc"}
+if [[ $# -eq 0 ]]; then
+  ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)"
+  flow_folder="../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
+else
+  flow_folder=$1
+fi
 flow="$(basename $flow_folder)"
 mkdir -p bench-out/
 
