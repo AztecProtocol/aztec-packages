@@ -1078,13 +1078,17 @@ export class ArchiverL1Synchronizer implements Traceable {
       );
       // Both the locally-proposed checkpoint and the L1-confirmed one are signed by the
       // slot proposer; emit a divergence event so the slasher can attribute equivocation.
-      this.events.emit(L2BlockSourceEvents.CheckpointEquivocationDetected, {
-        type: L2BlockSourceEvents.CheckpointEquivocationDetected,
-        slotNumber: calldataCheckpoint.header.slotNumber,
-        checkpointNumber: calldataCheckpoint.checkpointNumber,
-        l1ArchiveRoot: calldataCheckpoint.archiveRoot,
-        proposedArchiveRoot: proposed.archive.root,
-      });
+      // Only emit when the slots match — uncheckpointed entries are pruned above so this
+      // should always hold, but guard defensively to avoid mis-attributing a slash.
+      if (proposed.header.slotNumber === calldataCheckpoint.header.slotNumber) {
+        this.events.emit(L2BlockSourceEvents.CheckpointEquivocationDetected, {
+          type: L2BlockSourceEvents.CheckpointEquivocationDetected,
+          slotNumber: calldataCheckpoint.header.slotNumber,
+          checkpointNumber: calldataCheckpoint.checkpointNumber,
+          l1ArchiveRoot: calldataCheckpoint.archiveRoot,
+          proposedArchiveRoot: proposed.archive.root,
+        });
+      }
       // Return a divergence signal so the caller can evict pending >= this number
       return { diverged: true, fromCheckpointNumber: proposed.checkpointNumber };
     }

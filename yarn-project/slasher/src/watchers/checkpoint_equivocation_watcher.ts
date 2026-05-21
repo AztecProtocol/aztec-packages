@@ -1,6 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { merge, pick } from '@aztec/foundation/collection';
-import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type CheckpointEquivocationDetectedEvent,
@@ -15,8 +14,6 @@ import EventEmitter from 'node:events';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
 
 const CheckpointEquivocationWatcherConfigKeys = ['slashDuplicateProposalPenalty'] as const;
-
-const DEFAULT_EMITTED_OFFENSES_LIMIT = 64;
 
 type CheckpointEquivocationWatcherConfig = Pick<
   SlasherConfig,
@@ -34,7 +31,6 @@ type ProposerLookup = Pick<EpochCacheInterface, 'getProposerAttesterAddressInSlo
  */
 export class CheckpointEquivocationWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private readonly log: Logger = createLogger('checkpoint-equivocation-watcher');
-  private readonly emittedOffenses: FifoSet<string>;
   private readonly handler: (args: CheckpointEquivocationDetectedEvent) => void;
   private config: CheckpointEquivocationWatcherConfig;
 
@@ -42,11 +38,9 @@ export class CheckpointEquivocationWatcher extends (EventEmitter as new () => Wa
     private readonly l2BlockSource: EquivocationEventSource,
     private readonly epochCache: ProposerLookup,
     config: CheckpointEquivocationWatcherConfig,
-    emittedOffensesLimit = DEFAULT_EMITTED_OFFENSES_LIMIT,
   ) {
     super();
     this.config = pick(config, ...CheckpointEquivocationWatcherConfigKeys);
-    this.emittedOffenses = FifoSet.withLimit<string>(Math.max(1, emittedOffensesLimit));
     this.handler = event => {
       this.onEquivocationDetected(event).catch(err =>
         this.log.error('Failed to handle checkpoint equivocation event', err),
@@ -91,9 +85,6 @@ export class CheckpointEquivocationWatcher extends (EventEmitter as new () => Wa
       offenseType: OffenseType.DUPLICATE_PROPOSAL,
       epochOrSlot: BigInt(event.slotNumber),
     };
-    if (!this.markAsNewOffense(slashArgs)) {
-      return;
-    }
 
     this.log.info(`Detected checkpoint equivocation offense`, {
       slotNumber: event.slotNumber,
@@ -103,10 +94,5 @@ export class CheckpointEquivocationWatcher extends (EventEmitter as new () => Wa
       validator: proposer.toString(),
     });
     this.emit(WANT_TO_SLASH_EVENT, [slashArgs]);
-  }
-
-  private markAsNewOffense(args: WantToSlashArgs): boolean {
-    const key = `${args.validator.toString()}-${args.offenseType}-${args.epochOrSlot}`;
-    return this.emittedOffenses.addIfAbsent(key);
   }
 }

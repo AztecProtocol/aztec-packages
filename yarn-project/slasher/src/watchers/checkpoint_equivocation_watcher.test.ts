@@ -99,16 +99,6 @@ describe('CheckpointEquivocationWatcher', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('deduplicates repeat events for the same (validator, slot)', async () => {
-    const proposer = EthAddress.random();
-    epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-
-    await emitAndFlush(makeEvent());
-    await emitAndFlush(makeEvent());
-
-    expect(handler).toHaveBeenCalledTimes(1);
-  });
-
   it('emits separately for distinct slots', async () => {
     const proposer = EthAddress.random();
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
