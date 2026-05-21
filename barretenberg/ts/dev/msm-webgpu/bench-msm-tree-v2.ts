@@ -56,6 +56,10 @@ let VALIDATE = false;
 // fr_inv_by_a (Option A, BATCH=26), 'loop' = fr_inv_by_loop
 // (register-minimal, BATCH=12). Toggle with ?inv=loop.
 let INV_VARIANT: 'a' | 'loop' = 'a';
+// Reduction leaf-partition size as log2(L0). Smaller => shallower phase A
+// but more phase-C doublings; the GPU favours shallow. Tune with ?l0log=.
+const DEFAULT_L0_LOG = 4;
+let L0_LOG = DEFAULT_L0_LOG;
 
 const FP = BN254_BASE_FIELD;
 
@@ -112,6 +116,16 @@ function affineAdd(a: Pt, b: Pt): Pt {
   const lam = fmul(fsub(b.y, a.y), modInverse(fsub(b.x, a.x), FP));
   const x3 = fsub(fsub(fmul(lam, lam), a.x), b.x);
   const y3 = fsub(fmul(lam, fsub(a.x, x3)), a.y);
+  return { x: x3, y: y3 };
+}
+
+// Affine point doubling — the exact formula ba_reduce_double applies:
+//   lambda = 3x^2 / 2y,  x3 = lambda^2 - 2x,  y3 = lambda*(x - x3) - y.
+function affineDouble(p: Pt): Pt {
+  const x2 = fmul(p.x, p.x);
+  const lam = fmul((x2 + x2 + x2) % FP, modInverse((p.y + p.y) % FP, FP));
+  const x3 = fsub(fmul(lam, lam), (p.x + p.x) % FP);
+  const y3 = fsub(fmul(lam, fsub(p.x, x3)), p.y);
   return { x: x3, y: y3 };
 }
 
@@ -608,6 +622,66 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   const nConvMeta = Math.ceil(B_TOTAL / WGI);
   log('info', '7 pre-step pipelines compiled (demont + decompose + transpose x3 + csr_to_v2 x2)');
 
+  // --- Bucket reduction: recursive affine 4-phase tree ---
+  // Per window compute the weighted bucket sum Σ_m m·bucket[m]. The
+  // weighted buckets are magnitudes 1..2^(c-1) — STRIDE = 2^(c-1) columns,
+  // already a power of two (the zero-digit column 0 is dropped by the init
+  // kernel). 4 phases of batched-affine adds + doublings run in place on
+  // red_buf, one dispatch per level — no planner (fixed power-of-2 strides).
+  const STRIDE = 2 ** (CBITS - 1);
+  const C0 = Math.max(1, Math.min(L0_LOG, Math.log2(STRIDE) - 1));
+  const L0 = 1 << C0;
+  const D = STRIDE / L0;
+  const RED_M = NUM_WINDOWS * STRIDE;
+  log('info', `reduction: STRIDE=${STRIDE}, L0=${L0} (c0=${C0}), D=${D}`);
+
+  const redBuf = makeSoABuf(device, RED_M);
+  const isPresentBuf = storageBuf(device, RED_M * 4);
+  const reducePrefScratch = storageBuf(device, (RED_M + 2 * WGI * S) * 16);
+  const reduceInitParams = uniformBuf(device, new Uint32Array([RED_M, STRIDE, BW, B_TOTAL]));
+
+  const reduceInitLayout = bgl(['read-only-storage', 'storage', 'storage', 'uniform']);
+  const reduceAddLayout = bgl(['storage', 'storage', 'storage', 'uniform', 'uniform']);
+  const reduceDoubleLayout = bgl(['storage', 'read-only-storage', 'storage', 'uniform', 'uniform']);
+
+  const reduceInitPipe = await compileOne(device, sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init-W${WGI}`, reduceInitLayout);
+  const reduceAddPipe = await compileOne(device, sm.gen_ba_reduce_add_bench_shader(WGI, S, INV_VARIANT), `reduce-add-W${WGI}-S${S}`, reduceAddLayout);
+  const reduceDoublePipe = await compileOne(device, sm.gen_ba_reduce_double_bench_shader(WGI, S, INV_VARIANT), `reduce-double-W${WGI}-S${S}`, reduceDoubleLayout);
+  const reduceInitBind = mkBind(reduceInitLayout, [bucketResult, redBuf, isPresentBuf, reduceInitParams]);
+  const nReduceInit = Math.ceil(RED_M / WGI);
+
+  // The 4-phase pass list (data-independent — fixed power-of-2 strides).
+  interface ReducePass {
+    pipe: GPUComputePipeline;
+    bind: GPUBindGroup;
+    nWg: number;
+    tag: number; // 0=A, 1=B, 2=C, 3=D
+    isDouble: boolean;
+    shaderPhase: number;
+    p2x: number;
+    p2y: number;
+    ppw: number;
+  }
+  const reducePasses: ReducePass[] = [];
+  const pushPass = (isDouble: boolean, tag: number, shaderPhase: number, p2x: number, p2y: number, ppw: number) => {
+    const tCands = NUM_WINDOWS * ppw;
+    const t = Math.ceil(tCands / S);
+    const pBuf = uniformBuf(device, new Uint32Array([t, RED_M, STRIDE, shaderPhase]));
+    const p2Buf = uniformBuf(device, new Uint32Array([p2x, p2y, ppw, tCands]));
+    const layout = isDouble ? reduceDoubleLayout : reduceAddLayout;
+    const bind = mkBind(layout, [redBuf, isPresentBuf, reducePrefScratch, pBuf, p2Buf]);
+    reducePasses.push({
+      pipe: isDouble ? reduceDoublePipe : reduceAddPipe, bind, nWg: Math.ceil(t / WGI), tag,
+      isDouble, shaderPhase, p2x, p2y, ppw,
+    });
+  };
+  for (let l = L0 - 1; l >= 1; l--) pushPass(false, 0, 0, L0, l, D); // A
+  for (let L1 = L0; L1 < STRIDE; L1 *= 2) pushPass(false, 1, 1, L0, L1, STRIDE / (2 * L1)); // B
+  for (let j = 0; j < C0; j++) pushPass(true, 2, 0, L0, 0, D - 1); // C initial
+  for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) pushPass(true, 2, 0, L1, 0, STRIDE / L1 - 1); // C successive
+  for (let m = 1; m < STRIDE; m *= 2) pushPass(false, 3, 2, L0, m, STRIDE / (2 * m)); // D
+  log('info', `reduction: ${reducePasses.length} phase passes`);
+
   // --- Per-level bind groups + uniforms (built once, reused each rep) ---
   const finalizeParams = uniformBuf(device, new Uint32Array([B_TOTAL, M, 0, 0]));
   const numWgsFinalize = Math.ceil(B_TOTAL / WGI);
@@ -688,7 +762,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   const PRE_DECOMP = 1;
   const PRE_XPOSE = 3;
   const PRE = PRE_DEMONT + PRE_DECOMP + PRE_XPOSE + 2;
-  const passCount = PRE + levels * KINDS.length;
+  const passCount = PRE + levels * KINDS.length + 1 + reducePasses.length;
   const tsEnabled = device.features.has('timestamp-query');
   if (!tsEnabled) log('warn', 'timestamp-query unavailable — per-component timing skipped');
   const querySet = tsEnabled ? device.createQuerySet({ type: 'timestamp', count: passCount * 2 }) : null;
@@ -746,6 +820,11 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       dispatch(carryPipe, lb.carryBind, lb.nCarry);
       dispatch(finalizePipe, lb.finalizeBind, numWgsFinalize);
     }
+    // Bucket reduction: recursive affine 4-phase tree (init -> A/B/C/D).
+    dispatch(reduceInitPipe, reduceInitBind, nReduceInit);
+    for (const rp of reducePasses) {
+      dispatch(rp.pipe, rp.bind, rp.nWg);
+    }
     if (querySet && tsResolve && tsStaging) {
       enc.resolveQuerySet(querySet, 0, passCount * 2, tsResolve, 0);
       enc.copyBufferToBuffer(tsResolve, 0, tsStaging, 0, passCount * 16);
@@ -762,11 +841,14 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       const ts = new BigUint64Array(tsStaging.getMappedRange().slice(0));
       tsStaging.unmap();
       const byKind = [0, 0, 0, 0];
+      const red = [0, 0, 0, 0]; // A, B, C, D
       let demont = 0;
       let decompose = 0;
       let transpose = 0;
       let convert = 0;
+      let redInit = 0;
       const fusedPerLevel: number[] = [];
+      const redStart = PRE + levels * KINDS.length;
       for (let i = 0; i < passCount; i++) {
         const dur = Number(ts[2 * i + 1] - ts[2 * i]);
         if (i < PRE_DEMONT) {
@@ -785,18 +867,30 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
           convert += dur; // csr_to_v2 active_sums + meta
           continue;
         }
-        const k = (i - PRE) % KINDS.length;
-        byKind[k] += dur;
-        if (k === 1) fusedPerLevel[((i - PRE) / KINDS.length) | 0] = dur;
+        if (i < redStart) {
+          const k = (i - PRE) % KINDS.length;
+          byKind[k] += dur;
+          if (k === 1) fusedPerLevel[((i - PRE) / KINDS.length) | 0] = dur;
+          continue;
+        }
+        const ri = i - redStart;
+        if (ri === 0) {
+          redInit += dur;
+          continue;
+        }
+        red[reducePasses[ri - 1].tag] += dur;
       }
-      const sumPasses = demont + decompose + transpose + convert + byKind.reduce((a, b) => a + b, 0);
+      const sumPasses =
+        demont + decompose + transpose + convert + redInit +
+        red.reduce((a, b) => a + b, 0) + byKind.reduce((a, b) => a + b, 0);
       const gpuSpan = Number(ts[passCount * 2 - 1] - ts[0]);
       const ms = (x: number): string => (x / 1e6).toFixed(2);
       log(
         'info',
         `rep ${rep} (${tag}): wall=${wall.toFixed(2)}ms | demont ${ms(demont)}  decompose ${ms(decompose)}  ` +
           `transpose ${ms(transpose)}  convert ${ms(convert)}  planner ${ms(byKind[0])}  fused ${ms(byKind[1])}  ` +
-          `carry ${ms(byKind[2])}  finalize ${ms(byKind[3])}  inter-pass ${ms(gpuSpan - sumPasses)}  ` +
+          `carry ${ms(byKind[2])}  finalize ${ms(byKind[3])}  red-init ${ms(redInit)}  red-A ${ms(red[0])}  ` +
+          `red-B ${ms(red[1])}  red-C ${ms(red[2])}  red-D ${ms(red[3])}  inter-pass ${ms(gpuSpan - sumPasses)}  ` +
           `submit ${ms(wall * 1e6 - gpuSpan)}  (ms)`,
       );
       log(
@@ -836,6 +930,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
     const gpuValIdx = await readbackU32(device, valIdxBuf, N_TOTAL * 4);
     const xposeOk = checkTranspose(chunks, gpuRowPtr, gpuValIdx, NUM_WINDOWS, BW, NPTS);
     let replayOk = false;
+    let reduceOk = false;
     if (decompOk && xposeOk) {
       const slotPt: Pt[] = new Array(M);
       for (let s = 0; s < N_TOTAL; s++) {
@@ -846,10 +941,21 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       }
       for (let j = 0; j < 3; j++) slotPt[N_TOTAL + j] = padPts[j];
       replayOk = hostReplayValidate(slotPt, levelPlans, levelCounts, levelOffsets, gpuResult, R, rinv);
+      if (replayOk) {
+        // Host-replay the 4-phase reduction (same pass list + index math),
+        // compare per-window weighted sums, then fold into the final MSM.
+        const gpuRedBuf = await readbackU32(device, redBuf, 2 * PG * RED_M * 4 * 4);
+        const rr = hostReduceReplay(gpuResult, gpuRedBuf, reducePasses, NUM_WINDOWS, STRIDE, BW, rinv);
+        reduceOk = rr.ok;
+        if (reduceOk) {
+          const msm = hostWindowCombine(rr.hostL, CBITS);
+          log('ok', `MSM result (host fold of per-window sums): x=${msm.x}  y=${msm.y}`);
+        }
+      }
     } else {
       log('err', 'skipping replay — decompose or transpose output is malformed');
     }
-    validated = decompOk && xposeOk && replayOk;
+    validated = decompOk && xposeOk && replayOk && reduceOk;
   } else {
     log('info', 'validation skipped (add ?validate=1 for a full host-replay check)');
   }
@@ -887,6 +993,10 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   xposeParams.destroy();
   convActiveParams.destroy();
   convMetaParams.destroy();
+  redBuf.destroy();
+  isPresentBuf.destroy();
+  reducePrefScratch.destroy();
+  reduceInitParams.destroy();
   querySet?.destroy();
   tsResolve?.destroy();
   tsStaging?.destroy();
@@ -1089,6 +1199,103 @@ function hostReplayValidate(
   return false;
 }
 
+// Host replay of the recursive affine 4-phase bucket reduction. Iterates
+// the SAME pass list the GPU runs, recomputing each pass's (src,dst) with
+// the same fixed-stride index math and the same identity classification —
+// a faithful by-construction mirror. Seeds from the (already validated)
+// bucket sums, returns the per-window weighted sums and whether they match
+// the GPU's red_buf slot 0.
+function hostReduceReplay(
+  gpuResult: Uint32Array,
+  gpuRedBuf: Uint32Array,
+  passes: { isDouble: boolean; shaderPhase: number; p2x: number; p2y: number; ppw: number }[],
+  numWindows: number,
+  stride: number,
+  bw: number,
+  rinv: bigint,
+): { ok: boolean; hostL: Pt[] } {
+  const total = numWindows * stride;
+  const bTotal = numWindows * bw;
+  const slot: Pt[] = new Array(total);
+  const present = new Uint8Array(total);
+  // Seed: red_buf slot i of window w <- bucket magnitude (i + 1).
+  for (let w = 0; w < numWindows; w++) {
+    for (let i = 0; i < stride; i++) {
+      const b = w * bw + i + 1;
+      const xM = packedU32x8ToBigint(gpuResult, PG * b * 4);
+      const yM = packedU32x8ToBigint(gpuResult, PG * bTotal * 4 + PG * b * 4);
+      const g = w * stride + i;
+      slot[g] = { x: (xM * rinv) % FP, y: (yM * rinv) % FP };
+      present[g] = xM !== 0n || yM !== 0n ? 1 : 0;
+    }
+  }
+  // Replay each phase pass.
+  for (const p of passes) {
+    const tCands = numWindows * p.ppw;
+    for (let cand = 0; cand < tCands; cand++) {
+      const w = (cand / p.ppw) | 0;
+      const j2 = cand % p.ppw;
+      const base = w * stride;
+      if (p.isDouble) {
+        const s = base + (j2 + 1) * p.p2x;
+        if (present[s]) slot[s] = affineDouble(slot[s]);
+        continue;
+      }
+      let src: number;
+      let dst: number;
+      if (p.shaderPhase === 0) {
+        src = base + j2 * p.p2x + p.p2y;
+        dst = base + j2 * p.p2x + p.p2y - 1;
+      } else {
+        dst = base + 2 * j2 * p.p2y;
+        src = base + (2 * j2 + 1) * p.p2y;
+      }
+      if (!present[src]) continue; // NOP
+      if (!present[dst]) {
+        slot[dst] = slot[src]; // COPY
+        present[dst] = 1;
+        continue;
+      }
+      // REAL: equal operands (a COPY-duplicated point added to itself)
+      // become a double — mirrors the add kernel's dx == 0 branch.
+      slot[dst] = slot[dst].x === slot[src].x ? affineDouble(slot[dst]) : affineAdd(slot[dst], slot[src]);
+    }
+  }
+  // Compare host L_w to the GPU's red_buf slot 0 per window.
+  const hostL: Pt[] = new Array(numWindows);
+  let fails = 0;
+  const sample: string[] = [];
+  for (let w = 0; w < numWindows; w++) {
+    const Lh = slot[w * stride];
+    hostL[w] = Lh;
+    const g = w * stride;
+    const gx = (packedU32x8ToBigint(gpuRedBuf, PG * g * 4) * rinv) % FP;
+    const gy = (packedU32x8ToBigint(gpuRedBuf, PG * total * 4 + PG * g * 4) * rinv) % FP;
+    if (gx !== Lh.x || gy !== Lh.y) {
+      fails++;
+      if (sample.length < 6) sample.push(`window ${w}: gpu x=${gx} != host x=${Lh.x}`);
+    }
+  }
+  if (fails === 0) {
+    log('ok', 'reduction: PASS — GPU per-window weighted sums match the host 4-phase replay');
+    return { ok: true, hostL };
+  }
+  log('err', `reduction: FAIL — ${fails} window(s) mismatch:`);
+  for (const s of sample) log('err', `  ${s}`);
+  return { ok: false, hostL };
+}
+
+// Window combine: Horner fold of the per-window weighted sums into the
+// final MSM point — acc = Σ_w L_w · 2^(w·c).
+function hostWindowCombine(L: Pt[], c: number): Pt {
+  let acc = L[L.length - 1];
+  for (let w = L.length - 2; w >= 0; w--) {
+    for (let d = 0; d < c; d++) acc = affineDouble(acc);
+    acc = affineAdd(acc, L[w]);
+  }
+  return acc;
+}
+
 function parseParams() {
   const qp = new URLSearchParams(window.location.search);
   if (qp.get('n')) NPTS = parseInt(qp.get('n')!, 10);
@@ -1099,7 +1306,8 @@ function parseParams() {
   if (qp.get('reps')) REPS = parseInt(qp.get('reps')!, 10);
   if (qp.get('validate') === '1') VALIDATE = true;
   if (qp.get('inv') === 'loop') INV_VARIANT = 'loop';
-  return { n: NPTS, c: CBITS, numbits: NUMBITS, s: S, wgi: WGI, reps: REPS, validate: VALIDATE, inv: INV_VARIANT };
+  if (qp.get('l0log')) L0_LOG = parseInt(qp.get('l0log')!, 10);
+  return { n: NPTS, c: CBITS, numbits: NUMBITS, s: S, wgi: WGI, reps: REPS, validate: VALIDATE, inv: INV_VARIANT, l0log: L0_LOG };
 }
 
 async function main() {

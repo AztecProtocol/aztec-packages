@@ -8,6 +8,9 @@ import {
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
   ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
   ba_fused_super_bench as ba_fused_super_bench_shader,
+  ba_reduce_add_bench as ba_reduce_add_bench_shader,
+  ba_reduce_double_bench as ba_reduce_double_bench_shader,
+  ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
   ba_marshal_pairs_bench as ba_marshal_pairs_bench_shader,
   ba_marshal_tree_l0_bench as ba_marshal_tree_l0_bench_shader,
@@ -1092,6 +1095,86 @@ ${packLines.join('\n')}
       ba_finalize_copy_bench_shader,
       { workgroup_size, num_words: this.num_words, recompile: this.recompile },
       { structs },
+    );
+  }
+
+  /**
+   * Reduction-stage init: repacks the bucket-accumulate output into the
+   * reduction's STRIDE-column working buffer and seeds the present-mask.
+   * Pure vec4 copy — no field arithmetic.
+   */
+  public gen_ba_reduce_init_bench_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_init_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(ba_reduce_init_bench_shader, { workgroup_size, recompile: this.recompile }, {});
+  }
+
+  /**
+   * In-place batched-affine ADD for the recursive affine bucket reduction
+   * (phases A / B / D). Mirrors gen_ba_fused_super_bench_shader's partials.
+   */
+  public gen_ba_reduce_add_bench_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'a' | 'loop' = 'a',
+  ): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_reduce_add_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
+    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    return mustache.render(
+      ba_reduce_add_bench_shader,
+      {
+        workgroup_size, s, inv_fn,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * In-place batched-affine DOUBLE for the recursive affine bucket
+   * reduction (phase C). Mirrors gen_ba_fused_super_bench_shader's partials.
+   */
+  public gen_ba_reduce_double_bench_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'a' | 'loop' = 'a',
+  ): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_reduce_double_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
+    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    return mustache.render(
+      ba_reduce_double_bench_shader,
+      {
+        workgroup_size, s, inv_fn,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
     );
   }
 
