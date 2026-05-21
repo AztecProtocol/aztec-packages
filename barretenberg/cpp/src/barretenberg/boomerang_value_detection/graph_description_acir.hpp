@@ -120,6 +120,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzerAcir_ {
     bool process_poseidon2s_constraints(const ConstraintPtr& ptr);
     bool process_recursion_constraints(const ConstraintPtr& ptr,
                                        const std::unordered_set<uint32_t>& next_constraint_witnesses);
+    bool process_chonk_recursion_constraint(const acir_format::RecursionConstraint* constraint);
     bool validate_chonk_recursion_mega_zk(const acir_format::RecursionConstraint* constraint);
     bool process_multi_scalar_mul_constraints(const ConstraintPtr& ptr,
                                               const std::unordered_set<uint32_t>& next_constraint_witnesses);

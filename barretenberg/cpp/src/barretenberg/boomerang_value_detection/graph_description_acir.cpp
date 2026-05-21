@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
+#include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
 #include <algorithm>
@@ -384,6 +385,12 @@ void StaticAnalyzerAcir_<FF, CircuitBuilder>::process_constraint_system()
         case AcirConstraintType::SHA256_COMPRESSION:
             result = process_sha256compression_constraint(constraint_info.ptr);
             break;
+        case AcirConstraintType::HONK_RECURSION:
+        case AcirConstraintType::AVM_RECURSION:
+        case AcirConstraintType::HN_RECURSION:
+        case AcirConstraintType::CHONK_RECURSION:
+            result = process_recursion_constraints(constraint_info.ptr, next_constraint_witnesses);
+            break;
         default:
             // Constraint type not yet implemented - mark as not processed
             result = false;
@@ -563,6 +570,90 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_big_quad_constraints(const
         }
     }
     return true;
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_recursion_constraints(
+    const ConstraintPtr& ptr, const std::unordered_set<uint32_t>& next_constraint_witnesses)
+{
+    (void)next_constraint_witnesses;
+    const auto* constraint = std::get<const acir_format::RecursionConstraint*>(ptr);
+    if (constraint == nullptr) {
+        log_error("CHONK recursion validation failed: null recursion constraint");
+        return false;
+    }
+
+    if (constraint->proof_type != PROOF_TYPE::CHONK) {
+        log_error("CHONK recursion validation failed: unsupported proof_type ", static_cast<int>(constraint->proof_type));
+        return false;
+    }
+
+    return process_chonk_recursion_constraint(constraint);
+}
+
+template <typename FF, typename CircuitBuilder>
+bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_chonk_recursion_constraint(
+    const acir_format::RecursionConstraint* constraint)
+{
+    if (constraint == nullptr) {
+        log_error("CHONK recursion validation failed: null constraint passed to process_chonk_recursion_constraint");
+        return false;
+    }
+
+    if (constraint->proof.size() <= acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE) {
+        log_error("CHONK recursion validation failed: proof too small for MegaZK body, proof size=",
+                  constraint->proof.size(),
+                  " hidden_kernel_public_inputs=",
+                  acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE);
+        return false;
+    }
+
+    std::vector<uint32_t> proof_body_witnesses(constraint->proof.begin() + acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE,
+                                               constraint->proof.end());
+
+    auto validate_MegaZKpart = [&]() -> bool {
+        if (!OinkVerifierValidation::validate_oink_verifier<FF>(builder, analyzer, *constraint, proof_body_witnesses)) {
+            log_error("CHONK recursion validation failed: MegaZKpart step 1/5 validate_oink_verifier");
+            return false;
+        }
+
+        auto padding_step = recursion_helpers::validate_compute_padding_array_step<FF>(builder, analyzer, *constraint);
+        if (!padding_step.valid) {
+            log_error("CHONK recursion validation failed: MegaZKpart step 2/5 validate_compute_padding_array_step");
+            return false;
+        }
+
+        if (!SumcheckValidation::validate_sumcheck<FF>(builder, analyzer)) {
+            log_error("CHONK recursion validation failed: MegaZKpart step 3/5 validate_sumcheck");
+            return false;
+        }
+
+        if (!ShpleminiVerification::validate_shplemini<FF>(builder, analyzer)) {
+            log_error("CHONK recursion validation failed: MegaZKpart step 4/5 validate_shplemini");
+            return false;
+        }
+
+        auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+        const size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES +
+                                      recursion_helpers::NUM_SUMCHECK_SQUEEZES + recursion_helpers::NUM_SHPLEMINI_SQUEEZES;
+        if (all_squeezes.size() < consumed_count + recursion_helpers::NUM_KZG_SQUEEZES) {
+            log_error("CHONK recursion validation failed: not enough squeeze gates for KZG, found ",
+                      all_squeezes.size(),
+                      " expected at least ",
+                      consumed_count + recursion_helpers::NUM_KZG_SQUEEZES);
+            return false;
+        }
+        const std::set<size_t> consumed(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
+
+        if (!KZGVerification::validate_kzg(builder, all_squeezes, consumed)) {
+            log_error("CHONK recursion validation failed: MegaZKpart step 5/5 validate_kzg");
+            return false;
+        }
+
+        return true;
+    };
+
+    return validate_MegaZKpart();
 }
 
 template <typename FF, typename CircuitBuilder>
