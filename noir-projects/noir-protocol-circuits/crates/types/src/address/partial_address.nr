@@ -35,10 +35,11 @@ impl PartialAddress {
         salt: Field,
         initialization_hash: Field,
         deployer: AztecAddress,
+        immutables_hash: Field,
     ) -> Self {
         PartialAddress::compute_from_salted_initialization_hash(
             contract_class_id,
-            SaltedInitializationHash::compute(salt, initialization_hash, deployer),
+            SaltedInitializationHash::compute(salt, initialization_hash, deployer, immutables_hash),
         )
     }
 

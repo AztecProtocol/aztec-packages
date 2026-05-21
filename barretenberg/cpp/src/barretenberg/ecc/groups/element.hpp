@@ -113,6 +113,8 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     // constexpr Fr operator/(const element& other) noexcept {}
 
     constexpr element normalize() const noexcept;
+    constexpr element normalize_const_time() const noexcept;
+    constexpr affine_element<Fq, Fr, Params> to_affine_const_time() const noexcept;
     static element infinity();
     BB_INLINE constexpr element set_infinity() const noexcept;
     BB_INLINE constexpr void self_set_infinity() noexcept;

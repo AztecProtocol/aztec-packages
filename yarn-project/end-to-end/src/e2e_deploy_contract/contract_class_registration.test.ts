@@ -142,6 +142,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           expect(deployed!.address).toEqual(instance.address);
           expect(deployed!.currentContractClassId).toEqual(contractClass.id);
           expect(deployed!.initializationHash).toEqual(instance.initializationHash);
+          expect(deployed!.immutablesHash).toEqual(instance.immutablesHash);
           expect(deployed!.publicKeys).toEqual(instance.publicKeys);
           expect(deployed!.salt).toEqual(instance.salt);
           expect(deployed!.deployer).toEqual(instance.deployer);

@@ -187,18 +187,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await contractStore.addContractInstance(
         new SerializableContractInstance({
-          version: 1,
+          version: 2,
           salt: new Fr(73n),
           deployer: AztecAddress.fromBigInt(79n),
           currentContractClassId: new Fr(83n),
           originalContractClassId: new Fr(89n),
           initializationHash: new Fr(97n),
-          publicKeys: new PublicKeys(
-            new Point(new Fr(41n), new Fr(43n), false),
-            new Point(new Fr(47n), new Fr(53n), false),
-            new Point(new Fr(59n), new Fr(61n), false),
-            new Point(new Fr(67n), new Fr(71n), false),
-          ),
+          immutablesHash: new Fr(103n),
+          // Only `ivpk_m` is exposed as a curve point; the other three master keys
+          // are exposed as `hash_public_key` digests. Constructor signature is now
+          // `(npkMHash, ivpkM, ovpkMHash, tpkMHash)`.
+          publicKeys: new PublicKeys(new Fr(41n), new Point(new Fr(47n), new Fr(53n), false), new Fr(59n), new Fr(67n)),
         }).withAddress(AztecAddress.fromBigInt(101n)),
       );
     },
