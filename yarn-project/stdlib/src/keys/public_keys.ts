@@ -82,14 +82,14 @@ export class PublicKeys {
   }
 
   static default(): PublicKeys {
-    // Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y, false })` for npk/ovpk/tpk.
+    // Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y })` for npk/ovpk/tpk.
     // Sourced from constants.gen.ts (originally defined in
     // noir-protocol-circuits/crates/types/src/constants.nr); a self-test in public_keys.nr
     // (`default_hashes_match_default_points`) catches drift between the *_HASH constants and
     // the underlying X/Y points.
     return new PublicKeys(
       new Fr(DEFAULT_NPK_M_HASH),
-      new PublicKey(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
+      new PublicKey(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y)),
       new Fr(DEFAULT_OVPK_M_HASH),
       new Fr(DEFAULT_TPK_M_HASH),
     );

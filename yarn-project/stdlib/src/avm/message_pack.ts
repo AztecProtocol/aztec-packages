@@ -64,13 +64,16 @@ function setUpMessagePackExtensions() {
   addExtension({
     Class: Point,
     write: (p: Point) => {
+      // TODO(MW): Check this with new struct
       assert(!p.inf, 'Cannot serialize infinity');
       // TODO: should these be Frs?
       return { x: new Fq(p.x.toBigInt()), y: new Fq(p.y.toBigInt()) };
     },
     read: (data: { x: Fq; y: Fq }) => {
       // Convert Fq back to Fr for Point constructor
-      return new Point(new Fr(data.x.toBigInt()), new Fr(data.y.toBigInt()), false);
+      // TODO(MW): Check this - originally forced isInfinite = false. Our/Noir rep of inf is 0,0,
+      // but bb's is not and it can differ depending on data rep. If infs input here always have the same coords, we can return (0,0).
+      return new Point(new Fr(data.x.toBigInt()), new Fr(data.y.toBigInt()));
     },
   });
   // EthAddress is a class that has a buffer in TS, but is itself just a field in C++.

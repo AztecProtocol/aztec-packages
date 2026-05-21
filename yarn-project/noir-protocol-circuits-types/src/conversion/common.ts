@@ -184,9 +184,7 @@ export function mapPointToNoir(point: Point): NoirPoint {
  * @returns The point.
  */
 export function mapPointFromNoir(point: NoirPoint): Point {
-  const x = mapFieldFromNoir(point.x);
-  const y = mapFieldFromNoir(point.y);
-  return new Point(x, y, x.isZero() && y.isZero());
+  return new Point(mapFieldFromNoir(point.x), mapFieldFromNoir(point.y));
 }
 
 /**

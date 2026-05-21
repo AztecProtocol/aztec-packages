@@ -17,12 +17,13 @@ export class PublicKey extends Point {
   // Below is temporary solution for public keys which cannot be inf.
   static override fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new this(reader.readField(), reader.readField(), false);
+    // TODO(MW): Check below now empty == inf
+    return new this(reader.readField(), reader.readField());
   }
 
   static override fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), false);
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**

@@ -6,7 +6,6 @@ import { pedersenCommit, pedersenHash } from '@aztec/foundation/crypto/pedersen'
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -23,7 +22,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import { PublicKeys } from '@aztec/stdlib/keys';
+import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -917,7 +916,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           immutablesHash: new Fr(0x202221),
           publicKeys: new PublicKeys(
             new Fr(0x131415),
-            new Point(new Fr(0x192021), new Fr(0x222324), false),
+            new PublicKey(new Fr(0x192021), new Fr(0x222324)),
             new Fr(0x252627),
             new Fr(0x313233),
           ),

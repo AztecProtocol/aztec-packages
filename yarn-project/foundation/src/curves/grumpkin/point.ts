@@ -13,15 +13,15 @@ import { Fr } from '../bn254/field.js';
  * TODO(#7386): Clean up this class.
  */
 export class Point {
-  // TODO(MW): we cannot define an 'empty class' usually (since input of [0, 0] creates (0, 0, true)), but
-  // forcing (x, y, false) is incorrect. This is awkward for classes using points which need empty impls e.g. KeyValidationRequest.
-  // See public_key.ts for temp solution.
-  static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);
+  static ZERO = new Point(Fr.ZERO, Fr.ZERO);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
   static COMPRESSED_SIZE_IN_BYTES = Fr.SIZE_IN_BYTES;
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
+
+  /** Whether the point is at infinity */
+  public readonly isInfinite: boolean;
 
   constructor(
     /**
@@ -32,13 +32,11 @@ export class Point {
      * The point's y coordinate
      */
     public readonly y: Fr,
-    /**
-     * Whether the point is at infinity
-     */
-    public readonly isInfinite: boolean,
   ) {
     // TODO(#7386): check if on curve
-    // TODO(MW): Add this check? This would break paths which construct empty points
+    // TODO(MW): Add this check? This would break paths which construct empty points.
+    // NOTE: now there is no isInfinite in the struct, empty == inf. Checking whether this would cause issues with empty circuit inputs.
+    this.isInfinite = x.isZero() && y.isZero();
   }
 
   toJSON() {
@@ -47,7 +45,6 @@ export class Point {
 
   static get schema() {
     // Serialization from hex string.
-    // TODO(MW): This includes isInfinite - manually define or keep as is?
     return hexSchemaFor(Point);
   }
 
@@ -67,7 +64,7 @@ export class Point {
       return Point.fromBuffer(obj);
     }
     const [x, y] = [Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y)];
-    return new this(x, y, x.isZero() && y.isZero());
+    return new this(x, y);
   }
 
   /**
@@ -99,7 +96,7 @@ export class Point {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     const [x, y] = [Fr.fromBuffer(reader), Fr.fromBuffer(reader)];
-    return new this(x, y, x.isZero() && y.isZero());
+    return new this(x, y);
   }
 
   /**
@@ -147,7 +144,7 @@ export class Point {
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     const [x, y] = [reader.readField(), reader.readField()];
-    return new this(x, y, x.isZero() && y.isZero());
+    return new this(x, y);
   }
 
   /**
@@ -172,7 +169,7 @@ export class Point {
     const finalY = sign ? new Fr(yPositiveBigInt) : new Fr(yNegativeBigInt);
 
     // Create and return the new Point
-    return new this(x, finalY, false);
+    return new this(x, finalY);
   }
 
   /**
@@ -205,7 +202,6 @@ export class Point {
     return {
       x: this.x.toBigInt(),
       y: this.y.toBigInt(),
-      isInfinite: this.isInfinite ? 1n : 0n,
     };
   }
 

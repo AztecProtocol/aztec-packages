@@ -52,7 +52,7 @@ export class EcAdd extends Instruction {
     const p1XFr = p1X.toFr();
     const p1YFr = p1Y.toFr();
     const p1IsInfinite = p1XFr.isZero() && p1YFr.isZero();
-    const p1 = new Point(p1XFr, p1YFr, p1IsInfinite);
+    const p1 = new Point(p1XFr, p1YFr);
     if (!p1.isOnGrumpkin()) {
       throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 1, p1);
     }
@@ -62,7 +62,7 @@ export class EcAdd extends Instruction {
     const p2XFr = p2X.toFr();
     const p2YFr = p2Y.toFr();
     const p2IsInfinite = p2XFr.isZero() && p2YFr.isZero();
-    const p2 = new Point(p2XFr, p2YFr, p2IsInfinite);
+    const p2 = new Point(p2XFr, p2YFr);
     if (!p2.isOnGrumpkin()) {
       throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 2, p2);
     }

@@ -123,7 +123,7 @@ import {
   PublicCallRequest,
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
-import { PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
+import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
 import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
@@ -577,7 +577,7 @@ export function makeVerificationKeyAsFields(size: number): VerificationKeyAsFiel
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1), false);
+  return new Point(fr(seed), fr(seed + 1));
 }
 
 /**
@@ -1442,7 +1442,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x7),
     new PublicKeys(
       new Fr(seed + 0x7),
-      new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),
+      new PublicKey(new Fr(seed + 0x9), new Fr(seed + 0x10)),
       new Fr(seed + 0x11),
       new Fr(seed + 0x13),
     ),
