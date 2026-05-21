@@ -168,9 +168,9 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     var shift: u32 = CBITS;
     while (n > 1u) {
         let half = (n + 1u) / 2u;
-        let active = tid < half;
+        let is_active = tid < half;
         var result: Jac;
-        if (active) {
+        if (is_active) {
             let lo = 2u * tid;
             let hi = 2u * tid + 1u;
             if (hi < n) {
@@ -184,7 +184,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
             }
         }
         workgroupBarrier();
-        if (active) {
+        if (is_active) {
             wp[tid] = result;
         }
         workgroupBarrier();
