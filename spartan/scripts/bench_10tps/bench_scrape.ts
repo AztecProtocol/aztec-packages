@@ -309,32 +309,27 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     ),
   },
   // Headline inclusion latency: time from pool-add to first inclusion in a
-  // block, sliced by quantile. The same histogram is also captured as a
-  // one-shot end-of-window scalar in summary.inclusionLatencyP{50,95,99}Ms;
-  // the time series here lets the dashboard plot drift over the run.
+  // block, sliced by quantile. Scoped to RPC pods because the load generator
+  // submits txs through the RPC node, so the RPC mempool's pool-add timestamp
+  // equals the client-submit time. Validator / full-node observations measure
+  // gossip-arrival -> block-mined instead, which under-counts the true
+  // client-observed latency by exactly the gossip propagation time.
+  // The same scoping is applied to the one-shot scalars in
+  // summary.inclusionLatencyP{50,95,99}Ms below.
   txMinedDelayP50: {
     metric: "aztec_mempool_tx_mined_delay_milliseconds",
     unit: "ms",
-    query: histQuantile(
-      0.5,
-      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
-    ),
+    query: `histogram_quantile(0.5, sum by (le)(rate(aztec_mempool_tx_mined_delay_milliseconds_bucket{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-rpc.*"}[1m])))`,
   },
   txMinedDelayP95: {
     metric: "aztec_mempool_tx_mined_delay_milliseconds",
     unit: "ms",
-    query: histQuantile(
-      0.95,
-      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
-    ),
+    query: `histogram_quantile(0.95, sum by (le)(rate(aztec_mempool_tx_mined_delay_milliseconds_bucket{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-rpc.*"}[1m])))`,
   },
   txMinedDelayP99: {
     metric: "aztec_mempool_tx_mined_delay_milliseconds",
     unit: "ms",
-    query: histQuantile(
-      0.99,
-      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
-    ),
+    query: `histogram_quantile(0.99, sum by (le)(rate(aztec_mempool_tx_mined_delay_milliseconds_bucket{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-rpc.*"}[1m])))`,
   },
   publicProcessorTxDurationP95: {
     metric: "aztec_public_processor_tx_duration_milliseconds",
@@ -1490,6 +1485,10 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
   const windowSpec = `${a.histogramWindowSec}s`;
   const oneShotQuantile = (q: number, bucket: string) =>
     `histogram_quantile(${q}, sum by (le)(rate(${bucket}${NS}[${windowSpec}])))`;
+  // RPC-scoped variant for tx-mined-delay: see comment on txMinedDelayP* in
+  // TIME_SERIES_DEFS for why we filter to the RPC pods.
+  const oneShotQuantileRpc = (q: number, bucket: string) =>
+    `histogram_quantile(${q}, sum by (le)(rate(${bucket}{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-rpc.*"}[${windowSpec}])))`;
 
   const [
     inclLatP50,
@@ -1501,13 +1500,22 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     ppTxP95,
   ] = await Promise.all([
     safeInstant(
-      oneShotQuantile(0.5, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+      oneShotQuantileRpc(
+        0.5,
+        "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+      ),
     ),
     safeInstant(
-      oneShotQuantile(0.95, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+      oneShotQuantileRpc(
+        0.95,
+        "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+      ),
     ),
     safeInstant(
-      oneShotQuantile(0.99, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+      oneShotQuantileRpc(
+        0.99,
+        "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+      ),
     ),
     safeInstant(
       oneShotQuantile(
