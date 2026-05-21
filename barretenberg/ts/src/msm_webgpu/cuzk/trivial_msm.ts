@@ -81,8 +81,13 @@ export class TrivialMsm {
   private k2Buf!: GPUBuffer;
   private partA!: Triple;
   private partB!: Triple;
-  private resultXBuf!: GPUBuffer;
-  private resultYBuf!: GPUBuffer;
+  private resultBuf!: GPUBuffer;
+
+  private mainBg!: GPUBindGroup;
+  private foldBgsAtoB: Map<number, GPUBindGroup> = new Map();
+  private foldBgsBtoA: Map<number, GPUBindGroup> = new Map();
+  private toAffineBgFromA!: GPUBindGroup;
+  private toAffineBgFromB!: GPUBindGroup;
 
   private foldPasses: number[] = [];
   private prepared = false;
@@ -197,8 +202,55 @@ export class TrivialMsm {
       y: gpu.create_sb(device, partByteLen),
       z: gpu.create_sb(device, partByteLen),
     };
-    m.resultXBuf = gpu.create_sb(device, m.numWords * 4);
-    m.resultYBuf = gpu.create_sb(device, m.numWords * 4);
+    m.resultBuf = gpu.create_sb(device, 2 * m.numWords * 4);
+
+    m.mainBg = gpu.create_bind_group(device, m.mainCompiled.layout, [
+      m.lut.x,
+      m.lut.y,
+      m.lut.z,
+      m.k1Buf,
+      m.k2Buf,
+      m.partA.x,
+      m.partA.y,
+      m.partA.z,
+    ]);
+    for (const tIn of m.foldPasses) {
+      const compiled = m.foldCompiled.get(tIn)!;
+      m.foldBgsAtoB.set(
+        tIn,
+        gpu.create_bind_group(device, compiled.layout, [
+          m.partA.x,
+          m.partA.y,
+          m.partA.z,
+          m.partB.x,
+          m.partB.y,
+          m.partB.z,
+        ]),
+      );
+      m.foldBgsBtoA.set(
+        tIn,
+        gpu.create_bind_group(device, compiled.layout, [
+          m.partB.x,
+          m.partB.y,
+          m.partB.z,
+          m.partA.x,
+          m.partA.y,
+          m.partA.z,
+        ]),
+      );
+    }
+    m.toAffineBgFromA = gpu.create_bind_group(device, m.toAffineCompiled.layout, [
+      m.partA.x,
+      m.partA.y,
+      m.partA.z,
+      m.resultBuf,
+    ]);
+    m.toAffineBgFromB = gpu.create_bind_group(device, m.toAffineCompiled.layout, [
+      m.partB.x,
+      m.partB.y,
+      m.partB.z,
+      m.resultBuf,
+    ]);
 
     const precomputeBg = gpu.create_bind_group(
       device,
@@ -265,31 +317,21 @@ export class TrivialMsm {
     const encoder = device.createCommandEncoder();
     const profiler = new gpu.Profiler(device, this.foldPasses.length + 4);
 
-    const mainBg = gpu.create_bind_group(device, this.mainCompiled.layout, [
-      this.lut.x,
-      this.lut.y,
-      this.lut.z,
-      this.k1Buf,
-      this.k2Buf,
-      this.partA.x,
-      this.partA.y,
-      this.partA.z,
-    ]);
     const T0 = Math.ceil(this.n / this.ntm);
     await gpu.execute_pipeline(
       encoder,
       this.mainCompiled.pipeline,
-      mainBg,
+      this.mainBg,
       Math.ceil(T0 / this.wgSize),
       1,
       1,
       profiler.stage("straus_main"),
     );
 
-    let src: Triple = this.partA;
-    let dst: Triple = this.partB;
+    let aIsSrc = true;
     let tCur = T0;
-    for (const tIn of this.foldPasses) {
+    for (let i = 0; i < this.foldPasses.length; i++) {
+      const tIn = this.foldPasses[i];
       if (tIn !== tCur) {
         throw new Error(
           `TrivialMsm.run: fold-pass mismatch (expected T_IN=${tCur}, have ${tIn})`,
@@ -297,14 +339,9 @@ export class TrivialMsm {
       }
       const compiled = this.foldCompiled.get(tIn)!;
       const tNext = Math.ceil(tIn / 2);
-      const foldBg = gpu.create_bind_group(device, compiled.layout, [
-        src.x,
-        src.y,
-        src.z,
-        dst.x,
-        dst.y,
-        dst.z,
-      ]);
+      const foldBg = aIsSrc
+        ? this.foldBgsAtoB.get(tIn)!
+        : this.foldBgsBtoA.get(tIn)!;
       await gpu.execute_pipeline(
         encoder,
         compiled.pipeline,
@@ -314,17 +351,11 @@ export class TrivialMsm {
         1,
         profiler.stage(`combine_fold_${tIn}`),
       );
-      const tmp = src;
-      src = dst;
-      dst = tmp;
+      aIsSrc = !aIsSrc;
       tCur = tNext;
     }
 
-    const toAffineBg = gpu.create_bind_group(
-      device,
-      this.toAffineCompiled.layout,
-      [src.x, src.y, src.z, this.resultXBuf, this.resultYBuf],
-    );
+    const toAffineBg = aIsSrc ? this.toAffineBgFromA : this.toAffineBgFromB;
     await gpu.execute_pipeline(
       encoder,
       this.toAffineCompiled.pipeline,
@@ -336,9 +367,8 @@ export class TrivialMsm {
     );
 
     profiler.resolve(encoder);
-    const [xData, yData] = await gpu.read_from_gpu(device, encoder, [
-      this.resultXBuf,
-      this.resultYBuf,
+    const [resultData] = await gpu.read_from_gpu(device, encoder, [
+      this.resultBuf,
     ]);
 
     const report = await profiler.report();
@@ -350,18 +380,13 @@ export class TrivialMsm {
       this.lastRunPhaseMs = null;
     }
     profiler.destroy();
-    const xWords = new Uint32Array(
-      xData.buffer,
-      xData.byteOffset,
-      xData.byteLength / 4,
+    const words = new Uint32Array(
+      resultData.buffer,
+      resultData.byteOffset,
+      resultData.byteLength / 4,
     );
-    const yWords = new Uint32Array(
-      yData.buffer,
-      yData.byteOffset,
-      yData.byteLength / 4,
-    );
-    const xMont = readBigIntAt(xWords, 0, this.numWords, this.wordSize);
-    const yMont = readBigIntAt(yWords, 0, this.numWords, this.wordSize);
+    const xMont = readBigIntAt(words, 0, this.numWords, this.wordSize);
+    const yMont = readBigIntAt(words, 1, this.numWords, this.wordSize);
     if (xMont === 0n && yMont === 0n) {
       return { x: 0n, y: 0n };
     }
@@ -385,7 +410,6 @@ export class TrivialMsm {
     this.partB?.x.destroy();
     this.partB?.y.destroy();
     this.partB?.z.destroy();
-    this.resultXBuf?.destroy();
-    this.resultYBuf?.destroy();
+    this.resultBuf?.destroy();
   }
 }

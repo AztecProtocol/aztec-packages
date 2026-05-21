@@ -1273,8 +1273,7 @@ export async function testStrausEndToEnd(
       tCur = tNext;
     }
 
-    const resultXSb = create_sb(device, numWords * 4);
-    const resultYSb = create_sb(device, numWords * 4);
+    const resultSb = create_sb(device, 2 * numWords * 4);
     const toAffineCompiled = await StrausKernels.compileStrausToAffine(
       device,
       sm,
@@ -1284,15 +1283,11 @@ export async function testStrausEndToEnd(
       srcSet.x,
       srcSet.y,
       srcSet.z,
-      resultXSb,
-      resultYSb,
+      resultSb,
     ]);
     await execute_pipeline(encoder, toAffineCompiled.pipeline, toAffineBg, 1, 1, 1);
 
-    const [resXData, resYData] = await read_from_gpu(device, encoder, [
-      resultXSb,
-      resultYSb,
-    ]);
+    const [resData] = await read_from_gpu(device, encoder, [resultSb]);
 
     baseXSb.destroy();
     baseYSb.destroy();
@@ -1307,22 +1302,16 @@ export async function testStrausEndToEnd(
     partBSb.x.destroy();
     partBSb.y.destroy();
     partBSb.z.destroy();
-    resultXSb.destroy();
-    resultYSb.destroy();
+    resultSb.destroy();
     context.destroy();
 
-    const resX = new Uint32Array(
-      resXData.buffer,
-      resXData.byteOffset,
-      resXData.byteLength / 4,
+    const resWords = new Uint32Array(
+      resData.buffer,
+      resData.byteOffset,
+      resData.byteLength / 4,
     );
-    const resY = new Uint32Array(
-      resYData.buffer,
-      resYData.byteOffset,
-      resYData.byteLength / 4,
-    );
-    const xMont = readBigIntAt(resX, 0, numWords, wordSize);
-    const yMont = readBigIntAt(resY, 0, numWords, wordSize);
+    const xMont = readBigIntAt(resWords, 0, numWords, wordSize);
+    const yMont = readBigIntAt(resWords, 1, numWords, wordSize);
     const rInv = modInverse(R, BN254_BASE_FIELD);
     const xAff = mod(xMont * rInv);
     const yAff = mod(yMont * rInv);

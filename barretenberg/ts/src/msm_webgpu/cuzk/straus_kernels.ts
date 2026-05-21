@@ -225,11 +225,10 @@ export class StrausKernels {
 
   /**
    * Compile the final Jacobian → affine kernel. Bind-group layout:
-   *   0: part_x   (read-only storage, ≥1 × BigInt; uses index 0)
-   *   1: part_y   (read-only storage, ≥1 × BigInt; uses index 0)
-   *   2: part_z   (read-only storage, ≥1 × BigInt; uses index 0)
-   *   3: result_x (storage,           ≥1 × BigInt; writes index 0)
-   *   4: result_y (storage,           ≥1 × BigInt; writes index 0)
+   *   0: part_x    (read-only storage, ≥1 × BigInt; reads index 0)
+   *   1: part_y    (read-only storage, ≥1 × BigInt; reads index 0)
+   *   2: part_z    (read-only storage, ≥1 × BigInt; reads index 0)
+   *   3: result_xy (storage,           2 × BigInt;  writes [x_aff, y_aff])
    */
   static async compileStrausToAffine(
     device: GPUDevice,
@@ -253,7 +252,6 @@ export class StrausKernels {
       "read-only-storage",
       "read-only-storage",
       "read-only-storage",
-      "storage",
       "storage",
     ]);
     const pipeline = await gpu.create_compute_pipeline(

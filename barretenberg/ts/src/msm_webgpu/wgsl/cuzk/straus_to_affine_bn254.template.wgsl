@@ -24,11 +24,10 @@ fn get_r() -> BigInt {
     return r;
 }
 
-@group(0) @binding(0) var<storage, read>       part_x:   array<BigInt>;
-@group(0) @binding(1) var<storage, read>       part_y:   array<BigInt>;
-@group(0) @binding(2) var<storage, read>       part_z:   array<BigInt>;
-@group(0) @binding(3) var<storage, read_write> result_x: array<BigInt>;
-@group(0) @binding(4) var<storage, read_write> result_y: array<BigInt>;
+@group(0) @binding(0) var<storage, read>       part_x:    array<BigInt>;
+@group(0) @binding(1) var<storage, read>       part_y:    array<BigInt>;
+@group(0) @binding(2) var<storage, read>       part_z:    array<BigInt>;
+@group(0) @binding(3) var<storage, read_write> result_xy: array<BigInt>;
 
 @compute
 @workgroup_size(1)
@@ -38,8 +37,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var z: BigInt = part_z[0];
     if (is_zero(z)) {
         var zero: BigInt;
-        result_x[0] = zero;
-        result_y[0] = zero;
+        result_xy[0] = zero;
+        result_xy[1] = zero;
         return;
     }
 
@@ -50,8 +49,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var z_inv_cu: BigInt = montgomery_product(&z_inv_sq, &z_inv);
     var x_aff: BigInt = montgomery_product(&x_in, &z_inv_sq);
     var y_aff: BigInt = montgomery_product(&y_in, &z_inv_cu);
-    result_x[0] = x_aff;
-    result_y[0] = y_aff;
+    result_xy[0] = x_aff;
+    result_xy[1] = y_aff;
 
     {{{ recompile }}}
 }

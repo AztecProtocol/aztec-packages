@@ -136,7 +136,7 @@ describe("StrausKernels: straus_main renderer", () => {
     expect(src).toContain("fr_inv_by_a");
     expect(src).toContain("montgomery_product");
     expect(src).toMatch(/@binding\(0\) var<storage, read>\s+part_x/);
-    expect(src).toMatch(/@binding\(3\) var<storage, read_write> result_x/);
+    expect(src).toMatch(/@binding\(3\) var<storage, read_write> result_xy/);
   });
 
   it("β-Mont in the new representation is a primitive cube root of unity mod q", () => {
