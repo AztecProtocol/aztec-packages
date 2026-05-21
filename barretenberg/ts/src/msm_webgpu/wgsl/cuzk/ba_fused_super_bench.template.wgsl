@@ -234,8 +234,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         var p_lx: BigInt = load_active_x(idx_l, M_old);
         var p_rx: BigInt = load_active_x(idx_r, M_old);
         var r_x: BigInt = montgomery_product(&lambda, &lambda);
-        r_x = fr_sub(&r_x, &p_lx);
-        r_x = fr_sub(&r_x, &p_rx);
+        var x_sum: BigInt = fr_add(&p_lx, &p_rx);
+        r_x = fr_sub(&r_x, &x_sum);
 
         // Advance the running inverse here, before r_y: p_rx and dx_back
         // are freed and do not sit live across the r_y computation.

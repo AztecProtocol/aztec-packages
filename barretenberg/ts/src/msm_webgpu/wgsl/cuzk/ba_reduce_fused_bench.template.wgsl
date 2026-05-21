@@ -244,8 +244,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
                             var lambda: BigInt = fr_sub(&y_s, &y_d);
                             lambda = montgomery_product(&lambda, &inv_denom);
                             r_x = montgomery_product(&lambda, &lambda);
-                            r_x = fr_sub(&r_x, &x_d);
-                            r_x = fr_sub(&r_x, &x_s);
+                            var x_sum: BigInt = fr_add(&x_d, &x_s);
+                            r_x = fr_sub(&r_x, &x_sum);
                             r_y = fr_sub(&x_d, &r_x);
                             r_y = montgomery_product(&lambda, &r_y);
                             r_y = fr_sub(&r_y, &y_d);
