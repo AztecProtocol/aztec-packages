@@ -21,7 +21,35 @@
 // set the y plane is sourced from new_point_y_neg (the precomputed field
 // negation -y); x is unchanged. Without `with_sign` the converter is a
 // plain copy (cuZK's signed-slice path folds the sign into the bucket).
+//
+// Lever B (`index_mode`): instead of materializing a 64-byte point per
+// slot, write a 4-byte value — the point index in the low 31 bits, the
+// sign bit in bit 31. active_sums is then a flat u32 array, 16x smaller.
+// The level-0 pair-tree kernels (fused / carry / finalize, l0_index_mode)
+// gather the actual point from the pool and negate y on the sign bit.
+{{#index_mode}}
+@group(0) @binding(0) var<storage, read>       val_idx:     array<u32>;
+@group(0) @binding(1) var<storage, read_write> active_sums: array<u32>;
+// params[0] = total_slots, params[2] = wstride, params[3] = input_size.
+@group(0) @binding(2) var<uniform>             params:      vec4<u32>;
+@group(0) @binding(3) var<storage, read>       signs:       array<u32>;
 
+@compute
+@workgroup_size({{ workgroup_size }})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let slot = gid.x;
+    if (slot >= params[0]) {
+        return;
+    }
+    let pt_idx = val_idx[slot];
+    let window = slot / params[2];
+    let neg = signs[window * params[3] + pt_idx];
+    active_sums[slot] = pt_idx | (neg << 31u);
+
+    {{{ recompile }}}
+}
+{{/index_mode}}
+{{^index_mode}}
 @group(0) @binding(0)
 var<storage, read> val_idx: array<u32>;
 @group(0) @binding(1)
@@ -83,3 +111,4 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     {{{ recompile }}}
 }
+{{/index_mode}}

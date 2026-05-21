@@ -44,11 +44,58 @@ const PG: u32 = 2u;
 
 @group(0) @binding(0) var<storage, read>       chunk_plan:      array<u32>;
 @group(0) @binding(1) var<storage, read>       scatter_plan:    array<u32>;
+{{#l0_index_mode}}
+// Lever B: at level 0 active_sums_old is a flat (point index | sign<<31)
+// array; the operand points are gathered from the pool (point_x/point_y).
+@group(0) @binding(2) var<storage, read>       active_sums_old: array<u32>;
+{{/l0_index_mode}}
+{{^l0_index_mode}}
 @group(0) @binding(2) var<storage, read>       active_sums_old: array<vec4<u32>>;
+{{/l0_index_mode}}
 @group(0) @binding(3) var<storage, read_write> active_sums_new: array<vec4<u32>>;
 @group(0) @binding(4) var<uniform>             params:          vec4<u32>;
 @group(0) @binding(5) var<storage, read_write> pref_scratch:    array<vec4<u32>>;
+{{#l0_index_mode}}
+@group(0) @binding(6) var<storage, read>       point_x:         array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read>       point_y:         array<vec4<u32>>;
+{{/l0_index_mode}}
 
+{{#l0_index_mode}}
+const L0_SIGN_BIT: u32 = 0x80000000u;
+const L0_IDX_MASK: u32 = 0x7fffffffu;
+
+// Level-0 operand load: active_sums_old[idx] is (point index | sign<<31);
+// gather the coordinate from the pool. `M` is unused here.
+fn load_active_x(idx: u32, M: u32) -> BigInt {
+    let pt = active_sums_old[idx] & L0_IDX_MASK;
+    let q0 = point_x[2u * pt];
+    let q1 = point_x[2u * pt + 1u];
+    var w: array<u32, 8>;
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn load_active_y(idx: u32, M: u32) -> BigInt {
+    let packed = active_sums_old[idx];
+    let pt = packed & L0_IDX_MASK;
+    let q0 = point_y[2u * pt];
+    let q1 = point_y[2u * pt + 1u];
+    var w: array<u32, 8>;
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    var y: BigInt = unpack256_to_limbs(w);
+    if ((packed & L0_SIGN_BIT) == 0u) {
+        return y;
+    }
+    // Lever D: negate y on the fly (-y = 0 - y mod p) — the level-0 point
+    // pool carries no precomputed -y plane.
+    var zw: array<u32, 8>;
+    var zero: BigInt = unpack256_to_limbs(zw);
+    return fr_sub(&zero, &y);
+}
+{{/l0_index_mode}}
+{{^l0_index_mode}}
 fn load_active_x(idx: u32, M: u32) -> BigInt {
     let plane_base = 0u * PG * M;
     let base = plane_base + PG * idx;
@@ -70,6 +117,7 @@ fn load_active_y(idx: u32, M: u32) -> BigInt {
     w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
     return unpack256_to_limbs(w);
 }
+{{/l0_index_mode}}
 
 fn store_active_new(plane: u32, idx: u32, M: u32, val: ptr<function, BigInt>) {
     let plane_base = plane * PG * M;
@@ -116,8 +164,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let T = params.x;
     let M_old = params.y;
     let M_new = params.z;
-    let t = gid.x;
+    let t = gid.x{{#tiled}} + params.w{{/tiled}};
     if (t >= T) { return; }
+
+    // pref_scratch index. Lever A (tiled) sizes pref_scratch to a single
+    // tile of T_TILE threads, so it is indexed by the tile-local thread id
+    // (gid.x); params.w carries the tile's global base. Untiled callers
+    // pass params.w = 0 and pref_scratch spans all T threads.
+{{#tiled}}
+    let pref_base = gid.x * S;
+{{/tiled}}
+{{^tiled}}
+    let pref_base = t * S;
+{{/tiled}}
 
     let chunk_base = 2u * S * t;
 
@@ -137,7 +196,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         } else {
             acc = montgomery_product(&acc, &dx);
         }
-        store_pref(t * S + k, &acc);
+        store_pref(pref_base + k, &acc);
     }
 
     // Single inversion per chunk.
@@ -161,7 +220,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (k == 0u) {
             inv_dx = inv;
         } else {
-            var pp: BigInt = load_pref(t * S + (k - 1u));
+            var pp: BigInt = load_pref(pref_base + (k - 1u));
             inv_dx = montgomery_product(&inv, &pp);
         }
 

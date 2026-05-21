@@ -98,6 +98,16 @@ const S: u32 = {{ s }}u;
 @group(0) @binding(6) var<storage, read_write> new_offsets:  array<u32>;
 @group(0) @binding(7) var<storage, read_write> plan_meta:    array<u32>;
 @group(0) @binding(8) var<uniform>             params:       vec4<u32>;
+{{#self_pad}}
+// Lever E (plan-buffer 2-deep ring): pad_params holds the pad trio's slot
+// indices — .x = pad_l, .y = pad_r (chunk_plan / carry sources), .z =
+// pad_d (scatter / carry destination). With self_pad the planner rewrites
+// every per-window tail slot, so a reused ring buffer needs no host
+// pre-padding even though the per-level stride shrinks. The trio is passed
+// explicitly (not derived from one M) because lever B's level-0 sources
+// live in a different buffer than the destinations.
+@group(0) @binding(9) var<uniform>             pad_params:   vec4<u32>;
+{{/self_pad}}
 
 // Workgroup-shared running prefixes for the 3 scans.
 var<workgroup> pair_scan:  array<u32, {{ workgroup_size }}>;
@@ -226,6 +236,32 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         local_carry_off += cf;
         local_new_off += nc;
     }
+
+{{#self_pad}}
+    // Self-pad this window's plan tails. Real Phase-C entries occupy the
+    // contiguous prefix [0, total) of the window's chunk / carry region;
+    // pair_scan / carry_scan still hold the Phase-B inclusive totals (no
+    // later phase writes them). The fused / carry kernels read the full
+    // CHUNKS/CARRIES_PER_WINDOW stride, so the leftover suffix is filled
+    // with the pad trio (pad_l, pad_r -> sources; discard -> dest).
+    let pad_l = pad_params.x;
+    let pad_r = pad_params.y;
+    let pad_d = pad_params.z;
+    let total_pairs = pair_scan[TPB - 1u];
+    let total_carries = carry_scan[TPB - 1u];
+    let chunk_slots = chunks_per_window * S;
+    for (var sp: u32 = total_pairs + tid; sp < chunk_slots; sp = sp + TPB) {
+        let flat = window_chunk_base * S + sp;
+        chunk_plan[2u * flat + 0u] = pad_l;
+        chunk_plan[2u * flat + 1u] = pad_r;
+        scatter_plan[flat] = pad_d;
+    }
+    for (var sc: u32 = total_carries + tid; sc < carries_per_window; sc = sc + TPB) {
+        let cflat = window_carry_base + sc;
+        carry_plan[2u * cflat + 0u] = pad_l;
+        carry_plan[2u * cflat + 1u] = pad_d;
+    }
+{{/self_pad}}
 
     {{{ recompile }}}
 }

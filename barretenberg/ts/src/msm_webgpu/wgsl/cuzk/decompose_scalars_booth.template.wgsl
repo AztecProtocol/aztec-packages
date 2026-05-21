@@ -20,9 +20,14 @@
 @group(0) @binding(2) var<storage, read_write> signs:   array<u32>;
 @group(0) @binding(3) var<uniform>             params:  vec4<u32>;
 // params.x = input_size   (points per window)
-// params.y = num_windows
+// params.y = num_windows  (windows in this batch)
 // params.z = window_bits  (c)
 // params.w = scalar_words (u32 words per scalar)
+// Lever G (window batching): batch.x = batch_window_base, the global
+// index of this batch's first window. Window bits are sliced from the
+// scalar at the GLOBAL window index (gid.y + batch_window_base); chunks /
+// signs are written at the batch-local index (gid.y). 0 when unbatched.
+@group(0) @binding(4) var<uniform>             batch:   vec4<u32>;
 
 const WORD_BITS: u32 = 32u;
 
@@ -57,13 +62,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let c = params.z;
     let scalar_words = params.w;
+    let w_global = w + batch.x;
 
     // c+1-bit window: the window's c bits, with the lookback bit (top bit
     // of the window below; synthetic 0 for window 0) shifted in as the LSB.
-    let win_bits = read_bits(p, scalar_words, w * c, c);
+    let win_bits = read_bits(p, scalar_words, w_global * c, c);
     var lookback: u32 = 0u;
-    if (w > 0u) {
-        lookback = read_bits(p, scalar_words, w * c - 1u, 1u);
+    if (w_global > 0u) {
+        lookback = read_bits(p, scalar_words, w_global * c - 1u, 1u);
     }
     let raw = (win_bits << 1u) | lookback;
 

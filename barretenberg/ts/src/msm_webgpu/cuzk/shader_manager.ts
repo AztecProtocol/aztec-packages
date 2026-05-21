@@ -835,6 +835,8 @@ ${packLines.join('\n')}
     workgroup_size: number,
     s: number,
     variant: 'a' | 'loop' = 'a',
+    tiled = false,
+    l0_index_mode = false,
   ): string {
     if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
@@ -845,7 +847,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_fused_super_bench_shader,
       {
-        workgroup_size, s, inv_fn,
+        workgroup_size, s, inv_fn, tiled, l0_index_mode,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
@@ -949,6 +951,7 @@ ${packLines.join('\n')}
     s: number,
     pair_cap: number = 64,
     buckets_per_window_override?: number,
+    self_pad = false,
   ): string {
     if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
         !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
@@ -973,6 +976,7 @@ ${packLines.join('\n')}
         num_windows,
         pair_cap,
         s,
+        self_pad,
         num_words: this.num_words,
         recompile: this.recompile,
       },
@@ -1038,13 +1042,13 @@ ${packLines.join('\n')}
    * indexed by val_idx. One thread per (subtask, slot). Pure raw vec4
    * copy — no field-element math.
    */
-  public gen_csr_to_v2_active_sums_shader(workgroup_size: number, with_sign = false): string {
+  public gen_csr_to_v2_active_sums_shader(workgroup_size: number, with_sign = false, index_mode = false): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_csr_to_v2_active_sums_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     return mustache.render(
       csr_to_v2_active_sums_shader,
-      { workgroup_size, recompile: this.recompile, with_sign },
+      { workgroup_size, recompile: this.recompile, with_sign, index_mode },
       {},
     );
   }
@@ -1070,14 +1074,23 @@ ${packLines.join('\n')}
    * carry element forward to the next level without modification.
    * Pure memory shuffle.
    */
-  public gen_ba_carry_copy_bench_shader(workgroup_size: number): string {
+  public gen_ba_carry_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_carry_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
+    // l0_index_mode pulls in the field stack to negate y while
+    // materializing a level-0 (point index | sign) carry from the pool.
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       ba_carry_copy_bench_shader,
-      { workgroup_size, num_words: this.num_words, recompile: this.recompile },
-      { structs },
+      {
+        workgroup_size, l0_index_mode,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
     );
   }
 
@@ -1086,14 +1099,23 @@ ${packLines.join('\n')}
    * accumulated sum into bucket_result[b] at the level it reaches
    * count 1 (the planner's finalize-and-drop). Pure memory shuffle.
    */
-  public gen_ba_finalize_copy_bench_shader(workgroup_size: number): string {
+  public gen_ba_finalize_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
+    // l0_index_mode pulls in the field stack to negate y while
+    // materializing a level-0 (point index | sign) element from the pool.
+    const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
       ba_finalize_copy_bench_shader,
-      { workgroup_size, num_words: this.num_words, recompile: this.recompile },
-      { structs },
+      {
+        workgroup_size, l0_index_mode,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
     );
   }
 

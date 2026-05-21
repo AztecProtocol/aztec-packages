@@ -1352,6 +1352,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 `;
 
 export const ba_carry_copy_bench = `{{> structs }}
+{{#l0_index_mode}}
+{{> bigint_funcs }}
+{{> montgomery_product_funcs }}
+{{> field_funcs }}
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+{{/l0_index_mode}}
 
 // Carry-copy kernel for the bin-packed pair-tree MSM bucket-accumulate.
 //
@@ -1364,7 +1373,10 @@ export const ba_carry_copy_bench = `{{> structs }}
 // in the next level, plus the (N_b mod 2 == 1) carry element propagates
 // forward unchanged.
 //
-// Pure memory shuffle, no field arithmetic.
+// Pure memory shuffle, no field arithmetic — except lever B's
+// \`l0_index_mode\`, where active_sums_old is the level-0 (point index |
+// sign<<31) array: the carry element is materialized by gathering the
+// point from the pool and negating y on the sign bit.
 //
 // params.x = T (number of carry-copies / threads)
 // params.y = M_old (active_sums_old size, vec4-stride scaling)
@@ -1373,9 +1385,18 @@ export const ba_carry_copy_bench = `{{> structs }}
 const PG: u32 = 2u;
 
 @group(0) @binding(0) var<storage, read>       carry_plan:      array<u32>;
+{{#l0_index_mode}}
+@group(0) @binding(1) var<storage, read>       active_sums_old: array<u32>;
+{{/l0_index_mode}}
+{{^l0_index_mode}}
 @group(0) @binding(1) var<storage, read>       active_sums_old: array<vec4<u32>>;
+{{/l0_index_mode}}
 @group(0) @binding(2) var<storage, read_write> active_sums_new: array<vec4<u32>>;
 @group(0) @binding(3) var<uniform>             params:          vec4<u32>;
+{{#l0_index_mode}}
+@group(0) @binding(4) var<storage, read>       point_x:         array<vec4<u32>>;
+@group(0) @binding(5) var<storage, read>       point_y:         array<vec4<u32>>;
+{{/l0_index_mode}}
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -1388,6 +1409,34 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let src_idx = carry_plan[2u * t + 0u];
     let dst_idx = carry_plan[2u * t + 1u];
 
+{{#l0_index_mode}}
+    // Lever B: src is a level-0 (point index | sign<<31). Gather the point
+    // from the pool, negate y on the sign bit, write the full point.
+    let packed = active_sums_old[src_idx];
+    let pt = packed & 0x7fffffffu;
+    let dst_x = 0u * PG * M_new + PG * dst_idx;
+    let dst_y = 1u * PG * M_new + PG * dst_idx;
+    active_sums_new[dst_x + 0u] = point_x[2u * pt + 0u];
+    active_sums_new[dst_x + 1u] = point_x[2u * pt + 1u];
+    if ((packed & 0x80000000u) == 0u) {
+        active_sums_new[dst_y + 0u] = point_y[2u * pt + 0u];
+        active_sums_new[dst_y + 1u] = point_y[2u * pt + 1u];
+    } else {
+        let q0 = point_y[2u * pt + 0u];
+        let q1 = point_y[2u * pt + 1u];
+        var w: array<u32, 8>;
+        w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+        w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+        var y: BigInt = unpack256_to_limbs(w);
+        var zw: array<u32, 8>;
+        var zero: BigInt = unpack256_to_limbs(zw);
+        var ny: BigInt = fr_sub(&zero, &y);
+        let nw = pack_limbs_to_256(&ny);
+        active_sums_new[dst_y + 0u] = vec4<u32>(nw[0], nw[1], nw[2], nw[3]);
+        active_sums_new[dst_y + 1u] = vec4<u32>(nw[4], nw[5], nw[6], nw[7]);
+    }
+{{/l0_index_mode}}
+{{^l0_index_mode}}
     let old_plane_x = 0u * PG * M_old;
     let old_plane_y = 1u * PG * M_old;
     let new_plane_x = 0u * PG * M_new;
@@ -1402,12 +1451,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     active_sums_new[dst_x + 1u] = active_sums_old[src_x + 1u];
     active_sums_new[dst_y + 0u] = active_sums_old[src_y + 0u];
     active_sums_new[dst_y + 1u] = active_sums_old[src_y + 1u];
+{{/l0_index_mode}}
 
     {{{ recompile }}}
 }
 `;
 
 export const ba_finalize_copy_bench = `{{> structs }}
+{{#l0_index_mode}}
+{{> bigint_funcs }}
+{{> montgomery_product_funcs }}
+{{> field_funcs }}
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+{{/l0_index_mode}}
 
 // Finalize-copy kernel for the bin-packed pair-tree MSM bucket-accumulate.
 //
@@ -1419,41 +1478,85 @@ export const ba_finalize_copy_bench = `{{> structs }}
 // all levels every bucket is harvested exactly once (a finalized bucket
 // has count 0 thereafter, so it is never seen at count 1 again).
 //
-// Pure memory shuffle, no field arithmetic.
+// Pure memory shuffle, no field arithmetic — except lever B's
+// \`l0_index_mode\`, where active_sums is the level-0 (point index |
+// sign<<31) array: the element is materialized by gathering the point
+// from the pool and negating y on the sign bit.
 //
 // Layouts (2-plane SoA, PG=2 vec4 per element):
 //   active_sums   : M elements per plane (params.y)
-//   bucket_result : B elements per plane (params.x)
+//   bucket_result : B_global elements per plane (params.w)
 //
-// params.x = B   (bucket count = thread count)
-// params.y = M   (active_sums vec4-stride length)
+// params.x = B        (this batch's bucket count = thread count)
+// params.y = M        (active_sums vec4-stride length)
+// params.z = bb_base  (lever G: batch_bucket_base)
+// params.w = B_global (global bucket_result plane stride)
 
 const PG: u32 = 2u;
 
 @group(0) @binding(0) var<storage, read>       counts:        array<u32>;
 @group(0) @binding(1) var<storage, read>       offsets:       array<u32>;
+{{#l0_index_mode}}
+@group(0) @binding(2) var<storage, read>       active_sums:   array<u32>;
+{{/l0_index_mode}}
+{{^l0_index_mode}}
 @group(0) @binding(2) var<storage, read>       active_sums:   array<vec4<u32>>;
+{{/l0_index_mode}}
 @group(0) @binding(3) var<storage, read_write> bucket_result: array<vec4<u32>>;
 @group(0) @binding(4) var<uniform>             params:        vec4<u32>;
+{{#l0_index_mode}}
+@group(0) @binding(5) var<storage, read>       point_x:       array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read>       point_y:       array<vec4<u32>>;
+{{/l0_index_mode}}
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let B = params.x;
     let M = params.y;
+    let bb_base = params.z;
+    let b_global_stride = params.w;
     let b = gid.x;
     if (b >= B) { return; }
     if (counts[b] != 1u) { return; }
 
     let src = offsets[b];
+    let gb = b + bb_base;
+    let dst_x = 0u * PG * b_global_stride + PG * gb;
+    let dst_y = 1u * PG * b_global_stride + PG * gb;
+
+{{#l0_index_mode}}
+    // Lever B: the element is a level-0 (point index | sign<<31). Gather
+    // the point from the pool, negate y on the sign bit.
+    let packed = active_sums[src];
+    let pt = packed & 0x7fffffffu;
+    bucket_result[dst_x + 0u] = point_x[2u * pt + 0u];
+    bucket_result[dst_x + 1u] = point_x[2u * pt + 1u];
+    if ((packed & 0x80000000u) == 0u) {
+        bucket_result[dst_y + 0u] = point_y[2u * pt + 0u];
+        bucket_result[dst_y + 1u] = point_y[2u * pt + 1u];
+    } else {
+        let q0 = point_y[2u * pt + 0u];
+        let q1 = point_y[2u * pt + 1u];
+        var w: array<u32, 8>;
+        w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+        w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+        var y: BigInt = unpack256_to_limbs(w);
+        var zw: array<u32, 8>;
+        var zero: BigInt = unpack256_to_limbs(zw);
+        var ny: BigInt = fr_sub(&zero, &y);
+        let nw = pack_limbs_to_256(&ny);
+        bucket_result[dst_y + 0u] = vec4<u32>(nw[0], nw[1], nw[2], nw[3]);
+        bucket_result[dst_y + 1u] = vec4<u32>(nw[4], nw[5], nw[6], nw[7]);
+    }
+{{/l0_index_mode}}
+{{^l0_index_mode}}
     let src_x = 0u * PG * M + PG * src;
     let src_y = 1u * PG * M + PG * src;
-    let dst_x = 0u * PG * B + PG * b;
-    let dst_y = 1u * PG * B + PG * b;
-
     bucket_result[dst_x + 0u] = active_sums[src_x + 0u];
     bucket_result[dst_x + 1u] = active_sums[src_x + 1u];
     bucket_result[dst_y + 0u] = active_sums[src_y + 0u];
     bucket_result[dst_y + 1u] = active_sums[src_y + 1u];
+{{/l0_index_mode}}
 
     {{{ recompile }}}
 }
@@ -1505,11 +1608,58 @@ const PG: u32 = 2u;
 
 @group(0) @binding(0) var<storage, read>       chunk_plan:      array<u32>;
 @group(0) @binding(1) var<storage, read>       scatter_plan:    array<u32>;
+{{#l0_index_mode}}
+// Lever B: at level 0 active_sums_old is a flat (point index | sign<<31)
+// array; the operand points are gathered from the pool (point_x/point_y).
+@group(0) @binding(2) var<storage, read>       active_sums_old: array<u32>;
+{{/l0_index_mode}}
+{{^l0_index_mode}}
 @group(0) @binding(2) var<storage, read>       active_sums_old: array<vec4<u32>>;
+{{/l0_index_mode}}
 @group(0) @binding(3) var<storage, read_write> active_sums_new: array<vec4<u32>>;
 @group(0) @binding(4) var<uniform>             params:          vec4<u32>;
 @group(0) @binding(5) var<storage, read_write> pref_scratch:    array<vec4<u32>>;
+{{#l0_index_mode}}
+@group(0) @binding(6) var<storage, read>       point_x:         array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read>       point_y:         array<vec4<u32>>;
+{{/l0_index_mode}}
 
+{{#l0_index_mode}}
+const L0_SIGN_BIT: u32 = 0x80000000u;
+const L0_IDX_MASK: u32 = 0x7fffffffu;
+
+// Level-0 operand load: active_sums_old[idx] is (point index | sign<<31);
+// gather the coordinate from the pool. \`M\` is unused here.
+fn load_active_x(idx: u32, M: u32) -> BigInt {
+    let pt = active_sums_old[idx] & L0_IDX_MASK;
+    let q0 = point_x[2u * pt];
+    let q1 = point_x[2u * pt + 1u];
+    var w: array<u32, 8>;
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    return unpack256_to_limbs(w);
+}
+
+fn load_active_y(idx: u32, M: u32) -> BigInt {
+    let packed = active_sums_old[idx];
+    let pt = packed & L0_IDX_MASK;
+    let q0 = point_y[2u * pt];
+    let q1 = point_y[2u * pt + 1u];
+    var w: array<u32, 8>;
+    w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
+    w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
+    var y: BigInt = unpack256_to_limbs(w);
+    if ((packed & L0_SIGN_BIT) == 0u) {
+        return y;
+    }
+    // Lever D: negate y on the fly (-y = 0 - y mod p) — the level-0 point
+    // pool carries no precomputed -y plane.
+    var zw: array<u32, 8>;
+    var zero: BigInt = unpack256_to_limbs(zw);
+    return fr_sub(&zero, &y);
+}
+{{/l0_index_mode}}
+{{^l0_index_mode}}
 fn load_active_x(idx: u32, M: u32) -> BigInt {
     let plane_base = 0u * PG * M;
     let base = plane_base + PG * idx;
@@ -1531,6 +1681,7 @@ fn load_active_y(idx: u32, M: u32) -> BigInt {
     w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
     return unpack256_to_limbs(w);
 }
+{{/l0_index_mode}}
 
 fn store_active_new(plane: u32, idx: u32, M: u32, val: ptr<function, BigInt>) {
     let plane_base = plane * PG * M;
@@ -1577,8 +1728,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let T = params.x;
     let M_old = params.y;
     let M_new = params.z;
-    let t = gid.x;
+    let t = gid.x{{#tiled}} + params.w{{/tiled}};
     if (t >= T) { return; }
+
+    // pref_scratch index. Lever A (tiled) sizes pref_scratch to a single
+    // tile of T_TILE threads, so it is indexed by the tile-local thread id
+    // (gid.x); params.w carries the tile's global base. Untiled callers
+    // pass params.w = 0 and pref_scratch spans all T threads.
+{{#tiled}}
+    let pref_base = gid.x * S;
+{{/tiled}}
+{{^tiled}}
+    let pref_base = t * S;
+{{/tiled}}
 
     let chunk_base = 2u * S * t;
 
@@ -1598,7 +1760,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         } else {
             acc = montgomery_product(&acc, &dx);
         }
-        store_pref(t * S + k, &acc);
+        store_pref(pref_base + k, &acc);
     }
 
     // Single inversion per chunk.
@@ -1622,7 +1784,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (k == 0u) {
             inv_dx = inv;
         } else {
-            var pp: BigInt = load_pref(t * S + (k - 1u));
+            var pp: BigInt = load_pref(pref_base + (k - 1u));
             inv_dx = montgomery_product(&inv, &pp);
         }
 
@@ -2406,6 +2568,16 @@ const S: u32 = {{ s }}u;
 @group(0) @binding(6) var<storage, read_write> new_offsets:  array<u32>;
 @group(0) @binding(7) var<storage, read_write> plan_meta:    array<u32>;
 @group(0) @binding(8) var<uniform>             params:       vec4<u32>;
+{{#self_pad}}
+// Lever E (plan-buffer 2-deep ring): pad_params holds the pad trio's slot
+// indices — .x = pad_l, .y = pad_r (chunk_plan / carry sources), .z =
+// pad_d (scatter / carry destination). With self_pad the planner rewrites
+// every per-window tail slot, so a reused ring buffer needs no host
+// pre-padding even though the per-level stride shrinks. The trio is passed
+// explicitly (not derived from one M) because lever B's level-0 sources
+// live in a different buffer than the destinations.
+@group(0) @binding(9) var<uniform>             pad_params:   vec4<u32>;
+{{/self_pad}}
 
 // Workgroup-shared running prefixes for the 3 scans.
 var<workgroup> pair_scan:  array<u32, {{ workgroup_size }}>;
@@ -2534,6 +2706,32 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         local_carry_off += cf;
         local_new_off += nc;
     }
+
+{{#self_pad}}
+    // Self-pad this window's plan tails. Real Phase-C entries occupy the
+    // contiguous prefix [0, total) of the window's chunk / carry region;
+    // pair_scan / carry_scan still hold the Phase-B inclusive totals (no
+    // later phase writes them). The fused / carry kernels read the full
+    // CHUNKS/CARRIES_PER_WINDOW stride, so the leftover suffix is filled
+    // with the pad trio (pad_l, pad_r -> sources; discard -> dest).
+    let pad_l = pad_params.x;
+    let pad_r = pad_params.y;
+    let pad_d = pad_params.z;
+    let total_pairs = pair_scan[TPB - 1u];
+    let total_carries = carry_scan[TPB - 1u];
+    let chunk_slots = chunks_per_window * S;
+    for (var sp: u32 = total_pairs + tid; sp < chunk_slots; sp = sp + TPB) {
+        let flat = window_chunk_base * S + sp;
+        chunk_plan[2u * flat + 0u] = pad_l;
+        chunk_plan[2u * flat + 1u] = pad_r;
+        scatter_plan[flat] = pad_d;
+    }
+    for (var sc: u32 = total_carries + tid; sc < carries_per_window; sc = sc + TPB) {
+        let cflat = window_carry_base + sc;
+        carry_plan[2u * cflat + 0u] = pad_l;
+        carry_plan[2u * cflat + 1u] = pad_d;
+    }
+{{/self_pad}}
 
     {{{ recompile }}}
 }
@@ -7045,7 +7243,35 @@ export const csr_to_v2_active_sums = `// Layout converter for the v2 pair-tree M
 // set the y plane is sourced from new_point_y_neg (the precomputed field
 // negation -y); x is unchanged. Without \`with_sign\` the converter is a
 // plain copy (cuZK's signed-slice path folds the sign into the bucket).
+//
+// Lever B (\`index_mode\`): instead of materializing a 64-byte point per
+// slot, write a 4-byte value — the point index in the low 31 bits, the
+// sign bit in bit 31. active_sums is then a flat u32 array, 16x smaller.
+// The level-0 pair-tree kernels (fused / carry / finalize, l0_index_mode)
+// gather the actual point from the pool and negate y on the sign bit.
+{{#index_mode}}
+@group(0) @binding(0) var<storage, read>       val_idx:     array<u32>;
+@group(0) @binding(1) var<storage, read_write> active_sums: array<u32>;
+// params[0] = total_slots, params[2] = wstride, params[3] = input_size.
+@group(0) @binding(2) var<uniform>             params:      vec4<u32>;
+@group(0) @binding(3) var<storage, read>       signs:       array<u32>;
 
+@compute
+@workgroup_size({{ workgroup_size }})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let slot = gid.x;
+    if (slot >= params[0]) {
+        return;
+    }
+    let pt_idx = val_idx[slot];
+    let window = slot / params[2];
+    let neg = signs[window * params[3] + pt_idx];
+    active_sums[slot] = pt_idx | (neg << 31u);
+
+    {{{ recompile }}}
+}
+{{/index_mode}}
+{{^index_mode}}
 @group(0) @binding(0)
 var<storage, read> val_idx: array<u32>;
 @group(0) @binding(1)
@@ -7107,6 +7333,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     {{{ recompile }}}
 }
+{{/index_mode}}
 `;
 
 export const csr_to_v2_meta = `// Companion to csr_to_v2_active_sums: derives the per-bucket counts and
@@ -7183,9 +7410,14 @@ export const decompose_scalars_booth = `// Carry-free signed-Booth window decomp
 @group(0) @binding(2) var<storage, read_write> signs:   array<u32>;
 @group(0) @binding(3) var<uniform>             params:  vec4<u32>;
 // params.x = input_size   (points per window)
-// params.y = num_windows
+// params.y = num_windows  (windows in this batch)
 // params.z = window_bits  (c)
 // params.w = scalar_words (u32 words per scalar)
+// Lever G (window batching): batch.x = batch_window_base, the global
+// index of this batch's first window. Window bits are sliced from the
+// scalar at the GLOBAL window index (gid.y + batch_window_base); chunks /
+// signs are written at the batch-local index (gid.y). 0 when unbatched.
+@group(0) @binding(4) var<uniform>             batch:   vec4<u32>;
 
 const WORD_BITS: u32 = 32u;
 
@@ -7220,13 +7452,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let c = params.z;
     let scalar_words = params.w;
+    let w_global = w + batch.x;
 
     // c+1-bit window: the window's c bits, with the lookback bit (top bit
     // of the window below; synthetic 0 for window 0) shifted in as the LSB.
-    let win_bits = read_bits(p, scalar_words, w * c, c);
+    let win_bits = read_bits(p, scalar_words, w_global * c, c);
     var lookback: u32 = 0u;
-    if (w > 0u) {
-        lookback = read_bits(p, scalar_words, w * c - 1u, 1u);
+    if (w_global > 0u) {
+        lookback = read_bits(p, scalar_words, w_global * c - 1u, 1u);
     }
     let raw = (win_bits << 1u) | lookback;
 

@@ -35,6 +35,16 @@ export const get_device = async (): Promise<GPUDevice> => {
   if (typeof storageBuffersMax === 'number') {
     requiredLimits['maxStorageBuffersPerShaderStage'] = storageBuffersMax;
   }
+  // Request the adapter MAX for buffer / storage-binding size. WebGPU's
+  // defaults (256 MiB buffer, 128 MiB storage binding) are well below the
+  // multi-hundred-MB working set a large MSM needs; modern GPUs expose
+  // far more. Bounded by the adapter ceiling so this never over-requests.
+  for (const key of ['maxBufferSize', 'maxStorageBufferBindingSize']) {
+    const v = adapterLimits[key];
+    if (typeof v === 'number') {
+      requiredLimits[key] = v;
+    }
+  }
 
   const device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
   const grantedLimits = device.limits as unknown as Record<string, number>;
