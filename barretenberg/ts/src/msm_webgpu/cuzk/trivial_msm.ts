@@ -87,6 +87,14 @@ export class TrivialMsm {
   private foldPasses: number[] = [];
   private prepared = false;
 
+  /**
+   * GPU per-pass durations (ms) from the most recent `run()`. Populated
+   * only when the device supports `timestamp-query` (otherwise `null`).
+   * Keys: `straus_main`, `combine_fold_<tIn>` per pass, `to_affine`, plus
+   * the derived `encoder_all` span emitted by `Profiler.report()`.
+   */
+  lastRunPhaseMs: Record<string, number> | null = null;
+
   static async create(
     device: GPUDevice,
     n: number,
@@ -255,6 +263,7 @@ export class TrivialMsm {
     }
     const device = this.device;
     const encoder = device.createCommandEncoder();
+    const profiler = new gpu.Profiler(device, this.foldPasses.length + 4);
 
     const mainBg = gpu.create_bind_group(device, this.mainCompiled.layout, [
       this.lut.x,
@@ -274,6 +283,7 @@ export class TrivialMsm {
       Math.ceil(T0 / this.wgSize),
       1,
       1,
+      profiler.stage("straus_main"),
     );
 
     let src: Triple = this.partA;
@@ -302,6 +312,7 @@ export class TrivialMsm {
         Math.ceil(tNext / this.wgSize),
         1,
         1,
+        profiler.stage(`combine_fold_${tIn}`),
       );
       const tmp = src;
       src = dst;
@@ -321,12 +332,24 @@ export class TrivialMsm {
       1,
       1,
       1,
+      profiler.stage("to_affine"),
     );
 
+    profiler.resolve(encoder);
     const [xData, yData] = await gpu.read_from_gpu(device, encoder, [
       this.resultXBuf,
       this.resultYBuf,
     ]);
+
+    const report = await profiler.report();
+    if (report !== null) {
+      const phase: Record<string, number> = {};
+      for (const r of report) phase[r.label] = r.ms;
+      this.lastRunPhaseMs = phase;
+    } else {
+      this.lastRunPhaseMs = null;
+    }
+    profiler.destroy();
     const xWords = new Uint32Array(
       xData.buffer,
       xData.byteOffset,

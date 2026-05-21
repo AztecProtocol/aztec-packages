@@ -56,6 +56,7 @@ interface Cell {
   median: number;
   err: string | null;
   verifyOk: boolean | null;
+  phaseMs: Record<string, number> | null;
 }
 interface Row {
   logN: number;
@@ -192,6 +193,7 @@ async function sweepCell(
           median: 0,
           err: `verify mismatch (n=${n}, k=${ntm})`,
           verifyOk,
+          phaseMs: msm.lastRunPhaseMs,
         };
       }
       for (let w = 1; w < WARMUP; w++) await msm.run();
@@ -210,6 +212,7 @@ async function sweepCell(
       median: median(times),
       err: null,
       verifyOk,
+      phaseMs: msm.lastRunPhaseMs,
     };
   } catch (e) {
     return {
@@ -218,6 +221,7 @@ async function sweepCell(
       median: 0,
       err: e instanceof Error ? e.message : String(e),
       verifyOk: null,
+      phaseMs: msm?.lastRunPhaseMs ?? null,
     };
   } finally {
     msm?.destroy();
