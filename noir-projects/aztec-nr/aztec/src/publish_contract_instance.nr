@@ -25,24 +25,29 @@ pub fn publish_contract_instance_for_public_execution(context: &mut PrivateConte
     // ../../yarn-project/node_modules/.bin/aztec-cli codegen
     // target/contract_instance_registry_contract-ContractInstanceRegistry.json --nr -o
     // ./contracts/contract_instance_registry_contract/src/interface
-    let mut serialized_args = [0; 16];
+    //
+    // PublicKeys serializes to 6 fields (npk_m_hash, ivpk_m as a 3-field point with
+    // is_infinite, ovpk_m_hash, tpk_m_hash). Total args: 4 (salt, class_id, init_hash,
+    // immutables_hash) + 6 (public_keys) + 1 (universal_deploy) = 11.
+    let mut serialized_args = [0; 11];
     serialized_args[0] = instance.salt;
     serialized_args[1] = instance.contract_class_id.to_field();
     serialized_args[2] = instance.initialization_hash;
+    serialized_args[3] = instance.immutables_hash;
 
     let serialized_public_keys = instance.public_keys.serialize();
 
-    for i in 0..12 {
-        serialized_args[i + 3] = serialized_public_keys[i];
+    for i in 0..6 {
+        serialized_args[i + 4] = serialized_public_keys[i];
     }
 
-    serialized_args[15] = universal_deploy as Field;
+    serialized_args[10] = universal_deploy as Field;
 
     let _call_result = context.call_private_function(
         CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         comptime {
             FunctionSelector::from_signature(
-                "publish_for_public_execution(Field,(Field),Field,(((Field,Field,bool)),((Field,Field,bool)),((Field,Field,bool)),((Field,Field,bool))),bool)",
+                "publish_for_public_execution(Field,(Field),Field,Field,(Field,((Field,Field,bool)),Field,Field),bool)",
             )
         },
         serialized_args,
