@@ -406,31 +406,68 @@ function readSrsPointAt(buf: Uint8Array, i: number): { x: bigint; y: bigint } {
   return { x, y };
 }
 
+// Generate `n` randomly independent affine BN254 G1 points packed in the
+// interleaved [x_0|y_0|x_1|y_1|…] non-Montgomery LE-32 layout the GPU
+// pipeline expects (same as readSrsPointAt). Each point is [k_i]G for an
+// independent random scalar k_i, so the points carry no exploitable
+// algebraic relation and the batch-affine pair-tree never hits a
+// degenerate (equal-x / identity) inverse. The structured SRS prefix
+// ([τ^i]G) is distinct but NOT randomly independent — the MSM port needs
+// the latter.
+function generateRandomPointsBuf(n: number): Uint8Array {
+  const buf = new Uint8Array(n * 64);
+  const G = bn254.G1.ProjectivePoint.BASE;
+  for (let i = 0; i < n; i++) {
+    let k = randomFr();
+    if (k === 0n) k = 1n;
+    const p = G.multiply(k).toAffine();
+    let x = p.x;
+    let y = p.y;
+    for (let b = 0; b < 32; b++) {
+      buf[i * 64 + b] = Number(x & 0xffn);
+      x >>= 8n;
+    }
+    for (let b = 0; b < 32; b++) {
+      buf[i * 64 + 32 + b] = Number(y & 0xffn);
+      y >>= 8n;
+    }
+  }
+  return buf;
+}
+
 // Takes log₂(n), not n. This was a footgun in the previous shape that
 // took `n` directly — callers always have a `logN` variable in scope and
 // it's easy to forget the `1 << logN` conversion, producing a tiny
 // logN-point MSM instead of a 2^logN-point one.
-async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<TestInputs> {
-  if (srsBuf === null) {
+//
+// `randomPoints` selects the point source: random independent [k_i]G
+// points (what the algorithm requires) vs the structured SRS prefix.
+async function generateInputs(logN: number, mirrorForNoble: boolean, randomPoints = false): Promise<TestInputs> {
+  if (!randomPoints && srsBuf === null) {
     throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');
   }
   if (logN < LOGN_MIN || logN > LOGN_MAX) {
     throw new Error(`[gen] logN=${logN} outside the supported [${LOGN_MIN}, ${LOGN_MAX}] range`);
   }
   const n = 1 << logN;
-  if (n * 64 > srsBuf.length) {
-    throw new Error(`[gen] requested ${n} points but SRS only has ${srsBuf.length / 64}; bump LOGN_MAX`);
-  }
 
-  log('info', `[gen] preparing ${n} SRS points + ${n} random scalars…`);
   const t0 = performance.now();
-
-  const pointsBuf = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, n * 64);
+  let pointsBuf: Uint8Array;
+  if (randomPoints) {
+    log('info', `[gen] generating ${n} random independent G1 points + ${n} random scalars…`);
+    pointsBuf = generateRandomPointsBuf(n);
+  } else {
+    if (n * 64 > srsBuf!.length) {
+      throw new Error(`[gen] requested ${n} points but SRS only has ${srsBuf!.length / 64}; bump LOGN_MAX`);
+    }
+    log('info', `[gen] preparing ${n} SRS points + ${n} random scalars…`);
+    pointsBuf = new Uint8Array(srsBuf!.buffer, srsBuf!.byteOffset, n * 64);
+  }
 
   const points = mirrorForNoble ? new Array<{ x: bigint; y: bigint }>(n) : null;
   const scalars = mirrorForNoble ? new Array<bigint>(n) : null;
   if (mirrorForNoble) {
-    for (let i = 0; i < n; i++) points![i] = readSrsPointAt(srsBuf, i);
+    for (let i = 0; i < n; i++) points![i] = readSrsPointAt(pointsBuf, i);
   }
 
   const scalarBytes = new Uint8Array(n * 32);
@@ -1406,30 +1443,36 @@ function hideProgress(): void {
  */
 async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof makeResultsClient>): Promise<void> {
   const logN = clampLogN(parseInt(qp.get('logn') ?? String(LOGN_MIN), 10));
+  // Random independent points are the default — they're what the MSM port
+  // requires. `?points=srs` opts into the structured SRS prefix instead.
+  const useRandomPoints = (qp.get('points') ?? 'random') !== 'srs';
+  const pointSource = useRandomPoints ? 'random' : 'srs';
   // Emit one progress row up front so the harness can detect this run's
   // id and arm its stall watchdog before the (single) MSM dispatches.
-  client.postProgress({ phase: 'start', logN, hasWebGpu: 'gpu' in navigator });
-  log('info', `[autorun] msm-webgpu logN=${logN} (n=${(1 << logN).toLocaleString()})`);
+  client.postProgress({ phase: 'start', logN, points: pointSource, hasWebGpu: 'gpu' in navigator });
+  log('info', `[autorun] msm-webgpu logN=${logN} points=${pointSource} (n=${(1 << logN).toLocaleString()})`);
   const t0 = performance.now();
   try {
     if (!('gpu' in navigator)) {
       throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
     }
-    // The boot block kicks off the SRS load; wait for it to land.
-    for (let i = 0; i < 1200 && srsBuf === null; i++) {
-      await new Promise(r => setTimeout(r, 500));
+    if (!useRandomPoints) {
+      // The boot block kicks off the SRS load; wait for it to land.
+      for (let i = 0; i < 1200 && srsBuf === null; i++) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) {
+        throw new Error('SRS not loaded within 10 minutes');
+      }
     }
-    if (srsBuf === null) {
-      throw new Error('SRS not loaded within 10 minutes');
-    }
-    const inputs = await generateInputs(logN, false);
-    client.postProgress({ phase: 'inputs_ready', n: inputs.n });
+    const inputs = await generateInputs(logN, false, useRandomPoints);
+    client.postProgress({ phase: 'inputs_ready', n: inputs.n, points: pointSource });
     const gpu = await runWebGpuOnce(inputs);
     const totalMs = performance.now() - t0;
     log('ok', `[autorun] msm-webgpu PASS in ${gpu.ms.toFixed(1)} ms (x=0x${gpu.xy.x.toString(16).slice(0, 16)}…)`);
     await client.postResults({
       state: 'done',
-      params: { logN, n: inputs.n, page: 'msm-webgpu-only' },
+      params: { logN, n: inputs.n, points: pointSource, page: 'msm-webgpu-only' },
       results: {
         gpu_ms: gpu.ms,
         total_ms: totalMs,
@@ -1446,7 +1489,7 @@ async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof m
     client.postProgress({ phase: 'error' });
     await client.postResults({
       state: 'error',
-      params: { logN, page: 'msm-webgpu-only' },
+      params: { logN, points: pointSource, page: 'msm-webgpu-only' },
       results: null,
       error: msg,
       hasWebGpu: 'gpu' in navigator,
@@ -1469,6 +1512,9 @@ async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof m
   // point decompress) that the interactive page loads up front.
   const bootSrsPoints =
     autorun === 'msm-webgpu' ? 1 << clampLogN(parseInt(qp.get('logn') ?? String(LOGN_MIN), 10)) : SRS_NUM_POINTS;
+  // The WebGPU autorun defaults to random points, which need no SRS at all
+  // — skip the CRS fetch entirely in that mode.
+  const skipSrsLoad = autorun === 'msm-webgpu' && (qp.get('points') ?? 'random') !== 'srs';
   // Fire a beacon as soon as module evaluation reaches the boot block —
   // before the SRS load — so a headless harness can tell "page never
   // executed" (no row) from "stuck loading SRS / running" (boot row, no
@@ -1477,21 +1523,25 @@ async function runWebGpuAutorun(qp: URLSearchParams, client: ReturnType<typeof m
   webgpuClient?.postProgress({ phase: 'boot', hasWebGpu: 'gpu' in navigator, userAgent: navigator.userAgent });
   setBusy(true, 'loading SRS…');
   try {
-    srsBuf = await loadSrsPoints(bootSrsPoints, event => {
-      if (event.kind === 'info') {
-        log('info', event.msg);
-      } else if (event.kind === 'phase') {
-        renderProgress(event);
-      } else if (event.kind === 'done') {
-        hideProgress();
-      }
-    });
-    log('ok', `SRS loaded: ${bootSrsPoints.toLocaleString()} points available.`);
-    log(
-      'info',
-      `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
-        `${readMtThreads()} pthread workers. Stop tears them down.`,
-    );
+    if (skipSrsLoad) {
+      log('info', '[autorun] random-points mode — skipping SRS load');
+    } else {
+      srsBuf = await loadSrsPoints(bootSrsPoints, event => {
+        if (event.kind === 'info') {
+          log('info', event.msg);
+        } else if (event.kind === 'phase') {
+          renderProgress(event);
+        } else if (event.kind === 'done') {
+          hideProgress();
+        }
+      });
+      log('ok', `SRS loaded: ${bootSrsPoints.toLocaleString()} points available.`);
+      log(
+        'info',
+        `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
+          `${readMtThreads()} pthread workers. Stop tears them down.`,
+      );
+    }
   } catch (err) {
     log('err', `[boot] ${err instanceof Error ? err.message : String(err)}`);
     if (err instanceof Error && err.stack) log('err', err.stack);
