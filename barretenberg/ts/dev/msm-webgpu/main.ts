@@ -1,5 +1,5 @@
 // In-browser MSM comparison harness for the BN254 WebGPU port.
-//   Compares, for sizes 2^16..2^20 over a real prefix of the public SRS:
+//   Compares, for sizes 2^10..2^20 over a real prefix of the public SRS:
 //     - WebGPU MSM via the v2 pair-tree pipeline (`MsmV2`, msm_v2.ts —
 //       the memory-bounded carry-free-Booth / pair-tree / fused-reduction
 //       port; runs on the warm path with a persistent GPUDevice, an MsmV2
@@ -51,13 +51,13 @@ const $hwThreads = document.getElementById('hw-threads') as HTMLSpanElement;
 const $noble = document.getElementById('noble') as HTMLInputElement;
 const $results = document.getElementById('results') as HTMLDivElement;
 
-// See pippenger_wasm.ts header for why the WebGPU floor (2^16) is also
-// the floor here.
-const LOGN_MIN = 16;
+// The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
+// overtakes the WASM Pippenger; the v2 pipeline has no size floor.
+const LOGN_MIN = 10;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
 
-const SWEEP_LOGN: number[] = [16, 17, 18, 19, 20];
+const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
 const SWEEP_REPS = 5;
 
@@ -403,8 +403,8 @@ function readSrsPointAt(buf: Uint8Array, i: number): { x: bigint; y: bigint } {
 
 // Takes log₂(n), not n. This was a footgun in the previous shape that
 // took `n` directly — callers always have a `logN` variable in scope and
-// it's easy to forget the `1 << logN` conversion, leading to comically
-// small MSMs that crash the WebGPU pipeline (it requires n ≥ 2^16).
+// it's easy to forget the `1 << logN` conversion, producing a tiny
+// logN-point MSM instead of a 2^logN-point one.
 async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<TestInputs> {
   if (srsBuf === null) {
     throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');

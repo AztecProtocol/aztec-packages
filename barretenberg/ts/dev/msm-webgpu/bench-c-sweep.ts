@@ -39,7 +39,9 @@ const REPS = intParam('reps', 15);
 const WARMUP = intParam('warmup', 3);
 
 // MsmV2.pickC's current table (logN -> c); sizes outside it fall back to 13.
-const CURRENT_PICKC: Record<number, number> = { 16: 13, 17: 14, 18: 14, 19: 15, 20: 16 };
+const CURRENT_PICKC: Record<number, number> = {
+  10: 8, 11: 8, 12: 8, 13: 8, 14: 8, 15: 10, 16: 13, 17: 13, 18: 15, 19: 15, 20: 15,
+};
 const currentPickC = (logN: number): number => CURRENT_PICKC[logN] ?? 13;
 
 interface Cell {

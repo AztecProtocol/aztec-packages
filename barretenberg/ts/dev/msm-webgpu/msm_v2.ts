@@ -255,10 +255,12 @@ async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number
   return out;
 }
 
-// Window bits per n — the memory/perf sweet spot per problem size.
+// Window bits per n — fastest c per size, measured by bench-c-sweep.
 function pickC(n: number): number {
   const logN = Math.round(Math.log2(n));
-  const table: Record<number, number> = { 16: 13, 17: 14, 18: 14, 19: 15, 20: 16 };
+  const table: Record<number, number> = {
+    10: 8, 11: 8, 12: 8, 13: 8, 14: 8, 15: 10, 16: 13, 17: 13, 18: 15, 19: 15, 20: 15,
+  };
   return table[logN] ?? 13;
 }
 
