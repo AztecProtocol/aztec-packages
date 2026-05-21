@@ -154,7 +154,7 @@ node:
     invalidBlockPenalty: ""
     invalidCheckpointProposalPenalty: ""
     proposeInvalidAttestationsPenalty: ""
-    proposeDescendantOfInvalidPenalty: ""
+    proposeDescendantOfCheckpointWithInvalidAttestationsPenalty: ""
     attestInvalidCheckpointProposalPenalty: ""
     unknownPenalty: ""
     # Slasher behavior configuration

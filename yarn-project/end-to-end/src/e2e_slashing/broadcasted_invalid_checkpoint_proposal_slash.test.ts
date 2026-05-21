@@ -236,7 +236,7 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
         slashDuplicateProposalPenalty: 0n,
         slashDuplicateAttestationPenalty: 0n,
         slashProposeInvalidAttestationsPenalty: 0n,
-        slashProposeDescendantOfInvalidPenalty: 0n,
+        slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
         slashAttestInvalidCheckpointProposalPenalty: 0n,
         slashUnknownPenalty: 0n,
         slashSelfAllowed: true,

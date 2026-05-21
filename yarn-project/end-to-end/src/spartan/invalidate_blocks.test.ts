@@ -43,7 +43,7 @@ describe('invalidate blocks test', () => {
   let node: AztecNode;
   let origMinTxsPerBlock: number | undefined;
   let origSlashProposeInvalidAttestationsPenalty: bigint | undefined;
-  let origSlashProposeDescendantOfInvalidPenalty: bigint | undefined;
+  let origSlashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: bigint | undefined;
   const health = new ChainHealth(config.NAMESPACE, logger);
 
   const waitForSequencersToApplyConfig = async (expected: Partial<AztecNodeAdminConfig>, description: string) => {
@@ -78,7 +78,8 @@ describe('invalidate blocks test', () => {
       skipCollectingAttestations: false,
       minTxsPerBlock: origMinTxsPerBlock,
       slashProposeInvalidAttestationsPenalty: origSlashProposeInvalidAttestationsPenalty,
-      slashProposeDescendantOfInvalidPenalty: origSlashProposeDescendantOfInvalidPenalty,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty:
+        origSlashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
     };
     await updateSequencersConfig(config, restoreConfig);
     // Ensure config has actually propagated before the next scenario test starts
@@ -107,7 +108,8 @@ describe('invalidate blocks test', () => {
     const first = configs?.[0];
     origMinTxsPerBlock = first?.minTxsPerBlock ?? origMinTxsPerBlock;
     origSlashProposeInvalidAttestationsPenalty = first?.slashProposeInvalidAttestationsPenalty;
-    origSlashProposeDescendantOfInvalidPenalty = first?.slashProposeDescendantOfInvalidPenalty;
+    origSlashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty =
+      first?.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty;
 
     const initialCheckpointNumber = (await monitor.run()).checkpointNumber;
 
@@ -116,7 +118,7 @@ describe('invalidate blocks test', () => {
     await updateSequencersConfig(config, {
       skipCollectingAttestations: true,
       slashProposeInvalidAttestationsPenalty: 0n,
-      slashProposeDescendantOfInvalidPenalty: 0n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
       minTxsPerBlock: 0,
     });
 

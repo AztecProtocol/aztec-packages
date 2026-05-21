@@ -110,7 +110,7 @@ List of all slashable offenses in the system:
 **Target**: Block proposer.
 **Time Unit**: Slot-based offense.
 
-### PROPOSED_DESCENDANT_OF_INVALID
+### PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS
 **Description**: A proposer published a checkpoint to L1 that builds on an invalid checkpoint (one with invalid or insufficient attestations).
 **Detection**: AttestationsBlockWatcher tracks invalid checkpoints and their descendants.
 **Target**: Proposer of the descendant checkpoint.
@@ -174,7 +174,7 @@ with divergent validation limits.
 - `slashBroadcastedInvalidCheckpointProposalPenalty`: Penalty for BROADCASTED_INVALID_CHECKPOINT_PROPOSAL
 - `slashDuplicateProposalPenalty`: Penalty for DUPLICATE_PROPOSAL
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
-- `slashProposeDescendantOfInvalidPenalty`: Penalty for PROPOSED_DESCENDANT_OF_INVALID
+- `slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty`: Penalty for PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS
 - `slashAttestInvalidCheckpointProposalPenalty`: Penalty for ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL
 - `slashUnknownPenalty`: Default penalty for unknown offense types
 - `slashMaxPayloadSize`: Limits the number of **unique validators** (across all committees and epochs in a round) that receive non-zero votes. When this cap is hit, the lowest-severity validator-epoch pairs are zeroed out first, so the most severe slashes are always preserved. Note that multiple offenses for the same validator in the same epoch are summed and counted as a single validator entry against this limit.

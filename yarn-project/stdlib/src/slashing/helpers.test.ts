@@ -197,7 +197,7 @@ describe('SlashingHelpers', () => {
   describe('getPenaltyForOffense', () => {
     it('returns the configured penalty for attesting to invalid checkpoint proposal', () => {
       const penalty = getPenaltyForOffense(OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, {
-        slashProposeDescendantOfInvalidPenalty: 1n,
+        slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 1n,
         slashBroadcastedInvalidBlockPenalty: 2n,
         slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
         slashDuplicateProposalPenalty: 3n,
@@ -214,7 +214,7 @@ describe('SlashingHelpers', () => {
 
     it('returns the configured penalty for broadcasting invalid checkpoint proposal', () => {
       const penalty = getPenaltyForOffense(OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL, {
-        slashProposeDescendantOfInvalidPenalty: 1n,
+        slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 1n,
         slashBroadcastedInvalidBlockPenalty: 2n,
         slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
         slashDuplicateProposalPenalty: 3n,
