@@ -1069,6 +1069,12 @@ export class MsmV2 {
     void device.lost.then(info => {
       lostReason = `${info.reason}: ${info.message}`;
     });
+    // A 4-byte canary mapped after every stage: a readback is a hard sync
+    // point, so an asynchronous device-loss surfaces here at (or one stage
+    // after) the kernel that triggered it, rather than only via the global
+    // `device.lost` promise long after all submits "completed".
+    const canary = device.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+    const canaryStaging = device.createBuffer({ size: 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
     const disp = (enc: GPUCommandEncoder, pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1) => {
       const pass = enc.beginComputePass();
       pass.setPipeline(pipe);
@@ -1087,6 +1093,12 @@ export class MsmV2 {
       device.queue.submit([enc.finish()]);
       try {
         await device.queue.onSubmittedWorkDone();
+        const probe = device.createCommandEncoder();
+        probe.copyBufferToBuffer(canary, 0, canaryStaging, 0, 4);
+        device.queue.submit([probe.finish()]);
+        await device.queue.onSubmittedWorkDone();
+        await canaryStaging.mapAsync(GPUMapMode.READ);
+        canaryStaging.unmap();
         stages.push({ name, ok: true, ms: performance.now() - t0 });
       } catch (e) {
         dead = true;

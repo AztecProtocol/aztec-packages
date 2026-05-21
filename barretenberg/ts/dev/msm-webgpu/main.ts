@@ -132,6 +132,32 @@ function clampLogN(raw: number): number {
   return Math.max(LOGN_MIN, Math.min(LOGN_MAX, raw));
 }
 
+// BrowserStack real-mobile workers silently truncate the URL query string
+// after the first `&`, so multi-param URLs lose every param but the first
+// (e.g. a headless run drops `&scalar_seed=1` and falls back to crypto RNG —
+// different inputs than the desktop worker). Pass everything in a single
+// `?cfg=<base64(JSON)>` param: it survives truncation, and we expand it into
+// the effective parameter set read everywhere below.
+let _effectiveParams: URLSearchParams | null = null;
+function effectiveParams(): URLSearchParams {
+  if (_effectiveParams) return _effectiveParams;
+  const raw = new URLSearchParams(window.location.search);
+  const cfg = raw.get('cfg');
+  if (cfg) {
+    try {
+      const obj = JSON.parse(atob(cfg)) as Record<string, unknown>;
+      const merged = new URLSearchParams();
+      for (const [k, v] of Object.entries(obj)) merged.set(k, String(v));
+      _effectiveParams = merged;
+      return merged;
+    } catch {
+      // fall through to the raw query params
+    }
+  }
+  _effectiveParams = raw;
+  return raw;
+}
+
 function readMtThreads(): number {
   const raw = parseInt($mtThreads.value, 10);
   if (!Number.isFinite(raw)) return MT_THREADS_DEFAULT;
@@ -357,7 +383,7 @@ const FR_ORDER = bn254.fields.Fr.ORDER;
 let scalarPrngState: number | null = null;
 function maybeInitScalarPrng(): void {
   if (scalarPrngState !== null) return;
-  const s = new URLSearchParams(window.location.search).get('scalar_seed');
+  const s = effectiveParams().get('scalar_seed');
   if (s === null) return;
   scalarPrngState = parseInt(s, 10) >>> 0 || 1;
   log('info', `[gen] using deterministic scalar PRNG with seed=${scalarPrngState}`);
@@ -1613,7 +1639,7 @@ async function runMsmDiagAutorun(qp: URLSearchParams, client: ReturnType<typeof 
 // fetch is just a download + JS-side decompression (no native workers),
 // so it's safe to run unconditionally at page load.
 (async () => {
-  const qp = new URLSearchParams(window.location.search);
+  const qp = effectiveParams();
   const autorun = qp.get('autorun');
   // Both WebGPU autoruns (single-MSM and the per-stage diagnostic) run the
   // GPU MSM headlessly and share the same SRS / beacon handling.
