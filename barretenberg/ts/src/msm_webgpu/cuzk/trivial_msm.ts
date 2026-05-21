@@ -180,7 +180,7 @@ export class TrivialMsm {
       bigints_to_u8_for_gpu(ys, m.numWords, m.wordSize),
     );
 
-    const lutByteLen = n * 16 * m.numWords * 4;
+    const lutByteLen = n * 512 * m.numWords * 4;
     m.lut = {
       x: gpu.create_sb(device, lutByteLen),
       y: gpu.create_sb(device, lutByteLen),
@@ -262,7 +262,7 @@ export class TrivialMsm {
       encoder,
       m.lookupCompiled.pipeline,
       precomputeBg,
-      Math.ceil(n / m.wgSize),
+      Math.ceil((n * 16) / m.wgSize),
       1,
       1,
     );

@@ -1,17 +1,10 @@
 import { TrivialMsm } from "./trivial_msm.js";
 
 /**
- * Per-`logN` `NUM_THREAD_MULS` (= `k`) recommendation derived from the
- * P8 BrowserStack M2 confirmation sweep (Apple M2 base, macOS Sequoia,
- * Chrome 148, `hardwareConcurrency=8`; reps=5, warmup=2).
- *
- * Best-`k` was `1` across every logN in `[4, 11]` and `2` at logN=12,
- * with cell time growing monotonically with `k` over the sweep — i.e.
- * the per-thread doubling cost the plan expected to amortise away
- * didn't, because the lookup_precompute + straus_main + log2(T)
- * combine_fold + to_affine dispatch chain has a ~17 ms fixed encoder
- * tail on M2 that dominates at every swept size. Sizes outside the
- * sweep fall back to `PICK_NTM_DEFAULT`.
+ * Per-`logN` `NUM_THREAD_MULS` (= `k`) recommendation from the
+ * windowed-LUT M2 BrowserStack sweep (Apple M2 base, macOS Sequoia,
+ * Chrome 148, `hardwareConcurrency=8`; reps=10, warmup=3, verify=1).
+ * `k=1` wins at every logN ∈ [4, 9].
  */
 const PICK_NTM_TABLE: Readonly<Record<number, number>> = {
   4: 1,
@@ -20,24 +13,27 @@ const PICK_NTM_TABLE: Readonly<Record<number, number>> = {
   7: 1,
   8: 1,
   9: 1,
-  10: 1,
-  11: 1,
-  12: 2,
 };
 const PICK_NTM_DEFAULT = 1;
 
 /**
- * Largest `n` where the TrivialMsm small-MSM path is faster than MsmV2.
+ * Largest `n` where the TrivialMsm small-MSM path beats MsmV2.
  *
- * The P8 M2 sweep found NO logN in `[4, 12]` where TrivialMsm beats the
- * production MsmV2 Pippenger pipeline — TrivialMsm's median is 0.34x-0.74x
- * MsmV2's at every cell (MsmV2 wins everywhere, ratio worsens as N grows).
- * Setting the crossover to `0` makes `compute_bn254_msm_auto` always route
- * to MsmV2 by default; the M2 sweep result lives in PR #23475's gist for
- * future reference. Raise this constant once an optimisation lands that
- * actually moves the crossover into TrivialMsm's favour at some N.
+ * Same-sweep M2 result with the windowed-LUT kernel:
+ *
+ *   logN | TrivialMsm | MsmV2 | speedup
+ *   ---:|---:|---:|---:
+ *   4   |  9.85 | 10.80 | 1.10×
+ *   7   | 11.60 | 13.35 | 1.15×
+ *   8   | 11.90 | 14.20 | 1.19×
+ *   9   | 12.95 | 15.25 | 1.18×
+ *   10  | 15.20 | 12.30 | 0.81×  ← MsmV2 reclaims here
+ *
+ * The kernel bakes the `2^(4w)` window shift directly into the LUT, so
+ * `straus_main` has zero inter-window doublings — closing the 124-doubling
+ * serial chain that bottlenecked the earlier design.
  */
-export const PICK_NTM_CROSSOVER_N = 0;
+export const PICK_NTM_CROSSOVER_N = 1 << 9;
 
 /**
  * Choose the per-thread chunk size `k` (NUM_THREAD_MULS) for a given

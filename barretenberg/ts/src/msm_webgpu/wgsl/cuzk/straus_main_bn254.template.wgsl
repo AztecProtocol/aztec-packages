@@ -72,8 +72,8 @@ fn booth_packed_digit(lims: ptr<function, array<u32, 4>>, w: u32) -> u32 {
     return (neg << 31u) | magnitude;
 }
 
-fn read_lut(i: u32, k: u32, h: u32) -> Point {
-    let off: u32 = i * 16u + h * 8u + k;
+fn read_lut(i: u32, k: u32, h: u32, w: u32) -> Point {
+    let off: u32 = i * 512u + w * 16u + h * 8u + k;
     var p: Point;
     p.x = lut_x[off];
     p.y = lut_y[off];
@@ -114,8 +114,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     acc.y = zero_bi;
     acc.z = zero_bi;
 
-    for (var w_p1: u32 = 32u; w_p1 > 0u; w_p1 = w_p1 - 1u) {
-        let w: u32 = w_p1 - 1u;
+    for (var w: u32 = 0u; w < 32u; w = w + 1u) {
         for (var h: u32 = 0u; h < 2u; h = h + 1u) {
             for (var ii: u32 = start; ii < end; ii = ii + 1u) {
                 var s_lims: array<u32, 4> = load_half_limbs(h, ii);
@@ -125,14 +124,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     continue;
                 }
                 let sign: u32 = digit >> 31u;
-                var to_add: Point = read_lut(ii, magnitude - 1u, h);
+                var to_add: Point = read_lut(ii, magnitude - 1u, h, w);
                 to_add.y = fr_cond_neg(to_add.y, sign ^ h);
                 acc = add_points_no_collision(acc, to_add);
-            }
-        }
-        if (w != 0u) {
-            for (var d: u32 = 0u; d < 4u; d = d + 1u) {
-                acc = double_point(acc);
             }
         }
     }

@@ -19,7 +19,7 @@ describe("StrausKernels: lookup-precompute renderer", () => {
     const sm = makeSm();
     for (const n of [1, 64, 256, 4096]) {
       const src = StrausKernels.renderLookupPrecompute(sm, n, 64);
-      expect(src).toMatch(new RegExp(`const N: u32 = ${n}u;`));
+      expect(src).toMatch(new RegExp(`const N:\\s+u32 = ${n}u;`));
     }
   });
 
@@ -56,11 +56,12 @@ describe("StrausKernels: lookup-precompute renderer", () => {
     expect(src).toMatch(/@binding\(4\) var<storage, read_write> lut_z:\s+array<BigInt>/);
   });
 
-  it("builds 8 lookup entries per point (the LOOKUP_SIZE loop bound)", () => {
+  it("builds 8 lookup entries per (i, h, w) (LOOKUP_SIZE)", () => {
     const sm = makeSm();
     const src = StrausKernels.renderLookupPrecompute(sm, 64, 64);
-    expect(src).toMatch(/const LOOKUP_SIZE: u32 = 8u;/);
-    expect(src).toMatch(/kk < LOOKUP_SIZE/);
+    expect(src).toMatch(/const LOOKUP_SIZE:\s+u32 = 8u;/);
+    expect(src).toMatch(/const NUM_WINDOWS:\s+u32 = 32u;/);
+    expect(src).toMatch(/const STRIDE:\s+u32 = NUM_WINDOWS \* ENTRIES_PER_POINT;/);
   });
 });
 
@@ -85,8 +86,9 @@ describe("StrausKernels: straus_main renderer", () => {
       expect(src).toContain(
         "for (var ii: u32 = start; ii < end; ii = ii + 1u)",
       );
-      const accAddOccurrences = (src.match(/acc = add_points\(acc, to_add\)/g) ?? []).length;
-      expect(accAddOccurrences).toBe(1);
+      const noColAddOccurrences =
+        (src.match(/acc = add_points_no_collision\(acc, to_add\)/g) ?? []).length;
+      expect(noColAddOccurrences).toBe(1);
     }
   });
 
@@ -103,11 +105,11 @@ describe("StrausKernels: straus_main renderer", () => {
     expect(src).toMatch(/@binding\(7\) var<storage, read_write> part_z:\s+array<BigInt>/);
   });
 
-  it("walks 32 windows from high to low (the w_p1 driver)", () => {
+  it("walks 32 windows low to high with no between-window doublings", () => {
     const sm = makeSm();
     const src = StrausKernels.renderStrausMain(sm, 256, 4, 64);
-    expect(src).toMatch(/for \(var w_p1: u32 = 32u;\s*w_p1 > 0u/);
-    expect(src).toMatch(/for \(var d: u32 = 0u;\s*d < 4u/);
+    expect(src).toMatch(/for \(var w: u32 = 0u;\s*w < 32u/);
+    expect(src).not.toContain("double_point(acc)");
   });
 
   it("lookup_precompute emits the 20-limb β-Mont initializer", () => {
