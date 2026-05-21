@@ -308,6 +308,34 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
       "aztec_public_processor_tx_duration_milliseconds_bucket",
     ),
   },
+  // Headline inclusion latency: time from pool-add to first inclusion in a
+  // block, sliced by quantile. The same histogram is also captured as a
+  // one-shot end-of-window scalar in summary.inclusionLatencyP{50,95,99}Ms;
+  // the time series here lets the dashboard plot drift over the run.
+  txMinedDelayP50: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.5,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
+  txMinedDelayP95: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.95,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
+  txMinedDelayP99: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.99,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
   publicProcessorTxDurationP95: {
     metric: "aztec_public_processor_tx_duration_milliseconds",
     unit: "ms",
