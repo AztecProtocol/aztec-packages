@@ -31,11 +31,24 @@ namespace { // anonymous namespace
  * @param output_path Directory to write the VK (or "-" for stdout)
  * @param flags API flags including output_format and use_zk_flavor (selects MegaZKFlavor vs MegaFlavor)
  */
+CircuitKind parse_circuit_kind(const std::string& s)
+{
+    if (s == "app") {
+        return CircuitKind::App;
+    }
+    if (s == "kernel") {
+        return CircuitKind::Kernel;
+    }
+    if (s == "hiding") {
+        return CircuitKind::HidingKernel;
+    }
+    throw_or_abort("write_chonk_vk: --circuit_kind must be one of 'app' / 'kernel' / 'hiding' (got '" + s + "')");
+    __builtin_unreachable();
+}
+
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    // CLI flag `--use_zk_flavor` only ever requests the hiding-kernel VK in current usage; the
-    // false branch keeps a path for callers that just want a plain MegaApp-shape VK.
-    const CircuitKind kind = flags.use_zk_flavor ? CircuitKind::HidingKernel : CircuitKind::App;
+    const CircuitKind kind = parse_circuit_kind(flags.circuit_kind);
     auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .kind = kind }.execute();
 
     const bool is_stdout = output_path == "-";
@@ -103,7 +116,7 @@ void ChonkAPI::prove(const Flags& flags,
         vinfo("writing Chonk vk in directory ", output_dir);
         // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
         Flags hiding_flags = flags;
-        hiding_flags.use_zk_flavor = true;
+        hiding_flags.circuit_kind = "hiding";
         write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, hiding_flags);
     }
 }
