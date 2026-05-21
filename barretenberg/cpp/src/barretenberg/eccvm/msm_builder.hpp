@@ -355,6 +355,7 @@ class ECCVMMSMMBuilder {
                     row.q_add = false;
                     row.q_double = true;
                     row.q_skew = false;
+                    row.pc = pc; // required by MSM_PC_CONTINUITY in ecc_msm_relation
                     for (size_t point_idx = 0; point_idx < ADDITIONS_PER_ROW; ++point_idx) {
                         auto& add_state = row.add_state[point_idx];
                         add_state.add = false;

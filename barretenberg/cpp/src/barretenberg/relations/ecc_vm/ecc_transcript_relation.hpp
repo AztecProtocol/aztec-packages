@@ -99,13 +99,16 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         INFINITY_ACC_X = 29,
         // Infinity flag consistency: acc_y = 0 when accumulator empty
         INFINITY_ACC_Y = 30,
-        // Boundary: accumulator_not_empty must be 0 at lagrange_first row
-        ACCUMULATOR_NOT_EMPTY_INIT = 31,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 32> SUBRELATION_PARTIAL_LENGTHS{
-        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+    // The previous ACCUMULATOR_NOT_EMPTY_INIT subrelation (`lagrange_first
+    // · transcript_accumulator_not_empty = 0`) was moved to ECCVMShiftableInitRelation as
+    // part of centralizing all `lagrange_first · col = 0` pins. The `is_accumulator_empty ·
+    // transcript_accumulator_{x,y} = 0` cascade in this relation continues to depend on
+    // that pin firing — DO NOT remove it without revisiting.
+    static constexpr std::array<size_t, 31> SUBRELATION_PARTIAL_LENGTHS{
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 

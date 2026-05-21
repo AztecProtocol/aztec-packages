@@ -619,6 +619,20 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<MSM_TRANSITION_PC>(accumulator) +=
         is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
 
+    // Pin `msm_pc` constant within an MSM segment. On every ADD or DOUBLE row that is not the last
+    // row of its segment, `pc_shift = pc`. Without this, the multiset arguments alone do not force
+    // per-row consistency of `msm_pc` — a swap of `(msm_pc, slice, x, y, lambda, collision_x)`
+    // between two same-base MSMs at the same interior round still balances both the WNAF and
+    // lookup multisets, but produces swapped final accumulators. The constraint fires at the row
+    // immediately preceding any ADD or SKEW swap (always a DOUBLE for an interior swap, or the
+    // round-31 ADD for a SKEW swap), so q_skew is intentionally excluded from `active_phase` —
+    // including it would also fire at the last skew row of the entire MSM trace, which is followed
+    // by trailing idle rows where msm_transition_shift = 0. Requires `msm_pc` to be populated on
+    // DOUBLE rows (see `msm_builder.hpp`).
+    const auto active_phase = q_add + q_double;
+    std::get<MSM_PC_CONTINUITY>(accumulator) +=
+        is_not_first_row * active_phase * (-msm_transition_shift + 1) * (pc_shift - pc) * scaling_factor;
+
     // Addition continuity checks
     // We want to RULE OUT the following scenarios:
     // Case 1: add2 = 1, add1 = 0

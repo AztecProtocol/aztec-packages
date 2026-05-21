@@ -385,22 +385,23 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
 /**
  * @brief Test that z_perm must be zero at the lagrange_first row.
  *
- * @details The set relation grand product relies on z_perm[0] = 0 so that (z_perm + lagrange_first)
- * evaluates to 1 at the first row. Sub-relation Z_PERM_INIT (lagrange_first * z_perm = 0) enforces this.
+ * @details The set relation grand product relies on z_perm[lagrange_first row] = 0 so that
+ * (z_perm + lagrange_first) evaluates to 1 at the first row. Sub-relation Z_PERM_INIT
+ * (lagrange_first * z_perm = 0) — housed in ECCVMShiftableInitRelation — enforces this.
  *
  * We cross-check the lagrange_first position two ways:
  *   1. Structurally: z_perm.start_index() - 1 (the zero row before the shiftable region)
  *   2. By scanning the lagrange_first polynomial for its non-zero entry
  */
-TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
+TEST_F(ECCVMRelationCorruptionTests, ShiftableInitFailsOnZPermNonZeroAtFirstRow)
 {
     auto polynomials = build_valid_eccvm_msm_state();
     auto params = compute_full_relation_params(polynomials);
 
-    // Baseline: set relation passes (skip disabled head rows where masking values break relations)
-    auto baseline = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, params, "ECCVMSetRelation", Flavor::TRACE_OFFSET);
-    EXPECT_TRUE(baseline.empty()) << "Baseline set relation should pass";
+    // Baseline: the shiftable init relation passes
+    auto baseline = RelationChecker<void>::check<ECCVMShiftableInitRelation<FF>>(
+        polynomials, params, "ECCVMShiftableInitRelation", Flavor::TRACE_OFFSET);
+    EXPECT_TRUE(baseline.empty()) << "Baseline shiftable init relation should pass";
 
     // Derive expected lagrange_first position from z_perm shiftable structure
     ASSERT_TRUE(polynomials.z_perm.is_shiftable());
@@ -432,12 +433,12 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     // Tamper: set z_perm to non-zero where lagrange_first is active
     polynomials.z_perm.at(first_row) = FF(1);
 
-    auto failures = RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-        polynomials, params, "ECCVMSetRelation - After setting z_perm != 0 at lagrange_first", Flavor::TRACE_OFFSET);
-    EXPECT_FALSE(failures.empty()) << "Set relation should fail after z_perm init corruption";
-    EXPECT_TRUE(failures.contains(ECCVMSetRelationImpl<FF>::Z_PERM_INIT))
+    auto failures = RelationChecker<void>::check<ECCVMShiftableInitRelation<FF>>(
+        polynomials, params, "ECCVMShiftableInitRelation - After z_perm != 0 at lagrange_first", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "Shiftable init relation should fail after z_perm corruption";
+    EXPECT_TRUE(failures.contains(ECCVMShiftableInitRelationImpl<FF>::Z_PERM_INIT))
         << "Sub-relation Z_PERM_INIT should catch the corruption";
-    EXPECT_EQ(failures.at(ECCVMSetRelationImpl<FF>::Z_PERM_INIT), first_row)
+    EXPECT_EQ(failures.at(ECCVMShiftableInitRelationImpl<FF>::Z_PERM_INIT), first_row)
         << "Failure should be at lagrange_first row";
 }
 
@@ -609,4 +610,49 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsTransitionZeroOnFirstRow)
     EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
                      polynomials, params_after, "Lookup", Flavor::TRACE_OFFSET)
                      .empty()));
+}
+
+/**
+ * @brief MSM_PC_CONTINUITY rejects any tamper of `msm_pc` on an interior ADD or DOUBLE row.
+ *
+ * @details Before this subrelation existed, the MSM relation's only msm_pc constraint
+ * (MSM_TRANSITION_PC) was gated by `msm_transition_shift`, so it fired only at MSM segment
+ * boundaries. An attacker could swap `msm_pc` between two same-base MSMs on a single interior
+ * round and the WNAF/lookup multisets would still balance (both swapped tuples are valid writes).
+ * MSM_PC_CONTINUITY pins `msm_pc` constant across every interior ADD or DOUBLE row, so the
+ * constraint at the row immediately preceding any such swap detects it.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsInteriorMsmPcTamper)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    RelationParameters<FF> params{};
+
+    auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
+
+    // Find an interior ADD row such that the previous row is also active and not a segment
+    // boundary (msm_transition_shift on the previous row is 0). MSM_PC_CONTINUITY will fire at
+    // that previous row when we tamper msm_pc on the chosen row.
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t tamper_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET + 2; i < num_rows - 1; i++) {
+        const bool curr_is_add = polynomials.msm_add[i] == FF(1);
+        const bool prev_is_active = polynomials.msm_add[i - 1] == FF(1) || polynomials.msm_double[i - 1] == FF(1);
+        const bool not_segment_boundary = polynomials.msm_transition[i] == FF(0);
+        if (curr_is_add && prev_is_active && not_segment_boundary) {
+            tamper_row = i;
+            break;
+        }
+    }
+    ASSERT_NE(tamper_row, 0) << "Should find an interior ADD row with an active predecessor";
+
+    polynomials.msm_pc.at(tamper_row) = polynomials.msm_pc[tamper_row] + FF(0xdead);
+    polynomials.set_shifted();
+
+    auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "MSM relation should reject msm_pc tamper on an interior row";
+    EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::MSM_PC_CONTINUITY))
+        << "MSM_PC_CONTINUITY should be among the failing subrelations";
 }
