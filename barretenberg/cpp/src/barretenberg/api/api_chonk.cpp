@@ -29,7 +29,7 @@ namespace { // anonymous namespace
  *
  * @param bytecode ACIR bytecode of the circuit
  * @param output_path Directory to write the VK (or "-" for stdout)
- * @param flags API flags including output_format and use_zk_flavor (selects MegaZKFlavor vs MegaFlavor)
+ * @param flags API flags including output_format and circuit_kind (selects MegaApp / MegaKernel / MegaZK)
  */
 CircuitKind parse_circuit_kind(const std::string& s)
 {

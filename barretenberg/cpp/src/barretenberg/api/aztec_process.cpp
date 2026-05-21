@@ -107,9 +107,13 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
         return read_file(vk_cache_path);
     }
 
-    // Generate new VK
+    // Generate new VK. `get_or_generate_cached_vk` is invoked for user-contract private functions
+    // (an offline / build-time helper, filesystem-cached by bytecode hash). Those are app circuits
+    // in the Chonk stack — pinned against MegaAppFlavor.
     info("Generating verification key: ", hash_str);
-    auto response = bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
+    auto response =
+        bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode }, .kind = CircuitKind::App }
+            .execute();
 
     // Cache the VK
     write_file(vk_cache_path, response.bytes);
