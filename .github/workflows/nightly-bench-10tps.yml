@@ -5,8 +5,12 @@ on:
     - cron: "30 6 * * *"
   workflow_dispatch:
     inputs:
+      docker_image:
+        description: "Full Docker image (e.g., aztecprotocol/aztec:my-tag). Takes precedence over nightly_tag."
+        required: false
+        type: string
       nightly_tag:
-        description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Leave empty to auto-detect."
+        description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Ignored if docker_image is set. Leave empty to auto-detect."
         required: false
         type: string
 
@@ -23,21 +27,29 @@ jobs:
         with:
           ref: next
 
-      - name: Determine nightly tag
-        id: nightly-tag
+      - name: Determine docker image
+        id: docker-image
         run: |
-          if [[ -n "${{ inputs.nightly_tag }}" ]]; then
+          if [[ -n "${{ inputs.docker_image }}" ]]; then
+            docker_image="${{ inputs.docker_image }}"
+            image_label="${{ inputs.docker_image }}"
+          elif [[ -n "${{ inputs.nightly_tag }}" ]]; then
             nightly_tag="${{ inputs.nightly_tag }}"
+            docker_image="aztecprotocol/aztec:${nightly_tag}"
+            image_label="${nightly_tag}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
             nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
+            docker_image="aztecprotocol/aztec:${nightly_tag}"
+            image_label="${nightly_tag}"
           fi
-          echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
-          echo "Using nightly tag: $nightly_tag"
+          echo "docker_image=$docker_image" >> $GITHUB_OUTPUT
+          echo "image_label=$image_label" >> $GITHUB_OUTPUT
+          echo "Using docker image: $docker_image"
 
       - name: Check if Docker image exists
         run: |
-          DOCKER_IMAGE="aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          DOCKER_IMAGE="${{ steps.docker-image.outputs.docker_image }}"
           echo "Checking if Docker image exists: $DOCKER_IMAGE"
           if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
             echo "Docker image exists: $DOCKER_IMAGE"
@@ -60,7 +72,7 @@ jobs:
           AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
         run: |
-          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "${{ steps.docker-image.outputs.docker_image }}"
 
       - name: Cleanup network resources
         if: always()
@@ -80,9 +92,9 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.nightly-tag.outputs.nightly_tag }}"
+          IMAGE="${{ steps.docker-image.outputs.image_label }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly 10 TPS benchmark FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly 10 TPS benchmark failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            "Nightly 10 TPS benchmark FAILED (image ${IMAGE}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly 10 TPS benchmark failed (image ${IMAGE}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
             --link "$RUN_URL"
