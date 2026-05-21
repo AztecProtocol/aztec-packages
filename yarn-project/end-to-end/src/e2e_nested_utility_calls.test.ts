@@ -5,7 +5,7 @@ import type { UtilityCallAuthorizationRequest } from '@aztec/pxe/server';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
@@ -26,7 +26,7 @@ describe('Nested utility calls', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     ({ contract: contractA } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contractB } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
@@ -78,7 +78,7 @@ describe('authorizeUtilityCall hook', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1, {
-      ...PIPELINING_SETUP_OPTS,
+      ...AUTOMINE_E2E_OPTS,
       pxeCreationOptions: {
         hooks: {
           authorizeUtilityCall: (req: UtilityCallAuthorizationRequest) => {

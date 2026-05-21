@@ -35,10 +35,12 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import {
+  AutomineSequencer,
   FeeProviderImpl,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
+  createAutomineSequencer,
 } from '@aztec/sequencer-client';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
@@ -166,6 +168,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private metrics: NodeMetrics;
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
+  // Saved minTxsPerBlock used by `pauseSequencer` to restore production-sequencer config on resume.
+  private sequencerPausedMinTxsPerBlock: number | undefined;
 
   public readonly tracer: Tracer;
 
@@ -197,6 +201,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     private validatorClient?: ValidatorClient,
     private keyStoreManager?: KeystoreManager,
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
+    private readonly automineSequencer?: AutomineSequencer,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -796,6 +801,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       // Validator enabled, create/start relevant service
       let sequencer: SequencerClient | undefined;
+      let automineSequencer: AutomineSequencer | undefined;
       let slasherClient: SlasherClientInterface | undefined;
       if (!config.disableValidator && validatorClient) {
         // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
@@ -855,24 +861,54 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           debugLogStore,
         );
 
-        sequencer = await SequencerClient.new(config, {
-          ...deps,
-          epochCache,
-          l1TxUtils,
-          funderL1TxUtils,
-          validatorClient,
-          p2pClient,
-          worldStateSynchronizer,
-          slasherClient,
-          checkpointsBuilder,
-          l2BlockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          telemetry,
-          dateProvider,
-          blobClient,
-          nodeKeyStore: keyStoreManager!,
-          globalVariableBuilder,
-        });
+        if (config.useAutomineSequencer) {
+          // Test-only path: deterministic, queue-driven sequencer for non-block-building e2e tests.
+          // See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
+          automineSequencer = await createAutomineSequencer({
+            config,
+            l1TxUtils,
+            funderL1TxUtils,
+            publicClient,
+            rollupContract,
+            epochCache,
+            blobClient,
+            telemetry,
+            dateProvider,
+            keyStoreManager: keyStoreManager!,
+            validatorClient,
+            checkpointsBuilder,
+            globalVariableBuilder,
+            worldStateSynchronizer,
+            archiver,
+            p2pClient,
+            l1Constants: {
+              l1GenesisTime,
+              slotDuration: Number(slotDuration),
+              ethereumSlotDuration: config.ethereumSlotDuration,
+              rollupManaLimit,
+            },
+            log,
+          });
+        } else {
+          sequencer = await SequencerClient.new(config, {
+            ...deps,
+            epochCache,
+            l1TxUtils,
+            funderL1TxUtils,
+            validatorClient,
+            p2pClient,
+            worldStateSynchronizer,
+            slasherClient,
+            checkpointsBuilder,
+            l2BlockSource: archiver,
+            l1ToL2MessageSource: archiver,
+            telemetry,
+            dateProvider,
+            blobClient,
+            nodeKeyStore: keyStoreManager!,
+            globalVariableBuilder,
+          });
+        }
       }
 
       if (!options.dontStartSequencer && sequencer) {
@@ -881,6 +917,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         log.verbose(`Sequencer started`);
       } else if (sequencer) {
         log.warn(`Sequencer created but not started`);
+      }
+
+      if (!options.dontStartSequencer && automineSequencer) {
+        await automineSequencer.start();
+        started.push({ stop: () => automineSequencer!.stop() });
+        log.verbose(`AutomineSequencer started`);
+      } else if (automineSequencer) {
+        log.warn(`AutomineSequencer created but not started`);
       }
 
       // Create prover node subsystem if enabled
@@ -935,6 +979,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         validatorClient,
         keyStoreManager,
         debugLogStore,
+        automineSequencer,
       );
 
       return node;
@@ -953,6 +998,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
+  }
+
+  /** Test-only: returns the AutomineSequencer when wired via `useAutomineSequencer`. */
+  public getAutomineSequencer(): AutomineSequencer | undefined {
+    return this.automineSequencer;
   }
 
   /** Returns the prover node subsystem, if enabled. */
@@ -1202,6 +1252,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.slasherClient);
     await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
     await tryStop(this.sequencer);
+    await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
     await tryStop(this.worldStateSynchronizer);
@@ -1631,7 +1682,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    this.sequencer?.updateConfig(config);
+    // If the sequencer is currently paused via pauseSequencer(), record the caller's desired
+    // minTxsPerBlock as the restore value (so resumeSequencer applies it) and keep the freeze
+    // (MAX_SAFE_INTEGER) applied to the underlying sequencer. Without this guard, forwarding
+    // the new minTxsPerBlock to the sequencer would silently unpause block production while
+    // pauseSequencer() still considers it paused.
+    const sequencerUpdate = { ...config };
+    if (this.sequencerPausedMinTxsPerBlock !== undefined && sequencerUpdate.minTxsPerBlock !== undefined) {
+      this.sequencerPausedMinTxsPerBlock = sequencerUpdate.minTxsPerBlock;
+      delete sequencerUpdate.minTxsPerBlock;
+    }
+    this.sequencer?.updateConfig(sequencerUpdate);
+    this.automineSequencer?.updateConfig(sequencerUpdate);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
     await this.p2pClient.updateP2PConfig(config);
@@ -1776,6 +1838,41 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return Promise.resolve();
   }
 
+  public pauseSequencer(): Promise<void> {
+    if (this.automineSequencer) {
+      this.automineSequencer.pause();
+      return Promise.resolve();
+    }
+    if (this.sequencer) {
+      if (this.sequencerPausedMinTxsPerBlock === undefined) {
+        this.sequencerPausedMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock ?? 0;
+        this.sequencer.updateConfig({ minTxsPerBlock: Number.MAX_SAFE_INTEGER });
+        this.log.info(`Sequencer paused (minTxsPerBlock set to MAX_SAFE_INTEGER)`, {
+          previousMinTxsPerBlock: this.sequencerPausedMinTxsPerBlock,
+        });
+      }
+      return Promise.resolve();
+    }
+    throw new BadRequestError('Cannot pause sequencer: no sequencer is running');
+  }
+
+  public resumeSequencer(): Promise<void> {
+    if (this.automineSequencer) {
+      this.automineSequencer.resume();
+      return Promise.resolve();
+    }
+    if (this.sequencer) {
+      if (this.sequencerPausedMinTxsPerBlock !== undefined) {
+        const restored = this.sequencerPausedMinTxsPerBlock;
+        this.sequencerPausedMinTxsPerBlock = undefined;
+        this.sequencer.updateConfig({ minTxsPerBlock: restored });
+        this.log.info(`Sequencer resumed (minTxsPerBlock restored)`, { minTxsPerBlock: restored });
+      }
+      return Promise.resolve();
+    }
+    throw new BadRequestError('Cannot resume sequencer: no sequencer is running');
+  }
+
   public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
     if (!this.slasherClient) {
       throw new Error(`Slasher client not enabled`);
@@ -1876,6 +1973,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async mineBlock(): Promise<void> {
+    if (this.automineSequencer) {
+      await this.automineSequencer.buildEmptyBlock();
+      return;
+    }
     if (!this.sequencer) {
       throw new BadRequestError('Cannot mine block: no sequencer is running');
     }

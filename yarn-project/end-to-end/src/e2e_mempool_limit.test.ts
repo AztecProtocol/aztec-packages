@@ -4,6 +4,7 @@ import { TxStatus } from '@aztec/aztec.js/tx';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { type EndToEndContext, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -24,6 +25,7 @@ describe('e2e_mempool_limit', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
       proverTestVerificationDelayMs: undefined,
     }));
 
@@ -46,8 +48,9 @@ describe('e2e_mempool_limit', () => {
       { from: defaultAccountAddress },
     );
 
-    // set a min tx greater than the mempool so that the sequencer doesn't all of a sudden build a block
-    await aztecNodeAdmin!.setConfig({ maxPendingTxCount: 2, minTxsPerBlock: 4 });
+    // Cap the mempool, then pause the sequencer so pending txs accumulate without being mined.
+    await aztecNodeAdmin!.setConfig({ maxPendingTxCount: 2 });
+    await aztecNodeAdmin!.pauseSequencer();
 
     const tx2 = await proveInteraction(
       wallet,

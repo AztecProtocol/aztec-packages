@@ -7,7 +7,7 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import type { LendingContract } from '@aztec/noir-contracts.js/Lending';
-import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import type { TokenSimulator } from './token_simulator.js';
 
@@ -111,7 +111,7 @@ export class LendingSimulator {
     this.time = ts;
   }
 
-  async progressSlots(diff: number, dateProvider?: TestDateProvider, node?: AztecNodeDebug) {
+  async progressSlots(diff: number, _dateProvider?: TestDateProvider, node?: AztecNode & AztecNodeDebug) {
     if (diff <= 1) {
       return;
     }
@@ -120,18 +120,18 @@ export class LendingSimulator {
     const targetSlot = SlotNumber(slot + diff);
     const ts = Number(await this.rollup.getTimestampForSlot(targetSlot));
 
-    // Mine ethereum blocks such that the next block will be in a new slot
-    await this.cc.eth.warp(ts - this.ethereumSlotDuration);
-    if (dateProvider) {
-      dateProvider.setTime(ts * 1000);
-    }
-    await this.cc.rollup.markAsProven(await this.rollup.getCheckpointNumber());
-
-    // Under pipelining, the warp can invalidate an in-flight proposed checkpoint.
-    // Mine an empty block to drain that and re-stabilize the chain tip before the next tx anchors.
+    // Queue-aware warp under AutomineSequencer: atomic warp + mineBlock that advances L2 time to the
+    // target slot. The cheat code routes through the AutomineSequencer queue when one is installed,
+    // and otherwise falls back to a manual warp + mineBlock loop.
     if (node) {
-      await node.mineBlock();
+      await this.cc.warpL2TimeAtLeastTo(node, ts);
+    } else {
+      await this.cc.eth.warp(ts - this.ethereumSlotDuration);
     }
+
+    // Mark the latest checkpoint as proven so the rollup does not reorg pending checkpoints when
+    // time jumps far enough forward to cross an unproven epoch boundary.
+    await this.cc.rollup.markAsProven(await this.rollup.getCheckpointNumber());
   }
 
   depositPrivate(from: AztecAddress, onBehalfOf: Fr, amount: bigint) {

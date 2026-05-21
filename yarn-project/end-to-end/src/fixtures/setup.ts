@@ -213,6 +213,9 @@ export type SetupOptions = {
   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
   skipInitialSequencer?: boolean;
+  /** Whether to swap the production Sequencer for the minimal AutomineSequencer.
+   * Use only for single-sequencer non-block-building tests. See AUTOMINE_E2E_OPTS in `fixtures.ts`. */
+  useAutomineSequencer?: boolean;
   /** Options forwarded to PXE creation (e.g. execution hooks). */
   pxeCreationOptions?: PXECreationOptions;
 } & Partial<AztecNodeConfig>;
@@ -602,7 +605,12 @@ export async function setup(
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
+    const cheatCodes = await CheatCodes.create(
+      config.l1RpcUrls,
+      aztecNodeService,
+      dateProvider,
+      aztecNodeService.getAutomineSequencer(),
+    );
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -631,6 +639,11 @@ export async function setup(
       accounts = accountManagers.map(accountManager => accountManager.address);
     } else if (needsEmptyBlock) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
+      // AutomineSequencer only builds on tx arrival; explicitly request an empty block.
+      const automine = aztecNodeService.getAutomineSequencer();
+      if (automine) {
+        await automine.buildEmptyBlock();
+      }
       while ((await aztecNodeService.getBlockNumber()) === 0) {
         await sleep(2000);
       }
