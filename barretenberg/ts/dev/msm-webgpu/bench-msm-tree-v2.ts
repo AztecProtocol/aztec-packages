@@ -148,10 +148,11 @@ function boothDigit(scalar: bigint, w: number, c: number): { bucket: number; sig
 // is numWindows windows of wstride (= n) slots; a [pad_l, pad_r, discard]
 // trio sits at the end.
 //
-// Scalars are raw integers — the carry-free Booth bit-slices them, and
-// the production prover de-Montgomerys scalars CPU-side at the GPU
-// handoff. Points enter in Montgomery form and stay so; pointYNeg is
-// their precomputed field negation, selected per slot by the sign bit.
+// Scalars enter in Montgomery form (s * R mod p) — the representation the
+// prover hands over — and a GPU de-Montgomery pass reduces them to raw
+// integers before the bit-slicing recode. Points enter in Montgomery form
+// and stay so; pointYNeg is their precomputed field negation, selected
+// per slot by the sign bit.
 //
 // Returns the synthetic scalars + the Montgomery point pool (pointX,
 // pointY, pointYNeg for the GPU; poolPt + padPts for the replay model);
@@ -178,14 +179,15 @@ function buildL0(numWindows: number, BW: number, npw: number, c: number, R: bigi
     pointYNeg.set(bigintToPackedU32x8((FP - ym) % FP), i * 8);
   }
 
-  // Synthetic raw scalars, one per pool point — 8 u32 little-endian.
+  // Synthetic scalars in Montgomery form (s * R mod p) — the representation
+  // the prover hands over; the GPU de-Montgomerys them before decompose.
+  // 8 u32 little-endian. scalarBig keeps the raw s for the host recode.
   const scalars = new Uint32Array(inputSize * 8);
   const scalarBig: bigint[] = new Array(inputSize);
-  const scalarSpan = 1n << BigInt(NUMBITS);
   for (let i = 0; i < inputSize; i++) {
-    const s = randomBelow(scalarSpan, rng);
+    const s = randomBelow(FP, rng);
     scalarBig[i] = s;
-    scalars.set(bigintToPackedU32x8(s), i * 8);
+    scalars.set(bigintToPackedU32x8((s * R) % FP), i * 8);
   }
 
   // Host carry-free-Booth reference: per (window, point) the bucket
@@ -545,6 +547,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   // buckets into a per-window CSR; csr_to_v2 materialises level-0
   // active_sums (negating sign-flagged points) + counts/offsets. ---
   const scalarsBuf = storageBuf(device, scalars.byteLength);
+  const scalarsRawBuf = storageBuf(device, scalars.byteLength);
   const pointXBuf = storageBuf(device, pointX.byteLength);
   const pointYBuf = storageBuf(device, pointY.byteLength);
   const pointYNegBuf = storageBuf(device, pointYNeg.byteLength);
@@ -560,6 +563,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   const rowPtrBuf = storageBuf(device, NUM_WINDOWS * (BW + 1) * 4);
   const valIdxBuf = storageBuf(device, N_TOTAL * 4);
   const currBuf = storageBuf(device, NUM_WINDOWS * BW * 4);
+  const demontParams = uniformBuf(device, new Uint32Array([NPTS, 0, 0, 0]));
   const decomposeParams = uniformBuf(device, new Uint32Array([NPTS, NUM_WINDOWS, CBITS, 8]));
   const xposeParams = uniformBuf(device, new Uint32Array([Math.ceil(NPTS / BW), BW, NPTS, 0]));
   const convActiveParams = uniformBuf(device, new Uint32Array([N_TOTAL, M, WSTRIDE, NPTS]));
@@ -572,6 +576,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   const mkBind = (layout: GPUBindGroupLayout, buffers: GPUBuffer[]): GPUBindGroup =>
     device.createBindGroup({ layout, entries: buffers.map((buffer, binding) => ({ binding, resource: { buffer } })) });
 
+  const demontLayout = bgl(['read-only-storage', 'storage', 'uniform']);
   const decomposeLayout = bgl(['read-only-storage', 'storage', 'storage', 'uniform']);
   const xposeCountLayout = bgl(['read-only-storage', 'storage', 'uniform']);
   const xposeScanLayout = bgl(['storage', 'uniform']);
@@ -582,6 +587,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   ]);
   const convMetaLayout = bgl(['read-only-storage', 'storage', 'storage', 'uniform']);
 
+  const demontPipe = await compileOne(device, sm.gen_demont_scalars_shader(WGI), `demont-W${WGI}`, demontLayout);
   const decomposePipe = await compileOne(device, sm.gen_decompose_scalars_booth_shader(WGI), `decompose-W${WGI}`, decomposeLayout);
   const xposeCountPipe = await compileOne(device, sm.gen_transpose_count_shader(WGI), `xpose-count-W${WGI}`, xposeCountLayout);
   const xposeScanPipe = await compileOne(device, sm.gen_transpose_scan_shader(NUM_WINDOWS), 'xpose-scan', xposeScanLayout);
@@ -589,7 +595,8 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   const convActivePipe = await compileOne(device, sm.gen_csr_to_v2_active_sums_shader(WGI, true), `csr2v2-active-W${WGI}`, convActiveLayout);
   const convMetaPipe = await compileOne(device, sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta-W${WGI}`, convMetaLayout);
 
-  const decomposeBind = mkBind(decomposeLayout, [scalarsBuf, chunksBuf, signsBuf, decomposeParams]);
+  const demontBind = mkBind(demontLayout, [scalarsBuf, scalarsRawBuf, demontParams]);
+  const decomposeBind = mkBind(decomposeLayout, [scalarsRawBuf, chunksBuf, signsBuf, decomposeParams]);
   const xposeCountBind = mkBind(xposeCountLayout, [chunksBuf, rowPtrBuf, xposeParams]);
   const xposeScanBind = mkBind(xposeScanLayout, [rowPtrBuf, xposeParams]);
   const xposeScatterBind = mkBind(xposeScatterLayout, [chunksBuf, rowPtrBuf, valIdxBuf, currBuf, xposeParams]);
@@ -599,7 +606,7 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   const nXposePts = Math.ceil(NPTS / WGI);
   const nConvActive = Math.ceil(N_TOTAL / WGI);
   const nConvMeta = Math.ceil(B_TOTAL / WGI);
-  log('info', '6 pre-step pipelines compiled (decompose + transpose x3 + csr_to_v2 x2)');
+  log('info', '7 pre-step pipelines compiled (demont + decompose + transpose x3 + csr_to_v2 x2)');
 
   // --- Per-level bind groups + uniforms (built once, reused each rep) ---
   const finalizeParams = uniformBuf(device, new Uint32Array([B_TOTAL, M, 0, 0]));
@@ -674,12 +681,13 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
 
   // --- Timestamp query set (reused across reps) ---
   const KINDS = ['planner', 'fused', 'carry', 'finalize'];
-  // Per rep, a prologue of Pippenger pre-steps (decompose, then 3
-  // transpose: count / scan / scatter, then 2 csr_to_v2) followed by
-  // KINDS passes per level.
+  // Per rep, a prologue of Pippenger pre-steps (de-Montgomery, decompose,
+  // then 3 transpose: count / scan / scatter, then 2 csr_to_v2) followed
+  // by KINDS passes per level.
+  const PRE_DEMONT = 1;
   const PRE_DECOMP = 1;
   const PRE_XPOSE = 3;
-  const PRE = PRE_DECOMP + PRE_XPOSE + 2;
+  const PRE = PRE_DEMONT + PRE_DECOMP + PRE_XPOSE + 2;
   const passCount = PRE + levels * KINDS.length;
   const tsEnabled = device.features.has('timestamp-query');
   if (!tsEnabled) log('warn', 'timestamp-query unavailable — per-component timing skipped');
@@ -713,6 +721,9 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       passIdx++;
     };
     // Pippenger pre-steps, each timed as its own kind.
+    // De-Montgomery: reduce the Montgomery-form input scalars to raw
+    // integers (montmul by 1) so the Booth recode can bit-slice them.
+    dispatch(demontPipe, demontBind, nXposePts);
     // Decompose: carry-free Booth recode of the scalars -> per-(window,
     // point) bucket magnitudes (chunks) + sign bits.
     dispatch(decomposePipe, decomposeBind, nXposePts, NUM_WINDOWS);
@@ -751,17 +762,22 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
       const ts = new BigUint64Array(tsStaging.getMappedRange().slice(0));
       tsStaging.unmap();
       const byKind = [0, 0, 0, 0];
+      let demont = 0;
       let decompose = 0;
       let transpose = 0;
       let convert = 0;
       const fusedPerLevel: number[] = [];
       for (let i = 0; i < passCount; i++) {
         const dur = Number(ts[2 * i + 1] - ts[2 * i]);
-        if (i < PRE_DECOMP) {
+        if (i < PRE_DEMONT) {
+          demont += dur;
+          continue;
+        }
+        if (i < PRE_DEMONT + PRE_DECOMP) {
           decompose += dur;
           continue;
         }
-        if (i < PRE_DECOMP + PRE_XPOSE) {
+        if (i < PRE_DEMONT + PRE_DECOMP + PRE_XPOSE) {
           transpose += dur; // count / scan / scatter
           continue;
         }
@@ -773,14 +789,15 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
         byKind[k] += dur;
         if (k === 1) fusedPerLevel[((i - PRE) / KINDS.length) | 0] = dur;
       }
-      const sumPasses = decompose + transpose + convert + byKind.reduce((a, b) => a + b, 0);
+      const sumPasses = demont + decompose + transpose + convert + byKind.reduce((a, b) => a + b, 0);
       const gpuSpan = Number(ts[passCount * 2 - 1] - ts[0]);
       const ms = (x: number): string => (x / 1e6).toFixed(2);
       log(
         'info',
-        `rep ${rep} (${tag}): wall=${wall.toFixed(2)}ms | decompose ${ms(decompose)}  transpose ${ms(transpose)}  ` +
-          `convert ${ms(convert)}  planner ${ms(byKind[0])}  fused ${ms(byKind[1])}  carry ${ms(byKind[2])}  ` +
-          `finalize ${ms(byKind[3])}  inter-pass ${ms(gpuSpan - sumPasses)}  submit ${ms(wall * 1e6 - gpuSpan)}  (ms)`,
+        `rep ${rep} (${tag}): wall=${wall.toFixed(2)}ms | demont ${ms(demont)}  decompose ${ms(decompose)}  ` +
+          `transpose ${ms(transpose)}  convert ${ms(convert)}  planner ${ms(byKind[0])}  fused ${ms(byKind[1])}  ` +
+          `carry ${ms(byKind[2])}  finalize ${ms(byKind[3])}  inter-pass ${ms(gpuSpan - sumPasses)}  ` +
+          `submit ${ms(wall * 1e6 - gpuSpan)}  (ms)`,
       );
       log(
         'info',
@@ -856,6 +873,8 @@ async function runPipeline(device: GPUDevice, sm: ShaderManager, R: bigint, rinv
   carryPlanBufs.forEach(b => b.destroy());
   prefScratchBuf.destroy();
   scalarsBuf.destroy();
+  scalarsRawBuf.destroy();
+  demontParams.destroy();
   chunksBuf.destroy();
   signsBuf.destroy();
   rowPtrBuf.destroy();

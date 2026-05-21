@@ -52,6 +52,7 @@ import {
   decompose_scalars_booth as decompose_scalars_booth_shader,
   decompose_scalars_signed_only as decompose_scalars_signed_only_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
+  demont_scalars as demont_scalars_shader,
   divsteps_bench as divsteps_bench_shader,
   ec_bn254 as ec_bn254_funcs,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
@@ -472,6 +473,21 @@ ${packLines.join('\n')}
 
   public gen_decompose_scalars_booth_shader(workgroup_size: number): string {
     return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
+  }
+
+  public gen_demont_scalars_shader(workgroup_size: number): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      demont_scalars_shader,
+      {
+        workgroup_size,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src },
+    );
   }
 
   public gen_transpose_shader(workgroup_size: number) {
