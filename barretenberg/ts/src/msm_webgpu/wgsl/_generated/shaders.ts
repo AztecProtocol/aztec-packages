@@ -9757,7 +9757,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 let sign: u32 = digit >> 31u;
                 var to_add: Point = read_lut(ii, magnitude - 1u, h);
                 to_add.y = fr_cond_neg(to_add.y, sign ^ h);
-                acc = add_points(acc, to_add);
+                acc = add_points_no_collision(acc, to_add);
             }
         }
         if (w != 0u) {
