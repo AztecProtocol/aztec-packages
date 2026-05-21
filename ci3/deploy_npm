@@ -49,6 +49,21 @@ cd package
 # Replace workspace:^ with concrete versions.
 release_prep_package_json $version
 
+# Final gate before an immutable publish: any contract artifacts being shipped must carry the real
+# release version in aztec_version, not the build-time "dev" placeholder. v4.3.0 reached npm with
+# aztec_version="dev" because REF_NAME was unset when the build stamped it; refuse to publish such a
+# mismatch rather than ship it. Packages without contract artifacts have no artifacts/ dir and are skipped.
+if [ -d artifacts ]; then
+  for f in artifacts/*.json; do
+    [ -e "$f" ] || continue
+    stamped=$(jq -r 'if has("aztec_version") then .aztec_version else empty end' "$f")
+    if [ -n "$stamped" ] && [ "$stamped" != "$version" ]; then
+      echo_stderr "ERROR: $package_name: $(basename "$f") has aztec_version='$stamped', expected '$version'. Refusing to publish."
+      exit 1
+    fi
+  done
+fi
+
 # Publish from temp dir
 if [ "$dry_run" -eq 1 ]; then
   denoise "npm publish --ignore-scripts --dry-run --tag $npm_tag --access public"
