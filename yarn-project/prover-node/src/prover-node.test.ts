@@ -13,7 +13,7 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2BlockSource,
 } from '@aztec/stdlib/block';
-import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, type CheckpointData, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -61,6 +61,8 @@ describe('prover-node', () => {
 
   // Checkpoints returned by the archiver
   let checkpoints: Checkpoint[];
+  let publishedCheckpoints: PublishedCheckpoint[];
+  let checkpointData: CheckpointData[];
   let lastPublishedCheckpoint: PublishedCheckpoint;
   let previousBlockHeader: BlockHeader;
 
@@ -149,14 +151,17 @@ describe('prover-node', () => {
       attestations: [CommitteeAttestation.random()],
     } as PublishedCheckpoint;
 
-    const publishedCheckpoints: PublishedCheckpoint[] = [
+    publishedCheckpoints = [
       ...checkpoints.slice(0, -1).map(cp => ({ checkpoint: cp, attestations: [] }) as unknown as PublishedCheckpoint),
       lastPublishedCheckpoint,
     ];
 
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
+    checkpointData = checkpoints.map(checkpoint => ({ checkpointNumber: checkpoint.number }) as CheckpointData);
+
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getCheckpoints.mockResolvedValue(publishedCheckpoints);
+    l2BlockSource.getCheckpointsData.mockResolvedValue(checkpointData);
     const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
     const latestHash = checkpoints.at(-1)!.hash().toString();
     const genesisTipId = {
@@ -219,6 +224,7 @@ describe('prover-node', () => {
 
   it('does not start a proof if there are no checkpoints in the epoch', async () => {
     l2BlockSource.getCheckpoints.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsData.mockResolvedValue([]);
     await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
     expect(proverNode.totalJobCount).toEqual(0);
   });
@@ -247,6 +253,47 @@ describe('prover-node', () => {
 
     firstJob.resolve();
     expect(proverNode.totalJobCount).toEqual(1);
+  });
+
+  it('does not start duplicate proofs from concurrent RPC calls', async () => {
+    await Promise.all([
+      proverNode.startProof(EpochNumber.fromBigInt(10n)),
+      proverNode.startProof(EpochNumber.fromBigInt(10n)),
+    ]);
+
+    expect(proverNode.totalJobCount).toEqual(1);
+  });
+
+  it('does not start duplicate proofs from concurrent monitor and RPC calls', async () => {
+    await Promise.all([
+      proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n)),
+      proverNode.startProof(EpochNumber.fromBigInt(10n)),
+    ]);
+
+    expect(proverNode.totalJobCount).toEqual(1);
+  });
+
+  it('starts a full proof when an active job only covers a partial epoch', async () => {
+    const partialJob = promiseWithResolvers<void>();
+    l2BlockSource.getCheckpoints
+      .mockResolvedValueOnce(publishedCheckpoints.slice(0, 2))
+      .mockResolvedValue(publishedCheckpoints);
+    proverNode.nextJobRun = () => partialJob.promise;
+    proverNode.nextJobState = 'processing';
+
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    const handledWhilePartialJobActive = await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    expect(handledWhilePartialJobActive).toBe(true);
+    expect(proverNode.totalJobCount).toEqual(2);
+    expect(jobs[0].job.getProvingData().checkpoints.map(checkpoint => checkpoint.number)).toEqual(
+      checkpoints.slice(0, 2).map(checkpoint => checkpoint.number),
+    );
+    expect(jobs[1].job.getProvingData().checkpoints.map(checkpoint => checkpoint.number)).toEqual(
+      checkpoints.map(checkpoint => checkpoint.number),
+    );
+
+    partialJob.resolve();
   });
 
   it('restarts a proof on a reorg', async () => {
@@ -282,6 +329,7 @@ describe('prover-node', () => {
         getState: () => state,
         getEpochNumber: () => data.epochNumber,
         getDeadline: () => deadline,
+        getProvingData: () => data,
       });
       job.getId.mockReturnValue(jobs.length.toString());
       jobs.push({ epochNumber: data.epochNumber, job });
@@ -291,12 +339,6 @@ describe('prover-node', () => {
 
     public override triggerMonitors() {
       return super.triggerMonitors();
-    }
-
-    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
-      return Promise.resolve(
-        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: j.epochNumber })),
-      );
     }
   }
 });
