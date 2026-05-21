@@ -9563,6 +9563,7 @@ export const straus_lookup_precompute_bn254 = `// straus_msm lookup-precompute k
 
 const N: u32 = {{ n }}u;
 const LOOKUP_SIZE: u32 = 8u;
+const STRIDE: u32      = 16u;
 
 @group(0) @binding(0) var<storage, read>       base_x: array<BigInt>;
 @group(0) @binding(1) var<storage, read>       base_y: array<BigInt>;
@@ -9576,6 +9577,12 @@ fn get_mont_one() -> BigInt {
     return r;
 }
 
+fn get_beta_mont() -> BigInt {
+    var b: BigInt;
+{{{ beta_mont_limbs }}}
+    return b;
+}
+
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -9587,17 +9594,34 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     pt.y = base_y[i];
     pt.z = get_mont_one();
 
+    // Layout: lut[i*16 + h*8 + k] stores (k+1)·P_i for h=0, and the
+    // φ-image (β·X, Y, Z) of the same Jacobian point for h=1. h=1 is
+    // straus_main's k2·φ(P) half: writing the β-scaled X here once
+    // amortises the runtime β-mul across every (window, ii) iteration.
+    var beta: BigInt = get_beta_mont();
     var cur: Point = pt;
-    let base_off: u32 = i * LOOKUP_SIZE;
+    let base_off: u32 = i * STRIDE;
+
+    var x0: BigInt = cur.x;
+    var beta_v: BigInt = beta;
+    var beta_x0: BigInt = montgomery_product(&x0, &beta_v);
     lut_x[base_off + 0u] = cur.x;
     lut_y[base_off + 0u] = cur.y;
     lut_z[base_off + 0u] = cur.z;
+    lut_x[base_off + LOOKUP_SIZE + 0u] = beta_x0;
+    lut_y[base_off + LOOKUP_SIZE + 0u] = cur.y;
+    lut_z[base_off + LOOKUP_SIZE + 0u] = cur.z;
 
     for (var kk: u32 = 1u; kk < LOOKUP_SIZE; kk = kk + 1u) {
         cur = add_points_mixed(cur, pt);
+        var xk: BigInt = cur.x;
+        var beta_xk: BigInt = montgomery_product(&xk, &beta_v);
         lut_x[base_off + kk] = cur.x;
         lut_y[base_off + kk] = cur.y;
         lut_z[base_off + kk] = cur.z;
+        lut_x[base_off + LOOKUP_SIZE + kk] = beta_xk;
+        lut_y[base_off + LOOKUP_SIZE + kk] = cur.y;
+        lut_z[base_off + LOOKUP_SIZE + kk] = cur.z;
     }
 
     {{{ recompile }}}
@@ -9636,12 +9660,6 @@ const N:               u32 = {{ n }}u;
 @group(0) @binding(5) var<storage, read_write> part_x:  array<BigInt>;
 @group(0) @binding(6) var<storage, read_write> part_y:  array<BigInt>;
 @group(0) @binding(7) var<storage, read_write> part_z:  array<BigInt>;
-
-fn get_beta_mont() -> BigInt {
-    var b: BigInt;
-{{{ beta_mont_limbs }}}
-    return b;
-}
 
 fn fr_cond_neg(y: BigInt, flag: u32) -> BigInt {
     if (flag == 0u) {
@@ -9684,11 +9702,12 @@ fn booth_packed_digit(lims: ptr<function, array<u32, 4>>, w: u32) -> u32 {
     return (neg << 31u) | magnitude;
 }
 
-fn read_lut(i: u32, k: u32) -> Point {
+fn read_lut(i: u32, k: u32, h: u32) -> Point {
+    let off: u32 = i * 16u + h * 8u + k;
     var p: Point;
-    p.x = lut_x[i * 8u + k];
-    p.y = lut_y[i * 8u + k];
-    p.z = lut_z[i * 8u + k];
+    p.x = lut_x[off];
+    p.y = lut_y[off];
+    p.z = lut_z[off];
     return p;
 }
 
@@ -9725,8 +9744,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     acc.y = zero_bi;
     acc.z = zero_bi;
 
-    var beta: BigInt = get_beta_mont();
-
     for (var w_p1: u32 = 32u; w_p1 > 0u; w_p1 = w_p1 - 1u) {
         let w: u32 = w_p1 - 1u;
         for (var h: u32 = 0u; h < 2u; h = h + 1u) {
@@ -9738,12 +9755,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     continue;
                 }
                 let sign: u32 = digit >> 31u;
-                var to_add: Point = read_lut(ii, magnitude - 1u);
+                var to_add: Point = read_lut(ii, magnitude - 1u, h);
                 to_add.y = fr_cond_neg(to_add.y, sign ^ h);
-                if (h == 1u) {
-                    var bx = to_add.x;
-                    to_add.x = montgomery_product(&bx, &beta);
-                }
                 acc = add_points(acc, to_add);
             }
         }

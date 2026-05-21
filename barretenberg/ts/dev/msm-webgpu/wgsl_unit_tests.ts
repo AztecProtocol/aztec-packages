@@ -596,7 +596,7 @@ export async function testStrausLookupPrecompute(
     const baseXSb = create_and_write_sb(device, baseXBytes);
     const baseYSb = create_and_write_sb(device, baseYBytes);
 
-    const lutByteLen = n * 8 * numWords * 4;
+    const lutByteLen = n * 16 * numWords * 4;
     const lutXSb = create_sb(device, lutByteLen);
     const lutYSb = create_sb(device, lutByteLen);
     const lutZSb = create_sb(device, lutByteLen);
@@ -655,7 +655,7 @@ export async function testStrausLookupPrecompute(
     for (let i = 0; i < n; i++) {
       const baseProj = bn254.G1.ProjectivePoint.fromAffine(points[i]);
       for (let k = 0; k < 8; k++) {
-        const flat = i * 8 + k;
+        const flat = i * 16 + k;
         const xMont = readBigIntAt(lutX, flat, numWords, wordSize);
         const yMont = readBigIntAt(lutY, flat, numWords, wordSize);
         const zMont = readBigIntAt(lutZ, flat, numWords, wordSize);
@@ -771,7 +771,7 @@ export async function testStrausChunk(k: number): Promise<UnitTestResult> {
       bigints_to_u8_for_gpu(ysMont, numWords, wordSize),
     );
 
-    const lutByteLen = n * 8 * numWords * 4;
+    const lutByteLen = n * 16 * numWords * 4;
     const lutXSb = create_sb(device, lutByteLen);
     const lutYSb = create_sb(device, lutByteLen);
     const lutZSb = create_sb(device, lutByteLen);
@@ -956,7 +956,7 @@ export async function testStrausMultiThread(
       bigints_to_u8_for_gpu(ysMont, numWords, wordSize),
     );
 
-    const lutByteLen = n * 8 * numWords * 4;
+    const lutByteLen = n * 16 * numWords * 4;
     const lutXSb = create_sb(device, lutByteLen);
     const lutYSb = create_sb(device, lutByteLen);
     const lutZSb = create_sb(device, lutByteLen);
@@ -1159,7 +1159,7 @@ export async function testStrausEndToEnd(
       bigints_to_u8_for_gpu(ysMont, numWords, wordSize),
     );
 
-    const lutByteLen = n * 8 * numWords * 4;
+    const lutByteLen = n * 16 * numWords * 4;
     const lutXSb = create_sb(device, lutByteLen);
     const lutYSb = create_sb(device, lutByteLen);
     const lutZSb = create_sb(device, lutByteLen);

@@ -551,6 +551,13 @@ ${packLines.join('\n')}
   }
 
   public gen_straus_lookup_precompute_shader(n: number, workgroup_size = 64): string {
+    const beta_mont = fqCubeRootOfUnityMont(this.num_words, this.word_size);
+    const beta_mont_limbs = gen_wgsl_limbs_code(
+      beta_mont,
+      "b",
+      this.num_words,
+      this.word_size,
+    );
     return mustache.render(
       straus_lookup_precompute_bn254_shader,
       {
@@ -564,6 +571,7 @@ ${packLines.join('\n')}
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
+        beta_mont_limbs,
         recompile: this.recompile,
       },
       {
@@ -640,13 +648,6 @@ ${packLines.join('\n')}
     num_thread_muls: number,
     workgroup_size = 64,
   ): string {
-    const beta_mont = fqCubeRootOfUnityMont(this.num_words, this.word_size);
-    const beta_mont_limbs = gen_wgsl_limbs_code(
-      beta_mont,
-      "b",
-      this.num_words,
-      this.word_size,
-    );
     return mustache.render(
       straus_main_bn254_shader,
       {
@@ -661,7 +662,6 @@ ${packLines.join('\n')}
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
-        beta_mont_limbs,
         recompile: this.recompile,
       },
       {

@@ -180,7 +180,7 @@ export class TrivialMsm {
       bigints_to_u8_for_gpu(ys, m.numWords, m.wordSize),
     );
 
-    const lutByteLen = n * 8 * m.numWords * 4;
+    const lutByteLen = n * 16 * m.numWords * 4;
     m.lut = {
       x: gpu.create_sb(device, lutByteLen),
       y: gpu.create_sb(device, lutByteLen),

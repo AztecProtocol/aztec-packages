@@ -31,12 +31,6 @@ const N:               u32 = {{ n }}u;
 @group(0) @binding(6) var<storage, read_write> part_y:  array<BigInt>;
 @group(0) @binding(7) var<storage, read_write> part_z:  array<BigInt>;
 
-fn get_beta_mont() -> BigInt {
-    var b: BigInt;
-{{{ beta_mont_limbs }}}
-    return b;
-}
-
 fn fr_cond_neg(y: BigInt, flag: u32) -> BigInt {
     if (flag == 0u) {
         return y;
@@ -78,11 +72,12 @@ fn booth_packed_digit(lims: ptr<function, array<u32, 4>>, w: u32) -> u32 {
     return (neg << 31u) | magnitude;
 }
 
-fn read_lut(i: u32, k: u32) -> Point {
+fn read_lut(i: u32, k: u32, h: u32) -> Point {
+    let off: u32 = i * 16u + h * 8u + k;
     var p: Point;
-    p.x = lut_x[i * 8u + k];
-    p.y = lut_y[i * 8u + k];
-    p.z = lut_z[i * 8u + k];
+    p.x = lut_x[off];
+    p.y = lut_y[off];
+    p.z = lut_z[off];
     return p;
 }
 
@@ -119,8 +114,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     acc.y = zero_bi;
     acc.z = zero_bi;
 
-    var beta: BigInt = get_beta_mont();
-
     for (var w_p1: u32 = 32u; w_p1 > 0u; w_p1 = w_p1 - 1u) {
         let w: u32 = w_p1 - 1u;
         for (var h: u32 = 0u; h < 2u; h = h + 1u) {
@@ -132,12 +125,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     continue;
                 }
                 let sign: u32 = digit >> 31u;
-                var to_add: Point = read_lut(ii, magnitude - 1u);
+                var to_add: Point = read_lut(ii, magnitude - 1u, h);
                 to_add.y = fr_cond_neg(to_add.y, sign ^ h);
-                if (h == 1u) {
-                    var bx = to_add.x;
-                    to_add.x = montgomery_product(&bx, &beta);
-                }
                 acc = add_points(acc, to_add);
             }
         }

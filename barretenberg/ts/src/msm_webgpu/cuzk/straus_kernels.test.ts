@@ -110,12 +110,19 @@ describe("StrausKernels: straus_main renderer", () => {
     expect(src).toMatch(/for \(var d: u32 = 0u;\s*d < 4u/);
   });
 
-  it("emits the 20-limb β-Mont initializer", () => {
+  it("lookup_precompute emits the 20-limb β-Mont initializer", () => {
     const sm = makeSm();
-    const src = StrausKernels.renderStrausMain(sm, 256, 4, 64);
+    const src = StrausKernels.renderLookupPrecompute(sm, 256, 64);
     for (let i = 0; i < 20; i++) {
       expect(src).toMatch(new RegExp(`b\\.limbs\\[${i}\\] = `));
     }
+  });
+
+  it("straus_main no longer contains a runtime β-mul branch", () => {
+    const sm = makeSm();
+    const src = StrausKernels.renderStrausMain(sm, 256, 4, 64);
+    expect(src).not.toContain("get_beta_mont");
+    expect(src.match(/montgomery_product\(&bx,/g) ?? []).toEqual([]);
   });
 
   it("renders the combine-fold kernel with the correct T_IN", () => {
