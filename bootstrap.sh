@@ -801,13 +801,10 @@ case "$cmd" in
     export CI=1
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
-    docker_image="${3:-}"
-    build
-    # If no docker image provided, build and push to aztecdev
-    if [ -z "$docker_image" ]; then
-      release-image/bootstrap.sh push_pr
-      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    fi
+    docker_image="spypsy/aztec:tps_metrics"
+    export BENCH_AZTEC_IMAGE="$docker_image"
+    export BENCH_USE_AZTEC_IMAGE_CLIENT=1
+    denoise "docker pull $docker_image"
     # Set up environment and deploy using spartan
     export NAMESPACE="$namespace"
     export AZTEC_DOCKER_IMAGE="$docker_image"

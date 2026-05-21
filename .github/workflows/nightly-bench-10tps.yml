@@ -24,8 +24,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          ref: next
 
       - name: Determine docker image
         id: docker-image
@@ -72,7 +70,7 @@ jobs:
           AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
         run: |
-          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "${{ steps.docker-image.outputs.docker_image }}"
+          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps spypsy/aztec:tps_metrics
 
       - name: Cleanup network resources
         if: always()
