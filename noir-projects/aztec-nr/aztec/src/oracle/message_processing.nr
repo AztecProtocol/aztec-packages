@@ -42,17 +42,20 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     scope: AztecAddress,
 ) {}
 
-/// Fetches logs by tag from an ephemeral request array and returns a response ephemeral array.
+/// Fetches all logs matching each request's tag and returns a nested ephemeral array.
+///
+/// Each element in the outer array is an inner `EphemeralArray<LogRetrievalResponse>` containing all matching logs for
+/// the request at the same index (which may be empty if no logs were found).
 pub(crate) unconstrained fn get_logs_by_tag(
     requests: EphemeralArray<LogRetrievalRequest>,
-) -> EphemeralArray<Option<LogRetrievalResponse>> {
+) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     get_logs_by_tag_oracle(requests)
 }
 
 #[oracle(aztec_utl_getLogsByTag)]
 unconstrained fn get_logs_by_tag_oracle(
     requests: EphemeralArray<LogRetrievalRequest>,
-) -> EphemeralArray<Option<LogRetrievalResponse>> {}
+) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {}
 
 /// Resolves message contexts for tx hashes in an ephemeral request array and returns a response ephemeral array.
 pub(crate) unconstrained fn get_message_contexts_by_tx_hash(

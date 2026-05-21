@@ -48,7 +48,6 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -602,9 +601,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       .map(LogRetrievalRequest.fromFields);
     const logService = this.#createLogService();
 
-    const maybeLogRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
+    const logRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
 
-    return this.ephemeralArrayService.newArray(maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption));
+    // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
+    const innerSlots = logRetrievalResponses.map(responses =>
+      this.ephemeralArrayService.newArray(responses.map(r => r.toFields())),
+    );
+
+    return this.ephemeralArrayService.newArray(innerSlots.map(slot => [slot]));
   }
 
   /** Reads tx hash requests from an ephemeral array, resolves their contexts, and returns the response slot. */

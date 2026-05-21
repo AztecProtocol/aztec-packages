@@ -9,6 +9,29 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `LogRetrievalRequest` now includes `source`, `from_block`, and `to_block` fields
+
+`LogRetrievalRequest` has been extended with three new fields to support filtering logs by source and block range. The `get_logs_by_tag` oracle now also returns all matching logs per tag instead of only the first match.
+
+A `LogRetrievalRequest::new(contract_address, tag)` constructor is provided that defaults to querying both public and private logs with no block range filter:
+
+```rust
+LogRetrievalRequest::new(contract_address, my_tag)
+```
+
+If you need to customize source or block range, construct the struct manually with the new fields:
+
+```diff
+  LogRetrievalRequest {
+      tag: my_tag,
++     source: LogSource.PUBLIC_AND_PRIVATE,
++     from_block: Option::none(),
++     to_block: Option::none(),
+  }
+```
+
+`source` controls which RPCs are queried: `LogSource.PRIVATE`, `LogSource.PUBLIC`, or `LogSource.PUBLIC_AND_PRIVATE`. `from_block` and `to_block` define a half-open `[from, to)` block range filter. Both are `Option<Field>` and default to `Option::none()` (no filtering).
+
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` now take `BoundedVec`
 
 The old array-based `emit_private_log_unsafe(tag, log: [Field; N], length)` and `emit_raw_note_log_unsafe(tag, log: [Field; N], length, note_hash_counter)` have been removed. The temporary `_vec_unsafe` variants introduced in a prior release have been renamed to take their place.
