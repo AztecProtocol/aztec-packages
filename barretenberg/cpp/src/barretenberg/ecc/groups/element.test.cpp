@@ -204,7 +204,9 @@ template <typename G_> class TestElement : public testing::Test {
 
     static void test_batch_normalize()
     {
-        size_t num_points = 2;
+        // Use num_points well above the K=5 dispatch threshold (20) so the WASM SIMD K=5
+        // path gets exercised on BN254. Non-BN254 curves take the K=1 path here regardless.
+        size_t num_points = 32;
         std::vector<element> points(num_points);
         std::vector<element> normalized(num_points);
         for (size_t i = 0; i < num_points; ++i) {
@@ -231,9 +233,11 @@ template <typename G_> class TestElement : public testing::Test {
     }
 
     // batch_normalize must preserve infinity points and correctly normalize non-infinity ones.
+    // Use num_points above the K=5 dispatch threshold (20) so the WASM SIMD path's
+    // "any infinity present → fall through to K=1" early-out gets exercised on BN254.
     static void test_batch_normalize_with_infinity()
     {
-        constexpr size_t num_points = 6;
+        constexpr size_t num_points = 32;
         std::vector<element> points(num_points);
         for (size_t i = 0; i < num_points; ++i) {
             if (i % 3 == 0) {
