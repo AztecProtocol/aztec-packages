@@ -1645,8 +1645,9 @@ async function runMsmSweepAutorun(qp: URLSearchParams, client: ReturnType<typeof
   const hi = clampLogN(parseInt(qp.get('logn_max') ?? '18', 10));
   const reps = Math.max(1, Math.min(20, parseInt(qp.get('reps') ?? '3', 10)));
   const useRandomPoints = (qp.get('points') ?? 'random') !== 'srs';
-  client.postProgress({ phase: 'sweep-begin', lo, hi, reps, hasWebGpu: 'gpu' in navigator });
-  log('info', `[msm-sweep] N=2^${lo}..2^${hi} reps=${reps} points=${useRandomPoints ? 'random' : 'srs'}`);
+  const invSelLog = qp.get('inv') ?? 'default';
+  client.postProgress({ phase: 'sweep-begin', lo, hi, reps, inv: invSelLog, hasWebGpu: 'gpu' in navigator });
+  log('info', `[msm-sweep] N=2^${lo}..2^${hi} reps=${reps} points=${useRandomPoints ? 'random' : 'srs'} inv=${invSelLog}`);
   const rows: Record<string, unknown>[] = [];
   let fatal: string | null = null;
   try {
@@ -1672,15 +1673,24 @@ async function runMsmSweepAutorun(qp: URLSearchParams, client: ReturnType<typeof
         // (c / s / reduceWg). create() runs its own warm-up. `?profile=1`
         // enables the per-pass GPU-timestamp breakdown.
         const wantProfile = (qp.get('profile') ?? '0') === '1';
-        const msm = await MsmV2.create(device, inputs.n, inputs.pointsBuf, wantProfile ? { profile: true } : undefined);
+        const invSel = qp.get('inv') as 'a' | 'loop' | 'pk' | null;
+        const cfg: { profile?: boolean; invVariant?: 'a' | 'loop' | 'pk'; montLooped?: boolean } = {};
+        if (wantProfile) cfg.profile = true;
+        if (invSel === 'a' || invSel === 'loop' || invSel === 'pk') cfg.invVariant = invSel;
+        if (qp.get('mont') === 'cios') cfg.montLooped = true;
+        const msm = await MsmV2.create(device, inputs.n, inputs.pointsBuf, Object.keys(cfg).length ? cfg : undefined);
         msm.prepare(inputs.scalarsBuf);
         const ms: number[] = [];
         const profs: Record<string, number>[] = [];
+        let resultHex = '';
         for (let r = 0; r < reps; r++) {
           const t0 = performance.now();
-          const res = (await msm.run()) as { profile?: Record<string, number> | null };
+          const res = (await msm.run()) as { x?: bigint; y?: bigint; profile?: Record<string, number> | null };
           ms.push(performance.now() - t0);
           if (res.profile) profs.push(res.profile);
+          if (res.x !== undefined && res.y !== undefined) {
+            resultHex = `${res.x.toString(16)}:${res.y.toString(16)}`;
+          }
         }
         msm.destroy();
         const sorted = ms.slice().sort((a, b) => a - b);
@@ -1701,6 +1711,7 @@ async function runMsmSweepAutorun(qp: URLSearchParams, client: ReturnType<typeof
           minMs: +Math.min(...ms).toFixed(3),
           samples: ms.map(x => +x.toFixed(2)),
           profile,
+          resultHex,
         });
         client.postProgress({ phase: 'size-done', logN, medianMs: +med.toFixed(3), profile });
         log('ok', `[msm-sweep] 2^${logN} (n=${(1 << logN).toLocaleString()}): median ${med.toFixed(2)} ms`);

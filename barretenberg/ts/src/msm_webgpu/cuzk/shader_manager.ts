@@ -128,6 +128,11 @@ export class ShaderManager {
   public slack: number;
   public w_mask: number;
   public p_limbs: string;
+  // Modulus limbs as {idx,val} pairs for emitting `const P_i` immediates.
+  public p_consts: Array<{ idx: number; val: number }>;
+  // CIOS (runtime-loop, register-minimal) Montgomery product body — the
+  // low-register-pressure alternative to the unrolled Karatsuba default.
+  public mont_product_cios_src: string;
   public r_limbs: string;
   public r_cubed_limbs: string;
   public b3_mont_limbs: string;
@@ -193,6 +198,16 @@ export class ShaderManager {
     this.two_pow_word_size = 2 ** this.word_size;
     this.two_pow_chunk_size = 2 ** chunk_size;
     this.p_limbs = gen_p_limbs(this.p, this.num_words, this.word_size);
+    {
+      const limbMask = (1n << BigInt(this.word_size)) - 1n;
+      const vals: number[] = [];
+      let pv = this.p;
+      for (let i = 0; i < this.num_words; i++) {
+        vals.push(Number(pv & limbMask));
+        pv >>= BigInt(this.word_size);
+      }
+      this.p_consts = vals.map((val, idx) => ({ idx, val }));
+    }
     this.r_limbs = gen_r_limbs(this.r, this.num_words, this.word_size);
     const r_cubed = (this.r * this.r * this.r) % this.p;
     this.r_cubed_limbs = gen_wgsl_limbs_code(r_cubed, 'r3', this.num_words, this.word_size);
@@ -233,6 +248,16 @@ export class ShaderManager {
     // u32 multiplier used by every MSM shader that includes the
     // `montgomery_product_funcs` mustache partial.
     this.mont_product_src = this.renderKaratYuvalMont();
+    this.mont_product_cios_src = mustache.render(montgomery_product_funcs, {
+      num_words: this.num_words,
+      word_size: this.word_size,
+      n0: this.n0,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+      p_limbs: this.p_limbs,
+      p_consts: this.p_consts,
+    });
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -1170,13 +1195,22 @@ ${packLines.join('\n')}
    * in a single dispatch, one workgroup per window, storageBarrier between
    * levels. Mirrors gen_ba_fused_super_bench_shader's partials; no per-pass s.
    */
-  public gen_ba_reduce_fused_bench_shader(workgroup_size: number, variant: 'a' | 'loop' | 'pk' = 'a'): string {
+  public gen_ba_reduce_fused_bench_shader(
+    workgroup_size: number,
+    variant: 'a' | 'loop' | 'pk' = 'a',
+    montLooped = false,
+  ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_fused_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    // The register-minimal CIOS montmul keeps its operands in scratch, so the
+    // fused affine-add round (which holds ~7 EC BigInts live) doesn't also pay
+    // the unrolled Karatsuba body's ~120-u32 register peak — slashes the
+    // kernel's per-lane register pressure on the Adreno.
+    const mont_src = montLooped ? this.mont_product_cios_src : this.mont_product_src;
     return mustache.render(
       ba_reduce_fused_bench_shader,
       {
@@ -1190,7 +1224,7 @@ ${packLines.join('\n')}
       },
       {
         structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_funcs: mont_src,
         field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
       },
     );
@@ -1808,6 +1842,7 @@ ${packLines.join('\n')}
             two_pow_word_size: this.two_pow_word_size,
             p_inv_mod_2w: this.p_inv_mod_2w,
             p_limbs: this.p_limbs,
+            p_consts: this.p_consts,
           });
     const entry_src = mustache.render(field_mul_bench_u32_shader, {
       workgroup_size,
@@ -2153,17 +2188,7 @@ ${entry_src}`;
       v >>= BigInt(WS);
     }
     const r_inv_consts = limbs.map((val, idx) => ({ idx, val }));
-
-    // Modulus limbs as individual compile-time constants P_0..P_{N-1} (same
-    // pattern as r_inv_consts). Lets montmul / field ops / the inverse fold p
-    // into immediates instead of holding a per-thread BigInt in scratch.
-    const p_limb_vals: number[] = [];
-    let pv = this.p;
-    for (let i = 0; i < N; i++) {
-      p_limb_vals.push(Number(pv & mask));
-      pv >>= BigInt(WS);
-    }
-    const p_consts = p_limb_vals.map((val, idx) => ({ idx, val }));
+    const p_consts = this.p_consts;
 
     const input_loads: Array<{ name: string; ptr: string; k: number }> = [];
     const chunks = [

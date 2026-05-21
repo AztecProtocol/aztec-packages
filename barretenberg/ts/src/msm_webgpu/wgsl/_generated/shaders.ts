@@ -13545,10 +13545,46 @@ const N0 = {{ n0 }}u;
 // ≤ WORD_SIZE.
 const P_INV_MOD_2W = {{ p_inv_mod_2w }}u;
 
+// Modulus limbs as compile-time constants (drop-in parity with the
+// Karatsuba+Yuval montmul partial: field_funcs / the inverse reference these
+// module-scope symbols). The CIOS loop below keeps p in scratch for its
+// dynamic-index inner loop (register-cheap already), but the field-op reduce
+// helpers use the immediates.
+{{#p_consts}}
+const P_{{idx}}: u32 = {{val}}u;
+{{/p_consts}}
+
 fn get_p() -> BigInt {
     var p: BigInt;
 {{{ p_limbs }}}
     return p;
+}
+
+fn conditional_reduce_constp(x: ptr<function, BigInt>) -> BigInt {
+    var res: BigInt;
+    var borrow: i32 = 0;
+{{#p_consts}}
+    {
+        let d: i32 = i32((*x).limbs[{{idx}}u]) - i32(P_{{idx}}) - borrow;
+        res.limbs[{{idx}}u] = u32(d) & MASK;
+        borrow = select(0, 1, d < 0);
+    }
+{{/p_consts}}
+    if (borrow == 0) { return res; }
+    return *x;
+}
+
+fn bigint_add_const_p(a: ptr<function, BigInt>) -> BigInt {
+    var res: BigInt;
+    var carry: u32 = 0u;
+{{#p_consts}}
+    {
+        let s: u32 = (*a).limbs[{{idx}}u] + P_{{idx}} + carry;
+        res.limbs[{{idx}}u] = s & MASK;
+        carry = s >> WORD_SIZE;
+    }
+{{/p_consts}}
+    return res;
 }
 
 // An optimised variant of the Montgomery product algorithm from
@@ -13586,25 +13622,7 @@ fn montgomery_product(x: ptr<function, BigInt>, y: ptr<function, BigInt>) -> Big
         s.limbs[i] = v & MASK;
     }
 
-    return conditional_reduce(&s, &p);
-}
-
-fn conditional_reduce(x: ptr<function, BigInt>, y: ptr<function, BigInt>) -> BigInt {
-    // Reduce when x >= y, not just x > y. The equality case matters: if x is
-    // a limb-wise copy of p (value-0 mod p but non-canonical), is_zero() would
-    // return false downstream, and that breaks identity checks in the EC
-    // shaders. Reducing on == ensures the output is always canonical in
-    // [0, p).
-    var x_gt_y = bigint_gt(x, y);
-    var x_eq_y = bigint_eq(x, y);
-
-    if (x_gt_y == 1u || x_eq_y) {
-        var res: BigInt;
-        bigint_sub(x, y, &res);
-        return res;
-    }
-
-    return *x;
+    return conditional_reduce_constp(&s);
 }
 `;
 
