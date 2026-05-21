@@ -22,3 +22,13 @@ for deps in dependencies devDependencies peerDependencies; do
     mv tmp.json package.json
   done
 done
+
+# Stamp aztec_version into any published noir contract artifacts in artifacts/*.json. The build-time stamp in
+# noir-projects/noir-contracts/bootstrap.sh writes "dev"; $version here is the authoritative release version about to
+# be written to package.json. We cannot stamp real version in bootstrap because there we don't have access to it.
+if [ -d artifacts ]; then
+  for f in artifacts/*.json; do
+    [ -e "$f" ] || continue
+    jq --arg v "$version" '.aztec_version = $v' "$f" >$tmp && mv $tmp "$f"
+  done
+fi
