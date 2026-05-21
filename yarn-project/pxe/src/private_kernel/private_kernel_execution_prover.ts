@@ -1,7 +1,7 @@
 import { CircuitKind } from '@aztec/bb.js';
 import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
 import { uniqueBy } from '@aztec/foundation/collection';
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
+import { vkAsFields } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
@@ -424,8 +424,10 @@ export class PrivateKernelExecutionProver {
   ) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
-    const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
-    const vk = await VerificationKeyAsFields.fromKey(vkAsFields);
+    // `createPrivateCallData` runs on app-circuit data — the call originates from a user-contract
+    // private function, which is pinned against MegaAppFlavor.
+    const vkAsFieldsArr = await vkAsFields(vkAsBuffer, CircuitKind.App);
+    const vk = await VerificationKeyAsFields.fromKey(vkAsFieldsArr);
 
     const { currentContractClassId, publicKeys, saltedInitializationHash } =
       await this.oracle.getContractAddressPreimage(contractAddress);

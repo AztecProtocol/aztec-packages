@@ -234,6 +234,39 @@ MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& r
     return { std::move(fields) };
 }
 
+MegaAppVkAsFields::Response MegaAppVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VK = MegaAppFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
+
+    auto vk = from_buffer<VK>(verification_key);
+    return { vk.to_field_elements() };
+}
+
+MegaKernelVkAsFields::Response MegaKernelVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VK = MegaKernelFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
+
+    auto vk = from_buffer<VK>(verification_key);
+    return { vk.to_field_elements() };
+}
+
+MegaZKVkAsFields::Response MegaZKVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VK = MegaZKFlavor::VerificationKey;
+    validate_vk_size<VK>(verification_key);
+
+    auto vk = from_buffer<VK>(verification_key);
+    return { vk.to_field_elements() };
+}
+
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);

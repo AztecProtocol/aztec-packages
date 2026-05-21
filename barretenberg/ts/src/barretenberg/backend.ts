@@ -324,6 +324,35 @@ export class AztecClientBackend {
     }
   }
 
+  private async getChonkVkForCircuit(
+    bytecode: Uint8Array,
+    providedVk: Uint8Array,
+    kind: CircuitKind,
+    name: string,
+  ): Promise<Uint8Array> {
+    if (kind !== CircuitKind.App && providedVk.length !== 0) {
+      return providedVk;
+    }
+
+    if (providedVk.length !== 0) {
+      try {
+        const check = await this.api.chonkCheckPrecomputedVk({
+          circuit: { name, bytecode, verificationKey: providedVk },
+          kind,
+        });
+        return check.valid ? providedVk : check.actualVk;
+      } catch (_err) {
+        // Older artifact VKs may not deserialize as the selected Chonk flavor.
+      }
+    }
+
+    const result = await this.api.chonkComputeVk({
+      circuit: { name, bytecode },
+      kind,
+    });
+    return result.bytes;
+  }
+
   async prove(
     witnessBuf: Uint8Array[],
     vksBuf?: Uint8Array[],
@@ -349,8 +378,13 @@ export class AztecClientBackend {
     for (let i = 0; i < this.acirBuf.length; i++) {
       const bytecode = this.acirBuf[i];
       const witness = witnessBuf[i] || new Uint8Array(0);
-      const vk = vksBuf[i] || new Uint8Array(0);
       const functionName = this.circuitNames[i] || `circuit_${i}`;
+      const vk = await this.getChonkVkForCircuit(
+        bytecode,
+        vksBuf[i] || new Uint8Array(0),
+        this.circuitKinds[i],
+        functionName,
+      );
 
       this.api.chonkLoad({
         circuit: {
