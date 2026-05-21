@@ -36,17 +36,24 @@ function build {
     (cd examples/ts/echo && npm install --no-package-lock --quiet)
   fi
 
-  # C++ needs msgpack-c headers. We pick them up from a local bb cmake build
-  # for now; if absent the C++ matrix pairs are skipped in test_cmds below.
+  # C++ echo binaries link against ipc-runtime; build it first so libipc_runtime.a
+  # exists. msgpack-c headers come from bb's cmake build (we don't have a separate
+  # source for them yet). If either is missing we skip the C++ matrix pairs.
+  (cd ../ipc-runtime && ./bootstrap.sh) >/dev/null 2>&1 || true
+  local IPC_RUNTIME_LIB IPC_RUNTIME_INC
+  IPC_RUNTIME_LIB="$(cd ../ipc-runtime/cpp/build 2>/dev/null && pwd)/libipc_runtime.a" || true
+  IPC_RUNTIME_INC="$(cd ../ipc-runtime/cpp 2>/dev/null && pwd)" || true
   local MSGPACK_INC
   MSGPACK_INC="$(cd ../barretenberg/cpp/build/_deps/msgpack-c/src/msgpack-c/include 2>/dev/null && pwd)" || true
-  if [ -n "${MSGPACK_INC:-}" ] && [ -d "$MSGPACK_INC" ]; then
+  if [ -f "$IPC_RUNTIME_LIB" ] && [ -n "${MSGPACK_INC:-}" ] && [ -d "$MSGPACK_INC" ]; then
     echo "Building C++ echo binaries..."
-    local CXX_FLAGS="-std=c++20 -I $MSGPACK_INC -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR"
-    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_server echo_server.cpp)
-    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_client echo_client.cpp generated/echo_ipc_client.cpp)
+    # THROW/RETHROW satisfy barretenberg's patched msgpack-c (the same source we pull in).
+    # THROW/RETHROW satisfy barretenberg's patched msgpack-c (the same source we pull in).
+    local CXX_FLAGS="-std=c++20 -I $MSGPACK_INC -I $IPC_RUNTIME_INC -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -DTHROW=throw -DRETHROW=throw"
+    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_server echo_server.cpp "$IPC_RUNTIME_LIB" -lpthread)
+    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_client echo_client.cpp generated/echo_ipc_client.cpp "$IPC_RUNTIME_LIB" -lpthread)
   else
-    echo "Skipping C++ echo build — msgpack-c not present at ../barretenberg/cpp/build/_deps/"
+    echo "Skipping C++ echo build — ipc-runtime archive or msgpack-c not available"
   fi
 
   # NB: the golden msgpack fixtures under examples/echo-schema/golden/ are

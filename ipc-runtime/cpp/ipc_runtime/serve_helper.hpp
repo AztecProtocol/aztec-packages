@@ -9,6 +9,7 @@
  * This keeps per-service main() code free of transport-selection logic.
  */
 
+#include "ipc_runtime/ipc_client.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 
 #include <cstddef>
@@ -46,5 +47,22 @@ struct ServerOptions {
  */
 std::unique_ptr<IpcServer> make_server(const std::string &input_path,
                                        const ServerOptions &opts = {});
+
+/**
+ * @brief Construct an IpcClient based on the input path's suffix.
+ *
+ * Recognised suffixes:
+ *  - "*.sock" → IpcClient::create_socket(path)
+ *  - "*.shm"  → IpcClient::create_mpsc_shm(<basename>, client_id)
+ *
+ * Returns nullptr if the suffix is not recognised. `shm_client_id` is only
+ * consulted for the SHM path; for MPSC-SHM, each connecting client picks a
+ * distinct slot (0..max_clients-1) — typical convention is "TS=0, AVM=1".
+ *
+ * @param input_path Path passed by the caller (often a CLI flag).
+ * @param shm_client_id Client slot to claim in MPSC-SHM mode. Ignored for UDS.
+ */
+std::unique_ptr<IpcClient> make_client(const std::string &input_path,
+                                       std::size_t shm_client_id = 0);
 
 } // namespace ipc
