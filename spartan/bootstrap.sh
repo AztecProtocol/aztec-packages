@@ -191,11 +191,7 @@ function bench_10tps_cmds {
   local low_value_tps=9
   local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
   local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for initial committee formation
-  local run_test_script="$root/yarn-project/end-to-end/scripts/run_test.sh"
-  if [[ "${BENCH_USE_AZTEC_IMAGE_CLIENT:-}" == "1" ]]; then
-    run_test_script="$root/yarn-project/end-to-end/scripts/run_test_aztec_image.sh"
-  fi
-  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} ${run_test_script} n_tps.test.ts"
+  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
 }
 
 function network_bench {

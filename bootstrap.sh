@@ -802,9 +802,8 @@ case "$cmd" in
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
     docker_image="spypsy/aztec:tps_metrics"
-    export BENCH_AZTEC_IMAGE="$docker_image"
-    export BENCH_USE_AZTEC_IMAGE_CLIENT=1
     denoise "docker pull $docker_image"
+    build
     # Set up environment and deploy using spartan
     export NAMESPACE="$namespace"
     export AZTEC_DOCKER_IMAGE="$docker_image"
