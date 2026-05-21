@@ -45,6 +45,7 @@ void GetContractInstanceTraceBuilder::process(
         bool is_deployer = false;
         bool is_class_id = false;
         bool is_init_hash = false;
+        bool is_immutables_hash = false;
 
         if (writes_are_in_bounds) {
             // Get precomputed table values for this member enum
@@ -54,14 +55,16 @@ void GetContractInstanceTraceBuilder::process(
             is_deployer = spec.is_deployer;
             is_class_id = spec.is_class_id;
             is_init_hash = spec.is_init_hash;
+            is_immutables_hash = spec.is_immutables_hash;
         }
 
         bool has_error = !(writes_are_in_bounds && is_valid_member_enum);
 
-        FF selected_member = is_deployer    ? event.retrieved_deployer_addr
-                             : is_class_id  ? event.retrieved_class_id
-                             : is_init_hash ? event.retrieved_init_hash
-                                            : FF(0);
+        FF selected_member = is_deployer          ? event.retrieved_deployer_addr
+                             : is_class_id        ? event.retrieved_class_id
+                             : is_init_hash       ? event.retrieved_init_hash
+                             : is_immutables_hash ? event.retrieved_immutables_hash
+                                                  : FF(0);
 
         trace.set(
             row,
@@ -86,11 +89,13 @@ void GetContractInstanceTraceBuilder::process(
                 { C::get_contract_instance_is_deployer, is_deployer ? 1 : 0 },
                 { C::get_contract_instance_is_class_id, is_class_id ? 1 : 0 },
                 { C::get_contract_instance_is_init_hash, is_init_hash ? 1 : 0 },
+                { C::get_contract_instance_is_immutables_hash, is_immutables_hash ? 1 : 0 },
                 // Retrieval results
                 { C::get_contract_instance_instance_exists, event.instance_exists ? 1 : 0 },
                 { C::get_contract_instance_retrieved_deployer_addr, event.retrieved_deployer_addr },
                 { C::get_contract_instance_retrieved_class_id, event.retrieved_class_id },
                 { C::get_contract_instance_retrieved_init_hash, event.retrieved_init_hash },
+                { C::get_contract_instance_retrieved_immutables_hash, event.retrieved_immutables_hash },
                 { C::get_contract_instance_selected_member, selected_member },
                 // Memory writing
                 { C::get_contract_instance_member_write_offset, writes_are_in_bounds ? (event.dst_offset + 1) : 0 },

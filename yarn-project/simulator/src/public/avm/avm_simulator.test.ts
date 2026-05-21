@@ -914,24 +914,27 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         // Contract instance must match noir
         const contractInstance = new SerializableContractInstance({
-          version: 1 as const,
+          version: 2 as const,
           salt: new Fr(0x123),
           deployer: AztecAddress.fromBigInt(0x456n),
           currentContractClassId: new Fr(0x789),
           originalContractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
+          immutablesHash: new Fr(0x202221),
           publicKeys: new PublicKeys(
-            new Point(new Fr(0x131415), new Fr(0x161718), false),
+            new Fr(0x131415),
             new Point(new Fr(0x192021), new Fr(0x222324), false),
-            new Point(new Fr(0x252627), new Fr(0x282930), false),
-            new Point(new Fr(0x313233), new Fr(0x343536), false),
+            new Fr(0x252627),
+            new Fr(0x313233),
           ),
         });
         const contractInstanceWithAddress = contractInstance.withAddress(address);
-        // mock once per enum value (deployer, classId, initializationHash)
+        // mock once per enum value (deployer, classId, initializationHash, immutablesHash)
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
         mockGetContractInstance(contractsDB, contractInstanceWithAddress);
+        mockGetContractInstance(contractsDB, contractInstanceWithAddress);
+        mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));
         mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));
         mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));
         mockCheckNullifierExists(treesDB, true, await siloAddress(contractInstanceWithAddress.address));
