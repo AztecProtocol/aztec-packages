@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TrivialMsm NUM_THREAD_MULS sweep — pickNTM(logN) + speedup vs MsmV2</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        max-width: 1400px;
+        margin: 1.5rem auto;
+        padding: 0 1rem;
+        line-height: 1.45;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      p {
+        color: #334155;
+      }
+      table {
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        border: 1px solid #cbd5e1;
+        padding: 3px 9px;
+        text-align: right;
+        font-size: 12px;
+      }
+      thead th,
+      tbody th {
+        background: #f1f5f9;
+      }
+      td.best {
+        background: #bbf7d0;
+        font-weight: 700;
+      }
+      td.err {
+        background: #fecaca;
+        color: #991b1b;
+        text-align: center;
+      }
+      td.pending {
+        color: #cbd5e1;
+        text-align: center;
+      }
+      #log {
+        background: #0b1020;
+        color: #e6e6e6;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        padding: 0.75rem;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        max-height: 26rem;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>TrivialMsm NUM_THREAD_MULS sweep — pickNTM(logN) + speedup vs MsmV2</h1>
+    <p>
+      Median <code>run()</code> wall time for each (size, <code>NUM_THREAD_MULS</code> = k) pair of the WebGPU
+      <code>straus_msm</code> small-MSM kernel stack. Green = fastest k for that row — the value
+      <code>pickNTM(logN)</code> should return. The rightmost columns show the same row's <code>MsmV2</code>
+      median and the speedup ratio. Params:
+      <code>?minlogn=4&amp;maxlogn=16&amp;ntmlist=1,2,3,4,6,8,12,16,24,32&amp;reps=15&amp;warmup=3&amp;verify=0</code>
+    </p>
+    <div id="table"></div>
+    <div id="log"></div>
+    <script type="module" src="./bench-nt-sweep.ts"></script>
+  </body>
+</html>

@@ -137,6 +137,7 @@ const pageMap = {
   "bench-planner": "/dev/msm-webgpu/bench-planner.html",
   "bench-csr-to-v2": "/dev/msm-webgpu/bench-csr-to-v2.html",
   "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
+  "bench-nt-sweep": "/dev/msm-webgpu/bench-nt-sweep.html",
   sanity: "/dev/msm-webgpu/index.html",
 };
 if (!pageMap[argv.page]) {
