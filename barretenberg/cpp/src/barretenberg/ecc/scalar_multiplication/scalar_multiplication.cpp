@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
@@ -267,6 +268,45 @@ template <typename Curve> struct ThreadScratch {
     // Per-window metadata consumed by recursive_affine_bucket_reduce_strided (lo, hi, buckets_padded,
     // empty per window). Filled in the lambda before the call.
     std::span<AffineBucketChunkInfo> chunk_infos;
+};
+
+struct MsmArena {
+    std::unique_ptr<std::byte[]> local_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    std::byte* data = nullptr;
+    uintptr_t base_addr = 0;
+    size_t capacity = 0;
+    size_t cursor = 0;
+
+    MsmArena(size_t required_bytes, std::span<std::byte> external_arena)
+    {
+        if (!external_arena.empty() && required_bytes <= external_arena.size()) {
+            data = external_arena.data();
+            capacity = external_arena.size();
+        } else {
+            // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+            local_owner = std::make_unique_for_overwrite<std::byte[]>(required_bytes);
+            data = local_owner.get();
+            capacity = required_bytes;
+        }
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        base_addr = reinterpret_cast<uintptr_t>(data);
+    }
+
+    template <typename T> std::span<T> alloc(size_t count) { return bump_alloc<T>(count, cursor, capacity, 0); }
+
+    template <typename T> std::span<T> bump_alloc(size_t count, size_t& local_cursor, size_t bound, size_t base_offset)
+    {
+        const size_t align = alignof(T);
+        const uintptr_t cur_addr = base_addr + base_offset + local_cursor;
+        const uintptr_t aligned_addr = (cur_addr + align - 1) & ~(uintptr_t{ align } - 1);
+        const size_t aligned_local = static_cast<size_t>(aligned_addr - (base_addr + base_offset));
+        const size_t bytes = count * sizeof(T);
+        BB_ASSERT_LTE(aligned_local + bytes, bound);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        T* p = reinterpret_cast<T*>(data + base_offset + aligned_local);
+        local_cursor = aligned_local + bytes;
+        return std::span<T>{ p, count };
+    }
 };
 
 template <typename Curve> inline void drain_batch(ThreadScratch<Curve>& s, size_t pair_count) noexcept
@@ -2006,46 +2046,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // dominates the inline-tight (P + W + S) sum for any wpb we choose below.
     // ---------------------------------------------------------------------------------------
     const size_t arena_total_bytes = compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active);
-    std::unique_ptr<std::byte[]> local_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
-    std::byte* arena_data = nullptr;
-    size_t arena_capacity = 0;
-    if (!external_arena.empty() && arena_total_bytes <= external_arena.size()) {
-        arena_data = external_arena.data();
-        arena_capacity = external_arena.size();
-    } else {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        local_arena_owner = std::make_unique_for_overwrite<std::byte[]>(arena_total_bytes);
-        arena_data = local_arena_owner.get();
-        arena_capacity = arena_total_bytes;
-    }
-    // make_unique_for_overwrite<std::byte[]> only guarantees __STDCPP_DEFAULT_NEW_ALIGNMENT__
-    // (typically 16 on x86_64), but Element / AffineElement are alignas(32) / alignas(64).
-    // Aligning the cursor isn't enough — the resulting pointer inherits the base's
-    // misalignment — so align in absolute address space. AVX vmovdqa against an Element*
-    // allocation otherwise raises #GP / SIGSEGV when the base is only 16-byte aligned.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    const auto arena_base_addr = reinterpret_cast<uintptr_t>(arena_data);
-    // The bump cursor below allocates the Phase 1 prologue slabs (Zone P prefix). Once
-    // Phase 1 finishes and the window schedule is known (T, B_eff, dense_stride, wpb),
-    // we freeze the prologue cursor and partition the remaining arena into named
-    // zones — see the Arena zone layout block further down.
-    size_t arena_cursor = 0;
-    auto bump_alloc_within =
-        [&]<typename T>(size_t count, size_t& cursor, size_t bound_bytes, size_t base_offset) -> std::span<T> {
-        const size_t align = alignof(T);
-        const uintptr_t cur_addr = arena_base_addr + base_offset + cursor;
-        const uintptr_t aligned_addr = (cur_addr + align - 1) & ~(uintptr_t{ align } - 1);
-        const size_t aligned_local = static_cast<size_t>(aligned_addr - (arena_base_addr + base_offset));
-        const size_t bytes = count * sizeof(T);
-        BB_ASSERT_LTE(aligned_local + bytes, bound_bytes);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        T* p = reinterpret_cast<T*>(arena_data + base_offset + aligned_local);
-        cursor = aligned_local + bytes;
-        return std::span<T>{ p, count };
-    };
-    auto arena_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-        return bump_alloc_within.template operator()<T>(count, arena_cursor, arena_capacity, 0);
-    };
+    round_parallel_detail::MsmArena arena(arena_total_bytes, external_arena);
 
     // ---------------------------------------------------------------------------------------
     // Phase 1 — convert scalars from Montgomery, optionally GLV-split, populate msb buffer.
@@ -2061,9 +2062,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // ---------------------------------------------------------------------------------------
     using round_parallel_detail::MSB_ZERO_SENTINEL;
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
-    auto msb_per_scalar = arena_alloc.template operator()<uint8_t>(n);
-    auto per_thread_msb_hist = arena_alloc.template operator()<std::array<uint32_t, 256>>(profile_threads);
-    // arena_alloc returns uninitialised memory; the histograms must be zero-initialised so
+    auto msb_per_scalar = arena.template alloc<uint8_t>(n);
+    auto per_thread_msb_hist = arena.template alloc<std::array<uint32_t, 256>>(profile_threads);
+    // MsmArena::alloc returns uninitialised memory; the histograms must be zero-initialised so
     // record_msb's increments land on a clean slate.
     std::fill_n(per_thread_msb_hist.data(), profile_threads, std::array<uint32_t, 256>{});
 
@@ -2073,9 +2074,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     std::span<ScalarField> glv_scalars_storage;
     std::span<AffineElement> glv_points_storage;
     if (use_glv) {
-        glv_scalars_storage = arena_alloc.template operator()<ScalarField>(n);
+        glv_scalars_storage = arena.template alloc<ScalarField>(n);
         if (inline_glv_double) {
-            glv_points_storage = arena_alloc.template operator()<AffineElement>(n);
+            glv_points_storage = arena.template alloc<AffineElement>(n);
         } else {
             BB_ASSERT_EQ(external_glv_doubled.size(), n);
         }
@@ -2186,7 +2187,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
     // Schedule-based dedup state. The two arrays are allocated from the per-MSM arena
-    // *after* arena_alloc is set up (further down — they need the arena cursor to exist).
+    // *from the arena after Phase 1.
     // Until then, both spans are empty.
     // Lifetimes:
     //   redirect_lookup  — written by Phase A; read by Stage 4b's dedup_patch_schedule per batch
@@ -2321,7 +2322,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     //                                       after the union. Stage 6a, Stage 6b, and Phase A
     //                                       run in distinct parallel_for invocations and
     //                                       never co-exist on a worker.
-    //   [bytes_P + bytes_W .. arena_capacity)
+    //   [bytes_P + bytes_W .. arena.capacity)
     //                                   Zone S — per-batch swing region (schedule, HIST slot,
     //                                       DENSE slot, partition metadata).
     //                                       HIST slot overlays H ↔ O on one byte slab:
@@ -2344,7 +2345,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
 
     // Freeze Zone P prefix at the post-Phase-1 cursor — everything allocated so far
     // (msb_per_scalar, glv storage, per_thread_msb_hist) is Zone P permanent state.
-    const size_t bytes_P_prefix = arena_cursor;
+    const size_t bytes_P_prefix = arena.cursor;
 
     // Per-worker fixed-bytes "union": ThreadScratch's wpb-independent fields overlay the
     // PhaseAScratch fields. Compute each layout's strict byte requirement (including the
@@ -2378,12 +2379,12 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                    alignof(AffineElement));
     }
 
-    // Zone sizes. The Zone W slab uses `bump_alloc_within` which aligns in ABSOLUTE address
+    // Zone sizes. The Zone W slab uses `MsmArena::bump_alloc` which aligns in ABSOLUTE address
     // space (the arena buffer base is only `__STDCPP_DEFAULT_NEW_ALIGNMENT__`-aligned, but
     // AffineElement is alignas(64)). To make the per-worker layout match the layout-only
     // calc (which assumes the slab starts on a 64-byte boundary), bias bytes_P so the
-    // absolute address `arena_data + bytes_P` is 64-aligned.
-    const size_t arena_base_misalign = static_cast<size_t>(arena_base_addr & (WORKER_SLAB_ALIGN - 1));
+    // absolute address `arena.data + bytes_P` is 64-aligned.
+    const size_t arena_base_misalign = static_cast<size_t>(arena.base_addr & (WORKER_SLAB_ALIGN - 1));
     const size_t bytes_P_min = align_up(bytes_P_prefix, alignof(Element)) + bytes_P_extra_layout;
     const size_t bytes_P = align_up(bytes_P_min + arena_base_misalign, WORKER_SLAB_ALIGN) - arena_base_misalign;
     // bytes_W: per_worker_bytes is already rounded to WORKER_SLAB_ALIGN, so consecutive
@@ -2393,8 +2394,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // Sanity: zones must fit. The conservative `compute_arena_bytes_for_msm` upper bound
     // sized the buffer to `BATCH_MEM_BUDGET + 32K + dedup_bytes` at worst, which dominates
     // every reachable (P + W + S) sum at the inline-tight wpb chosen above.
-    BB_ASSERT_LTE(bytes_P + bytes_W, arena_capacity);
-    const size_t bytes_S_total = arena_capacity - bytes_P - bytes_W;
+    BB_ASSERT_LTE(bytes_P + bytes_W, arena.capacity);
+    const size_t bytes_S_total = arena.capacity - bytes_P - bytes_W;
 
     // Per-zone bump cursors. Zone P continues from `bytes_P_prefix`; Zones W and S start
     // fresh at their zone base. Zone P's bound is `bytes_P` so the bump cursor stays inside
@@ -2402,15 +2403,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     size_t zone_P_cursor = bytes_P_prefix;
     size_t zone_S_cursor = 0;
     auto zone_P_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-        return bump_alloc_within.template operator()<T>(count, zone_P_cursor, bytes_P, 0);
+        return arena.template bump_alloc<T>(count, zone_P_cursor, bytes_P, 0);
     };
     auto zone_S_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-        return bump_alloc_within.template operator()<T>(count, zone_S_cursor, bytes_S_total, bytes_P + bytes_W);
+        return arena.template bump_alloc<T>(count, zone_S_cursor, bytes_S_total, bytes_P + bytes_W);
     };
-    // Zone W is carved into per-worker slabs directly via `bump_alloc_within` below — each
+    // Zone W is carved into per-worker slabs directly via `MsmArena::bump_alloc` below — each
     // worker gets its own (cursor, bound) pair, so a single zone-wide allocator would not
     // capture the per-worker discipline.
-    // The pre-Phase-1 `arena_alloc` cursor is retired here — every subsequent allocation
+    // The pre-Phase-1 `MsmArena::alloc` cursor is retired here — every subsequent allocation
     // routes through `zone_P_alloc`, the per-worker Zone W allocators, or `zone_S_alloc`.
 
     // Zone W: per-worker union slab — Stage6a/6b ThreadScratch and PhaseA fields overlay the
@@ -2423,8 +2424,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // ThreadScratch fixed fields — first view into the union. Bound = union size.
         size_t ts_fixed_cur = 0;
         auto ts_fixed_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-            return bump_alloc_within.template operator()<T>(
-                count, ts_fixed_cur, per_worker_union_bytes, bytes_P + slab_base);
+            return arena.template bump_alloc<T>(count, ts_fixed_cur, per_worker_union_bytes, bytes_P + slab_base);
         };
         s.curr_pts = ts_fixed_alloc.template operator()<AffineElement>(chunk_capacity);
         s.curr_buckets = ts_fixed_alloc.template operator()<uint32_t>(chunk_capacity);
@@ -2440,8 +2440,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         if (dedup_active) {
             size_t pa_cur = 0;
             auto pa_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-                return bump_alloc_within.template operator()<T>(
-                    count, pa_cur, per_worker_union_bytes, bytes_P + slab_base);
+                return arena.template bump_alloc<T>(count, pa_cur, per_worker_union_bytes, bytes_P + slab_base);
             };
             auto& ps = phase_a_scratch[t];
             using PWAL = round_parallel_detail::PerWorkerArenaLayout<Curve>;
@@ -2459,7 +2458,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // overwrite the union region.
         size_t ts_tail_cur = per_worker_union_bytes;
         auto ts_tail_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-            return bump_alloc_within.template operator()<T>(count, ts_tail_cur, per_worker_bytes, bytes_P + slab_base);
+            return arena.template bump_alloc<T>(count, ts_tail_cur, per_worker_bytes, bytes_P + slab_base);
         };
         const size_t dense_total = windows_per_batch * dense_stride_est;
         const size_t dense_pair_max = dense_total / 2;
