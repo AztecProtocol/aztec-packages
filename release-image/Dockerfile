@@ -19,4 +19,17 @@ WORKDIR "/usr/src/yarn-project"
 ARG VERSION
 RUN echo '{".": "'$VERSION'"}' > /usr/src/.release-please-manifest.json
 
+# Re-stamp aztec_version in published contract artifacts. Mirrors stamp_aztec_version() in
+# noir-projects/noir-contracts/bootstrap.sh and stampAztecVersion() in
+# yarn-project/aztec/src/cli/cmds/compile.ts. Needed because artifacts are compiled in an earlier
+# build stage where REF_NAME isn't set, leaving them with aztec_version: "dev".
+RUN for dir in \
+        /usr/src/yarn-project/accounts/artifacts \
+        /usr/src/yarn-project/noir-contracts.js/artifacts \
+        /usr/src/yarn-project/noir-test-contracts.js/artifacts; do \
+      for f in "$dir"/*.json; do \
+        jq --arg v "$VERSION" '.aztec_version = $v' "$f" > /tmp/a.json && mv /tmp/a.json "$f"; \
+      done; \
+    done
+
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
