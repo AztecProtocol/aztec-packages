@@ -452,7 +452,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
    * Can run these as follows to measure sha256 instruction execution counts:
    * for i in 10 20 30 40 50 60 70 80 90 100 255 256 511 512 2048; do
    *   echo sha-ing $i...;
-   *   LOG_LEVEL=debug yarn test src/avm/avm_simulator.test.ts -t "sha256_hash_$i " &> sha$i.log;
+   *   LOG_LEVEL="debug; info: json-rpc, simulator" yarn test src/avm/avm_simulator.test.ts -t "sha256_hash_$i " &> sha$i.log;
    * done
    * for i in 10 20 30 40 50 60 70 80 90 100 255 256 511 512 2048; do
    *   echo sha256 of $i bytes $(grep -Eo 'Executed .* instructions.* Gas' sha$i.log);
