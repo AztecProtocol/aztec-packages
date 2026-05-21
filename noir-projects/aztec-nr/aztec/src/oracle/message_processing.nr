@@ -13,7 +13,7 @@ pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> Ephe
     get_pending_tagged_logs_oracle(scope)
 }
 
-#[oracle(aztec_utl_getPendingTaggedLogs_v2)]
+#[oracle(aztec_utl_getPendingTaggedLogs)]
 unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> EphemeralArray<PendingTaggedLog> {}
 
 /// Validates note/event requests stored in ephemeral arrays.
@@ -33,7 +33,7 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     );
 }
 
-#[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2)]
+#[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents)]
 unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     note_validation_requests: EphemeralArray<NoteValidationRequest>,
     event_validation_requests: EphemeralArray<EventValidationRequest>,
@@ -46,11 +46,11 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
 pub(crate) unconstrained fn get_logs_by_tag(
     requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<Option<LogRetrievalResponse>> {
-    get_logs_by_tag_v2_oracle(requests)
+    get_logs_by_tag_oracle(requests)
 }
 
-#[oracle(aztec_utl_getLogsByTag_v2)]
-unconstrained fn get_logs_by_tag_v2_oracle(
+#[oracle(aztec_utl_getLogsByTag)]
+unconstrained fn get_logs_by_tag_oracle(
     requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<Option<LogRetrievalResponse>> {}
 
@@ -58,11 +58,11 @@ unconstrained fn get_logs_by_tag_v2_oracle(
 pub(crate) unconstrained fn get_message_contexts_by_tx_hash(
     requests: EphemeralArray<Field>,
 ) -> EphemeralArray<Option<MessageContext>> {
-    get_message_contexts_by_tx_hash_v2_oracle(requests)
+    get_message_contexts_by_tx_hash_oracle(requests)
 }
 
-#[oracle(aztec_utl_getMessageContextsByTxHash_v2)]
-unconstrained fn get_message_contexts_by_tx_hash_v2_oracle(
+#[oracle(aztec_utl_getMessageContextsByTxHash)]
+unconstrained fn get_message_contexts_by_tx_hash_oracle(
     requests: EphemeralArray<Field>,
 ) -> EphemeralArray<Option<MessageContext>> {}
 

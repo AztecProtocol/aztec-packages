@@ -316,7 +316,7 @@ pub contract Test {
 
             // Emit a log with non-encrypted content for testing purpose.
             let leaky_log = BoundedVec::from_array(event.serialize());
-            self.context.emit_private_log_vec_unsafe(tag, leaky_log);
+            self.context.emit_private_log_unsafe(tag, leaky_log);
         }
     }
 
