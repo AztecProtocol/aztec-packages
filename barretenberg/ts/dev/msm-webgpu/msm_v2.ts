@@ -65,6 +65,8 @@ export interface MsmConfig {
   invVariant?: 'a' | 'loop' | 'pk';
   /** Use the register-minimal CIOS montmul in reduceFused (lower Adreno register pressure). */
   montLooped?: boolean;
+  /** Hold reduceFused prefix products in workgroup memory (default: auto when it fits LDS). */
+  ldsPref?: boolean;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -354,6 +356,10 @@ export class MsmV2 {
   private reduceWg!: number;
   private invVariant!: 'a' | 'loop' | 'pk';
   private montLooped!: boolean;
+  // Prefix products held in workgroup memory (not the global pref_scratch
+  // buffer). Auto-enabled when WG*maxc fits the LDS budget (small c).
+  private ldsPref!: boolean;
+  private ldsPrefMaxc!: number;
   private profile = false;
   private jacobianCrossover = 0;
   private stride!: number; // reduction STRIDE = 2^(c-1)
@@ -586,8 +592,13 @@ export class MsmV2 {
     );
     m.convMetaPipe = await compileOne(device, sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
     m.reduceInitPipe = await compileOne(device, sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
+    // ppw <= stride, so ceil(stride/REDUCE_WG) is a compile-time upper bound
+    // on the runtime maxc — safe to size the LDS prefix array. Enable only
+    // when it fits the ~16 KB LDS budget (small c, e.g. the 2^10 mobile case).
+    m.ldsPrefMaxc = Math.ceil(m.stride / REDUCE_WG);
+    m.ldsPref = (config?.ldsPref ?? true) && REDUCE_WG * m.ldsPrefMaxc <= 512;
     m.reduceFusedPipe = await compileOne(
-      device, sm.gen_ba_reduce_fused_bench_shader(REDUCE_WG, INV_VARIANT, m.montLooped), `reduce-fused`, m.reduceFusedLayout,
+      device, sm.gen_ba_reduce_fused_bench_shader(REDUCE_WG, INV_VARIANT, m.montLooped, m.ldsPref ? m.ldsPrefMaxc : 0), `reduce-fused`, m.reduceFusedLayout,
     );
 
     // Warm-up: prepare + dispatch several times so the first timed run pays
@@ -813,7 +824,9 @@ export class MsmV2 {
     });
     const redBuf = soa(RED_M);
     const isPresentBuf = sbuf(RED_M * 4);
-    const reducePrefScratch = sbuf(NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16);
+    // With LDS prefix products the kernel never touches this buffer; bind a
+    // stub so the global allocation (numWindows*WG*maxc*32 B) goes away.
+    const reducePrefScratch = sbuf(this.ldsPref ? 256 : NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16);
     const reduceInitParams = ubuf(new Uint32Array([RED_M, this.stride, BW, B_TOTAL]));
     const reduceFusedParams = ubuf(new Uint32Array([this.reducePasses.length, RED_M, MAXC, this.stride]));
     const scheduleBuf = ubuf(schedule);

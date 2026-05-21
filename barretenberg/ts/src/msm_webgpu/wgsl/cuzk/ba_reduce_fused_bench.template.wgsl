@@ -41,6 +41,15 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(4) var<uniform>             schedule:     array<vec4<u32>, 64>;
 // params.x = num_levels   params.y = M (red_buf element stride)
 // params.z = maxc (pref_scratch slots per thread)   params.w = STRIDE
+{{#lds_pref}}
+// Per-thread batch-inverse prefix products held in on-chip workgroup memory
+// instead of the global pref_scratch buffer: the forward pass writes each
+// thread's prefix products and the same thread reads them back on the peel,
+// so no cross-thread sharing (no barrier) — but on the Adreno this turns a
+// global round-trip (low bandwidth) into on-chip LDS traffic, and drops the
+// numWindows*WG*maxc*32-byte global buffer entirely.
+var<workgroup> lds_pref: array<vec4<u32>, {{lds_pref_vecs}}u>;
+{{/lds_pref}}
 
 fn load_x(idx: u32, M: u32) -> BigInt {
     let base = PG * idx;
@@ -90,14 +99,26 @@ fn is_zero(v: ptr<function, BigInt>) -> bool {
 fn store_pref(slot: u32, val: ptr<function, BigInt>) {
     let base = 2u * slot;
     let w = pack_limbs_to_256(val);
+{{#lds_pref}}
+    lds_pref[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
+    lds_pref[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+{{/lds_pref}}
+{{^lds_pref}}
     pref_scratch[base + 0u] = vec4<u32>(w[0], w[1], w[2], w[3]);
     pref_scratch[base + 1u] = vec4<u32>(w[4], w[5], w[6], w[7]);
+{{/lds_pref}}
 }
 
 fn load_pref(slot: u32) -> BigInt {
     let base = 2u * slot;
+{{#lds_pref}}
+    let q0 = lds_pref[base + 0u];
+    let q1 = lds_pref[base + 1u];
+{{/lds_pref}}
+{{^lds_pref}}
     let q0 = pref_scratch[base + 0u];
     let q1 = pref_scratch[base + 1u];
+{{/lds_pref}}
     var w: array<u32, 8>;
     w[0] = q0.x; w[1] = q0.y; w[2] = q0.z; w[3] = q0.w;
     w[4] = q1.x; w[5] = q1.y; w[6] = q1.z; w[7] = q1.w;
@@ -114,7 +135,12 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     let maxc = params.z;
     let stride = params.w;
     let base = w * stride;
+{{#lds_pref}}
+    let scratch_base = tid * maxc;
+{{/lds_pref}}
+{{^lds_pref}}
     let scratch_base = (w * WG + tid) * maxc;
+{{/lds_pref}}
 
     for (var lv: u32 = 0u; lv < num_levels; lv = lv + 1u) {
         let desc = schedule[lv];

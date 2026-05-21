@@ -1674,10 +1674,11 @@ async function runMsmSweepAutorun(qp: URLSearchParams, client: ReturnType<typeof
         // enables the per-pass GPU-timestamp breakdown.
         const wantProfile = (qp.get('profile') ?? '0') === '1';
         const invSel = qp.get('inv') as 'a' | 'loop' | 'pk' | null;
-        const cfg: { profile?: boolean; invVariant?: 'a' | 'loop' | 'pk'; montLooped?: boolean } = {};
+        const cfg: { profile?: boolean; invVariant?: 'a' | 'loop' | 'pk'; montLooped?: boolean; ldsPref?: boolean } = {};
         if (wantProfile) cfg.profile = true;
         if (invSel === 'a' || invSel === 'loop' || invSel === 'pk') cfg.invVariant = invSel;
         if (qp.get('mont') === 'cios') cfg.montLooped = true;
+        if (qp.get('ldspref') === '0') cfg.ldsPref = false;
         const msm = await MsmV2.create(device, inputs.n, inputs.pointsBuf, Object.keys(cfg).length ? cfg : undefined);
         msm.prepare(inputs.scalarsBuf);
         const ms: number[] = [];

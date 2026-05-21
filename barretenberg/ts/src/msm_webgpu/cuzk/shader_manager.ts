@@ -1199,10 +1199,16 @@ ${packLines.join('\n')}
     workgroup_size: number,
     variant: 'a' | 'loop' | 'pk' = 'a',
     montLooped = false,
+    ldsPrefMaxc = 0,
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_fused_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
+    // Hold the batch-inverse prefix products in workgroup memory instead of
+    // the global pref_scratch buffer (Adreno bandwidth). Sized at compile time
+    // to WG * maxc * 2 vec4; only enabled when that fits LDS.
+    const lds_pref = ldsPrefMaxc > 0;
+    const lds_pref_vecs = workgroup_size * ldsPrefMaxc * 2;
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
@@ -1221,6 +1227,7 @@ ${packLines.join('\n')}
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+        lds_pref, lds_pref_vecs,
       },
       {
         structs, bigint_funcs,
