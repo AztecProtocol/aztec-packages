@@ -284,9 +284,8 @@ function assertContractArtifactsVersion() {
     );
     return;
   }
-  // TODO(F-557): Remove once v4.3.0 drops off the compat matrix. The v4.3.0 release shipped with
-  // aztec_version: "dev" baked into the published artifact JSONs because release-image/Dockerfile
-  // did not re-stamp them. Fixed for future releases by the artifact restamp step in that Dockerfile.
+  // TODO(F-557): Remove once v4.3.0 drops off the compat matrix. The v4.3.0 npm release shipped with
+  // aztec_version: "dev" baked into the artifact JSONs because of a bug.
   if (expected === '4.3.0' && aztecVersion === DEV_VERSION) {
     createLogger('e2e:setup').warn(
       `Skipping artifact version check: v4.3.0 artifacts shipped with aztec_version="dev"`,
