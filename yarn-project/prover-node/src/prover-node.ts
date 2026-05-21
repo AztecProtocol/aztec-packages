@@ -60,6 +60,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
+  private startingProofEpochs: Set<EpochNumber> = new Set();
 
   public readonly tracer: Tracer;
 
@@ -129,6 +130,15 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       });
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
       if (activeJobs.length > 0) {
+        if (!(await this.activeJobsCoverEpoch(epochNumber))) {
+          this.log.warn(
+            `Not marking proof for ${epochNumber} as started since active jobs only cover a partial epoch`,
+            {
+              activeJobs: activeJobs.map(job => job.uuid),
+            },
+          );
+          return false;
+        }
         this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
           activeJobs: activeJobs.map(job => job.uuid),
         });
@@ -191,8 +201,27 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts a proving process and returns immediately.
    */
   public async startProof(epochNumber: EpochNumber) {
-    const job = await this.createProvingJob(epochNumber, { skipEpochCheck: true });
-    void this.runJob(job);
+    if (this.startingProofEpochs.has(epochNumber)) {
+      this.log.warn(`Not starting proof for ${epochNumber} since a proof is already being started for the epoch`, {
+        epochNumber,
+      });
+      return;
+    }
+
+    this.startingProofEpochs.add(epochNumber);
+    try {
+      if (await this.activeJobsCoverEpoch(epochNumber)) {
+        this.log.warn(`Not starting proof for ${epochNumber} since an active job already covers the epoch`, {
+          epochNumber,
+        });
+        return;
+      }
+
+      const job = await this.createProvingJob(epochNumber, { skipEpochCheck: true });
+      void this.runJob(job);
+    } finally {
+      this.startingProofEpochs.delete(epochNumber);
+    }
   }
 
   private async runJob(job: EpochProvingJob) {
@@ -259,6 +288,30 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
     const jobs = await this.getJobs();
     return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
+  }
+
+  private async activeJobsCoverEpoch(epochNumber: EpochNumber): Promise<boolean> {
+    const checkpoints = await this.l2BlockSource.getCheckpoints({ epoch: epochNumber });
+    if (checkpoints.length === 0) {
+      return false;
+    }
+
+    const latestCheckpoint = checkpoints.at(-1)!.checkpoint.number;
+
+    for (const job of this.jobs.values()) {
+      if (job.getEpochNumber() !== epochNumber) {
+        continue;
+      }
+
+      const jobCheckpoints = job.getProvingData().checkpoints;
+      const checkpointOverlap = jobCheckpoints.at(-1)!.number >= latestCheckpoint;
+
+      if (checkpointOverlap && !['failed', 'stopped', 'timed-out'].includes(job.getState())) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private checkMaximumPendingJobs() {

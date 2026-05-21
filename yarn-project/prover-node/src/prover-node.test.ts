@@ -61,6 +61,7 @@ describe('prover-node', () => {
 
   // Checkpoints returned by the archiver
   let checkpoints: Checkpoint[];
+  let publishedCheckpoints: PublishedCheckpoint[];
   let lastPublishedCheckpoint: PublishedCheckpoint;
   let previousBlockHeader: BlockHeader;
 
@@ -149,7 +150,7 @@ describe('prover-node', () => {
       attestations: [CommitteeAttestation.random()],
     } as PublishedCheckpoint;
 
-    const publishedCheckpoints: PublishedCheckpoint[] = [
+    publishedCheckpoints = [
       ...checkpoints.slice(0, -1).map(cp => ({ checkpoint: cp, attestations: [] }) as unknown as PublishedCheckpoint),
       lastPublishedCheckpoint,
     ];
@@ -249,6 +250,38 @@ describe('prover-node', () => {
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
+  it('does not start duplicate proofs from concurrent RPC calls', async () => {
+    await Promise.all([
+      proverNode.startProof(EpochNumber.fromBigInt(10n)),
+      proverNode.startProof(EpochNumber.fromBigInt(10n)),
+    ]);
+
+    expect(proverNode.totalJobCount).toEqual(1);
+  });
+
+  it('does not mark an epoch processed while an active job only covers a partial epoch', async () => {
+    const partialJob = promiseWithResolvers<void>();
+    l2BlockSource.getCheckpoints
+      .mockResolvedValueOnce(publishedCheckpoints)
+      .mockResolvedValueOnce(publishedCheckpoints.slice(0, 2))
+      .mockResolvedValue(publishedCheckpoints);
+    proverNode.nextJobRun = () => partialJob.promise;
+    proverNode.nextJobState = 'processing';
+
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    const handledWhilePartialJobActive = await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    expect(handledWhilePartialJobActive).toBe(false);
+    expect(proverNode.totalJobCount).toEqual(1);
+
+    partialJob.resolve();
+    await retryUntil(async () => (await proverNode.getJobs()).length === 0, 'partial job completed', 5);
+
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    expect(proverNode.totalJobCount).toEqual(2);
+  });
+
   it('restarts a proof on a reorg', async () => {
     proverNode.nextJobState = 'reorg';
     await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
@@ -282,6 +315,7 @@ describe('prover-node', () => {
         getState: () => state,
         getEpochNumber: () => data.epochNumber,
         getDeadline: () => deadline,
+        getProvingData: () => data,
       });
       job.getId.mockReturnValue(jobs.length.toString());
       jobs.push({ epochNumber: data.epochNumber, job });
@@ -291,12 +325,6 @@ describe('prover-node', () => {
 
     public override triggerMonitors() {
       return super.triggerMonitors();
-    }
-
-    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
-      return Promise.resolve(
-        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: j.epochNumber })),
-      );
     }
   }
 });
