@@ -837,6 +837,7 @@ ${packLines.join('\n')}
     variant: 'a' | 'loop' | 'pk' = 'pk',
     tiled = false,
     l0_index_mode = false,
+    addsub: 'native' | 'unpack' = 'native',
   ): string {
     if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
@@ -844,10 +845,26 @@ ${packLines.join('\n')}
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    // Lever 2: field elements live as 8x u32. p and R as eight 32-bit
+    // words — for the native fr_add_f8 / fr_sub_f8 and the get_r_f8 seed.
+    const words8 = (v: bigint): number[] => {
+      const out: number[] = [];
+      let x = v;
+      for (let i = 0; i < 8; i++) {
+        out.push(Number(x & 0xffffffffn));
+        x >>= 32n;
+      }
+      return out;
+    };
+    const p8_consts = words8(this.p).map((val, idx) => ({ idx, val }));
+    const r8_csv = words8(this.r).map(v => `${v >>> 0}u`).join(', ');
+    const f8_words = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i }));
     return mustache.render(
       ba_fused_super_bench_shader,
       {
         workgroup_size, s, inv_fn, tiled, l0_index_mode,
+        addsub_unpack: addsub === 'unpack',
+        p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,

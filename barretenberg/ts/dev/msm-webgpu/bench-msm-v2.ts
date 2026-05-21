@@ -40,6 +40,7 @@ const config: MsmConfig = {
   l0Log: optInt('l0log'),
   invVariant:
     qp.get('inv') === 'a' ? 'a' : qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'pk' ? 'pk' : undefined,
+  addsub: qp.get('addsub') === 'unpack' ? 'unpack' : qp.get('addsub') === 'native' ? 'native' : undefined,
   profile: qp.get('profile') !== '0',
 };
 
