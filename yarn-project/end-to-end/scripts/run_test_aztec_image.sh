@@ -23,7 +23,8 @@ export NODE_NO_WARNINGS=1
 export FORCE_COLOR=1
 
 docker run --rm --network host \
-  -v "$root:/usr/src" \
+  --entrypoint /bin/bash \
+  -v "$root/yarn-project/end-to-end:/usr/src/yarn-project/end-to-end" \
   -v "$HOME/.config/gcloud:$HOME/.config/gcloud:ro" \
   -v "$HOME/.kube:$HOME/.kube" \
   -e HOME \
@@ -43,4 +44,4 @@ docker run --rm --network host \
   -e AZTEC_DOCKER_IMAGE \
   -w /usr/src/yarn-project/end-to-end \
   "$image" \
-  /bin/bash -c "node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --no-cache ${test_name_arg[*]} --runInBand \"$test_file\""
+  -c "node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --no-cache ${test_name_arg[*]} --runInBand \"$test_file\""
