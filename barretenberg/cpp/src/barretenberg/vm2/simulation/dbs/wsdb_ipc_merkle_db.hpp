@@ -14,7 +14,7 @@
 #include <optional>
 #include <stack>
 
-namespace bb::wsdb_client {
+namespace bb::avm2::simulation {
 
 class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface {
   public:
@@ -67,4 +67,4 @@ class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface
     mutable std::optional<avm2::TreeSnapshots> cached_tree_roots_;
 };
 
-} // namespace bb::wsdb_client
+} // namespace bb::avm2::simulation

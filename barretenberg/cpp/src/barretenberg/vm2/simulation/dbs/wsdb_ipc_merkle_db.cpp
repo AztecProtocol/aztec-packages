@@ -1,4 +1,4 @@
-#include "barretenberg/wsdb_client/wsdb_ipc_merkle_db.hpp"
+#include "barretenberg/vm2/simulation/dbs/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -6,11 +6,7 @@
 
 #include <cstring>
 
-namespace bb::wsdb_client {
-
-// Use avm2::simulation for interface types, but NOT world_state (it transitively
-// imports crypto::merkle_tree which conflicts with avm2::simulation aliases).
-using namespace avm2::simulation;
+namespace bb::avm2::simulation {
 
 // ---------------------------------------------------------------------------
 // Wire <-> Domain conversion helpers
@@ -290,4 +286,4 @@ uint32_t WsdbIpcMerkleDB::get_checkpoint_id() const
     return checkpoint_stack_.top();
 }
 
-} // namespace bb::wsdb_client
+} // namespace bb::avm2::simulation
