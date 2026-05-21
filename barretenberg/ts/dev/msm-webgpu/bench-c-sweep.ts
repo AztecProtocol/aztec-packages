@@ -7,16 +7,24 @@
 // fastest c (green) is the value MsmV2.pickC should return for that size;
 // the run finishes with a copy-pasteable summary table.
 //
-// Inputs are synthetic — random field-element points and random scalars.
-// The pair-tree pipeline's runtime does not depend on point values, and
-// random scalars give a representative bucket distribution, so no SRS
-// download is needed (matching bench-msm-tree-v2's synthetic approach).
+// Points are real on-curve SRS points — run()'s host window-combine does
+// genuine elliptic-curve arithmetic, so off-curve inputs make it hit a
+// non-invertible value. Scalars are random, for a representative bucket
+// distribution. The SRS is range-fetched once and cached in IndexedDB.
 //
 // Query params (all optional):
 //   ?minlogn=10 ?maxlogn=20 ?cmin=7 ?cmax=17 ?reps=15 ?warmup=3
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
+import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
 import { MsmV2 } from './msm_v2.js';
+import { loadSrsPoints } from './srs.js';
+
+// BN254 base field modulus. Scalars are reduced mod p: MsmV2 hands the GPU
+// `s·R mod p` (de-Montgomery'd back to `s mod p`), while the host planner
+// Booth-decodes the raw `s` — so a scalar ≥ p would decode differently on
+// host and GPU and corrupt the plan.
+const FP = BN254_BASE_FIELD;
 
 const qp = new URLSearchParams(location.search);
 const intParam = (key: string, dflt: number): number => {
@@ -71,12 +79,20 @@ function makeRng(seed: number): () => number {
   };
 }
 
-// Fill a byte buffer with RNG output through a u32 view. The bytes are an
-// uninterpreted random field element / scalar, which is all the timing
-// path needs (point values do not affect pipeline runtime).
-function fillRandom(buf: Uint8Array, rng: () => number): void {
+// Fill `buf` with 32-byte LE scalars — each a uniform random value reduced
+// mod p (see the FP comment above for why the reduction is required).
+function fillScalars(buf: Uint8Array, rng: () => number): void {
   const u32 = new Uint32Array(buf.buffer, buf.byteOffset, buf.byteLength >>> 2);
-  for (let i = 0; i < u32.length; i++) u32[i] = rng();
+  const nScalars = u32.length >>> 3;
+  for (let i = 0; i < nScalars; i++) {
+    let v = 0n;
+    for (let k = 0; k < 8; k++) v = (v << 32n) | BigInt(rng());
+    v %= FP;
+    for (let k = 0; k < 8; k++) {
+      u32[i * 8 + k] = Number(v & 0xffffffffn);
+      v >>= 32n;
+    }
+  }
 }
 
 function median(xs: number[]): number {
@@ -147,14 +163,17 @@ async function main(): Promise<void> {
     const device = await get_device();
     log('WebGPU device acquired');
 
-    // One synthetic input set at the largest size; each smaller n is a prefix.
+    // One input set at the largest size; each smaller n is a 64-byte-aligned
+    // prefix. Points: real on-curve SRS (the host window-combine needs valid
+    // curve points); scalars: random.
     const maxN = 2 ** MAX_LOGN;
-    log(`generating synthetic inputs for ${maxN.toLocaleString()} points (${((maxN * 96) / (1 << 20)).toFixed(0)} MiB)…`);
-    const rng = makeRng(0xc0ffee);
-    const pointsBuf = new Uint8Array(maxN * 64);
+    log(`loading ${maxN.toLocaleString()} SRS points…`);
+    const pointsBuf = await loadSrsPoints(maxN, e => {
+      if (e.kind === 'info') log(`  ${e.msg}`);
+    });
+    log(`generating ${maxN.toLocaleString()} random scalars (mod p)…`);
     const scalarsBuf = new Uint8Array(maxN * 32);
-    fillRandom(pointsBuf, rng);
-    fillRandom(scalarsBuf, rng);
+    fillScalars(scalarsBuf, makeRng(0xc0ffee));
     renderTable();
 
     for (let logN = MIN_LOGN; logN <= MAX_LOGN; logN++) {

@@ -17,7 +17,9 @@ if (!/^https?:/.test(target)) target = `http://localhost:5173/dev/msm-webgpu/${t
 const browser = await chromium.launch({
   channel: 'chrome',
   headless: !headed,
-  args: ['--enable-unsafe-webgpu', '--enable-features=WebGPU'],
+  // --disable-http2: headless Chrome intermittently fails the CRS CDN
+  // range fetch with ERR_HTTP2_PROTOCOL_ERROR (pages that load the SRS).
+  args: ['--enable-unsafe-webgpu', '--enable-features=WebGPU', '--disable-http2'],
 });
 const page = await browser.newPage();
 page.on('console', m => console.log(`  · ${m.text()}`));
