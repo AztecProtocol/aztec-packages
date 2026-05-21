@@ -263,6 +263,127 @@ template <typename G_> class TestElement : public testing::Test {
         }
     }
 
+    // Focused coverage for the K=5 WASM-SIMD batch-inversion kernels. Exercises:
+    //  - exactly K5_MIN_POINTS (N=20): first eligible group, zero scalar tail
+    //  - K5_MIN_POINTS+1 (N=21): one tail element
+    //  - 5*K + 4 (N=29): mid-range with maximum tail (4 elements)
+    //  - 5*K with K>1 (N=25): multiple K=5 groups, zero tail
+    //  - below threshold (N=19): K=1 path only
+    // On non-BN254 curves all of these take the K=1 path; the tests pass uniformly.
+
+    static void test_batch_affine_add_impl_boundary()
+    {
+        for (size_t num_pairs : std::array<size_t, 6>{ 1, 19, 20, 21, 25, 29 }) {
+            std::vector<affine_element> lhs(num_pairs);
+            std::vector<affine_element> rhs(num_pairs);
+            std::vector<affine_element> expected(num_pairs);
+            for (size_t i = 0; i < num_pairs; ++i) {
+                lhs[i] = element::random_element();
+                rhs[i] = element::random_element();
+                expected[i] = element(lhs[i]) + element(rhs[i]);
+            }
+            std::vector<Fq> scratch(num_pairs);
+            bb::group_elements::batch_affine_add_impl<affine_element, Fq>(
+                lhs.data(), rhs.data(), num_pairs, scratch.data());
+            for (size_t i = 0; i < num_pairs; ++i) {
+                EXPECT_EQ(rhs[i], expected[i]) << "num_pairs=" << num_pairs << " i=" << i;
+            }
+        }
+    }
+
+    static void test_batch_affine_double_impl_boundary()
+    {
+        // batch_affine_double_impl uses the a=0 affine doubling formula (lambda = 3x^2 / 2y).
+        // Curves with non-zero `a` (e.g. secp256r1: a = -3) need lambda = (3x^2 + a) / 2y; this
+        // kernel is BN254/Grumpkin/secp256k1-only by design. Skip on those.
+        if constexpr (G::has_a) {
+            GTEST_SKIP() << "batch_affine_double_impl assumes a=0 affine doubling formula";
+        }
+        for (size_t num_points : std::array<size_t, 6>{ 1, 19, 20, 21, 25, 29 }) {
+            std::vector<affine_element> points(num_points);
+            std::vector<affine_element> expected(num_points);
+            for (size_t i = 0; i < num_points; ++i) {
+                points[i] = element::random_element();
+                expected[i] = element(points[i]).dbl();
+            }
+            std::vector<Fq> scratch(num_points);
+            bb::group_elements::batch_affine_double_impl<affine_element, Fq>(points.data(), num_points, scratch.data());
+            for (size_t i = 0; i < num_points; ++i) {
+                EXPECT_EQ(points[i], expected[i]) << "num_points=" << num_points << " i=" << i;
+            }
+        }
+    }
+
+    static void test_batch_affine_add_interleaved_boundary()
+    {
+        // batch_affine_add_interleaved takes [lhs0, rhs0, lhs1, rhs1, ...] and writes results
+        // to the top half: points[num_points/2 + i] = lhs[i] + rhs[i]. num_points must be even.
+        for (size_t num_pairs : std::array<size_t, 6>{ 1, 19, 20, 21, 25, 29 }) {
+            const size_t num_points = 2 * num_pairs;
+            std::vector<affine_element> points(num_points);
+            std::vector<affine_element> expected(num_pairs);
+            for (size_t i = 0; i < num_pairs; ++i) {
+                points[2 * i] = element::random_element();
+                points[(2 * i) + 1] = element::random_element();
+                expected[i] = element(points[2 * i]) + element(points[(2 * i) + 1]);
+            }
+            std::vector<Fq> scratch(num_pairs);
+            bb::group_elements::batch_affine_add_interleaved<affine_element, Fq>(
+                points.data(), num_points, scratch.data());
+            for (size_t i = 0; i < num_pairs; ++i) {
+                EXPECT_EQ(points[num_pairs + i], expected[i]) << "num_pairs=" << num_pairs << " i=" << i;
+            }
+        }
+    }
+
+    // The K=5 backward path in batch_affine_add_interleaved snapshots all reads before any writes
+    // because the output slot (pi + num_points) >> 1 of one lane's pair can alias the input slot
+    // pi or pi+1 of a later lane in the same group of 10 points. The aliasing happens when
+    // (pi + num_points) >> 1 falls within the same K=5 group's input range — i.e., the output
+    // window overlaps an input window. The smallest num_pairs that triggers an alias within a
+    // single K=5 group is num_pairs = 10 (num_points = 20): output starts at index 10, and the
+    // K=5 group's input occupies indices 0..9. To force aliasing inside a group, use num_pairs
+    // such that (num_pairs - 1) overlaps the upper half of the K=5 input range; we test
+    // num_pairs in {10, 11, 12, 13} which all sit at the K=5 dispatch boundary.
+    static void test_batch_affine_add_interleaved_aliasing()
+    {
+        for (size_t num_pairs : std::array<size_t, 4>{ 10, 11, 12, 13 }) {
+            const size_t num_points = 2 * num_pairs;
+            std::vector<affine_element> points(num_points);
+            std::vector<affine_element> expected(num_pairs);
+            for (size_t i = 0; i < num_pairs; ++i) {
+                points[2 * i] = element::random_element();
+                points[(2 * i) + 1] = element::random_element();
+                expected[i] = element(points[2 * i]) + element(points[(2 * i) + 1]);
+            }
+            std::vector<Fq> scratch(num_pairs);
+            bb::group_elements::batch_affine_add_interleaved<affine_element, Fq>(
+                points.data(), num_points, scratch.data());
+            for (size_t i = 0; i < num_pairs; ++i) {
+                EXPECT_EQ(points[num_pairs + i], expected[i]) << "num_pairs=" << num_pairs << " i=" << i;
+            }
+        }
+    }
+
+    static void test_batch_normalize_boundary()
+    {
+        for (size_t num_points : std::array<size_t, 6>{ 19, 20, 21, 25, 29, 32 }) {
+            std::vector<element> points(num_points);
+            std::vector<element> normalized(num_points);
+            for (size_t i = 0; i < num_points; ++i) {
+                points[i] = element::random_element() + element::random_element();
+                normalized[i] = points[i];
+            }
+            element::batch_normalize(&normalized[0], num_points);
+            for (size_t i = 0; i < num_points; ++i) {
+                Fq zz = points[i].z.sqr();
+                Fq zzz = points[i].z * zz;
+                EXPECT_EQ(normalized[i].x * zz, points[i].x) << "num_points=" << num_points << " i=" << i;
+                EXPECT_EQ(normalized[i].y * zzz, points[i].y) << "num_points=" << num_points << " i=" << i;
+            }
+        }
+    }
+
     static void test_group_exponentiation_zero_and_one()
     {
         affine_element result = G::one * Fr::zero();
@@ -426,6 +547,31 @@ TYPED_TEST(TestElement, BatchNormalize)
 TYPED_TEST(TestElement, BatchNormalizeWithInfinity)
 {
     TestFixture::test_batch_normalize_with_infinity();
+}
+
+TYPED_TEST(TestElement, BatchAffineAddImplBoundary)
+{
+    TestFixture::test_batch_affine_add_impl_boundary();
+}
+
+TYPED_TEST(TestElement, BatchAffineDoubleImplBoundary)
+{
+    TestFixture::test_batch_affine_double_impl_boundary();
+}
+
+TYPED_TEST(TestElement, BatchAffineAddInterleavedBoundary)
+{
+    TestFixture::test_batch_affine_add_interleaved_boundary();
+}
+
+TYPED_TEST(TestElement, BatchAffineAddInterleavedAliasing)
+{
+    TestFixture::test_batch_affine_add_interleaved_aliasing();
+}
+
+TYPED_TEST(TestElement, BatchNormalizeBoundary)
+{
+    TestFixture::test_batch_normalize_boundary();
 }
 
 TYPED_TEST(TestElement, GroupExponentiationZeroAndOne)
