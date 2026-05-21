@@ -1,0 +1,10 @@
+[package]
+name = "ipc-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Safe Rust bindings to the ipc-runtime C ABI (UDS + MPSC-SHM transport)."
+license = "Apache-2.0"
+
+[lib]
+name = "ipc_runtime"
+path = "src/lib.rs"
