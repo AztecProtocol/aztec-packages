@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -63,11 +64,11 @@ using simulation::ToRadixMemoryEvent;
 // Known good points for P and Q
 FF p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
 FF p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-EmbeddedCurvePoint p(p_x, p_y, false);
+EmbeddedCurvePoint p(p_x, p_y);
 
 FF q_x("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7");
 FF q_y("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3");
-EmbeddedCurvePoint q(q_x, q_y, false);
+EmbeddedCurvePoint q(q_x, q_y);
 
 TEST(EccAddConstrainingTest, EccEmptyRow)
 {
@@ -79,7 +80,7 @@ TEST(EccAddConstrainingTest, EccAdd)
     // R = P + Q;
     FF r_x("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6");
     FF r_y("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    EmbeddedCurvePoint r(r_x, r_y, false);
+    EmbeddedCurvePoint r(r_x, r_y);
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 1 },
@@ -102,7 +103,6 @@ TEST(EccAddConstrainingTest, EccAdd)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -123,7 +123,7 @@ TEST(EccAddConstrainingTest, EccDouble)
     // R = P + P;
     FF r_x("0x088b996194bb5e6e8e5e49733bb671c3e660cf77254f743f366cc8e33534ee3b");
     FF r_y("0x2807ffa01c0f522d0be1e1acfb6914ac8eabf1acf420c0629d37beee992e9a0e");
-    EmbeddedCurvePoint r(r_x, r_y, false);
+    EmbeddedCurvePoint r(r_x, r_y);
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 0 },
@@ -146,7 +146,6 @@ TEST(EccAddConstrainingTest, EccDouble)
         { C::ecc_q_y, p.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -173,13 +172,13 @@ TEST(EccAddConstrainingTest, EccAddSameYDifferentX)
     // Point P - known valid point on Grumpkin
     FF local_p_x("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF local_p_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-    EmbeddedCurvePoint local_p(local_p_x, local_p_y, false);
+    EmbeddedCurvePoint local_p(local_p_x, local_p_y);
 
     // Point Q - p_x * omega (cube root of unity), same y-coordinate!
     // omega = 0x0000000000000000b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd
     FF local_q_x("0x14dd39aa19e1c8b29e0c530a28106a7d64d2213486baba3c86dce51bdddf75bb");
     FF local_q_y("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-    EmbeddedCurvePoint local_q(local_q_x, local_q_y, false);
+    EmbeddedCurvePoint local_q(local_q_x, local_q_y);
 
     // Verify preconditions: same y, different x
     ASSERT_NE(local_p.x(), local_q.x());
@@ -188,7 +187,7 @@ TEST(EccAddConstrainingTest, EccAddSameYDifferentX)
     // Expected result R = P + Q (lambda = 0 since y's are equal)
     FF local_r_x("0x16bdb7ada0799a3088b9dd3faade12c3f79dbfe9cb1234783a1a7add546398dc");
     FF local_r_y("0x2d08e098faf58cb97223d13f2a1b87dd6614173f3cefe87ca6a74e3034c244a1");
-    EmbeddedCurvePoint local_r(local_r_x, local_r_y, false);
+    EmbeddedCurvePoint local_r(local_r_x, local_r_y);
 
     // Use simulation to generate events
     EventEmitter<EccAddEvent> ecc_add_event_emitter;
@@ -221,8 +220,8 @@ TEST(EccAddConstrainingTest, EccAddSameYDifferentX)
 TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
 {
     // R = P + (-P) = O; , where O is the point at infinity
-    EmbeddedCurvePoint q(p.x(), -p.y(), false);
-    EmbeddedCurvePoint r(0, 0, true);
+    EmbeddedCurvePoint q(p.x(), -p.y());
+    EmbeddedCurvePoint r(0, 0);
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 0 },
@@ -245,7 +244,6 @@ TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -261,11 +259,11 @@ TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
 
 TEST(EccAddConstrainingTest, EccAddingToInfinity)
 {
-    EmbeddedCurvePoint p(0, 0, true);
+    EmbeddedCurvePoint p(0, 0);
 
     // R = O + Q = Q; , where O is the point at infinity
 
-    EmbeddedCurvePoint r(q.x(), q.y(), false);
+    EmbeddedCurvePoint r(q.x(), q.y());
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 1 },
@@ -288,7 +286,6 @@ TEST(EccAddConstrainingTest, EccAddingToInfinity)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -304,10 +301,10 @@ TEST(EccAddConstrainingTest, EccAddingToInfinity)
 
 TEST(EccAddConstrainingTest, EccAddingInfinity)
 {
-    EmbeddedCurvePoint q(0, 0, true);
+    EmbeddedCurvePoint q(0, 0);
 
     // R = P + O = P; , where O is the point at infinity
-    EmbeddedCurvePoint r(p.x(), p.y(), false);
+    EmbeddedCurvePoint r(p.x(), p.y());
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 1 },
@@ -330,7 +327,6 @@ TEST(EccAddConstrainingTest, EccAddingInfinity)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -347,10 +343,10 @@ TEST(EccAddConstrainingTest, EccAddingInfinity)
 
 TEST(EccAddConstrainingTest, EccDoublingInf)
 {
-    EmbeddedCurvePoint p(0, 0, true);
+    EmbeddedCurvePoint p(0, 0);
 
     // r = O + O = O; , where O is the point at infinity
-    EmbeddedCurvePoint r(0, 0, true);
+    EmbeddedCurvePoint r(0, 0);
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 0 },
@@ -373,7 +369,6 @@ TEST(EccAddConstrainingTest, EccDoublingInf)
         { C::ecc_q_y, p.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -414,7 +409,6 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                           { C::ecc_q_y, q.y() },
 
                                           // Resulting Point
-                                          { C::ecc_r_is_inf, static_cast<int>(r1.is_infinity()) },
                                           { C::ecc_r_x, r1.x() },
                                           { C::ecc_r_y, r1.y() },
 
@@ -447,7 +441,6 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                           { C::ecc_q_y, r1.y() },
 
                                           // Resulting Point
-                                          { C::ecc_r_is_inf, static_cast<int>(r2.is_infinity()) },
                                           { C::ecc_r_x, r2.x() },
                                           { C::ecc_r_y, r2.y() },
 
@@ -469,7 +462,7 @@ TEST(EccAddConstrainingTest, EccNegativeBadAdd)
 
     FF r_x("0x20f096ae3de9aea007e0b94a0274b2443d6682d1901f6909f284ec967bc169be");
     FF r_y("0x27948713833bb314e828f2b6f45f408da6564a3ac03b9e430a9c6634bb849ef2");
-    EmbeddedCurvePoint r(r_x, r_y, false);
+    EmbeddedCurvePoint r(r_x, r_y);
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 1 },
@@ -492,7 +485,6 @@ TEST(EccAddConstrainingTest, EccNegativeBadAdd)
         { C::ecc_q_y, q.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -513,7 +505,7 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
 
     FF r_x("0x2b01df0ef6d941a826bea23bece8243cbcdc159d5e97fbaa2171f028e05ba9b6");
     FF r_y("0x0cc4c71e882bc62b7b3d1964a8540cb5211339dfcddd2e095fd444bf1aed4f09");
-    EmbeddedCurvePoint r(r_x, r_y, false);
+    EmbeddedCurvePoint r(r_x, r_y);
 
     auto trace = TestTraceContainer({ {
         { C::ecc_add_op, 0 },
@@ -536,7 +528,6 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
         { C::ecc_q_y, p.y() },
 
         // Resulting Point
-        { C::ecc_r_is_inf, static_cast<int>(r.is_infinity()) },
         { C::ecc_r_x, r.x() },
         { C::ecc_r_y, r.y() },
 
@@ -781,49 +772,14 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
                                scalar_mul_event_emitter,
                                ecc_add_memory_event_emitter);
 
-    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(EmbeddedCurvePoint::infinity(), FF(10));
-    ASSERT_TRUE(result.is_infinity());
-
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
-    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
-    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
-
-    check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings, lookup_scalar_mul_add_settings>(trace);
-
-    check_relation<scalar_mul>(trace);
-    check_relation<ecc>(trace);
-}
-
-TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinityRep)
-{
-    EccTraceBuilder builder;
-
-    EventEmitter<EccAddEvent> ecc_add_event_emitter;
-    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-
-    StrictMock<MockExecutionIdManager> execution_id_manager;
-    StrictMock<MockGreaterThan> gt;
-    PureToRadix to_radix_simulator = PureToRadix();
-    EccSimulator ecc_simulator(execution_id_manager,
-                               gt,
-                               to_radix_simulator,
-                               ecc_add_event_emitter,
-                               scalar_mul_event_emitter,
-                               ecc_add_memory_event_emitter);
-
     EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
-    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+
     EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
-    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
 
     EmbeddedCurvePoint result = ecc_simulator.scalar_mul(inf_bb, FF(10));
     ASSERT_TRUE(result.is_infinity());
-    result = ecc_simulator.scalar_mul(inf_alt, FF(10));
-    ASSERT_TRUE(result.is_infinity());
+    EXPECT_EQ(result.x(), inf.x());
+    EXPECT_EQ(result.y(), inf.y());
 
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
@@ -1178,16 +1134,14 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
             // Execution
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_ecc_add, 1 },
-            { C::execution_rop_6_, dst_address },
+            { C::execution_rop_4_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
-            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
-            { C::execution_register_3_, q.x() },
-            { C::execution_register_4_, q.y() },
-            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_register_2_, q.x() },
+            { C::execution_register_3_, q.y() },
             // GT - dst out of range check
             { C::gt_sel, 1 },
-            { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+            { C::gt_input_a, dst_address + 1 }, // highest write address is dst_address + 1
             { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
             { C::gt_res, 0 },
             // Memory Writes
@@ -1204,14 +1158,6 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
             { C::memory_sel, 1 },
             { C::memory_rw, 1 }, // write
             { C::memory_tag, static_cast<uint8_t>(MemoryTag::FF) },
-        },
-        {
-            // Memory Writes
-            { C::memory_address, dst_address + 2 },
-            { C::memory_value, result.is_infinity() },
-            { C::memory_sel, 1 },
-            { C::memory_rw, 1 }, // write
-            { C::memory_tag, static_cast<uint8_t>(MemoryTag::U1) },
         },
     });
 
@@ -1237,7 +1183,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id)
-        .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
     PureGreaterThan gt;
     PureToRadix to_radix_simulator = PureToRadix();
 
@@ -1248,7 +1194,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
                                scalar_mul_event_emitter,
                                ecc_add_memory_event_emitter);
 
-    uint32_t dst_address = AVM_HIGHEST_MEM_ADDRESS - 1; // Invalid address, will result in out of range error
+    uint32_t dst_address = AVM_HIGHEST_MEM_ADDRESS; // Invalid address, will result in out of range error
     // Set the execution and gt traces
     TestTraceContainer trace = TestTraceContainer({
         // Row 0
@@ -1256,17 +1202,15 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
             // Execution
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_ecc_add, 1 },
-            { C::execution_rop_6_, dst_address },
+            { C::execution_rop_4_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
-            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
-            { C::execution_register_3_, q.x() },
-            { C::execution_register_4_, q.y() },
-            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_register_2_, q.x() },
+            { C::execution_register_3_, q.y() },
             { C::execution_sel_opcode_error, 1 },
             // GT - dst out of range check
             { C::gt_sel, 1 },
-            { C::gt_input_a, static_cast<uint64_t>(dst_address) + 2 },
+            { C::gt_input_a, static_cast<uint64_t>(dst_address) + 1 },
             { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
             { C::gt_res, 1 },
         },
@@ -1306,7 +1250,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
     // Point P is not on the curve
     FF p_x("0x0000000000063d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
     FF p_y("0x00000000000c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
-    EmbeddedCurvePoint p(p_x, p_y, false);
+    EmbeddedCurvePoint p(p_x, p_y);
 
     uint32_t dst_address = 0x1000;
 
@@ -1318,17 +1262,15 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
             // Execution
             { C::execution_sel, 1 },
             { C::execution_sel_exec_dispatch_ecc_add, 1 },
-            { C::execution_rop_6_, dst_address },
+            { C::execution_rop_4_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
-            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
-            { C::execution_register_3_, q.x() },
-            { C::execution_register_4_, q.y() },
-            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_register_2_, q.x() },
+            { C::execution_register_3_, q.y() },
             { C::execution_sel_opcode_error, 1 }, // Indicate an error in the operation
             // GT - dst out of range check
             { C::gt_sel, 1 },
-            { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+            { C::gt_input_a, dst_address + 1 }, // highest write address is dst_address + 1
             { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
             { C::gt_res, 0 },
         },
@@ -1368,42 +1310,23 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
 
     // Point P is infinity
     EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
-    // EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
+    // EmbeddedCurvePoint always sets extractable coordinates as (0,0) and the underlying point as
+    // AffinePoint::infinity() for input infinity points.
     EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
-    EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(1, 2, true);
+    EXPECT_EQ(inf_bb, inf);
     TestTraceContainer trace;
 
-    // Internal add() expects normalized points:
-    EXPECT_THROW_WITH_MESSAGE(ecc_simulator.add(inf, inf_alt), "normalized");
-
-    // Coordinates are normalized in tracegen, so even though inf_bb and inf_alt have different coordinates, the circuit
-    // correctly assigns double_op = true when doubling inf:
-    ecc_simulator.add(memory, inf, inf_alt, dst_address);
-    // As above for the noir (0, 0) and bb (x, 0) inf reps:
-    ecc_simulator.add(memory, inf, inf_bb, dst_address + 3);
+    // The circuit correctly assigns double_op = true when doubling inf:
+    ecc_simulator.add(memory, inf, inf_bb, dst_address);
 
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
     check_relation<ecc>(trace);
     EXPECT_EQ(trace.get(C::ecc_double_op, 0), 1);
 
+    ecc_simulator.add(memory, inf, inf_bb, dst_address);
+
     // Set memory reads:
     trace.set(0,
-              { { // Execution
-                  { C::execution_sel, 1 },
-                  { C::execution_sel_exec_dispatch_ecc_add, 1 },
-                  { C::execution_rop_6_, dst_address },
-                  { C::execution_register_0_, inf.x() },
-                  { C::execution_register_1_, inf.y() },
-                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
-                  { C::execution_register_3_, inf_alt.x() },
-                  { C::execution_register_4_, inf_alt.y() },
-                  { C::execution_register_5_, inf_alt.is_infinity() ? 1 : 0 },
-                  // GT - dst out of range check
-                  { C::gt_sel, 1 },
-                  { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
-                  { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
-                  { C::gt_res, 0 } } });
-    trace.set(1,
               { { // Execution
                   { C::execution_sel, 1 },
                   { C::execution_sel_exec_dispatch_ecc_add, 1 },
@@ -1416,22 +1339,21 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
                   { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
                   // GT - dst out of range check
                   { C::gt_sel, 1 },
-                  { C::gt_input_a, dst_address + 5 },
+                  { C::gt_input_a, dst_address + 2 },
                   { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
                   { C::gt_res, 0 } } });
 
     builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
 
-    // The original coordinates are stored in memory for the read...
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 1), inf_bb.x());
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 1), inf_bb.y());
-    // ...but normalised coordinates are sent to the ecc subtrace:
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 1), 0);
-    EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 1), 0);
-    check_relation<mem_aware_ecc>(trace);
-    check_relation<ecc>(trace);
-    check_all_interactions<EccTraceBuilder>(trace);
-    check_interaction<tracegen::ExecutionTraceBuilder, bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
+    // The derived is_inf column must be true if the coordinates are (0, 0):
+    trace.set(C::ecc_add_mem_p_is_inf, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_CURVE_EQN), "P_CURVE_EQN");
+
+    // If is_inf is set, the coordinates must be (0, 0):
+    trace.set(C::ecc_add_mem_q_x, 0, 1);
+    trace.set(C::ecc_add_mem_q_y, 0, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_X_CHECK), "Q_INF_X_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_Y_CHECK), "Q_INF_Y_CHECK");
 }
 
 } // namespace

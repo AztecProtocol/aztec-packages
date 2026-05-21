@@ -2,7 +2,7 @@ import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 
 import type { AvmContext } from '../avm_context.js';
-import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
+import { Field, TypeTag } from '../avm_memory_types.js';
 import { EcAddPointNotOnCurveError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -18,10 +18,8 @@ export class EcAdd extends Instruction {
     OperandType.UINT16, // indirect
     OperandType.UINT16, // p1X
     OperandType.UINT16, // p1Y
-    OperandType.UINT16, // p1IsInfinite
     OperandType.UINT16, // p2X
     OperandType.UINT16, // p2Y
-    OperandType.UINT16, // p2IsInfinite
     OperandType.UINT16, // dst
   ];
 
@@ -29,10 +27,8 @@ export class EcAdd extends Instruction {
     private addressingMode: number,
     private p1XOffset: number,
     private p1YOffset: number,
-    private p1IsInfiniteOffset: number,
     private p2XOffset: number,
     private p2YOffset: number,
-    private p2IsInfiniteOffset: number,
     private dstOffset: number,
   ) {
     super();
@@ -46,34 +42,27 @@ export class EcAdd extends Instruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    const operands = [
-      this.p1XOffset,
-      this.p1YOffset,
-      this.p1IsInfiniteOffset,
-      this.p2XOffset,
-      this.p2YOffset,
-      this.p2IsInfiniteOffset,
-      this.dstOffset,
-    ];
-    const [p1XOffset, p1YOffset, p1IsInfiniteOffset, p2XOffset, p2YOffset, p2IsInfiniteOffset, dstOffset] =
-      addressing.resolve(operands, memory);
+    const operands = [this.p1XOffset, this.p1YOffset, this.p2XOffset, this.p2YOffset, this.dstOffset];
+    const [p1XOffset, p1YOffset, p2XOffset, p2YOffset, dstOffset] = addressing.resolve(operands, memory);
 
     memory.checkTags(TypeTag.FIELD, p1XOffset, p1YOffset, p2XOffset, p2YOffset);
-    memory.checkTags(TypeTag.UINT1, p1IsInfiniteOffset, p2IsInfiniteOffset);
 
     const p1X = memory.get(p1XOffset);
     const p1Y = memory.get(p1YOffset);
-    const p1IsInfinite = memory.get(p1IsInfiniteOffset).toNumber() === 1;
-    const p1 = new Point(p1X.toFr(), p1Y.toFr(), p1IsInfinite);
+    const p1XFr = p1X.toFr();
+    const p1YFr = p1Y.toFr();
+    const p1IsInfinite = p1XFr.isZero() && p1YFr.isZero();
+    const p1 = new Point(p1XFr, p1YFr, p1IsInfinite);
     if (!p1.isOnGrumpkin()) {
       throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 1, p1);
     }
 
     const p2X = memory.get(p2XOffset);
     const p2Y = memory.get(p2YOffset);
-    // unused. Point doesn't store this information
-    const p2IsInfinite = memory.get(p2IsInfiniteOffset).toNumber() === 1;
-    const p2 = new Point(p2X.toFr(), p2Y.toFr(), p2IsInfinite);
+    const p2XFr = p2X.toFr();
+    const p2YFr = p2Y.toFr();
+    const p2IsInfinite = p2XFr.isZero() && p2YFr.isZero();
+    const p2 = new Point(p2XFr, p2YFr, p2IsInfinite);
     if (!p2.isOnGrumpkin()) {
       throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 2, p2);
     }
@@ -99,7 +88,5 @@ export class EcAdd extends Instruction {
     // Important to use setSlice() and not set() in the two following statements as
     // this checks that the offsets lie within memory range.
     memory.setSlice(dstOffset, [new Field(dest.x), new Field(dest.y)]);
-    // Check representation of infinity for grumpkin
-    memory.setSlice(dstOffset + 2, [new Uint1(dest.equals(Point.ZERO) ? 1 : 0)]);
   }
 }

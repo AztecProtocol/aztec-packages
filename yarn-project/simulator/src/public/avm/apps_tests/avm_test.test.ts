@@ -54,6 +54,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       /*expectedDeployer=*/ expectContractInstance.deployer,
       /*expectedClassId=*/ expectContractInstance.currentContractClassId,
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
+      /*expectedImmutablesHash=*/ expectContractInstance.immutablesHash,
       /*skip_strictly_limited_side_effects=*/ false,
     ];
     const results = await simTester.simulateCall(sender, /*address=*/ testContractAddress, 'bulk_testing', args);
