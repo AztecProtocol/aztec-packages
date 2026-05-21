@@ -1,5 +1,6 @@
 #include "./scalar_multiplication.hpp"
 
+#include "./pippenger_arena_layout.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -476,59 +477,9 @@ enum class ConstantineSlicePath : uint8_t {
     return ConstantineSlicePath::Boundary;
 }
 
-[[nodiscard]] inline uint32_t choose_window_bits(
-    size_t num_points, size_t num_bits, size_t n_input, size_t num_logical_threads, bool use_rebalance) noexcept
-{
-    constexpr uint32_t MAX_C = 20;
-    uint32_t best = 2;
-
-#ifdef __wasm__
-    // Closed-form for wasm: c = ⌊log2(num_points / target_load)⌋ + 1, where target_load is
-    // num_logical_threads × 2/3 above n_input=4096 and × 1/3 below — the per-bucket density
-    // that keeps the batched-affine drains amortised in each regime.
-    static_cast<void>(num_bits);
-    static_cast<void>(use_rebalance);
-    const size_t target_load = (n_input > 4096) ? (num_logical_threads * 2 / 3) : (num_logical_threads / 3);
-    if (target_load == 0 || num_points <= target_load) {
-        best = 2;
-    } else {
-        // ⌊log2(num_points / target_load)⌋ + 1
-        const size_t ratio = num_points / target_load;
-        const uint32_t lg = static_cast<uint32_t>(numeric::get_msb(ratio));
-        best = lg + 1;
-        if (best < 2) {
-            best = 2;
-        } else if (best >= MAX_C) {
-            best = MAX_C - 1;
-        }
-    }
-#else
-    // Native: linear cost model `cost = rounds · (n + 15·B)` with BUCKET_ACC_COST=15.
-    // The closed-form WASM formula above has not been recalibrated for native — keep the
-    // existing native model until that's done.
-    static_cast<void>(n_input);
-    static_cast<void>(num_logical_threads);
-    static_cast<void>(use_rebalance);
-    uint64_t best_cost = static_cast<uint64_t>(-1);
-    for (uint32_t window_bits = 2; window_bits < MAX_C; ++window_bits) {
-        const uint64_t rounds = (num_bits + 2 + window_bits - 1) / window_bits;
-        const uint64_t buckets = (uint64_t{ 1 } << (window_bits - 1)) + 1;
-        const uint64_t n = num_points;
-        constexpr uint64_t BUCKET_ACC_COST = 15;
-        const uint64_t cost = rounds * (n + (buckets * BUCKET_ACC_COST));
-        if (cost < best_cost) {
-            best_cost = cost;
-            best = window_bits;
-        }
-    }
-#endif
-
-    return best;
-}
-
-// Uniform-window Pippenger schedule. The schedule is one global window order so Stage-7 Horner
-// can walk high to low.
-inline constexpr size_t VAR_WINDOW_MAX_WINDOWS = 128;
+// `choose_window_bits` and `build_var_window_schedule` are defined inline in
+// `pippenger_arena_layout.hpp` so the test suite can build identical schedules.
+// `VAR_WINDOW_MAX_WINDOWS` and `VariableWindowSchedule` likewise live there.
 
 // Sentinel value for `msb_per_scalar[i]` when scalar i is zero. uint8_t fits the 254 valid msb
 // positions (0..253) plus this sentinel; matching `msb_hist` bin layout uses bin 0 = zero count
@@ -579,7 +530,8 @@ inline constexpr uint32_t DEDUP_INVALID_EXTRA = ~uint32_t{ 0 };
 // branch never fires anyway (the end-of-loop drain catches the residue). Keeping it
 // constexpr lets the compiler turn the per-iter `if (pair_count >= BATCH_CAPACITY)` into
 // a compare-against-immediate and fold the drain-trigger condition into the loop shape.
-inline constexpr size_t BATCH_CAPACITY = 256;
+// `BATCH_CAPACITY` is defined in `pippenger_arena_layout.hpp` so the layout struct can
+// reference it without depending on this TU.
 
 inline int msb_of_2limb(uint64_t lo, uint64_t hi) noexcept
 {
@@ -616,14 +568,6 @@ inline void record_msb(int msb, uint8_t& dst, std::array<uint32_t, 256>& th_hist
     ++th_hist[static_cast<size_t>(msb) + 1];
 }
 
-struct VariableWindowSchedule {
-    size_t W_lo = 0;                                                      // # of windows
-    size_t num_windows = 0;                                               // = W_lo
-    std::array<uint8_t, VAR_WINDOW_MAX_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> num_buckets{};           // 2^(window_bits_w - 1) + 1
-};
-
 // One window range. The driver iterates the schedule's windows in batches. Bundles the
 // numerics that bind the for-loop bounds and lambda call arguments.
 struct RegionView {
@@ -639,39 +583,7 @@ struct RegionView {
 /**
  * @brief Build a uniform window schedule.
  */
-inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t window_bits_unsplit) noexcept
-{
-    VariableWindowSchedule sched{};
-
-    auto fill_region = [&](size_t bits_in_region, size_t window_bits_R, size_t out_offset) -> size_t {
-        size_t bits_remaining = bits_in_region;
-        size_t w = out_offset;
-        size_t bit_offset = (w == 0) ? 0 : sched.bit_base[w - 1] + sched.window_bits_per_window[w - 1];
-        while (bits_remaining > 0) {
-            const size_t window_bits_w = std::min<size_t>(window_bits_R, bits_remaining);
-            sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
-            sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
-            sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
-            bit_offset += window_bits_w;
-            bits_remaining -= window_bits_w;
-            ++w;
-            if (w >= VAR_WINDOW_MAX_WINDOWS) {
-                break;
-            }
-        }
-        return w - out_offset;
-    };
-
-    // NUM_BITS + 2 to match the existing num_windows formula (+2 accommodates the carry-less
-    // top bit of the Constantine recoder).
-    const size_t total_bits = num_bits + 2;
-    sched.W_lo = fill_region(total_bits, window_bits_unsplit, /*out_offset=*/0);
-    sched.num_windows = sched.W_lo;
-    return sched;
-}
-
-// Forward declaration of AffineBucketChunkInfo so ThreadScratch can hold a vector of them.
-struct AffineBucketChunkInfo;
+// `AffineBucketChunkInfo` is defined in `pippenger_arena_layout.hpp` (included above).
 
 /**
  * @brief Per-thread scratch: VIEWS into the per-MSM arena. Each `std::span` is rebound at
@@ -929,36 +841,14 @@ void reduce_chunk(ThreadScratch<Curve>& s,
     tree_reduce_in_place<Curve>(s, valid_len);
 }
 
-/**
- * @brief Per-window outputs of Stage 6 bucket accumulation (tree reduce + recursive affine bucket reduction).
- *
- *   R / L are group elements; `lo` / `hi` are the lowest/highest non-empty digit in the
- *   chunk; `empty == 1` iff the chunk had no non-empty digits.
- */
-template <typename Curve> struct ChunkOutput {
-    typename Curve::Element R{};
-    typename Curve::Element L{};
-    uint32_t lo = 0;
-    uint32_t hi = 0;
-    uint8_t empty = 1;
-};
+// `ChunkOutput<Curve>` (Stage 6 per-chunk bucket-reduce output) is defined in
+// `pippenger_arena_layout.hpp` so the test suite can size the Zone S slot the
+// same way the live allocator does.
 
-/**
- * @brief Round-trip cell describing one chunk's contribution to the cross-window
- *        recursive affine bucket reduction. Filled by the densification loop and consumed
- *        by the four phases.
- *
- *   `lo`, `hi` = lowest / highest non-empty digit in the chunk (inclusive).
- *   `buckets_padded` = next power of two ≥ (hi - lo + 1); the chunk's dense bucket layout has
- *                exactly this many slots, indexed 0..buckets_padded-1 (slot i = digit lo + i).
- *   `empty`    = 1 iff the chunk had no entries (len == 0); the algorithm skips it entirely.
- */
-struct AffineBucketChunkInfo {
-    uint32_t lo = 0;
-    uint32_t hi = 0;
-    uint32_t buckets_padded = 0;
-    uint8_t empty = 1;
-};
+// `AffineBucketChunkInfo` is defined in `pippenger_arena_layout.hpp` (forward declared
+// above at line ~674 for ThreadScratch). It describes one chunk's contribution to the
+// cross-window recursive affine bucket reduction (lo/hi digit bounds, buckets_padded,
+// empty flag).
 
 /**
  * @brief Inline filter for one (dst, src) candidate pair, called from each phase's
@@ -1708,14 +1598,8 @@ inline size_t dedup_tree_reduce_in_place(typename Curve::AffineElement* pts,
 // All phases ≤ 4 MB regardless of input shape. The caps degrade gracefully: when hit
 // we leave un-deduped scalars on the standard pippenger path (still correct, just
 // less savings).
-inline constexpr size_t DEDUP_MAX_CLUSTERS = 16384; // extra_points ≤ 1 MB
-inline constexpr size_t DEDUP_MAX_MEMBERS = 32768;  // total cluster member rows
-// Phase A's chunked tree-reduce limit. Capped at SUBCHUNK_ENTRIES_CAP so the per-worker
-// chunk_pts/chunk_ids slab matches the Stage 6a per-worker scratch and overlaps cleanly
-// in later arena-layout phases. Outer-loop iteration count rises ~4× vs the historical
-// 8192 cap, but the dominant amortisation (inside tree_reduce over BATCH_CAPACITY=256)
-// is unaffected.
-inline constexpr size_t DEDUP_MAX_CHUNK_MEMBERS = 2048; // chunk_pts ≤ 128 KB during tree-reduce
+// `DEDUP_MAX_CLUSTERS`, `DEDUP_MAX_MEMBERS`, and `DEDUP_MAX_CHUNK_MEMBERS` are defined
+// in `pippenger_arena_layout.hpp` so the test harness can size the matching slabs.
 static_assert(DEDUP_MAX_CLUSTERS <= size_t{ SCHEDULE_INDEX_MASK } + 1,
               "dedup extra-point ids must fit in the schedule payload");
 
@@ -2122,6 +2006,11 @@ template <typename Curve>
 }
 
 } // namespace
+
+// PerWorkerArenaLayout (and its dependencies BATCH_CAPACITY, DEDUP_MAX_CHUNK_MEMBERS,
+// AffineBucketChunkInfo) lives in `pippenger_arena_layout.hpp`. Used by the sizer
+// below, the live allocator in `pippenger_round_parallel`, and the arena-layout
+// regression test.
 } // namespace round_parallel_detail
 
 /**
@@ -2252,12 +2141,10 @@ typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve
 // Compute the exact arena bytes a single MSM of `n_input` points will need.
 // Mirrors the inline budget calculation inside `pippenger_round_parallel`.
 // Returns 0 when N is small enough that we'll fall back to the Jacobian fast path
-// (no affine arena needed).
-namespace {
+// (no affine arena needed). Exposed (declared in `scalar_multiplication.hpp`)
+// so the test suite can exercise the same sizer the live allocator uses.
 template <typename Curve>
-inline size_t compute_arena_bytes_for_msm(size_t n_input,
-                                          bool external_glv_provided,
-                                          bool dedup_active = false) noexcept
+size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, bool dedup_active) noexcept
 {
     using ScalarField = typename Curve::ScalarField;
     constexpr size_t FULL_NUM_BITS = ScalarField::modulus.get_msb() + 1;
@@ -2349,18 +2236,13 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
         + (size_t{ 8 } * num_threads)                                  // bucket_partials_offsets
         + (size_t{ 87 } * worker_total_for_budget * dense_stride_est); // s.dense_buckets + aux
 
-    // Per-thread overflow scratch: bounded above by ceil(max_chunk_len / SUBCHUNK_CAP)
-    // entries, each holding a uint32_t slot index + an AffineElement.
+    // Per-worker overflow capacity (per-window upper bound). Used by the struct's
+    // layout walk to size both the ThreadScratch overflow_slots/overflow_pts fields
+    // and the chunk_capacity for curr_pts/curr_buckets.
     constexpr size_t SUBCHUNK_ENTRIES_CAP_LOCAL = 2048;
     const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window =
         (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP_LOCAL - 1) / SUBCHUNK_ENTRIES_CAP_LOCAL;
-    const size_t per_thread_overflow_bytes = (size_t{ 4 } + size_t{ 64 }) * global_max_overflow_per_window;
-
-    constexpr size_t PER_THREAD_CHUNK_CAPACITY_BYTES =
-        (size_t{ 2048 } * size_t{ 64 }) + (size_t{ 2048 } * size_t{ 4 }) +
-        (size_t{ 2 } * size_t{ 256 } * size_t{ 64 }) + (size_t{ 256 } * size_t{ 32 }) + (size_t{ 256 } * size_t{ 4 }) +
-        size_t{ 328 };
 
     // Phase 1 prologue bytes that live in the per-MSM arena (rather than on the heap):
     //   - msb_per_scalar       : n bytes
@@ -2376,14 +2258,6 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
                                             + (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) // glv_points_storage
                                             + (profile_threads * size_t{ 1024 }); // per_thread_msb_hist
 
-    // Per-worker PhaseA scratch slab (only allocated when dedup_active). Each cap is
-    // documented at the PhaseAScratch struct definition; they collectively cap the
-    // worst-case worker working set at ~160 KiB so the slab overlaps cleanly with the
-    // Stage 6a per-worker scratch in later arena-layout phases.
-    constexpr size_t PHASE_A_DIRTY_SLOTS_CAP = 4096; // HT_SIZE
-    constexpr size_t PHASE_A_BUCKET_REP_CAP = 256;   // loose cap
-    constexpr size_t PHASE_A_STAGED_CAP = 1024;      // loose cap
-    constexpr size_t PHASE_A_CHUNK_CAP = round_parallel_detail::DEDUP_MAX_CHUNK_MEMBERS;
     // Per-worker cluster_members cap: n is a hard upper bound on cluster_members across
     // all workers (each scalar contributes to at most one cluster_member entry), so
     // min(DEDUP_MAX_MEMBERS, n) is exact and tighter than the constant for small-n MSMs.
@@ -2396,21 +2270,20 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
     // holds clusters_opened + 1 entries. The +2 covers the leading-zero sentinel and
     // the post-last terminator slot.
     const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
-    const size_t phase_a_per_worker_bytes = (size_t{ 4 } * phase_a_cluster_members_cap)   // cluster_members (uint32)
-                                            + (size_t{ 4 } * phase_a_cluster_offsets_cap) // cluster_offsets (uint32)
-                                            + (size_t{ 2 } * PHASE_A_DIRTY_SLOTS_CAP)     // dirty_slots (uint16)
-                                            + (size_t{ 4 } * PHASE_A_BUCKET_REP_CAP)      // bucket_rep (uint32)
-                                            + (size_t{ 8 } * PHASE_A_STAGED_CAP)          // staged (pair<u32,u32>)
-                                            + (sizeof(typename Curve::AffineElement) * PHASE_A_CHUNK_CAP) // chunk_pts
-                                            + (size_t{ 4 } * PHASE_A_CHUNK_CAP);                          // chunk_ids
 
-    // Zone W per-worker UNION: ThreadScratch's wpb-independent fields and PhaseAScratch
-    // overlay the SAME per-worker bytes (Stage 6a, Stage 6b, and Phase A run in disjoint
-    // parallel_for invocations on each worker). The union size is the max of either layout,
-    // not the sum — see the Arena zone layout block in `pippenger_round_parallel`.
-    const size_t ts_fixed_bytes = PER_THREAD_CHUNK_CAPACITY_BYTES + per_thread_overflow_bytes;
-    const size_t worker_union_bytes =
-        dedup_active ? std::max(ts_fixed_bytes, phase_a_per_worker_bytes) : ts_fixed_bytes;
+    // Zone W per-worker UNION via the canonical layout walk. Stage 6a, Stage 6b, and
+    // Phase A overlay the same per-worker bytes; the struct returns the max-of-layouts
+    // (the Stage 6 wpb-dependent tail is added below once `windows_per_batch` is known).
+    // Passing `windows_per_batch = 0` here skips the tail — we only need the union bytes
+    // for the fixed_overhead → wpb solve.
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> union_layout(/*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP_LOCAL,
+                                                                          global_max_overflow_per_window,
+                                                                          dedup_active,
+                                                                          phase_a_cluster_members_cap,
+                                                                          phase_a_cluster_offsets_cap,
+                                                                          /*windows_per_batch=*/0,
+                                                                          /*dense_stride_est=*/0);
+    const size_t worker_union_bytes = union_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes * worker_total_for_budget) +
                                   (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
@@ -2494,313 +2367,6 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
         }
     }
     return arena_bytes;
-}
-
-} // namespace
-
-bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
-                                                bool external_glv_provided,
-                                                bool dedup_active,
-                                                size_t effective_num_bits_for_test) noexcept
-{
-    using Curve = curve::BN254;
-    using ScalarField = typename Curve::ScalarField;
-    using BaseField = typename Curve::BaseField;
-    using Element = typename Curve::Element;
-    using AffineElement = typename Curve::AffineElement;
-
-    constexpr size_t FULL_NUM_BITS = ScalarField::modulus.get_msb() + 1;
-    if (n_input < 4) {
-        return true;
-    }
-
-    const bool use_glv = external_glv_provided || (n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
-    const bool inline_glv_double = use_glv && !external_glv_provided;
-    const size_t n = use_glv ? 2 * n_input : n_input;
-    const size_t NUM_BITS = use_glv ? size_t{ 128 } : FULL_NUM_BITS;
-    const size_t arena_capacity = compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active);
-    if (arena_capacity == 0) {
-        return true;
-    }
-
-    const size_t actual_num_bits = (effective_num_bits_for_test == 0 || effective_num_bits_for_test > NUM_BITS)
-                                       ? NUM_BITS
-                                       : effective_num_bits_for_test;
-    const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
-    const size_t window_bits = round_parallel_detail::choose_window_bits(
-        n, actual_num_bits, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
-    const auto sched = round_parallel_detail::build_var_window_schedule(actual_num_bits, window_bits);
-    const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
-
-    using round_parallel_detail::BATCH_CAPACITY;
-    constexpr size_t MIN_BATCH_CAPACITY = 32;
-    constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
-    constexpr size_t SUBCHUNK_ENTRIES_CAP = 2048;
-
-    const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
-    const size_t max_threads_for_min_batch = std::max<size_t>(1, n / MIN_BATCH_CAPACITY);
-    const size_t num_threads = std::min(desired_threads, max_threads_for_min_batch);
-    const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
-    const size_t worker_total = num_threads;
-
-    size_t B_eff = num_buckets;
-    for (size_t w = 0; w < sched.num_windows; ++w) {
-        B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
-    }
-    const size_t dense_stride_est =
-        std::max<size_t>(2, std::bit_ceil((B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
-    const size_t bucket_partials_per_window_max = (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : 0;
-    const size_t hist_h_bytes_pw_shared = (size_t{ 4 } * num_threads * B_eff);
-    const size_t hist_o_bytes_pw_shared =
-        (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) + (size_t{ 96 } * num_threads);
-    const size_t hist_slot_bytes_pw_shared = std::max(hist_h_bytes_pw_shared, hist_o_bytes_pw_shared);
-    const size_t dense_slot_bytes_pw_shared = (size_t{ 65 } * bucket_partials_per_window_max);
-    const size_t per_window_bytes_shared =
-        hist_slot_bytes_pw_shared + dense_slot_bytes_pw_shared + (size_t{ 8 } * (B_eff + 1)) +
-        (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * num_threads) +
-        (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) + (size_t{ 16 } * worker_total) +
-        (size_t{ 8 } * num_threads) + (size_t{ 87 } * worker_total * dense_stride_est);
-    const size_t capacity_lo = n;
-    const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
-
-    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
-    const size_t global_max_overflow_per_window =
-        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
-    const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
-
-    constexpr size_t PHASE_A_DIRTY_SLOTS_CAP = 4096;
-    constexpr size_t PHASE_A_BUCKET_REP_CAP = 256;
-    constexpr size_t PHASE_A_STAGED_CAP = 1024;
-    constexpr size_t PHASE_A_CHUNK_CAP = round_parallel_detail::DEDUP_MAX_CHUNK_MEMBERS;
-    const size_t phase_a_cluster_members_cap = std::min(round_parallel_detail::DEDUP_MAX_MEMBERS, n);
-    const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
-
-    const size_t phase_one_prologue_bytes = n + (use_glv ? size_t{ 32 } * n : size_t{ 0 }) +
-                                            (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) +
-                                            (profile_threads * size_t{ 1024 });
-    constexpr size_t PER_THREAD_CHUNK_CAPACITY_BYTES =
-        (size_t{ 2048 } * size_t{ 64 }) + (size_t{ 2048 } * size_t{ 4 }) +
-        (size_t{ 2 } * size_t{ 256 } * size_t{ 64 }) + (size_t{ 256 } * size_t{ 32 }) + (size_t{ 256 } * size_t{ 4 }) +
-        size_t{ 328 };
-    const size_t per_thread_overflow_bytes = (size_t{ 4 } + size_t{ 64 }) * global_max_overflow_per_window;
-    const size_t phase_a_per_worker_bytes =
-        (size_t{ 4 } * phase_a_cluster_members_cap) + (size_t{ 4 } * phase_a_cluster_offsets_cap) +
-        (size_t{ 2 } * PHASE_A_DIRTY_SLOTS_CAP) + (size_t{ 4 } * PHASE_A_BUCKET_REP_CAP) +
-        (size_t{ 8 } * PHASE_A_STAGED_CAP) + (sizeof(AffineElement) * PHASE_A_CHUNK_CAP) +
-        (size_t{ 4 } * PHASE_A_CHUNK_CAP);
-    const size_t ts_fixed_bytes = PER_THREAD_CHUNK_CAPACITY_BYTES + per_thread_overflow_bytes;
-    const size_t worker_union_bytes_for_budget =
-        dedup_active ? std::max(ts_fixed_bytes, phase_a_per_worker_bytes) : ts_fixed_bytes;
-    const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total) +
-                                  (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) +
-                                  (size_t{ 8 } * (num_threads + 1)) + phase_one_prologue_bytes;
-    const size_t available_budget =
-        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
-    const size_t windows_per_batch =
-        (per_window_bytes_lo == 0 || available_budget == 0)
-            ? std::max<size_t>(1, sched.W_lo)
-            : std::min(std::max<size_t>(1, available_budget / per_window_bytes_lo), static_cast<size_t>(sched.W_lo));
-
-    auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
-    auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
-    auto bump_fits = [&](size_t count,
-                         size_t size,
-                         size_t align,
-                         size_t& cursor,
-                         size_t bound,
-                         size_t base_offset,
-                         size_t base_misalign) {
-        const size_t cur_addr_mod = (base_misalign + base_offset + cursor) & (align - 1);
-        const size_t align_delta = (cur_addr_mod == 0) ? size_t{ 0 } : (align - cur_addr_mod);
-        const size_t aligned_local = cursor + align_delta;
-        const size_t bytes = count * size;
-        if (aligned_local + bytes > bound) {
-            return false;
-        }
-        cursor = aligned_local + bytes;
-        return true;
-    };
-
-    for (size_t base_misalign = 0; base_misalign < alignof(AffineElement); ++base_misalign) {
-        size_t arena_cursor = 0;
-        if (!bump_fits(n, sizeof(uint8_t), alignof(uint8_t), arena_cursor, arena_capacity, 0, base_misalign)) {
-            return false;
-        }
-        if (!bump_fits(profile_threads,
-                       sizeof(std::array<uint32_t, 256>),
-                       alignof(std::array<uint32_t, 256>),
-                       arena_cursor,
-                       arena_capacity,
-                       0,
-                       base_misalign)) {
-            return false;
-        }
-        if (use_glv) {
-            if (!bump_fits(
-                    n, sizeof(ScalarField), alignof(ScalarField), arena_cursor, arena_capacity, 0, base_misalign)) {
-                return false;
-            }
-            if (inline_glv_double &&
-                !bump_fits(
-                    n, sizeof(AffineElement), alignof(AffineElement), arena_cursor, arena_capacity, 0, base_misalign)) {
-                return false;
-            }
-        }
-        const size_t bytes_P_prefix = arena_cursor;
-
-        size_t ts_fixed_layout = 0;
-        layout_add(ts_fixed_layout, sizeof(AffineElement) * chunk_capacity, alignof(AffineElement));
-        layout_add(ts_fixed_layout, sizeof(uint32_t) * chunk_capacity, alignof(uint32_t));
-        layout_add(ts_fixed_layout, sizeof(AffineElement) * 2 * BATCH_CAPACITY, alignof(AffineElement));
-        layout_add(ts_fixed_layout, sizeof(BaseField) * BATCH_CAPACITY, alignof(BaseField));
-        layout_add(ts_fixed_layout, sizeof(uint32_t) * BATCH_CAPACITY, alignof(uint32_t));
-        layout_add(ts_fixed_layout, sizeof(uint32_t) * global_max_overflow_per_window, alignof(uint32_t));
-        layout_add(ts_fixed_layout, sizeof(AffineElement) * global_max_overflow_per_window, alignof(AffineElement));
-
-        size_t pa_layout = 0;
-        if (dedup_active) {
-            layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_members_cap, alignof(uint32_t));
-            layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_offsets_cap, alignof(uint32_t));
-            layout_add(pa_layout, sizeof(uint16_t) * PHASE_A_DIRTY_SLOTS_CAP, alignof(uint16_t));
-            layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_BUCKET_REP_CAP, alignof(uint32_t));
-            layout_add(pa_layout,
-                       sizeof(std::pair<uint32_t, uint32_t>) * PHASE_A_STAGED_CAP,
-                       alignof(std::pair<uint32_t, uint32_t>));
-            layout_add(pa_layout, sizeof(AffineElement) * PHASE_A_CHUNK_CAP, alignof(AffineElement));
-            layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_CHUNK_CAP, alignof(uint32_t));
-        }
-
-        constexpr size_t WORKER_SLAB_ALIGN = alignof(AffineElement);
-        const size_t per_worker_union_bytes = align_up(std::max(ts_fixed_layout, pa_layout), WORKER_SLAB_ALIGN);
-        size_t per_worker_per_wpb_layout = 0;
-        const size_t dense_total = windows_per_batch * dense_stride_est;
-        const size_t dense_pair_max = dense_total / 2;
-        layout_add(per_worker_per_wpb_layout, sizeof(AffineElement) * dense_total, alignof(AffineElement));
-        layout_add(per_worker_per_wpb_layout, sizeof(uint8_t) * dense_total, alignof(uint8_t));
-        layout_add(per_worker_per_wpb_layout,
-                   sizeof(std::pair<uint32_t, uint32_t>) * dense_pair_max,
-                   alignof(std::pair<uint32_t, uint32_t>));
-        layout_add(per_worker_per_wpb_layout, sizeof(uint32_t) * dense_pair_max, alignof(uint32_t));
-        layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_pair_max, alignof(BaseField));
-        layout_add(per_worker_per_wpb_layout,
-                   sizeof(round_parallel_detail::AffineBucketChunkInfo) * windows_per_batch,
-                   alignof(round_parallel_detail::AffineBucketChunkInfo));
-        const size_t per_worker_bytes = align_up(per_worker_union_bytes + per_worker_per_wpb_layout, WORKER_SLAB_ALIGN);
-
-        size_t bytes_P_extra_layout = 0;
-        layout_add(
-            bytes_P_extra_layout, sizeof(Element) * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS, alignof(Element));
-        if (dedup_active) {
-            layout_add(bytes_P_extra_layout, sizeof(uint32_t) * n, alignof(uint32_t));
-            layout_add(bytes_P_extra_layout,
-                       sizeof(AffineElement) * round_parallel_detail::DEDUP_MAX_CLUSTERS,
-                       alignof(AffineElement));
-        }
-        const size_t bytes_P_min = align_up(bytes_P_prefix, alignof(Element)) + bytes_P_extra_layout;
-        const size_t bytes_P = align_up(bytes_P_min + base_misalign, WORKER_SLAB_ALIGN) - base_misalign;
-        const size_t bytes_W = per_worker_bytes * worker_total;
-        if (bytes_P + bytes_W > arena_capacity) {
-            return false;
-        }
-        const size_t bytes_S_total = arena_capacity - bytes_P - bytes_W;
-        size_t zone_S_cursor = 0;
-        const size_t zone_S_base = bytes_P + bytes_W;
-
-        const size_t schedule_total = windows_per_batch * capacity_lo;
-        if (!bump_fits(schedule_total,
-                       sizeof(uint32_t),
-                       alignof(uint32_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign)) {
-            return false;
-        }
-        const size_t hist_h_bytes_total = size_t{ 4 } * windows_per_batch * num_threads * B_eff;
-        size_t o_layout_cur = 0;
-        o_layout_cur = align_up(o_layout_cur, alignof(round_parallel_detail::ChunkOutput<Curve>));
-        o_layout_cur += sizeof(round_parallel_detail::ChunkOutput<Curve>) * windows_per_batch * num_threads;
-        o_layout_cur = align_up(o_layout_cur, alignof(Element));
-        o_layout_cur += sizeof(Element) * num_threads * windows_per_batch;
-        const size_t hist_slot_cells =
-            (std::max(hist_h_bytes_total, o_layout_cur) + sizeof(AffineElement) - 1) / sizeof(AffineElement);
-        const size_t dense_slot_cells =
-            ((size_t{ 65 } * windows_per_batch * bucket_partials_per_window_max) + sizeof(AffineElement) - 1) /
-            sizeof(AffineElement);
-        if (!bump_fits(hist_slot_cells,
-                       sizeof(AffineElement),
-                       alignof(AffineElement),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(dense_slot_cells,
-                       sizeof(AffineElement),
-                       alignof(AffineElement),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(windows_per_batch * (B_eff + 1),
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(windows_per_batch * (num_threads + 1),
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(windows_per_batch * (num_threads + 1),
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(windows_per_batch * num_threads,
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits((num_threads * windows_per_batch) + 1,
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(num_threads + 1,
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(windows_per_batch * num_threads,
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign) ||
-            !bump_fits(windows_per_batch * num_threads,
-                       sizeof(size_t),
-                       alignof(size_t),
-                       zone_S_cursor,
-                       bytes_S_total,
-                       zone_S_base,
-                       base_misalign)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 // Round-parallel Pippenger MSM.
@@ -3194,21 +2760,11 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t capacity_lo = n;
     const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
 
-    constexpr size_t PER_THREAD_CHUNK_CAPACITY_BYTES =
-        // SUBCHUNK_ENTRIES_CAP=2048, BATCH_CAPACITY=256:
-        (size_t{ 2048 } * size_t{ 64 })                // curr_pts (AffineElement)         = 131072
-        + (size_t{ 2048 } * size_t{ 4 })               // curr_buckets (uint32_t)          =   8192
-        + (size_t{ 2 } * size_t{ 256 } * size_t{ 64 }) // points_to_add        =  32768
-        + (size_t{ 256 } * size_t{ 32 })               // inversion_scratch (BaseField)    =   8192
-        + (size_t{ 256 } * size_t{ 4 })                // pair_dest (uint32_t)             =   1024
-        + size_t{ 328 };                               // ThreadScratch struct overhead    =    328
-    // Per-OS-thread Stage 6a seam overflow scratch: at most ceil(max_chunk_len / SUBCHUNK_CAP)
-    // entries × (uint32 slot index + AffineElement). Scales with logical-task chunk size,
-    // not OS-thread count.
+    // Per-OS-thread Stage 6a seam overflow scratch upper bound. Used as input to the
+    // canonical PerWorkerArenaLayout walk below.
     const size_t global_max_chunk_len_for_budget = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window_for_budget =
         (global_max_chunk_len_for_budget + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
-    const size_t per_thread_overflow_bytes = (size_t{ 4 } + size_t{ 64 }) * global_max_overflow_per_window_for_budget;
 
     // Phase 1 prologue bytes living in the per-MSM arena — mirrors the formula in
     // `compute_arena_bytes_for_msm`. Anyone adding a per-MSM arena buffer must update both
@@ -3218,12 +2774,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                                             + (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) // glv_points_storage
                                             + (profile_threads * size_t{ 1024 }); // per_thread_msb_hist
 
-    // Per-worker PhaseA scratch slab (one per worker, allocated only when dedup_active).
-    // See `round_parallel_detail::PhaseAScratch` for cap rationale.
-    constexpr size_t PHASE_A_DIRTY_SLOTS_CAP = 4096;
-    constexpr size_t PHASE_A_BUCKET_REP_CAP = 256;
-    constexpr size_t PHASE_A_STAGED_CAP = 1024;
-    constexpr size_t PHASE_A_CHUNK_CAP = round_parallel_detail::DEDUP_MAX_CHUNK_MEMBERS;
     // Per-worker cluster_members cap: n is a hard upper bound on cluster_members across
     // all workers (each scalar contributes to at most one cluster_member entry), so
     // min(DEDUP_MAX_MEMBERS, n) is exact and tighter than the constant for small-n MSMs.
@@ -3236,19 +2786,19 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // holds clusters_opened + 1 entries. The +2 covers the leading-zero sentinel and
     // the post-last terminator slot.
     const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
-    const size_t phase_a_per_worker_bytes =
-        (size_t{ 4 } * phase_a_cluster_members_cap) + (size_t{ 4 } * phase_a_cluster_offsets_cap) +
-        (size_t{ 2 } * PHASE_A_DIRTY_SLOTS_CAP) + (size_t{ 4 } * PHASE_A_BUCKET_REP_CAP) +
-        (size_t{ 8 } * PHASE_A_STAGED_CAP) + (sizeof(AffineElement) * PHASE_A_CHUNK_CAP) +
-        (size_t{ 4 } * PHASE_A_CHUNK_CAP);
 
-    // Zone W per-worker UNION (see Arena zone layout block below). Stage 6a / Stage 6b
-    // ThreadScratch fixed fields and PhaseAScratch overlay the SAME per-worker bytes; the
-    // worker's slab consumes max(ts_fixed, phase_a) bytes, not the sum, because the three
-    // stages run in disjoint parallel_for invocations on each worker.
-    const size_t ts_fixed_bytes = PER_THREAD_CHUNK_CAPACITY_BYTES + per_thread_overflow_bytes;
-    const size_t worker_union_bytes_for_budget =
-        dedup_active ? std::max(ts_fixed_bytes, phase_a_per_worker_bytes) : ts_fixed_bytes;
+    // Zone W per-worker UNION via the canonical layout walk. The wpb-dependent Stage 6
+    // tail is added separately after `windows_per_batch` is solved; here we only need
+    // the union bytes for the fixed_overhead → wpb budget.
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> budget_layout(
+        /*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
+        global_max_overflow_per_window_for_budget,
+        dedup_active,
+        phase_a_cluster_members_cap,
+        phase_a_cluster_offsets_cap,
+        /*windows_per_batch=*/0,
+        /*dense_stride_est=*/0);
+    const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total_for_budget) +
                                   (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
@@ -3344,56 +2894,19 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
     auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
 
-    // ThreadScratch fixed (curr_pts/curr_buckets/points_to_add/inversion_scratch/pair_dest/
-    // overflow_slots/overflow_pts). Mirrors the alloc order below.
-    size_t ts_fixed_layout = 0;
-    layout_add(ts_fixed_layout, sizeof(AffineElement) * chunk_capacity, alignof(AffineElement));
-    layout_add(ts_fixed_layout, sizeof(uint32_t) * chunk_capacity, alignof(uint32_t));
-    layout_add(ts_fixed_layout, sizeof(AffineElement) * 2 * BATCH_CAPACITY, alignof(AffineElement));
-    layout_add(ts_fixed_layout, sizeof(BaseField) * BATCH_CAPACITY, alignof(BaseField));
-    layout_add(ts_fixed_layout, sizeof(uint32_t) * BATCH_CAPACITY, alignof(uint32_t));
-    layout_add(ts_fixed_layout, sizeof(uint32_t) * global_max_overflow_per_window, alignof(uint32_t));
-    layout_add(ts_fixed_layout, sizeof(AffineElement) * global_max_overflow_per_window, alignof(AffineElement));
-
-    // PhaseA layout (cluster_members/cluster_offsets/dirty_slots/bucket_rep/staged/chunk_pts/chunk_ids).
-    size_t pa_layout = 0;
-    if (dedup_active) {
-        layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_members_cap, alignof(uint32_t));
-        layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_offsets_cap, alignof(uint32_t));
-        layout_add(pa_layout, sizeof(uint16_t) * PHASE_A_DIRTY_SLOTS_CAP, alignof(uint16_t));
-        layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_BUCKET_REP_CAP, alignof(uint32_t));
-        layout_add(pa_layout,
-                   sizeof(std::pair<uint32_t, uint32_t>) * PHASE_A_STAGED_CAP,
-                   alignof(std::pair<uint32_t, uint32_t>));
-        layout_add(pa_layout, sizeof(AffineElement) * PHASE_A_CHUNK_CAP, alignof(AffineElement));
-        layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_CHUNK_CAP, alignof(uint32_t));
-    }
-
-    // Per-worker union: ThreadScratch fixed and PhaseA overlay the same bytes. Stage 6's
-    // wpb-dependent fields (dense_buckets / is_present / pair scratch / chunk_infos) sit
-    // immediately after the union, so each worker's slab = union + wpb-dependent tail.
-    // Use the worst-case AffineElement alignment between regions to avoid mid-slab
-    // misalignment when the next worker begins.
-    constexpr size_t WORKER_SLAB_ALIGN = alignof(AffineElement);
-    const size_t per_worker_union_bytes = align_up(std::max(ts_fixed_layout, pa_layout), WORKER_SLAB_ALIGN);
-
-    // wpb-dependent per-worker tail (Stage 6 only — PhaseA has no per-wpb part).
-    size_t per_worker_per_wpb_layout = 0;
-    {
-        const size_t dense_total = windows_per_batch * dense_stride_est;
-        const size_t dense_pair_max = dense_total / 2;
-        layout_add(per_worker_per_wpb_layout, sizeof(AffineElement) * dense_total, alignof(AffineElement));
-        layout_add(per_worker_per_wpb_layout, sizeof(uint8_t) * dense_total, alignof(uint8_t));
-        layout_add(per_worker_per_wpb_layout,
-                   sizeof(std::pair<uint32_t, uint32_t>) * dense_pair_max,
-                   alignof(std::pair<uint32_t, uint32_t>));
-        layout_add(per_worker_per_wpb_layout, sizeof(uint32_t) * dense_pair_max, alignof(uint32_t));
-        layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_pair_max, alignof(BaseField));
-        layout_add(per_worker_per_wpb_layout,
-                   sizeof(round_parallel_detail::AffineBucketChunkInfo) * windows_per_batch,
-                   alignof(round_parallel_detail::AffineBucketChunkInfo));
-    }
-    const size_t per_worker_bytes = align_up(per_worker_union_bytes + per_worker_per_wpb_layout, WORKER_SLAB_ALIGN);
+    // Per-worker layout via the canonical walk (single source of truth shared with
+    // `compute_arena_bytes_for_msm`). Pre-wpb-solve usage there passes wpb=0; here we
+    // pass the actual windows_per_batch so the Stage 6 wpb-dependent tail is included.
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> worker_layout(chunk_capacity,
+                                                                           global_max_overflow_per_window,
+                                                                           dedup_active,
+                                                                           phase_a_cluster_members_cap,
+                                                                           phase_a_cluster_offsets_cap,
+                                                                           windows_per_batch,
+                                                                           dense_stride_est);
+    constexpr size_t WORKER_SLAB_ALIGN = round_parallel_detail::PerWorkerArenaLayout<Curve>::WORKER_SLAB_ALIGN;
+    const size_t per_worker_union_bytes = worker_layout.per_worker_union_bytes;
+    const size_t per_worker_bytes = worker_layout.per_worker_bytes;
 
     // Zone P extra (post-decision permanent state): window_sums + dedup state. Sized
     // with the strict alignment a bump cursor would apply.
@@ -3473,13 +2986,14 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                     count, pa_cur, per_worker_union_bytes, bytes_P + slab_base);
             };
             auto& ps = phase_a_scratch[t];
+            using PWAL = round_parallel_detail::PerWorkerArenaLayout<Curve>;
             ps.cluster_members = pa_alloc.template operator()<uint32_t>(phase_a_cluster_members_cap);
             ps.cluster_offsets = pa_alloc.template operator()<uint32_t>(phase_a_cluster_offsets_cap);
-            ps.dirty_slots = pa_alloc.template operator()<uint16_t>(PHASE_A_DIRTY_SLOTS_CAP);
-            ps.bucket_rep = pa_alloc.template operator()<uint32_t>(PHASE_A_BUCKET_REP_CAP);
-            ps.staged = pa_alloc.template operator()<std::pair<uint32_t, uint32_t>>(PHASE_A_STAGED_CAP);
-            ps.chunk_pts = pa_alloc.template operator()<AffineElement>(PHASE_A_CHUNK_CAP);
-            ps.chunk_ids = pa_alloc.template operator()<uint32_t>(PHASE_A_CHUNK_CAP);
+            ps.dirty_slots = pa_alloc.template operator()<uint16_t>(PWAL::PHASE_A_DIRTY_SLOTS_CAP);
+            ps.bucket_rep = pa_alloc.template operator()<uint32_t>(PWAL::PHASE_A_BUCKET_REP_CAP);
+            ps.staged = pa_alloc.template operator()<std::pair<uint32_t, uint32_t>>(PWAL::PHASE_A_STAGED_CAP);
+            ps.chunk_pts = pa_alloc.template operator()<AffineElement>(PWAL::PHASE_A_CHUNK_CAP);
+            ps.chunk_ids = pa_alloc.template operator()<uint32_t>(PWAL::PHASE_A_CHUNK_CAP);
         }
 
         // Stage 6 wpb-dependent fields — tail of the per-worker slab, BEYOND the union. Bound
@@ -5022,5 +4536,7 @@ template curve::Grumpkin::Element pippenger_round_parallel_jacobian_fast<curve::
     std::span<const curve::Grumpkin::AffineElement> points,
     size_t min_pts_per_thread_override) noexcept;
 } // namespace round_parallel_detail
+
+template size_t compute_arena_bytes_for_msm<curve::BN254>(size_t, bool, bool) noexcept;
 
 } // namespace bb::scalar_multiplication

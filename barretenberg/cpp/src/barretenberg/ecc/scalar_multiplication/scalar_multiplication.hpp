@@ -178,12 +178,11 @@ extern template class MSM<curve::BN254>;
 // and bench targets can pin behaviour at the boundary.
 inline constexpr size_t MIN_PTS_PER_THREAD_FOR_PIPPENGER = 24;
 
-// Test hook: validates that the computed arena size can hold the typed zone layout
-// for a BN254 MSM shape without allocating the point/scalar inputs.
-bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
-                                                bool external_glv_provided = false,
-                                                bool dedup_active = false,
-                                                size_t effective_num_bits_for_test = 0) noexcept;
+// Per-MSM arena sizer. Returns 0 for shapes that fall back to the Jacobian-fast path
+// (no affine arena). Mirrors the inline budget calc inside `pippenger_round_parallel`;
+// declared here so the test suite can exercise the same sizer.
+template <typename Curve>
+size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, bool dedup_active = false) noexcept;
 
 namespace round_parallel_detail {
 

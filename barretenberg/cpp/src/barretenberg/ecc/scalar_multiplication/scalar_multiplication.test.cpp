@@ -4,10 +4,12 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
+#include "barretenberg/ecc/scalar_multiplication/pippenger_arena_layout.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include <array>
+#include <bit>
 #include <filesystem>
 #include <gtest/gtest.h>
 
@@ -15,6 +17,279 @@ using namespace bb;
 
 namespace {
 auto& engine = numeric::get_randomness();
+
+// Walks the actual Zone P / Zone W / Zone S allocator for a representative BN254
+// MSM shape and asserts the result fits in `compute_arena_bytes_for_msm`'s promise.
+// Mirrors the live allocator inside `pippenger_round_parallel` exactly; the only
+// historical drift bugs (cluster_offsets miscount, wasm aligned_local overflow,
+// NO_GLV abort, t1 abort) all came from this walk falling out of sync.
+bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
+                                                bool external_glv_provided = false,
+                                                bool dedup_active = false,
+                                                size_t effective_num_bits_for_test = 0) noexcept
+{
+    using Curve = curve::BN254;
+    using ScalarField = typename Curve::ScalarField;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+    namespace rpd = scalar_multiplication::round_parallel_detail;
+
+    constexpr size_t FULL_NUM_BITS = ScalarField::modulus.get_msb() + 1;
+    if (n_input < 4) {
+        return true;
+    }
+
+    const bool use_glv = external_glv_provided || (n_input <= rpd::GLV_SMALL_N_THRESHOLD);
+    const bool inline_glv_double = use_glv && !external_glv_provided;
+    const size_t n = use_glv ? 2 * n_input : n_input;
+    const size_t NUM_BITS = use_glv ? size_t{ 128 } : FULL_NUM_BITS;
+    const size_t arena_capacity =
+        scalar_multiplication::compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active);
+    if (arena_capacity == 0) {
+        return true;
+    }
+
+    const size_t actual_num_bits = (effective_num_bits_for_test == 0 || effective_num_bits_for_test > NUM_BITS)
+                                       ? NUM_BITS
+                                       : effective_num_bits_for_test;
+    const size_t num_logical_threads_for_c =
+        bb::get_num_cpus() * scalar_multiplication::window_bits_tuning_oversub_factor(n_input);
+    const size_t window_bits =
+        rpd::choose_window_bits(n, actual_num_bits, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+    const auto sched = rpd::build_var_window_schedule(actual_num_bits, window_bits);
+    const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
+
+    using rpd::BATCH_CAPACITY;
+    constexpr size_t MIN_BATCH_CAPACITY = 32;
+    constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
+    constexpr size_t SUBCHUNK_ENTRIES_CAP = 2048;
+
+    const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
+    const size_t max_threads_for_min_batch = std::max<size_t>(1, n / MIN_BATCH_CAPACITY);
+    const size_t num_threads = std::min(desired_threads, max_threads_for_min_batch);
+    const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
+    const size_t worker_total = num_threads;
+
+    size_t B_eff = num_buckets;
+    for (size_t w = 0; w < sched.num_windows; ++w) {
+        B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
+    }
+    const size_t dense_stride_est =
+        std::max<size_t>(2, std::bit_ceil((B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
+    const size_t bucket_partials_per_window_max = (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : 0;
+    const size_t hist_h_bytes_pw_shared = (size_t{ 4 } * num_threads * B_eff);
+    const size_t hist_o_bytes_pw_shared =
+        (sizeof(rpd::ChunkOutput<Curve>) * num_threads) + (size_t{ 96 } * num_threads);
+    const size_t hist_slot_bytes_pw_shared = std::max(hist_h_bytes_pw_shared, hist_o_bytes_pw_shared);
+    const size_t dense_slot_bytes_pw_shared = (size_t{ 65 } * bucket_partials_per_window_max);
+    const size_t per_window_bytes_shared =
+        hist_slot_bytes_pw_shared + dense_slot_bytes_pw_shared + (size_t{ 8 } * (B_eff + 1)) +
+        (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * num_threads) +
+        (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) + (size_t{ 16 } * worker_total) +
+        (size_t{ 8 } * num_threads) + (size_t{ 87 } * worker_total * dense_stride_est);
+    const size_t capacity_lo = n;
+    const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
+
+    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
+    const size_t global_max_overflow_per_window =
+        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
+    const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
+
+    const size_t phase_a_cluster_members_cap = std::min(rpd::DEDUP_MAX_MEMBERS, n);
+    const size_t phase_a_cluster_offsets_cap = (rpd::DEDUP_MAX_CLUSTERS / num_threads) + 2;
+
+    const size_t phase_one_prologue_bytes = n + (use_glv ? size_t{ 32 } * n : size_t{ 0 }) +
+                                            (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) +
+                                            (profile_threads * size_t{ 1024 });
+
+    const rpd::PerWorkerArenaLayout<Curve> budget_layout(
+        /*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
+        global_max_overflow_per_window,
+        dedup_active,
+        phase_a_cluster_members_cap,
+        phase_a_cluster_offsets_cap,
+        /*windows_per_batch=*/0,
+        /*dense_stride_est=*/0);
+    const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
+    const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total) +
+                                  (size_t{ 96 } * rpd::VAR_WINDOW_MAX_WINDOWS) + (size_t{ 8 } * (num_threads + 1)) +
+                                  phase_one_prologue_bytes;
+    const size_t available_budget =
+        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+    const size_t windows_per_batch =
+        (per_window_bytes_lo == 0 || available_budget == 0)
+            ? std::max<size_t>(1, sched.W_lo)
+            : std::min(std::max<size_t>(1, available_budget / per_window_bytes_lo), static_cast<size_t>(sched.W_lo));
+
+    auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
+    auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
+    auto bump_fits = [&](size_t count,
+                         size_t size,
+                         size_t align,
+                         size_t& cursor,
+                         size_t bound,
+                         size_t base_offset,
+                         size_t base_misalign) {
+        const size_t cur_addr_mod = (base_misalign + base_offset + cursor) & (align - 1);
+        const size_t align_delta = (cur_addr_mod == 0) ? size_t{ 0 } : (align - cur_addr_mod);
+        const size_t aligned_local = cursor + align_delta;
+        const size_t bytes = count * size;
+        if (aligned_local + bytes > bound) {
+            return false;
+        }
+        cursor = aligned_local + bytes;
+        return true;
+    };
+
+    for (size_t base_misalign = 0; base_misalign < alignof(AffineElement); ++base_misalign) {
+        size_t arena_cursor = 0;
+        if (!bump_fits(n, sizeof(uint8_t), alignof(uint8_t), arena_cursor, arena_capacity, 0, base_misalign)) {
+            return false;
+        }
+        if (!bump_fits(profile_threads,
+                       sizeof(std::array<uint32_t, 256>),
+                       alignof(std::array<uint32_t, 256>),
+                       arena_cursor,
+                       arena_capacity,
+                       0,
+                       base_misalign)) {
+            return false;
+        }
+        if (use_glv) {
+            if (!bump_fits(
+                    n, sizeof(ScalarField), alignof(ScalarField), arena_cursor, arena_capacity, 0, base_misalign)) {
+                return false;
+            }
+            if (inline_glv_double &&
+                !bump_fits(
+                    n, sizeof(AffineElement), alignof(AffineElement), arena_cursor, arena_capacity, 0, base_misalign)) {
+                return false;
+            }
+        }
+        const size_t bytes_P_prefix = arena_cursor;
+
+        const rpd::PerWorkerArenaLayout<Curve> worker_layout(chunk_capacity,
+                                                             global_max_overflow_per_window,
+                                                             dedup_active,
+                                                             phase_a_cluster_members_cap,
+                                                             phase_a_cluster_offsets_cap,
+                                                             windows_per_batch,
+                                                             dense_stride_est);
+        constexpr size_t WORKER_SLAB_ALIGN = rpd::PerWorkerArenaLayout<Curve>::WORKER_SLAB_ALIGN;
+        const size_t per_worker_bytes = worker_layout.per_worker_bytes;
+
+        size_t bytes_P_extra_layout = 0;
+        layout_add(bytes_P_extra_layout, sizeof(Element) * rpd::VAR_WINDOW_MAX_WINDOWS, alignof(Element));
+        if (dedup_active) {
+            layout_add(bytes_P_extra_layout, sizeof(uint32_t) * n, alignof(uint32_t));
+            layout_add(bytes_P_extra_layout, sizeof(AffineElement) * rpd::DEDUP_MAX_CLUSTERS, alignof(AffineElement));
+        }
+        const size_t bytes_P_min = align_up(bytes_P_prefix, alignof(Element)) + bytes_P_extra_layout;
+        const size_t bytes_P = align_up(bytes_P_min + base_misalign, WORKER_SLAB_ALIGN) - base_misalign;
+        const size_t bytes_W = per_worker_bytes * worker_total;
+        if (bytes_P + bytes_W > arena_capacity) {
+            return false;
+        }
+        const size_t bytes_S_total = arena_capacity - bytes_P - bytes_W;
+        size_t zone_S_cursor = 0;
+        const size_t zone_S_base = bytes_P + bytes_W;
+
+        const size_t schedule_total = windows_per_batch * capacity_lo;
+        if (!bump_fits(schedule_total,
+                       sizeof(uint32_t),
+                       alignof(uint32_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign)) {
+            return false;
+        }
+        const size_t hist_h_bytes_total = size_t{ 4 } * windows_per_batch * num_threads * B_eff;
+        size_t o_layout_cur = 0;
+        o_layout_cur = align_up(o_layout_cur, alignof(rpd::ChunkOutput<Curve>));
+        o_layout_cur += sizeof(rpd::ChunkOutput<Curve>) * windows_per_batch * num_threads;
+        o_layout_cur = align_up(o_layout_cur, alignof(Element));
+        o_layout_cur += sizeof(Element) * num_threads * windows_per_batch;
+        const size_t hist_slot_cells =
+            (std::max(hist_h_bytes_total, o_layout_cur) + sizeof(AffineElement) - 1) / sizeof(AffineElement);
+        const size_t dense_slot_cells =
+            ((size_t{ 65 } * windows_per_batch * bucket_partials_per_window_max) + sizeof(AffineElement) - 1) /
+            sizeof(AffineElement);
+        if (!bump_fits(hist_slot_cells,
+                       sizeof(AffineElement),
+                       alignof(AffineElement),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(dense_slot_cells,
+                       sizeof(AffineElement),
+                       alignof(AffineElement),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * (B_eff + 1),
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * (num_threads + 1),
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * (num_threads + 1),
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * num_threads,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits((num_threads * windows_per_batch) + 1,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(num_threads + 1,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * num_threads,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * num_threads,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign)) {
+            return false;
+        }
+    }
+    return true;
+}
 } // namespace
 
 template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
@@ -950,7 +1225,7 @@ TEST(ScalarMultiplicationArenaTest, LargeBn254RecursionVkShapeFitsComputedArena)
         for (const size_t windows_per_batch : candidate_window_batches) {
             const size_t n = schedule_slots / windows_per_batch;
             for (size_t effective_num_bits = 1; effective_num_bits <= 254; ++effective_num_bits) {
-                EXPECT_TRUE(scalar_multiplication::pippenger_bn254_arena_layout_fits_for_test(
+                EXPECT_TRUE(pippenger_bn254_arena_layout_fits_for_test(
                     n, /*external_glv_provided=*/false, /*dedup_active=*/false, effective_num_bits))
                     << "threads=" << threads << " windows_per_batch=" << windows_per_batch << " n=" << n
                     << " effective_num_bits=" << effective_num_bits;
