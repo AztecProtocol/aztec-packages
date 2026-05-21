@@ -324,35 +324,6 @@ export class AztecClientBackend {
     }
   }
 
-  private async getChonkVkForCircuit(
-    bytecode: Uint8Array,
-    providedVk: Uint8Array,
-    kind: CircuitKind,
-    name: string,
-  ): Promise<Uint8Array> {
-    if (kind !== CircuitKind.App && providedVk.length !== 0) {
-      return providedVk;
-    }
-
-    if (providedVk.length !== 0) {
-      try {
-        const check = await this.api.chonkCheckPrecomputedVk({
-          circuit: { name, bytecode, verificationKey: providedVk },
-          kind,
-        });
-        return check.valid ? providedVk : check.actualVk;
-      } catch (_err) {
-        // Older artifact VKs may not deserialize as the selected Chonk flavor.
-      }
-    }
-
-    const result = await this.api.chonkComputeVk({
-      circuit: { name, bytecode },
-      kind,
-    });
-    return result.bytes;
-  }
-
   async prove(
     witnessBuf: Uint8Array[],
     vksBuf?: Uint8Array[],
@@ -379,12 +350,14 @@ export class AztecClientBackend {
       const bytecode = this.acirBuf[i];
       const witness = witnessBuf[i] || new Uint8Array(0);
       const functionName = this.circuitNames[i] || `circuit_${i}`;
-      const vk = await this.getChonkVkForCircuit(
-        bytecode,
-        vksBuf[i] || new Uint8Array(0),
-        this.circuitKinds[i],
-        functionName,
-      );
+      const vk = vksBuf[i] || new Uint8Array(0);
+      if (vk.length === 0) {
+        throw new AztecClientBackendError(
+          `Missing precomputed VK for circuit ${i} (${functionName}). ` +
+            'AztecClientBackend no longer recomputes VKs on the fly — callers must supply the ' +
+            'precomputed VK that was pinned alongside the circuit artifact.',
+        );
+      }
 
       this.api.chonkLoad({
         circuit: {
@@ -405,19 +378,19 @@ export class AztecClientBackend {
     const proveResult = await this.api.chonkProve({});
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
-    // Generate the hiding kernel VK from the last accumulated circuit (proven as MegaZK).
-    const vkResult = await this.api.chonkComputeVk({
-      circuit: {
-        name: this.circuitNames[lastIdx] || 'circuit',
-        bytecode: this.acirBuf[lastIdx],
-      },
-      kind: CircuitKind.HidingKernel,
-    });
+    // The hiding kernel VK was supplied by PXE alongside the last circuit's bytecode and got
+    // pushed into Chonk during `chonkLoad`/`chonkAccumulate`. Reuse it here instead of recomputing.
+    if (this.circuitKinds[lastIdx] !== CircuitKind.HidingKernel) {
+      throw new AztecClientBackendError(
+        `Last circuit must be tagged CircuitKind.HidingKernel, got ${this.circuitKinds[lastIdx]}.`,
+      );
+    }
+    const hidingKernelVk = vksBuf[lastIdx];
 
     const proofFields = flattenChonkProofFields(proveResult.proof);
 
     // Verify using native proof directly to avoid redundant encode/decode cycle
-    if (!(await this.verifyNative(proveResult.proof, vkResult.bytes))) {
+    if (!(await this.verifyNative(proveResult.proof, hidingKernelVk))) {
       throw new AztecClientBackendError('Failed to verify the private (Chonk) transaction proof!');
     }
 
@@ -425,7 +398,7 @@ export class AztecClientBackend {
       ? (await this.api.chonkCompressProof({ proof: proveResult.proof })).compressedProof
       : undefined;
 
-    return { proofFields, proof, vk: vkResult.bytes, compressedProof };
+    return { proofFields, proof, vk: hidingKernelVk, compressedProof };
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
