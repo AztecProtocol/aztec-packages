@@ -2,6 +2,7 @@ import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 
+import { apiConfigMappings } from './api_config.js';
 import { createConfigResolver } from './util.js';
 
 interface TestConfig {
@@ -79,5 +80,15 @@ describe('createConfigResolver', () => {
     const resolve = createConfigResolver({ 'api.port': 4444, 'other.port': 9999 }, undefined, {});
     const config = resolve(testMappings, 'api');
     expect(config.port).toBe(4444);
+  });
+
+  it('resolves API defaults through config mappings', () => {
+    const resolve = createConfigResolver({}, undefined, {});
+    const config = resolve(apiConfigMappings);
+    expect(config.port).toBe(8080);
+    expect(config.adminPort).toBe(8880);
+    expect(config.disableAdminApiKey).toBe(false);
+    expect(config.resetAdminApiKey).toBe(false);
+    expect(config.nodeDebug).toBe(false);
   });
 });

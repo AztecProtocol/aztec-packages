@@ -17,6 +17,7 @@ import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 import { type LocalNetworkConfig, createLocalNetwork, localNetworkConfigMappings } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
 import { resolveAdminApiKey } from './admin_api_key_store.js';
+import { apiConfigMappings } from './api_config.js';
 import { createConfigResolver, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
 
@@ -37,6 +38,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   const remoteNetworkConfig = networkName !== 'local' ? await getNetworkConfig(networkName, cacheDir) : undefined;
   const chainConfigLayer = getChainConfigLayer(networkName);
   const resolveConfig = createConfigResolver(options, remoteNetworkConfig, chainConfigLayer);
+  const apiConfig = resolveConfig(apiConfigMappings);
   const { dataDirectory: resolvedDataDirectory } = resolveConfig(dataConfigMappings);
 
   if (options.localNetwork) {
@@ -94,7 +96,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         networkName,
         resolveConfig,
       ));
-      if (options.nodeDebug && services.node) {
+      if (apiConfig.nodeDebug && services.node) {
         services.nodeDebug = [services.node[0], AztecNodeDebugApiSchema];
       }
     } else if (options.bot) {
@@ -131,10 +133,10 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       http200OnError: false,
       log: debugLogger,
       middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
-      maxBatchSize: options.rpcMaxBatchSize,
-      maxBodySizeBytes: options.rpcMaxBodySize,
+      maxBatchSize: apiConfig.rpcMaxBatchSize,
+      maxBodySizeBytes: apiConfig.rpcMaxBodySize,
     });
-    const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
+    const { port } = await startHttpRpcServer(rpcServer, { apiPrefix: apiConfig.apiPrefix, port: apiConfig.port });
     debugLogger.info(`Aztec Server listening on port ${port}`, versions);
   }
 
@@ -145,9 +147,9 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     // Resolve the admin API key (auto-generated and persisted, or opt-out)
     const apiKeyResolution = await resolveAdminApiKey(
       {
-        adminApiKeyHash: options.adminApiKeyHash,
-        disableAdminApiKey: options.disableAdminApiKey,
-        resetAdminApiKey: options.resetAdminApiKey,
+        adminApiKeyHash: apiConfig.adminApiKeyHash,
+        disableAdminApiKey: apiConfig.disableAdminApiKey,
+        resetAdminApiKey: apiConfig.resetAdminApiKey,
         dataDirectory: resolvedDataDirectory,
       },
       debugLogger,
@@ -162,10 +164,10 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       http200OnError: false,
       log: debugLogger,
       middlewares: adminMiddlewares,
-      maxBatchSize: options.rpcMaxBatchSize,
-      maxBodySizeBytes: options.rpcMaxBodySize,
+      maxBatchSize: apiConfig.rpcMaxBatchSize,
+      maxBodySizeBytes: apiConfig.rpcMaxBodySize,
     });
-    const { port } = await startHttpRpcServer(rpcServer, { port: options.adminPort });
+    const { port } = await startHttpRpcServer(rpcServer, { apiPrefix: apiConfig.apiPrefix, port: apiConfig.adminPort });
     debugLogger.info(`Aztec Server admin API listening on port ${port}`, versions);
 
     // Display the API key after the server has started
