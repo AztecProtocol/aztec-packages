@@ -1,12 +1,12 @@
 import { type BlobClientConfig, blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
-import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import {
   type ChainConfig,
@@ -50,7 +50,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   },
   archiverStoreMapSizeKb: {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   skipValidateCheckpointAttestations: {
@@ -86,10 +86,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     ...numberConfigHelper(1000),
   },
   ...l1ContractsConfigMappings,
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
 };
 
 /**

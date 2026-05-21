@@ -1,13 +1,13 @@
 import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import {
-  BlockNumber,
+  type BlockNumber,
   BlockNumberPositiveSchema,
   BlockNumberSchema,
-  CheckpointNumber,
+  type CheckpointNumber,
   CheckpointNumberPositiveSchema,
   CheckpointNumberSchema,
-  EpochNumber,
+  type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
 } from '@aztec/foundation/branded-types';
@@ -19,14 +19,12 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import { type BlockData, BlockDataSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
-import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { L2Block } from '../block/l2_block.js';
-import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
-import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
-import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import { type CheckpointsQuery, CheckpointsQuerySchema } from '../block/l2_block_source.js';
+import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -46,9 +44,9 @@ import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
-  BlockHeader,
   type IndexedTxEffect,
   PublicSimulationOutput,
+  SimulationOverrides,
   Tx,
   TxHash,
   TxReceipt,
@@ -62,6 +60,22 @@ import { type ComponentsVersions, getVersioningResponseHandler } from '../versio
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 import { MAX_RPC_BLOCKS_LEN, MAX_RPC_CHECKPOINTS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
+  type BlockIncludeOptions,
+  BlockIncludeOptionsSchema,
+  type BlockResponse,
+  BlockResponseSchema,
+  type BlocksIncludeOptions,
+  BlocksIncludeOptionsSchema,
+} from './block_response.js';
+import { type ChainTip, ChainTipSchema, type ChainTips, ChainTipsSchema } from './chain_tips.js';
+import { type CheckpointParameter, CheckpointParameterSchema } from './checkpoint_parameter.js';
+import {
+  type CheckpointIncludeOptions,
+  CheckpointIncludeOptionsSchema,
+  type CheckpointResponse,
+  CheckpointResponseSchema,
+} from './checkpoint_response.js';
+import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
   type GetPublicLogsResponse,
@@ -73,21 +87,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode
-  extends Pick<
-    L2BlockSource,
-    | 'getBlocks'
-    | 'getCheckpoints'
-    | 'getBlockHeader'
-    | 'getL2Tips'
-    | 'getCheckpointedBlocks'
-    | 'getCheckpointsDataForEpoch'
-  > {
-  /**
-   * Returns the tips of the L2 chain.
-   */
-  getL2Tips(): Promise<L2Tips>;
-
+export interface AztecNode {
   /**
    * Returns the sync status of the node's world state
    */
@@ -186,14 +186,6 @@ export interface AztecNode
   getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined>;
 
   /**
-   * Returns whether an L1 to L2 message is synced by archiver.
-   * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced.
-   * @deprecated Use `getL1ToL2MessageCheckpoint` instead. This method may return true even if the message is not ready to use.
-   */
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
-
-  /**
    * Returns all the L2 to L1 messages in an epoch.
    * @param epoch - The epoch at which to get the data.
    * @returns A nested array of the L2 to L1 messages in each tx of each block in each checkpoint in the epoch (empty
@@ -202,49 +194,76 @@ export interface AztecNode
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
 
   /**
-   * Get a block specified by its block number or 'latest'.
-   * @param blockParameter - The block parameter (block number, block hash, or 'latest').
-   * @returns The requested block.
+   * Returns the block number at a given chain tip, or the latest proposed block number when
+   * `tip` is omitted.
    */
-  getBlock(blockParameter: BlockParameter): Promise<L2Block | undefined>;
+  getBlockNumber(tip?: ChainTip): Promise<BlockNumber>;
 
   /**
-   * Get a block specified by its hash.
-   * @param blockHash - The block hash being requested.
-   * @returns The requested block.
+   * Returns the checkpoint number at a given chain tip, or the latest checkpoint number when
+   * `tip` is omitted.
+   *
+   * @remarks **Semantic foot-gun**: block-side `'proposed'` means "latest proposed block" (chain
+   * head), but checkpoint-side `'proposed'` means "latest confirmed checkpoint" — pre-L1-confirm
+   * checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is equivalent.
    */
-  getBlockByHash(blockHash: BlockHash): Promise<L2Block | undefined>;
+  getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber>;
+
+  /** Returns the tips of the L2 chain. */
+  getChainTips(): Promise<ChainTips>;
 
   /**
-   * Get a block specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block.
+   * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
+   * @param query - Either `{ from, limit }` or `{ epoch }`.
    */
-  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
+  getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]>;
 
   /**
-   * Method to fetch the latest block number synchronized by the node.
-   * @returns The block number.
+   * Unified block fetch. Returns the block identified by `param`, with optional fields controlled
+   * by `options`.
+   * @param param - A block number, block hash, archive root, chain-tip name, or object variant.
+   * @param options - Narrowing options: `includeTransactions`, `includeL1PublishInfo`, `includeAttestations`.
    */
-  getBlockNumber(): Promise<BlockNumber>;
+  getBlock<Opts extends BlockIncludeOptions = {}>(
+    param: BlockParameter,
+    options?: Opts,
+  ): Promise<BlockResponse<Opts> | undefined>;
 
   /**
-   * Fetches the latest proven block number.
-   * @returns The block number.
+   * Lightweight block-metadata fetch. Returns the block identified by `param` without transaction
+   * bodies or other optional context. Cheaper than `getBlock` for header-only access.
+   * @param param - A block number, block hash, archive root, chain-tip name, or object variant.
    */
-  getProvenBlockNumber(): Promise<BlockNumber>;
+  getBlockData(param: BlockParameter): Promise<BlockData | undefined>;
 
   /**
-   * Fetches the latest checkpointed block number.
-   * @returns The block number.
+   * Returns up to `limit` blocks starting from `from`, projected to the {@link BlockResponse}
+   * shape determined by `options`.
    */
-  getCheckpointedBlockNumber(): Promise<BlockNumber>;
+  getBlocks<Opts extends BlocksIncludeOptions = {}>(
+    from: BlockNumber,
+    limit: number,
+    options?: Opts,
+  ): Promise<BlockResponse<Opts>[]>;
 
   /**
-   * Method to fetch the latest checkpoint number synchronized by the node.
-   * @returns The checkpoint number.
+   * Unified checkpoint fetch. Returns the checkpoint identified by `param`, with optional fields
+   * controlled by `options`.
    */
-  getCheckpointNumber(): Promise<CheckpointNumber>;
+  getCheckpoint<Opts extends CheckpointIncludeOptions = {}>(
+    param: CheckpointParameter,
+    options?: Opts,
+  ): Promise<CheckpointResponse<Opts> | undefined>;
+
+  /**
+   * Returns up to `limit` checkpoints starting from `from`, projected to the
+   * {@link CheckpointResponse} shape determined by `options`.
+   */
+  getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
+    from: CheckpointNumber,
+    limit: number,
+    options?: Opts,
+  ): Promise<CheckpointResponse<Opts>[]>;
 
   /**
    * Method to determine if the node is ready to accept transactions.
@@ -258,14 +277,6 @@ export interface AztecNode
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
-
-  /**
-   * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
-   * @param from - The start of the range of blocks to return.
-   * @param limit - The maximum number of blocks to return.
-   * @returns The blocks requested.
-   */
-  getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]>;
 
   /**
    * Method to fetch the current min fees.
@@ -434,20 +445,6 @@ export interface AztecNode
    */
   getPublicStorageAt(referenceBlock: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr>;
 
-  /**
-   * Returns the block header for a given block number, block hash, or 'latest'.
-   * @param block - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
-   * @returns The requested block header.
-   */
-  getBlockHeader(block?: BlockParameter): Promise<BlockHeader | undefined>;
-
-  /**
-   * Get a block header specified by its archive root.
-   * @param archive - The archive root being requested.
-   * @returns The requested block header.
-   */
-  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
-
   /** Returns stats for validators if enabled. */
   getValidatorsStats(): Promise<ValidatorsStats>;
 
@@ -462,8 +459,15 @@ export interface AztecNode
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
+   * @param skipFeeEnforcement - If true, fee enforcement is skipped.
+   * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB
+   * (publicStorage writes, contract instance overrides).
    **/
-  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(
+    tx: Tx,
+    skipFeeEnforcement?: boolean,
+    overrides?: SimulationOverrides,
+  ): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -503,179 +507,202 @@ const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
 const MAX_SIGNATURE_LEN = 10000;
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
-  getL2Tips: z.function().args().returns(L2TipsSchema),
+  getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
 
-  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
+  findLeavesIndexes: z.function({
+    input: z.tuple([BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN)]),
+    output: z.array(optional(dataInBlockSchemaFor(schemas.BigInt))),
+  }),
 
-  findLeavesIndexes: z
-    .function()
-    .args(BlockParameterSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
-    .returns(z.array(optional(dataInBlockSchemaFor(schemas.BigInt)))),
+  getNullifierMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: NullifierMembershipWitness.schema.optional(),
+  }),
 
-  getNullifierMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(NullifierMembershipWitness.schema.optional()),
+  getLowNullifierMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: NullifierMembershipWitness.schema.optional(),
+  }),
 
-  getLowNullifierMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(NullifierMembershipWitness.schema.optional()),
+  getPublicDataWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: PublicDataWitness.schema.optional(),
+  }),
 
-  getPublicDataWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(PublicDataWitness.schema.optional()),
+  getBlockHashMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, BlockHash.schema]),
+    output: MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional(),
+  }),
 
-  getBlockHashMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, BlockHash.schema)
-    .returns(MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional()),
+  getNoteHashMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: MembershipWitness.schemaFor(NOTE_HASH_TREE_HEIGHT).optional(),
+  }),
 
-  getNoteHashMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(MembershipWitness.schemaFor(NOTE_HASH_TREE_HEIGHT).optional()),
+  getL1ToL2MessageMembershipWitness: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.Fr]),
+    output: z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional(),
+  }),
 
-  getL1ToL2MessageMembershipWitness: z
-    .function()
-    .args(BlockParameterSchema, schemas.Fr)
-    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
+  getL1ToL2MessageCheckpoint: z.function({ input: z.tuple([schemas.Fr]), output: CheckpointNumberSchema.optional() }),
 
-  getL1ToL2MessageCheckpoint: z.function().args(schemas.Fr).returns(CheckpointNumberSchema.optional()),
+  getL2ToL1Messages: z.function({
+    input: z.tuple([EpochNumberSchema]),
+    output: z.array(z.array(z.array(z.array(schemas.Fr)))),
+  }),
 
-  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
+  getBlockNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: BlockNumberSchema }),
 
-  getL2ToL1Messages: z
-    .function()
-    .args(EpochNumberSchema)
-    .returns(z.array(z.array(z.array(z.array(schemas.Fr))))),
+  getCheckpointNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: CheckpointNumberSchema }),
 
-  getBlock: z.function().args(BlockParameterSchema).returns(L2Block.schema.optional()),
+  getChainTips: z.function({ input: z.tuple([]), output: ChainTipsSchema }),
 
-  getBlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
+  getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
 
-  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+  getBlock: z.function({
+    input: z.tuple([BlockParameterSchema, optional(BlockIncludeOptionsSchema)]),
+    output: BlockResponseSchema.optional(),
+  }),
 
-  getBlockNumber: z.function().returns(BlockNumberSchema),
+  getBlockData: z.function({ input: z.tuple([BlockParameterSchema]), output: BlockDataSchema.optional() }),
 
-  getCheckpointNumber: z.function().returns(CheckpointNumberSchema),
+  getBlocks: z.function({
+    input: z.tuple([
+      BlockNumberPositiveSchema,
+      z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN),
+      optional(BlocksIncludeOptionsSchema),
+    ]),
+    output: z.array(BlockResponseSchema),
+  }),
 
-  getProvenBlockNumber: z.function().returns(BlockNumberSchema),
+  getCheckpoint: z.function({
+    input: z.tuple([CheckpointParameterSchema, optional(CheckpointIncludeOptionsSchema)]),
+    output: CheckpointResponseSchema.optional(),
+  }),
 
-  getCheckpointedBlockNumber: z.function().returns(BlockNumberSchema),
+  getCheckpoints: z.function({
+    input: z.tuple([
+      CheckpointNumberPositiveSchema,
+      z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN),
+      optional(CheckpointIncludeOptionsSchema),
+    ]),
+    output: z.array(CheckpointResponseSchema),
+  }),
 
-  isReady: z.function().returns(z.boolean()),
+  isReady: z.function({ input: z.tuple([]), output: z.boolean() }),
 
-  getNodeInfo: z.function().returns(NodeInfoSchema),
+  getNodeInfo: z.function({ input: z.tuple([]), output: NodeInfoSchema }),
 
-  getBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(L2Block.schema)),
+  getCurrentMinFees: z.function({ input: z.tuple([]), output: GasFees.schema }),
 
-  getCheckpoints: z
-    .function()
-    .args(CheckpointNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_CHECKPOINTS_LEN))
-    .returns(z.array(PublishedCheckpoint.schema)),
+  getPredictedMinFees: z.function({
+    input: z.tuple([optional(z.nativeEnum(ManaUsageEstimate))]),
+    output: z.array(GasFees.schema),
+  }),
 
-  getCheckpointedBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(CheckpointedL2Block.schema)),
+  getMaxPriorityFees: z.function({ input: z.tuple([]), output: GasFees.schema }),
 
-  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
+  getNodeVersion: z.function({ input: z.tuple([]), output: z.string() }),
 
-  getCurrentMinFees: z.function().returns(GasFees.schema),
+  getVersion: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getPredictedMinFees: z
-    .function()
-    .args(optional(z.nativeEnum(ManaUsageEstimate)))
-    .returns(z.array(GasFees.schema)),
+  getChainId: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getMaxPriorityFees: z.function().returns(GasFees.schema),
+  getL1ContractAddresses: z.function({ input: z.tuple([]), output: L1ContractAddressesSchema }),
 
-  getNodeVersion: z.function().returns(z.string()),
+  getProtocolContractAddresses: z.function({ input: z.tuple([]), output: ProtocolContractAddressesSchema }),
 
-  getVersion: z.function().returns(z.number()),
+  registerContractFunctionSignatures: z.function({
+    input: z.tuple([z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL)]),
+    output: z.void(),
+  }),
 
-  getChainId: z.function().returns(z.number()),
+  getPublicLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetPublicLogsResponseSchema }),
 
-  getL1ContractAddresses: z.function().returns(L1ContractAddressesSchema),
+  getContractClassLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetContractClassLogsResponseSchema }),
 
-  getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
+  getPrivateLogsByTags: z.function({
+    input: z.tuple([
+      z.array(SiloedTag.schema).max(MAX_RPC_LEN),
+      optional(z.number().gte(0)),
+      optional(BlockHash.schema),
+    ]),
+    output: z.array(z.array(TxScopedL2Log.schema)),
+  }),
 
-  registerContractFunctionSignatures: z
-    .function()
-    .args(z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL))
-    .returns(z.void()),
-
-  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
-
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
-
-  getPrivateLogsByTags: z
-    .function()
-    .args(z.array(SiloedTag.schema).max(MAX_RPC_LEN), optional(z.number().gte(0)), optional(BlockHash.schema))
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
-
-  getPublicLogsByTagsFromContract: z
-    .function()
-    .args(
+  getPublicLogsByTagsFromContract: z.function({
+    input: z.tuple([
       schemas.AztecAddress,
       z.array(Tag.schema).max(MAX_RPC_LEN),
       optional(z.number().gte(0)),
       optional(BlockHash.schema),
-    )
-    .returns(z.array(z.array(TxScopedL2Log.schema))),
+    ]),
+    output: z.array(z.array(TxScopedL2Log.schema)),
+  }),
 
-  sendTx: z.function().args(Tx.schema).returns(z.void()),
+  sendTx: z.function({ input: z.tuple([Tx.schema]), output: z.void() }),
 
-  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
+  getTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema }),
 
-  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
+  getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
 
-  getPendingTxs: z
-    .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
-    .returns(z.array(Tx.schema)),
+  getPendingTxs: z.function({
+    input: z.tuple([
+      optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
+      optional(TxHash.schema),
+    ]),
+    output: z.array(Tx.schema),
+  }),
 
-  getPendingTxCount: z.function().returns(z.number()),
+  getPendingTxCount: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
+  getTxByHash: z.function({ input: z.tuple([TxHash.schema]), output: Tx.schema.optional() }),
 
-  getTxsByHash: z.function().args(z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)).returns(z.array(Tx.schema)),
+  getTxsByHash: z.function({
+    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)]),
+    output: z.array(Tx.schema),
+  }),
 
-  getPublicStorageAt: z.function().args(BlockParameterSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
+  getPublicStorageAt: z.function({
+    input: z.tuple([BlockParameterSchema, schemas.AztecAddress, schemas.Fr]),
+    output: schemas.Fr,
+  }),
 
-  getBlockHeader: z.function().args(optional(BlockParameterSchema)).returns(BlockHeader.schema.optional()),
+  getValidatorsStats: z.function({ input: z.tuple([]), output: ValidatorsStatsSchema }),
 
-  getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getValidatorStats: z.function({
+    input: z.tuple([schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber)]),
+    output: SingleValidatorStatsSchema.optional(),
+  }),
 
-  getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
+  simulatePublicCalls: z.function({
+    input: z.tuple([Tx.schema, optional(z.boolean()), optional(SimulationOverrides.schema)]),
+    output: PublicSimulationOutput.schema,
+  }),
 
-  getValidatorStats: z
-    .function()
-    .args(schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber))
-    .returns(SingleValidatorStatsSchema.optional()),
-
-  simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
-
-  isValidTx: z
-    .function()
-    .args(
+  isValidTx: z.function({
+    input: z.tuple([
       Tx.schema,
-      optional(z.object({ isSimulation: optional(z.boolean()), skipFeeEnforcement: optional(z.boolean()) })),
-    )
-    .returns(TxValidationResultSchema),
+      optional(
+        z.object({
+          isSimulation: optional(z.boolean()).optional(),
+          skipFeeEnforcement: optional(z.boolean()).optional(),
+        }),
+      ),
+    ]),
+    output: TxValidationResultSchema,
+  }),
 
-  getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
+  getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
 
-  getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
+  getContract: z.function({
+    input: z.tuple([schemas.AztecAddress]),
+    output: ContractInstanceWithAddressSchema.optional(),
+  }),
 
-  getEncodedEnr: z.function().returns(z.string().optional()),
+  getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
 
-  getAllowedPublicSetup: z.function().args().returns(z.array(AllowedElementSchema)),
+  getAllowedPublicSetup: z.function({ input: z.tuple([]), output: z.array(AllowedElementSchema) }),
 };
 
 export function createAztecNodeClient(

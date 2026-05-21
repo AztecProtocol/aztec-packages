@@ -3,7 +3,10 @@ export interface BBConfig {
   bbWorkingDirectory: string;
   /** Whether to skip tmp dir cleanup for debugging purposes */
   bbSkipCleanup: boolean;
-  /** Max concurrent verifications for the RPC verifier (QueuedIVCVerifier). */
+  /**
+   * Number of long-lived bb processes pooled by the RPC verifier (BBCircuitVerifier).
+   * Also caps concurrent verifications via the wrapping QueuedIVCVerifier.
+   */
   numConcurrentIVCVerifiers: number;
   /** Thread count for the RPC IVC verifier. */
   bbIVCConcurrency: number;
@@ -16,6 +19,8 @@ export interface BBConfig {
   bbChonkVerifyMaxBatch: number;
   /** Thread count for the peer batch verifier parallel reduce. Default 6 to leave cores for the rest of the node. */
   bbChonkVerifyConcurrency: number;
+  /** When set, bb.js operations write input/output files and log equivalent CLI commands to this directory. */
+  bbDebugOutputDir?: string;
 }
 
 export interface ACVMConfig {

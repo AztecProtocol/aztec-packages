@@ -76,17 +76,15 @@ export class PublicProcessorFactory {
   /**
    * Creates a new instance of a PublicProcessor.
    * @param globalVariables - The global variables for the block being processed.
-   * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
+   * @param contractsDB - Optional pre-populated contracts DB; a fresh one is constructed if omitted.
    * @returns A new instance of a PublicProcessor.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
     config: PublicSimulatorConfig,
+    contractsDB: PublicContractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings()),
   ): PublicProcessor {
-    const bindings = this.log.getBindings();
-    const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
-
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
     const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
 
@@ -97,7 +95,7 @@ export class PublicProcessorFactory {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
-      createLogger('simulator:public-processor', bindings),
+      createLogger('simulator:public-processor', this.log.getBindings()),
     );
   }
 
@@ -174,6 +172,8 @@ export class PublicProcessor implements Traceable {
     let totalPublicGas = new Gas(0, 0);
     let totalBlockGas = new Gas(0, 0);
     let totalBlobFields = 0;
+    let silentlySkippedCount = 0;
+    let totalSilentlySkippedDurationMs = 0;
 
     for await (const tx of txs) {
       // Only process up to the max tx limit
@@ -224,11 +224,6 @@ export class PublicProcessor implements Traceable {
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;
-        } else if (result.result === 'skipped') {
-          const reason = result.reason.join(', ');
-          this.log.debug(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
-          returns.push(new NestedProcessReturnValues([]));
-          continue;
         } else {
           this.log.trace(`Tx ${txHash.toString()} is valid before processing.`);
         }
@@ -244,7 +239,9 @@ export class PublicProcessor implements Traceable {
       this.contractsDB.createCheckpoint();
 
       try {
-        const [processedTx, returnValues, txDebugLogs] = await this.processTx(tx, deadline);
+        const [txProcessingTimeMs, [processedTx, returnValues, txDebugLogs]] = await elapsed(() =>
+          this.processTx(tx, deadline),
+        );
 
         // Inject a fake processing failure after N txs if requested
         const fakeThrowAfter = this.opts.fakeThrowAfterProcessingTxCount;
@@ -265,8 +262,12 @@ export class PublicProcessor implements Traceable {
               txBlobFields,
               totalBlobFields,
               maxBlobFields,
+              txProcessingTimeMs,
             },
           );
+          silentlySkippedCount += 1;
+          totalSilentlySkippedDurationMs += txProcessingTimeMs;
+          this.metrics.recordSilentlySkipped(txProcessingTimeMs);
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
           this.contractsDB.revertCheckpoint();
@@ -364,13 +365,24 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} successful txs and ${failed.length} failed txs in ${duration}s`, {
-      duration,
-      rate,
-      totalPublicGas,
-      totalBlockGas,
-      totalSizeInBytes,
-    });
+    const silentlySkippedDurationMs = Math.round(totalSilentlySkippedDurationMs);
+    this.log.info(
+      `Processed ${result.length} successful txs and ${failed.length} failed txs ` +
+        `(${silentlySkippedCount} silently skipped, ${silentlySkippedDurationMs}ms wasted) ` +
+        `in ${duration}s`,
+      {
+        blockNumber: this.globalVariables.blockNumber,
+        successfulCount: result.length,
+        failedCount: failed.length,
+        duration,
+        rate,
+        totalPublicGas,
+        totalBlockGas,
+        totalSizeInBytes,
+        silentlySkippedCount,
+        silentlySkippedDurationMs,
+      },
+    );
 
     return [result, failed, usedTxs, returns, debugLogs];
   }

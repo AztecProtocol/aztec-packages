@@ -13,3 +13,15 @@ export const EMPTY_GENESIS_DATA: GenesisData = {
   prefilledPublicData: [],
   genesisTimestamp: 0n,
 };
+
+/** Returns if an object looks like genesis data */
+export function isGenesisData(obj: any): obj is GenesisData {
+  return (
+    obj &&
+    typeof obj === 'object' &&
+    'prefilledPublicData' in obj &&
+    Array.isArray(obj.prefilledPublicData) &&
+    'genesisTimestamp' in obj &&
+    typeof obj.genesisTimestamp === 'bigint'
+  );
+}

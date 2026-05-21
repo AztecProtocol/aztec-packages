@@ -183,12 +183,21 @@ template <typename Curve> class GeminiProver_ {
             BB_BENCH_NAME("compute_batched");
             Fr running_scalar(1);
 
-            // Batch base polynomials; updates running_scalar in place
+            // Batch base polynomials via a single fused parallel_for over the destination range,
+            // amortising N× parallel_for startup overhead into 1×. Updates running_scalar in place.
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
-                for (auto& poly : polynomials_to_batch) {
-                    batched.add_scaled(poly, running_scalar);
+                const size_t n = polynomials_to_batch.size();
+                std::vector<PolynomialSpan<const Fr>> sources;
+                std::vector<Fr> scalars;
+                sources.reserve(n);
+                scalars.reserve(n);
+                for (size_t i = 0; i < n; ++i) {
+                    sources.emplace_back(polynomials_to_batch[i]);
+                    scalars.push_back(running_scalar);
                     running_scalar *= challenge;
                 }
+                add_scaled_batch(
+                    batched, std::span<const PolynomialSpan<const Fr>>(sources), std::span<const Fr>(scalars));
             };
 
             // Batch tails into a small accumulator with the correct rho power per tail.

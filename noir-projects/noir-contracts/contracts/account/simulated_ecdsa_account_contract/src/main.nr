@@ -3,16 +3,25 @@ use aztec::macros::aztec;
 // Stub account contract for ECDSA accounts (both secp256k1 and secp256r1) used during simulation.
 // Matches the constructor signature of EcdsaKAccount / EcdsaRAccount so that deployment
 // simulations using this stub as an override do not fail on selector lookup.
-// See simulated_account_contract for the base stub without a constructor.
+// Mirrors the EcdsaKAccount/EcdsaRAccount storage layout so simulation sync can decode
+// the real account's signing_public_key note.
 #[aztec]
 pub contract SimulatedEcdsaAccount {
     use aztec::{
         authwit::{account::AccountActions, auth::IS_VALID_SELECTOR, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::functions::{allow_phase_change, external, view},
+        macros::{functions::{allow_phase_change, external, view}, storage::storage},
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{notes::set_sender_for_tags, random::random},
+        oracle::random::random,
+        state_vars::SinglePrivateImmutable,
     };
+
+    use ecdsa_public_key_note::EcdsaPublicKeyNote;
+
+    #[storage]
+    struct Storage<Context> {
+        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, Context>,
+    }
 
     // Stub constructor matching the EcdsaKAccount / EcdsaRAccount constructor signature.
     // Does NOT use #[initializer] so that the macro does not inject
@@ -28,18 +37,21 @@ pub contract SimulatedEcdsaAccount {
         // used for any security purpose.
         let seed = unsafe { random() };
 
-        // Emit the initialization nullifier for the signing_public_key SinglePrivateImmutable.
+        // Emit the initialization nullifier for the contract itself.
         self.context.push_nullifier(seed);
 
+        // Emit the initialization nullifier for the signing_public_key SinglePrivateImmutable.
+        self.context.push_nullifier(seed + 1);
+
         // Emit the note hash for the signing key note.
-        self.context.push_note_hash(seed + 1);
+        self.context.push_note_hash(seed + 2);
 
         // Emit a private log tied to the note hash, matching the length of a real note delivery
         // log (MESSAGE_CIPHERTEXT_LEN fields). The signing key note is a SinglePrivateImmutable
         // and is therefore never nullified, so in practice the log will never be squashed. We
         // pass the note hash counter anyway for correctness.
         let dummy_log: [Field; MESSAGE_CIPHERTEXT_LEN] = [seed + 2; MESSAGE_CIPHERTEXT_LEN];
-        self.context.emit_raw_note_log_vec_unsafe(
+        self.context.emit_raw_note_log_unsafe(
             seed + 3,
             BoundedVec::from_array(dummy_log),
             self.context.side_effect_counter,
@@ -50,10 +62,6 @@ pub contract SimulatedEcdsaAccount {
     #[external("private")]
     #[allow_phase_change]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for
-        // emitting logs. It is not used in any constrained logic, so it is safe to set here.
-        unsafe { set_sender_for_tags(self.address) };
-
         let actions = AccountActions::init(self.context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
@@ -67,13 +75,5 @@ pub contract SimulatedEcdsaAccount {
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, _outer_hash: Field) -> bool {
         true
-    }
-
-    #[external("utility")]
-    unconstrained fn sync_state() {
-        assert(
-            false,
-            "BUG ALERT: sync_state on a simulated account contract should never be triggered.",
-        );
     }
 }

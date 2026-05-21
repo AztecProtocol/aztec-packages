@@ -280,7 +280,7 @@ The Node JSON-RPC API reference is auto-generated from the TypeScript interface 
 - `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`nodeAdmin_` methods)
 - `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
 
-**Prerequisites:** Only `typescript` is needed (no yarn-project build required — the generator parses source files, not compiled output).
+**Prerequisites:** `yarn-project` must have `node_modules/` installed so `npx tsx` can resolve `typescript`. Run `yarn install` from `yarn-project` if needed. No build is required — the generator parses source `.ts` files via the TypeScript Compiler API, not compiled output.
 
 **Generate the reference doc:**
 
@@ -577,20 +577,20 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
    - Generate suggested documentation changes
 
 3. **Slack Notification**: If documentation updates are suggested:
-   - A message is sent to the configured Slack channel (default: `#devrel`)
+   - A message is sent to the configured Slack channel (default: `#docs-alerts`)
    - The message includes the PR details, affected docs, and suggested changes
    - The DevRel team can review and apply the changes manually
 
 **Requirements**:
 
 - `ANTHROPIC_API_KEY` must be set in CI secrets
-- `SLACK_BOT_TOKEN` must be set for Slack notifications
+- `AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN` must be set for Slack notifications (this bot has access to `#docs-alerts`)
 - Claude Code CLI must be installed (`@anthropic-ai/claude-code`)
 - The PR must not be a draft
 
 **Environment Variables**:
 
-- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
+- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#docs-alerts`)
 - `DRY_RUN=1` - Skip Slack notification, just print what would be sent
 
 **Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which detects changed references, requests devrel review, sends a Slack notification, and dispatches ClaudeBox — all in a single pass.

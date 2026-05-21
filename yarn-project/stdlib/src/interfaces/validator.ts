@@ -19,6 +19,7 @@ import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
+import type { ChainConfig } from '../config/chain-config.js';
 import {
   type LocalSignerConfig,
   LocalSignerConfigSchema,
@@ -32,6 +33,9 @@ import { AllowedElementSchema } from './allowed_element.js';
  */
 export type ValidatorClientConfig = ValidatorHASignerConfig &
   LocalSignerConfig & {
+    /** The L1 chain id used for EIP-712 proposal-path signing. */
+    l1ChainId: ChainConfig['l1ChainId'];
+
     /** The private keys of the validators participating in attestation duties */
     validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
 
@@ -76,10 +80,13 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
   };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
-  Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal'> &
+  Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal' | 'maxBlocksPerCheckpoint'> &
   Pick<
     SlasherConfig,
-    'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+    | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashDuplicateProposalPenalty'
+    | 'slashDuplicateAttestationPenalty'
+    | 'slashAttestInvalidCheckpointProposalPenalty'
   > & {
     /**
      * Whether transactions are disabled for this node
@@ -90,6 +97,7 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
 
 export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>()(
   ValidatorHASignerConfigSchema.merge(LocalSignerConfigSchema).extend({
+    l1ChainId: z.number().int().nonnegative(),
     validatorAddresses: z.array(schemas.EthAddress).optional(),
     disableValidator: z.boolean(),
     disabledValidators: z.array(schemas.EthAddress),
@@ -110,9 +118,11 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
   ValidatorClientConfigSchema.extend({
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
+    maxBlocksPerCheckpoint: z.number().positive().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
+    slashAttestInvalidCheckpointProposalPenalty: schemas.BigInt,
     disableTransactions: z.boolean().optional(),
   }),
 );

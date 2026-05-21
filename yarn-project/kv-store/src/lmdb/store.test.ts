@@ -1,7 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
 
-import { expect } from 'chai';
-
 import { openTmpStore } from './index.js';
 import type { AztecLmdbStore } from './store.js';
 
@@ -26,13 +24,13 @@ describe('AztecLmdbStore', () => {
       await map.set('key1', 'value1');
       await map.set('key2', 'value2');
 
-      expect(map.get('key1')).to.equal('value1');
-      expect(map.get('key2')).to.equal('value2');
+      expect(map.get('key1')).toBe('value1');
+      expect(map.get('key2')).toBe('value2');
 
       await store.clear();
 
-      expect(map.get('key1')).to.be.undefined;
-      expect(map.get('key2')).to.be.undefined;
+      expect(map.get('key1')).toBeUndefined();
+      expect(map.get('key2')).toBeUndefined();
     });
 
     it('removes all data from multimaps', async () => {
@@ -41,23 +39,23 @@ describe('AztecLmdbStore', () => {
       await multiMap.set('key1', 'value2');
 
       const valuesBefore = await toArray(multiMap.getValues('key1'));
-      expect(valuesBefore.length).to.be.greaterThan(0);
+      expect(valuesBefore.length).toBeGreaterThan(0);
 
       await store.clear();
 
       const valuesAfter = await toArray(multiMap.getValues('key1'));
-      expect(valuesAfter).to.deep.equal([]);
+      expect(valuesAfter).toEqual([]);
     });
 
     it('removes all data from singletons', async () => {
       const singleton = store.openSingleton<string>('test-singleton');
       await singleton.set('hello');
 
-      expect(singleton.get()).to.equal('hello');
+      expect(singleton.get()).toBe('hello');
 
       await store.clear();
 
-      expect(singleton.get()).to.be.undefined;
+      expect(singleton.get()).toBeUndefined();
     });
 
     it('removes all data from all sub-databases at once', async () => {
@@ -75,11 +73,11 @@ describe('AztecLmdbStore', () => {
 
       await store.clear();
 
-      expect(map.get('mk')).to.be.undefined;
-      expect(await toArray(multiMap.getValues('mmk'))).to.deep.equal([]);
-      expect(singleton.get()).to.be.undefined;
-      expect(counter.get('ck')).to.equal(0);
-      expect(set.has('sk')).to.equal(false);
+      expect(map.get('mk')).toBeUndefined();
+      expect(await toArray(multiMap.getValues('mmk'))).toEqual([]);
+      expect(singleton.get()).toBeUndefined();
+      expect(counter.get('ck')).toBe(0);
+      expect(set.has('sk')).toBe(false);
     });
 
     it('allows writing new data after clear', async () => {
@@ -89,8 +87,8 @@ describe('AztecLmdbStore', () => {
       await store.clear();
 
       await map.set('key2', 'value2');
-      expect(map.get('key1')).to.be.undefined;
-      expect(map.get('key2')).to.equal('value2');
+      expect(map.get('key1')).toBeUndefined();
+      expect(map.get('key2')).toBe('value2');
     });
   });
 

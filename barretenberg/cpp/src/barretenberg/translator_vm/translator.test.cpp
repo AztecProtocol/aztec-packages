@@ -189,14 +189,14 @@ class TranslatorTests : public ::testing::Test {
                                                 const size_t circuit_size_parameter = 500)
     {
 
-        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-        auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
+        auto op_queue = std::make_shared<ECCOpQueue>();
+        // Construct zk_columns
+        op_queue->construct_zk_columns();
+        // Table with correct final structure for translator
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
-        op_queue->merge();
-        add_mixed_ops(op_queue, circuit_size_parameter / 2);
-        add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_END);
-        op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
+        add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
+        // Merge with fixed append
+        op_queue->merge_fixed_append(op_queue->get_append_offset());
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
@@ -312,6 +312,8 @@ TEST_F(TranslatorTests, BasicAvmMode)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    // Seed a no-op to supply the 2 leading zero rows Translator's op-queue wires need for shiftability.
+    op_queue->no_op_ultra_only();
     add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
     add_mixed_ops(op_queue, 100);
     op_queue->merge();

@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -104,7 +104,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     ClassIdDerivationTraceBuilder class_id_builder;
     IndexedTreeCheckTraceBuilder indexed_tree_check_builder;
 
-    FF nullifier_root = FF::random_element();
+    FF nullifier_tree_root = FF::random_element();
     FF public_data_tree_root = FF::random_element();
 
     ContractInstance instance = random_contract_instance();
@@ -123,7 +123,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     contract_instance_retrieval_builder.process({ {
                                                     .address = instance.deployer,
                                                     .contract_instance = { instance },
-                                                    .nullifier_tree_root = nullifier_root,
+                                                    .nullifier_tree_root = nullifier_tree_root,
                                                     .public_data_tree_root = public_data_tree_root,
                                                     .exists = true,
                                                 } },
@@ -176,7 +176,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
                                   .address = instance.deployer,
                                   .current_class_id = instance.current_contract_class_id,
                                   .contract_class = klass,
-                                  .nullifier_root = nullifier_root,
+                                  .nullifier_tree_root = nullifier_tree_root,
                                   .public_data_tree_root = public_data_tree_root,
                                   .retrieved_bytecodes_snapshot_before = snapshot_before,
                                   .retrieved_bytecodes_snapshot_after = snapshot_after,
@@ -197,7 +197,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, TooManyBytecodes)
     TestTraceContainer trace = init_trace();
     BytecodeTraceBuilder builder;
 
-    FF nullifier_root = FF::random_element();
+    FF nullifier_tree_root = FF::random_element();
     FF public_data_tree_root = FF::random_element();
 
     ContractInstance instance = random_contract_instance();
@@ -221,7 +221,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, TooManyBytecodes)
                                   .bytecode_id = 0, // bytecode_id equals commitment
                                   .address = instance.deployer,
                                   .current_class_id = instance.current_contract_class_id,
-                                  .nullifier_root = nullifier_root,
+                                  .nullifier_tree_root = nullifier_tree_root,
                                   .public_data_tree_root = public_data_tree_root,
                                   .retrieved_bytecodes_snapshot_before = snapshot_before,
                                   .retrieved_bytecodes_snapshot_after = snapshot_after,
@@ -328,7 +328,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
 {
     TestTraceContainer trace = init_trace();
 
-    FF nullifier_root = FF::random_element();
+    FF nullifier_tree_root = FF::random_element();
     FF public_data_tree_root = FF::random_element();
 
     ContractInstance instance = random_contract_instance();
@@ -356,7 +356,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
     contract_instance_retrieval_builder.process({ {
                                                     .address = instance.deployer,
                                                     .contract_instance = { instance },
-                                                    .nullifier_tree_root = nullifier_root,
+                                                    .nullifier_tree_root = nullifier_tree_root,
                                                     .public_data_tree_root = public_data_tree_root,
                                                     .exists = true,
                                                 } },
@@ -386,7 +386,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRetrievalFewerMock
                                   .address = instance.deployer,
                                   .current_class_id = instance.current_contract_class_id,
                                   .contract_class = klass,
-                                  .nullifier_root = nullifier_root,
+                                  .nullifier_tree_root = nullifier_tree_root,
                                   .public_data_tree_root = public_data_tree_root,
                                   .retrieved_bytecodes_snapshot_before = snapshot_before,
                                   .retrieved_bytecodes_snapshot_after = snapshot_after,
@@ -412,7 +412,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
 {
     TestTraceContainer trace = init_trace();
 
-    FF nullifier_root = FF::random_element();
+    FF nullifier_tree_root = FF::random_element();
     FF public_data_tree_root = FF::random_element();
 
     ContractInstance instance = random_contract_instance();
@@ -441,7 +441,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
     contract_instance_retrieval_builder.process({ {
                                                     .address = instance.deployer,
                                                     .contract_instance = { instance },
-                                                    .nullifier_tree_root = nullifier_root,
+                                                    .nullifier_tree_root = nullifier_tree_root,
                                                     .public_data_tree_root = public_data_tree_root,
                                                     .exists = true,
                                                 } },
@@ -478,7 +478,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
                                     .address = instance.deployer,
                                     .current_class_id = instance.current_contract_class_id,
                                     .contract_class = klass,
-                                    .nullifier_root = nullifier_root,
+                                    .nullifier_tree_root = nullifier_tree_root,
                                     .public_data_tree_root = public_data_tree_root,
                                     .retrieved_bytecodes_snapshot_before = snapshot_before,
                                     .retrieved_bytecodes_snapshot_after = snapshot_after,
@@ -489,7 +489,7 @@ TEST_F(BytecodeRetrievalConstrainingTestFewerMocks, SuccessfulRepeatedRetrievalF
                                     .address = instance.deployer,
                                     .current_class_id = instance.current_contract_class_id,
                                     .contract_class = klass,
-                                    .nullifier_root = nullifier_root,
+                                    .nullifier_tree_root = nullifier_tree_root,
                                     .public_data_tree_root = public_data_tree_root,
                                     .retrieved_bytecodes_snapshot_before = snapshot_after,
                                     .retrieved_bytecodes_snapshot_after = snapshot_after,

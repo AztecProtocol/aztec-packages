@@ -7,6 +7,7 @@ import {
   type Capsule,
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
+  type SimulationOverrides,
   type SimulationStats,
   type TxHash,
   type TxReceipt,
@@ -120,6 +121,13 @@ export type SendInteractionOptionsWithoutWait = RequestInteractionOptions & {
    * its own private notes.
    */
   additionalScopes?: AztecAddress[];
+  /**
+   * Overrides the sender address used to derive discovery tags for private messages (notes, events, logs).
+   * Recipients use these tags to find messages addressed to them.
+   *
+   * Defaults to `from`. Typically set when `from === NO_FROM`, since there is no account address to derive tags from.
+   */
+  sendMessagesAs?: AztecAddress;
 };
 
 /**
@@ -150,6 +158,8 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   /** Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and gas estimation
    * in the simulation result, in addition to the return value and offchain effects */
   includeMetadata?: boolean;
+  /** Pre-simulation overrides applied to the ephemeral fork and contract DB (publicStorage writes, contract instance overrides). */
+  overrides?: SimulationOverrides;
 };
 
 /**

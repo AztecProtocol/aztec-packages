@@ -5,7 +5,6 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   FeeAssetPriceOracle,
   type GovernanceProposerContract,
-  type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
@@ -36,7 +35,6 @@ import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
@@ -122,6 +120,13 @@ export type InvalidateCheckpointRequest = {
 type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
   simulationOverridesPlan?: SimulationOverridesPlan;
+  /**
+   * Overrides to apply to the preCheck simulation right before L1 submission.
+   * Intentionally separate from `simulationOverridesPlan`: enqueue-time validation
+   * may need pipelined-parent / pretend-proof-landed overrides, but preCheck must
+   * reflect real L1 state to catch state drift between build and submission.
+   */
+  preCheckSimulationOverridesPlan?: SimulationOverridesPlan;
 };
 
 interface RequestWithExpiry {
@@ -150,7 +155,6 @@ export class SequencerPublisher {
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
   private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
-  private payloadProposedCache: Set<string> = new Set<string>();
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
@@ -283,10 +287,14 @@ export class SequencerPublisher {
 
   /**
    * Gets the fee asset price modifier from the oracle.
-   * Returns 0n if the oracle query fails.
+   *
+   * @param predictedParentEthPerFeeAssetE12 - Optional predicted parent eth-per-fee-asset (E12).
+   *   Pipelined proposers should pass the value from the predicted parent fee header so the
+   *   modifier matches the parent L1 will use when applying it.
+   * @returns The fee asset price modifier in basis points, or 0n if the oracle query fails.
    */
-  public getFeeAssetPriceModifier(): Promise<bigint> {
-    return this.feeAssetPriceOracle.computePriceModifier();
+  public getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12?: bigint): Promise<bigint> {
+    return this.feeAssetPriceOracle.computePriceModifier(predictedParentEthPerFeeAssetE12);
   }
 
   public getSenderAddress() {
@@ -709,7 +717,7 @@ export class SequencerPublisher {
 
     const args = [
       header.toViem(),
-      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
+      CommitteeAttestationsAndSigners.packAttestations([]),
       [], // no signers
       Signature.empty().toViemSignature(),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
@@ -850,9 +858,7 @@ export class SequencerPublisher {
     const logData = { ...checkpoint, reason };
     this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
 
-    const attestationsAndSigners = new CommitteeAttestationsAndSigners(
-      validationResult.attestations,
-    ).getPackedAttestations();
+    const attestationsAndSigners = CommitteeAttestationsAndSigners.packAttestations(validationResult.attestations);
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
@@ -906,7 +912,7 @@ export class SequencerPublisher {
     slotNumber: SlotNumber,
     signalType: GovernanceSignalAction,
     payload: EthAddress,
-    base: IEmpireBase,
+    base: GovernanceProposerContract,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
@@ -937,29 +943,23 @@ export class SequencerPublisher {
       return false;
     }
 
-    // Check if payload was already submitted to governance
-    const cacheKey = payload.toString();
-    if (!this.payloadProposedCache.has(cacheKey)) {
-      try {
-        const l1StartBlock = await this.rollupContract.getL1StartBlock();
-        const proposed = await retry(
-          () => base.hasPayloadBeenProposed(payload.toString(), l1StartBlock),
-          'Check if payload was proposed',
-          makeBackoff([0, 1, 2]),
-          this.log,
-          true,
-        );
-        if (proposed) {
-          this.payloadProposedCache.add(cacheKey);
-        }
-      } catch (err) {
-        this.log.warn(`Failed to check if payload ${payload} was proposed after retries, skipping signal`, err);
-        return false;
-      }
+    // Skip signaling if there is already a live (non-terminal) Governance proposal for this
+    // payload. This is intentionally not cached: a previously-live proposal may transition to
+    // a terminal state (Dropped/Rejected/Expired/Executed), at which point we may want to re-signal
+    // the same payload in a future round.
+    let proposed = false;
+    try {
+      proposed = await base.hasActiveProposalWithPayload(payload.toString());
+    } catch (err) {
+      // We deliberately swallow the error and proceed to signal. Failing closed (skipping the
+      // signal) on transient RPC errors would let a flaky L1 endpoint silence governance
+      // participation entirely; failing open at worst produces a duplicate signal that the
+      // contract will simply count alongside others in the round.
+      this.log.error(`Failed to check if payload ${payload} was already proposed (signalling anyway)`, err);
     }
 
-    if (this.payloadProposedCache.has(cacheKey)) {
-      this.log.info(`Payload ${payload} was already proposed to governance, stopping signals`);
+    if (proposed) {
+      this.log.info(`Payload ${payload} has a live governance proposal, stopping signals`);
       return false;
     }
 
@@ -1168,6 +1168,10 @@ export class SequencerPublisher {
       .withoutBlobCheck()
       .build();
 
+    const preCheckSimulationOverridesPlan = SimulationOverridesBuilder.from(opts.preCheckSimulationOverridesPlan)
+      .withoutBlobCheck()
+      .build();
+
     try {
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
@@ -1199,7 +1203,7 @@ export class SequencerPublisher {
           checkpoint,
           attestationsAndSigners,
           attestationsAndSignersSignature,
-          simulationOverridesPlan,
+          preCheckSimulationOverridesPlan,
         );
       };
     }

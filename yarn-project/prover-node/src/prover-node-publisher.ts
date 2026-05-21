@@ -203,10 +203,14 @@ export class ProverNodePublisher {
     const argsPublicInputs = [...publicInputs.toFields()];
 
     if (!areArraysEqual(rollupPublicInputs, argsPublicInputs, (a, b) => a.equals(b))) {
-      const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
-      throw new Error(
-        `Root rollup public inputs mismatch:\nRollup:  ${fmt(rollupPublicInputs)}\nComputed:${fmt(argsPublicInputs)}`,
-      );
+      throw await reportPublicInputsMismatch({
+        rollupPublicInputs,
+        argsPublicInputs,
+        fromCheckpoint,
+        toCheckpoint,
+        rollupContract: this.rollupContract,
+        log: this.log,
+      });
     }
   }
 
@@ -364,11 +368,108 @@ export class ProverNodePublisher {
       end: argsArray[1],
       args: argsArray[2],
       fees: argsArray[3],
-      attestations: new CommitteeAttestationsAndSigners(
+      attestations: CommitteeAttestationsAndSigners.packAttestations(
         args.attestations.map(a => CommitteeAttestation.fromViem(a)),
-      ).getPackedAttestations(),
+      ),
       blobInputs: argsArray[4],
       proof: proofHex,
     };
   }
+}
+
+/**
+ * Decodes a `Root rollup public inputs mismatch`, fetches the on-chain CheckpointLog for any
+ * mismatching `checkpointHeaderHashes[i]`, emits a structured error log, and returns a thrown-ready
+ * Error with a human-readable summary.
+ *
+ * Layout of `RootRollupPublicInputs.toFields()`:
+ *   [0]                   previousArchiveRoot
+ *   [1]                   endArchiveRoot
+ *   [2]                   outHash
+ *   [3 .. 3+N-1]          checkpointHeaderHashes[i] for i in 0..N-1   (N = MAX_CHECKPOINTS_PER_EPOCH)
+ *   [3+N .. 3+3N-1]       fees[i] = (recipient, value) for i in 0..N-1
+ *   [3+3N .. 3+3N+4]      EpochConstantData (chainId, version, vkTreeRoot, protocolContractsHash, proverId)
+ *   [3+3N+5 ..]           blobPublicInputs (FinalBlobAccumulator)
+ */
+async function reportPublicInputsMismatch(input: {
+  rollupPublicInputs: readonly Fr[];
+  argsPublicInputs: readonly Fr[];
+  fromCheckpoint: CheckpointNumber;
+  toCheckpoint: CheckpointNumber;
+  rollupContract: RollupContract;
+  log: Logger;
+}): Promise<Error> {
+  const { rollupPublicInputs, argsPublicInputs, fromCheckpoint, toCheckpoint, rollupContract, log } = input;
+  const N = MAX_CHECKPOINTS_PER_EPOCH;
+  const constantsStart = 3 + 3 * N;
+  const blobStart = constantsStart + 5;
+  const constantLabels = ['chainId', 'version', 'vkTreeRoot', 'protocolContractsHash', 'proverId'];
+
+  const diffs: { index: number; label: string; rollup: Fr; computed: Fr; checkpointIndex?: number }[] = [];
+  const len = Math.max(rollupPublicInputs.length, argsPublicInputs.length);
+  for (let i = 0; i < len; i++) {
+    const a = rollupPublicInputs[i] ?? Fr.ZERO;
+    const b = argsPublicInputs[i] ?? Fr.ZERO;
+    if (a.equals(b)) {
+      continue;
+    }
+    let label: string;
+    let checkpointIndex: number | undefined;
+    if (i === 0) {
+      label = 'previousArchiveRoot';
+    } else if (i === 1) {
+      label = 'endArchiveRoot';
+    } else if (i === 2) {
+      label = 'outHash';
+    } else if (i < 3 + N) {
+      checkpointIndex = i - 3;
+      label = `checkpointHeaderHashes[${checkpointIndex}]`;
+    } else if (i < 3 + 3 * N) {
+      const feePairIndex = i - (3 + N);
+      const feeIndex = Math.floor(feePairIndex / 2);
+      const sub = feePairIndex % 2 === 0 ? 'recipient' : 'value';
+      label = `fees[${feeIndex}].${sub}`;
+    } else if (i < blobStart) {
+      label = `constants.${constantLabels[i - constantsStart]}`;
+    } else {
+      label = `blobPublicInputs[${i - blobStart}]`;
+    }
+    diffs.push({ index: i, label, rollup: a, computed: b, checkpointIndex });
+  }
+
+  // For each mismatching checkpointHeaderHash, fetch the L1 CheckpointLog so the operator can
+  // see what was published on-chain alongside the prover's recomputed hash.
+  const onChainCheckpoints = await Promise.all(
+    diffs
+      .filter(d => d.checkpointIndex !== undefined)
+      .map(async d => {
+        const checkpointNumber = CheckpointNumber(fromCheckpoint + d.checkpointIndex!);
+        try {
+          const cp = await rollupContract.getCheckpoint(checkpointNumber);
+          return { checkpointIndex: d.checkpointIndex!, checkpointNumber, headerHash: cp.headerHash.toString() };
+        } catch (err) {
+          return { checkpointIndex: d.checkpointIndex!, checkpointNumber, error: (err as Error).message };
+        }
+      }),
+  );
+
+  log.error(`Root rollup public inputs mismatch`, undefined, {
+    fromCheckpoint,
+    toCheckpoint,
+    numDiffs: diffs.length,
+    diffs: diffs.map(d => ({
+      index: d.index,
+      label: d.label,
+      rollup: d.rollup.toString(),
+      computed: d.computed.toString(),
+    })),
+    onChainCheckpoints,
+  });
+
+  const fmt = (inputs: readonly Fr[]) => inputs.map(x => x.toString()).join(', ');
+  const summary = diffs.map(d => `[${d.index} ${d.label}] L1=${d.rollup} prover=${d.computed}`).join('\n');
+  return new Error(
+    `Root rollup public inputs mismatch (${diffs.length} fields differ):\n${summary}\n` +
+      `Rollup:  ${fmt(rollupPublicInputs)}\nComputed:${fmt(argsPublicInputs)}`,
+  );
 }

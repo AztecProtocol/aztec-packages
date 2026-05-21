@@ -11,7 +11,7 @@ GrumpkinMul::Response GrumpkinMul::execute(BBApiRequest& request) &&
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
     }
-    return { point * scalar };
+    return { grumpkin::g1::element(point).mul_const_time(scalar).to_affine_const_time() };
 }
 
 GrumpkinAdd::Response GrumpkinAdd::execute(BBApiRequest& request) &&
@@ -32,7 +32,11 @@ GrumpkinBatchMul::Response GrumpkinBatchMul::execute(BBApiRequest& request) &&
             BBAPI_ERROR(request, "Input point must be on the curve");
         }
     }
-    auto output = grumpkin::g1::element::batch_mul_with_endomorphism(points, scalar);
+    std::vector<grumpkin::g1::affine_element> output;
+    output.reserve(points.size());
+    for (const auto& p : points) {
+        output.emplace_back(grumpkin::g1::element(p).mul_const_time(scalar).to_affine_const_time());
+    }
     return { std::move(output) };
 }
 
@@ -54,7 +58,7 @@ Secp256k1Mul::Response Secp256k1Mul::execute(BBApiRequest& request) &&
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
     }
-    return { point * scalar };
+    return { secp256k1::g1::element(point).mul_const_time(scalar).to_affine_const_time() };
 }
 
 Secp256k1GetRandomFr::Response Secp256k1GetRandomFr::execute(BB_UNUSED BBApiRequest& request) &&
@@ -87,7 +91,7 @@ Bn254G1Mul::Response Bn254G1Mul::execute(BBApiRequest& request) &&
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
     }
-    auto result = point * scalar;
+    auto result = bb::g1::element(point).mul_const_time(scalar).to_affine_const_time();
     if (!result.on_curve()) {
         BBAPI_ERROR(request, "Output point must be on the curve");
     }
@@ -98,6 +102,12 @@ Bn254G2Mul::Response Bn254G2Mul::execute(BBApiRequest& request) &&
 {
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
+    }
+    // BN254 G2 has cofactor h2 ≈ 2^254. An on-curve point may lie in a cofactor subgroup of order
+    // dividing h2 rather than the prime-order subgroup; we do not want to allow such points
+    // as inputs to bbapi.
+    if (!point.is_in_prime_subgroup()) {
+        BBAPI_ERROR(request, "Input point must lie in the prime-order subgroup");
     }
     auto result = point * scalar;
     if (!result.on_curve()) {

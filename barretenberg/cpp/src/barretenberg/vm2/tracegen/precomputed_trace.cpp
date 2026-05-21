@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
@@ -400,12 +400,9 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
             { C::precomputed_is_revertible, spec.is_revertible ? 1 : 0 },
             { C::precomputed_read_pi_start_offset, spec.read_pi_start_offset },
             { C::precomputed_read_pi_length_offset, spec.read_pi_length_offset },
-            { C::precomputed_sel_non_revertible_append_note_hash, spec.non_revertible_append_note_hash ? 1 : 0 },
-            { C::precomputed_sel_non_revertible_append_nullifier, spec.non_revertible_append_nullifier ? 1 : 0 },
-            { C::precomputed_sel_non_revertible_append_l2_l1_msg, spec.non_revertible_append_l2_l1_msg ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_note_hash, spec.revertible_append_note_hash ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_nullifier, spec.revertible_append_nullifier ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_l2_l1_msg, spec.revertible_append_l2_l1_msg ? 1 : 0 },
+            { C::precomputed_sel_append_note_hash, spec.append_note_hash ? 1 : 0 },
+            { C::precomputed_sel_append_nullifier, spec.append_nullifier ? 1 : 0 },
+            { C::precomputed_sel_append_l2_l1_msg, spec.append_l2_l1_msg ? 1 : 0 },
             { C::precomputed_next_phase_on_revert, spec.next_phase_on_revert },
         };
 
@@ -469,7 +466,7 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
 
 /**
  * @brief Populate the GETCONTRACTINSTANCE lookup table.
- * @details One row per ContractInstanceMember enum value (DEPLOYER=0, CLASS_ID=1, INIT_HASH=2).
+ * @details One row per ContractInstanceMember enum value (DEPLOYER=0, CLASS_ID=1, INIT_HASH=2, IMMUTABLES_HASH=3).
  * Each row holds a validity flag and one-hot member selectors. See
  * `opcodes/get_contract_instance.pil` for an ascii version of this table.
  */
@@ -485,6 +482,7 @@ void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer
                       { C::precomputed_is_deployer, spec.is_deployer ? 1 : 0 },
                       { C::precomputed_is_class_id, spec.is_class_id ? 1 : 0 },
                       { C::precomputed_is_init_hash, spec.is_init_hash ? 1 : 0 },
+                      { C::precomputed_is_immutables_hash, spec.is_immutables_hash ? 1 : 0 },
                   } });
     }
 }

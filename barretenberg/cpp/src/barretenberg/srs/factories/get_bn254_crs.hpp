@@ -17,5 +17,5 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
                                                   const std::string& primary_url,
                                                   const std::string& fallback_url);
 
-g2::affine_element get_bn254_g2_data(const std::filesystem::path& path, bool allow_download = true);
+g2::affine_element get_bn254_g2_data(const std::filesystem::path& path);
 } // namespace bb

@@ -1,7 +1,6 @@
 import type { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -12,7 +11,7 @@ import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { ContractClassLog, Tag } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -119,37 +118,17 @@ export interface IUtilityExecutionOracle {
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress): Promise<void>;
-  getPendingTaggedLogsV2(scope: AztecAddress): Promise<Fr>;
+  getPendingTaggedLogs(scope: AztecAddress): Promise<Fr>;
   validateAndStoreEnqueuedNotesAndEvents(
-    contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
     maxNotePackedLen: number,
     maxEventSerializedLen: number,
     scope: AztecAddress,
   ): Promise<void>;
-  getLogsByTag(
-    contractAddress: AztecAddress,
-    logRetrievalRequestsArrayBaseSlot: Fr,
-    logRetrievalResponsesArrayBaseSlot: Fr,
-    scope: AztecAddress,
-  ): Promise<void>;
-  validateAndStoreEnqueuedNotesAndEventsV2(
-    noteValidationRequestsArrayBaseSlot: Fr,
-    eventValidationRequestsArrayBaseSlot: Fr,
-    maxNotePackedLen: number,
-    maxEventSerializedLen: number,
-    scope: AztecAddress,
-  ): Promise<void>;
-  getLogsByTagV2(requestArrayBaseSlot: Fr): Promise<Fr>;
-  getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr>;
-  getMessageContextsByTxHash(
-    contractAddress: AztecAddress,
-    messageContextRequestsArrayBaseSlot: Fr,
-    messageContextResponsesArrayBaseSlot: Fr,
-    scope: AztecAddress,
-  ): Promise<void>;
+  getLogsByTag(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getMessageContextsByTxHash(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | null>;
   setCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope: AztecAddress): void;
   getCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): Promise<Fr[] | null>;
   deleteCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): void;
@@ -161,9 +140,14 @@ export interface IUtilityExecutionOracle {
     scope: AztecAddress,
   ): Promise<void>;
   decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
-  getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
+  getSharedSecrets(address: AztecAddress, ephPksSlot: Fr, contractAddress: AztecAddress): Promise<Fr>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
+  callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]>;
 
   // Ephemeral array methods
   pushEphemeral(slot: Fr, elements: Fr[]): number;
@@ -204,6 +188,11 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
+  callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]>;
   assertValidPublicCalldata(calldataHash: Fr): Promise<void>;
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
   isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;

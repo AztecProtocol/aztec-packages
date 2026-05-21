@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { maxBy } from '@aztec/foundation/collection';
+import { maxBy, merge } from '@aztec/foundation/collection';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -50,9 +50,10 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
-import type { ConnectionManager } from '@libp2p/interface-internal';
+import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
+import { multiaddr } from '@multiformats/multiaddr';
 import { ENR } from '@nethermindeth/enr';
 import { createLibp2p } from 'libp2p';
 
@@ -73,7 +74,7 @@ import {
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -111,6 +112,7 @@ import {
 import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
   P2PDuplicateAttestationCallback,
   P2PService,
@@ -156,6 +158,9 @@ export class LibP2PService extends WithTracer implements P2PService {
   /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
   private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
 
+  /** Callback invoked when a valid checkpoint attestation is accepted into the pool. */
+  private checkpointAttestationCallback?: P2PCheckpointAttestationCallback;
+
   /**
    * Callback for when a block is received from a peer.
    * @param block - The block received from the peer.
@@ -177,6 +182,9 @@ export class LibP2PService extends WithTracer implements P2PService {
   private validatorCheckpointReceivedCallback: P2PCheckpointReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
+
+  private ipChangedHandler?: (ip: string) => void;
+  private discoveredP2pIp?: string;
 
   private instrumentation: P2PInstrumentation;
 
@@ -231,15 +239,23 @@ export class LibP2PService extends WithTracer implements P2PService {
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
+      maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       p2pPropagationTime,
+      signatureContext: {
+        chainId: config.l1ChainId,
+        rollupAddress: config.rollupAddress,
+      },
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
+    const attestationValidatorOpts = {
+      l1PublishingTime: config.l1PublishingTime,
+      p2pPropagationTime,
+      signatureContext: proposalValidatorOpts.signatureContext,
+    };
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, {
-          l1PublishingTime: config.l1PublishingTime,
-        })
-      : new CheckpointAttestationValidator(epochCache, { l1PublishingTime: config.l1PublishingTime });
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
+      : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
@@ -264,8 +280,9 @@ export class LibP2PService extends WithTracer implements P2PService {
     };
   }
 
-  public updateConfig(config: Partial<P2PReqRespConfig>) {
+  public updateConfig(config: Partial<P2PReqRespConfig & Pick<P2PConfig, 'skipIncomingProposals'>>) {
     this.reqresp.updateConfig(config);
+    this.config = merge(this.config, config);
   }
 
   /**
@@ -458,8 +475,9 @@ export class LibP2PService extends WithTracer implements P2PService {
             topics: topicScoreParams,
           }),
         }) as (components: GossipSubComponents) => GossipSub,
-        components: (components: { connectionManager: ConnectionManager }) => ({
+        components: (components: { connectionManager: ConnectionManager; addressManager: AddressManager }) => ({
           connectionManager: components.connectionManager,
+          addressManager: components.addressManager,
         }),
       },
       logger: createLibp2pComponentLogger(logger.module, logger.getBindings()),
@@ -520,12 +538,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       throw new Error('P2P service already started');
     }
 
-    // Get listen & announce addresses for logging
     const { p2pIp, p2pPort } = this.config;
-    if (!p2pIp) {
-      throw new Error('Announce address not provided.');
+    if (!p2pIp && !this.config.queryForIp) {
+      throw new Error('Announce address not provided and queryForIp is not enabled.');
     }
-    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
+    const announceTcpMultiaddr = p2pIp ? convertToMultiaddr(p2pIp, p2pPort, 'tcp') : undefined;
 
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
@@ -576,6 +593,38 @@ export class LibP2PService extends WithTracer implements P2PService {
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
     }
+
+    // Bridge discv5 IP changes to libp2p's AddressManager so peers see the updated address
+    if (this.config.queryForIp) {
+      this.discoveredP2pIp = this.config.p2pIp;
+      this.logger.info('IP change tracking enabled, bridging discv5 IP updates to libp2p AddressManager');
+      this.ipChangedHandler = (ip: string) => {
+        const addressManager = this.node.services.components.addressManager;
+        const newAddr = multiaddr(convertToMultiaddr(ip, this.config.p2pPort, 'tcp'));
+        const previousIp = this.discoveredP2pIp;
+
+        if (previousIp) {
+          const oldAddr = multiaddr(convertToMultiaddr(previousIp, this.config.p2pPort, 'tcp'));
+          addressManager.removeObservedAddr(oldAddr);
+          this.logger.info('Libp2p announce address updated due to IP change', {
+            previousIp,
+            newIp: ip,
+            newMultiaddr: newAddr.toString(),
+          });
+        } else {
+          this.logger.info('Libp2p announce address set from initial discv5 IP discovery', {
+            ip,
+            multiaddr: newAddr.toString(),
+          });
+        }
+
+        addressManager.addObservedAddr(newAddr);
+        addressManager.confirmObservedAddr(newAddr);
+        this.discoveredP2pIp = ip;
+      };
+      this.peerDiscoveryService.on('ip:changed', this.ipChangedHandler);
+    }
+
     this.discoveryRunningPromise = new RunningPromise(
       async () => {
         await this.peerManager.heartbeat();
@@ -600,6 +649,11 @@ export class LibP2PService extends WithTracer implements P2PService {
   public async stop() {
     // Remove gossip sub listener
     this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
+
+    if (this.ipChangedHandler) {
+      this.peerDiscoveryService.removeListener('ip:changed', this.ipChangedHandler);
+      this.ipChangedHandler = undefined;
+    }
 
     // Stop peer manager
     this.logger.debug('Stopping peer manager...');
@@ -712,6 +766,10 @@ export class LibP2PService extends WithTracer implements P2PService {
    */
   public registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void {
     this.duplicateAttestationCallback = callback;
+  }
+
+  public registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void {
+    this.checkpointAttestationCallback = callback;
   }
 
   /**
@@ -842,6 +900,15 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Process the message, optionally within a linked span for trace propagation
     const processMessage = async () => {
+      if (
+        this.config.skipIncomingProposals &&
+        (msg.topic === this.topicStrings[TopicType.block_proposal] ||
+          msg.topic === this.topicStrings[TopicType.checkpoint_proposal])
+      ) {
+        this.logger.warn(`Ignoring incoming proposal (skipIncomingProposals is set)`, { topic: msg.topic });
+        this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+        return;
+      }
       if (msg.topic === this.topicStrings[TopicType.tx]) {
         await this.handleGossipedTx(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
@@ -1165,6 +1232,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     }
 
     // Attestation was added successfully - accept it so other nodes can also detect the equivocation
+    this.checkpointAttestationCallback?.(attestation);
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
@@ -1517,7 +1585,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
 
       // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
-      const proposal = await this.mempools.attestationPool.getBlockProposal(request.archiveRoot.toString());
+      const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
       if (proposal) {
         // Build intersected indices
         const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
@@ -1612,7 +1680,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   protected createRequestedTxValidator(): TxValidator {
-    return createTxValidatorForReqResponseReceivedTxs(this.proofVerifier, {
+    return createTxValidatorForOnDemandReceivedTxs(this.proofVerifier, {
       l1ChainId: this.config.l1ChainId,
       rollupVersion: this.config.rollupVersion,
     });

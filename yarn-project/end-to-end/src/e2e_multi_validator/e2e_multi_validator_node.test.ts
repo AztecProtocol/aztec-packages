@@ -12,7 +12,7 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -113,19 +113,22 @@ describe('e2e_multi_validator_node', () => {
     const deployer = new ContractDeployer(artifact, wallet);
 
     logger.info(`Deploying contract from ${ownerAddress}`);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-    });
+    const { receipt: tx } = await deployer
+      .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
+      .send({ from: ownerAddress });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
     expect(tx.blockNumber).toBeDefined();
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
@@ -171,19 +174,22 @@ describe('e2e_multi_validator_node', () => {
     // new aztec transaction
     logger.info(`Deploying contract from ${ownerAddress}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-    });
+    const { receipt: tx } = await deployer
+      .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
+      .send({ from: ownerAddress });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
     expect(tx.blockNumber).toBeDefined();
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

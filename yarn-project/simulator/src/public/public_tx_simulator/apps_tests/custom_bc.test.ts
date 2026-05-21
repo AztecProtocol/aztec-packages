@@ -7,12 +7,14 @@ import {
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import {
+  castTruncationTest,
   instructionTruncatedTest,
   invalidByteTest,
   invalidOpcodeTest,
   invalidTagValueAndInstructionTruncatedTest,
   invalidTagValueTest,
   pcOutOfRangeTest,
+  setTruncationTest,
 } from '../../fixtures/custom_bytecode_tests.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
@@ -112,5 +114,37 @@ describe.each([
   it('Invalid tag value and instruction truncated', async () => {
     const result = await invalidTagValueAndInstructionTruncatedTest(tester);
     expect(result.revertCode.isOK()).toBe(false);
+  });
+});
+
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: custom bytecodes truncation ($simulatorName)', ({ useCppSimulator }) => {
+  let worldStateService: NativeWorldStateService;
+  let tester: PublicTxSimulationTester;
+
+  beforeEach(async () => {
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+      useCppSimulator,
+    );
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
+  it('SET truncation to narrower target tags', async () => {
+    const result = await setTruncationTest(tester);
+    expect(result.revertCode.isOK()).toBe(true);
+  });
+
+  it('CAST truncation to narrower target tags', async () => {
+    const result = await castTruncationTest(tester);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 });

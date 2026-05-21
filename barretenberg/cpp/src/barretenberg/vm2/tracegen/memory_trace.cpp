@@ -174,16 +174,15 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              // ECADD
              perm_ecc_mem_write_mem_0_settings,
              perm_ecc_mem_write_mem_1_settings,
-             perm_ecc_mem_write_mem_2_settings,
              // To Radix.
              perm_to_radix_mem_write_mem_settings
              // Others.
              >(Column::memory_sel)
-        .add<lookup_memory_range_check_limb_0_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_memory_range_check_limb_1_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_memory_range_check_limb_2_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_memory_tag_max_bits_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_memory_range_check_write_tagged_value_settings, InteractionType::LookupGeneric>(
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_0_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_1_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_2_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_tag_max_bits_settings>()
+        .add<InteractionType::LookupGeneric, lookup_memory_range_check_write_tagged_value_settings>(
             Column::range_check_sel);
 
 } // namespace bb::avm2::tracegen

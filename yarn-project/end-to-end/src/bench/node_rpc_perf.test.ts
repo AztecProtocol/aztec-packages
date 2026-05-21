@@ -287,14 +287,14 @@ describe('e2e_node_rpc_perf', () => {
     });
 
     it('benchmarks getProvenBlockNumber', async () => {
-      const { stats } = await benchmark('getProvenBlockNumber', () => aztecNode.getProvenBlockNumber());
+      const { stats } = await benchmark('getProvenBlockNumber', () => aztecNode.getBlockNumber('proven'));
       addResult('getProvenBlockNumber', stats);
       expect(stats.avg).toBeLessThan(1000);
     });
 
-    it('benchmarks getL2Tips', async () => {
-      const { stats } = await benchmark('getL2Tips', () => aztecNode.getL2Tips());
-      addResult('getL2Tips', stats);
+    it('benchmarks getChainTips', async () => {
+      const { stats } = await benchmark('getChainTips', () => aztecNode.getChainTips());
+      addResult('getChainTips', stats);
       expect(stats.avg).toBeLessThan(1000);
     });
 
@@ -304,9 +304,9 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(3000);
     });
 
-    it('benchmarks getBlockHeader', async () => {
-      const { stats } = await benchmark('getBlockHeader', () => aztecNode.getBlockHeader(BlockNumber(blockNumber)));
-      addResult('getBlockHeader', stats);
+    it('benchmarks getBlockData', async () => {
+      const { stats } = await benchmark('getBlockData', () => aztecNode.getBlockData(BlockNumber(blockNumber)));
+      addResult('getBlockData', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
 
@@ -317,24 +317,32 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getCheckpointedBlocks (5 blocks)', async () => {
+    it('benchmarks getBlocks_checkpointed (5 blocks)', async () => {
       const fromBlock = BlockNumber(Math.max(1, blockNumber - 4));
-      const { stats } = await benchmark('getCheckpointedBlocks', () => aztecNode.getCheckpointedBlocks(fromBlock, 5));
-      addResult('getCheckpointedBlocks_5', stats);
+      const { stats } = await benchmark('getBlocks_checkpointed', () =>
+        aztecNode.getBlocks(fromBlock, 5, {
+          includeL1PublishInfo: true,
+          includeAttestations: true,
+          onlyCheckpointed: true,
+        }),
+      );
+      addResult('getBlocks_checkpointed_5', stats);
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getBlockByArchive', async () => {
-      const { stats } = await benchmark('getBlockByArchive', () => aztecNode.getBlockByArchive(blockArchive));
+    it('benchmarks getBlock by archive', async () => {
+      const { stats } = await benchmark('getBlockByArchive', () =>
+        aztecNode.getBlock({ archive: blockArchive }, { includeTransactions: true }),
+      );
       addResult('getBlockByArchive', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
 
-    it('benchmarks getBlockHeaderByArchive', async () => {
-      const { stats } = await benchmark('getBlockHeaderByArchive', () =>
-        aztecNode.getBlockHeaderByArchive(blockArchive),
+    it('benchmarks getBlockData by archive', async () => {
+      const { stats } = await benchmark('getBlockData_byArchive', () =>
+        aztecNode.getBlockData({ archive: blockArchive }),
       );
-      addResult('getBlockHeaderByArchive', stats);
+      addResult('getBlockData_byArchive', stats);
       expect(stats.avg).toBeLessThan(2000);
     });
   });

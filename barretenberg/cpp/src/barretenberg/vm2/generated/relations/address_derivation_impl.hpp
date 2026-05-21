@@ -18,9 +18,11 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_GRUMPKIN_ONE_X = FF(1);
     const auto constants_GRUMPKIN_ONE_Y =
         FF(uint256_t{ 9457493854555940652UL, 3253583849847263892UL, 14921373847124204899UL, 2UL });
+    const auto constants_DOM_SEP__SALTED_INITIALIZATION_HASH = FF(2763052992UL);
     const auto constants_DOM_SEP__PUBLIC_KEYS_HASH = FF(777457226);
+    const auto constants_DOM_SEP__SINGLE_PUBLIC_KEY_HASH = FF(3452068255UL);
     const auto constants_DOM_SEP__PARTIAL_ADDRESS = FF(2103633018);
-    const auto constants_DOM_SEP__CONTRACT_ADDRESS_V1 = FF(1788365517);
+    const auto constants_DOM_SEP__CONTRACT_ADDRESS_V2 = FF(4099338721UL);
     const auto address_derivation_X3 = in.get(C::address_derivation_incoming_viewing_key_x) *
                                        in.get(C::address_derivation_incoming_viewing_key_x) *
                                        in.get(C::address_derivation_incoming_viewing_key_x);
@@ -36,32 +38,34 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_two)) - FF(2));
+                   (static_cast<View>(in.get(C::address_derivation_const_three)) - FF(3));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_three)) - FF(3));
+                   (static_cast<View>(in.get(C::address_derivation_const_five)) - FF(5));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_four)) - FF(4));
+                   (static_cast<View>(in.get(C::address_derivation_salted_init_hash_domain_separator)) -
+                    CView(constants_DOM_SEP__SALTED_INITIALIZATION_HASH));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_const_thirteen)) - FF(13));
+                   (static_cast<View>(in.get(C::address_derivation_partial_address_domain_separator)) -
+                    CView(constants_DOM_SEP__PARTIAL_ADDRESS));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
-                   (static_cast<View>(in.get(C::address_derivation_partial_address_domain_separator)) -
-                    CView(constants_DOM_SEP__PARTIAL_ADDRESS));
+                   (static_cast<View>(in.get(C::address_derivation_single_public_key_hash_domain_separator)) -
+                    CView(constants_DOM_SEP__SINGLE_PUBLIC_KEY_HASH));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
@@ -75,7 +79,7 @@ void address_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::address_derivation_sel)) *
                    (static_cast<View>(in.get(C::address_derivation_preaddress_domain_separator)) -
-                    CView(constants_DOM_SEP__CONTRACT_ADDRESS_V1));
+                    CView(constants_DOM_SEP__CONTRACT_ADDRESS_V2));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {

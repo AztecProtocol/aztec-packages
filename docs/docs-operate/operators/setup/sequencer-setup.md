@@ -410,7 +410,6 @@ services:
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --node
-      --archiver
       --sequencer
       --network #release_network
     networks:
@@ -453,7 +452,7 @@ Check the current sync status (this may take a few minutes):
 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
--d '{"jsonrpc":"2.0","method":"node_getL2Tips","params":[],"id":67}' \
+-d '{"jsonrpc":"2.0","method":"node_getChainTips","params":[],"id":67}' \
 http://localhost:8080 | jq -r ".result.proven.number"
 ```
 

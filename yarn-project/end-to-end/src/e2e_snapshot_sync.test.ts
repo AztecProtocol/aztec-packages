@@ -71,7 +71,7 @@ describe('e2e_snapshot_sync', () => {
   };
 
   const expectNodeSyncedToL2Block = async (node: AztecNode, blockNumber: number) => {
-    const tips = await node.getL2Tips();
+    const tips = await node.getChainTips();
     expect(tips.proposed.number).toBeGreaterThanOrEqual(blockNumber);
     const worldState = await node.getWorldStateSyncStatus();
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
@@ -99,7 +99,7 @@ describe('e2e_snapshot_sync', () => {
 
     const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
-    const blockHash = await block!.hash();
+    const blockHash = block!.hash;
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
@@ -205,7 +205,7 @@ describe('e2e_snapshot_sync', () => {
 
     const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
-    const blockHash = await block!.hash();
+    const blockHash = block!.hash;
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>

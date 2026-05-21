@@ -20,7 +20,13 @@ import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal, mockTx } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+  mockTx,
+} from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
@@ -123,22 +129,27 @@ describe('ValidatorClient HA Integration', () => {
     };
     keyStoreManager = new KeystoreManager(keyStore);
 
-    rollupAddress = EthAddress.random();
+    rollupAddress = TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress;
 
     // Create 5 HA validator instances for use across all tests
     const baseConfig: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       > = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
-      l1Contracts: { rollupAddress },
+      rollupAddress,
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1n,
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
@@ -181,7 +192,10 @@ describe('ValidatorClient HA Integration', () => {
     config: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       >,
   ): Promise<ValidatorClient> {
     // Track pool for cleanup
@@ -200,6 +214,7 @@ describe('ValidatorClient HA Integration', () => {
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: true,
       maxTxsPerBlock: undefined,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,

@@ -12,7 +12,7 @@ The engineering team's public testnet responsibilities begin after code-freeze. 
 2. Create a named release branch (eg: `release/sassy-salamander`) from the desired `master` release (eg:`v0.64.0`).
 3. Complete all QA testing against `release/sassy-salamander`.
 4. For tests that do not pass, create a hotfix into the `release/sassy-salamander` release branch.
-5. After testing is complete, initiate a `release-please` CI workflow from `release/sassy-salamander` to publish release artifacts.
+5. After testing is complete, push a semver release tag from `release/sassy-salamander` to trigger the release CI workflow and publish release artifacts.
 
 ### Release Notes and Artifact Builds
 
@@ -66,7 +66,7 @@ After public testnet deployment, perform these sanity checks (these items can al
 
 ### Network Connection Info
 
-After a successful sanity check, share the following network connection information in the `#e-team-alpha` slack channel:
+After a successful sanity check, share the following network connection information in the `#team-alpha` slack channel:
 
 1. AZTEC_IMAGE (`aztecprotocol/aztec:latest`)
 2. ETHEREUM_HOSTS (Kubernetes: `kubectl get services -n <namespace> | (head -1; grep ethereum)`)

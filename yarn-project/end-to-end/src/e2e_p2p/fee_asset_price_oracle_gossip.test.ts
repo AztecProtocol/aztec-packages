@@ -63,6 +63,8 @@ describe('e2e_p2p_network', () => {
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
+        enableProposerPipelining: true,
+        inboxLag: 2,
       },
     });
 
@@ -178,14 +180,18 @@ describe('e2e_p2p_network', () => {
         const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
         const checkpointNumber = (await t.monitor.run()).checkpointNumber;
         t.logger.info(`Current block numbers ${blockNumbers} (checkpoint number on L1 is ${checkpointNumber})`);
-        const [checkpoint] = await dataStore.getCheckpoints(CheckpointNumber(1), 1);
+        const [checkpoint] = await dataStore.getCheckpoints({ from: CheckpointNumber(1), limit: 1 });
         return checkpoint;
       },
       'published checkpoint to be indexed',
       120,
       1,
     );
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

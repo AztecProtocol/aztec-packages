@@ -34,6 +34,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled ?? false,
       dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
+      autoSync: false,
       ...mergedConfigOverrides,
     });
 
@@ -62,14 +63,16 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
             {
               dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              l1Contracts,
+              rollupAddress: l1Contracts.rollupAddress,
             },
             1,
             rootLogger.createChild('wallet:data'),
           ));
-    const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
+    const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
-    return new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
+    const wallet = new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
+    await wallet.initStubClasses();
+    return wallet;
   }
 }
 
@@ -77,3 +80,10 @@ export { BrowserEmbeddedWallet as EmbeddedWallet };
 export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';
+
+// At-rest encryption helpers are intentionally NOT re-exported here. They live
+// on the `@aztec/wallets/embedded/store-encryption` sub-path so consumers
+// (and bundlers) of this entrypoint don't transitively pull in
+// `@aztec/kv-store/sqlite-opfs` and its `new Worker(new URL('./worker.js'))`
+// chain into `@aztec/sqlite3mc-wasm`. Apps that don't use encryption-at-rest
+// (e.g. the playground) should never see sqlite-opfs in their bundle.

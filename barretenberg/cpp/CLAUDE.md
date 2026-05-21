@@ -1,12 +1,24 @@
 # barretenberg/cpp
 
-The core proving system library.
-
 Bootstrap modes:
 
 - `./bootstrap.sh` => full build, needed for other components
 - `./bootstrap.sh build` => standard build
 - `AVM=0 ./bootstrap.sh build_native` => quick build without slow bb-avm target. Good for verifying compilation works. Needed to build ts/
+
+## `bb` vs `bb-avm`: which binary do downstream scripts pick?
+
+`barretenberg/cpp/scripts/find-bb` returns `bb-avm` by default (when `AVM` is unset or `AVM=1`) and `bb` only when `AVM=0`. `noir-projects/noir-protocol-circuits/bootstrap.sh` and most other downstream tooling go through `find-bb`, so when those scripts run "the bb binary", they are running `bb-avm`.
+
+Consequence: when changing C++ that affects VK derivation, proving, or anything else exercised by downstream bootstrap scripts, `cmake --build build --target bb` is **not enough** — `bb` is non-AVM and will not be picked up. You must rebuild the AVM-enabled binary:
+
+```bash
+cd barretenberg/cpp
+cmake --preset default -DAVM=ON
+cmake --build build --target bb-avm
+```
+
+Or just run `./bootstrap.sh` (full build), which produces both. Symptom of forgetting: downstream scripts keep failing with the *same* error after your "fix" because they are still running the stale `bb-avm`.
 
 Development commands (from barretenberg/cpp):
 ```bash
@@ -64,6 +76,15 @@ All C++ files must be formatted with clang-format before committing:
 clang-format-20 -i <files>
 ```
 
+## C++ invariants
+
+These are load-bearing: violating them will compile on native but break WASM, or skew test output in CI. Use the listed alternative unconditionally.
+
+- **Logging: use `info(...)` / `vinfo(...)` from `barretenberg/common/log.hpp`, never `std::cout` or `std::cerr`.** The macros route through `log_function` and respect `bb_log_level`; direct `std::cout` is unfiltered, uncaptured in CI logs, and skews benchmark output.
+- **Aborts and exceptions: use `throw_or_abort(msg)` from `barretenberg/common/throw_or_abort.hpp`, never bare `throw` or `std::abort()`.** WASM builds set `BB_NO_EXCEPTIONS`, which turns `throw` into `abort()` — bare `throw` compiles differently and misformats the message, and raw `std::abort()` drops the message entirely. For header-only libraries that must use exception syntax, use the `THROW`/`RETHROW` macros from `common/try_catch_shim.hpp`.
+- **Assertions: use `BB_ASSERT(cond, msg)` / `BB_ASSERT_EQ` / `BB_ASSERT_NEQ` / `BB_ASSERT_GT` / etc. from `barretenberg/common/assert.hpp`, never bare `assert(...)`.** `BB_ASSERT` hooks into the benchmark-assertion framework and has distinct debug/release behavior; `assert` is stripped in release builds and silently diverges in WASM.
+- **Release builds: do not reach for the `release` CMake preset unless the user is reproducing a performance issue.** Debug/default presets are much faster to compile and sufficient for correctness work.
+
 ## Benchmarking:
 
 **IMPORTANT**: In the barretenberg context, "bench" or "benchmark" almost always means running `benchmark_remote.sh` for the given target on a remote benchmarking machine.
@@ -101,6 +122,27 @@ Key constants to watch:
 
 If C++ static_asserts fail after your changes, update both the assert values AND the corresponding Noir constants, then run `yarn remake-constants`.
 
+## Prover.toml Fixtures
+
+Proof-length-affecting changes (e.g. `CHONK_PROOF_LENGTH` bumps from MegaFlavor entity additions) make the committed `Prover.toml` fixtures stale. `nargo execute --program-dir <crate>` then fails with `Type Array { length: N, typ: Field } is expected to have length N but value Vec(...)`.
+
+Regenerate via the e2e prover full test with fake proofs:
+
+```bash
+cd yarn-project
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test full.test
+```
+
+`FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
+
+For circuits not exercised by `full.test.ts` (`rollup-tx-merge`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-block-root-first-empty-tx`), additionally run:
+
+```bash
+AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_single_checkpoint
+```
+
+Verify with `nargo execute --program-dir noir-projects/noir-protocol-circuits/crates/<crate>` for any previously-failing crate; should print `Circuit witness successfully solved`.
+
 ## Verification Keys
 
 **IMPORTANT**: When making barretenberg changes that could affect verification keys, you must verify that VKs haven't changed unexpectedly, or
@@ -118,8 +160,7 @@ cd barretenberg/cpp
 Run the VK check script from barretenberg/cpp/scripts:
 
 ```bash
-cd barretenberg/cpp/scripts
-./test_chonk_standalone_vks_havent_changed.sh
+barretenberg/cpp/scripts/chonk_inputs.sh check
 ```
 
 Expected result: Script exits successfully if VKs are unchanged, or shows that VKs have changed.
@@ -131,40 +172,41 @@ Expected result: Script exits successfully if VKs are unchanged, or shows that V
 If VKs have changed and this is expected due to your modifications, update the stored VKs:
 
 ```bash
-cd barretenberg/cpp/scripts
-./test_chonk_standalone_vks_havent_changed.sh --update_inputs
+barretenberg/cpp/scripts/chonk_inputs.sh update
 ```
 
 ### Verifying VK validity (proving the updated inputs)
 
-**IMPORTANT**: There is no need to verify the validity of the inputs after having updated them. The flag `update_inputs` verifies the new inputs.
-
-To verify the validity of the inputs pinned by the script `./test_chonk_standalone_vks_havent_changed.sh`, run:
+Proving the pinned inputs is handled by tests, not by `chonk_inputs.sh`. To verify the C++ pinned input path locally, run:
 
 ```bash
-cd barretenberg/cpp/scripts
-./test_chonk_standalone_vks_havent_changed.sh --prove_and_verify
+barretenberg/cpp/scripts/chonk_inputs.sh download
+barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows
 ```
 
-Note: If a proof test fails for a specific flow, the inputs are saved to:
-`yarn-project/end-to-end/example-app-ivc-inputs-out/<flow_name>`
+For bb.js, run:
+
+```bash
+barretenberg/cpp/scripts/chonk_inputs.sh download
+barretenberg/ts/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
+```
 
 Typical workflow
 
 1. Make barretenberg changes
 2. Build native code: `cd barretenberg/cpp && ./bootstrap.sh build_native`
-3. Check VKs: `cd scripts && ./test_chonk_standalone_vks_havent_changed.sh`
-4. If VKs changed intentionally: `./test_chonk_standalone_vks_havent_changed.sh --update_inputs`
+3. Check VKs: `barretenberg/cpp/scripts/chonk_inputs.sh check`
+4. If VKs changed intentionally: `barretenberg/cpp/scripts/chonk_inputs.sh update`
 
 ## Example IVC inputs
 
-Example IVC inputs (msgpack files) for `bb prove --scheme chonk` are generated by e2e benchmark tests. Run the full bootstrap from the repo root to populate them:
+Example IVC inputs (msgpack files) for `bb prove --scheme chonk` are pinned to a fixed CI tarball. Download them from the repo root with:
 
 ```bash
-cd $(git rev-parse --show-toplevel) && ./bootstrap.sh
+barretenberg/cpp/scripts/chonk_inputs.sh download
 ```
 
-This creates `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`. The inputs are generated by the `build_bench` function in `yarn-project/end-to-end/bootstrap.sh`, which runs client flow tests with `CAPTURE_IVC_FOLDER` set. In CI, these are cached as `bb-chonk-captures-<hash>.tar.gz`.
+This creates `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`. To intentionally refresh the pinned tarball, use the PR `ci-refresh-chonk` label or put `--ci-refresh-chonk` in the head commit message.
 
 ## Memory profiling
 

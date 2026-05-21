@@ -31,8 +31,7 @@ export class EpochTestSettler {
   }
 
   async handleEpochReadyToProve(epoch: EpochNumber): Promise<boolean> {
-    const checkpointedBlocks = await this.l2BlockSource.getCheckpointedBlocksForEpoch(epoch);
-    const blocks = checkpointedBlocks.map(b => b.block);
+    const blocks = await this.l2BlockSource.getBlocks({ epoch, onlyCheckpointed: true });
     this.log.info(
       `Settling epoch ${epoch} with blocks ${blocks[0]?.header.getBlockNumber()} to ${blocks.at(-1)?.header.getBlockNumber()}`,
       { blocks: blocks.map(b => b.toBlockInfo()) },
@@ -58,7 +57,7 @@ export class EpochTestSettler {
       this.log.info(`No L2 to L1 messages in epoch ${epoch}`);
     }
 
-    const lastCheckpoint = checkpointedBlocks.at(-1)?.checkpointNumber;
+    const lastCheckpoint = blocks.at(-1)?.checkpointNumber;
     if (lastCheckpoint !== undefined) {
       await this.rollupCheatCodes.markAsProven(lastCheckpoint);
     } else {

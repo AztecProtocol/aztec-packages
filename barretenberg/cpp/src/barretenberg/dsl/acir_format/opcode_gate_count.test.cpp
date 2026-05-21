@@ -391,25 +391,21 @@ TYPED_TEST(OpcodeGateCountTests, MultiScalarMul)
     // Create a minimal MSM with one point and one scalar
     msm_constraint.points.push_back(WitnessOrConstant<bb::fr>::from_index(0)); // x
     msm_constraint.points.push_back(WitnessOrConstant<bb::fr>::from_index(1)); // y
-    msm_constraint.points.push_back(WitnessOrConstant<bb::fr>::from_index(2)); // is_infinite
 
-    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(3)); // scalar_lo
-    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(4)); // scalar_hi
+    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(2)); // scalar_lo
+    msm_constraint.scalars.push_back(WitnessOrConstant<bb::fr>::from_index(3)); // scalar_hi
 
-    msm_constraint.predicate = WitnessOrConstant<bb::fr>::from_index(5);
+    msm_constraint.predicate = WitnessOrConstant<bb::fr>::from_index(4);
 
-    msm_constraint.out_point_x = 6;
-    msm_constraint.out_point_y = 7;
-    msm_constraint.out_point_is_infinite = 8;
+    msm_constraint.out_point_x = 5;
+    msm_constraint.out_point_y = 6;
 
-    WitnessVector witness(9, fr(0));
+    WitnessVector witness(7, fr(0));
     // Set valid point coordinates
     witness[0] = point.x;
     witness[1] = point.y;
-    witness[2] = fr(0);
-    witness[6] = point.x;
-    witness[7] = point.y;
-    witness[8] = fr(0);
+    witness[5] = point.x;
+    witness[6] = point.y;
 
     AcirFormat constraint_system = constraint_to_acir_format(msm_constraint);
 
@@ -431,29 +427,23 @@ TYPED_TEST(OpcodeGateCountTests, EcAdd)
     EcAdd ec_add_constraint{
         .input1_x = WitnessOrConstant<bb::fr>::from_index(0),
         .input1_y = WitnessOrConstant<bb::fr>::from_index(1),
-        .input1_infinite = WitnessOrConstant<bb::fr>::from_index(2),
-        .input2_x = WitnessOrConstant<bb::fr>::from_index(3),
-        .input2_y = WitnessOrConstant<bb::fr>::from_index(4),
-        .input2_infinite = WitnessOrConstant<bb::fr>::from_index(5),
-        .predicate = WitnessOrConstant<bb::fr>::from_index(6),
-        .result_x = 7,
-        .result_y = 8,
-        .result_infinite = 9,
+        .input2_x = WitnessOrConstant<bb::fr>::from_index(2),
+        .input2_y = WitnessOrConstant<bb::fr>::from_index(3),
+        .predicate = WitnessOrConstant<bb::fr>::from_index(4),
+        .result_x = 5,
+        .result_y = 6,
     };
 
-    WitnessVector witness(10, fr(0));
+    WitnessVector witness(7, fr(0));
     // Set valid point1 coordinates
     witness[0] = point1.x;
     witness[1] = point1.y;
-    witness[2] = fr(0);
     // Set valid point2 coordinates
-    witness[3] = point2.x;
-    witness[4] = point2.y;
-    witness[5] = fr(0);
+    witness[2] = point2.x;
+    witness[3] = point2.y;
     // Set valid result coordinates
-    witness[7] = point1.x;
-    witness[8] = point1.y;
-    witness[9] = fr(0);
+    witness[5] = point1.x;
+    witness[6] = point1.y;
 
     AcirFormat constraint_system = constraint_to_acir_format(ec_add_constraint);
 
@@ -476,8 +466,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -512,8 +502,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -548,8 +538,8 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Write,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
     BlockConstraint block_constraint{
@@ -588,17 +578,17 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
     std::vector<MemOp> trace;
     trace.push_back(MemOp{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(2), // 0
-        .value = WitnessOrConstant<bb::fr>::from_index(3), // 10
+        .index = 2, // 0
+        .value = 3, // 10
     });
 
-    // Primary calldata
+    // Kernel calldata
     {
         BlockConstraint block_constraint{
             .init = init,
             .trace = trace,
             .type = BlockType::CallData,
-            .calldata_id = CallDataType::Primary,
+            .calldata_id = CallDataType::KernelCalldata,
         };
 
         AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
@@ -614,13 +604,13 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
         EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BLOCK_CALLDATA<TypeParam> }));
     }
 
-    // Secondary calldata
+    // App calldata
     {
         BlockConstraint block_constraint{
             .init = init,
             .trace = trace,
             .type = BlockType::CallData,
-            .calldata_id = CallDataType::Secondary,
+            .calldata_id = CallDataType::FirstAppCalldata,
         };
 
         AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
@@ -670,5 +660,5 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
        // by zero, and this would throw an error.
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false), BLOCK_RETURNDATA<TypeParam>);
+    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), BLOCK_RETURNDATA<TypeParam>);
 }

@@ -157,12 +157,7 @@ pub contract Token {
     // docs:start:transfer_in_public
     #[authorize_once("from", "authwit_nonce")]
     #[external("public")]
-    fn transfer_in_public(
-        from: AztecAddress,
-        to: AztecAddress,
-        amount: u128,
-        authwit_nonce: Field,
-    ) {
+    fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_balance = self.storage.public_balances.at(from).read().sub(amount);
         self.storage.public_balances.at(from).write(from_balance);
         let to_balance = self.storage.public_balances.at(to).read().add(amount);
@@ -181,12 +176,7 @@ pub contract Token {
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
-    fn transfer_to_public(
-        from: AztecAddress,
-        to: AztecAddress,
-        amount: u128,
-        authwit_nonce: Field,
-    ) {
+    fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
         self.enqueue_self._increase_public_balance(to, amount);
     }
@@ -234,14 +224,12 @@ pub contract Token {
         self.storage.balances.at(from).add(change).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
-        // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
+        // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the
+        // transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
-        self.emit(Transfer { from, to, amount }).deliver_to(
-            to,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        );
+        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[internal("private")]
@@ -281,10 +269,8 @@ pub contract Token {
         self.internal.subtract_balance(account, amount, RECURSIVE_TRANSFER_CALL_MAX_NOTES)
     }
 
-    /**
-     * Cancel a private authentication witness.
-     * @param inner_hash The inner hash of the authwit to cancel.
-     */
+    /// Cancel a private authentication witness.
+    /// @param inner_hash The inner hash of the authwit to cancel.
     // docs:start:cancel_authwit
     #[external("private")]
     fn cancel_authwit(inner_hash: Field) {
@@ -297,16 +283,34 @@ pub contract Token {
     // docs:start:transfer_in_private
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
-    fn transfer_in_private(
+    fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+    }
+    // docs:end:transfer_in_private
+
+    // docs:start:transfer_in_private_with_offchain_delivery
+    /// Mirrors `transfer_in_private` but delivers the resulting notes via offchain messages.
+    ///
+    /// Offchain messages are returned to the caller as encrypted payloads. The sender is responsible for getting the
+    /// recipient's note to them (typically by encoding it into a link, QR code, or direct message). The recipient
+    /// ingests it by calling `offchain_receive` on their environment.
+    ///
+    /// A `Transfer` event is also emitted to be delivered offchain.
+    #[authorize_once("from", "authwit_nonce")]
+    #[external("private")]
+    fn transfer_in_private_with_offchain_delivery(
         from: AztecAddress,
         to: AztecAddress,
         amount: u128,
         authwit_nonce: Field,
     ) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.OFFCHAIN);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.OFFCHAIN);
+
+        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery.OFFCHAIN);
     }
-    // docs:end:transfer_in_private
+    // docs:end:transfer_in_private_with_offchain_delivery
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
@@ -408,11 +412,7 @@ pub contract Token {
     // `completer` (the entity that can complete the partial note) are the same so we represent them with a single
     // argument.
     #[internal("public")]
-    fn _finalize_transfer_to_private(
-        from_and_completer: AztecAddress,
-        amount: u128,
-        partial_note: PartialUintNote,
-    ) {
+    fn _finalize_transfer_to_private(from_and_completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
         // First we subtract the `amount` from the public balance of `from_and_completer`
         let balance_storage = self.storage.public_balances.at(from_and_completer);
 
@@ -420,12 +420,7 @@ pub contract Token {
         balance_storage.write(from_balance);
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(
-            self.context,
-            from_and_completer,
-            self.storage.balances.get_storage_slot(),
-            amount,
-        );
+        partial_note.complete(self.context, from_and_completer, self.storage.balances.get_storage_slot(), amount);
     }
 
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
@@ -484,12 +479,7 @@ pub contract Token {
         self.storage.total_supply.write(supply);
 
         // We finalize the transfer by completing the partial note.
-        partial_note.complete(
-            self.context,
-            completer,
-            self.storage.balances.get_storage_slot(),
-            amount,
-        );
+        partial_note.complete(self.context, completer, self.storage.balances.get_storage_slot(), amount);
     }
 
     #[external("public")]

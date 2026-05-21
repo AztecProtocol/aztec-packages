@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <optional>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
@@ -128,7 +128,7 @@ void MerkleCheckTraceBuilder::process(
 
 const InteractionDefinition MerkleCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_merkle_check_merkle_poseidon2_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_merkle_check_merkle_poseidon2_write_settings, InteractionType::LookupSequential>();
+        .add<InteractionType::LookupSequential, lookup_merkle_check_merkle_poseidon2_read_settings>()
+        .add<InteractionType::LookupSequential, lookup_merkle_check_merkle_poseidon2_write_settings>();
 
 } // namespace bb::avm2::tracegen

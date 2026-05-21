@@ -7,6 +7,8 @@ set -eu
 # Requires: SLACK_BOT_TOKEN
 # Optional: CLAUDEBOX_REPO (default: AztecProtocol/aztec-packages)
 
+NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source_base"
+
 if [[ "${CI:-}" != "1" ]]; then
   echo "Not in CI — skipping slack_notify_with_claudebox_kickoff"
   exit 0

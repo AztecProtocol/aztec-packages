@@ -15,5 +15,5 @@ export interface ProverAgentApi {
 }
 
 export const ProverAgentApiSchema: ApiSchemaFor<ProverAgentApi> = {
-  getStatus: z.function().args().returns(ProverAgentStatusSchema),
+  getStatus: z.function({ input: z.tuple([]), output: ProverAgentStatusSchema }),
 };

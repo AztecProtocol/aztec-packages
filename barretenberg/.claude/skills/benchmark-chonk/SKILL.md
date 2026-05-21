@@ -6,24 +6,16 @@ argument-hint: <action> e.g. "run", "compare", "wasm", "instrument <area>", "per
 
 # Benchmark Chonk
 
-Run realistic Chonk IVC benchmarks using **pinned protocol inputs** (real transaction flows captured from end-to-end tests), not the synthetic `chonk_bench` target. The synthetic benchmark (`chonk_bench`) uses trivially small mock circuits — it is useful for quick regression checks but does NOT reflect production proving performance. Users invoking `/benchmark-chonk` want the real thing.
+Run realistic Chonk IVC benchmarks using **pinned protocol inputs** (real transaction flows captured from end-to-end tests).
 
-## What makes this different from `chonk_bench`
-
-| | `chonk_bench` (synthetic) | This skill (realistic) |
-|---|---|---|
-| Input data | Mock circuits via `test_bench_shared.hpp` | Pinned msgpack from real Aztec transactions |
-| Circuit count | 2 or 5 tiny circuits | Full transaction flows (10+ circuits) |
-| Circuit variety | All identical | Mixed: app, kernel, tail, public |
-| BB command | `./chonk_bench --benchmark_filter=...` | `bb prove --scheme chonk --ivc_inputs_path ...` |
+**Chonk has no synthetic micro-benchmark.** Always benchmark Chonk via `bb prove --scheme chonk` against pinned `ivc-inputs.msgpack` for real transaction flows. If a Chonk proving question seems to call for a micro-benchmark, the answer is still `bb prove` on a real flow.
 
 ## Step 1: Get pinned IVC inputs
 
-The real benchmark inputs are pinned to an S3 artifact keyed by a short hash. Download them:
+The real benchmark inputs are pinned to an S3 artifact keyed by a 16-character hash prefix. Download them:
 
 ```bash
-cd barretenberg/cpp/scripts
-./test_chonk_standalone_vks_havent_changed.sh --download_pinned_inputs
+barretenberg/cpp/scripts/chonk_inputs.sh download
 ```
 
 This populates `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`.
@@ -33,33 +25,51 @@ Available flows (typical):
 - `schnorr+deploy_tokenContract_with_registration+sponsored_fpc`
 - `ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc`
 - `ecdsar1+transfer_1_recursions+private_fpc`
-- and more — run `ls yarn-project/end-to-end/example-app-ivc-inputs-out/` after downloading
+- and more under `yarn-project/end-to-end/example-app-ivc-inputs-out/` after downloading
 
-The pinned hash is maintained in `barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh` (variable `pinned_short_hash`). The S3 URL is:
+The pinned hash prefix is maintained in `barretenberg/cpp/scripts/chonk-inputs.hash`. The S3 URL is:
 ```
 https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-<hash>.tar.gz
 ```
 
 To update the pinned inputs (after protocol changes that affect VKs):
 ```bash
-./test_chonk_standalone_vks_havent_changed.sh --update_inputs
+barretenberg/cpp/scripts/chonk_inputs.sh update
 ```
 
-## Step 2: Build bb in release mode
+## Step 2: Build bb
 
 ```bash
 cd barretenberg/cpp
-cmake --preset clang20-no-avm    # AVM not needed for Chonk
-cmake --build --preset clang20-no-avm --target bb
+cmake --preset clang20
+cmake --build --preset clang20 --target bb
 ```
 
-Build dir: `build-no-avm` (or `build` if using the `clang20` preset).
+Build dir: `build`. To use a different native preset, build with that preset and set `NATIVE_PRESET` when running the benchmark script.
 
 ## Step 3: Run the benchmark
 
 **Always set `HARDWARE_CONCURRENCY=8` for local runs.** The remote benchmarking machine uses 16, but local/shared machines should use 8. See `/remote-bench` for remote execution.
 
 ### Native
+
+For the standard local path, download the pinned inputs and use the same benchmark script CI uses:
+
+```bash
+barretenberg/cpp/scripts/chonk_inputs.sh download
+HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native
+```
+
+The benchmark script defaults to `ecdsar1+transfer_0_recursions+sponsored_fpc`. If a flow fails, the pinned inputs remain in `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`; rerun the same case by passing the flow directory:
+
+```bash
+HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native \
+  yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>
+```
+
+The CI benchmark also cross-checks the proof against the generated protocol VK artifacts under `noir-projects/noir-protocol-circuits/target`. That is a post-prove check, not part of the pinned input download.
+
+For manual runs:
 
 ```bash
 cd barretenberg/cpp
@@ -68,7 +78,7 @@ FLOW="schnorr+deploy_tokenContract_with_registration+sponsored_fpc"
 OUTPUT_DIR="/tmp/chonk-bench-out"
 mkdir -p $OUTPUT_DIR
 
-HARDWARE_CONCURRENCY=8 ./build-no-avm/bin/bb prove \
+HARDWARE_CONCURRENCY=8 ./build/bin/bb prove \
   -o $OUTPUT_DIR \
   --ivc_inputs_path ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/ivc-inputs.msgpack \
   --scheme chonk \
@@ -78,6 +88,15 @@ HARDWARE_CONCURRENCY=8 ./build-no-avm/bin/bb prove \
 ```
 
 ### WASM (via wasmtime)
+
+Use the CI benchmark script with the WASM runtime:
+
+```bash
+barretenberg/cpp/scripts/chonk_inputs.sh download
+HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm
+```
+
+For manual runs:
 
 Build the WASM binary with threads enabled:
 
@@ -158,7 +177,7 @@ The macros create `BenchReporter` RAII objects that:
 
 ### Google Benchmark integration
 
-For `chonk_bench` and other `.bench.cpp` targets:
+For `.bench.cpp` targets that integrate BB_BENCH into Google Benchmark counters:
 ```cpp
 #include "barretenberg/common/google_bb_bench.hpp"
 
@@ -275,25 +294,24 @@ python3 barretenberg/cpp/scripts/extract_component_benchmarks.py <output_dir> <n
 
 This reads `benchmark_breakdown.json`, finds operations matching key components (sumcheck, pcs, pippenger, commitment, circuit, oink, compute), and appends them to `benchmarks.bench.json` with stacked chart markers for the dashboard.
 
-## A/B comparison scripts
+## A/B comparison
 
-These use Google Benchmark's `compare.py` for statistical analysis. Note: these use the **remote machine** — see `/remote-bench`.
+For Chonk A/B between branches, run `bb prove --scheme chonk` against the same pinned `ivc-inputs.msgpack` on each branch and compare the resulting `--bench_out_hierarchical` JSON manually. Use the **remote machine** (`/remote-bench`) for stable, single-run numbers.
+
+The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 
 | Script | What it compares |
 |--------|-----------------|
-| `scripts/compare_chonk_bench.sh` | Native ChonkBench/Full/6, branch vs baseline |
-| `scripts/compare_chonk_bench_wasm.sh` | WASM ChonkBench/Full/6, branch vs baseline |
-| `scripts/compare_branch_vs_baseline_remote.sh` | Generic native A/B |
+| `scripts/compare_branch_vs_baseline_remote.sh` | Generic native A/B (any `*_bench` target) |
 | `scripts/compare_branch_vs_baseline_remote_wasm.sh` | Generic WASM A/B |
 
 ## Key scripts reference
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/test_chonk_standalone_vks_havent_changed.sh` | Download/update/verify pinned inputs |
+| `scripts/chonk_inputs.sh` | Download, check, and update pinned inputs |
 | `scripts/ci_benchmark_ivc_flows.sh` | CI: proves a flow, extracts components, uploads to dashboard |
 | `scripts/benchmark_example_ivc_flow_remote.sh` | Proves a pinned flow on the remote machine (uses `/remote-bench`) |
-| `scripts/benchmark_chonk.sh` | Synthetic `chonk_bench` on remote |
 | `scripts/wasmtime.sh` | wasmtime wrapper with standard flags |
 | `scripts/extract_component_benchmarks.py` | Extract component timings from hierarchical breakdown |
 
@@ -307,13 +325,13 @@ These use Google Benchmark's `compare.py` for statistical analysis. Note: these 
 - **WASM preset:** `wasm-threads`. Build dir is `build-wasm-threads/`. The preset enables `ENABLE_WASM_BENCH=ON` automatically.
 - **WASM is ~2.8x slower than native** — this ratio is consistent across all circuit types.
 - **CRS:** Ensure `~/.bb-crs` exists. For WASM, wasmtime needs `--dir=$HOME/.bb-crs`.
-- **`BB_BENCH=1` vs `--print_bench`:** Either activates profiling. `--print_bench` also triggers the hierarchical tree output to stderr. In `chonk_bench`, the `GOOGLE_BB_BENCH_REPORTER` macro enables it automatically when `BB_BENCH=1` is set.
+- **`BB_BENCH=1` vs `--print_bench`:** Either activates profiling. `--print_bench` also triggers the hierarchical tree output to stderr. In Google-Benchmark targets that wrap their loops with `GOOGLE_BB_BENCH_REPORTER`, the same activation happens automatically when `BB_BENCH=1` is set.
 - **Dashboard:** CI uploads breakdown data to `bench/bb-breakdown/` on S3. The dashboard at `ci3/dashboard/chonk-breakdowns/` visualizes it.
 - **Rebuilding after instrumentation changes:** Only `ninja bb` is needed — no need to reconfigure.
 
 ## Presenting results
 
-When sharing benchmark results, create an **HTML gist** with an interactive visualization. Include:
+When sharing benchmark results, create an **HTML report** with an interactive visualization. Include:
 
 - **Native vs WASM tabs** with per-circuit comparison table
 - **Stacked bar charts** showing time distribution across circuits
@@ -321,4 +339,4 @@ When sharing benchmark results, create an **HTML gist** with an interactive visu
 - **Summary cards** with total time, slowdown ratio, and heaviest circuit
 - **Color-coded circuit types**: kernel (blue), app (red), infra (gray)
 
-Use `create_gist` / `update_gist` with a `.html` file. GitHub renders HTML gists — viewers can open the raw HTML to interact with tabs and tooltips. This is much more useful than plain markdown tables for benchmark data.
+Prefer the benchmark dashboard for CI results. For local comparisons, keep the HTML report as a local artifact unless the reviewer asks for a shared upload.

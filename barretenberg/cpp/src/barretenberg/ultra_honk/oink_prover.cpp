@@ -186,9 +186,10 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        // Gemini masking poly only needs to cover the actual polynomial extent, not full dyadic size
-        const size_t polynomial_size = prover_instance->polynomials.max_end_index();
-        prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
+        // virtual_size = dyadic_size matches every other witness poly, so sumcheck's pairwise read
+        // past end_index lands in the virtual-zero region.
+        prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(
+            prover_instance->polynomials.max_end_index(), prover_instance->dyadic_size(), /*start_index=*/0);
 
         // Commit to the masking polynomial and send to transcript
         auto masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly);
@@ -207,6 +208,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
  */
 template <typename Flavor> void OinkProver<Flavor>::add_ram_rom_memory_records_to_wire_4(ProverInstance& instance)
 {
+    BB_BENCH_NAME("OinkProver::add_ram_rom_memory_records_to_wire_4");
     // The memory record values are computed at the indicated indices as
     // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
     // (See the Memory relation for details)
@@ -267,6 +269,7 @@ template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_invers
  */
 template <typename Flavor> void OinkProver<Flavor>::compute_grand_product_polynomial(ProverInstance& instance)
 {
+    BB_BENCH_NAME("OinkProver::compute_grand_product_polynomial");
     auto& relation_parameters = instance.relation_parameters;
     relation_parameters.public_input_delta = compute_public_input_delta<Flavor>(
         instance.public_inputs, relation_parameters.beta, relation_parameters.gamma, instance.pub_inputs_offset());

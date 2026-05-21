@@ -1,4 +1,4 @@
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
 
 import { z } from 'zod';
 
@@ -49,13 +49,19 @@ export interface P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
 
   /**
-   * Queries the Attestation pool for checkpoint attestations for the given slot
+   * Queries the Attestation pool for checkpoint attestations for the given slot.
    *
    * @param slot - the slot to query
-   * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
+   * @param proposalPayloadHash - hex-encoded keccak256 of the target proposal's signed
+   *        payload (`CheckpointProposal.getPayloadHash()`). When provided, only
+   *        attestations whose own signed payload hashes to the same value are returned.
+   *        When omitted, all attestations for the slot are returned.
    * @returns CheckpointAttestations
    */
-  getCheckpointAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<CheckpointAttestation[]>;
+  getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]>;
 }
 
 export interface P2PClient extends P2PApi {
@@ -64,16 +70,22 @@ export interface P2PClient extends P2PApi {
 }
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
-  getCheckpointAttestationsForSlot: z
-    .function()
-    .args(schemas.SlotNumber, optional(z.string()))
-    .returns(z.array(CheckpointAttestation.schema)),
-  getPendingTxs: z
-    .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
-    .returns(z.array(Tx.schema)),
+  getCheckpointAttestationsForSlot: z.function({
+    input: z.tuple([
+      schemas.SlotNumber,
+      optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
+    ]),
+    output: z.array(CheckpointAttestation.schema),
+  }),
+  getPendingTxs: z.function({
+    input: z.tuple([
+      optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
+      optional(TxHash.schema),
+    ]),
+    output: z.array(Tx.schema),
+  }),
 
-  getPendingTxCount: z.function().returns(schemas.Integer),
-  getEncodedEnr: z.function().returns(z.string().optional()),
-  getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
+  getPendingTxCount: z.function({ input: z.tuple([]), output: schemas.Integer }),
+  getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
+  getPeers: z.function({ input: z.tuple([optional(z.boolean())]), output: z.array(PeerInfoSchema) }),
 };

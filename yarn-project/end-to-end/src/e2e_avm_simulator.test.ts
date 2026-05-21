@@ -1,8 +1,9 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { PublicStorageOverride, Wallet } from '@aztec/aztec.js/wallet';
 import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
@@ -16,6 +17,7 @@ describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: Wallet;
+  let aztecNode: AztecNode;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
@@ -23,6 +25,7 @@ describe('e2e_avm_simulator', () => {
     ({
       teardown,
       wallet,
+      aztecNode,
       accounts: [defaultAccountAddress],
     } = await setup(1));
     await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
@@ -45,9 +48,9 @@ describe('e2e_avm_simulator', () => {
     describe('Assertions & error enriching', () => {
       /**
        * Expect an error like:
-       * Assertion failed: This assertion should fail! 'not_true == true'
+       * Assertion failed: This assertion should fail! 'assert(not_true == true, "This assertion should fail!")'
        * ...
-       * at not_true == true (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:16)
+       * at assert(not_true == true, "This assertion should fail!") (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:5)
        * at inner_helper_with_failed_assertion() (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
        * at quote { $self } (../std/meta/expr.nr:269:9)
        * at function.name();
@@ -60,7 +63,9 @@ describe('e2e_avm_simulator', () => {
             avmContract.methods.assertion_failure().simulate({ from: defaultAccountAddress }),
           ).rejects.toThrow(
             expect.objectContaining({
-              message: expect.stringMatching(/Assertion failed: This assertion should fail! 'not_true == true'/),
+              message: expect.stringMatching(
+                /Assertion failed: This assertion should fail! 'assert\(not_true == true, "This assertion should fail!"\)'/,
+              ),
               stack: expect.stringMatching(/at inner_helper_with_failed_assertion[\s\S]*at AvmTest\..*/),
             }),
           );
@@ -152,6 +157,7 @@ describe('e2e_avm_simulator', () => {
             avmContractInstance.deployer,
             avmContractInstance.currentContractClassId,
             avmContractInstance.initializationHash,
+            avmContractInstance.immutablesHash,
           )
           .send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
@@ -246,6 +252,51 @@ describe('e2e_avm_simulator', () => {
           .send({ from: defaultAccountAddress });
         expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
       });
+    });
+  });
+
+  describe('publicDataOverrides', () => {
+    // AvmTestContract: `single` is the first storage variable and lives at raw slot 1.
+    const SINGLE_SLOT = new Fr(1n);
+    let avmContract: AvmTestContract;
+
+    beforeEach(async () => {
+      ({ contract: avmContract } = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress }));
+    });
+
+    it('simulated read of an unwritten slot returns the override; real storage is untouched', async () => {
+      const overrideValue = new Fr(0xdeadbeefn);
+      const publicStorage: PublicStorageOverride[] = [
+        { contract: avmContract.address, slot: SINGLE_SLOT, value: overrideValue },
+      ];
+
+      const simResult = await avmContract.methods
+        .read_storage_single()
+        .simulate({ from: defaultAccountAddress, overrides: { publicStorage } });
+      expect(simResult.result).toEqual(overrideValue.toBigInt());
+
+      // Real state is untouched — the slot was never written.
+      const realValue = await aztecNode.getPublicStorageAt('latest', avmContract.address, SINGLE_SLOT);
+      expect(realValue.toBigInt()).toEqual(0n);
+    });
+
+    it('simulated read returns the override when a slot was previously written by a real tx', async () => {
+      const realValue = new Fr(100n);
+      await avmContract.methods.set_storage_single(realValue).send({ from: defaultAccountAddress });
+
+      const overrideValue = new Fr(999n);
+      const publicStorage: PublicStorageOverride[] = [
+        { contract: avmContract.address, slot: SINGLE_SLOT, value: overrideValue },
+      ];
+
+      const simResult = await avmContract.methods
+        .read_storage_single()
+        .simulate({ from: defaultAccountAddress, overrides: { publicStorage } });
+      expect(simResult.result).toEqual(overrideValue.toBigInt());
+
+      // Real storage still holds the original written value.
+      const storedValue = await aztecNode.getPublicStorageAt('latest', avmContract.address, SINGLE_SLOT);
+      expect(storedValue.toBigInt()).toEqual(realValue.toBigInt());
     });
   });
 

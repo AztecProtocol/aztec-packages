@@ -17,10 +17,7 @@ export class L2BlockStream {
   private hasStarted = false;
 
   constructor(
-    private l2BlockSource: Pick<
-      L2BlockSource,
-      'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
-    >,
+    private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockData' | 'getL2Tips' | 'getCheckpoints'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
@@ -77,6 +74,22 @@ export class L2BlockStream {
       let latestBlockNumber = localTips.proposed.number;
       const sourceCache = new BlockHashCache([sourceTips.proposed]);
       while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
+        if (latestBlockNumber === 0) {
+          // We walked all the way back to genesis and the hashes still differ. This means the
+          // local store and the source disagree on the genesis block itself — typically because
+          // they were configured with different `genesisTimestamp`/prefilled state. Continuing
+          // would underflow into negative block numbers and surface as "block hash not found
+          // for -1" further down. Fail loudly with a meaningful error instead.
+          this.log.error(`Genesis block hash mismatch between local store and source`, {
+            localBlockHash: await this.localData.getL2BlockHash(BlockNumber.ZERO),
+            sourceBlockHash: sourceCache.get(0) ?? (await this.getBlockHashFromSource(BlockNumber.ZERO)),
+          });
+          throw new Error(
+            'Genesis block hash mismatch between local store and source: refusing to walk past block 0. ' +
+              'This usually indicates the two sides were configured with different genesis values ' +
+              '(e.g. genesisTimestamp or prefilled public data).',
+          );
+        }
         latestBlockNumber--;
       }
 
@@ -97,8 +110,9 @@ export class L2BlockStream {
       }
 
       // If we are just starting, use the starting block number from the options.
-      if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
-        latestBlockNumber = BlockNumber(Math.max(this.opts.startingBlock - 1, 0));
+      const startingBlock = this.opts.startingBlock !== undefined ? BlockNumber(this.opts.startingBlock) : undefined;
+      if (latestBlockNumber === 0 && startingBlock !== undefined) {
+        latestBlockNumber = BlockNumber(Math.max(startingBlock - 1, 0));
       }
 
       // Only log this entry once (for sanity)
@@ -112,21 +126,18 @@ export class L2BlockStream {
 
       // When startingBlock is set, also skip ahead for checkpoints.
       if (
-        this.opts.startingBlock !== undefined &&
-        this.opts.startingBlock >= 1 &&
+        startingBlock !== undefined &&
+        startingBlock >= 1 &&
         nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number
       ) {
-        const startingBlockCheckpoints = await this.l2BlockSource.getCheckpointedBlocks(
-          BlockNumber(this.opts.startingBlock),
-          1,
-        );
-        if (startingBlockCheckpoints.length > 0) {
-          nextCheckpointToEmit = CheckpointNumber(
-            Math.max(nextCheckpointToEmit, startingBlockCheckpoints[0].checkpointNumber),
-          );
-        } else {
+        if (startingBlock > sourceTips.checkpointed.block.number) {
           // startingBlock is past all checkpointed blocks; skip Loop 1 entirely.
           nextCheckpointToEmit = CheckpointNumber(sourceTips.checkpointed.checkpoint.number + 1);
+        } else {
+          const startingBlockData = await this.l2BlockSource.getBlockData({ number: startingBlock });
+          if (startingBlockData) {
+            nextCheckpointToEmit = CheckpointNumber(Math.max(nextCheckpointToEmit, startingBlockData.checkpointNumber));
+          }
         }
       }
 
@@ -149,7 +160,7 @@ export class L2BlockStream {
       if (!this.opts.ignoreCheckpoints) {
         let loop1Iterations = 0;
         while (nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number) {
-          const checkpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointToEmit, 1);
+          const checkpoints = await this.l2BlockSource.getCheckpoints({ from: nextCheckpointToEmit, limit: 1 });
           if (checkpoints.length === 0) {
             break;
           }
@@ -184,9 +195,9 @@ export class L2BlockStream {
 
       // Find the starting checkpoint number
       if (nextBlockNumber <= sourceTips.checkpointed.block.number) {
-        const blocks = await this.l2BlockSource.getCheckpointedBlocks(BlockNumber(nextBlockNumber), 1);
-        if (blocks.length > 0) {
-          nextCheckpointNumber = blocks[0].checkpointNumber;
+        const blockData = await this.l2BlockSource.getBlockData({ number: BlockNumber(nextBlockNumber) });
+        if (blockData) {
+          nextCheckpointNumber = blockData.checkpointNumber;
         }
       }
 
@@ -194,7 +205,10 @@ export class L2BlockStream {
         // Refill the prefetch buffer when exhausted
         if (prefetchIdx >= prefetchedCheckpoints.length) {
           const prefetchLimit = this.opts.checkpointPrefetchLimit ?? CHECKPOINT_PREFETCH_LIMIT;
-          prefetchedCheckpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointNumber, prefetchLimit);
+          prefetchedCheckpoints = await this.l2BlockSource.getCheckpoints({
+            from: nextCheckpointNumber,
+            limit: prefetchLimit,
+          });
           prefetchIdx = 0;
           if (prefetchedCheckpoints.length === 0) {
             break;
@@ -234,7 +248,7 @@ export class L2BlockStream {
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit}`);
-        const blocks = await this.l2BlockSource.getBlocks(BlockNumber(nextBlockNumber), BlockNumber(limit));
+        const blocks = await this.l2BlockSource.getBlocks({ from: BlockNumber(nextBlockNumber), limit });
         if (blocks.length === 0) {
           break;
         }
@@ -266,9 +280,6 @@ export class L2BlockStream {
    * @param args - A cache of data already requested from source, to avoid re-requesting it.
    */
   private async areBlockHashesEqualAt(blockNumber: BlockNumber, args: { sourceCache: BlockHashCache }) {
-    if (blockNumber === 0) {
-      return true;
-    }
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
     if (!localBlockHash && this.opts.skipFinalized) {
       // Failing to find a block hash when skipping finalized blocks can be highly problematic as we'd potentially need
@@ -291,8 +302,8 @@ export class L2BlockStream {
 
   private getBlockHashFromSource(blockNumber: BlockNumber) {
     return this.l2BlockSource
-      .getBlockHeader(blockNumber)
-      .then(h => h?.hash())
+      .getBlockData({ number: blockNumber })
+      .then(d => d?.header.hash())
       .then(hash => hash?.toString());
   }
 

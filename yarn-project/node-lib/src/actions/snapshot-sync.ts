@@ -1,4 +1,10 @@
-import { ARCHIVER_DB_VERSION, ARCHIVER_STORE_NAME, type ArchiverConfig, createArchiverStore } from '@aztec/archiver';
+import {
+  ARCHIVER_DB_VERSION,
+  ARCHIVER_STORE_NAME,
+  type ArchiverConfig,
+  createArchiverStore,
+  getArchiverSynchPoint,
+} from '@aztec/archiver';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum/client';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
@@ -32,7 +38,7 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
   Pick<L1ContractsConfig, 'aztecEpochDuration'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
   DataStoreConfig &
-  Required<Pick<DataStoreConfig, 'l1Contracts'>> &
+  Required<Pick<DataStoreConfig, 'rollupAddress'>> &
   EthereumClientConfig & {
     snapshotsUrls?: string[];
     minL1BlocksToTriggerReplace?: number;
@@ -43,7 +49,7 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
  * Behaviour depends on syncing mode.
  */
 export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
-  const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, l1Contracts } = config;
+  const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, rollupAddress } = config;
   if (syncMode === 'full') {
     log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
     return false;
@@ -66,12 +72,12 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   let archiverL2BlockNumber: number | undefined;
   try {
     [archiverL1BlockNumber, archiverL2BlockNumber] = await Promise.all([
-      archiverStore.getSynchPoint().then(s => s.blocksSynchedTo),
-      archiverStore.getLatestBlockNumber(),
+      getArchiverSynchPoint(archiverStore).then(s => s.blocksSynchedTo),
+      archiverStore.blocks.getLatestL2BlockNumber(),
     ] as const);
   } finally {
     log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });
-    await archiverStore.close();
+    await archiverStore.db.close();
   }
 
   const minL1BlocksToTriggerReplace = config.minL1BlocksToTriggerReplace ?? MIN_L1_BLOCKS_TO_TRIGGER_REPLACE;
@@ -100,7 +106,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   const indexMetadata: SnapshotsIndexMetadata = {
     l1ChainId,
     rollupVersion,
-    rollupAddress: l1Contracts.rollupAddress,
+    rollupAddress,
   };
 
   // Fetch latest snapshot from each URL
@@ -188,7 +194,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     try {
       await snapshotSync(snapshot, log, {
         dataDirectory: config.dataDirectory!,
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         fileStore,
       });
       log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {

@@ -16,8 +16,10 @@
 namespace bb {
 
 /**
- * @brief Unified verifier class for the Goblin ECC op queue transcript merge protocol
- * @details Works for both native verification and recursive (in-circuit) verification
+ * @brief Verifier for the single-step Goblin ECC op queue merge protocol.
+ * @details Works for both native verification and recursive (in-circuit) verification. In the Chonk flow this
+ * verifier is used only for the final merge of the hiding kernel's subtable; the multi-subtable batched merge
+ * proven once at the end of an IVC is handled by BatchMergeVerifier_.
  * @tparam Curve The curve type (native curve::BN254 or stdlib bn254<Builder>)
  */
 template <typename Curve> class MergeVerifier_ {
@@ -34,7 +36,6 @@ template <typename Curve> class MergeVerifier_ {
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
-    static constexpr size_t TRACE_OFFSET = MegaExecutionTraceBlocks::TRACE_OFFSET;
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
     // Size of batch opening claim: [Q], [L₁..L₄], [R₁..R₄], [M₁..M₄], [G], [1]
@@ -44,9 +45,10 @@ template <typename Curve> class MergeVerifier_ {
 
     /**
      * Commitments used by the verifier to run the verification algorithm. They contain:
-     *  - `t_commitments`: the subtable commitments data, containing the commitments to t_j read from the transcript by
-     *     the HN verifier with which the Merge verifier shares a transcript
-     *  - `T_prev_commitments`: the commitments to the full op_queue table after the previous iteration of merge
+     *  - `t_commitments`: commitments to the subtable being merged (t_j), read from the transcript by the HN
+     *     verifier with which the Merge verifier shares a transcript
+     *  - `T_prev_commitments`: commitments to the aggregate op_queue table prior to this merge (i.e. covering all
+     *     subtables up to and including the tail subtable, but excluding the one currently being appended)
      */
     struct InputCommitments {
         TableCommitments t_commitments;
@@ -64,13 +66,10 @@ template <typename Curve> class MergeVerifier_ {
         bool reduction_succeeded = false; // Aggregate of degree and concatenation checks
     };
 
-    MergeSettings settings;
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeVerifier_(const MergeSettings settings = MergeSettings::PREPEND,
-                            std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
-        : settings(settings)
-        , transcript(std::move(transcript))
+    explicit MergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
+        : transcript(std::move(transcript))
     {}
 
     /**
@@ -109,12 +108,9 @@ template <typename Curve> class MergeVerifier_ {
         "SHPLONK_MERGE_BATCHING_CHALLENGE_12"
     };
 
-    bool check_concatenation_identities(std::vector<FF>& evals,
-                                        const FF& pow_kappa,
-                                        const FF& pow_kappa_disabled) const;
+    bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const;
 
-    bool check_degree_identity(const std::vector<FF>& l_data_evals,
-                               const FF& g_eval,
+    bool check_degree_identity(const std::vector<FF>& evals,
                                const FF& pow_kappa_minus_one,
                                const std::vector<FF>& degree_check_challenges) const;
 

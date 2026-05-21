@@ -29,12 +29,13 @@ ecdsa_signature ecdsa_construct_signature(const std::string& message, const ecds
     Fr k = crypto::deterministic_nonce_rfc6979<Hash, Fr>(message, pkey_buffer);
     secure_erase(pkey_buffer);
 
-    // Compute R = k * G
-    typename G1::affine_element R(G1::one * k);
+    // Compute R = k * G. k is the secret RFC6979 nonce, so use the constant-time multiplication
+    // to defend against the Hamming-weight / bit-length timing leak in operator*.
+    typename G1::affine_element R(typename G1::element(G1::one).mul_const_time(k).to_affine_const_time());
 
     // Compute the signature
     Fr r = Fr(R.x);
-    Fr s = (z + r * account.private_key) / k;
+    Fr s = (z + r * account.private_key) * k.invert_const_time();
     secure_erase_bytes(&k, sizeof(k));
 
     // Ensure that the value of s is "low", i.e. s := min{ s, (|Fr| - s) }

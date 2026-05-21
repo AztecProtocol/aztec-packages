@@ -2,11 +2,10 @@ import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } 
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
+import { toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
   type FunctionArtifact,
-  type FunctionCall,
   FunctionSelector,
   type NoteSelector,
   countArgumentsSize,
@@ -41,8 +40,6 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   argsHash: Fr;
   txContext: TxContext;
   callContext: CallContext;
-  /** Needed to trigger contract synchronization before nested calls */
-  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -50,7 +47,6 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   totalPublicCalldataCount?: number;
   sideEffectCounter?: number;
   senderForTags?: AztecAddress;
-  simulator?: CircuitSimulator;
 };
 
 /**
@@ -75,15 +71,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
   private readonly callContext: CallContext;
-  private readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
   private readonly initialSideEffectCounter: number;
-  private senderForTags?: AztecAddress;
-  private readonly simulator?: CircuitSimulator;
+  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags` unless overridden. */
+  private readonly defaultSenderForTags: AztecAddress | undefined;
+  /** Per-call sender-for-tags override, set by `setSenderForTags`. Takes precedence over `defaultSenderForTags`. */
+  private currentSenderForTags: AztecAddress | undefined;
 
   constructor(args: PrivateExecutionOracleArgs) {
     super({
@@ -94,15 +91,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
     this.callContext = args.callContext;
-    this.utilityExecutor = args.utilityExecutor;
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
     this.senderTaggingStore = args.senderTaggingStore;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
     this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
-    this.senderForTags = args.senderForTags;
-    this.simulator = args.simulator;
+    this.defaultSenderForTags = args.senderForTags;
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
@@ -178,11 +173,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * The value persists through nested calls, meaning all calls down the stack will use the same
-   * 'senderForTags' value (unless it is replaced).
+   * Returns `currentSenderForTags` if set (via `setSenderForTags`), otherwise `defaultSenderForTags`.
    */
   public getSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.resolve(this.senderForTags);
+    return Promise.resolve(this.currentSenderForTags ?? this.defaultSenderForTags);
   }
 
   /**
@@ -192,12 +186,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * Account contracts typically set this value before calling other contracts. The value persists
-   * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-   * value (unless it is replaced by another call to this setter).
+   * Overrides `defaultSenderForTags` for the remainder of this call. Each oracle instance is
+   * independent, so this has no effect on any other call in the execution.
    */
   public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
-    this.senderForTags = senderForTags;
+    this.logger.debug(
+      `Sender for tags switched to ${senderForTags} by contract ${this.contractAddress} (default was ${this.defaultSenderForTags})`,
+    );
+    this.currentSenderForTags = senderForTags;
     return Promise.resolve();
   }
 
@@ -578,15 +574,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       sideEffectCounter,
       log: this.logger,
       scopes: this.scopes,
-      senderForTags: this.senderForTags,
-      simulator: this.simulator!,
+      senderForTags: this.defaultSenderForTags,
+      simulator: this.simulator,
+      hooks: this.hooks,
       l2TipsStore: this.l2TipsStore,
     });
 
     const setupTime = simulatorSetupTimer.ms();
 
     const childExecutionResult = await executePrivateFunction(
-      this.simulator!,
+      this.simulator,
       privateExecutionOracle,
       targetArtifact,
       targetContractAddress,

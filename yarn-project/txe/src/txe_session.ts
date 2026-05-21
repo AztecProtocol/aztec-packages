@@ -9,7 +9,6 @@ import {
   CapsuleService,
   CapsuleStore,
   ContractStore,
-  ContractSyncService,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -39,11 +38,11 @@ import {
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasSettings } from '@aztec/stdlib/gas';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
-import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
+import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
@@ -54,6 +53,7 @@ import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
+import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './txe_oracle_version.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
@@ -110,14 +110,80 @@ export type TXEOracleFunctionName = Exclude<
 >;
 
 export interface TXESessionStateHandler {
+  /** Records the TXE oracle version reported by the Noir test code for diagnostics. */
+  setTxeOracleVersion(version: { major: number; minor: number }): void;
+
   enterTopLevelState(): Promise<void>;
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
-  enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
+  enterPrivateState(
+    contractAddress: AztecAddress | undefined,
+    anchorBlockNumber: BlockNumber | undefined,
+    gasSettings: GasSettings,
+  ): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 
   // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
   cycleJob(): Promise<string>;
   getCurrentJob(): string;
+
+  /**
+   * Runs an executor-style top-level call (private/public call, utility execution) with last-call tracking.
+   */
+  withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T>;
+
+  /**
+   * Captures a raw offchain effect payload for consumption from test environment. Called by the `emit_offchain_effect`
+   * oracle handler whenever a contract function emits an offchain message, at any call depth.
+   */
+  recordOffchainEffect(data: Fr[]): void;
+
+  /**
+   * Returns the raw offchain effect payloads emitted by the last top-level call. Each payload follows the protocol
+   * convention documented on `OFFCHAIN_MESSAGE_IDENTIFIER`, i.e. `[identifier, recipient, ...ciphertext]`. Decoding into
+   * `OffchainMessage` structs happens on the Noir side of the test helper. Marks the buffer as queried so the
+   * unqueried-messages warning doesn't fire on the next reset.
+   */
+  getLastCallOffchainEffects(): { effects: Fr[][] };
+
+  /**
+   * Returns the context of the last top-level call: its tx hash (`Fr.ZERO` if the call was tx-less) and the anchor
+   * block timestamp captured at the start of the call. Does *not* mark the buffer as queried — context reads are
+   * metadata, not effect consumption.
+   */
+  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint };
+}
+
+/**
+ * Session state tracking the most recently completed top-level call: the offchain effect buffer it produced, and the
+ * call's context (tx hash + anchor block timestamp). The context is refreshed on every top-level call, independently
+ * of whether the call produced offchain effects.
+ */
+interface LastCallState {
+  /**
+   * Raw offchain effect payloads emitted by the currently-executing (or most recently completed) top-level call. Wiped
+   * at the start of every top-level entry point, appended to on every `emit_offchain_effect` oracle invocation.
+   */
+  offchainEffects: Fr[][];
+  /**
+   * Tracks whether the test has queried `effects` since the last reset. If a new top-level call clobbers the buffer
+   * without it being queried first, any accumulated messages are lost and we emit a warning so tests don't silently
+   * drop delivery.
+   */
+  queried: boolean;
+  /**
+   * Tx hash of the most recently completed top-level call, or `Fr.ZERO` if the call was tx-less (context setters,
+   * utility execution). Populated by call executor handlers after execution completes.
+   */
+  txHash: Fr;
+  /**
+   * Anchor block timestamp of the most recently completed top-level call, captured from the anchor block header that
+   * was active when the call started. Populated by call executor handlers after execution completes.
+   */
+  anchorBlockTimestamp: bigint;
+}
+
+function emptyLastCallState(): LastCallState {
+  return { offchainEffects: [], queried: false, txHash: Fr.ZERO, anchorBlockTimestamp: 0n };
 }
 
 /**
@@ -127,6 +193,8 @@ export interface TXESessionStateHandler {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
+  private lastCallInfo: LastCallState = emptyLastCallState();
+  private txeOracleVersion: { major: number; minor: number } | undefined;
 
   constructor(
     private logger: Logger,
@@ -151,7 +219,6 @@ export class TXESession implements TXESessionStateHandler {
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
-    private contractSyncService: ContractSyncService,
   ) {}
 
   static async init(contractStore: ContractStore) {
@@ -188,7 +255,6 @@ export class TXESession implements TXESessionStateHandler {
     const initialJobId = jobCoordinator.beginJob();
 
     const logger = createLogger('txe:session');
-    const contractSyncService = new ContractSyncService(stateMachine.node, contractStore, noteStore, logger);
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
@@ -206,7 +272,6 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
-      contractSyncService,
     );
     await topLevelOracleHandler.advanceBlocksBy(1);
 
@@ -229,7 +294,6 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       nextBlockTimestamp,
-      contractSyncService,
     );
   }
 
@@ -251,7 +315,28 @@ export class TXESession implements TXESessionStateHandler {
       return translator[validatedFunctionName](...inputs);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`${functionName} does not correspond to any oracle handler available on RPCTranslator`);
+        let versionHint: string;
+        if (!this.txeOracleVersion) {
+          versionHint =
+            ' The test appears to use an older version of Aztec.nr that does not' +
+            ' support test environment oracle versioning. Update Aztec.nr to a compatible version.' +
+            ' See https://docs.aztec.network/errors/12';
+        } else if (this.txeOracleVersion.minor > TXE_ORACLE_VERSION_MINOR) {
+          versionHint =
+            ` The test uses Aztec.nr test oracle version` +
+            ` ${this.txeOracleVersion.major}.${this.txeOracleVersion.minor}, but this test environment` +
+            ` only supports up to ${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}.` +
+            ` Upgrade the Aztec CLI to a compatible version.` +
+            ` See https://docs.aztec.network/errors/12`;
+        } else {
+          versionHint =
+            ` The test's oracle version (${this.txeOracleVersion.major}.${this.txeOracleVersion.minor})` +
+            ` is compatible with this test environment` +
+            ` (${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}), so this oracle should be` +
+            ` available. This is an unexpected error, please report it.` +
+            ` See https://docs.aztec.network/errors/13`;
+        }
+        throw new Error(`Unknown oracle '${functionName}'.${versionHint}`);
       } else if (error instanceof Error) {
         throw new Error(
           `Execution error while processing function ${functionName} in state ${this.state.name}: ${error.message}`,
@@ -273,6 +358,56 @@ export class TXESession implements TXESessionStateHandler {
     await this.jobCoordinator.commitJob(this.currentJobId);
     this.currentJobId = this.jobCoordinator.beginJob();
     return this.currentJobId;
+  }
+
+  private resetLastCall(): void {
+    const notQueriedMessageCount = this.lastCallInfo.queried
+      ? 0
+      : this.lastCallInfo.offchainEffects.filter(payload => payload[0]?.equals(OFFCHAIN_MESSAGE_IDENTIFIER)).length;
+    if (notQueriedMessageCount > 0) {
+      this.logger.warn(
+        `Dropping ${notQueriedMessageCount} unqueried offchain message(s) from the previous top-level call. ` +
+          `To deliver them, call \`env.offchain_messages()\` and forward the result to the recipient contract's ` +
+          `\`offchain_receive\` utility before issuing another top-level call. To intentionally discard, assign ` +
+          `to \`let _ = env.offchain_messages()\` to silence this warning.`,
+      );
+    }
+    this.lastCallInfo = emptyLastCallState();
+  }
+
+  recordOffchainEffect(data: Fr[]): void {
+    this.lastCallInfo.offchainEffects.push(data);
+  }
+
+  private setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
+    this.lastCallInfo.txHash = txHash;
+    this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
+  }
+
+  async withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
+    this.resetLastCall();
+    // Capture the anchor *before* `work` runs: private/public executor calls mine a new block as a
+    // side effect, and that block's timestamp should not be attributed to this call's anchor.
+    const anchorBlockTimestamp = (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables
+      .timestamp;
+    const { result, txHash } = await work();
+    this.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
+    return result;
+  }
+
+  getLastCallOffchainEffects(): { effects: Fr[][] } {
+    this.lastCallInfo.queried = true;
+    return { effects: this.lastCallInfo.offchainEffects };
+  }
+
+  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
+    const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
+    return { txHash, anchorBlockTimestamp };
+  }
+
+  setTxeOracleVersion(version: { major: number; minor: number }): void {
+    this.txeOracleVersion = version;
+    this.logger.debug(`Test compiled with test oracle version ${version.major}.${version.minor}`);
   }
 
   async enterTopLevelState() {
@@ -316,7 +451,6 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
-      this.contractSyncService,
     );
 
     this.state = { name: 'TOP_LEVEL' };
@@ -325,20 +459,22 @@ export class TXESession implements TXESessionStateHandler {
 
   async enterPrivateState(
     contractAddress: AztecAddress = DEFAULT_ADDRESS,
-    anchorBlockNumber?: BlockNumber,
+    anchorBlockNumber: BlockNumber | undefined,
+    gasSettings: GasSettings,
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
-    const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
+    const anchorBlock = await this.stateMachine.node.getBlock(anchorBlockNumber ?? 'latest').then(b => b?.header);
 
     await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
       contractAddress,
       await this.keyStore.getAccounts(),
     );
-    const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
+    const latestBlock = await this.stateMachine.node.getBlock('latest').then(b => b?.header);
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
       blockNumber: BlockNumber(latestBlock!.globalVariables.blockNumber + 1),
@@ -355,7 +491,7 @@ export class TXESession implements TXESessionStateHandler {
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     this.oracleHandler = new PrivateExecutionOracle({
       argsHash: Fr.ZERO,
-      txContext: new TxContext(this.chainId, this.version, GasSettings.empty()),
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlockHeader: anchorBlock!,
       utilityExecutor,
@@ -375,10 +511,11 @@ export class TXESession implements TXESessionStateHandler {
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
-      l2TipsStore: this.stateMachine.node,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
+      simulator: new WASMSimulator(),
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -389,17 +526,22 @@ export class TXESession implements TXESessionStateHandler {
     this.state = { name: 'PRIVATE', nextBlockGlobalVariables, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
+    // Record the *resolved* anchor's timestamp — if the caller pinned the anchor to a past block
+    // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
+    this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
+
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
   }
 
   async enterPublicState(contractAddress?: AztecAddress) {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     // The PublicContext will create a block with a single transaction in it, containing the effects of what was done in
     // the test. The block therefore gets the *next* block number and timestamp.
-    const latestBlockNumber = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.blockNumber;
+    const latestHeader = (await this.stateMachine.node.getBlockData('latest'))!.header;
     const globalVariables = makeGlobalVariables(undefined, {
-      blockNumber: BlockNumber(latestBlockNumber + 1),
+      blockNumber: BlockNumber(latestHeader.globalVariables.blockNumber + 1),
       timestamp: this.nextBlockTimestamp,
       version: this.version,
       chainId: this.chainId,
@@ -414,10 +556,14 @@ export class TXESession implements TXESessionStateHandler {
 
     this.state = { name: 'PUBLIC' };
     this.logger.debug(`Entered state ${this.state.name}`);
+
+    // Public state is anchored at the latest block.
+    this.setLastCallContext(Fr.ZERO, latestHeader.globalVariables.timestamp);
   }
 
   async enterUtilityState(contractAddress: AztecAddress = DEFAULT_ADDRESS) {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
@@ -448,14 +594,19 @@ export class TXESession implements TXESessionStateHandler {
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
-      contractSyncService: this.contractSyncService,
-      l2TipsStore: this.stateMachine.node,
+      contractSyncService: this.stateMachine.contractSyncService,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
+      simulator: new WASMSimulator(),
+      utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
     });
 
     this.state = { name: 'UTILITY' };
     this.logger.debug(`Entered state ${this.state.name}`);
+
+    // Utility state anchors at whatever the anchor block store is pointing to (tracked as latest).
+    this.setLastCallContext(Fr.ZERO, anchorBlockHeader.globalVariables.timestamp);
   }
 
   private exitTopLevelState() {
@@ -527,6 +678,7 @@ export class TXESession implements TXESessionStateHandler {
       }
 
       try {
+        const simulator = new WASMSimulator();
         const oracle = new UtilityExecutionOracle({
           contractAddress: call.to,
           authWitnesses: [],
@@ -542,12 +694,14 @@ export class TXESession implements TXESessionStateHandler {
           capsuleService: new CapsuleService(this.capsuleStore, scopes),
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
-          contractSyncService: this.contractSyncService,
-          l2TipsStore: this.stateMachine.node,
+          contractSyncService: this.stateMachine.contractSyncService,
+          l2TipsStore: this.stateMachine.l2TipsProvider,
           jobId: this.currentJobId,
           scopes,
+          simulator,
+          utilityExecutor: this.utilityExecutorForContractSync(anchorBlock),
         });
-        await new WASMSimulator()
+        await simulator
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
           .catch((err: Error) => {
             err.message = resolveAssertionMessageFromError(err, entryPointArtifact);

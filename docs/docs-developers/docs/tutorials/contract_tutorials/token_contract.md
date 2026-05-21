@@ -41,7 +41,7 @@ Let's create a simple yarn + aztec.nr project:
 ```bash
 aztec new bob_token
 cd bob_token
-yarn init
+yarn init -y
 # This is to ensure yarn uses node_modules instead of pnp for dependency installation
 yarn config set nodeLinker node-modules
 yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_version @aztec/kv-store@#include_aztec_version @aztec/wallets@#include_aztec_version
@@ -49,7 +49,7 @@ yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_v
 
 ## Contract structure
 
-The `aztec new` command created a contract project with `Nargo.toml` and `src/main.nr`. Let's replace the boilerplate in `src/main.nr` with a simple starting point:
+The `aztec new` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we have a proto-contract. Let's replace it with a simple starting point:
 
 ```rust
 #include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
@@ -57,9 +57,17 @@ The `aztec new` command created a contract project with `Nargo.toml` and `src/ma
 }
 ```
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `bob_token_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+:::
+
 The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol.
 
-Replace the contents of `Nargo.toml` with the following:
+Make sure the Aztec.nr library is listed as a dependency in `bob_token_contract/Nargo.toml`:
 
 ```toml
 [package]
@@ -78,6 +86,10 @@ Since we're here, let's import more specific stuff from this library:
 ```
 
 These are the different macros we need to define the visibility of functions, and some handy types and functions.
+
+:::note
+You may see "unused import" warnings from your IDE or compiler for `only_self`, `MessageDelivery`, and `Owned`. That's expected at this stage — we'll start using them in Part 2 when we add the private half of the contract.
+:::
 
 ## Building the Mental Health Token System
 
@@ -215,6 +227,14 @@ What's this `tsx` dark magic? `tsx` is a tool that compiles and runs TypeScript 
 
 :::
 
+:::tip Ephemeral PXE state
+
+We pass `{ ephemeral: true }` to `EmbeddedWallet.create`. This tells the PXE to keep its state in memory instead of writing it to `pxe_data_*` / `wallet_data_*` folders on disk. If you ever stop and restart your local network (or wipe its state), the next run starts clean instead of failing with errors like `No local block hash for block number …` because on-disk PXE state no longer matches the chain.
+
+For real applications you typically want persistent state, but for tutorials that spin up a fresh network each run, ephemeral is the safer default.
+
+:::
+
 ### 🎉 Celebrate
 
 Congratulations! You've just deployed a working token contract on Aztec! You can:
@@ -249,11 +269,15 @@ When Alice spends 40 BOB tokens at Bob's clinic:
 3. She creates a "change" note for herself (40 BOB)
 4. The consumed notes are nullified (marked as spent)
 
+:::info What is a nullifier?
+A **nullifier** is a unique, one-way tag emitted when a private note is spent. The network adds it to a nullifier tree so the same note can't be spent twice, but because the nullifier is derived from secrets only the note's owner knows, nobody can link a nullifier back to the note it invalidated. See [State Management](../../foundational-topics/state_management.md#private-state) for more.
+:::
+
 In this case, all that the network sees (including Giggle) is just "something happening to some state in some contract". How cool is that?
 
 ### Updating Storage for Privacy
 
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's add it by replacing the `[dependencies]` section in `Nargo.toml`:
+For something like balances, you can use a simple library called `balance_set` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's add it by replacing the `[dependencies]` section in `Nargo.toml`:
 
 ```toml
 [dependencies]
@@ -373,6 +397,14 @@ aztec codegen target --outdir artifacts
 
 ## Testing the Complete Privacy System
 
+Before running the updated script, double-check your local network is still running:
+
+```bash
+aztec start --local-network
+```
+
+If you stopped it between parts of the tutorial, start it again here. Because we set `ephemeral: true` when creating the wallet, restarting the network is safe — the script won't try to reuse stale PXE state from a previous run.
+
 Now that you've implemented all the privacy features, let's update our test script to showcase the full privacy flow:
 
 ### Update Your Test Script
@@ -409,7 +441,14 @@ Let's give it a try:
 npx tsx index.ts
 ```
 
-You should see the complete privacy journey from transparent allocation to confidential usage!
+You should see the complete privacy journey from transparent allocation to confidential usage. The final pair of log lines should look like:
+
+```text
+📊 Alice has 10 public BOB tokens and 130 private BOB tokens
+📊 Bob's Clinic has 10 public BOB tokens and 50 private BOB tokens
+```
+
+If your output doesn't match, double-check that the local network is running and that you started this run with a fresh `aztec start --local-network`.
 
 ## Summary
 

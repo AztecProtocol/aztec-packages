@@ -158,6 +158,36 @@ struct ChonkVerify {
 };
 
 /**
+ * @struct ChonkVerifyFromFields
+ * @brief Verify a Chonk proof passed as a flat field-element array (with public inputs prepended).
+ *
+ * The split into structured ChonkProof sub-proofs is done server-side via
+ * ChonkProof::from_field_elements, so callers do not need to know the per-component sub-proof
+ * sizes. This is the recommended entry point for TypeScript callers that hold the proof as a
+ * flat Fr[] (e.g. from tx.chonkProof.attachPublicInputs).
+ */
+struct ChonkVerifyFromFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerifyFromFields";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerifyFromFieldsResponse";
+
+        /** @brief True if the proof is valid */
+        bool valid;
+        SERIALIZATION_FIELDS(valid);
+        bool operator==(const Response&) const = default;
+    };
+
+    /** @brief Flat proof field elements with public inputs prepended */
+    std::vector<bb::fr> proof;
+    /** @brief The verification key */
+    std::vector<uint8_t> vk;
+    Response execute(const BBApiRequest& request = {}) &&;
+    SERIALIZATION_FIELDS(proof, vk);
+    bool operator==(const ChonkVerifyFromFields&) const = default;
+};
+
+/**
  * @struct ChonkComputeVk
  * @brief Compute MegaHonk verification key for a circuit to be accumulated in Chonk
  *
@@ -184,8 +214,11 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
+    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
+     * The caller sets this to true for the hiding-kernel circuit. */
+    bool use_zk_flavor = false;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit);
+    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
     bool operator==(const ChonkComputeVk&) const = default;
 };
 
@@ -213,9 +246,12 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
+    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
+     * The caller sets this to true for the hiding-kernel circuit. */
+    bool use_zk_flavor = false;
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit);
+    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
     bool operator==(const ChonkCheckPrecomputedVk&) const = default;
 };
 

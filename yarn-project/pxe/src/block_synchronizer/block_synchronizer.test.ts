@@ -4,7 +4,14 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH, L2Block, type L2BlockStream } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+  L2Block,
+  type L2BlockStream,
+} from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -52,7 +59,7 @@ describe('BlockSynchronizer', () => {
     store = await openTmpStore('test');
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
-    tipsStore = new L2TipsKVStore(store, 'pxe');
+    tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
@@ -71,10 +78,17 @@ describe('BlockSynchronizer', () => {
   it('removes notes from db on a reorg', async () => {
     const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
     const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
+    aztecNode.getBlock.mockImplementation(async (block: any) => {
       if (block instanceof BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).header;
+        const b = await L2Block.random(BlockNumber(3));
+        return {
+          header: b.header,
+          archive: b.archive,
+          hash: await b.hash(),
+          checkpointNumber: b.checkpointNumber,
+          indexWithinCheckpoint: b.indexWithinCheckpoint,
+          number: b.number,
+        } as any;
       }
       return undefined;
     });
@@ -95,10 +109,17 @@ describe('BlockSynchronizer', () => {
   it('removes private events from db on a reorg', async () => {
     const rollback = jest.spyOn(privateEventStore, 'rollback').mockImplementation(() => Promise.resolve());
     const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
+    aztecNode.getBlock.mockImplementation(async (block: any) => {
       if (block instanceof BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).header;
+        const b = await L2Block.random(BlockNumber(3));
+        return {
+          header: b.header,
+          archive: b.archive,
+          hash: await b.hash(),
+          checkpointNumber: b.checkpointNumber,
+          indexWithinCheckpoint: b.indexWithinCheckpoint,
+          number: b.number,
+        } as any;
       }
       return undefined;
     });
@@ -128,7 +149,15 @@ describe('BlockSynchronizer', () => {
         resolveSync = resolve;
       });
       blockStream.sync.mockReturnValue(syncBlocker);
-      aztecNode.getBlockHeader.mockResolvedValue((await L2Block.random(BlockNumber(0))).header);
+      const genesisBlock = await L2Block.random(BlockNumber(0));
+      const genesisBlockData: BlockData = {
+        header: genesisBlock.header,
+        archive: genesisBlock.archive,
+        blockHash: await genesisBlock.hash(),
+        checkpointNumber: genesisBlock.checkpointNumber,
+        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
+      };
+      aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();
@@ -232,9 +261,9 @@ describe('BlockSynchronizer', () => {
       const initialBlock = await L2Block.random(BlockNumber(0));
       await anchorBlockStore.setHeader(initialBlock.header);
 
-      // Mock node to return block header
+      // Mock node to return block
       const provenBlock = await L2Block.random(BlockNumber(5));
-      aztecNode.getBlockHeader.mockResolvedValue(provenBlock.header);
+      aztecNode.getBlock.mockResolvedValue({ header: provenBlock.header } as any);
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-proven',
@@ -252,9 +281,9 @@ describe('BlockSynchronizer', () => {
       const initialBlock = await L2Block.random(BlockNumber(0));
       await anchorBlockStore.setHeader(initialBlock.header);
 
-      // Mock node to return block header
+      // Mock node to return block
       const finalizedBlock = await L2Block.random(BlockNumber(10));
-      aztecNode.getBlockHeader.mockResolvedValue(finalizedBlock.header);
+      aztecNode.getBlock.mockResolvedValue({ header: finalizedBlock.header } as any);
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',

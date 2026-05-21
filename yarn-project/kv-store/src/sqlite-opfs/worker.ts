@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
-import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static } from '@sqlite.org/sqlite-wasm';
+import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static } from '@aztec/sqlite3mc-wasm';
 
+import { SqliteEncryptionError, type SqliteEncryptionErrorCode, isDecryptFailureMessage } from './errors.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 
 const SCHEMA_SQL = `
@@ -20,6 +21,7 @@ const SCHEMA_SQL = `
 
 const DEFAULT_SAH_POOL_DIRECTORY = '.aztec-kv';
 const SAH_POOL_VFS_NAME = 'aztec-kv-opfs';
+const MC_SAH_POOL_VFS_NAME = `multipleciphers-${SAH_POOL_VFS_NAME}`;
 
 let sqlite3: Sqlite3Static | undefined;
 let pool: SAHPoolUtil | undefined;
@@ -28,24 +30,63 @@ let dbPath: string | undefined;
 
 async function ensurePool(directory: string): Promise<SAHPoolUtil> {
   sqlite3 ??= await sqlite3InitModule();
+  const s = sqlite3;
   if (!pool) {
-    pool = await sqlite3.installOpfsSAHPoolVfs({
+    pool = await s.installOpfsSAHPoolVfs({
       name: SAH_POOL_VFS_NAME,
       directory,
       initialCapacity: 8,
     });
+    // Register a sqlite3mc-wrapped VFS pointing at our SAH Pool VFS.
+    // Encrypted DBs must be opened through this wrapper so sqlite3mc can
+    // intercept file I/O; plain DBs continue using the SAH Pool VFS directly.
+    // The wrapper name is `multipleciphers-<underlying>`.
+    (s.capi as unknown as { sqlite3mc_vfs_create(name: string, makeDefault: number): number }).sqlite3mc_vfs_create(
+      SAH_POOL_VFS_NAME,
+      0,
+    );
   }
-  return pool;
+  return pool!;
 }
 
-async function handleInit(dbName: string, ephemeral: boolean, directory?: string): Promise<void> {
+/**
+ * Applies sqlite3mc's ChaCha20 page cipher using a pre-derived 32-byte key.
+ * The PRAGMAs must run before any schema DDL so sqlite3mc can decrypt existing
+ * pages and encrypt new ones. Zeroes the caller-held key array after the PRAGMA
+ * completes to minimize residency of the raw key bytes outside sqlite3mc's heap.
+ */
+function applyEncryptionKey(conn: Database, key: Uint8Array): void {
+  const hex = Array.from(key, b => b.toString(16).padStart(2, '0')).join('');
+  conn.exec(`PRAGMA cipher = 'chacha20'`);
+  conn.exec(`PRAGMA key = "x'${hex}'"`);
+  key.fill(0);
+}
+
+async function handleInit(
+  dbName: string,
+  ephemeral: boolean,
+  directory?: string,
+  encryptionKey?: Uint8Array,
+): Promise<void> {
   sqlite3 ??= await sqlite3InitModule();
+  const s = sqlite3;
+  if (encryptionKey !== undefined && ephemeral) {
+    throw new SqliteEncryptionError(
+      'encryption_not_supported_for_ephemeral',
+      'encryptionKey is not supported for ephemeral (:memory:) stores',
+    );
+  }
   if (ephemeral) {
-    db = new sqlite3.oo1.DB(':memory:', 'c');
+    db = new s.oo1.DB(':memory:', 'c');
   } else {
-    const p = await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
+    await ensurePool(directory ?? DEFAULT_SAH_POOL_DIRECTORY);
     dbPath = normalizeDbPath(dbName);
-    db = new p.OpfsSAHPoolDb(dbPath);
+    if (encryptionKey !== undefined) {
+      db = new s.oo1.DB({ filename: dbPath, flags: 'c', vfs: MC_SAH_POOL_VFS_NAME });
+      applyEncryptionKey(db, encryptionKey);
+    } else {
+      db = new pool!.OpfsSAHPoolDb(dbPath);
+    }
   }
   runSql(SCHEMA_SQL);
 }
@@ -121,7 +162,7 @@ function respond(msg: WorkerResponse): void {
   try {
     switch (req.type) {
       case 'init':
-        await handleInit(req.dbName, req.ephemeral, req.poolDirectory);
+        await handleInit(req.dbName, req.ephemeral, req.poolDirectory, req.encryptionKey);
         return respond({ type: 'ok', id: req.id });
       case 'close':
         handleClose();
@@ -157,6 +198,34 @@ function respond(msg: WorkerResponse): void {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    respond({ type: 'err', id: req.id, message });
+    respond({ type: 'err', id: req.id, message, encryptionCode: detectEncryptionCode(req, err, message) });
   }
 };
+
+/**
+ * Maps a thrown error during request handling to a typed encryption code, so the
+ * main thread can re-hydrate it as a {@link SqliteEncryptionError}. Returns
+ * `undefined` for non-encryption errors (preserves the existing untyped path).
+ *
+ * Two sources:
+ *   - The error was already a `SqliteEncryptionError` (pre-flight throws inside
+ *     this worker — e.g. ephemeral + encryptionKey). Forward its code as-is.
+ *   - The error came from SQLite/sqlite3mc with a known decrypt-failure message
+ *     during an `init` request. Both "wrong key supplied" and "no key supplied
+ *     to an encrypted DB" surface as SQLITE_NOTADB ("file is not a database") —
+ *     we don't constrain on `req.encryptionKey` because the no-key-on-encrypted-DB
+ *     case is exactly when the caller most needs the typed signal.
+ */
+function detectEncryptionCode(
+  req: WorkerRequest,
+  err: unknown,
+  message: string,
+): SqliteEncryptionErrorCode | undefined {
+  if (err instanceof SqliteEncryptionError) {
+    return err.code;
+  }
+  if (req.type === 'init' && isDecryptFailureMessage(message)) {
+    return 'decrypt_failed';
+  }
+  return undefined;
+}

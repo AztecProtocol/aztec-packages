@@ -65,19 +65,15 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         constexpr bool scalars_are_constant =
             (Constancy == InputConstancy::Scalars || Constancy == InputConstancy::Both);
 
-        // Helper to add points: either as witnesses or constants based on Constancy
+        // Helper to add points: either as witnesses or constants based on Constancy.
+        // Points are encoded as (x, y); the point at infinity is encoded as (0, 0).
         auto construct_points = [&]() -> std::vector<WitnessOrConstant<FF>> {
             if constexpr (points_are_constant) {
-                // Points are constants
-                return { WitnessOrConstant<FF>::from_constant(point.x),
-                         WitnessOrConstant<FF>::from_constant(point.y),
-                         WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) };
+                return { WitnessOrConstant<FF>::from_constant(point.x), WitnessOrConstant<FF>::from_constant(point.y) };
             }
-            // Points are witnesses
             std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
             return { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                     WitnessOrConstant<FF>::from_index(point_indices[1]),
-                     WitnessOrConstant<FF>::from_index(point_indices[2]) };
+                     WitnessOrConstant<FF>::from_index(point_indices[1]) };
         };
 
         // Helper to add scalars: either as witnesses or constants based on Constancy
@@ -112,7 +108,6 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
             .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
             .out_point_x = result_indices[0],
             .out_point_y = result_indices[1],
-            .out_point_is_infinite = result_indices[2],
         };
     }
 
@@ -142,7 +137,6 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
             // Tamper with the result by setting it to the generator point
             witness_values[constraint.out_point_x] = GrumpkinPoint::one().x;
             witness_values[constraint.out_point_y] = GrumpkinPoint::one().y;
-            witness_values[constraint.out_point_is_infinite] = FF::zero();
             break;
         }
         case InvalidWitness::Target::None:
@@ -314,20 +308,16 @@ TYPED_TEST(MultiScalarMulTestsBothConstant, InvalidWitnesses)
 }
 
 // ============================================================
-// Infinity flag tests
+// Infinity tests: the point at infinity is encoded as (0, 0).
 // ============================================================
 
-// ACIR convention for encoding a curve point: (x, y, is_infinite) as field values.
 using MsmGrumpkinPoint = bb::grumpkin::g1::affine_element;
 using MsmFF = bb::fr;
 
 struct MsmAcirPoint {
-    MsmFF x, y, inf;
-    static MsmAcirPoint from_native(const MsmGrumpkinPoint& p)
-    {
-        return { p.x, p.y, p.is_point_at_infinity() ? MsmFF(1) : MsmFF(0) };
-    }
-    static MsmAcirPoint infinity() { return { MsmFF(0), MsmFF(0), MsmFF(1) }; }
+    MsmFF x, y;
+    static MsmAcirPoint from_native(const MsmGrumpkinPoint& p) { return { p.x, p.y }; }
+    static MsmAcirPoint infinity() { return { MsmFF(0), MsmFF(0) }; }
 };
 
 // Grumpkin scalar split into low 128-bit and high 128-bit field limbs.
@@ -341,20 +331,20 @@ struct MsmScalar {
     }
 };
 
-template <typename Builder> class MultiScalarMulInfinityTests : public ::testing::Test {
+// Shared single-term MSM circuit helpers: build a one point/one scalar MSM constraint with predicate=1
+// from explicit witness values, and run the resulting circuit.
+template <typename Builder> class MsmSingleTermFixture : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    // Push an MsmAcirPoint to witness; return [x, y, inf] indices.
-    static std::array<uint32_t, 3> push_point(WitnessVector& witness, const MsmAcirPoint& pt)
+    // Push an MsmAcirPoint to witness; return [x, y] indices.
+    static std::array<uint32_t, 2> push_point(WitnessVector& witness, const MsmAcirPoint& pt)
     {
         uint32_t xi = static_cast<uint32_t>(witness.size());
         witness.emplace_back(pt.x);
         uint32_t yi = static_cast<uint32_t>(witness.size());
         witness.emplace_back(pt.y);
-        uint32_t ii = static_cast<uint32_t>(witness.size());
-        witness.emplace_back(pt.inf);
-        return { xi, yi, ii };
+        return { xi, yi };
     }
 
     // Push a scalar (lo, hi) to witness; return [lo_idx, hi_idx].
@@ -379,14 +369,11 @@ template <typename Builder> class MultiScalarMulInfinityTests : public ::testing
         witness.emplace_back(MsmFF(1));
 
         MultiScalarMul c{
-            .points = { WitnessOrConstant<MsmFF>::from_index(p[0]),
-                        WitnessOrConstant<MsmFF>::from_index(p[1]),
-                        WitnessOrConstant<MsmFF>::from_index(p[2]) },
+            .points = { WitnessOrConstant<MsmFF>::from_index(p[0]), WitnessOrConstant<MsmFF>::from_index(p[1]) },
             .scalars = { WitnessOrConstant<MsmFF>::from_index(s[0]), WitnessOrConstant<MsmFF>::from_index(s[1]) },
             .predicate = WitnessOrConstant<MsmFF>::from_index(pred_idx),
             .out_point_x = r[0],
             .out_point_y = r[1],
-            .out_point_is_infinite = r[2],
         };
         return { c, witness };
     }
@@ -402,9 +389,11 @@ template <typename Builder> class MultiScalarMulInfinityTests : public ::testing
     }
 };
 
+template <typename Builder> class MultiScalarMulInfinityTests : public MsmSingleTermFixture<Builder> {};
+
 TYPED_TEST_SUITE(MultiScalarMulInfinityTests, BuilderTypes);
 
-// scalar=0 → result = ∞: valid proof with out_point_is_infinite=1.
+// scalar=0 → result = (0, 0): valid circuit.
 TYPED_TEST(MultiScalarMulInfinityTests, ResultIsInfinity)
 {
     BB_DISABLE_ASSERTS();
@@ -416,36 +405,134 @@ TYPED_TEST(MultiScalarMulInfinityTests, ResultIsInfinity)
     EXPECT_TRUE(ok) << "0 * P = infinity should produce a valid circuit";
 }
 
-// A finite result with out_point_is_infinite=1 (forged) must fail.
-TYPED_TEST(MultiScalarMulInfinityTests, ForgedInfinityFlagOnFiniteResultFails)
+// ============================================================
+// Scalar field-bounds tests
+// ============================================================
+//
+// The MSM opcode receives a Grumpkin scalar as two field limbs: lo (low 128 bits) and hi (next 126
+// bits), reconstructing v = lo + hi * 2^128. cycle_scalar's public constructor adds an in-circuit
+// check that v < r, where r == bb::fq::modulus is the Grumpkin scalar field modulus (and also the
+// order of the Grumpkin group, since Grumpkin's scalar field is BN254's base field). batch_mul
+// additionally range-constrains the limbs to lo < 2^128 and hi < 2^126. These tests pin behaviour
+// at and beyond the modulus boundary: an out-of-range scalar must make the circuit unsatisfiable,
+// and the group law's s ≡ s + r equivalence must not let a caller smuggle a non-canonical scalar
+// through to barretenberg.
+
+namespace {
+// r = order of the Grumpkin group = bb::fq::modulus.
+const uint256_t grumpkin_scalar_modulus = bb::fq::modulus;
+
+// Build an MsmScalar straight from a uint256_t value, splitting at the 128-bit limb boundary with no
+// modular reduction (so out-of-field values can be expressed).
+MsmScalar msm_scalar_from_u256(const uint256_t& v)
+{
+    return { MsmFF(v.slice(0, 128)), MsmFF(v.slice(128, 256)) };
+}
+} // namespace
+
+template <typename Builder> class MultiScalarMulScalarBoundsTests : public MsmSingleTermFixture<Builder> {};
+
+TYPED_TEST_SUITE(MultiScalarMulScalarBoundsTests, BuilderTypes);
+
+// scalar == r: rejected. The in-circuit "scalar < r" check fails. (r·P = O, so the caller gains
+// nothing by claiming the point at infinity as the result.)
+TYPED_TEST(MultiScalarMulScalarBoundsTests, ScalarEqualToModulusFails)
 {
     BB_DISABLE_ASSERTS();
     MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
-    bb::fq scalar_native = bb::fq::random_element();
-    while (scalar_native.is_zero()) {
-        scalar_native = bb::fq::random_element();
-    }
-    MsmGrumpkinPoint result = point * scalar_native;
-    ASSERT_FALSE(result.is_point_at_infinity());
     auto [constraint, witness] = TestFixture::make_msm(
-        MsmAcirPoint::from_native(point), MsmScalar::from_native(scalar_native), MsmAcirPoint::from_native(result));
-    witness[constraint.out_point_is_infinite] = MsmFF(1); // forge: finite result claimed as infinite
+        MsmAcirPoint::from_native(point), msm_scalar_from_u256(grumpkin_scalar_modulus), MsmAcirPoint::infinity());
 
     auto [ok, err] = TestFixture::run_circuit(constraint, witness);
-    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
-        << "Forged infinity flag on finite result should fail";
+    EXPECT_FALSE(ok) << "scalar == Grumpkin scalar modulus must not produce a satisfiable circuit";
 }
 
-// An infinity result with out_point_is_infinite=0 (forged) must fail.
-TYPED_TEST(MultiScalarMulInfinityTests, ForgedFiniteFlagOnInfinityResultFails)
+// scalar == r + 1: rejected, even though (r + 1)·P == 1·P == P. The in-circuit "scalar < r" check
+// fails despite both limbs being within their range constraints.
+TYPED_TEST(MultiScalarMulScalarBoundsTests, ScalarModulusPlusOneFails)
 {
     BB_DISABLE_ASSERTS();
     MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
-    // Forge result: (0,0) coordinates but is_infinite=0 (should be 1)
-    auto [constraint, witness] = TestFixture::make_msm(
-        MsmAcirPoint::from_native(point), MsmScalar::zero(), MsmAcirPoint{ MsmFF(0), MsmFF(0), MsmFF(0) });
+    auto [constraint, witness] = TestFixture::make_msm(MsmAcirPoint::from_native(point),
+                                                       msm_scalar_from_u256(grumpkin_scalar_modulus + uint256_t(1)),
+                                                       MsmAcirPoint::from_native(point));
 
     auto [ok, err] = TestFixture::run_circuit(constraint, witness);
-    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
-        << "Forged finite flag on infinity result should fail";
+    EXPECT_FALSE(ok) << "scalar == Grumpkin scalar modulus + 1 must not produce a satisfiable circuit";
+}
+
+// scalar == r - 1: the largest in-field scalar. This must prove fine.
+TYPED_TEST(MultiScalarMulScalarBoundsTests, ScalarModulusMinusOneProves)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
+    bb::fq scalar_native = bb::fq(grumpkin_scalar_modulus - uint256_t(1));
+    MsmGrumpkinPoint result = point * scalar_native;
+    ASSERT_FALSE(result.is_point_at_infinity());
+    auto [constraint, witness] = TestFixture::make_msm(MsmAcirPoint::from_native(point),
+                                                       msm_scalar_from_u256(grumpkin_scalar_modulus - uint256_t(1)),
+                                                       MsmAcirPoint::from_native(result));
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_TRUE(ok) << "scalar == Grumpkin scalar modulus - 1 (largest in-field scalar) should prove. err: " << err;
+}
+
+// scalar == 2^254 - 1: the largest value the (128 + 126)-bit limb encoding can represent. Both limbs
+// satisfy their range constraints, so the only thing rejecting it is the in-circuit "scalar < r"
+// check — exercising the "limbs in range but value out of field" path.
+TYPED_TEST(MultiScalarMulScalarBoundsTests, MaxRepresentableScalarFails)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
+    uint256_t max_representable = (uint256_t(1) << 254) - uint256_t(1);
+    MsmGrumpkinPoint result = point * bb::fq(max_representable); // (2^254 - 1) mod r
+    auto [constraint, witness] = TestFixture::make_msm(
+        MsmAcirPoint::from_native(point), msm_scalar_from_u256(max_representable), MsmAcirPoint::from_native(result));
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_FALSE(ok) << "scalar == 2^254 - 1 (> Grumpkin modulus) must not produce a satisfiable circuit";
+}
+
+// hi limb == 2^126 (one bit too wide), lo == 0, i.e. scalar value 2^254. Both the limb range
+// constraint (hi < 2^126) and the "scalar < r" check reject it.
+TYPED_TEST(MultiScalarMulScalarBoundsTests, ScalarWithOversizedHiLimbFails)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
+    uint256_t two_pow_254 = uint256_t(1) << 254;
+    MsmGrumpkinPoint result = point * bb::fq(two_pow_254);
+    MsmScalar scalar{ MsmFF(0), MsmFF(uint256_t(1) << 126) }; // hi has 127 bits
+    auto [constraint, witness] =
+        TestFixture::make_msm(MsmAcirPoint::from_native(point), scalar, MsmAcirPoint::from_native(result));
+
+    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+    EXPECT_FALSE(ok) << "scalar hi limb of 127 bits (value 2^254) must not produce a satisfiable circuit";
+}
+
+// Group-law equivalence does not transfer: s·P == (s + r)·P, but the circuit accepts only the
+// canonical scalar s. Adding the Grumpkin modulus to a scalar cannot reprove the same output.
+TYPED_TEST(MultiScalarMulScalarBoundsTests, AddingGrumpkinModulusDoesNotReproveSameOutput)
+{
+    BB_DISABLE_ASSERTS();
+    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
+    bb::fq scalar_native = bb::fq(5);
+    MsmGrumpkinPoint result = point * scalar_native;
+    ASSERT_FALSE(result.is_point_at_infinity());
+
+    // Sanity: the canonical scalar proves the result.
+    {
+        auto [constraint, witness] = TestFixture::make_msm(
+            MsmAcirPoint::from_native(point), MsmScalar::from_native(scalar_native), MsmAcirPoint::from_native(result));
+        auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+        EXPECT_TRUE(ok) << "canonical scalar should prove the MSM result. err: " << err;
+    }
+
+    // The non-canonical scalar s + r yields the same point mathematically, but the circuit rejects it.
+    {
+        auto [constraint, witness] = TestFixture::make_msm(MsmAcirPoint::from_native(point),
+                                                           msm_scalar_from_u256(uint256_t(5) + grumpkin_scalar_modulus),
+                                                           MsmAcirPoint::from_native(result));
+        auto [ok, err] = TestFixture::run_circuit(constraint, witness);
+        EXPECT_FALSE(ok) << "scalar s + r must not reprove the output of scalar s";
+    }
 }

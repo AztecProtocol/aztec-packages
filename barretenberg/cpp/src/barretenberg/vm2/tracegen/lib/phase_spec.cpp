@@ -1,5 +1,5 @@
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 
 #include <array>
 #include <cstdint>
@@ -21,21 +21,21 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
-              .non_revertible_append_nullifier = true,
+              .append_nullifier = true,
           } },
         { TransactionPhase::NR_NOTE_INSERTION,
           {
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
-              .non_revertible_append_note_hash = true,
+              .append_note_hash = true,
           } },
         { TransactionPhase::NR_L2_TO_L1_MESSAGE,
           {
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
-              .non_revertible_append_l2_l1_msg = true,
+              .append_l2_l1_msg = true,
           } },
         { TransactionPhase::SETUP,
           {
@@ -49,7 +49,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
-              .revertible_append_nullifier = true,
+              .append_nullifier = true,
               .next_phase_on_revert = static_cast<uint8_t>(TransactionPhase::TEARDOWN),
           } },
         { TransactionPhase::R_NOTE_INSERTION,
@@ -58,7 +58,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
-              .revertible_append_note_hash = true,
+              .append_note_hash = true,
               .next_phase_on_revert = static_cast<uint8_t>(TransactionPhase::TEARDOWN),
           } },
         { TransactionPhase::R_L2_TO_L1_MESSAGE,
@@ -67,7 +67,7 @@ const std::unordered_map<TransactionPhase, TxPhaseSpec>& get_tx_phase_spec_map()
               .read_pi_start_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
               .read_pi_length_offset =
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
-              .revertible_append_l2_l1_msg = true,
+              .append_l2_l1_msg = true,
               .next_phase_on_revert = static_cast<uint8_t>(TransactionPhase::TEARDOWN),
           } },
         { TransactionPhase::APP_LOGIC,

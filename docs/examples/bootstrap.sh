@@ -132,19 +132,26 @@ function validate-webapp-tutorial {
   (
     cd "$TUTORIAL_DIR"
 
-    # Backup files we'll modify
+    # Backup package.json (the only tracked file we mutate). yarn.lock is
+    # gitignored and regenerated on each run, so we don't back it up.
     cp package.json package.json.bak
-    cp yarn.lock yarn.lock.bak
 
     cleanup() {
       local exit_code=$?
       echo_stderr "Cleaning up webapp-tutorial..."
-      mv package.json.bak package.json
-      mv yarn.lock.bak yarn.lock
-      rm -rf node_modules .yarn 2>/dev/null || true
+      [ -f package.json.bak ] && mv package.json.bak package.json
+      rm -rf node_modules .yarn yarn.lock .yarnrc.yml 2>/dev/null || true
       return $exit_code
     }
     trap cleanup EXIT
+
+    # Start from a fresh node_modules / lock so we don't reuse state from
+    # a previous run that may have been interrupted mid-cleanup.
+    # An empty yarn.lock is required to mark this directory as a standalone
+    # yarn project; otherwise yarn 4 walks up to docs/ and refuses to install
+    # because webapp-tutorial isn't listed as a workspace there.
+    rm -rf node_modules .yarn .yarnrc.yml
+    : > yarn.lock
 
     # Replace #include_aztec_version with link: paths to local yarn-project packages
     echo_stderr "Linking local @aztec packages..."
@@ -165,7 +172,14 @@ function validate-webapp-tutorial {
 
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules 2>/dev/null || true
-    yarn install
+    # Yarn 4 auto-enables --immutable when CI is set; we intentionally start
+    # with an empty yarn.lock that this install populates, so disable that.
+    YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+
+    # yarn's `link:` protocol creates portals into yarn-project/*, which require
+    # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly
+    # (vite in particular fails to load its config without it).
+    export NODE_OPTIONS="${NODE_OPTIONS:-} --preserve-symlinks"
 
     # Copy compiled contract artifact and run codegen
     mkdir -p src/artifacts
@@ -223,9 +237,9 @@ function get_pr_number {
 
 function send_slack_message {
   local message=$1
-  local channel=${2:-"#devrel-docs-updates"}
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  local channel=${2:-"#docs-alerts"}
+  if [[ -z "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+    echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0
   fi
 
@@ -235,7 +249,7 @@ function send_slack_message {
 
   local response
   if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data"); then
     echo "Slack API request failed (curl error)" >&2

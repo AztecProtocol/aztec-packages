@@ -17,281 +17,7 @@
 
 namespace bb {
 
-class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
-  public:
-    using SelectorType = Selector<fr>;
-
-    virtual SelectorType& q_busread() { return this->zero_selectors[0]; };
-    virtual SelectorType& q_lookup() { return this->zero_selectors[1]; };
-    virtual SelectorType& q_arith() { return this->zero_selectors[2]; };
-    virtual SelectorType& q_delta_range() { return this->zero_selectors[3]; };
-    virtual SelectorType& q_elliptic() { return this->zero_selectors[4]; };
-    virtual SelectorType& q_memory() { return this->zero_selectors[5]; };
-    virtual SelectorType& q_nnf() { return this->zero_selectors[6]; };
-    virtual SelectorType& q_poseidon2_external() { return this->zero_selectors[7]; };
-    virtual SelectorType& q_poseidon2_internal() { return this->zero_selectors[8]; };
-
-    virtual const SelectorType& q_busread() const { return this->zero_selectors[0]; };
-    virtual const SelectorType& q_lookup() const { return this->zero_selectors[1]; };
-    virtual const SelectorType& q_arith() const { return this->zero_selectors[2]; };
-    virtual const SelectorType& q_delta_range() const { return this->zero_selectors[3]; };
-    virtual const SelectorType& q_elliptic() const { return this->zero_selectors[4]; };
-    virtual const SelectorType& q_memory() const { return this->zero_selectors[5]; };
-    virtual const SelectorType& q_nnf() const { return this->zero_selectors[6]; };
-    virtual const SelectorType& q_poseidon2_external() const { return this->zero_selectors[7]; };
-    virtual const SelectorType& q_poseidon2_internal() const { return this->zero_selectors[8]; };
-
-    RefVector<SelectorType> get_gate_selectors()
-    {
-        return {
-            q_busread(),
-            q_lookup(),
-            q_arith(),
-            q_delta_range(),
-            q_elliptic(),
-            q_memory(),
-            q_nnf(),
-            q_poseidon2_external(),
-            q_poseidon2_internal(),
-        };
-    }
-
-    RefVector<Selector<fr>> get_selectors() override
-    {
-        return RefVector{
-            q_m(),
-            q_c(),
-            q_1(),
-            q_2(),
-            q_3(),
-            q_4(),
-            q_busread(),
-            q_lookup(),
-            q_arith(),
-            q_delta_range(),
-            q_elliptic(),
-            q_memory(),
-            q_nnf(),
-            q_poseidon2_external(),
-            q_poseidon2_internal(),
-        };
-    }
-
-    /**
-     * @brief Add zeros to all selectors which are not part of the conventional Ultra arithmetization
-     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
-     * conventional Ultra arithmetization
-     *
-     */
-    void pad_additional() { q_busread().emplace_back(0); };
-
-    /**
-     * @brief Resizes all selectors which are not part of the conventional Ultra arithmetization
-     * @details Facilitates reuse of Ultra gate construction functions in arithmetizations which extend the
-     * conventional Ultra arithmetization
-     * @param new_size
-     */
-    void resize_additional(size_t new_size) { q_busread().resize(new_size); };
-
-    /**
-     * @brief Default implementation does nothing
-     */
-    virtual void set_gate_selector([[maybe_unused]] const fr& value) {}
-
-  private:
-    std::array<ZeroSelector<fr>, 9> zero_selectors;
-};
-
-class MegaTracePublicInputBlock : public MegaTraceBlock {};
-
-class MegaTraceBusReadBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_busread() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        gate_selector.emplace_back(value);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTraceLookupBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_lookup() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        gate_selector.emplace_back(value);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTraceArithmeticBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_arith() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        gate_selector.emplace_back(value);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_delta_range() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        gate_selector.emplace_back(value);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTraceEllipticBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_elliptic() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        gate_selector.emplace_back(value);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTraceMemoryBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_memory() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        gate_selector.emplace_back(value);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_nnf() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        gate_selector.emplace_back(value);
-        q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_poseidon2_external() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        gate_selector.emplace_back(value);
-        q_poseidon2_internal().emplace_back(0);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
-
-class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_poseidon2_internal() override { return gate_selector; }
-
-    void set_gate_selector(const fr& value) override
-    {
-        q_busread().emplace_back(0);
-        q_lookup().emplace_back(0);
-        q_arith().emplace_back(0);
-        q_delta_range().emplace_back(0);
-        q_elliptic().emplace_back(0);
-        q_memory().emplace_back(0);
-        q_nnf().emplace_back(0);
-        q_poseidon2_external().emplace_back(0);
-        gate_selector.emplace_back(value);
-    }
-
-  private:
-    SlabVectorSelector<fr> gate_selector;
-};
+using MegaTraceBlock = ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4>;
 
 /**
  * @brief A container indexed by the types of the blocks in the execution trace.
@@ -299,34 +25,44 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
  * @details We instantiate this both to contain the actual gates of an execution trace, and also to describe different
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
  *
- * @note The ecc_op block must be first in the execution trace. The merge protocol shifts its
- * polynomials by TRACE_OFFSET + NUM_ZERO_ROWS leading zeros to match the circuit's ecc_op_wire
- * commitments. This only works if ecc_op is the first block (so its trace_offset equals
- * TRACE_OFFSET + NUM_ZERO_ROWS).
+ * @note The ecc_op block must be first in the execution trace so that the `ecc_op_wire` polynomials
+ * (populated by TraceToPolynomials::add_ecc_op_wires_to_prover_instance) align with the main wires via
+ * the `ecc_op_wire[r] == w_shift[r]` equality enforced by EccOpQueueRelation.
  *
  * @note The ecc_op block does NOT have a gate selector stored in the builder. Instead, the `lagrange_ecc_op`
  * selector polynomial is constructed during TraceToPolynomials::add_ecc_op_wires_to_prover_instance() as a
  * binary indicator (1 inside the ecc_op block, 0 elsewhere).
  */
 struct MegaTraceBlockData {
-    MegaTraceBlock ecc_op; // Must remain first
-    MegaTraceBusReadBlock busread;
-    MegaTraceLookupBlock lookup;
-    MegaTracePublicInputBlock pub_inputs;
-    MegaTraceArithmeticBlock arithmetic;
-    MegaTraceDeltaRangeBlock delta_range;
-    MegaTraceEllipticBlock elliptic;
-    MegaTraceMemoryBlock memory;
-    MegaTraceNonNativeFieldBlock nnf;
-    MegaTracePoseidon2ExternalBlock poseidon2_external;
-    MegaTracePoseidon2InternalBlock poseidon2_internal;
+    MegaTraceBlock ecc_op{}; // Must remain first; no gate selector.
+    MegaTraceBlock busread{ GateKind::BusRead };
+    MegaTraceBlock lookup{ GateKind::Lookup };
+    MegaTraceBlock pub_inputs{}; // No gate selector.
+    MegaTraceBlock arithmetic{ GateKind::Arith };
+    MegaTraceBlock delta_range{ GateKind::DeltaRange };
+    MegaTraceBlock elliptic{ GateKind::Elliptic };
+    MegaTraceBlock memory{ GateKind::Memory };
+    MegaTraceBlock nnf{ GateKind::Nnf };
+    MegaTraceBlock poseidon2_external{ GateKind::Poseidon2Ext, GateKind::Poseidon2ExtInitial };
+    MegaTraceBlock poseidon2_quad_internal{ GateKind::Poseidon2QuadInt,
+                                            GateKind::Poseidon2QuadIntTerminal,
+                                            GateKind::Poseidon2TransitionEntry };
 
     static constexpr size_t NUM_BLOCKS = 11;
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",        "delta_range",
-                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal" };
+        return { "ecc_op",
+                 "busread",
+                 "lookup",
+                 "pub_inputs",
+                 "arithmetic",
+                 "delta_range",
+                 "elliptic",
+                 "memory",
+                 "nnf",
+                 "poseidon2_external",
+                 "poseidon2_quad_internal" };
     }
 
     auto get()
@@ -341,7 +77,7 @@ struct MegaTraceBlockData {
                                                                  &memory,
                                                                  &nnf,
                                                                  &poseidon2_external,
-                                                                 &poseidon2_internal });
+                                                                 &poseidon2_quad_internal });
     }
 
     auto get() const
@@ -356,12 +92,15 @@ struct MegaTraceBlockData {
                                                                        &memory,
                                                                        &nnf,
                                                                        &poseidon2_external,
-                                                                       &poseidon2_internal });
+                                                                       &poseidon2_quad_internal });
     }
 
     auto get_gate_blocks() const
     {
-        return RefArray(std::array<const MegaTraceBlock*, 9>{
+        // Order must match get_gate_selectors() in MegaFlavor: poseidon2_external appears twice
+        // (regular + initial) and poseidon2_quad_internal appears three times (interior /
+        // terminal / entry).
+        return RefArray(std::array<const MegaTraceBlock*, 12>{
             &busread,
             &lookup,
             &arithmetic,
@@ -369,8 +108,11 @@ struct MegaTraceBlockData {
             &elliptic,
             &memory,
             &nnf,
-            &poseidon2_external,
-            &poseidon2_internal,
+            &poseidon2_external,      // q_poseidon2_external
+            &poseidon2_external,      // q_poseidon2_external_initial
+            &poseidon2_quad_internal, // q_poseidon2_quad_internal
+            &poseidon2_quad_internal, // q_poseidon2_quad_internal_terminal
+            &poseidon2_quad_internal, // q_poseidon2_transition_entry
         });
     }
 
@@ -380,14 +122,12 @@ struct MegaTraceBlockData {
 class MegaExecutionTraceBlocks : public MegaTraceBlockData {
   public:
     static constexpr size_t NUM_WIRES = MegaTraceBlock::NUM_WIRES;
-    // The number of rows reserved at the top of the trace for row-disabling / ZK masking.
-    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     using FF = fr;
 
     MegaExecutionTraceBlocks() = default;
 
-    void compute_offsets(size_t trace_offset = TRACE_OFFSET)
+    void compute_offsets(size_t trace_offset)
     {
         uint32_t offset = static_cast<uint32_t>(trace_offset + NUM_ZERO_ROWS);
         for (auto& block : this->get()) {
@@ -409,7 +149,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
         info("memory        :\t", this->memory.size());
         info("nnf           :\t", this->nnf.size());
         info("poseidon ext  :\t", this->poseidon2_external.size());
-        info("poseidon int  :\t", this->poseidon2_internal.size());
+        info("poseidon quad :\t", this->poseidon2_quad_internal.size());
         info("");
         info("Total size: ", get_total_size());
     }

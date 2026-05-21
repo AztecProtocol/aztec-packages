@@ -45,15 +45,16 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     {
         Goblin goblin;
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, 5);
+        goblin.op_queue->construct_zk_columns();
 
         // Merge the ecc ops from the newly constructed circuit
         auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
-        auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
-        auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
+        auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
+        auto T_prev = goblin.op_queue->construct_table_columns_up_to_tail();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows() +
-                                                       MergeProver::FULL_SHIFT);
+                                                       UltraEccOpsTable::ZK_ULTRA_OPS);
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
@@ -87,7 +88,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
     auto transcript = std::make_shared<GoblinRecursiveVerifier::Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND };
+    GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
     GoblinRecursiveVerifier::ReductionResult output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     // Aggregate merge + translator pairing points

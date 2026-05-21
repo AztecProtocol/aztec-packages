@@ -4,10 +4,10 @@
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -136,10 +136,10 @@ ContractInstance FuzzerContractDB::from_logs(const PrivateLog& log) const
     FF contract_class_id = log.fields[offset++];
     FF initialization_hash = log.fields[offset++];
     PublicKeys public_keys = {
-        .nullifier_key = { log.fields[offset++], log.fields[offset++] },
+        .nullifier_key_hash = log.fields[offset++],
         .incoming_viewing_key = { log.fields[offset++], log.fields[offset++] },
-        .outgoing_viewing_key = { log.fields[offset++], log.fields[offset++] },
-        .tagging_key = { log.fields[offset++], log.fields[offset++] },
+        .outgoing_viewing_key_hash = log.fields[offset++],
+        .tagging_key_hash = log.fields[offset++],
     };
     auto deployer = AztecAddress(log.fields[offset++]);
     return ContractInstance{

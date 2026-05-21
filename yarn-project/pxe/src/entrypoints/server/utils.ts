@@ -1,4 +1,5 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -11,7 +12,10 @@ import { PXE } from '../../pxe.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 import { type PXECreationOptions, isPrivateKernelProver } from '../pxe_creation_options.js';
 
-type PXEConfigWithoutDefaults = Omit<PXEConfig, 'l1Contracts' | 'l1ChainId' | 'l2BlockBatchSize' | 'rollupVersion'>;
+type PXEConfigWithoutDefaults = Omit<
+  PXEConfig,
+  'l1ChainId' | 'l2BlockBatchSize' | 'rollupVersion' | keyof L1ContractAddresses
+>;
 
 export async function createPXE(
   aztecNode: AztecNode,
@@ -27,10 +31,10 @@ export async function createPXE(
   const simulator = new SimulatorRecorderWrapper(new WASMSimulator(simulatorLogger), recorder);
   const loggers = options.loggers ?? {};
 
-  const { l1ChainId, l1ContractAddresses: l1Contracts, rollupVersion } = await aztecNode.getNodeInfo();
+  const { l1ChainId, l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
   const configWithContracts: PXEConfig = {
     ...config,
-    l1Contracts,
+    ...l1ContractAddresses,
     l1ChainId,
     rollupVersion,
     l2BlockBatchSize: 50,
@@ -65,6 +69,7 @@ export async function createPXE(
     protocolContractsProvider,
     config: configWithContracts,
     loggerOrSuffix: pxeLogger,
+    hooks: options.hooks,
   });
   return pxe;
 }

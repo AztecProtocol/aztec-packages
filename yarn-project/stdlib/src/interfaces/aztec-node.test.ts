@@ -1,8 +1,6 @@
 import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { timesAsync } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
@@ -15,11 +13,11 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import type { BlockData } from '../block/block_data.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { type BlockData, BlockHash, type BlockParameter, CommitteeAttestation, L2Block } from '../block/index.js';
-import type { L2Tips } from '../block/l2_block_source.js';
-import { Checkpoint } from '../checkpoint/checkpoint.js';
-import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import { BlockHash, type BlockParameter } from '../block/index.js';
+import type { CheckpointsQuery } from '../block/l2_block_source.js';
+import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -41,7 +39,6 @@ import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
-import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
@@ -53,6 +50,10 @@ import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.
 import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
+import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
+import type { ChainTip, ChainTips } from './chain_tips.js';
+import type { CheckpointParameter } from './checkpoint_parameter.js';
+import type { CheckpointIncludeOptions, CheckpointResponse } from './checkpoint_response.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import type { ProverConfig } from './prover-client.js';
@@ -75,7 +76,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   afterEach(() => {
-    tested.add(/^AztecNodeApiSchema\s+([^(]+)/.exec(expect.getState().currentTestName!)![1]);
+    tested.add(/^AztecNodeApiSchema\s+([^(]+?)\s*(\(|$)/.exec(expect.getState().currentTestName!)![1]);
     context.httpServer.close();
   });
 
@@ -84,8 +85,8 @@ describe('AztecNodeApiSchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('getL2Tips', async () => {
-    const result = await context.client.getL2Tips();
+  it('getChainTips', async () => {
+    const result = await context.client.getChainTips();
     const expectedTipId = {
       block: { number: 1, hash: `0x01` },
       checkpoint: { number: 1, hash: `0x01` },
@@ -93,7 +94,6 @@ describe('AztecNodeApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
-      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -119,11 +119,6 @@ describe('AztecNodeApiSchema', () => {
   it('getL1ToL2MessageCheckpoint', async () => {
     const response = await context.client.getL1ToL2MessageCheckpoint(Fr.random());
     expect(response).toEqual(5);
-  });
-
-  it('isL1ToL2MessageSynced', async () => {
-    const response = await context.client.isL1ToL2MessageSynced(Fr.random());
-    expect(response).toBe(true);
   });
 
   it('getL2ToL1Messages', async () => {
@@ -162,27 +157,17 @@ describe('AztecNodeApiSchema', () => {
 
   it('getBlock', async () => {
     const response = await context.client.getBlock(BlockNumber(1));
-    expect(response).toBeInstanceOf(L2Block);
+    expect(response).toBeUndefined();
   });
 
-  it('getBlockByHash', async () => {
-    const response = await context.client.getBlockByHash(BlockHash.random());
-    expect(response).toBeInstanceOf(L2Block);
+  it('getBlockData', async () => {
+    const response = await context.client.getBlockData(BlockNumber(1));
+    expect(response).toBeUndefined();
   });
 
-  it('getBlockByArchive', async () => {
-    const response = await context.client.getBlockByArchive(Fr.random());
-    expect(response).toBeInstanceOf(L2Block);
-  });
-
-  it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader(BlockHash.random());
-    expect(response).toBeInstanceOf(BlockHeader);
-  });
-
-  it('getBlockHeaderByArchive', async () => {
-    const response = await context.client.getBlockHeaderByArchive(Fr.random());
-    expect(response).toBeInstanceOf(BlockHeader);
+  it('getCheckpoint', async () => {
+    const response = await context.client.getCheckpoint(CheckpointNumber(1));
+    expect(response).toBeUndefined();
   });
 
   it('getCurrentMinFees', async () => {
@@ -201,23 +186,14 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getBlockNumber', async () => {
-    const response = await context.client.getBlockNumber();
-    expect(response).toBe(BlockNumber(1));
-  });
-
-  it('getProvenBlockNumber', async () => {
-    const response = await context.client.getProvenBlockNumber();
-    expect(response).toBe(BlockNumber(1));
-  });
-
-  it('getCheckpointedBlockNumber', async () => {
-    const response = await context.client.getCheckpointedBlockNumber();
-    expect(response).toBe(BlockNumber(1));
+    expect(await context.client.getBlockNumber()).toBe(BlockNumber(1));
+    expect(await context.client.getBlockNumber('proven')).toBe(BlockNumber(1));
+    expect(await context.client.getBlockNumber('checkpointed')).toBe(BlockNumber(1));
   });
 
   it('getCheckpointNumber', async () => {
-    const response = await context.client.getCheckpointNumber();
-    expect(response).toBe(CheckpointNumber(1));
+    expect(await context.client.getCheckpointNumber()).toBe(CheckpointNumber(1));
+    expect(await context.client.getCheckpointNumber('proven')).toBe(CheckpointNumber(1));
   });
 
   it('isReady', async () => {
@@ -239,9 +215,8 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getBlocks', async () => {
-    const response = await context.client.getBlocks(BlockNumber(1), BlockNumber(1));
-    expect(response).toHaveLength(1);
-    expect(response[0]).toBeInstanceOf(L2Block);
+    const response = await context.client.getBlocks(BlockNumber(1), 1);
+    expect(response).toEqual([]);
 
     await expect(context.client.getBlocks(-1 as BlockNumber, BlockNumber(1))).rejects.toThrow();
     await expect(context.client.getBlocks(BlockNumber.ZERO, BlockNumber(1))).rejects.toThrow();
@@ -251,17 +226,16 @@ describe('AztecNodeApiSchema', () => {
 
   it('getCheckpoints', async () => {
     const response = await context.client.getCheckpoints(CheckpointNumber(1), 1);
-    expect(response).toHaveLength(1);
-    expect(response[0]).toBeInstanceOf(PublishedCheckpoint);
-  });
-
-  it('getCheckpointedBlocks', async () => {
-    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 1);
     expect(response).toEqual([]);
   });
 
-  it('getCheckpointsDataForEpoch', async () => {
-    const response = await context.client.getCheckpointsDataForEpoch(EpochNumber(1));
+  it('getCheckpointsData (epoch)', async () => {
+    const response = await context.client.getCheckpointsData({ epoch: EpochNumber(1) });
+    expect(response).toEqual([]);
+  });
+
+  it('getCheckpointsData (range)', async () => {
+    const response = await context.client.getCheckpointsData({ from: CheckpointNumber(1), limit: 1 });
     expect(response).toEqual([]);
   });
 
@@ -307,12 +281,27 @@ describe('AztecNodeApiSchema', () => {
   it('getPrivateLogsByTags', async () => {
     const response = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
+
+    const responseWithOptionals = await context.client.getPrivateLogsByTags(
+      [SiloedTag.random()],
+      3,
+      BlockHash.random(),
+    );
+    expect(responseWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogsByTagsFromContract', async () => {
     const contractAddress = await AztecAddress.random();
     const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
+
+    const responseWithOptionals = await context.client.getPublicLogsByTagsFromContract(
+      contractAddress,
+      [Tag.random()],
+      3,
+      BlockHash.random(),
+    );
+    expect(responseWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('sendTx', async () => {
@@ -354,9 +343,23 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(Fr);
   });
 
-  it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader();
-    expect(response).toBeInstanceOf(BlockHeader);
+  it.each<[string, BlockParameter]>([
+    ['BlockNumber', BlockNumber(7)],
+    ['BlockHash', new BlockHash(new Fr(0x1234))],
+    ['{ archive }', { archive: new Fr(0x5678) }],
+    ['tag latest', 'latest'],
+    ['tag proven', 'proven'],
+  ])('getPublicStorageAt (round-trips %s)', async (_, block) => {
+    handler.lastReferenceBlock = undefined;
+    await context.client.getPublicStorageAt(block, await AztecAddress.random(), Fr.random());
+    if (typeof block === 'object' && 'archive' in block) {
+      expect(handler.lastReferenceBlock).toEqual({ archive: expect.any(Fr) });
+    } else if (BlockHash.isBlockHash(block)) {
+      expect(BlockHash.isBlockHash(handler.lastReferenceBlock)).toBe(true);
+      expect((handler.lastReferenceBlock as unknown as BlockHash).toString()).toEqual(block.toString());
+    } else {
+      expect(handler.lastReferenceBlock).toEqual(block);
+    }
   });
 
   it('getValidatorsStats', async () => {
@@ -489,9 +492,10 @@ describe('AztecNodeApiSchema', () => {
       originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
+      immutablesHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),
-      version: 1,
+      version: 2,
     });
   });
 
@@ -514,6 +518,7 @@ describe('AztecNodeApiSchema', () => {
 class MockAztecNode implements AztecNode {
   public validatorStats: ValidatorsStats | undefined;
   public singleValidatorStats: SingleValidatorStats | undefined;
+  public lastReferenceBlock: BlockParameter | undefined;
 
   constructor(private artifact: ContractArtifact) {}
 
@@ -527,7 +532,7 @@ class MockAztecNode implements AztecNode {
     });
   }
 
-  getL2Tips(): Promise<L2Tips> {
+  getChainTips(): Promise<ChainTips> {
     const tipId = {
       block: { number: BlockNumber(1), hash: `0x01` },
       checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
@@ -535,17 +540,46 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
-      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });
   }
 
-  getCheckpointedBlocks(_from: BlockNumber, _limit: number) {
+  getBlock<Opts extends BlockIncludeOptions = {}>(
+    _param: BlockParameter,
+    _options?: Opts,
+  ): Promise<BlockResponse<Opts> | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getBlockData(_param: BlockParameter): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getBlocks<Opts extends BlocksIncludeOptions = {}>(
+    _from: BlockNumber,
+    _limit: number,
+    _options?: Opts,
+  ): Promise<BlockResponse<Opts>[]> {
     return Promise.resolve([]);
   }
 
-  getCheckpointsDataForEpoch(_epochNumber: EpochNumber) {
+  getCheckpoint<Opts extends CheckpointIncludeOptions = {}>(
+    _param: CheckpointParameter,
+    _options?: Opts,
+  ): Promise<CheckpointResponse<Opts> | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
+    _from: CheckpointNumber,
+    _limit: number,
+    _options?: Opts,
+  ): Promise<CheckpointResponse<Opts>[]> {
+    return Promise.resolve([]);
+  }
+
+  getCheckpointsData(_query: CheckpointsQuery): Promise<CheckpointData[]> {
     return Promise.resolve([]);
   }
 
@@ -599,10 +633,6 @@ class MockAztecNode implements AztecNode {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(CheckpointNumber(5));
   }
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    expect(l1ToL2Message).toBeInstanceOf(Fr);
-    return Promise.resolve(true);
-  }
   getL2ToL1Messages(_epoch: EpochNumber): Promise<Fr[][][][]> {
     return Promise.resolve(
       Array.from({ length: 3 }, (_, i) =>
@@ -641,25 +671,6 @@ class MockAztecNode implements AztecNode {
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
-  getBlock(blockParameter: BlockParameter): Promise<L2Block | undefined> {
-    const blockNum = blockParameter === 'latest' ? BlockNumber(1) : (blockParameter as BlockNumber);
-    return L2Block.random(blockNum);
-  }
-  getBlockByHash(_blockHash: BlockHash): Promise<L2Block | undefined> {
-    return L2Block.random(BlockNumber(1));
-  }
-  getBlockByArchive(_archive: Fr): Promise<L2Block | undefined> {
-    return L2Block.random(BlockNumber(1));
-  }
-  getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
-    return Promise.resolve(BlockHeader.empty());
-  }
-  getBlockData(_number: BlockNumber): Promise<BlockData | undefined> {
-    return Promise.resolve(undefined);
-  }
-  getBlockDataByArchive(_archive: Fr): Promise<BlockData | undefined> {
-    return Promise.resolve(undefined);
-  }
   getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
@@ -669,16 +680,10 @@ class MockAztecNode implements AztecNode {
   getMaxPriorityFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
-  getBlockNumber(): Promise<BlockNumber> {
+  getBlockNumber(_tip?: ChainTip): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(1));
   }
-  getProvenBlockNumber(): Promise<BlockNumber> {
-    return Promise.resolve(BlockNumber(1));
-  }
-  getCheckpointedBlockNumber(): Promise<BlockNumber> {
-    return Promise.resolve(BlockNumber(1));
-  }
-  getCheckpointNumber(): Promise<CheckpointNumber> {
+  getCheckpointNumber(_tip?: ChainTip): Promise<CheckpointNumber> {
     return Promise.resolve(CheckpointNumber(1));
   }
   isReady(): Promise<boolean> {
@@ -699,22 +704,6 @@ class MockAztecNode implements AztecNode {
       protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
       realProofs: true,
     };
-  }
-  getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    return Promise.all(
-      Array(limit)
-        .fill(0)
-        .map(i => L2Block.random(BlockNumber(from + i))),
-    );
-  }
-  getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
-    return timesAsync(limit, async i =>
-      PublishedCheckpoint.from({
-        checkpoint: await Checkpoint.random(CheckpointNumber(from + i)),
-        attestations: [CommitteeAttestation.random()],
-        l1: new L1PublishedData(1n, 1n, Buffer32.random().toString()),
-      }),
-    );
   }
   getNodeVersion(): Promise<string> {
     return Promise.resolve('1.0.0');
@@ -749,19 +738,32 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(SiloedTag);
+    if (page !== undefined) {
+      expect(page).toBe(3);
+    }
+    if (referenceBlock !== undefined) {
+      expect(referenceBlock).toBeInstanceOf(BlockHash);
+    }
     return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
   }
   getPublicLogsByTagsFromContract(
     contractAddress: AztecAddress,
     tags: Tag[],
-    _logsPerTag?: number,
+    page?: number,
+    referenceBlock?: BlockHash,
   ): Promise<TxScopedL2Log[][]> {
     expect(contractAddress).toBeInstanceOf(AztecAddress);
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Tag);
+    if (page !== undefined) {
+      expect(page).toBe(3);
+    }
+    if (referenceBlock !== undefined) {
+      expect(referenceBlock).toBeInstanceOf(BlockHash);
+    }
     return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
   }
   sendTx(tx: Tx): Promise<void> {
@@ -796,13 +798,16 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve([Tx.random()]);
   }
   getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
+    expect(
+      typeof block === 'number' ||
+        typeof block === 'string' ||
+        BlockHash.isBlockHash(block) ||
+        (typeof block === 'object' && block !== null),
+    ).toBe(true);
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(slot).toBeInstanceOf(Fr);
+    this.lastReferenceBlock = block;
     return Promise.resolve(Fr.random());
-  }
-  getBlockHeader(_block?: BlockParameter): Promise<BlockHeader> {
-    return Promise.resolve(BlockHeader.empty());
   }
   getValidatorsStats(): Promise<ValidatorsStats> {
     return Promise.resolve(this.validatorStats!);
@@ -841,11 +846,12 @@ class MockAztecNode implements AztecNode {
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
-      version: 1 as const,
+      version: 2 as const,
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       address: await AztecAddress.random(),

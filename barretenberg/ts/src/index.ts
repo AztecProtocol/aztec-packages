@@ -21,6 +21,7 @@ export { BBApiException } from './bbapi_exception.js';
 
 // Export Point types for use in foundation and other packages
 export type {
+  AvmStat,
   Bn254G1Point,
   Bn254G2Point,
   ChonkProof,

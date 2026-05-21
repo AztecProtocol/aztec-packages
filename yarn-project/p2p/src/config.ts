@@ -6,6 +6,7 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  optionalNumberConfigHelper,
   percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
@@ -46,6 +47,7 @@ export interface P2PConfig
       | 'l1PublishingTime'
       | 'maxTxsPerBlock'
       | 'attestationPropagationTime'
+      | 'maxBlocksPerCheckpoint'
     > {
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;
@@ -115,6 +117,11 @@ export interface P2PConfig
 
   /** If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false. */
   queryForIp: boolean;
+
+  /**
+   * HTTPS URLs that return plain-text public IPv4, tried in order when resolving the announce IP (e.g. when `queryForIp` is true and `p2pIp` is unset).
+   */
+  publicIpServices: string[];
 
   /** The interval of the gossipsub heartbeat to perform maintenance tasks. */
   gossipsubInterval: number;
@@ -214,34 +221,48 @@ export interface P2PConfig
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
 
+  /** Deadline in ms used when collecting missing txs for unproven mined blocks. */
+  p2pMissingTxCollectionDeadlineMs: number;
+
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
+
+  /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
+  skipIncomingProposals?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
+
+/** Default endpoints used to discover this machine's public IPv4 when `queryForIp` is enabled. */
+export const DEFAULT_PUBLIC_IP_SERVICES: string[] = [
+  'https://api.ipify.org/',
+  'https://checkip.amazonaws.com/',
+  'https://ifconfig.me/ip',
+  'https://icanhazip.com/',
+];
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   validateMaxTxsPerBlock: {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description:
       'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxTxsPerCheckpoint: {
     env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
     description:
       'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxDABlockGas: {
     env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
     description: 'Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   p2pEnabled: {
     env: 'P2P_ENABLED',
@@ -337,6 +358,17 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.',
     ...booleanConfigHelper(),
+  },
+  publicIpServices: {
+    env: 'P2P_PUBLIC_IP_SERVICES',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean),
+    description:
+      'Comma-separated HTTPS URLs that return plain-text public IPv4. Used when P2P_QUERY_FOR_IP is true and P2P_IP is unset. Tried in order until one succeeds.',
+    defaultValue: DEFAULT_PUBLIC_IP_SERVICES,
   },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
@@ -443,7 +475,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   p2pStoreMapSizeKb: {
     env: 'P2P_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   txPublicSetupAllowListExtend: {
@@ -505,7 +537,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
     description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
@@ -518,10 +550,19 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
     ...booleanConfigHelper(false),
   },
+  skipIncomingProposals: {
+    description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   minTxPoolAgeMs: {
     env: 'P2P_MIN_TX_POOL_AGE_MS',
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
+  },
+  p2pMissingTxCollectionDeadlineMs: {
+    env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_MS',
+    description: 'Deadline in ms used when collecting missing txs for unproven mined blocks.',
+    ...numberConfigHelper(72_000),
   },
   priceBumpPercentage: {
     env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
@@ -562,6 +603,7 @@ export type BootnodeConfig = Pick<
   | 'bootstrapNodes'
   | 'listenAddress'
   | 'queryForIp'
+  | 'publicIpServices'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'> &
@@ -579,6 +621,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'bootstrapNodes',
   'l1ChainId',
   'queryForIp',
+  'publicIpServices',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(

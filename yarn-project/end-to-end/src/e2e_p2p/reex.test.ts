@@ -47,6 +47,8 @@ describe('e2e_p2p_reex', () => {
         txTimeoutMs: 30_000,
         listenAddress: '127.0.0.1',
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+        enableProposerPipelining: true,
+        inboxLag: 2,
       },
     });
 
@@ -129,6 +131,10 @@ describe('e2e_p2p_reex', () => {
       jest.spyOn(p2pClient, 'broadcastProposal').mockImplementation(async (...args: unknown[]) => {
         // We remove one of the transactions, therefore the block root will be different!
         const proposal = args[0] as BlockProposal;
+        const signatureContext = {
+          chainId: t.ctx.aztecNodeConfig.l1ChainId,
+          rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+        };
         const proposerAddress = proposal.getSender();
         const txHashes = proposal.txHashes;
 
@@ -146,7 +152,8 @@ describe('e2e_p2p_reex', () => {
           proposal.archiveRoot,
           proposal.txHashes,
           undefined,
-          (payload, context) => signer.signMessageWithAddress(proposerAddress!, payload, context),
+          signatureContext,
+          (typedData, context) => signer.signTypedDataWithAddress(proposerAddress!, typedData, context),
         );
 
         const p2pService = (p2pClient as any).p2pService as LibP2PService;

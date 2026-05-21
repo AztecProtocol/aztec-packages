@@ -84,7 +84,11 @@ export type NodeSyncedChainHistoryStats = {
 
 export type ClientCircuitName =
   | 'private-kernel-init'
+  | 'private-kernel-init-2'
+  | 'private-kernel-init-3'
   | 'private-kernel-inner'
+  | 'private-kernel-inner-2'
+  | 'private-kernel-inner-3'
   | 'private-kernel-reset'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'

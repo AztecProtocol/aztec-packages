@@ -190,6 +190,45 @@ template <typename G1> class TestAffineElement : public testing::Test {
         EXPECT_EQ(element(result) == expected, true);
     }
 
+    // Regression test for the large-modulus mixed-addition path: element +/- affine_element must
+    // detect when the affine operand is the infinity sentinel (x = modulus, y = 0). Previously the
+    // operator only checked whether `*this` was infinity, so adding the infinity sentinel to a
+    // normal point fell through to the arithmetic and produced an off-curve garbage result.
+    // operator-=(affine) inherits the bug via its `to_add{other.x, -other.y}` delegation.
+    static void test_mixed_add_infinity_regression()
+    {
+        const element P = element::random_element();
+        const affine_element Q_inf = affine_element::infinity();
+
+        // P (+/-) infinity == P, both as out-of-place and compound-assignment.
+        EXPECT_EQ(P + Q_inf, P);
+        EXPECT_EQ(P - Q_inf, P);
+        {
+            element acc = P;
+            acc += Q_inf;
+            EXPECT_EQ(acc, P);
+        }
+        {
+            element acc = P;
+            acc -= Q_inf;
+            EXPECT_EQ(acc, P);
+        }
+
+        // infinity (+/-) P == +/-P
+        EXPECT_EQ(Q_inf + P, P);
+        EXPECT_EQ(Q_inf - P, -P);
+
+        // *this = infinity, other = infinity must remain infinity (not become {modulus, 0, 1}).
+        element inf_elem = element::zero();
+        ASSERT_TRUE(inf_elem.is_point_at_infinity());
+        EXPECT_TRUE((inf_elem + Q_inf).is_point_at_infinity());
+        EXPECT_TRUE((inf_elem - Q_inf).is_point_at_infinity());
+
+        // The result of mixing a normal point with the infinity sentinel must remain on-curve.
+        EXPECT_TRUE((P + Q_inf).on_curve());
+        EXPECT_TRUE((P - Q_inf).on_curve());
+    }
+
     // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
     // on the curve, depending on the y-coordinate.
     static void test_infinity_regression()
@@ -310,6 +349,19 @@ template <typename G1> class TestAffineElement : public testing::Test {
         auto reconstructed = FrCodec::deserialize_from_fields<affine_element>(limbs);
         EXPECT_EQ(reconstructed, point);
     }
+
+    // The point at infinity, the generator, and any scalar multiple of the generator must all be
+    // recognized as members of the prime-order subgroup.
+    static void test_is_in_prime_subgroup_accepts_subgroup_points()
+    {
+        EXPECT_TRUE(affine_element::infinity().is_in_prime_subgroup());
+        EXPECT_TRUE(affine_element::one().is_in_prime_subgroup());
+
+        for (size_t i = 0; i < 8; ++i) {
+            affine_element P = affine_element(element::random_element());
+            EXPECT_TRUE(P.is_in_prime_subgroup());
+        }
+    }
 };
 
 // using TestTypes = testing::Types<bb::g1>;
@@ -321,6 +373,13 @@ TYPED_TEST_SUITE(TestAffineElement, TestTypes);
 TYPED_TEST(TestAffineElement, AddAffine)
 {
     TestFixture::test_add_affine();
+}
+
+// Regression test for `element +/- affine_element` when the affine operand is the infinity sentinel.
+// Exercises both the large-modulus and small-modulus branches of `element::operator+=(affine)`.
+TYPED_TEST(TestAffineElement, MixedAddInfinityRegression)
+{
+    TestFixture::test_mixed_add_infinity_regression();
 }
 
 TYPED_TEST(TestAffineElement, ReadWrite)
@@ -404,6 +463,25 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
     }
 }
 
+// mul_const_time must agree with operator* on every input, including edge cases (0, 1, n-1, low and
+// high Hamming weight).
+TYPED_TEST(TestAffineElement, MulConstTimeMatchesOperatorMul)
+{
+    using element_t = typename TypeParam::element;
+    using Fr = typename TypeParam::Fr;
+    element_t G(element_t::random_element());
+
+    // Edge-case scalars
+    for (Fr s : { Fr::zero(), Fr::one(), -Fr::one(), Fr(2), Fr(uint256_t(1) << 128) }) {
+        EXPECT_EQ(G.mul_const_time(s), G * s);
+    }
+    // Random scalars
+    for (int i = 0; i < 50; ++i) {
+        Fr s = Fr::random_element();
+        EXPECT_EQ(G.mul_const_time(s), G * s);
+    }
+}
+
 // FrCodec is defined only for BN254 and Grumpkin (the two curves whose points appear in transcripts).
 TYPED_TEST(TestAffineElement, FrCodecRoundTrip)
 {
@@ -467,6 +545,12 @@ TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
 TYPED_TEST(TestAffineElement, DeserializeOffCurveThrows)
 {
     TestFixture::test_deserialize_off_curve_throws();
+}
+
+// Verify is_in_prime_subgroup accepts known prime-order subgroup points
+TYPED_TEST(TestAffineElement, IsInPrimeSubgroupAcceptsSubgroupPoints)
+{
+    TestFixture::test_is_in_prime_subgroup_accepts_subgroup_points();
 }
 
 // Verify that from_compressed returns the (0,0) sentinel for x values with no valid y.

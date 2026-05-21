@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -95,7 +95,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
-                { C::tx_sel_non_revertible_append_nullifier, 1 },
+                { C::tx_sel_append_nullifier, 1 },
 
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
@@ -114,7 +114,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
                       { C::tx_is_padded, 1 },
                       { C::tx_is_tree_insert_phase, 1 },
-                      { C::tx_sel_non_revertible_append_note_hash, 1 },
+                      { C::tx_sel_append_note_hash, 1 },
                       { C::tx_read_pi_start_offset,
                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
                       { C::tx_read_pi_offset,
@@ -132,7 +132,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel, 1 },
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
                 { C::tx_is_padded, 1 },
-                { C::tx_sel_non_revertible_append_l2_l1_msg, 1 },
+                { C::tx_sel_append_l2_l1_msg, 1 },
 
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
@@ -161,7 +161,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
                           // Lookup Precomputed Table Values
                           { C::tx_is_public_call_request, 1 },
-                          { C::tx_should_process_call_request, 1 },
+                          { C::tx_sel_process_call_request, 1 },
                           { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX },
                           { C::tx_read_pi_offset, read_pi_offset },
                           { C::tx_read_pi_length_offset,
@@ -187,7 +187,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
-                { C::tx_sel_revertible_append_nullifier, 1 },
+                { C::tx_sel_append_nullifier, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
@@ -206,7 +206,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
-                { C::tx_sel_revertible_append_note_hash, 1 },
+                { C::tx_sel_append_note_hash, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
@@ -224,7 +224,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel, 1 },
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
                 { C::tx_is_padded, 1 },
-                { C::tx_sel_revertible_append_l2_l1_msg, 1 },
+                { C::tx_sel_append_l2_l1_msg, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
@@ -251,7 +251,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
                           // Lookup Precomputed Table Values
                           { C::tx_is_public_call_request, 1 },
-                          { C::tx_should_process_call_request, 1 },
+                          { C::tx_sel_process_call_request, 1 },
                           { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX },
                           { C::tx_read_pi_offset, read_pi_offset },
                           { C::tx_read_pi_length_offset,
@@ -423,7 +423,7 @@ TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)
     trace.set(7,
               { {
                   { C::tx_is_padded, 0 },
-                  { C::tx_sel_revertible_append_l2_l1_msg, 0 }, // switch off for testing
+                  { C::tx_sel_append_l2_l1_msg, 0 }, // switch off for testing
                   { C::tx_remaining_phase_counter, 1 },
                   { C::tx_remaining_phase_inv, 1 },
                   { C::tx_is_revertible, 1 },
@@ -488,7 +488,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
 
-          { C::tx_sel_non_revertible_append_l2_l1_msg, 1 },
+          { C::tx_sel_append_l2_l1_msg, 1 },
           { C::tx_l2_l1_msg_content,
             test_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content },
           { C::tx_l2_l1_msg_recipient,
@@ -546,7 +546,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + 1 },
 
-          { C::tx_sel_revertible_append_l2_l1_msg, 1 },
+          { C::tx_sel_append_l2_l1_msg, 1 },
           { C::tx_l2_l1_msg_content,
             test_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs[0].message.content },
           { C::tx_l2_l1_msg_recipient,
@@ -660,7 +660,7 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
 
     trace.set(10,
               { {
-                  { C::tx_should_process_call_request, 1 },
+                  { C::tx_sel_process_call_request, 1 },
                   { C::tx_remaining_phase_counter, 1 },
                   { C::tx_remaining_phase_inv, 1 },
                   // Public Input Loaded Values
@@ -850,19 +850,24 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
     check_all_interactions<tracegen::CalldataTraceBuilder>(trace);
 }
 
-// Verify that the nullifier state increment is unconditional when should_nullifier_append = 1.
+// Verify that the nullifier state increment is unconditional when sel_nullifier_append = 1.
 // A malicious prover cannot set reverted = 1 to skip the state increment.
 TEST(TxExecutionConstrainingTest, NegativeNullifierStateIncrementIsUnconditional)
 {
+    // #[NULLIFIER_TREE_SIZE_INCREMENT]: sel_nullifier_append * (prev_nullifier_tree_size + 1 -
+    // next_nullifier_tree_size) =
+    // 0
+    // #[NUM_NULLIFIERS_EMITTED_INCREMENT]: sel_nullifier_append * (prev_num_nullifiers_emitted + 1 -
+    // next_num_nullifiers_emitted) = 0
     TestTraceContainer trace({
         {
             // Row 0
             { C::precomputed_first_row, 1 },
         },
         {
-            // Row 1: Nullifier append with should_nullifier_append = 1 but state not incremented.
+            // Row 1: Nullifier append with sel_nullifier_append = 1 but state not incremented.
             { C::tx_sel, 1 },
-            { C::tx_should_nullifier_append, 1 },
+            { C::tx_sel_nullifier_append, 1 },
             { C::tx_reverted, 1 }, // Prover tries to cheat by setting reverted = 1.
             { C::tx_prev_nullifier_tree_size, 5 },
             { C::tx_next_nullifier_tree_size, 5 }, // Should be 6.

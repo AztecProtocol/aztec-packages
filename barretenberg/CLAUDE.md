@@ -2,7 +2,7 @@ THE PROJECT ROOT IS AT ONE LEVEL ABOVE THIS FOLDER. Typically, the repository is
 
 # Git workflow for barretenberg
 
-**IMPORTANT**: When comparing branches or looking at diffs for barretenberg work, use `origin/merge-train/barretenberg` as the base branch, NOT `master` or `next`. Create new branches off `origin/merge-train/barretenberg` and target PRs to `merge-train/barretenberg`.
+Base branch is `merge-train/barretenberg`; see root `CLAUDE.md` under `<git_workflow>` for the full component→base mapping. The sections below are barretenberg-specific workflow commands.
 
 ## Creating a new branch
 
@@ -30,8 +30,6 @@ git push -f  # Force push after rebase (only when necessary)
 - `git diff origin/merge-train/barretenberg...HEAD` (not `git diff master...HEAD`)
 - `git log origin/merge-train/barretenberg..HEAD` (not `git log master..HEAD`)
 - `gh pr create --base merge-train/barretenberg` (target PRs to merge-train)
-
-**Do NOT include `Co-Authored-By: Claude` lines in commit messages or `Generated with Claude Code` in PR descriptions.**
 
 Barretenberg issues are tracked at `AztecProtocol/barretenberg` (separate repo), not `AztecProtocol/aztec-packages`. PRs go to `AztecProtocol/aztec-packages` but should reference issues from `AztecProtocol/barretenberg`.
 

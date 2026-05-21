@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { CheckpointProposalHash } from '@aztec/foundation/branded-types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
@@ -225,7 +226,7 @@ export class InMemoryAttestationPool {
     return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
-  getBlockProposal(id: string): Promise<BlockProposal | undefined> {
+  getBlockProposalByArchive(id: string): Promise<BlockProposal | undefined> {
     return Promise.resolve(this.proposals.get(id));
   }
 
@@ -233,7 +234,7 @@ export class InMemoryAttestationPool {
     return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
-  getCheckpointProposal(_id: string): Promise<CheckpointProposalCore | undefined> {
+  getCheckpointProposal(_slot: SlotNumber): Promise<CheckpointProposalCore | undefined> {
     return Promise.resolve(undefined);
   }
 
@@ -247,7 +248,7 @@ export class InMemoryAttestationPool {
 
   getCheckpointAttestationsForSlotAndProposal(
     _slot: SlotNumber,
-    _proposalId: string,
+    _proposalPayloadHash: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
     return Promise.resolve([]);
   }
@@ -366,19 +367,6 @@ export function installUnlimitedRateLimitsOnReqResp(reqResp: any): void {
  * Distribution patterns for benchmark transaction distribution.
  */
 export type DistributionPattern = 'uniform' | 'sparse' | 'pinned-only';
-
-/**
- * Collector implementation types for benchmarking.
- */
-export type CollectorType = 'batch-requester' | 'send-batch-request';
-
-/**
- * Display names for collector types (for output/logging only).
- */
-export const COLLECTOR_DISPLAY_NAMES: Record<CollectorType, string> = {
-  'batch-requester': 'batch-requester (new)',
-  'send-batch-request': 'send-batch-request (old)',
-};
 
 /**
  * Benchmark timing constants.

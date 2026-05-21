@@ -75,6 +75,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
     allocate_backing_memory(size, virtual_size, start_index);
 
     parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("Polynomial::zero_init");
         auto range = chunk.range(size);
         if (!range.empty()) {
             size_t start = *range.begin();
@@ -119,6 +120,8 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
     : Polynomial(interpolation_points.size(), virtual_size)
 {
     BB_ASSERT_GT(coefficients_.size(), static_cast<size_t>(0));
+    // compute_efficient_interpolation indexes evaluations by interpolation_points.size()
+    BB_ASSERT_EQ(interpolation_points.size(), evaluations.size());
 
     polynomial_arithmetic::compute_efficient_interpolation(
         evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
@@ -173,9 +176,11 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
+    BB_BENCH_NAME("Polynomial::op+=");
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
     parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("Polynomial::op+=/chunk");
         for (size_t offset : chunk.range(other.size())) {
             size_t i = offset + other.start_index;
             at(i) += other[i];
@@ -202,9 +207,11 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
+    BB_BENCH_NAME("Polynomial::op-=");
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
     parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("Polynomial::op-=/chunk");
         for (size_t offset : chunk.range(other.size())) {
             size_t i = offset + other.start_index;
             at(i) -= other[i];
@@ -215,7 +222,11 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr& scaling_factor)
 {
-    parallel_for([scaling_factor, this](const ThreadChunk& chunk) { multiply_chunk(chunk, scaling_factor); });
+    BB_BENCH_NAME("Polynomial::op*=");
+    parallel_for([scaling_factor, this](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("Polynomial::op*=/chunk");
+        multiply_chunk(chunk, scaling_factor);
+    });
     return *this;
 }
 
@@ -236,12 +247,15 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
 template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
 {
     BB_ASSERT_LTE(new_end_index, end_index());
+    // Preserve the SharedShiftedVirtualZeroesArray invariant start_ <= end_; without this,
+    // end_ < start_ would silently underflow size() to SIZE_MAX.
+    BB_ASSERT_GTE(new_end_index, start_index());
     coefficients_.end_ = new_end_index;
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
-    Polynomial result = *this;
+    Polynomial result;
     // Make 0..virtual_size usable
     result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;
@@ -249,10 +263,13 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 
 template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, const Fr& scaling_factor)
 {
+    BB_BENCH_NAME("Polynomial::add_scaled");
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    parallel_for(
-        [&other, scaling_factor, this](const ThreadChunk& chunk) { add_scaled_chunk(chunk, other, scaling_factor); });
+    parallel_for([&other, scaling_factor, this](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("Polynomial::add_scaled/chunk");
+        add_scaled_chunk(chunk, other, scaling_factor);
+    });
 }
 
 template <typename Fr>
@@ -265,6 +282,52 @@ void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk,
         size_t index = other.start_index + offset;
         at(index) += scaling_factor * other[index];
     }
+}
+
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst,
+                      std::span<const PolynomialSpan<const Fr>> sources,
+                      std::span<const Fr> scalars)
+{
+    BB_BENCH_NAME("add_scaled_batch");
+    BB_ASSERT_EQ(sources.size(), scalars.size(), "sources and scalars must have the same length");
+    if (sources.empty()) {
+        return;
+    }
+
+    size_t min_start = sources[0].start_index;
+    size_t max_end = sources[0].end_index();
+    for (size_t i = 1; i < sources.size(); ++i) {
+        min_start = std::min(min_start, sources[i].start_index);
+        max_end = std::max(max_end, sources[i].end_index());
+    }
+    BB_ASSERT_LTE(dst.start_index(), min_start);
+    BB_ASSERT_GTE(dst.end_index(), max_end);
+
+    const size_t union_size = max_end - min_start;
+    parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("add_scaled_batch/chunk");
+        auto chunk_indices = chunk.range(union_size, min_start);
+        if (chunk_indices.empty()) {
+            return;
+        }
+        auto chunk_start = chunk_indices.front();
+        auto chunk_end = chunk_indices.back();
+
+        for (size_t k = 0; k < sources.size(); ++k) {
+            const auto& src = sources[k];
+            const Fr& c = scalars[k];
+            const size_t src_start = src.start_index;
+            const size_t src_end = src.end_index();
+
+            const size_t idx_start = std::max(chunk_start, src_start);
+            const size_t idx_end = std::min(chunk_end + 1, src_end);
+
+            for (size_t i = idx_start; i < idx_end; ++i) {
+                dst.at(i) += c * src[i];
+            }
+        }
+    });
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
@@ -291,4 +354,11 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::reverse() const
 
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
+
+template void add_scaled_batch<bb::fr>(Polynomial<bb::fr>& dst,
+                                       std::span<const PolynomialSpan<const bb::fr>> sources,
+                                       std::span<const bb::fr> scalars);
+template void add_scaled_batch<grumpkin::fr>(Polynomial<grumpkin::fr>& dst,
+                                             std::span<const PolynomialSpan<const grumpkin::fr>> sources,
+                                             std::span<const grumpkin::fr> scalars);
 } // namespace bb

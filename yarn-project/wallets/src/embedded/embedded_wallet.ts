@@ -1,7 +1,15 @@
 import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
-import type { Aliased, SendOptions } from '@aztec/aztec.js/wallet';
+import type {
+  Aliased,
+  ExecuteUtilityOptions,
+  PrivateEvent,
+  PrivateEventFilter,
+  ProfileOptions,
+  SendOptions,
+  SimulateOptions,
+} from '@aztec/aztec.js/wallet';
 import { AccountManager, TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
@@ -10,8 +18,9 @@ import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
+import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -20,7 +29,9 @@ import {
   ExecutionPayload,
   SimulationOverrides,
   type TxExecutionRequest,
+  type TxProfileResult,
   TxStatus,
+  type UtilityExecutionResult,
   collectOffchainEffects,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
@@ -76,6 +87,10 @@ const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
 export class EmbeddedWallet extends BaseWallet {
   protected estimatedGasPadding = DEFAULT_ESTIMATED_GAS_PADDING;
 
+  // Stub class ids, populated on wallet startup
+  // to avoid redundant work per simulation
+  protected stubClassIds = new Map<AccountType, Fr>();
+
   constructor(
     pxe: PXE,
     aztecNode: AztecNode,
@@ -127,6 +142,9 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
+    // PXE has autoSync disabled by the embedded wallet entrypoints, so we sync once here to cover
+    // both the inner simulateTx (via simulateViaEntrypoint) and the proveTx that super.sendTx
+    await this.pxe.sync();
     const feeOptions = await this.completeFeeOptions({
       from: opts.from,
       feePayer: executionPayload.feePayer,
@@ -141,6 +159,7 @@ export class EmbeddedWallet extends BaseWallet {
       feeOptions,
       additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
+      sendMessagesAs: opts.sendMessagesAs,
     });
 
     const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
@@ -192,6 +211,70 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
+   * Overrides the base simulateTx to drive PXE syncing explicitly. The PXE created by the embedded
+   * wallet has autoSync disabled (so we can share one sync across simulate+send in sendTx); for
+   * standalone simulations we still need a fresh anchor block, which we provide here.
+   */
+  public override async simulateTx(
+    executionPayload: ExecutionPayload,
+    opts: SimulateOptions,
+  ): Promise<TxSimulationResultWithAppOffset> {
+    await this.pxe.sync();
+    return super.simulateTx(executionPayload, opts);
+  }
+
+  public override async profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
+    await this.pxe.sync();
+    return super.profileTx(executionPayload, opts);
+  }
+
+  public override async executeUtility(
+    call: FunctionCall,
+    opts: ExecuteUtilityOptions,
+  ): Promise<UtilityExecutionResult> {
+    await this.pxe.sync();
+    return super.executeUtility(call, opts);
+  }
+
+  public override async getPrivateEvents<T>(
+    eventDef: EventMetadataDefinition,
+    eventFilter: PrivateEventFilter,
+  ): Promise<PrivateEvent<T>[]> {
+    await this.pxe.sync();
+    return super.getPrivateEvents<T>(eventDef, eventFilter);
+  }
+
+  public override async registerContract(
+    instance: ContractInstanceWithAddress,
+    artifact?: ContractArtifact,
+    secretKey?: Fr,
+  ): Promise<ContractInstanceWithAddress> {
+    // registerContract may call pxe.updateContract under the hood, which depends on a fresh anchor
+    // block to verify the current class id from the node.
+    await this.pxe.sync();
+    return super.registerContract(instance, artifact, secretKey);
+  }
+
+  /**
+   * Hashes and registers the stub class for every supported account type with PXE, populating
+   * stubClassIds. Called on wallet initialization.
+   */
+  async initStubClasses(): Promise<void> {
+    const schnorrArtifact = await this.accountContracts.getStubAccountContractArtifact('schnorr');
+    const { id: schnorrClassId } = await getContractClassFromArtifact(schnorrArtifact);
+    await this.pxe.registerContractClass(schnorrArtifact);
+
+    // ecdsa stubs share the same class id
+    const ecdsaArtifact = await this.accountContracts.getStubAccountContractArtifact('ecdsasecp256r1');
+    const { id: ecdsaClassId } = await getContractClassFromArtifact(ecdsaArtifact);
+    await this.pxe.registerContractClass(ecdsaArtifact);
+
+    this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
+    this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
+  }
+
+  /**
    * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
    * Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
    */
@@ -204,7 +287,12 @@ export class EmbeddedWallet extends BaseWallet {
     for (const account of filtered) {
       const address = account.item;
       const { type } = await this.walletDB.retrieveAccount(address);
-      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
+      const stubClassId = this.stubClassIds.get(type);
+      if (!stubClassId) {
+        throw new Error(
+          `Stub class for account type '${type}' was not registered at wallet init. This is a bug — initStubClasses should cover every supported AccountType.`,
+        );
+      }
 
       const originalAccount = await this.getAccountFromAddress(address);
       const completeAddress = originalAccount.getCompleteAddress();
@@ -215,15 +303,8 @@ export class EmbeddedWallet extends BaseWallet {
         );
       }
 
-      const stubConstructorArgs = type === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
-      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-        salt: Fr.random(),
-        constructorArgs: stubConstructorArgs,
-      });
-
       contracts[address.toString()] = {
-        instance: stubInstance,
-        artifact: stubArtifact,
+        instance: { ...contractInstance, currentContractClassId: stubClassId },
       };
     }
 
@@ -239,7 +320,7 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
     const scopes = this.scopesFrom(from, additionalScopes);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -249,7 +330,7 @@ export class EmbeddedWallet extends BaseWallet {
     const chainInfo = await this.getChainInfo();
 
     const accountOverrides = await this.buildAccountOverrides(scopes);
-    const overrides = new SimulationOverrides(accountOverrides);
+    const overrides = new SimulationOverrides({ contracts: accountOverrides });
 
     let txRequest: TxExecutionRequest;
     if (from === NO_FROM) {
@@ -280,6 +361,7 @@ export class EmbeddedWallet extends BaseWallet {
       skipTxValidation,
       overrides,
       scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
@@ -358,7 +440,8 @@ export class EmbeddedWallet extends BaseWallet {
     this.estimatedGasPadding = value ?? DEFAULT_ESTIMATED_GAS_PADDING;
   }
 
-  stop() {
-    return this.pxe.stop();
+  async stop(): Promise<void> {
+    await this.pxe.stop();
+    await this.walletDB.close();
   }
 }

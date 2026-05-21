@@ -34,8 +34,9 @@ import type { P2PClient } from '../client/index.js';
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
 import type { MemPools } from '../mem_pools/index.js';
-import { BatchTxRequesterCollector, LibP2PService, SendBatchRequestCollector } from '../services/index.js';
+import { LibP2PService } from '../services/index.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
+import { BatchTxRequester } from '../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
 import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
@@ -45,7 +46,6 @@ import { RequestTracker } from '../services/tx_collection/request_tracker.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/index.js';
 import {
   BENCHMARK_CONSTANTS,
-  type CollectorType,
   type DistributionPattern,
   InMemoryAttestationPool,
   InMemoryTxPool,
@@ -56,15 +56,13 @@ import {
 } from '../test-helpers/index.js';
 import type { PubSubLibp2p } from '../util.js';
 
-export type { DistributionPattern, CollectorType } from '../test-helpers/testbench-utils.js';
-export { COLLECTOR_DISPLAY_NAMES } from '../test-helpers/testbench-utils.js';
+export type { DistributionPattern } from '../test-helpers/testbench-utils.js';
 
 export interface BenchReqRespCommand {
   type: 'BENCH_REQRESP';
   txCount: number;
   peerCount: number;
   distribution: DistributionPattern;
-  collectorType: CollectorType;
   timeoutMs: number;
   isAggregator: boolean;
   peerIndex: number;
@@ -228,7 +226,6 @@ function getConnectedPeerCount(client: P2PClient): number {
 async function runAggregatorBenchmark(
   client: P2PClient,
   blockProposal: BlockProposal,
-  collectorType: CollectorType,
   timeoutMs: number,
   pinnedPeerId: string | undefined,
   pinnedPeerIndex: number | undefined,
@@ -286,37 +283,17 @@ async function runAggregatorBenchmark(
     };
 
     timer = new Timer();
-    if (collectorType === 'batch-requester') {
-      const collector = new BatchTxRequesterCollector(
-        batchTxRequesterService,
-        logger,
-        new DateProvider(),
-        noopTxValidator,
-      );
-      const fetchedTxs = await collector.collectTxs(
-        RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
-        blockProposal,
-        pinnedPeer,
-      );
-      const durationMs = timer.ms();
-      return {
-        type: 'BENCH_RESULT',
-        durationMs,
-        fetchedCount: fetchedTxs.length,
-        success: fetchedTxs.length === txHashes.length,
-      };
-    }
-
-    const collector = new SendBatchRequestCollector(
-      batchTxRequesterService,
-      BENCHMARK_CONSTANTS.FIXED_MAX_PEERS,
-      BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
-    );
-    const fetchedTxs = await collector.collectTxs(
-      RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs)),
+    const tracker = RequestTracker.create(txHashes, new Date(Date.now() + timeoutMs));
+    const batchRequester = new BatchTxRequester(
+      tracker,
       blockProposal,
       pinnedPeer,
+      batchTxRequesterService,
+      logger,
+      new DateProvider(),
+      { txValidator: noopTxValidator },
     );
+    const fetchedTxs = await BatchTxRequester.collectAllTxs(batchRequester.run());
     const durationMs = timer.ms();
     return {
       type: 'BENCH_RESULT',
@@ -424,6 +401,7 @@ process.on('message', async msg => {
         undefined,
         telemetry as TelemetryClient,
         deps,
+        await l2BlockSource.getInitialHeader().hash(),
       );
 
       const testService = new TestLibP2PService(
@@ -514,13 +492,12 @@ process.on('message', async msg => {
           workerTxPool.clearTxs();
 
           workerLogger.info(
-            `[BENCH] Aggregator starting benchmark: txCount=${benchCmd.txCount}, collector=${benchCmd.collectorType}, distribution=${benchCmd.distribution}`,
+            `[BENCH] Aggregator starting benchmark: txCount=${benchCmd.txCount}, distribution=${benchCmd.distribution}`,
           );
 
           const result = await runAggregatorBenchmark(
             workerClient,
             blockProposal,
-            benchCmd.collectorType,
             benchCmd.timeoutMs,
             benchCmd.pinnedPeerId,
             benchCmd.pinnedPeerIndex,

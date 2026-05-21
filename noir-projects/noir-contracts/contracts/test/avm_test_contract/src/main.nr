@@ -8,26 +8,22 @@ pub contract AvmTest {
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
-    global big_field_254_bits: Field =
-        0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+    global big_field_254_bits: Field = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
-    use crate::fake_avm_oracle::{
-        avm_return, call, returndata_copy, returndata_size, revert, success_copy,
-    };
+    use crate::fake_avm_oracle::{avm_return, call, returndata_copy, returndata_size, revert, success_copy};
     use aztec::context::gas::GasOpts;
     use aztec::macros::{functions::{external, view}, storage::storage};
     use aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
-        get_contract_instance_initialization_hash_avm,
+        get_contract_instance_immutables_hash_avm, get_contract_instance_initialization_hash_avm,
     };
     use aztec::protocol::abis::function_selector::FunctionSelector;
     use aztec::protocol::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
     use aztec::protocol::{
         constants::{
-            CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-            FEE_JUICE_ADDRESS, GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y,
-            MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+            CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, FEE_JUICE_ADDRESS,
+            GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
         },
         contract_class_id::ContractClassId,
         storage::map::derive_storage_slot_in_map,
@@ -53,9 +49,6 @@ pub contract AvmTest {
         map: Map<AztecAddress, PublicMutable<u32, Context>, Context>,
     }
 
-    /************************************************************************
-     * Storage
-     ************************************************************************/
     #[external("public")]
     fn set_storage_single(a: Field) {
         _set_storage_single(self.storage, a);
@@ -155,9 +148,6 @@ pub contract AvmTest {
         lhs + rhs
     }
 
-    /************************************************************************
-     * General Opcodes
-     ************************************************************************/
     #[external("public")]
     fn set_opcode_u8() -> u8 {
         8
@@ -219,12 +209,7 @@ pub contract AvmTest {
     }
 
     #[external("public")]
-    fn variable_base_msm(
-        scalar_lo: Field,
-        scalar_hi: Field,
-        scalar2_lo: Field,
-        scalar2_hi: Field,
-    ) -> Point {
+    fn variable_base_msm(scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> Point {
         let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let triple_g = multi_scalar_mul(
@@ -257,10 +242,6 @@ pub contract AvmTest {
         result = result << (y % 32);
         result ^ y
     }
-
-    /************************************************************************
-     * Misc
-     ************************************************************************/
 
     #[external("public")]
     fn u128_addition_overflow() -> u128 {
@@ -355,10 +336,7 @@ pub contract AvmTest {
         let success = success_copy();
 
         assert(!success, "Nested CALL instruction should return failure on exceptional halt");
-        assert(
-            returndata_size() == 0,
-            "Returndata should be empty when nested call exceptionally halts",
-        );
+        assert(returndata_size() == 0, "Returndata should be empty when nested call exceptionally halts");
     }
 
     #[external("public")]
@@ -411,26 +389,24 @@ pub contract AvmTest {
         [4, 5, 6] // Should not get here.
     }
 
-    /************************************************************************
-     * Contract instance
-     ************************************************************************/
+    // This function is called from avm/avm_simulator.test.ts to test retrieval
     #[external("public")]
     fn test_get_contract_instance(address: AztecAddress) {
         let deployer = get_contract_instance_deployer_avm(address);
         let class_id = get_contract_instance_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
+        let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
         assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
         assert(class_id.is_some(), "Contract instance not found when getting CLASS_ID!");
-        assert(
-            initialization_hash.is_some(),
-            "Contract instance not found when getting INIT_HASH!",
-        );
+        assert(initialization_hash.is_some(), "Contract instance not found when getting INIT_HASH!");
+        assert(immutables_hash.is_some(), "Contract instance not found when getting IMMUTABLES_HASH!");
 
         // The values here should match those in `avm_simulator.test.ts`
         assert(deployer.unwrap().eq(AztecAddress::from_field(0x456)));
         assert(class_id.unwrap().eq(ContractClassId::from_field(0x789)));
         assert(initialization_hash.unwrap() == 0x101112);
+        assert(immutables_hash.unwrap() == 0x202221);
     }
 
     #[external("public")]
@@ -439,12 +415,14 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        expected_immutables_hash: Field,
     ) {
         _test_get_contract_instance_matches(
             address,
             expected_deployer,
             expected_class_id,
             expected_initialization_hash,
+            expected_immutables_hash,
         );
     }
 
@@ -454,35 +432,30 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        expected_immutables_hash: Field,
     ) {
         let deployer = get_contract_instance_deployer_avm(address);
         let class_id = get_contract_instance_class_id_avm(address);
         let initialization_hash = get_contract_instance_initialization_hash_avm(address);
+        let immutables_hash = get_contract_instance_immutables_hash_avm(address);
 
         assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
         assert(class_id.is_some(), "Contract instance not found when getting CLASS_ID!");
-        assert(
-            initialization_hash.is_some(),
-            "Contract instance not found when getting INIT_HASH!",
-        );
+        assert(initialization_hash.is_some(), "Contract instance not found when getting INIT_HASH!");
+        assert(immutables_hash.is_some(), "Contract instance not found when getting IMMUTABLES_HASH!");
 
         // The values here should match those in `avm_simulator.test.ts`
         assert(deployer.unwrap().eq(expected_deployer));
         assert(class_id.unwrap().eq(expected_class_id));
         assert(initialization_hash.unwrap().eq(expected_initialization_hash));
+        assert(immutables_hash.unwrap().eq(expected_immutables_hash));
 
         // Get a Protocol Contract and it should exist
         aztec::oracle::logging::debug_log("Get Contract Instance Protocol Contract Instance");
         let fee_juice_class_id = get_contract_instance_class_id_avm(FEE_JUICE_ADDRESS);
-        assert(
-            fee_juice_class_id.is_some(),
-            "Protocol Contract instance not found when getting CLASS_ID!",
-        );
+        assert(fee_juice_class_id.is_some(), "Protocol Contract instance not found when getting CLASS_ID!");
     }
 
-    /************************************************************************
-     * AvmContext functions
-     ************************************************************************/
     #[external("public")]
     fn get_address() -> AztecAddress {
         _get_address(self.address)
@@ -607,14 +580,13 @@ pub contract AvmTest {
     fn _emit_public_log(context: PublicContext) {
         context.emit_public_log_unsafe(0, /*message=*/ [10, 20, 30]);
         context.emit_public_log_unsafe(0, /*message=*/ "Hello, world!");
-        let s: CompressedString<2, 44> =
-            CompressedString::from_string("A long time ago, in a galaxy far far away...");
+        let s: CompressedString<2, 44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
         context.emit_public_log_unsafe(0, /*message=*/ s);
         context.emit_public_log_unsafe(
             0,
             /*message=*/ [
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+                29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
             ],
         ); // Large log
     }
@@ -704,10 +676,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(
-            self.context.nullifier_exists_unsafe(nullifier, self.address),
-            "Nullifier doesn't exist!",
-        );
+        assert(self.context.nullifier_exists_unsafe(nullifier, self.address), "Nullifier doesn't exist!");
     }
 
     // Use the standard context interface to emit a new nullifier
@@ -732,11 +701,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _l1_to_l2_msg_exists(
-        context: PublicContext,
-        msg_hash: Field,
-        msg_leaf_index: Field,
-    ) -> bool {
+    fn _l1_to_l2_msg_exists(context: PublicContext, msg_hash: Field, msg_leaf_index: Field) -> bool {
         context.l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
     }
 
@@ -750,9 +715,6 @@ pub contract AvmTest {
         context.message_portal(recipient, content)
     }
 
-    /************************************************************************
-     * Nested calls
-     ************************************************************************/
     #[external("public")]
     fn nested_call_to_nothing() {
         let garbageAddress = AztecAddress::from_field(42);
@@ -764,24 +726,13 @@ pub contract AvmTest {
         let garbageAddress = AztecAddress::from_field(42);
         call(1, 1, garbageAddress, []);
         let success = success_copy();
-        assert(
-            !success,
-            "Nested CALL instruction should return failure if target contract does not exist",
-        );
+        assert(!success, "Nested CALL instruction should return failure if target contract does not exist");
     }
 
     #[external("public")]
-    fn nested_call_to_add_with_gas(
-        arg_a: Field,
-        arg_b: Field,
-        l2_gas: u32,
-        da_gas: u32,
-    ) -> pub Field {
+    fn nested_call_to_add_with_gas(arg_a: Field, arg_b: Field, l2_gas: u32, da_gas: u32) -> pub Field {
         // Note: can't use self.call_self here because we need .with_gas() chaining
-        self.call(AvmTest::at(self.address).add_args_return(arg_a, arg_b).with_gas(GasOpts::new(
-            l2_gas,
-            da_gas,
-        )))
+        self.call(AvmTest::at(self.address).add_args_return(arg_a, arg_b).with_gas(GasOpts::new(l2_gas, da_gas)))
     }
 
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
@@ -825,10 +776,8 @@ pub contract AvmTest {
         arg_a: Field,
         arg_b: Field,
     ) -> Field {
-        let selector =
-            comptime { FunctionSelector::from_signature("add_args_return(Field,Field)") };
-        context.static_call_public_function(address, selector, [arg_a, arg_b], GasOpts::default())
-            [0]
+        let selector = comptime { FunctionSelector::from_signature("add_args_return(Field,Field)") };
+        context.static_call_public_function(address, selector, [arg_a, arg_b], GasOpts::default())[0]
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing self.storage.
@@ -836,12 +785,7 @@ pub contract AvmTest {
     fn nested_static_call_to_set_storage() {
         let selector = comptime { FunctionSelector::from_signature("set_storage_single(Field)") };
         let args = [20 as Field];
-        let _ = self.context.static_call_public_function(
-            self.address,
-            selector,
-            args,
-            GasOpts::default(),
-        );
+        let _ = self.context.static_call_public_function(self.address, selector, args, GasOpts::default());
     }
 
     #[external("public")]
@@ -872,18 +816,12 @@ pub contract AvmTest {
         self.call_self.fn_w_large_calldata(arr)
     }
 
-    /**
-     * Enqueue a public call from private
-     */
     #[external("private")]
     fn enqueue_public_from_private() {
         self.enqueue_self_static.set_opcode_u8_view();
         self.enqueue_self.set_read_storage_single(5);
     }
 
-    /************************************************************************
-     * Protocol Contract Calls
-     ************************************************************************/
     #[external("public")]
     fn call_fee_juice() {
         _call_fee_juice(self.context, self.address);
@@ -896,23 +834,16 @@ pub contract AvmTest {
 
     #[external("public")]
     fn call_auth_registry() {
-        let _ = AuthRegistry::at(CANONICAL_AUTH_REGISTRY_ADDRESS).is_reject_all(self.address).view(
-            self.context,
-        );
+        let _ = AuthRegistry::at(CANONICAL_AUTH_REGISTRY_ADDRESS).is_reject_all(self.address).view(self.context);
     }
 
     #[external("public")]
     fn call_instance_registry() {
-        let _ = self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .get_update_delay());
+        let _ = self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).get_update_delay());
     }
 
-    /************************************************************************
-     * Bulk testing: exercise many functions in a single call.
-     * It only makes sense to call functions with side effects (or oracle
-     * calls - but not blackboxes!), since otherwise the whole call will
-     * be optimized away.
-     ************************************************************************/
+    // Exercises many functions in a single call. Only calls functions with side effects (or oracle calls - but not
+    // blackboxes), otherwise the whole call would be optimized away.
     #[external("public")]
     fn bulk_testing(
         args_field: [Field; 10],
@@ -921,6 +852,7 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        expected_immutables_hash: Field,
         skip_strictly_limited_side_effects: bool,
     ) {
         aztec::oracle::logging::debug_log("biwise_ops");
@@ -956,6 +888,7 @@ pub contract AvmTest {
             expected_deployer,
             expected_class_id,
             expected_initialization_hash,
+            expected_immutables_hash,
         );
         aztec::oracle::logging::debug_log("get_address");
         let _ = _get_address(self.address);

@@ -70,8 +70,10 @@ git clone --depth 1 https://github.com/foundry-rs/forge-std forge-std
 git clone --depth 1 https://github.com/OpenZeppelin/openzeppelin-contracts openzeppelin-contracts
 cd ..
 
-# Install solc (uses forge's built-in svm)
-forge build --use 0.8.30 src/core/libraries/ConstantsGen.sol
+# Install solc (uses forge's built-in svm). The Aztec installer ships
+# Foundry as `aztec-forge`/`aztec-cast`/`aztec-anvil` -- substitute your
+# own `forge` install if you have one.
+aztec-forge build --use 0.8.30 src/core/libraries/ConstantsGen.sol
 cp ~/.svm/0.8.30/solc-0.8.30 ./solc-0.8.30
 
 # Copy the HonkVerifier to the generated directory (required for build)
@@ -130,7 +132,7 @@ export AZTEC_INITIAL_ETH_PER_FEE_ASSET=10000000
 ## Step 4: Deploy New Rollup
 
 ```bash
-forge script script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
+aztec-forge script script/deploy/DeployRollupForUpgrade.s.sol:DeployRollupForUpgrade \
   --rpc-url $L1_RPC_URL \
   --broadcast \
   --private-key $PRIVATE_KEY
@@ -151,7 +153,7 @@ export NEW_ROLLUP_ADDRESS=0x...
 ```bash
 cd l1-contracts
 
-forge create \
+aztec-forge create \
   --rpc-url $L1_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
@@ -359,9 +361,12 @@ aztec get-l1-addresses \
 
 ```bash
 aztec debug-rollup \
+  --rollup $NEW_ROLLUP_ADDRESS \
   --l1-rpc-urls $L1_RPC_URL \
   -c $L1_CHAIN_ID
 ```
+
+The `--rollup` flag is required; without it the command may fail trying to resolve the default rollup address.
 
 ---
 
@@ -373,7 +378,7 @@ If you just want to test the governance flow without deploying a real rollup:
 cd l1-contracts
 
 # Deploy empty payload (no constructor args needed)
-forge create \
+aztec-forge create \
   --rpc-url $L1_RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \

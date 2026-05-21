@@ -4,7 +4,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
@@ -169,7 +169,7 @@ TEST(TxTraceGenTest, BasicFirstPaddedRow)
             ROW_FIELD_EQ(tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION)),
             ROW_FIELD_EQ(tx_is_padded, 1),
             ROW_FIELD_EQ(tx_is_tree_insert_phase, 1),
-            ROW_FIELD_EQ(tx_sel_non_revertible_append_nullifier, 1),
+            ROW_FIELD_EQ(tx_sel_append_nullifier, 1),
             ROW_FIELD_EQ(tx_start_tx, 1),
             ROW_FIELD_EQ(tx_should_read_gas_limit, 1),
             ROW_FIELD_EQ(tx_gas_limit_pi_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX),

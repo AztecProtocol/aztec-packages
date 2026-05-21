@@ -85,7 +85,7 @@ export type FeeOptions = {
 /** Options for `simulateViaEntrypoint`. */
 export type SimulateViaEntrypointOptions = Pick<
   SimulateOptions,
-  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement'
+  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement' | 'sendMessagesAs' | 'overrides'
 > & {
   /** Fee options for the entrypoint */
   feeOptions: FeeOptions;
@@ -129,6 +129,17 @@ export abstract class BaseWallet implements Wallet {
     const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
     return [...scopeSet].map(AztecAddress.fromString);
+  }
+
+  /**
+   * Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing
+   * account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx will fail
+   * the contract-side `Sender for tags is not set` assertion unless `set_sender_for_tags` is called first.
+   * @param from - Tx sender, or `NO_FROM`.
+   * @param sendMessagesAs - Explicit override.
+   */
+  protected senderForTagsFrom(from: AztecAddress | NoFrom, sendMessagesAs?: AztecAddress): AztecAddress | undefined {
+    return sendMessagesAs ?? (from === NO_FROM ? undefined : from);
   }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
@@ -337,6 +348,10 @@ export abstract class BaseWallet implements Wallet {
     return instance;
   }
 
+  registerContractClass(artifact: ContractArtifact): Promise<void> {
+    return this.pxe.registerContractClass(artifact);
+  }
+
   /**
    * Simulates calls through the standard PXE path (account entrypoint).
    * @param executionPayload - The execution payload to simulate.
@@ -353,6 +368,8 @@ export abstract class BaseWallet implements Wallet {
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
       scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
+      overrides: opts.overrides,
     });
     const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
@@ -401,7 +418,7 @@ export abstract class BaseWallet implements Wallet {
     try {
       blockHeader = await this.pxe.getSyncedBlockHeader();
     } catch {
-      blockHeader = (await this.aztecNode.getBlockHeader())!;
+      blockHeader = (await this.aztecNode.getBlockData('latest'))!.header;
     }
 
     const simulationOrigin = opts.from === NO_FROM ? AztecAddress.ZERO : opts.from;
@@ -416,6 +433,7 @@ export abstract class BaseWallet implements Wallet {
             blockHeader,
             opts.skipFeeEnforcement ?? true,
             this.getContractName.bind(this),
+            opts.overrides,
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -425,6 +443,8 @@ export abstract class BaseWallet implements Wallet {
             additionalScopes: opts.additionalScopes,
             skipTxValidation: opts.skipTxValidation,
             skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
+            sendMessagesAs: opts.sendMessagesAs,
+            overrides: opts.overrides,
           })
         : Promise.resolve(null),
     ]);
@@ -444,6 +464,7 @@ export abstract class BaseWallet implements Wallet {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
       scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
   }
 
@@ -458,7 +479,10 @@ export abstract class BaseWallet implements Wallet {
       congestionEstimate: opts.fee?.congestionEstimate,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const provenTx = await this.pxe.proveTx(txRequest, {
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
+    });
     const offchainOutput = extractOffchainOutput(
       provenTx.getOffchainEffects(),
       provenTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,

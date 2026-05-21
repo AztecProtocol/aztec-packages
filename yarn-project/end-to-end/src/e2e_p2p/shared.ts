@@ -56,7 +56,9 @@ export const submitTransactions = async (
   rpcConfig.proverEnabled = false;
   const wallet = await TestWallet.create(
     node,
-    { ...getPXEConfig(), proverEnabled: false },
+    // Use checkpointed chain tip to avoid anchoring on provisional blocks that the archiver can prune
+    // when their slot ends without a checkpoint landing on L1.
+    { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
     { loggerActorLabel: 'pxe-tx' },
   );
   const contract = new SchnorrHardcodedKeyAccountContract();
@@ -79,7 +81,7 @@ export async function prepareTransactions(
 
   const wallet = await TestWallet.create(
     node,
-    { ...getPXEConfig(), proverEnabled: false },
+    { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
     { loggerActorLabel: 'pxe-tx' },
   );
   const accountContract = new SchnorrHardcodedKeyAccountContract();
@@ -279,7 +281,10 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(1); // Validating
   }
 
-  const timeout = slashingRoundSize * 2 * aztecSlotDuration + 30;
+  // Allow up to four round-lengths so that under proposer pipelining, where individual rounds
+  // sometimes fail to gather quorum because parts of the committee miss votes due to chain-state
+  // races, we still see a later round execute the slash.
+  const timeout = slashingRoundSize * 4 * aztecSlotDuration + 30;
   logger.info(`Waiting for slash to be executed (timeout ${timeout}s)`);
   await awaitProposalExecution(slashingProposer, timeout, logger);
 

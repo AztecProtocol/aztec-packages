@@ -5,6 +5,7 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  optionalNumberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -13,6 +14,7 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
   type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
@@ -58,6 +60,7 @@ export const DefaultSequencerConfig = {
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
+  maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
 } satisfies ResolvedSequencerConfig;
 
 /**
@@ -83,7 +86,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   maxTxsPerCheckpoint: {
     env: 'SEQ_MAX_TX_PER_CHECKPOINT',
     description: 'The maximum number of txs across all blocks in a checkpoint.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   minTxsPerBlock: {
     env: 'SEQ_MIN_TX_PER_BLOCK',
@@ -102,12 +105,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
     description: 'The maximum L2 block gas.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   maxDABlockGas: {
     env: 'SEQ_MAX_DA_BLOCK_GAS',
     description: 'The maximum DA block gas.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   perBlockAllocationMultiplier: {
     env: 'SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER',
@@ -153,7 +156,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   l1PublishingTime: {
     env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
     description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
@@ -228,12 +231,18 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)',
     ...numberConfigHelper(DefaultSequencerConfig.skipPublishingCheckpointsPercent),
   },
+  skipBroadcastProposals: {
+    description: 'Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  pauseProposingForSlots: {
+    description:
+      'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
-  // chainConfigMappings must come first: its l1Contracts only maps rollupAddress,
-  // while l1ReaderConfigMappings (spread later) maps all L1 contract addresses.
   ...chainConfigMappings,
   ...validatorClientConfigMappings,
   ...sequencerConfigMappings,

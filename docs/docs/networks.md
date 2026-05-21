@@ -19,7 +19,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 
 | Parameter | Alpha (Mainnet) | Testnet |
 |-----------|-------------------|---------|
-| **Version** | `4.2.0` | `4.2.0` |
+| **Version** | `4.3.0` | `4.3.0` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) |
 | **Rollup Version** | `2934756905` | `4127419662` |
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` |
@@ -79,14 +79,6 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Execution Delay** | 30 days | 12 hours |
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
-
-## Use Case Suitability
-
-| Use Case | Alpha (Mainnet) | Testnet |
-|----------|-------------------|---------|
-| **App Development** | ❌ | ✅ |
-| **Sequencer Testing** | ✅ | ✅ |
-| **Governance Testing** | ✅ | ✅ |
 
 ---
 

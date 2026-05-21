@@ -63,6 +63,10 @@ constexpr element<Fq, Fr, T>& element<Fq, Fr, T>::operator=(element&& other) noe
     return *this;
 }
 
+// Warning: variable-time — calls `z.invert()` (Bernstein-Yang safegcd).  Do not
+// use on points derived from secret material (signing nonces, private keys, DH
+// shared secrets).  For those, call `to_affine_const_time()` explicitly; the
+// implicit conversion does NOT pick up the const-time path.
 template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator affine_element<Fq, Fr, T>() const noexcept
 {
     if (is_point_at_infinity()) {
@@ -73,6 +77,23 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator af
         return result;
     }
     Fq z_inv = z.invert();
+    Fq zz_inv = z_inv.sqr();
+    Fq zzz_inv = zz_inv * z_inv;
+    affine_element<Fq, Fr, T> result(x * zz_inv, y * zzz_inv);
+    return result;
+}
+
+template <class Fq, class Fr, class T>
+constexpr affine_element<Fq, Fr, T> element<Fq, Fr, T>::to_affine_const_time() const noexcept
+{
+    if (is_point_at_infinity()) {
+        affine_element<Fq, Fr, T> result;
+        result.x = Fq(0);
+        result.y = Fq(0);
+        result.self_set_infinity();
+        return result;
+    }
+    Fq z_inv = z.invert_const_time();
     Fq zz_inv = z_inv.sqr();
     Fq zzz_inv = zz_inv * z_inv;
     affine_element<Fq, Fr, T> result(x * zz_inv, y * zzz_inv);
@@ -159,6 +180,10 @@ template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const affine_element<Fq, Fr, T>& other) noexcept
 {
     if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        // If either point is infinity, return the other point
+        if (other.is_point_at_infinity()) {
+            return *this;
+        }
         if (is_point_at_infinity()) {
             *this = { other.x, other.y, Fq::one() };
             return *this;
@@ -395,10 +420,80 @@ template <class Fq, class Fr, class T> element<Fq, Fr, T> element<Fq, Fr, T>::op
     return *this;
 }
 
+template <class Fq, class Fr, class T>
+element<Fq, Fr, T> element<Fq, Fr, T>::mul_const_time(const Fr& scalar, numeric::RNG* engine) const noexcept
+{
+    if (engine == nullptr) {
+        engine = &numeric::get_randomness();
+    }
+
+    // Convert the scalar to canonical u256 form
+    const uint256_t k = uint256_t(scalar);
+
+    // Coron's first DPA countermeasure (J.-S. Coron, "Resistance against Differential Power Analysis
+    // for Elliptic Curve Cryptosystems", CHES 1999, LNCS 1717, pp. 292-302, Section 5.1): blind the
+    // scalar with k' = k + r * n where r is a fresh random 64-bit value sampled per call. Since
+    // n * P = O for any P in the prime-order subgroup, k' * P = k * P. The randomization defeats
+    // DPA: per-bit traces of two signings with the same k decorrelate because the bit pattern of k'
+    // differs across calls.
+    //
+    // We force the high bit of r to be 1 so that r is sampled uniformly from [2^63, 2^64). This
+    // guarantees r * n has a fixed-width range (MSB at position M+63 or M+64 for n with MSB at M),
+    // so the iteration count remains exactly NUM_BITS regardless of the sampled r.
+    const uint64_t r = engine->get_random_uint64() | (UINT64_C(1) << 63);
+    const uint512_t r_times_n = uint512_t(uint256_t(Fr::modulus)) * uint512_t(uint256_t(r));
+    const uint512_t k_blinded = uint512_t(k) + r_times_n;
+
+    // For n with MSB at position M, r * n < 2^(M + 65), so k_blinded < 2^(M + 65) + n < 2^(M + 66).
+    // Iterating M+65 bits is safe because k < n means the additional bit from k cannot push k_blinded
+    // past 2^(M + 65) when n is at the lower end of [2^M, 2^(M+1)); we add one extra bit (M + 66
+    // total) to cover the worst case where n is close to 2^(M+1).
+    constexpr size_t NUM_BITS = static_cast<size_t>(uint256_t(Fr::modulus).get_msb()) + 66;
+
+    // Constant-time conditional swap of two Fq coordinates. `mask` is 0 (no swap) or all-ones (swap),
+    // derived from the secret bit via integer subtraction so no branch is emitted.
+    auto cs_fq = [](Fq& a, Fq& b, uint64_t mask) {
+        constexpr size_t NUM_LIMBS = sizeof(Fq) / sizeof(uint64_t);
+        for (size_t i = 0; i < NUM_LIMBS; ++i) {
+            uint64_t t = mask & (a.data[i] ^ b.data[i]);
+            a.data[i] ^= t;
+            b.data[i] ^= t;
+        }
+    };
+    auto cswap = [&cs_fq](element& a, element& b, uint64_t mask) {
+        cs_fq(a.x, b.x, mask);
+        cs_fq(a.y, b.y, mask);
+        cs_fq(a.z, b.z, mask);
+    };
+
+    // Montgomery ladder. Invariant after each iteration: R1 - R0 = P.
+    // Once R0 first becomes non-infinity (after the first 1-bit of k_blinded is processed), the
+    // invariant guarantees R0 + R1 and 2 * R0 do not hit the doubling/infinity special-case branches.
+    element R0 = element::infinity();
+    element R1(*this);
+
+    for (size_t i = NUM_BITS; i-- > 0;) {
+        const uint64_t mask = 0ULL - static_cast<uint64_t>(k_blinded.get_bit(i));
+        cswap(R0, R1, mask);
+        R1 = R0 + R1;
+        R0 = R0.dbl();
+        cswap(R0, R1, mask);
+    }
+    return R0;
+}
+
+// Warning: variable-time via the implicit affine conversion above.  For
+// secret-input points use `normalize_const_time()`.
 template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T> element<Fq, Fr, T>::normalize() const noexcept
 {
     const affine_element<Fq, Fr, T> converted = *this;
     return element(converted);
+}
+
+template <class Fq, class Fr, class T>
+constexpr element<Fq, Fr, T> element<Fq, Fr, T>::normalize_const_time() const noexcept
+{
+    return element(to_affine_const_time());
 }
 
 template <class Fq, class Fr, class T> element<Fq, Fr, T> element<Fq, Fr, T>::infinity()
@@ -423,6 +518,10 @@ template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_s
         x.data[1] = Fq::modulus.data[1];
         x.data[2] = Fq::modulus.data[2];
         x.data[3] = Fq::modulus.data[3];
+
+        // Clear y and z so the infinity representation is canonical regardless of prior state
+        y = Fq::zero();
+        z = Fq::zero();
     } else {
         (*this).x = Fq::zero();
         (*this).y = Fq::zero();
@@ -517,8 +616,9 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_without_endomorphism(const Fr& scalar
 
     element accumulator(*this);
     const uint64_t maximum_set_bit = converted_scalar.get_msb();
-    // This is simpler and doublings of infinity should be fast. We should think if we want to defend against the
-    // timing leak here (if used with ECDSA it can sometimes lead to private key compromise)
+    // NOT constant-time: the loop bound leaks bit-length and the per-bit branch leaks Hamming
+    // weight. This is acceptable only for public scalars; secret scalars must go through
+    // mul_const_time.
     for (uint64_t i = maximum_set_bit - 1; i < maximum_set_bit; --i) {
         accumulator.self_dbl();
         if (converted_scalar.get_bit(i)) {
@@ -728,6 +828,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
  * @brief Batch affine point doubling using Montgomery's trick
  * @tparam AffineElement Affine point type
  * @tparam Fq Base field type
+ * @tparam T Curve parameters type (for adding `a` in slope calculation)
  *
  * @warning ASSUMES NO EDGE CASES:
  *   - All points must be valid (not point at infinity)
@@ -737,7 +838,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
  * @note This is the "unsafe" fast path. For general point doubling with edge case handling,
  *       use Jacobian arithmetic or check for edge cases before calling this function.
  */
-template <typename AffineElement, typename Fq>
+template <typename AffineElement, typename Fq, typename T>
 __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElement* points,
                                                                     const size_t num_points,
                                                                     Fq* scratch_space) noexcept
@@ -747,6 +848,9 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
     // Forward pass: prepare batch inversion
     for (size_t i = 0; i < num_points; ++i) {
         scratch_space[i] = points[i].x.sqr();
+        if constexpr (T::has_a) {
+            scratch_space[i] += T::a; // adjust slope in numerator
+        }
         scratch_space[i] = scratch_space[i] + scratch_space[i] + scratch_space[i];
         scratch_space[i] *= batch_inversion_accumulator;
         batch_inversion_accumulator *= (points[i].y + points[i].y);
@@ -865,6 +969,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     std::vector<affine_element> temp_point_vector(num_points);
 
     auto execute_range = [&](size_t start, size_t end) {
+        BB_BENCH_TRACY_NAME("batch_mul_with_endo/execute_range");
         // Perform batch affine addition in parallel
         const auto add_chunked = [&](const affine_element* lhs, affine_element* rhs) {
             batch_affine_add_impl<affine_element, Fq>(&lhs[start], &rhs[start], end - start, &scratch_space[start]);
@@ -872,7 +977,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
         // Perform point doubling in parallel
         const auto double_chunked = [&](affine_element* lhs) {
-            batch_affine_double_impl<affine_element, Fq>(&lhs[start], end - start, &scratch_space[start]);
+            batch_affine_double_impl<affine_element, Fq, T>(&lhs[start], end - start, &scratch_space[start]);
         };
 
         // Initialize first entries in lookup table

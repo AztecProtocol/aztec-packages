@@ -3,7 +3,7 @@ use protocol_test_utils::assert_claimed_length_array_eq;
 use types::{
     address::{AztecAddress, EthAddress},
     constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        DEFAULT_UPDATE_DELAY, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_ENQUEUED_CALLS_PER_CALL, MAX_ENQUEUED_CALLS_PER_TX,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
@@ -13,7 +13,6 @@ use types::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_CALL, MAX_PRIVATE_LOGS_PER_TX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    point::Point,
     traits::{Empty, FromField},
     utils::arrays::subarray,
 };
@@ -271,6 +270,26 @@ fn expiration_timestamp_pick_private_call() {
     let pi = builder.execute();
 
     assert_eq(pi.expiration_timestamp, 78);
+}
+
+#[test]
+fn expiration_timestamp_pick_contract_update_horizon() {
+    let mut builder = TestBuilder::new();
+
+    let contract_update_horizon = builder
+        .private_call
+        .anchor_block_header
+        .global_variables
+        .timestamp
+        + DEFAULT_UPDATE_DELAY
+        - 1;
+
+    builder.previous_kernel.expiration_timestamp = contract_update_horizon + 1000;
+    builder.private_call.expiration_timestamp = contract_update_horizon + 1000;
+
+    let pi = builder.execute();
+
+    assert_eq(pi.expiration_timestamp, contract_update_horizon);
 }
 
 #[test]
@@ -712,7 +731,7 @@ fn with_allowed_empty_values_from_private_call() {
     let _ = builder.private_call.add_nullifier_read_request(0);
     let empty_nullifier_read_request = builder.private_call.nullifier_read_requests.storage()[0];
 
-    builder.private_call.add_request_for_key_validation(Point::empty(), 0, 0);
+    builder.private_call.add_request_for_key_validation(0, 0, 0);
     let empty_key_validation_request =
         builder.private_call.scoped_key_validation_requests_and_separators.storage()[0];
 

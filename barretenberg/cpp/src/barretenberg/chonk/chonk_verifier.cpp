@@ -42,9 +42,9 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     }
 
     // Step 2: Databus consistency check
-    const Commitment calldata_commitment = oink_result.calldata_commitment;
+    const Commitment kernel_calldata_commitment = oink_result.kernel_calldata_commitment;
     const Commitment return_data_commitment = kernel_io.kernel_return_data;
-    bool databus_consistency_verified = (calldata_commitment == return_data_commitment);
+    bool databus_consistency_verified = (kernel_calldata_commitment == return_data_commitment);
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("ChonkVerifier: verification failed at databus consistency check");
@@ -54,7 +54,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     // Step 3: Merge verification
     MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
-    GoblinVerifier::MergeVerifier merge_verifier{ MergeSettings::APPEND, transcript };
+    GoblinVerifier::MergeVerifier merge_verifier{ transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
     vinfo("ChonkVerifier: Merge reduced to pairing check: ", merge_result.reduction_succeeded ? "true" : "false");
 
@@ -146,16 +146,16 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     kernel_io.reconstruct_from_public(oink_result.public_inputs);
 
     // Step 2: Databus consistency check (in-circuit)
-    const Commitment calldata_commitment = oink_result.calldata_commitment;
-    if (kernel_io.kernel_return_data.get_value() != calldata_commitment.get_value()) {
+    const Commitment kernel_calldata_commitment = oink_result.kernel_calldata_commitment;
+    if (kernel_io.kernel_return_data.get_value() != kernel_calldata_commitment.get_value()) {
         info("ChonkRecursiveVerifier: Databus Consistency check failure");
     }
-    kernel_io.kernel_return_data.incomplete_assert_equal(calldata_commitment);
+    kernel_io.kernel_return_data.incomplete_assert_equal(kernel_calldata_commitment);
 
     // Step 3: Merge verification
     MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
-    typename GoblinVerifier::MergeVerifier merge_verifier{ MergeSettings::APPEND, transcript };
+    typename GoblinVerifier::MergeVerifier merge_verifier{ transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
     vinfo("ChonkRecursiveVerifier: Merge reduced to pairing check: ",
           merge_result.reduction_succeeded ? "true" : "false");

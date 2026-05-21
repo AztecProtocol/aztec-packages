@@ -12,6 +12,7 @@ import type {
   DeployAztecL1ContractsReturnType,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { sleep } from '@aztec/foundation/sleep';
@@ -98,7 +99,7 @@ export class CrossChainMessagingTest {
 
   async catchUpProvenChain() {
     const bn = await this.aztecNode.getBlockNumber();
-    while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
+    while ((await this.aztecNode.getBlockNumber('proven')) < bn) {
       await sleep(1000);
     }
   }
@@ -171,7 +172,7 @@ export class CrossChainMessagingTest {
     const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
     this.l1Client = l1Client;
 
-    const l1Contracts = this.aztecNodeConfig.l1Contracts;
+    const l1Contracts = pickL1ContractAddresses(this.aztecNodeConfig);
     this.rollup = new RollupContract(l1Client, l1Contracts.rollupAddress.toString());
     this.inbox = new InboxContract(l1Client, l1Contracts.inboxAddress.toString());
     this.outbox = new OutboxContract(l1Client, l1Contracts.outboxAddress.toString());
@@ -185,7 +186,7 @@ export class CrossChainMessagingTest {
       tokenPortalAddress,
       crossChainContext.underlying,
       l1Client,
-      this.aztecNodeConfig.l1Contracts,
+      pickL1ContractAddresses(this.aztecNodeConfig),
       this.wallet,
       this.ownerAddress,
     );

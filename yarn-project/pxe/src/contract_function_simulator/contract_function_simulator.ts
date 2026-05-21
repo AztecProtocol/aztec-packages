@@ -76,6 +76,7 @@ import {
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   CallContext,
@@ -90,6 +91,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { ExecutionHooks } from '../hooks/index.js';
 import type { MessageContextService } from '../messages/message_context_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
@@ -143,6 +145,7 @@ export type ContractFunctionSimulatorArgs = {
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
   messageContextService: MessageContextService;
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -164,6 +167,7 @@ export class ContractFunctionSimulator {
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
   private readonly messageContextService: MessageContextService;
+  private readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: ContractFunctionSimulatorArgs) {
     this.contractStore = args.contractStore;
@@ -180,6 +184,7 @@ export class ContractFunctionSimulator {
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
     this.messageContextService = args.messageContextService;
+    this.hooks = args.hooks;
     this.log = createLogger('simulator');
   }
 
@@ -259,6 +264,7 @@ export class ContractFunctionSimulator {
       senderForTags,
       simulator: this.simulator,
       l2TipsStore: this.l2TipsStore,
+      hooks: this.hooks,
     });
 
     const setupTime = simulatorSetupTimer.ms();
@@ -331,6 +337,10 @@ export class ContractFunctionSimulator {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
 
+    const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
+      await this.runUtility(syncCall, [], anchorBlockHeader, execScopes, jobId);
+    };
+
     const oracle = new UtilityExecutionOracle({
       contractAddress: call.to,
       authWitnesses: authwits,
@@ -350,6 +360,9 @@ export class ContractFunctionSimulator {
       l2TipsStore: this.l2TipsStore,
       jobId,
       scopes,
+      simulator: this.simulator,
+      hooks: this.hooks,
+      utilityExecutor,
     });
 
     try {
@@ -751,7 +764,7 @@ function squashTransientSideEffects(
  * at the tx's anchor block, mimicking the behavior of the kernels
  */
 async function verifyReadRequests(
-  node: Pick<AztecNode, 'getNoteHashMembershipWitness' | 'getNullifierMembershipWitness'>,
+  node: Pick<AztecNode, 'findLeavesIndexes'>,
   anchorBlockHash: BlockParameter,
   noteHashReadRequests: ScopedReadRequest[],
   nullifierReadRequests: ScopedReadRequest[],
@@ -784,13 +797,25 @@ async function verifyReadRequests(
     }
   }
 
-  const [noteHashWitnesses, nullifierWitnesses] = await Promise.all([
-    Promise.all(settledNoteHashReads.map(({ value }) => node.getNoteHashMembershipWitness(anchorBlockHash, value))),
-    Promise.all(settledNullifierReads.map(({ value }) => node.getNullifierMembershipWitness(anchorBlockHash, value))),
+  const [noteHashResults, nullifierResults] = await Promise.all([
+    settledNoteHashReads.length > 0
+      ? node.findLeavesIndexes(
+          anchorBlockHash,
+          MerkleTreeId.NOTE_HASH_TREE,
+          settledNoteHashReads.map(({ value }) => value),
+        )
+      : [],
+    settledNullifierReads.length > 0
+      ? node.findLeavesIndexes(
+          anchorBlockHash,
+          MerkleTreeId.NULLIFIER_TREE,
+          settledNullifierReads.map(({ value }) => value),
+        )
+      : [],
   ]);
 
   for (let i = 0; i < settledNoteHashReads.length; i++) {
-    if (!noteHashWitnesses[i]) {
+    if (!noteHashResults[i]) {
       throw new Error(
         `Note hash read request at index ${settledNoteHashReads[i].index} is reading an unknown note hash: ${settledNoteHashReads[i].value}`,
       );
@@ -798,7 +823,7 @@ async function verifyReadRequests(
   }
 
   for (let i = 0; i < settledNullifierReads.length; i++) {
-    if (!nullifierWitnesses[i]) {
+    if (!nullifierResults[i]) {
       throw new Error(
         `Nullifier read request at index ${settledNullifierReads[i].index} is reading an unknown nullifier: ${settledNullifierReads[i].value}`,
       );

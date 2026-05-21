@@ -150,7 +150,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
     // Skip the disabled head region to preserve masking values
     compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation, ECCVMFlavor::ProverPolynomials, true>(
-        pk->polynomials, relation_parameters, pk->circuit_size, ECCVMFlavor::TRACE_OFFSET);
+        pk->polynomials, relation_parameters, ECCVMFlavor::TRACE_OFFSET);
     compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters);
 
     // Generate gate challenges

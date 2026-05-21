@@ -36,17 +36,20 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
               "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
 
     // ProverInstances can be constructed multiple times, hence, we check whether the circuit has been finalized
-    if (!circuit.circuit_finalized) {
-        circuit.finalize_circuit(/* ensure_nonzero = */ true);
-    }
-    // Compute block offsets before dyadic size so that compute_dyadic_size can account for the lookup table offset
-    circuit.blocks.compute_offsets(TRACE_OFFSET);
-    metadata.dyadic_size = compute_dyadic_size(circuit);
+    {
+        BB_BENCH_NAME("finalize_circuit");
+        if (!circuit.circuit_finalized) {
+            circuit.finalize_circuit();
+        }
+        // Compute block offsets before dyadic size so that compute_dyadic_size can account for the lookup table offset
+        circuit.blocks.compute_offsets(TRACE_OFFSET);
+        metadata.dyadic_size = compute_dyadic_size(circuit);
 
-    // Find index of last non-trivial wire value in the trace
-    for (auto& block : circuit.blocks.get()) {
-        if (block.size() > 0) {
-            final_active_wire_idx = block.trace_end() - 1;
+        // Find index of last non-trivial wire value in the trace
+        for (auto& block : circuit.blocks.get()) {
+            if (block.size() > 0) {
+                final_active_wire_idx = block.trace_end() - 1;
+            }
         }
     }
 
@@ -151,12 +154,14 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_ar
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
-    // Sigma and ID polynomials are zero outside the active trace range
+    // Sigma and ID polynomials are zero outside the active trace range. Inside the active range,
+    // compute_permutation_argument_polynomials writes every cell (identity init + cycle linkages),
+    // so the backing memory can be left uninitialized.
     for (auto& sigma : polynomials.get_sigmas()) {
-        sigma = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+        sigma = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Polynomial::DontZeroMemory::FLAG);
     }
     for (auto& id : polynomials.get_ids()) {
-        id = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+        id = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Polynomial::DontZeroMemory::FLAG);
     }
 
     polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Flavor::HasZK);
@@ -243,9 +248,11 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
 
-    // Databus data is shifted by the disabled head region for uniform layout across ZK and non-ZK.
-    // offset_size gives the allocation size for a databus column of the given content length.
-    const auto offset_size = [](size_t content) -> size_t { return TRACE_OFFSET + content; };
+    // Databus data uses NUM_DISABLED_ROWS_IN_SUMCHECK as its offset rather than Flavor::TRACE_OFFSET so that
+    // commitments match across the IVC boundary (a non-ZK kernel's return_data is copy-constrained to a MegaZK
+    // hiding kernel's kernel_calldata). MegaZK additionally requires this offset to clear the masking region
+    // [1, NUM_DISABLED_ROWS_IN_SUMCHECK); non-ZK Mega mirrors the layout even though it has no masking.
+    const auto offset_size = [](size_t content) -> size_t { return NUM_DISABLED_ROWS_IN_SUMCHECK + content; };
 
     // Databus inverses must cover both the databus gate block (where reads occur) and the data itself.
     const size_t q_busread_end = circuit.blocks.busread.trace_end();
@@ -267,7 +274,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
         inverse_ref[0] = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
 
         if constexpr (Flavor::HasZK) {
-            // Mask databus witness polynomials. The calldata values column (bus_idx == 0) is NOT
+            // Mask databus witness polynomials. The kernel_calldata values column (bus_idx == 0) is NOT
             // masked; its read_counts column is.
             auto& values_poly = entities[0];
             auto& read_counts_poly = entities[1];
@@ -301,9 +308,8 @@ template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
-    // Databus data is shifted by the disabled head region for uniform layout.
-    constexpr size_t databus_offset = TRACE_OFFSET;
-
+    // Databus offset of NUM_DISABLED_ROWS_IN_SUMCHECK is forced by cross-flavor commitment compatibility and
+    // MegaZK masking; see allocate_databus_polynomials for the rationale.
     size_t max_bus_size = 0;
     bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
         const auto& bus_vec = circuit.get_bus_vector(bus_idx);
@@ -312,15 +318,15 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
         auto& values_poly = entities[0];
         auto& read_counts_poly = entities[1];
         for (size_t idx = 0; idx < bus_vec.size(); ++idx) {
-            values_poly.at(databus_offset + idx) = circuit.get_variable(bus_vec[idx]);
-            read_counts_poly.at(databus_offset + idx) = bus_vec.get_read_count(idx);
+            values_poly.at(NUM_DISABLED_ROWS_IN_SUMCHECK + idx) = circuit.get_variable(bus_vec[idx]);
+            read_counts_poly.at(NUM_DISABLED_ROWS_IN_SUMCHECK + idx) = bus_vec.get_read_count(idx);
         }
     });
 
     // Compute a simple identity polynomial for use in the databus lookup argument.
     auto& databus_id = polynomials.databus_id;
     for (size_t i = 0; i < max_bus_size; ++i) {
-        databus_id.at(databus_offset + i) = i;
+        databus_id.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = i;
     }
 }
 

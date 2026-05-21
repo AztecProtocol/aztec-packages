@@ -88,7 +88,38 @@ static void construct_proof_ultrahonk_1M_gates_dyadic_2_21(State& state) noexcep
         state, &bb::mock_circuits::generate_basic_arithmetic_circuit_with_target_gates<UltraCircuitBuilder>, num_gates);
 }
 
+/**
+ * @brief Benchmark: Ultra Honk proof of a single poseidon2 hash over a vector of state.range(0) elements.
+ */
+static void construct_proof_ultrahonk_poseidon2_hash(State& state) noexcept
+{
+    const auto num_inputs = static_cast<size_t>(state.range(0));
+
+    UltraCircuitBuilder builder;
+    bb::generate_poseidon2_hash_test_circuit<UltraCircuitBuilder>(builder, num_inputs);
+    auto instance = std::make_shared<ProverInstance_<UltraFlavor>>(builder);
+    info("construct_proof_ultrahonk_poseidon2_hash: num_inputs=",
+         num_inputs,
+         ", actual_gates=",
+         builder.num_gates(),
+         ", dyadic_size=",
+         instance->dyadic_size());
+
+    bb::mock_circuits::construct_proof_with_specified_num_iterations<UltraProver>(
+        state, &bb::generate_poseidon2_hash_test_circuit<UltraCircuitBuilder>, num_inputs);
+}
+
 // Define benchmarks
+// Sweep input sizes so dyadic domain ranges 2^15..2^19 (Ultra: ~25 gates/input).
+BENCHMARK(construct_proof_ultrahonk_poseidon2_hash)
+    ->Arg(750)
+    ->Arg(1500)
+    ->Arg(3000)
+    ->Arg(6000)
+    ->Arg(12000)
+    ->Arg(50000)
+    ->Unit(kMillisecond);
+
 BENCHMARK_CAPTURE(construct_proof_ultrahonk, sha256, &generate_sha256_test_circuit<UltraCircuitBuilder>)
     ->Unit(kMillisecond);
 BENCHMARK_CAPTURE(construct_proof_ultrahonk,

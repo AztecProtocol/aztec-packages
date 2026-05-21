@@ -37,7 +37,7 @@ Deploy contracts using the generated contract class:
 
 Use `.simulate()` to read contract state without creating a transaction:
 
-#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
+#include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
 
 Simulations are free (no gas cost) and return the function's result directly. Use them for:
 
@@ -66,6 +66,40 @@ Test that invalid operations revert as expected:
 #include_code test_revert_case /docs/examples/ts/aztecjs_testing/index.ts typescript
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
+
+## Simulating with overrides
+
+`.simulate()` accepts an `overrides` option that injects values into the simulator's (ephemeral) world-state fork and contract DB before the call runs. The override is scoped to that single simulation and thrown away afterwards.
+
+Override a public-storage slot:
+
+```typescript
+const result = await contract.methods.read_balance(account).simulate({
+  overrides: {
+    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+  },
+});
+```
+
+Use this to set up state preconditions, reproduce production bugs against pinned storage, or exercise rare value branches without orchestrating the contract calls that produce them.
+
+### Fast-forwarding a contract update
+
+`fastForwardContractUpdate` returns a `SimulationOverrides` object that simulates a deployed instance as if it had already been upgraded to a new contract class. The new class must already be registered on chain. The cheat mirrors a real `pxe.updateContract` followed by waiting out the upgrade delay: the instance's `currentContractClassId` is bumped, and the `ContractInstanceRegistry`'s delayed-public-mutable storage is rewritten to look like the upgrade was scheduled in the past.
+
+```typescript
+import { fastForwardContractUpdate } from '@aztec/aztec.js';
+
+const overrides = await fastForwardContractUpdate({
+  instanceAddress: contract.address,
+  newClassId: upgradedClass.id,
+  node,
+});
+
+const result = await contract.methods.upgraded_method().simulate({ overrides });
+```
+
+Use this to test code paths that only execute after an upgrade, without orchestrating the full delayed-mutable upgrade flow.
 
 ## Further reading
 

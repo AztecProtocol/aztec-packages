@@ -1,4 +1,4 @@
-import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { INITIAL_CHECKPOINT_NUMBER } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -6,7 +6,6 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type BlockHash,
-  GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Block,
   type L2BlockId,
@@ -288,14 +287,15 @@ export class ServerWorldStateSynchronizer
     // but we use a block stream so we need to provide 'local' L2Tips.
     // We configure the block stream to ignore checkpoints and set checkpoint values to genesis here.
     const genesisCheckpointHeaderHash = GENESIS_CHECKPOINT_HEADER_HASH.toString();
+    const initialBlockHash = (await this.merkleTreeCommitted.getInitialHeader().hash()).toString();
     return {
       proposed: latestBlockId,
       checkpointed: {
-        block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        block: { number: BlockNumber.ZERO, hash: initialBlockHash },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
       proposedCheckpoint: {
-        block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        block: { number: BlockNumber.ZERO, hash: initialBlockHash },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
       finalized: {
@@ -409,29 +409,26 @@ export class ServerWorldStateSynchronizer
     if (this.historyToKeep === undefined) {
       return;
     }
-    // Get the checkpointed block for the finalized block number
-    const finalisedCheckpoint = await this.l2BlockSource.getCheckpointedBlock(summary.finalizedBlockNumber);
-    if (finalisedCheckpoint === undefined) {
+    const finalisedBlockData = await this.l2BlockSource.getBlockData({ number: summary.finalizedBlockNumber });
+    if (finalisedBlockData === undefined) {
       this.log.warn(
         `Failed to retrieve checkpointed block for finalized block number: ${summary.finalizedBlockNumber}`,
       );
       return;
     }
     // Compute the required historic checkpoint number
-    const newHistoricCheckpointNumber = finalisedCheckpoint.checkpointNumber - this.historyToKeep + 1;
+    const newHistoricCheckpointNumber = finalisedBlockData.checkpointNumber - this.historyToKeep + 1;
     if (newHistoricCheckpointNumber <= 1) {
       return;
     }
     // Retrieve the historic checkpoint
-    const historicCheckpoints = await this.l2BlockSource.getCheckpoints(
-      CheckpointNumber(newHistoricCheckpointNumber),
-      1,
-    );
-    if (historicCheckpoints.length === 0 || historicCheckpoints[0] === undefined) {
+    const historicCheckpoint = await this.l2BlockSource.getCheckpoint({
+      number: CheckpointNumber(newHistoricCheckpointNumber),
+    });
+    if (!historicCheckpoint) {
       this.log.warn(`Failed to retrieve checkpoint number ${newHistoricCheckpointNumber} from Archiver`);
       return;
     }
-    const historicCheckpoint = historicCheckpoints[0];
     if (historicCheckpoint.checkpoint.blocks.length === 0 || historicCheckpoint.checkpoint.blocks[0] === undefined) {
       this.log.warn(`Retrieved checkpoint number ${newHistoricCheckpointNumber} has no blocks!`);
       return;
