@@ -19,7 +19,10 @@ use crate::{
         discovery::partial_notes::DeliveredPendingPartialNote,
         encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
-        processing::log_retrieval_request::LogRetrievalRequest,
+        processing::{
+            log_retrieval_request::LogRetrievalRequest,
+            log_retrieval_response::LogRetrievalResponse,
+        },
     },
     oracle::message_processing,
 };
@@ -151,13 +154,13 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
 }
 
 /// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns an `EphemeralArray` of slots, one per
-/// pending partial note. Each slot identifies an inner `EphemeralArray<LogRetrievalResponse>` with all matching logs
-/// for that note (which may be empty if no logs were found).
+/// a `CapsuleArray` by performing all node communication concurrently. Returns a nested `EphemeralArray`, one inner
+/// array per pending partial note, each containing all matching `LogRetrievalResponse`s (which may be empty if no
+/// logs were found).
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
-) -> EphemeralArray<Field> {
+) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
     // We create a LogRetrievalRequest for each PendingPartialNote in the EphemeralArray. Because we need the indices

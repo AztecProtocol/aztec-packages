@@ -89,14 +89,13 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // Each of the pending partial notes might get completed by a log containing its public values. For performance
     // reasons, we fetch all of these logs concurrently and then process them one by one, minimizing the amount of time
     // waiting for the node roundtrip.
-    let completion_log_slots = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
 
-    // Each entry in the completion log slots array corresponds to the entry in the pending partial notes array at
-    // the same index. Each slot points to an inner EphemeralArray<LogRetrievalResponse> with all matching logs.
-    assert_eq(completion_log_slots.len(), pending_partial_notes.len());
+    // Each entry in the completion logs array corresponds to the entry in the pending partial notes array at the same
+    // index. Each inner array contains all matching LogRetrievalResponses.
+    assert_eq(completion_logs.len(), pending_partial_notes.len());
 
-    completion_log_slots.for_each(|i, inner_slot: Field| {
-        let logs_for_tag: EphemeralArray<LogRetrievalResponse> = EphemeralArray::at(inner_slot);
+    completion_logs.for_each(|i, logs_for_tag: EphemeralArray<LogRetrievalResponse>| {
         let pending_partial_note = pending_partial_notes.get(i);
         let num_logs = logs_for_tag.len();
 
