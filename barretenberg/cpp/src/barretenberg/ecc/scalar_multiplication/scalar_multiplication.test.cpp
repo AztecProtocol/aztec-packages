@@ -7,6 +7,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
+#include <array>
 #include <filesystem>
 #include <gtest/gtest.h>
 
@@ -521,15 +522,18 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
      */
     void test_large_n_non_glv()
     {
-        // n_input > 2^16 disables GLV → exercises NUM_BITS=254 path.
-        const size_t num_pts = (size_t{ 1 } << 17) + 31;
-        ASSERT_LE(num_pts, num_points);
-        std::span<const AffineElement> points(&generators[0], num_pts);
-        std::span<ScalarField> scalar_subspan(&scalars[0], num_pts);
-        PolynomialSpan<ScalarField> scalar_span(0, scalar_subspan);
+        const size_t num_pts = scalar_multiplication::round_parallel_detail::GLV_SMALL_N_THRESHOLD + 31;
+        auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 35);
+        std::vector<AffineElement> points(num_pts);
+        std::vector<ScalarField> test_scalars(num_pts);
+        for (size_t i = 0; i < num_pts; ++i) {
+            points[i] = AffineElement(Element::random_element(&rng));
+            test_scalars[i] = ScalarField::random_element(&rng);
+        }
 
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
         AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
-        AffineElement expected = naive_msm(scalar_subspan, points);
+        AffineElement expected = naive_msm(test_scalars, points);
         EXPECT_EQ(result, expected);
     }
 
@@ -548,13 +552,17 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     void test_msm_single_digit_mega_run()
     {
         const size_t num_pts = 100000;
-        ASSERT_LE(num_pts, num_points);
+        auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 36);
+        std::vector<AffineElement> points(num_pts);
+        for (size_t i = 0; i < num_pts; ++i) {
+            points[i] = AffineElement(Element::random_element(&rng));
+        }
         std::vector<ScalarField> uniform_scalars(num_pts, ScalarField(7));
-        std::span<const AffineElement> points(&generators[0], num_pts);
         PolynomialSpan<ScalarField> scalar_span(0, uniform_scalars);
 
         AffineElement result = scalar_multiplication::MSM<Curve>::msm(points, scalar_span);
-        AffineElement expected = naive_msm(std::span<ScalarField>(uniform_scalars), points);
+        AffineElement expected =
+            naive_msm(std::span<ScalarField>(uniform_scalars), std::span<const AffineElement>(points));
         EXPECT_EQ(result, expected);
     }
 
@@ -925,6 +933,33 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
 using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
 TYPED_TEST_SUITE(ScalarMultiplicationTest, CurveTypes);
+
+TEST(ScalarMultiplicationArenaTest, LargeBn254RecursionVkShapeFitsComputedArena)
+{
+    const size_t saved_threads = bb::get_num_cpus();
+
+    // CI regression from HonkRecursionConstraintTestWithoutPredicate/2.GenerateVKFromConstraints:
+    // Zone S attempted a uint32_t schedule allocation whose aligned end was 26,454,272
+    // bytes after the computed arena left only 25,505,329 bytes in Zone S. The log does
+    // not expose windows_per_batch, so cover every plausible n_input divisor for that
+    // schedule size.
+    constexpr size_t schedule_slots = size_t{ 26454272 } / sizeof(uint32_t);
+    constexpr std::array<size_t, 8> candidate_window_batches{ 1, 2, 4, 8, 13, 16, 26, 32 };
+    for (const size_t threads : { size_t{ 4 }, size_t{ 32 } }) {
+        bb::set_parallel_for_concurrency(threads);
+        for (const size_t windows_per_batch : candidate_window_batches) {
+            const size_t n = schedule_slots / windows_per_batch;
+            for (size_t effective_num_bits = 1; effective_num_bits <= 254; ++effective_num_bits) {
+                EXPECT_TRUE(scalar_multiplication::pippenger_bn254_arena_layout_fits_for_test(
+                    n, /*external_glv_provided=*/false, /*dedup_active=*/false, effective_num_bits))
+                    << "threads=" << threads << " windows_per_batch=" << windows_per_batch << " n=" << n
+                    << " effective_num_bits=" << effective_num_bits;
+            }
+        }
+    }
+
+    bb::set_parallel_for_concurrency(saved_threads);
+}
 
 // ======================= Test Wrappers =======================
 

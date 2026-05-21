@@ -530,18 +530,6 @@ enum class ConstantineSlicePath : uint8_t {
 // can walk high to low.
 inline constexpr size_t VAR_WINDOW_MAX_WINDOWS = 128;
 
-// Above this N, GLV's 2× point-count cost outweighs the windows-halved benefit. The
-// crossover is platform-specific: WASM keeps GLV up to 2^16 (V8/wasmtime's branchless
-// bias-decode is slow enough that halving num_windows still pays at large N), while
-// native's faster decode makes the 2× point-count dominate above 2^13. Empirically
-// calibrated against chonk-prove fixtures — see the call sites for the original sweep
-// notes.
-#ifdef __wasm__
-inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 16;
-#else
-inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 13;
-#endif
-
 // Sentinel value for `msb_per_scalar[i]` when scalar i is zero. uint8_t fits the 254 valid msb
 // positions (0..253) plus this sentinel; matching `msb_hist` bin layout uses bin 0 = zero count
 // so callers index via `msb + 1` (with -1 → bin 0 for the zero case).
@@ -2453,6 +2441,40 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
     const size_t dedup_bytes = dedup_active ? ((size_t{ 4 } * n) + (size_t{ sizeof(typename Curve::AffineElement) } *
                                                                     round_parallel_detail::DEDUP_MAX_CLUSTERS))
                                             : size_t{ 0 };
+    auto arena_bytes_for_window_layout = [&](size_t bit_budget) {
+        const size_t wb = round_parallel_detail::choose_window_bits(
+            n, bit_budget, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+        const auto layout_sched = round_parallel_detail::build_var_window_schedule(bit_budget, wb);
+        size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
+        for (size_t w = 0; w < layout_sched.num_windows; ++w) {
+            B_eff_layout = std::max(B_eff_layout, static_cast<size_t>(layout_sched.num_buckets[w]));
+        }
+        const size_t dense_stride_layout = std::max<size_t>(
+            2, std::bit_ceil((B_eff_layout > 1) ? ((B_eff_layout - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
+        const size_t bucket_partials_layout = (B_eff_layout > 0) ? (B_eff_layout - 1 + num_threads - 1) : 0;
+        const size_t hist_h_bytes_pw_layout = size_t{ 4 } * num_threads * B_eff_layout;
+        const size_t hist_o_bytes_pw_layout =
+            (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) + (size_t{ 96 } * num_threads);
+        const size_t hist_slot_bytes_pw_layout = std::max(hist_h_bytes_pw_layout, hist_o_bytes_pw_layout);
+        const size_t dense_slot_bytes_pw_layout = size_t{ 65 } * bucket_partials_layout;
+        const size_t per_window_bytes_layout =
+            (size_t{ 4 } * n) + hist_slot_bytes_pw_layout + dense_slot_bytes_pw_layout +
+            (size_t{ 8 } * (B_eff_layout + 1)) + (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * (num_threads + 1)) +
+            (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) +
+            (size_t{ 16 } * worker_total_for_budget) + (size_t{ 8 } * num_threads) +
+            (size_t{ 87 } * worker_total_for_budget * dense_stride_layout);
+
+        size_t wpb = 0;
+        if (BATCH_MEM_BUDGET <= fixed_overhead) {
+            wpb = layout_sched.num_windows;
+        } else {
+            const size_t available_budget = BATCH_MEM_BUDGET - fixed_overhead;
+            wpb = std::max<size_t>(1, available_budget / per_window_bytes_layout);
+        }
+        wpb = std::min(wpb, static_cast<size_t>(layout_sched.num_windows));
+        return fixed_overhead + (wpb * per_window_bytes_layout) + 32768 + dedup_bytes;
+    };
+
     // Tight return: the arena holds `fixed_overhead + wpb · per_window_bytes` of typed
     // buffers plus a 32 KiB alignment pad and the dedup state (when active). Sizing
     // tightly — rather than padding up to BATCH_MEM_BUDGET — matters for many-MSM flows
@@ -2460,10 +2482,326 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
     // `make_unique_for_overwrite<std::byte[]>` mmap/munmaps the buffer above glibc's
     // M_MMAP_THRESHOLD; a 32 MiB floor here would tax every MSM with the page-fault
     // first-touch cost regardless of how much of the arena the small MSM actually uses.
-    return fixed_overhead + (windows_per_batch * per_window_bytes) + 32768 + dedup_bytes;
+    size_t arena_bytes = fixed_overhead + (windows_per_batch * per_window_bytes) + 32768 + dedup_bytes;
+
+    // The live pipeline shrinks NUM_BITS to the observed max scalar bit before choosing
+    // window_bits. GLV MSMs and large non-GLV MSMs can therefore select a different
+    // schedule/zone layout than the full-bit pre-sizer. Keep the common Chonk wire/IPA
+    // non-GLV sizes on the original tight path.
+    if (use_glv || n_input >= (size_t{ 1 } << 17)) {
+        for (size_t bit_budget = 1; bit_budget <= NUM_BITS; ++bit_budget) {
+            arena_bytes = std::max(arena_bytes, arena_bytes_for_window_layout(bit_budget));
+        }
+    }
+    return arena_bytes;
 }
 
 } // namespace
+
+bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
+                                                bool external_glv_provided,
+                                                bool dedup_active,
+                                                size_t effective_num_bits_for_test) noexcept
+{
+    using Curve = curve::BN254;
+    using ScalarField = typename Curve::ScalarField;
+    using BaseField = typename Curve::BaseField;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+
+    constexpr size_t FULL_NUM_BITS = ScalarField::modulus.get_msb() + 1;
+    if (n_input < 4) {
+        return true;
+    }
+
+    const bool use_glv = external_glv_provided || (n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
+    const bool inline_glv_double = use_glv && !external_glv_provided;
+    const size_t n = use_glv ? 2 * n_input : n_input;
+    const size_t NUM_BITS = use_glv ? size_t{ 128 } : FULL_NUM_BITS;
+    const size_t arena_capacity = compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active);
+    if (arena_capacity == 0) {
+        return true;
+    }
+
+    const size_t actual_num_bits = (effective_num_bits_for_test == 0 || effective_num_bits_for_test > NUM_BITS)
+                                       ? NUM_BITS
+                                       : effective_num_bits_for_test;
+    const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
+    const size_t window_bits = round_parallel_detail::choose_window_bits(
+        n, actual_num_bits, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+    const auto sched = round_parallel_detail::build_var_window_schedule(actual_num_bits, window_bits);
+    const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
+
+    using round_parallel_detail::BATCH_CAPACITY;
+    constexpr size_t MIN_BATCH_CAPACITY = 32;
+    constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
+    constexpr size_t SUBCHUNK_ENTRIES_CAP = 2048;
+
+    const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
+    const size_t max_threads_for_min_batch = std::max<size_t>(1, n / MIN_BATCH_CAPACITY);
+    const size_t num_threads = std::min(desired_threads, max_threads_for_min_batch);
+    const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
+    const size_t worker_total = num_threads;
+
+    size_t B_eff = num_buckets;
+    for (size_t w = 0; w < sched.num_windows; ++w) {
+        B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
+    }
+    const size_t dense_stride_est =
+        std::max<size_t>(2, std::bit_ceil((B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
+    const size_t bucket_partials_per_window_max = (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : 0;
+    const size_t hist_h_bytes_pw_shared = (size_t{ 4 } * num_threads * B_eff);
+    const size_t hist_o_bytes_pw_shared =
+        (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) + (size_t{ 96 } * num_threads);
+    const size_t hist_slot_bytes_pw_shared = std::max(hist_h_bytes_pw_shared, hist_o_bytes_pw_shared);
+    const size_t dense_slot_bytes_pw_shared = (size_t{ 65 } * bucket_partials_per_window_max);
+    const size_t per_window_bytes_shared =
+        hist_slot_bytes_pw_shared + dense_slot_bytes_pw_shared + (size_t{ 8 } * (B_eff + 1)) +
+        (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * (num_threads + 1)) + (size_t{ 8 } * num_threads) +
+        (size_t{ 8 } * num_threads) + (size_t{ 8 } * num_threads) + (size_t{ 16 } * worker_total) +
+        (size_t{ 8 } * num_threads) + (size_t{ 87 } * worker_total * dense_stride_est);
+    const size_t capacity_lo = n;
+    const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
+
+    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
+    const size_t global_max_overflow_per_window =
+        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
+    const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
+
+    constexpr size_t PHASE_A_DIRTY_SLOTS_CAP = 4096;
+    constexpr size_t PHASE_A_BUCKET_REP_CAP = 256;
+    constexpr size_t PHASE_A_STAGED_CAP = 1024;
+    constexpr size_t PHASE_A_CHUNK_CAP = round_parallel_detail::DEDUP_MAX_CHUNK_MEMBERS;
+    const size_t phase_a_cluster_members_cap = std::min(round_parallel_detail::DEDUP_MAX_MEMBERS, n);
+    const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
+
+    const size_t phase_one_prologue_bytes = n + (use_glv ? size_t{ 32 } * n : size_t{ 0 }) +
+                                            (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) +
+                                            (profile_threads * size_t{ 1024 });
+    constexpr size_t PER_THREAD_CHUNK_CAPACITY_BYTES =
+        (size_t{ 2048 } * size_t{ 64 }) + (size_t{ 2048 } * size_t{ 4 }) +
+        (size_t{ 2 } * size_t{ 256 } * size_t{ 64 }) + (size_t{ 256 } * size_t{ 32 }) + (size_t{ 256 } * size_t{ 4 }) +
+        size_t{ 328 };
+    const size_t per_thread_overflow_bytes = (size_t{ 4 } + size_t{ 64 }) * global_max_overflow_per_window;
+    const size_t phase_a_per_worker_bytes =
+        (size_t{ 4 } * phase_a_cluster_members_cap) + (size_t{ 4 } * phase_a_cluster_offsets_cap) +
+        (size_t{ 2 } * PHASE_A_DIRTY_SLOTS_CAP) + (size_t{ 4 } * PHASE_A_BUCKET_REP_CAP) +
+        (size_t{ 8 } * PHASE_A_STAGED_CAP) + (sizeof(AffineElement) * PHASE_A_CHUNK_CAP) +
+        (size_t{ 4 } * PHASE_A_CHUNK_CAP);
+    const size_t ts_fixed_bytes = PER_THREAD_CHUNK_CAPACITY_BYTES + per_thread_overflow_bytes;
+    const size_t worker_union_bytes_for_budget =
+        dedup_active ? std::max(ts_fixed_bytes, phase_a_per_worker_bytes) : ts_fixed_bytes;
+    const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total) +
+                                  (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) +
+                                  (size_t{ 8 } * (num_threads + 1)) + phase_one_prologue_bytes;
+    const size_t available_budget =
+        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+    const size_t windows_per_batch =
+        (per_window_bytes_lo == 0 || available_budget == 0)
+            ? std::max<size_t>(1, sched.W_lo)
+            : std::min(std::max<size_t>(1, available_budget / per_window_bytes_lo), static_cast<size_t>(sched.W_lo));
+
+    auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
+    auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
+    auto bump_fits = [&](size_t count,
+                         size_t size,
+                         size_t align,
+                         size_t& cursor,
+                         size_t bound,
+                         size_t base_offset,
+                         size_t base_misalign) {
+        const size_t cur_addr_mod = (base_misalign + base_offset + cursor) & (align - 1);
+        const size_t align_delta = (cur_addr_mod == 0) ? size_t{ 0 } : (align - cur_addr_mod);
+        const size_t aligned_local = cursor + align_delta;
+        const size_t bytes = count * size;
+        if (aligned_local + bytes > bound) {
+            return false;
+        }
+        cursor = aligned_local + bytes;
+        return true;
+    };
+
+    for (size_t base_misalign = 0; base_misalign < alignof(AffineElement); ++base_misalign) {
+        size_t arena_cursor = 0;
+        if (!bump_fits(n, sizeof(uint8_t), alignof(uint8_t), arena_cursor, arena_capacity, 0, base_misalign)) {
+            return false;
+        }
+        if (!bump_fits(profile_threads,
+                       sizeof(std::array<uint32_t, 256>),
+                       alignof(std::array<uint32_t, 256>),
+                       arena_cursor,
+                       arena_capacity,
+                       0,
+                       base_misalign)) {
+            return false;
+        }
+        if (use_glv) {
+            if (!bump_fits(
+                    n, sizeof(ScalarField), alignof(ScalarField), arena_cursor, arena_capacity, 0, base_misalign)) {
+                return false;
+            }
+            if (inline_glv_double &&
+                !bump_fits(
+                    n, sizeof(AffineElement), alignof(AffineElement), arena_cursor, arena_capacity, 0, base_misalign)) {
+                return false;
+            }
+        }
+        const size_t bytes_P_prefix = arena_cursor;
+
+        size_t ts_fixed_layout = 0;
+        layout_add(ts_fixed_layout, sizeof(AffineElement) * chunk_capacity, alignof(AffineElement));
+        layout_add(ts_fixed_layout, sizeof(uint32_t) * chunk_capacity, alignof(uint32_t));
+        layout_add(ts_fixed_layout, sizeof(AffineElement) * 2 * BATCH_CAPACITY, alignof(AffineElement));
+        layout_add(ts_fixed_layout, sizeof(BaseField) * BATCH_CAPACITY, alignof(BaseField));
+        layout_add(ts_fixed_layout, sizeof(uint32_t) * BATCH_CAPACITY, alignof(uint32_t));
+        layout_add(ts_fixed_layout, sizeof(uint32_t) * global_max_overflow_per_window, alignof(uint32_t));
+        layout_add(ts_fixed_layout, sizeof(AffineElement) * global_max_overflow_per_window, alignof(AffineElement));
+
+        size_t pa_layout = 0;
+        if (dedup_active) {
+            layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_members_cap, alignof(uint32_t));
+            layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_offsets_cap, alignof(uint32_t));
+            layout_add(pa_layout, sizeof(uint16_t) * PHASE_A_DIRTY_SLOTS_CAP, alignof(uint16_t));
+            layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_BUCKET_REP_CAP, alignof(uint32_t));
+            layout_add(pa_layout,
+                       sizeof(std::pair<uint32_t, uint32_t>) * PHASE_A_STAGED_CAP,
+                       alignof(std::pair<uint32_t, uint32_t>));
+            layout_add(pa_layout, sizeof(AffineElement) * PHASE_A_CHUNK_CAP, alignof(AffineElement));
+            layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_CHUNK_CAP, alignof(uint32_t));
+        }
+
+        constexpr size_t WORKER_SLAB_ALIGN = alignof(AffineElement);
+        const size_t per_worker_union_bytes = align_up(std::max(ts_fixed_layout, pa_layout), WORKER_SLAB_ALIGN);
+        size_t per_worker_per_wpb_layout = 0;
+        const size_t dense_total = windows_per_batch * dense_stride_est;
+        const size_t dense_pair_max = dense_total / 2;
+        layout_add(per_worker_per_wpb_layout, sizeof(AffineElement) * dense_total, alignof(AffineElement));
+        layout_add(per_worker_per_wpb_layout, sizeof(uint8_t) * dense_total, alignof(uint8_t));
+        layout_add(per_worker_per_wpb_layout,
+                   sizeof(std::pair<uint32_t, uint32_t>) * dense_pair_max,
+                   alignof(std::pair<uint32_t, uint32_t>));
+        layout_add(per_worker_per_wpb_layout, sizeof(uint32_t) * dense_pair_max, alignof(uint32_t));
+        layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_pair_max, alignof(BaseField));
+        layout_add(per_worker_per_wpb_layout,
+                   sizeof(round_parallel_detail::AffineBucketChunkInfo) * windows_per_batch,
+                   alignof(round_parallel_detail::AffineBucketChunkInfo));
+        const size_t per_worker_bytes = align_up(per_worker_union_bytes + per_worker_per_wpb_layout, WORKER_SLAB_ALIGN);
+
+        size_t bytes_P_extra_layout = 0;
+        layout_add(
+            bytes_P_extra_layout, sizeof(Element) * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS, alignof(Element));
+        if (dedup_active) {
+            layout_add(bytes_P_extra_layout, sizeof(uint32_t) * n, alignof(uint32_t));
+            layout_add(bytes_P_extra_layout,
+                       sizeof(AffineElement) * round_parallel_detail::DEDUP_MAX_CLUSTERS,
+                       alignof(AffineElement));
+        }
+        const size_t bytes_P_min = align_up(bytes_P_prefix, alignof(Element)) + bytes_P_extra_layout;
+        const size_t bytes_P = align_up(bytes_P_min + base_misalign, WORKER_SLAB_ALIGN) - base_misalign;
+        const size_t bytes_W = per_worker_bytes * worker_total;
+        if (bytes_P + bytes_W > arena_capacity) {
+            return false;
+        }
+        const size_t bytes_S_total = arena_capacity - bytes_P - bytes_W;
+        size_t zone_S_cursor = 0;
+        const size_t zone_S_base = bytes_P + bytes_W;
+
+        const size_t schedule_total = windows_per_batch * capacity_lo;
+        if (!bump_fits(schedule_total,
+                       sizeof(uint32_t),
+                       alignof(uint32_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign)) {
+            return false;
+        }
+        const size_t hist_h_bytes_total = size_t{ 4 } * windows_per_batch * num_threads * B_eff;
+        size_t o_layout_cur = 0;
+        o_layout_cur = align_up(o_layout_cur, alignof(round_parallel_detail::ChunkOutput<Curve>));
+        o_layout_cur += sizeof(round_parallel_detail::ChunkOutput<Curve>) * windows_per_batch * num_threads;
+        o_layout_cur = align_up(o_layout_cur, alignof(Element));
+        o_layout_cur += sizeof(Element) * num_threads * windows_per_batch;
+        const size_t hist_slot_cells =
+            (std::max(hist_h_bytes_total, o_layout_cur) + sizeof(AffineElement) - 1) / sizeof(AffineElement);
+        const size_t dense_slot_cells =
+            ((size_t{ 65 } * windows_per_batch * bucket_partials_per_window_max) + sizeof(AffineElement) - 1) /
+            sizeof(AffineElement);
+        if (!bump_fits(hist_slot_cells,
+                       sizeof(AffineElement),
+                       alignof(AffineElement),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(dense_slot_cells,
+                       sizeof(AffineElement),
+                       alignof(AffineElement),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * (B_eff + 1),
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * (num_threads + 1),
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * (num_threads + 1),
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * num_threads,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits((num_threads * windows_per_batch) + 1,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(num_threads + 1,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * num_threads,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign) ||
+            !bump_fits(windows_per_batch * num_threads,
+                       sizeof(size_t),
+                       alignof(size_t),
+                       zone_S_cursor,
+                       bytes_S_total,
+                       zone_S_base,
+                       base_misalign)) {
+            return false;
+        }
+    }
+    return true;
+}
 
 // Round-parallel Pippenger MSM.
 //   `external_glv_doubled` — optional caller-supplied [P_0, φP_0, …, P_{n-1}, φP_{n-1}]

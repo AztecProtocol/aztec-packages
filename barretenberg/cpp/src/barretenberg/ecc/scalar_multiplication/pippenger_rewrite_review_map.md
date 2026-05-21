@@ -1,89 +1,129 @@
 # Pippenger Rewrite Review Map
 
-This is a reviewer-oriented map of the current Pippenger rewrite. It groups the
+This is a reviewer-oriented map of the current Pippenger rewrite stack. It groups the
 optimizations by the inefficiency they are trying to exploit, the heuristic or predicate
 that activates them, and the specific risks worth reviewing before treating the rewrite as
 production-ready.
 
-## Immediate Red Flag
+## Current Status
 
-`ChonkTests.TestCircuitSizes` failing with:
+The stack has been rebased after Bernstein-Yang inversion landed separately in
+`merge-train/barretenberg` as PR #23426. Treat Bernstein-Yang as a baseline dependency for
+this review, not as part of the remaining Pippenger PR diff. When older measurements below
+attribute some speedup to "Bernstein-Yang + staged Pippenger", read that as evidence that
+the no-dedup path is fast; the currently reviewable Pippenger delta is the staged MSM,
+recoding, batching, GLV/dedup plumbing, arena, and thread-pool changes.
+
+Current branch status:
+
+- Variable-window split is removed from the production path.
+- The dedup cluster-publication bug that broke `ChonkTests.TestCircuitSizes` is fixed by
+  publishing only flattened clusters.
+- The original Chonk/wasm/no-GLV arena-overflow reproductions have been rerun successfully
+  on the current branch: transfer_1 native, transfer_0 wasm, transfer_0 native with
+  `BB_MSM_NO_GLV=1`, and the dedup cap fallback assertion.
+- New small and large arena regressions exposed a separate sizing drift: the pre-Phase-1
+  arena sizer used the full bit budget (`254` or GLV `128`), while the live pipeline shrinks
+  to `effective_num_bits` before choosing `window_bits` and `windows_per_batch`. The current
+  fix sizes GLV MSMs and large non-GLV MSMs against the maximum reachable effective-bit
+  layout.
+- `ecc_tests` builds after the rebase; remaining fixture-size test fallout has been local to
+  scalar-multiplication tests whose inputs exceeded the reduced shared fixture.
+- The all-flow native/wasm matrix below is the current "do not regress" target.
+
+Remaining high-value review items:
+
+1. Keep the now-removed variable-window split out unless a new benchmark suite proves a
+   retuned model wins.
+2. Decide whether the broad `parallel_for` rewrite belongs in this PR or should be split.
+3. Remove or split unrelated build/debug/benchmark clutter before final review.
+4. Review dedup as a targeted Chonk optimization, especially cap fallback tests and hint
+   discipline, but it is no longer the active `TestCircuitSizes` blocker.
+5. Keep arena sizing under targeted regression tests for both ends of the workload spectrum:
+   large recursion-VK MSMs and small GLV Honk commitments.
+
+## Fixed Correctness Issue: Dedup Cluster Publication
+
+Earlier branch state failed `ChonkTests.TestCircuitSizes` with:
 
 ```text
 Assertion failed: (cluster_offsets_size == num_clus
 Expected: 8193
 ```
 
-points at the dedup Phase A bookkeeping, not at Chonk itself.
+This pointed at the dedup Phase A bookkeeping, not at Chonk itself.
 
 In `dedup_phase_a_worker_hash`, `clusters_opened` is incremented when a singleton is promoted
 inside the hash table, before the cluster is flattened into `cluster_members` and
 `cluster_offsets`:
 
-- promotion: `clusters_opened++` at `scalar_multiplication.cpp:2135`
-- flattening may stop early when `cluster_members_size + this_cluster_members > cluster_members_cap` at
-  `scalar_multiplication.cpp:2164`
-- the invariant later assumes every opened cluster was flattened:
-  `cluster_offsets_size == num_clusters + 1` at `scalar_multiplication.cpp:2193`
+- promotion: `clusters_opened++`
+- flattening may stop early when `cluster_members_size + this_cluster_members > cluster_members_cap`
+- the old invariant assumed every opened cluster was flattened:
+  `cluster_offsets_size == num_clusters + 1`
 
-So when the member cap is hit, `clusters_opened` can count clusters that were deliberately
-left unflattened. The code comments claim those clusters fall through to normal Pippenger,
-but the final `num_clusters = clusters_opened` makes the partial fallback inconsistent.
-The first fix to review is to make the published cluster count equal the flattened cluster
-count, and to ensure any promoted-but-unflattened entries have no redirect published.
+So when the member cap was hit, `clusters_opened` could count clusters that were deliberately
+left unflattened. The fix is to publish `num_clusters = cluster_offsets_size - 1`, i.e. the
+number of flattened clusters that actually have `cluster_offsets` entries. Promoted but
+unflattened entries then have no redirect and fall through to normal Pippenger as intended.
 
 ## Optimization Inventory
 
 | Area | Inefficiency targeted | Activation / heuristic | Main code | Review risks |
 | --- | --- | --- | --- | --- |
-| Constantine signed-window recoding | Carry propagation and branchy per-window scalar decoding | Always used in round-parallel path; precomputes per-window slice params and selects bottom/localized/boundary paths | `compute_constantine_slice_params*`, `get_constantine_packed_digit`, SIMD x4 helpers around `scalar_multiplication.cpp:118` and `:273` | Boundary-bit correctness, top-window masking, split-region last-window width, endian/aliasing assumptions for `uint32_t` scalar view |
-| Window-size selection | Bad `c` gives too many rounds or too many buckets | Native cost model `rounds * (n + 15 * buckets)`; WASM closed form using `target_load` from logical thread count | `choose_window_bits` at `scalar_multiplication.cpp:479`; oversub factor at `:29` | Platform calibration, small/large crossover, whether `n` should be post-GLV working scalars or original points |
-| GLV split | Halve scalar bit length at cost of doubling point count | `n_input <= 2^13` native, `n_input <= 2^16` WASM, or caller supplies external GLV table | threshold at `scalar_multiplication.cpp:535`; split/double at `:2831` | Sign convention for phi point, input scalar mutation/restoration asymmetry, memory pressure at crossover |
-| Effective bit budget | Avoid windows above the actual largest scalar MSB | After Phase 1, `effective_num_bits` is highest non-empty `msb_hist` bin | `scalar_multiplication.cpp:2919` | Off-by-one in histogram bins; interaction with GLV halves and zero sentinel |
-| Trivial MSM fallback | Pippenger scaffolding dominates very sparse or tiny active sets | `pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER` (`24`) after zero counting | `scalar_multiplication.cpp:2891`; constant in header | Correct Montgomery lifecycle before `trivial_msm_threaded`; preserving `PolynomialSpan::start_index` semantics |
+| Constantine signed-window recoding | Carry propagation and branchy per-window scalar decoding | Always used in round-parallel path; precomputes per-window slice params and selects bottom/localized/boundary paths | `compute_constantine_slice_params*`, `get_constantine_packed_digit`, SIMD x4 helpers | Boundary-bit correctness, top-window masking, endian/aliasing assumptions for `uint32_t` scalar view |
+| Window-size selection | Bad `c` gives too many rounds or too many buckets | Native cost model `rounds * (n + 15 * buckets)`; WASM closed form using `target_load` from logical thread count | `choose_window_bits`, `window_bits_tuning_oversub_factor` | Platform calibration, small/large crossover, whether `n` should be post-GLV working scalars or original points |
+| GLV split | Halve scalar bit length at cost of doubling point count | `n_input <= 2^13` native, `n_input <= 2^16` WASM, or caller supplies external GLV table | `GLV_SMALL_N_THRESHOLD`, `glv_threshold`, GLV split/double path | Sign convention for phi point, input scalar mutation/restoration asymmetry, memory pressure at crossover |
+| Effective bit budget | Avoid windows above the actual largest scalar MSB | After Phase 1, `effective_num_bits` is highest non-empty `msb_hist` bin | Phase 1 `msb_hist` and `effective_num_bits` | Off-by-one in histogram bins; interaction with GLV halves and zero sentinel |
+| Trivial MSM fallback | Pippenger scaffolding dominates very sparse or tiny active sets | `pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER` (`24`) after zero counting | `trivial_msm_threaded`; constant in header | Correct Montgomery lifecycle before `trivial_msm_threaded`; preserving `PolynomialSpan::start_index` semantics |
 | Variable-window split | Mixed scalar sizes waste high-bit windows on small scalars | Removed after traced Chonk runs showed a net regression | deleted `choose_var_window_split` cost model and upper-region dispatch | Keep deleted unless a new benchmark suite proves a retuned split model wins |
-| Small-set peel | Split lower region too small to amortize Pippenger | If split fires and `n_small` per thread is below trivial threshold, compute small set with Straus and run Pippenger only on large set | `scalar_multiplication.cpp:2989` | Currently comments mention dedup integration, but Phase A runs later so dedup data is unavailable; verify this is harmless or dead code |
-| Round-parallel pipeline | Legacy per-thread work balance and repeated bucket reductions | Main path after dispatch: stages 1-7 over window batches sized by arena budget | staged lambda starts around `scalar_multiplication.cpp:3690` | Race-free cursor reuse, per-window capacity, Stage 1 and Stage 4 decode equivalence |
-| SIMD digit extraction | Scalar decoding is compute-heavy and non-vectorized | `SIMD_BATCH = 64`; 4-wide `uint32_t` vector helpers selected by per-window path | `scalar_multiplication.cpp:3728` | Strict aliasing/layout assumptions, tail handling, all-included mask path |
-| In-place histogram/prefix reuse | Avoid separate bucket-total and cursor buffers | `digit_cursors` is counts in Stage 1, per-thread offsets in Stage 2, scatter cursors in Stage 4 | `scalar_multiplication.cpp:3903` | Stage ordering, no read-after-overwrite mistakes, capacity and bucket 0 handling |
-| Dedup pre-pass | Duplicate scalar values in witness/permutation polynomials cause repeated base-point additions | Explicit `dedup_hint`; long scalars only (`msb >= c_threshold`); caps: 16,384 clusters and 32,768 members | caps at `scalar_multiplication.cpp:1904`; worker at `:1972`; hints wired through `CommitmentKey` | Current failing assertion; cap fallback invariants; duplicate detection by one-limb fingerprint plus memcmp; GLV interaction |
-| Dedup patching | Keep hot Stage 4 loop dedup-free after first batch | First batch emits ordinary schedule, Phase A populates redirects, `dedup_patch_schedule_window` compacts skips; later batches omit skips up front | `scalar_multiplication.cpp:2283`; Stage comments at `:3973` | First-batch vs later-batch equivalence, sign preservation on redirects, upper split reuse |
-| Arena zoning | Reduce allocator churn and WASM fragmentation; bound resident scratch | `compute_arena_bytes_for_msm`, `BATCH_MEM_BUDGET = 32 MiB`, Zone P/W/S layout | sizing around `scalar_multiplication.cpp:2754`; zone layout at `:3276` | Sizer and allocator formulas must stay exactly mirrored; absolute alignment; zero-initialization assumptions |
-| Per-worker scratch overlay | Avoid summing all scratch lifetimes into memory budget | Phase A and Stage 6 scratch share Zone W union because they run in separate parallel phases | `scalar_multiplication.cpp:3318` and `:3443` | No overlapping lifetimes; worker id equals task id assumption; later refactors can violate this silently |
-| Recursive affine bucket reduction | Replace projective bucket suffix sums with batched affine additions/doublings | Stage 6b always rebalances bucket ranges; stride is power-of-two; trivial stride <= 2 fallback | `recursive_affine_bucket_reduce_strided` around `scalar_multiplication.cpp:1320`; Stage 6b at `:4424` | Algebraic equivalence of `R`/`L`; batch-affine breakeven fallback; handling sparse windows and empty chunks |
-| Dense bucket partials | Avoid sorted scans during cross-thread merge | Stage 6a writes dense per-thread bucket rows; Stage 6b looks up overlapping digit ranges directly | Stage 6a at `scalar_multiplication.cpp:4368`; Stage 6b at `:4474` | Boundary buckets shared by original chunks, overflow buffer sizing, present bitmap reset coverage |
-| Batched MSM sharing | Chonk commits many MSMs over the same SRS prefix | Batch driver runs one MSM at a time but shares GLV-doubled SRS buffer and one max-sized arena | `pippenger_round_parallel_batched` at `scalar_multiplication.cpp:4660` | Pointer-range grouping assumes shared contiguous SRS allocation; no cross-MSM scalar scheduling is actually batched |
+| Round-parallel pipeline | Legacy per-thread work balance and repeated bucket reductions | Main path after dispatch: stages 1-7 over window batches sized by arena budget | staged pipeline in `pippenger_round_parallel` | Race-free cursor reuse, per-window capacity, Stage 1 and Stage 4 decode equivalence |
+| SIMD digit extraction | Scalar decoding is compute-heavy and non-vectorized | `SIMD_BATCH = 64`; 4-wide `uint32_t` vector helpers selected by per-window path | x4 Constantine digit helpers and Stage 1/4 decode loops | Strict aliasing/layout assumptions, tail handling, all-included mask path |
+| In-place histogram/prefix reuse | Avoid separate bucket-total and cursor buffers | `digit_cursors` is counts in Stage 1, per-thread offsets in Stage 2, scatter cursors in Stage 4 | Stage 1-4 `digit_cursors` reuse | Stage ordering, no read-after-overwrite mistakes, capacity and bucket 0 handling |
+| Dedup pre-pass | Duplicate scalar values in witness/permutation polynomials cause repeated base-point additions | Explicit `dedup_hint`; long scalars only (`msb >= c_threshold`); caps: 16,384 clusters and 32,768 members | `dedup_phase_a_worker_hash`; hints wired through `CommitmentKey` | Fixed cap-publication bug; still review cap fallback tests, duplicate detection by one-limb fingerprint plus memcmp, and GLV interaction |
+| Dedup patching | Keep hot Stage 4 loop dedup-free after first batch | First batch emits ordinary schedule, Phase A populates redirects, `dedup_patch_schedule_window` compacts skips; later batches omit skips up front | `dedup_patch_schedule_window`; Stage 1/4 dedup-known paths | First-batch vs later-batch equivalence, sign preservation on redirects, no stale redirects for capped-out clusters |
+| Arena zoning | Reduce allocator churn and WASM fragmentation; bound resident scratch | `compute_arena_bytes_for_msm`, `BATCH_MEM_BUDGET = 32 MiB`, Zone P/W/S layout | arena sizer and Zone P/W/S layout in `pippenger_round_parallel` | Sizer and allocator formulas must stay exactly mirrored; must dominate runtime `effective_num_bits` layouts for GLV and non-GLV; absolute alignment; zero-initialization assumptions |
+| Per-worker scratch overlay | Avoid summing all scratch lifetimes into memory budget | Phase A and Stage 6 scratch share Zone W union because they run in separate parallel phases | Phase A and Stage 6 Zone W scratch allocation | No overlapping lifetimes; worker id equals task id assumption; later refactors can violate this silently |
+| Recursive affine bucket reduction | Replace projective bucket suffix sums with batched affine additions/doublings | Stage 6b always rebalances bucket ranges; stride is power-of-two; trivial stride <= 2 fallback | `recursive_affine_bucket_reduce_strided`; Stage 6b | Algebraic equivalence of `R`/`L`; batch-affine breakeven fallback; handling sparse windows and empty chunks |
+| Dense bucket partials | Avoid sorted scans during cross-thread merge | Stage 6a writes dense per-thread bucket rows; Stage 6b looks up overlapping digit ranges directly | Stage 6a dense partials; Stage 6b merge | Boundary buckets shared by original chunks, overflow buffer sizing, present bitmap reset coverage |
+| Batched MSM sharing | Chonk commits many MSMs over the same SRS prefix | Batch driver runs one MSM at a time but shares GLV-doubled SRS buffer and one max-sized arena | `pippenger_round_parallel_batched` | Pointer-range grouping assumes shared contiguous SRS allocation; no cross-MSM scalar scheduling is actually batched |
 
 ## Dedup-Specific Review Checklist
 
-Dedup is the most suspicious optimization because it has a clear Chonk failure and is only
-enabled through hints. Review it as a separate feature before judging the whole rewrite.
+Dedup is now a targeted secondary optimization rather than the active Chonk blocker. It is
+enabled only through hints, and public-transfer traces show the hints are concentrated on
+duplicate-heavy Honk wires, `Z_PERM`, and small ECCVM polynomials. Review it as a separate
+feature before judging the whole rewrite.
 
 1. Confirm the hinted call sites are the intended duplicate-heavy polynomials, not blanket
    activation. Hints enter via `CommitmentKey::commit`, `batch_commit`, and `BatchBuilder`.
-2. Make cap fallback mechanically correct:
-   `clusters_opened`, flattened cluster count, `cluster_offsets_size`, and published
-   redirects must describe the same set of clusters.
+2. Keep cap fallback mechanically correct: flattened cluster count, `cluster_offsets_size`,
+   published redirects, and `extra_points` must describe the same set of clusters.
+   `clusters_opened` is diagnostic only and may include clusters that intentionally fall
+   through to normal Pippenger.
 3. Add or strengthen tests where the cap is hit by many small clusters, not only one giant
    cluster. The existing cap/carry test describes a mega-cluster shape, which would not catch
    opened-but-unflattened many-cluster drift.
-4. Check split interaction: Phase A is based on first batch/window-0 schedule, but redirects
-   are reused for later windows and upper split region.
+4. Check first-batch versus later-batch equivalence: Phase A is based on the first emitted
+   schedule, and redirects are reused for later windows after schedule patching.
 5. Check GLV interaction: after GLV, duplicate scalar halves may not correspond to duplicate
    original scalars, and points are `[P, phi(P)]`. Dedup is still algebraically valid if it
    aggregates points attached to equal working scalar values, but tests should cover it.
 
 ## Suggested Review Order
 
-1. Make all correctness tests pass with dedup disabled and enabled separately. If disabling
-   dedup fixes `ChonkTests.TestCircuitSizes`, keep the review scoped until Phase A is repaired.
+1. Keep correctness green on the current branch, especially Chonk flow tests, wasm prove,
+   `BB_MSM_NO_GLV=1`, UltraHonk small-range tests, recursion-VK tests, and dedup
+   cap/fallback tests.
 2. Lock down algebraic equivalence tests for the staged pipeline using random scalars,
    sparse scalars, duplicate-heavy scalars, and GLV threshold boundaries.
-3. Review memory safety after correctness: arena sizing mirrors, worker scratch lifetimes,
-   overflow bounds, and capacity assumptions.
-4. Only then treat benchmark numbers as meaningful. Several choices are calibrated constants
-   (`GLV_SMALL_N_THRESHOLD`, `BATCH_CAPACITY`, split 85% margin, 32 MiB budget), so a passing
-   correctness suite should precede any argument about wins.
+3. Review memory safety after correctness: arena sizing mirrors, effective-bit schedule
+   sizing, worker scratch lifetimes, overflow bounds, and capacity assumptions.
+4. Audit PR scope: split or remove benchmark/debug/build clutter and decide whether the global
+   thread-pool rewrite belongs with Pippenger.
+5. Treat benchmark numbers as meaningful only after the scope and correctness questions above
+   are settled. Remaining calibrated constants include `GLV_SMALL_N_THRESHOLD`,
+   `BATCH_CAPACITY`, and the 32 MiB arena budget.
 
 ## Independent Clutter / Split-Out Candidates
 
@@ -134,8 +174,7 @@ Useful trace fields:
 - `n_input`, `n_working`, `n_active`
 - `use_glv`, `external_glv`
 - `dedup_hint`, `dedup_active`, `dedup_clusters`, `dedup_ms`
-- `effective_num_bits`, `window_bits`, `split`, `b_star`, `n_large`
-- `windows_lo`, `windows_hi`, `windows_per_batch_lo`, `windows_per_batch_hi`
+- `effective_num_bits`, `window_bits`, `windows_per_batch`
 - `phase1_ms`, `pipeline_ms`, `total_ms`
 
 For the `ecdsar1+transfer_0_recursions+sponsored_fpc` flow, compare the full branch against:
@@ -148,10 +187,10 @@ BB_MSM_TRACE=1 BB_MSM_NO_GLV=1 BB_MSM_NO_DEDUP=1
 ```
 
 The fastest way to answer the current attribution question is to group trace lines by
-`curve`, `n_input`, `use_glv`, and `dedup_clusters`. If the large `2^19` BN254 MSMs still
-improve with `use_glv=false` and `dedup_clusters=0`, the staged Pippenger path is likely a
-real contributor. If the wins concentrate in `n_input <= 8192` or duplicate-heavy calls, the
-headline should be narrowed to GLV, fallback, and dedup-heavy workloads.
+`curve`, `n_input`, `use_glv`, and `dedup_clusters`. If the large `2^19` BN254 MSMs
+still improve with `use_glv=false` and `dedup_clusters=0`, the staged Pippenger path is
+likely a real contributor. If the wins concentrate in `n_input <= 8192` or duplicate-heavy
+calls, the headline should be narrowed to GLV, fallback, and dedup-heavy workloads.
 
 For dedup attribution by Chonk polynomial, run the same flow with:
 
@@ -174,9 +213,11 @@ round ladder with `BB_MSM_TRACE` and `batch_mul_with_endomorphism` timings, espe
 
 ### `ecdsar1+transfer_0_recursions+sponsored_fpc`, native (clang20-no-avm, 16 threads)
 
-Branch `lde/zacs-pippenger` (`758407a0835`) vs baseline `merge-train/barretenberg`
-(`4da6ab07f2c`), EC2 single run. The flow matrix below includes current-branch reruns after
-instrumentation, variable-split removal, and the dedup cap publication fix.
+Historical measurement on branch `lde/zacs-pippenger` before the Bernstein-Yang rebase,
+compared with baseline `merge-train/barretenberg` (`4da6ab07f2c`), EC2 single run. The flow
+matrix below includes later reruns after instrumentation, variable-split removal, and the
+dedup cap publication fix. Because Bernstein-Yang has since landed separately, use these
+numbers for workload attribution, not as a clean PR-vs-current-base diff.
 
 Native Chonk flow matrix:
 
@@ -198,22 +239,26 @@ Native Chonk flow matrix:
 | `ChonkLoad` (msgpack decode, no MSM) | 100.1 ms | 106.8 ms | +6.7% (noise) |
 
 `IPA::compute_opening_proof` runs on random IPA challenge scalars with no `dedup_hint`,
-so its -42% delta is attributable to the non-dedup parts of the rewrite (round-parallel
-pipeline + Bernstein-Yang inversion + batch-affine bucket accumulation). The per-call
-oink-commit delta (-43%) is roughly the same magnitude, implying dedup adds at most a few
-percent over the non-dedup baseline on this workload, not the 20-30% earlier guess.
+so its -42% historical delta is attributable to the no-dedup path: round-parallel pipeline,
+Bernstein-Yang inversion, and batch-affine bucket accumulation. Since Bernstein-Yang is now
+in the base branch, current review should focus on the remaining Pippenger-side pieces of
+that no-dedup path. The per-call oink-commit delta (-43%) is roughly the same magnitude,
+implying dedup adds at most a few percent over the no-dedup baseline on this workload, not
+the 20-30% earlier guess.
 
 ### Native ablations, same flow
 
 All runs are single-run EC2 native (`clang20-no-avm`, 16 threads), comparing against the
-uninstrumented branch wallclock of 3.46 s.
+uninstrumented branch wallclock of 3.46 s. The first ablation set was collected before the
+dedup publication fix; the `BB_MSM_NO_GLV=1` abort is historical and has since been rerun
+successfully.
 
 | Run | `ChonkAPI::prove` | Delta vs branch | Implication |
 | --- | --- | --- | --- |
 | Branch, uninstrumented | 3.46 s | baseline | Full rewrite result |
 | `BB_MSM_NO_DEDUP=1` | 3.57 s | +0.11 s (+3.2%) | Dedup saves about 110 ms |
 | `BB_MSM_NO_GLV=1 BB_MSM_NO_DEDUP=1` | 3.61 s | +0.15 s (+4.3%) | GLV adds about 40 ms on top of dedup |
-| `BB_MSM_NO_GLV=1` | aborted | - | Arena mirror bug exposed when dedup remains active |
+| `BB_MSM_NO_GLV=1` | historical abort | - | Historical arena/cap symptom; current branch proves this path |
 
 Attribution against the full baseline-to-branch delta (`4.48 s -> 3.46 s`, 1.02 s saved):
 
@@ -224,16 +269,17 @@ Attribution against the full baseline-to-branch delta (`4.48 s -> 3.46 s`, 1.02 
 | Non-dedup, non-GLV rewrite | 870 ms | ~19.5% | ~85% |
 
 This materially changes the review posture: the rewrite's native win on this flow does not
-stand or fall on dedup or GLV. The actual headline is the non-dedup, non-GLV path:
-Bernstein-Yang inversion, staged affine bucket reduction, batch-affine arithmetic,
-round-parallel scaffolding, and Constantine recoding. The no-dedup IPA evidence above is
-consistent with this attribution: IPA drops 122 ms by itself without duplicate stripping.
+stand or fall on dedup or GLV. The actual headline is the no-dedup, non-GLV path: staged
+affine bucket reduction, batch-affine arithmetic, round-parallel scaffolding, Constantine
+recoding, plus Bernstein-Yang in the historical baseline comparison. Since Bernstein-Yang is
+now in merge-train, the remaining review should focus on the staged Pippenger machinery. The
+no-dedup IPA evidence above is still useful: IPA drops 122 ms historically without duplicate
+stripping.
 
-The failed `BB_MSM_NO_GLV=1` run is also important. It hits the same
-`aligned_local + bytes <= bound_bytes` arena assertion class as the wasm crash, but on native
-when GLV is force-disabled and dedup stays enabled. Together with the dedup cap miscount,
-this makes "arena/sizer mirror drift across feature combinations" a single top-priority
-correctness item rather than isolated bugs.
+The old `BB_MSM_NO_GLV=1` abort hit the same `aligned_local + bytes <= bound_bytes` arena
+assertion class as the wasm crash, but it no longer reproduces on the current branch. Treat
+it as evidence for the fixed dedup cap / removed split-path sizing work, not as an open
+arena blocker.
 
 ### Triple-traced public-transfer ablation
 
@@ -315,24 +361,25 @@ margin was too generous. The variable split path has since been removed from the
 
 IPA structure from the same trace: one Grumpkin IPA opening uses `poly_length=32768`, 15
 rounds, 30 Pippenger calls, and 15 `batch_mul_with_endomorphism` calls. The round ladder is
-`16384 -> ... -> 1`. None of these calls has a dedup hint, so the IPA part of the speedup is
-entirely non-dedup: Bernstein-Yang inversion, staged affine bucket reduction, round-parallel
-pipeline, and batch-affine arithmetic.
+`16384 -> ... -> 1`. None of these calls has a dedup hint, so the IPA part of the
+historical speedup is entirely non-dedup: Bernstein-Yang inversion plus staged affine bucket
+reduction, round-parallel pipeline, and batch-affine arithmetic. After the BY rebase, only
+the staged Pippenger pieces remain part of this PR's diff.
 
 Updated attribution for this flow:
 
 | Component | Approx effect | Review implication |
 | --- | --- | --- |
-| Non-dedup, non-GLV, non-var-split rewrite | ~960 ms saved | Main headline; keep focus here |
+| Non-dedup, non-GLV, non-var-split Pippenger path | ~960 ms historical saved including BY | Main headline; BY is now baseline, so focus review on remaining staged MSM machinery |
 | Dedup | ~90 ms saved | Real and well targeted; mostly Honk wires |
 | GLV | ~40 ms saved | Small contributor from prior ablation |
-| Variable-window split | ~44 ms regression | Removed |
+| Variable-window split | ~44 ms regression | Removed; keep it out unless a new benchmark proves otherwise |
 
 Concrete actions from this trace:
 
 1. Keep `choose_var_window_split` removed unless a new benchmark suite justifies rebuilding it.
-2. Keep dedup as a targeted Chonk optimization, but fix the cap/arena correctness bugs before
-   defending it for merge.
+2. Keep dedup as a targeted Chonk optimization; the cap-publication bug is fixed, but tests
+   should still cover cap fallback shapes.
 3. Consider replacing the ECCVM transcript accumulator dedup case with a cheaper zero-heavy
    path if it remains measurable after the correctness work.
 
@@ -342,7 +389,7 @@ Baseline `merge-train/barretenberg` (`4da6ab07f2c`) proves this flow in 7.75 s. 
 branch, after variable-split removal and the dedup cap publication fix, proves it in 6.10 s
 single-run: a 1.65 s / 21.3% speedup.
 
-The earlier branch state (`758407a0835`) aborted before timing could be collected:
+An earlier branch state aborted before timing could be collected:
 
 ```text
 aligned_local + bytes <= bound_bytes
@@ -353,7 +400,7 @@ This flow is roughly "more of the same" compared with transfer_0: 17 circuits vs
 and baseline wallclock scales from 4.48 s to 7.75 s. Per-circuit baseline time is slightly
 lower on transfer_1 (456 ms vs 498 ms), so the private-recursive flow is not a qualitatively
 different workload. The current branch now proves this larger real Chonk workload, so the
-headline native speedup holds beyond the shorter public-transfer flow.
+historical native speedup signal holds beyond the shorter public-transfer flow.
 
 Baseline slices:
 
@@ -409,45 +456,30 @@ Observations:
 - 128k+ MSMs (ECCVM/IPA SRS commits) correctly run without dedup; their scalars are
   challenges and zero-padding does not appear.
 - Trace currently reports `dedup_clusters` but not `dedup_members_flattened` /
-  `dedup_members_dropped`. Adding those would let the cap-fallback drift from the
-  immediate red flag section be diagnosed empirically rather than by code reading.
+  `dedup_members_dropped`. Adding those would make cap-fallback behavior directly observable
+  rather than relying only on code reading and targeted tests.
 
-### Historical arena-overflow reproductions
+### Arena-overflow reproductions and current diagnosis
 
-`build-wasm-threads/bb prove --scheme chonk` aborts on this flow at:
+Earlier branch states had several `aligned_local + bytes <= bound_bytes` or dedup-layout
+assertions. The first group is closed, but later CI found a second arena-sizing bug that is
+independent of variable split and dedup publication.
 
-```text
-abort: Assertion failed: (aligned_local + bytes <= bound_bytes)
-  Left   : 674112
-  Right  : 623757
-```
-
-Crash site is the arena allocator bookkeeping (~50 KB over a 624 KB cap, ~8%) during the
-hiding kernel's IPA opening. Baseline wasm runs the same flow in 12.06 s, so this is a
-branch regression specific to wasm. Likely candidates:
-
-- Alignment padding differs between wasm and native, and the sizer
-  (`compute_arena_bytes_for_msm`) does not mirror the allocator exactly. The doc
-  already calls out this as a top-tier risk under "Arena zoning".
-- Concurrency surfaced from wasi-threads under `HARDWARE_CONCURRENCY=16` may not match
-  what the sizer assumed when picking per-worker scratch caps.
-
-This blocked wasm performance comparison in the earlier branch state. Re-run wasm after the
-variable-split removal and dedup cap fix before treating this as still current.
-
-The arena/dedup assertion had four distinct reproductions before the recent fixes:
-
-| Scenario | Overflow | Severity |
+| Reproduction | Symptom | Current branch outcome |
 | --- | --- | --- |
-| transfer_0 native + `BB_MSM_NO_GLV=1` | unrecorded | Ablation-only; needs rerun |
-| transfer_0 wasm | ~8%, 674 KB needed vs 624 KB cap | WASM regression; needs rerun |
-| transfer_1 native, no flags | ~40%, 1.70 MB needed vs 1.21 MB cap | Fixed: current branch proves in 6.10 s |
-| dedup cap fallback | cluster count drift | Fixed by publishing only flattened clusters |
+| transfer_0 native + `BB_MSM_NO_GLV=1` | Arena assertion during ablation | Proves in 3.47 s |
+| transfer_0 wasm | ~8% arena overflow, 674 KB needed vs 624 KB cap | Proves in 8.71 s |
+| transfer_1 native, no flags | ~40% arena overflow, 1.70 MB needed vs 1.21 MB cap | Proves in 6.16 s / 6.10 s single-runs |
+| dedup cap fallback | `cluster_offsets_size == num_clusters + 1` drift | Fixed by publishing only flattened clusters |
+| `HonkRecursionConstraintTestWithoutPredicate/2.GenerateVKFromConstraints` | large BN254 non-GLV arena assertion, schedule allocation `26,454,272` bytes vs `25,505,329` Zone S cap | Fixed by sizing large non-GLV MSMs against max reachable `effective_num_bits` layout |
+| `RangeTests/0.LimbedRangeConstraint133Bits` | small BN254 GLV arena assertion, `507,712` bytes vs `488,933` cap | Fixed by applying the same effective-bit layout sizing to GLV MSMs |
 
-Current diagnosis: the broad "arena/sizer mirroring is broken" conclusion was too coarse.
-The surviving evidence points to the removed variable-split sizing branch plus the dedup cap
-publication bug. The unsplit native path now passes both public and private transfer flows;
-`BB_MSM_NO_GLV=1` and wasm should be rerun to close the remaining historical reproductions.
+Current diagnosis: there are at least three distinct fixed correctness issues in the arena /
+dedup area, not one generic failure mode. Variable-split removal closed the old split-path
+sizing branch, the dedup publication fix closed promoted-but-unflattened clusters, and the
+latest arena fix makes the pre-Phase-1 sizer dominate the runtime `effective_num_bits`
+schedule choice. Arena zoning remains a top review area because every future Zone P/W/S
+allocation change must update both the sizer and the typed allocator layout.
 
 ### Two preset/cmake regressions noted while reproducing
 
@@ -464,9 +496,11 @@ Outside MSM code itself, the branch silently changed wasm/cmake behavior:
 ### Full bench matrix: all 11 IVC flows x {native, wasm} x {baseline, branch}
 
 Single-run, EC2 16 threads. Native: `clang20-no-avm`. WASM: `wasm-threads` + wasmtime 43
-with `-W threads=y -W shared-memory=y -S threads=y`. Branch HEAD is the current state
-(variable-split removed, dedup cap publication fixed). Baseline is `merge-train/barretenberg`
-(`4da6ab07f2c`). All numbers are `ChonkAPI::prove` wallclock in seconds.
+with `-W threads=y -W shared-memory=y -S threads=y`. Branch state for these numbers has
+variable-split removed and the dedup cap publication fix. Baseline is historical
+`merge-train/barretenberg` (`4da6ab07f2c`), so after the Bernstein-Yang rebase the matrix is
+best used as the workload coverage and "do not regress" target rather than a clean diff
+against today's merge-train. All numbers are `ChonkAPI::prove` wallclock in seconds.
 
 | Flow | Base nat | Branch nat | Native delta | Base wasm | Branch wasm | WASM delta |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -483,11 +517,3 @@ with `-W threads=y -W shared-memory=y -S threads=y`. Branch HEAD is the current 
 | `schnorr+deploy_tokenContract_with_registration+sponsored_fpc` | 5.55 | 4.32 | -22.2% | 14.99 | 11.08 | -26.1% |
 | **Sum** | **73.81** | **59.28** | **-19.7%** | **206.04** | **158.38** | **-23.1%** |
 
-Outcome at current branch for the prior arena-overflow reproductions:
-
-| Prior abort | Outcome at current branch |
-| --- | --- |
-| transfer_1 native, no flags | Proves in 6.16 s |
-| transfer_0 wasm | Proves in 8.71 s |
-| transfer_0 native + `BB_MSM_NO_GLV=1` | Proves in 3.47 s |
-| Dedup cap fallback assertion | Replaced with flattened-cluster publish |
