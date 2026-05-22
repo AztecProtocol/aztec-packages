@@ -360,6 +360,14 @@ tests:
     owners:
       - *spyros
 
+  # http://ci.aztec-labs.com/20d38a958c951a40
+  # Pipelining-induced flake in HA node distribution test (attestation gossip / publisher
+  # rotation timing under pipelined block production).
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
+    error_regex: "✕ should distribute work across multiple HA nodes"
+    owners:
+      - *palla
+
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
   - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"

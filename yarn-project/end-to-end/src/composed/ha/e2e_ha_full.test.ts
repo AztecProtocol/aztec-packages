@@ -27,6 +27,7 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { OffenseType } from '@aztec/stdlib/slashing';
 import { TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -800,45 +801,6 @@ describe('HA Full Setup', () => {
         `Block ${receipt.blockNumber}: Database shows ${dutiesByValidator.size} unique validators attested (quorum: ${quorum}), no double-signing detected in DB`,
       );
 
-      // P2P LAYER CHECK: Verify only one attestation per validator was sent over P2P
-      // Find first active node for P2P check
-      let p2pNodeIndex = 0;
-      for (let idx = 0; idx < haNodeServices.length; idx++) {
-        if (!killedNodes.includes(idx)) {
-          p2pNodeIndex = idx;
-          break;
-        }
-      }
-
-      const p2pNode = haNodeServices[p2pNodeIndex];
-      const p2p = p2pNode.getP2P();
-      const slot = SlotNumber(Number(slotNumber));
-
-      // Get all attestations from P2P pool for this slot (before deduplication)
-      const p2pAttestations = await p2p.getCheckpointAttestationsForSlot(slot);
-      const p2pAttestationsWithSignatures = p2pAttestations.filter(a => !a.signature.isEmpty());
-      expect(p2pAttestationsWithSignatures.length).toBeGreaterThan(0);
-
-      // Extract validator addresses from P2P attestations using getSender()
-      const p2pValidatorAddresses = new Map<string, number>();
-      for (const attestation of p2pAttestationsWithSignatures) {
-        const sender = attestation.getSender();
-        if (sender) {
-          const addr = sender.toString();
-          p2pValidatorAddresses.set(addr, (p2pValidatorAddresses.get(addr) || 0) + 1);
-        }
-      }
-
-      // Verify no validator sent multiple attestations over P2P
-      // Each validator should have sent exactly one attestation
-      for (const [_, count] of p2pValidatorAddresses.entries()) {
-        expect(count).toBe(1);
-      }
-
-      logger.info(
-        `Block ${receipt.blockNumber}: P2P layer shows ${p2pValidatorAddresses.size} unique validators sent attestations, no duplicates detected`,
-      );
-
       // SECONDARY CHECK: Verify checkpoint attestations match database records
       const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, {
         includeAttestations: true,
@@ -872,6 +834,19 @@ describe('HA Full Setup', () => {
         expect(dutiesByValidator.has(validatorAddress)).toBe(true);
       }
     }
+
+    // GOSSIP-LAYER CHECK: each HA node's libp2p service detects when a signer attests to two
+    // distinct payloads at the same slot and fires `duplicateAttestationCallback` -> validator
+    // client emits WANT_TO_SLASH_EVENT -> SlashOffensesCollector persists a DUPLICATE_ATTESTATION
+    // offense. We assert no such offense (or DUPLICATE_PROPOSAL) was collected on any surviving
+    // HA node. Killed nodes are unreachable, but the surviving node — which has been alive the
+    // whole test — has observed all gossiped attestations and proposals across every slot.
+    const aliveNodes = haNodeServices.filter((_, idx) => !killedNodes.includes(idx));
+    const allOffenses = (await Promise.all(aliveNodes.map(n => n.getSlashOffenses('all')))).flat();
+    const equivocationOffenses = allOffenses.filter(
+      o => o.offenseType === OffenseType.DUPLICATE_ATTESTATION || o.offenseType === OffenseType.DUPLICATE_PROPOSAL,
+    );
+    expect(equivocationOffenses).toEqual([]);
   });
 
   describe('Clock Skew and Timezone Safety', () => {
