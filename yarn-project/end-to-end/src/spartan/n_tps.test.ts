@@ -6,8 +6,9 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -49,20 +50,27 @@ if (!Number.isFinite(lowValueTps)) {
   throw new Error(`Environment variable BACKGROUND_TPS is required`);
 }
 
-const lowValueAccounts = Math.ceil(lowValueTps);
+const configuredLowValueAccounts = parseInt(process.env.LOW_VALUE_ACCOUNTS ?? '', 10);
+const lowValueAccounts = Number.isFinite(configuredLowValueAccounts)
+  ? configuredLowValueAccounts
+  : Math.ceil(lowValueTps);
 
 const highValueTps = parseFloat(process.env.HIGH_VALUE_TPS ?? '');
 if (!Number.isFinite(highValueTps)) {
   throw new Error(`Environment variable TARGET_TPS is required`);
 }
 
-const highValueAccounts = Math.ceil(highValueTps);
+const configuredHighValueAccounts = parseInt(process.env.HIGH_VALUE_ACCOUNTS ?? '', 10);
+const highValueAccounts = Number.isFinite(configuredHighValueAccounts)
+  ? configuredHighValueAccounts
+  : Math.ceil(highValueTps);
 
 if (lowValueAccounts + highValueAccounts <= 0) {
   throw new Error('Total TPS is 0');
 }
 
 const CHAOS_MESH_NAME = 'network-shaping';
+const walletSetupConcurrency = parseInt(process.env.WALLET_SETUP_CONCURRENCY ?? '16', 10);
 
 const p2pLatencyQuery = (perc: string, topicName: TopicType) =>
   `histogram_quantile(${perc}, sum(rate(aztec_p2p_gossip_message_latency_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}", aztec_gossip_topic_name="${topicName}"}[1m])) by (le))`;
@@ -301,10 +309,14 @@ describe('sustained N TPS test', () => {
     // prototype rebuilds run in parallel instead of serialising on a single main-thread PXE.
     // config.REAL_VERIFIER threads through to proverEnabled on each worker's PXE: false
     // makes the client-side prover skip proof and witness generation entirely.
-    testWallets = await timesParallel(lowValueAccounts + highValueAccounts, i => {
-      logger.info(`Creating wallet and pxe for wallet ${i + 1}/${lowValueAccounts + highValueAccounts}`);
-      return createWorkerWalletClient(rpcUrl, config.REAL_VERIFIER, logger);
-    });
+    testWallets = await asyncPool(
+      walletSetupConcurrency,
+      times(lowValueAccounts + highValueAccounts, i => i),
+      i => {
+        logger.info(`Creating wallet and pxe for wallet ${i + 1}/${lowValueAccounts + highValueAccounts}`);
+        return createWorkerWalletClient(rpcUrl, config.REAL_VERIFIER, logger);
+      },
+    );
     logger.info('Wallet provisioning complete', { walletCount: testWallets.length });
 
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
@@ -494,17 +506,17 @@ describe('sustained N TPS test', () => {
 
     let lowValueTxs = 0;
     const lowValueSendTx = async (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => {
-      lowValueTxs++;
+      const txNum = ++lowValueTxs;
       // Low-value lane stays near the network min — it's allowed to fail fee checks
       // (simulates "cheap txs" that should be displaced by high-value). Scale with
       // txs sent so late txs pay more than early txs, preserving ordering semantics.
-      const bumpL2 = (priorityFeeBase.feePerL2Gas / 10n) * BigInt(Math.floor(lowValueTxs / 1000) + 1);
+      const bumpL2 = (priorityFeeBase.feePerL2Gas / 10n) * BigInt(Math.floor(txNum / 1000) + 1);
       const fee = new GasFees(0n, bumpL2);
 
       const { txHash, cloneMs, sendMs } = await buildAndSend(wallet, walletNode, from, fee);
 
       logger.info('Low value tx sent', {
-        txNum: lowValueTxs,
+        txNum,
         feeL2: bumpL2.toString(),
         cloneMs,
         sendMs,
@@ -515,7 +527,7 @@ describe('sustained N TPS test', () => {
 
     let highValueTxs = 0;
     const highValueSendTx = async (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => {
-      highValueTxs++;
+      const txNum = ++highValueTxs;
       // High-value lane pays 10× the pre-fetched network min + tiny jitter to preserve
       // fee-ordering diversity between wallets. Safely above any mempool-pressure
       // ratcheting observed during a ~10 min run.
@@ -528,7 +540,7 @@ describe('sustained N TPS test', () => {
       );
 
       logger.info('High value tx sent', {
-        txNum: highValueTxs,
+        txNum,
         feeAmount,
         cloneMs,
         sendMs,
@@ -558,39 +570,61 @@ describe('sustained N TPS test', () => {
     // post-window waitForTx tail so late blocks still get a true client-observed
     // timestamp. recordMinedTx (in waitForTx) is the slow-path fallback for any
     // tx the watcher misses.
+    //
+    // observedAtMs is captured ONCE per tick, before any getBlock RPCs, so the
+    // measurement reflects when the block first became visible to the client
+    // (i.e. when getBlockNumber returned a number that covers it) rather than
+    // including per-block getBlock RPC latency. We also keep lastSeenBlock
+    // unchanged on a null getBlock result so a transient miss is retried on
+    // the next tick instead of silently dropping that block's txs into the
+    // (less accurate) recordMinedTx fallback path.
     let lastSeenBlock = await aztecNode.getBlockNumber();
     const blockWatcher = new RunningPromise(
       async () => {
         const current = await aztecNode.getBlockNumber();
+        const observedAtMs = Date.now();
         while (lastSeenBlock < current) {
           const n = BlockNumber.add(lastSeenBlock, 1);
           const block = await aztecNode.getBlock(n, { includeTransactions: true });
-          lastSeenBlock = n;
           if (!block) {
-            continue;
+            return;
           }
+          lastSeenBlock = n;
           metrics.observeBlockForMinedTxs(
             n,
             block.body.txEffects.map(t => t.txHash),
-            Date.now(),
+            observedAtMs,
           );
         }
       },
       logger,
-      1000,
+      250,
     );
     blockWatcher.start();
 
-    sendTxsAtTps(logger, abortController.signal, lowValueLanes, lowValueTps, lowValueSendTx);
-    const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueLanes, highValueTps, highValueSendTx);
+    const lowValueSender = sendTxsAtFixedRate(
+      logger,
+      abortController.signal,
+      lowValueLanes,
+      lowValueTps,
+      lowValueSendTx,
+    );
+    const highValueSender = sendTxsAtFixedRate(
+      logger,
+      abortController.signal,
+      highValueLanes,
+      highValueTps,
+      highValueSendTx,
+    );
 
     await sleep(TEST_DURATION_SECONDS * 1000);
     abortController.abort();
+    await Promise.all([lowValueSender.stop(), highValueSender.stop()]);
     const endedAt = new Date().toISOString();
     logger.info('Stopped transaction senders', {
       lowValueTxs,
       highValueTxs,
-      highValueSent: sentTxHashes.length,
+      highValueSent: highValueSender.txHashes.length,
     });
 
     const results: { success: boolean; txHash: string; error?: any }[] = [];
@@ -623,12 +657,12 @@ describe('sustained N TPS test', () => {
     };
 
     let index = 0;
-    logger.info('Waiting for high-value txs to be mined', { totalSent: sentTxHashes.length });
-    while (sentTxHashes.length > 0) {
-      const chunk = sentTxHashes.splice(0, 10);
+    logger.info('Waiting for high-value txs to be mined', { totalSent: highValueSender.txHashes.length });
+    while (highValueSender.txHashes.length > 0) {
+      const chunk = highValueSender.txHashes.splice(0, 10);
       await Promise.all(chunk.map((txHash, idx) => waitForTx(txHash, `highValueTx_${idx + 1 + index}`)));
       index += chunk.length;
-      logger.debug('Processed tx batch', { processed: index, remaining: sentTxHashes.length });
+      logger.debug('Processed tx batch', { processed: index, remaining: highValueSender.txHashes.length });
     }
 
     await blockWatcher.stop();
@@ -669,13 +703,15 @@ describe('sustained N TPS test', () => {
 
 type WalletLane = { wallet: WorkerWallet; aztecNode: AztecNode; address: AztecAddress };
 
+type TxSenderHandle = { txHashes: string[]; stop: () => Promise<void> };
+
 function sendTxsAtTps(
   logger: Logger,
   signal: AbortSignal,
   lanes: WalletLane[],
   targetTps: number,
   sendTx: (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => Promise<string>,
-): string[] {
+): TxSenderHandle {
   const promiseCount = Math.ceil(targetTps);
   if (lanes.length < promiseCount) {
     throw new Error('Not enough wallets to achieve desired TPS');
@@ -733,13 +769,117 @@ function sendTxsAtTps(
     p.start();
   }
 
-  signal.onabort = () => {
-    for (const p of promises) {
-      void p.stop();
+  let stopPromise: Promise<void> | undefined;
+  const stop = () => {
+    if (!stopPromise) {
+      stopPromise = Promise.all(promises.map(p => p.stop())).then(() => undefined);
     }
+    return stopPromise;
   };
 
-  return txHashes;
+  signal.addEventListener('abort', () => {
+    void stop().catch(err => logger.error('Failed to stop TPS sender', { err }));
+  });
+
+  return { txHashes, stop };
+}
+
+function sendTxsAtFixedRate(
+  logger: Logger,
+  signal: AbortSignal,
+  lanes: WalletLane[],
+  targetTps: number,
+  sendTx: (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => Promise<string>,
+): TxSenderHandle {
+  const promiseCount = Math.ceil(targetTps);
+  if (lanes.length < promiseCount) {
+    throw new Error('Not enough wallets to achieve desired TPS');
+  }
+
+  const txHashes: string[] = [];
+  const intervalMs = 1000 / targetTps;
+  const inFlight = new Set<Promise<void>>();
+  const busyLanes = new Set<number>();
+  let nextLane = 0;
+  let stopped = false;
+  let stopPromise: Promise<void> | undefined;
+
+  logger.info('Starting fixed-rate TPS sender', {
+    targetTps,
+    walletCount: lanes.length,
+    intervalMs,
+  });
+
+  const submitTx = () => {
+    if (stopped || signal.aborted) {
+      return;
+    }
+
+    let walletIndex: number | undefined;
+    for (let offset = 0; offset < lanes.length; offset++) {
+      const candidate = (nextLane + offset) % lanes.length;
+      if (!busyLanes.has(candidate)) {
+        walletIndex = candidate;
+        nextLane = candidate + 1;
+        break;
+      }
+    }
+    if (walletIndex === undefined) {
+      logger.warn('No available wallet/PXE lane for fixed-rate tx tick', {
+        targetTps,
+        walletCount: lanes.length,
+        inFlight: inFlight.size,
+      });
+      return;
+    }
+
+    busyLanes.add(walletIndex);
+    const { wallet, aztecNode: walletNode, address } = lanes[walletIndex];
+    const start = performance.now();
+    const promise = sendTx(wallet, walletNode, address)
+      .then(txHash => {
+        txHashes.push(txHash);
+        const dt = performance.now() - start;
+        if (dt > intervalMs * 2) {
+          logger.debug('Tx submission slower than target', {
+            walletIndex,
+            durationMs: dt,
+            targetMs: intervalMs,
+            observedTps: 1000 / dt,
+          });
+        }
+      })
+      .finally(() => {
+        busyLanes.delete(walletIndex);
+        inFlight.delete(promise);
+      });
+    inFlight.add(promise);
+  };
+
+  submitTx();
+  const interval = setInterval(submitTx, intervalMs);
+
+  const stop = () => {
+    if (stopPromise) {
+      return stopPromise;
+    }
+
+    stopped = true;
+    clearInterval(interval);
+    stopPromise = Promise.allSettled([...inFlight]).then(results => {
+      const failed = results.find(result => result.status === 'rejected');
+      if (failed?.status === 'rejected') {
+        throw failed.reason;
+      }
+    });
+    return stopPromise;
+  };
+
+  signal.addEventListener('abort', () => {
+    void stop().catch(err => logger.error('Failed to stop fixed-rate TPS sender', { err }));
+  });
+
+  return { txHashes, stop };
 }
 
 async function cloneTx(tx: ProvenTx, priorityFee: GasFees, logger: Logger): Promise<ProvenTx> {

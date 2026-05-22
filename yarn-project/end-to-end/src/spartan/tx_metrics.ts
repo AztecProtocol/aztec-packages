@@ -208,6 +208,7 @@ export class TxInclusionMetrics {
       data.blocknumber = blockNumber;
       data.minedAtMs = observedAtMs;
       data.positionInBlock = position;
+      this.#logInclusionRate(data, 'watcher');
     });
   }
 
@@ -230,23 +231,54 @@ export class TxInclusionMetrics {
     }
     data.totalFee = Number(txReceipt.transactionFee ?? 0n);
 
-    // Fallback path for txs the block-watcher missed (e.g. observed only after
-    // the watcher stopped). Stamp with the block's L2 slot timestamp; this is
-    // earlier than the true client-observed time by attestation+propagation
-    // lag, but it's the only deterministic timestamp available post-hoc.
+    // Fallback path for txs the block-watcher missed (rare: watcher runs
+    // throughout waitForTx so this only fires if the watcher had a transient
+    // getBlock failure for this block). Stamp Date.now() as a best-effort
+    // wall-clock — it overstates inclusion latency by however long it took
+    // waitForTx to reach this receipt after the block actually appeared, but
+    // we have no earlier client-observed signal to use. Critically, we do NOT
+    // use the block's L2 slot timestamp here: that is set at proposal-time and
+    // is frequently earlier than sentAtMs, producing negative deltas that get
+    // silently dropped from the dataset (i.e. exactly the slowest txs vanish).
     if (data.minedAtMs === -1) {
+      data.blocknumber = blockNumber;
+      data.minedAtMs = Date.now();
+      this.#logInclusionRate(data, 'fallback');
       if (!this.blocks.has(blockNumber)) {
         this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber, { includeTransactions: true }));
       }
       const block = await this.blocks.get(blockNumber)!;
       if (!block) {
-        this.logger?.warn('Failed to load block for mined tx receipt', { txHash: txHash.toString(), blockNumber });
+        this.logger?.warn('Failed to load block for mined tx receipt position lookup', {
+          txHash: txHash.toString(),
+          blockNumber,
+        });
         return;
       }
-      data.blocknumber = blockNumber;
-      data.minedAtMs = Number(block.header.globalVariables.timestamp) * 1000;
       data.positionInBlock = block.body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
     }
+  }
+
+  /**
+   * Emit a single grep-friendly log line per recorded inclusion. The
+   * `[INCLUSION_RATE]:` prefix is intentional so a live test can be tailed
+   * with `kubectl logs ... | grep INCLUSION_RATE` to watch latency in real
+   * time. Only fires for the high-value group; low-value txs (if ever tracked)
+   * would drown the signal at 10x the rate.
+   */
+  #logInclusionRate(data: TxInclusionData, source: 'watcher' | 'fallback'): void {
+    if (data.group !== 'tx_inclusion_time') {
+      return;
+    }
+    const deltaMs = data.minedAtMs - data.sentAtMs;
+    this.logger?.info(`[INCLUSION_RATE]: ${deltaMs}ms`, {
+      txHash: data.txHash,
+      blockNumber: data.blocknumber,
+      sentAtMs: data.sentAtMs,
+      minedAtMs: data.minedAtMs,
+      deltaMs,
+      source,
+    });
   }
 
   /** Per-tx inclusion records for a group. Used to serialise out for downstream tooling. */

@@ -102,7 +102,15 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
 
     this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay, {
       advice: {
-        explicitBucketBoundaries: [100, 500, 1000, 5000, 10000, 30000, 60000, 300000, 600000, 1800000, 3600000],
+        // Dense bins in the 5-30s range because that's where mempool dwell
+        // times actually sit during sustained-TPS runs. The previous spec had
+        // a single 10s-30s bucket, which forced histogram_quantile to linearly
+        // interpolate within a 20s-wide window and produced quantile estimates
+        // that could be off by many seconds in either direction.
+        explicitBucketBoundaries: [
+          100, 500, 1000, 2000, 5000, 7500, 10000, 12500, 15000, 17500, 20000, 22500, 25000, 27500, 30000, 45000, 60000,
+          300000, 600000, 1800000, 3600000,
+        ],
       },
     });
 
