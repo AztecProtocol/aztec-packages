@@ -55,82 +55,125 @@ The L1 contract defines three fixed slashing tiers that can be configured for di
 On the current network, **all offenses are currently configured to slash 2,000 tokens (1% of the Activation Threshold - the minimum stake required to join the validator set)**. With the ejection threshold at 98%, validators can be slashed a maximum of **3 times** (totaling 3% of their Activation Threshold) before being automatically ejected from the validator set.
 :::
 
-## Slashable Offenses
+## Slashable offenses
 
-Your sequencer automatically detects and votes to slash the following offenses:
+Your sequencer automatically detects and votes to slash the following offenses. The set of offenses, and the rationale behind them, is specified in [AZIP-7](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-7-update_slashing.md).
 
 ### 1. Inactivity
 
-**What it is**: A validator fails to attest to block proposals when selected for committee duty, or fails to propose a block when selected as proposer.
+**What it is**: A validator fails to attest to checkpoint proposals when selected for committee duty, or fails to produce checkpoints and block proposals when selected as proposer.
 
 **Detection criteria**:
-- Measured **per epoch** for validators on the committee during that epoch (committees are assigned per epoch and remain constant for all slots in that epoch)
-- The Sentinel calculates: `(missed_proposals + missed_attestations) / (total_proposals + total_attestations)`
-- A validator is considered inactive for an epoch if this ratio meets or exceeds `SLASH_INACTIVITY_TARGET_PERCENTAGE` (e.g., 0.8 = 80% or more duties missed)
-- Requires **consecutive committee participation with inactivity**: Must be inactive for N consecutive epochs where they were on the committee (configured via `SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD=2`). Epochs where the validator was not on the committee are not counted, so a validator inactive in epochs 1, 3, and 5 meets the threshold for 3 consecutive inactive epochs even though epochs 2 and 4 are skipped.
+- Measured per epoch by the Sentinel for validators on the committee during that epoch.
+- Evaluated at the end of each epoch (plus a small buffer) without waiting for the epoch to be proven on L1, so inactive validators can be slashed regardless of prover availability.
+- Block re-execution is used to attribute fault between proposers and attestors based on what actually happened in each slot, rather than using attestation count as a proxy.
+- A validator is considered inactive for an epoch if their failure ratio meets or exceeds `SLASH_INACTIVITY_TARGET_PERCENTAGE` (default 0.8, meaning 80% or more duties missed).
+- Requires consecutive committee participation with inactivity: must be inactive for N consecutive epochs where they were on the committee (configured via `SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD`, default 2). Epochs where the validator was not on the committee are not counted, so a validator inactive in epochs 1, 3, and 5 meets the threshold for 3 consecutive inactive epochs even though epochs 2 and 4 are skipped.
 
 **Proposed penalty**: 1% of stake
 
-**Note**: Requires the Sentinel to be enabled (`SENTINEL_ENABLED=true`). The Sentinel tracks attestation and proposal activity for all validators.
+**Note**: Requires the Sentinel to be enabled (`SENTINEL_ENABLED=true`).
 
-### 2. Valid Epoch Not Proven
+### 2. Data withholding
 
-**What it is**: An epoch was not proven within the proof submission window, even though all data was available and the epoch was valid.
+**What it is**: After a checkpoint is published, the transactions it contains were not made available on the P2P network within the tolerance window.
 
 **Detection criteria**:
-- An epoch gets pruned (removed from the chain)
-- Your node can re-execute all transactions from that epoch
-- The state roots match the original epoch (indicating it could have been proven)
+- Once `SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS` full L2 slots have elapsed past the checkpoint's slot, your node checks whether it has all the transactions for that checkpoint in its local mempool.
+- If any are missing, the validators who attested to the checkpoint are flagged.
+- The check runs regardless of whether the epoch is eventually proven. Slashing still applies if the data was withheld, to prevent committees from striking side deals with specific provers by releasing data only to them.
 
 **Proposed penalty**: 0% (disabled for initial deployment)
 
-**Responsibility**: The entire committee of the pruned epoch is slashed.
+**Responsibility**: Validators who attested to the checkpoint.
 
-### 3. Data Withholding
+### 3. Broadcasted invalid block proposal
 
-**What it is**: The committee failed to make transaction data publicly available, preventing the epoch from being proven.
+**What it is**: A proposer broadcast an invalid block proposal over the P2P network.
 
-**Detection criteria**:
-- An epoch gets pruned
-- Your node cannot obtain all the transactions needed to re-execute the epoch
-- The data was not propagated to the sequencer set before the proof submission window ended
+**Detection criteria**: Detected by validators during proposal validation, for example when a transaction in the proposal fails validation or the proposed block header is structurally invalid.
 
-**Proposed penalty**: 0% (disabled for initial deployment)
+**Proposed penalty**: 1% of stake
 
-**Responsibility**: The entire committee from the pruned epoch is slashed for failing to propagate data.
+**Responsibility**: The proposer who broadcast the invalid block.
 
-### 4. Proposed Insufficient Attestations
+### 4. Broadcasted invalid checkpoint proposal
+
+**What it is**: A proposer broadcast an invalid checkpoint proposal over the P2P network. This includes the AZIP-7 "submitting a block proposal after the checkpoint" case, because a later block signed by the same proposer in the same slot makes the prior checkpoint retroactively invalid.
+
+**Detection criteria**: Detected when the checkpoint terminates before a higher-index block proposal signed by the same proposer in the same slot, when the signed header does not match deterministic validator recomputation, or when the fee asset price modifier is malformed.
+
+**Proposed penalty**: 1% of stake
+
+**Responsibility**: The proposer who broadcast the invalid checkpoint.
+
+### 5. Proposed insufficient attestations
 
 **What it is**: A proposer submitted a block to L1 without collecting enough valid committee attestations.
 
 **Detection criteria**:
-- Block published to L1 has fewer than 2/3 + 1 attestations from the committee
-- Your node detects this through L1 block validation
+- Block published to L1 has fewer than 2/3 + 1 attestations from the committee.
+- Your node detects this through L1 block validation.
 
 **Proposed penalty**: 1% of stake
 
-### 5. Proposed Incorrect Attestations
+**Responsibility**: The proposer who published the block.
 
-**What it is**: A proposer submitted a block with invalid signatures or signatures from non-committee members.
+### 6. Proposed incorrect attestations
+
+**What it is**: A proposer submitted a block with invalid signatures, or signatures from non-committee members.
 
 **Detection criteria**:
-- Block contains attestations with invalid ECDSA signatures
-- Block contains signatures from addresses not in the committee
+- Block contains attestations with invalid ECDSA signatures.
+- Block contains signatures from addresses not in the committee.
 
 **Proposed penalty**: 1% of stake
 
-### 6. Attested to Descendant of Invalid Block
+**Responsibility**: The proposer who published the block.
 
-**What it is**: A validator attested to a block that builds on top of an invalid block.
+### 7. Proposed descendant of checkpoint with invalid attestations
+
+**What it is**: A proposer published a checkpoint to L1 that builds on an earlier checkpoint with invalid or insufficient attestations.
 
 **Detection criteria**:
-- A validator attests to block B
-- Block B's parent block has invalid or insufficient attestations
-- Your node has previously identified the parent as invalid
+- Your node has previously identified a checkpoint as having invalid or insufficient attestations.
+- A later proposer publishes a descendant checkpoint to L1 on top of it.
 
 **Proposed penalty**: 1% of stake
 
-**Note**: Validators should only attest to blocks that build on valid chains with proper attestations.
+**Responsibility**: The proposer of the descendant checkpoint. Under pipelining, the next proposer may have started building optimistically before the prior checkpoint's signatures were submitted to L1, so only the proposer who actually publishes the descendant checkpoint to L1 is slashed.
+
+### 8. Attested to invalid checkpoint proposal
+
+**What it is**: A committee member attested to a checkpoint proposal in a slot where your node detected a slashable invalid block proposal.
+
+**Detection criteria**:
+- Your node detected an invalid block proposal for the slot via re-execution.
+- A committee member subsequently attested to a checkpoint covering that slot.
+
+**Proposed penalty**: 1% of stake
+
+**Responsibility**: Committee members who attested in the invalid proposal slot.
+
+### 9. Duplicate proposal
+
+**What it is**: A proposer broadcast multiple block or checkpoint proposals for the same position with different content (equivocation).
+
+**Detection criteria**: Detected at the P2P layer by the AttestationPool, which tracks proposals by position (slot plus `indexWithinCheckpoint` for blocks, or slot for checkpoints). A second proposal for the same position with a different archive flags the duplicate.
+
+**Proposed penalty**: 1% of stake
+
+**Responsibility**: The proposer who broadcast the duplicate proposal.
+
+### 10. Duplicate attestation
+
+**What it is**: A validator signed attestations for different proposals at the same slot (equivocation).
+
+**Detection criteria**: Detected at the P2P layer when conflicting attestations are observed from the same signer for the same slot.
+
+**Proposed penalty**: 1% of stake
+
+**Responsibility**: The attestor.
 
 ## Configuring Your Sequencer for Slashing
 
@@ -147,22 +190,30 @@ Your sequencer comes pre-configured with default slashing settings. You can opti
 SLASH_GRACE_PERIOD_L2_SLOTS=128  # Default: first round is grace period
 
 # Inactivity detection (requires SENTINEL_ENABLED=true)
-SLASH_INACTIVITY_TARGET_PERCENTAGE=0.8  # Slash if missed proposals + attestations >= 80%
-SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD=2  # Must be inactive for 2+ epochs
+SLASH_INACTIVITY_TARGET_PERCENTAGE=0.8  # Slash if miss ratio >= 80%
+SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD=2  # Must be inactive in 2+ consecutive epochs where they were on the committee
 SLASH_INACTIVITY_PENALTY=2000000000000000000000  # 2000 tokens (1%)
 
 # Sentinel configuration (required for inactivity detection)
 SENTINEL_ENABLED=true  # Must be true to detect inactivity offenses
 SENTINEL_HISTORY_LENGTH_IN_EPOCHS=100  # Track 100 epochs of history
 
-# Epoch prune and data withholding penalties (disabled by default)
-SLASH_PRUNE_PENALTY=0  # Set to >0 to enable
+# Data withholding (disabled by default)
 SLASH_DATA_WITHHOLDING_PENALTY=0  # Set to >0 to enable
+SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS=3  # Full L2 slots to wait after a checkpoint's slot before declaring its txs missing
 
-# Invalid attestations and blocks
-SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY=2000000000000000000000  # 2000 tokens
-SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY=2000000000000000000000  # 2000 tokens
+# Invalid proposals
 SLASH_INVALID_BLOCK_PENALTY=2000000000000000000000  # 2000 tokens
+SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY=2000000000000000000000  # 2000 tokens
+SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY=2000000000000000000000  # 2000 tokens (covers insufficient and incorrect attestations)
+SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY=2000000000000000000000  # 2000 tokens
+
+# Attestor offenses
+SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY=2000000000000000000000  # 2000 tokens
+
+# Equivocation
+SLASH_DUPLICATE_PROPOSAL_PENALTY=2000000000000000000000  # 2000 tokens
+SLASH_DUPLICATE_ATTESTATION_PENALTY=2000000000000000000000  # 2000 tokens
 
 # Offense expiration
 SLASH_OFFENSE_EXPIRATION_ROUNDS=4  # Offenses older than 4 rounds are dropped
@@ -260,10 +311,11 @@ Once configured, your sequencer handles slashing automatically:
 ### 1. Continuous Offense Detection
 
 Watchers run in the background, monitoring:
-- Block attestations via the Sentinel (when enabled)
-- Invalid blocks from the P2P network
-- Chain prunes and epoch validation
+- Validator attestations and proposals via the Sentinel (when enabled)
+- Invalid block and checkpoint proposals from the P2P network
+- Transaction data availability after each checkpoint
 - L1 block data for attestation validation
+- Equivocation (duplicate proposals and attestations) on the P2P network
 
 ### 2. Offense Storage
 

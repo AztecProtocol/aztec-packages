@@ -129,7 +129,7 @@ List of all slashable offenses in the system:
 **Time Unit**: Slot-based offense.
 
 ### BROADCASTED_INVALID_CHECKPOINT_PROPOSAL
-**Description**: A proposer broadcast an invalid checkpoint proposal, either one that terminates before a higher-index block proposal signed by the same proposer in the same slot, one whose signed header does not match deterministic validator recomputation, or one with a malformed fee asset price modifier.
+**Description**: A proposer broadcast an invalid checkpoint proposal, either one that terminates before a higher-index block proposal signed by the same proposer in the same slot, one whose signed header does not match deterministic validator recomputation, or one with a malformed fee asset price modifier. The first case also covers AZIP-7's _Submitting Block Proposal After Checkpoint_: a later block signed by the same proposer in the same slot makes the prior checkpoint retroactively invalid.
 **Detection**: BroadcastedInvalidCheckpointProposalWatcher scans retained P2P proposal evidence and compares checkpoint archive roots to signed block proposals from the same slot and signer. ValidatorClient also validates checkpoint proposals during the all-nodes callback and emits this offense when checkpoint header recomputation fails or the signed fee asset price modifier is malformed.
 **Target**: Proposer who broadcast the invalid checkpoint proposal.
 **Time Unit**: Slot-based offense.
