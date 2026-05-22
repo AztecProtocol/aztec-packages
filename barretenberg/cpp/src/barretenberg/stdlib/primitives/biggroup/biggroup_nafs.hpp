@@ -425,14 +425,9 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     uint512_t scalar_multiplier_512 = uint512_t(scalar.get_value()) % uint512_t(Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
 
-    // Number of rounds is either the max_num_bits provided, or the full size of the scalar field modulus.
-    // If the scalar is zero, we use the full size of the scalar field modulus as we use scalar = r in this case.
-    const size_t num_rounds = (max_num_bits == 0 || scalar_multiplier == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-    // NAF can't handle 0 so we set scalar = r in this case.
-    if (scalar_multiplier == 0) {
-        scalar_multiplier = Fr::modulus;
-    }
+    // Number of rounds is determined purely by `max_num_bits`
+    // `max_num_bits == 0` means "use the full scalar-field width".
+    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
     // NAF representation consists of num_rounds bits and a skew bit.
     // Given a scalar k, we compute the NAF representation as follows:
