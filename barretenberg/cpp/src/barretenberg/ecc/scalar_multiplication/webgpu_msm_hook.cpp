@@ -173,9 +173,10 @@ WASM_EXPORT void bb_native_pippenger_bn254_run(uint32_t num_threads, uint8_t* re
     // (see its declaration in scalar_multiplication.hpp). It restores the scalars
     // to Montgomery form before returning, so repeated runs over the same loaded
     // g_bench_scalars are safe.
-    std::array<std::span<const Curve::AffineElement>, 1> points_batch{ std::span<const Curve::AffineElement>(
-        g_bench_points) };
-    std::array<std::span<Curve::ScalarField>, 1> scalars_batch{ std::span<Curve::ScalarField>(g_bench_scalars) };
+    const std::span<const Curve::AffineElement> points_span(g_bench_points);
+    const std::span<Curve::ScalarField> scalars_span(g_bench_scalars);
+    std::array<std::span<const Curve::AffineElement>, 1> points_batch{ points_span };
+    std::array<std::span<Curve::ScalarField>, 1> scalars_batch{ scalars_span };
     const Curve::AffineElement aff = MSM::batch_multi_scalar_mul_native(points_batch, scalars_batch, false)[0];
     if (num_threads != 0) {
         bb::set_parallel_for_concurrency(saved_concurrency);
