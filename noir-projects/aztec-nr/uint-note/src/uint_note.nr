@@ -135,7 +135,7 @@ impl UintNote {
         // nullifier tree since it uses its own separator, making collisions with actual note nullifiers practically
         // impossible.
         let validity_commitment = partial_note.compute_validity_commitment(completer);
-        context.push_nullifier(validity_commitment);
+        context.push_nullifier_unsafe(validity_commitment);
 
         partial_note
     }
@@ -228,7 +228,7 @@ impl PartialUintNote {
         // inserted in public as the public values are provided and the note hash computed.
         let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
         let payload = BoundedVec::from_array([storage_slot, value.to_field()]);
-        context.emit_private_log_vec_unsafe(log_tag, payload);
+        context.emit_private_log_unsafe(log_tag, payload);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, value));
     }
 

@@ -5,7 +5,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  PRIVATE_LOG_CIPHERTEXT_LEN,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -21,8 +20,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { GasSettings } from '@aztec/stdlib/gas';
 
+import { MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
-import { TXE_ORACLE_VERSION_MAJOR } from './txe_oracle_version.js';
 import type { TXESessionStateHandler } from './txe_session.js';
 import {
   type ForeignCallArray,
@@ -118,17 +117,7 @@ export class RPCTranslator {
     const major = fromSingle(foreignMajor).toNumber();
     const minor = fromSingle(foreignMinor).toNumber();
 
-    if (major !== TXE_ORACLE_VERSION_MAJOR) {
-      const hint =
-        major > TXE_ORACLE_VERSION_MAJOR
-          ? 'The test was compiled with a newer version of Aztec.nr than your test environment supports. Upgrade your test environment to a compatible version.'
-          : 'The test was compiled with an older version of Aztec.nr than your test environment supports. Recompile the test with a compatible version of Aztec.nr.';
-      throw new Error(
-        `Incompatible test environment version: ${hint} See https://docs.aztec.network/errors/12 (expected test oracle major version ${TXE_ORACLE_VERSION_MAJOR}, got ${major})`,
-      );
-    }
-
-    this.stateHandler.setTxeOracleVersion({ major, minor });
+    this.stateHandler.setTxeOracleVersion(major, minor);
 
     return toForeignCallResult([]);
   }
@@ -329,10 +318,6 @@ export class RPCTranslator {
   async aztec_txe_getLastTxEffects() {
     const { txHash, noteHashes, nullifiers, privateLogs } = await this.handlerAsTxe().getLastTxEffects();
 
-    if (privateLogs.length > MAX_PRIVATE_LOGS_PER_TX) {
-      throw new Error(`${privateLogs.length} private logs exceed max ${MAX_PRIVATE_LOGS_PER_TX}`);
-    }
-
     // Same workaround as `aztec_txe_getPrivateEvents`: Noir cannot yet return nested structs with arrays, so we return
     // a flat multidimensional array plus per-log lengths and the total count, and reassemble into a
     // `BoundedVec<BoundedVec<T>>` on the Noir side. Each log contributes only its emitted fields. The rest
@@ -364,20 +349,7 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   aztec_txe_getLastCallOffchainEffects() {
-    // This oracle returns all offchain effect payloads (messages, authwit requests, etc.) emitted by the last top-level call,
-    // MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY is arbitrarily set at 64 because we need a bound. Nothing inherent about it.
-    const MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY = 64;
-    // Must match MAX_OFFCHAIN_EFFECT_LEN in txe_oracles.nr.
-    const MAX_OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN;
-
     const { effects } = this.stateHandler.getLastCallOffchainEffects();
-
-    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
-      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
-    }
-    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
-      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
-    }
 
     const rawArrayStorage = effects
       .map(e => e.concat(Array(MAX_OFFCHAIN_EFFECT_LEN - e.length).fill(new Fr(0))))
@@ -510,10 +482,6 @@ export class RPCTranslator {
     const leafSlot = fromSingle(foreignLeafSlot);
 
     const witness = await this.handlerAsUtility().getPublicDataWitness(blockHash, leafSlot);
-
-    if (!witness) {
-      throw new Error(`Public data witness not found for slot ${leafSlot} at block ${blockHash.toString()}.`);
-    }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
@@ -589,12 +557,10 @@ export class RPCTranslator {
       }),
     );
 
-    // Now we convert each sub-array to an array of ForeignCallSingles
     const returnDataAsArrayOfForeignCallSingleArrays = returnDataAsArrayOfArrays.map(subArray =>
       subArray.map(toSingle),
     );
 
-    // At last we convert the array of arrays to a bounded vec of arrays
     return toForeignCallResult(
       arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfForeignCallSingleArrays, maxNotes, packedHintedNoteLength),
     );
@@ -716,16 +682,27 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_callPrivateFunction(
-    _foreignTargetContractAddress: ForeignCallSingle,
-    _foreignFunctionSelector: ForeignCallSingle,
-    _foreignArgsHash: ForeignCallSingle,
-    _foreignSideEffectCounter: ForeignCallSingle,
-    _foreignIsStaticCall: ForeignCallSingle,
+  async aztec_prv_callPrivateFunction(
+    foreignTargetContractAddress: ForeignCallSingle,
+    foreignFunctionSelector: ForeignCallSingle,
+    foreignArgsHash: ForeignCallSingle,
+    foreignSideEffectCounter: ForeignCallSingle,
+    foreignIsStaticCall: ForeignCallSingle,
   ) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::private_context`, use `private_call` instead',
+    const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
+    const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
+    const argsHash = fromSingle(foreignArgsHash);
+    const sideEffectCounter = fromSingle(foreignSideEffectCounter).toNumber();
+    const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
+
+    const { endSideEffectCounter, returnsHash } = await this.handlerAsPrivate().callPrivateFunction(
+      targetContractAddress,
+      functionSelector,
+      argsHash,
+      sideEffectCounter,
+      isStaticCall,
     );
+    return toForeignCallResult([[endSideEffectCounter, returnsHash].map(toSingle)]);
   }
 
   // eslint-disable-next-line camelcase
@@ -737,10 +714,6 @@ export class RPCTranslator {
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getNullifierMembershipWitness(blockHash, nullifier);
-
-    if (!witness) {
-      throw new Error(`Nullifier membership witness not found at block ${blockHash}.`);
-    }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
@@ -749,21 +722,21 @@ export class RPCTranslator {
     const messageHash = fromSingle(foreignMessageHash);
 
     const authWitness = await this.handlerAsUtility().getAuthWitness(messageHash);
-
-    if (!authWitness) {
-      throw new Error(`Auth witness not found for message hash ${messageHash}.`);
-    }
     return toForeignCallResult([toArray(authWitness)]);
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_assertValidPublicCalldata(_foreignCalldataHash: ForeignCallSingle) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
+  public async aztec_prv_assertValidPublicCalldata(foreignCalldataHash: ForeignCallSingle) {
+    const calldataHash = fromSingle(foreignCalldataHash);
+    await this.handlerAsPrivate().assertValidPublicCalldata(calldataHash);
+    return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
-  public aztec_prv_notifyRevertiblePhaseStart(_foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
-    throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
+  public async aztec_prv_notifyRevertiblePhaseStart(foreignMinRevertibleSideEffectCounter: ForeignCallSingle) {
+    const minRevertibleSideEffectCounter = fromSingle(foreignMinRevertibleSideEffectCounter).toNumber();
+    await this.handlerAsPrivate().notifyRevertiblePhaseStart(minRevertibleSideEffectCounter);
+    return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase
@@ -785,10 +758,6 @@ export class RPCTranslator {
     const blockNumber = BlockNumber(fromSingle(foreignBlockNumber).toNumber());
 
     const header = await this.handlerAsUtility().getBlockHeader(blockNumber);
-
-    if (!header) {
-      throw new Error(`Block header not found for block ${blockNumber}.`);
-    }
     return toForeignCallResult(header.toFields().map(toSingle));
   }
 
@@ -801,10 +770,6 @@ export class RPCTranslator {
     const noteHash = fromSingle(foreignNoteHash);
 
     const witness = await this.handlerAsUtility().getNoteHashMembershipWitness(blockHash, noteHash);
-
-    if (!witness) {
-      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
-    }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
@@ -830,10 +795,6 @@ export class RPCTranslator {
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getLowNullifierMembershipWitness(blockHash, nullifier);
-
-    if (!witness) {
-      throw new Error(`Low nullifier witness not found for nullifier ${nullifier} at block ${blockHash}.`);
-    }
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
@@ -1033,14 +994,14 @@ export class RPCTranslator {
     const symKey = fromUintArray(foreignSymKey, 8);
 
     // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
-    try {
-      const plaintextBuffer = await this.handlerAsUtility().decryptAes128(ciphertext, iv, symKey);
+    const plaintextBuffer = await this.handlerAsUtility().decryptAes128(ciphertext, iv, symKey);
+    if (plaintextBuffer) {
       const [storage, length] = arrayToBoundedVec(
         bufferToU8Array(plaintextBuffer),
         foreignCiphertextBVecStorage.length,
       );
       return toForeignCallResult([toSingle(new Fr(1)), storage, length]);
-    } catch {
+    } else {
       const zeroStorage = toArray(Array(foreignCiphertextBVecStorage.length).fill(new Fr(0)));
       return toForeignCallResult([toSingle(new Fr(0)), zeroStorage, toSingle(new Fr(0))]);
     }
@@ -1232,52 +1193,60 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_avm_returndataSize() {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  async aztec_avm_returndataSize() {
+    const result = await this.handlerAsAvm().returndataSize();
+    return toForeignCallResult([toSingle(result)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_avm_returndataCopy(_foreignRdOffset: ForeignCallSingle, _foreignCopySize: ForeignCallSingle) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  async aztec_avm_returndataCopy(foreignRdOffset: ForeignCallSingle, foreignCopySize: ForeignCallSingle) {
+    const rdOffset = fromSingle(foreignRdOffset).toNumber();
+    const copySize = fromSingle(foreignCopySize).toNumber();
+    const result = await this.handlerAsAvm().returndataCopy(rdOffset, copySize);
+    return toForeignCallResult([toArray(result)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_avm_call(
-    _foreignL2Gas: ForeignCallSingle,
-    _foreignDaGas: ForeignCallSingle,
-    _foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
-    _foreignArgs: ForeignCallArray,
+  async aztec_avm_call(
+    foreignL2Gas: ForeignCallSingle,
+    foreignDaGas: ForeignCallSingle,
+    foreignAddress: ForeignCallSingle,
+    foreignLength: ForeignCallSingle,
+    foreignArgs: ForeignCallArray,
   ) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+    const l2Gas = fromSingle(foreignL2Gas).toNumber();
+    const daGas = fromSingle(foreignDaGas).toNumber();
+    const address = addressFromSingle(foreignAddress);
+    const argsLength = fromSingle(foreignLength).toNumber();
+    const args = fromArray(foreignArgs);
+    const result = await this.handlerAsAvm().call(l2Gas, daGas, address, argsLength, args);
+    return toForeignCallResult([toArray(result)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_avm_staticCall(
-    _foreignL2Gas: ForeignCallSingle,
-    _foreignDaGas: ForeignCallSingle,
-    _foreignAddress: ForeignCallSingle,
-    _foreignLength: ForeignCallSingle,
-    _foreignArgs: ForeignCallArray,
+  async aztec_avm_staticCall(
+    foreignL2Gas: ForeignCallSingle,
+    foreignDaGas: ForeignCallSingle,
+    foreignAddress: ForeignCallSingle,
+    foreignLength: ForeignCallSingle,
+    foreignArgs: ForeignCallArray,
   ) {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+    const l2Gas = fromSingle(foreignL2Gas).toNumber();
+    const daGas = fromSingle(foreignDaGas).toNumber();
+    const address = addressFromSingle(foreignAddress);
+    const argsLength = fromSingle(foreignLength).toNumber();
+    const args = fromArray(foreignArgs);
+    const result = await this.handlerAsAvm().staticCall(l2Gas, daGas, address, argsLength, args);
+    return toForeignCallResult([toArray(result)]);
   }
 
   // eslint-disable-next-line camelcase
-  aztec_avm_successCopy() {
-    throw new Error(
-      'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
-    );
+  async aztec_avm_successCopy() {
+    const result = await this.handlerAsAvm().successCopy();
+    return toForeignCallResult([toSingle(result)]);
   }
 
+  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize→delegate→deserialize.
   // eslint-disable-next-line camelcase
   async aztec_txe_privateCallNewFlow(
     foreignFromIsSome: ForeignCallSingle,
@@ -1341,6 +1310,7 @@ export class RPCTranslator {
     return toForeignCallResult([toArray(returnValues)]);
   }
 
+  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize→delegate→deserialize.
   // eslint-disable-next-line camelcase
   async aztec_txe_executeUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
@@ -1373,6 +1343,7 @@ export class RPCTranslator {
     return toForeignCallResult([toArray(returnValues)]);
   }
 
+  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize→delegate→deserialize.
   // eslint-disable-next-line camelcase
   async aztec_txe_publicCallNewFlow(
     foreignFromIsSome: ForeignCallSingle,

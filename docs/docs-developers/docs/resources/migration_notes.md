@@ -43,6 +43,64 @@ The custom hook receives the same parameters as `do_sync_state` and is responsib
 
 **Impact**: Only contracts that manually defined a `sync_state` function are affected. Contracts using the default macro-generated `sync_state` require no changes.
 
+### [Aztec.nr] `push_nullifier` renamed to `push_nullifier_unsafe`
+
+`PrivateContext::push_nullifier` and `PublicContext::push_nullifier` have been renamed to `push_nullifier_unsafe` to
+make it clear that they are low-level functions that require careful domain separation. This is consistent with the
+`_unsafe` suffix already used by `emit_private_log_unsafe`, `emit_raw_note_log_unsafe`, and `emit_public_log_unsafe`.
+
+```diff
+- context.push_nullifier(nullifier);
++ context.push_nullifier_unsafe(nullifier);
+```
+
+Prefer higher-level abstractions like `SingleUseClaim` or `destroy_note` which handle domain separation automatically.
+
+### [Aztec.nr] `LogRetrievalRequest` now includes `source`, `from_block`, and `to_block` fields
+
+`LogRetrievalRequest` has been extended with three new fields to support filtering logs by source and block range. The `get_logs_by_tag` oracle now also returns all matching logs per tag instead of only the first match.
+
+A `LogRetrievalRequest::new(contract_address, tag)` constructor is provided that defaults to querying both public and private logs with no block range filter:
+
+```rust
+LogRetrievalRequest::new(contract_address, my_tag)
+```
+
+If you need to customize source or block range, construct the struct manually with the new fields:
+
+```diff
+  LogRetrievalRequest {
+      tag: my_tag,
++     source: LogSource.PUBLIC_AND_PRIVATE,
++     from_block: Option::none(),
++     to_block: Option::none(),
+  }
+```
+
+`source` controls which RPCs are queried: `LogSource.PRIVATE`, `LogSource.PUBLIC`, or `LogSource.PUBLIC_AND_PRIVATE`. `from_block` and `to_block` define a half-open `[from, to)` block range filter. Both are `Option<Field>` and default to `Option::none()` (no filtering).
+
+### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` now take `BoundedVec`
+
+The old array-based `emit_private_log_unsafe(tag, log: [Field; N], length)` and `emit_raw_note_log_unsafe(tag, log: [Field; N], length, note_hash_counter)` have been removed. The temporary `_vec_unsafe` variants introduced in a prior release have been renamed to take their place.
+
+```diff
+- context.emit_private_log_unsafe(tag, log_array, length);
++ context.emit_private_log_unsafe(tag, bounded_vec_log);
+
+- context.emit_raw_note_log_unsafe(tag, log_array, length, note_hash_counter);
++ context.emit_raw_note_log_unsafe(tag, bounded_vec_log, note_hash_counter);
+```
+
+If you were already using `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe`, simply drop the `_vec` from the function name:
+
+```diff
+- context.emit_private_log_vec_unsafe(tag, log);
++ context.emit_private_log_unsafe(tag, log);
+
+- context.emit_raw_note_log_vec_unsafe(tag, log, note_hash_counter);
++ context.emit_raw_note_log_unsafe(tag, log, note_hash_counter);
+```
+
 ### [bb.js / accounts / aztec.nr] Schnorr signatures switched to Poseidon2
 
 The Schnorr challenge hash function changed from `blake2s(pedersen(R.x, pubkey.x, pubkey.y) ‖ message)` to `Poseidon2(DST, R.x, pubkey.x, pubkey.y, message)`, where `DST = poseidon2_hash_bytes("schnorr_grumpkin_poseidon2")` is a domain separation tag binding signatures to this scheme. The change applies end-to-end across the native signer (`bb`), `@aztec/bb.js`, the noir verifier library (`noir-lang/schnorr` v0.2.0 → v0.4.0), and both standard Schnorr account contracts. The auth witness on-wire shape also changes from `[u8; 64]` (the serialized `(s, e)` bytes) to `[Field; 4]` (`[s.lo, s.hi, e.lo, e.hi]`, each scalar split into two 128-bit limbs).
