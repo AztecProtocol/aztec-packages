@@ -6,7 +6,8 @@ import {
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
-  ba_planner_v2_bench as ba_planner_v2_bench_shader,
+  ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
+  ba_planner_v2_emit as ba_planner_v2_emit_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -452,54 +453,65 @@ ${packLines.join('\n')}
   }
 
   /**
-   * v2 GPU planner: single-kernel scan + scatter, one workgroup per
-   * Pippenger window. The MSM splits each scalar into
-   * ceil(num_bits / c) windows; each window is an independent
-   * bucket-method sub-problem of 2^(c-1) buckets. This kernel
-   * dispatches one workgroup per window — workgroup w plans window w
-   * via per-thread local scan + workgroup-wide Hillis-Steele scan +
-   * per-thread scatter, with no cross-workgroup communication. One
-   * window's 2^(c-1) buckets must fit one workgroup, so 2^(c-1) must
-   * be a positive multiple of workgroup_size
-   * (per_thread = 2^(c-1) / workgroup_size).
+   * Planner pass A: per-window scan + per-bucket offsets. One workgroup per
+   * window — O(BW), flat in n. Writes new_counts / new_offsets / carry_off
+   * and the plan_meta totals; the emit pass writes the O(pairs) plans.
    */
-  public gen_ba_planner_v2_bench_shader(
+  public gen_ba_planner_v2_offsets_shader(
     workgroup_size: number,
     c: number,
     num_bits: number,
-    s: number,
-    pair_cap: number = 64,
     buckets_per_window_override?: number,
-    self_pad = false,
   ): string {
-    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
-        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
-        !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
-      throw new Error(`gen_ba_planner_v2_bench_shader: positive integer args required`);
+    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits)) {
+      throw new Error(`gen_ba_planner_v2_offsets_shader: positive integer args required`);
     }
     const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
     const num_windows = Math.ceil(num_bits / c);
     if (buckets_per_window % workgroup_size !== 0) {
       throw new Error(
-        `gen_ba_planner_v2_bench_shader: buckets_per_window (2^(c-1)=${buckets_per_window}) ` +
+        `gen_ba_planner_v2_offsets_shader: buckets_per_window (${buckets_per_window}) ` +
           `must be a positive multiple of workgroup_size (${workgroup_size})`,
       );
     }
     const per_thread = buckets_per_window / workgroup_size;
     return mustache.render(
-      ba_planner_v2_bench_shader,
-      {
-        workgroup_size,
-        buckets_per_window,
-        per_thread,
-        num_windows,
-        pair_cap,
-        s,
-        self_pad,
-        num_words: this.num_words,
-        recompile: this.recompile,
-      },
-      { structs },
+      ba_planner_v2_offsets_shader,
+      { workgroup_size, buckets_per_window, per_thread, num_windows, recompile: this.recompile },
+    );
+  }
+
+  /**
+   * Planner pass B: parallel plan emit. Dispatch (ceil(BW/wg), numWindows) —
+   * one workgroup per (bucket-group, window). Emits the chunk / scatter /
+   * carry plans from pass A's offsets, then cooperatively self-pads.
+   */
+  public gen_ba_planner_v2_emit_shader(
+    workgroup_size: number,
+    c: number,
+    num_bits: number,
+    s: number,
+    pair_cap: number,
+    buckets_per_window_override?: number,
+  ): string {
+    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
+        !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
+      throw new Error(`gen_ba_planner_v2_emit_shader: positive integer args required`);
+    }
+    const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
+    const num_windows = Math.ceil(num_bits / c);
+    if (buckets_per_window % workgroup_size !== 0) {
+      throw new Error(
+        `gen_ba_planner_v2_emit_shader: buckets_per_window (${buckets_per_window}) ` +
+          `must be a positive multiple of workgroup_size (${workgroup_size})`,
+      );
+    }
+    const num_groups = buckets_per_window / workgroup_size;
+    return mustache.render(
+      ba_planner_v2_emit_shader,
+      { workgroup_size, buckets_per_window, num_windows, num_groups, pair_cap, s, recompile: this.recompile },
     );
   }
 

@@ -334,7 +334,8 @@ function pickReduceWg(c: number): number {
 
 // Per-level GPU dispatch wiring for one prepared scalar set.
 interface LevelBind {
-  plannerBind: GPUBindGroup;
+  plannerABind: GPUBindGroup;
+  plannerBBind: GPUBindGroup;
   fusedTiles: { bind: GPUBindGroup; nx: number }[];
   carryBind: GPUBindGroup;
   finalizeBinds: GPUBindGroup[]; // one per window-batch
@@ -489,7 +490,8 @@ export class MsmV2 {
   private padPts!: Pt[];
   private reducePasses!: { isDouble: boolean; shaderPhase: number; p2x: number; p2y: number; ppw: number }[];
   // pipelines
-  private plannerPipe!: GPUComputePipeline;
+  private plannerAPipe!: GPUComputePipeline;
+  private plannerBPipe!: GPUComputePipeline;
   private fusedPipe!: GPUComputePipeline;
   private carryPipe!: GPUComputePipeline;
   private finalizePipe!: GPUComputePipeline;
@@ -506,7 +508,8 @@ export class MsmV2 {
   private reduceInitPipe!: GPUComputePipeline;
   private reduceLevelPipes: GPUComputePipeline[] = [];
   // layouts (needed by prepare to build bind groups)
-  private plannerLayout!: GPUBindGroupLayout;
+  private plannerALayout!: GPUBindGroupLayout;
+  private plannerBLayout!: GPUBindGroupLayout;
   private fusedLayout!: GPUBindGroupLayout;
   private fusedLayoutL0!: GPUBindGroupLayout;
   private carryLayout!: GPUBindGroupLayout;
@@ -633,21 +636,11 @@ export class MsmV2 {
       device.createBindGroupLayout({
         entries: types.map((type, binding) => ({ binding, visibility: GPUShaderStage.COMPUTE, buffer: { type } })),
       });
-    m.plannerLayout = device.createBindGroupLayout({
-      entries: [0, 1, 2, 3, 4, 5, 6, 7]
-        .map(binding => ({
-          binding,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: (binding <= 1 ? 'read-only-storage' : 'storage') as GPUBufferBindingType },
-        }))
-        .concat(
-          [8, 9].map(binding => ({
-            binding,
-            visibility: GPUShaderStage.COMPUTE,
-            buffer: { type: 'uniform' as GPUBufferBindingType },
-          })),
-        ),
-    });
+    m.plannerALayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
+    m.plannerBLayout = lt([
+      'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage',
+      'storage', 'storage', 'storage', 'uniform', 'uniform',
+    ]);
     m.fusedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage']);
     m.fusedLayoutL0 = lt([
       'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage',
@@ -676,9 +669,13 @@ export class MsmV2 {
     // planner's PAIR_CAP loop is `break`-bounded, so a generous data-
     // independent bound (max per-bucket pairs <= ceil(n/2)) is free. ---
     const pairCap = Math.ceil(n / 2) + 16;
-    m.plannerPipe = await compileOne(
-      device, sm.gen_ba_planner_v2_bench_shader(PLANNER_TPB, m.c, NUMBITS, S, pairCap, m.BW, true),
-      `planner-c${m.c}`, m.plannerLayout,
+    m.plannerAPipe = await compileOne(
+      device, sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB, m.c, NUMBITS, m.BW),
+      `planner-a-c${m.c}`, m.plannerALayout,
+    );
+    m.plannerBPipe = await compileOne(
+      device, sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, m.c, NUMBITS, S, pairCap, m.BW),
+      `planner-b-c${m.c}`, m.plannerBLayout,
     );
     m.fusedPipe = await compileOne(
       device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB), `fused`, m.fusedLayout,
@@ -1017,6 +1014,13 @@ export class MsmV2 {
       finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, M1, bi * batchBuckets, B_TOTAL])));
     }
     this.numWgsFinalize = Math.ceil(batchBuckets / WGI);
+    // The two-pass planner borrows valIdxBuf as the per-bucket carry-prefix
+    // array. valIdxBuf (batchSlots) is dead once convActive has consumed it,
+    // strictly before the planner runs; B_TOTAL = numWindows*BW <= batchSlots.
+    if (batchSlots < B_TOTAL) {
+      throw new Error(`planner: valIdxBuf (${batchSlots}) too small for carry_off (${B_TOTAL})`);
+    }
+    const carryOffBuf = valIdxBuf;
     for (let lv = 0; lv < levels; lv++) {
       const plan = levelPlans[lv];
       const isL0 = lv === 0;
@@ -1063,17 +1067,28 @@ export class MsmV2 {
         );
       }
       this.levelBinds.push({
-        plannerBind: device.createBindGroup({
-          layout: this.plannerLayout,
+        plannerABind: device.createBindGroup({
+          layout: this.plannerALayout,
+          entries: [
+            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
+            { binding: 1, resource: { buffer: carryOffBuf } },
+            { binding: 2, resource: { buffer: countsBufs[outIdx] } },
+            { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
+            { binding: 4, resource: { buffer: planMeta } },
+            { binding: 5, resource: { buffer: plannerParams } },
+          ],
+        }),
+        plannerBBind: device.createBindGroup({
+          layout: this.plannerBLayout,
           entries: [
             { binding: 0, resource: { buffer: countsBufs[inIdx] } },
             { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
-            { binding: 2, resource: { buffer: chunkPlanRing[ring] } },
-            { binding: 3, resource: { buffer: scatterPlanRing[ring] } },
-            { binding: 4, resource: { buffer: carryPlanRing[ring] } },
-            { binding: 5, resource: { buffer: countsBufs[outIdx] } },
-            { binding: 6, resource: { buffer: offsetsBufs[outIdx] } },
-            { binding: 7, resource: { buffer: planMeta } },
+            { binding: 2, resource: { buffer: carryOffBuf } },
+            { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
+            { binding: 4, resource: { buffer: planMeta } },
+            { binding: 5, resource: { buffer: chunkPlanRing[ring] } },
+            { binding: 6, resource: { buffer: scatterPlanRing[ring] } },
+            { binding: 7, resource: { buffer: carryPlanRing[ring] } },
             { binding: 8, resource: { buffer: plannerParams } },
             { binding: 9, resource: { buffer: isL0 ? padParams0Buf : padParams1Buf } },
           ],
@@ -1113,7 +1128,7 @@ export class MsmV2 {
       let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
         passes += 7; // decompose + xpose x4 + conv x2
-        for (let lv = 0; lv < levels; lv++) passes += 3 + this.levelBinds[lv].fusedTiles.length;
+        for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
       }
       // reduceInit + one dispatch per reduction level.
       passes += 1 + this.reducePasses.length;
@@ -1185,7 +1200,8 @@ export class MsmV2 {
         const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
         const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
         const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
-        dispatch(this.plannerPipe, lb.plannerBind, this.batchWindows, 1, 'planner');
+        dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1, 'planner');
+        dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows, 'planner');
         for (const tile of lb.fusedTiles) dispatch(fp, tile.bind, tile.nx, 1, 'fused');
         dispatch(cp, lb.carryBind, lb.nCarry, 1, 'carry');
         dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1, 'finalize');
