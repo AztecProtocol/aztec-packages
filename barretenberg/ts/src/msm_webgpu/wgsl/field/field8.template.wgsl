@@ -1,5 +1,5 @@
 // === Lever 2: 8x u32 live field representation ===
-// Shared by the accumulate (ba_fused_super) and reduction (ba_reduce_fused)
+// Shared by the accumulate (ba_fused_super) and reduction (ba_reduce_level)
 // kernels. Field elements live as `array<u32, 8>` — the canonical 256-bit
 // packed form, which is ALSO the storage form, so loads/stores are plain
 // 8-word copies. Live values cost 8 registers each instead of the

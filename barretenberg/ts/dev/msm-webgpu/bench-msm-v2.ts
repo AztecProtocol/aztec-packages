@@ -54,8 +54,6 @@ const config: MsmConfig = {
   invVariant:
     qp.get('inv') === 'a' ? 'a' : qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'pk' ? 'pk' : undefined,
   addsub: qp.get('addsub') === 'unpack' ? 'unpack' : qp.get('addsub') === 'native' ? 'native' : undefined,
-  reduceVariant:
-    qp.get('reducevariant') === 'unfused' ? 'unfused' : qp.get('reducevariant') === 'fused' ? 'fused' : undefined,
   profile: qp.get('profile') !== '0',
 };
 

@@ -8,7 +8,6 @@ import {
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
   ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
   ba_fused_super_bench as ba_fused_super_bench_shader,
-  ba_reduce_fused_bench as ba_reduce_fused_bench_shader,
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
   ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
@@ -1200,50 +1199,11 @@ ${packLines.join('\n')}
   }
 
   /**
-   * Fused recursive affine bucket reduction — the whole 4-phase reduction
-   * in a single dispatch, one workgroup per window, storageBarrier between
-   * levels. Mirrors gen_ba_fused_super_bench_shader's partials; no per-pass s.
-   */
-  public gen_ba_reduce_fused_bench_shader(
-    workgroup_size: number,
-    variant: 'a' | 'loop' | 'pk' = 'pk',
-    addsub: 'native' | 'unpack' = 'native',
-  ): string {
-    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
-      throw new Error(`gen_ba_reduce_fused_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
-    }
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_reduce_fused_bench_shader,
-      {
-        workgroup_size, inv_fn,
-        addsub_unpack: addsub === 'unpack',
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  /**
-   * One level of the recursive affine bucket reduction — the un-fused
-   * counterpart of gen_ba_reduce_fused_bench_shader. `kind` (0 = phase-A
+   * One level of the recursive affine bucket reduction. `kind` (0 = phase-A
    * suffix add, 1 = phase-B/D tree-add, 2 = phase-C double) is baked in as
    * a compile-time constant so each variant const-folds away the other
    * kinds' branches. The host dispatches the kind-matching variant once
-   * per schedule level; smaller register footprint + watchdog-bounded.
+   * per schedule level — branchless, watchdog-bounded, register-light.
    */
   public gen_ba_reduce_level_bench_shader(
     workgroup_size: number,

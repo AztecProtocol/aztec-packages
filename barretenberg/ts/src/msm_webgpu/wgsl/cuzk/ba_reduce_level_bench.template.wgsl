@@ -12,10 +12,9 @@
 
 {{> field8_funcs }}
 
-// One level of the recursive affine bucket reduction — the un-fused
-// counterpart of ba_reduce_fused. The host issues one dispatch per schedule
-// level; WebGPU's between-pass ordering replaces the fused kernel's
-// storageBarrier(). The kind (phase-A suffix add, phase-B/D tree-add,
+// One level of the recursive affine bucket reduction. The host issues one
+// dispatch per schedule level; WebGPU's between-pass ordering provides the
+// cross-level memory ordering. The kind (phase-A suffix add, phase-B/D tree-add,
 // phase-C double) is selected at template-generation time, so each of the
 // three compiled variants is straight-line code for exactly one phase.
 //

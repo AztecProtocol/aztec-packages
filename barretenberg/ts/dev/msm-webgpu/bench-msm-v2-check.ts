@@ -213,13 +213,11 @@ async function main(): Promise<void> {
     const qp = new URLSearchParams(window.location.search);
     const sizes = qp.get('n') ? [parseInt(qp.get('n')!, 10)] : [4096];
     // Algorithm-affecting knobs — lets this page validate a swept config
-    // (e.g. ?reducevariant=unfused) byte-exact, not just the defaults.
+    // (e.g. ?inv=loop or ?addsub=unpack) byte-exact, not just the defaults.
     const config: MsmConfig = {
       invVariant:
         qp.get('inv') === 'a' ? 'a' : qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'pk' ? 'pk' : undefined,
       addsub: qp.get('addsub') === 'unpack' ? 'unpack' : qp.get('addsub') === 'native' ? 'native' : undefined,
-      reduceVariant:
-        qp.get('reducevariant') === 'unfused' ? 'unfused' : qp.get('reducevariant') === 'fused' ? 'fused' : undefined,
     };
     log('info', `config: ${JSON.stringify(config)}`);
     let allOk = true;
