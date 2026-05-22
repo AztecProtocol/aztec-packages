@@ -116,9 +116,7 @@ tests:
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  # http://ci.aztec-labs.com/e85ff6c5da65a1e7
-  - regex: "src/e2e_cross_chain_messaging/l1_to_l2.test.ts"
-    error_regex: "Failed to advance block"
+  - regex: "src/e2e_cross_chain_messaging/l1_to_l2"
     owners:
       - *palla
   - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
