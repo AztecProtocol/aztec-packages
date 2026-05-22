@@ -705,84 +705,84 @@ type WalletLane = { wallet: WorkerWallet; aztecNode: AztecNode; address: AztecAd
 
 type TxSenderHandle = { txHashes: string[]; stop: () => Promise<void> };
 
-function sendTxsAtTps(
-  logger: Logger,
-  signal: AbortSignal,
-  lanes: WalletLane[],
-  targetTps: number,
-  sendTx: (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => Promise<string>,
-): TxSenderHandle {
-  const promiseCount = Math.ceil(targetTps);
-  if (lanes.length < promiseCount) {
-    throw new Error('Not enough wallets to achieve desired TPS');
-  }
+// function sendTxsAtTps(
+//   logger: Logger,
+//   signal: AbortSignal,
+//   lanes: WalletLane[],
+//   targetTps: number,
+//   sendTx: (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => Promise<string>,
+// ): TxSenderHandle {
+//   const promiseCount = Math.ceil(targetTps);
+//   if (lanes.length < promiseCount) {
+//     throw new Error('Not enough wallets to achieve desired TPS');
+//   }
 
-  const txHashes: string[] = [];
-  const targetTpsPerPromise = targetTps / promiseCount;
-  logger.info('Starting TPS sender', {
-    targetTps,
-    walletCount: lanes.length,
-    promiseCount,
-    targetTpsPerPromise,
-  });
-  // start N "threads", where N is the target TPS rounded up
-  // each wallet is responsible for N/targetTps txs per sec
-  const promises = times(
-    promiseCount,
-    i =>
-      new RunningPromise(
-        async () => {
-          const { wallet, aztecNode: walletNode, address } = lanes[i];
+//   const txHashes: string[] = [];
+//   const targetTpsPerPromise = targetTps / promiseCount;
+//   logger.info('Starting TPS sender', {
+//     targetTps,
+//     walletCount: lanes.length,
+//     promiseCount,
+//     targetTpsPerPromise,
+//   });
+//   // start N "threads", where N is the target TPS rounded up
+//   // each wallet is responsible for N/targetTps txs per sec
+//   const promises = times(
+//     promiseCount,
+//     i =>
+//       new RunningPromise(
+//         async () => {
+//           const { wallet, aztecNode: walletNode, address } = lanes[i];
 
-          const start = performance.now(); // ms
-          try {
-            const txHash = await sendTx(wallet, walletNode, address);
-            txHashes.push(txHash);
-          } catch (err) {
-            logger.error('Failed to submit tx', { walletIndex: i, err });
-            throw err;
-          }
-          const dt = performance.now() - start; // ms
+//           const start = performance.now(); // ms
+//           try {
+//             const txHash = await sendTx(wallet, walletNode, address);
+//             txHashes.push(txHash);
+//           } catch (err) {
+//             logger.error('Failed to submit tx', { walletIndex: i, err });
+//             throw err;
+//           }
+//           const dt = performance.now() - start; // ms
 
-          const tps = 1000 / dt; // We just sent one tx. Calculate TPS. Note: we have to convert ms to s
+//           const tps = 1000 / dt; // We just sent one tx. Calculate TPS. Note: we have to convert ms to s
 
-          const expectedMs = 1000 / targetTpsPerPromise;
-          if (dt > expectedMs * 2) {
-            logger.debug('Tx submission slower than target', {
-              walletIndex: i,
-              durationMs: dt,
-              targetMs: expectedMs,
-              observedTps: tps,
-            });
-          }
+//           const expectedMs = 1000 / targetTpsPerPromise;
+//           if (dt > expectedMs * 2) {
+//             logger.debug('Tx submission slower than target', {
+//               walletIndex: i,
+//               durationMs: dt,
+//               targetMs: expectedMs,
+//               observedTps: tps,
+//             });
+//           }
 
-          if (tps > targetTpsPerPromise) {
-            await sleep(1000 / targetTpsPerPromise - dt);
-          }
-        },
-        logger,
-        0,
-      ),
-  );
+//           if (tps > targetTpsPerPromise) {
+//             await sleep(1000 / targetTpsPerPromise - dt);
+//           }
+//         },
+//         logger,
+//         0,
+//       ),
+//   );
 
-  for (const p of promises) {
-    p.start();
-  }
+//   for (const p of promises) {
+//     p.start();
+//   }
 
-  let stopPromise: Promise<void> | undefined;
-  const stop = () => {
-    if (!stopPromise) {
-      stopPromise = Promise.all(promises.map(p => p.stop())).then(() => undefined);
-    }
-    return stopPromise;
-  };
+//   let stopPromise: Promise<void> | undefined;
+//   const stop = () => {
+//     if (!stopPromise) {
+//       stopPromise = Promise.all(promises.map(p => p.stop())).then(() => undefined);
+//     }
+//     return stopPromise;
+//   };
 
-  signal.addEventListener('abort', () => {
-    void stop().catch(err => logger.error('Failed to stop TPS sender', { err }));
-  });
+//   signal.addEventListener('abort', () => {
+//     void stop().catch(err => logger.error('Failed to stop TPS sender', { err }));
+//   });
 
-  return { txHashes, stop };
-}
+//   return { txHashes, stop };
+// }
 
 function sendTxsAtFixedRate(
   logger: Logger,
