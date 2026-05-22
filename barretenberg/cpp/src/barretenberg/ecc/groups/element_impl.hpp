@@ -8,12 +8,11 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/fields/vector_field.hpp"
+#include "barretenberg/ecc/groups/k5_msm_helpers.hpp"
 #include "element.hpp"
 #include <array>
 #include <cstdint>
-#include <type_traits>
 
 // NOLINTBEGIN(readability-implicit-bool-conversion, cppcoreguidelines-avoid-c-arrays)
 namespace bb::group_elements {
@@ -793,17 +792,13 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
                                                                         const size_t num_points,
                                                                         Fq* scratch_space) noexcept
 {
-    // K=5 dispatch: only when WASM SIMD is wired AND the base field is BN254 Fq (the only Params we have
-    // a VectorField operator* specialization for). Below K5_MIN_POINTS the per-group setup (gather/scatter,
-    // batch-inversion split tree) outweighs the per-mul savings, so we keep the original K=1 path.
-#if defined(__wasm_simd128__)
-    constexpr bool CAN_USE_K5 = std::is_same_v<Fq, bb::fq>;
-#else
-    constexpr bool CAN_USE_K5 = false;
-#endif
-    constexpr size_t K5_MIN_POINTS = 20;
-
-    const size_t k5_pair_groups = (CAN_USE_K5 && num_points >= K5_MIN_POINTS) ? ((num_points >> 1) / 5) : size_t{ 0 };
+    // K=5 dispatch: only when WASM SIMD is wired AND the base field has a VectorField
+    // operator* specialization. Below K5_MIN_POINTS the per-group setup (gather/scatter,
+    // batch-inversion split tree) outweighs the per-mul savings, so we keep the original
+    // K=1 path. Threshold + trait live in k5_msm_helpers.hpp.
+    constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
+    const size_t k5_pair_groups =
+        (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS) ? ((num_points >> 1) / 5) : size_t{ 0 };
     const size_t k5_points = k5_pair_groups * 10;
 
     std::array<Fq, 5> acc_lanes = { Fq::one(), Fq::one(), Fq::one(), Fq::one(), Fq::one() };
@@ -901,23 +896,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
         }
         using VFq = VectorField<Bn254FqParams>;
 
-        // 4 prefix muls + 8 unwind muls = 12 muls + 1 inversion (already done) to recover 5 lane inverses.
-        std::array<Fq, 4> prefix;
-        prefix[0] = acc_lanes[0];
-        prefix[1] = prefix[0] * acc_lanes[1];
-        prefix[2] = prefix[1] * acc_lanes[2];
-        prefix[3] = prefix[2] * acc_lanes[3];
-        std::array<Fq, 5> inv_lanes;
-        Fq running_inv = batch_inversion_accumulator;
-        inv_lanes[4] = running_inv * prefix[3];
-        running_inv *= acc_lanes[4];
-        inv_lanes[3] = running_inv * prefix[2];
-        running_inv *= acc_lanes[3];
-        inv_lanes[2] = running_inv * prefix[1];
-        running_inv *= acc_lanes[2];
-        inv_lanes[1] = running_inv * prefix[0];
-        running_inv *= acc_lanes[1];
-        inv_lanes[0] = running_inv;
+        std::array<Fq, 5> inv_lanes = k5_msm::compute_lane_inverses(acc_lanes, batch_inversion_accumulator);
 
         for (size_t g_rev = k5_pair_groups; g_rev > 0; --g_rev) {
             const size_t g = g_rev - 1;
@@ -999,14 +978,8 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
                                                                     const size_t num_points,
                                                                     Fq* scratch_space) noexcept
 {
-#if defined(__wasm_simd128__)
-    constexpr bool CAN_USE_K5 = std::is_same_v<Fq, bb::fq>;
-#else
-    constexpr bool CAN_USE_K5 = false;
-#endif
-    constexpr size_t K5_MIN_POINTS = 20;
-
-    const size_t k5_groups = (CAN_USE_K5 && num_points >= K5_MIN_POINTS) ? (num_points / 5) : size_t{ 0 };
+    constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
+    const size_t k5_groups = (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS) ? (num_points / 5) : size_t{ 0 };
     const size_t k5_points = k5_groups * 5;
 
     std::array<Fq, 5> acc_lanes = { Fq::one(), Fq::one(), Fq::one(), Fq::one(), Fq::one() };
@@ -1093,23 +1066,7 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
         }
         using VFq = VectorField<Bn254FqParams>;
 
-        // 4 prefix muls + 8 unwind muls = 12 muls + 1 inversion (already done) to recover 5 lane inverses.
-        std::array<Fq, 4> prefix;
-        prefix[0] = acc_lanes[0];
-        prefix[1] = prefix[0] * acc_lanes[1];
-        prefix[2] = prefix[1] * acc_lanes[2];
-        prefix[3] = prefix[2] * acc_lanes[3];
-        std::array<Fq, 5> inv_lanes;
-        Fq running_inv = batch_inversion_accumulator;
-        inv_lanes[4] = running_inv * prefix[3];
-        running_inv *= acc_lanes[4];
-        inv_lanes[3] = running_inv * prefix[2];
-        running_inv *= acc_lanes[3];
-        inv_lanes[2] = running_inv * prefix[1];
-        running_inv *= acc_lanes[2];
-        inv_lanes[1] = running_inv * prefix[0];
-        running_inv *= acc_lanes[1];
-        inv_lanes[0] = running_inv;
+        std::array<Fq, 5> inv_lanes = k5_msm::compute_lane_inverses(acc_lanes, batch_inversion_accumulator);
 
         for (size_t g_rev = k5_groups; g_rev > 0; --g_rev) {
             const size_t g = g_rev - 1;
@@ -1371,19 +1328,14 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 template <typename Fq, typename Fr, typename T>
 void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_elements) noexcept
 {
-#if defined(__wasm_simd128__)
-    constexpr bool CAN_USE_K5_TYPE = std::is_same_v<Fq, bb::fq>;
-#else
-    constexpr bool CAN_USE_K5_TYPE = false;
-#endif
-    constexpr size_t K5_MIN_POINTS = 20;
+    constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
 
-    // K=5 eligibility: WASM SIMD + BN254 Fq + size threshold + no infinity slot. The prescan
+    // K=5 eligibility: SIMD-supported Fq + size threshold + no infinity slot. The prescan
     // is O(num_elements) with one branch per element; the savings over a full backward pass
     // dwarf it on the typical large-N hot path.
     bool any_infinity = false;
-    if constexpr (CAN_USE_K5_TYPE) {
-        if (num_elements >= K5_MIN_POINTS) {
+    if constexpr (CAN_USE_K5) {
+        if (num_elements >= k5_msm::K5_MIN_POINTS) {
             for (size_t i = 0; i < num_elements; ++i) {
                 if (elements[i].is_point_at_infinity()) {
                     any_infinity = true;
@@ -1393,7 +1345,7 @@ void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_ele
         }
     }
     const size_t k5_groups =
-        (CAN_USE_K5_TYPE && num_elements >= K5_MIN_POINTS && !any_infinity) ? (num_elements / 5) : size_t{ 0 };
+        (CAN_USE_K5 && num_elements >= k5_msm::K5_MIN_POINTS && !any_infinity) ? (num_elements / 5) : size_t{ 0 };
     const size_t k5_points = k5_groups * 5;
 
     std::vector<Fq> temporaries;
@@ -1412,7 +1364,7 @@ void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_ele
     //
     // Then advance all five lanes via one width-5 mul: acc_lanes *= z's of this group.
     // ---------------------------------------------------------------------
-    if constexpr (CAN_USE_K5_TYPE) {
+    if constexpr (CAN_USE_K5) {
         using VFq = VectorField<Bn254FqParams>;
         for (size_t g = 0; g < k5_groups; ++g) {
             const size_t i = g * 5;
@@ -1487,29 +1439,13 @@ void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_ele
     // batch-inversion product tree, then walk groups in reverse with 5-wide muls. Each group
     // does 6 muls (vs (4 muls + 1 sqr)/point × 5 points = 25 scalar mul-class ops of K=1).
     // ---------------------------------------------------------------------
-    if constexpr (CAN_USE_K5_TYPE) {
+    if constexpr (CAN_USE_K5) {
         if (k5_groups == 0) {
             return;
         }
         using VFq = VectorField<Bn254FqParams>;
 
-        // 4 prefix muls + 8 unwind muls = 12 muls + 1 inversion (already done) to recover 5 lane inverses.
-        std::array<Fq, 4> prefix;
-        prefix[0] = acc_lanes[0];
-        prefix[1] = prefix[0] * acc_lanes[1];
-        prefix[2] = prefix[1] * acc_lanes[2];
-        prefix[3] = prefix[2] * acc_lanes[3];
-        std::array<Fq, 5> inv_lanes;
-        Fq running_inv = accumulator;
-        inv_lanes[4] = running_inv * prefix[3];
-        running_inv *= acc_lanes[4];
-        inv_lanes[3] = running_inv * prefix[2];
-        running_inv *= acc_lanes[3];
-        inv_lanes[2] = running_inv * prefix[1];
-        running_inv *= acc_lanes[2];
-        inv_lanes[1] = running_inv * prefix[0];
-        running_inv *= acc_lanes[1];
-        inv_lanes[0] = running_inv;
+        std::array<Fq, 5> inv_lanes = k5_msm::compute_lane_inverses(acc_lanes, accumulator);
 
         for (size_t g_rev = k5_groups; g_rev > 0; --g_rev) {
             const size_t g = g_rev - 1;
