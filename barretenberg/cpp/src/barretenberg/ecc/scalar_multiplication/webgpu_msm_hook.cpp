@@ -102,58 +102,85 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
 } // namespace bb::scalar_multiplication
 
 // ---------------------------------------------------------------------------
-// In-browser comparison harness export.
+// In-browser comparison harness exports.
 //
-// Direct WASM entry point that runs the in-tree multi-threaded Pippenger on
-// a BN254 G1 MSM without going through `MSM::batch_multi_scalar_mul`'s WebGPU
-// hook delegation (calling the regular entry point from a hooked WASM would
-// recurse into the JS bridge). Lives next to the bridge so the marshalling
-// helpers and the native MSM path are reachable from one place.
+// The dev page (barretenberg/ts/dev/msm-webgpu) benchmarks the in-tree
+// Pippenger against the WebGPU MSM. To measure compute and not marshalling,
+// the path is split like MsmV2's prepare/run:
 //
-// Layout contract (matches `webgpu_msm_marshalling.hpp` and the JS dev page):
-//   points  — n × 64 LE non-Montgomery bytes  `[x_0[32] || y_0[32] || ...]`
-//   scalars — n × 32 LE non-Montgomery bytes  (Fr)
-//   result  — 64 LE non-Montgomery bytes      `[x[32] || y[32]]`
+//   bb_native_pippenger_bn254_load(points, scalars, n)
+//     Decode the n × 64 LE point bytes and n × 32 LE scalar bytes into
+//     AffineElement / ScalarField vectors held in module state. UNTIMED.
+//   bb_native_pippenger_bn254_run(num_threads, result)
+//     Run batch_multi_scalar_mul_native over the loaded vectors and write the
+//     64-byte LE affine result. The TIMED call — pure Pippenger compute, no
+//     input-structure population.
 //
-// `num_threads == 0` means "use the runtime default" (`bb::get_num_cpus()`).
-// Any non-zero value temporarily overrides the global concurrency for the
-// duration of the call so the dev page can sweep `threads=1` (single-threaded)
-// and `threads=N` (multi-threaded) on the same WASM instance.
-WASM_EXPORT void bb_native_pippenger_bn254(
-    const uint8_t* points, const uint8_t* scalars, uint32_t n, uint32_t num_threads, uint8_t* result)
+// Layout (matches webgpu_msm_marshalling.hpp and the JS dev page; LE, NOT
+// Montgomery): points n × 64 `[x[32]||y[32]]`, scalars n × 32 (Fr), result
+// 64 `[x[32]||y[32]]`. `num_threads == 0` keeps the runtime default; non-zero
+// temporarily overrides the global concurrency for the call.
+// batch_multi_scalar_mul_native is the in-tree affine Pippenger that bypasses
+// the BBERG_WEBGPU_MSM_HOOK delegation — see bb_native_pippenger_bn254_run.
+namespace {
+std::vector<bb::curve::BN254::AffineElement> g_bench_points;
+std::vector<bb::curve::BN254::ScalarField> g_bench_scalars;
+} // namespace
+
+WASM_EXPORT void bb_native_pippenger_bn254_load(const uint8_t* points, const uint8_t* scalars, uint32_t n)
 {
     using Curve = bb::curve::BN254;
     namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
 
+    // Free the previous size's vectors before allocating this size's. A sweep
+    // calls _load for a growing sequence of n; resizing in place would
+    // reallocate while still holding the old buffer, transiently doubling the
+    // resident input memory in the WASM heap.
+    g_bench_points = std::vector<Curve::AffineElement>{};
+    g_bench_scalars = std::vector<Curve::ScalarField>{};
+    g_bench_points.resize(n);
+    g_bench_scalars.resize(n);
+    for (uint32_t i = 0; i < n; ++i) {
+        g_bench_points[i] = marshalling::read_affine_le(&points[i * 64]);
+    }
+    for (uint32_t i = 0; i < n; ++i) {
+        g_bench_scalars[i] = Curve::ScalarField(marshalling::read_uint256_le(&scalars[i * 32]));
+    }
+}
+
+WASM_EXPORT void bb_native_pippenger_bn254_run(uint32_t num_threads, uint8_t* result)
+{
+    using Curve = bb::curve::BN254;
+    using MSM = bb::scalar_multiplication::MSM<Curve>;
+    namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
+
     std::memset(result, 0, 64);
-    if (n == 0) {
+    if (g_bench_scalars.empty()) {
         return;
     }
-
-    std::vector<Curve::AffineElement> point_vec(n);
-    for (uint32_t i = 0; i < n; ++i) {
-        point_vec[i] = marshalling::read_affine_le(&points[i * 64]);
-    }
-    std::vector<Curve::ScalarField> scalar_vec(n);
-    for (uint32_t i = 0; i < n; ++i) {
-        scalar_vec[i] = Curve::ScalarField(marshalling::read_uint256_le(&scalars[i * 32]));
-    }
-
-    std::array<std::span<const Curve::AffineElement>, 1> point_spans{ std::span<const Curve::AffineElement>(
-        point_vec) };
-    std::array<std::span<Curve::ScalarField>, 1> scalar_spans{ std::span<Curve::ScalarField>(scalar_vec) };
 
     const size_t saved_concurrency = bb::get_num_cpus();
     if (num_threads != 0) {
         bb::set_parallel_for_concurrency(num_threads);
     }
-    auto results =
-        bb::scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul_native(point_spans, scalar_spans, false);
+    // batch_multi_scalar_mul_native — the in-tree multithreaded affine Pippenger
+    // (handle_edge_cases = false: assumes linearly independent points). This is
+    // the exact algorithm pippenger_unsafe runs, but it bypasses the
+    // BBERG_WEBGPU_MSM_HOOK delegation. pippenger_unsafe -> MSM::msm ->
+    // batch_multi_scalar_mul would route a >= webgpu_msm_min_n (2^16) BN254 MSM
+    // into the WebGPU bridge — which this comparison harness never installs — and
+    // throw. batch_multi_scalar_mul_native exists for exactly this dev-harness use
+    // (see its declaration in scalar_multiplication.hpp). It restores the scalars
+    // to Montgomery form before returning, so repeated runs over the same loaded
+    // g_bench_scalars are safe.
+    std::array<std::span<const Curve::AffineElement>, 1> points_batch{ std::span<const Curve::AffineElement>(
+        g_bench_points) };
+    std::array<std::span<Curve::ScalarField>, 1> scalars_batch{ std::span<Curve::ScalarField>(g_bench_scalars) };
+    const Curve::AffineElement aff = MSM::batch_multi_scalar_mul_native(points_batch, scalars_batch, false)[0];
     if (num_threads != 0) {
         bb::set_parallel_for_concurrency(saved_concurrency);
     }
 
-    const Curve::AffineElement& aff = results[0];
     if (!aff.is_point_at_infinity()) {
         marshalling::write_uint256_le(&result[0], static_cast<bb::numeric::uint256_t>(aff.x));
         marshalling::write_uint256_le(&result[32], static_cast<bb::numeric::uint256_t>(aff.y));

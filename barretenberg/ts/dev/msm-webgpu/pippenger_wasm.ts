@@ -1,17 +1,21 @@
 // In-browser harness for the native barretenberg Pippenger MSM, calling
-// the `bb_native_pippenger_bn254` WASM export directly. We bypass the
-// `cbindCall('bbapi', …)` msgpack path because the export takes raw
+// the `bb_native_pippenger_bn254_*` WASM exports directly. We bypass the
+// `cbindCall('bbapi', …)` msgpack path because the exports take raw
 // LE-32 bytes (same byte layout the WebGPU MSM consumes), so there's no
 // schema indirection to add — and bypassing keeps the comparison "what's
 // the raw cost of a Pippenger call from JS", not "what's bbapi msgpack
 // overhead + Pippenger".
 //
-// The export lives in `barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/webgpu_msm_hook.cpp`
-// and is only compiled into builds with `BBERG_WEBGPU_MSM_HOOK` defined — i.e. the
-// same WASM that bb.js ships for production. The export calls
-// `MSM<BN254>::batch_multi_scalar_mul_native`, which skips the hook
-// delegation, so we measure in-tree Pippenger rather than recursing back
-// into the WebGPU bridge.
+// The path is split into `_load` (decode + upload inputs) and `_run`
+// (compute) so the dev page can time pure Pippenger compute, excluding
+// input-structure population. `_run` calls `batch_multi_scalar_mul_native`
+// — the fast affine multithreaded Pippenger.
+//
+// The exports live in `barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/webgpu_msm_hook.cpp`
+// and are only compiled into builds with `BBERG_WEBGPU_MSM_HOOK` defined — i.e.
+// the same WASM that bb.js ships for production. `batch_multi_scalar_mul_native`
+// bypasses the hook delegation, so we measure the in-tree Pippenger rather than
+// recursing back into the (uninstalled) WebGPU bridge.
 
 import { createMainWorker } from "../../src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/index.js";
 import { fetchModuleAndThreads } from "../../src/barretenberg_wasm/index.js";
@@ -21,15 +25,20 @@ import type { BarretenbergWasmMainWorker } from "../../src/barretenberg_wasm/bar
 // bb.js's main bb worker doesn't currently install the WebGPU bridge
 // stubs on its own; the default `main.worker.ts` we ship hands the
 // WASM module a no-op `bb_publish_srs_bn254` and a throwing
-// `bb_external_msm_bn254`. That's fine for our purposes because
-// `bb_native_pippenger_bn254` never invokes the hook path.
+// `bb_external_msm_bn254`. That's fine because the timed export calls
+// `batch_multi_scalar_mul_native`, which never invokes the hook path.
 export interface WasmPippengerHandle {
-  /** Single MSM. `numThreads === 0` keeps the runtime default. */
-  runMsm(
-    pointsBuf: Uint8Array,
-    scalarsBuf: Uint8Array,
-    numThreads: number,
-  ): Promise<Uint8Array>;
+  /**
+   * Decode + upload points/scalars into WASM-side vectors. Untimed setup —
+   * kept out of the benchmark's measured window.
+   */
+  loadMsm(pointsBuf: Uint8Array, scalarsBuf: Uint8Array): Promise<void>;
+  /**
+   * Run batch_multi_scalar_mul_native over the inputs from the last
+   * `loadMsm`. The timed call — pure compute. `numThreads === 0` keeps the
+   * runtime default.
+   */
+  runMsm(numThreads: number): Promise<Uint8Array>;
   /** Thread count this handle was instantiated with (post-detection). */
   readonly threads: number;
   destroy(): Promise<void>;
@@ -126,14 +135,13 @@ export async function createWasmPippenger(
   );
   log(`wasm.init: complete`);
 
-  async function runMsm(
+  // Decode + upload the points/scalars into WASM-side vectors. UNTIMED:
+  // bb_native_pippenger_bn254_load builds the AffineElement / ScalarField
+  // vectors, which is input-structure population — not Pippenger compute.
+  async function loadMsm(
     pointsBuf: Uint8Array,
     scalarsBuf: Uint8Array,
-    numThreads: number,
-  ): Promise<Uint8Array> {
-    if (pointsBuf.length % 64 !== 0 || scalarsBuf.length % 64 !== 0) {
-      // Note: scalars are 32-byte; we also assert points are 64.
-    }
+  ): Promise<void> {
     if (pointsBuf.length % 64 !== 0) {
       throw new Error(`pointsBuf length ${pointsBuf.length} not a multiple of 64`);
     }
@@ -149,29 +157,33 @@ export async function createWasmPippenger(
 
     const pointsPtr = await wasm.call("bbmalloc", pointsBuf.length);
     const scalarsPtr = await wasm.call("bbmalloc", scalarsBuf.length);
-    const resultPtr = await wasm.call("bbmalloc", 64);
     try {
       await wasm.writeMemory(pointsPtr, pointsBuf);
       await wasm.writeMemory(scalarsPtr, scalarsBuf);
-      await wasm.call(
-        "bb_native_pippenger_bn254",
-        pointsPtr,
-        scalarsPtr,
-        n,
-        numThreads,
-        resultPtr,
-      );
-      return await wasm.getMemorySlice(resultPtr, resultPtr + 64);
+      await wasm.call("bb_native_pippenger_bn254_load", pointsPtr, scalarsPtr, n);
     } finally {
-      // Best-effort frees. If a call throws, the WASM heap retains these
-      // until the worker is destroyed — fine for the dev page.
+      // The load call copied the bytes into WASM-side vectors; the raw
+      // upload buffers can return to the heap right away.
       await wasm.call("bbfree", pointsPtr);
       await wasm.call("bbfree", scalarsPtr);
+    }
+  }
+
+  // Run batch_multi_scalar_mul_native over the inputs from the last loadMsm.
+  // This is the call the dev page times — pure Pippenger compute, no input
+  // population.
+  async function runMsm(numThreads: number): Promise<Uint8Array> {
+    const resultPtr = await wasm.call("bbmalloc", 64);
+    try {
+      await wasm.call("bb_native_pippenger_bn254_run", numThreads, resultPtr);
+      return await wasm.getMemorySlice(resultPtr, resultPtr + 64);
+    } finally {
       await wasm.call("bbfree", resultPtr);
     }
   }
 
   return {
+    loadMsm,
     runMsm,
     threads,
     async destroy() {

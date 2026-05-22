@@ -4,16 +4,14 @@
 //       the memory-bounded carry-free-Booth / pair-tree / fused-reduction
 //       port; runs on the warm path with a persistent GPUDevice, an MsmV2
 //       rebuilt per logN, and one warm-up dispatch before timed runs)
-//     - Barretenberg WASM Pippenger, single-threaded (numThreads = 1)
 //     - Barretenberg WASM Pippenger, multi-threaded (numThreads = hw)
-//   The WASM path uses `bb_native_pippenger_bn254`, a direct WASM export
-//   that skips the BBERG_WEBGPU_MSM_HOOK delegation — calling the regular
-//   batch entry point from a hooked WASM would recurse back into the
-//   WebGPU bridge. Single-threaded vs multi-threaded both use the same
-//   threaded build; the `numThreads` argument overrides bb's runtime
-//   concurrency for the duration of the call, so the difference is the
-//   Pippenger's threading speedup on the same compiled artifact (not a
-//   strictly separate single-threaded build).
+//   The WASM path uses `bb_native_pippenger_bn254_load` (decode + upload
+//   inputs, untimed) followed by `bb_native_pippenger_bn254_run` (the
+//   timed `batch_multi_scalar_mul_native` compute) — direct WASM exports that
+//   skip the BBERG_WEBGPU_MSM_HOOK delegation, since calling the regular batch
+//   entry point from a hooked WASM would recurse back into the WebGPU
+//   bridge. Splitting load from run keeps input-structure population out
+//   of the measured window.
 //
 //   Noble correctness check runs only at log₂(n) = 16. At larger sizes
 //   noble's bigint Pippenger is too slow to be a useful in-loop check.
@@ -90,8 +88,7 @@ const gpuKnobs: MsmConfig = (() => {
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
-    invVariant:
-      q.get('inv') === 'a' ? 'a' : q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
+    invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
   };
 })();
 
@@ -101,21 +98,25 @@ const gpuKnobs: MsmConfig = (() => {
 const MT_THREADS_MAX = 32;
 const MT_THREADS_DEFAULT = Math.min(MT_THREADS_MAX, navigator.hardwareConcurrency ?? 4);
 
-// Cap the WASM heap maximum. bb.js's default is 4 GiB; at this dev page's
-// peak (log₂(n)=20, ~96 MiB of points+scalars in the WASM heap) we never
-// approach it. Capping at 256 MiB avoids the 4 GiB shared-memory address-
-// space reservation on systems where that pre-allocation is expensive.
+// WASM heap maximum. A log₂(n)=20 MSM keeps ~96 MiB of decoded points +
+// scalars resident (the load/run split holds them between calls), and on top
+// of that the in-tree multithreaded Pippenger needs its working set while
+// _load needs a transient ~96 MiB upload buffer — a sweep drives all of this
+// through one worker. 256 MiB is not enough: log₂(n)=20 traps with
+// `unreachable` mid-_load. 1 GiB is ample headroom. `maximum` only reserves
+// shared-memory address space (cheap on 64-bit hosts) — physical pages are
+// committed lazily as the heap grows. The wasm itself permits 4 GiB.
 const WASM_MEM_INITIAL_PAGES = 256; //  16 MiB
-const WASM_MEM_MAX_PAGES = 4096; // 256 MiB
+const WASM_MEM_MAX_PAGES = 16384; // 1 GiB
 
 // The dev page runs in two modes:
 //   - Default (no `?coi=1`)        — no COOP/COEP set by the dev server.
 //                                    WebGPU works. SharedArrayBuffer is
 //                                    unavailable, so the threaded WASM
-//                                    Pippenger paths can't run.
+//                                    Pippenger path can't run.
 //   - `?coi=1` in the URL          — Vite dev server emits COOP/COEP.
 //                                    SharedArrayBuffer is available;
-//                                    WASM ST + MT paths come online.
+//                                    the WASM MT path comes online.
 // We default to no-COI because adding COOP/COEP unconditionally was
 // observed to break the WebGPU MSM in this dev page (see the original
 // vite.config.ts comment); they're also unrelated to the WebGPU path.
@@ -124,22 +125,14 @@ const COI_ACTIVE = (self as any).crossOriginIsolated === true;
 const WASM_AVAILABLE = COI_ACTIVE;
 
 let srsBuf: Uint8Array | null = null;
-// We boot TWO bb.js workers — one for the ST row, one for the MT row.
-// Reusing a single worker for both was producing a strictly slower MT
-// time than ST: bb's `parallel_for` pool is a function-static
-// `ThreadPool(get_num_cpus() - 1)` sized at first call, and the
-// thread_local override from `bb_native_pippenger_bn254(num_threads)`
-// only changes how many work units the main thread dispatches — not
-// the pool size. Whatever the first call set, sticks. With two workers
-// each gets a clean static-pool init: ST sizes its pool at 0 (work
-// runs synchronously, no dispatch overhead), MT sizes its pool at
-// `mtThreads - 1`. Both stay lazy — created on the first action that
-// needs them, torn down on Stop. If you change the MT threads input
+// One bb.js WASM worker hosts the multi-threaded Pippenger. It's lazy —
+// created on the first action that needs it, torn down on Stop. bb's
+// `parallel_for` pool is a function-static `ThreadPool(get_num_cpus() -
+// 1)` sized on the first call and then locked, so the worker's thread
+// count is fixed at boot. If you change the MT threads input
 // mid-session, hit Stop first so the next click reboots at the new
 // value.
-let wasmStPippenger: WasmPippengerHandle | null = null;
 let wasmMtPippenger: WasmPippengerHandle | null = null;
-let wasmStBootInFlight: Promise<WasmPippengerHandle> | null = null;
 let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
 // Persistent WebGPU state. One GPUDevice is reused across every dispatch
 // on the page; one MsmV2 (the v2 pair-tree pipeline — buffers, pipelines,
@@ -228,66 +221,51 @@ function setBusy(busy: boolean, text = ''): void {
   $runSweep.disabled = busy || !ready || !WASM_AVAILABLE;
   // Stop is only meaningful while something is in flight, WASM is booted,
   // or a GPU context is alive (so the user can free GPU memory on demand).
-  $stop.disabled = !busy && wasmStPippenger === null && wasmMtPippenger === null && gpuDevice === null;
+  $stop.disabled = !busy && wasmMtPippenger === null && gpuDevice === null;
   $status.textContent = text;
 }
 
-type WasmRole = 'st' | 'mt';
-
 /**
- * Boots a bb.js WASM worker lazily on first use for the given role.
- * Subsequent calls for the same role reuse the handle; concurrent
- * callers await the same in-flight boot. ST is booted with threads=1
- * (no pthread sub-workers), MT is booted with the user-chosen thread
- * count.
+ * Boots the bb.js WASM worker lazily on first use. Subsequent calls
+ * reuse the handle; concurrent callers await the same in-flight boot.
+ * The worker is booted with the user-chosen multi-threaded count.
  */
-async function ensureWasmBooted(role: WasmRole): Promise<WasmPippengerHandle> {
+async function ensureWasmBooted(): Promise<WasmPippengerHandle> {
   if (!WASM_AVAILABLE) {
     throw new Error(
       'WASM paths are disabled: page is not cross-origin isolated. ' +
         "Click 'Enable WASM (reload with COI)' to reload with COOP/COEP headers.",
     );
   }
-  const cached = role === 'st' ? wasmStPippenger : wasmMtPippenger;
-  if (cached !== null) return cached;
-  const inFlight = role === 'st' ? wasmStBootInFlight : wasmMtBootInFlight;
-  if (inFlight !== null) return inFlight;
-  const threads = role === 'st' ? 1 : readMtThreads();
-  // The MT thread count is captured at boot time; lock the input
-  // until the MT handle is torn down so the displayed value matches
-  // what's actually live in the worker.
-  if (role === 'mt') $mtThreads.disabled = true;
-  log(
-    'info',
-    `[wasm-boot/${role}] starting (threads=${threads}, ` + `max-mem=${(WASM_MEM_MAX_PAGES * 64) / 1024} MiB)`,
-  );
-  logMemSnapshot(`pre-wasm-boot/${role}`);
+  if (wasmMtPippenger !== null) return wasmMtPippenger;
+  if (wasmMtBootInFlight !== null) return wasmMtBootInFlight;
+  const threads = readMtThreads();
+  // The thread count is captured at boot time; lock the input until the
+  // handle is torn down so the displayed value matches what's live in
+  // the worker.
+  $mtThreads.disabled = true;
+  log('info', `[wasm-boot] starting (threads=${threads}, ` + `max-mem=${(WASM_MEM_MAX_PAGES * 64) / 1024} MiB)`);
+  logMemSnapshot('pre-wasm-boot');
   const t0 = performance.now();
-  const boot = createWasmPippenger(threads, m => log('info', `[wasm-boot/${role}] ${m}`), {
+  const boot = createWasmPippenger(threads, m => log('info', `[wasm-boot] ${m}`), {
     initialPages: WASM_MEM_INITIAL_PAGES,
     maxPages: WASM_MEM_MAX_PAGES,
   })
     .then(handle => {
-      if (role === 'st') wasmStPippenger = handle;
-      else wasmMtPippenger = handle;
-      log(
-        'ok',
-        `[wasm-boot/${role}] ready (${handle.threads} threads, ` + `${(performance.now() - t0).toFixed(0)} ms)`,
-      );
-      logMemSnapshot(`post-wasm-boot/${role}`);
+      wasmMtPippenger = handle;
+      log('ok', `[wasm-boot] ready (${handle.threads} threads, ` + `${(performance.now() - t0).toFixed(0)} ms)`);
+      logMemSnapshot('post-wasm-boot');
       return handle;
     })
     .catch(err => {
-      log('err', `[wasm-boot/${role}] failed: ${err instanceof Error ? err.message : String(err)}`);
-      if (role === 'mt') $mtThreads.disabled = false;
+      log('err', `[wasm-boot] failed: ${err instanceof Error ? err.message : String(err)}`);
+      $mtThreads.disabled = false;
       throw err;
     })
     .finally(() => {
-      if (role === 'st') wasmStBootInFlight = null;
-      else wasmMtBootInFlight = null;
+      wasmMtBootInFlight = null;
     });
-  if (role === 'st') wasmStBootInFlight = boot;
-  else wasmMtBootInFlight = boot;
+  wasmMtBootInFlight = boot;
   return boot;
 }
 
@@ -300,18 +278,13 @@ async function ensureWasmBooted(role: WasmRole): Promise<WasmPippengerHandle> {
 async function stopAndDestroyWasm(reason: string): Promise<void> {
   abortRequested = true;
   $status.textContent = `${reason}; stopping…`;
-  const handles: Array<[WasmRole, WasmPippengerHandle | null]> = [
-    ['st', wasmStPippenger],
-    ['mt', wasmMtPippenger],
-  ];
-  wasmStPippenger = null;
+  const handle = wasmMtPippenger;
   wasmMtPippenger = null;
-  for (const [role, handle] of handles) {
-    if (handle === null) continue;
+  if (handle !== null) {
     try {
       await handle.destroy();
     } catch (err) {
-      log('warn', `[stop/${role}] destroy threw: ${err instanceof Error ? err.message : String(err)}`);
+      log('warn', `[stop] destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   $mtThreads.disabled = false;
@@ -551,8 +524,25 @@ async function runWebGpuOnce(
   return { ms, xy: gpu, capture: { profile: null } };
 }
 
-async function runWasmOnce(inputs: TestInputs, role: WasmRole): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
-  const handle = await ensureWasmBooted(role);
+// Decode + upload the inputs into the WASM worker's native point/scalar
+// vectors. UNTIMED — kept out of runWasmOnce's measured window so the
+// benchmark reports Pippenger compute, not input-structure population.
+async function loadWasmInputs(inputs: TestInputs): Promise<void> {
+  const handle = await ensureWasmBooted();
+  throwIfAborted();
+  log(
+    'info',
+    `[wasm] load n=${inputs.n.toLocaleString()} ` +
+      `(${((inputs.pointsBuf.length + inputs.scalarsBuf.length) / 1024 / 1024).toFixed(1)} MiB in)`,
+  );
+  await handle.loadMsm(inputs.pointsBuf, inputs.scalarsBuf);
+}
+
+// Time one batch_multi_scalar_mul_native run over the inputs from the last
+// loadWasmInputs. The buffer copy + native-vector decode are NOT in the
+// timed window — only the Pippenger compute is measured.
+async function runWasmOnce(): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
+  const handle = await ensureWasmBooted();
   // If Stop destroyed the handle while ensureWasmBooted was already
   // resolved (e.g. for the previous rep), the next call would crash
   // inside comlink with a confusing "channel closed" message.
@@ -565,15 +555,10 @@ async function runWasmOnce(inputs: TestInputs, role: WasmRole): Promise<{ ms: nu
   // `handle.threads` rather than re-reading the UI input because the
   // user may have changed it since boot.
   const numThreads = handle.threads;
-  log(
-    'info',
-    `[wasm/${role}] dispatch n=${inputs.n.toLocaleString()} ` +
-      `(${((inputs.pointsBuf.length + inputs.scalarsBuf.length) / 1024 / 1024).toFixed(1)} MiB in)`,
-  );
   const t0 = performance.now();
-  const resultBytes = await handle.runMsm(inputs.pointsBuf, inputs.scalarsBuf, numThreads);
+  const resultBytes = await handle.runMsm(numThreads);
   const ms = performance.now() - t0;
-  log('info', `[wasm/${role}] returned in ${ms.toFixed(1)} ms`);
+  log('info', `[wasm] returned in ${ms.toFixed(1)} ms`);
   return { ms, xy: parseAffineLE(resultBytes) };
 }
 
@@ -594,10 +579,9 @@ interface BackendSample {
 interface SweepRow {
   logN: number;
   webgpu: BackendSample[];
-  wasmSt: BackendSample[];
   wasmMt: BackendSample[];
   nobleOk: boolean | null;
-  crossOk: boolean | null; // WASM-ST/MT match WebGPU?
+  crossOk: boolean | null; // WASM-MT matches WebGPU?
 }
 
 function median(samples: number[]): number {
@@ -885,13 +869,11 @@ function captureEntriesFromRows(rows: SweepRow[]): { logN: number; captures: Pro
 
 function renderSweepTable(rows: SweepRow[]): void {
   // Two tables: a consistency check at log₂n = NOBLE_REFERENCE_LOGN
-  // (cross-checks WebGPU / WASM-ST / WASM-MT / Noble pairwise), and a
-  // perf comparison of WebGPU vs WASM MT across every sweep size.
-  // WASM ST is omitted from the perf table — it's strictly slower at
-  // these sizes and not the production path; noble lives in the
-  // consistency table only because it's too slow to run at larger n.
-  // Followed by a per-pass GPU/CPU breakdown built from the
-  // `profile_capture` out-params collected on every WebGPU rep.
+  // (cross-checks WebGPU / WASM-MT / Noble pairwise), and a perf
+  // comparison of WebGPU vs WASM MT across every sweep size. Noble
+  // lives in the consistency table only because it's too slow to run
+  // at larger n. Followed by a per-pass GPU/CPU breakdown built from
+  // the `profile_capture` out-params collected on every WebGPU rep.
   const refRow = rows.find(r => r.logN === NOBLE_REFERENCE_LOGN);
   $results.innerHTML =
     renderConsistencyTable(refRow) + renderPerfTable(rows) + renderBreakdownTable(captureEntriesFromRows(rows));
@@ -903,7 +885,6 @@ function renderConsistencyTable(row: SweepRow | undefined): string {
   // so each cell can be FAIL-pinpointed individually. Cells stay as
   // "—" until the reference row has run at least one rep.
   const gpu = row?.webgpu[0]?.xy;
-  const st = row?.wasmSt[0]?.xy;
   const mt = row?.wasmMt[0]?.xy;
   const eq = (a: { x: bigint; y: bigint } | undefined, b: { x: bigint; y: bigint } | undefined): boolean | null =>
     !a || !b ? null : pointsEqual(a, b);
@@ -911,15 +892,11 @@ function renderConsistencyTable(row: SweepRow | undefined): string {
   <h3>Consistency (log₂n = ${NOBLE_REFERENCE_LOGN}, n = ${(1 << NOBLE_REFERENCE_LOGN).toLocaleString()})</h3>
   <table>
     <tr>
-      <th>WebGPU vs WASM ST</th>
       <th>WebGPU vs WASM MT</th>
-      <th>WASM ST vs WASM MT</th>
       <th>Noble vs WebGPU</th>
     </tr>
     <tr>
-      <td>${fmtCheck(eq(gpu, st))}</td>
       <td>${fmtCheck(eq(gpu, mt))}</td>
-      <td>${fmtCheck(eq(st, mt))}</td>
       <td>${fmtCheck(row?.nobleOk ?? null)}</td>
     </tr>
   </table>`;
@@ -984,18 +961,15 @@ $run.addEventListener('click', async () => {
     await yieldToBrowser();
 
     throwIfAborted();
-    const st = await runWasmOnce(inputs, 'st');
+    await loadWasmInputs(inputs);
+    const mt = await runWasmOnce();
     await yieldToBrowser();
 
-    throwIfAborted();
-    const mt = await runWasmOnce(inputs, 'mt');
-    await yieldToBrowser();
-
-    const cross = pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
+    const cross = pointsEqual(gpu.xy, mt.xy);
     if (cross) {
-      log('ok', `[cross-check] WebGPU, WASM ST, WASM MT all agree`);
+      log('ok', `[cross-check] WebGPU and WASM MT agree`);
     } else {
-      log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, st=${st.xy.x}, mt=${mt.xy.x}`);
+      log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, mt=${mt.xy.x}`);
     }
     if (checkNoble && inputs.points && inputs.scalars) {
       const noble = referenceMsm(inputs.points, inputs.scalars);
@@ -1023,28 +997,23 @@ $runBench.addEventListener('click', async () => {
     const logN = readLogN();
     const inputs = await generateInputs(logN, false);
     const gpuSamples: number[] = [];
-    const stSamples: number[] = [];
     const mtSamples: number[] = [];
     const gpuCaptures: ProfileCapture[] = [];
+    // Load the WASM inputs once — the byte copy + native-vector decode
+    // are not part of the timed Pippenger window.
+    await loadWasmInputs(inputs);
     for (let i = 0; i < SWEEP_REPS; i++) {
       throwIfAborted();
       log('info', `[bench] iter ${i + 1}/${SWEEP_REPS}`);
       const gpu = await runWebGpuOnce(inputs);
       throwIfAborted();
-      const st = await runWasmOnce(inputs, 'st');
-      throwIfAborted();
-      const mt = await runWasmOnce(inputs, 'mt');
+      const mt = await runWasmOnce();
       gpuSamples.push(gpu.ms);
       gpuCaptures.push(gpu.capture);
-      stSamples.push(st.ms);
       mtSamples.push(mt.ms);
-      log('info', `  gpu=${gpu.ms.toFixed(1)}, st=${st.ms.toFixed(1)}, mt=${mt.ms.toFixed(1)}`);
+      log('info', `  gpu=${gpu.ms.toFixed(1)}, mt=${mt.ms.toFixed(1)}`);
     }
-    log(
-      'ok',
-      `[bench] medians: gpu=${median(gpuSamples).toFixed(1)}, ` +
-        `st=${median(stSamples).toFixed(1)}, mt=${median(mtSamples).toFixed(1)} ms`,
-    );
+    log('ok', `[bench] medians: gpu=${median(gpuSamples).toFixed(1)}, mt=${median(mtSamples).toFixed(1)} ms`);
     // Surface the per-pass GPU/CPU breakdown for the single logN
     // benched. Same renderer the sweep uses, just with one column.
     $results.innerHTML = renderBreakdownTable([{ logN, captures: gpuCaptures }]);
@@ -1071,7 +1040,6 @@ $runSweep.addEventListener('click', async () => {
   const rows: SweepRow[] = SWEEP_LOGN.map(logN => ({
     logN,
     webgpu: [],
-    wasmSt: [],
     wasmMt: [],
     nobleOk: null,
     crossOk: null,
@@ -1105,18 +1073,20 @@ $runSweep.addEventListener('click', async () => {
         log('info', `[sweep] step 2/4: noble skipped`);
       }
 
-      log('info', `[sweep] step 3/4: ensure both WASM workers booted (lazy — fires on first rep)`);
-      // Pre-warm both WASM boots before the timed reps so we don't fold
+      log('info', `[sweep] step 3/4: ensure the WASM worker is booted, then load this size's inputs`);
+      // Pre-warm the WASM boot before the timed reps so we don't fold
       // the spawn time into the first rep's wall clock. Also if Stop
       // hits during boot we abort here cleanly rather than mid-MSM.
-      await ensureWasmBooted('st');
+      await ensureWasmBooted();
       throwIfAborted();
-      await ensureWasmBooted('mt');
+      // Decode + upload the WASM inputs once per size — untimed, kept
+      // out of every rep's measured window.
+      await loadWasmInputs(inputs);
       throwIfAborted();
       await yieldToBrowser();
       log('info', `[sweep] step 3/4 done`);
 
-      log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-st, wasm-mt}`);
+      log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-mt}`);
       for (let i = 0; i < SWEEP_REPS; i++) {
         throwIfAborted();
         setBusy(true, `sweeping log₂(n)=${row.logN} (rep ${i + 1}/${SWEEP_REPS})…`);
@@ -1126,23 +1096,17 @@ $runSweep.addEventListener('click', async () => {
         await yieldToBrowser();
         throwIfAborted();
 
-        const st = await runWasmOnce(inputs, 'st');
-        await yieldToBrowser();
-        throwIfAborted();
-
-        const mt = await runWasmOnce(inputs, 'mt');
+        const mt = await runWasmOnce();
         await yieldToBrowser();
 
         row.webgpu.push(gpu);
-        row.wasmSt.push(st);
         row.wasmMt.push(mt);
         if (i === 0) {
-          row.crossOk = pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
+          row.crossOk = pointsEqual(gpu.xy, mt.xy);
           if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
           if (!row.crossOk) {
             log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
             log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
-            log('err', `         st.x =${st.xy.x.toString(16)}`);
             log('err', `         mt.x =${mt.xy.x.toString(16)}`);
           }
         }
@@ -1151,7 +1115,6 @@ $runSweep.addEventListener('click', async () => {
       log(
         'info',
         `[sweep]   medians: gpu=${median(row.webgpu.map(s => s.ms)).toFixed(1)}, ` +
-          `st=${median(row.wasmSt.map(s => s.ms)).toFixed(1)}, ` +
           `mt=${median(row.wasmMt.map(s => s.ms)).toFixed(1)} ms`,
       );
       logMemSnapshot(`after log₂(n)=${row.logN}`);
@@ -1434,7 +1397,7 @@ function hideProgress(): void {
 
   // Autorun support for BrowserStack-driven integration testing.
   // URL params:
-  //   ?autorun=msm-cross-check    Click Run, capture gpu/st/mt result triple
+  //   ?autorun=msm-cross-check    Click Run, capture gpu/mt result pair
   //   ?logn=N                     logN to test (default keeps page default)
   //   ?use_tree_reduce=1          Route SMVP through tree-reduce pipeline
   // Results posted via the standard /results endpoint so the BS harness
@@ -1501,7 +1464,7 @@ function hideProgress(): void {
       for (let i = 0; i < $log.children.length; i++) {
         lines.push($log.children[i].textContent ?? '');
       }
-      const crossOk = lines.some(l => /cross-check.*all agree/i.test(l));
+      const crossOk = lines.some(l => /cross-check.*\bagree\b/i.test(l));
       const crossErr = lines.find(l => /cross-check.*disagreement/i.test(l));
       const gpuLine = lines.find(l => /\[gpu\] x=0x/.test(l));
       const errLines = lines.filter(l => /^\[err\]/.test(l));

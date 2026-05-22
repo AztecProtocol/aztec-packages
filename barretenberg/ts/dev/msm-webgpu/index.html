@@ -82,15 +82,13 @@
     <p>
       Runs an MSM of the first <em>n</em> = 2<sup>log₂(n)</sup> points
       of the public BN254 G1 SRS against fresh random Fr scalars and
-      times three implementations on the same input:
+      times two implementations on the same input:
       <strong>(1) WebGPU MSM</strong> via this repo's
-      <code>MsmV2</code> pair-tree pipeline,
-      <strong>(2) barretenberg WASM Pippenger single-threaded</strong>
-      (the threaded WASM with the per-call thread count overridden to
-      1), and <strong>(3) barretenberg WASM Pippenger
+      <code>MsmV2</code> pair-tree pipeline, and
+      <strong>(2) barretenberg WASM Pippenger
       multi-threaded</strong> (the threaded WASM with all hardware
-      threads). Both WASM paths call the
-      <code>bb_native_pippenger_bn254</code> export, which skips the
+      threads). The WASM path calls the
+      <code>bb_native_pippenger_bn254_*</code> exports, which skip the
       <code>BBERG_WEBGPU_MSM_HOOK</code> delegation so we measure the
       in-tree Pippenger and not the bridge round-trip.
     </p>
@@ -98,7 +96,7 @@
       At log₂(n) = 16 the GPU result is cross-checked against
       <code>bn254.G1.ProjectivePoint.msm</code> from
       <code>@noble/curves</code> for correctness; at all sizes the
-      three implementations are cross-checked against each other. The
+      both implementations are cross-checked against each other. The
       SRS (up to 2<sup>20</sup> points) is fetched from
       <code>crs.aztec-cdn.foundation</code> on first page load,
       decompressed in JS, and cached in IndexedDB — cold pull is slow
@@ -185,16 +183,17 @@
         bigint Pippenger takes minutes per call.
       </p>
       <p>
-        <strong>WASM Pippenger (timing, ST + MT)</strong>: copies
-        the same byte buffers into the WASM heap (<code>bbmalloc</code>
-        + <code>writeMemory</code>), then calls
-        <code>bb_native_pippenger_bn254(points, scalars, n, num_threads, result)</code>
-        directly via the WASM exports table. The ST run passes
-        <code>num_threads = 1</code>, the MT run passes
-        <code>navigator.hardwareConcurrency</code>. The runtime
-        concurrency is restored after each call. Buffer alloc/free
-        time is included in the wall-time (consistent with how a
-        production caller would experience the cost).
+        <strong>WASM Pippenger (timing, MT)</strong>: copies the byte
+        buffers into the WASM heap (<code>bbmalloc</code> +
+        <code>writeMemory</code>) and decodes them into the native
+        point/scalar vectors via
+        <code>bb_native_pippenger_bn254_load</code> — all untimed. The
+        timed call is
+        <code>bb_native_pippenger_bn254_run(num_threads, result)</code>,
+        which runs <code>batch_multi_scalar_mul_native</code> over the loaded inputs
+        with <code>num_threads = navigator.hardwareConcurrency</code>.
+        Only Pippenger compute is measured; input-buffer population is
+        excluded from the wall-time.
       </p>
     </details>
     <script type="module" src="./main.ts"></script>

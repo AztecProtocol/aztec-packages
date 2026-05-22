@@ -38,7 +38,7 @@ const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 // pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
 const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
-const DEFAULT_INV_VARIANT: 'a' | 'loop' | 'pk' = 'pk';
+const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 
 /**
  * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
@@ -57,7 +57,7 @@ export interface MsmConfig {
   /** Reduction leaf-partition log2. Default 1. */
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
-  invVariant?: 'a' | 'loop' | 'pk';
+  invVariant?: 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
@@ -90,7 +90,7 @@ export interface ProfileBreakdown {
   carry: number;
   finalize: number;
   redInit: number;
-  redFused: number;
+  redLevel: number;
   wall: number;
 }
 
@@ -477,7 +477,7 @@ export class MsmV2 {
   private wgi!: number;
   private l0Log!: number;
   private reduceWg!: number;
-  private invVariant!: 'a' | 'loop' | 'pk';
+  private invVariant!: 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = 0;
@@ -723,13 +723,32 @@ export class MsmV2 {
     }
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
-    // shader JIT / command-buffer cold start and sees ramped GPU clocks. Dummy
-    // scalars (0x01..) give a representative bucket distribution. The bridge
-    // passes warmupRuns: 0 — production wants the first MSM to be real work.
+    // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
+    // bridge passes warmupRuns: 0 — production wants the first MSM to be real
+    // work.
     const warmupRuns = config?.warmupRuns ?? 5;
     if (warmupRuns > 0) {
       try {
-        const dummy = new Uint8Array(n * 32).fill(1);
+        // Warm-up scalars: a deterministic pseudo-random spread. They must
+        // not be all-identical — identical scalars collapse every window sum
+        // onto the one-dimensional subgroup ⟨Σ Pᵢ⟩, where hostWindowCombine's
+        // incomplete Jacobian addition hits a collision / the point at
+        // infinity and throws "value is not invertible". A varied spread
+        // keeps the combine generic, matching a real MSM's input.
+        const dummy = new Uint8Array(n * 32);
+        let rng = 0x9e3779b9 >>> 0;
+        for (let i = 0; i < dummy.length; i += 4) {
+          rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0;
+          dummy[i] = rng & 0xff;
+          dummy[i + 1] = (rng >>> 8) & 0xff;
+          dummy[i + 2] = (rng >>> 16) & 0xff;
+          dummy[i + 3] = (rng >>> 24) & 0xff;
+        }
+        // Keep each 32-byte scalar's top byte below the Fr modulus's leading
+        // byte (0x30) so every warm-up scalar is a valid field element.
+        for (let k = 0; k < n; k++) {
+          dummy[k * 32 + 31] &= 0x1f;
+        }
         m.prepare(dummy);
         for (let w = 0; w < warmupRuns; w++) await m.run();
       } catch (e) {
@@ -1144,7 +1163,7 @@ export class MsmV2 {
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1, 'redInit');
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
       const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
-      dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1, 'redFused');
+      dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1, 'redLevel');
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
       enc.resolveQuerySet(this.querySet, 0, passIdx * 2, this.tsResolveBuf, 0);
@@ -1184,7 +1203,7 @@ export class MsmV2 {
       this.tsStagingBuf.unmap();
       profile = {
         decompose: 0, transpose: 0, convert: 0, planner: 0,
-        fused: 0, carry: 0, finalize: 0, redInit: 0, redFused: 0, wall: 0,
+        fused: 0, carry: 0, finalize: 0, redInit: 0, redLevel: 0, wall: 0,
       };
       const acc = profile as unknown as Record<string, number>;
       for (let i = 0; i < cats.length; i++) {

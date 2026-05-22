@@ -10,10 +10,6 @@ import {
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
-  // Option A BY safegcd inverse on 20 x 13-bit BigInt with BATCH=26 /
-  // NUM_OUTER=29. Hosts MatA, bya_divsteps, bya_apply_matrix_{fg,de}, the
-  // bya_reduce_to_canonical helper chain, and the fr_inv_by_a driver.
-  by_inverse_a as by_inverse_a_funcs,
   // Register-minimal BY safegcd inverse (BATCH=12 / NUM_OUTER=62, rolling
   // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
   // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
@@ -411,7 +407,7 @@ ${packLines.join('\n')}
   public gen_ba_fused_super_bench_shader(
     workgroup_size: number,
     s: number,
-    variant: 'a' | 'loop' | 'pk' = 'pk',
+    variant: 'loop' | 'pk' = 'pk',
     tiled = false,
     l0_index_mode = false,
     addsub: 'native' | 'unpack' = 'native',
@@ -420,8 +416,8 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_fused_super_bench_shader,
@@ -601,7 +597,7 @@ ${packLines.join('\n')}
   public gen_ba_reduce_level_bench_shader(
     workgroup_size: number,
     kind: number,
-    variant: 'a' | 'loop' | 'pk' = 'pk',
+    variant: 'loop' | 'pk' = 'pk',
     addsub: 'native' | 'unpack' = 'native',
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
@@ -611,8 +607,8 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_reduce_level_bench_shader: kind (${kind}) must be 0, 1 or 2`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'a' ? by_inverse_a_funcs : by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_level_bench_shader,
