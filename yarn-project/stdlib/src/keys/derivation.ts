@@ -7,7 +7,7 @@ import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { KeyPrefix } from './key_types.js';
-import { hashPublicKey } from './public_key.js';
+import { PublicKey, hashPublicKey } from './public_key.js';
 import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 
@@ -84,7 +84,7 @@ export async function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
   return addressSecretCandidate;
 }
 
-export function derivePublicKeyFromSecretKey(secretKey: Fq) {
+export function derivePublicKeyFromSecretKey(secretKey: Fq): Promise<PublicKey> {
   return Grumpkin.mul(Grumpkin.generator, secretKey);
 }
 

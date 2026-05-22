@@ -1,5 +1,5 @@
 use crate::ephemeral::EphemeralArray;
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field, point::Point};
+use crate::protocol::{address::AztecAddress, hash::sha256_to_field, point::EmbeddedCurvePoint};
 
 global GET_SHARED_SECRETS_REQUEST_SLOT: Field = sha256_to_field("AZTEC_NR::GET_SHARED_SECRETS_REQUEST_SLOT".as_bytes());
 
@@ -11,7 +11,11 @@ unconstrained fn get_shared_secrets_oracle(
 ) -> Field {}
 
 /// Convenience wrapper around [`get_shared_secrets`] for a single ephemeral public key.
-pub unconstrained fn get_shared_secret(address: AztecAddress, eph_pk: Point, contract_address: AztecAddress) -> Field {
+pub unconstrained fn get_shared_secret(
+    address: AztecAddress,
+    eph_pk: EmbeddedCurvePoint,
+    contract_address: AztecAddress,
+) -> Field {
     get_shared_secrets::<1>(address, BoundedVec::from_array([eph_pk]), contract_address).get(0)
 }
 
@@ -36,10 +40,10 @@ pub unconstrained fn get_shared_secret(address: AztecAddress, eph_pk: Point, con
 /// [`derive_shared_secret_subkey`](crate::keys::ecdh_shared_secret::derive_shared_secret_subkey).
 pub unconstrained fn get_shared_secrets<let N: u32>(
     address: AztecAddress,
-    eph_pks: BoundedVec<Point, N>,
+    eph_pks: BoundedVec<EmbeddedCurvePoint, N>,
     contract_address: AztecAddress,
 ) -> BoundedVec<Field, N> {
-    let request_array: EphemeralArray<Point> = EphemeralArray::at(GET_SHARED_SECRETS_REQUEST_SLOT).clear();
+    let request_array: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::at(GET_SHARED_SECRETS_REQUEST_SLOT).clear();
     eph_pks.for_each(|pk| request_array.push(pk));
 
     let response_slot = get_shared_secrets_oracle(address, request_array.slot, contract_address);
