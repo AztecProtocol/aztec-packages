@@ -37,8 +37,8 @@ namespace bb {
 // Every `bb_vf_barrier_sqq` / `bb_vf_barrier_sq` is load-bearing: see
 // vector_field.hpp for why. DO NOT remove.
 //
-// Stage 3 "break the qsl4==ql4 / qsr4==qri4 alias" (via bb_vf_barrier_sq
-// on ssl4/qsl4/ssr4/qsr4) prevents LLVM from CSE-ing pc8's extmul pair
+// Stage 3 "break the ql4==ql4 / qri4==qri4 alias" (via bb_vf_barrier_sq
+// on sl4/ql4/sri4/qri4) prevents LLVM from CSE-ing pc8's extmul pair
 // with pl8 = l4*r4.
 // =====================================================================
 // clang-format off
@@ -210,130 +210,105 @@ namespace bb {
     v128_t ph6_hi = wasm_u64x2_extmul_high_u32x4(ql8, qri8);                                                           \
     vector_field_detail::bb_vf_barrier_sqq(ph6, ph6_lo, ph6_hi);                                                       \
     /* Stage 4: P_cross (25 muls, pc0..pc8). */                                                                        \
-    /* lazy Stage 3 for pc0: qsl0/qsr0. */                                                                          \
-    uint64_t ssl0 = sl0 + sl5;                                                                                     \
-    v128_t qsl0 = wasm_i32x4_add(ql0, ql5);                                                                        \
-    uint64_t ssr0 = sri0 + sri5;                                                                                   \
-    v128_t qsr0 = wasm_i32x4_add(qri0, qri5);                                                                      \
-    uint64_t pc0 = ssl0 * ssr0;                                                                                        \
-    v128_t pc0_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr0);                                                           \
-    v128_t pc0_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr0);                                                          \
+    uint64_t pc0 = (sl0 + sl5) * (sri0 + sri5);                                                                                        \
+    v128_t pc0_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri0, qri5));                                                           \
+    v128_t pc0_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri0, qri5));                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc0, pc0_lo, pc0_hi);                                                       \
-    /* lazy Stage 3 for pc1: qsl1/qsr1. */                                                                          \
-    uint64_t ssl1 = sl1 + sl6;                                                                                     \
-    v128_t qsl1 = wasm_i32x4_add(ql1, ql6);                                                                        \
-    uint64_t ssr1 = sri1 + sri6;                                                                                   \
-    v128_t qsr1 = wasm_i32x4_add(qri1, qri6);                                                                      \
-    uint64_t pc1 = ssl0 * ssr1;                                                                                        \
-    v128_t pc1_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr1);                                                           \
-    v128_t pc1_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr1);                                                          \
+    uint64_t pc1 = (sl0 + sl5) * (sri1 + sri6);                                                                                        \
+    v128_t pc1_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri1, qri6));                                                           \
+    v128_t pc1_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri1, qri6));                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc1, pc1_lo, pc1_hi);                                                       \
-    pc1 += ssl1 * ssr0;                                                                                                \
-    pc1_lo = wasm_i64x2_add(pc1_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr0));                                          \
-    pc1_hi = wasm_i64x2_add(pc1_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr0));                                         \
+    pc1 += (sl1 + sl6) * (sri0 + sri5);                                                                                                \
+    pc1_lo = wasm_i64x2_add(pc1_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri0, qri5)));                                          \
+    pc1_hi = wasm_i64x2_add(pc1_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri0, qri5)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc1, pc1_lo, pc1_hi);                                                       \
-    /* lazy Stage 3 for pc2: qsl2/qsr2. */                                                                          \
-    uint64_t ssl2 = sl2 + sl7;                                                                                     \
-    v128_t qsl2 = wasm_i32x4_add(ql2, ql7);                                                                        \
-    uint64_t ssr2 = sri2 + sri7;                                                                                   \
-    v128_t qsr2 = wasm_i32x4_add(qri2, qri7);                                                                      \
-    uint64_t pc2 = ssl0 * ssr2;                                                                                        \
-    v128_t pc2_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr2);                                                           \
-    v128_t pc2_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr2);                                                          \
+    uint64_t pc2 = (sl0 + sl5) * (sri2 + sri7);                                                                                        \
+    v128_t pc2_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri2, qri7));                                                           \
+    v128_t pc2_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri2, qri7));                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc2, pc2_lo, pc2_hi);                                                       \
-    pc2 += ssl1 * ssr1;                                                                                                \
-    pc2_lo = wasm_i64x2_add(pc2_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr1));                                          \
-    pc2_hi = wasm_i64x2_add(pc2_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr1));                                         \
+    pc2 += (sl1 + sl6) * (sri1 + sri6);                                                                                                \
+    pc2_lo = wasm_i64x2_add(pc2_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri1, qri6)));                                          \
+    pc2_hi = wasm_i64x2_add(pc2_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri1, qri6)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc2, pc2_lo, pc2_hi);                                                       \
-    pc2 += ssl2 * ssr0;                                                                                                \
-    pc2_lo = wasm_i64x2_add(pc2_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr0));                                          \
-    pc2_hi = wasm_i64x2_add(pc2_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr0));                                         \
+    pc2 += (sl2 + sl7) * (sri0 + sri5);                                                                                                \
+    pc2_lo = wasm_i64x2_add(pc2_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri0, qri5)));                                          \
+    pc2_hi = wasm_i64x2_add(pc2_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri0, qri5)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc2, pc2_lo, pc2_hi);                                                       \
-    /* lazy Stage 3 for pc3: qsl3/qsr3. */                                                                          \
-    uint64_t ssl3 = sl3 + sl8;                                                                                     \
-    v128_t qsl3 = wasm_i32x4_add(ql3, ql8);                                                                        \
-    uint64_t ssr3 = sri3 + sri8;                                                                                   \
-    v128_t qsr3 = wasm_i32x4_add(qri3, qri8);                                                                      \
-    uint64_t pc3 = ssl0 * ssr3;                                                                                        \
-    v128_t pc3_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr3);                                                           \
-    v128_t pc3_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr3);                                                          \
+    uint64_t pc3 = (sl0 + sl5) * (sri3 + sri8);                                                                                        \
+    v128_t pc3_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri3, qri8));                                                           \
+    v128_t pc3_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql0, ql5), wasm_i32x4_add(qri3, qri8));                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);                                                       \
-    pc3 += ssl1 * ssr2;                                                                                                \
-    pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr2));                                          \
-    pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr2));                                         \
+    pc3 += (sl1 + sl6) * (sri2 + sri7);                                                                                                \
+    pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri2, qri7)));                                          \
+    pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri2, qri7)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);                                                       \
-    pc3 += ssl2 * ssr1;                                                                                                \
-    pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr1));                                          \
-    pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr1));                                         \
+    pc3 += (sl2 + sl7) * (sri1 + sri6);                                                                                                \
+    pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri1, qri6)));                                          \
+    pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri1, qri6)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);                                                       \
-    pc3 += ssl3 * ssr0;                                                                                                \
-    pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr0));                                          \
-    pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr0));                                         \
+    pc3 += (sl3 + sl8) * (sri0 + sri5);                                                                                                \
+    pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri0, qri5)));                                          \
+    pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri0, qri5)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);                                                       \
-    /* lazy Stage 3 for pc4: qsl4/qsr4 (degenerate — no upper limb to fold in). */\
-    uint64_t ssl4 = sl4;                                                                                               \
-    v128_t qsl4 = ql4;                                                                                                 \
-    uint64_t ssr4 = sri4;                                                                                              \
-    v128_t qsr4 = qri4;                                                                                                \
-    uint64_t pc4 = ssl0 * ssr4;                                                                                        \
-    v128_t pc4_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr4);                                                           \
-    v128_t pc4_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr4);                                                          \
+    uint64_t pc4 = (sl0 + sl5) * sri4;                                                                                        \
+    v128_t pc4_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql0, ql5), qri4);                                                           \
+    v128_t pc4_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql0, ql5), qri4);                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);                                                       \
-    pc4 += ssl1 * ssr3;                                                                                                \
-    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr3));                                          \
-    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr3));                                         \
+    pc4 += (sl1 + sl6) * (sri3 + sri8);                                                                                                \
+    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri3, qri8)));                                          \
+    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql1, ql6), wasm_i32x4_add(qri3, qri8)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);                                                       \
-    pc4 += ssl2 * ssr2;                                                                                                \
-    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr2));                                          \
-    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr2));                                         \
+    pc4 += (sl2 + sl7) * (sri2 + sri7);                                                                                                \
+    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri2, qri7)));                                          \
+    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri2, qri7)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);                                                       \
-    pc4 += ssl3 * ssr1;                                                                                                \
-    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr1));                                          \
-    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr1));                                         \
+    pc4 += (sl3 + sl8) * (sri1 + sri6);                                                                                                \
+    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri1, qri6)));                                          \
+    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri1, qri6)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);                                                       \
-    pc4 += ssl4 * ssr0;                                                                                                \
-    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr0));                                          \
-    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr0));                                         \
+    pc4 += sl4 * (sri0 + sri5);                                                                                                \
+    pc4_lo = wasm_i64x2_add(pc4_lo, wasm_u64x2_extmul_low_u32x4(ql4, wasm_i32x4_add(qri0, qri5)));                                          \
+    pc4_hi = wasm_i64x2_add(pc4_hi, wasm_u64x2_extmul_high_u32x4(ql4, wasm_i32x4_add(qri0, qri5)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc4, pc4_lo, pc4_hi);                                                       \
-    uint64_t pc5 = ssl1 * ssr4;                                                                                        \
-    v128_t pc5_lo = wasm_u64x2_extmul_low_u32x4(qsl1, qsr4);                                                           \
-    v128_t pc5_hi = wasm_u64x2_extmul_high_u32x4(qsl1, qsr4);                                                          \
+    uint64_t pc5 = (sl1 + sl6) * sri4;                                                                                        \
+    v128_t pc5_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql1, ql6), qri4);                                                           \
+    v128_t pc5_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql1, ql6), qri4);                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);                                                       \
-    pc5 += ssl2 * ssr3;                                                                                                \
-    pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr3));                                          \
-    pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr3));                                         \
+    pc5 += (sl2 + sl7) * (sri3 + sri8);                                                                                                \
+    pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri3, qri8)));                                          \
+    pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql2, ql7), wasm_i32x4_add(qri3, qri8)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);                                                       \
-    pc5 += ssl3 * ssr2;                                                                                                \
-    pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr2));                                          \
-    pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr2));                                         \
+    pc5 += (sl3 + sl8) * (sri2 + sri7);                                                                                                \
+    pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri2, qri7)));                                          \
+    pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri2, qri7)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);                                                       \
-    pc5 += ssl4 * ssr1;                                                                                                \
-    pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr1));                                          \
-    pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr1));                                         \
+    pc5 += sl4 * (sri1 + sri6);                                                                                                \
+    pc5_lo = wasm_i64x2_add(pc5_lo, wasm_u64x2_extmul_low_u32x4(ql4, wasm_i32x4_add(qri1, qri6)));                                          \
+    pc5_hi = wasm_i64x2_add(pc5_hi, wasm_u64x2_extmul_high_u32x4(ql4, wasm_i32x4_add(qri1, qri6)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc5, pc5_lo, pc5_hi);                                                       \
-    uint64_t pc6 = ssl2 * ssr4;                                                                                        \
-    v128_t pc6_lo = wasm_u64x2_extmul_low_u32x4(qsl2, qsr4);                                                           \
-    v128_t pc6_hi = wasm_u64x2_extmul_high_u32x4(qsl2, qsr4);                                                          \
+    uint64_t pc6 = (sl2 + sl7) * sri4;                                                                                        \
+    v128_t pc6_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql2, ql7), qri4);                                                           \
+    v128_t pc6_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql2, ql7), qri4);                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc6, pc6_lo, pc6_hi);                                                       \
-    pc6 += ssl3 * ssr3;                                                                                                \
-    pc6_lo = wasm_i64x2_add(pc6_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr3));                                          \
-    pc6_hi = wasm_i64x2_add(pc6_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr3));                                         \
+    pc6 += (sl3 + sl8) * (sri3 + sri8);                                                                                                \
+    pc6_lo = wasm_i64x2_add(pc6_lo, wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri3, qri8)));                                          \
+    pc6_hi = wasm_i64x2_add(pc6_hi, wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql3, ql8), wasm_i32x4_add(qri3, qri8)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc6, pc6_lo, pc6_hi);                                                       \
-    pc6 += ssl4 * ssr2;                                                                                                \
-    pc6_lo = wasm_i64x2_add(pc6_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr2));                                          \
-    pc6_hi = wasm_i64x2_add(pc6_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr2));                                         \
+    pc6 += sl4 * (sri2 + sri7);                                                                                                \
+    pc6_lo = wasm_i64x2_add(pc6_lo, wasm_u64x2_extmul_low_u32x4(ql4, wasm_i32x4_add(qri2, qri7)));                                          \
+    pc6_hi = wasm_i64x2_add(pc6_hi, wasm_u64x2_extmul_high_u32x4(ql4, wasm_i32x4_add(qri2, qri7)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc6, pc6_lo, pc6_hi);                                                       \
-    uint64_t pc7 = ssl3 * ssr4;                                                                                        \
-    v128_t pc7_lo = wasm_u64x2_extmul_low_u32x4(qsl3, qsr4);                                                           \
-    v128_t pc7_hi = wasm_u64x2_extmul_high_u32x4(qsl3, qsr4);                                                          \
+    uint64_t pc7 = (sl3 + sl8) * sri4;                                                                                        \
+    v128_t pc7_lo = wasm_u64x2_extmul_low_u32x4(wasm_i32x4_add(ql3, ql8), qri4);                                                           \
+    v128_t pc7_hi = wasm_u64x2_extmul_high_u32x4(wasm_i32x4_add(ql3, ql8), qri4);                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc7, pc7_lo, pc7_hi);                                                       \
-    pc7 += ssl4 * ssr3;                                                                                                \
-    pc7_lo = wasm_i64x2_add(pc7_lo, wasm_u64x2_extmul_low_u32x4(qsl4, qsr3));                                          \
-    pc7_hi = wasm_i64x2_add(pc7_hi, wasm_u64x2_extmul_high_u32x4(qsl4, qsr3));                                         \
+    pc7 += sl4 * (sri3 + sri8);                                                                                                \
+    pc7_lo = wasm_i64x2_add(pc7_lo, wasm_u64x2_extmul_low_u32x4(ql4, wasm_i32x4_add(qri3, qri8)));                                          \
+    pc7_hi = wasm_i64x2_add(pc7_hi, wasm_u64x2_extmul_high_u32x4(ql4, wasm_i32x4_add(qri3, qri8)));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc7, pc7_lo, pc7_hi);                                                       \
-    uint64_t pc8 = ssl4 * ssr4;                                                                                        \
-    v128_t pc8_lo = wasm_u64x2_extmul_low_u32x4(qsl4, qsr4);                                                           \
-    v128_t pc8_hi = wasm_u64x2_extmul_high_u32x4(qsl4, qsr4);                                                          \
+    uint64_t pc8 = sl4 * sri4;                                                                                        \
+    v128_t pc8_lo = wasm_u64x2_extmul_low_u32x4(ql4, qri4);                                                           \
+    v128_t pc8_hi = wasm_u64x2_extmul_high_u32x4(ql4, qri4);                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc8, pc8_lo, pc8_hi)
 
 // Load the 9-scalar-limb + 9-quad-limb input from LEFT and RIGHT references
