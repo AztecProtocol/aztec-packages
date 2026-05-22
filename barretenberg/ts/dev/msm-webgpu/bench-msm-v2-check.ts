@@ -12,7 +12,7 @@
 import { bn254 } from '@noble/curves/bn254';
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
-import { MsmV2, pickC } from './msm_v2.js';
+import { MsmV2, pickC, type MsmConfig } from './msm_v2.js';
 
 const FP_MOD = BN254_BASE_FIELD;
 
@@ -111,7 +111,7 @@ function randomFr(rng: () => number): bigint {
   return v % FR_ORDER;
 }
 
-async function checkOne(device: GPUDevice, n: number): Promise<boolean> {
+async function checkOne(device: GPUDevice, n: number, config?: MsmConfig): Promise<boolean> {
   log('info', `=== n=${n}: building ${n} independent random points + scalars`);
   const rng = makeRng(0xc0ffee ^ n);
   // Each point is [r_i]G for an independent random r_i — no small integer
@@ -133,7 +133,7 @@ async function checkOne(device: GPUDevice, n: number): Promise<boolean> {
   }
 
   log('info', `n=${n}: MsmV2.create + prepare + run`);
-  const msm = await MsmV2.create(device, n, pointsBuf);
+  const msm = await MsmV2.create(device, n, pointsBuf, config);
   msm.prepare(scalarsBuf);
   const t0 = performance.now();
   const gpu = await msm.run();
@@ -212,8 +212,18 @@ async function main(): Promise<void> {
     log('info', 'WebGPU device acquired');
     const qp = new URLSearchParams(window.location.search);
     const sizes = qp.get('n') ? [parseInt(qp.get('n')!, 10)] : [4096];
+    // Algorithm-affecting knobs — lets this page validate a swept config
+    // (e.g. ?reducevariant=unfused) byte-exact, not just the defaults.
+    const config: MsmConfig = {
+      invVariant:
+        qp.get('inv') === 'a' ? 'a' : qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'pk' ? 'pk' : undefined,
+      addsub: qp.get('addsub') === 'unpack' ? 'unpack' : qp.get('addsub') === 'native' ? 'native' : undefined,
+      reduceVariant:
+        qp.get('reducevariant') === 'unfused' ? 'unfused' : qp.get('reducevariant') === 'fused' ? 'fused' : undefined,
+    };
+    log('info', `config: ${JSON.stringify(config)}`);
     let allOk = true;
-    for (const n of sizes) allOk = (await checkOne(device, n)) && allOk;
+    for (const n of sizes) allOk = (await checkOne(device, n, config)) && allOk;
     benchState.state = 'done';
     log(allOk ? 'ok' : 'err', `done — ${allOk ? 'ALL PASS' : 'FAILURES'}`);
   } catch (e) {

@@ -65,6 +65,10 @@ export interface MsmConfig {
   invVariant?: 'a' | 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
+  /** Bucket reduction: 'fused' (one dispatch, every level) or 'unfused'
+   *  (one kind-specialized dispatch per level — watchdog-bounded, lighter
+   *  register footprint for small-register GPUs). Default 'fused'. */
+  reduceVariant?: 'fused' | 'unfused';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -354,6 +358,7 @@ export class MsmV2 {
   private reduceWg!: number;
   private invVariant!: 'a' | 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
+  private reduceVariant: 'fused' | 'unfused' = 'fused';
   private profile = false;
   private jacobianCrossover = 0;
   private stride!: number; // reduction STRIDE = 2^(c-1)
@@ -379,6 +384,7 @@ export class MsmV2 {
   private convMetaPipe!: GPUComputePipeline;
   private reduceInitPipe!: GPUComputePipeline;
   private reduceFusedPipe!: GPUComputePipeline;
+  private reduceLevelPipes: GPUComputePipeline[] = [];
   // layouts (needed by prepare to build bind groups)
   private plannerLayout!: GPUBindGroupLayout;
   private fusedLayout!: GPUBindGroupLayout;
@@ -426,6 +432,8 @@ export class MsmV2 {
   private convMetaBind!: GPUBindGroup;
   private reduceInitBind!: GPUBindGroup;
   private reduceFusedBind!: GPUBindGroup;
+  private reduceLevelBinds: GPUBindGroup[] = [];
+  private reduceLevelKinds: number[] = [];
   private levelBinds: LevelBind[] = [];
 
   private constructor() {}
@@ -448,6 +456,7 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
+    m.reduceVariant = config?.reduceVariant ?? 'fused';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
@@ -507,6 +516,9 @@ export class MsmV2 {
     for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
     for (let mm = 1; mm < STRIDE; mm *= 2) push(false, 2, L0, mm, STRIDE / (2 * mm));
     if (m.reducePasses.length > 64) throw new Error(`reduction schedule too long: ${m.reducePasses.length} > 64`);
+    // Per-level kind (0 phase-A add / 1 phase-B/D tree-add / 2 phase-C
+    // double) — picks the kind-specialized pipeline for the unfused path.
+    m.reduceLevelKinds = m.reducePasses.map(p => (p.isDouble ? 2 : p.shaderPhase === 0 ? 0 : 1));
 
     // --- Layouts ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout =>
@@ -586,9 +598,22 @@ export class MsmV2 {
     );
     m.convMetaPipe = await compileOne(device, sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
     m.reduceInitPipe = await compileOne(device, sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
-    m.reduceFusedPipe = await compileOne(
-      device, sm.gen_ba_reduce_fused_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB), `reduce-fused`, m.reduceFusedLayout,
-    );
+    if (m.reduceVariant === 'unfused') {
+      // Three kind-specialized per-level pipelines; reuse the reduce-fused
+      // layout (the 5th binding is a per-level uniform instead of schedule).
+      for (const kind of [0, 1, 2]) {
+        m.reduceLevelPipes[kind] = await compileOne(
+          device,
+          sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, kind, INV_VARIANT, ADDSUB),
+          `reduce-level-k${kind}`,
+          m.reduceFusedLayout,
+        );
+      }
+    } else {
+      m.reduceFusedPipe = await compileOne(
+        device, sm.gen_ba_reduce_fused_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB), `reduce-fused`, m.reduceFusedLayout,
+      );
+    }
 
     // Warm-up: prepare + dispatch several times so the first timed run pays
     // no shader JIT / command-buffer cold start and sees ramped GPU clocks.
@@ -815,12 +840,25 @@ export class MsmV2 {
     const isPresentBuf = sbuf(RED_M * 4);
     const reducePrefScratch = sbuf(NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16);
     const reduceInitParams = ubuf(new Uint32Array([RED_M, this.stride, BW, B_TOTAL]));
-    const reduceFusedParams = ubuf(new Uint32Array([this.reducePasses.length, RED_M, MAXC, this.stride]));
-    const scheduleBuf = ubuf(schedule);
     this.reduceInitBind = mkBind(this.reduceInitLayout, [bucketResult, redBuf, isPresentBuf, reduceInitParams]);
-    this.reduceFusedBind = mkBind(this.reduceFusedLayout, [
-      redBuf, isPresentBuf, reducePrefScratch, reduceFusedParams, scheduleBuf,
-    ]);
+    if (this.reduceVariant === 'unfused') {
+      // One kind-specialized dispatch per level: the schedule's (a, b, ppw)
+      // ride a per-level uniform, the (M, maxc, stride) constants a shared
+      // one. WebGPU's between-pass ordering replaces the fused barrier.
+      const cparams = ubuf(new Uint32Array([RED_M, MAXC, this.stride, 0]));
+      this.reduceLevelBinds = this.reducePasses.map((_, i) => {
+        const lparams = ubuf(
+          new Uint32Array([schedule[i * 4 + 1], schedule[i * 4 + 2], schedule[i * 4 + 3], 0]),
+        );
+        return mkBind(this.reduceFusedLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
+      });
+    } else {
+      const reduceFusedParams = ubuf(new Uint32Array([this.reducePasses.length, RED_M, MAXC, this.stride]));
+      const scheduleBuf = ubuf(schedule);
+      this.reduceFusedBind = mkBind(this.reduceFusedLayout, [
+        redBuf, isPresentBuf, reducePrefScratch, reduceFusedParams, scheduleBuf,
+      ]);
+    }
     this.redBuf = redBuf;
     this.redStaging = device.createBuffer({
       size: NUM_WINDOWS * 64,
@@ -933,7 +971,8 @@ export class MsmV2 {
         passes += 6; // decompose + xpose x3 + conv x2
         for (let lv = 0; lv < levels; lv++) passes += 3 + this.levelBinds[lv].fusedTiles.length;
       }
-      passes += 2; // reduceInit + reduceFused
+      // reduceInit + (fused: 1) or (unfused: one dispatch per level).
+      passes += this.reduceVariant === 'unfused' ? 1 + this.reducePasses.length : 2;
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -1010,7 +1049,14 @@ export class MsmV2 {
     }
     // Bucket reduction over the global bucket_result.
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1, 'redInit');
-    dispatch(this.reduceFusedPipe, this.reduceFusedBind, this.numWindows, 1, 'redFused');
+    if (this.reduceVariant === 'unfused') {
+      for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
+        const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
+        dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1, 'redFused');
+      }
+    } else {
+      dispatch(this.reduceFusedPipe, this.reduceFusedBind, this.numWindows, 1, 'redFused');
+    }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
       enc.resolveQuerySet(this.querySet, 0, passIdx * 2, this.tsResolveBuf, 0);
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, passIdx * 16);

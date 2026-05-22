@@ -1,0 +1,243 @@
+{{> structs }}
+{{> bigint_funcs }}
+{{> montgomery_product_funcs }}
+{{> field_funcs }}
+{{> fr_pow_funcs }}
+{{> bigint_by_funcs }}
+{{> inverse_funcs }}
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+{{> field8_funcs }}
+
+// One level of the recursive affine bucket reduction — the un-fused
+// counterpart of ba_reduce_fused. The host issues one dispatch per
+// schedule level; WebGPU's between-pass ordering replaces the fused
+// kernel's storageBarrier(). `KIND` is a compile-time constant
+// (0 = phase-A suffix add, 1 = phase-B/D tree-add, 2 = phase-C double),
+// so each of the three compiled variants const-folds away the other two
+// kinds' branches — a smaller register footprint than the kind-0/1/2
+// fused monolith, and a watchdog-bounded dispatch. This is the variant
+// for register-starved GPUs; large-register GPUs keep ba_reduce_fused.
+//
+// One workgroup per window. Field elements are 8x u32 (Lever 2); see
+// field8_funcs.
+
+const PG: u32 = 2u;
+const WG: u32 = {{ workgroup_size }}u;
+const KIND: u32 = {{ kind }}u;
+
+@group(0) @binding(0) var<storage, read_write> red_buf:      array<vec4<u32>>;
+@group(0) @binding(1) var<storage, read_write> is_present:   array<u32>;
+@group(0) @binding(2) var<storage, read_write> pref_scratch: array<vec4<u32>>;
+@group(0) @binding(3) var<uniform>             cparams:      vec4<u32>;
+@group(0) @binding(4) var<uniform>             lparams:      vec4<u32>;
+// cparams = (M (red_buf element stride), maxc (pref slots/thread), STRIDE, _)
+//   — constant across all levels.
+// lparams = (pa, pb, ppw, _) — this level's flattened schedule entry.
+
+fn load_x(idx: u32, M: u32) -> array<u32, 8> {
+    let base = PG * idx;
+    let q0 = red_buf[base + 0u];
+    let q1 = red_buf[base + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn load_y(idx: u32, M: u32) -> array<u32, 8> {
+    let base = PG * M + PG * idx;
+    let q0 = red_buf[base + 0u];
+    let q1 = red_buf[base + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn store_x(idx: u32, M: u32, val: array<u32, 8>) {
+    let base = PG * idx;
+    red_buf[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    red_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn store_y(idx: u32, M: u32, val: array<u32, 8>) {
+    let base = PG * M + PG * idx;
+    red_buf[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    red_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn store_pref(slot: u32, val: array<u32, 8>) {
+    let base = 2u * slot;
+    pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn load_pref(slot: u32) -> array<u32, 8> {
+    let base = 2u * slot;
+    let q0 = pref_scratch[base + 0u];
+    let q1 = pref_scratch[base + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+@compute
+@workgroup_size({{ workgroup_size }})
+fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) lid: vec3<u32>) {
+    let w = wgid.x;       // window — one workgroup per window
+    let tid = lid.x;      // thread within the workgroup
+    let M = cparams.x;
+    let maxc = cparams.y;
+    let stride = cparams.z;
+    let pa = lparams.x;
+    let pb = lparams.y;
+    let ppw = lparams.z;
+    let base = w * stride;
+    let scratch_base = (w * WG + tid) * maxc;
+    // Candidates per thread this level — uniform across the workgroup.
+    let C = (ppw + WG - 1u) / WG;
+
+    // ---- forward: prefix product of per-candidate denominators ----
+    var acc: array<u32, 8> = get_r_f8();
+    for (var k: u32 = 0u; k < C; k = k + 1u) {
+        let j2 = tid * C + k;
+        var denom: array<u32, 8> = get_r_f8();
+        if (j2 < ppw) {
+            if (KIND == 2u) {
+                let slot = base + (j2 + 1u) * pa;
+                if (is_present[slot] != 0u) {
+                    let y: array<u32, 8> = load_y(slot, M);
+                    denom = fr_add_f8(y, y); // 2y
+                }
+            } else {
+                var src: u32;
+                var dst: u32;
+                if (KIND == 0u) {
+                    src = base + j2 * pa + pb;
+                    dst = base + j2 * pa + pb - 1u;
+                } else {
+                    dst = base + 2u * j2 * pa;
+                    src = base + (2u * j2 + 1u) * pa;
+                }
+                if (is_present[src] != 0u && is_present[dst] != 0u) {
+                    let x_s: array<u32, 8> = load_x(src, M);
+                    let x_d: array<u32, 8> = load_x(dst, M);
+                    let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
+                    if (is_zero_f8(dx)) {
+                        let y_d: array<u32, 8> = load_y(dst, M);
+                        denom = fr_add_f8(y_d, y_d);
+                    } else {
+                        denom = dx;
+                    }
+                }
+            }
+        }
+        if (k == 0u) {
+            acc = denom;
+        } else {
+            acc = montgomery_product_f8(acc, denom);
+        }
+        store_pref(scratch_base + k, acc);
+    }
+
+    // Single inversion per chunk. The safegcd inverse is 20x13-limb; the
+    // reduction is 8x u32, so expand on the way in and contract the result.
+    var acc20: BigInt = unpack256_to_limbs(acc);
+    var inv20: BigInt = {{ inv_fn }}(acc20);
+    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+
+    // ---- backward peel ----
+    for (var kk: u32 = 0u; kk < C; kk = kk + 1u) {
+        let k = C - 1u - kk;
+        let j2 = tid * C + k;
+        var inv_denom: array<u32, 8>;
+        if (k == 0u) {
+            inv_denom = inv;
+        } else {
+            let pp: array<u32, 8> = load_pref(scratch_base + (k - 1u));
+            inv_denom = montgomery_product_f8(inv, pp);
+        }
+        if (j2 < ppw) {
+            if (KIND == 2u) {
+                let slot = base + (j2 + 1u) * pa;
+                if (is_present[slot] != 0u) {
+                    let x: array<u32, 8> = load_x(slot, M);
+                    let y: array<u32, 8> = load_y(slot, M);
+                    let denom: array<u32, 8> = fr_add_f8(y, y);
+                    let x2: array<u32, 8> = montgomery_product_f8(x, x);
+                    var num: array<u32, 8> = fr_add_f8(x2, x2);
+                    num = fr_add_f8(num, x2);
+                    let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
+                    let two_x: array<u32, 8> = fr_add_f8(x, x);
+                    var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+                    r_x = fr_sub_f8(r_x, two_x);
+                    var r_y: array<u32, 8> = fr_sub_f8(x, r_x);
+                    r_y = montgomery_product_f8(lambda, r_y);
+                    r_y = fr_sub_f8(r_y, y);
+                    if (k > 0u) {
+                        inv = montgomery_product_f8(inv, denom);
+                    }
+                    store_x(slot, M, r_x);
+                    store_y(slot, M, r_y);
+                }
+            } else {
+                var src: u32;
+                var dst: u32;
+                if (KIND == 0u) {
+                    src = base + j2 * pa + pb;
+                    dst = base + j2 * pa + pb - 1u;
+                } else {
+                    dst = base + 2u * j2 * pa;
+                    src = base + (2u * j2 + 1u) * pa;
+                }
+                let ps = is_present[src];
+                let pl = is_present[dst];
+                if (ps != 0u && pl != 0u) {
+                    let x_d: array<u32, 8> = load_x(dst, M);
+                    let x_s: array<u32, 8> = load_x(src, M);
+                    let y_d: array<u32, 8> = load_y(dst, M);
+                    let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
+                    var r_x: array<u32, 8>;
+                    var r_y: array<u32, 8>;
+                    var denom_k: array<u32, 8>;
+                    if (is_zero_f8(dx)) {
+                        // Equal operands: 2 * buckets[dst].
+                        denom_k = fr_add_f8(y_d, y_d);
+                        let x2: array<u32, 8> = montgomery_product_f8(x_d, x_d);
+                        var num: array<u32, 8> = fr_add_f8(x2, x2);
+                        num = fr_add_f8(num, x2);
+                        let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
+                        let two_x: array<u32, 8> = fr_add_f8(x_d, x_d);
+                        r_x = montgomery_product_f8(lambda, lambda);
+                        r_x = fr_sub_f8(r_x, two_x);
+                        r_y = fr_sub_f8(x_d, r_x);
+                        r_y = montgomery_product_f8(lambda, r_y);
+                        r_y = fr_sub_f8(r_y, y_d);
+                    } else {
+                        // buckets[dst] + buckets[src].
+                        denom_k = dx;
+                        let y_s: array<u32, 8> = load_y(src, M);
+                        var lambda: array<u32, 8> = fr_sub_f8(y_s, y_d);
+                        lambda = montgomery_product_f8(lambda, inv_denom);
+                        r_x = montgomery_product_f8(lambda, lambda);
+                        let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
+                        r_x = fr_sub_f8(r_x, x_sum);
+                        r_y = fr_sub_f8(x_d, r_x);
+                        r_y = montgomery_product_f8(lambda, r_y);
+                        r_y = fr_sub_f8(r_y, y_d);
+                    }
+                    if (k > 0u) {
+                        inv = montgomery_product_f8(inv, denom_k);
+                    }
+                    store_x(dst, M, r_x);
+                    store_y(dst, M, r_y);
+                } else if (ps != 0u && pl == 0u) {
+                    // dst empty, src present: buckets[dst] = buckets[src].
+                    let x_s: array<u32, 8> = load_x(src, M);
+                    let y_s: array<u32, 8> = load_y(src, M);
+                    store_x(dst, M, x_s);
+                    store_y(dst, M, y_s);
+                    is_present[dst] = 1u;
+                }
+            }
+        }
+    }
+
+    {{{ recompile }}}
+}

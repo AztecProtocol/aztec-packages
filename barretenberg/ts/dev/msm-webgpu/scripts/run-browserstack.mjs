@@ -46,6 +46,7 @@ const { values: argv } = parseArgs({
     reps: { type: "string", default: "3" },
     total: { type: "string" },
     sizes: { type: "string" },
+    n: { type: "string" },
     entries: { type: "string" },
     buckets: { type: "string" },
     seed: { type: "string" },
@@ -131,6 +132,7 @@ const pageMap = {
   "bench-ba-rev-packed-carry": "/dev/msm-webgpu/bench-ba-rev-packed-carry.html",
   "bench-msm-chain": "/dev/msm-webgpu/bench-msm-chain.html",
   "bench-ba-pair-disjoint": "/dev/msm-webgpu/bench-ba-pair-disjoint.html",
+  "bench-msm-v2": "/dev/msm-webgpu/bench-msm-v2.html",
   "bench-msm-tree": "/dev/msm-webgpu/bench-msm-tree.html",
   "bench-msm-tree-v2": "/dev/msm-webgpu/bench-msm-tree-v2.html",
   "bench-msm-tree-v3": "/dev/msm-webgpu/bench-msm-tree-v3.html",
@@ -422,6 +424,7 @@ async function main() {
   qp.set("reps", String(reps));
   if (argv.total) qp.set("total", String(argv.total));
   if (argv.sizes) qp.set("sizes", String(argv.sizes));
+  if (argv.n) qp.set("n", String(argv.n));
   if (argv.entries) qp.set("entries", String(argv.entries));
   if (argv.buckets) qp.set("buckets", String(argv.buckets));
   if (argv.seed) qp.set("seed", String(argv.seed));

@@ -14,6 +14,7 @@ import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { BN254_BASE_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
 import { MsmV2, type MsmConfig, type ProfileBreakdown } from './msm_v2.js';
 import { loadSrsPoints } from './srs.js';
+import { makeResultsClient } from './results_post.js';
 
 const FP = BN254_BASE_FIELD;
 const qp = new URLSearchParams(location.search);
@@ -41,6 +42,8 @@ const config: MsmConfig = {
   invVariant:
     qp.get('inv') === 'a' ? 'a' : qp.get('inv') === 'loop' ? 'loop' : qp.get('inv') === 'pk' ? 'pk' : undefined,
   addsub: qp.get('addsub') === 'unpack' ? 'unpack' : qp.get('addsub') === 'native' ? 'native' : undefined,
+  reduceVariant:
+    qp.get('reducevariant') === 'unfused' ? 'unfused' : qp.get('reducevariant') === 'fused' ? 'fused' : undefined,
   profile: qp.get('profile') !== '0',
 };
 
@@ -64,6 +67,11 @@ const benchState: BenchState = {
   wallMedian: 0, wallMin: 0, breakdown: null, error: null,
 };
 (window as unknown as { __bench: BenchState }).__bench = benchState;
+
+// POST progress/results JSONL so the BrowserStack runner can tail a remote
+// run; harmless no-op when the dev server has no /results endpoint.
+const resultsClient = makeResultsClient({ page: 'bench-msm-v2' });
+(window as unknown as { __runId: string }).__runId = resultsClient.runId;
 
 const $log = document.getElementById('log') as HTMLDivElement;
 const $out = document.getElementById('out') as HTMLDivElement;
@@ -109,6 +117,7 @@ function median(xs: number[]): number {
 async function main(): Promise<void> {
   try {
     benchState.state = 'running';
+    resultsClient.postProgress({ event: 'boot', n: N });
     if (!('gpu' in navigator)) throw new Error('navigator.gpu missing — no WebGPU');
     log(`MsmV2 A/B bench — n=${N.toLocaleString()}, reps=${REPS}, warmup=${WARMUP}`);
     log(`config: ${JSON.stringify(config)}`);
@@ -126,7 +135,10 @@ async function main(): Promise<void> {
     const msm = await MsmV2.create(device, N, pointsBuf, config);
     msm.prepare(scalarsBuf);
     log(`warming up (${WARMUP})…`);
-    for (let w = 0; w < WARMUP; w++) await msm.run();
+    for (let w = 0; w < WARMUP; w++) {
+      await msm.run();
+      resultsClient.postProgress({ event: 'warmup', w });
+    }
 
     const walls: number[] = [];
     const profiles: ProfileBreakdown[] = [];
@@ -137,6 +149,7 @@ async function main(): Promise<void> {
       walls.push(performance.now() - t0);
       if (res.profile) profiles.push(res.profile);
       resultX = '0x' + res.x.toString(16);
+      resultsClient.postProgress({ event: 'rep', r, ms: walls[walls.length - 1] });
     }
     msm.destroy();
 
@@ -186,11 +199,21 @@ async function main(): Promise<void> {
 
     benchState.state = 'done';
     log('done');
+    await resultsClient.postResults({
+      state: 'done',
+      n: N,
+      config,
+      resultX,
+      wallMedian,
+      wallMin,
+      breakdown: benchState.breakdown,
+    });
   } catch (e) {
     const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
     log(`FATAL: ${msg}`);
     benchState.state = 'error';
     benchState.error = msg;
+    await resultsClient.postResults({ state: 'error', n: N, error: msg });
   }
 }
 
