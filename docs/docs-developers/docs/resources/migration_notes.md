@@ -20,8 +20,7 @@ make it clear that they are low-level functions that require careful domain sepa
 + context.push_nullifier_unsafe(nullifier);
 ```
 
-Prefer higher-level abstractions like [`SingleUseClaim`](../aztec-nr/storage/single-use-claim.md) or
-[`destroy_note`](../aztec-nr/storage/notes/lifecycle.md) which handle domain separation automatically.
+Prefer higher-level abstractions like `SingleUseClaim` or `destroy_note` which handle domain separation automatically.
 
 ### [Aztec.nr] `LogRetrievalRequest` now includes `source`, `from_block`, and `to_block` fields
 
