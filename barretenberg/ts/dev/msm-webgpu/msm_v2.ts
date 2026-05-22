@@ -588,7 +588,15 @@ export class MsmV2 {
     );
     m.demontPipe = await compileOne(device, sm.gen_demont_scalars_shader(WGI), `demont`, m.demontLayout);
     m.decomposePipe = await compileOne(device, sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
-    m.xposeCountPipe = await compileOne(device, sm.gen_transpose_count_shader(WGI), `xpose-count`, m.xposeCountLayout);
+    // Privatized-histogram count: one workgroup per window, shared-memory
+    // tally — no contended global atomics. tile is the shared histogram
+    // capacity (<= 8192 entries = 32KB, the requested workgroup-memory cap).
+    m.xposeCountPipe = await compileOne(
+      device,
+      sm.gen_transpose_count_priv_shader(256, Math.min(m.BW, 8192)),
+      `xpose-count`,
+      m.xposeCountLayout,
+    );
     m.xposeScanPipe = await compileOne(device, sm.gen_transpose_scan_shader(m.numWindows), `xpose-scan`, m.xposeScanLayout);
     m.xposeScatterPipe = await compileOne(
       device, sm.gen_transpose_scatter_shader(WGI), `xpose-scatter`, m.xposeScatterLayout,
@@ -1031,7 +1039,8 @@ export class MsmV2 {
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw, 'decompose');
       enc.clearBuffer(this.rowPtrBuf);
       enc.clearBuffer(this.currBuf);
-      dispatch(this.xposeCountPipe, this.xposeCountBind, this.nXposePts, tbw, 'transpose');
+      // Privatized count: one workgroup per window (tbw windows this batch).
+      dispatch(this.xposeCountPipe, this.xposeCountBind, tbw, 1, 'transpose');
       dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, 'transpose');
       dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw, 'transpose');
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, 'convert');

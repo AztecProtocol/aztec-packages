@@ -79,6 +79,7 @@ import {
   smvp_tree_scatter_init as smvp_tree_scatter_init_shader,
   structs,
   transpose_parallel_count as transpose_parallel_count_shader,
+  transpose_parallel_count_priv as transpose_parallel_count_priv_shader,
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_parallel_scatter as transpose_parallel_scatter_shader,
   transpose_serial as transpose_serial_shader,
@@ -501,6 +502,24 @@ ${packLines.join('\n')}
   public gen_transpose_count_shader(workgroup_size: number): string {
     return mustache.render(transpose_parallel_count_shader, {
       workgroup_size,
+      recompile: this.recompile,
+    });
+  }
+
+  /**
+   * Privatized-histogram transpose count: one workgroup per subtask, the
+   * per-column tally done in workgroup-shared memory (shared atomics only,
+   * no contended global atomics). `tile` is the shared histogram capacity
+   * in entries — when it is below n_cols the kernel covers the columns in
+   * ceil(n_cols / tile) tiles.
+   */
+  public gen_transpose_count_priv_shader(workgroup_size: number, tile: number): string {
+    if (tile <= 0 || !Number.isInteger(tile)) {
+      throw new Error(`gen_transpose_count_priv_shader: tile (${tile}) must be a positive integer`);
+    }
+    return mustache.render(transpose_parallel_count_priv_shader, {
+      workgroup_size,
+      tile,
       recompile: this.recompile,
     });
   }
