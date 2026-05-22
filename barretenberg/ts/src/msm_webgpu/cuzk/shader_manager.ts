@@ -423,6 +423,7 @@ ${packLines.join('\n')}
     tiled = false,
     l0_index_mode = false,
     addsub: 'native' | 'unpack' = 'native',
+    super_opt = false,
   ): string {
     if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
@@ -435,6 +436,7 @@ ${packLines.join('\n')}
       ba_fused_super_bench_shader,
       {
         workgroup_size, s, inv_fn, tiled, l0_index_mode,
+        super_opt,
         addsub_unpack: addsub === 'unpack',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,

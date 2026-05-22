@@ -1240,21 +1240,45 @@ fn store_active_new(plane: u32, idx: u32, M: u32, val: array<u32, 8>) {
 }
 
 // pref_scratch holds the forward prefix products (then the per-slot
-// inverses), 8x u32 = two vec4 per entry. Thread-major — global slot =
-// t*S + k — so each thread's S entries are contiguous and stay
-// cache-resident across the forward/backward gap.
+// inverses). Thread-major — global slot = t*S + k — so each thread's S
+// entries are contiguous and stay cache-resident across the forward/
+// backward gap. With \`super_opt\`, each slot also caches the per-slot
+// \`dx\` so the inverse pass does not re-load/recompute it (PREF_STRIDE
+// doubles to 4 vec4 per slot).
+{{#super_opt}}
+const PREF_STRIDE: u32 = 4u;
+{{/super_opt}}
+{{^super_opt}}
+const PREF_STRIDE: u32 = 2u;
+{{/super_opt}}
+
 fn store_pref(slot: u32, val: array<u32, 8>) {
-    let base = 2u * slot;
+    let base = PREF_STRIDE * slot;
     pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
     pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
 fn load_pref(slot: u32) -> array<u32, 8> {
-    let base = 2u * slot;
+    let base = PREF_STRIDE * slot;
     let q0 = pref_scratch[base + 0u];
     let q1 = pref_scratch[base + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
+
+{{#super_opt}}
+fn store_pref_dx(slot: u32, val: array<u32, 8>) {
+    let base = PREF_STRIDE * slot;
+    pref_scratch[base + 2u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[base + 3u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn load_pref_dx(slot: u32) -> array<u32, 8> {
+    let base = PREF_STRIDE * slot;
+    let q0 = pref_scratch[base + 2u];
+    let q1 = pref_scratch[base + 3u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+{{/super_opt}}
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -1277,14 +1301,37 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let chunk_base = 2u * S * t;
 
+{{#super_opt}}
+    // Pre-load all 2S chunk_plan indices once into registers; both the
+    // inverse and backward passes reuse them instead of re-reading the
+    // index buffer.
+    var idxs_l: array<u32, {{s}}>;
+    var idxs_r: array<u32, {{s}}>;
+    for (var kk: u32 = 0u; kk < S; kk = kk + 1u) {
+        idxs_l[kk] = chunk_plan[chunk_base + 2u * kk + 0u];
+        idxs_r[kk] = chunk_plan[chunk_base + 2u * kk + 1u];
+    }
+{{/super_opt}}
+
     // Forward: compute S dx values and accumulate the prefix product.
     var acc: array<u32, 8> = get_r_f8();
     for (var k: u32 = 0u; k < S; k = k + 1u) {
+{{#super_opt}}
+        let idx_l = idxs_l[k];
+        let idx_r = idxs_r[k];
+{{/super_opt}}
+{{^super_opt}}
         let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
         let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+{{/super_opt}}
         let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
         let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
         let dx: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
+{{#super_opt}}
+        // Cache dx so the inverse pass can advance the running inverse
+        // without re-loading p_lx/p_rx or recomputing the subtraction.
+        store_pref_dx(pref_base + k, dx);
+{{/super_opt}}
         if (k == 0u) {
             acc = dx;
         } else {
@@ -1314,6 +1361,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         } else {
             let pp: array<u32, 8> = load_pref(pref_base + (k - 1u));
             inv_dx = montgomery_product_f8(inv, pp);
+{{#super_opt}}
+            // Advance the running inverse using the dx cached in the forward pass.
+            let dx_back: array<u32, 8> = load_pref_dx(pref_base + k);
+{{/super_opt}}
+{{^super_opt}}
             // Advance the running inverse by dx_k for the next iteration;
             // dx_k is recomputed from the slot's x-coordinates.
             let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
@@ -1321,6 +1373,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
             let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
             let dx_back: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
+{{/super_opt}}
             inv = montgomery_product_f8(inv, dx_back);
         }
         store_pref(pref_base + k, inv_dx);
@@ -1332,8 +1385,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // just before first use to minimise the simultaneously-live set.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
         let k = S - 1u - jj;
+{{#super_opt}}
+        let idx_l = idxs_l[k];
+        let idx_r = idxs_r[k];
+{{/super_opt}}
+{{^super_opt}}
         let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
         let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+{{/super_opt}}
 
         let inv_dx: array<u32, 8> = load_pref(pref_base + k);
 

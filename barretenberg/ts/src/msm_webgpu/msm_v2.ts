@@ -60,6 +60,14 @@ export interface MsmConfig {
   invVariant?: 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
+  /**
+   * ba_fused_super: cache `dx` and pre-load chunk_plan indices in
+   * pref_scratch so the inverse pass advances the running inverse without
+   * re-loading p_lx/p_rx and the backward pass reuses the indices. Doubles
+   * pref_scratch slot size (8 → 16 u32). Default `false` — a Metal/M-class
+   * win (≈20 % off `fused` total), Adreno-neutral.
+   */
+  fusedSuperOpt?: boolean;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -480,6 +488,7 @@ export class MsmV2 {
   private reduceWg!: number;
   private invVariant!: 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
+  private fusedSuperOpt = false;
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
@@ -577,6 +586,7 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
+    m.fusedSuperOpt = config?.fusedSuperOpt ?? false;
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -678,12 +688,12 @@ export class MsmV2 {
       `planner-b-c${m.c}`, m.plannerBLayout,
     );
     m.fusedPipe = await compileOne(
-      device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB), `fused`, m.fusedLayout,
+      device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB, m.fusedSuperOpt), `fused`, m.fusedLayout,
     );
     m.carryPipe = await compileOne(device, sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
     m.finalizePipe = await compileOne(device, sm.gen_ba_finalize_copy_bench_shader(WGI), `finalize`, m.finalizeLayout);
     m.fusedPipeL0 = await compileOne(
-      device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB), `fused-l0`, m.fusedLayoutL0,
+      device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB, m.fusedSuperOpt), `fused-l0`, m.fusedLayoutL0,
     );
     m.carryPipeL0 = await compileOne(
       device, sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0,
@@ -874,9 +884,10 @@ export class MsmV2 {
       const bBuckets = bw * BW;
       const tc = bw * maxCpw;
       const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
+      const prefSlotU32 = this.fusedSuperOpt ? 16 : 8;
       return (
         2 * 64 * m1 + 64 * B_TOTAL + 4 * 4 * bBuckets + 4 * (bSlots + 3) +
-        2 * (3 * tc * S + 2 * bw * maxCarpw) * 4 + tile * S * 8 * 4 + 3 * 4 * bSlots +
+        2 * (3 * tc * S + 2 * bw * maxCarpw) * 4 + tile * S * prefSlotU32 * 4 + 3 * 4 * bSlots +
         4 * bw * (BW + 1) + 4 * bBuckets + 4 * 32 * n + 68 * RED_M
       );
     };
@@ -926,7 +937,8 @@ export class MsmV2 {
       Math.ceil((1 << 16) / WGI) * WGI,
       Math.max(WGI, Math.ceil(maxTChunks / WGI) * WGI),
     );
-    const prefScratchBuf = sbuf(FUSED_TILE * S * 8 * 4);
+    const PREF_SLOT_U32 = this.fusedSuperOpt ? 16 : 8;
+    const prefScratchBuf = sbuf(FUSED_TILE * S * PREF_SLOT_U32 * 4);
 
     // Pre-step buffers. Scalars are canonical — uploaded straight into the
     // buffer the Booth-decompose pass reads (no demont pass).
