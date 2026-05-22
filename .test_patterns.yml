@@ -139,6 +139,10 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
+  - regex: "src/e2e_bot.test.ts"
+    error_regex: "Tx dropped"
+    owners:
+      - *palla
 
   # yarn-project tests
   # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
