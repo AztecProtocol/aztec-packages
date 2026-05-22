@@ -1,6 +1,8 @@
 import { Fr } from '@aztec/aztec.js/fields';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
+import { jest } from '@jest/globals';
+
 import { NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 

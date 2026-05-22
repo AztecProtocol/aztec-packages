@@ -6,6 +6,8 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
+import { jest } from '@jest/globals';
+
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
