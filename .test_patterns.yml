@@ -360,6 +360,16 @@ tests:
     owners:
       - *spyros
 
+  # http://ci.aztec-labs.com/6db6103599cb22e6
+  # Under pipelining, the lazy validator's attestation can arrive after the
+  # p2p checkpoint-attestation-validator's acceptance window, getting rejected
+  # before the slasher's gossip callback fires. The slasher then never records
+  # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
+  - regex: "src/e2e_slashing/attested_invalid_proposal.test.ts"
+    error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
+    owners:
+      - *palla
+
   # http://ci.aztec-labs.com/20d38a958c951a40
   # Pipelining-induced flake in HA node distribution test (attestation gossip / publisher
   # rotation timing under pipelined block production).
