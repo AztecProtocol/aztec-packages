@@ -12,7 +12,7 @@ import { Fr } from '../bn254/field.js';
  * TODO(#7386): Clean up this class.
  */
 export class Point {
-  static ZERO = new Point(Fr.ZERO, Fr.ZERO);
+  static INFINITY = new Point(Fr.ZERO, Fr.ZERO);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
   static COMPRESSED_SIZE_IN_BYTES = Fr.SIZE_IN_BYTES;
 
@@ -200,7 +200,6 @@ export class Point {
    * Converts the Point instance to a Buffer representation of the coordinates.
    * @returns A Buffer representation of the Point instance.
    * @dev Note that toBuffer does not include the isInfinite flag. The point at infinity is serialized as (0, 0).
-   * With the removal of is_infinite from EmbeddedCurvePoint in Noir, the point at infinity is simply (0, 0).
    */
   toBuffer() {
     const buf = serializeToBuffer([this.x, this.y]);
@@ -276,20 +275,12 @@ export class Point {
   }
 
   /**
-   * Check if this is point at infinity.
-   * Check this is consistent with how bb is encoding the point at infinity
-   */
-  public get inf() {
-    return this.isInfinite;
-  }
-
-  /**
    * @param x - The x coordinate of the point
    * @param y - The y coordinate of the point
    * @returns Whether the point exists on Grumpkin
    */
   isOnCurve() {
-    if (this.inf) {
+    if (this.isInfinite) {
       return true;
     }
 

@@ -68,7 +68,7 @@ function setUpMessagePackExtensions() {
       // However this opens possible bad paths with public keys and requires sanitised conversion between
       // BB's inf representation (see below), and ours/Noir's (0, 0), and empty points from BB, when inf
       // does not actually pass through.
-      assert(!p.inf, 'Cannot serialize infinity');
+      assert(!p.isInfinite, 'Cannot serialize infinity');
       return { x: new Fq(p.x.toBigInt()), y: new Fq(p.y.toBigInt()) };
     },
     read: (data: { x: Fq; y: Fq }) => {
@@ -76,7 +76,7 @@ function setUpMessagePackExtensions() {
       // Infinity should never pass through here, but for correctness:
       const ALL_ONES = (1n << 256n) - 1n;
       if (data.x.toBigInt() === ALL_ONES && data.y.toBigInt() === ALL_ONES) {
-        return Point.ZERO;
+        return Point.INFINITY;
       }
       // Convert Fq back to Fr for Point constructor
       return new Point(new Fr(data.x.toBigInt()), new Fr(data.y.toBigInt()));

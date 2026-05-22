@@ -74,8 +74,8 @@ unconstrained fn test_shared_secret_computation_in_both_directions() {
     let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
     let secret_b = Scalar { lo: 0x3456, hi: 0x4567 };
 
-    let pk_a: EmbeddedCurvePoint = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
-    let pk_b: EmbeddedCurvePoint = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
+    let pk_a = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
+    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
 
     let shared_secret = derive_ecdh_shared_secret(secret_a, pk_b);
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
@@ -88,8 +88,8 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
     let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
     let secret_b = Scalar { lo: 0x3456, hi: 0x4567 };
 
-    let mut pk_a: EmbeddedCurvePoint = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
-    let mut pk_b: EmbeddedCurvePoint = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
+    let mut pk_a = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
+    let mut pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
 
     let address_b = AztecAddress::from_field(pk_b.x);
 
@@ -116,7 +116,7 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
 #[test]
 unconstrained fn test_app_siloed_shared_secret_differs_per_contract() {
     let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
-    let pk_b: EmbeddedCurvePoint = std::embedded_curve_ops::fixed_base_scalar_mul(Scalar { lo: 0x3456, hi: 0x4567 });
+    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(Scalar { lo: 0x3456, hi: 0x4567 });
 
     let shared_secret = derive_ecdh_shared_secret(secret_a, pk_b);
 
