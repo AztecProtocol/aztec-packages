@@ -84,7 +84,7 @@
       of the public BN254 G1 SRS against fresh random Fr scalars and
       times three implementations on the same input:
       <strong>(1) WebGPU MSM</strong> via this repo's
-      <code>compute_bn254_msm</code> port,
+      <code>MsmV2</code> pair-tree pipeline,
       <strong>(2) barretenberg WASM Pippenger single-threaded</strong>
       (the threaded WASM with the per-call thread count overridden to
       1), and <strong>(3) barretenberg WASM Pippenger
@@ -122,7 +122,6 @@
       <button id="run">Run</button>
       <button id="run-bench">Run × 5 (benchmark)</button>
       <button id="run-sweep">Sweep 2^10…2^20</button>
-      <button id="run-unit-tests">WGSL unit tests</button>
       <button id="stop" disabled>Stop</button>
       <button id="toggle-coi">Enable WASM (reload with COI)</button>
       <span id="status"></span>
@@ -175,8 +174,8 @@
         <code>[x_0|y_0|x_1|y_1|...]</code> interleaved LE-32 layout the
         port expects (matches the C++ <code>marshal_points</code>
         marshalling — see <code>webgpu_msm_marshalling.hpp</code>),
-        scalars into <code>n × 32</code> LE bytes, call
-        <code>compute_bn254_msm(points_buf, scalars_buf, false)</code>.
+        scalars into <code>n × 32</code> LE bytes, then build an
+        <code>MsmV2Pool</code> + <code>MsmV2</code> and run it.
       </p>
       <p>
         <strong>Noble reference (correctness, log₂(n) = 16 only)</strong>:

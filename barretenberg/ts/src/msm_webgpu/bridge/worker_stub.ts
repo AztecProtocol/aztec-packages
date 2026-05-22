@@ -3,8 +3,10 @@ import {
   ERR_GENERIC,
   OP_MSM,
   OP_PUBLISH_SRS,
+  SLOT_C,
   SLOT_ERROR_CODE,
   SLOT_N,
+  SLOT_NUM_WINDOWS,
   SLOT_OPCODE,
   SLOT_POINTS_PTR,
   SLOT_RESULT_PTR,
@@ -50,33 +52,34 @@ export class WebGpuMsmWorkerStub {
    * Returns the WASM env imports for the WebGPU bridge. Caller merges
    * these into the env object passed to `WebAssembly.instantiate`.
    */
-  public getEnvImports(): Record<string, (...args: number[]) => void> {
+  public getEnvImports(): {
+    bb_external_msm_bn254: (points_ptr: number, scalars_ptr: number, n: number, result_ptr: number) => number;
+    bb_publish_srs_bn254: (points_ptr: number, n: number) => void;
+  } {
     /* eslint-disable @typescript-eslint/naming-convention */
     return {
-      bb_external_msm_bn254: (
-        points_ptr: number,
-        scalars_ptr: number,
-        n: number,
-        result_ptr: number,
-      ) => this.callMsm(points_ptr, scalars_ptr, n, result_ptr),
-      bb_publish_srs_bn254: (points_ptr: number, n: number) =>
-        this.callPublishSrs(points_ptr, n),
+      bb_external_msm_bn254: (points_ptr, scalars_ptr, n, result_ptr) =>
+        this.callMsm(points_ptr, scalars_ptr, n, result_ptr),
+      bb_publish_srs_bn254: (points_ptr, n) => this.callPublishSrs(points_ptr, n),
     };
     /* eslint-enable @typescript-eslint/naming-convention */
   }
 
-  private callMsm(
-    points_ptr: number,
-    scalars_ptr: number,
-    n: number,
-    result_ptr: number,
-  ): void {
+  /**
+   * Service an MSM request. Returns `(numWindows << 16) | c` — the per-window-sum
+   * count and window-bit width the host wrote back, which the C++ hook unpacks
+   * to Horner-combine the windows.
+   */
+  private callMsm(points_ptr: number, scalars_ptr: number, n: number, result_ptr: number): number {
     Atomics.store(this.ctrl, SLOT_OPCODE, OP_MSM);
     Atomics.store(this.ctrl, SLOT_N, n);
     Atomics.store(this.ctrl, SLOT_POINTS_PTR, points_ptr);
     Atomics.store(this.ctrl, SLOT_SCALARS_PTR, scalars_ptr);
     Atomics.store(this.ctrl, SLOT_RESULT_PTR, result_ptr);
     this.signalAndWait();
+    const numWindows = Atomics.load(this.ctrl, SLOT_NUM_WINDOWS);
+    const c = Atomics.load(this.ctrl, SLOT_C);
+    return ((numWindows << 16) | c) >>> 0;
   }
 
   private callPublishSrs(points_ptr: number, n: number): void {

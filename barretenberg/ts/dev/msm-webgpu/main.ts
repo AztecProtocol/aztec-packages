@@ -25,15 +25,29 @@
 
 import { bn254 } from '@noble/curves/bn254';
 
-import { type ProfileCapture } from '../../src/msm_webgpu/index.js';
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmV2, type MsmConfig } from './msm_v2.js';
+import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
-import { runAllWgslUnitTests } from './wgsl_unit_tests.js';
 import { makeResultsClient } from './results_post.js';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
+
+// Per-rep profiling capture consumed by the sweep aggregator. `runWebGpuOnce`
+// only ever produces `{ profile: null }` (MsmV2's own ProfileBreakdown is a
+// different, flat shape), so the breakdown table renders empty GPU rows — this
+// type just keeps the aggregation code compiling.
+type ProfileCapture = {
+  profile: { label: string; kind: string; ms: number }[] | null;
+  cpu_phases?: { phases: { label: string; ms: number }[]; total_wall_ms: number };
+  gpu_readback?: {
+    gpu_compute_wall: number;
+    profiled_passes_sum: number;
+    untimestamped: number;
+    readback_total?: number;
+    mapasync_overhead?: number;
+  };
+};
 
 const $log = document.getElementById('log') as HTMLDivElement;
 const $progress = document.getElementById('srs-progress') as HTMLDivElement;
@@ -42,7 +56,6 @@ const $run = document.getElementById('run') as HTMLButtonElement;
 const $runBench = document.getElementById('run-bench') as HTMLButtonElement;
 const $runSweep = document.getElementById('run-sweep') as HTMLButtonElement;
 const $runSanity = document.getElementById('run-sanity') as HTMLButtonElement;
-const $runUnitTests = document.getElementById('run-unit-tests') as HTMLButtonElement;
 const $stop = document.getElementById('stop') as HTMLButtonElement;
 const $logn = document.getElementById('logn') as HTMLInputElement;
 const $nDisplay = document.getElementById('n-display') as HTMLSpanElement;
@@ -136,6 +149,7 @@ let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
 // dispatch so the first timed run doesn't pay shader JIT.
 let gpuDevice: GPUDevice | null = null;
 let msmV2: MsmV2 | null = null;
+let msmV2Pool: MsmV2Pool | null = null;
 let msmV2LogN: number | null = null;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
@@ -205,7 +219,6 @@ function setBusy(busy: boolean, text = ''): void {
   // the boot via ensureWasmBooted().
   const ready = srsBuf !== null;
   $runSanity.disabled = busy || !ready;
-  $runUnitTests.disabled = busy;
   // Sweep / Run / Run × 5 exercise the WASM paths in addition to WebGPU
   // — disable them when COI is off (the threaded WASM can't load without
   // SharedArrayBuffer). The user can still hit Quick Sanity Check to run
@@ -477,9 +490,10 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
 /**
  * Lazily bring the WebGPU side to a warmed-up `MsmV2` for `inputs.n`:
  *   1. Acquire a `GPUDevice` on first call (reused across every dispatch).
- *   2. Build an `MsmV2` when n changes — compiles the v2 pair-tree
- *      pipelines, host-converts + uploads the SRS slice to Montgomery form,
- *      and runs one warm-up dispatch so the next timed run pays no JIT.
+ *   2. When n changes, build an `MsmV2Pool` (upload the SRS slice + GPU-convert
+ *      it to Montgomery form) and an `MsmV2` bound to it — compiles the v2
+ *      pair-tree pipelines and runs warm-up dispatches so the next run pays
+ *      no JIT.
  */
 async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
   const logN = Math.log2(inputs.n);
@@ -493,7 +507,9 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     if (msmV2 !== null) {
       log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
       msmV2.destroy();
+      msmV2Pool?.destroy();
       msmV2 = null;
+      msmV2Pool = null;
       msmV2LogN = null;
     }
     const knobStr = Object.entries(gpuKnobs)
@@ -502,7 +518,8 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    msmV2 = await MsmV2.create(gpuDevice, inputs.n, inputs.pointsBuf, gpuKnobs);
+    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
@@ -1296,33 +1313,6 @@ $runSanity.addEventListener('click', async () => {
       state: 'error',
       error: err instanceof Error ? err.message : String(err),
     };
-  } finally {
-    setBusy(false);
-  }
-});
-
-$runUnitTests.addEventListener('click', async () => {
-  $log.innerHTML = '';
-  setBusy(true, 'running unit tests…');
-  try {
-    log('info', '[wgsl-unit-tests] running primitive shader tests…');
-    const results = await runAllWgslUnitTests();
-    let allOk = true;
-    for (const r of results) {
-      if (r.ok) {
-        log('ok', `[pass] ${r.name}${r.detail ? ` — ${r.detail}` : ''}`);
-      } else {
-        allOk = false;
-        log('err', `[fail] ${r.name}`);
-        if (r.detail) {
-          for (const line of r.detail.split('\n')) log('err', `       ${line}`);
-        }
-      }
-    }
-    log(allOk ? 'ok' : 'err', `[wgsl-unit-tests] ${results.filter(r => r.ok).length}/${results.length} passed`);
-  } catch (err) {
-    log('err', `[exception] ${err instanceof Error ? err.message : String(err)}`);
-    if (err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }

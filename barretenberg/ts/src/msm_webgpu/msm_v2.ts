@@ -1,36 +1,31 @@
 /// <reference types="@webgpu/types" />
-// msm_v2.ts — the memory-bounded v2 pair-tree GPU MSM as a reusable class.
+// msm_v2.ts — the memory-bounded v2 pair-tree GPU MSM.
 //
-// Extracted from `bench-msm-tree-v2.ts` (`runPipeline` / `runOnce`): the same
-// carry-free Booth -> transpose -> csr_to_v2 -> pair-tree bucket-accumulate ->
-// fused 4-phase reduction, with all five memory levers (window batching,
-// index-mode level-0, tiled fused dispatch, plan-buffer ring, dropped -y plane).
+// Pipeline: carry-free Booth -> privatized transpose -> csr_to_v2 -> pair-tree
+// bucket-accumulate -> branchless 4-phase reduction, with all five memory levers
+// (window batching, index-mode level-0, tiled fused dispatch, plan-buffer ring,
+// dropped -y plane).
 //
-// The bench drove this with synthetic inputs, a reps loop and host-replay
-// validation; `MsmV2` instead consumes a host's real points + scalars and
-// returns the affine MSM result. Three phases keep the data-dependent host
-// planner out of the timed window:
-//   - create(device, n, pointsBuf, c?) — data-independent: compile pipelines,
-//     convert + upload the point pool. Once per problem size.
-//   - prepare(scalarsBuf)              — UNTIMED: Booth-decode the scalars,
-//     plan every level, (re)allocate the data-dependent buffers + bind groups,
-//     upload the Montgomery scalars. Cached by scalarsBuf identity.
-//   - run() -> {x, y}                  — TIMED: encode + submit the whole
-//     batched pipeline, decode red_buf, host-combine the windows.
+// Two pieces, so the SRS point pool is uploaded and converted to Montgomery form
+// exactly once and shared by every MSM of the proving session:
+//   - MsmV2Pool.create(device, srsCanonicalBytes) — upload the canonical SRS and
+//     GPU-convert it to the Montgomery-form 8xu32 point pool. Once per session.
+//   - MsmV2.create(device, n, pool, config?) — data-independent: compile the
+//     pipelines + bind groups for an n-point MSM, binding a prefix of `pool`.
+//   - prepare(scalarsBuf) — UNTIMED: Booth-decode the scalars, plan every level,
+//     (re)allocate the data-dependent buffers + bind groups. Cached by identity.
+//   - run() -> {x, y} — TIMED: encode + submit the batched pipeline, decode
+//     red_buf, host-combine the windows.
 //
-// The math helpers below are copied verbatim from `bench-msm-tree-v2.ts` — that
-// file runs a bench on import, so it cannot be imported from. A future cleanup
-// could hoist the shared math into its own module.
-//
-// Known limitations (fine for this benchmark — random scalars over distinct
-// SRS bases — but not a production path): the affine-add pair-tree has no
-// point-at-infinity handling and no dx==0 fallback-to-double; a colliding pair
-// (P == ±Q) would corrupt its chunk's batched inversion.
+// Production contract: SRS-backed MSM only. The affine-add pair-tree assumes the
+// point pool is free of the point at infinity and of colliding pairs (no P == ±Q
+// within a bucket) — both hold for an SRS basis. The C++ webgpu_msm hook enforces
+// this by delegating only when handle_edge_cases is false.
 
-import { ShaderManager } from '../../src/msm_webgpu/cuzk/shader_manager.js';
-import { BN254_CURVE_CONFIG } from '../../src/msm_webgpu/cuzk/curve_config.js';
-import { compute_misc_params } from '../../src/msm_webgpu/cuzk/utils.js';
-import { BN254_BASE_FIELD, modInverse } from '../../src/msm_webgpu/cuzk/bn254.js';
+import { ShaderManager } from './cuzk/shader_manager.js';
+import { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
+import { compute_misc_params } from './cuzk/utils.js';
+import { BN254_BASE_FIELD, modInverse } from './cuzk/bn254.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -69,11 +64,24 @@ export interface MsmConfig {
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
+  /**
+   * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
+   * the shader-JIT / command-buffer cold start before the first timed run.
+   * Default 5 (benchmark harness); the production bridge passes 0 so the first
+   * real MSM is the work, not a throwaway.
+   */
+  warmupRuns?: number;
+  /**
+   * Run the Horner window-combine + final modular inverse on the host. Default
+   * `true` — the benchmark harness wants the affine `{x, y}`. The production
+   * bridge passes `false`: it ships the per-window sums across the bridge and
+   * the C++ hook does the combine in native `bb::g1`.
+   */
+  combineOnHost?: boolean;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
 export interface ProfileBreakdown {
-  demont: number;
   decompose: number;
   transpose: number;
   convert: number;
@@ -334,6 +342,123 @@ interface LevelBind {
 }
 
 /**
+ * The shared SRS point pool: the base points uploaded to the GPU and converted
+ * to Montgomery-form 8×u32 layout exactly once, then bound (as a prefix) by
+ * every {@link MsmV2} instance. Build it once per proving session from the
+ * canonical SRS; `MsmV2.create` references its buffers without re-uploading or
+ * re-converting.
+ */
+export class MsmV2Pool {
+  private constructor(
+    /** Number of base points held by the pool. */
+    readonly srsN: number,
+    /** Montgomery-form x coordinates — `srsN` × 8×u32. */
+    readonly poolX: GPUBuffer,
+    /** Montgomery-form y coordinates — `srsN` × 8×u32. */
+    readonly poolY: GPUBuffer,
+  ) {}
+
+  /**
+   * Upload the canonical SRS and GPU-convert it into the Montgomery point pool.
+   * `srsCanonicalBytes` is `srsN × 64` little-endian bytes —
+   * `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine. `srsN` must be
+   * a power of two (every SRS is). The conversion is one `convert_points_only`
+   * dispatch — the same canonical→Montgomery field multiply MsmV2's pipeline
+   * expects, run once for the whole SRS.
+   */
+  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmV2Pool> {
+    const srsN = srsCanonicalBytes.byteLength / 64;
+    if (!Number.isInteger(srsN) || srsN <= 0) {
+      throw new Error(`MsmV2Pool.create: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`);
+    }
+
+    // convert_points_only reads the raw input from two storage buffers (its
+    // first_half / second_half bindings); split by point count.
+    const halfBytes = (srsN >> 1) * 64;
+    const firstHalf = device.createBuffer({
+      size: Math.max(4, halfBytes),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    const secondHalf = device.createBuffer({
+      size: Math.max(4, srsCanonicalBytes.byteLength - halfBytes),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(firstHalf, 0, srsCanonicalBytes as BufferSource, 0, halfBytes);
+    device.queue.writeBuffer(
+      secondHalf,
+      0,
+      srsCanonicalBytes as BufferSource,
+      halfBytes,
+      srsCanonicalBytes.byteLength - halfBytes,
+    );
+
+    // Montgomery-form pool: 8×u32 (32 bytes) per coordinate.
+    const poolBytes = srsN * 32;
+    const poolUsage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
+    const poolX = device.createBuffer({ size: poolBytes, usage: poolUsage });
+    const poolY = device.createBuffer({ size: poolBytes, usage: poolUsage });
+
+    // Workgroup shape that covers srsN exactly — convert_points_only has no
+    // bounds guard, so the dispatch must land exactly on srsN threads.
+    let workgroupSize: number;
+    let numXWorkgroups: number;
+    if (srsN <= 256) {
+      workgroupSize = srsN;
+      numXWorkgroups = 1;
+    } else if (srsN <= 32768) {
+      workgroupSize = 64;
+      numXWorkgroups = 4;
+    } else {
+      workgroupSize = 256;
+      numXWorkgroups = srsN <= 131072 ? 8 : 32;
+    }
+    const numYWorkgroups = srsN / workgroupSize / numXWorkgroups;
+    if (!Number.isInteger(numYWorkgroups) || numYWorkgroups < 1) {
+      throw new Error(`MsmV2Pool.create: srsN ${srsN} does not tile — expected a power-of-two SRS size`);
+    }
+
+    const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
+    const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
+    const layout = device.createBindGroupLayout({
+      entries: (['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform'] as GPUBufferBindingType[]).map(
+        (type, binding) => ({ binding, visibility: GPUShaderStage.COMPUTE, buffer: { type } }),
+      ),
+    });
+    const pipeline = await compileOne(device, code, 'convert-points-pool', layout);
+
+    const params = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(params, 0, new Uint32Array([srsN, 0, 0, 0]));
+    const bind = device.createBindGroup({
+      layout,
+      entries: [firstHalf, secondHalf, poolX, poolY, params].map((buffer, binding) => ({
+        binding,
+        resource: { buffer },
+      })),
+    });
+
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bind);
+    pass.dispatchWorkgroups(numXWorkgroups, numYWorkgroups, 1);
+    pass.end();
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+
+    firstHalf.destroy();
+    secondHalf.destroy();
+    params.destroy();
+    return new MsmV2Pool(srsN, poolX, poolY);
+  }
+
+  /** Free the pool's two GPU buffers. */
+  destroy(): void {
+    this.poolX.destroy();
+    this.poolY.destroy();
+  }
+}
+
+/**
  * The memory-bounded v2 pair-tree GPU MSM. See the file header for the
  * create / prepare / run lifecycle.
  */
@@ -356,6 +481,7 @@ export class MsmV2 {
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = 0;
+  private combineOnHost = true;
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -370,7 +496,6 @@ export class MsmV2 {
   private fusedPipeL0!: GPUComputePipeline;
   private carryPipeL0!: GPUComputePipeline;
   private finalizePipeL0!: GPUComputePipeline;
-  private demontPipe!: GPUComputePipeline;
   private decomposePipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -387,7 +512,6 @@ export class MsmV2 {
   private carryLayoutL0!: GPUBindGroupLayout;
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
-  private demontLayout!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
@@ -416,7 +540,6 @@ export class MsmV2 {
   private tsResolveBuf: GPUBuffer | null = null;
   private tsStagingBuf: GPUBuffer | null = null;
   private passCount = 0;
-  private demontBind!: GPUBindGroup;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
   private xposeScanBind!: GPUBindGroup;
@@ -431,13 +554,12 @@ export class MsmV2 {
   private constructor() {}
 
   /**
-   * Build the data-independent half of the pipeline: pipelines, layouts and
-   * the Montgomery-form point pool. `pointsBuf` is `n × 64` little-endian
-   * bytes — `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine
-   * (the harness / SRS layout). `config` tunes the pipeline knobs; every field
-   * defaults to current behaviour (see {@link MsmConfig}).
+   * Build the data-independent half of the pipeline — pipelines and layouts —
+   * for an `n`-point MSM, binding a prefix of the shared {@link MsmV2Pool} as
+   * the point pool (`n` must be `<= pool.srsN`). `config` tunes the pipeline
+   * knobs; every field defaults to current behaviour (see {@link MsmConfig}).
    */
-  static async create(device: GPUDevice, n: number, pointsBuf: Uint8Array, config?: MsmConfig): Promise<MsmV2> {
+  static async create(device: GPUDevice, n: number, pool: MsmV2Pool, config?: MsmConfig): Promise<MsmV2> {
     const m = new MsmV2();
     m.device = device;
     m.n = n;
@@ -449,6 +571,7 @@ export class MsmV2 {
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
+    m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -466,25 +589,15 @@ export class MsmV2 {
     m.rinv = misc.rinv;
     const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false);
 
-    // Host point conversion: harness affine LE -> Montgomery SoA 8xu32 LE.
-    const pointX = new Uint32Array(n * 8);
-    const pointY = new Uint32Array(n * 8);
-    for (let i = 0; i < n; i++) {
-      const x = leBytesToBigint(pointsBuf, i * 64);
-      const y = leBytesToBigint(pointsBuf, i * 64 + 32);
-      pointX.set(bigintToPackedU32x8((x * m.R) % FP), i * 8);
-      pointY.set(bigintToPackedU32x8((y * m.R) % FP), i * 8);
+    // Bind a prefix of the shared, already-Montgomery-converted SRS pool. The
+    // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n
+    // entries is consumed as its first-n prefix — no per-instance upload or
+    // Montgomery conversion.
+    if (n > pool.srsN) {
+      throw new Error(`MsmV2.create: n (${n}) exceeds the pool's srsN (${pool.srsN})`);
     }
-    m.pointXBuf = device.createBuffer({
-      size: pointX.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-    m.pointYBuf = device.createBuffer({
-      size: pointY.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-    device.queue.writeBuffer(m.pointXBuf, 0, pointX);
-    device.queue.writeBuffer(m.pointYBuf, 0, pointY);
+    m.pointXBuf = pool.poolX;
+    m.pointYBuf = pool.poolY;
 
     // Pad trio — 3 distinct-x points (a dx==0 pad pair would poison a chunk's
     // batched inversion). Deterministic, so every instance is reproducible.
@@ -545,7 +658,6 @@ export class MsmV2 {
       'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform',
       'read-only-storage', 'read-only-storage',
     ]);
-    m.demontLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform']);
@@ -577,7 +689,6 @@ export class MsmV2 {
     m.finalizePipeL0 = await compileOne(
       device, sm.gen_ba_finalize_copy_bench_shader(WGI, true), `finalize-l0`, m.finalizeLayoutL0,
     );
-    m.demontPipe = await compileOne(device, sm.gen_demont_scalars_shader(WGI), `demont`, m.demontLayout);
     m.decomposePipe = await compileOne(device, sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
     // Privatized-histogram count: one workgroup per window, shared-memory
     // tally — no contended global atomics. tile is the shared histogram
@@ -611,15 +722,19 @@ export class MsmV2 {
       );
     }
 
-    // Warm-up: prepare + dispatch several times so the first timed run pays
-    // no shader JIT / command-buffer cold start and sees ramped GPU clocks.
-    // Dummy scalars (0x01..) give a representative bucket distribution.
-    try {
-      const dummy = new Uint8Array(n * 32).fill(1);
-      m.prepare(dummy);
-      for (let w = 0; w < 5; w++) await m.run();
-    } catch (e) {
-      console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
+    // Warm-up: prepare + dispatch a few times so the first timed run pays no
+    // shader JIT / command-buffer cold start and sees ramped GPU clocks. Dummy
+    // scalars (0x01..) give a representative bucket distribution. The bridge
+    // passes warmupRuns: 0 — production wants the first MSM to be real work.
+    const warmupRuns = config?.warmupRuns ?? 5;
+    if (warmupRuns > 0) {
+      try {
+        const dummy = new Uint8Array(n * 32).fill(1);
+        m.prepare(dummy);
+        for (let w = 0; w < warmupRuns; w++) await m.run();
+      } catch (e) {
+        console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
     return m;
   }
@@ -666,22 +781,22 @@ export class MsmV2 {
         size: Math.max(16, Math.ceil(data.byteLength / 16) * 16),
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(b, 0, data);
+      device.queue.writeBuffer(b, 0, data as BufferSource);
       this.prepBuffers.push(b);
       return b;
     };
     const mkBind = (layout: GPUBindGroupLayout, buffers: GPUBuffer[]): GPUBindGroup =>
       device.createBindGroup({ layout, entries: buffers.map((buffer, binding) => ({ binding, resource: { buffer } })) });
 
-    // --- Host: scalars -> Montgomery + Booth-decode -> level-0 counts ---
+    // --- Host: scalars (canonical) -> 8×u32 + Booth-decode -> level-0 counts ---
     const scalars = new Uint32Array(n * 8);
     const scalarBig: bigint[] = new Array(n);
     for (let i = 0; i < n; i++) {
       const s = leBytesToBigint(scalarsBuf, i * 32);
       scalarBig[i] = s;
-      // Host *R; the GPU demont pass divides it back out — the prover hands
-      // over Montgomery-form scalars, so the pipeline models that path.
-      scalars.set(bigintToPackedU32x8((s * R) % FP), i * 8);
+      // The carry-free Booth decompose bit-slices the raw integer, so the GPU
+      // consumes canonical scalars directly — no Montgomery round-trip.
+      scalars.set(bigintToPackedU32x8(s), i * 8);
     }
     const initCounts = new Uint32Array(B_TOTAL);
     for (let w = 0; w < NUM_WINDOWS; w++) {
@@ -759,8 +874,8 @@ export class MsmV2 {
     const padBuf = buildPadBuf(M1, this.padPts, R);
     const bufA = soa(M1);
     const bufB = soa(M1);
-    device.queue.writeBuffer(bufA, 0, padBuf);
-    device.queue.writeBuffer(bufB, 0, padBuf);
+    device.queue.writeBuffer(bufA, 0, padBuf as BufferSource);
+    device.queue.writeBuffer(bufB, 0, padBuf as BufferSource);
     const bucketResult = soa(B_TOTAL);
     this.bucketResultBuf = bucketResult;
     const l0IdxBuf = sbuf(l0Slots * 4);
@@ -787,14 +902,14 @@ export class MsmV2 {
     );
     const prefScratchBuf = sbuf(FUSED_TILE * S * 8 * 4);
 
-    // Pre-step buffers.
-    const scalarsGpuBuf = sbuf(scalars.byteLength);
+    // Pre-step buffers. Scalars are canonical — uploaded straight into the
+    // buffer the Booth-decompose pass reads (no demont pass).
     const scalarsRawBuf = sbuf(scalars.byteLength);
-    device.queue.writeBuffer(scalarsGpuBuf, 0, scalars);
+    device.queue.writeBuffer(scalarsRawBuf, 0, scalars);
     const chunksBuf = sbuf(batchSlots * 4);
     const signsBuf = sbuf(batchSlots * 4);
     const rowPtrBuf = sbuf(batchWindows * (BW + 1) * 4);
-    const valIdxBuf = sbuf(batchSlots * 4);    const demontParams = ubuf(new Uint32Array([n, 0, 0, 0]));
+    const valIdxBuf = sbuf(batchSlots * 4);
     const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
     const xposeParams = ubuf(new Uint32Array([Math.ceil(n / BW), BW, n, 0]));
     const convActiveParams = ubuf(new Uint32Array([batchSlots, M1, WSTRIDE, n]));
@@ -804,7 +919,6 @@ export class MsmV2 {
       batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, 0, 0, 0])));
     }
 
-    this.demontBind = mkBind(this.demontLayout, [scalarsGpuBuf, scalarsRawBuf, demontParams]);
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
       mkBind(this.decomposeLayout, [scalarsRawBuf, chunksBuf, signsBuf, decomposeParams, bwb]));
     this.xposeCountBind = mkBind(this.xposeCountLayout, [chunksBuf, rowPtrBuf, xposeParams]);
@@ -947,7 +1061,7 @@ export class MsmV2 {
     this.tsResolveBuf = null;
     this.tsStagingBuf = null;
     if (this.profile) {
-      let passes = 1; // demont
+      let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
         passes += 6; // decompose + xpose x3 + conv x2
         for (let lv = 0; lv < levels; lv++) passes += 3 + this.levelBinds[lv].fusedTiles.length;
@@ -977,7 +1091,7 @@ export class MsmV2 {
    * created with `profile`, the result carries a per-pass GPU breakdown;
    * otherwise `profile` is `null`.
    */
-  async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null }> {
+  async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
     const { wgi: WGI } = this;
     const device = this.device;
@@ -1003,8 +1117,6 @@ export class MsmV2 {
       pass.end();
     };
 
-    // De-Montgomery the scalars once (batch-independent).
-    dispatch(this.demontPipe, this.demontBind, this.nXposePts, 1, 'demont');
     // Lever G: outer loop over window batches.
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
@@ -1060,7 +1172,9 @@ export class MsmV2 {
     }
     this.redStaging.unmap();
     this.windowSums = L;
-    const result = hostWindowCombine(L, this.c);
+    // The bridge ships these per-window sums to the C++ hook for a native
+    // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
+    const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
     // Per-pass GPU timestamps -> category breakdown (profiling mode only).
     let profile: ProfileBreakdown | null = null;
@@ -1069,7 +1183,7 @@ export class MsmV2 {
       const ts = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
       this.tsStagingBuf.unmap();
       profile = {
-        demont: 0, decompose: 0, transpose: 0, convert: 0, planner: 0,
+        decompose: 0, transpose: 0, convert: 0, planner: 0,
         fused: 0, carry: 0, finalize: 0, redInit: 0, redFused: 0, wall: 0,
       };
       const acc = profile as unknown as Record<string, number>;
@@ -1078,7 +1192,7 @@ export class MsmV2 {
       }
       profile.wall = performance.now() - wallT0;
     }
-    return { x: result.x, y: result.y, profile };
+    return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
   }
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */
@@ -1091,14 +1205,15 @@ export class MsmV2 {
     return { buf, BW: this.BW, numWindows: this.numWindows, stride: this.stride, rinv: this.rinv };
   }
 
-  /** Release every GPU buffer owned by this instance. */
+  /**
+   * Release every GPU buffer owned by this instance. The shared point pool is
+   * owned by the {@link MsmV2Pool}, not by an instance, and is not freed here.
+   */
   destroy(): void {
     for (const b of this.prepBuffers) b.destroy();
     this.prepBuffers = [];
     this.preparedFor = null;
     this.querySet?.destroy();
     this.querySet = null;
-    this.pointXBuf?.destroy();
-    this.pointYBuf?.destroy();
   }
 }

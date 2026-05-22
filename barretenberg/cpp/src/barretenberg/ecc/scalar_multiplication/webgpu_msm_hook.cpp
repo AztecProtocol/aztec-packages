@@ -2,8 +2,10 @@
 
 #ifdef BBERG_WEBGPU_MSM_HOOK
 
+#include <array>
 #include <atomic>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/wasm_export.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
@@ -30,9 +32,9 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
     std::span<std::span<const curve::BN254::AffineElement>> points,
     std::span<std::span<curve::BN254::ScalarField>> scalars) noexcept
 {
+    using webgpu_marshalling::combine_windows;
     using webgpu_marshalling::marshal_points;
     using webgpu_marshalling::marshal_scalars;
-    using webgpu_marshalling::read_affine_le;
 
     const size_t batch_size = points.size();
     std::vector<curve::BN254::AffineElement> results;
@@ -61,13 +63,37 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
             continue;
         }
 
-        std::vector<uint8_t> points_bytes = marshal_points(points[i].subspan(0, n));
+        // A small MSM is not worth the bridge round-trip — compute it natively.
+        if (n < webgpu_msm_native_max_n) {
+            std::array<std::span<const curve::BN254::AffineElement>, 1> p{ points[i].subspan(0, n) };
+            std::array<std::span<curve::BN254::ScalarField>, 1> s{ scalars[i] };
+            results.push_back(MSM<curve::BN254>::batch_multi_scalar_mul_native(p, s, false)[0]);
+            continue;
+        }
+
+        // When this MSM's points are a prefix of the published SRS (the common
+        // case), the host already holds the converted point pool — send only
+        // the scalars and a null points pointer.
+        const auto* pts = reinterpret_cast<const uint8_t*>(points[i].data());
+        const bool is_srs_prefix = pts == g_published_srs_base.load(std::memory_order_relaxed) &&
+                                   n <= g_published_srs_count.load(std::memory_order_relaxed);
+        std::vector<uint8_t> points_bytes;
+        const uint8_t* points_arg = nullptr;
+        if (!is_srs_prefix) {
+            points_bytes = marshal_points(points[i].subspan(0, n));
+            points_arg = points_bytes.data();
+        }
         std::vector<uint8_t> scalars_bytes = marshal_scalars(scalars[i]);
 
-        uint8_t result_bytes[64];
-        bb_external_msm_bn254(points_bytes.data(), scalars_bytes.data(), static_cast<uint32_t>(n), result_bytes);
-
-        results.push_back(read_affine_le(result_bytes));
+        // Result region holds the per-window sums: at most 64 windows (254-bit
+        // scalar field, minimum 4-bit Pippenger window) of 64 bytes each.
+        uint8_t result_bytes[64 * 64];
+        const uint32_t meta =
+            bb_external_msm_bn254(points_arg, scalars_bytes.data(), static_cast<uint32_t>(n), result_bytes);
+        const uint32_t num_windows = meta >> 16;
+        const uint32_t c = meta & 0xffffu;
+        BB_ASSERT(num_windows <= 64, "webgpu MSM: num_windows exceeds the 64-window result buffer");
+        results.push_back(combine_windows(result_bytes, num_windows, c));
     }
 
     return results;

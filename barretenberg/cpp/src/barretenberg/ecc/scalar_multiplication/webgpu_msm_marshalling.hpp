@@ -10,11 +10,12 @@
 // Layout contract (matches the JS side; see barretenberg/ts/src/msm_webgpu/):
 //   points  — n × 64 bytes, [x[32] || y[32]] per point, LE, NOT Montgomery
 //   scalars — n × 32 bytes (Fr), LE, NOT Montgomery
-//   result  — 64 bytes,           [x[32] || y[32]], LE, NOT Montgomery
+//   result  — num_windows × 64 bytes: the per-window sums, [x[32] || y[32]]
+//             each, LE NOT Montgomery; `combine_windows` folds them to the point
 //
 // `static_cast<uint256_t>(field)` strips Montgomery form (canonical
 // representation); the `BaseField(uint256_t)` constructor re-wraps
-// the result returned by the GPU.
+// the per-window sums returned by the GPU.
 
 #include <cstdint>
 #include <cstring>
@@ -83,6 +84,26 @@ inline curve::BN254::AffineElement read_affine_le(const uint8_t* buf)
     result.x = curve::BN254::BaseField(read_uint256_le(buf));
     result.y = curve::BN254::BaseField(read_uint256_le(buf + 32));
     return result;
+}
+
+// Horner-combine the per-window sums into the final MSM point. `buf` holds
+// `num_windows × 64` LE non-Montgomery bytes — window `w`'s weighted sum at
+// `buf[w * 64]`, lowest window first. `c` is the Pippenger window bit width;
+// the fold is `acc = acc · 2^c + L[w]` over the windows, high to low. Runs in
+// native bb::g1 — the production replacement for the JS host-side combine.
+inline curve::BN254::AffineElement combine_windows(const uint8_t* buf, uint32_t num_windows, uint32_t c)
+{
+    if (num_windows == 0) {
+        return curve::BN254::AffineElement::infinity();
+    }
+    curve::BN254::Element acc{ read_affine_le(&buf[static_cast<size_t>(num_windows - 1) * 64]) };
+    for (int w = static_cast<int>(num_windows) - 2; w >= 0; --w) {
+        for (uint32_t d = 0; d < c; ++d) {
+            acc.self_dbl();
+        }
+        acc += read_affine_le(&buf[static_cast<size_t>(w) * 64]);
+    }
+    return curve::BN254::AffineElement{ acc };
 }
 
 } // namespace bb::scalar_multiplication::webgpu_marshalling

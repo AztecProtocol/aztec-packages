@@ -27,7 +27,7 @@ export interface WebGpuBridgeHandle {
   controlSab: SharedArrayBuffer;
   /** Main-thread host driving the GPU. */
   host: WebGpuMsmHost;
-  /** Detach handlers + destroy the GpuContext. */
+  /** Detach handlers + destroy the host (its GPUDevice and SRS point pool). */
   destroy: () => Promise<void>;
 }
 

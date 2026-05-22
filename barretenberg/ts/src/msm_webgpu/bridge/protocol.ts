@@ -23,6 +23,12 @@ export const SLOT_POINTS_PTR = 3;
 export const SLOT_SCALARS_PTR = 4;
 export const SLOT_RESULT_PTR = 5;
 export const SLOT_ERROR_CODE = 6;
+// OP_MSM result metadata the host writes back: the per-window-sum count and the
+// Pippenger window-bit width `c`. The worker stub packs them into the
+// `bb_external_msm_bn254` return value so the C++ hook can Horner-combine the
+// windows in native bb::g1.
+export const SLOT_NUM_WINDOWS = 7;
+export const SLOT_C = 8;
 
 // Values for SLOT_STATE.
 export const STATE_IDLE = 0;

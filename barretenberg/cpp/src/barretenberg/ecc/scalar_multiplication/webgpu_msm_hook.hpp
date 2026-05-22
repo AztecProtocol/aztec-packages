@@ -28,9 +28,17 @@
 #define BBERG_WEBGPU_MSM_MIN_N (1u << 16)
 #endif
 
+// Per-MSM size below which an entry of a delegated batch is computed with the
+// native Pippenger instead of the GPU bridge — for a small MSM the bridge
+// round-trip dominates. Override with -DBBERG_WEBGPU_MSM_NATIVE_MAX_N=<value>.
+#ifndef BBERG_WEBGPU_MSM_NATIVE_MAX_N
+#define BBERG_WEBGPU_MSM_NATIVE_MAX_N (1u << 10)
+#endif
+
 namespace bb::scalar_multiplication {
 
 inline constexpr std::size_t webgpu_msm_min_n = static_cast<std::size_t>(BBERG_WEBGPU_MSM_MIN_N);
+inline constexpr std::size_t webgpu_msm_native_max_n = static_cast<std::size_t>(BBERG_WEBGPU_MSM_NATIVE_MAX_N);
 
 // Returns true if at least one MSM in the batch is large enough to be
 // worth routing through the WebGPU host. The current policy delegates
@@ -52,16 +60,21 @@ inline bool webgpu_msm_batch_should_delegate(std::span<std::span<curve::BN254::S
 // object at instantiation time.
 //
 // Layout contract (all little-endian, NOT in Montgomery form):
-//   points  — n × 64 bytes, [x[32] || y[32]] per point
+//   points  — n × 64 bytes, [x[32] || y[32]] per point; may be null when the
+//             MSM's points are a prefix of the already-published SRS
 //   scalars — n × 32 bytes (Fr)
-//   result  — 64 bytes,     [x[32] || y[32]]
+//   result  — num_windows × 64 bytes: the per-window sums, [x[32] || y[32]] each
+//
+// Returns (num_windows << 16) | c — the per-window-sum count and the Pippenger
+// window-bit width. `combine_windows` (webgpu_msm_marshalling.hpp) Horner-folds
+// the result region into the final affine point.
 WASM_IMPORT("bb_external_msm_bn254")
-void bb_external_msm_bn254(const uint8_t* points, const uint8_t* scalars, uint32_t n, uint8_t* result);
+uint32_t bb_external_msm_bn254(const uint8_t* points, const uint8_t* scalars, uint32_t n, uint8_t* result);
 
 // One-shot SRS publisher. Called the first time we route an MSM through
-// the WebGPU hook. The JS side uses this to upload the SRS to the GPU
-// once and reuse `CachedBases` across every subsequent MSM in the same
-// proving session.
+// the WebGPU hook. The JS side uploads the SRS to the GPU and converts it
+// to the Montgomery point pool once, reused by every subsequent MSM in the
+// same proving session.
 WASM_IMPORT("bb_publish_srs_bn254")
 void bb_publish_srs_bn254(const uint8_t* points, uint32_t n);
 

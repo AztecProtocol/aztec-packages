@@ -115,4 +115,45 @@ TEST(WebGpuMsmMarshalling, Uint256LittleEndianBytes)
     }
 }
 
+// combine_windows Horner-folds the per-window sums into the MSM point:
+// result = Σ_w L_w · 2^(w·c). Validated against an independent scalar-
+// multiplication reference, so an algorithmic bug in the doubling fold (wrong
+// doubling count or window order) is caught, not just a byte-layout mismatch.
+TEST(WebGpuMsmMarshalling, CombineWindowsHornerFold)
+{
+    constexpr uint32_t c = 13;
+    constexpr uint32_t kNumWindows = 20;
+
+    std::vector<AffineElement> windows;
+    windows.reserve(kNumWindows);
+    for (uint32_t w = 0; w < kNumWindows; ++w) {
+        windows.push_back(AffineElement(BN254::Element::random_element(&engine)));
+    }
+    const std::vector<uint8_t> buf = marshal_points(windows);
+    ASSERT_EQ(buf.size(), static_cast<size_t>(kNumWindows) * 64);
+
+    // Reference: Σ_w windows[w] · 2^(w·c) by scalar multiplication.
+    BN254::Element expected = BN254::Element::infinity();
+    ScalarField weight(1);
+    const ScalarField step(1 << c);
+    for (uint32_t w = 0; w < kNumWindows; ++w) {
+        expected += BN254::Element(windows[w]) * weight;
+        weight *= step;
+    }
+
+    EXPECT_EQ(combine_windows(buf.data(), kNumWindows, c), AffineElement(expected));
+}
+
+// Boundary cases: zero windows must not dereference the buffer (returns the
+// point at infinity); a single window is returned verbatim.
+TEST(WebGpuMsmMarshalling, CombineWindowsSingleAndEmpty)
+{
+    EXPECT_TRUE(combine_windows(nullptr, 0, 13).is_point_at_infinity());
+
+    const AffineElement only(BN254::Element::random_element(&engine));
+    const std::vector<AffineElement> single = { only };
+    const std::vector<uint8_t> buf = marshal_points(single);
+    EXPECT_EQ(combine_windows(buf.data(), 1, 13), only);
+}
+
 } // namespace
