@@ -1,0 +1,10 @@
+validator:
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          matchLabelKeys:
+            - apps.kubernetes.io/pod-index
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: sequencer-node

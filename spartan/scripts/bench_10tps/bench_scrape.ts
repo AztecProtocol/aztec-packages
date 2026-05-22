@@ -53,6 +53,7 @@ type Args = {
   targetTps: number;
   workload: string;
   output: string | undefined;
+  inclusionRecords: string | undefined;
   waitForPendingZero: boolean;
   maxPendingWaitSeconds: number;
 };
@@ -78,6 +79,10 @@ function parseArgs(): Args {
       argv.indexOf("--output") === -1
         ? undefined
         : argv[argv.indexOf("--output") + 1],
+    inclusionRecords:
+      argv.indexOf("--inclusion-records") === -1
+        ? undefined
+        : argv[argv.indexOf("--inclusion-records") + 1],
     waitForPendingZero:
       !argv.includes("--no-wait-for-pending-zero") &&
       (argv.includes("--wait-for-pending-zero") ||
@@ -133,6 +138,128 @@ type SeriesEntry = {
   labels: Record<string, string>;
   points: TsPoint[];
 };
+
+// --- Inclusion records (client-observed per-tx timing from n_tps.test.ts) ---
+
+// Subset of TxInclusionData (yarn-project/.../tx_metrics.ts) that we care
+// about. Records are emitted into /tmp/n_tps_timing_data.json under the
+// `inclusionRecords` key, filtered to the high-value group, so this is the
+// authoritative client-observed inclusion-latency dataset for the run.
+type InclusionRecord = {
+  txHash: string;
+  sentAtMs: number;
+  minedAtMs: number;
+  blocknumber: number;
+};
+
+async function loadInclusionRecords(
+  path: string | undefined,
+): Promise<InclusionRecord[]> {
+  if (!path) return [];
+  try {
+    const raw = await readFile(path, "utf8");
+    const parsed = JSON.parse(raw) as {
+      inclusionRecords?: InclusionRecord[];
+    };
+    const records = parsed.inclusionRecords ?? [];
+    log(`Loaded ${records.length} inclusion records`, { path });
+    return records;
+  } catch (err) {
+    log("inclusion records load failed", {
+      path,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
+}
+
+// Nearest-rank quantile. Returns null on empty input.
+function quantile(sorted: number[], p: number): number | null {
+  if (sorted.length === 0) return null;
+  const idx = Math.min(sorted.length - 1, Math.floor(p * sorted.length));
+  return sorted[idx];
+}
+
+function deltasMs(records: InclusionRecord[]): number[] {
+  const out: number[] = [];
+  for (const r of records) {
+    if (r.sentAtMs > 0 && r.minedAtMs > 0) {
+      const d = r.minedAtMs - r.sentAtMs;
+      if (d > 0) out.push(d);
+    }
+  }
+  return out;
+}
+
+function inclusionLatencyScalarMs(
+  records: InclusionRecord[],
+  p: number,
+): number | null {
+  const sorted = deltasMs(records).sort((a, b) => a - b);
+  return quantile(sorted, p);
+}
+
+// Bin records by sentAt minute, compute per-bin quantile. Matches the
+// `[1m]` window semantics the old Prom-based tx_mined_delay queries used.
+function inclusionLatencyTimeSeriesPoints(
+  records: InclusionRecord[],
+  startedAtEpoch: number,
+  endedAtEpoch: number,
+  p: number,
+  bucketSec = 60,
+): TsPoint[] {
+  const bins = new Map<number, number[]>();
+  for (const r of records) {
+    if (r.sentAtMs <= 0 || r.minedAtMs <= 0) continue;
+    const sentSec = Math.floor(r.sentAtMs / 1000);
+    if (sentSec < startedAtEpoch || sentSec > endedAtEpoch) continue;
+    const d = r.minedAtMs - r.sentAtMs;
+    if (d <= 0) continue;
+    const bin = Math.floor(sentSec / bucketSec) * bucketSec;
+    const arr = bins.get(bin) ?? [];
+    arr.push(d);
+    bins.set(bin, arr);
+  }
+  const points: TsPoint[] = [];
+  for (const bin of [...bins.keys()].sort((a, b) => a - b)) {
+    const arr = bins.get(bin)!.sort((a, b) => a - b);
+    points.push({ unixEpoch: bin, value: quantile(arr, p) });
+  }
+  return points;
+}
+
+function buildInclusionLatencyTimeSeries(
+  records: InclusionRecord[],
+  startedAtEpoch: number,
+  endedAtEpoch: number,
+  p: number,
+): {
+  metric: string;
+  unit: string;
+  source: string;
+  query: string;
+  stepSeconds: number;
+  series: SeriesEntry[];
+} {
+  return {
+    metric: "n_tps_test.tx_inclusion_time",
+    unit: "ms",
+    source: "client_observed",
+    query: `n_tps.test.ts inclusionRecords (group=tx_inclusion_time), quantile=${p}, 60s bins by sentAtMs`,
+    stepSeconds: 60,
+    series: [
+      {
+        labels: {},
+        points: inclusionLatencyTimeSeriesPoints(
+          records,
+          startedAtEpoch,
+          endedAtEpoch,
+          p,
+        ),
+      },
+    ],
+  };
+}
 
 const parseValue = (v: string | undefined): number | null =>
   v === undefined || v === "NaN" ? null : Number(v);
@@ -1408,6 +1535,7 @@ type SummaryArgs = {
   timeSeries: Record<string, { series: SeriesEntry[] }>;
   blocks: BlockRecord[];
   events: Event[];
+  inclusionRecords: InclusionRecord[];
 };
 
 async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
@@ -1463,24 +1591,17 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
   const oneShotQuantile = (q: number, bucket: string) =>
     `histogram_quantile(${q}, sum by (le)(rate(${bucket}${NS}[${windowSpec}])))`;
 
-  const [
-    inclLatP50,
-    inclLatP95,
-    inclLatP99,
-    buildP50,
-    buildP95,
-    ppTxP50,
-    ppTxP95,
-  ] = await Promise.all([
-    safeInstant(
-      oneShotQuantile(0.5, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
-    ),
-    safeInstant(
-      oneShotQuantile(0.95, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
-    ),
-    safeInstant(
-      oneShotQuantile(0.99, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
-    ),
+  // Inclusion-latency quantiles are now computed from per-tx client-observed
+  // records emitted by n_tps.test.ts (high-value group only). The other
+  // histogram-based scalars below still come from Prometheus.
+  const inclLatP50 = inclusionLatencyScalarMs(a.inclusionRecords, 0.5);
+  const inclLatP95 = inclusionLatencyScalarMs(a.inclusionRecords, 0.95);
+  const inclLatP99 = inclusionLatencyScalarMs(a.inclusionRecords, 0.99);
+  if (a.inclusionRecords.length === 0) {
+    log("No inclusion records loaded; summary.inclusionLatencyP* will be null");
+  }
+
+  const [buildP50, buildP95, ppTxP50, ppTxP95] = await Promise.all([
     safeInstant(
       oneShotQuantile(
         0.5,
@@ -1794,6 +1915,34 @@ async function main(): Promise<void> {
     log("Scraping Prometheus time-series");
     const timeSeries = await scrapeTimeSeries(startedAtEpoch, promEndEpoch);
 
+    log("Loading client-observed inclusion records");
+    const inclusionRecords = await loadInclusionRecords(args.inclusionRecords);
+    // Compute the headline inclusion-latency time series from per-tx records
+    // and inject under the same slugs the dashboard reads. No Prometheus
+    // dependency for these — they reflect the true client → block-visible
+    // wall-clock latency for high-value txs only.
+    (timeSeries as Record<string, unknown>).txMinedDelayP50 =
+      buildInclusionLatencyTimeSeries(
+        inclusionRecords,
+        startedAtEpoch,
+        promEndEpoch,
+        0.5,
+      );
+    (timeSeries as Record<string, unknown>).txMinedDelayP95 =
+      buildInclusionLatencyTimeSeries(
+        inclusionRecords,
+        startedAtEpoch,
+        promEndEpoch,
+        0.95,
+      );
+    (timeSeries as Record<string, unknown>).txMinedDelayP99 =
+      buildInclusionLatencyTimeSeries(
+        inclusionRecords,
+        startedAtEpoch,
+        promEndEpoch,
+        0.99,
+      );
+
     log("Scraping per-block logs from gcloud");
     // Extend the log window by the drain buffer too — some blocks near endedAt
     // arrive in gcloud after the test stops sending.
@@ -1848,6 +1997,7 @@ async function main(): Promise<void> {
       timeSeries: timeSeries as Record<string, { series: SeriesEntry[] }>,
       blocks,
       events,
+      inclusionRecords,
     });
 
     const payload = {

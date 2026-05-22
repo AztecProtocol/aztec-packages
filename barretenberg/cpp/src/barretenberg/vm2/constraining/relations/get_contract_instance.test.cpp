@@ -141,6 +141,7 @@ TEST(GetContractInstanceConstrainingTest, SelectedMemberConstraint)
     const FF deployer_addr = 0x1234;
     const FF class_id = 0x5678;
     const FF init_hash = 0x9ABC;
+    const FF immutables_hash = 0xCAFE;
     const FF wrong_value = 0x1111;
 
     // Test selected member subrelation
@@ -152,9 +153,11 @@ TEST(GetContractInstanceConstrainingTest, SelectedMemberConstraint)
           { C::get_contract_instance_is_deployer, 1 },
           { C::get_contract_instance_is_class_id, 0 },
           { C::get_contract_instance_is_init_hash, 0 },
+          { C::get_contract_instance_is_immutables_hash, 0 },
           { C::get_contract_instance_retrieved_deployer_addr, deployer_addr },
           { C::get_contract_instance_retrieved_class_id, class_id },
-          { C::get_contract_instance_retrieved_init_hash, init_hash } },
+          { C::get_contract_instance_retrieved_init_hash, init_hash },
+          { C::get_contract_instance_retrieved_immutables_hash, immutables_hash } },
     });
 
     check_relation<get_contract_instance>(trace, get_contract_instance::SR_SELECTED_MEMBER);
@@ -169,6 +172,12 @@ TEST(GetContractInstanceConstrainingTest, SelectedMemberConstraint)
     trace.set(C::get_contract_instance_selected_member, 1, init_hash);
     trace.set(C::get_contract_instance_is_class_id, 1, 0);
     trace.set(C::get_contract_instance_is_init_hash, 1, 1);
+    check_relation<get_contract_instance>(trace, get_contract_instance::SR_SELECTED_MEMBER);
+
+    // Test IMMUTABLES_HASH selection
+    trace.set(C::get_contract_instance_selected_member, 1, immutables_hash);
+    trace.set(C::get_contract_instance_is_init_hash, 1, 0);
+    trace.set(C::get_contract_instance_is_immutables_hash, 1, 1);
     check_relation<get_contract_instance>(trace, get_contract_instance::SR_SELECTED_MEMBER);
 
     // Negative test: wrong selected member

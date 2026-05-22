@@ -43,7 +43,7 @@ declare -A STAGE_TIMINGS
 ########################
 NAMESPACE=${NAMESPACE} # required
 CLUSTER=${CLUSTER:-kind}
-RESOURCE_PROFILE=${RESOURCE_PROFILE:-$([[ "${CLUSTER}" == "kind" ]] && echo "dev" || echo "prod")}
+RESOURCE_PROFILE=${RESOURCE_PROFILE:?RESOURCE_PROFILE must be set by the environment}
 BASE_STATE_PATH="${CLUSTER}/${NAMESPACE}"
 
 # Don't try and retrieve contract addresses, instead allow deployed infra to read from network config

@@ -8,12 +8,13 @@ namespace bb::bbapi {
 
 SchnorrComputePublicKey::Response SchnorrComputePublicKey::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    return { grumpkin::g1::one * private_key };
+    return { grumpkin::g1::element(grumpkin::g1::one).mul_const_time(private_key).to_affine_const_time() };
 }
 
 SchnorrConstructSignature::Response SchnorrConstructSignature::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    grumpkin::g1::affine_element pub_key = grumpkin::g1::one * private_key;
+    grumpkin::g1::affine_element pub_key =
+        grumpkin::g1::element(grumpkin::g1::one).mul_const_time(private_key).to_affine_const_time();
     crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> key_pair = { private_key, pub_key };
 
     auto sig = crypto::schnorr_construct_signature<grumpkin::fr, grumpkin::g1>(message_field, key_pair);

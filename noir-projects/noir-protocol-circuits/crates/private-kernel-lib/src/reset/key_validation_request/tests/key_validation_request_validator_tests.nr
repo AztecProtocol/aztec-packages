@@ -12,7 +12,7 @@ fn clear_all_succeeds() {
     assert(propagated.array.is_empty());
 }
 
-#[test(should_fail_with = "Failed to derive matching master public key from the secret key")]
+#[test(should_fail_with = "Failed to derive matching master public key hash from the secret key")]
 fn wrong_secret_key_hint_fails() {
     let mut builder = TestBuilder::new_clear_all();
 
@@ -45,12 +45,13 @@ fn amount_to_validate_smaller_than_hints_fails() {
     builder.validate_with_amount::<TEST_HINT_LEN - 1>();
 }
 
-#[test(should_fail_with = "Failed to derive matching master public key from the secret key")]
+#[test(should_fail_with = "Derived master public key cannot be the point at infinity")]
 fn hints_fewer_than_requests_fails() {
     let mut builder = TestBuilder::empty();
 
     builder.add_request_and_hint(11);
-    // Add an extra request without a hint.
+    // Add an extra request without a hint. The missing hint slot is implicitly sk_m = 0, which
+    // derives the point at infinity and is rejected by the kernel.
     builder.add_request(22);
 
     builder.validate();

@@ -130,6 +130,7 @@ export class AvmContractInstanceHint {
     public readonly currentContractClassId: Fr,
     public readonly originalContractClassId: Fr,
     public readonly initializationHash: Fr,
+    public readonly immutablesHash: Fr,
     public readonly publicKeys: PublicKeys,
   ) {}
 
@@ -143,6 +144,7 @@ export class AvmContractInstanceHint {
         currentContractClassId: schemas.Fr,
         originalContractClassId: schemas.Fr,
         initializationHash: schemas.Fr,
+        immutablesHash: schemas.Fr,
         publicKeys: PublicKeys.schema,
       })
       .transform(
@@ -154,6 +156,7 @@ export class AvmContractInstanceHint {
           currentContractClassId,
           originalContractClassId,
           initializationHash,
+          immutablesHash,
           publicKeys,
         }) =>
           new AvmContractInstanceHint(
@@ -164,6 +167,7 @@ export class AvmContractInstanceHint {
             currentContractClassId,
             originalContractClassId,
             initializationHash,
+            immutablesHash,
             publicKeys,
           ),
       );
@@ -188,6 +192,7 @@ export class AvmContractInstanceHint {
       Fr.fromPlainObject(obj.currentContractClassId),
       Fr.fromPlainObject(obj.originalContractClassId),
       Fr.fromPlainObject(obj.initializationHash),
+      Fr.fromPlainObject(obj.immutablesHash),
       PublicKeys.fromPlainObject(obj.publicKeys),
     );
   }

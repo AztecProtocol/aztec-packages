@@ -46,6 +46,7 @@ import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
 
 export type BlockProposalValidationFailureReason =
+  | 'invalid_signature'
   | 'invalid_proposal'
   | 'parent_block_not_found'
   | 'block_source_not_synced'
@@ -338,7 +339,7 @@ export class ProposalHandler {
     // Reject proposals with invalid signatures
     if (!proposer) {
       this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
-      return { isValid: false, reason: 'invalid_proposal' };
+      return { isValid: false, reason: 'invalid_signature' };
     }
 
     const proposalInfo = {
