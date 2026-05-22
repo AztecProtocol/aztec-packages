@@ -24,6 +24,7 @@ import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import {
   type EndToEndContext,
+  type SetupOptions,
   deployAccounts,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
@@ -124,9 +125,10 @@ export class FullProverTest {
     );
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up subsystems from fresh');
     this.context = await setup(0, {
+      ...opts,
       startProverNode: true,
       coinbase: this.coinbase,
       fundSponsoredFPC: true,
