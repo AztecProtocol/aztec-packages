@@ -49,37 +49,31 @@ export class EcAdd extends Instruction {
 
     const p1X = memory.get(p1XOffset);
     const p1Y = memory.get(p1YOffset);
-    const p1XFr = p1X.toFr();
-    const p1YFr = p1Y.toFr();
-    const p1IsInfinite = p1XFr.isZero() && p1YFr.isZero();
-    const p1 = new Point(p1XFr, p1YFr, p1IsInfinite);
-    if (!p1.isOnGrumpkin()) {
+    const p1 = new Point(p1X.toFr(), p1Y.toFr());
+    if (!p1.isOnCurve()) {
       throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 1, p1);
     }
 
     const p2X = memory.get(p2XOffset);
     const p2Y = memory.get(p2YOffset);
-    const p2XFr = p2X.toFr();
-    const p2YFr = p2Y.toFr();
-    const p2IsInfinite = p2XFr.isZero() && p2YFr.isZero();
-    const p2 = new Point(p2XFr, p2YFr, p2IsInfinite);
-    if (!p2.isOnGrumpkin()) {
+    const p2 = new Point(p2X.toFr(), p2Y.toFr());
+    if (!p2.isOnCurve()) {
       throw new EcAddPointNotOnCurveError(/*pointIndex=*/ 2, p2);
     }
 
     let dest;
-    if (p1IsInfinite && p2IsInfinite) {
-      dest = Point.ZERO;
-    } else if (p1IsInfinite) {
+    if (p1.isInfinite && p2.isInfinite) {
+      dest = Point.INFINITY;
+    } else if (p1.isInfinite) {
       dest = p2;
-    } else if (p2IsInfinite) {
+    } else if (p2.isInfinite) {
       dest = p1;
     } else {
       // TS<>BB ecc add communication is broken for points that add up to infinity.
       // However, here we know that both points are on the curve, and that none is infinity
       // so we can check for the case where you add p + (-p) = infinity.
       if (p1.x.equals(p2.x) && !p1.y.equals(p2.y)) {
-        dest = Point.ZERO;
+        dest = Point.INFINITY;
       } else {
         dest = await Grumpkin.add(p1, p2);
       }

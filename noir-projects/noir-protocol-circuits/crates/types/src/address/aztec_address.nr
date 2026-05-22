@@ -10,7 +10,7 @@ use crate::{
     utils::field::sqrt,
 };
 
-use crate::point::Point;
+use crate::point::EmbeddedCurvePoint;
 
 use crate::public_keys::AddressPoint;
 use std::{
@@ -66,7 +66,7 @@ impl AztecAddress {
             // positive one (where y <= (r - 1) / 2) by negating it.
             let final_y = if Self::is_positive(y) { y } else { -y };
 
-            AddressPoint { inner: Point { x: self.inner, y: final_y, is_infinite: false } }
+            AddressPoint { inner: EmbeddedCurvePoint { x: self.inner, y: final_y } }
         })
     }
 
@@ -138,11 +138,9 @@ impl AztecAddress {
         );
 
         // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
-        // TODO(F-553): Drop the `.to_embedded()` / `.into()` round-trip once the custom `Point` wrapper is removed and
-        // we use `EmbeddedCurvePoint` directly.
-        let address_point: Point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address))
-            .add(public_keys.ivpk_m.to_point().to_embedded())
-            .into();
+        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(
+            public_keys.ivpk_m.to_point(),
+        );
 
         // Note that our address is only the x-coordinate of the full address_point. This is okay because when people want to encrypt something and send it to us
         // they can recover our full point using the x-coordinate (our address itself). To do this, they recompute the y-coordinate according to the equation y^2 = x^3 - 17.
@@ -195,47 +193,33 @@ fn check_is_positive() {
 // because the blackbox function does this check for us.
 #[test(should_fail_with = "is not on curve")]
 fn check_embedded_curve_point_add() {
-    // Choose a point not on the curve:
-    let p1 = Point { x: 1, y: 1, is_infinite: false };
-    let p2 = Point::generator();
-    let _ = p1 + p2;
-}
-
-// Gives us confidence that we don't need to manually check that the input public keys need to be on the curve for `add`,
-// because the blackbox function does this check for us.
-#[test(should_fail_with = "is not on curve")]
-fn check_embedded_curve_point_add_2() {
     // Choose a point not on the curve in the 2nd position.
-    let p1 = Point::generator();
-    let p2 = Point { x: 1, y: 1, is_infinite: false };
-    let _ = p1 + p2;
+    let p1 = EmbeddedCurvePoint::generator();
+    let key = IvpkM { inner: EmbeddedCurvePoint { x: 1, y: 1 } };
+    let _ = p1 + key.to_point();
 }
 
 #[test]
 fn compute_address_from_partial_and_pub_keys() {
-    let npk_m_point = Point {
+    let npk_m_point = EmbeddedCurvePoint {
         x: 0x22f7fcddfa3ce3e8f0cc8e82d7b94cdd740afa3e77f8e4a63ea78a239432dcab,
         y: 0x0471657de2b6216ade6c506d28fbc22ba8b8ed95c871ad9f3e3984e90d9723a7,
-        is_infinite: false,
     };
-    let ovpk_m_point = Point {
+    let ovpk_m_point = EmbeddedCurvePoint {
         x: 0x09115c96e962322ffed6522f57194627136b8d03ac7469109707f5e44190c484,
         y: 0x0c49773308a13d740a7f0d4f0e6163b02c5a408b6f965856b6a491002d073d5b,
-        is_infinite: false,
     };
-    let tpk_m_point = Point {
+    let tpk_m_point = EmbeddedCurvePoint {
         x: 0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a762,
         y: 0x2f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a,
-        is_infinite: false,
     };
 
     let public_keys = PublicKeys {
         npk_m_hash: hash_public_key(npk_m_point),
         ivpk_m: IvpkM {
-            inner: Point {
+            inner: EmbeddedCurvePoint {
                 x: 0x111223493147f6785514b1c195bb37a2589f22a6596d30bb2bb145fdc9ca8f1e,
                 y: 0x273bbffd678edce8fe30e0deafc4f66d58357c06fd4a820285294b9746c3be95,
-                is_infinite: false,
             },
         },
         ovpk_m_hash: hash_public_key(ovpk_m_point),

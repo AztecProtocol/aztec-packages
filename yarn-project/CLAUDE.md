@@ -131,7 +131,7 @@ LOG_LEVEL='info; debug:sequencer,archiver' yarn workspace @aztec/<package-name> 
 
 ### Style
 
-- **Line width**: 120 characters (`printWidth: 120` in `.prettierrc.json`). Wrap comments and code at 120, not 80.
+- **Line width**: 120 characters (`printWidth: 120` in `.prettierrc.json`). Wrap **everything** at 120 — code, inline comments, and JSDoc/block comments alike. Do not wrap at 80, 90, or 100 out of habit. Prettier does not reflow comment bodies, so an under-wrapped JSDoc paragraph will sit at ~90 chars forever unless you wrote it at 120 to begin with.
 
 ### Format
 
