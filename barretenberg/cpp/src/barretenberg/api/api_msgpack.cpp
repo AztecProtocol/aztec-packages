@@ -10,14 +10,7 @@
 
 #if !defined(__wasm__) && !defined(_WIN32)
 #include "ipc_runtime/ipc_server.hpp"
-#include <csignal>
-#include <thread>
-#include <unistd.h>
-#ifdef __linux__
-#include <sys/prctl.h>
-#elif defined(__APPLE__)
-#include <sys/event.h>
-#endif
+#include "ipc_runtime/signal_handlers.hpp"
 #endif
 
 namespace bb {
@@ -105,90 +98,13 @@ int process_msgpack_commands(std::istream& input_stream)
 }
 
 #if !defined(__wasm__) && !defined(_WIN32)
-// Set up platform-specific parent death monitoring
-// This ensures the bb process exits when the parent (Node.js) dies
-static void setup_parent_death_monitoring()
-{
-#ifdef __linux__
-    // Linux: Use prctl to request SIGTERM when parent dies
-    // This is kernel-level and very reliable
-    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
-        std::cerr << "Warning: Could not set parent death signal" << '\n';
-    }
-#elif defined(__APPLE__)
-    // macOS: Use kqueue to monitor parent process
-    // Spawn a dedicated thread that blocks waiting for parent to exit
-    pid_t parent_pid = getppid();
-    std::thread([parent_pid]() {
-        int kq = kqueue();
-        if (kq == -1) {
-            std::cerr << "Warning: Could not create kqueue for parent monitoring" << '\n';
-            return;
-        }
-
-        struct kevent change;
-        EV_SET(&change, parent_pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT, 0, nullptr);
-        if (kevent(kq, &change, 1, nullptr, 0, nullptr) == -1) {
-            std::cerr << "Warning: Could not monitor parent process" << '\n';
-            close(kq);
-            return;
-        }
-
-        // Block until parent exits
-        struct kevent event;
-        kevent(kq, nullptr, 0, &event, 1, nullptr);
-
-        std::cerr << "Parent process exited, shutting down..." << '\n';
-        close(kq);
-        std::exit(0);
-    }).detach();
-#endif
-}
-
 int execute_msgpack_ipc_server(std::unique_ptr<ipc::IpcServer> server)
 {
-    // Store server pointer for signal handler cleanup (works for both socket and shared memory)
-    // MUST be set before listen() since SIGBUS can occur during listen()
-    static ipc::IpcServer* global_server = server.get();
-
-    // Register signal handlers for graceful cleanup
-    // MUST be registered before listen() since SIGBUS can occur during initialization
-    // SIGTERM: Sent by processes/test frameworks on shutdown
-    // SIGINT: Sent by Ctrl+C
-    auto graceful_shutdown_handler = [](int signal) {
-        std::cerr << "\nReceived signal " << signal << ", shutting down gracefully..." << '\n';
-        if (global_server) {
-            global_server->request_shutdown();
-        }
-    };
-
-    // Register handlers for fatal memory errors (SIGBUS, SIGSEGV)
-    // These occur when shared memory exhaustion happens during initialization
-    auto fatal_error_handler = [](int signal) {
-        const char* signal_name = "UNKNOWN";
-        if (signal == SIGBUS) {
-            signal_name = "SIGBUS";
-        } else if (signal == SIGSEGV) {
-            signal_name = "SIGSEGV";
-        }
-        std::cerr << "\nFatal error: received " << signal_name << " during initialization" << '\n';
-        std::cerr << "This likely means shared memory exhaustion (try reducing --max-clients)" << '\n';
-
-        // Clean up IPC resources before exiting
-        if (global_server) {
-            global_server->close();
-        }
-
-        std::exit(1);
-    };
-
-    (void)std::signal(SIGTERM, graceful_shutdown_handler);
-    (void)std::signal(SIGINT, graceful_shutdown_handler);
-    (void)std::signal(SIGBUS, fatal_error_handler);
-    (void)std::signal(SIGSEGV, fatal_error_handler);
-
-    // Set up parent death monitoring (kills this process when parent dies)
-    setup_parent_death_monitoring();
+    // Install runtime lifecycle handlers (SIGTERM/SIGINT → request_shutdown,
+    // SIGBUS/SIGSEGV → close+exit, parent-death watch via prctl/kqueue).
+    // MUST be installed before listen() since SIGBUS can occur during init
+    // when shared memory is exhausted.
+    ipc::install_default_signal_handlers(*server);
 
     if (!server->listen()) {
         std::cerr << "Error: Could not start IPC server" << '\n';
