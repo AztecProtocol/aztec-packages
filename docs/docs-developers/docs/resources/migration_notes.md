@@ -9,7 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-### [TS] `AccountManager.create` takes an options bag
+### [Aztec.js] `AccountManager.create` takes an options bag
 
 `AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:
 
@@ -183,7 +183,7 @@ The `Schnorr` TypeScript API in `@aztec/foundation/crypto/schnorr` keeps the sam
 + env.call_public_incognito(SampleContract::at(addr).some_function());
 ```
 
-If you need to call a public function *with* a sender, use `call_public` instead.
+If you need to call a public function _with_ a sender, use `call_public` instead.
 
 ### [Aztec.nr] TXE `view_public_incognito` is deprecated
 
@@ -336,7 +336,13 @@ If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/cur
 ```typescript
 const result = await contract.methods.read_balance(account).simulate({
   overrides: {
-    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+    publicStorage: [
+      {
+        contract: contract.address,
+        slot: BALANCE_SLOT,
+        value: new Fr(1_000_000n),
+      },
+    ],
   },
 });
 ```
@@ -353,7 +359,7 @@ Direct callers of the `SimulationOverrides` constructor must switch from a posit
 `overrides.contracts` swaps contract instances in the simulator's contract DB — useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete onchain upgrade flow, use the `fastForwardContractUpdate` helper which returns a `SimulationOverrides` covering both registry storage rewrites and the upgraded instance entry:
 
 ```typescript
-import { fastForwardContractUpdate } from '@aztec/aztec.js';
+import { fastForwardContractUpdate } from "@aztec/aztec.js";
 
 const overrides = await fastForwardContractUpdate({
   instanceAddress: contract.address,
@@ -480,8 +486,8 @@ If you want the latest L1-confirmed checkpoint regardless of proposed state, swi
 
 ```ts
 // Throws BadRequestError when a proposed entry exists at the resolved number:
-await node.getCheckpoint('proposed', { includeAttestations: true });
-await node.getCheckpoint('proposed', { includeL1PublishInfo: true });
+await node.getCheckpoint("proposed", { includeAttestations: true });
+await node.getCheckpoint("proposed", { includeL1PublishInfo: true });
 
 // And when a by-number / by-slot lookup falls back to a proposed entry:
 await node.getCheckpoint({ number: N }, { includeAttestations: true });
