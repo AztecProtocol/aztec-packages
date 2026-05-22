@@ -224,6 +224,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   // they are consumed. In this test, we mine several checkpoints without marking them as proven until
   // we can trigger a reorg, and then wait until the message can be processed to consume it.
   const canConsumeMessageAfterInboxDrift = async (scope: 'private' | 'public') => {
+    // Stop the background epoch test settler so the drift scenario below can proceed without
+    // an auto-prover racing it.
+    await t.epochTestSettler?.stop();
+
     // Reset the L1 proof window by marking the current pending tip as proven. The e2e fixture
     // runs L1 on interval mining, so the watcher's auto-prove loop never starts (it gates on
     // `isAutoMining`). That means L1's prune deadline has been anchored to chain genesis the
