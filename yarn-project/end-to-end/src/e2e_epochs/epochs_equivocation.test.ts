@@ -97,7 +97,7 @@ describe('e2e_epochs/epochs_equivocation', () => {
       slashBroadcastedInvalidCheckpointProposalPenalty: 0n,
       slashDuplicateAttestationPenalty: 0n,
       slashProposeInvalidAttestationsPenalty: 0n,
-      slashAttestDescendantOfInvalidPenalty: 0n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
       slashAttestInvalidCheckpointProposalPenalty: 0n,
       slashUnknownPenalty: 0n,
     });
