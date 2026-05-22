@@ -29,7 +29,7 @@ Install the required tools:
 
 ```bash
 # Install Aztec CLI
-VERSION=4.3.0 bash -i <(curl -sL https://install.aztec.network/4.3.0)
+VERSION=4.3.0 bash -i <(curl -sL https://install.aztec.network/4.3.0/aztec-install)
 ```
 
 ## Part 1: Understanding the Architecture

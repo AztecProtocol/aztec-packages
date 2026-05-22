@@ -79,7 +79,7 @@ get_cli_install_instructions() {
       echo "Install bb from: https://github.com/AztecProtocol/aztec-packages"
       ;;
     aztec-up)
-      echo "Run: VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)"
+      echo "Run: VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>/aztec-install)"
       ;;
     *)
       echo "Run: aztec-up <version>"

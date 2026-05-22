@@ -13,7 +13,7 @@ export const General = {
   InstallationInstructions: () => (
     <p>
       To use Aztec's suite of tools, run:{" "}
-      <code>VERSION=&lt;version&gt; bash -i &lt;(curl -sL https://install.aztec.network/&lt;version&gt;)</code>
+      <code>VERSION=&lt;version&gt; bash -i &lt;(curl -sL https://install.aztec.network/&lt;version&gt;/aztec-install)</code>
     </p>
   ),
 

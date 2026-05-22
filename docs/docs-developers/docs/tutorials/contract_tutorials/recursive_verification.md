@@ -29,7 +29,7 @@ Install the required tools:
 
 ```bash
 # Install Aztec CLI
-VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix/aztec-install)
 ```
 
 ## Part 1: Understanding the Architecture

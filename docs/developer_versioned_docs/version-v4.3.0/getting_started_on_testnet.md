@@ -32,7 +32,7 @@ If you want to develop and iterate quickly, start with the [local network guide]
 Install the testnet version of the Aztec CLI:
 
 ```bash
-VERSION=4.3.0 bash -i <(curl -sL https://install.aztec.network/4.3.0)
+VERSION=4.3.0 bash -i <(curl -sL https://install.aztec.network/4.3.0/aztec-install)
 ```
 
 :::warning
