@@ -8,8 +8,14 @@
  * explicitly per struct.
  */
 
-import type { CompiledSchema, Type, Struct, Field, Command } from './schema_visitor.ts';
-import { toSnakeCase, toPascalCase } from './naming.ts';
+import type {
+  CompiledSchema,
+  Type,
+  Struct,
+  Field,
+  Command,
+} from "./schema_visitor.ts";
+import { toSnakeCase, toPascalCase } from "./naming.ts";
 
 export interface ZigCodegenOptions {
   /** Service prefix to strip from method names (e.g., 'Wsdb') */
@@ -19,99 +25,139 @@ export interface ZigCodegenOptions {
 }
 
 export class ZigCodegen {
-  private errorTypeName: string = 'ErrorResponse';
+  private errorTypeName: string = "ErrorResponse";
   private opts: Required<ZigCodegenOptions>;
 
   constructor(options?: ZigCodegenOptions) {
     this.opts = {
-      prefix: options?.prefix ?? '',
-      clientName: options?.clientName ?? 'Client',
+      prefix: options?.prefix ?? "",
+      clientName: options?.clientName ?? "Client",
     };
   }
 
   /** Map schema type to Zig type */
   private mapType(type: Type): string {
     switch (type.kind) {
-      case 'primitive':
+      case "primitive":
         switch (type.primitive) {
-          case 'bool': return 'bool';
-          case 'u8': return 'u8';
-          case 'u16': return 'u16';
-          case 'u32': return 'u32';
-          case 'u64': return 'u64';
-          case 'f64': return 'f64';
-          case 'string': return '[]const u8';
-          case 'bytes': return '[]const u8';
-          case 'fr': return 'Fr';  // [32]u8
-          case 'field2': return '[2]Fr';
-          case 'enum_u32': return 'u32';
-          case 'map_u32_pair': return 'void'; // TODO: proper map support
+          case "bool":
+            return "bool";
+          case "u8":
+            return "u8";
+          case "u16":
+            return "u16";
+          case "u32":
+            return "u32";
+          case "u64":
+            return "u64";
+          case "f64":
+            return "f64";
+          case "string":
+            return "[]const u8";
+          case "bytes":
+            return "[]const u8";
+          case "fr":
+            return "Fr"; // [32]u8
+          case "field2":
+            return "[2]Fr";
+          case "enum_u32":
+            return "u32";
+          case "map_u32_pair":
+            return "void"; // TODO: proper map support
         }
         break;
-      case 'vector':
+      case "vector":
         return `[]const ${this.mapType(type.element!)}`;
-      case 'array':
+      case "array":
         return `[${type.size}]${this.mapType(type.element!)}`;
-      case 'optional':
+      case "optional":
         return `?${this.mapType(type.element!)}`;
-      case 'struct':
+      case "struct":
         return toPascalCase(type.struct!.name);
     }
-    return 'void';
+    return "void";
   }
 
   /** Generate a Zig field-to-payload conversion expression */
-  private fieldToPayload(fieldExpr: string, type: import('./schema_visitor.ts').Type): string {
+  private fieldToPayload(
+    fieldExpr: string,
+    type: import("./schema_visitor.ts").Type,
+  ): string {
     switch (type.kind) {
-      case 'primitive':
+      case "primitive":
         switch (type.primitive) {
-          case 'bool': return `Payload{ .bool = ${fieldExpr} }`;
-          case 'u8': case 'u16': case 'u32': case 'u64':
+          case "bool":
+            return `Payload{ .bool = ${fieldExpr} }`;
+          case "u8":
+          case "u16":
+          case "u32":
+          case "u64":
             return `Payload{ .uint = @intCast(${fieldExpr}) }`;
-          case 'f64': return `Payload{ .float = ${fieldExpr} }`;
-          case 'string': return `try Payload.strToPayload(${fieldExpr}, allocator)`;
-          case 'bytes': return `try Payload.binToPayload(${fieldExpr}, allocator)`;
-          case 'fr': return `try Payload.binToPayload(&${fieldExpr}, allocator)`;
-          case 'enum_u32': return `Payload{ .uint = @intCast(${fieldExpr}) }`;
-          default: return `Payload{ .nil = {} }`;
+          case "f64":
+            return `Payload{ .float = ${fieldExpr} }`;
+          case "string":
+            return `try Payload.strToPayload(${fieldExpr}, allocator)`;
+          case "bytes":
+            return `try Payload.binToPayload(${fieldExpr}, allocator)`;
+          case "fr":
+            return `try Payload.binToPayload(&${fieldExpr}, allocator)`;
+          case "enum_u32":
+            return `Payload{ .uint = @intCast(${fieldExpr}) }`;
+          default:
+            return `Payload{ .nil = {} }`;
         }
-      case 'optional':
-        return `if (${fieldExpr}) |v| ${this.fieldToPayload('v', type.element!)} else Payload{ .nil = {} }`;
-      case 'vector': {
+      case "optional":
+        return `if (${fieldExpr}) |v| ${this.fieldToPayload("v", type.element!)} else Payload{ .nil = {} }`;
+      case "vector": {
         // For vectors, build an array payload
         return `blk: {
                 var arr = try Payload.arrPayload(${fieldExpr}.len, allocator);
                 for (${fieldExpr}, 0..) |item, i| {
-                    try arr.setArrElement(i, ${this.fieldToPayload('item', type.element!)});
+                    try arr.setArrElement(i, ${this.fieldToPayload("item", type.element!)});
                 }
                 break :blk arr;
             }`;
       }
-      case 'struct':
+      case "struct":
         return `try ${fieldExpr}.toPayload(allocator)`;
-      default: return `Payload{ .nil = {} }`;
+      default:
+        return `Payload{ .nil = {} }`;
     }
   }
 
   /** Generate a Zig payload-to-field conversion expression */
-  private fieldFromPayload(payloadExpr: string, type: import('./schema_visitor.ts').Type): string {
+  private fieldFromPayload(
+    payloadExpr: string,
+    type: import("./schema_visitor.ts").Type,
+  ): string {
     switch (type.kind) {
-      case 'primitive':
+      case "primitive":
         switch (type.primitive) {
-          case 'bool': return `try ${payloadExpr}.asBool()`;
-          case 'u8': return `@intCast(try ${payloadExpr}.asUint())`;
-          case 'u16': return `@intCast(try ${payloadExpr}.asUint())`;
-          case 'u32': return `@intCast(try ${payloadExpr}.asUint())`;
-          case 'u64': return `try ${payloadExpr}.asUint()`;
-          case 'f64': return `try ${payloadExpr}.asFloat()`;
-          case 'string': return `try ${payloadExpr}.asStr()`;
-          case 'bytes': return `${payloadExpr}.bin.value()`;
-          case 'fr': return `${payloadExpr}.bin.value()[0..32].*`;
-          case 'enum_u32': return `@intCast(try ${payloadExpr}.asUint())`;
-          default: return `undefined`;
+          case "bool":
+            return `try ${payloadExpr}.asBool()`;
+          case "u8":
+            return `@intCast(try ${payloadExpr}.asUint())`;
+          case "u16":
+            return `@intCast(try ${payloadExpr}.asUint())`;
+          case "u32":
+            return `@intCast(try ${payloadExpr}.asUint())`;
+          case "u64":
+            return `try ${payloadExpr}.asUint()`;
+          case "f64":
+            return `try ${payloadExpr}.asFloat()`;
+          case "string":
+            return `try ${payloadExpr}.asStr()`;
+          case "bytes":
+            return `${payloadExpr}.bin.value()`;
+          case "fr":
+            return `${payloadExpr}.bin.value()[0..32].*`;
+          case "enum_u32":
+            return `@intCast(try ${payloadExpr}.asUint())`;
+          default:
+            return `undefined`;
         }
-      case 'vector': {
-        const elemConv = this.fieldFromPayload('elem', type.element!);
+      case "vector": {
+        const elemConv = this.fieldFromPayload("elem", type.element!);
         return `blk: {
                 const arr_len = try ${payloadExpr}.getArrLen();
                 var result = try std.heap.page_allocator.alloc(${this.mapType(type.element!)}, arr_len);
@@ -122,37 +168,46 @@ export class ZigCodegen {
                 break :blk result;
             }`;
       }
-      case 'optional':
+      case "optional":
         return `if (${payloadExpr} == .nil) null else ${this.fieldFromPayload(payloadExpr, type.element!)}`;
-      case 'struct':
+      case "struct":
         return `try ${toPascalCase(type.struct!.name)}.fromPayload(${payloadExpr})`;
-      default: return `undefined`;
+      default:
+        return `undefined`;
     }
   }
 
   /** Generate a Zig struct definition with toPayload/fromPayload methods */
   private generateStruct(struct: Struct): string {
     const zigName = toPascalCase(struct.name);
-    const fields = struct.fields.map(f => {
-      const zigFieldName = toSnakeCase(f.name);
-      const zigType = this.mapType(f.type);
-      return `    ${zigFieldName}: ${zigType},`;
-    }).join('\n');
+    const fields = struct.fields
+      .map((f) => {
+        const zigFieldName = toSnakeCase(f.name);
+        const zigType = this.mapType(f.type);
+        return `    ${zigFieldName}: ${zigType},`;
+      })
+      .join("\n");
 
     // Treat structs with only void fields as empty (void comes from unmapped types)
-    const hasFields = struct.fields.length > 0 && struct.fields.some(f => this.mapType(f.type) !== 'void');
+    const hasFields =
+      struct.fields.length > 0 &&
+      struct.fields.some((f) => this.mapType(f.type) !== "void");
 
     // toPayload method
-    const toPayloadFields = struct.fields.map(f => {
-      const zigFieldName = toSnakeCase(f.name);
-      return `        try map.mapPut("${f.name}", ${this.fieldToPayload(`self.${zigFieldName}`, f.type)});`;
-    }).join('\n');
+    const toPayloadFields = struct.fields
+      .map((f) => {
+        const zigFieldName = toSnakeCase(f.name);
+        return `        try map.mapPut("${f.name}", ${this.fieldToPayload(`self.${zigFieldName}`, f.type)});`;
+      })
+      .join("\n");
 
     // fromPayload method
-    const fromPayloadFields = struct.fields.map(f => {
-      const zigFieldName = toSnakeCase(f.name);
-      return `            .${zigFieldName} = ${this.fieldFromPayload(`(try payload.mapGet("${f.name}")).?`, f.type)},`;
-    }).join('\n');
+    const fromPayloadFields = struct.fields
+      .map((f) => {
+        const zigFieldName = toSnakeCase(f.name);
+        return `            .${zigFieldName} = ${this.fieldFromPayload(`(try payload.mapGet("${f.name}")).?`, f.type)},`;
+      })
+      .join("\n");
 
     // Empty structs: suppress unused parameter warnings
     if (!hasFields) {
@@ -192,10 +247,12 @@ ${fromPayloadFields}
     const zigName = toPascalCase(struct.name);
     const fieldCount = struct.fields.length;
 
-    const fieldPacks = struct.fields.map(f => {
-      const zigFieldName = toSnakeCase(f.name);
-      return `    try packField(packer, "${f.name}", self.${zigFieldName});`;
-    }).join('\n');
+    const fieldPacks = struct.fields
+      .map((f) => {
+        const zigFieldName = toSnakeCase(f.name);
+        return `    try packField(packer, "${f.name}", self.${zigFieldName});`;
+      })
+      .join("\n");
 
     return `pub fn serialize${zigName}(self: ${zigName}, packer: anytype) !void {
     try packer.writeMapHeader(${fieldCount});
@@ -207,11 +264,13 @@ ${fieldPacks}
   private generateDeserializeFn(struct: Struct): string {
     const zigName = toPascalCase(struct.name);
 
-    const fieldReads = struct.fields.map(f => {
-      const zigFieldName = toSnakeCase(f.name);
-      const zigType = this.mapType(f.type);
-      return `        .${zigFieldName} = try readField(${zigType}, unpacker, "${f.name}"),`;
-    }).join('\n');
+    const fieldReads = struct.fields
+      .map((f) => {
+        const zigFieldName = toSnakeCase(f.name);
+        const zigType = this.mapType(f.type);
+        return `        .${zigFieldName} = try readField(${zigType}, unpacker, "${f.name}"),`;
+      })
+      .join("\n");
 
     return `pub fn deserialize${zigName}(unpacker: anytype, allocator: std.mem.Allocator) !${zigName} {
     _ = allocator;
@@ -225,14 +284,18 @@ ${fieldReads}
 
   /** Generate the Command tagged union */
   private generateCommandUnion(schema: CompiledSchema): string {
-    const variants = schema.commands.map(c => {
-      const zigName = toPascalCase(c.name);
-      return `    ${toSnakeCase(c.name)}: ${zigName},`;
-    }).join('\n');
+    const variants = schema.commands
+      .map((c) => {
+        const zigName = toPascalCase(c.name);
+        return `    ${toSnakeCase(c.name)}: ${zigName},`;
+      })
+      .join("\n");
 
-    const nameMap = schema.commands.map(c => {
-      return `        .${toSnakeCase(c.name)} => "${c.name}",`;
-    }).join('\n');
+    const nameMap = schema.commands
+      .map((c) => {
+        return `        .${toSnakeCase(c.name)} => "${c.name}",`;
+      })
+      .join("\n");
 
     return `/// Tagged union of all commands
 pub const Command = union(enum) {
@@ -248,16 +311,20 @@ ${nameMap}
 
   /** Generate the Response tagged union */
   private generateResponseUnion(schema: CompiledSchema): string {
-    const commandResponseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
-    const errorName = schema.errorTypeName || 'ErrorResponse';
+    const commandResponseTypes = Array.from(
+      new Set(schema.commands.map((c) => c.responseType)),
+    );
+    const errorName = schema.errorTypeName || "ErrorResponse";
     const responseTypes = schema.responses.has(errorName)
       ? [...commandResponseTypes, errorName]
       : commandResponseTypes;
 
-    const variants = responseTypes.map(name => {
-      const zigName = toPascalCase(name);
-      return `    ${toSnakeCase(name)}: ${zigName},`;
-    }).join('\n');
+    const variants = responseTypes
+      .map((name) => {
+        const zigName = toPascalCase(name);
+        return `    ${toSnakeCase(name)}: ${zigName},`;
+      })
+      .join("\n");
 
     return `/// Tagged union of all responses
 pub const Response = union(enum) {
@@ -267,15 +334,20 @@ ${variants}
 
   /** Generate the types file */
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
 
-    const allStructs = [...schema.structs.values(), ...schema.responses.values()];
+    const allStructs = [
+      ...schema.structs.values(),
+      ...schema.responses.values(),
+    ];
 
-    const structDefs = allStructs.map(s => this.generateStruct(s)).join('\n\n');
+    const structDefs = allStructs
+      .map((s) => this.generateStruct(s))
+      .join("\n\n");
 
     const hashLine = schemaHash
       ? `\n/// Schema version hash for compatibility checking\npub const SCHEMA_HASH = "${schemaHash}";\n`
-      : '';
+      : "";
 
     return `//! AUTOGENERATED - DO NOT EDIT
 //! Generated from Aztec IPC msgpack schema
@@ -309,22 +381,23 @@ ${this.generateResponseUnion(schema)}
 
   /** Strip service prefix from command name for method naming */
   private methodName(commandName: string): string {
-    const withoutPrefix = this.opts.prefix && commandName.startsWith(this.opts.prefix)
-      ? commandName.slice(this.opts.prefix.length)
-      : commandName;
+    const withoutPrefix =
+      this.opts.prefix && commandName.startsWith(this.opts.prefix)
+        ? commandName.slice(this.opts.prefix.length)
+        : commandName;
     return toSnakeCase(withoutPrefix);
   }
 
   /** Generate the client wrapper — typed methods parameterized on backend type */
   generateClient(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
     const { prefix } = this.opts;
     const errorRespName = toPascalCase(this.errorTypeName);
     const typesFile = `${toSnakeCase(prefix)}_types.zig`;
 
     const methods = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.methodName(c.name);
         const zigCmdName = toPascalCase(c.name);
         const zigRespName = toPascalCase(c.responseType);
@@ -337,7 +410,8 @@ ${this.generateResponseUnion(schema)}
             if (std.mem.eql(u8, resp_name, "${this.errorTypeName}")) return error.ServerError;
             return try types.${zigRespName}.fromPayload(resp_payload);
         }`;
-      }).join('\n\n');
+      })
+      .join("\n\n");
 
     return `//! AUTOGENERATED - DO NOT EDIT
 //! ${prefix} client — typed methods parameterized on a backend type.
@@ -410,15 +484,15 @@ ${methods}
 
   /** Generate the server wrapper — dispatch + stub handlers over generic IPC server */
   generateServer(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
     const { prefix } = this.opts;
     const errorRespName = toPascalCase(this.errorTypeName);
     const typesFile = `${toSnakeCase(prefix)}_types.zig`;
 
     // Dispatch cases: match command name → deserialize → call handler → serialize response
     const dispatchCases = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.methodName(c.name);
         const zigCmdName = toPascalCase(c.name);
         const zigRespName = toPascalCase(c.responseType);
@@ -427,12 +501,13 @@ ${methods}
             const resp = ${methodName}(cmd) catch return makeError("not implemented: ${c.name}");
             return .{ .resp_name = "${c.responseType}", .resp_payload = resp.toPayload(alloc) };
         }`;
-      }).join('\n');
+      })
+      .join("\n");
 
     // Stub handler functions
     const stubs = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.methodName(c.name);
         const zigCmdName = toPascalCase(c.name);
         const zigRespName = toPascalCase(c.responseType);
@@ -441,28 +516,35 @@ fn ${methodName}(cmd: types.${zigCmdName}) !types.${zigRespName} {
     _ = cmd;
     return error.NotImplemented;
 }`;
-      }).join('\n\n');
+      })
+      .join("\n\n");
 
     return `//! AUTOGENERATED - DO NOT EDIT
-//! ${prefix} IPC server — dispatch + stub handlers over generic IPC transport.
+//! ${prefix} IPC server — typed dispatch + stub handlers.
 //!
-//! Implement the handler functions below to build a working ${prefix} service.
-//! Then call: serve("socket_path")
+//! Wire this dispatcher into the transport of your choice. The recommended
+//! path is @import("ipc_runtime"):
+//!
+//!     var server = try ipc_runtime.Server.fromPath(path);
+//!     try server.listen();
+//!     server.run(*MyCtx, &ctx, byteHandler);
+//!
+//! Where \`byteHandler\` calls \`dispatch(cmd_name, fields)\` on the decoded
+//! [name, payload] msgpack request. See the echo example for the full shape.
 
 const std = @import("std");
 const msgpack = @import("msgpack");
 const Payload = msgpack.Payload;
 const types = @import("${typesFile}");
-const ipc_server = @import("ipc_server.zig");
 
 const alloc = std.heap.page_allocator;
 
-/// Start the ${prefix} server on the given socket path.
-pub fn serve(socket_path: []const u8) !void {
-    try ipc_server.serve(socket_path, dispatch);
-}
+/// Result of dispatching one command. The caller msgpack-encodes
+/// [resp_name, resp_payload] and returns the resulting bytes to the
+/// transport.
+pub const DispatchResult = struct { resp_name: []const u8, resp_payload: anyerror!Payload };
 
-fn dispatch(cmd_name: []const u8, cmd_fields: Payload) ipc_server.DispatchResult {
+pub fn dispatch(cmd_name: []const u8, cmd_fields: Payload) DispatchResult {
     // Shutdown
     if (std.mem.eql(u8, cmd_name, "${prefix}Shutdown")) {
         return .{ .resp_name = "${prefix}ShutdownResponse", .resp_payload = Payload.mapPayload(alloc) };
@@ -474,7 +556,7 @@ ${dispatchCases}
     return makeError("unknown command");
 }
 
-fn makeError(message: []const u8) ipc_server.DispatchResult {
+fn makeError(message: []const u8) DispatchResult {
     var err_map = Payload.mapPayload(alloc);
     err_map.mapPut("message", Payload.strToPayload(message, alloc) catch return .{ .resp_name = "${errorRespName}", .resp_payload = Payload.mapPayload(alloc) }) catch {};
     return .{ .resp_name = "${errorRespName}", .resp_payload = err_map };
@@ -500,8 +582,8 @@ ${stubs}
     const ctxName = `${prefix}Context`;
 
     const stubs = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.methodName(c.name);
         const zigCmdName = toPascalCase(c.name);
         const zigRespName = toPascalCase(c.responseType);
@@ -510,7 +592,8 @@ ${stubs}
     _ = cmd;
     return error.NotImplemented;
 }`;
-      }).join('\n\n');
+      })
+      .join("\n\n");
 
     return `// Handler stubs — implement your service logic here.
 // This file is generated ONCE. Edit freely — it will not be overwritten.

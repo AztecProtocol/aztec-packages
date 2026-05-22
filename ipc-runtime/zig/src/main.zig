@@ -108,6 +108,13 @@ pub const Client = struct {
         c.ipc_client_destroy(self.handle);
     }
 
+    /// Alias for deinit() so Client satisfies the ipc-codegen Backend
+    /// contract (which expects `destroy(self: *T) void`). Generated typed
+    /// clients call `backend.destroy()` at end-of-life.
+    pub fn destroy(self: *Client) void {
+        self.deinit();
+    }
+
     /// Synchronous request/response. Returns an owned slice (free with the
     /// allocator passed at construction).
     pub fn call(self: *Client, request: []const u8) ![]u8 {

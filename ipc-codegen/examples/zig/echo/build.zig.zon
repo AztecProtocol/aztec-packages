@@ -13,6 +13,11 @@
             .url = "https://github.com/zigcc/zig-msgpack/archive/refs/tags/0.0.17.tar.gz",
             .hash = "zig_msgpack-0.0.14-evvueL5SBQACmim6j6klQ9wWIIG_UxGlPvVYdiNy0KT8",
         },
+        // ipc-runtime/zig: UDS + MPSC-SHM transport binding (compiles the
+        // shared C++ sources via Zig's clang).
+        .ipc_runtime = .{
+            .path = "../../../../ipc-runtime/zig",
+        },
     },
     .paths = .{
         "build.zig",

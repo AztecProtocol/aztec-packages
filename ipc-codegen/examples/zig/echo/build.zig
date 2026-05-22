@@ -10,6 +10,12 @@ pub fn build(b: *std.Build) void {
     });
     const msgpack_mod = msgpack_dep.module("msgpack");
 
+    const ipc_runtime_dep = b.dependency("ipc_runtime", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const ipc_runtime_mod = ipc_runtime_dep.module("ipc_runtime");
+
     // Echo server
     const server_exe = b.addExecutable(.{
         .name = "echo_server",
@@ -20,6 +26,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     server_exe.root_module.addImport("msgpack", msgpack_mod);
+    server_exe.root_module.addImport("ipc_runtime", ipc_runtime_mod);
     b.installArtifact(server_exe);
 
     // Echo client
@@ -32,5 +39,6 @@ pub fn build(b: *std.Build) void {
         }),
     });
     client_exe.root_module.addImport("msgpack", msgpack_mod);
+    client_exe.root_module.addImport("ipc_runtime", ipc_runtime_mod);
     b.installArtifact(client_exe);
 }

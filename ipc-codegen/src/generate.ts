@@ -384,7 +384,9 @@ function generate(args: Args) {
           `${toSnakeCase(prefix)}_server.zig`,
           gen.generateServer(compiled),
         );
-        copyTemplate("zig", "ipc_server.zig", absOut);
+        // No transport template copy — consumers wire @import("ipc_runtime")
+        // (the Zig binding shipped from ipc-runtime/zig/) and use its
+        // Server.fromPath / listen / run loop directly.
       }
       if (args.client) {
         writeFile(
@@ -392,12 +394,11 @@ function generate(args: Args) {
           gen.generateClient(compiled),
         );
       }
-      // Backend trait template (kept; FFI backend still references it).
+      // Backend trait — keep so FFI consumers can plug in their own
+      // implementation. ipc_runtime.Client satisfies the same contract,
+      // so UDS/SHM consumers don't need a separate backend file.
       if (args.uds || args.ffi) {
         copyTemplateOnce("zig", "backend.zig", absOut);
-      }
-      if (args.uds) {
-        copyTemplateOnce("zig", "uds_backend.zig", absOut);
       }
       if (args.ffi) {
         copyTemplateOnce("zig", "ffi_backend.zig", absOut);

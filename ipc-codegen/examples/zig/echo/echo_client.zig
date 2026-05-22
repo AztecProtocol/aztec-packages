@@ -1,14 +1,15 @@
-/// Echo IPC client (Zig) — uses GENERATED typed client + UDS backend.
+/// Echo IPC client (Zig) — uses GENERATED typed client + the ipc-runtime
+/// Zig binding for transport. No per-service UDS code in the example.
 /// Usage: echo_client --socket /tmp/echo.sock
 const std = @import("std");
+const ipc_runtime = @import("ipc_runtime");
 const echo_client = @import("generated/echo_client.zig");
-const uds_backend = @import("generated/uds_backend.zig");
 const types = @import("generated/echo_types.zig");
 
 pub fn main() !void {
     var args = std.process.args();
     _ = args.next();
-    var socket_path: ?[]const u8 = null;
+    var socket_path: ?[:0]const u8 = null;
     while (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "--socket")) {
             socket_path = args.next();
@@ -19,8 +20,13 @@ pub fn main() !void {
         std.process.exit(1);
     };
 
-    var backend = try uds_backend.UdsBackend.connect(path);
-    const EchoClient = echo_client.Client(uds_backend.UdsBackend);
+    // Use page_allocator: the codegen-emitted client frees response buffers
+    // with std.heap.page_allocator, so the runtime Client must allocate with
+    // the same one.
+    var backend = try ipc_runtime.Client.fromPath(std.heap.page_allocator, path);
+    defer backend.deinit();
+
+    const EchoClient = echo_client.Client(ipc_runtime.Client);
     var client = EchoClient.init(&backend);
 
     // Test 1: EchoBytes
