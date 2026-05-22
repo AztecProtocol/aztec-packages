@@ -208,9 +208,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.aztecNode.getNoteHashMembershipWitness(blockHash, noteHash),
     );
     if (!witness) {
-      throw new Error(
-        `Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`,
-      );
+      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
     }
     return witness;
   }
