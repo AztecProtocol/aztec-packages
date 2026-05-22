@@ -35,13 +35,16 @@ export async function fetchAndProcessInputs(inputUrl) {
 }
 
 export async function initSrs(wasm, options) {
+  const progress = options.progress;
   const crs = await fetchCrs(options);
+  progress?.('srs_init_g1_start', { num_points: crs.srsSize, g1Bytes: crs.g1.byteLength, g2Bytes: crs.g2.byteLength });
   const srsResponse = bbapiCall(
     wasm,
     'SrsInitSrs',
     { points_buf: crs.g1, num_points: crs.srsSize, g2_point: crs.g2 },
     'SrsInitSrsResponse',
   );
+  progress?.('srs_init_grumpkin_start', { num_points: crs.grumpkinSrsSize, grumpkinBytes: crs.grumpkin.byteLength });
   bbapiCall(
     wasm,
     'SrsInitGrumpkinSrs',

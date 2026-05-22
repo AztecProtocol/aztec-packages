@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build-ab": "node scripts/build-ab.mjs",
+    "analyze-ab": "node scripts/analyze-ab.mjs",
     "create-link": "node scripts/create-link.mjs",
+    "run-browserstack": "node scripts/run-browserstack.mjs",
     "serve": "node scripts/serve-bench.mjs",
     "test": "node scripts/test.mjs"
   },

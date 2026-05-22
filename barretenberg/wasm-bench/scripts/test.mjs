@@ -17,6 +17,7 @@ import {
   safeResolve,
 } from './lib.mjs';
 import { createBenchServer } from './serve-bench.mjs';
+import { analyzeAB, bootstrapMedianCI, wilcoxonSignedRank } from './analyze-ab.mjs';
 
 test('base64url bench parameters round-trip JSON', () => {
   const value = {
@@ -100,6 +101,51 @@ test('html preview URL supports query-style services', () => {
     htmlPreviewUrlForRawUrl('https://gist.githubusercontent.com/example/raw/bench-links.html', 'https://html-preview.github.io/?url='),
     'https://html-preview.github.io/?url=https%3A%2F%2Fgist.githubusercontent.com%2Fexample%2Fraw%2Fbench-links.html',
   );
+});
+
+test('bootstrap median CI on constant data is degenerate at the constant', () => {
+  const ci = bootstrapMedianCI([5, 5, 5, 5, 5, 5, 5, 5], { iters: 500, seed: 1 });
+  assert.equal(ci.point, 5);
+  assert.equal(ci.lo, 5);
+  assert.equal(ci.hi, 5);
+});
+
+test('bootstrap median CI brackets the true median for symmetric noise', () => {
+  // Symmetric around 0 → median CI should bracket 0 at 95%.
+  const samples = [-3, -2, -1, 0, 0, 1, 2, 3];
+  const ci = bootstrapMedianCI(samples, { iters: 2000, seed: 42 });
+  assert.ok(ci.lo <= 0 && ci.hi >= 0, `CI [${ci.lo}, ${ci.hi}] should bracket 0`);
+});
+
+test('wilcoxon signed-rank returns NaN p-value when all deltas are zero', () => {
+  const { p } = wilcoxonSignedRank([0, 0, 0, 0, 0]);
+  assert.ok(Number.isNaN(p));
+});
+
+test('wilcoxon signed-rank gives small p for clearly nonzero deltas', () => {
+  const { p } = wilcoxonSignedRank([10, 11, 9, 12, 13, 14, 15, 16, 17, 18]);
+  assert.ok(p < 0.01, `expected p<0.01, got ${p}`);
+});
+
+test('analyzeAB on identical A and B reports zero deltas and contains-zero CI', () => {
+  const fakeRun = ms => ({ run: { proveTotalMs: ms, setupMs: ms * 0.6, proveMs: ms * 0.4, verified: true, proofFieldCount: 2630, verificationKeyBytes: 4576 } });
+  const pairs = [];
+  for (let p = 0; p < 11; p++) {
+    const ms = 10000 + Math.sin(p) * 100;
+    pairs.push({ pair: p, variant: 'a', position: p % 2 === 0 ? 0 : 1, warmup: p === 0, ...fakeRun(ms) });
+    pairs.push({ pair: p, variant: 'b', position: p % 2 === 0 ? 1 : 0, warmup: p === 0, ...fakeRun(ms) });
+  }
+  const result = { benchmark: 'chonk-ab', flow: 'x', variants: ['a', 'b'], pairs, warmupPairs: 1 };
+  const analysis = analyzeAB(result, { bootstrapIters: 1000 });
+  assert.equal(analysis.analyzedPairs, 10);
+  const m = analysis.perMetric.proveTotalMs;
+  assert.equal(m.deltaMs.median, 0);
+  assert.ok(m.deltaPct.ci95.lo <= 0 && m.deltaPct.ci95.hi >= 0, `Δ% CI [${m.deltaPct.ci95.lo}, ${m.deltaPct.ci95.hi}] should contain 0`);
+  assert.equal(m.significant, false);
+});
+
+test('analyzeAB rejects results without exactly two variants', () => {
+  assert.throws(() => analyzeAB({ variants: ['a'], pairs: [] }), /2-element array/);
 });
 
 test('server exposes health and pinned input index', async () => {

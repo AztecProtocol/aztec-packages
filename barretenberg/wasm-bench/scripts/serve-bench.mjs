@@ -27,15 +27,15 @@ const contentTypes = new Map([
   ['.gz', 'application/gzip'],
 ]);
 
-function setSharedHeaders(response) {
+function setSharedHeaders(response, { cache = 'no-store' } = {}) {
   response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   response.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
   response.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
-  response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Cache-Control', cache);
 }
 
-function send(response, status, body, headers = {}) {
-  setSharedHeaders(response);
+function send(response, status, body, headers = {}, sharedOpts = {}) {
+  setSharedHeaders(response, sharedOpts);
   response.writeHead(status, headers);
   response.end(body);
 }
@@ -113,7 +113,7 @@ async function proxyCrs(response, pathname, searchParams) {
   send(response, 200, bytes, {
     'Content-Type': 'application/octet-stream',
     'Content-Length': String(bytes.byteLength),
-  });
+  }, { cache: 'public, max-age=3600' });
   return true;
 }
 
@@ -140,7 +140,8 @@ async function serveStatic(response, root, pathname) {
     send(response, 404, 'not found', { 'Content-Type': 'text/plain; charset=utf-8' });
     return;
   }
-  setSharedHeaders(response);
+  const isWasm = filePath.endsWith('.wasm.gz') || filePath.endsWith('.wasm');
+  setSharedHeaders(response, isWasm ? { cache: 'public, max-age=3600' } : {});
   response.writeHead(200, {
     'Content-Type': contentTypes.get(extname(filePath)) ?? contentTypes.get(extname(basename(filePath, '.gz'))) ?? 'application/octet-stream',
     'Content-Length': String(info.size),

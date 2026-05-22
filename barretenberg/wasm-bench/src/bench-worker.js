@@ -99,8 +99,14 @@ async function runBench(options) {
     return smoke;
   }
 
+  progress('crs_fetch_start', { srsSize: options.srsSize, grumpkinSrsSize: options.grumpkinSrsSize });
   const crsInfo = await timed(phases, 'fetch_crs_and_init_srs', () =>
-    initSrs(wasm, { srsSize: options.srsSize, grumpkinSrsSize: options.grumpkinSrsSize, crsBaseUrl: options.crsBaseUrl }),
+    initSrs(wasm, {
+      srsSize: options.srsSize,
+      grumpkinSrsSize: options.grumpkinSrsSize,
+      crsBaseUrl: options.crsBaseUrl,
+      progress,
+    }),
   );
   progress('srs_ready', crsInfo);
 

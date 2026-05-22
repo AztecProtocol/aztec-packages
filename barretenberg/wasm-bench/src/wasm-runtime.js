@@ -19,7 +19,7 @@ function stringFromMemory(memory, addr) {
   while (mem[end] !== 0) {
     end++;
   }
-  return new TextDecoder('ascii').decode(mem.subarray(addr >>> 0, end));
+  return new TextDecoder('ascii').decode(mem.slice(addr >>> 0, end));
 }
 
 export function createImportObject({ memory, logger = () => {}, envHardwareConcurrency = () => 1, threadSpawn }) {
@@ -55,17 +55,27 @@ export function createImportObject({ memory, logger = () => {}, envHardwareConcu
   };
 }
 
-async function fetchWasmBytes(url, progress) {
+async function fetchWasmBytes(url, progress, { retries = 4, retryDelayMs = 500 } = {}) {
   const started = performance.now();
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, { cache: 'default' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const compressed = new Uint8Array(await response.arrayBuffer());
+      progress?.('wasm_fetch', { url, bytes: compressed.byteLength, elapsedMs: performance.now() - started, attempt });
+      const isGzip = compressed[0] === 0x1f && compressed[1] === 0x8b && compressed[2] === 0x08;
+      return isGzip ? pako.ungzip(compressed) : compressed;
+    } catch (error) {
+      lastError = error;
+      progress?.('wasm_fetch_retry', { url, attempt, message: error?.message ?? String(error) });
+      if (attempt >= retries) break;
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs * Math.pow(2, attempt)));
+    }
   }
-  const compressed = new Uint8Array(await response.arrayBuffer());
-  progress?.('wasm_fetch', { url, bytes: compressed.byteLength, elapsedMs: performance.now() - started });
-
-  const isGzip = compressed[0] === 0x1f && compressed[1] === 0x8b && compressed[2] === 0x08;
-  return isGzip ? pako.ungzip(compressed) : compressed;
+  throw new Error(`Failed to fetch ${url} after ${retries + 1} attempts: ${lastError?.message ?? lastError}`);
 }
 
 function copyOut(memory, start, end) {

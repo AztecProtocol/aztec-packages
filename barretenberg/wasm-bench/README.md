@@ -74,3 +74,57 @@ List supported targets:
 ```bash
 yarn create-link --target true
 ```
+
+## Paired A/B (statistically meaningful PR vs base)
+
+For "is PR X faster than base?" comparisons, single-run timings on a shared
+device are noise — between-run variance on a BrowserStack mobile/desktop
+worker swamps anything under ~5%. The harness ships a paired A/B mode that
+runs both variants on the same physical worker in alternating order:
+
+1. Build the wasm for both sides (e.g. `barretenberg.wasm.gz` for PR head and
+   merge-base). Either of `cmake --preset wasm-threads -DENABLE_WASM_BENCH=ON`
+   variants is fine — just two separate output files.
+2. After `yarn build`, lay them both out under `dest/wasm/<variant>/`:
+
+   ```bash
+   yarn build-ab \
+     --variant pr=path/to/pr/barretenberg.wasm.gz \
+     --variant base=path/to/base/barretenberg.wasm.gz
+   ```
+
+   For an A==B harness validation run, pass the same wasm for both variants;
+   the generated `variants.manifest.json` reports identical md5s and the
+   ground-truth Δ should bracket zero.
+3. Drive the worker with `bench` params:
+
+   ```json
+   {
+     "benchmark": "chonk-ab",
+     "flow": "ecdsar1+transfer_1_recursions+sponsored_fpc",
+     "threads": "auto",
+     "pairs": 11,
+     "warmupPairs": 1,
+     "variants": ["pr", "base"],
+     "wasmBaseUrls": { "pr": "/wasm/pr", "base": "/wasm/base" }
+   }
+   ```
+
+   The first pair is dropped from analysis (caches/JIT warm-up). Order
+   alternates every pair so PR-first and base-first counts are balanced.
+4. Post-collection, run the analyzer:
+
+   ```bash
+   yarn analyze-ab --result /tmp/wasm-bench-results.jsonl
+   ```
+
+   It reports per-variant `n / median / mean / stddev / min / max`, per-pair
+   Δ summary, seeded bootstrap 95% CI on the median Δ (both ms and %), and
+   a Wilcoxon signed-rank test on the paired deltas. Verdict is
+   `significant` if and only if the Δ% 95% CI excludes zero.
+
+`scripts/run-browserstack.mjs` drives the whole loop with watchdogs
+(`--stall-ms`, `--deadline-ms`, per-target `firstProgressMs`), when run from
+a host that has `BROWSERSTACK_USERNAME` / `BROWSERSTACK_ACCESS_KEY` in env.
+From a claudebox session, use the BrowserStack MCP tools instead — the
+`bench` param shape is the same.
