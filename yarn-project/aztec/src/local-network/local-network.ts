@@ -8,7 +8,7 @@ import { type BlobClientInterface, createBlobClient } from '@aztec/blob-client/c
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { waitForPublicClient } from '@aztec/ethereum/client';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars, l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
@@ -63,18 +63,27 @@ export async function deployContractsToL1(
 ): Promise<L1ContractAddresses> {
   await waitForPublicClient(aztecNodeConfig);
 
-  const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, foundry.id, {
+  const l1ContractsConfig = {
     ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
     ...aztecNodeConfig,
+    aztecTargetCommitteeSize: 0, // no committee in local network
+    slasherEnabled: false, // no slashing in local network
+  };
+
+  const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, foundry.id, {
+    ...l1ContractsConfig,
     vkTreeRoot: getVKTreeRoot(),
     protocolContractsHash,
     genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
     feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
-    aztecTargetCommitteeSize: 0, // no committee in local network
-    slasherEnabled: false, // no slashing in local network
     realVerifier: false,
   });
 
+  const l1ConfigEntries = Object.keys(l1ContractsConfigMappings).map(key => [
+    key,
+    l1ContractsConfig[key as keyof L1ContractsConfig],
+  ]);
+  Object.assign(aztecNodeConfig, Object.fromEntries(l1ConfigEntries));
   Object.assign(aztecNodeConfig, l1Contracts.l1ContractAddresses);
   aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 

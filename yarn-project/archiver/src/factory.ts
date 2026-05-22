@@ -89,6 +89,8 @@ export async function createArchiver(
     l1StartBlock,
     l1GenesisTime,
     proofSubmissionEpochs,
+    epochDuration,
+    slotDuration,
     genesisArchiveRoot,
     slashingProposerAddress,
     targetCommitteeSize,
@@ -97,6 +99,8 @@ export async function createArchiver(
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
     rollup.getProofSubmissionEpochs(),
+    rollup.getEpochDuration(),
+    rollup.getSlotDuration(),
     rollup.getGenesisArchiveTreeRoot(),
     rollup.getSlashingProposerAddress(),
     rollup.getTargetCommitteeSize(),
@@ -107,7 +111,7 @@ export async function createArchiver(
     .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
     .then(block => Buffer32.fromString(block.hash));
 
-  const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+  const { ethereumSlotDuration } = config;
 
   const l1Constants = {
     l1StartBlockHash,

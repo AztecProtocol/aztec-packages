@@ -21,7 +21,7 @@ import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars, l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployMulticall3 } from '@aztec/ethereum/contracts';
 import {
@@ -440,14 +440,18 @@ export async function setup(
     // This is necessary because deployMulticall3 sends multiple transactions and viem may cache a stale nonce
     await l1Client.getTransactionCount({ address: l1Client.account.address });
 
+    const l1ContractsConfig = {
+      ...getL1ContractsConfigEnvVars(),
+      ...opts,
+      ...opts.l1ContractsArgs,
+    };
+
     const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await deployAztecL1Contracts(
       config.l1RpcUrls[0],
       publisherPrivKeyHex!,
       chain.id,
       {
-        ...getL1ContractsConfigEnvVars(),
-        ...opts,
-        ...opts.l1ContractsArgs,
+        ...l1ContractsConfig,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         genesisArchiveRoot,
@@ -457,6 +461,11 @@ export async function setup(
       },
     );
 
+    const l1ConfigEntries = Object.keys(l1ContractsConfigMappings).map(key => [
+      key,
+      l1ContractsConfig[key as keyof L1ContractsConfig],
+    ]);
+    Object.assign(config, Object.fromEntries(l1ConfigEntries));
     Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
