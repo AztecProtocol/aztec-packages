@@ -54,14 +54,14 @@ global EMIT_PUBLIC_INIT_NULLIFIER_SELECTOR: FunctionSelector = comptime {
 /// emitting the public nullifier without the private one). The macro-generated code handles this automatically.
 pub fn mark_as_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_initialization_nullifier(context.this_address());
-    context.push_nullifier(init_nullifier);
+    context.push_nullifier_unsafe(init_nullifier);
 }
 
 fn mark_as_initialized_private(context: &mut PrivateContext) {
     let address = (*context).this_address();
     let instance = get_contract_instance(address);
     let init_nullifier = compute_private_initialization_nullifier(address, instance.initialization_hash);
-    context.push_nullifier(init_nullifier);
+    context.push_nullifier_unsafe(init_nullifier);
 }
 
 /// Emits the private initialization nullifier and, if relevant, enqueues the emission of the public one.
@@ -88,7 +88,7 @@ pub fn mark_as_initialized_from_public_initializer(context: PublicContext) {
     // currently executing, which by definition must have been deployed.
     let init_hash = get_contract_instance_initialization_hash_avm(address).unwrap();
     let private_nullifier = compute_private_initialization_nullifier(address, init_hash);
-    context.push_nullifier(private_nullifier);
+    context.push_nullifier_unsafe(private_nullifier);
     mark_as_initialized_public(context);
 }
 

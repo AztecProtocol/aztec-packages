@@ -145,8 +145,8 @@ unconstrained fn rejects_duplicate_transient_nullifiers() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        context.push_nullifier(1);
-        context.push_nullifier(1);
+        context.push_nullifier_unsafe(1);
+        context.push_nullifier_unsafe(1);
     });
 }
 
@@ -154,9 +154,9 @@ unconstrained fn rejects_duplicate_transient_nullifiers() {
 unconstrained fn rejects_duplicate_settled_nullifiers() {
     let env = TestEnvironment::new();
 
-    env.private_context(|context| { context.push_nullifier(1); });
+    env.private_context(|context| { context.push_nullifier_unsafe(1); });
 
-    env.private_context(|context| { context.push_nullifier(1); });
+    env.private_context(|context| { context.push_nullifier_unsafe(1); });
 }
 
 #[test]
@@ -207,7 +207,7 @@ unconstrained fn check_nullifier_exists_nonexistent() {
 unconstrained fn check_nullifier_exists_settled() {
     let env = TestEnvironment::new();
 
-    env.private_context(|context| { context.push_nullifier(1); });
+    env.private_context(|context| { context.push_nullifier_unsafe(1); });
 
     env.private_context(|_| { assert(check_nullifier_exists(1)); });
 }
@@ -217,7 +217,7 @@ unconstrained fn check_nullifier_exists_pending() {
     let env = TestEnvironment::new();
 
     env.private_context(|context| {
-        context.push_nullifier(1);
+        context.push_nullifier_unsafe(1);
         assert(check_nullifier_exists(1));
     });
 }

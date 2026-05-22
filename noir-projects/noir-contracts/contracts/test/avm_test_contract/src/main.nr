@@ -610,7 +610,7 @@ pub contract AvmTest {
 
     #[contract_library_method]
     fn _new_nullifier(context: PublicContext, nullifier: Field) {
-        context.push_nullifier(nullifier);
+        context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("public")]
@@ -630,7 +630,7 @@ pub contract AvmTest {
     #[external("public")]
     fn n_new_nullifiers(num: u32) {
         for i in 0..num {
-            self.context.push_nullifier(i as Field);
+            self.context.push_nullifier_unsafe(i as Field);
         }
     }
 
@@ -672,7 +672,7 @@ pub contract AvmTest {
     // Use the standard context interface to emit a new nullifier
     #[external("public")]
     fn emit_nullifier_and_check(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
         let exists = self.context.nullifier_exists_unsafe(nullifier, self.address);
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
@@ -680,9 +680,9 @@ pub contract AvmTest {
     // Create the same nullifier twice (shouldn't work!)
     #[external("public")]
     fn nullifier_collision(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
         // Can't do this twice!
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("public")]
@@ -780,13 +780,13 @@ pub contract AvmTest {
 
     #[external("public")]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
         self.call(AvmTest::at(nestedAddress).new_nullifier(nullifier));
     }
 
     #[external("public")]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
         self.call(AvmTest::at(nestedAddress).new_nullifier(nullifier + 1));
     }
 
