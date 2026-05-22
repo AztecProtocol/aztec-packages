@@ -1,4 +1,4 @@
-import { CalldataRetriever } from '@aztec/archiver';
+import { type Archiver, CalldataRetriever } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
@@ -16,6 +16,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -470,6 +471,219 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await test.waitUntilCheckpointNumber(nextCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 16);
 
     logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  });
+
+  // Reproduction for the archiver "non-consecutive checkpoint" loop bug:
+  // P1 publishes a checkpoint with insufficient attestations (archiver skips it via `continue` at
+  // l1_synchronizer.ts:908); the next proposer P2 publishes a *valid* descendant without first
+  // invalidating P1. When the archiver tries to insert P2 the consecutiveness check throws
+  // `InitialCheckpointNumberNotSequentialError`, the L1 sync point is rolled back, and the next
+  // poll re-fetches the same range and re-throws — a deterministic loop bounded only by the
+  // polling interval. Today no fixture path reaches this state because every proposer either
+  // bails out of publishing or bundles an invalidation; this test wires up the new
+  // `skipWaitForValidParentCheckpointOnL1` flag together with `skipInvalidateBlockAsProposer`
+  // on P2 to force the fault.
+  it('archiver gets stuck when next proposer extends an invalid-attestations checkpoint', async () => {
+    const sequencers = nodes.map(node => node.getSequencer()!);
+
+    // The committee invalidation fallback is already disabled by the fixture-level
+    // `secondsBeforeInvalidatingBlockAsCommitteeMember`. We also need to disable the non-committee
+    // fallback (`considerInvalidatingCheckpoint` at sequencer.ts:950, called from L345) on every
+    // node, otherwise any sequencer whose pending chain is invalid will eventually invalidate P1
+    // and break the loop we're trying to reproduce.
+    sequencers.forEach(s =>
+      s.updateConfig({
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: Number.MAX_SAFE_INTEGER,
+        minTxsPerBlock: 0,
+      }),
+    );
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers, waiting for first checkpoint before applying malicious config`);
+
+    // Wait for at least one good checkpoint to be mined so any in-progress slot has completed.
+    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+    await test.waitUntilCheckpointNumber(CheckpointNumber(initialCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 4);
+
+    // Align to the start of an L2 slot, then pick two slots with a 3-slot gap so the malicious
+    // config has time to land on each proposer's job snapshot under pipelining, and P1's proposal
+    // has time to propagate to P2 before P2 starts pipelined building.
+    await test.monitor.waitUntilNextL2Slot();
+    const { l2SlotNumber: currentSlot } = await test.monitor.run();
+    logger.warn(`First checkpoint mined, current slot is ${currentSlot}`);
+
+    let badSlot1 = SlotNumber.add(currentSlot, 3);
+    let badSlot2 = SlotNumber.add(currentSlot, 4);
+    let p1Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot1);
+    let p2Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot2);
+
+    // Ensure the two slots belong to different proposers; retry by walking forward one slot at
+    // a time. With committee size 6 and random shuffling this should usually succeed first try.
+    let attempts = 0;
+    while (p1Proposer && p2Proposer && p1Proposer.equals(p2Proposer)) {
+      attempts += 1;
+      if (attempts > 6) {
+        throw new Error(`Could not find two consecutive slots with different proposers`);
+      }
+      badSlot1 = SlotNumber.add(badSlot1, 1);
+      badSlot2 = SlotNumber.add(badSlot2, 1);
+      p1Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot1);
+      p2Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot2);
+    }
+    if (!p1Proposer || !p2Proposer) {
+      throw new Error(`Could not resolve proposers for slots ${badSlot1} and ${badSlot2}`);
+    }
+
+    const p1NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p1Proposer!)));
+    const p2NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p2Proposer!)));
+    if (p1NodeIndex === -1 || p2NodeIndex === -1) {
+      throw new Error(`Could not find nodes for proposers P1=${p1Proposer} P2=${p2Proposer}`);
+    }
+    const p1Node = nodes[p1NodeIndex];
+    const p2Node = nodes[p2NodeIndex];
+    logger.warn(`Applying malicious configs`, {
+      p1NodeIndex,
+      p1Proposer: p1Proposer.toString(),
+      badSlot1,
+      p2NodeIndex,
+      p2Proposer: p2Proposer.toString(),
+      badSlot2,
+    });
+
+    // P1 publishes its checkpoint with only its own self-attestation (insufficient) and skips
+    // any invalidation of earlier checkpoints.
+    await p1Node.setConfig({
+      skipCollectingAttestations: true,
+      skipInvalidateBlockAsProposer: true,
+      minTxsPerBlock: 0,
+    });
+
+    // P2 collects attestations normally so its checkpoint lands valid, but bypasses the
+    // parent-validity gate (the new flag) and the L270 invalidation enqueue (the existing flag).
+    // `skipInvalidateBlockAsProposer` short-circuits `enqueueInvalidation` at L479-482, which
+    // covers both the call site at L270 and the in-method one at L422 that fires when the parent
+    // is detected as invalid inside `waitForValidParentCheckpointOnL1` (although that path is
+    // now unreachable because the new flag returns early at the top of the method).
+    await p2Node.setConfig({
+      skipWaitForValidParentCheckpointOnL1: true,
+      skipInvalidateBlockAsProposer: true,
+      minTxsPerBlock: 0,
+    });
+
+    // Install a log-capture spy on node[0]'s archiver l1_synchronizer logger. The warn message
+    // at l1_synchronizer.ts:1010-1011 ("Rolling back L1 sync point") is unique to the
+    // `InitialCheckpointNumberNotSequentialError` retry path, so its repetition is the loop
+    // signature we want to assert on.
+    const observerArchiver = nodes[0].getBlockSource() as Archiver;
+
+    const synchronizerLog = (observerArchiver as any).synchronizer.log;
+    const synchronizerWarnSpy = jest.spyOn(synchronizerLog, 'warn');
+
+    try {
+      // Send a couple of txs so there's content for both checkpoints.
+      logger.warn('Sending transactions to fill the bad checkpoints');
+      await timesAsync(4, i => testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from, wait: NO_WAIT }));
+
+      // Watch for both CheckpointProposed events at the targeted slots.
+      const p1CheckpointPromise = promiseWithResolvers<CheckpointNumber>();
+      const p2CheckpointPromise = promiseWithResolvers<CheckpointNumber>();
+      test.monitor.on('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
+        if (l2SlotNumber === badSlot1) {
+          p1CheckpointPromise.resolve(checkpointNumber);
+        }
+        if (l2SlotNumber === badSlot2) {
+          p2CheckpointPromise.resolve(checkpointNumber);
+        }
+      });
+
+      logger.warn(`Waiting for two checkpoints to be mined on slots ${badSlot1} and ${badSlot2}`);
+      const [p1Checkpoint, p2Checkpoint] = await Promise.race([
+        Promise.all([p1CheckpointPromise.promise, p2CheckpointPromise.promise]),
+        timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000, 'Waiting for both checkpoints').then(
+          () => [CheckpointNumber(0), CheckpointNumber(0)] as const,
+        ),
+      ]);
+      logger.warn(`Observed checkpoints`, { p1Checkpoint, p2Checkpoint, badSlot1, badSlot2 });
+      expect(p2Checkpoint).toEqual(CheckpointNumber(p1Checkpoint + 1));
+
+      // P1 must have landed with insufficient attestations (the trigger for the archiver skip).
+      await assertCheckpointInsufficientAttestations(p1Checkpoint);
+
+      // Read both events from L1, confirm P2's header actually extends P1's. Without this the
+      // archiver's consecutiveness check wouldn't fire and the test could silently pass without
+      // having engineered the fault.
+      const proposedEvents = await rollupContract.getCheckpointProposedEvents(1n, await l1Client.getBlockNumber());
+      const p1Event = proposedEvents.find(e => e.args.checkpointNumber === p1Checkpoint);
+      const p2Event = proposedEvents.find(e => e.args.checkpointNumber === p2Checkpoint);
+      expect(p1Event).toBeDefined();
+      expect(p2Event).toBeDefined();
+      expect(p1Event!.l1BlockNumber).toBeLessThan(p2Event!.l1BlockNumber);
+
+      const calldataRetriever = new CalldataRetriever(
+        l1Client as unknown as ViemPublicClient,
+        l1Client as unknown as ViemPublicDebugClient,
+        VALIDATOR_COUNT,
+        undefined,
+        createLogger('e2e:epochs_invalidate_block:stuck-archiver:calldata'),
+        EthAddress.fromString(rollupContract.address),
+      );
+      const p1Data = await calldataRetriever.getCheckpointFromRollupTx(
+        p1Event!.l1TransactionHash,
+        p1Event!.args.versionedBlobHashes,
+        p1Checkpoint,
+        {
+          attestationsHash: p1Event!.args.attestationsHash.toString(),
+          payloadDigest: p1Event!.args.payloadDigest.toString(),
+        },
+      );
+      const p2Data = await calldataRetriever.getCheckpointFromRollupTx(
+        p2Event!.l1TransactionHash,
+        p2Event!.args.versionedBlobHashes,
+        p2Checkpoint,
+        {
+          attestationsHash: p2Event!.args.attestationsHash.toString(),
+          payloadDigest: p2Event!.args.payloadDigest.toString(),
+        },
+      );
+      // P2 builds on P1: its lastArchiveRoot is the archive root produced by P1.
+      expect(p2Data.header.lastArchiveRoot.toString()).toEqual(p1Data.archiveRoot.toString());
+
+      // Both checkpoints have landed and P2 extends P1. Wait a few slots and confirm the
+      // archiver is stuck in the rollback retry loop. The polling interval is 200ms (set in
+      // beforeEach), so within 6 * 32s we expect well over 3 retries.
+      const waitMs = test.L2_SLOT_DURATION_IN_S * 6 * 1000;
+      logger.warn(`Waiting ${waitMs}ms for the archiver retry loop to repeat`);
+      await sleep(waitMs);
+
+      // Primary signal: repeated rollback warns from the synchronizer.
+      const rollbackWarnCalls = synchronizerWarnSpy.mock.calls.filter(
+        (call: any[]) => typeof call[0] === 'string' && call[0].includes('Rolling back L1 sync point'),
+      );
+      logger.warn(`Observed ${rollbackWarnCalls.length} "Rolling back L1 sync point" warnings on node[0]`);
+      expect(rollbackWarnCalls.length).toBeGreaterThanOrEqual(3);
+
+      // Belt-and-suspenders: node[0] must not have advanced past P1 — if it had, the loop would
+      // have resolved itself somehow and our log capture is suspect.
+      const observedTips = await nodes[0].getChainTips();
+      logger.warn(`Observer node tips`, {
+        checkpointedBlock: observedTips.checkpointed.block.number,
+        checkpointedCheckpoint: observedTips.checkpointed.checkpoint.number,
+        proposedBlock: observedTips.proposed.number,
+      });
+      expect(observedTips.checkpointed.checkpoint.number).toBeLessThan(p2Checkpoint);
+
+      logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+    } finally {
+      // Best-effort cleanup so the afterEach teardown doesn't hang on a stuck archiver. We do
+      // not require the chain to recover — the bug means it can't until a fix lands.
+      await Promise.all([
+        p1Node
+          .setConfig({ skipCollectingAttestations: false, skipInvalidateBlockAsProposer: false })
+          .catch(() => undefined),
+        p2Node
+          .setConfig({ skipWaitForValidParentCheckpointOnL1: false, skipInvalidateBlockAsProposer: false })
+          .catch(() => undefined),
+      ]);
+    }
   });
 
   // All tests but this one disable invalidation by committee. This test disables invalidation by proposer and
