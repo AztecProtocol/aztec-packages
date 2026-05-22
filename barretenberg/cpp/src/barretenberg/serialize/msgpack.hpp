@@ -1,4 +1,14 @@
 #pragma once
+
+// Opt out of ipc-codegen's bundled struct-map msgpack adaptor: barretenberg
+// ships an equivalent under msgpack_impl/struct_map_impl.hpp with overlapping
+// partial specialisations on the same primary template. Predefining this
+// guard means any codegen-emitted msgpack_struct_map_impl.hpp pulled into the
+// same TU yields to the framework's adaptor instead of fighting it.
+#ifndef IPC_CODEGEN_USE_BB_MSGPACK_ADAPTORS
+#define IPC_CODEGEN_USE_BB_MSGPACK_ADAPTORS
+#endif
+
 /* Minimal header for declaring msgpack fields.
 This should be included as "barretenberg/serialize/msgpack.hpp" unless a translation wants
 to use msgpack for bindings, then "barretenberg/serialize/cbind.hpp" should be included.

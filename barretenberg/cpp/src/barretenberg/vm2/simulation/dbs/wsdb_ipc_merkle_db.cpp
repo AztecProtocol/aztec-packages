@@ -3,59 +3,19 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/wsdb/wsdb_wire_convert.hpp"
 
 #include <cstring>
 
 namespace bb::avm2::simulation {
 
-// ---------------------------------------------------------------------------
-// Wire <-> Domain conversion helpers
-//
-// ipc-codegen emits a wire-typed client (std::array<uint8_t,32> for field
-// elements, primitive ints for enums, plain structs for domain types). This
-// translation unit owns the inline conversions to/from barretenberg's domain
-// types so the public interface stays unchanged.
-// ---------------------------------------------------------------------------
-
-namespace {
-
-inline ::Fr fr_to_wire(const bb::fr& d)
-{
-    ::Fr r{};
-    bb::fr::serialize_to_buffer(d, r.data());
-    return r;
-}
-
-inline bb::fr fr_from_wire(const ::Fr& w)
-{
-    return bb::fr::serialize_from_buffer(w.data());
-}
-
-inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<::Fr>& wire)
-{
-    std::vector<bb::fr> result;
-    result.reserve(wire.size());
-    for (const auto& w : wire) {
-        result.push_back(fr_from_wire(w));
-    }
-    return result;
-}
-
-inline wsdb::wire::WorldStateRevision revision_to_wire(const world_state::WorldStateRevision& r)
-{
-    return wsdb::wire::WorldStateRevision{
-        .forkId = r.forkId,
-        .blockNumber = r.blockNumber,
-        .includeUncommitted = r.includeUncommitted,
-    };
-}
-
-inline uint32_t tree_id_to_wire(MerkleTreeId id)
-{
-    return static_cast<uint32_t>(id);
-}
-
-} // anonymous namespace
+// Wire <-> domain conversion helpers are shared with the server handlers
+// (see wsdb_handlers.cpp) so both sides use the same encoding boundary.
+using bb::wsdb::fr_from_wire;
+using bb::wsdb::fr_to_wire;
+using bb::wsdb::fr_vec_from_wire;
+using bb::wsdb::revision_to_wire;
+using bb::wsdb::tree_id_to_wire;
 
 // ---------------------------------------------------------------------------
 // Helpers

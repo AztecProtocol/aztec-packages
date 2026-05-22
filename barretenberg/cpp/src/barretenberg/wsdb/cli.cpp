@@ -2,7 +2,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/wsdb/wsdb_execute.hpp"
+#include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
@@ -19,15 +19,15 @@ using namespace bb::crypto::merkle_tree;
 
 namespace {
 
-struct WsdbApi {
-    WsdbCommand commands;
-    WsdbCommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
-};
-
+// Wire-format schema authority is barretenberg/cpp/src/barretenberg/wsdb/
+// wsdb_schema.json — that's what every language's codegen consumes. The
+// `msgpack schema` subcommand kept the old NamedUnion-derived dump as a
+// secondary introspection path; it's now redundant, so we just point at
+// the canonical source.
 std::string get_wsdb_schema_as_json()
 {
-    return msgpack_schema_to_string(WsdbApi{});
+    return "{\"note\":\"Wire format authority is "
+           "barretenberg/cpp/src/barretenberg/wsdb/wsdb_schema.json.\"}";
 }
 
 } // namespace

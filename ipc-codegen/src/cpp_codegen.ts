@@ -426,10 +426,21 @@ ${methods}
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+// THROW/RETHROW mirror barretenberg's try_catch_shim macros so the same
+// generated header works in both standalone builds (where exceptions are
+// available) and in WASM builds (where the includer can predefine these to
+// abort-with-message variants before including this header).
+#ifndef THROW
+#define THROW throw
+#define RETHROW throw
+#endif
+#include <msgpack.hpp>
 
 // ---------------------------------------------------------------------------
 // Self-contained serialization macro.
@@ -468,8 +479,69 @@ ${methods}
     template <typename _PackFn> void msgpack(_PackFn pack_fn) { pack_fn(_SF_NVP(__VA_ARGS__)); }
 #endif
 
-/// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
-using Fr = std::array<uint8_t, 32>;
+// ---------------------------------------------------------------------------
+// 32-byte field element (Fr/Fq).
+//
+// Wire format: msgpack \`bin\` (2-byte header + raw 32 bytes), matching the
+// schema's ["fr", "bin32"] alias and barretenberg's own bb::fr msgpack adapter.
+//
+// The default std::array<T, N> msgpack adapter packs as \`array<uint8>\` which
+// is the wrong wire encoding (and incompatible with bb::fr / Rust /
+// msgpackr-bin clients), so we wrap the array in a struct and provide
+// explicit msgpack::adaptor specializations below.
+// ---------------------------------------------------------------------------
+struct Fr {
+    std::array<uint8_t, 32> bytes{};
+
+    uint8_t* data() { return bytes.data(); }
+    const uint8_t* data() const { return bytes.data(); }
+    constexpr std::size_t size() const { return bytes.size(); }
+    uint8_t& operator[](std::size_t i) { return bytes[i]; }
+    const uint8_t& operator[](std::size_t i) const { return bytes[i]; }
+
+    bool operator==(const Fr&) const = default;
+};
+
+namespace msgpack {
+MSGPACK_API_VERSION_NAMESPACE(v1) {
+namespace adaptor {
+
+template <> struct pack<::Fr> {
+    template <typename Stream> packer<Stream>& operator()(packer<Stream>& o, ::Fr const& v) const
+    {
+        o.pack_bin(static_cast<uint32_t>(v.bytes.size()));
+        o.pack_bin_body(reinterpret_cast<const char*>(v.bytes.data()), static_cast<uint32_t>(v.bytes.size()));
+        return o;
+    }
+};
+
+template <> struct convert<::Fr> {
+    msgpack::object const& operator()(msgpack::object const& o, ::Fr& v) const
+    {
+        // Preferred: bin (matches schema + bb::fr).
+        if (o.type == msgpack::type::BIN) {
+            if (o.via.bin.size != v.bytes.size())
+                throw msgpack::type_error();
+            std::memcpy(v.bytes.data(), o.via.bin.ptr, v.bytes.size());
+            return o;
+        }
+        // Fallback: array<uint8> — kept so this type can decode payloads
+        // emitted by msgpack libraries that don't distinguish.
+        if (o.type == msgpack::type::ARRAY) {
+            if (o.via.array.size != v.bytes.size())
+                throw msgpack::type_error();
+            for (std::size_t i = 0; i < v.bytes.size(); ++i) {
+                o.via.array.ptr[i].convert(v.bytes[i]);
+            }
+            return o;
+        }
+        throw msgpack::type_error();
+    }
+};
+
+} // namespace adaptor
+} // MSGPACK_API_VERSION_NAMESPACE(v1)
+} // namespace msgpack
 
 namespace ${ns}${this.opts.wireNamespace ? "::" + this.opts.wireNamespace : ""} {
 

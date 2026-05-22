@@ -6,9 +6,19 @@
 // msgpack headers.
 //
 // Self-contained struct-map msgpack adaptor — only depends on msgpack-c.
+//
+// In barretenberg context the framework ships its own equivalent under
+// barretenberg/serialize/msgpack_impl/struct_map_impl.hpp. Both define
+// `template <HasMsgPack T> struct convert<T> / pack<T>` in
+// `msgpack::adaptor`, with overlapping constraints, so including both in a
+// single TU triggers "ambiguous partial specialization" errors. Consumers
+// in that context predefine IPC_CODEGEN_USE_BB_MSGPACK_ADAPTORS so this
+// self-contained adaptor opts out and yields to the framework's.
 
-#include <cassert>
 #include <msgpack.hpp>
+
+#ifndef IPC_CODEGEN_USE_BB_MSGPACK_ADAPTORS
+#include <cassert>
 #include <tuple>
 #include <type_traits>
 
@@ -92,3 +102,4 @@ template <ipc_codegen::msgpack_concepts::HasMsgPack T> struct pack<T> {
 };
 
 } // namespace msgpack::adaptor
+#endif // IPC_CODEGEN_USE_BB_MSGPACK_ADAPTORS

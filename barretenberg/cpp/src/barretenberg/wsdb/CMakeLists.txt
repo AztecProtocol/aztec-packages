@@ -9,6 +9,7 @@ if(NOT(FUZZING) AND NOT(WASM))
     set(WSDB_GEN_OUTPUTS
         ${WSDB_GEN_DIR}/wsdb_ipc_client.cpp
         ${WSDB_GEN_DIR}/wsdb_ipc_client.hpp
+        ${WSDB_GEN_DIR}/wsdb_ipc_server.hpp
         ${WSDB_GEN_DIR}/wsdb_types.hpp
         ${WSDB_GEN_DIR}/msgpack_struct_map_impl.hpp
     )
@@ -24,11 +25,11 @@ if(NOT(FUZZING) AND NOT(WASM))
                 --schema ${WSDB_SCHEMA}
                 --lang cpp
                 --out ${WSDB_GEN_DIR}
-                --client
+                --client --server
                 --cpp-namespace bb::wsdb
                 --prefix Wsdb
         DEPENDS ${WSDB_SCHEMA} ${IPC_CODEGEN_SRC}
-        COMMENT "Generating WSDB IPC client from wsdb_schema.json"
+        COMMENT "Generating WSDB IPC client + server from wsdb_schema.json"
         VERBATIM
     )
     add_library(
@@ -48,7 +49,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         aztec-wsdb
         main.cpp
         cli.cpp
-        wsdb_execute.cpp
+        wsdb_handlers.cpp
         wsdb_ipc_server.cpp
     )
     target_link_libraries(
