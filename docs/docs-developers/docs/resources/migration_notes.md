@@ -9,6 +9,8 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+## 4.3.0-rc.1
+
 ### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
 
 `attempt_note_discovery` is now crate-private. Custom message handlers (implementations of `CustomMessageHandler`) that previously called it directly should call `process_private_note_msg` instead, which runs the standard private note message decoding and discovery pipeline.
