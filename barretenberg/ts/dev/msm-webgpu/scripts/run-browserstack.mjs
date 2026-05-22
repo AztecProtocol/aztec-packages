@@ -19,13 +19,11 @@
 //      consume.
 //
 // Usage:
-//   node dev/msm-webgpu/scripts/run-browserstack.mjs \
-//     --target macos --page bench-batch-affine --reps 3
+//   node dev/msm-webgpu/scripts/run-browserstack.mjs --target s25-ultra --n 16
 //
-// This script is the "wasm-bench-browserstack equivalent" for WebGPU MSM
-// runs. It does NOT replace the Playwright-on-local-Chromium driver
-// (`bench-batch-affine.mjs` / `profile-sanity.mjs`) — that one is still
-// the fastest path on a dev box with a real GPU.
+// Runs index.html's GPU-vs-WASM MSM cross-check (?autorun=msm-cross-check)
+// on a BrowserStack real device. For a local headless run on the dev
+// box's own GPU, use drive-index.mjs instead.
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -42,7 +40,7 @@ const TS_ROOT = path.resolve(__dirname, "../../..");
 const { values: argv } = parseArgs({
   options: {
     target: { type: "string", default: "macos" },
-    page: { type: "string", default: "bench-batch-affine" },
+    page: { type: "string", default: "index" },
     reps: { type: "string", default: "3" },
     total: { type: "string" },
     sizes: { type: "string" },
@@ -79,7 +77,8 @@ Usage:
 
 Options:
   --target T              BrowserStack preset (default: macos). --list-targets to list.
-  --page P                Dev page: bench-batch-affine | sanity (index.html). Default: bench-batch-affine.
+  --page P                Dev page (only `index` is defined). Default: index.
+  --n LOGN                ?logn for index.html (log2 of the MSM size). Default: 16.
   --reps R                ?reps query param for the bench page. Default: 3.
   --total N               ?total query param (TOTAL_PAIRS). Optional.
   --sizes A,B,C           ?sizes query param for selective batch sizes. Optional.
@@ -127,18 +126,7 @@ if (!TARGETS[argv.target]) {
 }
 
 const pageMap = {
-  "bench-batch-affine": "/dev/msm-webgpu/bench-batch-affine.html",
-  "bench-fused-wg-scan": "/dev/msm-webgpu/bench-fused-wg-scan.html",
-  "bench-ba-rev-packed-carry": "/dev/msm-webgpu/bench-ba-rev-packed-carry.html",
-  "bench-msm-chain": "/dev/msm-webgpu/bench-msm-chain.html",
-  "bench-ba-pair-disjoint": "/dev/msm-webgpu/bench-ba-pair-disjoint.html",
-  "bench-msm-v2": "/dev/msm-webgpu/bench-msm-v2.html",
-  "bench-msm-tree": "/dev/msm-webgpu/bench-msm-tree.html",
-  "bench-msm-tree-v3": "/dev/msm-webgpu/bench-msm-tree-v3.html",
-  "bench-planner": "/dev/msm-webgpu/bench-planner.html",
-  "bench-csr-to-v2": "/dev/msm-webgpu/bench-csr-to-v2.html",
-  "bench-smvp-tree": "/dev/msm-webgpu/bench-smvp-tree.html",
-  sanity: "/dev/msm-webgpu/index.html",
+  index: "/dev/msm-webgpu/index.html",
 };
 if (!pageMap[argv.page]) {
   err(`unknown --page ${argv.page}; known: ${Object.keys(pageMap).join(", ")}`);
@@ -418,16 +406,13 @@ async function main() {
       ? `http://127.0.0.1:${port}`
       : await waitForTunnelUrl(cloudflaredProc);
 
-  // Build the page URL with bench params.
+  // Build the index.html autorun URL: ?coi=1 gives the cross-origin
+  // isolation the threaded WASM needs, ?autorun=msm-cross-check runs the
+  // GPU-vs-WASM cross-check on load and POSTs the result, ?logn the size.
   const qp = new URLSearchParams();
-  qp.set("reps", String(reps));
-  if (argv.total) qp.set("total", String(argv.total));
-  if (argv.sizes) qp.set("sizes", String(argv.sizes));
-  if (argv.n) qp.set("n", String(argv.n));
-  if (argv.entries) qp.set("entries", String(argv.entries));
-  if (argv.buckets) qp.set("buckets", String(argv.buckets));
-  if (argv.seed) qp.set("seed", String(argv.seed));
-  if (argv.skew) qp.set("skew", String(argv.skew));
+  qp.set("coi", "1");
+  qp.set("autorun", "msm-cross-check");
+  qp.set("logn", String(argv.n ?? "16"));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
@@ -491,19 +476,7 @@ async function main() {
     );
     return 1;
   }
-  let summary;
-  if (argv.page === "bench-smvp-tree") {
-    const r = final.results ?? {};
-    const totalMs = (r.phase_ms ?? []).reduce((acc, p) => acc + p.ms, 0);
-    summary =
-      `layers=${r.layers} total_outputs=${r.total_outputs} ` +
-      `total_phase_ms=${totalMs.toFixed(1)} mismatches=${r.mismatches}\n` +
-      (r.phase_ms ?? []).map((p) => `  ${p.phase}: ${p.ms.toFixed(2)}ms`).join("\n");
-  } else {
-    summary = (final.results ?? [])
-      .map((r) => `B=${r.batch_size} ns/pair=${r.ns_per_pair.toFixed(1)} med=${r.median_ms.toFixed(3)}ms`)
-      .join("\n");
-  }
+  const summary = JSON.stringify(final.results ?? {});
   process.stderr.write(`\n==== headline ====\nstate=done\n${summary}\n`);
   return 0;
 }
