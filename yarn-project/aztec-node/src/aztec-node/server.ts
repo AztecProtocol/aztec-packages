@@ -46,6 +46,7 @@ import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/serv
 import {
   AttestationsBlockWatcher,
   BroadcastedInvalidCheckpointProposalWatcher,
+  CheckpointEquivocationWatcher,
   DataWithholdingWatcher,
   type SlasherClientInterface,
   type Watcher,
@@ -737,6 +738,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let dataWithholdingWatcher: DataWithholdingWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
       let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
+      let checkpointEquivocationWatcher: CheckpointEquivocationWatcher | undefined;
 
       if (!proverOnly) {
         validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
@@ -767,6 +769,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           watchers.push(broadcastedInvalidCheckpointProposalWatcher);
         }
 
+        if (config.slashDuplicateProposalPenalty > 0n) {
+          checkpointEquivocationWatcher = new CheckpointEquivocationWatcher(archiver, epochCache, config);
+          watchers.push(checkpointEquivocationWatcher);
+        }
+
         // We assume we want to slash for invalid attestations unless all max penalties are set to 0
         if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
           attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
@@ -793,6 +800,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           if (broadcastedInvalidCheckpointProposalWatcher) {
             await broadcastedInvalidCheckpointProposalWatcher.start();
             started.push(broadcastedInvalidCheckpointProposalWatcher);
+          }
+          if (checkpointEquivocationWatcher) {
+            await checkpointEquivocationWatcher.start();
+            started.push(checkpointEquivocationWatcher);
           }
           log.info(`All p2p services started`);
         })
