@@ -182,6 +182,7 @@ jumpi
 JUMPI
 kalypso
 Keccakf
+kernelless
 keypair
 knwon
 lbwop
