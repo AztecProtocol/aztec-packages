@@ -244,10 +244,11 @@ function bench_10tps {
   mkdir -p bench-out
 
   local env_file="$1"
+  source_env_basic "$env_file"
+  gcp_auth
   source_network_env $env_file
 
   echo_header "spartan bench-10tps"
-  gcp_auth
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${COMMIT_HASH:0:10}}"
