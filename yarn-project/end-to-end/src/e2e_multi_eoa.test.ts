@@ -75,16 +75,23 @@ describe('e2e_multi_eoa', () => {
         accounts: [defaultAccountAddress],
         sequencer: sequencerClient,
         ethCheatCodes,
-      } = await setup(2, {
-        ...PIPELINING_SETUP_OPTS,
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-        sequencerPublisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
-        l1PublisherKey: allKeysAndAddresses[0].key,
-        maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
-      }));
+      } = await setup(
+        2,
+        {
+          ...PIPELINING_SETUP_OPTS,
+          archiverPollingIntervalMS: 200,
+          sequencerPollingIntervalMS: 200,
+          worldStateBlockCheckIntervalMS: 200,
+          blockCheckIntervalMS: 200,
+          sequencerPublisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
+          l1PublisherKey: allKeysAndAddresses[0].key,
+          maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
+        },
+        // Anchor PXE to the checkpointed chain so that a missed-publish from publisher #1 in slot N
+        // (which invalidates the pipelined proposed chain) doesn't drop the wallet's in-flight tx
+        // when slot N+1's job rotates to publisher #2.
+        { syncChainTip: 'checkpointed' },
+      ));
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;
       aztecNodeAdmin = maybeAztecNodeAdmin!;
@@ -185,14 +192,7 @@ describe('e2e_multi_eoa', () => {
       spies.forEach(spy => spy.mockRestore());
     };
 
-    // TODO(palla/pipelining): publisher rotation is a legacy-only flow. The mock returns a valid-looking
-    // tx hash so `Multicall3.forward()` doesn't throw, and pipelining has no concept of "primary publisher
-    // failed mid-proposal, retry the same proposal with a secondary EOA" — rotation only happens across
-    // slot boundaries, not within a single CheckpointProposalJob. Under pipelining we observe
-    // `DELETE_FORK failed: Fork not found` + `propose_action_not_successful` + L1 tx timeout instead of
-    // the legacy rotation behavior the test asserts on. See `PIPELINING_GOTCHAS.md § "Publisher rotation
-    // tests depend on same-proposal retry (no analog under pipelining)"`.
-    it.skip('publishers are rotated by the sequencer', async () => {
+    it('publishers are rotated by the sequencer', async () => {
       // Helpers to identify which accounts are expected to be used
       const getSortedAddressesByBalance = async (addressAndKeys: { address: `0x${string}` }[]) => {
         const addressesWithBalance = await Promise.all(
