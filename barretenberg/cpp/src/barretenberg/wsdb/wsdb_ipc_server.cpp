@@ -5,65 +5,21 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/wsdb/wsdb_execute.hpp"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/serve_helper.hpp"
+#include "ipc_runtime/signal_handlers.hpp"
 
-#include <csignal>
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
-#include <thread>
-#include <unistd.h>
 #include <unordered_map>
 #include <vector>
-
-#ifdef __linux__
-#include <sys/prctl.h>
-#elif defined(__APPLE__)
-#include <sys/event.h>
-#endif
-
-// Use nlohmann/json if available, otherwise minimal parsing
-#include <sstream>
 
 namespace bb::wsdb {
 
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
-
-// ---------------------------------------------------------------------------
-// Platform-specific parent death monitoring
-// (Same pattern as api_msgpack.cpp)
-// ---------------------------------------------------------------------------
-
-static void setup_parent_death_monitoring()
-{
-#ifdef __linux__
-    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
-        std::cerr << "Warning: Could not set parent death signal" << '\n';
-    }
-#elif defined(__APPLE__)
-    pid_t parent_pid = getppid();
-    std::thread([parent_pid]() {
-        int kq = kqueue();
-        if (kq == -1) {
-            std::cerr << "Warning: Could not create kqueue for parent monitoring" << '\n';
-            return;
-        }
-        struct kevent change;
-        EV_SET(&change, parent_pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT, 0, nullptr);
-        if (kevent(kq, &change, 1, nullptr, 0, nullptr) == -1) {
-            std::cerr << "Warning: Could not monitor parent process" << '\n';
-            close(kq);
-            return;
-        }
-        struct kevent event;
-        kevent(kq, nullptr, 0, &event, 1, nullptr);
-        std::cerr << "Parent process exited, shutting down..." << '\n';
-        close(kq);
-        std::exit(0);
-    }).detach();
-#endif
-}
 
 // ---------------------------------------------------------------------------
 // Simple JSON-like parsing for config maps
@@ -224,47 +180,20 @@ int execute_wsdb_server(const std::string& input_path,
 
     WsdbRequest request{ .world_state = *ws };
 
-    // Create IPC server based on path suffix
-    std::unique_ptr<ipc::IpcServer> server;
-
-    if (input_path.size() >= 4 && input_path.substr(input_path.size() - 4) == ".shm") {
-        std::string base_name = input_path.substr(0, input_path.size() - 4);
-        constexpr size_t MAX_SHM_CLIENTS = 2; // TS backend (client 0) + AVM binary (client 1)
-        server = ipc::IpcServer::create_mpsc_shm(base_name, MAX_SHM_CLIENTS, request_ring_size, response_ring_size);
-        std::cerr << "MPSC shared memory server at " << base_name << " (max " << MAX_SHM_CLIENTS << " clients)\n";
-    } else if (input_path.size() >= 5 && input_path.substr(input_path.size() - 5) == ".sock") {
-        server = ipc::IpcServer::create_socket(input_path, 1);
-        std::cerr << "Socket server at " << input_path << '\n';
-    } else {
-        std::cerr << "Error: --input path must end with .sock or .shm" << '\n';
+    // Pick UDS vs MPSC-SHM by path suffix; install the runtime's default
+    // lifecycle signal handlers (SIGTERM/SIGINT → request_shutdown, SIGBUS/SIGSEGV
+    // → close+exit, plus parent-death monitoring via prctl/kqueue).
+    ipc::ServerOptions opts;
+    opts.max_shm_clients = 2; // TS backend (client 0) + AVM binary (client 1)
+    opts.shm_request_ring_size = request_ring_size;
+    opts.shm_response_ring_size = response_ring_size;
+    auto server = ipc::make_server(input_path, opts);
+    if (!server) {
+        std::cerr << "Error: --input path must end with .sock or .shm: " << input_path << '\n';
         return 1;
     }
-
-    // Set up signal handlers
-    static ipc::IpcServer* global_server = server.get();
-
-    auto graceful_shutdown_handler = [](int signal) {
-        std::cerr << "\nReceived signal " << signal << ", shutting down gracefully..." << '\n';
-        if (global_server) {
-            global_server->request_shutdown();
-        }
-    };
-
-    auto fatal_error_handler = [](int signal) {
-        const char* signal_name = (signal == SIGBUS) ? "SIGBUS" : (signal == SIGSEGV) ? "SIGSEGV" : "UNKNOWN";
-        std::cerr << "\nFatal error: received " << signal_name << '\n';
-        if (global_server) {
-            global_server->close();
-        }
-        std::exit(1);
-    };
-
-    (void)std::signal(SIGTERM, graceful_shutdown_handler);
-    (void)std::signal(SIGINT, graceful_shutdown_handler);
-    (void)std::signal(SIGBUS, fatal_error_handler);
-    (void)std::signal(SIGSEGV, fatal_error_handler);
-
-    setup_parent_death_monitoring();
+    std::cerr << "aztec-wsdb listening on " << input_path << '\n';
+    ipc::install_default_signal_handlers(*server);
 
     if (!server->listen()) {
         std::cerr << "Error: Could not start IPC server" << '\n';

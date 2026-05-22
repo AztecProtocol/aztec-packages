@@ -10,7 +10,6 @@ if(NOT(FUZZING) AND NOT(WASM))
         ${WSDB_GEN_DIR}/wsdb_ipc_client.cpp
         ${WSDB_GEN_DIR}/wsdb_ipc_client.hpp
         ${WSDB_GEN_DIR}/wsdb_types.hpp
-        ${WSDB_GEN_DIR}/ipc_client.hpp
         ${WSDB_GEN_DIR}/msgpack_struct_map_impl.hpp
     )
     set(IPC_CODEGEN_DIR ${CMAKE_SOURCE_DIR}/../../ipc-codegen)

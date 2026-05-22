@@ -19,11 +19,12 @@ NODE_FLAGS=(--experimental-strip-types --experimental-transform-types --no-warni
 gen() { node "${NODE_FLAGS[@]}" "$CODEGEN" "$@"; }
 
 # bb.js core BB API bindings: TypeScript (bb.js workspace) + Rust (barretenberg-rs).
+# bb.js is a pure client (the bb binary is the server), so we only emit --client.
 gen \
   --schema ../cpp/src/barretenberg/bbapi/bb_schema.json \
   --lang ts \
   --out "$TS_SRC/cbind/generated" \
-  --server --client \
+  --client \
   --prefix Bb --strip-method-prefix \
   --curve-constants ../cpp/src/barretenberg/bbapi/bb_curve_constants.json
 
