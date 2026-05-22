@@ -200,7 +200,7 @@ impl TestBuilder {
 
     pub fn add_key_validation_request(&mut self, sk: Field) {
         let sk_m = EmbeddedCurveScalar::from_field(sk);
-        let pk_m: EmbeddedCurvePoint = derive_public_key(sk_m);
+        let pk_m = derive_public_key(sk_m);
         let pk_m_hash = hash_public_key(pk_m);
 
         let key_type_domain_separator = 123321;

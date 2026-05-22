@@ -74,7 +74,7 @@ impl TestBuilder {
         let contract_address = AztecAddress::from_field(456654);
 
         let sk_m = Scalar::from_field(sk);
-        let pk_m: EmbeddedCurvePoint = derive_public_key(sk_m);
+        let pk_m = derive_public_key(sk_m);
         let pk_m_hash = hash_public_key(pk_m);
 
         let key_type_domain_separator = 123321;
