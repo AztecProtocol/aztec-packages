@@ -249,7 +249,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier),
     );
     if (!witness) {
-      throw new Error(`Nullifier witness not found for nullifier ${nullifier} at block hash ${blockHash.toString()}.`);
+      throw new Error(`Nullifier membership witness not found at block ${blockHash.toString()}.`);
     }
     return witness;
   }
