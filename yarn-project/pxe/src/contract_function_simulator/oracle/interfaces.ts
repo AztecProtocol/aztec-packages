@@ -13,6 +13,9 @@ import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
+import type { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { FixedArray } from '../noir-structs/fixed_array.js';
+import type { Option } from '../noir-structs/option.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -74,17 +77,17 @@ export interface IUtilityExecutionOracle {
   getBlockHashMembershipWitness(
     anchorBlockHash: BlockHash,
     blockHash: BlockHash,
-  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
+  ): Promise<Option<MembershipWitness<typeof ARCHIVE_HEIGHT>>>;
   getNullifierMembershipWitness(anchorBlockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness>;
   getPublicDataWitness(anchorBlockHash: BlockHash, leafSlot: Fr): Promise<PublicDataWitness>;
   getLowNullifierMembershipWitness(anchorBlockHash: BlockHash, nullifier: Fr): Promise<NullifierMembershipWitness>;
   getBlockHeader(blockNumber: BlockNumber): Promise<BlockHeader>;
   getPublicKeysAndPartialAddress(
     account: AztecAddress,
-  ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined>;
+  ): Promise<Option<{ publicKeys: PublicKeys; partialAddress: PartialAddress }>>;
   getAuthWitness(messageHash: Fr): Promise<Fr[]>;
   getNotes(
-    owner: AztecAddress | undefined,
+    owner: Option<AztecAddress>,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -99,7 +102,9 @@ export interface IUtilityExecutionOracle {
     limit: number,
     offset: number,
     status: NoteStatus,
-  ): Promise<NoteData[]>;
+    maxNotes: number,
+    packedHintedNoteLength: number,
+  ): Promise<BoundedVec<NoteData>>;
   doesNullifierExist(innerNullifier: Fr): Promise<boolean>;
   getL1ToL2MembershipWitness(
     contractAddress: AztecAddress,
@@ -122,9 +127,14 @@ export interface IUtilityExecutionOracle {
   ): Promise<void>;
   getLogsByTag(requestArrayBaseSlot: Fr): Promise<Fr>;
   getMessageContextsByTxHash(requestArrayBaseSlot: Fr): Promise<Fr>;
-  getTxEffect(txHash: TxHash): Promise<TxEffect | null>;
+  getTxEffect(txHash: TxHash): Promise<Option<TxEffect>>;
   setCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope: AztecAddress): void;
-  getCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): Promise<Fr[] | null>;
+  getCapsule(
+    contractAddress: AztecAddress,
+    key: Fr,
+    tSize: number,
+    scope: AztecAddress,
+  ): Promise<Option<FixedArray<Fr>>>;
   deleteCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): void;
   copyCapsule(
     contractAddress: AztecAddress,
@@ -133,7 +143,7 @@ export interface IUtilityExecutionOracle {
     numEntries: number,
     scope: AztecAddress,
   ): Promise<void>;
-  decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer | undefined>;
+  decryptAes128(ciphertext: BoundedVec<number>, iv: Buffer, symKey: Buffer): Promise<Option<BoundedVec<number>>>;
   getSharedSecrets(address: AztecAddress, ephPksSlot: Fr, contractAddress: AztecAddress): Promise<Fr>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
@@ -190,7 +200,7 @@ export interface IPrivateExecutionOracle {
   assertValidPublicCalldata(calldataHash: Fr): Promise<void>;
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
   isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
-  getSenderForTags(): Promise<AztecAddress | undefined>;
+  getSenderForTags(): Promise<Option<AztecAddress>>;
   setSenderForTags(senderForTags: AztecAddress): Promise<void>;
   getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
 }

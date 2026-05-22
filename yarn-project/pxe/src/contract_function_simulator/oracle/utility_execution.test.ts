@@ -349,7 +349,7 @@ describe('Utility Execution test suite', () => {
         capsuleStore.getCapsule.mockResolvedValueOnce(capsule);
 
         utilityExecutionOracle.setCapsule(contractAddress, slot, capsule, scope);
-        await utilityExecutionOracle.getCapsule(contractAddress, slot, scope);
+        await utilityExecutionOracle.getCapsule(contractAddress, slot, capsule.length, scope);
         utilityExecutionOracle.deleteCapsule(contractAddress, slot, scope);
         await utilityExecutionOracle.copyCapsule(contractAddress, srcSlot, dstSlot, 1, scope);
 
@@ -384,13 +384,14 @@ describe('Utility Execution test suite', () => {
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
 
-        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
-          transientGlobal,
-        );
-        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
-          transientGlobal,
-        );
-        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, scope)).toEqual(transientScoped);
+        const globalResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
+        expect(Array.from(globalResult.value!.data)).toEqual(transientGlobal);
+
+        const globalAgain = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
+        expect(Array.from(globalAgain.value!.data)).toEqual(transientGlobal);
+
+        const scopedResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, scope);
+        expect(Array.from(scopedResult.value!.data)).toEqual(transientScoped);
       });
     });
 
