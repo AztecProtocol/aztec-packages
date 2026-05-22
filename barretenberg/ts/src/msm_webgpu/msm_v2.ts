@@ -65,6 +65,15 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
+   * Render the Karatsuba+Yuval `montgomery_product` body with reduce iters
+   * 0..9 streamed between the `lo` and `hi`/`cr` half-products. Drops the
+   * t[0..9] accumulator GPRs before the high-pressure half-products run —
+   * a small register-pressure win on Adreno (~5 ms / 7 % median wall at
+   * n=2^16 on S25 Ultra). Default false; no effect on Metal/Intel where
+   * the kernel isn't register-bound.
+   */
+  streamedYuval?: boolean;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -594,7 +603,7 @@ export class MsmV2 {
     const misc = compute_misc_params(FP, 13);
     m.R = misc.r;
     m.rinv = misc.rinv;
-    const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false);
+    const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, config?.streamedYuval ?? false);
 
     // Bind a prefix of the shared, already-Montgomery-converted SRS pool. The
     // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n
