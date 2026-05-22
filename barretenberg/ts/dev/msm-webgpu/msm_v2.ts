@@ -65,9 +65,10 @@ export interface MsmConfig {
   invVariant?: 'a' | 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
-  /** Bucket reduction: 'fused' (one dispatch, every level) or 'unfused'
-   *  (one kind-specialized dispatch per level — watchdog-bounded, lighter
-   *  register footprint for small-register GPUs). Default 'fused'. */
+  /** Bucket reduction. 'unfused' (default): branchless kind-specialized
+   *  per-level kernels — one watchdog-bounded dispatch per level, fast on
+   *  register-starved GPUs and ~neutral on M4. 'fused': the legacy
+   *  single-dispatch monolith (kept as a fallback / for A/B). */
   reduceVariant?: 'fused' | 'unfused';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
@@ -358,7 +359,7 @@ export class MsmV2 {
   private reduceWg!: number;
   private invVariant!: 'a' | 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
-  private reduceVariant: 'fused' | 'unfused' = 'fused';
+  private reduceVariant: 'fused' | 'unfused' = 'unfused';
   private profile = false;
   private jacobianCrossover = 0;
   private stride!: number; // reduction STRIDE = 2^(c-1)
@@ -455,7 +456,7 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
-    m.reduceVariant = config?.reduceVariant ?? 'fused';
+    m.reduceVariant = config?.reduceVariant ?? 'unfused';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
