@@ -5,7 +5,7 @@ import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 
 import { toFunctionSelector } from 'viem';
 
-import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';
+import { NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
@@ -15,7 +15,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
   let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address, rollup } = t;
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     // Have to destructure again to ensure we have latest refs.
     ({ crossChainTestHarness, user1Address, user2Address, ownerAddress, rollup } = t);
     ethAccount = crossChainTestHarness.ethAccount;
