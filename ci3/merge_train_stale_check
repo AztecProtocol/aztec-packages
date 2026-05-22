@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Check whether the open PR for a merge-train branch has been open longer
+# than a threshold (default 24h). If so, post a one-line alert to a Slack
+# channel. Intended to be called from a daily scheduled GitHub Actions job.
+#
+# Usage: merge_train_stale_check <merge-train-branch> <slack-channel>
+#
+# Example:
+#   merge_train_stale_check merge-train/spartan '#team-alpha'
+#
+# Required env vars:
+#   GH_TOKEN        — GitHub API token (used by `gh api`)
+#   SLACK_BOT_TOKEN — Slack bot token (consumed by ci3/slack_notify)
+#
+# Optional env vars:
+#   STALE_HOURS — alert threshold in hours (default 24)
+#   BASE_BRANCH — PR base branch to filter on (default "next")
+
+set -euo pipefail
+
+REF_NAME="${1:?Usage: $0 <merge-train-branch> <slack-channel>}"
+CHANNEL="${2:?Usage: $0 <merge-train-branch> <slack-channel>}"
+STALE_HOURS="${STALE_HOURS:-24}"
+BASE_BRANCH="${BASE_BRANCH:-next}"
+
+pr_json=$(gh api "repos/AztecProtocol/aztec-packages/pulls?head=AztecProtocol:${REF_NAME}&state=open&base=${BASE_BRANCH}" --jq '.[0] // empty')
+
+if [[ -z "$pr_json" ]]; then
+  echo "$REF_NAME: no open PR targeting $BASE_BRANCH — nothing to alert."
+  exit 0
+fi
+
+pr_number=$(jq -r '.number' <<<"$pr_json")
+pr_url=$(jq -r '.html_url' <<<"$pr_json")
+created_at=$(jq -r '.created_at' <<<"$pr_json")
+
+now_s=$(date -u +%s)
+created_s=$(date -u -d "$created_at" +%s)
+age_hours=$(( (now_s - created_s) / 3600 ))
+
+echo "$REF_NAME PR #$pr_number opened $age_hours hour(s) ago (created $created_at)"
+
+if (( age_hours < STALE_HOURS )); then
+  echo "Within ${STALE_HOURS}h window — no alert."
+  exit 0
+fi
+
+mergeable_state=$(gh api "repos/AztecProtocol/aztec-packages/pulls/$pr_number" --jq '.mergeable_state // "unknown"')
+days=$(( age_hours / 24 ))
+
+message=$(printf ':warning: `%s` has not merged into `%s` in %d day(s). <%s|PR #%d> is in state `%s`.' \
+  "$REF_NAME" "$BASE_BRANCH" "$days" "$pr_url" "$pr_number" "$mergeable_state")
+
+TOPDIR=$(git rev-parse --show-toplevel)
+"$TOPDIR/ci3/slack_notify" "$message" "$CHANNEL"
+
+echo "Alert sent to $CHANNEL: $message"

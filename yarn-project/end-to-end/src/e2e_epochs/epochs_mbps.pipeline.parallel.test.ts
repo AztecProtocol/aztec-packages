@@ -12,6 +12,7 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -30,10 +31,10 @@ import { EpochsTestContext } from './epochs_test.js';
 jest.setTimeout(1000 * 60 * 20);
 
 const NODE_COUNT = 4;
-const EXPECTED_BLOCKS_PER_CHECKPOINT = 3;
+const EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
-const TX_COUNT = 10;
+const TX_COUNT = 34;
 
 /**
  * E2E tests for proposer pipelining with Multiple Blocks Per Slot (MBPS).
@@ -68,37 +69,41 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     });
 
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
+      numberOfAccounts: 0,
       initialValidators: validators,
       enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
+      mockGossipSubNetworkLatency: 500, // adverse network conditions
       disableAnvilTestWatcher: true,
       startProverNode: true,
-      perBlockAllocationMultiplier: 1,
+      perBlockAllocationMultiplier: 8,
       aztecEpochDuration: 4,
       enforceTimeTable: true,
-      ethereumSlotDuration: 4,
-      aztecSlotDuration: 36,
-      blockDurationMs: 8000,
-      l1PublishingTime: 2,
-      attestationPropagationTime: 0.5,
+      ethereumSlotDuration: 12,
+      aztecSlotDuration: 72,
+      blockDurationMs: 5500,
+      maxTxsPerCheckpoint: 24,
       aztecTargetCommitteeSize: 3,
       inboxLag: 2,
       ...setupOpts,
       pxeOpts: { syncChainTip },
+      skipInitialSequencer: true,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    from = context.accounts[0];
-
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
+    from = context.accounts[0]; // auto-created by setup
 
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     // Clear inherited coinbase so each validator derives coinbase from its own attester key
-    nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, coinbase: undefined }),
+    nodes = await asyncMap(validators, ({ privateKey }, i) =>
+      test.createValidatorNode([privateKey], {
+        dontStartSequencer: true,
+        coinbase: undefined,
+        // Disable checkpoint promotion on the first node so it always fetches blobs,
+        // allowing us to assert that other nodes skip blob fetching via promotion.
+        ...(i === 0 ? { skipPromoteProposedCheckpointDuringL1Sync: true } : {}),
+      }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
@@ -109,9 +114,26 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
   }
 
-  /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
-  async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+  /**
+   * Waits until the archiver's checkpointed chain tip has reached `targetBlockNumber`, then retrieves all checkpoints,
+   * checks that one has the target block count, and returns its number.
+   */
+  async function assertMultipleBlocksPerSlot(
+    targetBlockCount: number,
+    targetBlockNumber: BlockNumber,
+    logger: Logger,
+  ): Promise<CheckpointNumber> {
+    await retryUntil(
+      async () => {
+        const checkpointed = await archiver.getBlockNumber({ tag: 'checkpointed' });
+        return checkpointed !== undefined && checkpointed >= targetBlockNumber;
+      },
+      `archiver checkpointed block ${targetBlockNumber}`,
+      10,
+      0.1,
+    );
+
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
     });
@@ -158,7 +180,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }[],
     logger: Logger,
   ) {
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     const allBlocks = checkpoints.flatMap(pc => pc.checkpoint.blocks);
 
     logger.warn(`assertProposerPipelining: ${allBlocks.length} blocks, ${blockProposedEvents.length} events`, {
@@ -210,6 +232,15 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
   it('pipelining builds blocks using slot plus 1 proposer and proves them', async () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
+    // Spy on getBlobSidecar on all validator nodes before sequencers start, so we check that nodes
+    // promote their proposed checkpoints and don't source data from blobs if they don't need to.
+    const blobSpies = nodes.map((node, i) => {
+      const blobClient = node.getBlobClient()!;
+      const spy = jest.spyOn(blobClient, 'getBlobSidecar');
+      logger.warn(`Installed getBlobSidecar spy on validator node ${i}`);
+      return spy;
+    });
+
     // Subscribe to block-proposed events to capture build slots
     const blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }[] = [];
     const sequencers = nodes.map(n => n.getSequencer()!);
@@ -240,17 +271,34 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await executeTimeout(
+    const receipts = await executeTimeout(
       () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
       timeout * 1000,
     );
     logger.warn(`All txs have been mined`);
 
-    // Verify MBPS works with pipelining
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    // Verify MBPS works with pipelining; target the highest block number across mined receipts
+    const maxMinedBlockNumber = BlockNumber(Math.max(...receipts.map(r => r.blockNumber ?? 0)));
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(
+      EXPECTED_BLOCKS_PER_CHECKPOINT,
+      maxMinedBlockNumber,
+      logger,
+    );
 
     // Verify the pipelining offset: build slot N vs submission slot N+1
     await assertProposerPipelining(blockProposedEvents, logger);
+
+    // Verify blob fetching behavior: node 0 has promotion disabled so it must fetch blobs,
+    // while all other nodes should promote their proposed checkpoints and skip blob fetching entirely.
+    for (let i = 0; i < blobSpies.length; i++) {
+      const calls = blobSpies[i].mock.calls.length;
+      logger.warn(`Validator ${i} made ${calls} getBlobSidecar calls`);
+      if (i === 0) {
+        expect(calls).toBeGreaterThan(0);
+      } else {
+        expect(calls).toBe(0);
+      }
+    }
 
     // Verify proving still works end-to-end with pipelined proposers
     await waitForProvenCheckpoint(multiBlockCheckpoint);
@@ -323,14 +371,15 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     // Wait for a new checkpoint (recovery) - where all txs end up mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await executeTimeout(
+    const receipts = await executeTimeout(
       () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
       timeout * 1000,
     );
     logger.warn(`All txs have been mined`);
 
-    // Verify MBPS works with pipelining
-    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    // Verify MBPS works with pipelining; target the highest block number across mined receipts
+    const maxMinedBlockNumber = BlockNumber(Math.max(...receipts.map(r => r.blockNumber ?? 0)));
+    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, maxMinedBlockNumber, logger);
 
     // Verify the pipelining offset: build slot N vs submission slot N+1
     await assertProposerPipelining(blockProposedEvents, logger);

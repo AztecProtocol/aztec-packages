@@ -116,10 +116,10 @@ describe('epoch-proving-job', () => {
     const txHashes = checkpoints.map(c => c.blocks.map(b => b.body.txEffects.map(tx => tx.txHash))).flat(2);
     txs = txHashes.map(txHash => ({ txHash, getTxHash: () => txHash }) as Tx);
 
-    l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
+    l2BlockSource.getBlockData.mockResolvedValue({ header: initialHeader } as any);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
-    l2BlockSource.getCheckpointedBlockHeadersForEpoch.mockResolvedValue(
-      checkpoints.map(c => c.blocks.map(b => b.header)).flat(),
+    l2BlockSource.getBlocksData.mockResolvedValue(
+      checkpoints.map(c => c.blocks.map(b => ({ header: b.header }) as any)).flat(),
     );
     l2BlockSource.getCheckpoints.mockResolvedValue([
       { checkpoint: checkpoints.at(-1)!, attestations } as PublishedCheckpoint,
@@ -221,7 +221,7 @@ describe('epoch-proving-job', () => {
 
   it('halts if a new block for the epoch is found', async () => {
     const newHeaders = times(NUM_BLOCKS + 1, i => BlockHeader.random({ blockNumber: BlockNumber(i + 1) }));
-    l2BlockSource.getCheckpointedBlockHeadersForEpoch.mockResolvedValue(newHeaders);
+    l2BlockSource.getBlocksData.mockResolvedValue(newHeaders.map(h => ({ header: h }) as any));
 
     const job = createJob();
     await job.run();
@@ -231,13 +231,29 @@ describe('epoch-proving-job', () => {
     expect(prover.cancel).toHaveBeenCalled();
   });
 
-  it('skips publishing when skipSubmitProof is enabled', async () => {
+  it('analyzes estimated fees and does not publish when skipSubmitProof is enabled', async () => {
+    publisher.analyzeEpochProofSubmission.mockResolvedValue(undefined);
+
     const job = createJob({ skipSubmitProof: true });
     await job.run();
 
     expect(job.getState()).toEqual('completed');
     expect(prover.finalizeEpoch).toHaveBeenCalled();
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+    expect(publisher.analyzeEpochProofSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
+    );
+  });
+
+  it('completes successfully even if fee analysis fails when skipSubmitProof is enabled', async () => {
+    publisher.analyzeEpochProofSubmission.mockRejectedValue(new Error('fee analysis failed'));
+
+    const job = createJob({ skipSubmitProof: true });
+    await job.run();
+
+    expect(job.getState()).toEqual('completed');
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+    expect(publisher.analyzeEpochProofSubmission).toHaveBeenCalled();
   });
 
   it('inserts L1 to L2 messages into the message tree only for the first block of each checkpoint', async () => {

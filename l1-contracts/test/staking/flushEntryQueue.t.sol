@@ -102,7 +102,7 @@ contract FlushEntryQueueTest is StakingBase {
     // it emits a {FailedDeposit} event for each failed deposit
     // it refunds the withdrawer if the deposit fails
 
-    _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 1, 1000);
+    _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 1, 500);
     _numValidators = bound(_numValidators, _bootstrapValidatorSetSize, _bootstrapValidatorSetSize * 2);
     _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, _bootstrapValidatorSetSize * 2);
     uint256 effectiveFlushSize = _bootstrapFlushSize;

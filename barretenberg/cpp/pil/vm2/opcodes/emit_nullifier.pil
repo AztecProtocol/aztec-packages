@@ -79,6 +79,9 @@ namespace execution;
     pol commit nullifier_siloing_separator;
     sel_write_nullifier * (nullifier_siloing_separator - constants.DOM_SEP__SILOED_NULLIFIER) = 0;
 
+    // nullifier_merkle_separator is declared in execution.pil
+    sel_write_nullifier * (nullifier_merkle_separator - constants.DOM_SEP__NULLIFIER_MERKLE) = 0;
+
     // Lookup into nullifier tree check to attempt write
     #[WRITE_NULLIFIER]
     sel_write_nullifier {
@@ -90,6 +93,7 @@ namespace execution;
         discard,                                     // input: (from execution_discard) will this write eventually be reverted (so it shouldn't be written to public inputs)?
         nullifier_pi_offset,                         // input: the index to write to in public inputs
         nullifier_tree_height,                       // input: the tree height
+        nullifier_merkle_separator,                    // input: domain separator for nullifier leaf hash
         /*sel_silo=1*/ sel_write_nullifier,          // input: sel_silo = 1 (always silo for contract nullifiers)
         nullifier_siloing_separator,                 // input: siloing separator
         contract_address                             // input: contract address for siloing (from context)
@@ -102,6 +106,7 @@ namespace execution;
         indexed_tree_check.discard,
         indexed_tree_check.public_inputs_index,      // index to write to in public inputs
         indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
         indexed_tree_check.sel_silo,
         indexed_tree_check.siloing_separator,
         indexed_tree_check.address                   // contract address for siloing

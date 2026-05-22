@@ -15,6 +15,7 @@ import {
   DutyType,
   type HAProtectedSigningContext,
   getBlockNumberFromSigningContext,
+  getCheckpointNumberFromSigningContext,
 } from '@aztec/stdlib/ha-signing';
 
 import type { DutyIdentifier } from './db/types.js';
@@ -67,7 +68,7 @@ export class ValidatorHASigner {
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
     }
-    this.rollupAddress = config.l1Contracts.rollupAddress;
+    this.rollupAddress = config.rollupAddress;
     this.slashingProtection = new SlashingProtectionService(db, config, {
       metrics: deps.metrics,
       dateProvider: deps.dateProvider,
@@ -125,9 +126,11 @@ export class ValidatorHASigner {
     // Acquire lock and get the token for ownership verification
     // DutyAlreadySignedError and SlashingProtectionError may be thrown here and are recorded in the service
     const blockNumber = getBlockNumberFromSigningContext(context);
+    const checkpointNumber = getCheckpointNumberFromSigningContext(context);
     const lockToken = await this.slashingProtection.checkAndRecord({
       ...dutyIdentifier,
       blockNumber,
+      checkpointNumber,
       messageHash: messageHash.toString(),
       nodeId: this.config.nodeId,
     });

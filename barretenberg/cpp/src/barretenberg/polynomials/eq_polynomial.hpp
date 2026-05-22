@@ -49,12 +49,30 @@ template <typename FF> class ProverEqPolynomial {
      * - If all r_i ≠ 1: uses optimal method (~2^d muls) via GateSeparatorPolynomial
      * - If any r_i = 1: uses fallback method (~2^(d+1) muls) via direct construction
      *
-     * @param challenges The evaluation point r = (r_0, ..., r_{d-1})
-     * @param log_num_monomials The dimension d (must equal challenges.size())
-     * @return Polynomial<FF> Coefficient table of size 2^d indexed by Boolean masks
+     * @param challenges The challenge vector r = (r_0, ..., r_{|challenges|-1}). May be strictly longer than
+     * `log_num_monomials`: trailing entries (index ≥ log_num_monomials) do not add Boolean dimensions to the table;
+     * each one instead multiplies every table entry by an extra (1 − r_i) factor. Used by virtual sumcheck rounds,
+     * which expect that trailing factor to be pre-baked into the table rather than multiplied back in per round.
+     * Must satisfy `challenges.size() >= log_num_monomials`.
+     * @param log_num_monomials The Boolean-hypercube dimension d that determines the table size 2^d.
+     * @return Polynomial<FF> Coefficient table of size 2^d indexed by Boolean masks; equal to
+     * `eq(X, r[0..d]) · ∏_{i ≥ d}(1 − r_i)`.
      */
     static Polynomial<FF> construct(std::span<const FF> challenges, size_t log_num_monomials)
     {
+        // Prevent OOB read: compute_beta_products below (and construct_eq_with_edge_cases on the fallback path) read
+        // challenges[0..log_num_monomials).
+        BB_ASSERT_GTE(challenges.size(),
+                      log_num_monomials,
+                      "ProverEqPolynomial::construct: challenges.size() must be >= log_num_monomials");
+
+        // eq over 0 variables is the empty product 1.
+        if (log_num_monomials == 0) {
+            Polynomial<FF> result(/*size=*/1, /*virtual_size=*/1);
+            result.at(0) = FF(1);
+            return result;
+        }
+
         // Compute scaling factor C = ∏_i (1 - r_i)
         FF scaling_factor = compute_scaling_factor(challenges);
 

@@ -1,6 +1,7 @@
 *.tgz
 !terraform/modules/web3signer/web3signer-1.0.6.tgz
 !terraform/deploy-external-secrets/external-secrets-*.tgz
+scripts/kubectl
 scripts/logs
 scripts/LICENSE
 tfplan
@@ -18,6 +19,7 @@ environments/*
 !environments/devnet.env
 !environments/block-capacity.env
 !environments/next-net.env
+!environments/next-net-clone.env
 !environments/next-scenario.env
 !environments/scenario.local.env
 !environments/source-env.sh
@@ -31,5 +33,7 @@ environments/*
 !environments/kind-minimal.env
 !environments/kind-provers.env
 !environments/alpha-net.env
+!environments/mbps-pipeline.env
+!environments/bench-10tps.env
 *.tfvars
 !terraform/deploy-external-secrets/*.tfvars

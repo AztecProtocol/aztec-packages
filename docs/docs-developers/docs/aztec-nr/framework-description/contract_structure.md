@@ -10,28 +10,24 @@ High-level structure of how Aztec smart contracts including the different compon
 
 ## Directory structure
 
-When you create a new project with `aztec new my_project`, it generates a workspace with two crates named after your project: a `my_project_contract` crate for your smart contract and a `my_project_test` crate for Noir tests.
+When you create a new project with `aztec new my_project`, it generates a two-crate Noir workspace: a contract crate for your smart contract code and a sibling test crate for Noir tests.
 
 ```text title="layout of an aztec contract project"
 ─── my_project
-       ├── Nargo.toml                    <-- workspace root
+       ├── Nargo.toml                    <-- workspace file ([workspace] members)
        ├── my_project_contract
-       │     ├── src
-       │     │     └── main.nr           <-- your contract
-       │     └── Nargo.toml              <-- contract package and dependencies
+       │     ├── Nargo.toml              <-- contract package (type = "contract")
+       │     └── src
+       │           └── main.nr           <-- your contract
        └── my_project_test
-             ├── src
-             │     └── lib.nr            <-- your tests
-             └── Nargo.toml              <-- test package and dependencies
+             ├── Nargo.toml              <-- test package (type = "lib")
+             └── src
+                   └── lib.nr            <-- Noir tests
 ```
 
-The workspace root `Nargo.toml` declares both crates as workspace members. The contract code lives in `my_project_contract/src/main.nr`, and tests live in a separate `my_project_test` crate that depends on the contract crate.
+The top-level `Nargo.toml` is a workspace file. Contract dependencies live in `my_project_contract/Nargo.toml` (with `type = "contract"`). Tests live in the separate `my_project_test` crate and import the contract by package name (for example, `use my_project_contract::MyContract;`) — see [Testing Contracts](../testing_contracts.md).
 
-You can add more contracts to an existing workspace by running `aztec new <name>` from inside the workspace directory. This creates a new `<name>_contract` and `<name>_test` crate pair and adds them to the workspace.
-
-:::warning Keep tests out of the contract crate
-Do not add `#[test]` functions to the `<name>_contract` crate. Because the contract artifact depends on everything in its crate, any change — including a test-only change — forces a full recompilation of the contract. The separate `<name>_test` crate lets you iterate on tests without rebuilding the contract. See [Testing Contracts](../testing_contracts.md#keep-tests-in-the-test-crate) for details.
-:::
+To add another contract to the same workspace, run `aztec new <name>` from inside the workspace directory; this adds a new `<name>_contract` and `<name>_test` crate pair. To initialize a project inside an existing empty directory, `cd` into it and run `aztec init`, which scaffolds the same two-crate layout pre-populated with a runnable [Counter example](../../tutorials/contract_tutorials/counter_contract.md) (use `aztec new` if you want a blank starting point instead).
 
 See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
 

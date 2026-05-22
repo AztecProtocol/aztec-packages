@@ -1,17 +1,18 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import type { TxExecutionRequest, TxReceipt, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
+import type { TxExecutionRequest, TxReceipt, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { Account } from '../account/account.js';
+import { testContractArtifact } from '../test/fixtures.js';
+import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { Contract } from './contract.js';
 
@@ -24,173 +25,22 @@ describe('Contract Class', () => {
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
-  const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
+  const mockTxSimulationResultWithAppOffset = {
+    type: 'TxSimulationResultWithAppOffset',
+    result: 1n,
+  } as any as TxSimulationResultWithAppOffset;
   const mockUtilityResultValue = {
     result: [new Fr(42)],
     offchainEffects: [],
     anchorBlockTimestamp: 0n,
   } as any as UtilityExecutionResult;
 
-  const defaultArtifact: ContractArtifact = {
-    name: 'FooContract',
-    functions: [
-      {
-        name: 'bar',
-        isInitializer: false,
-        functionType: FunctionType.PRIVATE,
-        isOnlySelf: false,
-        isStatic: false,
-        debugSymbols: '',
-        parameters: [
-          {
-            name: 'value',
-            type: {
-              kind: 'field',
-            },
-            visibility: 'public',
-          },
-          {
-            name: 'value',
-            type: {
-              kind: 'field',
-            },
-            visibility: 'private',
-          },
-        ],
-        returnTypes: [],
-        errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
-      },
-      {
-        name: 'public_dispatch',
-        isInitializer: false,
-        isStatic: false,
-        functionType: FunctionType.PUBLIC,
-        isOnlySelf: false,
-        parameters: [
-          {
-            name: 'selector',
-            type: {
-              kind: 'field',
-            },
-            visibility: 'public',
-          },
-        ],
-        returnTypes: [],
-        errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfb),
-        debugSymbols: '',
-      },
-      {
-        name: 'qux',
-        isInitializer: false,
-        isStatic: false,
-        functionType: FunctionType.UTILITY,
-        isOnlySelf: false,
-        parameters: [
-          {
-            name: 'value',
-            type: {
-              kind: 'field',
-            },
-            visibility: 'public',
-          },
-        ],
-        returnTypes: [
-          {
-            kind: 'integer',
-            sign: 'unsigned',
-            width: 32,
-          },
-        ],
-        bytecode: Buffer.alloc(8, 0xfc),
-        debugSymbols: '',
-        errorTypes: {},
-      },
-      {
-        name: 'optionEcho',
-        isInitializer: false,
-        functionType: FunctionType.PRIVATE,
-        isOnlySelf: false,
-        isStatic: false,
-        parameters: [
-          {
-            name: 'value',
-            type: {
-              kind: 'struct',
-              path: 'std::option::Option',
-              fields: [
-                {
-                  name: '_is_some',
-                  type: {
-                    kind: 'boolean',
-                  },
-                },
-                {
-                  name: '_value',
-                  type: {
-                    kind: 'field',
-                  },
-                },
-              ],
-            },
-            visibility: 'private',
-          },
-        ],
-        returnTypes: [],
-        errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfd),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
-        debugSymbols: '',
-      },
-      {
-        name: 'mixedParams',
-        isInitializer: false,
-        functionType: FunctionType.PRIVATE,
-        isOnlySelf: false,
-        isStatic: false,
-        parameters: [
-          {
-            name: 'optValue',
-            type: {
-              kind: 'struct',
-              path: 'std::option::Option',
-              fields: [
-                { name: '_is_some', type: { kind: 'boolean' } },
-                { name: '_value', type: { kind: 'field' } },
-              ],
-            },
-            visibility: 'private',
-          },
-          {
-            name: 'aField',
-            type: { kind: 'field' },
-            visibility: 'private',
-          },
-        ],
-        returnTypes: [],
-        errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfe),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
-        debugSymbols: '',
-      },
-    ],
-    nonDispatchPublicFunctions: [],
-    outputs: {
-      structs: {},
-      globals: {},
-    },
-    fileMap: {},
-    storageLayout: {},
-  };
-
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
     account = mock<Account>();
     accountAddress = await CompleteAddress.random();
     account.getCompleteAddress.mockReturnValue(accountAddress);
-    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    const contractClass = await getContractClassFromArtifact(testContractArtifact);
     contractInstance = {
       address: contractAddress,
       currentContractClassId: contractClass.id,
@@ -198,7 +48,7 @@ describe('Contract Class', () => {
     } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
-    wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
+    wallet.simulateTx.mockResolvedValue(mockTxSimulationResultWithAppOffset);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.registerContract.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue({ receipt: mockTxReceipt, offchainEffects: [], offchainMessages: [] });
@@ -206,7 +56,7 @@ describe('Contract Class', () => {
   });
 
   it('should create and send a contract method tx', async () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
     const { receipt } = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
@@ -216,7 +66,7 @@ describe('Contract Class', () => {
   });
 
   it('should call view on a utility function', async () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const { result } = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.executeUtility).toHaveBeenCalledTimes(1);
     expect(wallet.executeUtility).toHaveBeenCalledWith(
@@ -226,13 +76,24 @@ describe('Contract Class', () => {
     expect(result).toBe(42n);
   });
 
+  it('throws when overrides are passed to a utility function simulation', async () => {
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
+    await expect(
+      fooContract.methods.qux(123n).simulate({
+        from: account.getAddress(),
+        overrides: { publicStorage: [{ contract: contractAddress, slot: new Fr(1), value: new Fr(42) }] },
+      }),
+    ).rejects.toThrow(/not supported for utility/);
+    expect(wallet.executeUtility).not.toHaveBeenCalled();
+  });
+
   it('should extract offchain messages with anchor block timestamp on simulate', async () => {
     const recipient = await AztecAddress.random();
     const msgPayload = [Fr.random(), Fr.random()];
     const anchorBlockTimestamp = 9999n;
 
-    const txSimResult = mock<TxSimulationResult>();
-    txSimResult.getPrivateReturnValues.mockReturnValue({ nested: [{ values: [] }] } as any);
+    const txSimResult = mock<TxSimulationResultWithAppOffset>();
+    txSimResult.getPrivateReturnValuesOfAppCall.mockReturnValue({ values: [] } as any);
     Object.defineProperty(txSimResult, 'offchainEffects', {
       value: [
         {
@@ -249,7 +110,7 @@ describe('Contract Class', () => {
 
     wallet.simulateTx.mockResolvedValue(txSimResult);
 
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const result = await fooContract.methods.bar(1, 2).simulate({ from: account.getAddress() });
 
     expect(result.offchainMessages).toHaveLength(1);
@@ -283,7 +144,7 @@ describe('Contract Class', () => {
       anchorBlockTimestamp,
     } as any);
 
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
 
     expect(result.offchainMessages).toHaveLength(1);
@@ -298,14 +159,14 @@ describe('Contract Class', () => {
   });
 
   it('allows nullish values for Option parameters', () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     expect(() => fooContract.methods.optionEcho(undefined)).not.toThrow();
     expect(() => fooContract.methods.optionEcho(null)).not.toThrow();
   });
 
   it('still rejects nullish values for non-Option parameters', () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     expect(() => fooContract.methods.bar(undefined, 123n)).toThrow(
       'Null or undefined arguments are only allowed for Option<T> parameters in bar(value: Field, value: Field). Received: (undefined, 123n).',
@@ -316,7 +177,7 @@ describe('Contract Class', () => {
   });
 
   it('rejects nullish non-Option param even when Option param is valid', () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     expect(() => fooContract.methods.mixedParams({ w: 1n }, undefined)).toThrow(
       'Null or undefined arguments are only allowed for Option<T> parameters in mixedParams(optValue: Option<Field>, aField: Field). Received: ({ w: 1n }, undefined).',
@@ -335,7 +196,7 @@ describe('Contract Class', () => {
     ['object', { a: 1n, b: 'x' }, '{ a: 1n, b: x }'],
     ['array', [1n, 2n], '[1n, 2n]'],
   ])('formats %s argument in error message', (_label, value, expectedFormatted) => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     // pass the test value first and undefined second to trigger the error whose message we want to test for
     expect(() => fooContract.methods.bar(value, undefined)).toThrow(`Received: (${expectedFormatted}, undefined).`);

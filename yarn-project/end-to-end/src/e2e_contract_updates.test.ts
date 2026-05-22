@@ -1,5 +1,5 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
+import { fastForwardContractUpdate, getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -10,7 +10,6 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import {
@@ -19,6 +18,7 @@ import {
   ScheduledValueChange,
 } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
@@ -40,8 +40,7 @@ describe('e2e_contract_updates', () => {
   let instance: ContractInstanceWithAddress;
   let updatedContractClassId: Fr;
   let cheatCodes: CheatCodes;
-  let sequencer: SequencerClient;
-  let aztecNode: AztecNode;
+  let aztecNode: AztecNode & AztecNodeDebug;
 
   const setupScheduledDelay = async (constructorArgs: any[], salt: Fr, deployer: AztecAddress) => {
     const predictedInstance = await getContractInstanceFromInstantiationParams(UpdatableContract.artifact, {
@@ -91,28 +90,19 @@ describe('e2e_contract_updates', () => {
     const constructorArgs = [INITIAL_UPDATABLE_CONTRACT_VALUE];
     const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, initialFundedAccounts[0].address);
 
-    let maybeSequencer: SequencerClient | undefined = undefined;
-
     ({
       aztecNode,
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
       cheatCodes,
-      sequencer: maybeSequencer,
     } = await setup(1, {
       genesisPublicData,
       initialFundedAccounts,
     }));
 
-    if (!maybeSequencer) {
-      throw new Error('Sequencer client not found');
-    }
-    sequencer = maybeSequencer;
-
-    ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
+    ({ contract, instance } = await UpdatableContract.deploy(wallet, constructorArgs[0], { salt }).send({
       from: defaultAccountAddress,
-      contractAddressSalt: salt,
     }));
 
     const registerMethod = await publishContractClass(wallet, UpdatedContractArtifact);
@@ -133,7 +123,7 @@ describe('e2e_contract_updates', () => {
     );
     await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
     // Warp time to get past the timestamp of change where the update takes effect
-    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, DEFAULT_TEST_UPDATE_DELAY);
+    await cheatCodes.warpL2TimeAtLeastBy(aztecNode, DEFAULT_TEST_UPDATE_DELAY);
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);
     const updatedContract = UpdatedContract.at(contract.address, wallet);
@@ -167,7 +157,7 @@ describe('e2e_contract_updates', () => {
     );
 
     await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
-    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n);
+    await cheatCodes.warpL2TimeAtLeastBy(aztecNode, BigInt(DEFAULT_TEST_UPDATE_DELAY) + 1n);
 
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);
@@ -186,5 +176,60 @@ describe('e2e_contract_updates', () => {
     await expect(wallet.registerContract(instance, UpdatedContract.artifact)).rejects.toThrow(
       'Could not update contract to a class different from the current one',
     );
+  });
+
+  // UpdatableContract's `set_public_value(Field)` and UpdatedContract's `set_public_value()`
+  // have different function selectors. Without an upgrade, only the deployed Updatable's
+  // (Field) selector exists; with a fastForwardContractUpdate override, the AVM dispatches
+  // against UpdatedContract's bytecode and the no-args selector resolves.
+  it('fastForwardContractUpdate enables simulation of post-upgrade public calls', async () => {
+    // Local construction with the new artifact - no PXE/wallet side effect, no chain mutation.
+    const updatedContract = UpdatedContract.at(contract.address, wallet);
+
+    // Without overrides, UpdatedContract's no-args selector doesn't match the deployed class.
+    await expect(
+      updatedContract.methods.set_public_value().simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow();
+
+    // With the fastForwardContractUpdate overrides, the AVM dispatches against UpdatedContract's
+    // bytecode and the call simulates successfully.
+    const overrides = await fastForwardContractUpdate({
+      instanceAddress: contract.address,
+      newClassId: updatedContractClassId,
+      node: aztecNode,
+    });
+    await expect(
+      updatedContract.methods.set_public_value().simulate({ from: defaultAccountAddress, overrides }),
+    ).resolves.toBeDefined();
+
+    // Chain state is untouched: the original Updatable's set_public_value(Field) still simulates fine.
+    await expect(
+      contract.methods.set_public_value(5678n).simulate({ from: defaultAccountAddress }),
+    ).resolves.toBeDefined();
+  });
+
+  // UpdatedContract.set_private_value is a private function that doesn't exist on UpdatableContract.
+  // For PXE-side ACIR dispatch to find it, the artifact must be registered locally first via
+  // wallet.registerContractClass; the helper itself only takes the class id.
+  it('fastForwardContractUpdate enables simulation of post-upgrade private calls', async () => {
+    const updatedContract = UpdatedContract.at(contract.address, wallet);
+
+    // Without overrides (and without local artifact registration), the new private function isn't
+    // available on the deployed class.
+    await expect(
+      updatedContract.methods.set_private_value().simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow();
+
+    // Register the new artifact in the local PXE so the ACIR simulator can find its private functions.
+    await wallet.registerContractClass(UpdatedContract.artifact);
+
+    const overrides = await fastForwardContractUpdate({
+      instanceAddress: contract.address,
+      newClassId: updatedContractClassId,
+      node: aztecNode,
+    });
+    await expect(
+      updatedContract.methods.set_private_value().simulate({ from: defaultAccountAddress, overrides }),
+    ).resolves.toBeDefined();
   });
 });

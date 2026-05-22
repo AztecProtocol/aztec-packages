@@ -95,7 +95,10 @@ pub fn mark_as_initialized_from_public_initializer(context: PublicContext) {
 /// Asserts that the contract has been initialized, from public's perspective.
 ///
 /// Checks that the public initialization nullifier exists.
-pub fn assert_is_initialized_public(context: PublicContext) {
+// All external public contract functions will call this function (except those marked as #[no_init]), so we
+// want to make sure that we don't include a copy of its body for each of them.
+#[inline_never]
+pub unconstrained fn assert_is_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_initialization_nullifier(context.this_address());
     // Safety: the public initialization nullifier is only ever emitted by public functions, and so the timing
     // concerns from nullifier_exists_unsafe do not apply. Additionally, it is emitted after all initializer
@@ -116,8 +119,9 @@ pub fn assert_is_initialized_private(context: &mut PrivateContext) {
 
 /// Asserts that the contract has been initialized, from a utility function's perspective.
 ///
-/// Only checks the private initialization nullifier in the settled nullifier tree. Since both nullifiers are emitted in
-/// the same transaction, the private nullifier's presence in settled state guarantees the public one is also settled.
+/// Only checks the private initialization nullifier in the settled nullifier tree. Since both nullifiers are
+/// emitted in the same transaction, the private nullifier's presence in settled state guarantees the public one
+/// is also settled.
 pub unconstrained fn assert_is_initialized_utility(context: UtilityContext) {
     let address = context.this_address();
     let instance = get_contract_instance(address);

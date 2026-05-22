@@ -1,4 +1,4 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { BaseBuffer32 } from '@aztec/foundation/buffer';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { TopicType } from './topic_type.js';
@@ -46,7 +46,7 @@ export class P2PMessage {
  * Any class which extends gossipable will be able to be Gossiped over the p2p network
  */
 export abstract class Gossipable {
-  private cachedId: Buffer32 | undefined;
+  private cachedId: BaseBuffer32 | undefined;
   /** The p2p topic identifier, this determines how the message is handled */
   static p2pTopic: TopicType;
 
@@ -54,7 +54,7 @@ export abstract class Gossipable {
    * A digest of the message information **used for logging only**.
    * The identifier used for deduplication is `getMsgIdFn` as defined in `encoding.ts` which is a hash over topic and data.
    */
-  async p2pMessageLoggingIdentifier(): Promise<Buffer32> {
+  async p2pMessageLoggingIdentifier(): Promise<BaseBuffer32> {
     if (this.cachedId) {
       return this.cachedId;
     }
@@ -62,7 +62,7 @@ export abstract class Gossipable {
     return this.cachedId;
   }
 
-  abstract generateP2PMessageIdentifier(): Promise<Buffer32>;
+  abstract generateP2PMessageIdentifier(): Promise<BaseBuffer32>;
 
   abstract toBuffer(): Buffer;
 

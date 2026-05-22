@@ -6,6 +6,7 @@ import {
   type GovernanceProposerContract,
   Multicall3,
   type RollupContract,
+  type SimulationOverridesPlan,
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
@@ -15,7 +16,8 @@ import {
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
@@ -56,6 +58,10 @@ describe('compareActions sorting', () => {
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
 const mockForwarderAddress = EthAddress.random().toString();
+const testSignatureContext = {
+  chainId: 1,
+  rollupAddress: EthAddress.fromString(mockRollupAddress),
+};
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
@@ -112,10 +118,6 @@ describe('SequencerPublisher', () => {
     const config = {
       l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
-      l1Contracts: {
-        rollupAddress: EthAddress.ZERO.toString(),
-        governanceProposerAddress: mockGovernanceProposerAddress,
-      },
       aztecSlotDuration: 36,
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &
@@ -207,7 +209,11 @@ describe('SequencerPublisher', () => {
   it('bundles propose and vote tx to l1', async () => {
     const checkpoint = new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber);
     const expectedBlobs = await getBlobsPerL1Block(checkpoint.toBlobFields());
-    await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+    await publisher.enqueueProposeCheckpoint(
+      checkpoint,
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
+      Signature.empty(),
+    );
 
     const { govPayload, voteSig } = mockGovernancePayload();
 
@@ -239,7 +245,7 @@ describe('SequencerPublisher', () => {
           feeAssetPriceModifier: 0n,
         },
       },
-      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
+      CommitteeAttestationsAndSigners.packAttestations([]),
       [],
       Signature.empty().toViemSignature(),
       blobInput,
@@ -290,7 +296,7 @@ describe('SequencerPublisher', () => {
 
     await publisher.enqueueProposeCheckpoint(
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
     );
     const result = await publisher.sendRequests();
@@ -351,7 +357,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       const result = await rotatingPublisher.sendRequests();
@@ -389,7 +395,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       // TimeoutError propagates to the outer catch in sendRequests which returns undefined
@@ -408,7 +414,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       const result = await rotatingPublisher.sendRequests();
@@ -423,7 +429,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       const result = await rotatingPublisher.sendRequests();
@@ -441,7 +447,7 @@ describe('SequencerPublisher', () => {
     await expect(
       publisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       ),
     ).rejects.toThrow();
@@ -453,6 +459,89 @@ describe('SequencerPublisher', () => {
     expect(forwardSpy).not.toHaveBeenCalled();
   });
 
+  it('preCheck closure uses preCheckSimulationOverridesPlan, not the enqueue-time plan', async () => {
+    (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
+
+    const validateSpy = jest.spyOn(publisher, 'validateCheckpointForSubmission').mockResolvedValue(undefined);
+
+    const enqueuePlan: SimulationOverridesPlan = {
+      chainTipsOverride: { pending: CheckpointNumber(7) },
+      pendingCheckpointState: { archive: Fr.random() },
+    };
+    const preCheckPlan: SimulationOverridesPlan = {
+      chainTipsOverride: { pending: CheckpointNumber(8) },
+    };
+
+    await publisher.enqueueProposeCheckpoint(
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
+      Signature.empty(),
+      { simulationOverridesPlan: enqueuePlan, preCheckSimulationOverridesPlan: preCheckPlan },
+    );
+
+    // Enqueue-time validation called with the enqueue plan (plus withoutBlobCheck applied).
+    expect(validateSpy).toHaveBeenCalledTimes(1);
+    expect(validateSpy.mock.calls[0][3]).toMatchObject({
+      chainTipsOverride: { pending: CheckpointNumber(7) },
+      disableBlobCheck: true,
+    });
+
+    // The pending preCheck request should now run the preCheck closure with the preCheck plan.
+    const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
+    expect(requests).toHaveLength(1);
+    const preCheck = requests[0].preCheck;
+    expect(preCheck).toBeDefined();
+
+    validateSpy.mockClear();
+    await preCheck!();
+
+    expect(validateSpy).toHaveBeenCalledTimes(1);
+    expect(validateSpy.mock.calls[0][3]).toMatchObject({
+      chainTipsOverride: { pending: CheckpointNumber(8) },
+      disableBlobCheck: true,
+    });
+    // And not the enqueue plan's archive override.
+    expect(validateSpy.mock.calls[0][3]?.pendingCheckpointState).toBeUndefined();
+  });
+
+  it('preCheck does not fall back to the enqueue plan when preCheckSimulationOverridesPlan is omitted', async () => {
+    (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
+
+    const validateSpy = jest.spyOn(publisher, 'validateCheckpointForSubmission').mockResolvedValue(undefined);
+
+    const enqueuePlan: SimulationOverridesPlan = {
+      chainTipsOverride: { pending: CheckpointNumber(7) },
+      pendingCheckpointState: { archive: Fr.random() },
+    };
+
+    await publisher.enqueueProposeCheckpoint(
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
+      Signature.empty(),
+      { simulationOverridesPlan: enqueuePlan },
+    );
+
+    expect(validateSpy).toHaveBeenCalledTimes(1);
+    expect(validateSpy.mock.calls[0][3]).toMatchObject({
+      chainTipsOverride: { pending: CheckpointNumber(7) },
+      disableBlobCheck: true,
+    });
+
+    const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
+    expect(requests).toHaveLength(1);
+    const preCheck = requests[0].preCheck;
+    expect(preCheck).toBeDefined();
+
+    validateSpy.mockClear();
+    await preCheck!();
+
+    expect(validateSpy).toHaveBeenCalledTimes(1);
+    const preCheckArg = validateSpy.mock.calls[0][3];
+    expect(preCheckArg?.disableBlobCheck).toBe(true);
+    expect(preCheckArg?.chainTipsOverride).toBeUndefined();
+    expect(preCheckArg?.pendingCheckpointState).toBeUndefined();
+  });
+
   it('returns errorMsg if forwarder tx reverts', async () => {
     forwardSpy.mockResolvedValue({
       receipt: { ...proposeTxReceipt, status: 'reverted' },
@@ -461,7 +550,7 @@ describe('SequencerPublisher', () => {
 
     await publisher.enqueueProposeCheckpoint(
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
     );
     const result = await publisher.sendRequests();
@@ -485,7 +574,7 @@ describe('SequencerPublisher', () => {
     );
     await publisher.enqueueProposeCheckpoint(
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
     );
     publisher.interrupt();
@@ -646,9 +735,10 @@ describe('SequencerPublisher', () => {
     ).toEqual(false);
   });
 
-  it.each<GetCodeReturnType>([undefined])('does not signal for payload with empty code', async code => {
+  it('does not signal for payload with empty code', async () => {
     const { govPayload } = mockGovernancePayload();
-    l1TxUtils.getCode.mockReturnValue(Promise.resolve(code));
+    l1TxUtils.getCode.mockReturnValue(Promise.resolve(undefined));
+    ``;
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -662,7 +752,7 @@ describe('SequencerPublisher', () => {
 
   it('stops signalling when payload was previously proposed', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValue(true);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -676,7 +766,7 @@ describe('SequencerPublisher', () => {
 
   it('continues signalling when payload was NOT proposed', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(false);
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValue(false);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -688,47 +778,13 @@ describe('SequencerPublisher', () => {
     ).toEqual(true);
   });
 
-  it('caches proposed result and prevents repeated L1 calls', async () => {
+  it('re-checks on every call without caching, so re-signaling resumes if a proposal becomes terminal', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
-
-    await publisher.enqueueGovernanceCastSignal(
-      govPayload,
-      SlotNumber(2),
-      EthAddress.fromString(testHarnessAttesterAccount.address),
-      msg => testHarnessAttesterAccount.signTypedData(msg),
-    );
-
-    await publisher.enqueueGovernanceCastSignal(
-      govPayload,
-      SlotNumber(3),
-      EthAddress.fromString(testHarnessAttesterAccount.address),
-      msg => testHarnessAttesterAccount.signTypedData(msg),
-    );
-
-    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries on transient RPC failure and succeeds', async () => {
-    const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed
-      .mockRejectedValueOnce(new Error('RPC error'))
-      .mockRejectedValueOnce(new Error('RPC error'))
-      .mockResolvedValueOnce(false);
-
-    expect(
-      await publisher.enqueueGovernanceCastSignal(
-        govPayload,
-        SlotNumber(2),
-        EthAddress.fromString(testHarnessAttesterAccount.address),
-        msg => testHarnessAttesterAccount.signTypedData(msg),
-      ),
-    ).toEqual(true);
-  });
-
-  it('fails closed on persistent RPC failure', async () => {
-    const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockRejectedValue(new Error('RPC error'));
+    // Simulates a payload that has a live proposal in slot 2 but whose proposal becomes terminal
+    // (Dropped/Rejected/Expired/Executed) by slot 3. The contracts allow re-signaling the same
+    // payload in a later round once the previous proposal is dead, so the publisher must re-check
+    // each slot rather than cache the first `true` result indefinitely.
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -738,13 +794,41 @@ describe('SequencerPublisher', () => {
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
     ).toEqual(false);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(3),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+
+    expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
   });
 
-  it('does not cache false result and re-checks on subsequent calls', async () => {
+  it('fails open on persistent RPC failure and signals anyway', async () => {
+    // Failing closed (skipping the signal) on transient RPC errors would let a flaky L1 endpoint
+    // silence governance participation entirely. Failing open at worst produces a duplicate signal
+    // that the contract simply counts alongside others in the round.
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    governanceProposerContract.hasActiveProposalWithPayload.mockRejectedValue(new Error('RPC error'));
 
-    // First call: not proposed, signalling proceeds
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+  });
+
+  it('re-checks each call (no caching of false results)', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+    // First call: no live proposal, signalling proceeds
     expect(
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
@@ -754,7 +838,7 @@ describe('SequencerPublisher', () => {
       ),
     ).toEqual(true);
 
-    // Second call: now proposed, signalling stops
+    // Second call: live proposal now exists, signalling stops
     expect(
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
@@ -764,6 +848,6 @@ describe('SequencerPublisher', () => {
       ),
     ).toEqual(false);
 
-    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(2);
+    expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
   });
 });

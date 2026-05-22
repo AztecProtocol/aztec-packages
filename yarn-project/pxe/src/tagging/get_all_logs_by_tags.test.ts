@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
@@ -21,7 +20,7 @@ describe('getAllPrivateLogsByTags', () => {
 
   beforeAll(async () => {
     tags = await Promise.all(
-      [1, 2, 3].map(async () => SiloedTag.computeFromTagAndApp(new Tag(Fr.random()), await AztecAddress.random())),
+      [1, 2, 3].map(async () => SiloedTag.computeFromTagAndApp(Tag.random(), await AztecAddress.random())),
     );
   });
 
@@ -77,7 +76,7 @@ describe('getAllPrivateLogsByTags', () => {
     let manyTags: SiloedTag[];
 
     beforeAll(async () => {
-      manyTags = await Promise.all(Array.from({ length: MAX_RPC_LEN + 50 }, () => new SiloedTag(Fr.random())));
+      manyTags = await Promise.all(Array.from({ length: MAX_RPC_LEN + 50 }, () => SiloedTag.random()));
     });
 
     it('splits tags into batches and concatenates results', async () => {

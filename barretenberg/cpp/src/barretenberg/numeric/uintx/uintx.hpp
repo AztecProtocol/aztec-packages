@@ -80,6 +80,9 @@ template <class base_uint> class uintx {
      */
     constexpr uintx slice(const uint64_t start, const uint64_t end) const
     {
+        // Plain assert is used here because BB_ASSERT_DEBUG defines a std::ostringstream, which is
+        // a non-literal type and therefore disallowed in the body of a constexpr function before C++23.
+        assert(start <= end);
         const uint64_t range = end - start;
         const uintx mask = (uintx(1) << range) - 1;
         return ((*this) >> start) & mask;
@@ -306,6 +309,10 @@ extern template class uintx<uint256_t>;
 using uint512_t = uintx<uint256_t>;
 extern template class uintx<uint512_t>;
 using uint1024_t = uintx<uint512_t>;
+
+// Pin the [class.mem]/19 alignment-propagation rule: uintx<uint256_t> must inherit alignas(32).
+static_assert(alignof(uint512_t) >= 32);
+static_assert(alignof(uint1024_t) >= 32);
 
 } // namespace bb::numeric
 

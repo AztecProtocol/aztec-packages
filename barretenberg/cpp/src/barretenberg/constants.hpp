@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -35,16 +36,15 @@ static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
 // rollup-base-public, rollup-block-merge, rollup-block-root, rollup-merge, rollup-root)
 static constexpr size_t IPA_PROOF_LENGTH = (4 * CONST_ECCVM_LOG_N) + 4;
 
-// The number of last rows in ProverPolynomials that are randomized to mask
-// 1) witness commitments,
-// 2) multilinear evaluations of witness polynomials in Sumcheck
-// 3*) multilinear evaluations of shifts of witness polynomials in Sumcheck OR univariate evaluations required in ECCVM
+// The number of rows randomized to mask witness polynomials, hiding (1) witness commitments, (2) multilinear
+// evaluations of witness polynomials in Sumcheck, (3) evaluations of shifted witness polynomials in Sumcheck or
+// univariate evaluations required in ECCVM. The masking values are placed in the rows NUM_ZERO_ROWS .. TRACE_OFFSET +
+// NUM_ZERO_ROWS - 1 of the trace. (Recall that the first NUM_ZERO_ROWS are zeroed out.)
 static constexpr uint32_t NUM_MASKED_ROWS = 3;
 
-// To account for the masked entries of witness polynomials in ZK-Sumcheck, we are disabling all relations in the last
-// `NUM_MASKED_ROWS + 1` rows, where `+1` is needed for the shifts. Namely, any relation involving a shift of a masked
-// polynomial w_shift, can't be satisfied on the row `N - (NUM_MASKED_ROWS + 1)`, as `w_shift.at(N - (NUM_MASKED_ROWS +
-// 1))` is equal to the random value `w.at(N - NUM_MASKED_ROWS)`.
+// The first NUM_MASKED_ROWS + 1 rows are disabled in Sumcheck (= TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK). The
+// +1 accounts for shifts: the relation at row TRACE_OFFSET involves w_shift(TRACE_OFFSET) = w(TRACE_OFFSET + 1),
+// but the gate separator vanishes there, so the first row where relations are active is TRACE_OFFSET.
 static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
 // For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
@@ -62,4 +62,22 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 
 // The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
 static constexpr size_t NUM_ZERO_ROWS = 1;
+
+// The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
+static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
+
+static constexpr size_t CHONK_MAX_NUM_APPS = 36;
+static constexpr size_t compute_chonk_max_num_circuits()
+{
+    return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +
+           /*trailing kernels*/ 3;
+}
+static constexpr size_t CHONK_MAX_NUM_CIRCUITS = compute_chonk_max_num_circuits();
+
+static constexpr size_t BATCH_MERGE_PROOF_SIZE =
+    /*num subtables*/ 1 +
+    /*shift sizes*/ CHONK_MAX_NUM_CIRCUITS +
+    /*commitments*/ (4 * (4 * (CHONK_MAX_NUM_CIRCUITS + /*zk tables, merged tables*/ 2) + /*degree check*/ 1)) +
+    /*evals*/ (4 * (CHONK_MAX_NUM_CIRCUITS + 2) + 1) +
+    /*shplonk and kzg*/ 8;
 } // namespace bb

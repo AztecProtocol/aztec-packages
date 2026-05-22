@@ -8,6 +8,21 @@ require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not fou
 
 log "Installing dependencies..."
 
+# On macOS, install everything via brew. Brew is already a hard dependency of the repo
+# (see ci3/source_base and the top-level bootstrap.sh install_macos_deps).
+# gke-gcloud-auth-plugin is installed lazily by the `gke` command in spartan/bootstrap.sh.
+# foundry/cast falls through to the version-pinned foundryup install below.
+if [[ "$(os)" == "macos" ]]; then
+  require_cmd brew
+  brew_pkgs=()
+  command -v kubectl   &> /dev/null || brew_pkgs+=(kubernetes-cli)
+  command -v kind      &> /dev/null || brew_pkgs+=(kind)
+  command -v helm      &> /dev/null || brew_pkgs+=(helm)
+  command -v terraform &> /dev/null || brew_pkgs+=(hashicorp/tap/terraform)
+  [ ${#brew_pkgs[@]} -gt 0 ] && brew install "${brew_pkgs[@]}"
+  command -v gcloud &> /dev/null || brew install --cask gcloud-cli
+fi
+
 # if kubectl is not installed, install it
 if ! command -v kubectl &> /dev/null; then
   log "Installing kubectl..."
@@ -70,7 +85,13 @@ fi
 
 if ! command -v gcloud &> /dev/null; then
   log "Installing gcloud..."
-  curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$os-$(arch).tar.gz
+  # Google's gcloud archive names use x86_64/arm, not ci3's amd64/arm64.
+  case "$(arch)" in
+    amd64) gcloud_arch=x86_64 ;;
+    arm64) gcloud_arch=arm ;;
+    *)     die "Unsupported architecture for gcloud install: $(arch)" ;;
+  esac
+  curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$(os)-$gcloud_arch.tar.gz
   tar -xzf google-cloud-cli.tar.gz
   rm google-cloud-cli.tar.gz
 

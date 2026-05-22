@@ -23,10 +23,10 @@ import {
   createTxValidatorForAcceptingTxsOverRPC,
   createTxValidatorForBlockBuilding,
   createTxValidatorForBlockProposalReceivedTxs,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
 } from './factory.js';
-import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
+import { GasLimitsValidator, GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
 import { SizeTxValidator } from './size_validator.js';
@@ -160,9 +160,9 @@ describe('Validator factory functions', () => {
     });
   });
 
-  describe('createTxValidatorForReqResponseReceivedTxs', () => {
+  describe('createTxValidatorForOnDemandReceivedTxs', () => {
     it('contains well-formedness validators only', () => {
-      const validator = createTxValidatorForReqResponseReceivedTxs(proofVerifier, {
+      const validator = createTxValidatorForOnDemandReceivedTxs(proofVerifier, {
         l1ChainId: 1,
         rollupVersion: 2,
       });
@@ -309,11 +309,13 @@ describe('Validator factory functions', () => {
         100n,
         BlockNumber(5),
         { rollupManaLimit: Number.MAX_SAFE_INTEGER },
+        new GasFees(1, 1),
       );
 
       const aggregate = validator as AggregateTxValidator<unknown>;
       expect(getValidatorNames(aggregate)).toEqual([
         GasLimitsValidator.name,
+        MaxFeePerGasValidator.name,
         TimestampTxValidator.name,
         DoubleSpendTxValidator.name,
         BlockHeaderTxValidator.name,
@@ -322,9 +324,13 @@ describe('Validator factory functions', () => {
     });
 
     it('syncs world state before creating the validator', async () => {
-      await createTxValidatorForTransactionsEnteringPendingTxPool(synchronizer, 100n, BlockNumber(5), {
-        rollupManaLimit: Number.MAX_SAFE_INTEGER,
-      });
+      await createTxValidatorForTransactionsEnteringPendingTxPool(
+        synchronizer,
+        100n,
+        BlockNumber(5),
+        { rollupManaLimit: Number.MAX_SAFE_INTEGER },
+        new GasFees(1, 1),
+      );
 
       expect(synchronizer.syncImmediate).toHaveBeenCalled();
     });

@@ -1,0 +1,35 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: InvalidNote has a packed length of 9 fields, which exceeds the maximum allowed length of 8 fields. See https://docs.aztec.network/errors/4
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/notes.nr:52:17
+   │
+52 │                 std::static_assert(note_packed_len <= $max_note_packed_len, f"{note_type_name} has a packed length of {note_packed_len} fields, which exceeds the maximum allowed length of {max_note_packed_len} fields. See https://docs.aztec.network/errors/4");
+   │                 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   │
+   = Call stack:
+      1: generate_sync_state
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:240:13
+      2: do_sync_state
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:130:5
+      3: EphemeralArray<T>::for_each
+             at <repo>/noir-projects/aztec-nr/aztec/src/ephemeral/mod.nr:99:13
+      4: do_sync_state
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/mod.nr:139:13
+      5: process_message_ciphertext
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:41:9
+      6: process_message_plaintext
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/process_message.nr:76:13
+      7: process_private_note_msg
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:46:9
+      8: attempt_note_discovery
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/private_notes.nr:83:28
+      9: attempt_note_nonce_discovery
+             at <repo>/noir-projects/aztec-nr/aztec/src/messages/discovery/nonce_discovery.nr:46:27
+     10: generate_contract_library_method_compute_note_hash
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec/compute_note_hash_and_nullifier.nr:107:53
+     11: generate_note_type_impl
+             at <repo>/noir-projects/aztec-nr/aztec/src/macros/notes.nr:52:17
+
+Aborting due to 1 previous error

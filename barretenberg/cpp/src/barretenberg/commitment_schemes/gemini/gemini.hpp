@@ -183,12 +183,21 @@ template <typename Curve> class GeminiProver_ {
             BB_BENCH_NAME("compute_batched");
             Fr running_scalar(1);
 
-            // Batch base polynomials; updates running_scalar in place
+            // Batch base polynomials via a single fused parallel_for over the destination range,
+            // amortising N× parallel_for startup overhead into 1×. Updates running_scalar in place.
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
-                for (auto& poly : polynomials_to_batch) {
-                    batched.add_scaled(poly, running_scalar);
+                const size_t n = polynomials_to_batch.size();
+                std::vector<PolynomialSpan<const Fr>> sources;
+                std::vector<Fr> scalars;
+                sources.reserve(n);
+                scalars.reserve(n);
+                for (size_t i = 0; i < n; ++i) {
+                    sources.emplace_back(polynomials_to_batch[i]);
+                    scalars.push_back(running_scalar);
                     running_scalar *= challenge;
                 }
+                add_scaled_batch(
+                    batched, std::span<const PolynomialSpan<const Fr>>(sources), std::span<const Fr>(scalars));
             };
 
             // Batch tails into a small accumulator with the correct rho power per tail.
@@ -350,15 +359,6 @@ template <typename Curve> class GeminiVerifier_ {
      * \frac{2 \cdot r^{2^{l-1}} \cdot A_{l}\left(r^{2^l}\right) - A_{l-1}\left( -r^{2^{l-1}} \right)\cdot
      * \left(r^{2^{l-1}} (1-u_{l-1}) - u_{l-1}\right)} {r^{2^{l-1}} (1- u_{l-1}) + u_{l-1}}. \f}
      *
-     * This method uses `padding_indicator_array`, whose i-th entry is FF{1} if i < log_n and 0 otherwise.
-     * We use these entries to either assign `eval_pos_prev` the value `eval_pos` computed in the current iteration
-     * of the loop, or to propagate the batched evaluation of the multilinear polynomials to the next iteration.
-     * This ensures the correctnes of the computation of the required positive evaluations.
-     *
-     * To ensure that dummy evaluations cannot be used to tamper with the final batch_mul result, we multiply dummy
-     * positive evaluations by the entries of `padding_indicator_array`.
-     *
-     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$. Depending on the context, might be
      * padded to `virtual_log_n` size.
@@ -366,8 +366,7 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return \f$ A_{i}(r^{2^{i}})\f$ for \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
      */
-    static std::vector<Fr> compute_fold_pos_evaluations(std::span<const Fr> padding_indicator_array,
-                                                        const Fr& batched_evaluation,
+    static std::vector<Fr> compute_fold_pos_evaluations(const Fr& batched_evaluation,
                                                         std::span<const Fr> evaluation_point, // size = virtual_log_n
                                                         std::span<const Fr> challenge_powers, // size = virtual_log_n
                                                         std::span<const Fr> fold_neg_evals)   // size = virtual_log_n
@@ -394,13 +393,8 @@ template <typename Curve> class GeminiVerifier_ {
             // Divide by the denominator
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
 
-            // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
-            eval_pos_prev =
-                padding_indicator_array[l - 1] * eval_pos + (Fr{ 1 } - padding_indicator_array[l - 1]) * eval_pos_prev;
-            // If current index is bigger than log_n, we emplace 0, which is later multiplied against
-            // Commitment::one().
-            fold_pos_evaluations.emplace_back(padding_indicator_array[l - 1] * eval_pos_prev);
+            eval_pos_prev = eval_pos;
+            fold_pos_evaluations.emplace_back(eval_pos_prev);
         }
 
         std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());

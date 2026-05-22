@@ -120,27 +120,19 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return 0;
     }
 
-    void finalize_circuit(const bool ensure_nonzero);
-    void add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
-    void add_mega_gates_to_ensure_all_polys_are_non_zero();
+    void finalize_circuit();
+
+    void create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in);
+    void create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in);
+    void create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in);
 
     size_t get_num_constant_gates() const override { return 0; }
 
     /**
-     * @brief Add a witness variable to the public calldata.
+     * @brief Add a witness variable to the specified calldata bus.
      *
      */
-    void add_public_calldata(const uint32_t& in) { return append_to_bus_vector(BusId::CALLDATA, in); }
-
-    /**
-     * @brief Add a witness variable to secondary_calldata.
-     * @details In practice this is used in aztec by the kernel circuit to recieve output from a function circuit
-     *
-     */
-    void add_public_secondary_calldata(const uint32_t& in)
-    {
-        return append_to_bus_vector(BusId::SECONDARY_CALLDATA, in);
-    }
+    void add_public_calldata(BusId bus_idx, const uint32_t& in) { return append_to_bus_vector(bus_idx, in); }
 
     /**
      * @brief Add a witness variable to the public return_data.
@@ -151,25 +143,12 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     uint32_t read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx);
 
     /**
-     * @brief Read from calldata and create a corresponding databus read gate
+     * @brief Read from the specified calldata bus and create a corresponding databus read gate
      *
-     * @param read_idx_witness_idx Witness index for the calldata read index
-     * @return uint32_t Witness index for the result of the read
      */
-    uint32_t read_calldata(const uint32_t& read_idx_witness_idx)
+    uint32_t read_calldata(BusId bus_idx, const uint32_t& read_idx_witness_idx)
     {
-        return read_bus_vector(BusId::CALLDATA, read_idx_witness_idx);
-    };
-
-    /**
-     * @brief Read from secondary_calldata and create a corresponding databus read gate
-     *
-     * @param read_idx_witness_idx Witness index for the secondary_calldata read index
-     * @return uint32_t Witness index for the result of the read
-     */
-    uint32_t read_secondary_calldata(const uint32_t& read_idx_witness_idx)
-    {
-        return read_bus_vector(BusId::SECONDARY_CALLDATA, read_idx_witness_idx);
+        return read_bus_vector(bus_idx, read_idx_witness_idx);
     };
 
     /**
@@ -188,9 +167,10 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         databus[static_cast<size_t>(bus_idx)].append(witness_idx);
     }
 
-    const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
-    const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
+    const BusVector& get_calldata(BusId idx) const { return databus[static_cast<size_t>(idx)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    // Indexed access to the databus columns; enables NUM_BUS_COLUMNS-driven iteration over bus vectors.
+    const BusVector& get_bus_vector(size_t bus_idx) const { return databus[bus_idx]; }
 
     /**
      * @brief Compute a hash of the circuit

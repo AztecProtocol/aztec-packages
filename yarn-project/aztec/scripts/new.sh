@@ -68,7 +68,7 @@ fi
 if [ -f "Nargo.toml" ] && grep -q '\[workspace\]' Nargo.toml; then
   # Add crate pair to existing workspace
   echo "Adding contract '$package_name' to existing workspace..."
-  $script_path/add_crate.sh "$package_name"
+  $script_path/add_crate.sh "$package_name" blank
 else
   # Create new workspace
   if [ -d "$project_path" ] && [ "$(ls -A $project_path 2>/dev/null)" ]; then
@@ -79,5 +79,5 @@ else
   echo "Creating new Aztec contract project at $project_path..."
   mkdir -p "$project_path"
   cd "$project_path"
-  $script_path/setup_workspace.sh "$package_name"
+  $script_path/setup_workspace.sh "$package_name" blank
 fi

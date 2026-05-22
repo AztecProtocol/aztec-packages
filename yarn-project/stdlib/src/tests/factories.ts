@@ -9,7 +9,6 @@ import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  DomainSeparator,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   MAX_CHECKPOINTS_PER_EPOCH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -46,8 +45,6 @@ import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
-import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
@@ -95,6 +92,7 @@ import {
   type PrivateFunction,
   SerializableContractInstance,
   computeContractClassId,
+  computePartialAddress,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
 import { Gas, GasFees, GasSettings } from '../gas/index.js';
@@ -125,7 +123,7 @@ import {
   PublicCallRequest,
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
-import { PublicKeys, computeAddress } from '../keys/index.js';
+import { PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
 import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
@@ -176,7 +174,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxRequest } from '../tx/tx_request.js';
 import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
-import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
+import { VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
 
 /**
  * Creates an arbitrary side effect object with the given seed.
@@ -254,7 +252,7 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
  * @returns A KeyValidationRequest.
  */
 function makeKeyValidationRequests(seed: number): KeyValidationRequest {
-  return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
+  return new KeyValidationRequest(fr(seed), fr(seed + 2));
 }
 
 /**
@@ -574,14 +572,6 @@ export function makeVerificationKeyAsFields(size: number): VerificationKeyAsFiel
 }
 
 /**
- * Creates arbitrary/mocked verification key.
- * @returns A verification key object
- */
-export function makeVerificationKey(): VerificationKey {
-  return VerificationKey.makeFake();
-}
-
-/**
  * Creates an arbitrary point in a curve.
  * @param seed - Seed to generate the point values.
  * @returns A point.
@@ -758,15 +748,6 @@ export function makeAztecAddress(seed = 1): AztecAddress {
   return AztecAddress.fromField(fr(seed));
 }
 
-/**
- * Makes arbitrary Schnorr signature.
- * @param seed - The seed to use for generating the Schnorr signature.
- * @returns A Schnorr signature.
- */
-export function makeSchnorrSignature(seed = 1): SchnorrSignature {
-  return new SchnorrSignature(Buffer.alloc(SchnorrSignature.SIZE, seed));
-}
-
 function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {
   return new BlockConstantData(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
@@ -863,11 +844,16 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     new Fr(BigInt(seed + 0x200)),
     new Fr(BigInt(seed + 0x300)),
     new Fr(BigInt(seed + 0x400)),
+    new Fr(BigInt(seed + 0x500)),
   );
 }
 
 export function makeParityBasePrivateInputs(seed = 0): ParityBasePrivateInputs {
-  return new ParityBasePrivateInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
+  return new ParityBasePrivateInputs(
+    makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000),
+    new Fr(seed + 0x4000),
+    new Fr(seed + 0x5000),
+  );
 }
 
 export function makeParityRootPrivateInputs(seed = 0) {
@@ -1234,8 +1220,13 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
 
 export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
   const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
-
-  return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
+  const ivpkM = await f(1);
+  return new PublicKeys(
+    await hashPublicKey(await f(0)),
+    ivpkM,
+    await hashPublicKey(await f(2)),
+    await hashPublicKey(await f(3)),
+  );
 }
 
 export async function makeContractInstanceFromClassId(
@@ -1244,6 +1235,7 @@ export async function makeContractInstanceFromClassId(
   overrides?: {
     deployer?: AztecAddress;
     initializationHash?: Fr;
+    immutablesHash?: Fr;
     publicKeys?: PublicKeys;
     currentClassId?: Fr;
   },
@@ -1252,23 +1244,24 @@ export async function makeContractInstanceFromClassId(
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
   const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
+  const immutablesHash = overrides?.immutablesHash ?? new Fr(seed + 4);
 
-  const saltedInitializationHash = await poseidon2HashWithSeparator(
-    [salt, initializationHash, deployer],
-    DomainSeparator.PARTIAL_ADDRESS,
-  );
-  const partialAddress = await poseidon2HashWithSeparator(
-    [classId, saltedInitializationHash],
-    DomainSeparator.PARTIAL_ADDRESS,
-  );
+  const partialAddress = await computePartialAddress({
+    originalContractClassId: classId,
+    salt,
+    initializationHash,
+    immutablesHash,
+    deployer,
+  });
   const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({
-    version: 1,
+    version: 2,
     salt,
     deployer,
     currentContractClassId: overrides?.currentClassId ?? classId,
     originalContractClassId: classId,
     initializationHash,
+    immutablesHash,
     publicKeys,
   }).withAddress(address);
 }
@@ -1446,11 +1439,12 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new Fr(seed + 0x6),
+    new Fr(seed + 0x7),
     new PublicKeys(
-      new Point(new Fr(seed + 0x7), new Fr(seed + 0x8), false),
+      new Fr(seed + 0x7),
       new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),
-      new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
-      new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
+      new Fr(seed + 0x11),
+      new Fr(seed + 0x13),
     ),
   );
 }

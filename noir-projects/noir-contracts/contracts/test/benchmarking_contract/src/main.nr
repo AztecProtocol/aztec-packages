@@ -15,9 +15,8 @@ pub contract Benchmarking {
         protocol::{
             address::{AztecAddress, EthAddress},
             constants::{
-                CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_L2_TO_L1_MSGS_PER_CALL,
-                MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-                PRIVATE_LOG_CIPHERTEXT_LEN,
+                CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+                MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, PRIVATE_LOG_CIPHERTEXT_LEN,
             },
         },
         state_vars::{Map, Owned, PrivateSet, PublicMutable},
@@ -110,11 +109,11 @@ pub contract Benchmarking {
         let random_seed = unsafe { random() };
 
         for i in 0..MAX_PRIVATE_LOGS_PER_CALL {
-            let mut log = [0; PRIVATE_LOG_CIPHERTEXT_LEN];
+            let mut log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN> = BoundedVec::new();
             for j in 0..PRIVATE_LOG_CIPHERTEXT_LEN {
-                log[j] = random_seed + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field;
+                log.push(random_seed + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field);
             }
-            self.context.emit_private_log_unsafe(0, log, PRIVATE_LOG_CIPHERTEXT_LEN);
+            self.context.emit_private_log_unsafe(0, log);
         }
     }
 

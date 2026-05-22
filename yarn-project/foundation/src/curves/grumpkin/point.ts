@@ -125,9 +125,12 @@ export class Point {
   }
 
   /**
-   * Returns the contents of the point as an array of 2 fields.
-   * @returns The point as an array of 2 fields
+   * Returns the contents of the point as an array of 3 fields.
+   * @returns The point as an array of 3 fields
    */
+  // TODO(F-553): Once we take the breaking change and drop the custom Noir `Point` wrapper in
+  // `noir-projects/noir-protocol-circuits/crates/types/src/point.nr`, revert this to serialize as `[x, y]` (2 fields)
+  // and drop the `is_infinite` flag from `fromFields` / `toNoirStruct` below.
   toFields() {
     return [this.x, this.y, new Fr(this.isInfinite)];
   }
@@ -263,7 +266,7 @@ export class Point {
     /* eslint-enable camelcase */
   }
 
-  // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.
+  // Used for IvpkM. TODO(#8124): Consider removing this method.
   toWrappedNoirStruct() {
     return { inner: this.toNoirStruct() };
   }

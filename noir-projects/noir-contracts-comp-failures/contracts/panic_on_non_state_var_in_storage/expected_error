@@ -1,1 +1,0 @@
-Type NonStateVar does not implement StateVariable and hence cannot be placed in Storage struct.

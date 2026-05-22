@@ -550,6 +550,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().config.feeAssetPortal;
   }
 
+  function getVkTreeRoot() external view override(IRollup) returns (bytes32) {
+    return STFLib.getStorage().config.vkTreeRoot;
+  }
+
+  function getProtocolContractsHash() external view override(IRollup) returns (bytes32) {
+    return STFLib.getStorage().config.protocolContractsHash;
+  }
+
+  function getEpochProofVerifier() external view override(IRollup) returns (IVerifier) {
+    return STFLib.getStorage().config.epochProofVerifier;
+  }
+
   function getRewardDistributor() external view override(IRollup) returns (IRewardDistributor) {
     return RewardExtLib.getRewardDistributor();
   }
@@ -568,14 +580,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getCheckpointReward() external view override(IRollup) returns (uint256) {
     return RewardExtLib.getCheckpointReward();
-  }
-
-  function isRewardsClaimable() external view override(IRollup) returns (bool) {
-    return RewardExtLib.isRewardsClaimable();
-  }
-
-  function getEarliestRewardsClaimableTimestamp() external view override(IRollup) returns (Timestamp) {
-    return RewardExtLib.getEarliestRewardsClaimableTimestamp();
   }
 
   function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {

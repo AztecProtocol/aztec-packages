@@ -39,7 +39,7 @@ This creates a new branch for whatever the current version in `next` is, then bu
 
 For example, if this were run now, it would create a branch `v3`, and then bump the version in `.release-please-manifest.json` on `next` to be `4.0.0`.
 
-Every push to a release branch causes a new tag to be created via the auto-tag job in .github/workflows/release-please.yml. So as soon as `v3` is created, there will be a tag that is `v3.0.0-rc.1`.
+Release-candidate tags (e.g. `v3.0.0-rc.1`) are pushed against the release branch to publish artifacts.
 
 Each `rc` tag causes ci3.yml to run, and creates releases because it runs `bootstrap.sh ci-nightly`.
 

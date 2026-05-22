@@ -8,6 +8,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -48,6 +49,24 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
     for (size_t i = 0; i < num_iterations; i++) {
         h_init = stdlib::SHA256<Builder>::sha256_block(h_init, block);
     }
+}
+
+/**
+ * @brief Generate a test circuit that computes a single poseidon2 hash over a vector of `num_inputs` field elements.
+ */
+template <typename Builder> void generate_poseidon2_hash_test_circuit(Builder& builder, size_t num_inputs)
+{
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+
+    std::vector<field_ct> inputs;
+    inputs.reserve(num_inputs);
+    for (size_t i = 0; i < num_inputs; i++) {
+        inputs.emplace_back(witness_ct(&builder, bb::fr(i + 1)));
+    }
+
+    auto out = stdlib::poseidon2<Builder>::hash(inputs);
+    out.set_public();
 }
 
 class GoblinMockCircuits {
@@ -139,21 +158,10 @@ class GoblinMockCircuits {
 
     static void construct_and_merge_mock_circuits(Goblin& goblin, const size_t num_circuits = 3)
     {
-        using Fq = curve::Grumpkin::ScalarField;
         for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
             MegaCircuitBuilder builder{ goblin.op_queue };
-            if (idx == num_circuits - 2) {
-                // Last circuit appended needs to begin with a no-op for translator to be shiftable
-                builder.queue_ecc_no_op();
-                // Add random ops at START for Translator ZK (lands at beginning of op queue table)
-                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
-                // Add hiding op for ECCVM ZK (prepended to ECCVM ops at row 1)
-                builder.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
-            }
             construct_simple_circuit(builder);
-            goblin.prove_merge();
-            // Pop the merge proof from the queue, Goblin will be verified at the end
-            goblin.merge_verification_queue.pop_front();
+            goblin.op_queue->merge();
         }
         MegaCircuitBuilder builder{ goblin.op_queue };
         GoblinMockCircuits::construct_simple_circuit(builder);

@@ -87,18 +87,18 @@ template <size_t bits, size_t bit_position> inline uint64_t get_wnaf_bits_const(
  */
 inline uint64_t get_wnaf_bits(const uint64_t* scalar, const uint64_t bits, const uint64_t bit_position) noexcept
 {
-
     const auto lo_limb_idx = static_cast<size_t>(bit_position >> 6);
     const auto hi_limb_idx = static_cast<size_t>((bit_position + bits - 1) >> 6);
     const uint64_t lo_shift = bit_position & 63UL;
     const uint64_t bit_mask = (1UL << static_cast<uint64_t>(bits)) - 1UL;
+    const bool spans_limbs = (lo_limb_idx != hi_limb_idx);
 
-    const uint64_t lo = (scalar[lo_limb_idx] >> lo_shift);
-    const uint64_t hi_shift = bit_position ? 64UL - (bit_position & 63UL) : 0;
-    const uint64_t hi = ((scalar[hi_limb_idx] << (hi_shift)));
-    const uint64_t hi_mask = bit_mask & (0ULL - (lo_limb_idx != hi_limb_idx));
+    const uint64_t lo = scalar[lo_limb_idx] >> lo_shift;
+    // spans_limbs is true only when bit_position is not aligned to a limb boundary, so lo_shift > 0
+    // and 64 - lo_shift ∈ [1, 63]. (If lo_shift were 0, 64 - lo_shift = 64 would be UB on uint64_t.)
+    const uint64_t hi = spans_limbs ? (scalar[hi_limb_idx] << (64UL - lo_shift)) : 0UL;
 
-    return (lo & bit_mask) | (hi & hi_mask);
+    return (lo | hi) & bit_mask;
 }
 
 /**

@@ -13,7 +13,6 @@ pub(crate) unconstrained fn process_private_event_msg(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
-    recipient: AztecAddress,
 ) {
     let decoded = decode_private_event_message(msg_metadata, msg_content);
 
@@ -30,7 +29,6 @@ pub(crate) unconstrained fn process_private_event_msg(
             serialized_event,
             event_commitment,
             tx_hash,
-            recipient,
         );
     } else {
         aztecnr_warn_log_format!(

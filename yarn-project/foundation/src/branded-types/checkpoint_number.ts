@@ -85,6 +85,11 @@ CheckpointNumber.isValid = function (value: unknown): value is CheckpointNumber 
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 };
 
+/** Increments a CheckpointNumber by a given value. */
+CheckpointNumber.add = function (n: CheckpointNumber, increment: number): CheckpointNumber {
+  return CheckpointNumber(n + increment);
+};
+
 /** The zero checkpoint value. */
 CheckpointNumber.ZERO = CheckpointNumber(0);
 
@@ -98,7 +103,7 @@ CheckpointNumber.INITIAL = CheckpointNumber(1);
 function makeCheckpointNumberSchema(minValue: number) {
   return z
     .union([z.number(), z.bigint(), z.string()])
-    .pipe(z.coerce.number().int().min(minValue))
+    .pipe(z.coerce.number<string | number | bigint>().int().min(minValue))
     .transform(value => CheckpointNumber(value));
 }
 

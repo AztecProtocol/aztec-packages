@@ -4,7 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 repo_root=$(git rev-parse --show-toplevel)
 export BB=${BB:-$repo_root/barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-$repo_root/noir/noir-repo/target/release/nargo}
-export TRANSPILER=${TRANSPILER:-$repo_root/avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=${BB_HASH:-$($repo_root/barretenberg/cpp/bootstrap.sh hash)}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
@@ -62,11 +61,11 @@ function check_references {
   echo_header "Check doc references"
   if ! ./scripts/check_doc_references.sh docs; then
     echo "⚠ Doc reference check failed (non-blocking)."
-    if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+    if [[ -n "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
       curl -s -X POST https://slack.com/api/chat.postMessage \
-        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+        -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
         -H "Content-type: application/json" \
-        -d "{\"channel\": \"#devrel-docs-updates\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
+        -d "{\"channel\": \"#docs-alerts\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
         > /dev/null 2>&1 || true
     fi
   fi

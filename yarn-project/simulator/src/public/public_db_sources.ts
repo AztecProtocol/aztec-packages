@@ -55,7 +55,8 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     this.log = createLogger('simulator:contracts-data-source', bindings);
   }
 
-  public addContracts(contractDeploymentData: ContractDeploymentData): void {
+  /** Parses raw log data from the C++/NAPI bridge and inserts the resulting contracts into the current checkpoint. */
+  public addContractsFromLogs(contractDeploymentData: ContractDeploymentData): void {
     const currentState = this.getCurrentState();
 
     this.addContractClassesFromEvents(
@@ -71,8 +72,16 @@ export class PublicContractsDB implements PublicContractsDBInterface {
 
   public addNewContracts(tx: Tx): void {
     const contractDeploymentData = AllContractDeploymentData.fromTx(tx);
-    this.addContracts(contractDeploymentData.getNonRevertibleContractDeploymentData());
-    this.addContracts(contractDeploymentData.getRevertibleContractDeploymentData());
+    this.addContractsFromLogs(contractDeploymentData.getNonRevertibleContractDeploymentData());
+    this.addContractsFromLogs(contractDeploymentData.getRevertibleContractDeploymentData());
+  }
+
+  /** Inserts typed contract instances directly into the current checkpoint. */
+  public addContracts(contractInstances?: ContractInstanceWithAddress[]): void {
+    const currentState = this.getCurrentState();
+    for (const instance of contractInstances ?? []) {
+      currentState.addInstance(instance.address, instance);
+    }
   }
 
   /**

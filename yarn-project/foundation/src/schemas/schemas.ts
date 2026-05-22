@@ -44,15 +44,15 @@ export const schemas = {
   ]),
 
   /** Coerces any input to bigint. */
-  BigInt: z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.bigint()),
+  BigInt: z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.bigint<string | number | bigint>()),
 
   /** Coerces any input to integer number. */
-  Integer: z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.number().int()),
+  Integer: z.union([z.bigint(), z.number(), z.string()]).pipe(z.coerce.number<string | number | bigint>().int()),
 
   /** Coerces input to UInt32. */
   UInt32: z.union([z.bigint(), z.number(), z.string()]).pipe(
     z.coerce
-      .number()
+      .number<string | number | bigint>()
       .int()
       .min(0)
       .max(2 ** 32 - 1),
@@ -61,7 +61,7 @@ export const schemas = {
   /** Coerces input to UInt64. */
   UInt64: z.union([z.bigint(), z.number(), z.string()]).pipe(
     z.coerce
-      .bigint()
+      .bigint<string | number | bigint>()
       .min(0n)
       .max(2n ** 64n - 1n),
   ),

@@ -14,11 +14,10 @@
  * so the dApp knows it can send a discovery request.
  */
 import type { ChainInfo } from '@aztec/aztec.js/account';
-import { createLogger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { WalletSchema } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
+import { getSchemaParameters, parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
 
 import {
   type EncryptedPayload,
@@ -29,7 +28,7 @@ import {
   generateKeyPair,
   importPublicKey,
 } from '../../crypto.js';
-import { type WalletMessage, WalletMessageType, type WalletResponse } from '../../types.js';
+import { type WalletMessage, WalletMessageType, type WalletResponse, type WalletSdkLogger } from '../../types.js';
 
 /**
  * A pending discovery request from a dApp (before user approval).
@@ -75,6 +74,8 @@ export interface IframeConnectionConfig {
   walletIcon?: string;
   /** Origins allowed to connect. If empty or undefined, all origins are allowed (dev mode). */
   allowedOrigins?: string[];
+  /** Logger used for diagnostics. */
+  logger: WalletSdkLogger;
 }
 
 /**
@@ -105,7 +106,7 @@ export interface IframeConnectionCallbacks {
  * @example
  * ```typescript
  * const handler = new IframeConnectionHandler(
- *   { walletId: 'my-wallet', walletName: 'My Wallet', walletVersion: '1.0.0' },
+ *   { walletId: 'my-wallet', walletName: 'My Wallet', walletVersion: '1.0.0', logger: console },
  *   {
  *     onPendingDiscovery: (session) => showApprovalUI(session),
  *     getWallet: (appId, chainInfo) => createWalletForApp(appId, chainInfo),
@@ -117,12 +118,14 @@ export interface IframeConnectionCallbacks {
 export class IframeConnectionHandler {
   private pendingSessions = new Map<string, PendingSession>();
   private activeSessions = new Map<string, ActiveSession>();
-  private log = createLogger('wallet:iframe-handler');
+  private log: WalletSdkLogger;
 
   constructor(
     private config: IframeConnectionConfig,
     private callbacks: IframeConnectionCallbacks,
-  ) {}
+  ) {
+    this.log = config.logger;
+  }
 
   start(): void {
     window.addEventListener('message', this.handleMessage);
@@ -203,7 +206,18 @@ export class IframeConnectionHandler {
       case WalletMessageType.DISCONNECT:
         this.terminateSession(msg.sessionId);
         break;
+      case WalletMessageType.PING:
+        this.handlePing(msg.sessionId);
+        break;
     }
+  }
+
+  private handlePing(sessionId: string): void {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+    this.postToOrigin(session.origin, { type: WalletMessageType.PONG, sessionId });
   }
 
   private handleDiscoveryRequest(msg: Record<string, unknown>, origin: string): void {
@@ -287,8 +301,7 @@ export class IframeConnectionHandler {
       if (!schemaHasMethod(WalletSchema, type)) {
         throw new Error(`Unknown wallet method: ${type}`);
       }
-      // Zod's AnyZodTuple rejects optional tuple items typed as `T | undefined`
-      const sanitizedArgs = await parseWithOptionals(args, WalletSchema[type].parameters() as any);
+      const sanitizedArgs = await parseWithOptionals(args, getSchemaParameters(WalletSchema[type]));
       result = await (wallet as Record<string, (...a: unknown[]) => Promise<unknown>>)[type](...sanitizedArgs);
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : String(err);

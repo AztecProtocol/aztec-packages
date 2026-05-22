@@ -19,6 +19,7 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { SchnorrHardcodedKeyAccountContract } from '../fixtures/schnorr_hardcoded_account_contract.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { type ProvenTx, proveInteraction } from '../test-wallet/utils.js';
@@ -55,10 +56,17 @@ export const submitTransactions = async (
   rpcConfig.proverEnabled = false;
   const wallet = await TestWallet.create(
     node,
-    { ...getPXEConfig(), proverEnabled: false },
+    // Use checkpointed chain tip to avoid anchoring on provisional blocks that the archiver can prune
+    // when their slot ends without a checkpoint landing on L1.
+    { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
     { loggerActorLabel: 'pxe-tx' },
   );
-  const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
+  const contract = new SchnorrHardcodedKeyAccountContract();
+  const fundedAccountManager = await wallet.createAccount({
+    secret: fundedAccount.secret,
+    salt: fundedAccount.salt,
+    contract,
+  });
   return submitTxsTo(wallet, fundedAccountManager.address, numTxs, logger);
 };
 
@@ -73,10 +81,15 @@ export async function prepareTransactions(
 
   const wallet = await TestWallet.create(
     node,
-    { ...getPXEConfig(), proverEnabled: false },
+    { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
     { loggerActorLabel: 'pxe-tx' },
   );
-  const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
+  const accountContract = new SchnorrHardcodedKeyAccountContract();
+  const fundedAccountManager = await wallet.createAccount({
+    secret: fundedAccount.secret,
+    salt: fundedAccount.salt,
+    contract: accountContract,
+  });
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
     salt: Fr.random(),
@@ -268,7 +281,10 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(1); // Validating
   }
 
-  const timeout = slashingRoundSize * 2 * aztecSlotDuration + 30;
+  // Allow up to four round-lengths so that under proposer pipelining, where individual rounds
+  // sometimes fail to gather quorum because parts of the committee miss votes due to chain-state
+  // races, we still see a later round execute the slash.
+  const timeout = slashingRoundSize * 4 * aztecSlotDuration + 30;
   logger.info(`Waiting for slash to be executed (timeout ${timeout}s)`);
   await awaitProposalExecution(slashingProposer, timeout, logger);
 

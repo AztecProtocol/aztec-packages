@@ -65,8 +65,8 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
     } else {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
-        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
-        // compute the note hash (non-siloed).
+        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying
+        // note type, and compute the note hash (non-siloed).
 
         // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
         // block below.
@@ -126,9 +126,12 @@ comptime fn generate_contract_library_method_compute_note_hash() -> Quoted {
         let if_note_type_id_match_statements = if_note_type_id_match_statements_list.join(quote {});
 
         quote {
-            /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash (non-siloed).
+            /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash
+            /// (non-siloed).
             ///
-            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHash` type, and so it can be used to call functions from that module such as `do_sync_state` and `attempt_note_discovery`.
+            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHash` type,
+            /// and so it can be used to call functions from that module such as `do_sync_state` and
+            /// `process_private_note_msg`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
@@ -174,8 +177,8 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
     } else {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
-        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
-        // compute the inner nullifier (non-siloed).
+        // know it we call the correct `unpack` method from the `Packable` trait to obtain the underlying
+        // note type, and compute the inner nullifier (non-siloed).
 
         // We resolve the log format calls here so that the resulting Quoted values can be spliced into the quote
         // block below.
@@ -240,7 +243,9 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
         quote {
             /// Computes a note's inner nullifier (non-siloed) given its unique note hash, preimage and extra data.
             ///
-            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteNullifier` type, and so it can be used to call functions from that module such as `do_sync_state` and `attempt_note_discovery`.
+            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteNullifier`
+            /// type, and so it can be used to call functions from that module such as `do_sync_state` and
+            /// `process_private_note_msg`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]

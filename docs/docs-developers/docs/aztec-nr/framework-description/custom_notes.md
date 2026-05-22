@@ -64,7 +64,7 @@ The `#[note]` macro generates the following for your struct:
 
 Your note struct must derive:
 
-- `Packable` - Required by the `#[note]` macro for serialization
+- `Packable` - Required by the `#[note]` macro for note hash computation. You can manually implement this for tighter packing — see [Data Packing and Serialization](./data_packing.md).
 - `Eq` - Required by storage types like `PrivateSet` for note comparisons
 
 The `#[note]` macro handles the `NoteType`, `NoteHash`, and `NoteProperties` traits automatically.
@@ -162,8 +162,8 @@ impl NoteHash for CustomHashNote {
         note_hash_for_nullification: Field,
     ) -> Field {
         // Standard nullifier using owner's nullifier hiding key
-        let owner_npk_m = get_public_keys(owner).npk_m;
-        let secret = context.request_nhk_app(owner_npk_m.hash());
+        let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
+        let secret = context.request_nhk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
             [note_hash_for_nullification, secret],
             DOM_SEP__NOTE_NULLIFIER,
@@ -176,7 +176,7 @@ impl NoteHash for CustomHashNote {
         note_hash_for_nullification: Field,
     ) -> Option<Field> {
         try_get_public_keys(owner).map(|public_keys| {
-            let secret = get_nhk_app(public_keys.npk_m.hash());
+            let secret = get_nhk_app(public_keys.npk_m_hash);
             poseidon2_hash_with_separator(
                 [note_hash_for_nullification, secret],
                 DOM_SEP__NOTE_NULLIFIER,

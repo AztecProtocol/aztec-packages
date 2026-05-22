@@ -335,6 +335,20 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   nullable    = true
 }
 
+variable "OTEL_COLLECT_INTERVAL_MS" {
+  description = "Interval in ms at which OTEL metrics are exported from nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "OTEL_EXPORT_TIMEOUT_MS" {
+  description = "Timeout in ms for OTEL metric exports (must be <= OTEL_COLLECT_INTERVAL_MS)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "LOG_LEVEL" {
   description = "Log level for all nodes"
   type        = string
@@ -371,6 +385,12 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 
 variable "SEQ_MAX_TX_PER_CHECKPOINT" {
   description = "Maximum number of sequencer transactions per checkpoint"
+  type        = string
+  default     = null
+}
+
+variable "P2P_MAX_PENDING_TX_COUNT" {
+  description = "Maximum number of pending txs the local mempool will hold before evictions kick in"
   type        = string
   default     = null
 }
@@ -412,6 +432,19 @@ variable "SEQ_BUILD_CHECKPOINT_IF_EMPTY" {
 variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
   description = "Per-block gas budget multiplier for both L2 and DA gas."
   type        = string
+  default     = null
+}
+
+variable "SEQ_ENABLE_PROPOSER_PIPELINING" {
+  description = "Whether to enable build-ahead proposer pipelining"
+  type        = string
+  default     = "false"
+}
+
+variable "AZTEC_EPOCHS_LAG" {
+  description = "Epoch lag override for validator nodes"
+  type        = string
+  nullable    = true
   default     = null
 }
 
@@ -465,6 +498,12 @@ variable "SLASH_DUPLICATE_ATTESTATION_PENALTY" {
 
 variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
   description = "The slash attest descendant of invalid penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash attest invalid checkpoint proposal penalty"
   type        = string
   nullable    = true
 }
@@ -692,6 +731,25 @@ variable "RPC_INGRESS_SSL_CERT_NAMES" {
   description = "Names of the GCP managed SSL certificates for the ingress"
   type        = list(string)
   default     = []
+}
+
+variable "RPC_CLOUD_ARMOR_POLICY_NAME" {
+  description = "Name of a Cloud Armor security policy to attach to the RPC ingress BackendConfig. Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SESSION_AFFINITY" {
+  description = "Session affinity type for the RPC BackendConfig. One of NONE, CLIENT_IP, GENERATED_COOKIE. Leave empty for no affinity (GCE default)."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
+  description = "LB access-log sample rate for the RPC BackendConfig (0.0-1.0). When set, logs include the Cloud Armor matched rule priority. Leave null to disable logging (GCE default)."
+  type        = number
+  nullable    = true
+  default     = null
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {

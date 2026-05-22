@@ -6,6 +6,7 @@ import { DateProvider, Timer, executeTimeout } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -16,7 +17,7 @@ import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { P2PConfig } from '../../../config.js';
-import { BatchTxRequesterCollector, SendBatchRequestCollector } from '../../../services/index.js';
+import { BatchTxRequester } from '../../../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { IBatchRequestTxValidator } from '../../../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../../../services/reqresp/rate-limiter/rate_limiter.js';
 import { RequestTracker } from '../../../services/tx_collection/request_tracker.js';
@@ -119,10 +120,12 @@ async function startClient(config: P2PConfig, clientIndex: number) {
     proofVerifier as ClientProtocolCircuitVerifier,
     worldState,
     epochCache,
+    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     'proposal-tx-collector-bench-worker',
     new DateProvider(),
     telemetry as TelemetryClient,
     deps,
+    await l2BlockSource.getInitialHeader().hash(),
   );
 
   await client.start();
@@ -167,7 +170,7 @@ function installUnlimitedRateLimits() {
 }
 
 async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' }>) {
-  const { collectorType, txHashes, blockProposal, pinnedPeerId, peerIds, timeoutMs } = cmd;
+  const { txHashes, blockProposal, pinnedPeerId, peerIds, timeoutMs } = cmd;
   const reqResp = (ensureClient() as any).p2pService.reqresp as any;
   const peerList = peerIds.map(peerId => peerIdFromString(peerId));
 
@@ -208,37 +211,24 @@ async function runCollector(cmd: Extract<WorkerCommand, { type: 'RUN_COLLECTOR' 
   };
 
   try {
-    if (collectorType === 'batch-requester') {
-      const collector = new BatchTxRequesterCollector(p2pService, logger, new DateProvider(), noopTxValidator);
-      const fetched = await executeTimeout(
-        (_signal: AbortSignal) =>
-          collector.collectTxs(
-            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
-            parsedProposal,
-            pinnedPeer,
-          ),
-        timeoutMs,
-        () => new Error(`Collector timed out after ${timeoutMs}ms`),
-      );
-      fetchedCount = fetched.length;
-    } else {
-      const collector = new SendBatchRequestCollector(
-        p2pService,
-        BENCHMARK_CONSTANTS.FIXED_MAX_PEERS,
-        BENCHMARK_CONSTANTS.FIXED_MAX_RETRY_ATTEMPTS,
-      );
-      const fetched = await executeTimeout(
-        (_signal: AbortSignal) =>
-          collector.collectTxs(
-            RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs)),
-            parsedProposal,
-            pinnedPeer,
-          ),
-        timeoutMs,
-        () => new Error(`Collector timed out after ${timeoutMs}ms`),
-      );
-      fetchedCount = fetched.length;
-    }
+    const fetched = await executeTimeout(
+      (_signal: AbortSignal) => {
+        const tracker = RequestTracker.create(parsedTxHashes, new Date(Date.now() + internalTimeoutMs));
+        const batchRequester = new BatchTxRequester(
+          tracker,
+          parsedProposal,
+          pinnedPeer,
+          p2pService,
+          logger,
+          new DateProvider(),
+          { txValidator: noopTxValidator },
+        );
+        return BatchTxRequester.collectAllTxs(batchRequester.run());
+      },
+      timeoutMs,
+      () => new Error(`Collector timed out after ${timeoutMs}ms`),
+    );
+    fetchedCount = fetched.length;
   } catch (err: any) {
     logger.warn(`Collector error: ${err?.message ?? String(err)}`);
   }

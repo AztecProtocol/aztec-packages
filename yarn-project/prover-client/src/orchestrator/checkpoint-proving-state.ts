@@ -204,7 +204,7 @@ export class CheckpointProvingState {
       Fr.ZERO,
       NUM_MSGS_PER_BASE_PARITY,
     );
-    return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot);
+    return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot, this.constants.proverId);
   }
 
   public setOutHashHint(hint: OutHashHint) {
@@ -345,5 +345,18 @@ export class CheckpointProvingState {
     return this.totalNumBlocks === 1
       ? [this.blockProofs.getNode(rootLocation)?.provingOutput] // If there's only 1 block, its proof will be stored at the root.
       : this.blockProofs.getChildren(rootLocation).map(c => c?.provingOutput);
+  }
+
+  /**
+   * Returns the block-level proof outputs that feed into the checkpoint root rollup.
+   * Used by `CheckpointSubTreeOrchestrator` to surface its sub-tree result.
+   */
+  public getSubTreeOutputProofs() {
+    return this.#getChildProofsForRoot();
+  }
+
+  /** Sibling path of the archive tree captured before any block in this checkpoint landed. */
+  public getLastArchiveSiblingPath() {
+    return this.lastArchiveSiblingPath;
   }
 }

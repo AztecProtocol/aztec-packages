@@ -13,6 +13,7 @@ import type {
   ProfileOptions,
   SendOptions,
   SimulateOptions,
+  TxSimulationResultWithAppOffset,
   Wallet,
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
@@ -21,7 +22,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import type { ApiSchema } from '@aztec/foundation/schemas';
+import { type ApiSchema, getSchemaReturnType } from '@aztec/foundation/schemas';
 import { sleep } from '@aztec/foundation/sleep';
 import { NodeConnector, TransportClient } from '@aztec/foundation/transport';
 import type { PXEConfig } from '@aztec/pxe/config';
@@ -29,7 +30,7 @@ import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@a
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { ExecutionPayload, TxProfileResult, TxSimulationResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
+import type { ExecutionPayload, TxProfileResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { Worker } from 'worker_threads';
@@ -123,7 +124,7 @@ export class WorkerWallet implements Wallet {
   private async call(fn: string, ...args: any[]): Promise<any> {
     const resultJson = await this.callRaw(fn, ...args);
     const methodSchema = (WorkerWalletSchema as ApiSchema)[fn];
-    return methodSchema.returnType().parseAsync(JSON.parse(resultJson));
+    return getSchemaReturnType(methodSchema).parseAsync(JSON.parse(resultJson));
   }
 
   getChainInfo(): Promise<ChainInfo> {
@@ -165,7 +166,11 @@ export class WorkerWallet implements Wallet {
     return this.call('registerContract', instance, artifact, secretKey);
   }
 
-  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResult> {
+  registerContractClass(artifact: ContractArtifact): Promise<void> {
+    return this.call('registerContractClass', artifact);
+  }
+
+  simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
     return this.call('simulateTx', exec, opts);
   }
 

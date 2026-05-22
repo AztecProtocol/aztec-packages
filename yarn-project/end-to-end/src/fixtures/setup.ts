@@ -7,6 +7,8 @@ import {
   BatchCall,
   type ContractFunctionInteraction,
   type ContractMethod,
+  type DeployOptions,
+  type InteractionWaitOptions,
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js/contracts';
@@ -15,7 +17,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/aztec/testing';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -46,10 +48,11 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNodeConfig } from '@aztec/prover-node';
-import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
+import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -179,8 +182,11 @@ export type SetupOptions = {
   proverNodeConfig?: Partial<ProverNodeConfig>;
   /** Whether to use a mock gossip sub network for p2p clients. */
   mockGossipSubNetwork?: boolean;
+  /** Whether to add simulated latency to the mock gossipsub network (in ms) */
+  mockGossipSubNetworkLatency?: number;
   /** Whether to disable the anvil test watcher (can still be manually started) */
   disableAnvilTestWatcher?: boolean;
+  anvilTestWatcherOpts?: AnvilTestWatcherOpts;
   /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
@@ -202,8 +208,13 @@ export type SetupOptions = {
   skipAccountDeployment?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
-  /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
+  /** Wallet minimum fee padding multiplier */
   walletMinFeePadding?: number;
+  /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
+   *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
+  skipInitialSequencer?: boolean;
+  /** Options forwarded to PXE creation (e.g. execution hooks). */
+  pxeCreationOptions?: PXECreationOptions;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -211,7 +222,7 @@ export type EndToEndContext = {
   /** The Anvil instance (only set if anvil was started locally). */
   anvil: Anvil | undefined;
   /** The Aztec Node service or client a connected to it. */
-  aztecNode: AztecNode;
+  aztecNode: AztecNode & AztecNodeDebug;
   /** The Aztec Node as a service. */
   aztecNodeService: AztecNodeService;
   /** Client to the Aztec Node admin interface. */
@@ -263,6 +274,32 @@ export type EndToEndContext = {
 };
 
 /**
+ * When CONTRACT_ARTIFACTS_VERSION is set (backwards compatibility testing), asserts that the loaded artifact's
+ * aztecVersion matches the expected version. This is a sanity check verifying that the legacy artifact resolver
+ * actually swapped in the correct version.
+ */
+function assertContractArtifactsVersion() {
+  const expected = process.env.CONTRACT_ARTIFACTS_VERSION;
+  if (!expected) {
+    return;
+  }
+  const { aztecVersion } = SponsoredFPCContract.artifact;
+  // TODO(F-557): Remove this bypass once pre-version artifacts are no longer tested.
+  if (aztecVersion === ARTIFACT_VERSION_BEFORE_INJECTION) {
+    createLogger('e2e:setup').info(
+      `Skipping artifact version check: artifact predates version injection (CONTRACT_ARTIFACTS_VERSION=${expected})`,
+    );
+    return;
+  }
+  if (aztecVersion !== expected) {
+    throw new Error(
+      `Artifact version mismatch: expected ${expected} but got ${aztecVersion}. ` +
+        `The legacy artifact resolver may not have swapped in the correct version.`,
+    );
+  }
+}
+
+/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  * @param opts - Options to pass to the node initialization and to the setup script.
@@ -274,6 +311,7 @@ export async function setup(
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
+  assertContractArtifactsVersion();
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;
@@ -416,7 +454,7 @@ export async function setup(
       },
     );
 
-    config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+    Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
     if (enableAutomine) {
@@ -440,6 +478,7 @@ export async function setup(
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       deployL1ContractsValues.l1Client,
       dateProvider,
+      opts.anvilTestWatcherOpts,
     );
     if (!opts.disableAnvilTestWatcher) {
       await watcher.start();
@@ -470,7 +509,7 @@ export async function setup(
     let p2pClientDeps: P2PClientDeps | undefined = undefined;
 
     if (opts.mockGossipSubNetwork) {
-      mockGossipSubNetwork = new MockGossipSubNetwork();
+      mockGossipSubNetwork = new MockGossipSubNetwork(opts.mockGossipSubNetworkLatency);
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 
@@ -498,8 +537,23 @@ export async function setup(
       }
     }
 
+    // When skipInitialSequencer is set, the initial node is a lightweight RPC-only node.
+    // We apply these overrides to a copy so they don't leak into the returned config.
+    // Keep P2P enabled if mockGossipSubNetwork is used (needed for tx propagation to validators).
+    const initialNodeConfig = opts.skipInitialSequencer
+      ? {
+          ...config,
+          disableValidator: true,
+          ...(opts.mockGossipSubNetwork ? {} : { p2pEnabled: false, bootstrapNodes: [] as string[] }),
+        }
+      : config;
+
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(config, { dateProvider, telemetry: telemetryClient, p2pClientDeps }, { genesis }),
+      AztecNodeService.createAndSync(
+        initialNodeConfig,
+        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+        { genesis, dontStartSequencer: opts.skipInitialSequencer },
+      ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
 
@@ -535,7 +589,10 @@ export async function setup(
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, { loggerActorLabel: 'pxe-0' });
+    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
+      loggerActorLabel: 'pxe-0',
+      ...opts.pxeCreationOptions,
+    });
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
@@ -559,7 +616,9 @@ export async function setup(
 
     let accounts: AztecAddress[] = [];
 
-    if (shouldDeployAccounts) {
+    if (opts.skipInitialSequencer) {
+      logger.info('Sequencer not started on initial node, skipping block progression');
+    } else if (shouldDeployAccounts) {
       logger.info(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );
@@ -708,7 +767,7 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNum
   targetBlock ??= await node.getBlockNumber();
 
   await retryUntil(
-    async () => (await node.getProvenBlockNumber()) >= targetBlock,
+    async () => (await node.getBlockNumber('proven')) >= targetBlock,
     'proven chain status',
     timeoutSec,
     intervalSec,
@@ -832,7 +891,7 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
  * Returns deployed account data that can be used by tests.
  */
 export const deployAccounts =
-  (numberOfAccounts: number, logger: Logger) =>
+  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<InteractionWaitOptions>>) =>
   async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
       throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
@@ -851,6 +910,7 @@ export const deployAccounts =
       await deployMethod.send({
         from: NO_FROM,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
+        ...deployOptions,
       });
     }
 

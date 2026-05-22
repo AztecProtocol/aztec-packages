@@ -290,9 +290,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 #endif // NDEBUG
     }
 
-    void finalize_circuit(const bool ensure_nonzero);
-
-    void add_gates_to_ensure_all_polys_are_non_zero();
+    void finalize_circuit();
 
     void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
@@ -376,10 +374,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @param ensure_nonzero Whether or not to add gates to ensure all polynomials are non-zero during finalization.
      * @return size_t
      */
-    size_t get_num_finalized_gates_inefficient(bool ensure_nonzero = true) const
+    size_t get_num_finalized_gates_inefficient() const
     {
         UltraCircuitBuilder_ builder_copy = *this;
-        builder_copy.finalize_circuit(ensure_nonzero);
+        builder_copy.finalize_circuit();
         return builder_copy.get_num_finalized_gates();
     }
 
@@ -432,6 +430,26 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::deque<plookup::BasicTable>& get_lookup_tables() { return lookup_tables; }
     size_t get_num_lookup_tables() const { return lookup_tables.size(); }
 
+    /**
+     * @brief Register a BasicTable with the builder, assigning it a unique table_index.
+     * @return Stable pointer into the builder's lookup_tables deque.
+     */
+    plookup::BasicTable* register_basic_lookup_table(plookup::BasicTable&& table);
+
+    /**
+     * @brief Create a single plookup lookup gate.
+     * @details Records the lookup entry, populates one row of the lookup block with the given wire indices and
+     * step-size selectors, and increments the gate count. Step sizes are 0 for standalone or last-in-chain lookups.
+     */
+    void create_lookup_gate(uint32_t key_idx,
+                            uint32_t val1_idx,
+                            uint32_t val2_idx,
+                            plookup::BasicTable& table,
+                            const plookup::BasicTable::LookupEntry& entry,
+                            FF column_1_step_size = 0,
+                            FF column_2_step_size = 0,
+                            FF column_3_step_size = 0);
+
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         const plookup::MultiTableId& id,
         const plookup::ReadData<FF>& read_values,
@@ -470,6 +488,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.set_gate_selector(0); // all selectors zero
 
         check_selector_length_consistency();

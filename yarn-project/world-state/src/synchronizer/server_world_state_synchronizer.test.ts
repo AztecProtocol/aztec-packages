@@ -1,4 +1,3 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -56,9 +55,9 @@ describe('ServerWorldStateSynchronizer', () => {
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
     merkleTreeRead.getInitialHeader.mockReturnValue({
-      hash: () => Promise.resolve(new BlockHash(Fr.random())),
+      hash: () => Promise.resolve(BlockHash.random()),
     } as BlockHeader);
-    merkleTreeRead.getLeafValue.mockResolvedValue(Fr.random());
+    merkleTreeRead.getLeafValue.mockResolvedValue(BlockHash.random());
 
     merkleTreeDb = mock<MerkleTreeAdminDatabase>();
     merkleTreeDb.getCommitted.mockReturnValue(merkleTreeRead);
@@ -280,9 +279,9 @@ describe('ServerWorldStateSynchronizer', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
-  public latest = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
-  public finalized = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
-  public proven = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+  public latest = { number: BlockNumber.ZERO, hash: BlockHash.random().toString() };
+  public finalized = { number: BlockNumber.ZERO, hash: BlockHash.random().toString() };
+  public proven = { number: BlockNumber.ZERO, hash: BlockHash.random().toString() };
 
   constructor(
     merkleTrees: MerkleTreeAdminDatabase,

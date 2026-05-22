@@ -35,6 +35,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled ?? false,
       dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
+      autoSync: false,
       ...mergedConfigOverrides,
     });
 
@@ -54,27 +55,31 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const pxe = await createPXE(aztecNode, pxeConfig, pxeOptions);
 
-    const walletDBStore = options.ephemeral
-      ? await openTmpStore(
-          `wallet_data_${l1Contracts.rollupAddress}`,
-          true,
-          undefined,
-          undefined,
-          rootLogger.createChild('wallet:data').getBindings(),
-        )
-      : await createStore(
-          'wallet_data',
-          1,
-          {
-            dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
-            dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-            l1Contracts,
-          },
-          rootLogger.createChild('wallet:data').getBindings(),
-        );
-    const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
+    const walletDBStore =
+      options.walletDb?.store ??
+      (options.ephemeral
+        ? await openTmpStore(
+            `wallet_data_${l1Contracts.rollupAddress}`,
+            true,
+            undefined,
+            undefined,
+            rootLogger.createChild('wallet:data').getBindings(),
+          )
+        : await createStore(
+            'wallet_data',
+            1,
+            {
+              dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
+              dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
+              rollupAddress: l1Contracts.rollupAddress,
+            },
+            rootLogger.createChild('wallet:data').getBindings(),
+          ));
+    const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
-    return new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
+    const wallet = new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
+    await wallet.initStubClasses();
+    return wallet;
   }
 }
 

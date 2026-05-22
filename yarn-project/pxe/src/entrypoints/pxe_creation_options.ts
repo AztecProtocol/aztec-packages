@@ -4,6 +4,8 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
+import type { ExecutionHooks } from '../hooks/index.js';
+
 export type PXECreationOptions = {
   loggers?: { store?: Logger; pxe?: Logger; prover?: Logger };
   /** Actor label to include in log output (e.g., 'pxe-0', 'pxe-test'). */
@@ -11,6 +13,8 @@ export type PXECreationOptions = {
   proverOrOptions?: PrivateKernelProver | BBPrivateKernelProverOptions;
   store?: AztecAsyncKVStore;
   simulator?: CircuitSimulator;
+  /** Optional hooks to observe and influence contract execution. */
+  hooks?: ExecutionHooks;
 };
 
 /** Checks if the given value implements the PrivateKernelProver interface via duck-typing. */

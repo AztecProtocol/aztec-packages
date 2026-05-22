@@ -30,6 +30,13 @@
 
 namespace bb {
 
+namespace detail {
+template <typename> struct ref_array_extent;
+template <typename T, std::size_t N> struct ref_array_extent<RefArray<T, N>> {
+    static constexpr std::size_t value = N;
+};
+} // namespace detail
+
 class TranslatorFlavor {
 
   public:
@@ -52,6 +59,8 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // Translator has no disabled rows at the top of the trace.
+    static constexpr size_t TRACE_OFFSET = 0;
     // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
     // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
@@ -102,26 +111,16 @@ class TranslatorFlavor {
     // This is the space reserved at the end of each ordered polynomial (contiguous)
     static constexpr size_t MAX_RANDOM_VALUES_PER_ORDERED = CONCATENATION_GROUP_SIZE * NUM_MASKED_ROWS_END;
 
-    // Index at which random coefficients start (for zk) within Translator trace
-    static constexpr size_t RANDOMNESS_START = 2 * CircuitBuilder::NUM_NO_OPS_START;
+    // Index at which random coefficients start (for zk) within Translator trace.
+    // The first 2 rows are zeros for polynomial shiftability (one op's worth of rows).
+    static constexpr size_t RANDOMNESS_START = 2;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
-    // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
-    // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
-    static constexpr size_t SORTED_STEPS_COUNT = ((1 << MICRO_LIMB_BITS) / SORT_STEP) + 1;
-    static_assert(SORTED_STEPS_COUNT * (NUM_CONCATENATED_POLYS + 1) < MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE,
-                  "Translator circuit is too small for defined number of steps "
-                  "(TranslatorDeltaRangeConstraintRelation). ");
-
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
-
-    // Lowest possible size of the Translator mini circuit due to the desing of range constraints.
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-    static_assert(MINI_CIRCUIT_SIZE > MINIMUM_MINI_CIRCUIT_SIZE);
 
     using GrandProductRelations = std::tuple<TranslatorPermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -594,7 +593,12 @@ class TranslatorFlavor {
 
         /**
          * @brief All unshifted polynomials for PCS (excludes computable precomputed, includes concatenated).
-         * @details masking(1) + ordered_extra(1) + op(1) + ordered(5) + z_perm(1) + concat(5) = 14
+         * @details masking(1) + ordered_extra(1) + op(1) + op_queue_tbs(3) + ordered(5) + z_perm(1) + concat(5) = 17
+         *
+         * The op-queue to-be-shifted wires (x_lo_y_hi, x_hi_z_1, y_lo_z_2) appear here in addition to
+         * get_pcs_to_be_shifted because the decomposition relation reads them both unshifted (e.g. `x_lo`)
+         * and shift-by-1 (e.g. `y_hi`) at the same row. Without registering the unshifted opening, the
+         * unshifted MLE evaluations at the sumcheck point would be unconstrained.
          */
         auto get_pcs_unshifted()
         {
@@ -602,9 +606,10 @@ class TranslatorFlavor {
                 MaskingEntities<DataType>::get_all(),                                     // gemini_masking_poly
                 RefArray<DataType, 1>{ this->ordered_extra_range_constraints_numerator }, // non-computable precomputed
                 WireNonshiftedEntities<DataType>::get_all(),                              // op (from merge protocol)
-                OrderedRangeConstraints<DataType>::get_all(),                             // ordered_0..4
-                DerivedWitnessEntities<DataType>::get_all(),                              // z_perm
-                ConcatenatedPolynomials<DataType>::get_all());                            // concat_0..4
+                OpQueueWiresToBeShiftedEntities<DataType>::get_all(), // x_lo_y_hi, x_hi_z_1, y_lo_z_2
+                OrderedRangeConstraints<DataType>::get_all(),         // ordered_0..4
+                DerivedWitnessEntities<DataType>::get_all(),          // z_perm
+                ConcatenatedPolynomials<DataType>::get_all());        // concat_0..4
         }
 
         /**
@@ -719,9 +724,11 @@ class TranslatorFlavor {
                   "Range constraint wires must fill exactly 4 concatenation groups");
 
     // PCS batch sizes
-    static constexpr size_t NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED = WireNonshiftedEntities<FF>::_members_size +
-                                                                           OrderedRangeConstraints<FF>::_members_size +
-                                                                           DerivedWitnessEntities<FF>::_members_size;
+    // Note: op-queue to-be-shifted wires (x_lo_y_hi, x_hi_z_1, y_lo_z_2) are registered in BOTH the
+    // unshifted and shifted PCS batches because the decomposition relation reads them in both forms.
+    static constexpr size_t NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED =
+        WireNonshiftedEntities<FF>::_members_size + OpQueueWiresToBeShiftedEntities<FF>::_members_size +
+        OrderedRangeConstraints<FF>::_members_size + DerivedWitnessEntities<FF>::_members_size;
     static constexpr size_t NUM_TO_BE_SHIFTED = OpQueueWiresToBeShiftedEntities<FF>::_members_size +
                                                 OrderedRangeConstraints<FF>::_members_size +
                                                 DerivedWitnessEntities<FF>::_members_size;
@@ -739,17 +746,20 @@ class TranslatorFlavor {
 
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls.
     // Identifies commitments that appear in both the unshifted and shifted batches:
-    //   Unshifted batch: masking(1) + ordered_extra(1) + op(1) + ordered(5) + z_perm(1) + concat(5) = 14
+    //   Unshifted batch: masking(1) + ordered_extra(1) + op(1) + op_queue_tbs(3) + ordered(5) + z_perm(1) + concat(5)
+    //                  = 17
     //   Shifted batch:   op_queue(3) + ordered(5) + z_perm(1) + concat(5) = 14
-    // Range 1: ordered(5) + z_perm(1) — stored indices 2..7 (unshifted) ↔ 16..21 (shifted)
-    // Range 2: concatenated(5)        — stored indices 8..12 (unshifted) ↔ 22..26 (shifted)
+    // Range 1: op_queue_tbs(3) + ordered(5) + z_perm(1) = 9 (contiguous in both batches)
+    //          stored indices 2..10 (unshifted) ↔ 16..24 (shifted)
+    // Range 2: concatenated(5) — stored indices 11..15 (unshifted) ↔ 25..29 (shifted)
     // (Stored indices are 0-based after ZK offset; offset=2 accounts for Q_commitment + gemini_masking_poly)
+    static constexpr size_t NUM_OP_QUEUE_TO_BE_SHIFTED = OpQueueWiresToBeShiftedEntities<FF>::_members_size;
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         RepeatedCommitmentsData(2,
                                 2 + NUM_PCS_TO_BE_SHIFTED,
-                                NUM_ORDERED_RANGE + 1,
-                                2 + NUM_ORDERED_RANGE + 1,
-                                2 + NUM_PCS_TO_BE_SHIFTED + NUM_ORDERED_RANGE + 1,
+                                NUM_OP_QUEUE_TO_BE_SHIFTED + NUM_ORDERED_RANGE + 1,
+                                2 + NUM_OP_QUEUE_TO_BE_SHIFTED + NUM_ORDERED_RANGE + 1,
+                                2 + NUM_PCS_TO_BE_SHIFTED + NUM_OP_QUEUE_TO_BE_SHIFTED + NUM_ORDERED_RANGE + 1,
                                 NUM_CONCATENATED_POLYS);
 
     static constexpr size_t PROOF_LENGTH =
@@ -779,6 +789,23 @@ class TranslatorFlavor {
     static constexpr size_t COMMITTED_SUMCHECK_PROOF_LENGTH =
         PROOF_LENGTH +
         CONST_TRANSLATOR_LOG_N * (num_frs_comm + 2 * num_frs_fr - BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr);
+
+    // ===== Static assert to ensure a valid trace can be proven ======
+
+    // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
+    // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
+    static constexpr size_t SORTED_STEPS_COUNT = ((1 << MICRO_LIMB_BITS) / SORT_STEP) + 1;
+
+    // The number of masking values in the overflow columns used for the ordered range constraint
+    static constexpr size_t MASKING_OVERFLOW_COLUMN =
+        MAX_RANDOM_VALUES_PER_ORDERED * (NUM_ORDERED_RANGE - 1) / NUM_ORDERED_RANGE;
+
+    static_assert(SORTED_STEPS_COUNT * NUM_ORDERED_RANGE + MASKING_OVERFLOW_COLUMN <
+                      MINI_CIRCUIT_SIZE * CONCATENATION_GROUP_SIZE,
+                  "Translator circuit is too small for defined number of steps "
+                  "(TranslatorDeltaRangeConstraintRelation). ");
+
+    // ================================================================
 
     /**
      * @brief Partition minicircuit wire references into concatenation groups.
@@ -1079,7 +1106,7 @@ class TranslatorFlavor {
                                              /*virtual_size*/ circuit_size,
                                              /*start_index*/ circuit_size - MAX_RANDOM_VALUES_PER_ORDERED - 1 };
             ordered_extra_range_constraints_numerator =
-                Polynomial{ /*size*/ SORTED_STEPS_COUNT * (NUM_CONCATENATED_POLYS + 1),
+                Polynomial{ /*size*/ SORTED_STEPS_COUNT * NUM_CONCATENATED_POLYS + MASKING_OVERFLOW_COLUMN,
                             /*virtual_size*/ circuit_size,
                             /*start_index*/ 0 };
 
@@ -1239,5 +1266,18 @@ class TranslatorFlavor {
     }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
+
+// Guard against drift between the runtime PCS entity lists and their compile-time counts;
+// REPEATED_COMMITMENTS and PROOF_LENGTH depend on these counts and desync silently otherwise.
+static_assert(detail::ref_array_extent<decltype(std::declval<TranslatorFlavor::AllEntities<TranslatorFlavor::FF>&>()
+                                                    .get_pcs_unshifted())>::value ==
+                  TranslatorFlavor::NUM_PCS_UNSHIFTED,
+              "get_pcs_unshifted() entity count must equal NUM_PCS_UNSHIFTED. If you added a witness entity, "
+              "update both the runtime list and NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED.");
+static_assert(detail::ref_array_extent<decltype(std::declval<TranslatorFlavor::AllEntities<TranslatorFlavor::FF>&>()
+                                                    .get_pcs_to_be_shifted())>::value ==
+                  TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED,
+              "get_pcs_to_be_shifted() entity count must equal NUM_PCS_TO_BE_SHIFTED. If you added a to-be-shifted "
+              "entity, update both the runtime list and NUM_TO_BE_SHIFTED.");
 
 } // namespace bb

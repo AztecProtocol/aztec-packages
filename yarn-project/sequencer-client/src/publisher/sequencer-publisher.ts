@@ -4,15 +4,16 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   FeeAssetPriceOracle,
-  type FeeHeader,
   type GovernanceProposerContract,
-  type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
+  SimulationOverridesBuilder,
+  type SimulationOverridesPlan,
   type SlashingProposerContract,
   type ViemCommitteeAttestations,
   type ViemHeader,
+  buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
 import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
 import {
@@ -26,7 +27,6 @@ import {
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
 import { sumBigint } from '@aztec/foundation/bigint';
-import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
@@ -35,7 +35,6 @@ import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
@@ -50,7 +49,6 @@ import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from
 
 import {
   type Hex,
-  type StateOverride,
   type TransactionReceipt,
   type TypedDataDefinition,
   encodeFunctionData,
@@ -119,6 +117,18 @@ export type InvalidateCheckpointRequest = {
   lastArchive: Fr;
 };
 
+type EnqueueProposeCheckpointOpts = {
+  txTimeoutAt?: Date;
+  simulationOverridesPlan?: SimulationOverridesPlan;
+  /**
+   * Overrides to apply to the preCheck simulation right before L1 submission.
+   * Intentionally separate from `simulationOverridesPlan`: enqueue-time validation
+   * may need pipelined-parent / pretend-proof-landed overrides, but preCheck must
+   * reflect real L1 state to catch state drift between build and submission.
+   */
+  preCheckSimulationOverridesPlan?: SimulationOverridesPlan;
+};
+
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -145,7 +155,6 @@ export class SequencerPublisher {
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
   private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
-  private payloadProposedCache: Set<string> = new Set<string>();
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
@@ -278,10 +287,14 @@ export class SequencerPublisher {
 
   /**
    * Gets the fee asset price modifier from the oracle.
-   * Returns 0n if the oracle query fails.
+   *
+   * @param predictedParentEthPerFeeAssetE12 - Optional predicted parent eth-per-fee-asset (E12).
+   *   Pipelined proposers should pass the value from the predicted parent fee header so the
+   *   modifier matches the parent L1 will use when applying it.
+   * @returns The fee asset price modifier in basis points, or 0n if the oracle query fails.
    */
-  public getFeeAssetPriceModifier(): Promise<bigint> {
-    return this.feeAssetPriceOracle.computePriceModifier();
+  public getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12?: bigint): Promise<bigint> {
+    return this.feeAssetPriceOracle.computePriceModifier(predictedParentEthPerFeeAssetE12);
   }
 
   public getSenderAddress() {
@@ -662,27 +675,21 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAt(
-    tipArchive: Fr,
-    msgSender: EthAddress,
-    opts: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceArchive?: { checkpointNumber: CheckpointNumber; archive: Fr };
-      pipelined?: boolean;
-    } = {},
-  ) {
+  public async canProposeAt(tipArchive: Fr, msgSender: EthAddress, simulationOverridesPlan?: SimulationOverridesPlan) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-    const pipelined = opts.pipelined ?? this.epochCache.isProposerPipeliningEnabled();
+    const pipelined = this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
     const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract
-      .canProposeAt(tipArchive.toBuffer(), msgSender.toString(), nextL1SlotTs, {
-        forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
-        forceArchive: opts.forceArchive,
-      })
+      .canProposeAt(
+        tipArchive.toBuffer(),
+        msgSender.toString(),
+        nextL1SlotTs,
+        await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan),
+      )
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
@@ -704,13 +711,13 @@ export class SequencerPublisher {
   @trackSpan('SequencerPublisher.validateBlockHeader')
   public async validateBlockHeader(
     header: CheckpointHeader,
-    opts?: { forcePendingCheckpointNumber: CheckpointNumber | undefined },
+    simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<void> {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
       header.toViem(),
-      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
+      CommitteeAttestationsAndSigners.packAttestations([]),
       [], // no signers
       Signature.empty().toViemSignature(),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
@@ -719,9 +726,7 @@ export class SequencerPublisher {
     ] as const;
 
     const ts = this.getSimulationTimestamp(header.slotNumber);
-    const stateOverrides = await this.rollupContract.makePendingCheckpointNumberOverride(
-      opts?.forcePendingCheckpointNumber,
-    );
+    const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     let balance = 0n;
     if (this.config.fishermanMode) {
       // In fisherman mode, we can't know where the proposer is publishing from
@@ -853,9 +858,7 @@ export class SequencerPublisher {
     const logData = { ...checkpoint, reason };
     this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
 
-    const attestationsAndSigners = new CommitteeAttestationsAndSigners(
-      validationResult.attestations,
-    ).getPackedAttestations();
+    const attestationsAndSigners = CommitteeAttestationsAndSigners.packAttestations(validationResult.attestations);
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
@@ -882,10 +885,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    options: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    },
+    simulationOverridesPlan?: SimulationOverridesPlan,
   ): Promise<void> {
     const blobFields = checkpoint.toBlobFields();
     const blobs = await getBlobsPerL1Block(blobFields);
@@ -905,14 +905,14 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    await this.simulateProposeTx(args, options);
+    await this.simulateProposeTx(args, simulationOverridesPlan);
   }
 
   private async enqueueCastSignalHelper(
     slotNumber: SlotNumber,
     signalType: GovernanceSignalAction,
     payload: EthAddress,
-    base: IEmpireBase,
+    base: GovernanceProposerContract,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
@@ -943,29 +943,23 @@ export class SequencerPublisher {
       return false;
     }
 
-    // Check if payload was already submitted to governance
-    const cacheKey = payload.toString();
-    if (!this.payloadProposedCache.has(cacheKey)) {
-      try {
-        const l1StartBlock = await this.rollupContract.getL1StartBlock();
-        const proposed = await retry(
-          () => base.hasPayloadBeenProposed(payload.toString(), l1StartBlock),
-          'Check if payload was proposed',
-          makeBackoff([0, 1, 2]),
-          this.log,
-          true,
-        );
-        if (proposed) {
-          this.payloadProposedCache.add(cacheKey);
-        }
-      } catch (err) {
-        this.log.warn(`Failed to check if payload ${payload} was proposed after retries, skipping signal`, err);
-        return false;
-      }
+    // Skip signaling if there is already a live (non-terminal) Governance proposal for this
+    // payload. This is intentionally not cached: a previously-live proposal may transition to
+    // a terminal state (Dropped/Rejected/Expired/Executed), at which point we may want to re-signal
+    // the same payload in a future round.
+    let proposed = false;
+    try {
+      proposed = await base.hasActiveProposalWithPayload(payload.toString());
+    } catch (err) {
+      // We deliberately swallow the error and proceed to signal. Failing closed (skipping the
+      // signal) on transient RPC errors would let a flaky L1 endpoint silence governance
+      // participation entirely; failing open at worst produces a duplicate signal that the
+      // contract will simply count alongside others in the round.
+      this.log.error(`Failed to check if payload ${payload} was already proposed (signalling anyway)`, err);
     }
 
-    if (this.payloadProposedCache.has(cacheKey)) {
-      this.log.info(`Payload ${payload} was already proposed to governance, stopping signals`);
+    if (proposed) {
+      this.log.info(`Payload ${payload} has a live governance proposal, stopping signals`);
       return false;
     }
 
@@ -1154,11 +1148,7 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     attestationsAndSignersSignature: Signature,
-    opts: {
-      txTimeoutAt?: Date;
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    } = {},
+    opts: EnqueueProposeCheckpointOpts = {},
   ): Promise<void> {
     const checkpointHeader = checkpoint.header;
 
@@ -1174,6 +1164,14 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
+    const simulationOverridesPlan = SimulationOverridesBuilder.from(opts.simulationOverridesPlan)
+      .withoutBlobCheck()
+      .build();
+
+    const preCheckSimulationOverridesPlan = SimulationOverridesBuilder.from(opts.preCheckSimulationOverridesPlan)
+      .withoutBlobCheck()
+      .build();
+
     try {
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
@@ -1184,13 +1182,13 @@ export class SequencerPublisher {
         checkpoint,
         attestationsAndSigners,
         attestationsAndSignersSignature,
-        opts,
+        simulationOverridesPlan,
       );
     } catch (err: any) {
       this.log.error(`Checkpoint validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
         ...checkpoint.getStats(),
         slotNumber: checkpoint.header.slotNumber,
-        forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
+        simulationOverridesPlan,
       });
       throw err;
     }
@@ -1205,16 +1203,22 @@ export class SequencerPublisher {
           checkpoint,
           attestationsAndSigners,
           attestationsAndSignersSignature,
-          {
-            // Forcing pending checkpoint number is included its required if an invalidation request is included
-            forcePendingCheckpointNumber: opts.forcePendingCheckpointNumber,
-          },
+          preCheckSimulationOverridesPlan,
         );
       };
     }
 
-    this.log.verbose(`Enqueuing checkpoint propose transaction`, { ...checkpoint.toCheckpointInfo(), ...opts });
-    await this.addProposeTx(checkpoint, proposeTxArgs, opts, preCheck);
+    this.log.verbose(`Enqueuing checkpoint propose transaction`, {
+      ...checkpoint.toCheckpointInfo(),
+      txTimeoutAt: opts.txTimeoutAt,
+      simulationOverridesPlan,
+    });
+    await this.addProposeTx(
+      checkpoint,
+      proposeTxArgs,
+      { txTimeoutAt: opts.txTimeoutAt, simulationOverridesPlan },
+      preCheck,
+    );
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1344,10 +1348,7 @@ export class SequencerPublisher {
     this.l1TxUtils.restart();
   }
 
-  private async prepareProposeTx(
-    encodedData: L1ProcessArgs,
-    options: { forcePendingCheckpointNumber?: CheckpointNumber },
-  ) {
+  private async prepareProposeTx(encodedData: L1ProcessArgs, simulationOverridesPlan?: SimulationOverridesPlan) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
@@ -1418,7 +1419,7 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const { rollupData, simulationResult } = await this.simulateProposeTx(args, options);
+    const { rollupData, simulationResult } = await this.simulateProposeTx(args, simulationOverridesPlan);
 
     return { args, blobEvaluationGas, rollupData, simulationResult };
   }
@@ -1442,10 +1443,7 @@ export class SequencerPublisher {
       ViemSignature,
       `0x${string}`,
     ],
-    options: {
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    },
+    simulationOverridesPlan?: SimulationOverridesPlan,
   ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
@@ -1453,34 +1451,7 @@ export class SequencerPublisher {
       args,
     });
 
-    // override the proposed checkpoint number if requested
-    const forcePendingCheckpointNumberStateDiff = (
-      options.forcePendingCheckpointNumber !== undefined
-        ? await this.rollupContract.makePendingCheckpointNumberOverride(options.forcePendingCheckpointNumber)
-        : []
-    ).flatMap(override => override.stateDiff ?? []);
-
-    // override the fee header for a specific checkpoint number if requested (used when pipelining)
-    const forceProposedFeeHeaderStateDiff = (
-      options.forceProposedFeeHeader !== undefined
-        ? await this.rollupContract.makeFeeHeaderOverride(
-            options.forceProposedFeeHeader.checkpointNumber,
-            options.forceProposedFeeHeader.feeHeader,
-          )
-        : []
-    ).flatMap(override => override.stateDiff ?? []);
-
-    const stateOverrides: StateOverride = [
-      {
-        address: this.rollupContract.address,
-        // @note we override checkBlob to false since blobs are not part simulate()
-        stateDiff: [
-          { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
-          ...forcePendingCheckpointNumberStateDiff,
-          ...forceProposedFeeHeaderStateDiff,
-        ],
-      },
-    ];
+    const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     // In fisherman mode, simulate as the proposer but with sufficient balance
     if (this.proposerAddressForSimulation) {
       stateOverrides.push({
@@ -1545,17 +1516,16 @@ export class SequencerPublisher {
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
-    opts: {
-      txTimeoutAt?: Date;
-      forcePendingCheckpointNumber?: CheckpointNumber;
-      forceProposedFeeHeader?: { checkpointNumber: CheckpointNumber; feeHeader: FeeHeader };
-    } = {},
+    opts: EnqueueProposeCheckpointOpts = {},
     preCheck?: () => Promise<void>,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, opts);
+    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
+      encodedData,
+      opts.simulationOverridesPlan,
+    );
     const startBlock = await this.l1TxUtils.getBlockNumber();
     const gasLimit = this.l1TxUtils.bumpGasLimit(
       BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
@@ -1578,7 +1548,7 @@ export class SequencerPublisher {
         data: rollupData,
       },
       lastValidL2Slot: checkpoint.header.slotNumber,
-      gasConfig: { ...opts, gasLimit },
+      gasConfig: { txTimeoutAt: opts.txTimeoutAt, gasLimit },
       preCheck,
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),

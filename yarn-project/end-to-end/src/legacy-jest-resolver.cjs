@@ -1,5 +1,5 @@
 // Custom Jest resolver. When CONTRACT_ARTIFACTS_VERSION is set, redirects *only* JSON artifact files under
-// @aztec/noir-contracts.js/artifacts/ and @aztec/noir-test-contracts.js/artifacts/ to a local cache of the pinned
+// @aztec/noir-contracts.js/artifacts/, @aztec/noir-test-contracts.js/artifacts/, and @aztec/accounts/artifacts/ to a local cache of the pinned
 // legacy versions. TypeScript wrapper classes (e.g. Token.ts) continue to load from the current workspace and use the
 // current @aztec/aztec.js — only the artifact JSON (the deployed-contract ABI / bytecode / notes surface) is swapped.
 //
@@ -8,63 +8,36 @@
 // would couple this test to a moving aztec.js surface and break at import time on unrelated breaking changes; we want
 // to fail only on actual artifact-compat regressions.
 //
-// The cache is populated on demand by running `npm install` into .legacy-contracts/<version>/.
+// Cache population lives in install_legacy_contracts.cjs — invoked lazily here for local dev, and eagerly
+// by bootstrap.sh ci-compat-e2e before hermetic test containers (which run with --net=none) launch.
+//
+// Missing artifacts: legacy version directories are immutable, so an artifact missing from the cache means the
+// contract was added after the pinned release — there's nothing to compat-test. Rather than failing or silently
+// falling back to the workspace artifact (which would turn the compat run into a regular e2e run that always
+// passes), we log the miss and exit the process cleanly with code 0. The test never runs, but the per-test CI
+// log captures the explanatory line so the reason is auditable. This keeps the change scoped to this resolver,
+// avoiding a new exit-code contract in the shared ci3 test runner.
 //
 // Activated by env var; passthrough otherwise.
 /* eslint-disable @typescript-eslint/no-require-imports */
 
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { installLegacyContracts, REDIRECTED, cacheRoot } = require('./install_legacy_contracts.cjs');
 
 const version = process.env.CONTRACT_ARTIFACTS_VERSION;
-const REDIRECTED = ['@aztec/noir-contracts.js', '@aztec/noir-test-contracts.js'];
-
-// Jest sets rootDir to <e2e>/src; this file lives there too.
-const e2eRoot = path.resolve(__dirname, '..');
-const cacheRoot = version ? path.join(e2eRoot, '.legacy-contracts', version) : null;
+const cacheDir = version ? cacheRoot(version) : null;
 
 function pkgJsonPath(name) {
-  return path.join(cacheRoot, 'node_modules', name, 'package.json');
+  return path.join(cacheDir, 'node_modules', name, 'package.json');
 }
 
-function ensureCache() {
-  const missing = REDIRECTED.some(p => !fs.existsSync(pkgJsonPath(p)));
-  if (!missing) {
-    return;
-  }
-  fs.mkdirSync(cacheRoot, { recursive: true });
-  // Seed a standalone package.json so `npm install --prefix` treats cacheRoot as its own project. Without this, npm
-  // walks up and finds the yarn-project workspace root, which breaks on `workspace:` protocol deps and risks
-  // clobbering the monorepo's node_modules.
-  const seed = path.join(cacheRoot, 'package.json');
-  if (!fs.existsSync(seed)) {
-    fs.writeFileSync(seed, JSON.stringify({ name: 'legacy-contracts-cache', private: true }));
-  }
-
-  const specs = REDIRECTED.map(p => `${p}@${version}`).join(' ');
-  process.stderr.write(`[legacy-contracts] installing ${specs} into ${cacheRoot}\n`);
-  // --prefix: install into cacheRoot instead of cwd, so the cache is isolated from the monorepo.
-  // --no-save: don't write the installed packages back to the seeded package.json.
-  // --ignore-scripts: skip lifecycle scripts (preinstall/postinstall) of the legacy packages and their transitive
-  //   deps; we only want the files on disk, not to run any build steps.
-  // --legacy-peer-deps: tolerate peer-dependency mismatches between the pinned legacy @aztec/* graph and whatever
-  //   current versions npm would otherwise try to reconcile.
-  execSync(`npm install --prefix "${cacheRoot}" --no-save --ignore-scripts --legacy-peer-deps ${specs}`, {
-    stdio: 'inherit',
-  });
-
-  // Verify versions on disk match the requested version.
-  for (const p of REDIRECTED) {
-    const onDisk = JSON.parse(fs.readFileSync(pkgJsonPath(p), 'utf8')).version;
-    if (onDisk !== version) {
-      throw new Error(`[legacy-contracts] ${p} on disk is ${onDisk}, expected ${version}`);
-    }
-  }
-}
-
+// Kept in a separate module (not inlined) because bootstrap.sh ci-compat-e2e also calls it directly
+// via `node .../install_legacy_contracts.cjs <version>` to pre-populate the cache on the host before
+// hermetic --net=none test containers launch. Inlining here would force us to duplicate the logic
+// in bash or re-run jest just to trigger the install.
 if (version) {
-  ensureCache();
+  installLegacyContracts(version);
 }
 
 let bannerPrinted = false;
@@ -102,7 +75,7 @@ function legacyArtifactPath(resolved) {
       continue;
     }
     const basename = resolved.slice(idx + marker.length);
-    return path.join(cacheRoot, 'node_modules', pkg, 'artifacts', basename);
+    return path.join(cacheDir, 'node_modules', pkg, 'artifacts', basename);
   }
   return null;
 }
@@ -122,10 +95,14 @@ module.exports = function legacyResolver(request, options) {
     return resolved;
   }
   if (!fs.existsSync(legacy)) {
-    throw new Error(
-      `[legacy-contracts] artifact ${path.basename(legacy)} not present in legacy cache @${version}; ` +
-        `the contract may have been added after that release. Pin a newer CONTRACT_ARTIFACTS_VERSION or skip this test.`,
+    // Contract was added after this historical release, there is nothing to compat-test for it. Exit the process
+    // cleanly with code 0 so the test runner reports the run as passed.
+    fs.writeSync(
+      2,
+      `[legacy-contracts][jest] artifact ${path.basename(legacy)} not in legacy cache @${version}; ` +
+        `assumed added after this release. No compat coverage applicable for this version, treating as passed.\n`,
     );
+    process.exit(0);
   }
   if (!seen.has(resolved)) {
     seen.add(resolved);

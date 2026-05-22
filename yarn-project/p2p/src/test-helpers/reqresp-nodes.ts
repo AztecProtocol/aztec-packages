@@ -6,6 +6,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type {
   ClientProtocolCircuitVerifier,
   IVCProofVerificationResult,
@@ -30,7 +31,7 @@ import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import type { BootnodeConfig, P2PConfig } from '../config.js';
+import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { APP_SPECIFIC_WEIGHT } from '../services/gossipsub/scoring.js';
@@ -75,6 +76,10 @@ export async function createLibp2pNode(
     services: {
       identify: identify({
         protocolPrefix: 'aztec',
+      }),
+      components: (components: { connectionManager: any; addressManager: any }) => ({
+        connectionManager: components.connectionManager,
+        addressManager: components.addressManager,
       }),
     },
   };
@@ -153,6 +158,8 @@ export async function createTestLibP2PService(
     epochCache,
   );
 
+  reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
+
   p2pNode.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
@@ -168,6 +175,7 @@ export async function createTestLibP2PService(
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
+    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     telemetry,
   );
 }
@@ -288,6 +296,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     bootstrapNodes: [],
     listenAddress: '127.0.0.1',
     queryForIp: false,
+    publicIpServices: DEFAULT_PUBLIC_IP_SERVICES,
   };
 }
 

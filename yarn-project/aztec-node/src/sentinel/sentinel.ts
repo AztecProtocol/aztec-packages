@@ -1,5 +1,11 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  CheckpointProposalHash,
+  EpochNumber,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -21,7 +27,9 @@ import {
   type L2BlockStreamEventHandler,
   getAttestationInfoFromPublishedCheckpoint,
 } from '@aztec/stdlib/block';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import type {
   SingleValidatorStats,
   ValidatorStats,
@@ -35,6 +43,12 @@ import type {
 import EventEmitter from 'node:events';
 
 import { SentinelStore } from './store.js';
+
+export type SentinelRuntimeConfig = Pick<
+  SlasherConfig,
+  'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
+> &
+  Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
 
 /** Maps a validator status to its category: proposer or attestation. */
 function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
@@ -54,10 +68,15 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected slotNumberToCheckpoint: Map<
     SlotNumber,
-    { checkpointNumber: CheckpointNumber; archive: string; attestors: EthAddress[] }
+    {
+      checkpointNumber: CheckpointNumber;
+      archive: string;
+      /** Hex keccak256 of the consensus payload bytes; used to fetch matching p2p attestations. */
+      proposalPayloadHash: CheckpointProposalHash;
+      attestors: EthAddress[];
+    }
   > = new Map();
 
   constructor(
@@ -65,16 +84,20 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
-    protected config: Pick<
-      SlasherConfig,
-      'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
-    >,
+    protected config: SentinelRuntimeConfig,
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
-    this.l2TipsStore = new L2TipsMemoryStore();
+    this.l2TipsStore = new L2TipsMemoryStore(archiver.getGenesisBlockHash());
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
+  }
+
+  private getSignatureContext(): CoordinationSignatureContext {
+    return {
+      chainId: this.config.l1ChainId,
+      rollupAddress: this.config.rollupAddress,
+    };
   }
 
   public updateConfig(config: Partial<SlasherConfig>) {
@@ -113,11 +136,17 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
     const checkpoint = event.checkpoint;
 
-    // Store mapping from slot to archive, checkpoint number, and attestors
+    // Store mapping from slot to archive, checkpoint number, attestors, and the consensus payload
+    // hash (used to query matching p2p attestations regardless of feeAssetPriceModifier variants).
+    const signatureContext = this.getSignatureContext();
+    const proposalPayloadHash = CheckpointProposalHash.fromBuffer(
+      ConsensusPayload.fromCheckpoint(checkpoint.checkpoint, signatureContext).getPayloadHash(),
+    );
     this.slotNumberToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, {
       checkpointNumber: checkpoint.checkpoint.number,
       archive: checkpoint.checkpoint.archive.root.toString(),
-      attestors: getAttestationInfoFromPublishedCheckpoint(checkpoint)
+      proposalPayloadHash,
+      attestors: getAttestationInfoFromPublishedCheckpoint(checkpoint, signatureContext)
         .filter(a => a.status === 'recovered-from-signature')
         .map(a => a.address!),
     });
@@ -139,7 +168,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return;
     }
     const blockNumber = event.block.number;
-    const header = await this.archiver.getBlockHeader(blockNumber);
+    const header = (await this.archiver.getBlockData({ number: blockNumber }))?.header;
     if (!header) {
       this.logger.error(`Failed to get block header ${blockNumber}`);
       return;
@@ -228,7 +257,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
 
     const inactiveValidators = getEntries(performance)
-      .filter(([_, { missed, total }]) => missed / total >= this.config.slashInactivityTargetPercentage)
+      .filter(([_, { missed, total }]) => total > 0 && missed / total >= this.config.slashInactivityTargetPercentage)
       .map(([address]) => address);
 
     this.logger.debug(`Found ${inactiveValidators.length} inactive validators in epoch ${epoch}`, {
@@ -361,7 +390,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
     // (contains the ones synced from mined checkpoints, which we may have missed from p2p).
     const checkpoint = this.slotNumberToCheckpoint.get(slot);
-    const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, checkpoint?.archive);
+    const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, checkpoint?.proposalPayloadHash);
     // Filter out attestations with invalid signatures
     const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(

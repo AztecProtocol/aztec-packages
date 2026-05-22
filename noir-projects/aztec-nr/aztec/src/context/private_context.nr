@@ -42,7 +42,7 @@ use crate::protocol::{
     hash::compute_contract_class_log_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
     side_effect::{Counted, scoped::Scoped},
-    traits::{Empty, Hash, ToField},
+    traits::{Empty, ToField},
     utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
 
@@ -557,11 +557,20 @@ impl PrivateContext {
     /// counter.
     ///
     pub fn end_setup(&mut self) {
-        // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
-        // phases.
+        // We bump the counter twice: once so that `min_revertible_side_effect_counter` sits strictly above any
+        // non-revertible side effect counter (including queries made via `in_revertible_phase` before this call), and
+        // once more so that the next revertible side effect counter is strictly greater than
+        // `min_revertible_side_effect_counter`. This ensures `min_revertible_side_effect_counter` occupies a gap that
+        // no side effect takes, which the kernel relies on when validating the phase split.
         self.side_effect_counter += 1;
-        aztecnr_trace_log_format!("Ending setup at counter {0}")([self.side_effect_counter as Field]);
-        self.min_revertible_side_effect_counter = self.next_counter();
+        self.min_revertible_side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+
+        aztecnr_trace_log_format!(
+            "Ending setup, minimum revertible side effect counter is {0}",
+        )(
+            [self.min_revertible_side_effect_counter as Field],
+        );
         notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
@@ -744,39 +753,42 @@ impl PrivateContext {
     /// request validation of this claim, by making a "key validation request" to the protocol's kernel circuits (which
     /// _are_ allowed to see certain master secret keys).
     ///
-    /// When a Key Validation Request tuple of (sk_app, Pk_m, app_address) is submitted to the kernel, it will perform
-    /// the following derivations to validate the relationship between the claimed sk_app and the user's Pk_m:
+    /// The app circuit only sees `pk_m_hash` (not the raw point). The kernel derives the
+    /// point from `sk_m`, hashes it, and asserts equality. When a Key Validation Request tuple of
+    /// (sk_app, pk_m_hash, app_address) is submitted to the kernel, it performs the following
+    /// derivations to validate the relationship between the claimed sk_app and the user's pk_m_hash:
     ///
-    ///       (sk_m) ----> * G ----> Pk_m
-    ///         |                     |
-    ///         v                       We use the kernel to prove this
-    ///  h(sk_m, app_address)         | sk_app-Pk_m relationship, because app
-    ///         |                       circuits must not be trusted to see sk_m.
-    ///         v                     |
-    /// sk_app - -  - - - - - - -
+    ///       (sk_m) ----> * G ----> pk_m ----> hash_public_key(pk_m)
+    ///         |                                        |
+    ///         v                                        | We use the kernel to prove this
+    ///  h(sk_m, app_address)                            | sk_app-pk_m_hash relationship, because app
+    ///         |                                        | circuits must not be trusted to see sk_m.
+    ///         v                                        |
+    ///      sk_app  - - - - - - - - - - - - - - - - - -
     ///
     /// The function is named "request_" instead of "get_" to remind the user that a Key Validation Request will be
     /// emitted to the kernel.
     ///
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
-        let cached_request =
-            self.last_key_validation_requests[key_index as u32].unwrap_or(KeyValidationRequest::empty());
+        // Match against the cache only when a request is actually present in the slot.
+        let cached_slot = self.last_key_validation_requests[key_index as u32];
+        let cache_hit = cached_slot.is_some() & (cached_slot.unwrap_unchecked().pk_m_hash == pk_m_hash);
 
-        if cached_request.pk_m.hash() == pk_m_hash {
+        if cache_hit {
             // We get a match so the cached request is the latest one
-            cached_request.sk_app
+            cached_slot.unwrap_unchecked().sk_app
         } else {
-            // We didn't get a match meaning the cached result is stale Typically we'd validate keys by showing that
-            // they are the preimage of `pk_m_hash`, but that'd require the oracle returning the master secret keys,
-            // which could cause malicious contracts to leak it or learn about secrets from other contracts. We
-            // therefore silo secret keys, and rely on the private kernel to validate that we siloed secret key
-            // corresponds to correct siloing of the master secret key that hashes to `pk_m_hash`.
+            // We didn't get a match meaning the cached result is stale. Typically we'd validate keys by showing that
+            // the master secret key derives to a public key matching `pk_m_hash`, but that'd require the oracle
+            // returning the master secret keys, which could cause malicious contracts to leak it or learn about
+            // secrets from other contracts. We therefore silo secret keys, and rely on the private kernel to validate
+            // that the siloed secret key corresponds to correct siloing of the master secret key that hashes to
+            // `pk_m_hash`.
 
             // Safety: Kernels verify that the key validation request is valid and below we verify that a request for
             // the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
-            assert(!request.pk_m.is_infinite, "Infinite public key points are not allowed");
-            assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
+            assert_eq(request.pk_m_hash, pk_m_hash, "Obtained key validation request for wrong pk_m_hash");
 
             self.key_validation_requests_and_separators.push(
                 KeyValidationRequestAndSeparator {
@@ -885,13 +897,10 @@ impl PrivateContext {
     /// filter for relevant logs without scanning all of them.
     /// * `log` - The log data that will be publicly broadcast (so make sure it's already been encrypted before you
     /// call this function). Private logs are bounded in size (`PRIVATE_LOG_CIPHERTEXT_LEN`), to encourage all logs
-    /// from all smart contracts look identical.
-    /// * `length` - The actual length of `log` (measured in number of Fields). Although the input log has a max
-    /// size of `PRIVATE_LOG_CIPHERTEXT_LEN`, the latter values of the array might all be 0's for small logs. This
-    /// `length` should reflect the trimmed length of the array. The protocol's kernel circuits can then append
-    /// random fields as "padding" after the `length`, so that the logs of this smart contract look
-    /// indistinguishable from (the same length as) the logs of all other applications. It's up to wallets how much
-    /// padding to apply, so ideally all wallets should agree on standards for this.
+    /// from all smart contracts look identical. The protocol's kernel circuits can then append random fields as
+    /// "padding" after the log's length, so that the logs of this smart contract look indistinguishable from (the
+    /// same length as) the logs of all other applications. It's up to wallets how much padding to apply, so
+    /// ideally all wallets should agree on standards for this.
     ///
     /// ## Safety
     ///
@@ -900,31 +909,29 @@ impl PrivateContext {
     /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
     /// ([`crate::messages::message_delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
     /// handle tagging automatically.
-    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32) {
-        let counter = self.next_counter();
-        let full_log = [tag].concat(log);
-        self.private_logs.push(PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }
-            .count(counter));
+    pub fn emit_private_log_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
+        self.emit_raw_note_log_unsafe(tag, log, 0);
     }
 
-    // TODO: rename.
     /// Emits a private log that is explicitly tied to a newly-emitted note_hash, to convey to the kernel: "this log
     /// relates to this note".
     ///
     /// This linkage is important in case the note gets squashed (due to being read later in this same tx), since we
     /// can then squash the log as well.
     ///
-    /// See `emit_private_log_unsafe` for more info about private log emission.
+    /// See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) for more info about private log
+    /// emission.
     ///
     /// # Arguments
-    /// * `tag` - A tag placed at `fields[0]`. See `emit_private_log_unsafe`.
-    /// * `log` - The log data as an array of Field elements
-    /// * `length` - The actual length of the `log` (measured in number of Fields).
+    /// * `tag` - A tag placed at `fields[0]`. See
+    ///   [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
+    /// * `log` - The log data as a `BoundedVec` of Field elements.
     /// * `note_hash_counter` - The side-effect counter that was assigned to the new note_hash when it was pushed to
     /// this `PrivateContext`.
     ///
     /// Important: If your application logic requires the log to always be emitted regardless of note squashing,
-    /// consider using `emit_private_log_unsafe` instead, or emitting additional events.
+    /// consider using [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) instead, or emitting
+    /// additional events.
     ///
     /// ## Safety
     ///
@@ -932,13 +939,12 @@ impl PrivateContext {
     pub fn emit_raw_note_log_unsafe(
         &mut self,
         tag: Field,
-        log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN],
-        length: u32,
+        log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
         note_hash_counter: u32,
     ) {
         let counter = self.next_counter();
-        let full_log = [tag].concat(log);
-        let private_log = PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter };
+        let full_log = [tag].concat(log.storage());
+        let private_log = PrivateLogData { log: PrivateLog::new(full_log, log.len() + 1), note_hash_counter };
         self.private_logs.push(private_log.count(counter));
     }
 
@@ -1154,16 +1160,12 @@ impl PrivateContext {
             },
         );
 
-        // TODO (fees) figure out why this crashes the prover and enable it we need this in order to pay fees inside
-        // child call contexts assert(
-        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
-        //     | (item.public_inputs.min_revertible_side_effect_counter
-        //         > self.min_revertible_side_effect_counter)
-        // ); if item.public_inputs.min_revertible_side_effect_counter
-        //     > self.min_revertible_side_effect_counter { self.min_revertible_side_effect_counter =
-        // item.public_inputs.min_revertible_side_effect_counter; }
-        self.side_effect_counter = end_side_effect_counter + 1; // TODO: call `next_counter`
-        // instead, for consistency
+        // The kernel circuits ensure that end_side_effect_counter is greater than start_side_effect_counter, and that
+        // all side effects emitted in the child call have counters within the range [start_side_effect_counter,
+        // end_side_effect_counter]. Therefore, we only need to ensure that the next side effect from the current call
+        // starts after the end side effect from the child call.
+        self.side_effect_counter = end_side_effect_counter + 1;
+
         ReturnsHash::new(returns_hash)
     }
 

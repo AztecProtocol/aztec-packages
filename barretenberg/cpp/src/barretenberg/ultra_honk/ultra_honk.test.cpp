@@ -50,45 +50,6 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 }
 
 /**
- * @brief A quick test to ensure that none of our polynomials are identically zero
- *
- * @note This test assumes that gates have been added by default in the composer
- * to achieve non-zero polynomials
- *
- */
-TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(circuit_builder);
-    auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(prover_instance->get_precomputed());
-    typename TestFixture::Prover prover(prover_instance, verification_key);
-    auto proof = prover.construct_proof();
-    auto& polynomials = prover_instance->polynomials;
-
-    auto ensure_non_zero = [](auto& polynomial) {
-        bool has_non_zero_coefficient = false;
-        for (auto& coeff : polynomial.coeffs()) {
-            has_non_zero_coefficient |= !coeff.is_zero();
-        }
-        ASSERT_TRUE(has_non_zero_coefficient);
-    };
-
-    for (auto& poly : polynomials.get_selectors()) {
-        ensure_non_zero(poly);
-    }
-
-    for (auto& poly : polynomials.get_tables()) {
-        ensure_non_zero(poly);
-    }
-
-    for (auto& poly : polynomials.get_wires()) {
-        ensure_non_zero(poly);
-    }
-}
-
-/**
  * @brief Test simple circuit with public inputs
  *
  */
@@ -409,7 +370,7 @@ TYPED_TEST(UltraHonkTests, TooLongProofRejected)
 /**
  * @brief Test that the dyadic size correctly jumps to the next power of 2 when the trace would otherwise
  * place lagrange_last in the ZK masking region.
- * @details For ZK flavors, the last NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
+ * @details For ZK flavors, the first NUM_MASKED_ROWS rows are overwritten with random values for zero-knowledge.
  * We incrementally add gates until the dyadic size doubles, verifying at each step that:
  *   (1) lagrange_last (at final_active_wire_idx) does not overlap the masking area
  *   (2) sufficient headroom exists for disabled rows
@@ -431,9 +392,10 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
         auto baseline_instance = std::make_shared<ProverInstance>(baseline_builder);
         const size_t baseline_dyadic = baseline_instance->dyadic_size();
 
-        // Add gates one at a time until the dyadic size doubles
+        // The disabled head region (rows 0..TRACE_OFFSET-1)
+        // is always present. Verify that the active trace starts after the disabled region and that
+        // the dyadic size doubles when the trace gets tightly packed.
         size_t prev_dyadic = 0;
-        size_t prev_final_active_idx = 0;
         bool found_jump = false;
         for (size_t num_extra_gates = 0; num_extra_gates <= baseline_dyadic; num_extra_gates++) {
             Builder builder;
@@ -446,22 +408,14 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 
             const size_t dyadic_size = prover_instance->dyadic_size();
             const size_t final_active_idx = prover_instance->get_final_active_wire_idx();
-            const size_t first_masked_row = dyadic_size - NUM_MASKED_ROWS;
 
-            // Invariant (1): lagrange_last must be strictly before the masking area
-            ASSERT_LT(final_active_idx, first_masked_row)
-                << "lagrange_last (at " << final_active_idx << ") overlaps masking area (starting at "
-                << first_masked_row << ") with num_extra_gates=" << num_extra_gates;
-
-            // Invariant (2): sufficient headroom for disabled rows
-            ASSERT_GE(dyadic_size - final_active_idx - 1, static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
+            // Invariant: active trace doesn't overlap the disabled head region
+            ASSERT_GE(final_active_idx, ProverInstance::TRACE_OFFSET)
+                << "final_active_idx (" << final_active_idx << ") is within the disabled head region";
 
             if (prev_dyadic != 0 && dyadic_size > prev_dyadic) {
-                // Invariant (3): dyadic size should exactly double
+                // Dyadic size should exactly double
                 EXPECT_EQ(dyadic_size, 2 * prev_dyadic);
-                // The previous circuit was tightly packed
-                EXPECT_LE(prev_dyadic - prev_final_active_idx - 1,
-                          2 * static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
 
                 // Prove and verify at the tightest packing (right before the jump)
                 Builder tight_builder;
@@ -475,7 +429,6 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
             }
 
             prev_dyadic = dyadic_size;
-            prev_final_active_idx = final_active_idx;
         }
 
         EXPECT_TRUE(found_jump) << "should have found a dyadic size jump within " << baseline_dyadic << " extra gates";
@@ -483,11 +436,50 @@ TYPED_TEST(UltraHonkTests, DyadicSizeJumpsToProtectMaskingArea)
 }
 
 /**
- * @brief Verify that masked witness commitments differ from naive poly commits, and unmasked are equal.
- * @details For ZK flavors, MaskingTailData adds random tail values that shift masked commitments away
- * from commit(short_poly). Unmasked witness poly commitments should match exactly.
+ * @brief Verify that dyadic circuit size accounts for lookup tables placed at the lookup block's trace offset.
+ * @details Tables are allocated starting at lookup.trace_offset() (>= TRACE_OFFSET). The dyadic size must be large
+ * enough to contain them. This test populates a XOR lookup table and checks that the offset is past the disabled
+ * region and the dyadic size accommodates tables_end = table_offset + tables_size.
  */
-TYPED_TEST(UltraHonkTests, MaskingTailCommitments)
+TYPED_TEST(UltraHonkTests, DyadicSizeAccountsForTableOffset)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+    using IO = typename TestFixture::IO;
+
+    // Test with several lookup table types of varying sizes
+    for (auto table_id : { plookup::MultiTableId::UINT32_XOR,
+                           plookup::MultiTableId::UINT32_AND,
+                           plookup::MultiTableId::SHA256_CH_INPUT }) {
+        auto builder = Builder{};
+        uint32_t left_idx = builder.add_variable(fr(engine.get_random_uint32()));
+        uint32_t right_idx = builder.add_variable(fr(engine.get_random_uint32()));
+        auto accumulators = plookup::get_lookup_accumulators(
+            table_id, builder.get_variable(left_idx), builder.get_variable(right_idx), true);
+        builder.create_gates_from_plookup_accumulators(table_id, accumulators, left_idx, right_idx);
+        IO::add_default(builder);
+
+        auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+
+        const size_t tables_size = builder.get_tables_size();
+        ASSERT_GT(tables_size, 0) << "expected non-empty lookup tables";
+
+        const size_t table_offset = builder.blocks.lookup.trace_offset();
+        const size_t tables_end = table_offset + tables_size;
+
+        EXPECT_GE(table_offset, ProverInstance_<Flavor>::TRACE_OFFSET)
+            << "lookup block should be past the disabled region";
+        EXPECT_GE(prover_instance->dyadic_size(), tables_end)
+            << "dyadic size (" << prover_instance->dyadic_size() << ") must accommodate tables_end (" << tables_end
+            << ") for table_offset=" << table_offset << " tables_size=" << tables_size;
+    }
+}
+
+/**
+ * @brief Verify that witness polynomials have masking values in the reserved head region.
+ * @details Wires, z_perm, and lookup polynomials should have non-zero random values at rows 1..NUM_MASKED_ROWS.
+ */
+TYPED_TEST(UltraHonkTests, WitnessPolynomialsMasked)
 {
     using Flavor = TypeParam;
     if constexpr (!Flavor::HasZK) {
@@ -495,36 +487,28 @@ TYPED_TEST(UltraHonkTests, MaskingTailCommitments)
     } else {
         using Builder = typename Flavor::CircuitBuilder;
         using IO = typename TestFixture::IO;
-        using CommitmentKey = typename Flavor::CommitmentKey;
 
         auto builder = Builder{};
         IO::add_default(builder);
         auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
 
-        // Run oink to populate commitments
-        auto transcript = std::make_shared<typename Flavor::Transcript>();
-        OinkProver<Flavor> oink(prover_instance, verification_key, transcript);
-        oink.prove();
-
-        CommitmentKey ck(prover_instance->dyadic_size());
-
-        // Masked polys: commit(poly) should differ from stored commitment (tail was added)
-        auto masked_polys = prover_instance->polynomials.get_masked();
-        auto masked_commitments = prover_instance->commitments.get_masked();
-        for (auto [poly, commitment] : zip_view(masked_polys, masked_commitments)) {
-            EXPECT_NE(ck.commit(poly), commitment) << "Masked commitment should differ from naive commit";
-        }
-
-        // All witness polys: unmasked should have commit(poly) == stored commitment
-        auto witness_polys = prover_instance->polynomials.get_witness();
-        auto witness_commitments = prover_instance->commitments.get_all();
-        auto witness_flags = prover_instance->masking_tail_data.is_masked.get_witness();
-        for (auto [poly, commitment, is_masked] : zip_view(witness_polys, witness_commitments, witness_flags)) {
-            if (!is_masked && !commitment.is_point_at_infinity()) {
-                EXPECT_EQ(ck.commit(poly), commitment) << "Unmasked witness commitment should equal naive commit";
+        auto check_masked = [](const auto& poly, const std::string& label) {
+            bool has_masking = false;
+            for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+                has_masking |= !poly[NUM_ZERO_ROWS + j].is_zero();
             }
-        }
+            EXPECT_TRUE(has_masking) << label << " should be masked";
+        };
+
+        auto& polys = prover_instance->polynomials;
+        check_masked(polys.w_l, "w_l");
+        check_masked(polys.w_r, "w_r");
+        check_masked(polys.w_o, "w_o");
+        check_masked(polys.w_4, "w_4");
+        check_masked(polys.z_perm, "z_perm");
+        check_masked(polys.lookup_read_counts, "lookup_read_counts");
+        check_masked(polys.lookup_read_tags, "lookup_read_tags");
+        check_masked(polys.lookup_inverses, "lookup_inverses");
     }
 }
 

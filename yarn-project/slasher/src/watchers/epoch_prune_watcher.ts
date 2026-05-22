@@ -132,7 +132,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     const blocksByCheckpoint = chunkBy(sortedBlocks, b => b.checkpointNumber);
 
     // Get prior checkpoints in the epoch (in case this was a partial prune) to extract the out hashes
-    const priorCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsDataForEpoch(epochNumber))
+    const priorCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsData({ epoch: epochNumber }))
       .filter(c => c.checkpointNumber < sortedBlocks[0].checkpointNumber)
       .map(c => c.checkpointOutHash);
     let previousCheckpointOutHashes: Fr[] = [...priorCheckpointOutHashes];

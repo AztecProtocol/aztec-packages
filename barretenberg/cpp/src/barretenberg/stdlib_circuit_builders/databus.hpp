@@ -7,15 +7,11 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
-
-// We assume all kernels have space for two return data commitments on their public inputs
-constexpr uint32_t NUM_DATABUS_COMMITMENTS = 2;
-constexpr uint32_t PROPAGATED_DATABUS_COMMITMENT_SIZE = 8;
-constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMMITMENT_SIZE * NUM_DATABUS_COMMITMENTS;
 
 /**
  * @brief A DataBus column
@@ -23,10 +19,10 @@ constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMM
  */
 struct BusVector {
 
-    // A default value added to every databus column to avoid the point at infinity commitment and to ensure the
-    // validity of the databus commitment consistency checks. Note: in principle we could allow point at infinity
-    // default commitment but there is precedent for avoiding this by default.
-    static constexpr bb::fr DEFAULT_VALUE = 25;
+    // A default value added to every databus column to ensure read gates exist. Set to 0 so that the commitment to a
+    // databus column containing only the default entry is the point at infinity, matching the default commitment used
+    // in DataBusDepot. This makes the default commitment independent of the databus polynomial offset.
+    static constexpr bb::fr DEFAULT_VALUE = 0;
 
     /**
      * @brief Add an element to the data defining this bus column
@@ -73,7 +69,14 @@ struct BusVector {
  * in-circuit as we would with public inputs).
  *
  */
-using DataBus = std::array<BusVector, 3>;
-enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
+constexpr size_t NUM_BUS_COLUMNS = MAX_APPS_PER_KERNEL + /*kernel calldata*/ 1 + /*kernel returndata*/ 1;
+
+using DataBus = std::array<BusVector, NUM_BUS_COLUMNS>;
+enum class BusId : uint8_t {
+    KERNEL_CALLDATA = 0,
+    APP_CALLDATA = 1,
+    RETURNDATA = MAX_APPS_PER_KERNEL + 1,
+};
+static_assert(static_cast<size_t>(BusId::RETURNDATA) == NUM_BUS_COLUMNS - 1, "BusId enum must match DataBus layout");
 
 } // namespace bb

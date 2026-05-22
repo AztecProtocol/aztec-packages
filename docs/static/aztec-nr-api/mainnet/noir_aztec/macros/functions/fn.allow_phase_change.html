@@ -38,11 +38,21 @@
 <pre><code>pub comptime fn allow_phase_change(f: <a href="../../../std/primitive.FunctionDefinition.html" class="primitive">FunctionDefinition</a>)</code></pre>
 
 <div class="comments">
-<p>An allow_phase_change function will allow transitioning from the non-revertible to the revertible phase during its
-execution.</p>
+<p>An <code>allow_phase_change</code> function will allow transitioning from the non-revertible to the revertible phase
+during its execution.</p>
 <p>This is an advanced feature that is typically only required for account contract entrypoints that handle
 transaction fee payment.</p>
-</div>
+<h2>Note Retrieval</h2>
+<p>When notes are read e.g. via <a href="../../../noir_aztec/note/note_getter/fn.get_notes.html"><code>crate::note::note_getter::get_notes</code></a>, a
+<a href="../../../noir_aztec/note/struct.ConfirmedNote.html"><code>ConfirmedNote</code></a> value is returned which includes note metadata, notably whether the
+note was created in a previous transaction (a settled note) or in the current one (a pending note), either in the
+current or previous phase. Because <code>allow_phase_change</code> functions can change phases, this metadata can be left
+stale, e.g. it is possible to read a pending current phase note and then change phases, resulting in the note being
+<a href=""><code>PENDING_PREVIOUS_PHASE</code></a> instead.</p>
+<p>Such a note would be rejected by the kernels if it was tried to be nullified, as the metadata is incorrect. It is
+therefore important to not allow <a href="../../../noir_aztec/note/struct.ConfirmedNote.html"><code>ConfirmedNote</code></a>,
+<a href="../../../noir_aztec/note/struct.HintedNote.html"><code>HintedNote</code></a> or <a href="../../../noir_aztec/note/note_metadata/struct.NoteMetadata.html"><code>NoteMetadata</code></a> values to
+cross the phase barrier caused by <a href="../../../noir_aztec/context/struct.PrivateContext.html#end_setup"><code>crate::context::PrivateContext::end_setup</code></a>.</p></div>
 </main>
 </span>
 </body>

@@ -1,5 +1,6 @@
 import { findBbBinary } from '@aztec/bb.js';
 import type { LogFn } from '@aztec/foundation/log';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { execFileSync } from 'child_process';
 import type { Command } from 'commander';
@@ -25,15 +26,13 @@ async function collectContractArtifacts(): Promise<string[]> {
   return files.filter(f => Array.isArray(f.content.functions)).map(f => f.filePath);
 }
 
-/** Strips the `__aztec_nr_internals__` prefix from function names in contract artifacts. */
-async function stripInternalPrefixes(artifactPaths: string[]): Promise<void> {
+/** Stamps the Aztec stack version into the contract artifacts. */
+async function stampAztecVersion(artifactPaths: string[]): Promise<void> {
+  const version = getPackageVersion();
   for (const path of artifactPaths) {
     const artifact = JSON.parse(await readFile(path, 'utf-8'));
-    for (const fn of artifact.functions) {
-      if (typeof fn.name === 'string') {
-        fn.name = fn.name.replace(/^__aztec_nr_internals__/, '');
-      }
-    }
+    // eslint-disable-next-line camelcase
+    artifact.aztec_version = version;
     await writeFile(path, JSON.stringify(artifact, null, 2) + '\n');
   }
 }
@@ -162,8 +161,7 @@ async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<vo
     const bbArgs = artifacts.flatMap(a => ['-i', a]);
     await run(bb, ['aztec_process', ...bbArgs]);
 
-    // TODO: This should be part of bb aztec_process!
-    await stripInternalPrefixes(artifacts);
+    await stampAztecVersion(artifacts);
   }
 
   log('Compilation complete!');

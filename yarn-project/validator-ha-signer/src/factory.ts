@@ -8,7 +8,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Pool } from 'pg';
 
-import { LmdbSlashingProtectionDatabase } from './db/lmdb.js';
+import { LmdbSlashingProtectionDatabase, migrateLmdbSlashingProtectionDatabase } from './db/lmdb.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { HASignerMetrics } from './metrics.js';
 import type { CreateHASignerDeps, CreateLocalSignerWithProtectionDeps, SlashingProtectionDatabase } from './types.js';
@@ -57,7 +57,8 @@ export async function createHASigner(
   const { databaseUrl, poolMaxCount, poolMinCount, poolIdleTimeoutMs, poolConnectionTimeoutMs, ...signerConfig } =
     config;
 
-  if (!databaseUrl) {
+  const databaseUrlValue = databaseUrl?.getValue();
+  if (!databaseUrlValue) {
     throw new Error('databaseUrl is required for createHASigner');
   }
 
@@ -68,7 +69,7 @@ export async function createHASigner(
   let pool: Pool;
   if (!deps?.pool) {
     pool = new Pool({
-      connectionString: databaseUrl,
+      connectionString: databaseUrlValue,
       max: poolMaxCount ?? 10,
       min: poolMinCount ?? 0,
       idleTimeoutMillis: poolIdleTimeoutMs ?? 10_000,
@@ -118,11 +119,26 @@ export async function createLocalSignerWithProtection(
   const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
   const dateProvider = deps?.dateProvider ?? new DateProvider();
 
-  const kvStore = await createStore('signing-protection', LmdbSlashingProtectionDatabase.SCHEMA_VERSION, {
-    dataDirectory: config.dataDirectory,
-    dataStoreMapSizeKb: config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
-    l1Contracts: config.l1Contracts,
-  });
+  const kvStore = await createStore(
+    'signing-protection',
+    LmdbSlashingProtectionDatabase.SCHEMA_VERSION,
+    {
+      dataDirectory: config.dataDirectory,
+      dataStoreMapSizeKb: config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
+      rollupAddress: config.rollupAddress,
+    },
+    undefined,
+    {
+      onUpgrade: (dataDirectory, currentVersion, latestVersion) =>
+        migrateLmdbSlashingProtectionDatabase(
+          dataDirectory,
+          currentVersion,
+          latestVersion,
+          config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
+        ),
+      schemaVersionMismatchPolicy: 'throw',
+    },
+  );
 
   const db = new LmdbSlashingProtectionDatabase(kvStore, dateProvider);
 
@@ -159,7 +175,7 @@ export function createSignerFromSharedDb(
   db: SlashingProtectionDatabase,
   config: Pick<
     ValidatorHASignerConfig,
-    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'l1Contracts'
+    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
   >,
   deps?: CreateLocalSignerWithProtectionDeps,
 ): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {

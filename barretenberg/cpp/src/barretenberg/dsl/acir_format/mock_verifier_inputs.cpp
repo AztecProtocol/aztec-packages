@@ -307,6 +307,39 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
+HonkProof create_mock_batch_merge_proof()
+{
+    HonkProof proof;
+
+    constexpr size_t NUM_WIRES = Goblin::BatchMergeRecursiveVerifier::NUM_WIRES;
+    constexpr size_t MAX_MERGE_SIZE = Goblin::BatchMergeRecursiveVerifier::MAX_MERGE_SIZE;
+
+    // Commitments to the fixed-width list of subtables.
+    populate_field_elements_for_mock_commitments(proof, MAX_MERGE_SIZE * NUM_WIRES);
+
+    // Commitments to the ZK masking table.
+    populate_field_elements_for_mock_commitments(proof, NUM_WIRES);
+
+    // Number of real subtables. Keep it in [1, MAX_MERGE_SIZE] so recursive range checks can be constructed.
+    populate_field_elements<fr>(proof, 1, /*value=*/fr{ 1 });
+
+    // Shift sizes.
+    populate_field_elements<fr>(proof, 1, /*value=*/fr{ 2 });
+    populate_field_elements<fr>(proof, MAX_MERGE_SIZE - 1, /*value=*/fr{ 0 });
+
+    // Merged table commitments and degree-check polynomial commitment.
+    populate_field_elements_for_mock_commitments(proof, NUM_WIRES + 1);
+
+    // Evaluations: C_i(kappa), optional ZK C_i(kappa), T(kappa), and G(kappa^{-1}).
+    const size_t num_evaluations = (MAX_MERGE_SIZE * NUM_WIRES) + NUM_WIRES + NUM_WIRES + 1;
+    populate_field_elements(proof, num_evaluations);
+
+    // Shplonk quotient commitment and KZG opening commitment.
+    populate_field_elements_for_mock_commitments(proof, 2);
+
+    return proof;
+}
+
 /**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
  *
@@ -502,30 +535,25 @@ HonkProof create_mock_batched_joint_proof()
     populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
     // 5. Libra sum
     populate_field_elements<FF>(proof, 1);
-    // 6. Committed sumcheck: real rounds 0..MEGA_ZK_LOG_N-1
-    constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;
-    for (size_t round = 0; round < MEGA_ZK_LOG_N; round++) {
-        populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1); // round univariate comm
-        populate_field_elements<FF>(proof, 2);                                             // evals at 0 and 1
-        // Minicircuit evaluations sent at round LOG_MINI_CIRCUIT_SIZE-1
-        if (round == TransFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+    // 6. Committed sumcheck rounds 0..JOINT_LOG_N-1 (commitment + 2 evals per round)
+    constexpr size_t JOINT_LOG_N = TransFlavor::CONST_TRANSLATOR_LOG_N;
+    for (size_t round = 0; round < JOINT_LOG_N; round++) {
+        // Minicircuit evaluations appear after round LOG_MINI_CIRCUIT_SIZE-1's data
+        if (round == TransFlavor::LOG_MINI_CIRCUIT_SIZE) {
             populate_field_elements<FF>(proof, TransFlavor::NUM_MINICIRCUIT_EVALUATIONS);
         }
-    }
-    // 7. MegaZK evaluations (sent after real rounds, before virtual rounds)
-    populate_field_elements<FF>(proof, MegaZKFlavor::NUM_ALL_ENTITIES);
-    // 8. Virtual rounds MEGA_ZK_LOG_N..JOINT_LOG_N-1
-    for (size_t round = MEGA_ZK_LOG_N; round < TransFlavor::CONST_TRANSLATOR_LOG_N; round++) {
         populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1); // round univariate comm
         populate_field_elements<FF>(proof, 2);                                             // evals at 0 and 1
     }
-    // 9. Translator full circuit evaluations (sent after all rounds)
+    // 7. MegaZK evaluations (sent after all sumcheck rounds)
+    populate_field_elements<FF>(proof, MegaZKFlavor::NUM_ALL_ENTITIES);
+    // 8. Translator full circuit evaluations (sent after all rounds)
     populate_field_elements<FF>(proof, TransFlavor::NUM_FULL_CIRCUIT_EVALUATIONS);
-    // 10. Libra claimed evaluation
+    // 9. Libra claimed evaluation
     populate_field_elements<FF>(proof, 1);
-    // 11. Libra grand sum commitment
+    // 10. Libra grand sum commitment
     populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
-    // 12. Libra quotient commitment
+    // 11. Libra quotient commitment
     populate_field_elements_for_mock_commitments<Curve>(proof, /*num_commitments=*/1);
 
     // === Joint PCS (same structure as standalone translator PCS, using JOINT_LOG_N = 17) ===

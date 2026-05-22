@@ -221,6 +221,11 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     });
   }
 
+  public async waitUntilNextL2Slot(): Promise<void> {
+    const targetSlot = SlotNumber.add((await this.run()).l2SlotNumber, 1);
+    return this.waitUntilL2Slot(targetSlot);
+  }
+
   public waitUntilL1Block(block: number | bigint): Promise<void> {
     const targetBlock = typeof block === 'bigint' ? block.valueOf() : block;
     if (this.l1BlockNumber >= targetBlock) {

@@ -1,7 +1,5 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256 } from '@aztec/foundation/crypto/keccak';
-import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
+import { CheckpointProposalHash, type SlotNumber } from '@aztec/foundation/branded-types';
+import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -13,14 +11,8 @@ import type { ZodFor } from '../schemas/index.js';
 import { CheckpointProposal } from './checkpoint_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
+import { type CoordinationSignatureContext, recoverCoordinationSigner } from './signature_utils.js';
 import { TopicType } from './topic_type.js';
-
-export class CheckpointAttestationHash extends Buffer32 {
-  constructor(hash: Buffer) {
-    super(hash);
-  }
-}
 
 /**
  * CheckpointAttestation
@@ -31,8 +23,8 @@ export class CheckpointAttestationHash extends Buffer32 {
 export class CheckpointAttestation extends Gossipable {
   static override p2pTopic = TopicType.checkpoint_attestation;
 
-  private sender: EthAddress | undefined;
-  private proposer: EthAddress | undefined;
+  private cachedSender: EthAddress | undefined | null = undefined;
+  private cachedProposer: EthAddress | undefined | null = undefined;
 
   constructor(
     /** The payload of the message, and what the signature is over */
@@ -57,8 +49,8 @@ export class CheckpointAttestation extends Gossipable {
       .transform(obj => new CheckpointAttestation(obj.payload, obj.signature, obj.proposerSignature));
   }
 
-  override generateP2PMessageIdentifier(): Promise<Buffer32> {
-    return Promise.resolve(new CheckpointAttestationHash(keccak256(this.signature.toBuffer())));
+  override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
+    return Promise.resolve(new Buffer32(this.payload.getPayloadHash()));
   }
 
   get archive(): Fr {
@@ -69,22 +61,19 @@ export class CheckpointAttestation extends Gossipable {
     return this.payload.header.slotNumber;
   }
 
+  get signatureContext(): CoordinationSignatureContext {
+    return this.payload.signatureContext;
+  }
+
   /**
    * Lazily evaluate and cache the signer of the attestation
    * @returns The signer of the attestation, or undefined if signature recovery fails
    */
   getSender(): EthAddress | undefined {
-    if (!this.sender) {
-      // Recover the sender from the attestation
-      const hashed = getHashedSignaturePayloadEthSignedMessage(
-        this.payload,
-        SignatureDomainSeparator.checkpointAttestation,
-      );
-      // Cache the sender for later use
-      this.sender = tryRecoverAddress(hashed, this.signature);
+    if (this.cachedSender === undefined) {
+      this.cachedSender = recoverCoordinationSigner(this.payload, this.signature) ?? null;
     }
-
-    return this.sender;
+    return this.cachedSender ?? undefined;
   }
 
   /**
@@ -92,7 +81,7 @@ export class CheckpointAttestation extends Gossipable {
    * @returns The proposer of the checkpoint
    */
   getProposer(): EthAddress | undefined {
-    if (!this.proposer) {
+    if (this.cachedProposer === undefined) {
       // Create a temporary CheckpointProposal to recover the proposer address.
       // We need to use CheckpointProposal because it has a different getPayloadToSign()
       // implementation than ConsensusPayload (uses serializeToBuffer vs ABI encoding).
@@ -101,16 +90,23 @@ export class CheckpointAttestation extends Gossipable {
         this.payload.archive,
         this.payload.feeAssetPriceModifier,
         this.proposerSignature,
+        this.payload.signatureContext,
       );
-      // Cache the proposer for later use
-      this.proposer = proposal.getSender();
+      this.cachedProposer = proposal.getSender() ?? null;
     }
-
-    return this.proposer;
+    return this.cachedProposer ?? undefined;
   }
 
   getPayload(): Buffer {
-    return this.payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
+    return this.payload.getPayloadToSign();
+  }
+
+  /**
+   * Returns a keccak256 hash of the signed consensus payload.
+   * Used to dedup distinct signed payloads. Returns same hash than the corresponding proposal.
+   */
+  getPayloadHash(): CheckpointProposalHash {
+    return CheckpointProposalHash.fromBuffer(this.payload.getPayloadHash());
   }
 
   toBuffer(): Buffer {

@@ -1,8 +1,9 @@
 import { VK_TREE_HEIGHT } from '@aztec/constants';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { computeMerkleHash } from '@aztec/stdlib/hash';
 
 import { promises as fs } from 'fs';
 
@@ -19,13 +20,23 @@ function resolveRelativePath(relativePath: string) {
 }
 
 async function buildVKTree() {
-  const calculator = await MerkleTreeCalculator.create(VK_TREE_HEIGHT, Buffer.alloc(32), async (a, b) =>
-    (await poseidon2Hash([a, b])).toBuffer(),
+  const calculator = await MerkleTreeCalculator.create(
+    VK_TREE_HEIGHT,
+    Buffer.alloc(32),
+    async (a, b) => (await computeMerkleHash(Fr.fromBuffer(a), Fr.fromBuffer(b))).toBuffer() as Buffer<ArrayBuffer>,
   );
 
   const vkHashes = new Array(2 ** VK_TREE_HEIGHT).fill(Buffer.alloc(32));
+  const seen = new Set<number>();
   for (const [key, value] of Object.entries(allVks)) {
     const index = ProtocolCircuitVkIndexes[key as ProtocolArtifact];
+    if (index >= vkHashes.length) {
+      throw new Error(`VK index ${index} for ${key} is out of bounds (VK tree size: ${vkHashes.length})`);
+    }
+    if (seen.has(index)) {
+      throw new Error(`Duplicate VK index ${index} for ${key}`);
+    }
+    seen.add(index);
     vkHashes[index] = value.keyAsFields.hash.toBuffer();
   }
 

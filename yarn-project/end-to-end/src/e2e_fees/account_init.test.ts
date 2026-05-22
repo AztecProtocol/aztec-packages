@@ -17,6 +17,7 @@ import { GasSettings } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
 
+import { getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
@@ -115,7 +116,7 @@ describe('e2e_fees account_init', () => {
       // Bob deploys his account through the private FPC
       // The private fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
-      const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
+      const maxFeesPerGas = await getPaddedMaxFeesPerGas(aztecNode);
       const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const { receipt: tx } = await bobsDeployMethod.send({
@@ -143,7 +144,7 @@ describe('e2e_fees account_init', () => {
 
       // The public fee paying method assembled on the app side requires knowledge of the maximum
       // fee the user is willing to pay
-      const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
+      const maxFeesPerGas = await getPaddedMaxFeesPerGas(aztecNode);
       const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       const { receipt: tx } = await bobsDeployMethod.send({
@@ -178,20 +179,18 @@ describe('e2e_fees account_init', () => {
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       const [aliceBalanceBefore] = await t.getGasBalanceFn(aliceAddress);
-      const { receipt: tx } = await SchnorrAccountContractInterface.deployWithPublicKeys(
-        bobsPublicKeys,
+      const { receipt: tx } = await SchnorrAccountContractInterface.deploy(
         wallet,
         bobsSigningPubKey.x,
         bobsSigningPubKey.y,
+        { salt: bobsInstance.salt, universalDeploy: true, publicKeys: bobsPublicKeys },
       ).send({
         from: aliceAddress,
         // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
         additionalScopes: [bobsAddress],
-        contractAddressSalt: bobsInstance.salt,
         skipClassPublication: true,
         skipInstancePublication: true,
         skipInitialization: false,
-        universalDeploy: true,
       });
 
       // alice paid in Fee Juice
@@ -200,7 +199,7 @@ describe('e2e_fees account_init', () => {
       expect(aliceBalanceAfter).toBe(aliceBalanceBefore - tx.transactionFee!);
 
       // bob can now use his wallet for sending txs
-      const maxFeesPerGas = (await aztecNode.getCurrentMinFees()).mul(1.5);
+      const maxFeesPerGas = await getPaddedMaxFeesPerGas(aztecNode);
       const gasSettings = GasSettings.fallback({ maxFeesPerGas });
       const bobPaymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, bobsAddress, wallet, gasSettings);
       await bananaCoin.methods

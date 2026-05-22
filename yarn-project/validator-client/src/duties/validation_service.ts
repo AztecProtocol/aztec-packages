@@ -1,16 +1,9 @@
-import {
-  BlockNumber,
-  type CheckpointNumber,
-  IndexWithinCheckpoint,
-  type SlotNumber,
-} from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256 } from '@aztec/foundation/crypto/keccak';
+import { type CheckpointNumber, IndexWithinCheckpoint, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
-import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockProposal,
   type BlockProposalOptions,
@@ -19,7 +12,8 @@ import {
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
   ConsensusPayload,
-  SignatureDomainSeparator,
+  type CoordinationSignatureContext,
+  getCoordinationSignatureTypedData,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
@@ -31,6 +25,7 @@ import type { ValidatorKeyStore } from '../key_store/interface.js';
 export class ValidationService {
   constructor(
     private keyStore: ValidatorKeyStore,
+    private signatureContext: CoordinationSignatureContext,
     private log = createLogger('validator:validation-service'),
   ) {}
 
@@ -51,6 +46,7 @@ export class ValidationService {
    */
   public createBlockProposal(
     blockHeader: BlockHeader,
+    checkpointNumber: CheckpointNumber,
     blockIndexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archive: Fr,
@@ -66,17 +62,26 @@ export class ValidationService {
 
     // Create a signer that uses the appropriate address
     const address = proposerAttesterAddress ?? this.keyStore.getAddress(0);
-    const payloadSigner = (payload: Buffer32, context: SigningContext) =>
-      this.keyStore.signMessageWithAddress(address, payload, context);
+    const payloadSigner = (
+      typedData: Parameters<ValidatorKeyStore['signTypedDataWithAddress']>[1],
+      context: SigningContext,
+    ) => this.keyStore.signTypedDataWithAddress(address, typedData, context);
+    const txsSigner = (
+      typedData: Parameters<ValidatorKeyStore['signTypedDataWithAddress']>[1],
+      context: SigningContext,
+    ) => this.keyStore.signTypedDataWithAddress(address, typedData, context);
 
     return BlockProposal.createProposalFromSigner(
       blockHeader,
+      checkpointNumber,
       blockIndexWithinCheckpoint,
       inHash,
       archive,
       txs.map(tx => tx.getTxHash()),
       options.publishFullTxs ? txs : undefined,
+      this.signatureContext,
       payloadSigner,
+      txsSigner,
     );
   }
 
@@ -94,6 +99,7 @@ export class ValidationService {
   public createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    checkpointNumber: CheckpointNumber,
     feeAssetPriceModifier: bigint,
     lastBlockProposal: BlockProposal | undefined,
     proposerAttesterAddress: EthAddress | undefined,
@@ -108,16 +114,21 @@ export class ValidationService {
     }
 
     // Create a signer that takes payload and context, and uses the appropriate address
-    const payloadSigner = (payload: Buffer32, context: SigningContext) => {
+    const payloadSigner = (
+      typedData: Parameters<ValidatorKeyStore['signTypedDataWithAddress']>[1],
+      context: SigningContext,
+    ) => {
       const address = proposerAttesterAddress ?? this.keyStore.getAddress(0);
-      return this.keyStore.signMessageWithAddress(address, payload, context);
+      return this.keyStore.signTypedDataWithAddress(address, typedData, context);
     };
 
     return CheckpointProposal.createProposalFromSigner(
       checkpointHeader,
       archive,
+      checkpointNumber,
       feeAssetPriceModifier,
       lastBlockProposal,
+      this.signatureContext,
       payloadSigner,
     );
   }
@@ -135,29 +146,27 @@ export class ValidationService {
   async attestToCheckpointProposal(
     proposal: CheckpointProposalCore,
     attestors: EthAddress[],
+    checkpointNumber: CheckpointNumber,
   ): Promise<CheckpointAttestation[]> {
     // Create the attestation payload from the checkpoint proposal
-    const payload = new ConsensusPayload(proposal.checkpointHeader, proposal.archive, proposal.feeAssetPriceModifier);
-    const buf = Buffer32.fromBuffer(
-      keccak256(payload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation)),
+    const payload = new ConsensusPayload(
+      proposal.checkpointHeader,
+      proposal.archive,
+      proposal.feeAssetPriceModifier,
+      this.signatureContext,
     );
+    const typedData = getCoordinationSignatureTypedData(payload);
 
-    // TODO(spy/ha): Use checkpointNumber instead of blockNumber once CheckpointHeader includes it.
-    // CheckpointProposalCore doesn't have lastBlock info, so use 0 as a proxy.
-    // blockNumber is NOT used for the primary key so it's safe to use here.
-    // See CheckpointHeader TODO and SigningContext types documentation.
-    const blockNumber = BlockNumber(0);
     const context: SigningContext = {
       slot: proposal.slotNumber,
-      blockNumber,
+      checkpointNumber,
       dutyType: DutyType.ATTESTATION,
     };
 
     // Sign each attestor in parallel, catching HA errors per-attestor
     const results = await Promise.allSettled(
       attestors.map(async attestor => {
-        const sig = await this.keyStore.signMessageWithAddress(attestor, buf, context);
-        // return new BlockAttestation(proposal.payload, sig, proposal.signature);
+        const sig = await this.keyStore.signTypedDataWithAddress(attestor, typedData, context);
         return new CheckpointAttestation(payload, sig, proposal.signature);
       }),
     );
@@ -188,7 +197,6 @@ export class ValidationService {
    * @param attestationsAndSigners - The attestations and signers to sign
    * @param proposer - The proposer address to sign with
    * @param slot - The slot number for HA signing context
-   * @param blockNumber - The block or checkpoint number for HA signing context
    * @returns signature
    * @throws DutyAlreadySignedError if already signed by another HA node
    * @throws SlashingProtectionError if attempting to sign different data for same slot
@@ -197,17 +205,15 @@ export class ValidationService {
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     proposer: EthAddress,
     slot: SlotNumber,
-    blockNumber: BlockNumber | CheckpointNumber,
+    checkpointNumber: CheckpointNumber,
   ): Promise<Signature> {
     const context: SigningContext = {
       slot,
-      blockNumber,
+      checkpointNumber,
       dutyType: DutyType.ATTESTATIONS_AND_SIGNERS,
     };
 
-    const buf = Buffer32.fromBuffer(
-      keccak256(attestationsAndSigners.getPayloadToSign(SignatureDomainSeparator.attestationsAndSigners)),
-    );
-    return this.keyStore.signMessageWithAddress(proposer, buf, context);
+    const typedData = getCoordinationSignatureTypedData(attestationsAndSigners);
+    return this.keyStore.signTypedDataWithAddress(proposer, typedData, context);
   }
 }

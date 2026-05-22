@@ -8,12 +8,7 @@ use super::{
 global SLOT_RLP_MAX_LENGTH: u32 = 69;
 
 #[inline_always]
-fn rlp_encode_to_sink<S: BytesSink>(
-    slot: StorageSlot,
-    start_nibble_idx: u32,
-    trie_key: [u8; 32],
-    sink: &mut S,
-) {
+fn rlp_encode_to_sink<S: BytesSink>(slot: StorageSlot, start_nibble_idx: u32, trie_key: [u8; 32], sink: &mut S) {
     let mut current_nibble_idx = start_nibble_idx;
 
     let first_key_byte = if current_nibble_idx % 2 == 0 {

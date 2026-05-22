@@ -128,17 +128,20 @@ export async function createContractClassAndInstance(
   const constructorAbi = getContractFunctionAbi('constructor', contractArtifact);
   const { publicKeys } = await deriveKeys(new Fr(seed));
   const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
+  const immutablesHash = new Fr(seed + 1);
   const contractInstance =
     originalContractClassId === undefined
       ? await makeContractInstanceFromClassId(contractClass.id, seed, {
           deployer,
           initializationHash,
+          immutablesHash,
           publicKeys,
         })
       : await makeContractInstanceFromClassId(originalContractClassId, seed, {
           deployer,
           initializationHash,
           currentClassId: contractClass.id,
+          immutablesHash,
           publicKeys,
         });
 

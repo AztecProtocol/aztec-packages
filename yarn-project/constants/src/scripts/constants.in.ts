@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
-const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm2/common/aztec_constants.hpp';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
@@ -120,10 +120,12 @@ const CPP_CONSTANTS = [
 
 const CPP_GENERATORS: string[] = [
   'BLOCK_HEADER_HASH',
+  'SALTED_INITIALIZATION_HASH',
   'PARTIAL_ADDRESS',
-  'CONTRACT_ADDRESS_V1',
+  'CONTRACT_ADDRESS_V2',
   'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
+  'SINGLE_PUBLIC_KEY_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
@@ -132,6 +134,11 @@ const CPP_GENERATORS: string[] = [
   'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
+  'MERKLE_HASH',
+  'NULLIFIER_MERKLE',
+  'PUBLIC_DATA_MERKLE',
+  'WRITTEN_SLOTS_MERKLE',
+  'RETRIEVED_BYTECODES_MERKLE',
 ];
 
 const PIL_CONSTANTS = [
@@ -308,10 +315,12 @@ const PIL_CONSTANTS = [
 ];
 
 const PIL_GENERATORS: string[] = [
+  'SALTED_INITIALIZATION_HASH',
   'PARTIAL_ADDRESS',
-  'CONTRACT_ADDRESS_V1',
+  'CONTRACT_ADDRESS_V2',
   'CONTRACT_CLASS_ID',
   'PUBLIC_KEYS_HASH',
+  'SINGLE_PUBLIC_KEY_HASH',
   'NOTE_HASH_NONCE',
   'UNIQUE_NOTE_HASH',
   'SILOED_NOTE_HASH',
@@ -320,6 +329,11 @@ const PIL_GENERATORS: string[] = [
   'PUBLIC_STORAGE_MAP_SLOT',
   'PUBLIC_CALLDATA',
   'PUBLIC_BYTECODE',
+  'MERKLE_HASH',
+  'NULLIFIER_MERKLE',
+  'PUBLIC_DATA_MERKLE',
+  'WRITTEN_SLOTS_MERKLE',
+  'RETRIEVED_BYTECODES_MERKLE',
 ];
 
 const SOLIDITY_CONSTANTS = [

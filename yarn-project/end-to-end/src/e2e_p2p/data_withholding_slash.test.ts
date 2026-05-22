@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { waitForTx } from '@aztec/aztec.js/node';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { OffenseType } from '@aztec/slasher';
@@ -10,8 +11,8 @@ import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
+import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected, submitTransactions } from './shared.js';
 
 jest.setTimeout(1000000);
 
@@ -72,6 +73,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
         slashAmountLarge: slashingUnit * 3n,
         slashSelfAllowed: true,
         minTxsPerBlock: 0,
+        enableProposerPipelining: true,
+        inboxLag: 2,
       },
     });
 
@@ -147,13 +150,43 @@ describe('e2e_p2p_data_withholding_slash', () => {
     await t.sendDummyTx();
     await debugRollup();
 
-    // Send Aztec txs
-    t.logger.warn('Setup account');
-    await t.setupAccount();
+    // Send L2 txs through a validator node to ensure blocks are built (needed for pruning to trigger).
+    t.logger.warn('Sending L2 txs through a validator node');
+    const txHashes = await submitTransactions(t.logger, nodes[0], 1, t.fundedAccount);
+    await Promise.all(txHashes.map(txHash => waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT })));
+    t.logger.warn('L2 txs mined');
+
     t.logger.warn('Stopping nodes');
-    // Note, we needed to keep the initial node running, as that is the one the txs were sent to.
+    // removeInitialNode sends a dummy L1 tx and awaits its receipt to sync the
+    // dateProvider, so it must run while L1 mining is still active.
     await t.removeInitialNode();
-    // Now stop the nodes,
+
+    // Pause L1 block production while we tear down and recreate validators. With
+    // `aztecProofSubmissionEpochs=0`, epoch 8 becomes prunable as soon as epoch 9 begins
+    // (~32s after slot 17). The stop/wipe/recreate cycle takes longer than that, so L1
+    // would otherwise race past the prune deadline before the recreated nodes come up.
+    // When that happens, the recreated archivers detect the prune during their initial
+    // sync (`handleEpochPrune` emits `L2PruneUnproven`), but the `EpochPruneWatcher`
+    // listener is only attached after `archiver.waitForInitialSync()` resolves
+    // (see `aztec-node/server.ts`), so the event is dropped and `DATA_WITHHOLDING` is
+    // never emitted. By freezing L1 here, the recreated archivers ingest checkpoint 1
+    // cleanly during initial sync, the watcher starts and attaches its listener, and
+    // then we resume L1 below so the prune fires while the listener is live.
+    const ethCheatCodes = t.ctx.cheatCodes.eth;
+    await ethCheatCodes.setAutomine(false);
+    await ethCheatCodes.setIntervalMining(0);
+
+    // Fail fast if we paused too late — i.e. if L1 already crossed into epoch 9 before
+    // we got here. In that case the recreated nodes would still see the prune during
+    // initial sync and the test would flake exactly the same way.
+    const epochAtPause = await rollup.getCurrentEpoch();
+    expect(Number(epochAtPause)).toBeLessThan(9);
+
+    // Now stop the validator nodes. With L1 paused, any in-flight L1 submissions from
+    // the validator sequencers would hang `sequencer.stop()` (it awaits pending L1
+    // submissions). Since `minTxsPerBlock=1` and no txs are queued for slot 18+, the
+    // sequencers don't submit further L1 transactions after the slot-17 checkpoint
+    // (already published before `waitForTx` returned), so this is safe.
     await t.stopNodes(nodes);
     // And remove the data directories (which forms the crux of the "attack")
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -162,6 +195,11 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     // Re-create the nodes.
     // ASSUMING they sync in the middle of the epoch, they will "see" the reorg, and try to slash.
+    // Reset minTxsPerBlock to 0 so re-created validators build empty checkpoints. Under proposer
+    // pipelining, the vote-offenses signature is bound to the target slot and the multicall is only
+    // delayed to the target slot start when a checkpoint is being proposed; without a proposal,
+    // votes would mine in the current wall-clock slot, causing the EIP-712 signature verification to fail.
+    t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
     t.logger.warn('Re-creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -175,6 +213,16 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     // Wait for P2P mesh to be fully formed before proceeding
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+
+    // Resume L1 block production. Warp L1 forward to current wall-clock time so the
+    // epoch-8 deadline is crossed immediately on the next L1 block, then re-enable
+    // interval mining. By now each recreated archiver has block 1 stored locally and
+    // its `EpochPruneWatcher` listener is attached, so the next sync iteration emits
+    // `L2PruneUnproven` for epoch 8 to a live listener → `DATA_WITHHOLDING`.
+    const resumeTimestamp = Math.floor(t.ctx.dateProvider.now() / 1000);
+    await ethCheatCodes.setNextBlockTimestamp(resumeTimestamp);
+    await ethCheatCodes.mine();
+    await ethCheatCodes.setIntervalMining(t.ctx.aztecNodeConfig.ethereumSlotDuration);
 
     const offenses = await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,

@@ -19,6 +19,7 @@ bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& eval
     bool concatenation_verified = true;
     FF concatenation_diff(0);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        // Identity: L(κ) + κ^ℓ · R(κ) = M(κ)
         concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
         if constexpr (IsRecursive) {
             concatenation_verified &= concatenation_diff.get_value() == 0;
@@ -32,7 +33,7 @@ bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& eval
 }
 
 template <typename Curve>
-bool MergeVerifier_<Curve>::check_degree_identity(std::vector<FF>& evals,
+bool MergeVerifier_<Curve>::check_degree_identity(const std::vector<FF>& evals,
                                                   const FF& pow_kappa_minus_one,
                                                   const std::vector<FF>& degree_check_challenges) const
 {
@@ -108,7 +109,8 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
  *
  * @see MERGE_PROTOCOL.md for complete protocol specification.
  * @param proof The merge proof to verify
- * @param input_commitments Commitments to subtable (t) and previous table (T_prev)
+ * @param input_commitments Commitments to the subtable being merged (t) and to the aggregate table prior to this
+ * merge (T_prev, covering all subtables up to and including the tail)
  * @return VerificationResult containing pairing points, merged table commitments, and check results
  */
 template <typename Curve>
@@ -130,14 +132,11 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // The vector is composed of: [L_1], .., [L_4], [R_1], .., [R_4], [M_1], .., [M_4], [G]
     std::vector<Commitment> table_commitments;
     table_commitments.reserve((3 * NUM_WIRES) + 1);
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        table_commitments.emplace_back(settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
-                                                                          : input_commitments.T_prev_commitments[idx]);
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        table_commitments.emplace_back(settings == MergeSettings::PREPEND ? input_commitments.T_prev_commitments[idx]
-                                                                          : input_commitments.t_commitments[idx]);
-    }
+    table_commitments.insert(table_commitments.end(),
+                             input_commitments.T_prev_commitments.begin(),
+                             input_commitments.T_prev_commitments.end());
+    table_commitments.insert(
+        table_commitments.end(), input_commitments.t_commitments.begin(), input_commitments.t_commitments.end());
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         table_commitments.emplace_back(
             transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx)));

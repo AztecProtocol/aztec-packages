@@ -6,8 +6,9 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { FunctionsOf } from '@aztec/foundation/types';
-import type { ArchiverEmitter } from '@aztec/stdlib/block';
+import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { mock } from 'jest-mock-extended';
@@ -16,7 +17,8 @@ import { EventEmitter } from 'node:events';
 import { Archiver } from '../archiver.js';
 import { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from '../modules/l1_synchronizer.js';
-import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import type { ArchiverDataStores } from '../store/data_stores.js';
+import { L2TipsCache } from '../store/l2_tips_cache.js';
 
 /** Noop L1 synchronizer for testing without L1 connectivity. */
 class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
@@ -48,9 +50,12 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
  */
 export class NoopL1Archiver extends Archiver {
   constructor(
-    dataStore: KVArchiverDataStore,
+    dataStores: ArchiverDataStores,
     l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
     instrumentation: ArchiverInstrumentation,
+    initialHeader: BlockHeader,
+    initialBlockHash: BlockHash,
+    l2TipsCache: L2TipsCache,
   ) {
     // Create mocks for L1 clients
     const publicClient = mock<ViemPublicClient>();
@@ -70,23 +75,29 @@ export class NoopL1Archiver extends Archiver {
       debugClient,
       rollup,
       {
+        rollupAddress: EthAddress.ZERO,
         registryAddress: EthAddress.ZERO,
+        inboxAddress: EthAddress.ZERO,
         governanceProposerAddress: EthAddress.ZERO,
         slashingProposerAddress: EthAddress.ZERO,
       },
-      dataStore,
+      dataStores,
       {
         pollingIntervalMs: 1000,
         batchSize: 100,
         skipValidateCheckpointAttestations: true,
         maxAllowedEthClientDriftSeconds: 300,
         ethereumAllowNoDebugHosts: true, // Skip trace validation
+        skipHistoricalLogsCheck: true, // Skip historical logs validation
       },
       blobClient,
       instrumentation,
       { ...l1Constants, l1StartBlockHash: Buffer32.random() },
       synchronizer as ArchiverL1Synchronizer,
       events,
+      initialHeader,
+      initialBlockHash,
+      l2TipsCache,
     );
   }
 
@@ -105,10 +116,17 @@ export class NoopL1Archiver extends Archiver {
 
 /** Creates an archiver with mocked L1 connectivity for testing. */
 export async function createNoopL1Archiver(
-  dataStore: KVArchiverDataStore,
+  dataStores: ArchiverDataStores,
   l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
   telemetry: TelemetryClient = getTelemetryClient(),
+  initialHeader: BlockHeader,
 ): Promise<NoopL1Archiver> {
-  const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStore.estimateSize());
-  return new NoopL1Archiver(dataStore, l1Constants, instrumentation);
+  const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStores.db.estimateSize());
+  // Mirror the production factory: precompute the dynamic genesis block hash from the injected
+  // initial header so `L2TipsCache` reports the correct tip hash at block 0. Without this, the
+  // cache falls back to the static `GENESIS_BLOCK_HEADER_HASH`, which only matches deployments
+  // with default empty genesis.
+  const initialBlockHash = await initialHeader.hash();
+  const l2TipsCache = new L2TipsCache(dataStores.blocks, initialBlockHash);
+  return new NoopL1Archiver(dataStores, l1Constants, instrumentation, initialHeader, initialBlockHash, l2TipsCache);
 }

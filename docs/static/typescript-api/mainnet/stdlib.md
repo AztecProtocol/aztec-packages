@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: 4.2.0-aztecnr-rc.2
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -78,6 +78,7 @@ new AztecAddress(buffer: Fr | Buffer<ArrayBufferLike>)
 
 **Properties**
 - `_branding: "AztecAddress"` - Brand.
+- `static NULL_MSG_SENDER: AztecAddress` - Null msg sender address. Not part of the protocol contracts tree.
 - `static schema: unknown`
 - `size: unknown`
 - `static SIZE_IN_BYTES: number`
@@ -649,12 +650,17 @@ new ExtendedContractClassLog(id: LogId, log: ContractClassLog)
 
 Extended directional application tagging secret used for log tagging. "Extended" because it bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
 
+**Constructor**
+```typescript
+new ExtendedDirectionalAppTaggingSecret(secret: Fr, app: AztecAddress)
+```
+
 **Properties**
 - `readonly app: AztecAddress`
 - `readonly secret: Fr`
 
 **Methods**
-- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<ExtendedDirectionalAppTaggingSecret>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret.
+- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<ExtendedDirectionalAppTaggingSecret | undefined>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret. Returns undefined if `externalAddress` is an invalid address.
 - `static fromString(str: string) => ExtendedDirectionalAppTaggingSecret`
 - `toString() => string`
 
@@ -888,9 +894,10 @@ new GasSettings(gasLimits: Gas, teardownGasLimits: Gas, maxFeesPerGas: GasFees, 
 
 **Methods**
 - `clone() => GasSettings`
-- `static default(overrides: { gasLimits?: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Default gas settings to use when user has not provided them. Requires explicit max fees per gas.
 - `static empty() => GasSettings` - Zero-value gas settings.
 - `equals(other: GasSettings) => boolean`
+- `static fallback(overrides: { gasLimits?: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Fills in gas limits high enough for transactions to be included in most cases. gasLimits is set to the maximum the protocol allows; since teardown gas is reserved from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic will be gasLimits - teardownGasLimits - privateOverhead. The DA gas limit is set to an approximate max per block assuming 4 blocks per checkpoint, since using the maximum per checkpoint would cause nodes to reject transactions. These values won't work if: - Teardown consumes more than the arbitrarily assigned fallback limits - The rest of the transaction consumes more than the remaining gas after teardown - The DA gas limit is too low for the transaction, while still within the checkpoint limit
+- `static forEstimation(overrides: { gasLimits?: Gas; maxFeesPerGas: GasFees; ... }) => GasSettings` - Gas settings for simulation/estimation only. Since teardown gas is reserved upfront from gasLimits during private execution (see gas_meter.nr), the effective gas available for app logic is gasLimits - teardownGasLimits - privateOverhead. To ensure estimation never hits gas caps, we set both limits above what the protocol allows: teardown gets MAX_PROCESSABLE and gasLimits gets teardown + MAX_PROCESSABLE, so the full processable amount remains available for each phase independently. To be used in conjunction with skipTxValidation: true during public simulation, or the node would reject the transaction outright due to gas limits being above protocol max.
 - `static from(args: { gasLimits: FieldsOf<Gas>; maxFeesPerGas: FieldsOf<GasFees>; ... }) => GasSettings`
 - `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => GasSettings`
 - `static fromFields(fields: Fr[] | FieldReader) => GasSettings`
@@ -1787,7 +1794,7 @@ new SiloedTag(value: Fr)
 
 **Constructor**
 ```typescript
-new SimulationOverrides(contracts?: ContractOverrides)
+new SimulationOverrides(contracts: ContractOverrides)
 ```
 
 **Properties**
@@ -1842,6 +1849,7 @@ new Tag(value: Fr)
 **Methods**
 - `static compute(preTag: PreTag) => Promise<Tag>`
 - `equals(other: Tag) => boolean`
+- `static random() => Tag`
 - `toJSON() => string`
 - `toString() => string`
 
@@ -2132,6 +2140,7 @@ new TxProvingResult(privateExecutionResult: PrivateExecutionResult, publicInputs
 **Methods**
 - `static from(fields: FieldsOf<TxProvingResult>) => TxProvingResult`
 - `getOffchainEffects() => OffchainEffect[]`
+- `getTxHash() => Promise<TxHash>`
 - `static random() => Promise<TxProvingResult>`
 - `toTx() => Promise<Tx>`
 
@@ -2289,6 +2298,7 @@ A basic value.
 Defines artifact of a contract.
 
 **Properties**
+- `aztecVersion: string` - The version of the Aztec stack that compiled this artifact.
 - `fileMap: DebugFileMap` - The map of file ID to the source code and path of the file.
 - `functions: FunctionArtifact[]` - The functions of the contract. Includes private and utility functions, plus the public dispatch function.
 - `name: string` - The name of the contract.
@@ -2606,8 +2616,17 @@ Interface to a handler of events emitted.
 
 Interface to the local view of the chain. Implemented by world-state and l2-tips-store.
 
+Extends: `L2TipsProvider`
+
 **Methods**
 - `getL2BlockHash(number: number) => Promise<string | undefined>`
+- `getL2Tips() => Promise<L2Tips>`
+
+### L2TipsProvider
+
+Provides the current chain tips. Implemented by world-state, l2-tips-store, and AztecNode.
+
+**Methods**
 - `getL2Tips() => Promise<L2Tips>`
 
 ### NodeInfo
@@ -2722,7 +2741,7 @@ Utility function definition.
 ```typescript
 function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult) => NestedProcessReturnValues
 ```
-Recursively accummulate the return values of a call result and its nested executions, so they can be retrieved in order.
+Recursively accumulate the return values of a call result and its nested executions, so they can be retrieved in order.
 
 ### bufferAsFields
 ```typescript
@@ -2900,6 +2919,12 @@ Computes the partial address defined as the hash of the contract class id and sa
 ```typescript
 function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) => Promise<Fr>
 ```
+
+### computePrivateEventCommitment
+```typescript
+function computePrivateEventCommitment(randomness: Fr, eventSelector: Fr, content: Fr[]) => Promise<Fr>
+```
+Computes the commitment of a private event from its preimage.
 
 ### computePrivateFunctionLeaf
 ```typescript
@@ -3471,6 +3496,18 @@ type ABIVariable = z.infer<typeof ABIVariableSchema>
 ```
 A named type.
 
+### APPROXIMATE_MAX_DA_GAS_PER_BLOCK
+```typescript
+type APPROXIMATE_MAX_DA_GAS_PER_BLOCK = number
+```
+Approximate max DA gas limit. Arbitrary, assuming 4 blocks per checkpoint — users should use gas estimation.
+
+### ARTIFACT_VERSION_BEFORE_INJECTION
+```typescript
+type ARTIFACT_VERSION_BEFORE_INJECTION = "FROM_RELEASE_BEFORE_VERSION_INJECTION"
+```
+Placeholder version injected into artifacts compiled before aztecVersion was added. Remove.
+
 ### AbiDecoded
 ```typescript
 type AbiDecoded = bigint | boolean | string | AztecAddress | EthAddress | FunctionSelector | Fr | AbiDecoded[] | {} | undefined
@@ -3619,7 +3656,7 @@ type DataInBlock = { data: T } & InBlock
 
 ### DebugFileMap
 ```typescript
-type DebugFileMap = Record<FileId, { path: string; source: string }>
+type DebugFileMap = Record<FileId, { function_locations: FunctionLocation[]; path: string; source: string }>
 ```
 Maps a file ID to its metadata for debugging purposes.
 
@@ -3641,6 +3678,18 @@ type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & 
 ```
 A private function with a membership proof.
 
+### FALLBACK_TEARDOWN_DA_GAS_LIMIT
+```typescript
+type FALLBACK_TEARDOWN_DA_GAS_LIMIT = number
+```
+Fallback teardown DA gas limit. Arbitrary — users should use gas estimation.
+
+### FALLBACK_TEARDOWN_L2_GAS_LIMIT
+```typescript
+type FALLBACK_TEARDOWN_L2_GAS_LIMIT = number
+```
+Fallback teardown L2 gas limit. Arbitrary — users should use gas estimation.
+
 ### FailedTx
 ```typescript
 type FailedTx = unknown
@@ -3652,6 +3701,32 @@ Represents a tx that failed to be processed by the sequencer public processor.
 type FieldLayout = unknown
 ```
 Type representing a field layout in the storage of a contract.
+
+### FunctionLocation
+```typescript
+type FunctionLocation = unknown
+```
+The range a function occupies in a file.
+
+### GAS_ESTIMATION_DA_GAS_LIMIT
+```typescript
+type GAS_ESTIMATION_DA_GAS_LIMIT = number
+```
+
+### GAS_ESTIMATION_L2_GAS_LIMIT
+```typescript
+type GAS_ESTIMATION_L2_GAS_LIMIT = number
+```
+
+### GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT
+```typescript
+type GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT = 786432
+```
+
+### GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT
+```typescript
+type GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT = 6540000
+```
 
 ### GENESIS_CHECKPOINT_HEADER_HASH
 ```typescript
@@ -4108,7 +4183,7 @@ Values: `1`, `0`, `2`
 ### TxExecutionResult
 Execution result - only set when tx is in a block.
 
-Values: `app_logic_reverted`, `both_reverted`, `success`, `teardown_reverted`
+Values: `reverted`, `reverted`, `reverted`, `success`, `reverted`
 
 ### TxStatus
 Block inclusion/finalization status.

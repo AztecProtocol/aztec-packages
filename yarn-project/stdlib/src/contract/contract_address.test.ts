@@ -23,19 +23,18 @@ describe('ContractAddress', () => {
       `"0x2f43fe475e50f6066260038fd16fa97029a76395b2d38388808e60bc24651a0c"`,
     );
   });
-
   it('computeSaltedInitializationHash', async () => {
     const mockInstance = {
       initializationHash: new Fr(1),
       salt: new Fr(2),
       deployer: AztecAddress.fromField(new Fr(4)),
+      immutablesHash: new Fr(3),
     };
     const result = await computeSaltedInitializationHash(mockInstance);
     expect(result.toString()).toMatchInlineSnapshot(
-      `"0x15d6f8d1ddedee7f58e41db6a7b6e6e8f97f70574588f59a9d52de22b5605e3c"`,
+      `"0x093c5f7e0d5a56a1fce27bb347233fd1884db1ff78573c5b9b2de9d3fe8babe1"`,
     );
   });
-
   it('computeInitializationHash', async () => {
     const mockInitFn: FunctionAbi = {
       functionType: FunctionType.PRIVATE,
@@ -53,17 +52,16 @@ describe('ContractAddress', () => {
       `"0x08b683284b4344302193cb36c05f043d4225e2d88d9e0f6ffde12547098cab98"`,
     );
   });
-
   it('computeInitializationHash empty', async () => {
     const result = await computeInitializationHash(undefined, []);
     expect(result).toEqual(Fr.ZERO);
   });
-
   it('computeContractAddressFromInstance', async () => {
     const secretKey = new Fr(2n);
     const salt = new Fr(3n);
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
+    const immutablesHash = new Fr(6n);
     const deployer = AztecAddress.fromField(new Fr(7));
     const publicKeys = (await deriveKeys(secretKey)).publicKeys;
     const instance = {
@@ -73,14 +71,14 @@ describe('ContractAddress', () => {
       currentContractClassId: contractClassId,
       initializationHash,
       deployer,
-      version: 1 as const,
+      immutablesHash,
+      version: 2 as const,
     };
-
     const [ms, address] = await elapsed(computeContractAddressFromInstance(instance));
     const logger = createLogger('stdlib:contract_address:test');
     logger.info(`Computed contract address from instance in ${ms}ms`);
     expect(address.toString()).toMatchInlineSnapshot(
-      `"0x2cea4bfccb4a185354cbbd9eb5a39ace117abf1f9381c5b6167b1a6f94a0672c"`,
+      `"0x2527876b96f9da428aaec968da7a89018db43c78dcdb2e7246060dc37e49e0ac"`,
     );
   });
 });

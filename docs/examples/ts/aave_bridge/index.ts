@@ -24,11 +24,16 @@ import { AaveBridgeContract } from "./artifacts/AaveBridge.js";
 // docs:start:setup
 // Setup L1 client using anvil's default mnemonic
 const MNEMONIC = "test test test test test test test test test test test junk";
-const l1Client = createExtendedL1Client([process.env.ETHEREUM_HOST ?? "http://localhost:8545"], MNEMONIC);
+const l1Client = createExtendedL1Client(
+  [process.env.ETHEREUM_HOST ?? "http://localhost:8545"],
+  MNEMONIC,
+);
 
 // Setup L2 using Aztec's local network
 console.log("Setting up L2...\n");
-const node = createAztecNodeClient(process.env.AZTEC_NODE_URL ?? "http://localhost:8080");
+const node = createAztecNodeClient(
+  process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+);
 await waitForNode(node);
 const aztecWallet = await EmbeddedWallet.create(node, { ephemeral: true });
 const [accData] = await getInitialTestAccountsData();
@@ -174,7 +179,6 @@ async function mine2Blocks(
     EthAddress.ZERO,
   ).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
   await AaveBridgeContract.deploy(
     aztecWallet,
@@ -182,7 +186,6 @@ async function mine2Blocks(
     EthAddress.ZERO,
   ).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
 }
 // docs:end:mine_blocks
@@ -204,7 +207,11 @@ const burnAuthwit = await SetPublicAuthwitContractInteraction.create(
   account.address,
   {
     caller: l2Bridge.address,
-    action: l2Token.methods.burn_public(account.address, amountToDeposit, burnNonce),
+    action: l2Token.methods.burn_public(
+      account.address,
+      amountToDeposit,
+      burnNonce,
+    ),
   },
   true,
 );
@@ -231,7 +238,10 @@ console.log(`Exit sent (block: ${exitReceipt.blockNumber})`);
 // toFunctionSelector computes keccak256 of the signature and takes the first 4 bytes.
 const portalEthAddress = EthAddress.fromString(portalAddress.toString());
 const withdrawContent = sha256ToField([
-  Buffer.from(toFunctionSelector("withdraw(address,uint256,address)").substring(2), "hex"),
+  Buffer.from(
+    toFunctionSelector("withdraw(address,uint256,address)").substring(2),
+    "hex",
+  ),
   portalEthAddress.toBuffer32(),
   new Fr(amountToDeposit).toBuffer(),
   EthAddress.ZERO.toBuffer32(),
@@ -258,18 +268,22 @@ if (!exitReceipt.blockNumber) {
 }
 const exitBlockNumber = exitReceipt.blockNumber;
 console.log("Waiting for block to be proven...");
-let provenBlockNumber = await node.getProvenBlockNumber();
+let provenBlockNumber = await node.getBlockNumber("proven");
 while (provenBlockNumber < exitBlockNumber) {
   console.log(
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitBlockNumber})`,
   );
   await new Promise((resolve) => setTimeout(resolve, 10000));
-  provenBlockNumber = await node.getProvenBlockNumber();
+  provenBlockNumber = await node.getBlockNumber("proven");
 }
 console.log("Block proven!\n");
 
 // Compute the membership witness using the message hash and the L2 tx hash
-const witness = await computeL2ToL1MembershipWitness(node, msgLeaf, exitReceipt.txHash);
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  msgLeaf,
+  exitReceipt.txHash,
+);
 const epoch = witness!.epochNumber;
 
 const siblingPathHex = witness!.siblingPath
@@ -369,7 +383,9 @@ await mine2Blocks(aztecWallet, account.address);
 
 // The mock Aave pool returns 10% yield, so 500 DAI becomes 550 DAI
 const expectedWithYield = amountToDeposit + (amountToDeposit * 1000n) / 10000n;
-console.log(`Expected amount with yield: ${expectedWithYield / 10n ** 18n} tokens`);
+console.log(
+  `Expected amount with yield: ${expectedWithYield / 10n ** 18n} tokens`,
+);
 
 // On L2: consume the L1->L2 message and mint tokens (with yield)
 console.log("Claiming tokens on L2...");
@@ -392,7 +408,9 @@ const expectedFinal = initialRemaining + expectedWithYield; // 500 + 550 = 1050 
 
 console.log(`Initial deposit:     ${depositAmount / 10n ** 18n} tokens`);
 console.log(`Deposited to Aave:   ${amountToDeposit / 10n ** 18n} tokens`);
-console.log(`Yield earned (10%):  ${(expectedWithYield - amountToDeposit) / 10n ** 18n} tokens`);
+console.log(
+  `Yield earned (10%):  ${(expectedWithYield - amountToDeposit) / 10n ** 18n} tokens`,
+);
 console.log(`Expected balance:    ${expectedFinal / 10n ** 18n} tokens`);
 console.log(`Actual balance:      ${finalBalance / 10n ** 18n} tokens`);
 console.log(

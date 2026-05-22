@@ -5,16 +5,9 @@ if(WASM)
     add_compile_options(-fno-exceptions -fno-slp-vectorize)
 endif()
 
-# Auto-detect TARGET_ARCH on x86_64 if not explicitly set (native builds only).
-# On ARM, we skip -march entirely — the zig wrappers use an explicit aarch64 target
-# to produce generic ARM64 code without CPU-specific extensions (e.g. SVE).
-# Skip auto-detection when cross-compiling — the toolchain (e.g. Zig -mcpu) handles
-# architecture targeting, and injecting -march here conflicts with it.
-if(NOT WASM AND NOT TARGET_ARCH AND NOT ARM AND NOT CMAKE_CROSSCOMPILING)
-    set(TARGET_ARCH "skylake")
-endif()
-
-if(NOT WASM AND TARGET_ARCH)
-    message(STATUS "Target architecture: ${TARGET_ARCH}")
-    add_compile_options(-march=${TARGET_ARCH})
+# Target skylake on x86 for AVX2 etc. ARM is handled by the zig wrapper scripts
+# which use explicit aarch64 targets to produce generic ARM64 code without
+# CPU-specific extensions (e.g. SVE on Graviton) that would break on Apple Silicon.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    add_compile_options(-march=skylake)
 endif()

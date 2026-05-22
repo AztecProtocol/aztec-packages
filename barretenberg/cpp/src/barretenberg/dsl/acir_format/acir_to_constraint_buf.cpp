@@ -252,9 +252,8 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
                 }
             },
             [&](const Acir::Opcode::MemoryOp& arg) {
-                update_max_witness_index_from_expression(arg.op.index, af);
-                update_max_witness_index_from_expression(arg.op.value, af);
-                update_max_witness_index_from_expression(arg.op.operation, af);
+                update_max_witness_index_from_witness(arg.op.index);
+                update_max_witness_index_from_witness(arg.op.value);
             },
             [&](const Acir::Opcode::BrilligCall& arg) {
                 for (const auto& input : arg.inputs) {
@@ -571,6 +570,17 @@ void assert_zero_to_quad_constraints(Acir::Opcode::AssertZero const& arg, AcirFo
     };
 
     auto linear_terms = process_linear_terms(arg.value);
+
+    // Check for unsatisfiable constraint: no variables but a non-zero constant means the circuit requires
+    // `constant == 0` which can never be satisfied.
+    if (arg.value.mul_terms.empty() && linear_terms.empty()) {
+        fr constant = from_buffer_with_bound_checks(arg.value.q_c);
+        BB_ASSERT_EQ(constant,
+                     fr::zero(),
+                     "circuit is unsatisfiable. An AssertZero opcode contains no variables but has a non-zero "
+                     "constant, which can never equal zero.");
+    }
+
     bool is_single_gate = is_single_arithmetic_gate(arg.value, linear_terms);
     std::vector<mul_quad_<fr>> mul_quads = split_into_mul_quad_gates(arg.value, linear_terms);
 
@@ -692,7 +702,6 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                             .predicate = parse_input(arg.predicate),
                             .out_point_x = to_witness((*arg.outputs)[0]),
                             .out_point_y = to_witness((*arg.outputs)[1]),
-                            .out_point_is_infinite = to_witness((*arg.outputs)[2]),
                         });
                         af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
                     },
@@ -700,14 +709,11 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                         af.ec_add_constraints.push_back(EcAdd{
                             .input1_x = parse_input((*arg.input1)[0]),
                             .input1_y = parse_input((*arg.input1)[1]),
-                            .input1_infinite = parse_input((*arg.input1)[2]),
                             .input2_x = parse_input((*arg.input2)[0]),
                             .input2_y = parse_input((*arg.input2)[1]),
-                            .input2_infinite = parse_input((*arg.input2)[2]),
                             .predicate = parse_input(arg.predicate),
                             .result_x = to_witness((*arg.outputs)[0]),
                             .result_y = to_witness((*arg.outputs)[1]),
-                            .result_infinite = to_witness((*arg.outputs)[2]),
                         });
                         af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
                     },
@@ -791,10 +797,12 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
     // array.
     if (std::holds_alternative<Acir::BlockType::CallData>(mem_init.block_type.value)) {
         uint32_t calldata_id = std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value;
-        BB_ASSERT(calldata_id == 0 || calldata_id == 1, "acir_format::handle_memory_init: Unsupported calldata id");
+        BB_ASSERT_LTE(calldata_id,
+                      MAX_APPS_PER_KERNEL,
+                      "acir_format::handle_memory_init: calldata id exceeds kernel + MAX_APPS_PER_KERNEL app columns");
 
         block.type = BlockType::CallData;
-        block.calldata_id = calldata_id == 0 ? CallDataType::Primary : CallDataType::Secondary;
+        block.calldata_id = static_cast<CallDataType>(calldata_id);
     } else if (std::holds_alternative<Acir::BlockType::ReturnData>(mem_init.block_type.value)) {
         block.type = BlockType::ReturnData;
     }
@@ -804,44 +812,8 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
 
 void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
-    // Lambda to convert an Acir::Expression to a witness index
-    auto acir_expression_to_witness_or_constant = [](const Acir::Expression& expr) {
-        // Noir gives us witnesses or constants for read/write operations. We use the following assertions to ensure
-        // that the data coming from Noir is in the correct form.
-        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp should not have multiplication terms");
-        BB_ASSERT_LTE(expr.linear_combinations.size(), 1U, "MemoryOp should have at most one linear term");
-
-        const fr a_scaling = expr.linear_combinations.size() == 1
-                                 ? from_buffer_with_bound_checks(std::get<0>(expr.linear_combinations[0]))
-                                 : fr::zero();
-        const fr constant_term = from_buffer_with_bound_checks(expr.q_c);
-
-        bool is_witness = a_scaling == fr::one() && constant_term == fr::zero();
-        bool is_constant = a_scaling == fr::zero();
-        BB_ASSERT(is_witness || is_constant, "MemoryOp expression must be a witness or a constant");
-
-        return WitnessOrConstant<bb::fr>{
-            .index = is_witness ? std::get<1>(expr.linear_combinations[0]).value : bb::stdlib::IS_CONSTANT,
-            .value = is_constant ? constant_term : fr::zero(),
-            .is_constant = is_constant,
-        };
-    };
-
-    // Lambda to determine whether a memory operation is a read or write operation
-    auto is_read_operation = [](const Acir::Expression& expr) {
-        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
-        BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
-
-        const fr const_term = from_buffer_with_bound_checks(expr.q_c);
-
-        BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
-                  "MemoryOp expression should be either zero or one");
-
-        // A read operation is given by a zero Expression
-        return const_term == fr::zero();
-    };
-
-    AccessType access_type = is_read_operation(mem_op.op.operation) ? AccessType::Read : AccessType::Write;
+    // Acir::MemOp::read is the serialized MemOpKind bool: false = Read, true = Write.
+    AccessType access_type = mem_op.op.read ? AccessType::Write : AccessType::Read;
     if (access_type == AccessType::Write) {
         // We are not allowed to write on the databus
         BB_ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
@@ -849,11 +821,11 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
         block.type = BlockType::RAM;
     }
 
-    // Update the ranges of the index using the array length
-    WitnessOrConstant<bb::fr> index = acir_expression_to_witness_or_constant(mem_op.op.index);
-    WitnessOrConstant<bb::fr> value = acir_expression_to_witness_or_constant(mem_op.op.value);
-
-    MemOp acir_mem_op = MemOp{ .access_type = access_type, .index = index, .value = value };
+    MemOp acir_mem_op = MemOp{
+        .access_type = access_type,
+        .index = mem_op.op.index.value,
+        .value = mem_op.op.value.value,
+    };
     block.trace.push_back(acir_mem_op);
 }
 

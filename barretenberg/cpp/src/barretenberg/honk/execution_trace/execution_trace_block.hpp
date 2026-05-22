@@ -122,54 +122,6 @@ template <typename FF> class Selector {
 };
 
 /**
- * @brief Selector specialization that only allows zeros.
- * @details Efficient representation for selectors that are guaranteed to be zero everywhere.
- *
- * @tparam FF The finite field element type.
- */
-template <typename FF> class ZeroSelector : public Selector<FF> {
-  public:
-    using Selector<FF>::emplace_back;
-
-    void emplace_back(int value) override
-    {
-        BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::emplace_back with a non zero value.");
-        size_++;
-    }
-
-    void push_back(const FF& value) override
-    {
-        BB_ASSERT(value.is_zero());
-        size_++;
-    }
-
-    void set(size_t, int) override { BB_ASSERT(false, "ZeroSelector::set should not be called"); }
-    void set(size_t, const FF&) override { BB_ASSERT(false, "ZeroSelector::set should not be called"); }
-
-    void resize(size_t new_size) override { size_ = new_size; }
-
-    bool operator==(const ZeroSelector& other) const { return size_ == other.size(); }
-
-    const FF& operator[](size_t index) const override
-    {
-        BB_ASSERT_DEBUG(index < size_);
-        return zero;
-    }
-
-    const FF& back() const override { return zero; }
-
-    size_t size() const override { return size_; }
-
-    bool empty() const override { return size_ == 0; }
-
-    void free_memory() override { size_ = 0; }
-
-  private:
-    static constexpr FF zero = 0;
-    size_t size_ = 0;
-};
-
-/**
  * @brief Selector backed by a slab allocator vector.
  * @details Allows dynamic values with fast memory allocation from slabs.
  *
@@ -204,10 +156,30 @@ template <typename FF> class SlabVectorSelector : public Selector<FF> {
 };
 
 /**
- * @brief Basic structure for storing gate data in a builder
- *
- * @tparam FF
- * @tparam NUM_WIRES
+ * @brief Tag identifying which gate selector a block owns. Used by cross-block readers to decide
+ * whether `(block, idx)` returns the block's value or zero.
+ */
+enum class GateKind : uint8_t {
+    None = 0,
+    BusRead,
+    Lookup,
+    Arith,
+    DeltaRange,
+    Elliptic,
+    Memory,
+    Nnf,
+    Poseidon2Ext,
+    Poseidon2Int, // Ultra-only
+    Poseidon2ExtInitial,
+    Poseidon2QuadInt,
+    Poseidon2QuadIntTerminal,
+    Poseidon2TransitionEntry,
+};
+
+/**
+ * @brief Basic structure for storing gate data in a builder. Holds wires, the 7 non-gate selectors
+ * present on every block, and a variable-length list of `(GateKind, Selector)` pairs identifying
+ * the gate selectors this block owns.
  */
 template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
   public:
@@ -218,12 +190,23 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     using Wires = std::array<WireType, NUM_WIRES>;
 
     ExecutionTraceBlock() = default;
+
+    /**
+     * @brief Construct a block that owns the listed gate kinds.
+     */
+    ExecutionTraceBlock(std::initializer_list<GateKind> kinds)
+    {
+        gate_selectors.reserve(kinds.size());
+        for (GateKind k : kinds) {
+            gate_selectors.emplace_back(std::piecewise_construct, std::forward_as_tuple(k), std::forward_as_tuple());
+        }
+    }
+
     ExecutionTraceBlock(const ExecutionTraceBlock&) = default;
     ExecutionTraceBlock& operator=(const ExecutionTraceBlock&) = default;
     ExecutionTraceBlock(ExecutionTraceBlock&&) noexcept = default;
     ExecutionTraceBlock& operator=(ExecutionTraceBlock&&) noexcept = default;
-
-    virtual ~ExecutionTraceBlock() = default;
+    ~ExecutionTraceBlock() = default;
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
     // If enabled, we keep slow stack traces to be able to correlate gates with code locations where they were added
@@ -253,9 +236,65 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
         return trace_offset_;
     }
 
+    // The first trace row past this block's data (trace_offset + size).
+    size_t trace_end() const { return trace_offset() + size(); }
+
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
     size_t size() const { return data_freed_ ? cached_size_ : std::get<0>(this->wires).size(); }
+
+    /**
+     * @brief Reference to this block's selector for `kind`; aborts if the block does not own it.
+     * For cross-block reads, use `read_gate_selector` instead.
+     */
+    SlabVectorSelector<FF>& gate_selector_for(GateKind kind)
+    {
+        for (auto& [k, s] : gate_selectors) {
+            if (k == kind) {
+                return s;
+            }
+        }
+        throw_or_abort("ExecutionTraceBlock: block does not own this gate kind");
+        return gate_selectors[0].second; // unreachable
+    }
+
+    /**
+     * @brief Append a row writing `value` to every gate-selector this block owns. To activate one
+     * specific kind on a multi-kind block, use the kind-explicit overload below.
+     */
+    void set_gate_selector(const FF& value)
+    {
+        for (auto& [k, s] : gate_selectors) {
+            s.emplace_back(value);
+        }
+    }
+
+    /**
+     * @brief Append a row activating one gate kind. Writes `value` to the selector for `kind` and
+     * 0 to all other owned-kind selectors, keeping all gate selectors the same length.
+     */
+    void set_gate_selector(GateKind kind, const FF& value)
+    {
+        for (auto& [k, s] : gate_selectors) {
+            s.emplace_back(k == kind ? value : FF{ 0 });
+        }
+    }
+
+    /**
+     * @brief All selectors of this block: 7 non-gate followed by the owned gate selectors.
+     */
+    RefVector<Selector<FF>> get_selectors()
+    {
+        std::vector<Selector<FF>*> ptrs;
+        ptrs.reserve(non_gate_selectors.size() + gate_selectors.size());
+        for (auto& s : non_gate_selectors) {
+            ptrs.push_back(&s);
+        }
+        for (auto& [k, s] : gate_selectors) {
+            ptrs.push_back(&s);
+        }
+        return RefVector<Selector<FF>>(ptrs);
+    }
 
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
@@ -270,8 +309,6 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     }
 #endif
 
-    virtual RefVector<Selector<FF>> get_selectors() = 0;
-
     /**
      * @brief Release wire and selector memory. Caches block size so size() still works.
      * @details Called after trace data has been copied to prover polynomials.
@@ -284,7 +321,10 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
             wire.clear();
             wire.shrink_to_fit();
         }
-        for (auto& sel : get_selectors()) {
+        for (auto& sel : non_gate_selectors) {
+            sel.free_memory();
+        }
+        for (auto& [k, sel] : gate_selectors) {
             sel.free_memory();
         }
     }
@@ -312,9 +352,26 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     Selector<FF>& q_2() { return non_gate_selectors[3]; };
     Selector<FF>& q_3() { return non_gate_selectors[4]; };
     Selector<FF>& q_4() { return non_gate_selectors[5]; };
+    Selector<FF>& q_5() { return non_gate_selectors[6]; };
 
-  protected:
-    std::array<SlabVectorSelector<FF>, 6> non_gate_selectors;
+    std::array<SlabVectorSelector<FF>, 7> non_gate_selectors;
+
+    std::vector<std::pair<GateKind, SlabVectorSelector<FF>>> gate_selectors;
 };
+
+/**
+ * @brief Gate-selector value at `(block, idx)` for `kind`, returning zero if `block` does not own
+ * this kind. Use at cross-block read sites where the caller iterates blocks of unknown kind.
+ */
+template <typename FF, size_t NUM_WIRES>
+FF read_gate_selector(const ExecutionTraceBlock<FF, NUM_WIRES>& block, GateKind kind, size_t idx)
+{
+    for (const auto& [k, s] : block.gate_selectors) {
+        if (k == kind) {
+            return s[idx];
+        }
+    }
+    return FF{ 0 };
+}
 
 } // namespace bb

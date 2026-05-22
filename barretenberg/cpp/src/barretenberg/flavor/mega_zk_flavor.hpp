@@ -27,6 +27,9 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
 
+    // ZK masking lives at rows [NUM_ZERO_ROWS, TRACE_OFFSET); Sumcheck disables rows [0, TRACE_OFFSET).
+    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
+
     // MegaZK does not include a Gemini masking polynomial in its entities; the translator provides one
     // at the correct joint circuit size in the batched Chonk flow.
     static constexpr bool HasGeminiMasking = false;

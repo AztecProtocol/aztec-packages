@@ -22,10 +22,12 @@ namespace bb::group_elements {
  * @brief element class. Implements ecc group arithmetic using Jacobian coordinates
  * See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
  *
- * Note: Currently subgroup checks are NOT IMPLEMENTED
- * Our current implementation uses G1 points that have a cofactor of 1.
- * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
- * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
+ * Note: BN254 / Grumpkin G1 have cofactor 1, so on-curve membership coincides with prime-order
+ * subgroup membership. BN254 G2 has a non-trivial cofactor; an explicit subgroup check is provided
+ * by `affine_element::is_in_prime_subgroup()` and must be applied to externally-supplied G2 bytes
+ * (see bbapi). The arithmetic in this file does not rederive subgroup membership and assumes the
+ * caller already ensured operands are valid prime-order subgroup elements.
+ *
  * @tparam Fq prime field the curve is defined over
  * @tparam Fr prime field whose characteristic equals the size of the prime-order elliptic curve subgroup
  * @tparam Params curve parameters
@@ -83,11 +85,36 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     element operator*(const Fr& exponent) const noexcept;
     element operator*=(const Fr& exponent) noexcept;
 
+    /**
+     * @brief Constant-time scalar multiplication intended for secret scalars (e.g. ECDSA / Schnorr nonces).
+     *
+     * Implementation: Montgomery ladder (Montgomery 1987 [1]; SCA-regular form: Joye & Yen,
+     * CHES 2002 [2]) over a fixed iteration count, with Coron's first DPA countermeasure
+     * (CHES 1999 [3]) applied to the scalar: k' = k + r * n for a fresh random 64-bit r sampled
+     * per call. Since n * P = O in the prime-order subgroup, k' * P = k * P; the randomization
+     * decorrelates the per-bit timing trace across signings with the same k.
+     *
+     * [1] P. L. Montgomery, "Speeding the Pollard and Elliptic Curve Methods of Factorization",
+     *     Mathematics of Computation 48 (1987), pp. 243-264.
+     * [2] M. Joye and S.-M. Yen, "The Montgomery Powering Ladder", CHES 2002, LNCS 2523,
+     *     pp. 291-302.
+     * [3] J.-S. Coron, "Resistance against Differential Power Analysis for Elliptic Curve
+     *     Cryptosystems", CHES 1999, LNCS 1717, pp. 292-302.
+     *
+     * @param engine Optional RNG for the blinding factor. If nullptr, uses the global RNG.
+     *
+     * @warning Slower than operator*. Use only when the scalar is secret. For public scalars (MSM,
+     *          public arithmetic), prefer operator*.
+     */
+    element mul_const_time(const Fr& scalar, numeric::RNG* engine = nullptr) const noexcept;
+
     // If you end up implementing this, congrats, you've solved the DL problem!
     // P.S. This is a joke, don't even attempt! 😂
     // constexpr Fr operator/(const element& other) noexcept {}
 
     constexpr element normalize() const noexcept;
+    constexpr element normalize_const_time() const noexcept;
+    constexpr affine_element<Fq, Fr, Params> to_affine_const_time() const noexcept;
     static element infinity();
     BB_INLINE constexpr element set_infinity() const noexcept;
     BB_INLINE constexpr void self_set_infinity() noexcept;

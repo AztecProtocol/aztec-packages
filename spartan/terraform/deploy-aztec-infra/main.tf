@@ -206,6 +206,7 @@ locals {
     "validator.slash.duplicateProposalPenalty"                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
     "validator.slash.duplicateAttestationPenalty"                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
     "validator.slash.attestDescendantOfInvalidPenalty"            = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+    "validator.slash.attestInvalidCheckpointProposalPenalty"       = var.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
     "validator.slash.unknownPenalty"                              = var.SLASH_UNKNOWN_PENALTY
     "validator.slash.invalidBlockPenalty"                         = var.SLASH_INVALID_BLOCK_PENALTY
     "validator.slash.offenseExpirationRounds"                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
@@ -220,10 +221,13 @@ locals {
     "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                     = var.SEQ_MIN_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                     = var.SEQ_MAX_TX_PER_BLOCK
     "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"                = var.SEQ_MAX_TX_PER_CHECKPOINT
+    "validator.node.env.P2P_MAX_PENDING_TX_COUNT"                 = var.P2P_MAX_PENDING_TX_COUNT
     "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"      = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
+    "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"           = var.SEQ_ENABLE_PROPOSER_PIPELINING
+    "validator.node.env.AZTEC_EPOCHS_LAG"                         = var.AZTEC_EPOCHS_LAG
     "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                   = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
@@ -313,10 +317,11 @@ locals {
         }
       })]
       custom_settings = {
-        "nodeType"                    = "p2p-bootstrap"
-        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
-        "service.p2p.announcePort"    = local.p2p_port_p2p_bootstrap
-        "service.p2p.port"            = local.p2p_port_p2p_bootstrap
+        "nodeType"                          = "p2p-bootstrap"
+        "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
+        "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
+        "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -400,8 +405,10 @@ locals {
           "node.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
           "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
           "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
+          "node.node.env.P2P_MAX_PENDING_TX_COUNT"              = var.P2P_MAX_PENDING_TX_COUNT
           "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
           "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
+          "node.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"        = var.SEQ_ENABLE_PROPOSER_PIPELINING
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
           "node.service.p2p.port"                               = local.p2p_port_prover
@@ -479,10 +486,12 @@ locals {
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
+        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
       })
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -513,6 +522,7 @@ locals {
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.secret.envEnabled"                      = true
         "node.env.FISHERMAN_MODE"                     = "true"
@@ -521,6 +531,7 @@ locals {
         "node.secret.mnemonicIndex"                   = var.FISHERMAN_MNEMONIC_START_INDEX
         "node.env.KEY_INDEX_START"                    = var.FISHERMAN_MNEMONIC_START_INDEX
         "node.env.VALIDATORS_PER_NODE"                = "1"
+        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
         "node.preStartScript"                         = "source /scripts/get-private-key.sh"
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
@@ -562,8 +573,10 @@ locals {
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
+        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -602,9 +615,11 @@ locals {
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
+        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
         "node.env.BLOB_FILE_STORE_URLS"               = var.BLOB_FILE_STORE_URLS
+        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -639,7 +654,9 @@ locals {
         "node.env.P2P_GOSSIPSUB_DLO"                 = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
         "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
+        "node.env.P2P_MAX_PENDING_TX_COUNT"          = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"       = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"    = var.SEQ_ENABLE_PROPOSER_PIPELINING
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -790,16 +807,34 @@ resource "kubernetes_manifest" "rpc_ingress_backend" {
       name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
       namespace = var.NAMESPACE
     }
-    spec = {
-      healthCheck = {
-        checkIntervalSec   = 15
-        timeoutSec         = 5
-        healthyThreshold   = 2
-        unhealthyThreshold = 2
-        type               = "HTTP"
-        port               = 8080
-        requestPath        = "/status"
-      }
-    }
+    spec = merge(
+      {
+        healthCheck = {
+          checkIntervalSec   = 15
+          timeoutSec         = 5
+          healthyThreshold   = 2
+          unhealthyThreshold = 2
+          type               = "HTTP"
+          port               = 8080
+          requestPath        = "/status"
+        }
+      },
+      var.RPC_CLOUD_ARMOR_POLICY_NAME != "" ? {
+        securityPolicy = {
+          name = var.RPC_CLOUD_ARMOR_POLICY_NAME
+        }
+      } : {},
+      var.RPC_INGRESS_SESSION_AFFINITY != "" ? {
+        sessionAffinity = {
+          affinityType = var.RPC_INGRESS_SESSION_AFFINITY
+        }
+      } : {},
+      var.RPC_INGRESS_LOG_SAMPLE_RATE != null ? {
+        logging = {
+          enable     = true
+          sampleRate = var.RPC_INGRESS_LOG_SAMPLE_RATE
+        }
+      } : {}
+    )
   }
 }

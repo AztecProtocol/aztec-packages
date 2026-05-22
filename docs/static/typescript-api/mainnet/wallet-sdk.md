@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: 4.2.0-aztecnr-rc.2
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -63,8 +63,8 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 
 **Methods**
 - `batch<T extends readonly BatchedMethod[]>(methods: T) => Promise<BatchResults<T>>`
-- `completeFeeOptions(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
-- `completeFeeOptionsForEstimation(from: AztecAddress | "NO_FROM", feePayer?: AztecAddress, gasSettings?: Partial<FieldsOf<GasSettings>>) => Promise<{ accountFeePaymentMethodOptions?: AccountFeePaymentMethodOptions; gasSettings: GasSettings; walletFeePaymentMethod?: FeePaymentMethod }>` - Completes partial user-provided fee options with unreasonably high gas limits for gas estimation. Uses the same logic as completeFeeOptions but sets high limits to avoid running out of gas during estimation.
+- `completeFeeOptions(config: CompleteFeeOptionsConfig) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
+- `computeAppCallOffset(from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
 - `contextualizeError(err: Error, ...context: string[]) => Error`
 - `createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent) => Promise<AuthWitness>`
 - `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
@@ -82,9 +82,10 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
 - `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes: AztecAddress[]) => AztecAddress[]`
+- `senderForTagsFrom(from: AztecAddress | "NO_FROM", sendMessagesAs?: AztecAddress) => AztecAddress | undefined` - Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx will fail the contract-side `Sender for tags is not set` assertion unless `set_sender_for_tags` is called first.
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
-- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResult>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResult>` - Simulates calls through the standard PXE path (account entrypoint).
+- `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
 
@@ -119,7 +120,7 @@ A wallet implementation that communicates with browser extension wallets using a
 
 **Methods**
 - `asWallet() => Wallet`
-- `static create(extensionId: string, port: MessagePort, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string) => ExtensionWallet` - Creates a Wallet that communicates with a browser extension over a secure encrypted MessageChannel.
+- `static create(extensionId: string, port: MessagePort, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string, logger?: WalletSdkLogger, heartbeatOptions?: HeartbeatOptions) => ExtensionWallet` - Creates a Wallet that communicates with a browser extension over a secure encrypted MessageChannel.
 - `disconnect() => Promise<void>` - Disconnects from the wallet and cleans up resources. This method notifies the wallet extension that the session is ending, allowing it to clean up its state. After calling this method, the wallet instance can no longer be used and any pending requests will be rejected.
 - `isDisconnected() => boolean` - Returns whether the wallet has been disconnected.
 - `onDisconnect(callback: DisconnectCallback) => () => void` - Registers a callback to be invoked when the wallet disconnects.
@@ -147,7 +148,7 @@ A wallet implementation that communicates with a web wallet loaded in an iframe 
 
 **Methods**
 - `asWallet() => Wallet` - Returns this wallet as a typed Wallet interface. When accessed through the Proxy (via `create()`), returns the proxy itself.
-- `static create(walletId: string, sessionId: string, iframeWindow: Window, walletOrigin: string, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string) => IframeWallet` - Creates a proxied IframeWallet that implements the Wallet interface. All Wallet method calls are intercepted by a Proxy, encrypted with the shared AES-256-GCM key, sent via postMessage, and the response is decrypted and validated against WalletSchema.
+- `static create(walletId: string, sessionId: string, iframeWindow: Window, walletOrigin: string, sharedKey: CryptoKey, chainInfo: ChainInfo, appId: string, logger?: WalletSdkLogger, heartbeatOptions?: HeartbeatOptions) => IframeWallet` - Creates a proxied IframeWallet that implements the Wallet interface. All Wallet method calls are intercepted by a Proxy, encrypted with the shared AES-256-GCM key, sent via postMessage, and the response is decrypted and validated against WalletSchema.
 - `disconnect() => void`
 - `isDisconnected() => boolean`
 - `onDisconnect(callback: DisconnectCallback) => () => void`
@@ -210,6 +211,7 @@ Event callbacks for the background connection handler. All callbacks are optiona
 Configuration for the background connection handler.
 
 **Properties**
+- `logger: WalletSdkLogger` - Logger used for diagnostics.
 - `walletIcon?: string` - Optional wallet icon URL.
 - `walletId: string` - Unique wallet identifier.
 - `walletName: string` - Display name for the wallet.
@@ -361,6 +363,14 @@ Configuration for extension wallets
 - `blockList?: string[]` - Optional list of blocked extension IDs (blacklist)
 - `enabled: boolean` - Whether extension wallets are enabled
 
+### HeartbeatOptions
+
+Override knobs for the heartbeat — mostly useful for tests.
+
+**Properties**
+- `deadAfterMs?: number` - Idle ceiling before declaring disconnect (ms).
+- `intervalMs?: number` - How often to send PING probes while a request is in flight (ms).
+
 ### IframeConnectionCallbacks
 
 Event callbacks for the iframe connection handler.
@@ -378,6 +388,7 @@ Configuration for the iframe connection handler.
 
 **Properties**
 - `allowedOrigins?: string[]` - Origins allowed to connect. If empty or undefined, all origins are allowed (dev mode).
+- `logger: WalletSdkLogger` - Logger used for diagnostics.
 - `walletIcon?: string` - Optional wallet icon URL
 - `walletId: string` - Unique wallet identifier
 - `walletName: string` - Display name for the wallet
@@ -523,6 +534,16 @@ Response message from wallet
 - `result?: unknown` - Result data (if successful)
 - `walletId: string` - Wallet ID that sent the response
 
+### WalletSdkLogger
+
+Minimal logger surface used by the wallet SDK. Defined locally so that wallet hosts (browser extensions, iframe wallet pages) can pass a simple `console`-backed logger without pulling in the full `@aztec/foundation` logging runtime, which is non-trivial to bundle in those contexts. Structurally compatible with `Logger` from `@aztec/foundation/log`, so dApp-side callers can pass that type directly.
+
+**Properties**
+- `debug: (message: string, data?: unknown) => void` - Diagnostic messages — typically discarded in production.
+- `error: (message: string, errOrData?: unknown, data?: unknown) => void` - Errors that prevent normal operation.
+- `info: (message: string, data?: unknown) => void` - Informational messages — significant lifecycle events.
+- `warn: (message: string, data?: unknown) => void` - Recoverable problems — channel decryption failure, missed heartbeats, etc.
+
 ### WebWalletConfig
 
 Configuration for web wallets
@@ -540,7 +561,7 @@ Converts a base64 string to a Uint8Array.
 
 ### buildMergedSimulationResult
 ```typescript
-function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: TxSimulationResult | null) => TxSimulationResult
+function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: TxSimulationResultWithAppOffset | null) => TxSimulationResultWithAppOffset
 ```
 Merges simulation results from the optimized (public static) and normal paths. Since optimized calls are always a leading prefix, return values are simply concatenated: optimized first, then normal. Stats are taken from the normal result only (the optimized path doesn't produce them).
 
@@ -630,11 +651,28 @@ Converts a Uint8Array to a base64 string.
 
 ## Types
 
+### CompleteFeeOptionsConfig
+```typescript
+type CompleteFeeOptionsConfig = unknown
+```
+Options for `completeFeeOptions`.
+
 ### DEFAULT_EMOJI_GRID_SIZE
 ```typescript
 type DEFAULT_EMOJI_GRID_SIZE = 9
 ```
 Default grid size for emoji verification display. 3x3 grid = 9 emojis = 72 bits of security.
+
+### DEFAULT_HEARTBEAT_DEAD_AFTER_MS
+```typescript
+type DEFAULT_HEARTBEAT_DEAD_AFTER_MS = 300000
+```
+
+### DEFAULT_HEARTBEAT_INTERVAL_MS
+```typescript
+type DEFAULT_HEARTBEAT_INTERVAL_MS = 5000
+```
+Default heartbeat tuning shared by both transports. - `intervalMs`: how often the dApp sends PING probes while a request is in flight. - `deadAfterMs`: how long the channel can stay silent (no PONG, no encrypted response, no DISCONNECT) before the dApp declares the wallet unreachable and rejects all in-flight requests. Generous enough that long-running operations (proveTx, sendTx) on legacy wallets that don't reply to PING still succeed — any inbound traffic resets the timer.
 
 ### DisconnectCallback
 ```typescript
@@ -666,6 +704,12 @@ type MessageOriginType = typeof MessageOrigin[keyof typeof MessageOrigin]
 ```
 Union type of message origins.
 
+### NOOP_LOGGER
+```typescript
+type NOOP_LOGGER = WalletSdkLogger
+```
+No-op logger used as the default when callers don't provide one. Discards all messages — wallet hosts that want diagnostics should pass their own logger.
+
 ### ProviderDisconnectionCallback
 ```typescript
 type ProviderDisconnectionCallback = () => void
@@ -674,7 +718,7 @@ Callback type for wallet disconnect events at the provider level.
 
 ### SimulateViaEntrypointOptions
 ```typescript
-type SimulateViaEntrypointOptions = Pick<SimulateOptions, "from" | "additionalScopes" | "skipTxValidation" | "skipFeeEnforcement"> & { feeOptions: FeeOptions; scopes: AccessScopes }
+type SimulateViaEntrypointOptions = Pick<SimulateOptions, "from" | "additionalScopes" | "skipTxValidation" | "skipFeeEnforcement" | "sendMessagesAs"> & { feeOptions: FeeOptions }
 ```
 Options for `simulateViaEntrypoint`.
 
@@ -689,23 +733,23 @@ Type of wallet provider
 ### WalletMessageType
 Message types for wallet SDK communication. All types are prefixed with 'aztec-wallet-' for namespacing.
 
-Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-discovery-response`, `aztec-wallet-key-exchange-request`, `aztec-wallet-key-exchange-response`, `aztec-wallet-secure-message`, `aztec-wallet-secure-response`, `aztec-wallet-session-disconnected`, `aztec-wallet-ready`
+Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-discovery-response`, `aztec-wallet-key-exchange-request`, `aztec-wallet-key-exchange-response`, `aztec-wallet-ping`, `aztec-wallet-pong`, `aztec-wallet-secure-message`, `aztec-wallet-secure-response`, `aztec-wallet-session-disconnected`, `aztec-wallet-ready`
 
 ## Cross-Package References
 
 This package references types from other Aztec packages:
 
 **@aztec/aztec.js**
-- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `FeePaymentMethod`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `Wallet`, `WalletCapabilities`
+- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `Wallet`, `WalletCapabilities`
 
 **@aztec/entrypoints**
-- `AccountFeePaymentMethodOptions`, `ChainInfo`
+- `ChainInfo`
 
 **@aztec/foundation**
-- `FieldsOf`, `Fr`, `Logger`
+- `Fr`, `Logger`
 
 **@aztec/pxe**
-- `AccessScopes`, `ContractNameResolver`, `PXE`
+- `ContractNameResolver`, `PXE`
 
 **@aztec/stdlib**
 - `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`

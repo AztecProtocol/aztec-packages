@@ -7,7 +7,6 @@ import { DomainSeparator, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { L2Block } from '@aztec/stdlib/block';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   computeAppNullifierHidingKey,
@@ -15,6 +14,7 @@ import {
   deriveMasterNullifierHidingKey,
   deriveMasterOutgoingViewingSecretKey,
   derivePublicKeyFromSecretKey,
+  hashPublicKey,
 } from '@aztec/stdlib/keys';
 
 import { jest } from '@jest/globals';
@@ -90,14 +90,12 @@ describe('Keys', () => {
 
     const getNumNullifiedNotes = async (nhkApp: Fr, contractAddress: AztecAddress) => {
       // 1. Get all the note hashes
-      const blocks = await aztecNode.getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 1000);
-      const noteHashes = blocks.flatMap((block: L2Block) =>
-        block.body.txEffects.flatMap(txEffect => txEffect.noteHashes),
-      );
+      const blocks = await aztecNode.getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 1000, {
+        includeTransactions: true,
+      });
+      const noteHashes = blocks.flatMap(block => block.body.txEffects.flatMap(txEffect => txEffect.noteHashes));
       // 2. Get all the seen nullifiers
-      const nullifiers = blocks.flatMap((block: L2Block) =>
-        block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
-      );
+      const nullifiers = blocks.flatMap(block => block.body.txEffects.flatMap(txEffect => txEffect.nullifiers));
       // 3. Derive all the possible nullifiers using nhkApp
       const derivedNullifiers = await Promise.all(
         noteHashes.map(async noteHash => {
@@ -117,9 +115,13 @@ describe('Keys', () => {
 
   describe('ovsk_app', () => {
     it('gets ovsk_app', async () => {
-      // Derive the ovpk_m_hash from the account secret
+      // Derive the ovpk_m_hash from the account secret. Use `hashPublicKey` (the
+      // domain-separated hash over `[x, y]`) rather than `Point.hash()` (which hashes
+      // `[x, y, is_infinite]` with no separator) -- the PXE's `KeyStore.addAccount` stores
+      // master-key hashes computed via `hashPublicKey`, so this is what the
+      // `aztec_utl_getKeyValidationRequest` lookup compares against.
       const ovskM = deriveMasterOutgoingViewingSecretKey(secret);
-      const ovpkMHash = await (await derivePublicKeyFromSecretKey(ovskM)).hash();
+      const ovpkMHash = await hashPublicKey(await derivePublicKeyFromSecretKey(ovskM));
 
       // Compute the expected ovsk_app
       const expectedOvskApp = await computeAppSecretKey(ovskM, testContract.address, 'ov');

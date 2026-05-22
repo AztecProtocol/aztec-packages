@@ -63,7 +63,8 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(cons
 /**
  * Computes invmod. Only for internal usage within the class.
  * This is an insecure version of the algorithm that doesn't take into account the 0 case and cases when modulus is
- *close to the top margin.
+ * close to the top margin. The result is only meaningful when *this and modulus are coprime; non-coprime inputs
+ * return an unspecified value (callers must guarantee coprimality or guard against the result being used).
  *
  * @param modulus The modulus of the ring
  *
@@ -104,9 +105,7 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::unsafe_invmod(cons
 template <class base_uint> uintx<base_uint> uintx<base_uint>::invmod(const uintx& modulus) const
 {
     BB_ASSERT((*this) != 0);
-    if (modulus == 0) {
-        return 0;
-    }
+    BB_ASSERT(modulus != 0);
     if (modulus.get_msb() >= (2 * base_uint::length() - 1)) {
         uintx<uintx<base_uint>> a_expanded(*this);
         uintx<uintx<base_uint>> modulus_expanded(modulus);

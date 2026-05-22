@@ -527,6 +527,7 @@ export class PeerManager implements PeerManagerInterface {
       protectedConnections: protectedPeerCount,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
+      discv5KadPeers: this.peerDiscoveryService.getKadValues().length,
       ...this.peerScoring.getStats(),
     });
 
@@ -725,6 +726,12 @@ export class PeerManager implements PeerManagerInterface {
     }
 
     if (this.peerScoring.getScoreState(peerIdString) != PeerScoreState.Healthy) {
+      return;
+    }
+
+    // Don't dial peers that have exceeded the auth failure threshold
+    if (!this.isNodeAllowedToConnect(peerId)) {
+      this.logger.trace(`Skipping peer ${peerId} due to failed auth handshake attempts`);
       return;
     }
 
@@ -985,14 +992,14 @@ export class PeerManager implements PeerManagerInterface {
     const peerIdStr = peerId.toString();
 
     const existingEntry = this.failedAuthHandshakes.get(peerIdStr);
+    const failureCount = (existingEntry?.count || 0) + 1;
     this.failedAuthHandshakes.set(peerIdStr, {
-      count: (existingEntry?.count || 0) + 1,
+      count: failureCount,
       lastFailureTimestamp: now,
     });
 
     const connections = this.libP2PNode.getConnections(peerId);
     connections.forEach(conn => {
-      // We mark the IP address
       const address = conn.remoteAddr.nodeAddress().address;
       const existingAddressEntry = this.failedAuthHandshakes.get(address);
       this.failedAuthHandshakes.set(address, {
@@ -1000,6 +1007,15 @@ export class PeerManager implements PeerManagerInterface {
         lastFailureTimestamp: now,
       });
     });
+
+    // Ban the peer from being re-dialed for a cooldown period (exponential backoff)
+    const banTimeMs = this.config.peerFailedBanTimeMs ?? DEFAULT_FAILED_PEER_BAN_TIME_MS;
+    const backoffMs = banTimeMs * Math.pow(2, Math.min(failureCount - 1, 5));
+    this.timedOutPeers.set(peerIdStr, {
+      peerId: peerIdStr,
+      timeoutUntilMs: now + backoffMs,
+    });
+    this.cachedPeers.delete(peerIdStr);
   }
 
   /*

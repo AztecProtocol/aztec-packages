@@ -1,6 +1,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/goblin_avm/goblin_avm.hpp"
 #include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
@@ -93,9 +94,9 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
 
         auto goblin_proof = goblin.prove();
 
-        // Subtable values and commitments
+        // Commit to op_queue columns.
         TableCommitments table_commitments;
-        auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns();
+        auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns(/*include_zk_ops*/ false);
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             table_commitments[idx] = pcs_commitment_key.commit(ultra_ops_table_columns[idx]);

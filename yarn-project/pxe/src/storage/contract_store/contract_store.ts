@@ -7,7 +7,6 @@ import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import {
   type ContractArtifact,
   type FunctionAbi,
-  type FunctionArtifact,
   type FunctionArtifactWithContractName,
   FunctionCall,
   type FunctionDebugMetadata,
@@ -16,6 +15,8 @@ import {
   contractArtifactFromBuffer,
   contractArtifactToBuffer,
   encodeArguments,
+  findFunctionAbiBySelector,
+  findFunctionArtifactBySelector,
   getFunctionDebugMetadata,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -168,12 +169,14 @@ export class ContractStore {
   }
 
   async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
-    this.#contractClassIdMap.set(contract.address.toString(), contract.currentContractClassId);
+    await this.#store.transactionAsync(async () => {
+      await this.#contractInstances.set(
+        contract.address.toString(),
+        new SerializableContractInstance(contract).toBuffer(),
+      );
+    });
 
-    await this.#contractInstances.set(
-      contract.address.toString(),
-      new SerializableContractInstance(contract).toBuffer(),
-    );
+    this.#contractClassIdMap.set(contract.address.toString(), contract.currentContractClassId);
   }
 
   // Private getters
@@ -246,7 +249,7 @@ export class ContractStore {
     contractClassId: Fr,
   ): Promise<(ContractClassWithId & ContractClassIdPreimage) | undefined> {
     const key = contractClassId.toString();
-    const buf = await this.#contractClassData.getAsync(key);
+    const buf = await this.#store.transactionAsync(() => this.#contractClassData.getAsync(key));
     if (!buf) {
       return undefined;
     }
@@ -288,7 +291,7 @@ export class ContractStore {
     if (!artifact) {
       return undefined;
     }
-    const fn = await this.#findFunctionArtifactBySelector(artifact, selector);
+    const fn = await findFunctionArtifactBySelector(artifact, selector);
     return fn && { ...fn, contractName: artifact.name };
   }
 
@@ -320,7 +323,7 @@ export class ContractStore {
     selector: FunctionSelector,
   ): Promise<FunctionAbi | undefined> {
     const artifact = await this.#getArtifactByAddress(contractAddress);
-    return artifact && (await this.#findFunctionAbiBySelector(artifact, selector));
+    return artifact && (await findFunctionAbiBySelector(artifact, selector));
   }
 
   /**
@@ -338,7 +341,7 @@ export class ContractStore {
     if (!artifact) {
       return undefined;
     }
-    const fn = await this.#findFunctionArtifactBySelector(artifact, selector);
+    const fn = await findFunctionArtifactBySelector(artifact, selector);
     return fn && getFunctionDebugMetadata(artifact, fn);
   }
 
@@ -372,32 +375,8 @@ export class ContractStore {
 
   public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
     const artifact = await this.#getArtifactByAddress(contractAddress);
-    const fn = artifact && (await this.#findFunctionAbiBySelector(artifact, selector));
+    const fn = artifact && (await findFunctionAbiBySelector(artifact, selector));
     return `${artifact?.name ?? contractAddress}:${fn?.name ?? selector}`;
-  }
-
-  async #findFunctionArtifactBySelector(
-    artifact: ContractArtifact,
-    selector: FunctionSelector,
-  ): Promise<FunctionArtifact | undefined> {
-    for (const fn of artifact.functions) {
-      const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
-      if (fnSelector.equals(selector)) {
-        return fn;
-      }
-    }
-  }
-
-  async #findFunctionAbiBySelector(
-    artifact: ContractArtifact,
-    selector: FunctionSelector,
-  ): Promise<FunctionAbi | undefined> {
-    for (const fn of [...artifact.functions, ...(artifact.nonDispatchPublicFunctions ?? [])]) {
-      const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
-      if (fnSelector.equals(selector)) {
-        return fn;
-      }
-    }
   }
 
   public async getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {

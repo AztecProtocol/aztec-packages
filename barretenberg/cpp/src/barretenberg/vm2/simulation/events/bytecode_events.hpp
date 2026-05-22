@@ -35,7 +35,7 @@ struct BytecodeRetrievalEvent {
     AztecAddress address = 0;
     ContractClassId current_class_id = 0;
     ContractClass contract_class{};
-    FF nullifier_root = 0;
+    FF nullifier_tree_root = 0;
     FF public_data_tree_root = 0;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_before;
     AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_after;

@@ -6,7 +6,7 @@
  */
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -20,7 +20,13 @@ import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal, mockTx } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+  mockTx,
+} from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
@@ -86,6 +92,7 @@ describe('ValidatorClient HA Integration', () => {
     p2pClient.getCheckpointAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.addOwnCheckpointAttestations.mockResolvedValue();
     p2pClient.broadcastCheckpointAttestations.mockResolvedValue();
+    const slotDuration = 24;
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({
       l1GenesisTime: 1n,
@@ -96,6 +103,9 @@ describe('ValidatorClient HA Integration', () => {
     });
     worldState = mock<WorldStateSynchronizer>();
     epochCache = mock<EpochCache>();
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration,
+    } as any);
     // Default mock: return all addresses passed (all are in committee)
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
     blockSource = mock<L2BlockSource & L2BlockSink>();
@@ -119,28 +129,33 @@ describe('ValidatorClient HA Integration', () => {
     };
     keyStoreManager = new KeystoreManager(keyStore);
 
-    rollupAddress = EthAddress.random();
+    rollupAddress = TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress;
 
     // Create 5 HA validator instances for use across all tests
     const baseConfig: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       > = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
-      l1Contracts: { rollupAddress },
+      rollupAddress,
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1n,
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
-      databaseUrl: 'postgresql://test',
+      databaseUrl: new SecretValue('postgresql://test'),
       dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
@@ -177,7 +192,10 @@ describe('ValidatorClient HA Integration', () => {
     config: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       >,
   ): Promise<ValidatorClient> {
     // Track pool for cleanup
@@ -196,6 +214,7 @@ describe('ValidatorClient HA Integration', () => {
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: true,
       maxTxsPerBlock: undefined,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
@@ -280,9 +299,18 @@ describe('ValidatorClient HA Integration', () => {
       // All 5 validators try to create a block proposal for the same slot simultaneously
       const results = await Promise.allSettled(
         validators.map(v =>
-          v.createBlockProposal(blockHeader, indexWithinCheckpoint, inHash, archive, txs, proposerAddress, {
-            publishFullTxs: false,
-          }),
+          v.createBlockProposal(
+            blockHeader,
+            CheckpointNumber(1),
+            indexWithinCheckpoint,
+            inHash,
+            archive,
+            txs,
+            proposerAddress,
+            {
+              publishFullTxs: false,
+            },
+          ),
         ),
       );
 
@@ -312,9 +340,16 @@ describe('ValidatorClient HA Integration', () => {
         validators.map((v, i) => {
           const blockHeader = makeBlockHeader(i + 1);
           const archive = Fr.random();
-          return v.createBlockProposal(blockHeader, IndexWithinCheckpoint(0), inHash, archive, txs, proposerAddress, {
-            publishFullTxs: false,
-          });
+          return v.createBlockProposal(
+            blockHeader,
+            CheckpointNumber(1),
+            IndexWithinCheckpoint(0),
+            inHash,
+            archive,
+            txs,
+            proposerAddress,
+            { publishFullTxs: false },
+          );
         }),
       );
 
@@ -340,7 +375,9 @@ describe('ValidatorClient HA Integration', () => {
       });
 
       // All 5 validators try to attest to the same checkpoint proposal simultaneously
-      const results = await Promise.allSettled(validators.map(v => v.collectOwnAttestations(checkpointProposal)));
+      const results = await Promise.allSettled(
+        validators.map(v => v.collectOwnAttestations(checkpointProposal, CheckpointNumber(1))),
+      );
 
       // Check for errors - if all fail, at least one should have a meaningful error
       const allFailed = results.every(r => r.status === 'rejected');

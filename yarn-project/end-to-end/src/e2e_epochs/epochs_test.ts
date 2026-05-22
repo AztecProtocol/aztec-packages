@@ -1,5 +1,7 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -35,12 +37,17 @@ import type { Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  SCHNORR_HARDCODED_PRIVATE_KEY,
+  SchnorrHardcodedKeyAccountContract,
+} from '../fixtures/schnorr_hardcoded_account_contract.js';
+import {
   type EndToEndContext,
   type SetupOptions,
   createAndSyncProverNode,
   getPrivateKeyFromIndex,
   setup,
 } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
@@ -51,6 +58,13 @@ export type EpochsTestOpts = Partial<SetupOptions> & {
   numberOfAccounts?: number;
   pxeOpts?: Partial<PXEConfig>;
   aztecSlotDurationInL1Slots?: number;
+  /** Skip creating/registering the hardcoded account during setup (for tests that handle accounts themselves). */
+  skipHardcodedAccount?: boolean;
+  /**
+   * Force the hardcoded-account fast-path even when an initial sequencer is running. Useful for
+   * tests with tight per-block gas budgets that can't fit a full account-deploy tx.
+   */
+  useHardcodedAccount?: boolean;
 };
 
 export type TrackedSequencerEvent = {
@@ -121,10 +135,20 @@ export class EpochsTestContext {
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
 
+    // Auto-create a hardcoded account funded via genesis when:
+    //  - skipInitialSequencer is set (no sequencer to deploy on-chain), or
+    //  - useHardcodedAccount is explicitly requested (e.g. tight per-block gas budgets that
+    //    can't fit a full account-deploy tx).
+    const useHardcodedAccount = (opts.skipInitialSequencer || opts.useHardcodedAccount) && !opts.skipHardcodedAccount;
+    let hardcodedAccountData: InitialAccountData | undefined;
+    if (useHardcodedAccount) {
+      hardcodedAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
+    }
+
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
     const context = await setup(
-      opts.numberOfAccounts ?? 0,
+      useHardcodedAccount ? 0 : (opts.numberOfAccounts ?? 0),
       {
         automineL1Setup: true,
         checkIntervalMs: 50,
@@ -139,15 +163,13 @@ export class EpochsTestContext {
         realProofs: false,
         startProverNode: true,
         proverTestDelayMs: opts.proverTestDelayMs ?? 0,
-        // We use numeric incremental prover ids for simplicity, but we can switch to
-        // using the prover's eth address if the proverId is used for something in the rollup contract
-        // Use numeric EthAddress for deterministic prover id
         proverId: EthAddress.fromNumber(1),
         worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherEnabled: false,
         l1PublishingTime,
         ...opts,
+        ...(hardcodedAccountData ? { initialFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
       },
       // Use checkpointed chain tip for PXE by default to avoid issues with blocks being dropped due to pruned anchor blocks.
       // Can be overridden via opts.pxeOpts.
@@ -155,6 +177,11 @@ export class EpochsTestContext {
     );
 
     this.context = context;
+
+    // Register the hardcoded account in PXE (local only, no on-chain deployment needed).
+    if (hardcodedAccountData) {
+      await this.registerHardcodedAccount(hardcodedAccountData);
+    }
     this.proverNodes = context.proverNode ? [context.proverNode] : [];
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
@@ -195,6 +222,35 @@ export class EpochsTestContext {
     await Promise.all(this.proverNodes.map(node => tryStop(node, this.logger)));
     await Promise.all(this.nodes.map(node => tryStop(node, this.logger)));
     await this.context.teardown();
+  }
+
+  /**
+   * Computes InitialAccountData for a SchnorrHardcodedKeyAccountContract.
+   * This contract has a hardcoded signing key and no initializer, so it can be used without
+   * on-chain deployment. Pass the returned data in `initialFundedAccounts` so the address
+   * gets funded with fee juice in genesis.
+   */
+  public static async getHardcodedAccountData(secret: Fr, salt: Fr): Promise<InitialAccountData> {
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const address = await getAccountContractAddress(contract, secret, salt);
+    const signingKey = SCHNORR_HARDCODED_PRIVATE_KEY;
+    return { secret, salt, signingKey, address };
+  }
+
+  /**
+   * Registers a SchnorrHardcodedKeyAccountContract in PXE. The account must have been funded
+   * at genesis (via getHardcodedAccountData). No on-chain deployment or block mining needed.
+   */
+  public async registerHardcodedAccount(accountData: InitialAccountData) {
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const wallet = this.context.wallet;
+    const accountManager = await (wallet as TestWallet).createAccount({
+      secret: accountData.secret,
+      salt: accountData.salt,
+      contract,
+    });
+    this.context.accounts = [accountManager.address];
+    return accountManager.address;
   }
 
   public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
@@ -349,7 +405,7 @@ export class EpochsTestContext {
       await sleep(waitTime);
       const [syncState, tips] = await Promise.all([
         this.context.aztecNode.getWorldStateSyncStatus(),
-        await this.context.aztecNode.getL2Tips(),
+        await this.context.aztecNode.getChainTips(),
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
@@ -416,7 +472,7 @@ export class EpochsTestContext {
   /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
   public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
     const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
 
     this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
@@ -448,6 +504,7 @@ export class EpochsTestContext {
   public watchSequencerEvents(
     sequencers: SequencerClient[],
     getMetadata: (i: number) => Record<string, any> = () => ({}),
+    additionalFailEventKeys: (keyof SequencerEvents)[] = [],
   ) {
     const stateChanges: TrackedSequencerEvent[] = [];
     const failEvents: TrackedSequencerEvent[] = [];
@@ -458,6 +515,10 @@ export class EpochsTestContext {
       'block-build-failed',
       'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
+      'checkpoint-error',
+      'checkpoint-publish-failed',
+      'pipelined-checkpoint-discarded',
+      ...additionalFailEventKeys,
     ];
 
     const makeEvent = (
@@ -495,5 +556,12 @@ export class EpochsTestContext {
     });
 
     return { failEvents, stateChanges };
+  }
+
+  public assertNoFailuresFromSequencers(failEvents: TrackedSequencerEvent[]) {
+    if (failEvents.length > 0) {
+      this.logger.error(`Failed events from sequencers`, failEvents);
+    }
+    expect(failEvents).toEqual([]);
   }
 }

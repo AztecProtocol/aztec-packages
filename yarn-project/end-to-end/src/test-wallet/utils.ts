@@ -1,4 +1,5 @@
 import {
+  BatchCall,
   ContractFunctionInteraction,
   DeployMethod,
   type DeployOptions,
@@ -62,15 +63,10 @@ export class ProvenTx extends Tx {
 
 export async function proveInteraction(
   wallet: TestWallet,
-  interaction: ContractFunctionInteraction | DeployMethod,
+  interaction: ContractFunctionInteraction | DeployMethod | BatchCall,
   options: SendInteractionOptions | DeployOptions,
 ) {
-  let execPayload;
-  if (interaction instanceof DeployMethod) {
-    execPayload = await interaction.request(interaction.convertDeployOptionsToRequestOptions(options));
-  } else {
-    execPayload = await interaction.request(options);
-  }
+  const execPayload = await interaction.request(options);
   return wallet.proveTx(execPayload, toSendOptions(options));
 }
 

@@ -36,6 +36,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { hashTypedData } from 'viem';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
@@ -103,18 +104,26 @@ describe('ValidatorClient Integration', () => {
       dataStoreMapSizeKb: 1024 * 1024,
     });
     await registerProtocolContracts(archiverStore);
-    const archiver = await createNoopL1Archiver(archiverStore, { ...l1Constants, genesisArchiveRoot });
-    await archiver.start();
 
-    // Create world state synchronizer
+    // Construct world-state first so we can pass its initial header to the archiver, mirroring
+    // production wiring (see aztec-node/server.ts). Both sides must agree on the genesis hash for
+    // L2BlockStream's `areBlockHashesEqualAt` check to succeed at block 0.
     const wsConfig = {
-      l1Contracts: { rollupAddress },
+      rollupAddress,
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 10,
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateCheckpointHistory: 0,
     };
     const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, genesis);
+    const archiver = await createNoopL1Archiver(
+      archiverStore,
+      { ...l1Constants, genesisArchiveRoot },
+      undefined,
+      worldStateDb.getInitialHeader(),
+    );
+    await archiver.start();
+
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
@@ -161,7 +170,8 @@ describe('ValidatorClient Integration', () => {
     // Create and start validator
     const validator = await ValidatorClient.new(
       {
-        l1Contracts: { rollupAddress },
+        rollupAddress,
+        l1ChainId: chainId.toNumber(),
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
         disableValidator: false,
@@ -169,6 +179,7 @@ describe('ValidatorClient Integration', () => {
         slashBroadcastedInvalidBlockPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
         slashDuplicateAttestationPenalty: 10n,
+        slashAttestInvalidCheckpointProposalPenalty: 10n,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,
@@ -207,6 +218,7 @@ describe('ValidatorClient Integration', () => {
   const buildBlockProposal = async (
     checkpointBuilder: CheckpointBuilder,
     blockNumber: BlockNumber,
+    cpNumber: CheckpointNumber,
     txs: Tx[] = [],
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
@@ -220,11 +232,13 @@ describe('ValidatorClient Integration', () => {
 
     const proposal = await proposer.validator.createBlockProposal(
       block.header,
+      cpNumber,
       block.indexWithinCheckpoint,
       inHash,
       block.archive.root,
       usedTxs,
       proposerSigner.address,
+      {},
     );
 
     logger.warn(`Built block proposal for block ${blockNumber}`, { ...block.toBlockInfo() });
@@ -302,7 +316,7 @@ describe('ValidatorClient Integration', () => {
     for (let i = 0; i < blockCount; i++) {
       const blockNumber = BlockNumber(startBlockNumber + i);
       const txs = await getTxsForBlock(blockNumber, blocks);
-      const block = await buildBlockProposal(builder, blockNumber, txs, l1ToL2Messages);
+      const block = await buildBlockProposal(builder, blockNumber, checkpointNumber, txs, l1ToL2Messages);
       blocks.push(block);
     }
 
@@ -311,9 +325,11 @@ describe('ValidatorClient Integration', () => {
     const proposal = await proposer.validator.createCheckpointProposal(
       checkpoint.header,
       checkpoint.archive.root,
+      checkpointNumber,
       0n,
       undefined,
       proposerSigner.address,
+      {},
     );
 
     return { blocks, checkpoint, proposal, l1ToL2Messages, globalVariables };
@@ -399,7 +415,7 @@ describe('ValidatorClient Integration', () => {
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();
-      const attestorBlocks = await attestor.archiver.getBlocks(BlockNumber(1), 3);
+      const attestorBlocks = await attestor.archiver.getBlocks({ from: BlockNumber(1), limit: 3 });
       expect(attestorBlocks.length).toBe(3);
 
       const attestorBlockHashes = await Promise.all(attestorBlocks.map(b => b.header.hash()));
@@ -410,8 +426,8 @@ describe('ValidatorClient Integration', () => {
     it('validates and attests with txs anchored to proposed blocks and non-empty l1-to-l2 messages', async () => {
       // Create l1 to l2 messages and seed them into the archivers
       const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await proposer.archiver.dataStore.addL1ToL2Messages(l1ToL2Messages);
-      await attestor.archiver.dataStore.addL1ToL2Messages(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       // Build txs anchored to the previously proposed block
       const { blocks, proposal } = await buildCheckpoint(
@@ -434,7 +450,7 @@ describe('ValidatorClient Integration', () => {
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();
-      const attestorBlocks = await attestor.archiver.getBlocks(BlockNumber(1), 3);
+      const attestorBlocks = await attestor.archiver.getBlocks({ from: BlockNumber(1), limit: 3 });
       expect(attestorBlocks.length).toBe(3);
 
       const attestorBlockHashes = await Promise.all(attestorBlocks.map(b => b.header.hash()));
@@ -490,7 +506,7 @@ describe('ValidatorClient Integration', () => {
 
       // Verify all blocks are in archiver
       await attestor.archiver.syncImmediate();
-      const attestorBlocks = await attestor.archiver.getBlocks(BlockNumber(1), 4);
+      const attestorBlocks = await attestor.archiver.getBlocks({ from: BlockNumber(1), limit: 4 });
       expect(attestorBlocks.length).toBe(4);
 
       const attestorBlockHashes = await Promise.all(attestorBlocks.map(b => b.header.hash()));
@@ -537,9 +553,11 @@ describe('ValidatorClient Integration', () => {
       const badProposal = await CheckpointProposal.createProposalFromSigner(
         checkpoint.header,
         Fr.random(), // Wrong archive root
+        CheckpointNumber(1),
         0n,
         undefined,
-        payload => Promise.resolve(proposerSigner.sign(payload)),
+        { chainId: chainId.toNumber(), rollupAddress },
+        typedData => Promise.resolve(proposerSigner.sign(Buffer32.fromString(hashTypedData(typedData)))),
       );
 
       await attestorValidateBlocks(blocks);
@@ -601,10 +619,10 @@ describe('ValidatorClient Integration', () => {
 
     it('refuses block proposal with mismatching l1 to l2 messages', async () => {
       const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await proposer.archiver.dataStore.addL1ToL2Messages(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       const otherL1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await attestor.archiver.dataStore.addL1ToL2Messages(otherL1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(otherL1ToL2Messages);
 
       const { blocks } = await buildCheckpoint(
         CheckpointNumber(1),

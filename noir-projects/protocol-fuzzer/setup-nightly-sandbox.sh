@@ -16,7 +16,7 @@ set -euo pipefail
 
 CONTAINER_NAME="aztec-sandbox-nightly"
 # Last nightly tag verified to work with the current contract source code.
-KNOWN_GOOD_TAG="5.0.0-nightly.20260224"
+KNOWN_GOOD_TAG="5.0.0-nightly.20260402"
 WRAPPER_DIR="${HOME}/.local/bin"
 WRAPPER_PATH="${WRAPPER_DIR}/aztec-wallet"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -208,11 +208,9 @@ for contract_pkg in side_effect_contract parent_contract; do
             --silence-warnings --inliner-aggressiveness 0 --package ${contract_pkg}
         /usr/src/barretenberg/cpp/build/bin/bb-avm aztec_process \
             -i target/${artifact}.json
-        jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \
-            target/${artifact}.json > /tmp/${artifact}.json
     "
 
-    docker cp "${CONTAINER_NAME}:/tmp/${artifact}.json" \
+    docker cp "${CONTAINER_NAME}:/tmp/nightly-build/target/${artifact}.json" \
         "${CONTRACTS_DIR}/target/${artifact}.json"
     log "Artifact copied to contracts/target/${artifact}.json"
 done
@@ -225,15 +223,15 @@ done
 log "Waiting for Aztec Server HTTP endpoint to be ready..."
 wait_for_http http://localhost:8080 120 || die "PXE HTTP endpoint did not recover"
 
-BRIDGE_SRC="${REPO_ROOT}/noir-projects/protocol-fuzzer/bridge.mjs"
+BRIDGE_SRC="${REPO_ROOT}/noir-projects/protocol-fuzzer/wallet-bridge.mjs"
 if [ ! -f "$BRIDGE_SRC" ]; then
     die "Bridge source not found: ${BRIDGE_SRC}"
 fi
 
 log "Starting bridge server..."
-docker cp "$BRIDGE_SRC" "${CONTAINER_NAME}:/usr/src/yarn-project/bridge.mjs"
+docker cp "$BRIDGE_SRC" "${CONTAINER_NAME}:/usr/src/yarn-project/wallet-bridge.mjs"
 docker exec -d "$CONTAINER_NAME" \
-    bash -c 'cd /usr/src/yarn-project && exec node --no-warnings bridge.mjs > /tmp/bridge.log 2>&1'
+    bash -c 'cd /usr/src/yarn-project && exec node --no-warnings wallet-bridge.mjs > /tmp/bridge.log 2>&1'
 
 if wait_for_http http://localhost:8089/health 60 2; then
     log "Bridge is ready on port 8089"

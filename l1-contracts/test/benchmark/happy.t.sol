@@ -56,7 +56,6 @@ import {
   FeeHeaderModel,
   ManaMinFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
@@ -98,7 +97,6 @@ contract FakeCanonical is IRewardDistributor {
 }
 
 contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
-  using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
   using TimeLib for Timestamp;
@@ -128,8 +126,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   uint256 internal TARGET_COMMITTEE_SIZE;
   uint256 internal PROOFS_PER_EPOCH; // given as e2, for simple decimals, e.g., 200 = 2.00
   uint256 internal VOTING_ROUND_SIZE = 500;
-
-  bool internal IS_IGNITION;
 
   Rollup internal rollup;
   Slasher internal slasher;
@@ -201,27 +197,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function setUp() public {
-    if (vm.envOr("IGNITION", false)) {
-      full = load("empty_checkpoint_1");
+    full = load("single_tx_checkpoint_1");
 
-      SLOT_DURATION = 16 * 12;
-      EPOCH_DURATION = 48;
-      MANA_TARGET = 0;
-      TARGET_COMMITTEE_SIZE = 24;
-      PROOFS_PER_EPOCH = 200; // 2.00
-
-      IS_IGNITION = true;
-    } else {
-      full = load("single_tx_checkpoint_1");
-
-      SLOT_DURATION = 36;
-      EPOCH_DURATION = 32;
-      MANA_TARGET = 1e8;
-      TARGET_COMMITTEE_SIZE = 48;
-      PROOFS_PER_EPOCH = 200; // 2.00
-
-      IS_IGNITION = false;
-    }
+    SLOT_DURATION = 72;
+    EPOCH_DURATION = 32;
+    MANA_TARGET = 1e8;
+    TARGET_COMMITTEE_SIZE = 48;
+    PROOFS_PER_EPOCH = 200; // 2.00
 
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
@@ -280,11 +262,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     header.coinbase = c;
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaMinFee;
-    if (MANA_TARGET > 0) {
-      header.totalManaUsed = manaSpent;
-    } else {
-      header.totalManaUsed = 0;
-    }
+    header.totalManaUsed = manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
@@ -306,7 +284,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       ProposePayload memory proposePayload =
         ProposePayload({archive: proposeArgs.archive, oracleInput: proposeArgs.oracleInput, headerHash: headerHash});
 
-      bytes32 digest = ProposeLib.digest(proposePayload);
+      bytes32 digest = ProposeLib.digest(proposePayload, address(rollup));
 
       // loop through to make sure we create an attestation for the proposer
       for (uint256 i = 0; i < validators.length; i++) {
@@ -338,7 +316,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     if (proposer != address(0)) {
       attestationsAndSignersSignature = createAttestation(
         proposer,
-        AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+        AttestationLib.getAttestationsAndSignersDigest(
+          AttestationLibHelper.packAttestations(attestations), signers, address(rollup)
+        )
       ).signature;
     }
 
@@ -354,8 +334,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   function createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
-    bytes32 digest = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
 
     Signature memory signature = Signature({v: v, r: r, s: s});
     // Address can be zero for signed attestations
@@ -374,7 +353,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @param _size - The number of validators
    * @return Encoded vote data
    */
-  function createTallyVoteData(uint256 _size) internal returns (bytes memory) {
+  function createTallyVoteData(uint256 _size) internal view returns (bytes memory) {
     require(_size % 4 == 0, "Vote data must have multiple of 4 validators");
 
     bytes32 seed = keccak256(abi.encode(_size, block.timestamp));
@@ -442,7 +421,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     // Do nothing for the first epoch
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
     Epoch nextEpoch = Epoch.wrap(4);
-    uint256 stopAtCheckpoint = IS_IGNITION ? 200 : 150;
+    uint256 stopAtCheckpoint = 150;
 
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
@@ -452,9 +431,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       _loadL1Metadata(i);
 
-      // For every "new" slot we encounter, we construct a checkpoint using current L1 Data
-      // and part of the `empty_checkpoint_1.json` file. The checkpoint cannot be proven, but it
-      // will be accepted as a proposal so very useful for testing a long range of checkpoints.
+      // For every "new" slot we encounter, we construct a checkpoint using current L1 data and
+      // the decoded checkpoint fixture. The checkpoint cannot be proven, but it will be accepted
+      // as a proposal so it is useful for testing a long range of checkpoints.
       if (rollup.getCurrentSlot() == nextSlot) {
         rollup.setupEpoch();
 

@@ -26,6 +26,7 @@ impl MockEventBuilder {
         MockEventBuilder { value, randomness: Option::none() }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn randomness(&mut self, randomness: Field) -> &mut Self {
         self.randomness = Option::some(randomness);
         self
@@ -35,6 +36,7 @@ impl MockEventBuilder {
         MockEvent { value: self.value }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn build_new_event(self) -> NewEvent<MockEvent> {
         NewEvent {
             event: self.build_event(),

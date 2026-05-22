@@ -49,13 +49,6 @@ Must match: `UltraVerifier_<UltraKeccakFlavor, DefaultIO>` in `ultra_honk/ultra_
 | KZG | `batchAccumulate()` + pairing | `KZG::reduce_verify_batch_opening_claim()` |
 
 
-## Upcoming Change: Public Input Encoding
-
-**Current**: 4 limbs per Fq (16 Fr elements for pairing points)
-**Planned**: 2 limbs per Fq (8 Fr elements for pairing points)
-
-Affects pairing point encoding in final verification step.
-
 ## Testing
 
 ```bash

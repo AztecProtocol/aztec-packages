@@ -43,6 +43,8 @@ export class MessageStore {
   #totalMessageCount: AztecAsyncSingleton<bigint>;
   /** Stores the checkpoint number whose message tree is currently being filled on L1. */
   #inboxTreeInProgress: AztecAsyncSingleton<bigint>;
+  /** Stores the L1 finalized block as of the last successful message sync. */
+  #messagesFinalizedL1Block: AztecAsyncSingleton<Buffer>;
 
   #log = createLogger('archiver:message_store');
 
@@ -52,6 +54,7 @@ export class MessageStore {
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_id');
     this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
     this.#inboxTreeInProgress = db.openSingleton('archiver_inbox_tree_in_progress');
+    this.#messagesFinalizedL1Block = db.openSingleton('archiver_messages_finalized_l1_block');
   }
 
   public async getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -73,6 +76,26 @@ export class MessageStore {
   public async setSynchedL1Block(l1Block: L1BlockId): Promise<void> {
     const buffer = serializeToBuffer([l1Block.l1BlockNumber, l1Block.l1BlockHash]);
     await this.#lastSynchedL1Block.set(buffer);
+  }
+
+  /** Gets the L1 finalized block as of the last successful message sync. */
+  public async getMessagesFinalizedL1Block(): Promise<L1BlockId | undefined> {
+    const buffer = await this.#messagesFinalizedL1Block.getAsync();
+    if (!buffer) {
+      return undefined;
+    }
+    const reader = BufferReader.asReader(buffer);
+    return { l1BlockNumber: reader.readUInt256(), l1BlockHash: Buffer32.fromBuffer(reader.readBytes(Buffer32.SIZE)) };
+  }
+
+  /** Monotonically advances the persisted L1 finalized block for message sync. Never regresses. */
+  private async maybeAdvanceFinalizedL1Block(l1Block: L1BlockId): Promise<void> {
+    const existing = await this.getMessagesFinalizedL1Block();
+    if (existing && l1Block.l1BlockNumber <= existing.l1BlockNumber) {
+      return;
+    }
+    const buffer = serializeToBuffer([l1Block.l1BlockNumber, l1Block.l1BlockHash]);
+    await this.#messagesFinalizedL1Block.set(buffer);
   }
 
   /**
@@ -185,14 +208,24 @@ export class MessageStore {
     return this.#inboxTreeInProgress.getAsync();
   }
 
-  /** Atomically updates the message sync state: the L1 sync point and the inbox tree-in-progress marker. */
-  public setMessageSyncState(l1Block: L1BlockId, treeInProgress: bigint | undefined): Promise<void> {
+  /**
+   * Atomically updates the message sync state: the L1 sync point, the inbox tree-in-progress marker, and
+   * (optionally) the L1 finalized block as of this sync. The finalized block is advanced monotonically.
+   */
+  public setMessageSyncState(
+    l1Block: L1BlockId,
+    treeInProgress: bigint | undefined,
+    finalizedL1Block?: L1BlockId,
+  ): Promise<void> {
     return this.db.transactionAsync(async () => {
       await this.setSynchedL1Block(l1Block);
       if (treeInProgress !== undefined) {
         await this.#inboxTreeInProgress.set(treeInProgress);
       } else {
         await this.#inboxTreeInProgress.delete();
+      }
+      if (finalizedL1Block !== undefined) {
+        await this.maybeAdvanceFinalizedL1Block(finalizedL1Block);
       }
     });
   }

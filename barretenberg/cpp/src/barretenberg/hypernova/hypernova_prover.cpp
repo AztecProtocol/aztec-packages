@@ -91,18 +91,24 @@ Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials
         max_end = std::max(max_end, polynomials_to_batch[idx].end_index());
     }
 
+    // Treat polynomials_to_batch[0] as the destination's starting state (its scalar is implicitly 1).
+    // The remaining N-1 sources are fused into a single parallel_for via add_scaled_batch.
+    std::vector<PolynomialSpan<const FF>> sources;
+    sources.reserve(N - 1);
+    for (size_t i = 1; i < N; ++i) {
+        sources.emplace_back(polynomials_to_batch[i]);
+    }
+    auto tail_scalars = std::span<const FF>(challenges).subspan(1);
+
+    auto sources_span = std::span<const PolynomialSpan<const FF>>(sources);
     if (min_start < polynomials_to_batch[0].start_index() || max_end > polynomials_to_batch[0].end_index()) {
         Polynomial<FF> result(max_end - min_start, full_batched_size, min_start);
         result += polynomials_to_batch[0];
-        for (size_t idx = 1; idx < N; idx++) {
-            result.add_scaled(polynomials_to_batch[idx], challenges[idx]);
-        }
+        add_scaled_batch(result, sources_span, tail_scalars);
         return result;
     }
 
-    for (size_t idx = 1; idx < N; idx++) {
-        polynomials_to_batch[0].add_scaled(polynomials_to_batch[idx], challenges[idx]);
-    }
+    add_scaled_batch(polynomials_to_batch[0], sources_span, tail_scalars);
 
     return polynomials_to_batch[0];
 };
@@ -127,14 +133,17 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
         "HypernovaFoldingProver:gate_challenge", Flavor::VIRTUAL_LOG_N);
 
     // Run Sumcheck with padding
-    MegaSumcheckProver sumcheck(instance->dyadic_size(),
-                                instance->polynomials,
-                                transcript,
-                                instance->alpha,
-                                instance->gate_challenges,
-                                instance->relation_parameters,
-                                Flavor::VIRTUAL_LOG_N);
-    auto sumcheck_output = sumcheck.prove();
+    auto sumcheck_output = [&] {
+        BB_BENCH_NAME("HypernovaFoldingProver::sumcheck");
+        MegaSumcheckProver sumcheck(instance->dyadic_size(),
+                                    instance->polynomials,
+                                    transcript,
+                                    instance->alpha,
+                                    instance->gate_challenges,
+                                    instance->relation_parameters,
+                                    Flavor::VIRTUAL_LOG_N);
+        return sumcheck.prove();
+    }();
     if (detail::use_memory_profile) {
         detail::GLOBAL_MEMORY_PROFILE.add_checkpoint("after_sumcheck");
     }
@@ -151,6 +160,7 @@ std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver
     const std::shared_ptr<ProverInstance>& instance,
     const std::shared_ptr<VerificationKey>& honk_vk)
 {
+    BB_BENCH_NAME("HypernovaFoldingProver::fold");
     Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
     // Sumcheck

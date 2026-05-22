@@ -4,7 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeCheckpointAttestation } from '@aztec/stdlib/testing';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeCheckpointAttestation } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -18,9 +18,30 @@ describe('CheckpointAttestationValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
-    validator = new CheckpointAttestationValidator(epochCache);
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+    validator = new CheckpointAttestationValidator(epochCache, {
+      l1PublishingTime: 12,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+    });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
+  });
+
+  it('rejects foreign signature context with low tolerance error', async () => {
+    const mockAttestation = makeCheckpointAttestation({
+      attesterSigner: attester,
+      proposerSigner: proposer,
+      signatureContext: {
+        ...TEST_COORDINATION_SIGNATURE_CONTEXT,
+        chainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId + 1,
+      },
+    });
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
   });
 
   it('returns high tolerance error if slot number is not current or next slot (outside clock tolerance)', async () => {
@@ -72,6 +93,72 @@ describe('CheckpointAttestationValidator', () => {
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'ignore' });
+  });
+
+  it('accepts attestation for current slot inside the straggler window', async () => {
+    // Attestation is for slot 98 (current wallclock slot), but targetSlot is 99 (pipelining).
+    // attestationWindowIntoTargetSlot = 2*p2p = 4s ⇒ straggler grace 4s+500ms disparity.
+    const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
+    const mockAttestation = makeCheckpointAttestation({
+      header,
+      attesterSigner: attester,
+      proposerSigner: proposer,
+    });
+
+    epochCache.getTargetAndNextSlot.mockReturnValue({
+      targetSlot: SlotNumber(99),
+      nextSlot: SlotNumber(100),
+    });
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(98),
+      ts: 1000n,
+      nowMs: 1003000n, // 3000ms elapsed, within 4500ms straggler grace
+    });
+    epochCache.isInCommittee.mockResolvedValue(true);
+    epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'accept' });
+  });
+
+  it('rejects attestation for current slot past the straggler window', async () => {
+    const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
+    const mockAttestation = makeCheckpointAttestation({
+      header,
+      attesterSigner: attester,
+      proposerSigner: proposer,
+    });
+
+    epochCache.getTargetAndNextSlot.mockReturnValue({
+      targetSlot: SlotNumber(99),
+      nextSlot: SlotNumber(100),
+    });
+    epochCache.getTargetSlot.mockReturnValue(SlotNumber(99));
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
+    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(99),
+      ts: 1000n,
+      nowMs: 1005000n, // 5000ms elapsed, past 4500ms straggler cutoff
+    });
+    epochCache.isInCommittee.mockResolvedValue(true);
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
   });
 
   it('returns high tolerance error if attester is not in committee', async () => {

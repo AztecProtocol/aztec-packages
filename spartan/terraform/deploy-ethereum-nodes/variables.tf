@@ -48,7 +48,7 @@ variable "lighthouse_p2p_port" {
 variable "reth_image" {
   description = "Reth Docker image"
   type        = string
-  default     = "ghcr.io/paradigmxyz/reth:v1.11.1"
+  default     = "ghcr.io/paradigmxyz/reth:v2.0.0"
 }
 
 variable "reth_chart_version" {

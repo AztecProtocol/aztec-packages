@@ -270,6 +270,44 @@ yarn generate:typescript-api v3.0.0-devnet.6
 
 The generated docs are linked from the [TypeScript API Reference](/developers/docs/aztec-js/typescript_api_reference) page.
 
+### Node JSON-RPC API Reference
+
+The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
+
+**Source files:**
+
+- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`node_` methods)
+- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`nodeAdmin_` methods)
+- `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
+
+**Prerequisites:** `yarn-project` must have `node_modules/` installed so `npx tsx` can resolve `typescript`. Run `yarn install` from `yarn-project` if needed. No build is required — the generator parses source `.ts` files via the TypeScript Compiler API, not compiled output.
+
+**Generate the reference doc:**
+
+```bash
+yarn generate:node-api-reference
+```
+
+This writes to `docs-operate/operators/reference/node-api-reference.md`.
+
+**Generate for a specific versioned docs directory:**
+
+```bash
+yarn generate:node-api-reference --target-dir network_versioned_docs/version-v4.1.3/operators/reference
+```
+
+**How it works:**
+
+1. Parses TypeScript interfaces with the TS Compiler API to extract JSDoc comments
+2. Parses Zod schema object literals from source AST to enumerate methods and extract types
+3. Generates markdown with method grouping, curl examples, and admin API security warnings
+
+**When to regenerate:**
+
+- When interface methods or Zod schemas change in `yarn-project/stdlib/src/interfaces/`
+- When cutting a new versioned snapshot of network docs (pass `--target-dir` to write into the versioned directory)
+- The source doc (`docs-operate/`) should be kept in sync with the latest code
+
 ## Macros
 
 As mentioned above, Aztec docs pull code from the source files. This makes it easy to include sections of the source code in tutorials and other examples.
@@ -539,20 +577,20 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
    - Generate suggested documentation changes
 
 3. **Slack Notification**: If documentation updates are suggested:
-   - A message is sent to the configured Slack channel (default: `#devrel`)
+   - A message is sent to the configured Slack channel (default: `#docs-alerts`)
    - The message includes the PR details, affected docs, and suggested changes
    - The DevRel team can review and apply the changes manually
 
 **Requirements**:
 
 - `ANTHROPIC_API_KEY` must be set in CI secrets
-- `SLACK_BOT_TOKEN` must be set for Slack notifications
+- `AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN` must be set for Slack notifications (this bot has access to `#docs-alerts`)
 - Claude Code CLI must be installed (`@anthropic-ai/claude-code`)
 - The PR must not be a draft
 
 **Environment Variables**:
 
-- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
+- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#docs-alerts`)
 - `DRY_RUN=1` - Skip Slack notification, just print what would be sent
 
 **Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which detects changed references, requests devrel review, sends a Slack notification, and dispatches ClaudeBox — all in a single pass.

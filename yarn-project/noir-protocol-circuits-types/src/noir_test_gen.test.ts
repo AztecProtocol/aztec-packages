@@ -20,7 +20,7 @@ describe('Data generation for noir tests', () => {
   setupCustomSnapshotSerializers(expect);
 
   type FixtureContractData = Omit<ContractClass, 'version' | 'publicFunctions'> &
-    Pick<ContractInstance, 'publicKeys' | 'salt'> &
+    Pick<ContractInstance, 'publicKeys' | 'salt' | 'immutablesHash'> &
     Pick<ContractClass, 'privateFunctions'> & { toString: () => string };
 
   const defaultContract: FixtureContractData = {
@@ -28,6 +28,7 @@ describe('Data generation for noir tests', () => {
     packedBytecode: Buffer.from([3, 4, 5, 6, 7]),
     publicKeys: PublicKeys.default(),
     salt: new Fr(56789),
+    immutablesHash: new Fr(7890),
     privateFunctions: [
       { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(123123) },
       { selector: FunctionSelector.fromField(new Fr(2020202)), vkHash: new Fr(456456) },
@@ -40,6 +41,7 @@ describe('Data generation for noir tests', () => {
     packedBytecode: Buffer.from([3, 4, 3, 4]),
     publicKeys: PublicKeys.default(),
     salt: new Fr(5656),
+    immutablesHash: new Fr(7890),
     privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(789789) }],
     toString: () => 'parentContract',
   };
@@ -49,6 +51,7 @@ describe('Data generation for noir tests', () => {
     packedBytecode: Buffer.from([5, 6, 7, 8, 9, 0]),
     publicKeys: PublicKeys.default(),
     salt: new Fr(789),
+    immutablesHash: new Fr(7890),
     privateFunctions: [
       { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(7788) },
       { selector: FunctionSelector.fromField(new Fr(2020202)), vkHash: new Fr(9900) },
@@ -78,7 +81,7 @@ describe('Data generation for noir tests', () => {
     const deployer = AztecAddress.ZERO;
     const instance: ContractInstance = {
       ...contract,
-      version: 1,
+      version: 2,
       initializationHash,
       currentContractClassId: contractClassId,
       originalContractClassId: contractClassId,
@@ -111,7 +114,7 @@ describe('Data generation for noir tests', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/tests/fixtures/contracts.nr',
+      'noir-projects/noir-protocol-circuits/crates/protocol-test-utils/src/fixtures/contracts.nr',
       `${namePrefix}_contract`,
       `ContractData ${format(contractData)}`,
     );
@@ -138,7 +141,7 @@ describe('Data generation for noir tests', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/tests/fixtures/contract_functions.nr',
+      'noir-projects/noir-protocol-circuits/crates/protocol-test-utils/src/fixtures/contract_functions.nr',
       `${namePrefix}_private_function`,
       `ContractFunction ${format(functionData)}`,
     );

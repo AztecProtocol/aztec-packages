@@ -122,16 +122,20 @@ endif()
 if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
     # Mobile builds exclude these modules that require LMDB or aren't needed on mobile
+    add_subdirectory(barretenberg/aztec)
     add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/ipc)
+    add_subdirectory(barretenberg/wsdb)
+    add_subdirectory(barretenberg/wsdb_client)
     add_subdirectory(barretenberg/nodejs_module)
 endif()
 
 if(FUZZING_AVM)
     if(FUZZING)
         # Only add these if they weren't added above (when NOT FUZZING AND NOT WASM)
+        add_subdirectory(barretenberg/aztec)
         add_subdirectory(barretenberg/world_state)
         add_subdirectory(barretenberg/vm2)
     endif()

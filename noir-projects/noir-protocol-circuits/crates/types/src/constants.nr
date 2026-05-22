@@ -127,7 +127,14 @@ pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PARITY_BASE_VK_INDEX: u32 = 21;
 pub global PARITY_ROOT_VK_INDEX: u32 = 22;
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
-// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
+// Important: Do not define indexes between 24 and 64. They are allocated for the variants of private kernel reset. Add new non-reset kernel indices at 65+.
+pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
+pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
+pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
+pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
+
+// Maximum number of apps absorbed by a single private kernel iteration.
+pub global MAX_APPS_PER_KERNEL: u32 = 3;
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -166,9 +173,9 @@ pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x2ff681dd7730c7b9e5650c70afa57ee81377792dfc95d98c11817b8c761ff965;
+    0x0e7bf88e8833c27b0fca6be614ecc2c63def7bffa35b3ccfa1caff3e39e0c0d2;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x15684c8c3d2106918d3860f777e50555b7166adff47df13cc652e2e5a50bf5c7;
+    0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
@@ -284,6 +291,16 @@ pub global DEFAULT_TPK_M_X: Field =
 pub global DEFAULT_TPK_M_Y: Field =
     0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f;
 
+// Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y })` for each non-ivpk key.
+// Used by `PublicKeys::default()` and the matching TS `PublicKeys.default()`. Verified by the
+// `compute_default_hash` test in public_keys.nr.
+pub global DEFAULT_NPK_M_HASH: Field =
+    0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a26;
+pub global DEFAULT_OVPK_M_HASH: Field =
+    0x0e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b;
+pub global DEFAULT_TPK_M_HASH: Field =
+    0x082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0;
+
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 // TODO: figure out whether Noir is sophisticated enough to derive these for us, these days.
 pub global AZTEC_ADDRESS_LENGTH: u32 = 1;
@@ -294,7 +311,7 @@ pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
     + GAS_FEES_LENGTH /* max_fees_per_gas */
     + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
-pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
+pub global CONTRACT_INSTANCE_LENGTH: u32 = 11;
 pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
 pub global ETH_ADDRESS_LENGTH: u32 = 1;
@@ -322,7 +339,7 @@ pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
-pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
+pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 2;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
     KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH + 1;
@@ -610,10 +627,20 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1330;
+// Chonk sub-proof lengths; pinned to bb via static_asserts in mock_verifier_inputs.test.cpp.
+pub global CHONK_HIDING_OINK_LENGTH: u32 = 108;
+pub global CHONK_MERGE_PROOF_SIZE: u32 = 42;
+pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 608;
+pub global CHONK_JOINT_PROOF_LENGTH: u32 = 499;
+pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
+    + HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE
+    + CHONK_MERGE_PROOF_SIZE
+    + CHONK_ECCVM_PROOF_LENGTH
+    + IPA_PROOF_LENGTH
+    + CHONK_JOINT_PROOF_LENGTH;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
-pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
+pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of
@@ -638,6 +665,15 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 ///
 /// This is not technically a protocol constant as note hashes are computed by each contract.
 pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
+
+/// Domain separator for partial note commitments.
+///
+/// This is not technically a protocol constant as partial note commitments are computed by each contract.
+///
+/// A partial note commitment is the first round of hashing of a partial note, combining the private fields before the
+/// public completion fields (storage slot and public note data) are mixed in. Distinct from [`DOM_SEP__NOTE_HASH`],
+/// which preserves the storage-slot-first invariant.
+pub global DOM_SEP__PARTIAL_NOTE_COMMITMENT: u32 = 568912195;
 
 /// Domain separator for siloed note hashes.
 ///
@@ -680,6 +716,9 @@ pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
 pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 /// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
+/// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
+/// [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].
@@ -687,6 +726,19 @@ pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 2769976252;
 
 pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 1247650290;
 pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 4015149901;
+
+/// Domain separator for internal merkle-node hashing in append-only trees.
+/// Indexed trees use per-tree merkle separators instead (see below).
+pub global DOM_SEP__MERKLE_HASH: u32 = 2982624097;
+
+// Per-tree internal merkle-node separators for indexed trees. Each tree's sibling paths verify
+// against a tree-unique root, so a sibling path from tree A cannot be transported to tree B even
+// if the underlying leaf values collide.
+pub global DOM_SEP__NULLIFIER_MERKLE: u32 = 1157584160;
+pub global DOM_SEP__PUBLIC_DATA_MERKLE: u32 = 3756303423;
+// AVM-internal indexed trees:
+pub global DOM_SEP__WRITTEN_SLOTS_MERKLE: u32 = 2292766212;
+pub global DOM_SEP__RETRIEVED_BYTECODES_MERKLE: u32 = 2789215184;
 
 // ---------------------------------------------------------------
 // Contract Address
@@ -697,6 +749,7 @@ pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 260313585;
 pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 3923495515;
 
 // Salted Initialization Hash
+pub global DOM_SEP__SALTED_INITIALIZATION_HASH: u32 = 2763052992;
 pub global DOM_SEP__INITIALIZER: u32 = 385396519;
 
 // Keys
@@ -705,11 +758,12 @@ pub global DOM_SEP__IVSK_M: u32 = 2747825907;
 pub global DOM_SEP__OVSK_M: u32 = 4272201051;
 pub global DOM_SEP__TSK_M: u32 = 1546190975;
 pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 777457226;
+pub global DOM_SEP__SINGLE_PUBLIC_KEY_HASH: u32 = 3452068255;
 
 // Address
 pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 2103633018;
 
-pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 1788365517;
+pub global DOM_SEP__CONTRACT_ADDRESS_V2: u32 = 4099338721;
 
 // ---------------------------------------------------------------
 
@@ -775,6 +829,17 @@ pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 ///
 /// This is not technically a protocol constant as payload authorization is an account contract feature.
 pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
+
+// ---------------------------------------------------------------
+
+pub global DOM_SEP__BLOCK_HEADERS_HASH: u32 = 515582467;
+
+// Blob-related domain separators:
+pub global DOM_SEP__BLOB_HASHED_Y_LIMBS: u32 = 2949331415;
+pub global DOM_SEP__BLOB_CHALLENGE_Z: u32 = 60345710;
+pub global DOM_SEP__BLOB_Z_ACC: u32 = 1003392952;
+pub global DOM_SEP__BLOB_GAMMA_ACC: u32 = 855632775;
+pub global DOM_SEP__BLOB_GAMMA_FINAL: u32 = 1755883835;
 
 // ---------------------------------------------------------------
 
@@ -1186,7 +1251,7 @@ pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 9;
 pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24 * 15; // SLOW_SIM_MUL = 15
 pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 12288;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 58176;
-pub global AVM_ECADD_BASE_L2_GAS: u32 = 27 * 10; // SLOW_SIM_MUL = 10
+pub global AVM_ECADD_BASE_L2_GAS: u32 = 18 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
 // Dynamic L2 GAS
@@ -1236,13 +1301,13 @@ pub global TWO_POW_64: Field = 18446744073709551616;
 // TODO: Move inside BB noir constants lib
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
-    0x2870b93163d4fd6ada360fe48ee1e8e8e69308af34cdfaeffacbbe5929e2466d;
+    0x13954b76f8ab76c38ab687731f802fc90e5d55e0592fa6f56d0a73024b3f8356;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE: u32 = 1;
 // AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1))
 // +1 due to the tree prefill
 pub global AVM_RETRIEVED_BYTECODES_TREE_HEIGHT: u32 = 5;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT: Field =
-    0x100ba46aea628d39c08788f05fcad4ab19adf5b8bba866a1f5c5baa6e297891d;
+    0x0ff65ad321f05745d4c80e2e18e94241093d2e49017ff8cc151df4f207a43c12;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE: u32 = 1;
 
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.

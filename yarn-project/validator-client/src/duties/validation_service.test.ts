@@ -1,9 +1,14 @@
 import { getAddressFromPrivateKey } from '@aztec/ethereum/account';
-import { IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { Tx } from '@aztec/stdlib/tx';
 import { DutyType } from '@aztec/validator-ha-signer/types';
 
@@ -22,7 +27,7 @@ describe('ValidationService', () => {
     keys = [generatePrivateKey(), generatePrivateKey()];
     addresses = keys.map(key => EthAddress.fromString(getAddressFromPrivateKey(key)));
     store = new LocalKeyStore(keys.map(key => Buffer32.fromString(key)));
-    service = new ValidationService(store);
+    service = new ValidationService(store, TEST_COORDINATION_SIGNATURE_CONTEXT);
   });
 
   it('creates a block proposal with txs appended', async () => {
@@ -34,6 +39,7 @@ describe('ValidationService', () => {
 
     const proposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       inHash,
       archive,
@@ -55,6 +61,7 @@ describe('ValidationService', () => {
 
     const proposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       inHash,
       archive,
@@ -69,7 +76,7 @@ describe('ValidationService', () => {
   it('attests to checkpoint proposal', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
     const proposal = await makeCheckpointProposal({ lastBlock: { txs } });
-    const attestations = await service.attestToCheckpointProposal(proposal, addresses);
+    const attestations = await service.attestToCheckpointProposal(proposal, addresses, CheckpointNumber(1));
     expect(attestations.length).toBe(2);
     expect(attestations[0].getSender()).toEqual(addresses[0]);
     expect(attestations[1].getSender()).toEqual(addresses[1]);
@@ -86,6 +93,7 @@ describe('ValidationService', () => {
     // so that getSender() can verify the block proposal sender matches
     const blockProposal = await service.createBlockProposal(
       blockHeader,
+      CheckpointNumber(1),
       indexWithinCheckpoint,
       checkpointHeader.inHash,
       archive,
@@ -98,22 +106,23 @@ describe('ValidationService', () => {
     const capturedContexts: Array<{ dutyType: DutyType; blockIndexWithinCheckpoint?: number }> = [];
     const spyStore = {
       ...store,
-      signMessageWithAddress: (address: EthAddress, message: Buffer32, context: any) => {
+      signTypedDataWithAddress: (address: EthAddress, typedData: any, context: any) => {
         capturedContexts.push({
           dutyType: context.dutyType,
           blockIndexWithinCheckpoint: context.blockIndexWithinCheckpoint,
         });
-        return store.signMessageWithAddress(address, message, context);
+        return store.signTypedDataWithAddress(address, typedData, context);
       },
       getAddress: (index: number) => store.getAddress(index),
       getAddresses: () => store.getAddresses(),
     };
-    const spyService = new ValidationService(spyStore as any);
+    const spyService = new ValidationService(spyStore as any, TEST_COORDINATION_SIGNATURE_CONTEXT);
 
     // Create checkpoint proposal with the already-signed block proposal
     const proposal = await spyService.createCheckpointProposal(
       checkpointHeader,
       archive,
+      CheckpointNumber(1),
       0n,
       blockProposal,
       addresses[0],

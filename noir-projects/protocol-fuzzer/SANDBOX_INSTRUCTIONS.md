@@ -1,5 +1,9 @@
 # Protocol Fuzzer: Running with Nightly Docker Sandbox
 
+> **For local development** (no Docker), use `setup-local.sh` instead. It starts
+> anvil, the Aztec node, compiles contracts, and launches the bridge — all on the
+> host. See `README.md` for quick-start instructions.
+
 ## Overview
 
 The protocol fuzzer has two state machines:
@@ -9,7 +13,7 @@ The protocol fuzzer has two state machines:
 - **side-effect**: Fuzzes note lifecycle, nullifier emission, and cross-contract calls via
   custom `SideEffect` and `Parent` contracts. **Requires the nightly sandbox.**
 
-Both machines talk to the sandbox via a persistent Node.js HTTP bridge (`bridge.mjs`)
+Both machines talk to the sandbox via a persistent Node.js HTTP bridge (`wallet-bridge.mjs`)
 that keeps a single CLIWallet instance alive across requests.
 
 ## Why the nightly sandbox?
@@ -69,7 +73,7 @@ for the next block. Four things bring per-transaction time from ~35s down to ~4-
 
 1. **Fast slots.** The setup script starts the sandbox with 5-second L1/L2 slot durations
    (default 36s/12s) and disables sequencer timetable enforcement.
-2. **Persistent bridge.** `bridge.mjs` keeps a single Node.js wallet instance alive inside
+2. **Persistent bridge.** `wallet-bridge.mjs` keeps a single Node.js wallet instance alive inside
    the container. Without it, each operation would shell out to the CLI wallet, paying a
    ~1.5s Node.js cold-start every time.
 3. **Parallel batching.** The fuzzer buffers consecutive non-conflicting sends and fires
@@ -207,25 +211,23 @@ for pkg in side_effect_contract parent_contract; do
         --silence-warnings --inliner-aggressiveness 0 --package ${pkg}
     /usr/src/barretenberg/cpp/build/bin/bb-avm aztec_process \
         -i target/${artifact}.json
-    jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \
-        target/${artifact}.json > /tmp/${artifact}.json
   "
 
-  docker cp "aztec-sandbox-nightly:/tmp/${artifact}.json" \
+  docker cp "aztec-sandbox-nightly:/tmp/nightly-build/target/${artifact}.json" \
     "contracts/target/${artifact}.json"
 done
 ```
 
 ### 5. Start the bridge server
 
-The bridge server (`bridge.mjs`) runs inside the container and provides a persistent
+The bridge server (`wallet-bridge.mjs`) runs inside the container and provides a persistent
 HTTP API that the fuzzer calls:
 
 ```bash
-docker cp bridge.mjs aztec-sandbox-nightly:/usr/src/yarn-project/bridge.mjs
+docker cp wallet-bridge.mjs aztec-sandbox-nightly:/usr/src/yarn-project/wallet-bridge.mjs
 
 docker exec -d aztec-sandbox-nightly \
-  bash -c 'cd /usr/src/yarn-project && exec node --no-warnings bridge.mjs > /tmp/bridge.log 2>&1'
+  bash -c 'cd /usr/src/yarn-project && exec node --no-warnings wallet-bridge.mjs > /tmp/bridge.log 2>&1'
 
 # Wait for it to start
 curl -s http://localhost:8089/health  # {"ok":true}
@@ -291,7 +293,7 @@ Run `bb-avm aztec_process` (step 4b).
 Run `bb-avm aztec_process` (step 4b) -- it generates both transpiled bytecode and VKs.
 
 ### "Constructor method initialize not found"
-The `__aztec_nr_internals__` prefix wasn't stripped. Run the `jq` step in 4b.
+The internal prefix wasn't stripped. Ensure `bb-avm aztec_process` ran successfully in step 4b.
 
 ### Wallet "inquirer not found" error
 Run step 3.
@@ -319,15 +321,14 @@ on every operation.
 
 ### How the bridge works
 
-`bridge.mjs` runs inside the container and lazily initializes a `CLIWallet` instance
+`wallet-bridge.mjs` runs inside the container and lazily initializes a `CLIWallet` instance
 on the first request. The Rust fuzzer resolves aliases (`accounts:test0`,
 `contracts:test0`) to hex addresses before sending them to the bridge via HTTP POST.
 
 ### Build pipeline
 
 1. `nargo compile` -- raw artifact JSON with `__aztec_nr_internals__` prefixed names
-2. `bb-avm aztec_process` -- transpiles public bytecode to AVM + generates private VKs
-3. `jq` strip prefix -- removes `__aztec_nr_internals__` from function names
+2. `bb-avm aztec_process` -- transpiles public bytecode to AVM, strips internal prefixes, and generates private VKs
 
 ### Version matrix (as of 2026-02-25)
 
@@ -347,7 +348,7 @@ on the first request. The Rust fuzzer resolves aliases (`accounts:test0`,
 | wallet CLI | `node --no-warnings /usr/src/yarn-project/cli-wallet/dest/bin/index.js` |
 | sandbox CLI | `node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js` |
 | anvil | `/opt/foundry/bin/anvil` |
-| bridge server | `/usr/src/yarn-project/bridge.mjs` |
+| bridge server | `/usr/src/yarn-project/wallet-bridge.mjs` |
 | bridge log | `/tmp/bridge.log` |
 
 ## Stopping

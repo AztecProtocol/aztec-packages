@@ -41,41 +41,33 @@ aztec test
 2. Run `aztec test`
 
 :::warning
-Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the TXE (Test eXecution Environment) oracle resolver.
+Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the test environment oracle resolver provided by the `aztec` CLI.
 :::
-
-## Keep tests in the test crate
-
-When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `<name>_contract` and `<name>_test`. It is important that all tests live in the `<name>_test` crate, **not** in the `<name>_contract` crate.
-
-If you place `#[test]` functions inside the contract crate, `aztec compile` will emit a warning:
-
-```
-WARNING: Found tests in contract crate(s):
-  my_contract::test_something
-Tests should be in a dedicated test crate, not in the contract crate.
-```
-
-The reason is **unnecessary recompilation**: the contract artifact depends on everything inside the contract crate. If tests live there too, editing a test changes the crate and forces the contract to be recompiled and reprocessed, even though the contract logic itself has not changed. By keeping tests in a separate crate, you can iterate on tests without triggering a full contract rebuild.
 
 ## Basic test structure
 
-Tests live in `<name>_test/src/lib.nr` and import the contract crate by name (not `crate::`):
+Tests live in the same crate as your contract. `aztec new` creates a single-crate project, and the convention is to place `#[test]` functions in a `mod tests` block alongside the contract (or in submodules of the crate):
 
 ```rust
-use my_contract::MyContract;
-use aztec::{
-    protocol::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
-};
+use aztec::macros::aztec;
 
-#[test]
-unconstrained fn test_basic_flow() {
-    // 1. Create test environment
-    let mut env = TestEnvironment::new();
+#[aztec]
+pub contract MyContract {
+    // ...contract functions...
+}
 
-    // 2. Create accounts
-    let owner = env.create_light_account();
+mod tests {
+    use super::MyContract;
+    use aztec::test::helpers::test_environment::TestEnvironment;
+
+    #[test]
+    unconstrained fn test_basic_flow() {
+        // 1. Create test environment
+        let mut env = TestEnvironment::new();
+
+        // 2. Create accounts
+        let _owner = env.create_light_account();
+    }
 }
 ```
 
@@ -83,17 +75,19 @@ unconstrained fn test_basic_flow() {
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
-- See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr)
+- See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
 
 :::
 
 :::tip Organizing test files
-Tests live in the separate `<name>_test` crate that `aztec new` creates. You can organize them into modules:
+For larger test suites, split tests into submodules of your crate rather than keeping them all inside `main.nr`:
 
-- Split tests into modules like `<name>_test/src/transfer_tests.nr`, `<name>_test/src/auth_tests.nr`
-- Import them in `<name>_test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
-- Share setup functions in `<name>_test/src/utils.nr`
-  :::
+- Create modules like `src/transfer_tests.nr`, `src/auth_tests.nr`
+- Declare them from `src/main.nr` with `mod transfer_tests;`, `mod auth_tests;`
+- Share setup functions in `src/test_utils.nr`
+
+See the [aztec-standards token contract](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract) for a worked example of this layout.
+:::
 
 ## Deploying contracts
 
@@ -354,3 +348,25 @@ unconstrained fn test_missing_authwit() {
 }
 
 ```
+
+## Test environment oracle versioning
+
+The test environment uses an oracle interface to communicate between your Noir test code and the `aztec test` CLI. This interface is versioned so that mismatches between the Aztec.nr dependency used to compile the test and the CLI version are detected automatically.
+
+The version uses two components, `major.minor`, with the same compatibility rules as [PXE oracle versioning](../foundational-topics/pxe/index.md#oracle-versioning):
+
+- **`major`** must match exactly. A major bump means oracles were removed or had their signatures changed, and a test environment on a different major cannot safely run the test.
+- **`minor`** indicates additive changes (new oracles). The test environment uses a best-effort approach: a test compiled against a higher `minor` is still allowed to run, and an error is only thrown if the test actually invokes an oracle the test environment does not know about.
+
+### Resolving a version mismatch
+
+If you see an error like _"Incompatible test environment version: The test was compiled with a newer version of Aztec.nr than your test environment supports"_, the test uses oracles from a newer Aztec.nr than your `aztec test` CLI supports.
+
+To fix it, make sure your `aztec` CLI version and the `aztec` dependency in the test crate's `Nargo.toml` are on the same release. Note that the test crate's Aztec.nr version can differ from the contract crate's version, depending on your project configuration. For example, if your CLI is on `v4.3.0`, the test crate's `Nargo.toml` should reference the matching tag:
+
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.3.0", directory="aztec" }
+```
+
+If the test environment reports a version that _should_ include every oracle the test needs but an oracle is still missing, this is likely a bug rather than a version problem.

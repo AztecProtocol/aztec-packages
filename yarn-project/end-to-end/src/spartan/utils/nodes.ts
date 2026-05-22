@@ -71,7 +71,7 @@ export async function waitForProvenToAdvance(
   // Get current proven block number
   let initialProvenBlock: number;
   try {
-    const tips = await node.getL2Tips();
+    const tips = await node.getChainTips();
     initialProvenBlock = Number(tips.proven.block.number);
     log.info(`Current proven block: ${initialProvenBlock}. Waiting for it to increase...`);
   } catch (err) {
@@ -82,7 +82,7 @@ export async function waitForProvenToAdvance(
   await retryUntil(
     async () => {
       try {
-        const tips = await node.getL2Tips();
+        const tips = await node.getChainTips();
         const currentProvenBlock = Number(tips.proven.block.number);
         const proposedBlock = Number(tips.proposed.number);
 

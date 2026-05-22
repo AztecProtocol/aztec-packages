@@ -23,7 +23,7 @@ UltraCircuitBuilder_<UltraExecutionTraceBlocks> UltraCircuitChecker::prepare_cir
     // Create a copy of the input circuit
     UltraCircuitBuilder_<UltraExecutionTraceBlocks> builder{ builder_in };
     if (!builder.circuit_finalized) { // avoid warnings about finalizing an already finalized circuit
-        builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+        builder.finalize_circuit();
     }
 
     return builder;
@@ -40,7 +40,7 @@ MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuil
     builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
 
     if (!builder.circuit_finalized) { // avoid warnings about finalizing an already finalized circuit
-        builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+        builder.finalize_circuit();
     }
 
     return builder;
@@ -175,9 +175,13 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
-        result = result && check_relation<PoseidonInternal>(values, params);
-        if (!result) {
-            return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+        if constexpr (!IsMegaBuilder<Builder>) {
+            // Mega covers all internal rounds via the compressed block; there is no
+            // q_poseidon2_internal selector in MegaFlavor.
+            result = result && check_relation<PoseidonInternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+            }
         }
         result = result && check_relation<PoseidonExternal>(values, params);
         if (!result) {
@@ -185,6 +189,22 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         }
 
         if constexpr (IsMegaBuilder<Builder>) {
+            result = result && check_relation<PoseidonInitialExternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonInitialExternal relation at row idx = ", idx);
+            }
+            result = result && check_relation<PoseidonQuadInternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonQuadInternal relation at row idx = ", idx);
+            }
+            result = result && check_relation<PoseidonQuadInternalTerminal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonQuadInternalTerminal relation at row idx = ", idx);
+            }
+            result = result && check_relation<PoseidonTransitionEntry>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonTransitionEntry relation at row idx = ", idx);
+            }
             result = result && check_databus_read(values, builder);
             if (!result) {
                 return report_fail("Failed databus read at row idx = ", idx);
@@ -241,26 +261,23 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
         auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r));
         auto value = values.w_l;
 
-        // Determine the type of read based on selector values
-        bool is_calldata_read = (values.q_l == 1);
-        bool is_secondary_calldata_read = (values.q_r == 1);
-        bool is_return_data_read = (values.q_o == 1);
-        BB_ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
+        // Map bus_idx → wire-linear selector on the values struct (mirrors BusData<i>::selector in the relation).
+        const std::array<const FF*, NUM_BUS_COLUMNS> bus_selectors{
+            &values.q_l, &values.q_r, &values.q_o, &values.q_4, &values.q_m
+        };
 
-        // Check that the claimed value is present in the calldata/return data at the corresponding index
-        FF bus_value;
-        if (is_calldata_read) {
-            auto calldata = builder.get_calldata();
-            bus_value = builder.get_variable(calldata[raw_read_idx]);
+        // Locate the bus column being read (exactly one selector should be active on a busread row) and look up the
+        // expected value from the builder's bus vector.
+        FF bus_value{};
+        bool read_matched = false;
+        for (size_t bus_idx = 0; bus_idx < NUM_BUS_COLUMNS; ++bus_idx) {
+            if (*bus_selectors[bus_idx] == 1) {
+                const auto& bus_vec = builder.get_bus_vector(bus_idx);
+                bus_value = builder.get_variable(bus_vec[raw_read_idx]);
+                read_matched = true;
+            }
         }
-        if (is_secondary_calldata_read) {
-            auto secondary_calldata = builder.get_secondary_calldata();
-            bus_value = builder.get_variable(secondary_calldata[raw_read_idx]);
-        }
-        if (is_return_data_read) {
-            auto return_data = builder.get_return_data();
-            bus_value = builder.get_variable(return_data[raw_read_idx]);
-        }
+        BB_ASSERT(read_matched);
         return (value == bus_value);
     }
     return true;
@@ -359,16 +376,22 @@ void UltraCircuitChecker::populate_values(
     values.q_r = block.q_2()[idx];
     values.q_o = block.q_3()[idx];
     values.q_4 = block.q_4()[idx];
-    values.q_arith = block.q_arith()[idx];
-    values.q_delta_range = block.q_delta_range()[idx];
-    values.q_elliptic = block.q_elliptic()[idx];
-    values.q_memory = block.q_memory()[idx];
-    values.q_nnf = block.q_nnf()[idx];
-    values.q_lookup = block.q_lookup()[idx];
-    values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
-    values.q_poseidon2_external = block.q_poseidon2_external()[idx];
+    values.q_arith = read_gate_selector(block, GateKind::Arith, idx);
+    values.q_delta_range = read_gate_selector(block, GateKind::DeltaRange, idx);
+    values.q_elliptic = read_gate_selector(block, GateKind::Elliptic, idx);
+    values.q_memory = read_gate_selector(block, GateKind::Memory, idx);
+    values.q_nnf = read_gate_selector(block, GateKind::Nnf, idx);
+    values.q_lookup = read_gate_selector(block, GateKind::Lookup, idx);
+    values.q_poseidon2_external = read_gate_selector(block, GateKind::Poseidon2Ext, idx);
     if constexpr (IsMegaBuilder<Builder>) {
-        values.q_busread = block.q_busread()[idx];
+        values.q_5 = block.q_5()[idx];
+        values.q_poseidon2_external_initial = read_gate_selector(block, GateKind::Poseidon2ExtInitial, idx);
+        values.q_poseidon2_quad_internal = read_gate_selector(block, GateKind::Poseidon2QuadInt, idx);
+        values.q_poseidon2_quad_internal_terminal = read_gate_selector(block, GateKind::Poseidon2QuadIntTerminal, idx);
+        values.q_poseidon2_transition_entry = read_gate_selector(block, GateKind::Poseidon2TransitionEntry, idx);
+        values.q_busread = read_gate_selector(block, GateKind::BusRead, idx);
+    } else {
+        values.q_poseidon2_internal = read_gate_selector(block, GateKind::Poseidon2Int, idx);
     }
 }
 
@@ -410,7 +433,7 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
     // Processed blocks check
     auto block = builder.blocks.delta_range;
     for (size_t idx = 0; idx < block.size(); idx++) {
-        if (block.q_delta_range()[idx] == 0) {
+        if (block.gate_selector_for(GateKind::DeltaRange)[idx] == 0) {
             continue;
         }
         bb::fr w1 = builder.get_variable(block.w_l()[idx]);

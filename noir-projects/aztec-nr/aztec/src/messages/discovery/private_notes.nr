@@ -9,7 +9,26 @@ use crate::{
     protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::ToField},
 };
 
-pub(crate) unconstrained fn process_private_note_msg(
+/// Processes a private note message, attempting to discover and enqueue any notes it contains.
+///
+/// For each note recovered from the message whose computed note hash matches a unique note hash in the transaction,
+/// a [`NoteValidationRequest`](crate::messages::processing::NoteValidationRequest) is pushed onto the ephemeral array
+/// at `NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT` via
+/// [`enqueue_note_for_validation`](crate::messages::processing::enqueue_note_for_validation). PXE later drains this
+/// array during `validate_and_store_enqueued_notes_and_events`, after which the notes are retrievable via `get_notes`.
+///
+/// Messages that fail to decode, or whose computed note hash matches nothing in the transaction, are discarded
+/// (with a debug or warning log respectively) and produce no validation requests. Decode failures are not treated
+/// as errors since messages may originate from malicious senders and we don't want them to be able to brick message
+/// processing.
+///
+/// ## Use Cases
+///
+/// This function is invoked automatically by aztec-nr when handling messages with the built-in private note type id,
+/// so contracts do not normally need to call it directly. It is exposed for use by custom message handlers (see
+/// [`CustomMessageHandler`](crate::messages::discovery::CustomMessageHandler)) that might want to use the standard
+/// note message processing pipeline while extending it with custom logic.
+pub unconstrained fn process_private_note_msg(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
@@ -18,7 +37,6 @@ pub(crate) unconstrained fn process_private_note_msg(
     compute_note_nullifier: ComputeNoteNullifier,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-    recipient: AztecAddress,
 ) {
     let decoded = decode_private_note_message(msg_metadata, msg_content);
 
@@ -37,7 +55,6 @@ pub(crate) unconstrained fn process_private_note_msg(
             randomness,
             note_type_id,
             packed_note,
-            recipient,
         );
     } else {
         aztecnr_warn_log_format!(
@@ -50,7 +67,7 @@ pub(crate) unconstrained fn process_private_note_msg(
 
 /// Attempts discovery of a note given information about its contents and the transaction in which it is suspected the
 /// note was created.
-pub unconstrained fn attempt_note_discovery(
+unconstrained fn attempt_note_discovery(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
@@ -62,7 +79,6 @@ pub unconstrained fn attempt_note_discovery(
     randomness: Field,
     note_type_id: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
-    recipient: AztecAddress,
 ) {
     let discovered_notes = attempt_note_nonce_discovery(
         unique_note_hashes_in_tx,
@@ -105,7 +121,6 @@ pub unconstrained fn attempt_note_discovery(
             discovered_note.note_hash,
             discovered_note.inner_nullifier,
             tx_hash,
-            recipient,
         );
     });
 }

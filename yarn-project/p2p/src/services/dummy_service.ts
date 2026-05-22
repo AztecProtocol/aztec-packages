@@ -25,6 +25,7 @@ import type { GoodByeReason } from './reqresp/protocols/goodbye.js';
 import { ReqRespStatus } from './reqresp/status.js';
 import {
   type P2PBlockReceivedCallback,
+  type P2PCheckpointAttestationCallback,
   type P2PCheckpointReceivedCallback,
   type P2PDuplicateAttestationCallback,
   type P2PDuplicateProposalCallback,
@@ -102,6 +103,8 @@ export class DummyP2PService implements P2PService {
    * Register a callback for when a duplicate attestation is detected
    */
   public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {}
+
+  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {}
 
   /**
    * Sends a request to a peer.
@@ -287,6 +290,7 @@ export class DummyPeerManager implements PeerManagerInterface {
 
 export class DummyReqResp implements ReqRespInterface {
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+  setShouldRejectPeer(): void {}
   start(
     _subProtocolHandlers: ReqRespSubProtocolHandlers,
     _subProtocolValidators: ReqRespSubProtocolValidators,

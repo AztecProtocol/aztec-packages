@@ -70,6 +70,8 @@ describe('e2e_epochs/epochs_ha_sync', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 2,
       pxeOpts: { syncChainTip: 'proposed' },
+      enableProposerPipelining: true,
+      inboxLag: 2,
     });
 
     ({ context, logger, rollup } = test);
@@ -189,8 +191,8 @@ describe('e2e_epochs/epochs_ha_sync', () => {
     expect(minProposed).toBeGreaterThan(initialCheckpointedBlock);
     logger.warn(`Verifying block hashes at proposed block ${minProposed}.`, { proposedNumbers });
 
-    const headers = await Promise.all(allArchivers.map(a => a.getBlockHeader(minProposed)));
-    const hashes = await Promise.all(headers.map(h => h!.hash()));
+    const blockDatas = await Promise.all(allArchivers.map(a => a.getBlockData({ number: minProposed })));
+    const hashes = await Promise.all(blockDatas.map(d => d!.header.hash()));
     for (let i = 1; i < hashes.length; i++) {
       expect(hashes[i].toString()).toBe(hashes[0].toString());
     }

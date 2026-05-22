@@ -12,6 +12,8 @@ import type { CompiledSchema, Type, Struct, Field } from './schema_visitor.js';
 import { toSnakeCase, toPascalCase } from './naming.js';
 
 export class RustCodegen {
+  private errorTypeName: string = 'ErrorResponse';
+
   // Type mapping: Schema type -> Rust type
   private mapType(type: Type): string {
     switch (type.kind) {
@@ -58,6 +60,11 @@ export class RustCodegen {
     return type.kind === 'vector' && this.needsSerdeBytes(type.element!);
   }
 
+  // Check if field needs serde(with = "serde_array2_bytes") - for [Vec<u8>; 2] (Fq2 extension field)
+  private needsSerdeArray2Bytes(type: Type): boolean {
+    return type.kind === 'primitive' && type.primitive === 'field2';
+  }
+
   // Check if field needs serde(with = "serde_array4_bytes") - for [Vec<u8>; 4] (Poseidon2 state)
   private needsSerdeArray4Bytes(type: Type): boolean {
     return type.kind === 'array' && type.size === 4 && this.needsSerdeBytes(type.element!);
@@ -75,7 +82,9 @@ export class RustCodegen {
     }
 
     // Add serde bytes handling
-    if (this.needsSerdeArray4Bytes(field.type)) {
+    if (this.needsSerdeArray2Bytes(field.type)) {
+      attrs += `    #[serde(with = "serde_array2_bytes")]\n`;
+    } else if (this.needsSerdeArray4Bytes(field.type)) {
       attrs += `    #[serde(with = "serde_array4_bytes")]\n`;
     } else if (this.needsSerdeVecBytes(field.type)) {
       attrs += `    #[serde(with = "serde_vec_bytes")]\n`;
@@ -216,8 +225,9 @@ ${deserializeCases}
   private generateResponseEnum(schema: CompiledSchema): string {
     // Include all response types from commands plus ErrorResponse if it exists
     const commandResponseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
-    const responseTypes = schema.responses.has('ErrorResponse')
-      ? [...commandResponseTypes, 'ErrorResponse']
+    const errorName = schema.errorTypeName || 'ErrorResponse';
+    const responseTypes = schema.responses.has(errorName)
+      ? [...commandResponseTypes, errorName]
       : commandResponseTypes;
     const variants = responseTypes
       .map(name => {
@@ -340,6 +350,44 @@ mod serde_vec_bytes {
     }
 }
 
+mod serde_array2_bytes {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::ser::SerializeTuple;
+    use serde::de::{SeqAccess, Visitor};
+
+    #[derive(Serialize, Deserialize)]
+    struct BytesWrapper(#[serde(with = "super::serde_bytes")] Vec<u8>);
+
+    pub fn serialize<S>(arr: &[Vec<u8>; 2], serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        let mut tup = serializer.serialize_tuple(2)?;
+        for bytes in arr {
+            tup.serialize_element(&BytesWrapper(bytes.clone()))?;
+        }
+        tup.end()
+    }
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<[Vec<u8>; 2], D::Error>
+    where D: Deserializer<'de> {
+        struct Array2Visitor;
+        impl<'de> Visitor<'de> for Array2Visitor {
+            type Value = [Vec<u8>; 2];
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("an array of 2 byte arrays")
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where A: SeqAccess<'de> {
+                let mut arr: [Vec<u8>; 2] = Default::default();
+                for (i, item) in arr.iter_mut().enumerate() {
+                    *item = seq.next_element::<BytesWrapper>()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?.0;
+                }
+                Ok(arr)
+            }
+        }
+        deserializer.deserialize_tuple(2, Array2Visitor)
+    }
+}
+
 mod serde_array4_bytes {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde::ser::SerializeTuple;
@@ -381,6 +429,7 @@ mod serde_array4_bytes {
 
   // Generate types file
   generateTypes(schema: CompiledSchema): string {
+    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     // Create set of top-level command struct names (only these need __typename)
     const commandNames = new Set(schema.commands.map(c => c.name));
 
@@ -438,7 +487,7 @@ ${this.generateResponseEnum(schema)}
         let cmd = Command::${cmdRustName}(${cmdRustName}::new(${paramConversions}));
         match self.execute(cmd)? {
             Response::${respRustName}(resp) => Ok(resp),
-            Response::ErrorResponse(err) => Err(BarretenbergError::Backend(
+            Response::${toPascalCase(this.errorTypeName)}(err) => Err(BarretenbergError::Backend(
                 err.message
             )),
             _ => Err(BarretenbergError::InvalidResponse(
@@ -450,6 +499,7 @@ ${this.generateResponseEnum(schema)}
 
   // Generate API file
   generateApi(schema: CompiledSchema): string {
+    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     const apiMethods = schema.commands
       .filter(c => c.name !== 'Shutdown')
       .map(c => this.generateApiMethod(c))

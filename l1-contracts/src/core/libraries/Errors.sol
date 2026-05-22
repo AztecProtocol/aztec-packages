@@ -28,7 +28,6 @@ library Errors {
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
-  error Inbox__Ignition();
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
@@ -88,8 +87,6 @@ library Errors {
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
-  error Rollup__RewardsNotClaimable();
-  error Rollup__TooSoonToSetRewardsClaimable(uint256 earliestRewardsClaimableTimestamp, uint256 currentTimestamp);
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
   error Rollup__UnavailableTempCheckpointLog(
@@ -184,6 +181,7 @@ library Errors {
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
   error FeeLib__AlreadyPreheated();
+  error FeeLib__InvalidManaTarget(uint256 minimum, uint256 provided);
   error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
   error FeeLib__InvalidInitialEthPerFeeAsset(uint256 provided, uint256 minimum, uint256 maximum);
 

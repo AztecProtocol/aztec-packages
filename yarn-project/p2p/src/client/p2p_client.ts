@@ -1,12 +1,18 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type CheckpointProposalHash,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
+  type BlockData,
+  type BlockHash,
   type CheckpointId,
   type EthAddress,
   type L2Block,
@@ -95,6 +101,7 @@ export class P2PClient extends WithTracer implements P2P {
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
+    initialBlockHash: BlockHash,
   ) {
     super(telemetry, 'P2PClient');
 
@@ -110,7 +117,7 @@ export class P2PClient extends WithTracer implements P2P {
       this.telemetry,
     );
 
-    this.l2Tips = new L2TipsKVStore(store, 'p2p_client');
+    this.l2Tips = new L2TipsKVStore(store, 'p2p_client', initialBlockHash);
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
   }
 
@@ -164,7 +171,7 @@ export class P2PClient extends WithTracer implements P2P {
         const from = BlockNumber(oldFinalizedBlockNum + 1);
         const limit = event.block.number - from + 1;
         if (limit > 0) {
-          const oldBlocks = await this.l2BlockSource.getBlocks(from, limit);
+          const oldBlocks = await this.l2BlockSource.getBlocksData({ from, limit });
           await this.handleFinalizedL2Blocks(oldBlocks);
         }
         break;
@@ -257,7 +264,11 @@ export class P2PClient extends WithTracer implements P2P {
       });
     }
 
-    this.blockStream!.start();
+    // Should never happen: all branches above call initBlockStream()
+    if (!this.blockStream) {
+      throw new Error('Block stream not initialized');
+    }
+    this.blockStream.start();
     await this.txCollection.start();
     this.txFileStore?.start();
 
@@ -319,7 +330,11 @@ export class P2PClient extends WithTracer implements P2P {
   /** Triggers a sync to the archiver. Used for testing. */
   public async sync() {
     this.initBlockStream();
-    await this.blockStream!.sync();
+    // Should never happen: initBlockStream() creates blockStream if absent
+    if (!this.blockStream) {
+      throw new Error('Block stream not initialized');
+    }
+    await this.blockStream.sync();
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
@@ -369,10 +384,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public async getCheckpointAttestationsForSlot(
     slot: SlotNumber,
-    proposalId?: string,
+    proposalPayloadHash?: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
-    return await (proposalId
-      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalId)
+    return await (proposalPayloadHash
+      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalPayloadHash)
       : this.attestationPool.getCheckpointAttestationsForSlot(slot));
   }
 
@@ -404,6 +419,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void {
     this.p2pService.registerDuplicateAttestationCallback(callback);
+  }
+
+  public registerCheckpointAttestationCallback(callback: (attestation: CheckpointAttestation) => void): void {
+    this.p2pService.registerCheckpointAttestationCallback(callback);
   }
 
   public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
@@ -576,13 +595,10 @@ export class P2PClient extends WithTracer implements P2P {
    */
   public async getStatus(): Promise<P2PSyncState> {
     const blockNumber = await this.getSyncedLatestBlockNum();
-    const blockHash =
-      blockNumber === 0
-        ? GENESIS_BLOCK_HEADER_HASH.toString()
-        : await this.l2BlockSource
-            .getBlockHeader(blockNumber)
-            .then(header => header?.hash())
-            .then(hash => hash?.toString());
+    const blockHash = await this.l2BlockSource
+      .getBlockData({ number: blockNumber })
+      .then(data => data?.header.hash())
+      .then(hash => hash?.toString());
 
     return {
       state: this.currentState,
@@ -613,13 +629,13 @@ export class P2PClient extends WithTracer implements P2P {
 
     await this.handleMinedBlocks(blocks);
     await this.maybeCallPrepareForSlot();
-    await this.startCollectingMissingTxs(blocks);
+    await this.collectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
     await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
   }
 
-  /** Request txs for unproven blocks so the prover node has more chances to get them. */
-  private async startCollectingMissingTxs(blocks: L2Block[]): Promise<void> {
+  /** Request txs for unproven blocks so the prover node can prove. */
+  private async collectingMissingTxs(blocks: L2Block[]): Promise<void> {
     try {
       // TODO(#15435): If the archiver has lagged behind L1, the reported proven block number may
       // be much lower than the actual one, and it does not update until the pending chain is
@@ -627,7 +643,7 @@ export class P2PClient extends WithTracer implements P2P {
       // are already proven, but the archiver has not yet updated its state. Until this is properly
       // fixed, it is mitigated by the expiration date of collection requests, which depends on
       // the slot number of the block.
-      const provenBlockNumber = await this.l2BlockSource.getProvenBlockNumber();
+      const provenBlockNumber = (await this.l2BlockSource.getBlockNumber({ tag: 'proven' })) ?? BlockNumber.ZERO;
       const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
       for (const block of unprovenBlocks) {
         const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
@@ -639,7 +655,8 @@ export class P2PClient extends WithTracer implements P2P {
             `Starting collection of ${missingTxHashes.length} missing txs for unproven mined block ${block.number}`,
             { missingTxHashes, blockNumber: block.number, blockHash: await block.hash().then(h => h.toString()) },
           );
-          this.txCollection.startCollecting(block, missingTxHashes);
+          const deadline = new Date(this._dateProvider.now() + this.config.p2pMissingTxCollectionDeadlineMs);
+          await this.txCollection.collectFastForBlock(block, missingTxHashes, { deadline });
         }
       }
     } catch (err) {
@@ -652,7 +669,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @param blocks - A list of finalized L2 blocks.
    * @returns Empty promise.
    */
-  private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
+  private async handleFinalizedL2Blocks(blocks: BlockData[]): Promise<void> {
     if (!blocks.length) {
       return;
     }

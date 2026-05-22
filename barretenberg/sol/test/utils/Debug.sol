@@ -2,16 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import "forge-std/console2.sol";
 import {Fr} from "src/honk/Fr.sol";
-import {
-    Honk,
-    NUMBER_OF_ALPHAS,
-    NUMBER_OF_ENTITIES,
-    BATCHED_RELATION_PARTIAL_LENGTH,
-    CONST_PROOF_SIZE_LOG_N,
-    PAIRING_POINTS_SIZE
-} from "src/honk/HonkTypes.sol";
+import {Honk, NUMBER_OF_ALPHAS, CONST_PROOF_SIZE_LOG_N} from "src/honk/HonkTypes.sol";
 import {Transcript} from "src/honk/Transcript.sol";
 
 function bytes32ToString(bytes32 value) pure returns (string memory result) {

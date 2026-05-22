@@ -44,9 +44,11 @@ Parse the response to extract:
 - `rollupVersion`
 - `l1ChainId`
 
-**Note:** The RPC response does not include all contracts listed in `networks.md`.
-Contracts like GSE, Slasher, Reward Booster, Staking Registry, Tally Slashing
-Proposer, Honk Verifier, and others must be resolved separately in Step 9.
+**Note:** The RPC response may not include all contracts listed in `networks.md`.
+Some addresses (like `gseAddress`) have been added to the RPC response over time,
+so always check whether an address is already present before querying on-chain.
+Contracts like Reward Booster, Staking Registry, Tally Slashing Proposer, Honk
+Verifier, and others must be resolved separately in Step 9.
 
 **Detect release type** from the version string:
 
@@ -68,7 +70,31 @@ git tag -l "v<nodeVersion>"
 
 - If the tag exists and is already checked out, continue.
 - If the tag exists but is not checked out: `git checkout v<nodeVersion>`
-- **Abort if the tag doesn't exist** - the release hasn't been tagged yet.
+- **Abort if the tag doesn't exist** — the release hasn't been tagged yet.
+
+#### Pre-release workflow
+
+If the user provides a target version that differs from the `nodeVersion`
+returned by the RPC (e.g. the network is still running `4.1.3` but the user
+wants to prepare docs for `4.2.0`), this is a **pre-release** docs preparation.
+Ask the user to confirm the target version, then use that version instead of
+`nodeVersion` throughout the remaining steps. The git tag for the target version
+must still exist. Contract addresses from the RPC reflect the *current* network
+state (the old version); they are still valid if the upgrade reuses the same
+contracts, but ask the user to confirm whether any addresses will change at
+upgrade time.
+
+**Run all work on the tag, not `next`.** Cut on the tag so the snapshot
+reflects what shipped. Then stash, switch to `next`, pop. Backport any newer
+docs from `next` into the snapshot as an explicit step *after* the cut.
+
+### Unversioned root pages
+
+Pages under `docs/docs/` (`networks.md`, `index.md`) are configured "no
+versioning" in `docusaurus.config.js` and aren't snapshotted. Edits land
+directly on `next` and become live. Treat them as post-release-live: if `next`
+already has a newer version, port it in and bump the version field rather than
+reverting to the tag's older copy.
 
 ### Step 3: Verify Aztec CLI Version
 
@@ -137,24 +163,39 @@ This creates/updates the API docs in:
 - `docs/static/aztec-nr-api/<release_type>/` (e.g. `mainnet/`, `testnet/`)
 - `docs/static/typescript-api/<release_type>/`
 
-**Prerequisites:**
+**Prerequisites — you MUST build dependencies before generating API docs:**
 
-- `nargo` must be available (for aztec-nr docs)
-- `yarn-project` must be built for the checked-out tag (for TypeScript docs):
-  ```bash
-  cd yarn-project && yarn && yarn build
-  ```
-  This ensures TypeDoc can resolve cross-package types correctly.
+1. **Initialize submodules** (needed for noir packages and yarn-project):
+   ```bash
+   # Use submodule_update MCP tool, or:
+   git submodule update --init --recursive
+   ```
+2. **Bootstrap noir** (provides nargo for aztec-nr docs and JS packages for
+   yarn-project):
+   ```bash
+   cd noir && ./bootstrap.sh
+   ```
+3. **Install and build yarn-project** (for TypeScript docs — TypeDoc needs
+   compiled packages to resolve cross-package types):
+   ```bash
+   cd yarn-project && yarn && yarn build
+   ```
+4. **Install aztec CLI** matching the release version (provides nargo if not
+   already available from noir bootstrap):
+   ```bash
+   VERSION=<nodeVersion> bash -i <(curl -sL https://install.aztec.network/<nodeVersion>)
+   ```
 
-If generation fails, check that the tag has the required source code and that
-`yarn-project` has been built. The build step (Step 10) will validate that API
-reference links resolve correctly.
+If generation fails, check that the tag has the required source code, that
+submodules are initialized, and that dependencies have been built. The build
+step (Step 10) will validate that API reference links resolve correctly.
 
 ### Step 7: Generate CLI Reference Docs
 
-Regenerate the CLI reference documentation from the installed CLI (which must
-match the release version per Step 3). The generation scripts scan `--help`
-output from each CLI binary.
+Regenerate the CLI reference documentation from the installed CLI. The generation
+scripts scan `--help` output from each CLI binary, so the **installed aztec CLI
+must match the release version** (verified in Step 3). If the CLI is not the
+correct version, the generated docs will document the wrong command set.
 
 ```bash
 cd docs
@@ -169,18 +210,51 @@ This updates the CLI reference files in `docs/docs-developers/docs/cli/`:
 
 These files are auto-generated — do not hand-edit them.
 
+### Step 7b: Generate Node API Reference Docs
+
+Regenerate the Node JSON-RPC API reference documentation. This script parses the
+TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`
+to produce a complete markdown reference for the `node_` and `nodeAdmin_` RPC methods.
+
+**Prerequisite:** `yarn-project` must be built (already done in Step 6 prerequisites).
+
+```bash
+cd docs
+yarn generate:node-api-reference
+```
+
+This updates `docs/docs-operate/operators/reference/node-api-reference.md`.
+
+The file is auto-generated — do not hand-edit it. When cutting network versioned
+docs (Step 13), the generated content is included in the snapshot automatically.
+
 ### Step 8: Update Migration Notes
 
 **File:** `docs/docs-developers/docs/resources/migration_notes.md`
 
-1. Rename the existing `## TBD` heading to `## <new version>`
-2. Add a new empty `## TBD` heading above it (with a blank line between)
-3. Check for missing migration items by analyzing the diff between the previous
+1. **Triage existing TBD items.** Not all items under `## TBD` necessarily belong
+   to the current release. Review each entry and decide whether it:
+   - Shipped in this release → move it under the new `## <new version>` heading
+   - Targets a future major version → move it under a new `## Unreleased (v<next_major>)`
+     heading (create this heading if it doesn't exist, placed between `## TBD` and
+     the new version heading)
+   - Is still genuinely TBD → leave it under `## TBD`
+
+   Present the proposed triage to the user for confirmation before rearranging.
+
+2. Create the new `## <new version>` heading below `## TBD` (and below any
+   `## Unreleased` sections). Move the items identified in step 1 under it.
+
+3. Ensure `## TBD` remains at the top with a blank line separating it from the
+   next heading.
+
+4. Check for missing migration items by analyzing the diff between the previous
    release tag and the new one:
    ```bash
    git diff v<old_version>..v<new_version> -- yarn-project/ noir-projects/
    ```
-4. Present draft entries for user review before adding them
+
+5. Present draft entries for user review before adding them
 
 ### Step 9: Resolve Missing Contract Addresses & Update Network Info
 
@@ -193,8 +267,12 @@ the RPC response.
 
 #### Tier 1: Query on-chain from known contracts
 
+First check whether the RPC response already includes `gseAddress` in
+`l1ContractAddresses` — newer node versions return it directly. If present,
+use it and skip the on-chain query for GSE.
+
 ```bash
-# GSE (Governance Staking Escrow) — from Rollup
+# GSE (Governance Staking Escrow) — from Rollup (skip if already in RPC response)
 cast call <ROLLUP_ADDRESS> "getGSE()(address)" --rpc-url <L1_RPC>
 
 # Slasher — from Rollup
@@ -269,6 +347,14 @@ There is no dedicated `getting_started_on_testnet.md` page. Instead:
   that also need updating
 
 ### Step 11: Run `yarn build` and Fix Issues
+
+**Run after Step 13.** Docusaurus validates `lastVersion` against existing
+versioned dirs, so the build fails if the config points to a version that
+hasn't been cut yet. Actual order: 5–10, 13 (cut), then 11 (build), 12.
+
+**`rc` tags are still mainnet.** Always pass `RELEASE_TYPE=mainnet` explicitly
+for rc-suffixed mainnet builds. The API-doc generation scripts fall back to
+`testnet` for `rc` strings when `RELEASE_TYPE` is unset.
 
 Set the environment variables matching the release type so the build preprocessor
 resolves version placeholders correctly:
@@ -360,6 +446,22 @@ Also verify that macros were resolved in the network versioned snapshot — chec
 that `docs/network_versioned_docs/version-v<new_version>/` contains no raw
 `#release_version` or `#release_network` placeholders.
 
+#### Hardcoded version references
+
+Grep source and the new snapshot for the old version and update each hit. Skip
+historical refs (migration-note headings, changelog entries, "in vX, Y was
+removed" prose).
+
+```bash
+cd docs && grep -rn "<old_version>" src/ docs-developers/ docs-operate/ docs/ \
+  developer_versioned_docs/version-v<new_version>/ \
+  network_versioned_docs/version-v<new_version>/
+```
+
+Known hits: `src/clientModules/docsgpt.js` (`heroDescription`),
+`developer_versioned_docs/version-v<new_version>/docs/aztec-js/wallet-sdk/{wallet,dapp}_integration.md`
+(`yarn add @aztec/*@<version>`).
+
 ### Step 14: Review Recent Docs Updates on `next`
 
 After cutting versioned docs, check whether any recent documentation updates on
@@ -410,6 +512,16 @@ this is the first testnet developer docs cut. In that case, skip this part.
 - The old entry from `developer_version_config.json`
 - Any old API docs in `docs/static/aztec-nr-api/<old_version>/`
 - Any old API docs in `docs/static/typescript-api/<old_version>/`
+
+#### Remove stale release type entries from version configs
+
+If a release type entry in `developer_version_config.json` or
+`network_version_config.json` points to a version whose versioned docs directory
+no longer exists (e.g. an old testnet entry that was superseded by a unified
+mainnet release), remove that entry from the config. The reconciliation script
+(`update_docs_versions.sh`) only manages directory-to-config consistency for a
+single release type at a time — it will not remove orphaned entries for other
+release types automatically.
 
 #### Network/operator docs (mainnet and testnet only)
 
@@ -466,3 +578,6 @@ Check for stash conflicts. Then report to the user:
   `docs/static/aztec-nr-api/` with stable folder names (`mainnet`, `testnet`,
   `devnet`, `nightly`). The `#api_ref_version` macro resolves to the matching
   folder name for each release type (see `include_version.js`).
+- **Update `docs/README.md`**: If any new generation scripts, build steps, or
+  tooling changes were added during the release, update `docs/README.md` to
+  document them (e.g. new `yarn generate:*` commands).

@@ -1,19 +1,25 @@
-import { FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import {
+  FUNCTION_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  UPDATES_VALUE_SIZE,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
+import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
 import { type ContractInstanceWithAddress, computeSaltedInitializationHash } from '@aztec/stdlib/contract';
 import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { UpdatedClassIdHints } from '@aztec/stdlib/kernel';
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
@@ -26,7 +32,7 @@ export class PrivateKernelOracle {
     private contractStore: ContractStore,
     private keyStore: KeyStore,
     private node: AztecNode,
-    private blockHash: BlockHash,
+    private blockHeader: BlockHeader,
   ) {}
 
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
@@ -80,33 +86,31 @@ export class PrivateKernelOracle {
   }
 
   /** Returns a membership witness with the sibling path and leaf index in our note hash tree. */
-  getNoteHashMembershipWitness(noteHash: Fr): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    return this.node.getNoteHashMembershipWitness(this.blockHash, noteHash);
+  async getNoteHashMembershipWitness(
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    return this.node.getNoteHashMembershipWitness(await this.blockHeader.hash(), noteHash);
   }
 
   /** Returns a membership witness with the sibling path and leaf index in our nullifier indexed merkle tree. */
-  getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    return this.node.getNullifierMembershipWitness(this.blockHash, nullifier);
+  async getNullifierMembershipWitness(nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
+    return this.node.getNullifierMembershipWitness(await this.blockHeader.hash(), nullifier);
   }
 
   /** Returns the root of our note hash merkle tree. */
-  async getNoteHashTreeRoot(): Promise<Fr> {
-    const header = await this.node.getBlockHeader(this.blockHash);
-    if (!header) {
-      throw new Error(`No block header found for block hash ${this.blockHash}`);
-    }
-    return header.state.partial.noteHashTree.root;
+  getNoteHashTreeRoot(): Fr {
+    return this.blockHeader.state.partial.noteHashTree.root;
   }
 
   /**
-   * Retrieves the sk_m corresponding to the pk_m.
-   * @throws If the provided public key is not associated with any of the registered accounts.
-   * @param masterPublicKey - The master public key to get secret key for.
+   * Retrieves the sk_m corresponding to the pk_m hash.
+   * @throws If the provided hash is not associated with any of the registered accounts.
+   * @param masterPublicKeyHash - The master public key hash to get secret key for.
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinScalar> {
-    return this.keyStore.getMasterSecretKey(masterPublicKey);
+  public getMasterSecretKey(masterPublicKeyHash: Fr): Promise<GrumpkinScalar> {
+    return this.keyStore.getMasterSecretKey(masterPublicKeyHash);
   }
 
   /** Use debug data to get the function name corresponding to a selector. */
@@ -126,18 +130,24 @@ export class PrivateKernelOracle {
       ProtocolContractAddress.ContractInstanceRegistry,
       delayedPublicMutableHashSlot,
     );
-    const updatedClassIdWitness = await this.node.getPublicDataWitness(this.blockHash, hashLeafSlot);
+    const blockHash = await this.blockHeader.hash();
+
+    const updatedClassIdWitness = await this.node.getPublicDataWitness(blockHash, hashLeafSlot);
 
     if (!updatedClassIdWitness) {
       throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
     }
 
+    // In an indexed merkle tree, getPublicDataWitness returns a leaf whose slot matches our query
+    // only if the slot has been written to. Otherwise, it returns the "low leaf" predecessor, whose
+    // slot will differ. Most contracts are never updated, so we can skip the readFromTree call
+    // (which triggers multiple RPC calls) and return empty values directly.
     const readStorage = (storageSlot: Fr) =>
-      this.node.getPublicStorageAt(this.blockHash, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
-    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
-      delayedPublicMutableSlot,
-      readStorage,
-    );
+      this.node.getPublicStorageAt(blockHash, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
+    const slotExists = updatedClassIdWitness.leafPreimage.leaf.slot.equals(hashLeafSlot);
+    const delayedPublicMutableValues = slotExists
+      ? await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, readStorage)
+      : DelayedPublicMutableValues.empty(UPDATES_VALUE_SIZE);
 
     return new UpdatedClassIdHints(
       new MembershipWitness(

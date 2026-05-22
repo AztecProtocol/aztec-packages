@@ -1,4 +1,5 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import { MAX_ENQUEUED_CALLS_PER_CALL } from '@aztec/constants';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { makeTuple } from '@aztec/foundation/array';
@@ -24,6 +25,7 @@ import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
   PublicSimulationOutput,
+  type SimulationOverrides,
   Tx,
   TxContext,
   TxSimulationResult,
@@ -64,6 +66,8 @@ export function extractOptimizablePublicStaticCalls(payload: ExecutionPayload): 
  * @param gasSettings - Gas settings for the transaction.
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
+ * @param getContractName - Resolver for contract names (used for debug log display).
+ * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB.
  * @returns TxSimulationResult with public return values.
  */
 async function simulateBatchViaNode(
@@ -75,6 +79,7 @@ async function simulateBatchViaNode(
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean,
   getContractName: ContractNameResolver,
+  overrides?: SimulationOverrides,
 ): Promise<TxSimulationResult> {
   const txContext = new TxContext(chainInfo.chainId, chainInfo.version, gasSettings);
 
@@ -142,7 +147,7 @@ async function simulateBatchViaNode(
     publicFunctionCalldata: publicFunctionCalldata,
   });
 
-  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement);
+  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement, overrides);
 
   if (publicOutput.revertReason) {
     throw publicOutput.revertReason;
@@ -165,6 +170,8 @@ async function simulateBatchViaNode(
  * @param gasSettings - Gas settings for the transaction.
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
+ * @param getContractName - Resolver for contract names (used for debug log display).
+ * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB.
  * @returns Array of TxSimulationResult, one per batch.
  */
 export async function simulateViaNode(
@@ -176,6 +183,7 @@ export async function simulateViaNode(
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean = true,
   getContractName: ContractNameResolver,
+  overrides?: SimulationOverrides,
 ): Promise<TxSimulationResult[]> {
   const batches: FunctionCall[][] = [];
 
@@ -195,6 +203,7 @@ export async function simulateViaNode(
       blockHeader,
       skipFeeEnforcement,
       getContractName,
+      overrides,
     );
     results.push(result);
   }
@@ -214,13 +223,13 @@ export async function simulateViaNode(
  */
 export function buildMergedSimulationResult(
   optimizedResults: TxSimulationResult[],
-  normalResult: TxSimulationResult | null,
-): TxSimulationResult {
+  normalResult: TxSimulationResultWithAppOffset | null,
+): TxSimulationResultWithAppOffset {
   const optimizedReturnValues = optimizedResults.flatMap(r => r.publicOutput?.publicReturnValues ?? []);
   const normalReturnValues = normalResult?.publicOutput?.publicReturnValues ?? [];
   const allReturnValues = [...optimizedReturnValues, ...normalReturnValues];
 
-  const baseResult = normalResult ?? optimizedResults[0];
+  const baseResult: TxSimulationResult = normalResult ?? optimizedResults[0];
 
   const mergedPublicOutput: PublicSimulationOutput | undefined = baseResult.publicOutput
     ? {
@@ -229,10 +238,11 @@ export function buildMergedSimulationResult(
       }
     : undefined;
 
-  return new TxSimulationResult(
+  const merged = new TxSimulationResult(
     baseResult.privateExecutionResult,
     baseResult.publicInputs,
     mergedPublicOutput,
     normalResult?.stats,
   );
+  return TxSimulationResultWithAppOffset.fromResultAndOffset(merged, normalResult?.appCallOffset ?? 0);
 }

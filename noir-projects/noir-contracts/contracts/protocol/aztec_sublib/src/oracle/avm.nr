@@ -38,16 +38,16 @@ pub unconstrained fn l2_gas_left() -> u32 {
 pub unconstrained fn da_gas_left() -> u32 {
     da_gas_left_opcode()
 }
-pub unconstrained fn is_static_call() -> u1 {
+pub unconstrained fn is_static_call() -> bool {
     is_static_call_opcode()
 }
-pub unconstrained fn note_hash_exists(note_hash: Field, leaf_index: u64) -> u1 {
+pub unconstrained fn note_hash_exists(note_hash: Field, leaf_index: u64) -> bool {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
 pub unconstrained fn emit_note_hash(note_hash: Field) {
     emit_note_hash_opcode(note_hash)
 }
-pub unconstrained fn nullifier_exists(siloed_nullifier: Field) -> u1 {
+pub unconstrained fn nullifier_exists(siloed_nullifier: Field) -> bool {
     nullifier_exists_opcode(siloed_nullifier)
 }
 pub unconstrained fn emit_nullifier(nullifier: Field) {
@@ -56,7 +56,7 @@ pub unconstrained fn emit_nullifier(nullifier: Field) {
 pub unconstrained fn emit_public_log(message: [Field]) {
     emit_public_log_opcode(message)
 }
-pub unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: u64) -> u1 {
+pub unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: u64) -> bool {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
 }
 pub unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
@@ -152,16 +152,16 @@ unconstrained fn l2_gas_left_opcode() -> u32 {}
 unconstrained fn da_gas_left_opcode() -> u32 {}
 
 #[oracle(aztec_avm_isStaticCall)]
-unconstrained fn is_static_call_opcode() -> u1 {}
+unconstrained fn is_static_call_opcode() -> bool {}
 
 #[oracle(aztec_avm_noteHashExists)]
-unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: u64) -> u1 {}
+unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: u64) -> bool {}
 
 #[oracle(aztec_avm_emitNoteHash)]
 unconstrained fn emit_note_hash_opcode(note_hash: Field) {}
 
 #[oracle(aztec_avm_nullifierExists)]
-unconstrained fn nullifier_exists_opcode(siloed_nullifier: Field) -> u1 {}
+unconstrained fn nullifier_exists_opcode(siloed_nullifier: Field) -> bool {}
 
 #[oracle(aztec_avm_emitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
@@ -170,7 +170,7 @@ unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 unconstrained fn emit_public_log_opcode(message: [Field]) {}
 
 #[oracle(aztec_avm_l1ToL2MsgExists)]
-unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: u64) -> u1 {}
+unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: u64) -> bool {}
 
 #[oracle(aztec_avm_sendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}

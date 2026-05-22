@@ -28,7 +28,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { MNEMONIC } from '../../fixtures/fixtures.js';
+import { MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
@@ -88,33 +88,35 @@ export class ClientFlowsBenchmark {
 
   public realProofs = ['true', '1'].includes(process.env.REAL_PROOFS ?? '');
 
-  public paymentMethods: Record<BenchmarkingFeePaymentMethod, { forWallet: FeePaymentMethodGetter; circuits: number }> =
-    {
-      // eslint-disable-next-line camelcase
-      bridged_fee_juice: {
-        forWallet: this.getBridgedFeeJuicePaymentMethodForWallet.bind(this),
-        circuits: 2, // FeeJuice claim + kernel inner
-      },
-      // eslint-disable-next-line camelcase
-      private_fpc: {
-        forWallet: this.getPrivateFPCPaymentMethodForWallet.bind(this),
-        circuits:
-          2 + // FPC entrypoint + kernel inner
-          2 + // BananaCoin transfer_to_public + kernel inner
-          2 + // Account verify_private_authwit + kernel inner
-          2, // BananaCoin prepare_private_balance_increase + kernel inner
-      },
-      // eslint-disable-next-line camelcase
-      sponsored_fpc: {
-        forWallet: this.getSponsoredFPCPaymentMethodForWallet.bind(this),
-        circuits: 2, // Sponsored FPC sponsor_unconditionally + kernel inner
-      },
-      // eslint-disable-next-line camelcase
-      fee_juice: {
-        forWallet: () => Promise.resolve(undefined),
-        circuits: 0,
-      },
-    };
+  // `apps` is the number of private function calls contributed by this payment method.
+  // Each app produces one execution step at proving time; the orchestrator additionally produces
+  // one kernel step per batch of N apps (see `expectedExecutionSteps` in `benchmark.ts`).
+  public paymentMethods: Record<BenchmarkingFeePaymentMethod, { forWallet: FeePaymentMethodGetter; apps: number }> = {
+    // eslint-disable-next-line camelcase
+    bridged_fee_juice: {
+      forWallet: this.getBridgedFeeJuicePaymentMethodForWallet.bind(this),
+      apps: 1, // FeeJuice claim
+    },
+    // eslint-disable-next-line camelcase
+    private_fpc: {
+      forWallet: this.getPrivateFPCPaymentMethodForWallet.bind(this),
+      apps:
+        1 + // FPC entrypoint
+        1 + // BananaCoin transfer_to_public
+        1 + // Account verify_private_authwit
+        1, // BananaCoin prepare_private_balance_increase
+    },
+    // eslint-disable-next-line camelcase
+    sponsored_fpc: {
+      forWallet: this.getSponsoredFPCPaymentMethodForWallet.bind(this),
+      apps: 1, // Sponsored FPC sponsor_unconditionally
+    },
+    // eslint-disable-next-line camelcase
+    fee_juice: {
+      forWallet: () => Promise.resolve(undefined),
+      apps: 0,
+    },
+  };
 
   public config: ClientFlowsConfig;
 
@@ -386,7 +388,7 @@ export class ClientFlowsBenchmark {
   public async getPrivateFPCPaymentMethodForWallet(wallet: Wallet, sender: AztecAddress) {
     // The private fee paying method assembled on the app side requires knowledge of the maximum
     // fee the user is willing to pay
-    const maxFeesPerGas = (await this.aztecNode.getCurrentMinFees()).mul(1.5);
+    const maxFeesPerGas = await getPaddedMaxFeesPerGas(this.aztecNode);
     const gasSettings = GasSettings.fallback({ maxFeesPerGas });
     return new PrivateFeePaymentMethod(this.bananaFPC.address, sender, wallet, gasSettings);
   }
