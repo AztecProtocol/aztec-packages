@@ -25,6 +25,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -49,7 +50,10 @@ if (!existsSync(join(AZTEC_INSTALL_DIR, "package.json"))) {
   process.exit(2);
 }
 
-const TMP_DIR = mkdtempSync(join(tmpdir(), "aztec-cli-acceptance-test-"));
+// Prefer RUNNER_TEMP so the GitHub Actions upload-artifact step can find the diagnostic
+// tree on failure under a predictable parent path. Falls back to the system tmpdir locally.
+const TMP_DIR_PARENT = process.env.RUNNER_TEMP ?? tmpdir();
+const TMP_DIR = mkdtempSync(join(TMP_DIR_PARENT, "aztec-cli-acceptance-test-"));
 const WORKSPACE_DIR = join(TMP_DIR, "my_workspace");
 
 // Exit codes follow the Unix 128+signal convention for signal terminations.
@@ -188,13 +192,16 @@ function locateArtifact(): string {
 async function startLocalNetwork(): Promise<void> {
   const logPath = join(TMP_DIR, "local_network.log");
   const logFd = openSync(logPath, "a");
+  // LOG_LEVEL defaults to "debug" so failed CI runs leave useful traces in local_network.log;
+  // override with LOCAL_NETWORK_LOG_LEVEL=silent when running locally and the volume is noisy.
+  const logLevel = process.env.LOCAL_NETWORK_LOG_LEVEL ?? "debug";
   const proc = spawn("aztec", ["start", "--local-network"], {
     cwd: TMP_DIR,
     stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, LOG_LEVEL: "silent", PXE_PROVER: "none" },
+    env: { ...process.env, LOG_LEVEL: logLevel, PXE_PROVER: "none" },
   });
   closeSync(logFd);
-  log(`    local-network pid=${proc.pid}, log=${logPath}`);
+  log(`    local-network pid=${proc.pid}, log=${logPath}, LOG_LEVEL=${logLevel}`);
 
   // Kill the network on process exit (including SIGINT/SIGTERM via the signal handlers).
   process.on("exit", () => {
@@ -208,12 +215,14 @@ async function startLocalNetwork(): Promise<void> {
   const deadline = Date.now() + LOCAL_NETWORK_READY_TIMEOUT_MS;
   while (true) {
     if (proc.exitCode !== null) {
+      captureProcessTreeDiagnostics(proc.pid);
       dumpTail(logPath);
       fail(
         `local-network exited early with code ${proc.exitCode} (see ${logPath})`,
       );
     }
     if (Date.now() > deadline) {
+      captureProcessTreeDiagnostics(proc.pid);
       dumpTail(logPath);
       fail(
         `timed out after ${msToSecs(LOCAL_NETWORK_READY_TIMEOUT_MS)}s waiting for local-network /status (see ${logPath})`,
@@ -306,7 +315,81 @@ function leaveTmpDirForInspection() {
   console.error(`>>> Left tmp dir at ${TMP_DIR} for inspection`);
 }
 
-function dumpTail(path: string, lines = 100) {
+function captureProcessTreeDiagnostics(rootPid: number | undefined) {
+  if (rootPid === undefined) {
+    return;
+  }
+  const pids = [rootPid, ...descendantPids(rootPid)];
+  console.error(`>>> Capturing diagnostics for pids: ${pids.join(", ")}`);
+  try {
+    writeFileSync(join(TMP_DIR, "ps.txt"), psSnapshot());
+  } catch (e) {
+    console.error(`>>> ps snapshot failed: ${(e as Error).message}`);
+  }
+  for (const pid of pids) {
+    const out = join(TMP_DIR, `stack-${pid}.txt`);
+    try {
+      stackSample(pid, out);
+      console.error(`>>> Wrote stack sample for pid=${pid} to ${out}`);
+    } catch (e) {
+      console.error(
+        `>>> Failed to sample pid=${pid}: ${(e as Error).message}`,
+      );
+    }
+  }
+}
+
+function descendantPids(rootPid: number): number[] {
+  try {
+    const out = execFileSync("pgrep", ["-P", String(rootPid)], {
+      encoding: "utf8",
+    });
+    const children = out.trim().split("\n").filter(Boolean).map(Number);
+    return [...children, ...children.flatMap(descendantPids)];
+  } catch {
+    return [];
+  }
+}
+
+function psSnapshot(): string {
+  try {
+    return execFileSync("ps", ["-ef"], { encoding: "utf8" });
+  } catch {
+    return "(ps failed)";
+  }
+}
+
+function stackSample(pid: number, outPath: string) {
+  if (process.platform === "darwin") {
+    // `sample` is shipped with the OS; runs without root for own-user pids.
+    execFileSync("sample", [String(pid), "5", "-file", outPath, "-mayDie"], {
+      stdio: "inherit",
+    });
+    return;
+  }
+  if (process.platform === "linux") {
+    // /proc/<pid>/task/*/stack gives kernel-side stack per thread; userspace stack
+    // requires gdb/py-spy and isn't always installed, so write what we can without those.
+    const fd = openSync(outPath, "w");
+    try {
+      execFileSync(
+        "sh",
+        [
+          "-c",
+          `echo "=== /proc/${pid}/status ==="; cat /proc/${pid}/status 2>/dev/null || true; ` +
+            `for d in /proc/${pid}/task/*/stack; do echo; echo "=== $d ==="; cat "$d" 2>/dev/null || true; done`,
+        ],
+        { stdio: ["ignore", fd, "inherit"] },
+      );
+    } finally {
+      closeSync(fd);
+    }
+    return;
+  }
+  throw new Error(`unsupported platform: ${process.platform}`);
+}
+
+function dumpTail(path: string, lines = 400) {
   if (!existsSync(path)) {
     return;
   }
