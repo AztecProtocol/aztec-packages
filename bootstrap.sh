@@ -798,20 +798,25 @@ case "$cmd" in
     # Args: <env_file> <namespace> [docker_image]
     # Deploys bench-10tps and runs the 10-min sustained 10 TPS benchmark.
     # Cleanup is done separately via ci-network-teardown.
+    # Set REUSE_NAMESPACE=1 (or pass a non-standard namespace) to skip deploy.
     export CI=1
     env_file="${1:?env_file is required}"
     namespace="${2:?namespace is required}"
     docker_image="${3:-}"
     build
-    # If no docker image provided, build and push to aztecdev
-    if [ -z "$docker_image" ]; then
-      release-image/bootstrap.sh push_pr
-      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
-    fi
-    # Set up environment and deploy using spartan
     export NAMESPACE="$namespace"
-    export AZTEC_DOCKER_IMAGE="$docker_image"
-    spartan/bootstrap.sh network_deploy "${env_file}"
+    export AZTEC_DOCKER_IMAGE="${docker_image:-}"
+    if [ -z "${REUSE_NAMESPACE:-}" ]; then
+      # If no docker image provided, build and push to aztecdev
+      if [ -z "$docker_image" ]; then
+        release-image/bootstrap.sh push_pr
+        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+        export AZTEC_DOCKER_IMAGE="$docker_image"
+      fi
+      spartan/bootstrap.sh network_deploy "${env_file}"
+    else
+      echo "[ci-network-bench-10tps] REUSE_NAMESPACE=${REUSE_NAMESPACE}, skipping network_deploy"
+    fi
     # Run the 10 TPS benchmark
     spartan/bootstrap.sh bench_10tps "${env_file}"
     rm -rf bench-out

@@ -350,6 +350,7 @@ start_build() {
     -e SOCKET_SECURITY_API_TOKEN=${SOCKET_SECURITY_API_TOKEN:-} \
     -e AWS_TOKEN=\$aws_token \
     -e NAMESPACE=${NAMESPACE:-} \
+    -e REUSE_NAMESPACE=${REUSE_NAMESPACE:-} \
     -e NETWORK=${NETWORK:-} \
     -e GITHUB_ACTOR=${GITHUB_ACTOR:-} \
     -e EC2_INSTANCE_TYPE=${EC2_INSTANCE_TYPE:-unknown} \

@@ -13,6 +13,11 @@ on:
         description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Ignored if docker_image is set. Leave empty to auto-detect."
         required: false
         type: string
+      reuse_namespace:
+        description: "If set, skip deploy/teardown and run the benchmark against this existing GKE namespace."
+        required: false
+        type: string
+        default: "spy-bench-10tps-tps-metrics"
 
 concurrency:
   group: nightly-bench-10tps-${{ github.ref }}
@@ -25,7 +30,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: next
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || 'next' }}
 
       - name: Determine docker image
         id: docker-image
@@ -71,11 +76,16 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
+          REUSE_NAMESPACE: ${{ inputs.reuse_namespace }}
         run: |
-          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "${{ steps.docker-image.outputs.docker_image }}"
+          if [[ -n "${REUSE_NAMESPACE}" ]]; then
+            ./.github/ci3.sh network-bench-10tps bench-10tps "${REUSE_NAMESPACE}" "${{ steps.docker-image.outputs.docker_image }}"
+          else
+            ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "${{ steps.docker-image.outputs.docker_image }}"
+          fi
 
       - name: Cleanup network resources
-        if: always()
+        if: ${{ always() && !inputs.reuse_namespace }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
