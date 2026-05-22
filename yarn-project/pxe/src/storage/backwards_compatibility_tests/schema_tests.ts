@@ -2,7 +2,6 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
@@ -15,7 +14,7 @@ import { BlockHash, Body, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdl
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import { PublicKeys } from '@aztec/stdlib/keys';
+import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 import {
   ContractClassLog,
   ContractClassLogFields,
@@ -197,7 +196,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           // Only `ivpk_m` is exposed as a curve point; the other three master keys
           // are exposed as `hash_public_key` digests. Constructor signature is now
           // `(npkMHash, ivpkM, ovpkMHash, tpkMHash)`.
-          publicKeys: new PublicKeys(new Fr(41n), new Point(new Fr(47n), new Fr(53n), false), new Fr(59n), new Fr(67n)),
+          publicKeys: new PublicKeys(new Fr(41n), new PublicKey(new Fr(47n), new Fr(53n)), new Fr(59n), new Fr(67n)),
         }).withAddress(AztecAddress.fromBigInt(101n)),
       );
     },

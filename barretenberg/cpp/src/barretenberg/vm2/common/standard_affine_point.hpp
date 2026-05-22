@@ -92,9 +92,8 @@ template <typename AffinePoint> class StandardAffinePoint {
     }
 
   private:
-    // TODO(MW): Clarify - docs here no longer true
     // The affine point for operations, this will always match the raw coordinates unless the point is infinity.
-    // In that case, the point will be set to barretenberg's infinity representation - which is not (0,0).
+    // In that case, the point will be set to AffinePoint's infinity representation - which may not be (0,0).
     AffinePoint point;
     // These are the raw x and y coordinates, that are set when constructing the point. When an operation results
     // in infinity, these will be set to (0,0) to match noir's expected representation.

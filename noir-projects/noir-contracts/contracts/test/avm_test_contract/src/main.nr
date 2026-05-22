@@ -19,7 +19,7 @@ pub contract AvmTest {
         get_contract_instance_immutables_hash_avm, get_contract_instance_initialization_hash_avm,
     };
     use aztec::protocol::abis::function_selector::FunctionSelector;
-    use aztec::protocol::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
+    use aztec::protocol::{address::{AztecAddress, EthAddress}, point::EmbeddedCurvePoint, scalar::Scalar};
     use aztec::protocol::{
         constants::{
             CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, FEE_JUICE_ADDRESS,
@@ -195,13 +195,13 @@ pub contract AvmTest {
     }
 
     #[external("public")]
-    fn elliptic_curve_add(lhs: Point, rhs: Point) -> Point {
+    fn elliptic_curve_add(lhs: EmbeddedCurvePoint, rhs: EmbeddedCurvePoint) -> EmbeddedCurvePoint {
         lhs + rhs
     }
 
     #[external("public")]
-    fn elliptic_curve_add_and_double() -> Point {
-        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+    fn elliptic_curve_add_and_double() -> EmbeddedCurvePoint {
+        let g = EmbeddedCurvePoint { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -209,20 +209,23 @@ pub contract AvmTest {
     }
 
     #[external("public")]
-    fn variable_base_msm(scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> Point {
-        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+    fn variable_base_msm(
+        scalar_lo: Field,
+        scalar_hi: Field,
+        scalar2_lo: Field,
+        scalar2_hi: Field,
+    ) -> EmbeddedCurvePoint {
+        let g = EmbeddedCurvePoint { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y };
 
-        let triple_g = multi_scalar_mul(
-            [g.to_embedded(), g.to_embedded()],
+        multi_scalar_mul(
+            [g, g],
             [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
-        );
-        triple_g.into()
+        )
     }
 
     #[external("public")]
-    fn pedersen_commit(x: Field, y: Field) -> Point {
-        let commitment = ::std::hash::pedersen_commitment_with_separator([x, y], 20);
-        commitment.into()
+    fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
+        ::std::hash::pedersen_commitment_with_separator([x, y], 20)
     }
 
     #[external("public")]

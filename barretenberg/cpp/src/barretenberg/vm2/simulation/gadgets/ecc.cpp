@@ -138,10 +138,10 @@ void Ecc::add(MemoryInterface& memory,
                                  .result = result,
                                  .dst_address = dst_address });
     } catch (const InternalEccException& e) {
-        // Note this point is not on the curve, but corresponds
-        // to default values the circuit will assign.
-        // TODO(MW): This is now a point on the curve technically (inf) - check this doesnt cause issues now res.is_inf
-        // is true:
+        // Note this point is technically infinity, but we are treating it as 'empty' to corresponds
+        // to default values the circuit will assign. Since we have caught an InternalEccException,
+        // we have an error which the circuit should recognise and assign sel_should_exec == 0, so res will not be
+        // treated as inf.
         EmbeddedCurvePoint res = EmbeddedCurvePoint(0, 0);
         add_memory_events.emit({ .execution_clk = execution_clk,
                                  .space_id = space_id,

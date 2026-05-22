@@ -6,7 +6,6 @@ import { pedersenCommit, pedersenHash } from '@aztec/foundation/crypto/pedersen'
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -23,7 +22,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import { PublicKeys } from '@aztec/stdlib/keys';
+import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -257,10 +256,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const calldata = new CallDataArray([
       new Fr(1), // P1x
       new Fr(17631683881184975370165255887551781615748388533673675138860n), // P1y
-      new Fr(0), // P1inf
       new Fr(1), // P2x
       new Fr(17631683881184975370165255887551781615748388533673675138860n), // P2y
-      new Fr(0), // P2inf
     ]);
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
@@ -278,7 +275,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     const g3 = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
-    expect(results.output.readAll()).toEqual([g3.x, g3.y, Fr.ZERO]);
+    expect(results.output.readAll()).toEqual([g3.x, g3.y]);
   });
 
   describe('msm', () => {
@@ -298,7 +295,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const g3 = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
       const g20 = await Grumpkin.mul(Grumpkin.generator, new Fq(20));
       const expectedResult = await Grumpkin.add(g3, g20);
-      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y]);
     });
 
     it('with a zero', async () => {
@@ -315,7 +312,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(results.reverted).toBe(false);
       const expectedResult = await Grumpkin.mul(Grumpkin.generator, new Fq(3));
-      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y]);
     });
 
     const fqToLimbs = (fq: Fq): [bigint, bigint] => {
@@ -340,7 +337,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const g1 = await Grumpkin.mul(Grumpkin.generator, scalar);
       const g2 = await Grumpkin.mul(Grumpkin.generator, scalar2);
       const expectedResult = await Grumpkin.add(g1, g2);
-      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
+      expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y]);
     });
   });
 
@@ -352,11 +349,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(false);
-    // This doesnt include infinites
     const expectedResult = (await pedersenCommit([Buffer.from([100]), Buffer.from([1])], 20)).map(f => new Fr(f));
-    // TODO: Come back to the handling of infinities when we confirm how they're handled in bb
-    const isInf = expectedResult[0] === new Fr(0) && expectedResult[1] === new Fr(0);
-    expectedResult.push(new Fr(isInf));
     expect(results.output.readAll()).toEqual(expectedResult);
   });
 
@@ -923,7 +916,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           immutablesHash: new Fr(0x202221),
           publicKeys: new PublicKeys(
             new Fr(0x131415),
-            new Point(new Fr(0x192021), new Fr(0x222324), false),
+            new PublicKey(new Fr(0x192021), new Fr(0x222324)),
             new Fr(0x252627),
             new Fr(0x313233),
           ),
