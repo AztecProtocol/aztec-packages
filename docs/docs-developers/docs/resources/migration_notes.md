@@ -20,8 +20,8 @@ The custom hook receives the same parameters as `do_sync_state` and is responsib
 +     contract_address: AztecAddress,
 +     compute_note_hash: ComputeNoteHash,
 +     compute_note_nullifier: ComputeNoteNullifier,
-+     process_custom_message: Option<CustomMessageHandler<()>>,
-+     offchain_inbox_sync: Option<OffchainInboxSync<()>>,
++     process_custom_message: Option<CustomMessageHandler>,
++     offchain_inbox_sync: Option<OffchainInboxSync>,
 +     scope: AztecAddress,
 + ) {
 +     // optional: work before default sync

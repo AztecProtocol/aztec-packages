@@ -34,8 +34,8 @@ use compute_note_hash_and_nullifier::generate_contract_library_methods_compute_n
 /// contract MyContract { ... }
 /// ```
 pub struct AztecConfig {
-    custom_message_handler: Option<CustomMessageHandler<()>>,
-    custom_sync_state: Option<CustomSyncHandler<()>>,
+    custom_message_handler: Option<CustomMessageHandler>,
+    custom_sync_state: Option<CustomSyncHandler>,
 }
 
 impl AztecConfig {
@@ -54,8 +54,9 @@ impl AztecConfig {
     ///
     /// `handler` must be a function that conforms to the
     /// [`crate::messages::discovery::CustomMessageHandler`] type signature.
-    pub comptime fn custom_message_handler(self, handler: CustomMessageHandler<()>) -> Self {
-        Self { custom_message_handler: Option::some(handler), custom_sync_state: self.custom_sync_state }
+    pub comptime fn custom_message_handler(&mut self, handler: CustomMessageHandler) -> Self {
+        self.custom_message_handler = Option::some(handler);
+        *self
     }
 
     /// Overrides the default state synchronization logic.
@@ -67,8 +68,9 @@ impl AztecConfig {
     ///
     /// `handler` must be a function that conforms to the
     /// [`crate::messages::discovery::CustomSyncHandler`] type signature.
-    pub comptime fn custom_sync_state(self, handler: CustomSyncHandler<()>) -> Self {
-        Self { custom_message_handler: self.custom_message_handler, custom_sync_state: Option::some(handler) }
+    pub comptime fn custom_sync_state(&mut self, handler: CustomSyncHandler) -> Self {
+        self.custom_sync_state = Option::some(handler);
+        *self
     }
 }
 
@@ -135,7 +137,7 @@ pub comptime fn aztec(m: Module, args: [AztecConfig]) -> Quoted {
         let handler = config.custom_message_handler.unwrap();
         quote { Option::some($handler) }
     } else {
-        quote { Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none() }
+        quote { Option::<aztec::messages::discovery::CustomMessageHandler>::none() }
     };
 
     let offchain_inbox_sync_option = quote {

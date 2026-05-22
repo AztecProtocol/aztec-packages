@@ -51,8 +51,8 @@ unconstrained fn my_custom_sync(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
-    process_custom_message: Option<CustomMessageHandler<()>>,
-    offchain_inbox_sync: Option<OffchainInboxSync<()>>,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
     let current: Option<Field> =
