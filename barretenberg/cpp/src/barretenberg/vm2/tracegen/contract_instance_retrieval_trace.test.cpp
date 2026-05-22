@@ -35,6 +35,8 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
                 .incoming_viewing_key = { FF(0x200), FF(0x201) },
                 .outgoing_viewing_key_hash = FF(0x300),
                 .tagging_key_hash = FF(0x400),
+                .message_signing_key_hash = FF(0x500),
+                .fallback_key_hash = FF(0x600),
             },
     };
 }

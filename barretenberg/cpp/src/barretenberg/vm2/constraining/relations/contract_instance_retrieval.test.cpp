@@ -52,6 +52,8 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
                 .incoming_viewing_key = { FF(0x200), FF(0x201) },
                 .outgoing_viewing_key_hash = FF(0x300),
                 .tagging_key_hash = FF(0x400),
+                .message_signing_key_hash = FF(0x500),
+                .fallback_key_hash = FF(0x600),
             },
     };
 }
@@ -466,6 +468,9 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenValidInstance
             { C::address_derivation_outgoing_viewing_key_hash,
               contract_instance_data.public_keys.outgoing_viewing_key_hash },
             { C::address_derivation_tagging_key_hash, contract_instance_data.public_keys.tagging_key_hash },
+            { C::address_derivation_message_signing_key_hash,
+              contract_instance_data.public_keys.message_signing_key_hash },
+            { C::address_derivation_fallback_key_hash, contract_instance_data.public_keys.fallback_key_hash },
             // For update check lookup
             { C::update_check_sel, 1 },
             { C::update_check_address, contract_address },
@@ -713,6 +718,9 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenMultipleInsta
                 { C::address_derivation_outgoing_viewing_key_hash,
                   contract_instance_data.public_keys.outgoing_viewing_key_hash },
                 { C::address_derivation_tagging_key_hash, contract_instance_data.public_keys.tagging_key_hash },
+                { C::address_derivation_message_signing_key_hash,
+                  contract_instance_data.public_keys.message_signing_key_hash },
+                { C::address_derivation_fallback_key_hash, contract_instance_data.public_keys.fallback_key_hash },
                 // For update check lookup (only when nullifier exists)
                 { C::update_check_sel, 1 },
                 { C::update_check_address, FF(base_address + i) },

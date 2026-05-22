@@ -919,6 +919,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
             new PublicKey(new Fr(0x192021), new Fr(0x222324)),
             new Fr(0x252627),
             new Fr(0x313233),
+            new Fr(0x343536),
+            new Fr(0x373839),
           ),
         });
         const contractInstanceWithAddress = contractInstance.withAddress(address);

@@ -8,7 +8,9 @@ ContractInstancePublishedEvent {
   "immutablesHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "initializationHash": "0x0dad6f31fca9cac105434c9d0071a24a38da659700aee09d285b5ceae94ff5fe",
   "publicKeys": PublicKeys {
+    "fbpkMHash": "0x0f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496",
     "ivpkM": "0x21f72071d5882ea13df29918cbaad0d60a11f61309ece108e61d7102b62ec1b50460480b46dcfd5c3262004f191fecf11f321d74618d761e6bcadc691078b421",
+    "mspkMHash": "0x14a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d10356",
     "npkMHash": "0x2f6b4b954efabd4f61fe64c1704e82f62760c1a0b5ec1ab88e272fae2f3f0d6c",
     "ovpkMHash": "0x0c0e28c4de1167675c811c52defc32dae2245315682dd349b26ef9c3161b1f96",
     "tpkMHash": "0x222398ec917e21cb0cbac7050610c2bcb0c2fedfc637bf03d59094b7fd9ce186",
