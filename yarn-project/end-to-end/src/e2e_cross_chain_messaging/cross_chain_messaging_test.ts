@@ -19,6 +19,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import type { PXEConfig } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
@@ -37,6 +38,7 @@ export class CrossChainMessagingTest {
   private requireEpochProven: boolean;
   private setupOptions: SetupOptions;
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
+  private pxeOpts: Partial<PXEConfig>;
   logger: Logger;
   context!: EndToEndContext;
   aztecNode!: AztecNode;
@@ -65,6 +67,7 @@ export class CrossChainMessagingTest {
     testName: string,
     opts: SetupOptions = {},
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
+    pxeOpts: Partial<PXEConfig> = {},
   ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.setupOptions = opts;
@@ -72,20 +75,25 @@ export class CrossChainMessagingTest {
       initialValidators: [],
       ...deployL1ContractsArgs,
     };
+    this.pxeOpts = pxeOpts;
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
-  async setup(opts: Partial<SetupOptions> = {}) {
+  async setup(opts: Partial<SetupOptions> = {}, pxeOpts: Partial<PXEConfig> = {}) {
     this.logger.info('Setting up cross chain messaging test');
     // Recompute requireEpochProven from the merged options so per-call startProverNode is honored.
     this.requireEpochProven = opts.startProverNode ?? this.setupOptions.startProverNode ?? false;
-    this.context = await setup(0, {
-      ...this.setupOptions,
-      ...opts,
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-      l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
-    });
+    this.context = await setup(
+      0,
+      {
+        ...this.setupOptions,
+        ...opts,
+        fundSponsoredFPC: true,
+        skipAccountDeployment: true,
+        l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
+      },
+      { ...this.pxeOpts, ...pxeOpts },
+    );
     await this.applyBaseSetup();
   }
 

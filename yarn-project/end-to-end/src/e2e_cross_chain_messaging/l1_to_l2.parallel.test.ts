@@ -38,6 +38,10 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // pipelined checkpoints interleaving between txs would break the exact block-number assertions.
       { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 },
       { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
+      // Anchor PXE to the checkpointed chain so that a proposed-chain invalidation cascade
+      // (e.g. a missed checkpoint publish that prunes the pipelined proposed chain) doesn't
+      // drop the wallet's in-flight tx via handlePrunedBlocks.
+      { syncChainTip: 'checkpointed' },
     );
     await t.setup();
 
