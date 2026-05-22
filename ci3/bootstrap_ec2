@@ -291,12 +291,36 @@ if [ -n "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" ]; then
   echo "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_ssh_config
 fi
 
+# --- DNS caching resolver (spike; ideally baked into the runner AMI) ---
+# Stand up a host-local dnsmasq caching resolver and point the build container at
+# it via the docker bridge gateway (172.17.0.1). Repeated lookups become cache
+# hits, so query volume to the VPC resolver collapses and stays under its
+# ~1024 packets/sec-per-ENI cap -- the root cause of the intermittent
+# "Could not resolve host" CI failures. Gated by CI_DNS_CACHE (set in the CI
+# environment that runs this script) so it can be validated on a few merge-train
+# runs before committing to an AMI rebuild. Off by default = zero impact.
+docker_dns_args=""
+if [ "${CI_DNS_CACHE:-0}" = 1 ]; then
+  echo "HOST: enabling dnsmasq caching resolver..."
+  command -v dnsmasq >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq dnsmasq; }
+  upstream=\$(grep -m1 '^nameserver' /etc/resolv.conf | awk '{print \$2}') || true
+  sudo tee /etc/dnsmasq.d/ci-cache.conf >/dev/null <<DNSMASQ
+listen-address=127.0.0.1,172.17.0.1
+bind-interfaces
+cache-size=10000
+min-cache-ttl=30
+server=\${upstream:-169.254.169.253}
+DNSMASQ
+  sudo systemctl restart dnsmasq 2>/dev/null || sudo service dnsmasq restart
+  docker_dns_args="--dns 172.17.0.1"
+fi
+
 start_build() {
   echo "HOST: preparing devbox (uid/gid, docker run)..."
   local_uid=\$(id -u)
   local_gid=\$(id -g)
 
-  docker run --privileged --rm \${docker_args:-} \
+  docker run --privileged --rm \${docker_args:-} \${docker_dns_args:-} \
     --name aztec_build \
     --hostname $instance_name \
     -v bootstrap_ci_local_docker:/var/lib/docker \
