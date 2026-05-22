@@ -1,0 +1,26 @@
+{
+  "name": "@aztec/ipc-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dest/index.js",
+  "types": "dest/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dest/index.d.ts",
+      "import": "./dest/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dest"
+  },
+  "files": [
+    "dest",
+    "src"
+  ],
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.6.3"
+  }
+}

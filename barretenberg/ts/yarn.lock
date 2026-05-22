@@ -9,6 +9,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@workspace:."
   dependencies:
+    "@aztec/ipc-runtime": "file:../../ipc-runtime/ts"
     "@jest/globals": "npm:^30.0.0"
     "@swc/core": "npm:^1.10.1"
     "@swc/jest": "npm:^0.2.37"
@@ -37,6 +38,13 @@ __metadata:
     bb: dest/node/bin/index.js
   languageName: unknown
   linkType: soft
+
+"@aztec/ipc-runtime@file:../../ipc-runtime/ts::locator=%40aztec%2Fbb.js%40workspace%3A.":
+  version: 0.1.0
+  resolution: "@aztec/ipc-runtime@file:../../ipc-runtime/ts#../../ipc-runtime/ts::hash=001d3d&locator=%40aztec%2Fbb.js%40workspace%3A."
+  checksum: 10/1b5f830fee13ff4d3d6ba6f21468469744af6815f7d93ed5bfe137334b1df84c70777ea76b2952baff61c8cc0d71cdc629b3287268e594150d12fbecb1803360
+  languageName: node
+  linkType: hard
 
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.27.1":
   version: 7.27.1

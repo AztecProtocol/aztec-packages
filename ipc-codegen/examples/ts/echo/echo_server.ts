@@ -1,25 +1,32 @@
 /**
- * Echo IPC server (TypeScript) — uses GENERATED dispatch + IPC server template.
+ * Echo IPC server (TypeScript) — uses GENERATED dispatch + the
+ * @aztec/ipc-runtime UDS transport.
  * Usage: npx tsx echo_server.ts --socket /tmp/echo.sock
  */
-import { createServer } from './generated/ipc_server.js';
-import { dispatch } from './generated/server.js';
-import type { Handler } from './generated/server.js';
+import { UdsIpcServer } from "@aztec/ipc-runtime";
+import { Decoder, Encoder } from "msgpackr";
+import { dispatch } from "./generated/server.js";
+import type { Handler } from "./generated/server.js";
 import type {
-  EchoBytes, EchoBytesResponse,
-  EchoFields, EchoFieldsResponse,
-  EchoNested, EchoNestedResponse,
-} from './generated/echo_types.js';
+  EchoBytes,
+  EchoBytesResponse,
+  EchoFields,
+  EchoFieldsResponse,
+  EchoNested,
+  EchoNestedResponse,
+} from "./generated/echo_types.js";
+
+const encoder = new Encoder({ useRecords: false, variableMapSize: true });
+const decoder = new Decoder({ useRecords: false });
 
 const args = process.argv.slice(2);
-const socketIdx = args.indexOf('--socket');
+const socketIdx = args.indexOf("--socket");
 const socketPath = socketIdx >= 0 ? args[socketIdx + 1] : undefined;
 if (!socketPath) {
-  console.error('Usage: echo_server.ts --socket <path>');
+  console.error("Usage: echo_server.ts --socket <path>");
   process.exit(1);
 }
 
-// Implement the GENERATED Handler interface — echo everything back
 const handler: Handler = {
   async echoBytes(cmd: EchoBytes): Promise<EchoBytesResponse> {
     return { data: cmd.data };
@@ -32,4 +39,40 @@ const handler: Handler = {
   },
 };
 
-createServer(socketPath, (commandName, payload) => dispatch(handler, commandName, payload));
+async function main() {
+  const server = await UdsIpcServer.listen(
+    socketPath,
+    async (_clientId, requestBytes) => {
+      const [[commandName, payload]] = decoder.unpack(requestBytes) as [
+        [string, any],
+      ];
+
+      if (commandName.endsWith("Shutdown")) {
+        const respName = `${commandName}Response`;
+        const responseBytes = encoder.pack([respName, {}]);
+        setTimeout(() => server.close().catch(() => {}), 50);
+        return responseBytes;
+      }
+
+      try {
+        const [respName, respPayload] = await dispatch(
+          handler,
+          commandName,
+          payload ?? {},
+        );
+        return encoder.pack([respName, respPayload]);
+      } catch (err: any) {
+        return encoder.pack([
+          "ErrorResponse",
+          { message: err?.message ?? "Unknown error" },
+        ]);
+      }
+    },
+  );
+  console.error(`ipc-server(ts): listening on ${socketPath}`);
+}
+
+main().catch((e) => {
+  console.error(`echo_server(ts): FAILED: ${e.message ?? e}`);
+  process.exit(1);
+});

@@ -261,12 +261,14 @@ function generate(args: Args) {
       writeFile("api_types.ts", gen.generateTypes(compiled, schemaHash));
       if (args.server) {
         writeFile("server.ts", gen.generateServerApi(compiled));
-        copyTemplate("ts", "ipc_server.ts", absOut);
+        // No transport template copy — consumers import UdsIpcServer from
+        // '@aztec/ipc-runtime' (or hand a compatible byte-handler in).
       }
       if (args.client) {
         writeFile("async.ts", gen.generateAsyncApi(compiled));
         writeFile("sync.ts", gen.generateSyncApi(compiled));
-        copyTemplate("ts", "ipc_client.ts", absOut);
+        // No transport template copy — consumers import IpcClient from
+        // '@aztec/ipc-runtime' (or hand a compatible IMsgpackBackend in).
       }
       if (args.curveConstants) {
         generateCurveConstants(absOut, resolve(args.curveConstants));
