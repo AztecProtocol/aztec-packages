@@ -775,7 +775,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         }
 
         // We assume we want to slash for invalid attestations unless all max penalties are set to 0
-        if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
+        if (
+          config.slashProposeInvalidAttestationsPenalty > 0n ||
+          config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty > 0n
+        ) {
           attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
           watchers.push(attestationsBlockWatcher);
         }

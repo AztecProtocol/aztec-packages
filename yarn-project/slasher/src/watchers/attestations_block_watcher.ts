@@ -17,7 +17,7 @@ import type { SlasherConfig } from '../config.js';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
 
 const AttestationsBlockWatcherConfigKeys = [
-  'slashAttestDescendantOfInvalidPenalty',
+  'slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty',
   'slashProposeInvalidAttestationsPenalty',
 ] as const;
 const MAX_INVALID_CHECKPOINTS = 100;
@@ -124,8 +124,8 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
         WANT_TO_SLASH_EVENT,
         attestors.map(attestor => ({
           validator: attestor,
-          amount: this.config.slashAttestDescendantOfInvalidPenalty,
-          offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+          amount: this.config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
+          offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
           epochOrSlot: BigInt(SlotNumber(checkpoint.slotNumber)),
         })),
       );
