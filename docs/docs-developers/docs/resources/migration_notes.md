@@ -9,6 +9,19 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `push_nullifier` renamed to `push_nullifier_unsafe`
+
+`PrivateContext::push_nullifier` and `PublicContext::push_nullifier` have been renamed to `push_nullifier_unsafe` to
+make it clear that they are low-level functions that require careful domain separation. This is consistent with the
+`_unsafe` suffix already used by `emit_private_log_unsafe`, `emit_raw_note_log_unsafe`, and `emit_public_log_unsafe`.
+
+```diff
+- context.push_nullifier(nullifier);
++ context.push_nullifier_unsafe(nullifier);
+```
+
+Prefer higher-level abstractions like `SingleUseClaim` or `destroy_note` which handle domain separation automatically.
+
 ### [Aztec.nr] `LogRetrievalRequest` now includes `source`, `from_block`, and `to_block` fields
 
 `LogRetrievalRequest` has been extended with three new fields to support filtering logs by source and block range. The `get_logs_by_tag` oracle now also returns all matching logs per tag instead of only the first match.

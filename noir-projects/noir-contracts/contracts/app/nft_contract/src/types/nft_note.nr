@@ -131,7 +131,7 @@ impl NFTNote {
         // the nullifier tree since it uses its own separator, making collisions with actual note nullifiers
         // practically impossible.
         let validity_commitment = partial_note.compute_validity_commitment(completer);
-        context.push_nullifier(validity_commitment);
+        context.push_nullifier_unsafe(validity_commitment);
 
         partial_note
     }
