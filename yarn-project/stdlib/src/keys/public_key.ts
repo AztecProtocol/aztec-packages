@@ -3,25 +3,26 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 
-// TODO(MW): Still using hashPublicKey() rather than key.hash() because ts constructs a Point
-// from inherited static methods e.g.
-//  const npkM = await PublicKey.random(); <-- npkM is actually a Point...
-// ... so npkM.hash() uses Point.hash(). This is a massive footgun and breaks address derivation.
-// Can either:
-//   - redefine all of the static Point methods below as overrides to return PublicKeys
-//   - continue to use hashPublicKey() explicitly
+/**
+ * Hashes a public key.
+ *
+ * Mirrors Noir's `hash_public_key` in `noir-protocol-circuits/crates/types/src/public_keys.nr`:
+ * `Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, [pk.x, pk.y])`.
+ *
+ * This is distinct from Noir's generic `Hash` impl for `EmbeddedCurvePoint` (`noir_stdlib/src/embedded_curve_ops.nr`),
+ * which simply absorbs `x` then `y` into a `Hasher` state with no domain separator. That generic impl is unsuitable
+ * for hashing keys at the protocol boundary, where the domain separator is required to prevent collisions with hashes
+ * of other Grumpkin points (e.g. note commitments, nullifiers).
+ */
 export function hashPublicKey(pk: PublicKey): Promise<Fr> {
   return poseidon2HashWithSeparator([pk.x, pk.y], DomainSeparator.SINGLE_PUBLIC_KEY_HASH);
 }
 
-/** Represents a user public key. */
-export class PublicKey extends Point {
-  /**
-   * Hashes a public key under the canonical single-public-key domain separator.
-   *
-   * `Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, [pk.x, pk.y])`.
-   */
-  override hash(): Promise<Fr> {
-    return hashPublicKey(this);
-  }
-}
+/**
+ * Represents a user public key.
+ *
+ * Structurally identical to a Grumpkin `Point`; exposed as a distinct name so call sites read as "public key" where
+ * that's the domain meaning.
+ */
+export type PublicKey = Point;
+export const PublicKey = Point;
