@@ -52,15 +52,16 @@ template <typename Fr> struct Accumulator {
     [[gnu::always_inline]] void operator+=(const Vec& v) { vector_acc = vector_acc + v; }
 
     // Horizontal reduce: sum all lanes of vector_acc and the scalar slot
-    // into a single Fr.
+    // into a single Fr. Tree-shaped (depth 3 for 6 inputs) so a chain of
+    // five serial Fr-adds does not sit on the critical path.
     Fr reduce() const
     {
+        static_assert(VECTOR_FIELD_WIDTH == 5, "Accumulator::reduce tree assumes width 5");
         const std::array<Fr, VECTOR_FIELD_WIDTH> lanes = vector_acc.to_array();
-        Fr total = scalar_acc;
-        for (size_t L = 0; L < VECTOR_FIELD_WIDTH; ++L) {
-            total = total + lanes[L];
-        }
-        return total;
+        const Fr s01 = lanes[0] + lanes[1];
+        const Fr s23 = lanes[2] + lanes[3];
+        const Fr s4s = lanes[4] + scalar_acc;
+        return (s01 + s23) + s4s;
     }
 };
 
