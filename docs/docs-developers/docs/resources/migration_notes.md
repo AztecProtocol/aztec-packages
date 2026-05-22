@@ -9,6 +9,40 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Defining a custom `sync_state` function now requires `AztecConfig`
+
+Contracts that previously overrode the default `sync_state` by defining their own function with that name will now get a compile error. Use `AztecConfig::custom_sync_state()` instead.
+
+The custom hook receives the same parameters as `do_sync_state` and is responsible for calling it if default behavior is also desired. You can perform work before and/or after the default `do_sync_state` call, or skip it entirely.
+
+```diff
++ unconstrained fn my_custom_sync(
++     contract_address: AztecAddress,
++     compute_note_hash: ComputeNoteHash,
++     compute_note_nullifier: ComputeNoteNullifier,
++     process_custom_message: Option<CustomMessageHandler>,
++     offchain_inbox_sync: Option<OffchainInboxSync>,
++     scope: AztecAddress,
++ ) {
++     // optional: work before default sync
++     do_sync_state(contract_address, compute_note_hash, compute_note_nullifier, process_custom_message, offchain_inbox_sync, scope);
++     // optional: work after default sync
++ }
+
+- #[aztec]
++ #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::my_custom_sync))]
+  contract MyContract {
+-     use aztec::macros::functions::external;
+-
+-     #[external("utility")]
+-     unconstrained fn sync_state(scope: AztecAddress) {
+-         // custom sync logic
+-     }
+  }
+```
+
+**Impact**: Only contracts that manually defined a `sync_state` function are affected. Contracts using the default macro-generated `sync_state` require no changes.
+
 ### [Aztec.nr] `push_nullifier` renamed to `push_nullifier_unsafe`
 
 `PrivateContext::push_nullifier` and `PublicContext::push_nullifier` have been renamed to `push_nullifier_unsafe` to
