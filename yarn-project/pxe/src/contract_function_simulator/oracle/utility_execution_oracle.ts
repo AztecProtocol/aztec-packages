@@ -209,7 +209,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
     if (!witness) {
       throw new Error(
-        `Note hash ${noteHash} not found in the note hash tree at anchor block hash ${blockHash.toString()}.`,
+        `Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`,
       );
     }
     return witness;
