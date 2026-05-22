@@ -1,14 +1,12 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <string>
-#include <unordered_set>
-#include <utility>
 
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/common/map.hpp"
-#include "barretenberg/vm2/common/stringify.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/common/set.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -17,7 +15,7 @@ namespace bb::avm2::tracegen {
 
 // Adds checks to a lookup builder. The BaseBuilder needs to be an IndexedLookupTraceBuilder.
 template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
-    static_assert(std::is_base_of<IndexedLookupTraceBuilder<typename BaseBuilder::LookupSettings>, BaseBuilder>::value,
+    static_assert(std::is_base_of_v<IndexedLookupTraceBuilder<typename BaseBuilder::LookupSettings>, BaseBuilder>,
                   "BaseBuilder must be an IndexedLookupTraceBuilder");
 
   public:
@@ -95,7 +93,7 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
         // Check that every source tuple is found in the destination with the same multiplicity.
         for (const auto& [src_tuple, src_rows] : source_tuples) {
             auto dst_rows = destination_tuples.contains(src_tuple) ? destination_tuples.at(src_tuple)
-                                                                   : std::unordered_set<uint32_t>();
+                                                                   : unordered_flat_set<uint32_t>();
             if (src_rows.size() != dst_rows.size()) {
                 throw std::runtime_error(
                     build_error_message(src_tuple, PermutationSettings::SRC_COLUMNS, src_rows, dst_rows));
@@ -104,7 +102,7 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
         // Check that every destination tuple is found in the source with the same multiplicity.
         for (const auto& [dst_tuple, dst_rows] : destination_tuples) {
             auto src_rows =
-                source_tuples.contains(dst_tuple) ? source_tuples.at(dst_tuple) : std::unordered_set<uint32_t>();
+                source_tuples.contains(dst_tuple) ? source_tuples.at(dst_tuple) : unordered_flat_set<uint32_t>();
             if (src_rows.size() != dst_rows.size()) {
                 throw std::runtime_error(
                     build_error_message(dst_tuple, PermutationSettings::DST_COLUMNS, src_rows, dst_rows));
@@ -113,8 +111,8 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
     }
 
   private:
-    unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> source_tuples;
-    unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> destination_tuples;
+    unordered_flat_map<ArrayTuple, unordered_flat_set<uint32_t>> source_tuples;
+    unordered_flat_map<ArrayTuple, unordered_flat_set<uint32_t>> destination_tuples;
 };
 
 } // namespace bb::avm2::tracegen

@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
+#include <stdexcept>
 namespace bb::avm2::tracegen {
 
 std::vector<std::unique_ptr<InteractionBuilderInterface>> InteractionDefinition::get_all_jobs(

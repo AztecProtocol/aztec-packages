@@ -1,15 +1,16 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 
 #include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/tracegen/lib/shared_index_cache.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -22,6 +23,7 @@ template <size_t N, size_t... Is> struct RefTupleHelper<N, std::index_sequence<I
     using type = flat_tuple::tuple<ConstFFRef<Is>...>;
 };
 } // namespace detail
+
 template <size_t N> using RefTuple = typename detail::RefTupleHelper<N>::type;
 
 // Same as TraceContainer::get_multiple but copies the values into an owning std::array. Use when

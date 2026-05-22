@@ -6,6 +6,7 @@
 #include <mutex>
 #include <vector>
 
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
@@ -55,7 +56,7 @@ class SharedIndexCache {
     const DstIndex& get_or_build(Column outer_dst_selector,
                                  std::span<const ColumnAndShifts> dst_columns,
                                  const TraceContainer& trace,
-                                 std::function<DstIndex(const TraceContainer&)> build_fn)
+                                 const std::function<DstIndex(const TraceContainer&)>& build_fn)
     {
         IndexKey key{ outer_dst_selector, { dst_columns.begin(), dst_columns.end() } };
 
@@ -93,7 +94,9 @@ class SharedIndexCache {
             // propagates and we never leave waiters blocked.
             try {
                 promise->set_exception(std::current_exception());
-            } catch (...) {
+            } catch (const std::exception& secondary) {
+                // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while): vinfo macro expands to do-while.
+                vinfo("SharedIndexCache: ignoring secondary failure in set_exception: ", secondary.what());
             }
             throw;
         }

@@ -1,14 +1,13 @@
 #pragma once
 
 #include <array>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "barretenberg/common/tuple.hpp"
-#include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"

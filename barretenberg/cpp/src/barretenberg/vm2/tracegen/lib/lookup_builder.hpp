@@ -1,16 +1,13 @@
 #pragma once
 
-#include <array>
-#include <bit>
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
-#include <utility>
+#include <vector>
 
-#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/map_hashes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -184,7 +181,7 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
         src_rows_in_order.reserve(trace.get_column_rows(LookupSettings::SRC_SELECTOR));
         trace.visit_column(LookupSettings::SRC_SELECTOR,
                            [&](uint32_t row, const FF&) { src_rows_in_order.push_back(row); });
-        std::sort(src_rows_in_order.begin(), src_rows_in_order.end());
+        std::ranges::sort(src_rows_in_order.begin(), src_rows_in_order.end());
 
         for (uint32_t row : src_rows_in_order) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);

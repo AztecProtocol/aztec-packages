@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -18,7 +19,7 @@
 
 namespace bb::avm2::tracegen {
 
-enum class InteractionType {
+enum class InteractionType : uint8_t {
     LookupGeneric,
     LookupSequential,
     LookupIntoBitwise,
