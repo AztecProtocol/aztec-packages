@@ -118,7 +118,7 @@ Now let's implement an `increment` function to increase the counter.
 
 #include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
-The `increment` function works similarly to the `initialize` function. It logs a debug message, then adds 1 to the owner's counter and delivers the note onchain.
+The `increment` function uses `self.msg_sender()` so each caller can only increment the counter mapped to their own address. It logs a debug message, then adds 1 to that counter and delivers the note onchain.
 
 ## Getting a counter
 

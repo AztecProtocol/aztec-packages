@@ -2,6 +2,7 @@
 members = [
     "examples/circuits/hello_circuit",
     "examples/contracts/counter_contract",
+    "examples/contracts/counter_contract_test",
     "examples/contracts/bob_token_contract",
     "examples/contracts/nft",
     "examples/contracts/nft_bridge",
