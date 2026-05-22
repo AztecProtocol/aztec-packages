@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
-import { deriveKeys } from '@aztec/stdlib/keys';
+import { type PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
 
 import type { AccountContract } from '../account/account_contract.js';
 import { AccountWithSecretKey } from '../account/account_with_secret_key.js';
@@ -12,6 +13,17 @@ import type { Salt } from '../account/index.js';
 import { Contract } from '../contract/contract.js';
 import { DeployAccountMethod } from './deploy_account_method.js';
 import type { Wallet } from './wallet.js';
+
+/**
+ * Optional overrides passed to {@link AccountManager.create}. Lets callers commit an `immutablesHash`
+ * (e.g. AZIP-9 initializerless accounts that bind their signing key via `ContractInstance.immutables_hash`),
+ * override the `deployer`, or override the `publicKeys` derived from `secretKey`.
+ */
+export interface AccountManagerCreateOptions {
+  immutablesHash?: Fr;
+  deployer?: AztecAddress;
+  publicKeys?: PublicKeys;
+}
 
 /**
  * Manages a user account. Provides methods for calculating the account's address and other related data,
@@ -29,8 +41,15 @@ export class AccountManager {
     public readonly salt: Salt,
   ) {}
 
-  static async create(wallet: Wallet, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
-    const { publicKeys } = await deriveKeys(secretKey);
+  static async create(
+    wallet: Wallet,
+    secretKey: Fr,
+    accountContract: AccountContract,
+    salt?: Salt,
+    opts?: AccountManagerCreateOptions,
+  ) {
+    const { publicKeys: derivedPublicKeys } = await deriveKeys(secretKey);
+    const publicKeys = opts?.publicKeys ?? derivedPublicKeys;
     salt = salt !== undefined ? new Fr(salt) : Fr.random();
 
     const { constructorName, constructorArgs } = (await accountContract.getInitializationFunctionAndArgs()) ?? {
@@ -44,6 +63,8 @@ export class AccountManager {
       constructorArgs,
       salt: salt,
       publicKeys,
+      deployer: opts?.deployer,
+      immutablesHash: opts?.immutablesHash,
     });
 
     return new AccountManager(wallet, secretKey, accountContract, instance, salt);
