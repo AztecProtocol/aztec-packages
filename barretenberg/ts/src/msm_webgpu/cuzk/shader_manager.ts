@@ -1,8 +1,6 @@
 import mustache from 'mustache';
 import {
-  apply_matrix_bench as apply_matrix_bench_shader,
   barrett as barrett_funcs,
-  batch_affine_apply as batch_affine_apply_shader,
   batch_affine_apply_scatter as batch_affine_apply_scatter_shader,
   batch_affine_dispatch_args as batch_affine_dispatch_args_shader,
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
@@ -10,34 +8,16 @@ import {
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
-  ba_marshal_chain_bench as ba_marshal_chain_bench_shader,
-  ba_marshal_pairs_bench as ba_marshal_pairs_bench_shader,
-  ba_marshal_tree_l0_bench as ba_marshal_tree_l0_bench_shader,
-  ba_pair_disjoint_bench as ba_pair_disjoint_bench_shader,
-  ba_pair_disjoint_tree_bench as ba_pair_disjoint_tree_bench_shader,
-  ba_planner_bench as ba_planner_bench_shader,
   ba_planner_v2_bench as ba_planner_v2_bench_shader,
-  ba_scatter_pairs_bench as ba_scatter_pairs_bench_shader,
-  ba_tail_reduce_bench as ba_tail_reduce_bench_shader,
-  ba_rev_packed_carry_bench as ba_rev_packed_carry_bench_shader,
-  bench_batch_affine as bench_batch_affine_shader,
-  bench_field_mul as bench_field_mul_shader,
-  bench_field_inv as bench_field_inv_shader,
-  batch_affine_finalize as batch_affine_finalize_shader,
   batch_affine_finalize_apply as batch_affine_finalize_apply_shader,
   batch_affine_finalize_collect as batch_affine_finalize_collect_shader,
   batch_affine_fused_revcarry as batch_affine_fused_revcarry_shader,
-  batch_affine_fused_wg_scan as batch_affine_fused_wg_scan_shader,
   batch_affine_init as batch_affine_init_shader,
   batch_affine_schedule as batch_affine_schedule_shader,
-  batch_inverse as batch_inverse_shader,
   batch_inverse_parallel as batch_inverse_parallel_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
-  // by_inverse hosts the Mat struct + by_divsteps (and grows to host
-  // by_apply_matrix / fr_inv_by in subsequent sub-steps of the BY rewrite).
-  by_inverse as by_inverse_funcs,
   // Option A BY safegcd inverse on 20 x 13-bit BigInt with BATCH=26 /
   // NUM_OUTER=29. Hosts MatA, bya_divsteps, bya_apply_matrix_{fg,de}, the
   // bya_reduce_to_canonical helper chain, and the fr_inv_by_a driver.
@@ -55,17 +35,12 @@ import {
   decompose_scalars_signed_only as decompose_scalars_signed_only_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
   demont_scalars as demont_scalars_shader,
-  divsteps_bench as divsteps_bench_shader,
   ec_bn254 as ec_bn254_funcs,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
   field as field_funcs,
   field8 as field8_funcs,
-  field_mul_bench_f32 as field_mul_bench_f32_shader,
-  field_mul_bench_u32 as field_mul_bench_u32_shader,
-  fr_inv_bench as fr_inv_bench_shader,
   fr_pow as fr_pow_funcs,
   horner_reduce_bn254 as horner_reduce_bn254_shader,
-  mont_pro_product as montgomery_product_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
@@ -141,17 +116,17 @@ export class ShaderManager {
   public p_minus_2_limbs: string;
   public p_inv_mod_2w: number;
   public mu_limbs: string;
-  // 22-bit-limb f32 Montgomery params. Used exclusively by
-  // `gen_field_mul_bench_f32_shader` for the sos3uv3 micro-benchmark.
-  // The 22-bit width buys a 4-way exact sum (4·2^22 = 2^24 fits in f32
-  // mantissa), enabling the per-slot (tlo, thi) chain-break in sos3uv3.
+  // 22-bit-limb f32 Montgomery params. Used by
+  // `gen_montgomery_product_f32_22_sos3uv3_shader` for the sos3uv3
+  // micro-benchmark. The 22-bit width buys a 4-way exact sum
+  // (4·2^22 = 2^24 fits in f32 mantissa), enabling the per-slot
+  // (tlo, thi) chain-break in sos3uv3.
   public num_limbs_f32_22: number;
   public n0_f32_22: bigint;
   public p_limbs_f32_22_str: string;
   // 9 × 29-bit BY limb representation of `p` for the BY safegcd inverse
-  // path. Used by gen_apply_matrix_bench_shader (and in future sub-steps,
-  // by the fr_inv_by wiring). The initializer string is comma-separated
-  // limbs suitable for `BigIntBY(array<i32, 9>({{{ p_limbs_by }}}))`.
+  // path. The initializer string is comma-separated limbs suitable for
+  // `BigIntBY(array<i32, 9>({{{ p_limbs_by }}}))`.
   public p_limbs_by_initializer: string;
   // P_INV = p^(-1) mod 2^58, split as (low 32, high <=26) bits. The WASM
   // convention is a single u64 (`p_inv` argument to Wasm9x29::apply_matrix);
@@ -221,10 +196,9 @@ export class ShaderManager {
     this.p_limbs_f32_22_str = gen_p_limbs_f32(this.p, this.num_limbs_f32_22, 22);
 
     // BY safegcd 9 × 29-bit representation of p and 58-bit p_inv split.
-    // Both feed `gen_apply_matrix_bench_shader` (and downstream by_inverse
-    // production wiring). The split is the WASM `p_inv` u64 broken into
-    // low-32 + high-26 chunks; the Mustache substitution is a flat u32
-    // constant on each side.
+    // The split is the WASM `p_inv` u64 broken into low-32 + high-26
+    // chunks; the Mustache substitution is a flat u32 constant on each
+    // side.
     this.p_limbs_by_initializer = gen_p_limbs_by_initializer(this.p);
     const p_inv_split = compute_by_p_inv_split(this.p);
     this.p_inv_by_lo = p_inv_split.lo;
@@ -584,35 +558,6 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_batch_inverse_shader(): string {
-    return mustache.render(
-      batch_inverse_shader,
-      {
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        bigint_by_funcs,
-        by_inverse_a_funcs,
-      },
-    );
-  }
-
   // `windows_per_batch` (WPB) sets how many consecutive subtask pair pools
   // get merged into ONE fr_inv_by_a call per (batch, sub_wg). Z dispatch
   // dim must be ceil(num_subtasks / WPB). Pass WPB=1 to recover the
@@ -648,17 +593,6 @@ ${packLines.join('\n')}
     );
   }
 
-  // Standalone bench-only entry shader for batch-affine EC addition. One
-  // workgroup processes BATCH_SIZE pairs via the two-phase Montgomery
-  // batch-inverse trick (per-thread serial chunk + workgroup Hillis-Steele
-  // scan + single fr_inv_by_a + back-walk). Used by bench-batch-affine.ts
-  // to find the sweet spot where amortising the single inverse stops
-  // beating thread under-utilisation.
-  //
-  // `batch_size` must be an exact multiple of `tpb`; the caller picks both
-  // from a hand-built table (see bench-batch-affine.ts). BS = batch_size /
-  // tpb is baked into the shader as a compile-time constant so the inner
-  // forward-and-backward walks have static loop bounds.
   /**
    * Phase 1 of the tree-reduce SMVP. One workgroup per slice; pair
    * detection in workgroup memory + cooperative batch-affine over the
@@ -809,60 +743,6 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_bench_batch_affine_shader(batch_size: number, tpb: number): string {
-    if (batch_size <= 0 || tpb <= 0 || batch_size % tpb !== 0) {
-      throw new Error(
-        `gen_bench_batch_affine_shader: batch_size (${batch_size}) must be a positive multiple of tpb (${tpb})`,
-      );
-    }
-    const per_thread_count = batch_size / tpb;
-    return mustache.render(
-      bench_batch_affine_shader,
-      {
-        batch_size,
-        tpb,
-        per_thread_count,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        bigint_by_funcs,
-        by_inverse_a_funcs,
-      },
-    );
-  }
-
-  /**
-   * Marshal kernel for the bench-msm-chain pipeline: transposes a
-   * CSR-sorted point list into the strided SoA layout the
-   * ba_rev_packed_carry chain kernel consumes. Pure memory shuffle.
-   */
-  public gen_ba_marshal_chain_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_marshal_chain_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    return mustache.render(
-      ba_marshal_chain_bench_shader,
-      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
-      { structs },
-    );
-  }
-
   /**
    * Lever 2 mustache context for the 8x u32 live field form (field8_funcs
    * partial): p / R as eight 32-bit words for the native fr_add_f8 /
@@ -931,75 +811,6 @@ ${packLines.join('\n')}
   }
 
   /**
-   * Standalone field-multiply throughput microbench. Each thread runs
-   * `iters` mutually-independent `montgomery_product` calls on
-   * per-iteration-perturbed operands; total ops = threads * iters.
-   * Pulls in only structs / bigint / montgomery — the multiply needs
-   * nothing else. Used by dev/msm-webgpu/bench-field-ops to measure
-   * ns-per-multiply in isolation.
-   */
-  public gen_bench_field_mul_shader(workgroup_size: number, iters: number): string {
-    if (workgroup_size <= 0 || iters <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(iters)) {
-      throw new Error(`gen_bench_field_mul_shader: workgroup_size (${workgroup_size}) and iters (${iters}) must be positive integers`);
-    }
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      bench_field_mul_shader,
-      {
-        workgroup_size, iters,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-      },
-    );
-  }
-
-  /**
-   * Standalone field-inversion throughput microbench. Each thread runs
-   * `iters` mutually-independent inverse calls on per-iteration-perturbed
-   * operands; total ops = threads * iters. `variant` picks the inverse:
-   * 'a' = fr_inv_by_a (Option A, BATCH=26), 'loop' = fr_inv_by_loop
-   * (register-minimal, BATCH=12). Pulls in the full inverse stack
-   * (structs / bigint / montgomery / field / fr_pow / bigint_by) plus the
-   * selected inverse partial. Used by dev/msm-webgpu/bench-field-ops to
-   * measure ns-per-inversion in isolation.
-   */
-  public gen_bench_field_inv_shader(
-    workgroup_size: number,
-    iters: number,
-    variant: 'a' | 'loop' = 'a',
-  ): string {
-    if (workgroup_size <= 0 || iters <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(iters)) {
-      throw new Error(`gen_bench_field_inv_shader: workgroup_size (${workgroup_size}) and iters (${iters}) must be positive integers`);
-    }
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = variant === 'loop' ? by_inverse_loop_funcs : by_inverse_a_funcs;
-    const inv_fn = variant === 'loop' ? 'fr_inv_by_loop' : 'fr_inv_by_a';
-    return mustache.render(
-      bench_field_inv_shader,
-      {
-        workgroup_size, iters, inv_fn,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  /**
    * v2 GPU planner: single-kernel scan + scatter, one workgroup per
    * Pippenger window. The MSM splits each scalar into
    * ceil(num_bits / c) windows; each window is an independent
@@ -1047,58 +858,6 @@ ${packLines.join('\n')}
         num_words: this.num_words,
         recompile: this.recompile,
       },
-      { structs },
-    );
-  }
-
-  /**
-   * GPU-side bin-packing planner for the v3 pipeline. One thread per
-   * bucket; atomicAdd reserves global per-pair / per-carry / per-new-
-   * slot offsets; the thread writes chunk_plan + scatter_plan +
-   * carry_plan + new_counts + new_offsets for its bucket. Pair-count
-   * loop bounded by compile-time `pair_cap` (defaults to 64 — covers
-   * Poisson(λ=32) max-count without issue).
-   */
-  public gen_ba_planner_bench_shader(workgroup_size: number, s: number, pair_cap: number = 64): string {
-    if (workgroup_size <= 0 || s <= 0 || pair_cap <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
-      throw new Error(`gen_ba_planner_bench_shader: workgroup_size (${workgroup_size}), s (${s}), and pair_cap (${pair_cap}) must be positive integers`);
-    }
-    return mustache.render(
-      ba_planner_bench_shader,
-      { workgroup_size, s, pair_cap, num_words: this.num_words, recompile: this.recompile },
-      { structs },
-    );
-  }
-
-  /**
-   * Bin-packed pair-tree: marshal kernel that gathers operands from a
-   * generic active_sums buffer per chunk_plan. Works at any level
-   * (L0 active_sums = bucket-sorted point pool, L1+ = previous
-   * level's pair-sums + carries).
-   */
-  public gen_ba_marshal_pairs_bench_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_marshal_pairs_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    return mustache.render(
-      ba_marshal_pairs_bench_shader,
-      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
-      { structs },
-    );
-  }
-
-  /**
-   * Bin-packed pair-tree: scatter kernel that places the disjoint
-   * kernel's strided outputs at per-bucket destinations in
-   * active_sums_new per scatter_plan.
-   */
-  public gen_ba_scatter_pairs_bench_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_scatter_pairs_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    return mustache.render(
-      ba_scatter_pairs_bench_shader,
-      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
       { structs },
     );
   }
@@ -1243,200 +1002,6 @@ ${packLines.join('\n')}
     );
   }
 
-  /**
-   * Tree variant of the disjoint pair-sum kernel: writes outputs in the
-   * layout the next pair-tree level expects as input, so multi-level
-   * reductions can chain without an intervening marshal pass. Per
-   * thread: 2*S inputs -> S disjoint pair sums. Final-level flag (via
-   * params.z) switches to a simple strided write for the last pass.
-   */
-  public gen_ba_pair_disjoint_tree_bench_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_pair_disjoint_tree_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      ba_pair_disjoint_tree_bench_shader,
-      {
-        workgroup_size,
-        s,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        bigint_by_funcs,
-        by_inverse_a_funcs,
-      },
-    );
-  }
-
-  /**
-   * Level-0 marshal kernel for the bench-msm-tree pipeline: transposes
-   * CSR-sorted point indices into the 2-plane strided SoA layout the
-   * tree-disjoint kernel reads. Pure memory shuffle.
-   */
-  public gen_ba_marshal_tree_l0_bench_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_marshal_tree_l0_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    return mustache.render(
-      ba_marshal_tree_l0_bench_shader,
-      { workgroup_size, s, num_words: this.num_words, recompile: this.recompile },
-      { structs },
-    );
-  }
-
-  /**
-   * Tail kernel for the bench-msm-tree pipeline: one thread per small
-   * bucket (count < 2*S), serial per-thread chain with one fr_inv_by_a
-   * per add (no batched inversion). Bounded loop up to compile-time
-   * TAIL_CAP = 2*S - 1.
-   */
-  public gen_ba_tail_reduce_bench_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_tail_reduce_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    const tail_cap = 2 * s - 1;
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      ba_tail_reduce_bench_shader,
-      {
-        workgroup_size,
-        tail_cap,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        bigint_by_funcs,
-        by_inverse_a_funcs,
-      },
-    );
-  }
-
-  /**
-   * Standalone microbench for the disjoint pair-sum kernel: each
-   * thread reduces 2*S input points to S disjoint pair sums R_k =
-   * P_{2k} + P_{2k+1}, using one batched fr_inv_by_a per chunk of S.
-   * Reclaims the 50% kernel-efficiency loss inherent in
-   * ba_rev_packed_carry (which produces S overlapping pair sums of
-   * which only S/2 are usable for pair-tree reduction).
-   */
-  public gen_ba_pair_disjoint_bench_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_pair_disjoint_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      ba_pair_disjoint_bench_shader,
-      {
-        workgroup_size,
-        s,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        bigint_by_funcs,
-        by_inverse_a_funcs,
-      },
-    );
-  }
-
-  /**
-   * Standalone microbench for the recovered ba_rev_packed_carry kernel:
-   * SoA-packed 8x u32 storage across 4 input planes (A.x, A.y, P.x, P.y),
-   * strided per-thread access (e = t + i*T), forward prefix-product +
-   * single fr_inv_by_a + backward peel with resident-accumulator
-   * load-carry (A_{i+1} := P_i). The canonical kernel that hit ~22
-   * ns/pair on M2 / Chrome 148.
-   */
-  public gen_ba_rev_packed_carry_bench_shader(workgroup_size: number, s: number): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_rev_packed_carry_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      ba_rev_packed_carry_bench_shader,
-      {
-        workgroup_size,
-        s,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        bigint_by_funcs,
-        by_inverse_a_funcs,
-      },
-    );
-  }
-
   public gen_batch_affine_init_shader(workgroup_size: number, packed = false): string {
     const dec = this.decoupledPackUnpackWgsl();
     return mustache.render(
@@ -1552,87 +1117,6 @@ ${packLines.join('\n')}
     );
   }
 
-  /**
-   * Workgroup-scan fused batch-affine round kernel (v2). Mirrors the
-   * `bench_batch_affine` design (TPB threads cooperating over a
-   * BATCH_SIZE=TPB*BS pair slice with one fr_inv_by_a per workgroup)
-   * but with bucket-indirect loads via pair_target_meta. Every
-   * field-element variable is `PackedField`; no per-load unpack at
-   * the kernel level.
-   */
-  public gen_batch_affine_fused_wg_scan_shader(tpb: number, bs: number): string {
-    if (tpb <= 0 || bs <= 0 || !Number.isInteger(tpb) || !Number.isInteger(bs)) {
-      throw new Error(`gen_batch_affine_fused_wg_scan_shader: tpb (${tpb}) and bs (${bs}) must be positive integers`);
-    }
-    if ((tpb & (tpb - 1)) !== 0) {
-      throw new Error(`gen_batch_affine_fused_wg_scan_shader: tpb (${tpb}) must be a power of two (Hillis-Steele scan)`);
-    }
-    const batch_size = tpb * bs;
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      batch_affine_fused_wg_scan_shader,
-      {
-        tpb,
-        bs,
-        batch_size,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack,
-        dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        bigint_by_funcs,
-        by_inverse_a_funcs,
-        packed_field_funcs,
-      },
-    );
-  }
-
-  public gen_batch_affine_finalize_shader(workgroup_size: number, num_csr_cols: number): string {
-    return mustache.render(
-      batch_affine_finalize_shader,
-      {
-        workgroup_size,
-        num_columns: num_csr_cols,
-        half_num_columns: num_csr_cols / 2,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-        fr_pow_funcs,
-        ec_funcs: ec_bn254_funcs,
-      },
-    );
-  }
-
   public gen_batch_affine_finalize_collect_shader(
     workgroup_size: number,
     num_csr_cols: number,
@@ -1690,30 +1174,6 @@ ${packLines.join('\n')}
         packed,
         dec_unpack: dec.unpack,
         dec_pack: dec.pack,
-        recompile: this.recompile,
-      },
-      {
-        structs,
-        bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs,
-      },
-    );
-  }
-
-  public gen_batch_affine_apply_shader(workgroup_size: number): string {
-    return mustache.render(
-      batch_affine_apply_shader,
-      {
-        workgroup_size,
-        word_size: this.word_size,
-        num_words: this.num_words,
-        n0: this.n0,
-        p_limbs: this.p_limbs,
-        r_limbs: this.r_limbs,
-        mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size,
-        p_inv_mod_2w: this.p_inv_mod_2w,
         recompile: this.recompile,
       },
       {
@@ -1831,282 +1291,6 @@ ${packLines.join('\n')}
     );
   }
 
-  // Bench-only entry shader for the u32 Montgomery product. Each thread
-  // chains `k` Mont mults over an (a, b) pair. `variant='cios'` selects
-  // the runtime-loop CIOS in `mont_pro_product.template.wgsl`; 'karat'
-  // selects the recursive Karatsuba + Yuval body below.
-  public gen_field_mul_bench_u32_shader(
-    workgroup_size: number,
-    variant: 'cios' | 'karat' = 'cios',
-  ): string {
-    const structs_src = mustache.render(structs, { num_words: this.num_words });
-    const bigint_src = mustache.render(bigint_funcs, {});
-    // 'karat' reuses the pre-rendered class-level default; 'cios' renders
-    // the original mitschabaude template inline so the bench can compare
-    // both bodies even though karat is the production default.
-    const mont_src =
-      variant === 'karat'
-        ? this.mont_product_src
-        : mustache.render(montgomery_product_funcs, {
-            num_words: this.num_words,
-            word_size: this.word_size,
-            n0: this.n0,
-            mask: this.mask,
-            two_pow_word_size: this.two_pow_word_size,
-            p_inv_mod_2w: this.p_inv_mod_2w,
-            p_limbs: this.p_limbs,
-          });
-    const entry_src = mustache.render(field_mul_bench_u32_shader, {
-      workgroup_size,
-    });
-    return `${structs_src}
-${bigint_src}
-${mont_src}
-${entry_src}`;
-  }
-
-  // Bench-only entry shader for the BY `by_divsteps` primitive. Assembles
-  // the BY helpers (bigint_by) + the by_inverse partial (which hosts the
-  // `Mat` struct and `by_divsteps`) + the per-thread bench entry.
-  //
-  // Each thread reads one (f_lo, g_lo, delta) tuple, calls `by_divsteps`,
-  // and writes the resulting 8-field Mat + updated delta. Used by the
-  // bench-divsteps.html page to compare against the TS Wasm9x29 port.
-  //
-  // Note: bigint_funcs / structs are NOT included here because divsteps
-  // only needs the BY-specific helpers (signed_mul_split, u64_*_pair,
-  // i64_*_pair). The BigInt-related portions of bigint_by (by_from_bigint
-  // et al.) are still rendered for completeness; they're dead code in this
-  // bench but will be needed in step 1.5 when fr_inv_by is wired up.
-  // We also strip BigInt-conversion helpers from the bigint_by render here
-  // by skipping the `{{ num_words }}` substitution — instead we set
-  // num_words to the standard MSM value so the by_from/to_bigint helpers
-  // remain syntactically valid even though unused.
-  public gen_divsteps_bench_shader(workgroup_size: number): string {
-    // Minimal BigInt struct declaration: by_from_bigint/by_to_bigint in
-    // bigint_by reference the BigInt type for completeness. This bench
-    // shader never calls them so the struct is dead but must compile.
-    const structs_src = mustache.render(structs, { num_words: this.num_words });
-    const bigint_src = mustache.render(bigint_funcs, {});
-    // by_inverse hosts `fr_inv_by`, which references `montgomery_product`,
-    // `get_r_cubed`, and the {{ p_limbs_by }} / {{ p_inv_by_* }} Mustache
-    // substitutions. divsteps_bench itself never calls fr_inv_by, but the
-    // partial must compile cleanly — so we pull in the same Mont + field +
-    // fr_pow surface that gen_fr_inv_bench_shader uses.
-    const mont_src = this.mont_product_src;
-    const field_src = mustache.render(field_funcs, {
-      word_size: this.word_size,
-      num_words: this.num_words,
-      n0: this.n0,
-      p_limbs: this.p_limbs,
-      r_limbs: this.r_limbs,
-      mask: this.mask,
-      two_pow_word_size: this.two_pow_word_size,
-      p_inv_mod_2w: this.p_inv_mod_2w,
-    });
-    const fr_pow_src = mustache.render(fr_pow_funcs, {
-      word_size: this.word_size,
-      num_words: this.num_words,
-      n0: this.n0,
-      p_limbs: this.p_limbs,
-      r_limbs: this.r_limbs,
-      r_cubed_limbs: this.r_cubed_limbs,
-      p_minus_2_limbs: this.p_minus_2_limbs,
-      mask: this.mask,
-      two_pow_word_size: this.two_pow_word_size,
-      p_inv_mod_2w: this.p_inv_mod_2w,
-    });
-    const bigint_by_src = mustache.render(bigint_by_funcs, {
-      num_words: this.num_words,
-    });
-    const by_inverse_src = this.renderByInverseFuncs();
-    const entry_src = mustache.render(divsteps_bench_shader, { workgroup_size });
-    const get_r_src = this.renderGetRFn();
-    return `${structs_src}
-${bigint_src}
-${mont_src}
-${field_src}
-${get_r_src}
-${fr_pow_src}
-${bigint_by_src}
-${by_inverse_src}
-${entry_src}`;
-  }
-
-  // Bench-only entry shader for `by_apply_matrix_fg` + `by_apply_matrix_de`.
-  // Each thread reads one (Mat, f, g, d, e) record, runs both passes, and
-  // writes the updated (f', g', d', e') as 36 i32 values. Validates against
-  // the TS `Wasm9x29.applyMatrix` reference (used by the bench-apply-matrix
-  // Playwright driver).
-  //
-  // Renders:
-  //   - structs (with num_words for BigInt declaration — dead-coded in this
-  //     bench, kept so the bigint_by partial compiles cleanly).
-  //   - bigint_by partial (signed_mul_split, u64/i64 helpers, by_normalise).
-  //   - by_inverse partial (Mat, by_divsteps, by_apply_matrix_*).
-  //   - apply_matrix_bench entry (decode → apply → encode).
-  // Mustache substitutions on the entry shader:
-  //   - workgroup_size
-  //   - p_limbs_by:    BigIntBY initializer for p
-  //   - p_inv_by_lo:   low 32 bits of P_INV = p^(-1) mod 2^58
-  //   - p_inv_by_hi:   high (up to 26) bits of P_INV
-  public gen_apply_matrix_bench_shader(workgroup_size: number): string {
-    const structs_src = mustache.render(structs, { num_words: this.num_words });
-    const bigint_src = mustache.render(bigint_funcs, {});
-    // See gen_divsteps_bench_shader for why the Mont + field + fr_pow surface
-    // is included — `fr_inv_by` lives inside the by_inverse partial and
-    // references those symbols, even though apply_matrix_bench never calls it.
-    const mont_src = this.mont_product_src;
-    const field_src = mustache.render(field_funcs, {
-      word_size: this.word_size,
-      num_words: this.num_words,
-      n0: this.n0,
-      p_limbs: this.p_limbs,
-      r_limbs: this.r_limbs,
-      mask: this.mask,
-      two_pow_word_size: this.two_pow_word_size,
-      p_inv_mod_2w: this.p_inv_mod_2w,
-    });
-    const fr_pow_src = mustache.render(fr_pow_funcs, {
-      word_size: this.word_size,
-      num_words: this.num_words,
-      n0: this.n0,
-      p_limbs: this.p_limbs,
-      r_limbs: this.r_limbs,
-      r_cubed_limbs: this.r_cubed_limbs,
-      p_minus_2_limbs: this.p_minus_2_limbs,
-      mask: this.mask,
-      two_pow_word_size: this.two_pow_word_size,
-      p_inv_mod_2w: this.p_inv_mod_2w,
-    });
-    const bigint_by_src = mustache.render(bigint_by_funcs, {
-      num_words: this.num_words,
-    });
-    const by_inverse_src = this.renderByInverseFuncs();
-    const entry_src = mustache.render(apply_matrix_bench_shader, {
-      workgroup_size,
-      p_limbs_by: this.p_limbs_by_initializer,
-      p_inv_by_lo: this.p_inv_by_lo,
-      p_inv_by_hi: this.p_inv_by_hi,
-    });
-    const get_r_src = this.renderGetRFn();
-    return `${structs_src}
-${bigint_src}
-${mont_src}
-${field_src}
-${get_r_src}
-${fr_pow_src}
-${bigint_by_src}
-${by_inverse_src}
-${entry_src}`;
-  }
-
-  // Bench-only entry shader for the BY top-level `fr_inv_by` driver. Each
-  // thread reads one BN254 base-field value `a` (in Montgomery form), runs
-  // `k` chained `fr_inv_by` calls, and writes the final value back. Used by
-  // the bench-fr-inv Playwright driver to validate against the host
-  // `Wasm9x29.invert` + Mont-correction reference.
-  //
-  // The render bundles:
-  //   - structs                       (BigInt declaration, NUM_WORDS limbs)
-  //   - bigint_funcs                  (basic BigInt utilities)
-  //   - karat+yuval Mont product      (provides `montgomery_product`, `get_p`)
-  //   - fr_pow_funcs                  (provides `get_r_cubed` + `fr_inv`)
-  //   - bigint_by (variant=fr_inv_by) (signed_mul_split, u64/i64 helpers,
-  //                                    by_normalise, by_from/to_bigint)
-  //   - by_inverse (variant=fr_inv_by) (Mat, by_divsteps, by_apply_matrix_*,
-  //                                    by_reduce_to_canonical, fr_inv_by)
-  //   - fr_inv_bench entry            (per-thread chained inversion)
-  //
-  // The `variant` arg picks the symbol the entry shader calls. For
-  // 'fr_inv_by' we include the by_inverse + bigint_by partials; for the
-  // legacy 'fr_inv' (Pornin jumpy K=12 safegcd in fr_pow) we omit them so
-  // the rendered bundle stays small and dead-code-free.
-  //
-  // Mustache substitutions consumed by `by_inverse` (via renderByInverseFuncs):
-  //   - p_limbs_by:   BigIntBY initializer for the BN254 base-field modulus
-  //   - p_inv_by_lo:  low 32 bits of P_INV = p^(-1) mod 2^58
-  //   - p_inv_by_hi:  high (up to 26) bits of P_INV
-  public gen_fr_inv_bench_shader(
-    workgroup_size: number,
-    variant: 'fr_inv_by' | 'fr_inv' | 'fr_inv_by_a' | 'fr_pow_inv' = 'fr_inv_by',
-  ): string {
-    const structs_src = mustache.render(structs, { num_words: this.num_words });
-    const bigint_src = mustache.render(bigint_funcs, {});
-    const mont_src = this.mont_product_src;
-    // field_funcs provides `fr_sub` / `fr_add` / `bigint_halve_k_mod_p` and
-    // other helpers that fr_pow's alternate variants reference. `fr_inv_by`
-    // itself does not call them but the partial must resolve every symbol
-    // or shader compilation fails.
-    const field_src = mustache.render(field_funcs, {
-      word_size: this.word_size,
-      num_words: this.num_words,
-      n0: this.n0,
-      p_limbs: this.p_limbs,
-      r_limbs: this.r_limbs,
-      mask: this.mask,
-      two_pow_word_size: this.two_pow_word_size,
-      p_inv_mod_2w: this.p_inv_mod_2w,
-    });
-    // fr_pow exports `fr_pow`, `fr_inv`, `fr_inv_plain`, `fr_inv_bgcd`, and
-    // the `get_r_cubed` helper that `fr_inv_by` uses for the Mont
-    // correction. We include it in BOTH variants so `get_r_cubed` is in
-    // scope for fr_inv_by and `fr_inv` is in scope for the legacy variant.
-    const fr_pow_src = mustache.render(fr_pow_funcs, {
-      word_size: this.word_size,
-      num_words: this.num_words,
-      n0: this.n0,
-      p_limbs: this.p_limbs,
-      r_limbs: this.r_limbs,
-      r_cubed_limbs: this.r_cubed_limbs,
-      p_minus_2_limbs: this.p_minus_2_limbs,
-      mask: this.mask,
-      two_pow_word_size: this.two_pow_word_size,
-      p_inv_mod_2w: this.p_inv_mod_2w,
-    });
-    // bigint_by + by_inverse are gated on variant: they are large partials
-    // (≈700 lines of BY plumbing) and only needed when fr_inv_by is called.
-    // For the legacy fr_inv variant we omit them entirely so the bundle
-    // stays small and we don't pay compile time for dead code.
-    let by_blocks = '';
-    if (variant === 'fr_inv_by') {
-      by_blocks = `${mustache.render(bigint_by_funcs, { num_words: this.num_words })}
-${this.renderByInverseFuncs()}`;
-    } else if (variant === 'fr_inv_by_a') {
-      // Option A reuses the u64 helpers from bigint_by (u64_add, u64_sub,
-      // u64_shr1, u64_low_bit) but does NOT need the 9 x 29-bit BigIntBY
-      // struct or its conversion helpers. We still pull in bigint_by for
-      // the u64 helpers and signed_mul_split (unused here but cheap).
-      by_blocks = `${mustache.render(bigint_by_funcs, { num_words: this.num_words })}
-${this.renderByInverseAFuncs()}`;
-    }
-    const entry_src = mustache.render(fr_inv_bench_shader, {
-      workgroup_size,
-      r_limbs: this.r_limbs,
-      inv_fn: variant,
-    });
-    return `${structs_src}
-${bigint_src}
-${mont_src}
-${field_src}
-${fr_pow_src}
-${by_blocks}
-${entry_src}`;
-  }
-
-  // Render the by_inverse partial with the BY-specific Mustache constants
-  // (BigIntBY initializer for p, and the p_inv 58-bit split). Shared by the
-  // divsteps / apply_matrix / fr_inv bench renders so the partial's
-  // `{{{ p_limbs_by }}}` and `{{ p_inv_by_* }}` substitutions resolve to
-  // valid WGSL in every assembly.
-  private renderByInverseFuncs(): string {
-    return mustache.render(by_inverse_funcs, {
-      p_limbs_by: this.p_limbs_by_initializer,
-      p_inv_by_lo: this.p_inv_by_lo,
-      p_inv_by_hi: this.p_inv_by_hi,
-    });
-  }
-
   // Render the by_inverse_a partial (Option A: BATCH=26 / NUM_OUTER=29 BY
   // safegcd on 20 x 13-bit BigInt). Mustache substitutions: the 26-bit
   // p_inv constant and {{ num_words }} for the streaming-loop bound.
@@ -2115,33 +1299,6 @@ ${entry_src}`;
       num_words: this.num_words,
       p_inv_by_a_lo: this.p_inv_by_a_lo,
     });
-  }
-
-  // Inlined `get_r` definition with the curve-specific R limbs. Every
-  // production MSM shader defines its own; the bench harnesses pull this
-  // from a single helper so the divsteps / apply_matrix benches can hoist
-  // it before fr_pow_funcs (which calls `get_r()` from inside fr_pow).
-  private renderGetRFn(): string {
-    return `fn get_r() -> BigInt {\n    var r: BigInt;\n${this.r_limbs}\n    return r;\n}`;
-  }
-
-  // Bench-only entry shader for the f32 Montgomery product. Only the
-  // sos3uv3 variant (22-bit limbs, per-slot tlo/thi chain-break) is wired
-  // up here — it is the fastest f32 Mont mul found in the wider variant
-  // sweep and is kept as a reference point alongside the u32 paths.
-  public gen_field_mul_bench_f32_shader(
-    workgroup_size: number,
-    variant: 'sos3uv3' = 'sos3uv3',
-  ): string {
-    if (variant !== 'sos3uv3') {
-      throw new Error(`f32 bench variant must be 'sos3uv3', got '${variant}'`);
-    }
-    const helpers = this.gen_montgomery_product_f32_22_sos3uv3_shader();
-    const entry_src = mustache.render(field_mul_bench_f32_shader, {
-      workgroup_size,
-    });
-    return `${helpers}
-${entry_src}`;
   }
 
   // Renders mont_pro_product_karat_yuval.template.wgsl. The .wgsl file
