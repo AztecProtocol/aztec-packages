@@ -166,14 +166,9 @@ function prep_test_mac {
   fi
 
   # Cleanup background processes on exit.
-<<<<<<< HEAD
   # Note: can't use local - the trap fires after function scope is gone.
   _bg_pids=()
   trap 'kill "${_bg_pids[@]}" &>/dev/null || true' EXIT
-=======
-  local pids=()
-  trap 'kill "${pids[@]}" &>/dev/null || true' EXIT
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
 
   # Start Verdaccio in offline mode (no uplinks), bound to all interfaces.
   cat > /tmp/verdaccio-mac-test.yaml <<EOF
@@ -195,21 +190,13 @@ logs: { type: stdout, format: pretty, level: warn }
 EOF
 
   verdaccio --config /tmp/verdaccio-mac-test.yaml --listen 0.0.0.0:$verdaccio_port &>/dev/null &
-<<<<<<< HEAD
   _bg_pids+=($!)
-=======
-  pids+=($!)
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
   while ! nc -z localhost $verdaccio_port &>/dev/null; do sleep 1; done
   echo "Verdaccio running on 0.0.0.0:$verdaccio_port"
 
   # Serve bin/ directory over HTTP to mimic S3-hosted install scripts.
   python3 -m http.server $http_port --directory ./bin --bind 0.0.0.0 &>/dev/null &
-<<<<<<< HEAD
   _bg_pids+=($!)
-=======
-  pids+=($!)
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
   while ! nc -z localhost $http_port &>/dev/null; do sleep 1; done
   echo "HTTP server running on 0.0.0.0:$http_port (serving ./bin/)"
 }
@@ -231,13 +218,8 @@ function install_on_mac_vm {
     # Point npm at local Verdaccio and scripts at local HTTP server.
     export npm_config_registry=http://$host_ip:$verdaccio_port
     export INSTALL_URI=http://$host_ip:$http_port
-<<<<<<< HEAD
     export INFRA_VERSION=0.0.1
     export NO_NEW_SHELL=1
-=======
-    export NO_NEW_SHELL=1
-    export NON_INTERACTIVE=1
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
 
     touch \$HOME/.zshrc
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
@@ -245,24 +227,15 @@ function install_on_mac_vm {
 
     echo
     echo "Running aztec install script..."
-<<<<<<< HEAD
     bash <(curl -sL \$INSTALL_URI/0.0.1/aztec-install)
-=======
-    VERSION=0.0.1 bash <(curl -sL \$INSTALL_URI/0.0.1/aztec-install)
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
 
     # Fake fresh shell.
     export PATH="\$HOME/.aztec/current/bin:\$HOME/.aztec/current/node_modules/.bin:\$HOME/.aztec/bin:\$PATH"
     . "\$HOME/.nvm/nvm.sh"
 
     # Verify installation.
-<<<<<<< HEAD
     aztec-nargo --version
     aztec-bb --version
-=======
-    nargo --version
-    bb --version
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
     aztec --version
 REMOTE_EOF
 }
@@ -283,20 +256,13 @@ export -f install_on_mac_vm launch_and_install_on_mac_vm
 
 # Assumes a macos vm is already running.
 # Starts services, and runs install script on the mac vm via ssh.
-<<<<<<< HEAD
 function test_on_mac_vm {
   local mac_name="${1:?Mac vm name (e.g. 14)}"
   echo_header "aztec-up test_on_mac_vm"
-=======
-function test_mac {
-  echo_header "aztec-up test_mac"
-  local mac_name="${1:?Mac vm name (e.g. 14)}"
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
   prep_test_mac
   install_on_mac_vm $mac_name
 }
 
-<<<<<<< HEAD
 function test_mac {
   local mac_name="${1:?Mac vm name (e.g. 14)}"
   echo_header "aztec-up test_mac"
@@ -304,8 +270,6 @@ function test_mac {
   launch_and_install_on_mac_vm $mac_name
 }
 
-=======
->>>>>>> 44e1ce22abb (fix: some mac install fixes)
 # Starts services, launches a mac vm for each version and runs install script via ssh.
 function test_macs {
   echo_header "aztec-up test_macs"
