@@ -54,6 +54,7 @@ import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationP
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -280,6 +281,14 @@ function assertContractArtifactsVersion() {
   if (aztecVersion === ARTIFACT_VERSION_BEFORE_INJECTION) {
     createLogger('e2e:setup').info(
       `Skipping artifact version check: artifact predates version injection (CONTRACT_ARTIFACTS_VERSION=${expected})`,
+    );
+    return;
+  }
+  // TODO(F-557): Remove once v4.3.0 drops off the compat matrix. The v4.3.0 npm release shipped with
+  // aztec_version: "dev" baked into the artifact JSONs because of a bug.
+  if (expected === '4.3.0' && aztecVersion === DEV_VERSION) {
+    createLogger('e2e:setup').warn(
+      `Skipping artifact version check: v4.3.0 artifacts shipped with aztec_version="dev"`,
     );
     return;
   }
