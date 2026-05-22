@@ -225,7 +225,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
-        ::std::hash::pedersen_commitment_with_separator([x, y], 20)
+        std::hash::pedersen_commitment_with_separator([x, y], 20)
     }
 
     #[external("public")]

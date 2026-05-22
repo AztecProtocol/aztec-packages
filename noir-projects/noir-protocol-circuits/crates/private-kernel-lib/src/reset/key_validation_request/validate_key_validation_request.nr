@@ -55,7 +55,7 @@ pub fn validate_key_validation_request(
     let key_type_domain_separator = request_and_separator.key_type_domain_separator;
 
     // First we check that the hash of the derived public key matches the requested pk_m_hash.
-    let pk_m: EmbeddedCurvePoint = derive_public_key(sk_m);
+    let pk_m = derive_public_key(sk_m);
 
     // Safeguard against using a secret key equals to zero.
     assert_eq(

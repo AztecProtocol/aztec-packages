@@ -138,10 +138,9 @@ impl AztecAddress {
         );
 
         // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
-        let address_point: EmbeddedCurvePoint = derive_public_key(EmbeddedCurveScalar::from_field(
-            pre_address,
-        ))
-            .add(public_keys.ivpk_m.to_point());
+        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(
+            public_keys.ivpk_m.to_point(),
+        );
 
         // Note that our address is only the x-coordinate of the full address_point. This is okay because when people want to encrypt something and send it to us
         // they can recover our full point using the x-coordinate (our address itself). To do this, they recompute the y-coordinate according to the equation y^2 = x^3 - 17.
