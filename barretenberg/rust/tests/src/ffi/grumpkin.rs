@@ -3,7 +3,7 @@
 //! Ported from zkpassport/aztec-packages bb_rs grumpkin_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, generated_types::GrumpkinPoint, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, generated_types::GrumpkinPoint, BarretenbergApi};
 
 // Grumpkin generator point
 // x = 1

@@ -3,7 +3,7 @@
 //! Tests for ECDSA secp256k1 signatures.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, generated_types::Secp256k1Point, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, generated_types::Secp256k1Point, BarretenbergApi};
 
 #[test]
 fn test_ecdsa_compute_public_key() {

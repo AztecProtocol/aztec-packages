@@ -3,17 +3,14 @@
 //! Ported from zkpassport/aztec-packages bb_rs poseidon2_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi, Fr};
+use barretenberg_rs::{FfiBackend, BarretenbergApi, Fr};
 
 #[test]
 fn test_poseidon2_hash() {
     let backend = FfiBackend::new().expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
-    let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
-    ];
+    let inputs = vec![Fr::from_u64(4).to_buffer(), Fr::from_u64(8).to_buffer()];
 
     let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
     let result = Fr::from_buffer_reduce(&response.hash);
@@ -31,8 +28,12 @@ fn test_poseidon2_hash_deterministic() {
 
     let input = vec![42u8; 32];
 
-    let response1 = api.poseidon2_hash(vec![input.clone()]).expect("Poseidon2Hash failed");
-    let response2 = api.poseidon2_hash(vec![input]).expect("Poseidon2Hash failed");
+    let response1 = api
+        .poseidon2_hash(vec![input.clone()])
+        .expect("Poseidon2Hash failed");
+    let response2 = api
+        .poseidon2_hash(vec![input])
+        .expect("Poseidon2Hash failed");
 
     // Same input should produce same output
     assert_eq!(response1.hash, response2.hash);
@@ -48,8 +49,12 @@ fn test_poseidon2_hash_different_inputs() {
     let input1 = vec![1u8; 32];
     let input2 = vec![2u8; 32];
 
-    let response1 = api.poseidon2_hash(vec![input1]).expect("Poseidon2Hash failed");
-    let response2 = api.poseidon2_hash(vec![input2]).expect("Poseidon2Hash failed");
+    let response1 = api
+        .poseidon2_hash(vec![input1])
+        .expect("Poseidon2Hash failed");
+    let response2 = api
+        .poseidon2_hash(vec![input2])
+        .expect("Poseidon2Hash failed");
 
     // Different inputs should produce different outputs
     assert_ne!(response1.hash, response2.hash);
@@ -64,7 +69,9 @@ fn test_poseidon2_hash_zero_input() {
 
     let input = vec![0u8; 32];
 
-    let response = api.poseidon2_hash(vec![input.clone()]).expect("Poseidon2Hash failed");
+    let response = api
+        .poseidon2_hash(vec![input.clone()])
+        .expect("Poseidon2Hash failed");
 
     // Even zero input should produce non-zero output
     assert_ne!(response.hash, vec![0u8; 32]);
@@ -86,7 +93,9 @@ fn test_poseidon2_permutation_js_compatibility_cpp() {
     inputs[2][31] = 2;
     inputs[3][31] = 3;
 
-    let response = api.poseidon2_permutation(inputs).expect("Poseidon2Permutation failed");
+    let response = api
+        .poseidon2_permutation(inputs)
+        .expect("Poseidon2Permutation failed");
 
     assert_eq!(response.outputs.len(), 4);
 
@@ -132,10 +141,12 @@ fn test_poseidon2_permutation_js_compatibility_noir() {
     inputs[0][31] = 1; // 1n
     inputs[1][31] = 2; // 2n
     inputs[2][31] = 3; // 3n
-    // 0x0a0000000000000000n = 720575940379279360
+                       // 0x0a0000000000000000n = 720575940379279360
     inputs[3][23] = 0x0a; // Set the appropriate byte for this large number
 
-    let response = api.poseidon2_permutation(inputs).expect("Poseidon2Permutation failed");
+    let response = api
+        .poseidon2_permutation(inputs)
+        .expect("Poseidon2Permutation failed");
 
     assert_eq!(response.outputs.len(), 4);
 

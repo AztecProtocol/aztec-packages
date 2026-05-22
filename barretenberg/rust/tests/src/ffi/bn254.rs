@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 use barretenberg_rs::{
-    backends::FfiBackend,
+    FfiBackend,
     generated_types::{Bn254G1Point, Bn254G2Point},
     BarretenbergApi, Fr,
 };

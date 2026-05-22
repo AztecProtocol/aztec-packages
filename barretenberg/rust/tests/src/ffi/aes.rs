@@ -3,7 +3,7 @@
 //! Ported from zkpassport/aztec-packages bb_rs aes_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, BarretenbergApi};
 
 /// Apply PKCS#7 padding to input data (for testing purposes)
 #[cfg(test)]
@@ -74,11 +74,13 @@ fn test_aes_encrypt_decrypt_roundtrip() {
     let decrypted_with_padding = &decrypt_response.plaintext;
 
     // Remove padding after decryption
-    let decrypted =
-        remove_pkcs7_padding(decrypted_with_padding).expect("Failed to remove padding");
+    let decrypted = remove_pkcs7_padding(decrypted_with_padding).expect("Failed to remove padding");
 
     // The decrypted data should match the original plaintext exactly
-    assert_eq!(decrypted, plaintext, "Decrypted data doesn't match plaintext");
+    assert_eq!(
+        decrypted, plaintext,
+        "Decrypted data doesn't match plaintext"
+    );
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -113,10 +115,12 @@ fn test_aes_buffer_encrypt_decrypt() {
     let decrypted_with_padding = &decrypt_response.plaintext;
 
     // Remove padding after decryption
-    let decrypted =
-        remove_pkcs7_padding(decrypted_with_padding).expect("Failed to remove padding");
+    let decrypted = remove_pkcs7_padding(decrypted_with_padding).expect("Failed to remove padding");
 
-    assert_eq!(decrypted, plaintext, "Decrypted data doesn't match plaintext");
+    assert_eq!(
+        decrypted, plaintext,
+        "Decrypted data doesn't match plaintext"
+    );
 
     api.destroy().expect("Failed to destroy backend");
 }

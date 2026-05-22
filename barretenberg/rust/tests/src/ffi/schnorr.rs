@@ -3,7 +3,7 @@
 //! Tests for Schnorr signatures over the Grumpkin curve.
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi};
+use barretenberg_rs::{FfiBackend, BarretenbergApi};
 
 #[test]
 fn test_schnorr_compute_public_key() {

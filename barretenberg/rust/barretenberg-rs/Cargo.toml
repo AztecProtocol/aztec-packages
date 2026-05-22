@@ -21,21 +21,17 @@ rmp-serde.workspace = true
 rmpv.workspace = true
 serde.workspace = true
 
-# Async runtime
-tokio = { workspace = true, optional = true }
-
 # IPC and system
 libc.workspace = true
-nix = { workspace = true, optional = true }
+
+# UDS / MPSC-SHM transport for the codegen-generated Backend bridge.
+ipc-runtime = { path = "../../../ipc-runtime/rust" }
 
 # Utilities
 thiserror.workspace = true
-tracing = { workspace = true, optional = true }
 hex.workspace = true
 
 [features]
-default = ["native", "ffi"]
-native = ["tokio", "nix", "tracing"]
-async = ["tokio"]
+default = ["ffi"]
 # FFI backend - links against libbarretenberg from cpp build
 ffi = []

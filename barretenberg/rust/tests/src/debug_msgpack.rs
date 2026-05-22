@@ -16,7 +16,16 @@ fn test_msgpack_format() {
     // Show first 30 bytes in detail
     println!("\nFirst 30 bytes:");
     for (i, b) in bytes.iter().take(30).enumerate() {
-        println!("  [{}] = 0x{:02x} ({})", i, b, if *b >= 32 && *b < 127 { *b as char } else { '.' });
+        println!(
+            "  [{}] = 0x{:02x} ({})",
+            i,
+            b,
+            if *b >= 32 && *b < 127 {
+                *b as char
+            } else {
+                '.'
+            }
+        );
     }
 }
 
@@ -31,7 +40,11 @@ fn test_pedersen_msgpack_format() {
     let bytes = rmp_serde::to_vec_named(&vec![cmd]).unwrap();
 
     println!("\n=== Msgpack Format Debug (PedersenHash) ===");
-    println!("Msgpack bytes (length {}): {:?}", bytes.len(), &bytes[..bytes.len().min(50)]);
+    println!(
+        "Msgpack bytes (length {}): {:?}",
+        bytes.len(),
+        &bytes[..bytes.len().min(50)]
+    );
     println!("Msgpack hex: {}", hex::encode(&bytes));
 
     // Show structure

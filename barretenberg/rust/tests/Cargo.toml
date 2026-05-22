@@ -9,7 +9,7 @@ publish = false
 ffi = ["barretenberg-rs/ffi"]
 
 [dependencies]
-barretenberg-rs = { path = "../barretenberg-rs", default-features = false, features = ["native", "async"] }
+barretenberg-rs = { path = "../barretenberg-rs", default-features = false }
 
 # Serialization
 serde.workspace = true
@@ -18,11 +18,5 @@ rmp-serde.workspace = true
 # Testing and benchmarking
 criterion.workspace = true
 
-# Async runtime
-tokio = { workspace = true, features = ["test-util"] }
-
 # Utilities
 hex.workspace = true
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["test-util", "macros"] }
