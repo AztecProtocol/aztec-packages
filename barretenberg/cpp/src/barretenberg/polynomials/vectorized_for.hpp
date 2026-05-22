@@ -137,6 +137,18 @@ template <size_t N, typename Fr, typename K>
 #endif
 }
 
+// Sparse variant of vectorized_for. Walks [start, end), invokes `predicate(i)` for each i,
+// and gathers indices that pass into a VectorIndex<N> buffer; once full, dispatches one
+// kernel call with the gather token. Leftover indices at the end run scalar-by-scalar.
+//
+// Same V8/TurboFan perf cliff applies as in vectorized_for above: both the predicate lambda
+// and the kernel lambda need to inline through this template. The bulk call site is tagged
+// here only for the kernel — the predicate body should be inline-friendly by construction
+// (a small function-of-i, not a polymorphic dispatcher).
+//
+// VectorIndex<N> routes through VectorField::gather (random-access scalar reads), so the
+// per-bulk savings come from amortizing kernel call overhead, not from contiguous-SIMD
+// loads. For dense ranges where every i passes the predicate, prefer vectorized_for.
 template <size_t N, typename Fr, typename P, typename K>
 void vectorized_for_if(size_t start, size_t end, P&& predicate, K&& kernel)
 {
