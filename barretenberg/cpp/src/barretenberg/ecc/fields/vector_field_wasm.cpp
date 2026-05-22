@@ -209,42 +209,21 @@ namespace bb {
     v128_t ph6_lo = wasm_u64x2_extmul_low_u32x4(ql8, qri8);                                                            \
     v128_t ph6_hi = wasm_u64x2_extmul_high_u32x4(ql8, qri8);                                                           \
     vector_field_detail::bb_vf_barrier_sqq(ph6, ph6_lo, ph6_hi);                                                       \
-    /* Stage 3: cross sums (i32x4 add, NOT i64x2). */                                                                  \
-    uint64_t ssl0 = sl0 + sl5;                                                                                         \
-    v128_t qsl0 = wasm_i32x4_add(ql0, ql5);                                                                            \
-    uint64_t ssr0 = sri0 + sri5;                                                                                       \
-    v128_t qsr0 = wasm_i32x4_add(qri0, qri5);                                                                          \
-    vector_field_detail::bb_vf_barrier_sq(ssl0, qsl0);                                                                 \
-    vector_field_detail::bb_vf_barrier_sq(ssr0, qsr0);                                                                 \
-    uint64_t ssl1 = sl1 + sl6;                                                                                         \
-    v128_t qsl1 = wasm_i32x4_add(ql1, ql6);                                                                            \
-    uint64_t ssr1 = sri1 + sri6;                                                                                       \
-    v128_t qsr1 = wasm_i32x4_add(qri1, qri6);                                                                          \
-    vector_field_detail::bb_vf_barrier_sq(ssl1, qsl1);                                                                 \
-    vector_field_detail::bb_vf_barrier_sq(ssr1, qsr1);                                                                 \
-    uint64_t ssl2 = sl2 + sl7;                                                                                         \
-    v128_t qsl2 = wasm_i32x4_add(ql2, ql7);                                                                            \
-    uint64_t ssr2 = sri2 + sri7;                                                                                       \
-    v128_t qsr2 = wasm_i32x4_add(qri2, qri7);                                                                          \
-    vector_field_detail::bb_vf_barrier_sq(ssl2, qsl2);                                                                 \
-    vector_field_detail::bb_vf_barrier_sq(ssr2, qsr2);                                                                 \
-    uint64_t ssl3 = sl3 + sl8;                                                                                         \
-    v128_t qsl3 = wasm_i32x4_add(ql3, ql8);                                                                            \
-    uint64_t ssr3 = sri3 + sri8;                                                                                       \
-    v128_t qsr3 = wasm_i32x4_add(qri3, qri8);                                                                          \
-    vector_field_detail::bb_vf_barrier_sq(ssl3, qsl3);                                                                 \
-    vector_field_detail::bb_vf_barrier_sq(ssr3, qsr3);                                                                 \
-    uint64_t ssl4 = sl4;                                                                                               \
-    v128_t qsl4 = ql4;                                                                                                 \
-    uint64_t ssr4 = sri4;                                                                                              \
-    v128_t qsr4 = qri4;                                                                                                \
-    vector_field_detail::bb_vf_barrier_sq(ssl4, qsl4);                                                                 \
-    vector_field_detail::bb_vf_barrier_sq(ssr4, qsr4);                                                                 \
     /* Stage 4: P_cross (25 muls, pc0..pc8). */                                                                        \
+    /* lazy Stage 3 for pc0: qsl0/qsr0. */                                                                          \
+    uint64_t ssl0 = sl0 + sl5;                                                                                     \
+    v128_t qsl0 = wasm_i32x4_add(ql0, ql5);                                                                        \
+    uint64_t ssr0 = sri0 + sri5;                                                                                   \
+    v128_t qsr0 = wasm_i32x4_add(qri0, qri5);                                                                      \
     uint64_t pc0 = ssl0 * ssr0;                                                                                        \
     v128_t pc0_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr0);                                                           \
     v128_t pc0_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr0);                                                          \
     vector_field_detail::bb_vf_barrier_sqq(pc0, pc0_lo, pc0_hi);                                                       \
+    /* lazy Stage 3 for pc1: qsl1/qsr1. */                                                                          \
+    uint64_t ssl1 = sl1 + sl6;                                                                                     \
+    v128_t qsl1 = wasm_i32x4_add(ql1, ql6);                                                                        \
+    uint64_t ssr1 = sri1 + sri6;                                                                                   \
+    v128_t qsr1 = wasm_i32x4_add(qri1, qri6);                                                                      \
     uint64_t pc1 = ssl0 * ssr1;                                                                                        \
     v128_t pc1_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr1);                                                           \
     v128_t pc1_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr1);                                                          \
@@ -253,6 +232,11 @@ namespace bb {
     pc1_lo = wasm_i64x2_add(pc1_lo, wasm_u64x2_extmul_low_u32x4(qsl1, qsr0));                                          \
     pc1_hi = wasm_i64x2_add(pc1_hi, wasm_u64x2_extmul_high_u32x4(qsl1, qsr0));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc1, pc1_lo, pc1_hi);                                                       \
+    /* lazy Stage 3 for pc2: qsl2/qsr2. */                                                                          \
+    uint64_t ssl2 = sl2 + sl7;                                                                                     \
+    v128_t qsl2 = wasm_i32x4_add(ql2, ql7);                                                                        \
+    uint64_t ssr2 = sri2 + sri7;                                                                                   \
+    v128_t qsr2 = wasm_i32x4_add(qri2, qri7);                                                                      \
     uint64_t pc2 = ssl0 * ssr2;                                                                                        \
     v128_t pc2_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr2);                                                           \
     v128_t pc2_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr2);                                                          \
@@ -265,6 +249,11 @@ namespace bb {
     pc2_lo = wasm_i64x2_add(pc2_lo, wasm_u64x2_extmul_low_u32x4(qsl2, qsr0));                                          \
     pc2_hi = wasm_i64x2_add(pc2_hi, wasm_u64x2_extmul_high_u32x4(qsl2, qsr0));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc2, pc2_lo, pc2_hi);                                                       \
+    /* lazy Stage 3 for pc3: qsl3/qsr3. */                                                                          \
+    uint64_t ssl3 = sl3 + sl8;                                                                                     \
+    v128_t qsl3 = wasm_i32x4_add(ql3, ql8);                                                                        \
+    uint64_t ssr3 = sri3 + sri8;                                                                                   \
+    v128_t qsr3 = wasm_i32x4_add(qri3, qri8);                                                                      \
     uint64_t pc3 = ssl0 * ssr3;                                                                                        \
     v128_t pc3_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr3);                                                           \
     v128_t pc3_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr3);                                                          \
@@ -281,6 +270,11 @@ namespace bb {
     pc3_lo = wasm_i64x2_add(pc3_lo, wasm_u64x2_extmul_low_u32x4(qsl3, qsr0));                                          \
     pc3_hi = wasm_i64x2_add(pc3_hi, wasm_u64x2_extmul_high_u32x4(qsl3, qsr0));                                         \
     vector_field_detail::bb_vf_barrier_sqq(pc3, pc3_lo, pc3_hi);                                                       \
+    /* lazy Stage 3 for pc4: qsl4/qsr4 (degenerate — no upper limb to fold in). */\
+    uint64_t ssl4 = sl4;                                                                                               \
+    v128_t qsl4 = ql4;                                                                                                 \
+    uint64_t ssr4 = sri4;                                                                                              \
+    v128_t qsr4 = qri4;                                                                                                \
     uint64_t pc4 = ssl0 * ssr4;                                                                                        \
     v128_t pc4_lo = wasm_u64x2_extmul_low_u32x4(qsl0, qsr4);                                                           \
     v128_t pc4_hi = wasm_u64x2_extmul_high_u32x4(qsl0, qsr4);                                                          \
