@@ -34,7 +34,7 @@ use types::{
     merkle_tree::{
         LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
     },
-    point::Point,
+    point::EmbeddedCurvePoint,
     public_keys::hash_public_key,
     side_effect::{Counted, Scoped},
     traits::Empty,
@@ -200,7 +200,7 @@ impl TestBuilder {
 
     pub fn add_key_validation_request(&mut self, sk: Field) {
         let sk_m = EmbeddedCurveScalar::from_field(sk);
-        let pk_m: Point = derive_public_key(sk_m).into();
+        let pk_m: EmbeddedCurvePoint = derive_public_key(sk_m);
         let pk_m_hash = hash_public_key(pk_m);
 
         let key_type_domain_separator = 123321;

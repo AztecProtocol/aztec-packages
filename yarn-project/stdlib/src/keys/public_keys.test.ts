@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
+import { PublicKey } from './public_key.js';
 import { PublicKeys } from './public_keys.js';
 
 describe('PublicKeys', () => {
@@ -19,7 +19,7 @@ describe('PublicKeys', () => {
   });
 
   it('computes public keys hash', async () => {
-    const keys = new PublicKeys(new Fr(11n), new Point(new Fr(3n), new Fr(4n), false), new Fr(22n), new Fr(33n));
+    const keys = new PublicKeys(new Fr(11n), new PublicKey(new Fr(3n), new Fr(4n)), new Fr(22n), new Fr(33n));
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(

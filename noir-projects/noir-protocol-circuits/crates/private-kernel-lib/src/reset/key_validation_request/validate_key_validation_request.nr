@@ -1,8 +1,8 @@
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 use types::{
     abis::validation_requests::KeyValidationRequestAndSeparator,
-    hash::compute_app_siloed_secret_key, point::Point, public_keys::hash_public_key, scalar::Scalar,
-    side_effect::Scoped,
+    hash::compute_app_siloed_secret_key, point::EmbeddedCurvePoint, public_keys::hash_public_key,
+    scalar::Scalar, side_effect::Scoped,
 };
 
 /// Validates a Key Validation Request that an app circuit has submitted to the kernel.
@@ -55,10 +55,14 @@ pub fn validate_key_validation_request(
     let key_type_domain_separator = request_and_separator.key_type_domain_separator;
 
     // First we check that the hash of the derived public key matches the requested pk_m_hash.
-    let pk_m: Point = derive_public_key(sk_m).into();
+    let pk_m: EmbeddedCurvePoint = derive_public_key(sk_m);
 
     // Safeguard against using a secret key equals to zero.
-    assert_eq(pk_m.is_infinite, false, "Derived master public key cannot be the point at infinity");
+    assert_eq(
+        pk_m.is_infinite(),
+        false,
+        "Derived master public key cannot be the point at infinity",
+    );
 
     assert_eq(
         hash_public_key(pk_m),
