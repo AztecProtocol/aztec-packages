@@ -390,7 +390,7 @@ function generate(args: Args) {
           gen.generateClient(compiled),
         );
       }
-      // Backend templates (copied once, not overwritten)
+      // Backend trait template (kept; FFI backend still references it).
       if (args.uds || args.ffi) {
         copyTemplateOnce("zig", "backend.zig", absOut);
       }

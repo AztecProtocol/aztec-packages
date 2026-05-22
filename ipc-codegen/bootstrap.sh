@@ -25,13 +25,9 @@ function build {
   # binaries that test_cmds emits commands against.
   examples/echo-schema/generate.sh
 
-  # Build ipc-runtime up front so Rust + C++ echo builds can link it.
-  (cd ../ipc-runtime && ./bootstrap.sh) >/dev/null 2>&1 || true
-  local IPC_RUNTIME_BUILD_DIR
-  IPC_RUNTIME_BUILD_DIR="$(cd ../ipc-runtime/cpp/build 2>/dev/null && pwd)" || IPC_RUNTIME_BUILD_DIR=""
-  export IPC_RUNTIME_LIB_DIR="$IPC_RUNTIME_BUILD_DIR"
-
   echo "Building Rust echo binaries..."
+  # The Rust crate compiles the ipc-runtime sources itself via the `cc`
+  # build-dependency; no prebuilt archive needed.
   (cd examples/rust/echo && cargo build --quiet)
 
   echo "Building Zig echo binaries..."
@@ -42,22 +38,25 @@ function build {
     (cd examples/ts/echo && npm install --no-package-lock --quiet)
   fi
 
-  # C++ echo binaries link against ipc-runtime (already built above). msgpack-c
-  # headers come from bb's cmake build (we don't have a separate source for them yet).
-  # If either is missing we skip the C++ matrix pairs.
-  local IPC_RUNTIME_LIB="$IPC_RUNTIME_BUILD_DIR/libipc_runtime.a"
-  local IPC_RUNTIME_INC
+  # C++ echo binaries compile the ipc-runtime .cpp sources directly into each
+  # binary (no prebuilt archive, no IPC_RUNTIME_LIB_DIR). msgpack-c headers
+  # are borrowed from bb's cmake build until we have a standalone source.
+  local IPC_RUNTIME_INC IPC_RUNTIME_SRCS
   IPC_RUNTIME_INC="$(cd ../ipc-runtime/cpp 2>/dev/null && pwd)" || true
+  if [ -n "${IPC_RUNTIME_INC:-}" ]; then
+    # Skip *.test.cpp — those depend on gtest which is bb's build dep.
+    IPC_RUNTIME_SRCS="$(ls "$IPC_RUNTIME_INC"/ipc_runtime/*.cpp "$IPC_RUNTIME_INC"/ipc_runtime/shm/*.cpp 2>/dev/null | grep -v '\.test\.cpp$' | tr '\n' ' ')"
+  fi
   local MSGPACK_INC
   MSGPACK_INC="$(cd ../barretenberg/cpp/build/_deps/msgpack-c/src/msgpack-c/include 2>/dev/null && pwd)" || true
-  if [ -f "$IPC_RUNTIME_LIB" ] && [ -n "${MSGPACK_INC:-}" ] && [ -d "$MSGPACK_INC" ]; then
+  if [ -n "${IPC_RUNTIME_SRCS:-}" ] && [ -n "${MSGPACK_INC:-}" ] && [ -d "$MSGPACK_INC" ]; then
     echo "Building C++ echo binaries..."
     # THROW/RETHROW satisfy barretenberg's patched msgpack-c (the same source we pull in).
     local CXX_FLAGS="-std=c++20 -I $MSGPACK_INC -I $IPC_RUNTIME_INC -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -DTHROW=throw -DRETHROW=throw"
-    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_server echo_server.cpp "$IPC_RUNTIME_LIB" -lpthread)
-    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_client echo_client.cpp generated/echo_ipc_client.cpp "$IPC_RUNTIME_LIB" -lpthread)
+    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_server echo_server.cpp $IPC_RUNTIME_SRCS -lpthread)
+    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_client echo_client.cpp generated/echo_ipc_client.cpp $IPC_RUNTIME_SRCS -lpthread)
   else
-    echo "Skipping C++ echo build — ipc-runtime archive or msgpack-c not available"
+    echo "Skipping C++ echo build — ipc-runtime sources or msgpack-c not available"
   fi
 
   # NB: the golden msgpack fixtures under examples/echo-schema/golden/ are
