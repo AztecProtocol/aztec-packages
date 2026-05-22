@@ -1227,6 +1227,7 @@ ${packLines.join('\n')}
       ba_reduce_level_bench_shader,
       {
         workgroup_size, kind, inv_fn,
+        kind0: kind === 0, kind1: kind === 1, kind2: kind === 2,
         addsub_unpack: addsub === 'unpack',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,

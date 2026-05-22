@@ -19,6 +19,18 @@ import { makeResultsClient } from './results_post.js';
 const FP = BN254_BASE_FIELD;
 const qp = new URLSearchParams(location.search);
 
+// BrowserStack real-mobile workers truncate the launch URL at the first `&`,
+// so multi-knob runs arrive with every param after the first dropped. Accept
+// the whole knob set as one base64url `cfg` blob and merge it into `qp`,
+// leaving the per-key reads below unchanged.
+const cfgBlob = qp.get('cfg');
+if (cfgBlob) {
+  let b64 = cfgBlob.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const decoded = JSON.parse(atob(b64)) as Record<string, unknown>;
+  for (const [k, v] of Object.entries(decoded)) qp.set(k, String(v));
+}
+
 const intParam = (key: string, dflt: number): number => {
   const v = Number(qp.get(key));
   return Number.isInteger(v) && v > 0 ? v : dflt;
