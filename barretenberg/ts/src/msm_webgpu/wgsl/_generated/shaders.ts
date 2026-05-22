@@ -3135,6 +3135,17 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     // Candidates per thread this level — uniform across the workgroup.
     let C = (ppw + WG - 1u) / WG;
 
+    // Threads whose whole candidate range is past ppw do no useful work:
+    // every j2 >= ppw, so no red_buf / is_present writes, and pref_scratch
+    // is private per thread. Return before the unconditional safegcd
+    // inversion so those idle lanes issue no instructions and — the point
+    // on a register-starved GPU — generate no register-spill traffic. The
+    // unfused kernel can do this; the fused one cannot (storageBarrier
+    // must be reached by every thread).
+    if (tid * C >= ppw) {
+        return;
+    }
+
     // ---- forward: prefix product of per-candidate denominators ----
     var acc: array<u32, 8> = get_r_f8();
     for (var k: u32 = 0u; k < C; k = k + 1u) {
