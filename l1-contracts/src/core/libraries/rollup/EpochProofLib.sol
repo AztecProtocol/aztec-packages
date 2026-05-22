@@ -127,8 +127,11 @@ library EpochProofLib {
       // a partial epoch cannot produce a non-empty out hash and later revert to an empty one as more checkpoints are
       // included. Therefore, it is safe to skip insertion when the out hash is empty.
       if (_args.args.outHash != bytes32(Constants.EMPTY_EPOCH_OUT_HASH)) {
-        // Insert L2->L1 messages root into outbox for consumption.
-        rollupStore.config.outbox.insert(endEpoch, _args.args.outHash);
+        // Insert L2->L1 messages root into outbox for consumption. The Outbox keys each root by
+        // the number of checkpoints proven in this epoch so off-chain consumers can map a tx's
+        // position-within-epoch directly to the smallest proof that covers it.
+        uint256 numCheckpointsInEpoch = _args.end - _args.start + 1;
+        rollupStore.config.outbox.insert(endEpoch, numCheckpointsInEpoch, _args.args.outHash);
       }
     }
 

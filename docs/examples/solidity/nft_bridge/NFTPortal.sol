@@ -31,6 +31,7 @@ contract NFTPortal {
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
     }
+
     // docs:end:portal_setup
 
     // docs:start:portal_deposit_and_withdraw
@@ -52,6 +53,7 @@ contract NFTPortal {
     function withdraw(
         uint256 tokenId,
         Epoch epoch,
+        uint256 numCheckpointsInEpoch,
         uint256 leafIndex,
         bytes32[] calldata path
     ) external {
@@ -62,7 +64,7 @@ contract NFTPortal {
             content: Hash.sha256ToField(abi.encodePacked(tokenId, msg.sender))
         });
 
-        outbox.consume(message, epoch, leafIndex, path);
+        outbox.consume(message, epoch, numCheckpointsInEpoch, leafIndex, path);
 
         // Unlock NFT
         nftContract.transferFrom(address(this), msg.sender, tokenId);

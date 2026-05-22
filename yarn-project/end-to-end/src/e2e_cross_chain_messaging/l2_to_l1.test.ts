@@ -254,13 +254,14 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
   async function expectConsumeMessageToSucceed(msg: ReturnType<typeof makeL2ToL1Message>, l2TxHash: TxHash) {
     const msgLeaf = computeMessageLeaf(msg);
-    const result = (await computeL2ToL1MembershipWitness(aztecNode, msgLeaf, l2TxHash))!;
-    const { epochNumber: epoch, ...witness } = result;
+    const result = (await computeL2ToL1MembershipWitness(aztecNode, outbox, msgLeaf, l2TxHash))!;
+    const { epochNumber: epoch, numCheckpointsInEpoch, ...witness } = result;
     const leafId = getL2ToL1MessageLeafId(witness);
 
     const txHash = await outbox.consume(
       msg,
       epoch,
+      numCheckpointsInEpoch,
       witness.leafIndex,
       witness.siblingPath.toFields().map(f => f.toString()),
     );
@@ -307,6 +308,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       outbox.consume(
         msg,
         witness.epochNumber,
+        witness.numCheckpointsInEpoch,
         witness.leafIndex,
         witness.siblingPath.toFields().map(f => f.toString()),
       ),

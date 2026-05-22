@@ -179,7 +179,7 @@ contract UniswapPortalTest is Test {
     (bytes32[] memory swapSiblingPath,) = tree.computeSiblingPath(1);
 
     vm.prank(address(rollup));
-    outbox.insert(_epoch, treeRoot);
+    outbox.insert(_epoch, 1, treeRoot);
 
     return (treeRoot, withdrawSiblingPath, swapSiblingPath);
   }
@@ -210,8 +210,12 @@ contract UniswapPortalTest is Test {
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 0, _path: withdrawSiblingPath
+      }),
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 1, _path: swapSiblingPath
+      })
     ];
 
     uniswapPortal.swapPublic(
@@ -257,8 +261,12 @@ contract UniswapPortalTest is Test {
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 0, _path: withdrawSiblingPath
+      }),
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 1, _path: swapSiblingPath
+      })
     ];
 
     uniswapPortal.swapPublic(
@@ -306,8 +314,12 @@ contract UniswapPortalTest is Test {
     );
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 0, _path: withdrawSiblingPath
+      }),
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 1, _path: swapSiblingPath
+      })
     ];
 
     uniswapPortal.swapPublic(
@@ -331,8 +343,12 @@ contract UniswapPortalTest is Test {
       _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 0, _path: withdrawSiblingPath
+      }),
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 1, _path: swapSiblingPath
+      })
     ];
 
     uniswapPortal.swapPublic(
@@ -367,8 +383,12 @@ contract UniswapPortalTest is Test {
       _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 0, _path: withdrawSiblingPath
+      }),
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 1, _path: swapSiblingPath
+      })
     ];
 
     vm.prank(_caller);
@@ -403,8 +423,12 @@ contract UniswapPortalTest is Test {
       _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 0, _path: withdrawSiblingPath
+      }),
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 1, _path: swapSiblingPath
+      })
     ];
 
     vm.startPrank(_caller);
@@ -486,8 +510,12 @@ contract UniswapPortalTest is Test {
       _addMessagesToOutbox(daiWithdrawMessageHash, swapMessageHash, DEFAULT_EPOCH);
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 0, _path: withdrawSiblingPath}),
-      PortalDataStructures.OutboxMessageMetadata({_epoch: DEFAULT_EPOCH, _leafIndex: 1, _path: swapSiblingPath})
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 0, _path: withdrawSiblingPath
+      }),
+      PortalDataStructures.OutboxMessageMetadata({
+        _epoch: DEFAULT_EPOCH, _numCheckpointsInEpoch: 1, _leafIndex: 1, _path: swapSiblingPath
+      })
     ];
 
     bytes32 messageHashPortalChecksAgainst = _createUniswapSwapMessagePrivate(address(this));

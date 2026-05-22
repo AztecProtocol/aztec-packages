@@ -839,9 +839,10 @@ contract RollupTest is RollupBase {
     // Submit proof for checkpoints 1-2 with outHash2
     _submitEpochProof(1, 2, checkpoint.archive, checkpoint2Data.archive, checkpoint2Data.batchedBlobInputs, outHash2);
 
-    // Verify the state after the first proof
+    // Verify the state after the first proof (covered 2 checkpoints → K=2).
     assertEq(rollup.getProvenCheckpointNumber(), 2, "Proven checkpoint number should be 2");
-    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash2, "OutHash should be outHash2");
+    assertEq(outbox.getRootData(Epoch.wrap(0), 2), outHash2, "Root at K=2 should be outHash2");
+    assertEq(outbox.getRootData(Epoch.wrap(0), 1), bytes32(0), "Root at K=1 should be unset");
 
     // Attempt to submit proof for checkpoints 1-1 with outHash1 (shorter proof)
     // This should not revert, but should not update anything
@@ -850,8 +851,9 @@ contract RollupTest is RollupBase {
     // Verify that the proven checkpoint number did NOT regress
     assertEq(rollup.getProvenCheckpointNumber(), 2, "Proven checkpoint number should still be 2");
 
-    // Verify that the outHash did NOT change
-    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash2, "OutHash should still be outHash2");
+    // Verify that no new root was inserted (the shorter proof gate in EpochProofLib skips insert).
+    assertEq(outbox.getRootData(Epoch.wrap(0), 2), outHash2, "Root at K=2 should still be outHash2");
+    assertEq(outbox.getRootData(Epoch.wrap(0), 1), bytes32(0), "Root at K=1 should remain unset");
   }
 
   function testLongerEpochProofCanUpdateAfterShorterProof() public setUpFor("mixed_checkpoint_1") {
@@ -871,19 +873,20 @@ contract RollupTest is RollupBase {
     // Submit proof for checkpoints 1-1 with outHash1 (shorter proof first)
     _submitEpochProof(1, 1, checkpoint.archive, checkpoint1Data.archive, checkpoint1Data.batchedBlobInputs, outHash1);
 
-    // Verify the state after the first proof
+    // Verify the state after the first proof (covered 1 checkpoint → K=1).
     assertEq(rollup.getProvenCheckpointNumber(), 1, "Proven checkpoint number should be 1");
-    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash1, "OutHash should be outHash1");
+    assertEq(outbox.getRootData(Epoch.wrap(0), 1), outHash1, "Root at K=1 should be outHash1");
 
     // Submit proof for checkpoints 1-2 with outHash2 (longer proof)
-    // This SHOULD update both the proven checkpoint number and the outHash
+    // This SHOULD update the proven checkpoint number and insert a new root at K=2.
     _submitEpochProof(1, 2, checkpoint.archive, checkpoint2Data.archive, checkpoint2Data.batchedBlobInputs, outHash2);
 
     // Verify that the proven checkpoint number progressed to 2
     assertEq(rollup.getProvenCheckpointNumber(), 2, "Proven checkpoint number should be 2");
 
-    // Verify that the outHash was updated to outHash2
-    assertEq(outbox.getRootData(Epoch.wrap(0)), outHash2, "OutHash should be outHash2");
+    // The earlier root at K=1 remains addressable, and the new root sits at K=2.
+    assertEq(outbox.getRootData(Epoch.wrap(0), 1), outHash1, "Root at K=1 should remain outHash1");
+    assertEq(outbox.getRootData(Epoch.wrap(0), 2), outHash2, "Root at K=2 should be outHash2");
   }
 
   function _submitEpochProof(

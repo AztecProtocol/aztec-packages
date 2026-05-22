@@ -48,6 +48,7 @@ library Errors {
   error Outbox__NothingToConsumeAtEpoch(Epoch epoch); // 0x5e3d32ce
   error Outbox__PathTooLong();
   error Outbox__LeafIndexOutOfBounds(uint256 leafIndex, uint256 pathLength);
+  error Outbox__InvalidNumCheckpointsInEpoch(uint256 numCheckpointsInEpoch);
 
   // Rollup
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276

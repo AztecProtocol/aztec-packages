@@ -34,13 +34,9 @@ contract AavePortal {
 
     bool private _initialized;
 
-    function initialize(
-        address _registry,
-        address _underlying,
-        address _aToken,
-        address _aavePool,
-        bytes32 _l2Bridge
-    ) external {
+    function initialize(address _registry, address _underlying, address _aToken, address _aavePool, bytes32 _l2Bridge)
+        external
+    {
         require(!_initialized, "Already initialized");
         _initialized = true;
 
@@ -55,6 +51,7 @@ contract AavePortal {
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
     }
+
     // docs:end:portal_setup
 
     // docs:start:portal_deposit_to_aave
@@ -65,6 +62,7 @@ contract AavePortal {
         uint256 _amount,
         bool _withCaller,
         Epoch _epoch,
+        uint256 _numCheckpointsInEpoch,
         uint256 _leafIndex,
         bytes32[] calldata _path
     ) external {
@@ -74,31 +72,28 @@ contract AavePortal {
             recipient: DataStructures.L1Actor(address(this), block.chainid),
             content: Hash.sha256ToField(
                 abi.encodeWithSignature(
-                    "withdraw(address,uint256,address)",
-                    _recipient,
-                    _amount,
-                    _withCaller ? msg.sender : address(0)
+                    "withdraw(address,uint256,address)", _recipient, _amount, _withCaller ? msg.sender : address(0)
                 )
             )
         });
 
         // Consume the message from the outbox (verifies merkle proof)
-        outbox.consume(message, _epoch, _leafIndex, _path);
+        outbox.consume(message, _epoch, _numCheckpointsInEpoch, _leafIndex, _path);
 
         // Deposit into Aave instead of sending tokens to the recipient.
         // The portal must already hold the underlying tokens (pre-funded or bridged separately).
         underlying.approve(address(aavePool), _amount);
         aavePool.supply(address(underlying), _amount, address(this), 0);
     }
+
     // docs:end:portal_deposit_to_aave
 
     // docs:start:portal_claim_public
     /// @notice Withdraw from Aave and send an L1->L2 message to mint tokens publicly on L2
-    function claimFromAavePublic(
-        uint256 _aTokenAmount,
-        bytes32 _to,
-        bytes32 _secretHash
-    ) external returns (bytes32, uint256) {
+    function claimFromAavePublic(uint256 _aTokenAmount, bytes32 _to, bytes32 _secretHash)
+        external
+        returns (bytes32, uint256)
+    {
         // Withdraw from Aave (returns underlying + yield)
         aToken.approve(address(aavePool), _aTokenAmount);
         uint256 withdrawn = aavePool.withdraw(address(underlying), _aTokenAmount, address(this));
@@ -111,22 +106,19 @@ contract AavePortal {
         (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
         return (key, index);
     }
+
     // docs:end:portal_claim_public
 
     // docs:start:portal_claim_private
     /// @notice Withdraw from Aave and send an L1->L2 message to mint tokens privately on L2
-    function claimFromAavePrivate(
-        uint256 _aTokenAmount,
-        bytes32 _secretHash
-    ) external returns (bytes32, uint256) {
+    function claimFromAavePrivate(uint256 _aTokenAmount, bytes32 _secretHash) external returns (bytes32, uint256) {
         // Withdraw from Aave (returns underlying + yield)
         aToken.approve(address(aavePool), _aTokenAmount);
         uint256 withdrawn = aavePool.withdraw(address(underlying), _aTokenAmount, address(this));
 
         // Send L1->L2 message for private minting
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, rollupVersion);
-        bytes32 contentHash =
-            Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", withdrawn));
+        bytes32 contentHash = Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", withdrawn));
 
         (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
         return (key, index);
