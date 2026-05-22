@@ -198,11 +198,25 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       await this.saveTag('finalized', event.block);
       const finalizedCheckpointNumber = await this.getCheckpointNumberForBlock(event.block.number);
 
-      await this.deleteBlockHashesBefore(event.block.number);
-      await this.deleteBlockToCheckpointBefore(event.block.number);
+      // Cap the deletion bound at the lowest live tip. This should always be the finalized tip, but
+      // we have hit bugs where this is not the case. Deleting the block hash, block-to-checkpoint mapping,
+      // or enclosing checkpoint object for a live tip would dangle subsequent `getBlockId`/`getCheckpointId`
+      // lookups and lock the block stream into an error loop.
+      const tips = await Promise.all([this.getTip('proposed'), this.getTip('checkpointed'), this.getTip('proven')]);
+      const liveTipBlocks = tips.filter((t): t is BlockNumber => t !== undefined && t > 0);
+      const safeBlockBound = BlockNumber(Math.min(event.block.number, ...liveTipBlocks));
+      await this.deleteBlockHashesBefore(safeBlockBound);
+      await this.deleteBlockToCheckpointBefore(safeBlockBound);
 
       if (finalizedCheckpointNumber !== undefined) {
-        await this.deleteCheckpointsBefore(finalizedCheckpointNumber);
+        const tipCheckpoints = await Promise.all(liveTipBlocks.map(b => this.getCheckpointNumberForBlock(b)));
+        const safeCheckpointBound = CheckpointNumber(
+          Math.min(
+            finalizedCheckpointNumber,
+            ...tipCheckpoints.filter((c): c is CheckpointNumber => c !== undefined && c > 0),
+          ),
+        );
+        await this.deleteCheckpointsBefore(safeCheckpointBound);
       }
     });
   }
