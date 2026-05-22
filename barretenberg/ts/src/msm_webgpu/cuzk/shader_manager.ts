@@ -27,9 +27,10 @@ import {
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
   structs,
-  transpose_parallel_count_priv as transpose_parallel_count_priv_shader,
   transpose_parallel_scan as transpose_parallel_scan_shader,
-  transpose_parallel_scatter_priv as transpose_parallel_scatter_priv_shader,
+  transpose_count_tiled as transpose_count_tiled_shader,
+  transpose_reduce_tiled as transpose_reduce_tiled_shader,
+  transpose_scatter_tiled as transpose_scatter_tiled_shader,
 } from '../wgsl/_generated/shaders.js';
 import {
   compute_by_p_inv_a,
@@ -330,24 +331,6 @@ ${packLines.join('\n')}
     return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
   }
 
-  /**
-   * Privatized-histogram transpose count: one workgroup per subtask, the
-   * per-column tally done in workgroup-shared memory (shared atomics only,
-   * no contended global atomics). `tile` is the shared histogram capacity
-   * in entries — when it is below n_cols the kernel covers the columns in
-   * ceil(n_cols / tile) tiles.
-   */
-  public gen_transpose_count_priv_shader(workgroup_size: number, tile: number): string {
-    if (tile <= 0 || !Number.isInteger(tile)) {
-      throw new Error(`gen_transpose_count_priv_shader: tile (${tile}) must be a positive integer`);
-    }
-    return mustache.render(transpose_parallel_count_priv_shader, {
-      workgroup_size,
-      tile,
-      recompile: this.recompile,
-    });
-  }
-
   public gen_transpose_scan_shader(workgroup_size: number): string {
     return mustache.render(transpose_parallel_scan_shader, {
       workgroup_size,
@@ -356,17 +339,45 @@ ${packLines.join('\n')}
   }
 
   /**
-   * Privatized transpose scatter: one workgroup per subtask, per-column
-   * write cursors in workgroup-shared memory (shared atomics only, no
-   * contended global atomics). `tile` is the shared cursor capacity in
-   * entries — below n_cols the kernel covers the columns in
-   * ceil(n_cols / tile) tiles.
+   * Tiled counting-sort transpose count: dispatch (numChunks, numWindows).
+   * Each workgroup histograms its point-chunk into a workgroup-shared
+   * histogram and writes the chunk's partial row. `tile` is the shared
+   * histogram capacity in entries.
    */
-  public gen_transpose_scatter_priv_shader(workgroup_size: number, tile: number): string {
+  public gen_transpose_count_tiled_shader(workgroup_size: number, tile: number): string {
     if (tile <= 0 || !Number.isInteger(tile)) {
-      throw new Error(`gen_transpose_scatter_priv_shader: tile (${tile}) must be a positive integer`);
+      throw new Error(`gen_transpose_count_tiled_shader: tile (${tile}) must be a positive integer`);
     }
-    return mustache.render(transpose_parallel_scatter_priv_shader, {
+    return mustache.render(transpose_count_tiled_shader, {
+      workgroup_size,
+      tile,
+      recompile: this.recompile,
+    });
+  }
+
+  /**
+   * Tiled counting-sort transpose reduce: dispatch (ceil(BW/wg), numWindows).
+   * Folds the per-chunk partials over the chunk axis into per-window column
+   * counts and rewrites the partials in place with chunk-exclusive prefixes.
+   */
+  public gen_transpose_reduce_tiled_shader(workgroup_size: number): string {
+    return mustache.render(transpose_reduce_tiled_shader, {
+      workgroup_size,
+      recompile: this.recompile,
+    });
+  }
+
+  /**
+   * Tiled counting-sort transpose scatter: dispatch (numChunks, numWindows).
+   * Each workgroup scatters its point-chunk into the CSC slots using a
+   * workgroup-shared within-chunk write cursor. `tile` is the shared cursor
+   * capacity in entries.
+   */
+  public gen_transpose_scatter_tiled_shader(workgroup_size: number, tile: number): string {
+    if (tile <= 0 || !Number.isInteger(tile)) {
+      throw new Error(`gen_transpose_scatter_tiled_shader: tile (${tile}) must be a positive integer`);
+    }
+    return mustache.render(transpose_scatter_tiled_shader, {
       workgroup_size,
       tile,
       recompile: this.recompile,

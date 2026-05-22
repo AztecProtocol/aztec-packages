@@ -498,6 +498,7 @@ export class MsmV2 {
   private finalizePipeL0!: GPUComputePipeline;
   private decomposePipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
+  private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
   private xposeScatterPipe!: GPUComputePipeline;
   private convActivePipe!: GPUComputePipeline;
@@ -514,6 +515,7 @@ export class MsmV2 {
   private finalizeLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
+  private xposeReduceLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
   private xposeScatterLayout!: GPUBindGroupLayout;
   private convActiveLayout!: GPUBindGroupLayout;
@@ -528,6 +530,7 @@ export class MsmV2 {
   private batchWindows = 0;
   private levels = 0;
   private nXposePts = 0;
+  private xposeNumChunks = 1;
   private nConvMeta = 0;
   private nReduceInit = 0;
   private numWgsFinalize = 0;
@@ -542,6 +545,7 @@ export class MsmV2 {
   private passCount = 0;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
+  private xposeReduceBind!: GPUBindGroup;
   private xposeScanBind!: GPUBindGroup;
   private xposeScatterBind!: GPUBindGroup;
   private convActiveBind!: GPUBindGroup;
@@ -660,8 +664,9 @@ export class MsmV2 {
     ]);
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
+    m.xposeReduceLayout = lt(['storage', 'storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform']);
-    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
@@ -690,19 +695,24 @@ export class MsmV2 {
       device, sm.gen_ba_finalize_copy_bench_shader(WGI, true), `finalize-l0`, m.finalizeLayoutL0,
     );
     m.decomposePipe = await compileOne(device, sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
-    // Privatized-histogram count: one workgroup per window, shared-memory
-    // tally — no contended global atomics. tile is the shared histogram
-    // capacity (<= 8192 entries = 32KB, the requested workgroup-memory cap).
+    // Tiled counting-sort transpose: count + scatter dispatch across point-
+    // chunks (not just windows) so the GPU stays saturated; reduce folds the
+    // per-chunk partials; scan is the unchanged per-window prefix sum. Only
+    // on-chip shared atomics — no contended global atomics. tile is the
+    // shared histogram/cursor capacity (<= 8192 entries = 32KB).
     m.xposeCountPipe = await compileOne(
       device,
-      sm.gen_transpose_count_priv_shader(256, Math.min(m.BW, 8192)),
+      sm.gen_transpose_count_tiled_shader(256, Math.min(m.BW, 8192)),
       `xpose-count`,
       m.xposeCountLayout,
+    );
+    m.xposeReducePipe = await compileOne(
+      device, sm.gen_transpose_reduce_tiled_shader(256), `xpose-reduce`, m.xposeReduceLayout,
     );
     m.xposeScanPipe = await compileOne(device, sm.gen_transpose_scan_shader(m.numWindows), `xpose-scan`, m.xposeScanLayout);
     m.xposeScatterPipe = await compileOne(
       device,
-      sm.gen_transpose_scatter_priv_shader(256, Math.min(m.BW, 8192)),
+      sm.gen_transpose_scatter_tiled_shader(256, Math.min(m.BW, 8192)),
       `xpose-scatter`,
       m.xposeScatterLayout,
     );
@@ -930,7 +940,21 @@ export class MsmV2 {
     const rowPtrBuf = sbuf(batchWindows * (BW + 1) * 4);
     const valIdxBuf = sbuf(batchSlots * 4);
     const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
-    const xposeParams = ubuf(new Uint32Array([Math.ceil(n / BW), BW, n, 0]));
+    // Tiled-transpose geometry: split each window's n points into numChunks
+    // chunks so the count/scatter dispatch saturates the GPU. numChunks is
+    // capped at floor(n/BW), so the partials matrix (numChunks*BW per window)
+    // is <= batchSlots and fits the borrowed l0IdxBuf buffer.
+    const xposeNumChunks = Math.max(1, Math.floor(n / BW));
+    const xposeChunk = Math.ceil(n / xposeNumChunks);
+    const partialStride = xposeNumChunks * BW;
+    if (l0Slots < batchWindows * partialStride) {
+      throw new Error(
+        `tiled transpose: l0IdxBuf (${l0Slots}) too small for the ` +
+          `partials matrix (${batchWindows * partialStride})`,
+      );
+    }
+    this.xposeNumChunks = xposeNumChunks;
+    const xposeParams = ubuf(new Uint32Array([xposeNumChunks, BW, n, xposeChunk]));
     const convActiveParams = ubuf(new Uint32Array([batchSlots, M1, WSTRIDE, n]));
     const convMetaParams = ubuf(new Uint32Array([BW, batchBuckets, n, 0]));
     const batchWindowBaseBufs: GPUBuffer[] = [];
@@ -940,9 +964,15 @@ export class MsmV2 {
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
       mkBind(this.decomposeLayout, [scalarsRawBuf, chunksBuf, signsBuf, decomposeParams, bwb]));
-    this.xposeCountBind = mkBind(this.xposeCountLayout, [chunksBuf, rowPtrBuf, xposeParams]);
+    // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
+    // [0, batchSlots) region is dormant until convActive (which runs strictly
+    // after the transpose, per batch) overwrites it; the level-0 seed trio
+    // sits above batchSlots and is never touched by the partials region.
+    const partialsBuf = l0IdxBuf;
+    this.xposeCountBind = mkBind(this.xposeCountLayout, [chunksBuf, partialsBuf, xposeParams]);
+    this.xposeReduceBind = mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams]);
     this.xposeScanBind = mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams]);
-    this.xposeScatterBind = mkBind(this.xposeScatterLayout, [chunksBuf, rowPtrBuf, valIdxBuf, xposeParams]);
+    this.xposeScatterBind = mkBind(this.xposeScatterLayout, [chunksBuf, rowPtrBuf, partialsBuf, valIdxBuf, xposeParams]);
     this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, signsBuf]);
     this.convMetaBind = mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams]);
     this.rowPtrBuf = rowPtrBuf;    this.nXposePts = Math.ceil(n / WGI);
@@ -1082,7 +1112,7 @@ export class MsmV2 {
     if (this.profile) {
       let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
-        passes += 6; // decompose + xpose x3 + conv x2
+        passes += 7; // decompose + xpose x4 + conv x2
         for (let lv = 0; lv < levels; lv++) passes += 3 + this.levelBinds[lv].fusedTiles.length;
       }
       // reduceInit + one dispatch per reduction level.
@@ -1141,11 +1171,13 @@ export class MsmV2 {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw, 'decompose');
-      enc.clearBuffer(this.rowPtrBuf);      // Privatized count: one workgroup per window (tbw windows this batch).
-      dispatch(this.xposeCountPipe, this.xposeCountBind, tbw, 1, 'transpose');
+      enc.clearBuffer(this.rowPtrBuf);
+      // Tiled counting sort: count + scatter parallelize across point-chunks;
+      // reduce folds the per-chunk partials; scan is the per-window prefix sum.
+      dispatch(this.xposeCountPipe, this.xposeCountBind, this.xposeNumChunks, tbw, 'transpose');
+      dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw, 'transpose');
       dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, 'transpose');
-      // Privatized scatter: one workgroup per window.
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, tbw, 1, 'transpose');
+      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.xposeNumChunks, tbw, 'transpose');
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, 'convert');
       dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1, 'convert');
       for (let lv = 0; lv < this.levels; lv++) {
