@@ -414,7 +414,6 @@ export class MsmV2 {
   private nReduceInit = 0;
   private numWgsFinalize = 0;
   private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
-  private currBuf!: GPUBuffer; // cleared each batch by run()
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
@@ -558,7 +557,7 @@ export class MsmV2 {
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform']);
-    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
@@ -599,7 +598,10 @@ export class MsmV2 {
     );
     m.xposeScanPipe = await compileOne(device, sm.gen_transpose_scan_shader(m.numWindows), `xpose-scan`, m.xposeScanLayout);
     m.xposeScatterPipe = await compileOne(
-      device, sm.gen_transpose_scatter_shader(WGI), `xpose-scatter`, m.xposeScatterLayout,
+      device,
+      sm.gen_transpose_scatter_priv_shader(256, Math.min(m.BW, 8192)),
+      `xpose-scatter`,
+      m.xposeScatterLayout,
     );
     m.convActivePipe = await compileOne(
       device, sm.gen_csr_to_v2_active_sums_shader(WGI, true, true), `csr2v2-active`, m.convActiveLayout,
@@ -806,9 +808,7 @@ export class MsmV2 {
     const chunksBuf = sbuf(batchSlots * 4);
     const signsBuf = sbuf(batchSlots * 4);
     const rowPtrBuf = sbuf(batchWindows * (BW + 1) * 4);
-    const valIdxBuf = sbuf(batchSlots * 4);
-    const currBuf = sbuf(batchBuckets * 4);
-    const demontParams = ubuf(new Uint32Array([n, 0, 0, 0]));
+    const valIdxBuf = sbuf(batchSlots * 4);    const demontParams = ubuf(new Uint32Array([n, 0, 0, 0]));
     const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
     const xposeParams = ubuf(new Uint32Array([Math.ceil(n / BW), BW, n, 0]));
     const convActiveParams = ubuf(new Uint32Array([batchSlots, M1, WSTRIDE, n]));
@@ -823,12 +823,10 @@ export class MsmV2 {
       mkBind(this.decomposeLayout, [scalarsRawBuf, chunksBuf, signsBuf, decomposeParams, bwb]));
     this.xposeCountBind = mkBind(this.xposeCountLayout, [chunksBuf, rowPtrBuf, xposeParams]);
     this.xposeScanBind = mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams]);
-    this.xposeScatterBind = mkBind(this.xposeScatterLayout, [chunksBuf, rowPtrBuf, valIdxBuf, currBuf, xposeParams]);
+    this.xposeScatterBind = mkBind(this.xposeScatterLayout, [chunksBuf, rowPtrBuf, valIdxBuf, xposeParams]);
     this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, signsBuf]);
     this.convMetaBind = mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams]);
-    this.rowPtrBuf = rowPtrBuf;
-    this.currBuf = currBuf;
-    this.nXposePts = Math.ceil(n / WGI);
+    this.rowPtrBuf = rowPtrBuf;    this.nXposePts = Math.ceil(n / WGI);
     this.nConvMeta = Math.ceil(batchBuckets / WGI);
 
     // --- Reduction ---
@@ -1037,12 +1035,11 @@ export class MsmV2 {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw, 'decompose');
-      enc.clearBuffer(this.rowPtrBuf);
-      enc.clearBuffer(this.currBuf);
-      // Privatized count: one workgroup per window (tbw windows this batch).
+      enc.clearBuffer(this.rowPtrBuf);      // Privatized count: one workgroup per window (tbw windows this batch).
       dispatch(this.xposeCountPipe, this.xposeCountBind, tbw, 1, 'transpose');
       dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, 'transpose');
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.nXposePts, tbw, 'transpose');
+      // Privatized scatter: one workgroup per window.
+      dispatch(this.xposeScatterPipe, this.xposeScatterBind, tbw, 1, 'transpose');
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, 'convert');
       dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1, 'convert');
       for (let lv = 0; lv < this.levels; lv++) {

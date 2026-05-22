@@ -82,6 +82,7 @@ import {
   transpose_parallel_count_priv as transpose_parallel_count_priv_shader,
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_parallel_scatter as transpose_parallel_scatter_shader,
+  transpose_parallel_scatter_priv as transpose_parallel_scatter_priv_shader,
   transpose_serial as transpose_serial_shader,
 } from '../wgsl/_generated/shaders.js';
 import {
@@ -534,6 +535,24 @@ ${packLines.join('\n')}
   public gen_transpose_scatter_shader(workgroup_size: number): string {
     return mustache.render(transpose_parallel_scatter_shader, {
       workgroup_size,
+      recompile: this.recompile,
+    });
+  }
+
+  /**
+   * Privatized transpose scatter: one workgroup per subtask, per-column
+   * write cursors in workgroup-shared memory (shared atomics only, no
+   * contended global atomics). `tile` is the shared cursor capacity in
+   * entries — below n_cols the kernel covers the columns in
+   * ceil(n_cols / tile) tiles.
+   */
+  public gen_transpose_scatter_priv_shader(workgroup_size: number, tile: number): string {
+    if (tile <= 0 || !Number.isInteger(tile)) {
+      throw new Error(`gen_transpose_scatter_priv_shader: tile (${tile}) must be a positive integer`);
+    }
+    return mustache.render(transpose_parallel_scatter_priv_shader, {
+      workgroup_size,
+      tile,
       recompile: this.recompile,
     });
   }
