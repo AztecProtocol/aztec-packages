@@ -1,4 +1,3 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
 
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
@@ -270,7 +269,7 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getBlockHeader',
       inputs,
-      handler: ([blockNumber]) => this.handlerAsUtility().getBlockHeader(BlockNumber(blockNumber)),
+      handler: ([blockNumber]) => this.handlerAsUtility().getBlockHeader(blockNumber),
     });
   }
 

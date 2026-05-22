@@ -12,6 +12,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
@@ -49,6 +50,11 @@ const BOOL: TypeMapping<boolean> = {
 const U32: TypeMapping<number> = {
   serialization: { fn: v => [new Fr(v)] },
   deserialization: { fn: ([reader]) => reader.readField().toNumber() },
+};
+
+const BLOCK_NUMBER: TypeMapping<BlockNumber> = {
+  serialization: { fn: v => [new Fr(v)] },
+  deserialization: { fn: ([reader]) => BlockNumber(reader.readField().toNumber()) },
 };
 
 /** A u8 byte: serializes to a single Fr; deserializes from a single Fr to a number in [0, 255]. */
@@ -304,7 +310,7 @@ const ORACLE_REGISTRY = {
   }),
 
   aztec_utl_getBlockHeader: makeEntry({
-    params: [{ name: 'blockNumber', type: U32 }],
+    params: [{ name: 'blockNumber', type: BLOCK_NUMBER }],
     returnType: BLOCK_HEADER,
   }),
 
