@@ -208,9 +208,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.aztecNode.getNoteHashMembershipWitness(blockHash, noteHash),
     );
     if (!witness) {
-      throw new Error(
-        `Note hash ${noteHash} not found in the note hash tree at anchor block hash ${blockHash.toString()}.`,
-      );
+      throw new Error(`Note hash ${noteHash} not found in the note hash tree at block ${blockHash.toString()}.`);
     }
     return witness;
   }
@@ -249,7 +247,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.aztecNode.getNullifierMembershipWitness(blockHash, nullifier),
     );
     if (!witness) {
-      throw new Error(`Nullifier witness not found for nullifier ${nullifier} at block hash ${blockHash.toString()}.`);
+      throw new Error(`Nullifier membership witness not found at block ${blockHash.toString()}.`);
     }
     return witness;
   }
