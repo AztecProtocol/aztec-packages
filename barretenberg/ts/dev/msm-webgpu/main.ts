@@ -1409,6 +1409,102 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
+  if (autorun === 'msm-gpu-bench') {
+    // ?autorun=msm-gpu-bench&logn=N[&reps=R][&c=C][&reducewg=W]
+    // Profiles the GPU dispatch using MsmV2's `profile: true`. We re-create
+    // MsmV2 with profiling enabled (the page's default warmupRuns=5 still
+    // applies), do an extra warm prepare()+run() inside the timed window,
+    // then time `reps` runs, posting per-phase mean ms.
+    const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
+    const reps = parseInt(qp.get('reps') ?? '20', 10);
+    const client = makeResultsClient({ page: 'msm-autorun-bench' });
+    log('info', `[autorun] msm-gpu-bench logN=${autorunLogN} reps=${reps}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS not loaded within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const inputs = await generateInputs(autorunLogN, /* mirrorForNoble */ false);
+      // Force a fresh MsmV2 with profiling on. Reuses the SRS pool from
+      // ensureWebGpuWarmed if available; otherwise creates a new device.
+      if (gpuDevice === null) {
+        gpuDevice = await get_device();
+      }
+      if (msmV2 !== null) {
+        msmV2.destroy();
+        msmV2 = null;
+      }
+      if (msmV2Pool === null) {
+        msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+      }
+      const benchKnobs: MsmConfig = { ...gpuKnobs, profile: true };
+      msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, benchKnobs);
+      msmV2LogN = Math.log2(inputs.n);
+      msmV2.prepare(inputs.scalarsBuf);
+      // First post-prepare run pays driver buffer first-touch; warm it out.
+      await msmV2.run();
+      const samples: number[] = [];
+      const phaseAcc: Record<string, number[]> = {};
+      let gpuX = 0n, gpuY = 0n;
+      for (let r = 0; r < reps; r++) {
+        const t0 = performance.now();
+        const out = await msmV2.run();
+        const wall = performance.now() - t0;
+        samples.push(wall);
+        if (r === 0) { gpuX = out.x; gpuY = out.y; }
+        if (out.profile) {
+          for (const [k, v] of Object.entries(out.profile)) {
+            if (typeof v !== 'number') continue;
+            (phaseAcc[k] ??= []).push(v);
+          }
+        }
+      }
+      const mean = (arr: number[]): number => arr.reduce((a, b) => a + b, 0) / Math.max(1, arr.length);
+      const min = (arr: number[]): number => arr.reduce((a, b) => Math.min(a, b), Infinity);
+      const phaseMean: Record<string, number> = {};
+      const phaseMin: Record<string, number> = {};
+      for (const [k, v] of Object.entries(phaseAcc)) {
+        phaseMean[k] = mean(v);
+        phaseMin[k] = min(v);
+      }
+      log('ok', `[autorun-bench] wall_mean=${mean(samples).toFixed(2)}ms wall_min=${min(samples).toFixed(2)}ms`);
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, c: msmV2['c'] ?? null, page: 'msm-autorun-bench' },
+        results: {
+          wall_mean_ms: mean(samples),
+          wall_min_ms: min(samples),
+          wall_samples_ms: samples,
+          phase_mean_ms: phaseMean,
+          phase_min_ms: phaseMin,
+          gpu_x: '0x' + gpuX.toString(16),
+          gpu_y: '0x' + gpuY.toString(16),
+          c: (msmV2 as unknown as { c: number }).c,
+        },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun-bench] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-autorun-bench' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+    return;
+  }
   if (autorun === 'msm-gpu-noble') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
     const client = makeResultsClient({ page: 'msm-autorun-noble' });

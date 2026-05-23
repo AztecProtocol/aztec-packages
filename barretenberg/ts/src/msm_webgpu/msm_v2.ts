@@ -355,11 +355,14 @@ function pickS(n: number): number {
   return logN <= 11 ? 2 : logN <= 13 ? 4 : 8;
 }
 
-// Bucket-reduction workgroup size per c. Tracks the reduction stride: small c
-// stays near the GPU subgroup width (32); large c needs the full 128 to cover
-// its wide phases. bench-msm-v2 (c=8 -> 32, c=10 -> 64, c=13 -> 128).
-function pickReduceWg(c: number): number {
-  return c <= 9 ? 32 : c <= 12 ? 64 : 128;
+// Bucket-reduction workgroup size. Flat 128 — the JBR dispatch is
+// "one thread per merge across all windows × buckets", so workgroup size
+// is decoupled from c. 128 = 4 SIMD groups on Apple/Adreno, lets one
+// workgroup occupy a core fully even when the round has few merges; the
+// remaining cores still pick up the next workgroup. Smaller WG (32-64)
+// leaves cores idle on late rounds where the dispatch has only ~32 threads.
+function pickReduceWg(_c: number): number {
+  return 128;
 }
 
 // Per-level GPU dispatch wiring for one prepared scalar set.
