@@ -9,6 +9,9 @@
 #include <vector>
 
 #if !defined(__wasm__) && !defined(_WIN32)
+#include "barretenberg/bbapi/bbapi_handlers.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
 #endif
@@ -113,82 +116,20 @@ int execute_msgpack_ipc_server(std::unique_ptr<ipc::IpcServer> server)
 
     std::cerr << "IPC server ready" << '\n';
 
-    // Run server with msgpack handler
-    server->run([](int client_id, std::span<const uint8_t> request) -> std::vector<uint8_t> {
-        try {
-            // Deserialize msgpack command
-            // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
-            // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
-            auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(request.data()), request.size());
-            auto obj = unpacked.get();
-
-            // First, expect an array (the tuple of arguments)
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-                std::cerr << "Error: Expected an array of size 1 (tuple of arguments) from client " << client_id
-                          << '\n';
-                return {}; // Return empty to skip response
-            }
-
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& tuple_arr = obj.via.array;
-            auto& command_obj = tuple_arr.ptr[0];
-
-            // Now access the Command itself, which should be an array of size 2 [command-name, payload]
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
-                std::cerr << "Error: Expected Command to be an array of size 2 [command-name, payload] from client "
-                          << client_id << '\n';
-                return {};
-            }
-
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            auto& command_arr = command_obj.via.array;
-            if (command_arr.ptr[0].type != msgpack::type::STR) {
-                std::cerr << "Error: Expected first element of Command to be a string (type name) from client "
-                          << client_id << '\n';
-                return {};
-            }
-
-            // Check if this is a Shutdown command
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-            std::string command_name(command_arr.ptr[0].via.str.ptr, command_arr.ptr[0].via.str.size);
-            bool is_shutdown = (command_name == "Shutdown");
-
-            // Convert to Command and execute
-            bb::bbapi::Command command;
-            command_obj.convert(command);
-            auto response = bbapi::bbapi(std::move(command));
-
-            // Serialize response
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            std::vector<uint8_t> result(response_buffer.data(), response_buffer.data() + response_buffer.size());
-
-            // If this was a shutdown command, throw exception with response
-            // This signals the server to send the response and then exit gracefully
-            if (is_shutdown) {
-                throw ipc::ShutdownRequested(std::move(result));
-            }
-
-            return result;
-        } catch (const ipc::ShutdownRequested&) {
-            // Re-throw shutdown request
-            throw;
-        } catch (const std::exception& e) {
-            // Log error to stderr for debugging (goes to log file if logger enabled)
-            std::cerr << "Error processing request from client " << client_id << ": " << e.what() << '\n';
-            std::cerr.flush();
-
-            // Create error response with exception message
-            bb::bbapi::ErrorResponse error_response{ .message = std::string(e.what()) };
-            bb::bbapi::CommandResponse response = error_response;
-
-            // Serialize and return error response to client
-            msgpack::sbuffer response_buffer;
-            msgpack::pack(response_buffer, response);
-            return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-        }
+    // The codegen-emitted make_bb_handler<BBApiRequest> instantiates a
+    // dispatch table keyed by command name; each entry deserialises the
+    // wire-typed payload and calls our handle_<method>(BBApiRequest&, wire::X&&)
+    // overload (see bbapi_handlers.hpp). It throws ipc::ShutdownRequested on
+    // the Shutdown command; the runtime's run() catches that and exits cleanly.
+    //
+    // BBApiRequest lives for the lifetime of this server so IVC state
+    // (loaded_circuit_constraints, ivc_in_progress, etc.) is preserved
+    // across the call sequence (ChonkStart → ChonkLoad → ChonkAccumulate
+    // → ChonkProve), matching the bbapi() global_request semantics.
+    bb::bbapi::BBApiRequest request;
+    auto handler = bb::bbapi::make_bb_handler(request);
+    server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw) {
+        return handler(std::vector<uint8_t>(raw.begin(), raw.end()));
     });
 
     server->close();
