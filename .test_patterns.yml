@@ -380,6 +380,16 @@ tests:
     owners:
       - *palla
 
+  # http://ci.aztec-labs.com/bc2c84ccc30fe46d
+  # Under pipelining the HA full suite occasionally hangs in afterAll teardown
+  # and Jest aborts the suite with "Exceeded timeout of 1200000 ms for a hook";
+  # surfaces as a "Test suite failed to run" with no per-test assertion line, so
+  # the existing per-assertion entries above do not match.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
+    error_regex: "Exceeded timeout of [0-9]+ ms for a hook"
+    owners:
+      - *palla
+
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
   - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
