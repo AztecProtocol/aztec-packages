@@ -19,7 +19,6 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
 import { GasSettings } from '@aztec/stdlib/gas';
 
 import { MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
@@ -784,24 +783,6 @@ export class RPCTranslator {
   ) {
     const anchorBlockHash = blockHashFromSingle(foreignAnchorBlockHash);
     const blockHash = blockHashFromSingle(foreignBlockHash);
-
-    const witnessOpt = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
-    if (!witnessOpt.isSome()) {
-      throw new Error(
-        `Block hash ${blockHash.toString()} not found in the archive tree at anchor block ${anchorBlockHash.toString()}.`,
-      );
-    }
-    return toForeignCallResult(witnessOpt.value.toNoirRepresentation());
-  }
-
-  // TODO(https://linear.app/aztec-labs/issue/F-651): rename to aztec_utl_getBlockHashMembershipWitness
-  // eslint-disable-next-line camelcase
-  async aztec_utl_getBlockHashMembershipWitnessV2(
-    foreignAnchorBlockHash: ForeignCallSingle,
-    foreignBlockHash: ForeignCallSingle,
-  ) {
-    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
 
     const witnessOpt = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
     const effective = witnessOpt.value ?? MembershipWitness.empty(ARCHIVE_HEIGHT);
