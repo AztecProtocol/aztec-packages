@@ -78,6 +78,16 @@ export interface MsmConfig {
    * the C++ hook does the combine in native `bb::g1`.
    */
   combineOnHost?: boolean;
+  /** Which reduction algorithm to use after bucket accumulation:
+   *  - 'jbr-sw' (default): the per-window (S, W) tree.
+   *  - 'bdr': bit-decomposition — c-1 pure-sum trees per window plus a
+   *    per-window Horner combine. Higher per-round thread count (NW × (c-1)
+   *    instead of NW × tree-width), simpler per-merge state (single jac_add,
+   *    no positional W, no doublings inside the merge). Wins on Adreno
+   *    where the (S, W) merge runs at the register-allocator floor; comparable
+   *    elsewhere.
+   */
+  reduction?: 'jbr-sw' | 'bdr';
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -516,6 +526,7 @@ export class MsmV2 {
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
+  private reduction: 'jbr-sw' | 'bdr' = 'jbr-sw';
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -545,6 +556,10 @@ export class MsmV2 {
   private convMetaPipe!: GPUComputePipeline;
   private jbrAaPipe!: GPUComputePipeline; // round 0: AA -> J (S, W) leaf merge
   private jbrJjPipe!: GPUComputePipeline; // rounds 1..(c-2): JJ -> J merge
+  // Bit-decomposition reduction pipelines (selected when reduction === 'bdr').
+  private bdrAaPipe: GPUComputePipeline | null = null;
+  private bdrJjPipe: GPUComputePipeline | null = null;
+  private bdrHornerPipe: GPUComputePipeline | null = null;
   // Workgroup-cooperative reduction: when c <= 8 the per-window (S, W) tree
   // fits inside one workgroup's threadgroup memory (N/2 ≤ 64 nodes ≤ 12.5 KiB
   // TG), so we collapse the whole AA→J + (c−2) × JJ→J pipeline into one
@@ -571,6 +586,9 @@ export class MsmV2 {
   private jbrAaLayout!: GPUBindGroupLayout;
   private jbrJjLayout!: GPUBindGroupLayout;
   private jbrWindowCoopLayout: GPUBindGroupLayout | null = null;
+  private bdrAaLayout: GPUBindGroupLayout | null = null;
+  private bdrJjLayout: GPUBindGroupLayout | null = null;
+  private bdrHornerLayout: GPUBindGroupLayout | null = null;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every buffer prepare() allocated
@@ -624,6 +642,13 @@ export class MsmV2 {
   private jbrJjBinds: GPUBindGroup[] = [];
   private jbrDispatchOutCount: number[] = [];
   private jbrWindowCoopBind: GPUBindGroup | null = null;
+  // BDR pipeline state.
+  private bdrAaBind: GPUBindGroup | null = null;
+  private bdrJjBinds: GPUBindGroup[] = [];
+  private bdrHornerBind: GPUBindGroup | null = null;
+  private bdrBufs: GPUBuffer[] = [];
+  private bdrPresenceBufs: GPUBuffer[] = [];
+  private bdrDispatchOutCount: number[] = [];
   private levelBinds: LevelBind[] = [];
 
   private constructor() {}
@@ -647,6 +672,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
+    m.reduction = config?.reduction ?? 'jbr-sw';
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -733,6 +759,17 @@ export class MsmV2 {
     if (coopFits) {
       m.jbrWindowCoopLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     }
+    if (m.reduction === 'bdr') {
+      // AA: bucket_result, out_buf, meta_out, params, params2
+      m.bdrAaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
+      // JJ: in_buf, out_buf, meta_in, meta_out, params
+      m.bdrJjLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
+      // Horner: g_buf, g_meta, bucket_result, out_buf, out_meta, params, params2
+      m.bdrHornerLayout = lt([
+        'read-only-storage', 'read-only-storage', 'read-only-storage',
+        'storage', 'storage', 'uniform', 'uniform',
+      ]);
+    }
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI). The
     // planner's PAIR_CAP loop is `break`-bounded, so a generous data-
@@ -798,6 +835,13 @@ export class MsmV2 {
       m.jbrWindowCoopPipe = await compileOne(
         device, sm.gen_jbr_window_coop_shader(coopWg), `jbr-window-coop`, m.jbrWindowCoopLayout,
       );
+    }
+    if (m.reduction === 'bdr' && m.bdrAaLayout && m.bdrJjLayout && m.bdrHornerLayout) {
+      m.bdrAaPipe = await compileOne(device, sm.gen_bdr_aa_to_jj_shader(REDUCE_WG), `bdr-aa`, m.bdrAaLayout);
+      m.bdrJjPipe = await compileOne(device, sm.gen_bdr_jj_to_jj_shader(REDUCE_WG), `bdr-jj`, m.bdrJjLayout);
+      // Horner has NW threads — use WG of 32 (or pickReduceWg) so a single
+      // dispatch fits cleanly. NW is up to ~32 for c=8 / 20 for c=13.
+      m.bdrHornerPipe = await compileOne(device, sm.gen_bdr_horner_shader(32), `bdr-horner`, m.bdrHornerLayout);
     }
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
@@ -1063,8 +1107,8 @@ export class MsmV2 {
     // Z = 0 (all-empty) windows.
     const STRIDE = this.stride;
     const jbrStage0 = NUM_WINDOWS * (STRIDE >> 1); // round 0 output node count
-    const allocJacBuf = (planeStride: number): GPUBuffer => {
-      const bytes = 6 * planeStride * PG * 4 * 4; // 6 planes × stride × 2 vec4 × 16 B
+    const allocJacBuf = (planeStride: number, planes: number = 6): GPUBuffer => {
+      const bytes = planes * planeStride * PG * 4 * 4; // planes × stride × 2 vec4 × 16 B
       const b = device.createBuffer({
         size: Math.max(bytes, 16),
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
@@ -1151,6 +1195,69 @@ export class MsmV2 {
     });
     this.prepBuffers.push(this.redStaging);
     this.jbrPresenceStaging = this.redStaging;
+
+    // --- BDR (bit-decomposition reduction) buffers + bind groups ---
+    // Allocated only when reduction === 'bdr'. The BDR pipeline writes its
+    // per-window L_w into the existing jbrFinalBuf W planes + jbrPresenceFinal
+    // so the run() gather path is identical regardless of which reduction ran.
+    if (this.reduction === 'bdr' && this.bdrAaPipe && this.bdrJjPipe && this.bdrHornerPipe
+        && this.bdrAaLayout && this.bdrJjLayout && this.bdrHornerLayout) {
+      const c = this.c;
+      const N = this.stride; // = 2^(c-1)
+      const trees_per_window = c - 1;
+      const pairs_per_tree = N >> 2; // = N/4 round-0 outputs per tree
+      const round0_total = NUM_WINDOWS * trees_per_window * pairs_per_tree;
+      // Ping-pong sized for round 0 and round 1 outputs.
+      const planeA = round0_total;
+      const planeB = Math.max(1, round0_total >> 1);
+      this.bdrBufs = [allocJacBuf(planeA, /* fieldsPerNode */ 3), allocJacBuf(planeB, 3)];
+      this.bdrPresenceBufs = [allocPresenceBuf(planeA), allocPresenceBuf(planeB)];
+
+      const bw = BW;
+      const aaParams1 = ubuf(new Uint32Array([round0_total, pairs_per_tree, trees_per_window, bw]));
+      const aaParams2 = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
+      this.bdrAaBind = mkBind(this.bdrAaLayout, [
+        bucketResult, this.bdrBufs[0], this.bdrPresenceBufs[0], aaParams1, aaParams2,
+      ]);
+
+      // Subsequent JJ rounds: log2(pairs_per_tree) = c - 3 of them (for c=8 → 5).
+      // Round r outputs pairs_per_tree / 2^r tree nodes; total m_out = NW * (c-1) * nodes_out.
+      this.bdrJjBinds = [];
+      this.bdrDispatchOutCount = [round0_total];
+      let prevBuf = this.bdrBufs[0];
+      let prevPres = this.bdrPresenceBufs[0];
+      let prevStride = planeA;
+      let prevNodesPerTree = pairs_per_tree;
+      const numJjRounds = Math.log2(pairs_per_tree);
+      for (let r = 0; r < numJjRounds; r++) {
+        const isLast = r === numJjRounds - 1;
+        const nodesOut = prevNodesPerTree >> 1;
+        const outCount = NUM_WINDOWS * trees_per_window * nodesOut;
+        const outBuf = isLast ? this.bdrBufs[(r & 1) ^ 1] : this.bdrBufs[(r & 1) ^ 1];
+        const outPres = isLast ? this.bdrPresenceBufs[(r & 1) ^ 1] : this.bdrPresenceBufs[(r & 1) ^ 1];
+        const outStride = isLast ? planeB : ((r & 1) ^ 1) === 0 ? planeA : planeB;
+        const params = ubuf(new Uint32Array([outCount, prevStride, outStride, nodesOut]));
+        this.bdrJjBinds.push(mkBind(this.bdrJjLayout, [prevBuf, outBuf, prevPres, outPres, params]));
+        this.bdrDispatchOutCount.push(outCount);
+        prevBuf = outBuf;
+        prevPres = outPres;
+        prevStride = outStride;
+        prevNodesPerTree = nodesOut;
+      }
+      // After the last JJ round, the G[w,j] values for j=0..c-2 sit in prevBuf
+      // with one element per (w, j) (prevNodesPerTree = 1) and plane stride
+      // = NUM_WINDOWS * (c-1).
+      const g_plane_stride = NUM_WINDOWS * trees_per_window;
+      const out_plane_stride = NUM_WINDOWS;
+      const out_w_plane_base = 3 * out_plane_stride;
+      const hornerParams1 = ubuf(new Uint32Array([NUM_WINDOWS, trees_per_window, bw, out_w_plane_base]));
+      const hornerParams2 = ubuf(new Uint32Array([B_TOTAL, N, g_plane_stride, out_plane_stride]));
+      this.bdrHornerBind = mkBind(this.bdrHornerLayout, [
+        prevBuf, prevPres, bucketResult,
+        this.jbrFinalBuf, this.jbrPresenceFinal,
+        hornerParams1, hornerParams2,
+      ]);
+    }
 
     // --- Per-level bind groups ---
     const finalizeParamsBufs: GPUBuffer[] = [];
@@ -1274,9 +1381,17 @@ export class MsmV2 {
         passes += 7; // decompose + xpose x4 + conv x2
         for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
       }
-      // Jacobian tree reduction: WG-coop path is a single dispatch; otherwise
-      // 1 AA -> J + jbrRounds JJ -> J dispatches.
-      passes += this.jbrWindowCoopPipe ? 1 : (1 + this.jbrRounds);
+      // Reduction dispatch count depends on path:
+      // - BDR: 1 AA + (numJjRounds) JJ + 1 Horner.
+      // - WG-coop: 1.
+      // - JBR multi-dispatch: 1 AA + jbrRounds JJ.
+      if (this.reduction === 'bdr' && this.bdrAaPipe) {
+        passes += 2 + this.bdrJjBinds.length;
+      } else if (this.jbrWindowCoopPipe) {
+        passes += 1;
+      } else {
+        passes += 1 + this.jbrRounds;
+      }
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -1357,7 +1472,19 @@ export class MsmV2 {
     // JJ→J level inside a single workgroup per window — saving the
     // per-round dispatch overhead. Otherwise the multi-dispatch fallback
     // runs round 0 (AA→J) then jbrRounds (JJ→J) separately.
-    if (this.jbrWindowCoopPipe && this.jbrWindowCoopBind) {
+    if (this.reduction === 'bdr' && this.bdrAaPipe && this.bdrJjPipe && this.bdrHornerPipe
+        && this.bdrAaBind && this.bdrHornerBind) {
+      // BDR: c-1 trees per window, simple sum, per-window Horner combine.
+      const nx0 = Math.ceil(this.bdrDispatchOutCount[0] / this.reduceWg);
+      dispatch(this.bdrAaPipe, this.bdrAaBind, nx0, 1, 'redInit');
+      for (let r = 0; r < this.bdrJjBinds.length; r++) {
+        const nx = Math.ceil(this.bdrDispatchOutCount[r + 1] / this.reduceWg);
+        dispatch(this.bdrJjPipe, this.bdrJjBinds[r], nx, 1, 'redLevel');
+      }
+      // Horner: NW threads, one per window. WG=32 in the shader so a single
+      // workgroup at NW <= 32, two at NW > 32 (e.g. c=8 -> NW=32 fits).
+      dispatch(this.bdrHornerPipe, this.bdrHornerBind, Math.ceil(this.numWindows / 32), 1, 'redLevel');
+    } else if (this.jbrWindowCoopPipe && this.jbrWindowCoopBind) {
       dispatch(this.jbrWindowCoopPipe, this.jbrWindowCoopBind, this.numWindows, 1, 'redInit');
     } else {
       {

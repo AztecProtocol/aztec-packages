@@ -11,6 +11,9 @@ import {
   ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
   ba_planner_v2_emit as ba_planner_v2_emit_shader,
   jbr_window_coop as jbr_window_coop_shader,
+  bdr_aa_to_jj as bdr_aa_to_jj_shader,
+  bdr_jj_to_jj as bdr_jj_to_jj_shader,
+  bdr_horner as bdr_horner_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -671,6 +674,93 @@ ${packLines.join('\n')}
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       jbr_aa_to_jj_shader,
+      {
+        workgroup_size,
+        addsub_unpack: false,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Bit-decomposition reduction round 0: AA -> Jacobian for c-1 trees per
+   * window. Pure sum (no W weighting), one mmadd per merge.
+   */
+  public gen_bdr_aa_to_jj_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_bdr_aa_to_jj_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      bdr_aa_to_jj_shader,
+      {
+        workgroup_size,
+        addsub_unpack: false,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Bit-decomposition reduction round r >= 1: pure jac_add merges of two
+   * adjacent siblings in one (window, bit) tree.
+   */
+  public gen_bdr_jj_to_jj_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_bdr_jj_to_jj_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      bdr_jj_to_jj_shader,
+      {
+        workgroup_size,
+        addsub_unpack: false,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Bit-decomposition Horner: per-window combine of c G values into L_w.
+   * One thread per window; c-1 doublings + c-1 adds inside the loop.
+   */
+  public gen_bdr_horner_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_bdr_horner_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      bdr_horner_shader,
       {
         workgroup_size,
         addsub_unpack: false,
