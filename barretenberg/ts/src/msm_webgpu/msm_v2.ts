@@ -1244,10 +1244,13 @@ export class MsmV2 {
         prevStride = outStride;
         prevNodesPerTree = nodesOut;
       }
-      // After the last JJ round, the G[w,j] values for j=0..c-2 sit in prevBuf
-      // with one element per (w, j) (prevNodesPerTree = 1) and plane stride
-      // = NUM_WINDOWS * (c-1).
-      const g_plane_stride = NUM_WINDOWS * trees_per_window;
+      // After the last JJ round, the G[w,j] values sit in prevBuf in
+      // positions [0, NUM_WINDOWS * (c-1)) of each plane — but the plane
+      // STRIDE matches the buffer prevBuf was allocated with (planeA or
+      // planeB, depending on which ping-pong slot the last round wrote to),
+      // NOT the live element count. The Horner needs the buffer stride so
+      // it indexes into the correct Y / Z plane bases.
+      const g_plane_stride = prevStride;
       const out_plane_stride = NUM_WINDOWS;
       const out_w_plane_base = 3 * out_plane_stride;
       const hornerParams1 = ubuf(new Uint32Array([NUM_WINDOWS, trees_per_window, bw, out_w_plane_base]));
