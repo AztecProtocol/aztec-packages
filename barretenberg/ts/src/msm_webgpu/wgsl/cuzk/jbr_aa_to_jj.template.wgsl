@@ -9,36 +9,37 @@
 
 {{> field8_funcs }}
 
-// Bucket-reduction round 0: Affine + Affine -> Jacobian (S, W) pair.
+// Bucket-reduction round 0: Affine + Affine -> Jacobian (S, W) pair, with
+// empty-bucket presence + single-bucket position tracking.
 //
-// One thread per output node. Reads two adjacent weighted affine buckets
-// from bucket_result, produces a Jacobian (S, W) pair where:
-//   S = P + Q                           (Σ of the two buckets)
-//   W = 1·P + 2·Q = S + Q               (Σ k·B[k] with positions 1, 2)
-// The pair seeds the round-1 input of the tree.
+// Each (S, W) tree node summarises a contiguous range of buckets:
+//   S = Σ B[k] over the range,
+//   W = Σ (pos · B[k]) with pos = 1..h relative to the range start.
+// Round 0 covers the two-bucket leaf (P = B[2p+1], Q = B[2p+2]).
 //
-// Inputs are SRS-derived randomly-independent generators; no (x1 == x2)
-// collision check (the algorithm pre-condition explicitly excludes that
-// path) — formulas are pure straight-line.
+// Inputs are SRS-derived randomly-independent generators; non-empty buckets
+// never coordinate-collide between distinct k's. Empty buckets store (0, 0)
+// in bucket_result, which is NOT a valid curve point — so we detect them
+// via the all-zero check and short-circuit into the lift / doubling path
+// that gives the same (S, W) algebra without feeding (0, 0) into the
+// jacobian formulas:
+//   case (P, Q) present:
+//     (1, 1) — full mmadd(P, Q) and madd(S, Q);   unitp = 0
+//     (1, 0) — S = lift(P) = (P.x, P.y, R);       W = lift(P); unitp = 1
+//     (0, 1) — S = lift(Q);                        W = jac_double(lift(Q)) = 2Q; unitp = 2
+//     (0, 0) — (inf, inf);  is_present_out = 0;   unitp = 0
 //
-// Layout: bucket_result is the SoA used by ba_finalize_copy: x-plane then
-// y-plane, PG = 2 vec4<u32> per field element. Per-window stride = BW.
-// Within a window, weighted buckets are at columns 1..N (N = 2^(c-1));
-// column 0 (the zero digit) is dropped.
-//
-// out_buf is the (S, W) Jacobian SoA tree node array. M_pairs nodes per
-// round; per-node layout = 6 planes [S.X, S.Y, S.Z, W.X, W.Y, W.Z], each
-// plane is PG vec4 wide and stride is M_pairs in field-element units
-// (i.e. PG*M_pairs in vec4 units).
-//
-// Pair index encoding: thread t = w * (N/2) + j. Reads bucket_result at
-//   P = (w*BW + 2j + 1) and Q = (w*BW + 2j + 2).
+// `meta` is one u32 per output node, packed as `is_present | (unitp << 1)`.
+// unitp != 0 flags the subtree as "exactly one bucket at relative position
+// unitp" — round-r merges need this to dodge the case (0, 1) doubling
+// trap when h == p_R (see jbr_jj_to_jj).
 
 const PG: u32 = 2u;
 
 @group(0) @binding(0) var<storage, read>       bucket_result: array<vec4<u32>>;
 @group(0) @binding(1) var<storage, read_write> out_buf:       array<vec4<u32>>;
-@group(0) @binding(2) var<uniform>             params:        vec4<u32>;
+@group(0) @binding(2) var<storage, read_write> meta_out:      array<u32>;
+@group(0) @binding(3) var<uniform>             params:        vec4<u32>;
 // params.x = M_pairs (= NW * N/2, output node count)
 // params.y = half_N  (= N/2, output nodes per window — pairs per window)
 // params.z = BW      (bucket_result element stride per window)
@@ -64,6 +65,42 @@ fn store_plane(plane_base: u32, node: u32, val: array<u32, 8>) {
     out_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
+// Jacobian doubling, a = 0 (EFD dbl-2009-l). Used for the "case 01" path
+// W = 2Q when only the right bucket is present.
+fn jac_double_local(
+    x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>,
+) -> array<array<u32, 8>, 3> {
+    let a: array<u32, 8> = montgomery_product_f8(x, x);
+    let b: array<u32, 8> = montgomery_product_f8(y, y);
+    let c: array<u32, 8> = montgomery_product_f8(b, b);
+    let xb: array<u32, 8> = fr_add_f8(x, b);
+    let xb2: array<u32, 8> = montgomery_product_f8(xb, xb);
+    let xb2a: array<u32, 8> = fr_sub_f8(xb2, a);
+    let dpre: array<u32, 8> = fr_sub_f8(xb2a, c);
+    let d: array<u32, 8> = fr_add_f8(dpre, dpre);
+    let twoa: array<u32, 8> = fr_add_f8(a, a);
+    let e: array<u32, 8> = fr_add_f8(twoa, a);
+    let f: array<u32, 8> = montgomery_product_f8(e, e);
+    let twod: array<u32, 8> = fr_add_f8(d, d);
+    let x3: array<u32, 8> = fr_sub_f8(f, twod);
+    let dx3: array<u32, 8> = fr_sub_f8(d, x3);
+    let edx3: array<u32, 8> = montgomery_product_f8(e, dx3);
+    let twoc: array<u32, 8> = fr_add_f8(c, c);
+    let fourc: array<u32, 8> = fr_add_f8(twoc, twoc);
+    let eightc: array<u32, 8> = fr_add_f8(fourc, fourc);
+    let y3: array<u32, 8> = fr_sub_f8(edx3, eightc);
+    let yz: array<u32, 8> = fr_add_f8(y, z);
+    let yz2: array<u32, 8> = montgomery_product_f8(yz, yz);
+    let yz2b: array<u32, 8> = fr_sub_f8(yz2, b);
+    let zz: array<u32, 8> = montgomery_product_f8(z, z);
+    let z3: array<u32, 8> = fr_sub_f8(yz2b, zz);
+    return array<array<u32, 8>, 3>(x3, y3, z3);
+}
+
+fn is_aff_zero(x: array<u32, 8>, y: array<u32, 8>) -> bool {
+    return is_zero_f8(x) && is_zero_f8(y);
+}
+
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -86,16 +123,61 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let qx: array<u32, 8> = load_aff_x(q_idx, b_total);
     let qy: array<u32, 8> = load_aff_y(q_idx, b_total);
 
+    let p_present: bool = !is_aff_zero(px, py);
+    let q_present: bool = !is_aff_zero(qx, qy);
+
+    let plane_sx = 0u * m_pairs;
+    let plane_sy = 1u * m_pairs;
+    let plane_sz = 2u * m_pairs;
+    let plane_wx = 3u * m_pairs;
+    let plane_wy = 4u * m_pairs;
+    let plane_wz = 5u * m_pairs;
+
+    if (!p_present && !q_present) {
+        // Both empty — output Jacobian inf (Z = 0). meta = 0.
+        var zero: array<u32, 8> = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        store_plane(plane_sx, t, zero);
+        store_plane(plane_sy, t, zero);
+        store_plane(plane_sz, t, zero);
+        store_plane(plane_wx, t, zero);
+        store_plane(plane_wy, t, zero);
+        store_plane(plane_wz, t, zero);
+        meta_out[t] = 0u;
+        {{{ recompile }}}
+        return;
+    }
+
+    if (p_present && !q_present) {
+        // S = lift(P) = (P.x, P.y, R). W = 1 * P = lift(P). unitp = 1.
+        let r_one: array<u32, 8> = get_r_f8();
+        store_plane(plane_sx, t, px);
+        store_plane(plane_sy, t, py);
+        store_plane(plane_sz, t, r_one);
+        store_plane(plane_wx, t, px);
+        store_plane(plane_wy, t, py);
+        store_plane(plane_wz, t, r_one);
+        meta_out[t] = 1u | (1u << 1u);
+        {{{ recompile }}}
+        return;
+    }
+
+    if (!p_present && q_present) {
+        // S = lift(Q). W = 2 * Q via Jacobian doubling of lift(Q). unitp = 2.
+        let r_one: array<u32, 8> = get_r_f8();
+        let dq = jac_double_local(qx, qy, r_one);
+        store_plane(plane_sx, t, qx);
+        store_plane(plane_sy, t, qy);
+        store_plane(plane_sz, t, r_one);
+        store_plane(plane_wx, t, dq[0]);
+        store_plane(plane_wy, t, dq[1]);
+        store_plane(plane_wz, t, dq[2]);
+        meta_out[t] = 1u | (2u << 1u);
+        {{{ recompile }}}
+        return;
+    }
+
+    // Both present — full mmadd + madd. Not a unit subtree.
     // ---- S = P + Q via Z1=Z2=1 mixed-mixed add (mmadd-2007-bl, a=0) ----
-    // H = X2 - X1
-    // HH = H^2
-    // I = 4*HH
-    // J = H*I
-    // r = 2*(Y2 - Y1)
-    // V = X1*I
-    // X3 = r^2 - J - 2*V
-    // Y3 = r*(V - X3) - 2*Y1*J
-    // Z3 = 2*H
     let h_s: array<u32, 8> = fr_sub_f8(qx, px);
     let hh_s: array<u32, 8> = montgomery_product_f8(h_s, h_s);
     let twohh_s: array<u32, 8> = fr_add_f8(hh_s, hh_s);
@@ -115,20 +197,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let sy: array<u32, 8> = fr_sub_f8(rvx_s, twoyj_s);
     let sz: array<u32, 8> = fr_add_f8(h_s, h_s);
 
-    // ---- W = S + Q via mixed (Jacobian + affine, madd-2007-bl) ----
-    // Inputs: S = (sx, sy, sz) Jacobian, Q = (qx, qy) affine (Z2 = 1).
-    // Z1Z1 = sz^2
-    // U2 = qx * Z1Z1
-    // S2 = qy * sz * Z1Z1
-    // H = U2 - sx
-    // HH = H^2
-    // I = 4 * HH
-    // J = H * I
-    // r = 2 * (S2 - sy)
-    // V = sx * I
-    // X3 = r^2 - J - 2*V
-    // Y3 = r * (V - X3) - 2 * sy * J
-    // Z3 = (sz + H)^2 - Z1Z1 - HH
+    // ---- W = S + Q via Jacobian + affine mixed add (madd-2007-bl) ----
     let z1z1_w: array<u32, 8> = montgomery_product_f8(sz, sz);
     let u2_w: array<u32, 8> = montgomery_product_f8(qx, z1z1_w);
     let s2t_w: array<u32, 8> = montgomery_product_f8(qy, sz);
@@ -155,19 +224,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var wz: array<u32, 8> = fr_sub_f8(zph2_w, z1z1_w);
     wz = fr_sub_f8(wz, hh_w);
 
-    // ---- Store (S, W) at output node t ----
-    let plane_sx = 0u * m_pairs;
-    let plane_sy = 1u * m_pairs;
-    let plane_sz = 2u * m_pairs;
-    let plane_wx = 3u * m_pairs;
-    let plane_wy = 4u * m_pairs;
-    let plane_wz = 5u * m_pairs;
     store_plane(plane_sx, t, sx);
     store_plane(plane_sy, t, sy);
     store_plane(plane_sz, t, sz);
     store_plane(plane_wx, t, wx);
     store_plane(plane_wy, t, wy);
     store_plane(plane_wz, t, wz);
+    meta_out[t] = 1u; // is_present=1, unitp=0
 
     {{{ recompile }}}
 }

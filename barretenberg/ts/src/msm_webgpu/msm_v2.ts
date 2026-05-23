@@ -267,15 +267,31 @@ function jacAdd(P: Jac, Q: Jac): Jac {
   return { x: X3, y: Y3, z: Z3 };
 }
 
+const JAC_INF: Jac = { x: 0n, y: 0n, z: 0n };
+
+// Variants that propagate the Z = 0 (point at infinity) sentinel. Used by
+// the host-side Horner — the per-window L_w from the GPU is Jacobian, and
+// any window whose buckets are all empty arrives as JAC_INF.
+function jacDoubleSafe(P: Jac): Jac {
+  return P.z === 0n ? JAC_INF : jacDouble(P);
+}
+function jacAddSafe(P: Jac, Q: Jac): Jac {
+  if (P.z === 0n) return Q;
+  if (Q.z === 0n) return P;
+  return jacAdd(P, Q);
+}
+
 // Window combine: Horner fold of the per-window Jacobian L_w into the final
 // MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian (a = 0) so
-// every step is inversion-free; one inverse converts back to affine.
+// every step is inversion-free; one inverse converts back to affine. The
+// safe variants make all-empty windows (Z = 0) inert.
 function hostWindowCombine(L: Jac[], c: number): Pt {
-  let acc: Jac = L[L.length - 1];
-  for (let w = L.length - 2; w >= 0; w--) {
-    for (let d = 0; d < c; d++) acc = jacDouble(acc);
-    acc = jacAdd(acc, L[w]);
+  let acc: Jac = JAC_INF;
+  for (let w = L.length - 1; w >= 0; w--) {
+    for (let d = 0; d < c; d++) acc = jacDoubleSafe(acc);
+    acc = jacAddSafe(acc, L[w]);
   }
+  if (acc.z === 0n) return { x: 0n, y: 0n };
   const zInv = modInverse(acc.z, FP);
   const zInv2 = fmul(zInv, zInv);
   return { x: fmul(acc.x, zInv2), y: fmul(acc.y, fmul(zInv2, zInv)) };
@@ -561,10 +577,20 @@ export class MsmV2 {
   // (count = c-2 + 1 = c-1 dispatches in total) the final NW (S, W) pairs sit
   // in jbrFinalBuf — its plane stride is numWindows so the per-window gather
   // is a contiguous 3-plane copy into redStaging.
+  //
+  // jbrPresence parallels the (S, W) buffers — 1 u32 per tree node tracking
+  // whether the subtree contains at least one non-empty bucket. The AA -> J
+  // round writes it from bucket_result emptiness; subsequent JJ -> J rounds
+  // OR the children's bits to produce the merged node's bit. The final
+  // per-window presence ends up in jbrPresenceFinal and rides back to the
+  // host so Horner can skip Z = 0 windows.
   private jbrBufs: GPUBuffer[] = [];
   private jbrFinalBuf!: GPUBuffer; // numWindows (S, W) pairs after the last round
   private jbrPlaneStrides: number[] = []; // per-buffer plane stride in field-elements
   private jbrFinalPlaneStride = 0;
+  private jbrPresenceBufs: GPUBuffer[] = [];
+  private jbrPresenceFinal!: GPUBuffer;
+  private jbrPresenceStaging!: GPUBuffer;
   private redStaging!: GPUBuffer; // small mappable L_w gather target (3 planes × NW × 32B)
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
   // profiling (created in prepare when this.profile)
@@ -683,8 +709,8 @@ export class MsmV2 {
     m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
-    m.jbrAaLayout = lt(['read-only-storage', 'storage', 'uniform']);
-    m.jbrJjLayout = lt(['read-only-storage', 'storage', 'uniform']);
+    m.jbrAaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    m.jbrJjLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI). The
     // planner's PAIR_CAP loop is `break`-bounded, so a generous data-
@@ -1001,6 +1027,10 @@ export class MsmV2 {
     // element. We size jbrBufs[0] for the largest dispatch (round 0 output =
     // NUM_WINDOWS * STRIDE / 2 pairs) and jbrBufs[1] for the second-largest
     // (NUM_WINDOWS * STRIDE / 4 pairs); subsequent rounds reuse them.
+    //
+    // jbrPresenceBufs parallel jbrBufs with one u32 per node, propagating
+    // emptiness from bucket_result through the tree so the host can skip
+    // Z = 0 (all-empty) windows.
     const STRIDE = this.stride;
     const jbrStage0 = NUM_WINDOWS * (STRIDE >> 1); // round 0 output node count
     const allocJacBuf = (planeStride: number): GPUBuffer => {
@@ -1012,20 +1042,32 @@ export class MsmV2 {
       this.prepBuffers.push(b);
       return b;
     };
+    const allocPresenceBuf = (nodeCount: number): GPUBuffer => {
+      const b = device.createBuffer({
+        size: Math.max(nodeCount * 4, 16),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+      this.prepBuffers.push(b);
+      return b;
+    };
     if (this.jbrRounds === 0) {
       // c == 2 -> only the AA -> J round. Its output IS the final per-window
       // (S, W) buffer; no ping-pong needed.
       this.jbrBufs = [];
+      this.jbrPresenceBufs = [];
       this.jbrPlaneStrides = [];
       this.jbrFinalPlaneStride = NUM_WINDOWS;
       this.jbrFinalBuf = allocJacBuf(NUM_WINDOWS);
+      this.jbrPresenceFinal = allocPresenceBuf(NUM_WINDOWS);
     } else {
       const planeA = jbrStage0;                 // round 0 -> 1
       const planeB = Math.max(1, jbrStage0 >> 1); // round 1 -> 2 onwards
       this.jbrBufs = [allocJacBuf(planeA), allocJacBuf(planeB)];
+      this.jbrPresenceBufs = [allocPresenceBuf(planeA), allocPresenceBuf(planeB)];
       this.jbrPlaneStrides = [planeA, planeB];
       this.jbrFinalPlaneStride = NUM_WINDOWS;
       this.jbrFinalBuf = allocJacBuf(NUM_WINDOWS);
+      this.jbrPresenceFinal = allocPresenceBuf(NUM_WINDOWS);
     }
     const jbrAaParams = ubuf(new Uint32Array([
       jbrStage0,        // M_pairs
@@ -1035,34 +1077,41 @@ export class MsmV2 {
     ]));
     const jbrAaOutBuf = this.jbrRounds === 0 ? this.jbrFinalBuf : this.jbrBufs[0];
     const jbrAaOutStride = this.jbrRounds === 0 ? this.jbrFinalPlaneStride : this.jbrPlaneStrides[0];
-    this.jbrAaBind = mkBind(this.jbrAaLayout, [bucketResult, jbrAaOutBuf, jbrAaParams]);
+    const jbrAaOutPres = this.jbrRounds === 0 ? this.jbrPresenceFinal : this.jbrPresenceBufs[0];
+    this.jbrAaBind = mkBind(this.jbrAaLayout, [bucketResult, jbrAaOutBuf, jbrAaOutPres, jbrAaParams]);
 
     // Build the JJ dispatch sequence.
     this.jbrJjBinds = [];
     this.jbrDispatchOutCount = [jbrStage0];
     let prevStride = jbrAaOutStride;
     let prevBuf = jbrAaOutBuf;
+    let prevPres = jbrAaOutPres;
     let prevCount = jbrStage0;
     for (let r = 0; r < this.jbrRounds; r++) {
       const isLast = r === this.jbrRounds - 1;
       const outCount = prevCount >> 1;
       const outBuf = isLast ? this.jbrFinalBuf : this.jbrBufs[(r & 1) ^ 1];
       const outStride = isLast ? this.jbrFinalPlaneStride : this.jbrPlaneStrides[(r & 1) ^ 1];
+      const outPres = isLast ? this.jbrPresenceFinal : this.jbrPresenceBufs[(r & 1) ^ 1];
       const numDoublings = r + 1; // round 1 -> 1 doubling, round 2 -> 2, ...
       const params = ubuf(new Uint32Array([outCount, prevStride, outStride, numDoublings]));
-      this.jbrJjBinds.push(mkBind(this.jbrJjLayout, [prevBuf, outBuf, params]));
+      this.jbrJjBinds.push(mkBind(this.jbrJjLayout, [prevBuf, outBuf, prevPres, outPres, params]));
       this.jbrDispatchOutCount.push(outCount);
       prevBuf = outBuf;
       prevStride = outStride;
+      prevPres = outPres;
       prevCount = outCount;
     }
 
     // Per-window L_w staging: 3 field-elements (W.X, W.Y, W.Z) × NUM_WINDOWS.
+    // Append NUM_WINDOWS × 4 bytes for the parallel presence bitmap so the
+    // entire L_w gather is one staging buffer + one mapAsync.
     this.redStaging = device.createBuffer({
-      size: NUM_WINDOWS * 3 * 32,
+      size: NUM_WINDOWS * 3 * 32 + NUM_WINDOWS * 4,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
     this.prepBuffers.push(this.redStaging);
+    this.jbrPresenceStaging = this.redStaging;
 
     // --- Per-level bind groups ---
     const finalizeParamsBufs: GPUBuffer[] = [];
@@ -1283,7 +1332,8 @@ export class MsmV2 {
     // Gather each window's W = L_w (Jacobian, 3 field-elements) from the
     // final buffer. Plane stride = NUM_WINDOWS so each plane's chunk for
     // window w is at byte offset (plane * NUM_WINDOWS + w) * 32. We pack
-    // (W.X, W.Y, W.Z) per window contiguously into redStaging.
+    // (W.X, W.Y, W.Z) per window contiguously into redStaging, then the
+    // per-window presence bitmap right after.
     {
       const planeBytes = this.jbrFinalPlaneStride * 32;
       const wxOffset = 3 * planeBytes;
@@ -1295,15 +1345,27 @@ export class MsmV2 {
         enc.copyBufferToBuffer(this.jbrFinalBuf, wyOffset + w * 32, this.redStaging, dst + 32, 32);
         enc.copyBufferToBuffer(this.jbrFinalBuf, wzOffset + w * 32, this.redStaging, dst + 64, 32);
       }
+      enc.copyBufferToBuffer(
+        this.jbrPresenceFinal, 0, this.redStaging, this.numWindows * 96, this.numWindows * 4,
+      );
     }
     device.queue.submit([enc.finish()]);
     await this.redStaging.mapAsync(GPUMapMode.READ);
 
     // Decode L_w (Jacobian, Montgomery form) and Horner-combine the windows.
+    // Trailing NUM_WINDOWS × 4 bytes hold the parallel `meta` bitmap; the
+    // low bit is is_present (the rest is unitp metadata, unused on the
+    // host). An absent window collapses to JAC_INF so the safe Horner
+    // skips it.
     const red = new Uint32Array(this.redStaging.getMappedRange());
+    const metaOff = this.numWindows * 24; // u32 offset of the meta words
     const Ljac: Jac[] = new Array(this.numWindows);
     for (let w = 0; w < this.numWindows; w++) {
-      const off = w * 24; // 3 field-elements × 8 u32
+      const off = w * 24;
+      if ((red[metaOff + w] & 1) === 0) {
+        Ljac[w] = JAC_INF;
+        continue;
+      }
       const x = (packedU32x8ToBigint(red, off) * this.rinv) % FP;
       const y = (packedU32x8ToBigint(red, off + 8) * this.rinv) % FP;
       const z = (packedU32x8ToBigint(red, off + 16) * this.rinv) % FP;
@@ -1312,8 +1374,10 @@ export class MsmV2 {
     this.redStaging.unmap();
     this.windowSumsJac = Ljac;
     // Bridge: convert to affine per-window L_w by inverting Z so the C++
-    // hook can consume them in its native bb::g1 combine. Benchmark harness
-    // (combineOnHost = true) does the Horner here.
+    // hook can consume them in its native bb::g1 combine. Empty windows
+    // (Z = 0) collapse to affine (0, 0) — the C++ side treats that as the
+    // point at infinity. Benchmark harness (combineOnHost = true) does the
+    // Horner here.
     const L: Pt[] = Ljac.map(j => {
       if (j.z === 0n) return { x: 0n, y: 0n };
       const zInv = modInverse(j.z, FP);
