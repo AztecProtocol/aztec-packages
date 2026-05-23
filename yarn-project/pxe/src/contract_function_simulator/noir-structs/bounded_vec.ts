@@ -6,7 +6,7 @@
  */
 export class BoundedVec<T> {
   private constructor(
-    public readonly data: ArrayLike<T>,
+    public readonly data: T[],
     public readonly maxLength: number,
     public readonly elementSize: number,
   ) {}
@@ -36,7 +36,7 @@ export class BoundedVec<T> {
     maxLength,
     elementSize = 1,
   }: {
-    data: ArrayLike<T>;
+    data: T[];
     maxLength: number;
     elementSize?: number;
   }): BoundedVec<T> {

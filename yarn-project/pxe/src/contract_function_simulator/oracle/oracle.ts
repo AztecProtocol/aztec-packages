@@ -684,8 +684,8 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_setContractSyncCacheInvalid',
       inputs,
-      handler: ([contractAddress, scopes, scopeCount]) => {
-        this.handlerAsUtility().setContractSyncCacheInvalid(contractAddress, scopes.slice(0, scopeCount));
+      handler: ([contractAddress, scopes]) => {
+        this.handlerAsUtility().setContractSyncCacheInvalid(contractAddress, scopes);
       },
     });
   }

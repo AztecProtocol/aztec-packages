@@ -6,7 +6,7 @@
  */
 export class FixedArray<T> {
   private constructor(
-    public readonly data: ArrayLike<T>,
+    public readonly data: T[],
     public readonly size: number,
   ) {}
 
@@ -25,7 +25,7 @@ export class FixedArray<T> {
    *   : Option.empty(FixedArray.empty({ size: tSize }));
    * ```
    */
-  static from<T>({ data, size }: { data: ArrayLike<T>; size: number }): FixedArray<T> {
+  static from<T>({ data, size }: { data: T[]; size: number }): FixedArray<T> {
     return new FixedArray<T>(data, size);
   }
 

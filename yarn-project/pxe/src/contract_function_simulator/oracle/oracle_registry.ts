@@ -459,8 +459,7 @@ const ORACLE_REGISTRY = {
   aztec_utl_setContractSyncCacheInvalid: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
-      { name: 'scopes', type: ARRAY(AZTEC_ADDRESS) },
-      { name: 'scopeCount', type: U32 },
+      { name: 'scopes', type: BOUNDED_VEC(AZTEC_ADDRESS) },
     ],
   }),
 
@@ -768,7 +767,7 @@ function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
             if (bv.data.length > bv.maxLength) {
               throw new Error(`Got ${bv.data.length} items, but maxLength is ${bv.maxLength}`);
             }
-            const flat = Array.from(bv.data).flatMap(item => element.serialization!.fn(item).flat() as Fr[]);
+            const flat = bv.data.flatMap(item => element.serialization!.fn(item).flat());
             return [padArrayEnd(flat, Fr.ZERO, bv.maxLength * bv.elementSize), new Fr(bv.data.length)];
           },
         }
@@ -777,13 +776,12 @@ function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
       ? {
           fn: ([storageReader, lengthReader]) => {
             const maxLength = storageReader.remainingFields();
-            const allElements: T[] = [];
-            while (!storageReader.isFinished()) {
-              allElements.push(element.deserialization!.fn([storageReader]));
-            }
             const length = lengthReader.readField().toNumber();
-            // elementSize is fixed at 1 here; deserialization is only used today with single-field elements (BYTE).
-            return BoundedVec.from<T>({ data: allElements.slice(0, length), maxLength });
+            const elements: T[] = [];
+            for (let i = 0; i < length; i++) {
+              elements.push(element.deserialization!.fn([storageReader]));
+            }
+            return BoundedVec.from<T>({ data: elements, maxLength });
           },
           slots: 2,
         }
@@ -805,7 +803,7 @@ function FIXED_ARRAY<T>(element: TypeMapping<T>): TypeMapping<FixedArray<T>> {
     serialization: {
       fn: arr => [
         padArrayEnd(
-          Array.from(arr.data).flatMap(item => element.serialization!.fn(item).flat() as Fr[]),
+          arr.data.flatMap(item => element.serialization!.fn(item).flat() as Fr[]),
           Fr.ZERO,
           arr.size,
         ),

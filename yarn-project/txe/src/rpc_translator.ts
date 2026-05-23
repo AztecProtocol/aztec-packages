@@ -1013,7 +1013,7 @@ export class RPCTranslator {
   ) {
     const capacity = foreignCiphertextBVecStorage.length;
     const ciphertextBuf = fromUintBoundedVec(foreignCiphertextBVecStorage, foreignCiphertextLength, 8);
-    const ciphertext = BoundedVec.from<number>({ data: ciphertextBuf, maxLength: capacity });
+    const ciphertext = BoundedVec.from<number>({ data: [...ciphertextBuf], maxLength: capacity });
     const iv = fromUintArray(foreignIv, 8);
     const symKey = fromUintArray(foreignSymKey, 8);
 
@@ -1050,10 +1050,12 @@ export class RPCTranslator {
     foreignScopeCount: ForeignCallSingle,
   ) {
     const contractAddress = addressFromSingle(foreignContractAddress);
+    const allFields = fromArray(foreignScopes);
     const count = fromSingle(foreignScopeCount).toNumber();
-    const scopes = fromArray(foreignScopes)
-      .slice(0, count)
-      .map(f => new AztecAddress(f));
+    const scopes = BoundedVec.from({
+      data: allFields.slice(0, count).map(f => new AztecAddress(f)),
+      maxLength: allFields.length,
+    });
 
     this.handlerAsUtility().setContractSyncCacheInvalid(contractAddress, scopes);
 

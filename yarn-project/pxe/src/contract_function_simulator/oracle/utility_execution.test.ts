@@ -25,6 +25,7 @@ import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
+import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -385,13 +386,13 @@ describe('Utility Execution test suite', () => {
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
 
         const globalResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
-        expect(Array.from(globalResult.value!.data)).toEqual(transientGlobal);
+        expect(globalResult.value!.data).toEqual(transientGlobal);
 
         const globalAgain = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
-        expect(Array.from(globalAgain.value!.data)).toEqual(transientGlobal);
+        expect(globalAgain.value!.data).toEqual(transientGlobal);
 
         const scopedResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, scope);
-        expect(Array.from(scopedResult.value!.data)).toEqual(transientScoped);
+        expect(scopedResult.value!.data).toEqual(transientScoped);
       });
     });
 
@@ -399,7 +400,12 @@ describe('Utility Execution test suite', () => {
       it('throws when contract address does not match', async () => {
         const otherAddress = await AztecAddress.random();
         const scope = await AztecAddress.random();
-        expect(() => utilityExecutionOracle.setContractSyncCacheInvalid(otherAddress, [scope])).toThrow(
+        expect(() =>
+          utilityExecutionOracle.setContractSyncCacheInvalid(
+            otherAddress,
+            BoundedVec.from({ data: [scope], maxLength: 1 }),
+          ),
+        ).toThrow(
           `Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`,
         );
         expect(contractSyncService.invalidateContractForScopes).not.toHaveBeenCalled();
@@ -408,7 +414,10 @@ describe('Utility Execution test suite', () => {
       it('invalidates cache for the given scopes', async () => {
         const scopeA = await AztecAddress.random();
         const scopeB = await AztecAddress.random();
-        utilityExecutionOracle.setContractSyncCacheInvalid(contractAddress, [scopeA, scopeB]);
+        utilityExecutionOracle.setContractSyncCacheInvalid(
+          contractAddress,
+          BoundedVec.from({ data: [scopeA, scopeB], maxLength: 2 }),
+        );
         expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
       });
     });

@@ -145,7 +145,7 @@ export interface IUtilityExecutionOracle {
   ): Promise<void>;
   decryptAes128(ciphertext: BoundedVec<number>, iv: Buffer, symKey: Buffer): Promise<Option<BoundedVec<number>>>;
   getSharedSecrets(address: AztecAddress, ephPksSlot: Fr, contractAddress: AztecAddress): Promise<Fr>;
-  setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
+  setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: BoundedVec<AztecAddress>): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
   callUtilityFunction(
     targetContractAddress: AztecAddress,

@@ -711,11 +711,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
    * stored notes or events are discovered.
    */
-  public setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
+  public setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: BoundedVec<AztecAddress>): void {
     if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(`Contract ${this.contractAddress} cannot invalidate sync cache of ${contractAddress}`);
     }
-    this.contractSyncService.invalidateContractForScopes(contractAddress, scopes);
+    this.contractSyncService.invalidateContractForScopes(contractAddress, scopes.data);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
@@ -727,8 +727,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const capacity = ciphertext.maxLength;
     try {
       const aes128 = new Aes128();
-      const plaintext = await aes128.decryptBufferCBC(Buffer.from(Array.from(ciphertext.data)), iv, symKey);
-      return Option.some(BoundedVec.from<number>({ data: plaintext, maxLength: capacity }));
+      const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
+      return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
       return Option.empty(BoundedVec.empty<number>({ maxLength: capacity }));
     }
