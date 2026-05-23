@@ -1,3 +1,30 @@
+export {
+  ORACLE_REGISTRY,
+  callHandler,
+  makeEntry,
+  FIELD,
+  BOOL,
+  U32,
+  BLOCK_NUMBER,
+  BIGINT,
+  BYTE,
+  STR,
+  IGNORED,
+  AZTEC_ADDRESS,
+  FUNCTION_SELECTOR,
+  ARRAY,
+  BOUNDED_VEC,
+  FIXED_ARRAY,
+  OPTION,
+  BUFFER,
+  MEMBERSHIP_WITNESS,
+  type InputSlot,
+  type OutputSlot,
+  type TypeMapping,
+  type OracleRegistryEntry,
+  type ParamTypes,
+  type MaybePromise,
+} from './oracle/oracle_registry.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
 export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 export { HashedValuesCache } from './hashed_values_cache.js';

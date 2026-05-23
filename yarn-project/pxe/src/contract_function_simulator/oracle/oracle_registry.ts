@@ -36,12 +36,12 @@ import type { NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { packAsHintedNote } from './note_packing_utils.js';
 
-const FIELD: TypeMapping<Fr> = {
+export const FIELD: TypeMapping<Fr> = {
   serialization: { fn: v => [v] },
   deserialization: { fn: ([reader]) => reader.readField(), slots: 1 },
 };
 
-const BOOL: TypeMapping<boolean> = {
+export const BOOL: TypeMapping<boolean> = {
   serialization: { fn: v => [new Fr(v ? 1n : 0n)] },
   deserialization: { fn: ([reader]) => !reader.readField().isZero(), slots: 1 },
 };
@@ -60,7 +60,7 @@ export const U32: TypeMapping<number> = {
   },
 };
 
-const BLOCK_NUMBER: TypeMapping<BlockNumber> = {
+export const BLOCK_NUMBER: TypeMapping<BlockNumber> = {
   serialization: { fn: v => [new Fr(v)] },
   deserialization: { fn: ([reader]) => BlockNumber(reader.readField().toNumber()), slots: 1 },
 };
@@ -80,8 +80,13 @@ export const BYTE: TypeMapping<number> = {
   },
 };
 
+export const BIGINT: TypeMapping<bigint> = {
+  serialization: { fn: v => [new Fr(v)] },
+  deserialization: { fn: ([reader]) => reader.readField().toBigInt() },
+};
+
 /** Reads every field in the slot as a UTF-8 character code. */
-const STR: TypeMapping<string> = {
+export const STR: TypeMapping<string> = {
   serialization: { fn: str => [Array.from(Buffer.from(str, 'utf-8')).map(b => new Fr(b))] },
   deserialization: {
     fn: ([reader]) => {
@@ -95,7 +100,17 @@ const STR: TypeMapping<string> = {
   },
 };
 
-const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
+/**
+ * Consumes a slot but produces undefined.
+ *
+ * Some Noir oracle signatures include redundant size-hint params (e.g. `_ignoredFieldsSize`) that the TS
+ * side doesn't need because the ACVM slot already encodes the array length. IGNORED reads and discards them.
+ */
+export const IGNORED: TypeMapping<undefined> = {
+  deserialization: { fn: () => undefined },
+};
+
+export const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
   serialization: { fn: v => [v.toField()] },
   deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()), slots: 1 },
 };
@@ -105,7 +120,7 @@ const BLOCK_HASH: TypeMapping<BlockHash> = {
   deserialization: { fn: ([reader]) => new BlockHash(reader.readField()), slots: 1 },
 };
 
-const FUNCTION_SELECTOR: TypeMapping<FunctionSelector> = {
+export const FUNCTION_SELECTOR: TypeMapping<FunctionSelector> = {
   serialization: { fn: v => [v.toField()] },
   deserialization: { fn: ([reader]) => FunctionSelector.fromField(reader.readField()), slots: 1 },
 };
@@ -254,7 +269,7 @@ const NOTE: TypeMapping<NoteData> = {
   },
 };
 
-const ORACLE_REGISTRY = {
+export const ORACLE_REGISTRY = {
   aztec_utl_assertCompatibleOracleVersion: makeEntry({
     params: [
       { name: 'major', type: U32 },
@@ -651,10 +666,10 @@ export async function callHandler<K extends keyof typeof ORACLE_REGISTRY>({
 // ─── Helper Types ─────────────────────────────────────────────────────────────
 
 /** One ACVM input slot: an array of hex-encoded field strings. */
-type InputSlot = ACVMField[];
+export type InputSlot = ACVMField[];
 
 /** One ACVM output slot: a scalar hex string or an array of hex strings. */
-type OutputSlot = ACVMField | ACVMField[];
+export type OutputSlot = ACVMField | ACVMField[];
 
 /**
  * Describes how to serialize and/or deserialize a single typed value to/from ACVM wire format.
@@ -686,7 +701,7 @@ export interface TypeMapping<T = any> {
  * TDeserializedParams — the array of named pairs returned by `deserializeParams`.
  * TReturnValue — the typed handler return value consumed by `serializeReturn`.
  */
-interface OracleRegistryEntry<
+export interface OracleRegistryEntry<
   TDeserializedParams extends readonly NamedValue[] = readonly NamedValue[],
   TReturnValue = any,
 > {
@@ -696,7 +711,7 @@ interface OracleRegistryEntry<
   serializeReturn(result: TReturnValue): OutputSlot[];
 }
 
-function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = void>({
+export function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = void>({
   params,
   returnType,
 }: {
@@ -734,7 +749,7 @@ function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = vo
 }
 
 /** `_height` is unused at runtime but lets TypeScript infer the exact `N` for `MembershipWitness<N>`. */
-function MEMBERSHIP_WITNESS<N extends number>(_height: N): TypeMapping<MembershipWitness<N>> {
+export function MEMBERSHIP_WITNESS<N extends number>(_height: N): TypeMapping<MembershipWitness<N>> {
   return {
     serialization: {
       fn: (witness: MembershipWitness<N>) => [new Fr(witness.leafIndex), [...witness.siblingPath]],
@@ -742,7 +757,7 @@ function MEMBERSHIP_WITNESS<N extends number>(_height: N): TypeMapping<Membershi
   };
 }
 
-function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
+export function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
   return {
     serialization: element.serialization
       ? { fn: values => [values.flatMap(v => element.serialization!.fn(v).flat())] }
@@ -775,7 +790,7 @@ function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
  * slot 1: Fr(2)                                  // actual length
  * ```
  */
-function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
+export function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
   return {
     serialization: element.serialization
       ? {
@@ -821,7 +836,7 @@ function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
  * slot 1: Fr(0)    // zero-filled using shape
  * ```
  */
-function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
+export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
   return {
     serialization: inner.serialization
       ? {
@@ -856,7 +871,7 @@ function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
 }
 
 /** A packed uint buffer (e.g. `[u8; N]` in Noir): 1 slot of packed uint values ↔ `Buffer`. */
-function BUFFER(bitSize: number): TypeMapping<Buffer> {
+export function BUFFER(bitSize: number): TypeMapping<Buffer> {
   return {
     serialization: {
       fn: buf => [Array.from(buf).map(b => new Fr(b))],
@@ -886,7 +901,7 @@ type NamedValue<TName extends string = string, TValue = any> = { readonly name: 
  *
  * @example `ParamTypes<[NamedValue<'addr', AztecAddress>, NamedValue<'slot', Fr>]>` → `[AztecAddress, Fr]`
  */
-type ParamTypes<T extends readonly NamedValue[]> = {
+export type ParamTypes<T extends readonly NamedValue[]> = {
   [K in keyof T]: T[K] extends NamedValue<string, infer V> ? V : never;
 };
 
@@ -902,4 +917,4 @@ type InferDeserializedParams<T extends RegistryParam[]> = {
   [K in keyof T]: T[K] extends RegistryParam<infer N, infer V> ? NamedValue<N, V> : never;
 };
 
-type MaybePromise<T> = T | Promise<T>;
+export type MaybePromise<T> = T | Promise<T>;
