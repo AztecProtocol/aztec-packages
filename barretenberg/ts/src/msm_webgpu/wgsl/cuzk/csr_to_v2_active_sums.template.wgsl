@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let pt_idx = val_idx[slot];
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
+    let neg = (signs[window * params[3] + pt_idx] >> 15u) & 1u;
     active_sums[slot] = pt_idx | (neg << 31u);
 
     {{{ recompile }}}
@@ -95,7 +95,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     active_sums[x_base + 1u] = new_point_x[2u * pt_idx + 1u];
 {{#with_sign}}
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
+    let neg = (signs[window * params[3] + pt_idx] >> 15u) & 1u;
     if (neg == 1u) {
         active_sums[y_base]      = new_point_y_neg[2u * pt_idx];
         active_sums[y_base + 1u] = new_point_y_neg[2u * pt_idx + 1u];

@@ -2135,7 +2135,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let pt_idx = val_idx[slot];
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
+    let neg = (signs[window * params[3] + pt_idx] >> 15u) & 1u;
     active_sums[slot] = pt_idx | (neg << 31u);
 
     {{{ recompile }}}
@@ -2187,7 +2187,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     active_sums[x_base + 1u] = new_point_x[2u * pt_idx + 1u];
 {{#with_sign}}
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
+    let neg = (signs[window * params[3] + pt_idx] >> 15u) & 1u;
     if (neg == 1u) {
         active_sums[y_base]      = new_point_y_neg[2u * pt_idx];
         active_sums[y_base + 1u] = new_point_y_neg[2u * pt_idx + 1u];
@@ -2275,10 +2275,13 @@ export const decompose_scalars_booth = `// Carry-free signed-Booth window decomp
 // negation at the csr_to_v2 gather. Scalars must be in normal (non-
 // Montgomery) form — the recoder slices raw integer bits.
 
+// One per-(point, window) slot carries both bucket (low c bits) and sign
+// (bit c). For c=15 the layout is bucket in bits 0..14, sign in bit 15;
+// bits 16..31 are zero. The decompose / transpose-count / transpose-scatter
+// / csr_to_v2_active_sums kernels all read this same buffer.
 @group(0) @binding(0) var<storage, read>       scalars: array<u32>;
 @group(0) @binding(1) var<storage, read_write> chunks:  array<u32>;
-@group(0) @binding(2) var<storage, read_write> signs:   array<u32>;
-@group(0) @binding(3) var<uniform>             params:  vec4<u32>;
+@group(0) @binding(2) var<uniform>             params:  vec4<u32>;
 // params.x = input_size   (points per window)
 // params.y = num_windows  (windows in this batch)
 // params.z = window_bits  (c)
@@ -2287,7 +2290,7 @@ export const decompose_scalars_booth = `// Carry-free signed-Booth window decomp
 // index of this batch's first window. Window bits are sliced from the
 // scalar at the GLOBAL window index (gid.y + batch_window_base); chunks /
 // signs are written at the batch-local index (gid.y). 0 when unbatched.
-@group(0) @binding(4) var<uniform>             batch:   vec4<u32>;
+@group(0) @binding(3) var<uniform>             batch:   vec4<u32>;
 
 const WORD_BITS: u32 = 32u;
 
@@ -2342,8 +2345,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
     let idx = w * input_size + p;
-    chunks[idx] = bucket;
-    signs[idx] = neg;
+    // bucket fits in c bits (<= 15 for c=15). Sign goes in bit 15.
+    chunks[idx] = bucket | (neg << 15u);
 
     {{{ recompile }}}
 }
@@ -2653,7 +2656,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
         // Tally every column index in this chunk that falls in this tile.
         for (var i: u32 = chunk_lo + tid; i < chunk_hi; i = i + WG) {
-            let col = all_csr_col_idx[cci_offset + i];
+            let col = all_csr_col_idx[cci_offset + i] & 0x7fffu;
             if (col >= tile_lo && col < tile_hi) {
                 atomicAdd(&hist[col - tile_lo], 1u);
             }
@@ -2889,7 +2892,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
         // Place every point in this chunk whose column falls in this tile.
         for (var i: u32 = chunk_lo + tid; i < chunk_hi; i = i + WG) {
-            let col = all_csr_col_idx[cci_offset + i];
+            let col = all_csr_col_idx[cci_offset + i] & 0x7fffu;
             if (col >= tile_lo && col < tile_hi) {
                 let local_slot = atomicAdd(&curr[col - tile_lo], 1u);
                 let base = all_csc_col_ptr[ccp_offset + col] + partials[part_offset + col];

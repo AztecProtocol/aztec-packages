@@ -69,7 +69,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
         // Place every point in this chunk whose column falls in this tile.
         for (var i: u32 = chunk_lo + tid; i < chunk_hi; i = i + WG) {
-            let col = all_csr_col_idx[cci_offset + i];
+            let col = all_csr_col_idx[cci_offset + i] & 0x7fffu;
             if (col >= tile_lo && col < tile_hi) {
                 let local_slot = atomicAdd(&curr[col - tile_lo], 1u);
                 let base = all_csc_col_ptr[ccp_offset + col] + partials[part_offset + col];

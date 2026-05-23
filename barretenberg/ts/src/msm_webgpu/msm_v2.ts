@@ -655,7 +655,7 @@ export class MsmV2 {
       'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform',
       'read-only-storage', 'read-only-storage',
     ]);
-    m.decomposeLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
+    m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform']);
@@ -852,14 +852,27 @@ export class MsmV2 {
     const levels = levelPlans.length;
     this.levels = levels;
 
-    // wstride1 — tightest per-window active_sums stride for levels >= 1.
-    let wstride1 = 1;
+    // wstride_lv_out(lv) = max per-window active-sum count at the output of
+    // level `lv`. bufB holds outputs of even levels (lv=0, 2, …) — max is
+    // lv=0; bufA holds outputs of odd levels (lv=1, 3, …) — max is lv=1.
+    // Both are bounded by the max over ALL levels, but odd-level outputs
+    // are ~1/2× even-level outputs because the pair-tree halves at each
+    // step. Sizing bufA separately to its actual width halves its footprint.
+    let wstride1 = 1;        // max over lv>=1 (= bufA width upper bound when both buffers share M1)
+    let wstride_evenOut = 1; // max over even-level outputs (bufB width)
+    let wstride_oddOut = 1;  // max over odd-level outputs (bufA width)
     for (let lv = 1; lv <= levels; lv++) {
       const lc = levelCounts[lv];
       for (let w = 0; w < NUM_WINDOWS; w++) {
         let cnt = 0;
         for (let b = 0; b < BW; b++) cnt += lc[w * BW + b];
         if (cnt > wstride1) wstride1 = cnt;
+        // levelCounts[lv] is the output of level lv-1 in the pair-tree.
+        // outIdx parity for lv (in run()) = (lv & 1) ^ 1, so:
+        //   lv=0 writes outIdx=1 (bufB); lv=1 writes outIdx=0 (bufA); ...
+        const wroteIdx = ((lv - 1) & 1) ^ 1;
+        if (wroteIdx === 1 /* bufB */ && cnt > wstride_evenOut) wstride_evenOut = cnt;
+        if (wroteIdx === 0 /* bufA */ && cnt > wstride_oddOut) wstride_oddOut = cnt;
       }
     }
 
@@ -893,6 +906,8 @@ export class MsmV2 {
       p.tCarries = batchWindows * p.carpw;
     }
     const M1 = batchWindows * wstride1 + 3;
+    const M1_A = M1;
+    const M1_B = M1;
     const l0Slots = batchSlots + 3;
     const WSTRIDE = n;
 
@@ -915,10 +930,13 @@ export class MsmV2 {
     const chunkPlanRing: GPUBuffer[] = [];
     const scatterPlanRing: GPUBuffer[] = [];
     const carryPlanRing: GPUBuffer[] = [];
-    for (let r = 0; r < 2; r++) {
-      chunkPlanRing.push(sbuf(2 * maxTChunks * S * 4));
-      scatterPlanRing.push(sbuf(maxTChunks * S * 4));
-      carryPlanRing.push(sbuf(2 * maxTCarries * 4));
+    {
+      const cp = sbuf(2 * maxTChunks * S * 4);
+      const sp = sbuf(maxTChunks * S * 4);
+      const yp = sbuf(2 * maxTCarries * 4);
+      chunkPlanRing.push(cp, cp);
+      scatterPlanRing.push(sp, sp);
+      carryPlanRing.push(yp, yp);
     }
     const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, M1 - 1, 0]));
     const padParams1Buf = ubuf(new Uint32Array([M1 - 3, M1 - 2, M1 - 1, 0]));
@@ -932,8 +950,12 @@ export class MsmV2 {
     // buffer the Booth-decompose pass reads (no demont pass).
     const scalarsRawBuf = sbuf(scalars.byteLength);
     device.queue.writeBuffer(scalarsRawBuf, 0, scalars);
+    // One packed buffer carries both bucket and sign for each (point, window)
+    // slot: bucket in low c bits, sign in bit c. Consumed by transpose-count,
+    // transpose-scatter (read low c bits as bucket) and csr_to_v2_active_sums
+    // (read bit c as sign). Replaces the prior pair of `chunksBuf`+`signsBuf`.
     const chunksBuf = sbuf(batchSlots * 4);
-    const signsBuf = sbuf(batchSlots * 4);
+    const signsBuf = chunksBuf;
     const rowPtrBuf = sbuf(batchWindows * (BW + 1) * 4);
     const valIdxBuf = sbuf(batchSlots * 4);
     const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
@@ -960,7 +982,7 @@ export class MsmV2 {
     }
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.decomposeLayout, [scalarsRawBuf, chunksBuf, signsBuf, decomposeParams, bwb]));
+      mkBind(this.decomposeLayout, [scalarsRawBuf, chunksBuf, decomposeParams, bwb]));
     // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
     // [0, batchSlots) region is dormant until convActive (which runs strictly
     // after the transpose, per batch) overwrites it; the level-0 seed trio
@@ -988,18 +1010,48 @@ export class MsmV2 {
       schedule[i * 4 + 3] = p.ppw;
       MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
     });
-    const redBuf = soa(RED_M);
-    const isPresentBuf = sbuf(RED_M * 4);
-    const reducePrefScratch = sbuf(NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16);
+    // Reduction-only buffers alias into batch-loop buffers that are dead
+    // by the time reduction runs. redBuf slices the head of bufA, isPresentBuf
+    // slices valIdxBuf, reducePrefScratch slices bufB. Per-kernel sizes are
+    // dimensioned by params, so the slice size only needs to be >= what the
+    // kernel reads/writes (which `soa(RED_M)` and friends already capture).
+    const redBufBytes = 2 * PG * RED_M * 4 * 4;
+    const isPresentBufBytes = RED_M * 4;
+    const reducePrefScratchBytes = NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16;
+    if (bufA.size < redBufBytes) throw new Error(`bufA (${bufA.size}) < redBuf (${redBufBytes})`);
+    if (valIdxBuf.size < isPresentBufBytes) throw new Error(`valIdxBuf (${valIdxBuf.size}) < isPresentBuf (${isPresentBufBytes})`);
+    if (bufB.size < reducePrefScratchBytes) throw new Error(`bufB (${bufB.size}) < reducePrefScratch (${reducePrefScratchBytes})`);
+    const redBufEntry = { buffer: bufA, offset: 0, size: redBufBytes };
+    const isPresentBufEntry = { buffer: valIdxBuf, offset: 0, size: isPresentBufBytes };
+    const reducePrefScratchEntry = { buffer: bufB, offset: 0, size: reducePrefScratchBytes };
     const reduceInitParams = ubuf(new Uint32Array([RED_M, this.stride, BW, B_TOTAL]));
-    this.reduceInitBind = mkBind(this.reduceInitLayout, [bucketResult, redBuf, isPresentBuf, reduceInitParams]);
+    this.reduceInitBind = device.createBindGroup({
+      layout: this.reduceInitLayout,
+      entries: [
+        { binding: 0, resource: { buffer: bucketResult } },
+        { binding: 1, resource: redBufEntry },
+        { binding: 2, resource: isPresentBufEntry },
+        { binding: 3, resource: { buffer: reduceInitParams } },
+      ],
+    });
     // One kind-specialized dispatch per level: the schedule's (a, b, ppw)
     // ride a per-level uniform, the (M, maxc, stride) constants a shared one.
     const cparams = ubuf(new Uint32Array([RED_M, MAXC, this.stride, 0]));
     this.reduceLevelBinds = this.reducePasses.map((_, i) => {
       const lparams = ubuf(new Uint32Array([schedule[i * 4 + 1], schedule[i * 4 + 2], schedule[i * 4 + 3], 0]));
-      return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
+      return device.createBindGroup({
+        layout: this.reduceLevelLayout,
+        entries: [
+          { binding: 0, resource: redBufEntry },
+          { binding: 1, resource: isPresentBufEntry },
+          { binding: 2, resource: reducePrefScratchEntry },
+          { binding: 3, resource: { buffer: cparams } },
+          { binding: 4, resource: { buffer: lparams } },
+        ],
+      });
     });
+    // redBuf is consumed by run()'s final copyBufferToBuffer; keep a handle.
+    const redBuf = bufA;
     this.redBuf = redBuf;
     this.redStaging = device.createBuffer({
       size: NUM_WINDOWS * 64,
@@ -1029,6 +1081,9 @@ export class MsmV2 {
       const ring = lv & 1;
       const activeOut = inIdx === 0 ? bufB : bufA;
       const activeIn = isL0 ? l0IdxBuf : inIdx === 0 ? bufA : bufB;
+      // bufA holds odd-level outputs (M1_A); bufB holds even-level outputs
+      // (M1_B). For lv >= 1, activeIn = activeOut of lv-1, which has the
+      // OPPOSITE parity — so M_in == M of the "other" buffer.
       const plannerParams = ubuf(new Uint32Array([plan.cpw, plan.carpw, WGI, wstride1]));
       const carryParams = ubuf(new Uint32Array([plan.tCarries, M1, M1, 0]));
       const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
@@ -1146,6 +1201,16 @@ export class MsmV2 {
     }
 
     this.preparedFor = scalarsBuf;
+    const totalBytes = this.prepBuffers.reduce((a, b) => a + b.size, 0);
+    (globalThis as unknown as { __msm_mem_last?: Record<string, number> }).__msm_mem_last = {
+      prepBufferCount: this.prepBuffers.length,
+      totalBytes,
+      totalMiB: totalBytes / (1 << 20),
+      numBatches: this.numBatches,
+      batchWindows,
+      M1,
+    };
+    console.log(`[msm.mem] prepBuffers=${this.prepBuffers.length} totalBytes=${totalBytes} (${(totalBytes / (1 << 20)).toFixed(1)} MiB) numBatches=${this.numBatches} batchWindows=${batchWindows} M1=${M1}`);
   }
 
   /**

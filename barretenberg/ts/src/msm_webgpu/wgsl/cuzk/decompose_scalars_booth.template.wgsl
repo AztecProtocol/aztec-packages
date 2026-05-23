@@ -15,10 +15,13 @@
 // negation at the csr_to_v2 gather. Scalars must be in normal (non-
 // Montgomery) form — the recoder slices raw integer bits.
 
+// One per-(point, window) slot carries both bucket (low c bits) and sign
+// (bit c). For c=15 the layout is bucket in bits 0..14, sign in bit 15;
+// bits 16..31 are zero. The decompose / transpose-count / transpose-scatter
+// / csr_to_v2_active_sums kernels all read this same buffer.
 @group(0) @binding(0) var<storage, read>       scalars: array<u32>;
 @group(0) @binding(1) var<storage, read_write> chunks:  array<u32>;
-@group(0) @binding(2) var<storage, read_write> signs:   array<u32>;
-@group(0) @binding(3) var<uniform>             params:  vec4<u32>;
+@group(0) @binding(2) var<uniform>             params:  vec4<u32>;
 // params.x = input_size   (points per window)
 // params.y = num_windows  (windows in this batch)
 // params.z = window_bits  (c)
@@ -27,7 +30,7 @@
 // index of this batch's first window. Window bits are sliced from the
 // scalar at the GLOBAL window index (gid.y + batch_window_base); chunks /
 // signs are written at the batch-local index (gid.y). 0 when unbatched.
-@group(0) @binding(4) var<uniform>             batch:   vec4<u32>;
+@group(0) @binding(3) var<uniform>             batch:   vec4<u32>;
 
 const WORD_BITS: u32 = 32u;
 
@@ -82,8 +85,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
     let idx = w * input_size + p;
-    chunks[idx] = bucket;
-    signs[idx] = neg;
+    // bucket fits in c bits (<= 15 for c=15). Sign goes in bit 15.
+    chunks[idx] = bucket | (neg << 15u);
 
     {{{ recompile }}}
 }

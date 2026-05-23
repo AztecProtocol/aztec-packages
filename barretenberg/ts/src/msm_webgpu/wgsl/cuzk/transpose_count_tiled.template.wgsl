@@ -62,7 +62,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
         // Tally every column index in this chunk that falls in this tile.
         for (var i: u32 = chunk_lo + tid; i < chunk_hi; i = i + WG) {
-            let col = all_csr_col_idx[cci_offset + i];
+            let col = all_csr_col_idx[cci_offset + i] & 0x7fffu;
             if (col >= tile_lo && col < tile_hi) {
                 atomicAdd(&hist[col - tile_lo], 1u);
             }
