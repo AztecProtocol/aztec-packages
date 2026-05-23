@@ -83,11 +83,13 @@ export interface MsmConfig {
    *  - 'bdr': bit-decomposition — c-1 pure-sum trees per window plus a
    *    per-window Horner combine. Higher per-round thread count (NW × (c-1)
    *    instead of NW × tree-width), simpler per-merge state (single jac_add,
-   *    no positional W, no doublings inside the merge). Wins on Adreno
-   *    where the (S, W) merge runs at the register-allocator floor; comparable
-   *    elsewhere.
+   *    no positional W, no doublings inside the merge).
+   *  - 'bdr-coop': BDR with the JJ kernel using 4 threads per merge sharing
+   *    intermediates via workgroup memory. 4× the dispatched thread count
+   *    per JJ round and ~4× lower per-thread state — aimed at closing the
+   *    c=8-vs-c=13 per-mult throughput gap on Adreno.
    */
-  reduction?: 'jbr-sw' | 'bdr';
+  reduction?: 'jbr-sw' | 'bdr' | 'bdr-coop';
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -526,7 +528,7 @@ export class MsmV2 {
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
-  private reduction: 'jbr-sw' | 'bdr' = 'jbr-sw';
+  private reduction: 'jbr-sw' | 'bdr' | 'bdr-coop' = 'jbr-sw';
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -759,10 +761,10 @@ export class MsmV2 {
     if (coopFits) {
       m.jbrWindowCoopLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     }
-    if (m.reduction === 'bdr') {
+    if (m.reduction === 'bdr' || m.reduction === 'bdr-coop') {
       // AA: bucket_result, out_buf, meta_out, params, params2
       m.bdrAaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
-      // JJ: in_buf, out_buf, meta_in, meta_out, params
+      // JJ: in_buf, out_buf, meta_in, meta_out, params  (both non-coop and coop share this layout)
       m.bdrJjLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
       // Horner: g_buf, g_meta, bucket_result, out_buf, out_meta, params, params2
       m.bdrHornerLayout = lt([
@@ -836,9 +838,17 @@ export class MsmV2 {
         device, sm.gen_jbr_window_coop_shader(coopWg), `jbr-window-coop`, m.jbrWindowCoopLayout,
       );
     }
-    if (m.reduction === 'bdr' && m.bdrAaLayout && m.bdrJjLayout && m.bdrHornerLayout) {
+    if ((m.reduction === 'bdr' || m.reduction === 'bdr-coop')
+        && m.bdrAaLayout && m.bdrJjLayout && m.bdrHornerLayout) {
       m.bdrAaPipe = await compileOne(device, sm.gen_bdr_aa_to_jj_shader(REDUCE_WG), `bdr-aa`, m.bdrAaLayout);
-      m.bdrJjPipe = await compileOne(device, sm.gen_bdr_jj_to_jj_shader(REDUCE_WG), `bdr-jj`, m.bdrJjLayout);
+      if (m.reduction === 'bdr-coop') {
+        // Coop variant has WG hard-coded to 64 internally (4 lanes × 16 merges).
+        m.bdrJjPipe = await compileOne(
+          device, sm.gen_bdr_jj_to_jj_coop_shader(), `bdr-jj-coop`, m.bdrJjLayout,
+        );
+      } else {
+        m.bdrJjPipe = await compileOne(device, sm.gen_bdr_jj_to_jj_shader(REDUCE_WG), `bdr-jj`, m.bdrJjLayout);
+      }
       // Horner has NW threads — use WG of 32 (or pickReduceWg) so a single
       // dispatch fits cleanly. NW is up to ~32 for c=8 / 20 for c=13.
       m.bdrHornerPipe = await compileOne(device, sm.gen_bdr_horner_shader(32), `bdr-horner`, m.bdrHornerLayout);
@@ -1475,13 +1485,18 @@ export class MsmV2 {
     // JJ→J level inside a single workgroup per window — saving the
     // per-round dispatch overhead. Otherwise the multi-dispatch fallback
     // runs round 0 (AA→J) then jbrRounds (JJ→J) separately.
-    if (this.reduction === 'bdr' && this.bdrAaPipe && this.bdrJjPipe && this.bdrHornerPipe
+    if ((this.reduction === 'bdr' || this.reduction === 'bdr-coop')
+        && this.bdrAaPipe && this.bdrJjPipe && this.bdrHornerPipe
         && this.bdrAaBind && this.bdrHornerBind) {
       // BDR: c-1 trees per window, simple sum, per-window Horner combine.
       const nx0 = Math.ceil(this.bdrDispatchOutCount[0] / this.reduceWg);
       dispatch(this.bdrAaPipe, this.bdrAaBind, nx0, 1, 'redInit');
+      // Coop JJ dispatches 4× the threads (4 lanes per merge); WG fixed at
+      // 64 in the shader, so dispatch count = ceil(merges*4 / 64).
+      const lanesPerMerge = this.reduction === 'bdr-coop' ? 4 : 1;
+      const jjWg = this.reduction === 'bdr-coop' ? 64 : this.reduceWg;
       for (let r = 0; r < this.bdrJjBinds.length; r++) {
-        const nx = Math.ceil(this.bdrDispatchOutCount[r + 1] / this.reduceWg);
+        const nx = Math.ceil((this.bdrDispatchOutCount[r + 1] * lanesPerMerge) / jjWg);
         dispatch(this.bdrJjPipe, this.bdrJjBinds[r], nx, 1, 'redLevel');
       }
       // Horner: NW threads, one per window. WG=32 in the shader so a single

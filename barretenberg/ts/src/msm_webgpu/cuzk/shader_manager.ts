@@ -13,6 +13,7 @@ import {
   jbr_window_coop as jbr_window_coop_shader,
   bdr_aa_to_jj as bdr_aa_to_jj_shader,
   bdr_jj_to_jj as bdr_jj_to_jj_shader,
+  bdr_jj_to_jj_coop as bdr_jj_to_jj_coop_shader,
   bdr_horner as bdr_horner_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
@@ -734,6 +735,31 @@ ${packLines.join('\n')}
       bdr_jj_to_jj_shader,
       {
         workgroup_size,
+        addsub_unpack: false,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Cooperative BDR JJ — 4 threads per merge sharing intermediates via
+   * workgroup memory. WG hard-coded to 64 in the shader.
+   */
+  public gen_bdr_jj_to_jj_coop_shader(): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      bdr_jj_to_jj_coop_shader,
+      {
         addsub_unpack: false,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,

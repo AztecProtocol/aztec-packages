@@ -89,7 +89,9 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    reduction: q.get('reduction') === 'bdr' ? 'bdr' : q.get('reduction') === 'jbr-sw' ? 'jbr-sw' : undefined,
+    reduction: q.get('reduction') === 'bdr' ? 'bdr'
+             : q.get('reduction') === 'bdr-coop' ? 'bdr-coop'
+             : q.get('reduction') === 'jbr-sw' ? 'jbr-sw' : undefined,
   };
 })();
 
