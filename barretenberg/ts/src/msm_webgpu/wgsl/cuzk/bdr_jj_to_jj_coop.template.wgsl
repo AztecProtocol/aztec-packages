@@ -135,37 +135,47 @@ fn main(
     let y2 = load_plane(1u * in_stride, ir);
     let z2 = load_plane(2u * in_stride, ir);
 
+    // Each level: pick per-lane (a, b) via switch (cheap register moves),
+    // then ALL active lanes call the SAME montgomery_product_f8 site so
+    // Adreno SIMD lockstep runs the heavy mp in parallel across lanes.
+    // Idle-lane work goes through (a=b=zeros) → result discarded; cheaper
+    // than the alternative serialised mp-per-case dispatch.
+    let zero8: array<u32, 8> = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+
     // ============================================================
     // L0: z1z1, z2z2, y1z2, y2z1 — one mp per lane.
     // ============================================================
     {
-        var v: array<u32, 8>;
+        var a: array<u32, 8>;
+        var b: array<u32, 8>;
         switch (lane) {
-            case 0u: { v = montgomery_product_f8(z1, z1); }
-            case 1u: { v = montgomery_product_f8(z2, z2); }
-            case 2u: { v = montgomery_product_f8(y1, z2); }
-            default: { v = montgomery_product_f8(y2, z1); }
+            case 0u: { a = z1; b = z1; }
+            case 1u: { a = z2; b = z2; }
+            case 2u: { a = y1; b = z2; }
+            default: { a = y2; b = z1; }
         }
+        let v = montgomery_product_f8(a, b);
         tg_store(local_merge, lane, v);  // slots 0..3
     }
     workgroupBarrier();
 
     // ============================================================
     // L1: u1=x1*z2z2, u2=x2*z1z1, s1=y1z2*z2z2, s2=y2z1*z1z1 — one mp per lane.
-    // Also stash zsum = z1 + z2 (free add) for the L2a zsum2 mp.
     // ============================================================
     {
         let z1z1 = tg_load(local_merge, 0u);
         let z2z2 = tg_load(local_merge, 1u);
         let y1z2 = tg_load(local_merge, 2u);
         let y2z1 = tg_load(local_merge, 3u);
-        var v: array<u32, 8>;
+        var a: array<u32, 8>;
+        var b: array<u32, 8>;
         switch (lane) {
-            case 0u: { v = montgomery_product_f8(x1, z2z2); }
-            case 1u: { v = montgomery_product_f8(x2, z1z1); }
-            case 2u: { v = montgomery_product_f8(y1z2, z2z2); }
-            default: { v = montgomery_product_f8(y2z1, z1z1); }
+            case 0u: { a = x1;   b = z2z2; }
+            case 1u: { a = x2;   b = z1z1; }
+            case 2u: { a = y1z2; b = z2z2; }
+            default: { a = y2z1; b = z1z1; }
         }
+        let v = montgomery_product_f8(a, b);
         tg_store(local_merge, 4u + lane, v);  // u1, u2, s1, s2 at slots 4..7
         if (lane == 0u) {
             let zsum = fr_add_f8(z1, z2);
@@ -175,10 +185,8 @@ fn main(
     workgroupBarrier();
 
     // ============================================================
-    // L2a: i = twoh*twoh, r2 = r*r, zsum2 = zsum*zsum.
-    // Compute h = u2 - u1, twoh = h+h (free adds; needed in L2b/L2c too).
-    // Compute r = 2*(s2 - s1) (free; needed in L2c).
-    // Stash h, r for later levels.
+    // L2a: i = twoh*twoh, r2 = r*r, zsum2 = zsum*zsum (lane 3 idle ⇒ mp(0,0)).
+    // Stash h (slot 9) and r (slot 12) for later levels.
     // ============================================================
     {
         let u1 = tg_load(local_merge, 4u);
@@ -189,14 +197,17 @@ fn main(
         let h = fr_sub_f8(u2, u1);
         let twoh = fr_add_f8(h, h);
         let r = fr_add_f8(fr_sub_f8(s2, s1), fr_sub_f8(s2, s1));
-        var v: array<u32, 8>;
+        var a: array<u32, 8>;
+        var b: array<u32, 8>;
         switch (lane) {
-            case 0u: { v = montgomery_product_f8(twoh, twoh); } // i
-            case 1u: { v = montgomery_product_f8(r, r); }        // r2
-            case 2u: { v = montgomery_product_f8(zsum, zsum); }  // zsum2
-            default: { v = array<u32, 8>(0u,0u,0u,0u,0u,0u,0u,0u); } // idle
+            case 0u: { a = twoh; b = twoh; }
+            case 1u: { a = r;    b = r; }
+            case 2u: { a = zsum; b = zsum; }
+            default: { a = zero8; b = zero8; }
         }
-        // Slots: 10=i, 15=r2, 11=zsum2; also stash h (slot 9), r (slot 12).
+        let v = montgomery_product_f8(a, b);
+        // Store per-lane: l0→i (10), l1→r2 (15), l2→zsum2 (11); l3 discards.
+        // Plus stash h, r for L2b/L2c.
         if (lane == 0u) {
             tg_store(local_merge, 10u, v);
             tg_store(local_merge, 9u, h);
@@ -212,26 +223,27 @@ fn main(
     workgroupBarrier();
 
     // ============================================================
-    // L2b: j = h*i, v = u1*i. Lanes 2, 3 idle.
+    // L2b: j = h*i, v = u1*i (lanes 2,3 idle).
     // ============================================================
     {
         let u1 = tg_load(local_merge, 4u);
         let h = tg_load(local_merge, 9u);
-        let i = tg_load(local_merge, 10u);
-        var v: array<u32, 8>;
-        if (lane == 0u) { v = montgomery_product_f8(h, i); }
-        else if (lane == 1u) { v = montgomery_product_f8(u1, i); }
-        else { v = array<u32, 8>(0u,0u,0u,0u,0u,0u,0u,0u); }
+        let i_t = tg_load(local_merge, 10u);
+        var a: array<u32, 8>;
+        var b: array<u32, 8>;
+        switch (lane) {
+            case 0u: { a = h;  b = i_t; }
+            case 1u: { a = u1; b = i_t; }
+            default: { a = zero8; b = zero8; }
+        }
+        let v = montgomery_product_f8(a, b);
         if (lane == 0u) { tg_store(local_merge, 13u, v); }  // j
         if (lane == 1u) { tg_store(local_merge, 14u, v); }  // v
     }
     workgroupBarrier();
 
     // ============================================================
-    // L2c: rvx3 = r*vx3, s1j = s1*j, z3 = zdelta*h.
-    // vx3 = v - x3; x3 = r2 - j - 2v (free); zdelta = zsum2 - z1z1 - z2z2 (free).
-    // Lane 0 = rvx3, lane 1 = s1j, lane 2 = z3. Lane 3 = output_x3 (free), and
-    // then writes the final X plane.
+    // L2c: rvx3 = r*vx3, s1j = s1*j, z3 = zdelta*h, x3 = sub-only (lane 3).
     // ============================================================
     {
         let s1 = tg_load(local_merge, 6u);
@@ -247,18 +259,21 @@ fn main(
         let x3 = fr_sub_f8(fr_sub_f8(r2, j), twov);
         let vx3 = fr_sub_f8(v_field, x3);
         let zdelta = fr_sub_f8(fr_sub_f8(zsum2, z1z1), z2z2);
-        var outv: array<u32, 8>;
+        var a: array<u32, 8>;
+        var b: array<u32, 8>;
         switch (lane) {
-            case 0u: { outv = montgomery_product_f8(r, vx3); }      // rvx3
-            case 1u: { outv = montgomery_product_f8(s1, j); }        // s1j
-            case 2u: { outv = montgomery_product_f8(zdelta, h); }    // z3
-            default: { outv = x3; }                                  // X3 (no mp)
+            case 0u: { a = r;      b = vx3; }
+            case 1u: { a = s1;     b = j; }
+            case 2u: { a = zdelta; b = h; }
+            default: { a = zero8;  b = zero8; }
         }
-        // Slot 14 was v; we're done with v, reuse for s1j; slot 13 was j, done, reuse for rvx3.
-        if (lane == 0u) { tg_store(local_merge, 13u, outv); }
-        if (lane == 1u) { tg_store(local_merge, 14u, outv); }
-        if (lane == 2u) { tg_store(local_merge, 11u, outv); }  // reuse zsum2 slot for z3
-        if (lane == 3u) { tg_store(local_merge, 12u, outv); }  // reuse r slot for x3
+        let v = montgomery_product_f8(a, b);
+        // Store: l0→rvx3 (slot 13, was j), l1→s1j (slot 14, was v_field),
+        // l2→z3 (slot 11, was zsum2). l3 stores x3 directly (slot 12, was r).
+        if (lane == 0u) { tg_store(local_merge, 13u, v); }
+        if (lane == 1u) { tg_store(local_merge, 14u, v); }
+        if (lane == 2u) { tg_store(local_merge, 11u, v); }
+        if (lane == 3u) { tg_store(local_merge, 12u, x3); }
     }
     workgroupBarrier();
 
