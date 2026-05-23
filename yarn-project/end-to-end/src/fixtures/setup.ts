@@ -460,6 +460,24 @@ export async function setup(
     Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
+    // Propagate L1-contracts-config overrides back to the node config so the archiver's
+    // `l1Constants` (and any other node-side consumer) agrees with what was actually deployed.
+    // Without this, a per-test override like `aztecEpochDuration: 4` lands on the rollup contract
+    // but the node config keeps the default (32), so `archiver.isEpochComplete(0)` computes
+    // `endSlot=31` and `EpochTestSettler`/`EpochMonitor` never fires — letting the
+    // `aztecProofSubmissionEpochs` window expire mid-test and prune the pending chain.
+    // Skip undefined values: callers (e.g. `P2PNetworkTest`) sometimes build `l1ContractsArgs`
+    // by spreading a partial `AztecNodeConfig`, which leaves unset fields (notably `dataDirectory`)
+    // as `undefined`. A blind Object.assign would then clobber the temp `dataDirectory` set earlier
+    // in this function and crash `setupSharedBlobStorage`.
+    if (opts.l1ContractsArgs) {
+      for (const [key, value] of Object.entries(opts.l1ContractsArgs)) {
+        if (value !== undefined) {
+          (config as unknown as Record<string, unknown>)[key] = value;
+        }
+      }
+    }
+
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
