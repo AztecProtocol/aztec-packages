@@ -725,7 +725,11 @@ export class MsmV2 {
     m.jbrJjLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
     // WG-coop layout matches the AA→J layout (no separate input buf — reads
     // bucket_result, writes per-window L_w + meta directly).
-    const coopFits = m.c <= 8; // N_HALF = 2^(c-2) ≤ 64 ⇒ TG ≤ 12.5 KiB
+    // Currently disabled: the Adreno 750 compiler spills aggressively on the
+    // combined multi-stage kernel and benches ~100× slower than the
+    // multi-dispatch path. Keep the layout/pipeline plumbing for future
+    // device-targeted re-enable but do not compile the pipeline.
+    const coopFits = false; // m.c <= 8;
     if (coopFits) {
       m.jbrWindowCoopLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     }
