@@ -250,37 +250,66 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     // Both present — full merge. Result spans both halves: not a unit subtree.
-    let slx = load_plane(in_sx, il);
-    let sly = load_plane(in_sy, il);
-    let slz = load_plane(in_sz, il);
-    let srx = load_plane(in_sx, ir);
-    let sry = load_plane(in_sy, ir);
-    let srz = load_plane(in_sz, ir);
-    let wlx = load_plane(in_wx, il);
-    let wly = load_plane(in_wy, il);
-    let wlz = load_plane(in_wz, il);
-    let wrx = load_plane(in_wx, ir);
-    let wry = load_plane(in_wy, ir);
-    let wrz = load_plane(in_wz, ir);
+    // Loads are deferred to the stage that consumes them to shrink the
+    // per-thread live-set: only sl* / sr* are alive during the S stage;
+    // wl* are loaded right before the W_tmp jac_add; wr* right before
+    // W_new. dx/dy/dz spans the doublings → W_tmp boundary.
 
-    // S = S_L + S_R
-    let s_new = jac_add(slx, sly, slz, srx, sry, srz);
+    var dx: array<u32, 8>;
+    var dy: array<u32, 8>;
+    var dz: array<u32, 8>;
+    var s_x: array<u32, 8>;
+    var s_y: array<u32, 8>;
+    var s_z: array<u32, 8>;
+    {
+        let slx = load_plane(in_sx, il);
+        let sly = load_plane(in_sy, il);
+        let slz = load_plane(in_sz, il);
+        let srx = load_plane(in_sx, ir);
+        let sry = load_plane(in_sy, ir);
+        let srz = load_plane(in_sz, ir);
 
-    // hS_R = (2^l) * S_R via l doublings
-    var dx: array<u32, 8> = srx;
-    var dy: array<u32, 8> = sry;
-    var dz: array<u32, 8> = srz;
+        let s_new = jac_add(slx, sly, slz, srx, sry, srz);
+        s_x = s_new[0]; s_y = s_new[1]; s_z = s_new[2];
+
+        dx = srx;
+        dy = sry;
+        dz = srz;
+    }
+    // sl* dead; only s_*, d* alive.
+
     for (var k: u32 = 0u; k < num_doublings; k = k + 1u) {
         let dd = jac_double(dx, dy, dz);
         dx = dd[0]; dy = dd[1]; dz = dd[2];
     }
+    // d* now hold hS_R.
 
-    // W = W_L + hS_R + W_R
-    let w_tmp = jac_add(wlx, wly, wlz, dx, dy, dz);
-    let w_new = jac_add(w_tmp[0], w_tmp[1], w_tmp[2], wrx, wry, wrz);
+    var w_tx: array<u32, 8>;
+    var w_ty: array<u32, 8>;
+    var w_tz: array<u32, 8>;
+    {
+        let wlx = load_plane(in_wx, il);
+        let wly = load_plane(in_wy, il);
+        let wlz = load_plane(in_wz, il);
+        let w_tmp = jac_add(wlx, wly, wlz, dx, dy, dz);
+        w_tx = w_tmp[0]; w_ty = w_tmp[1]; w_tz = w_tmp[2];
+    }
+    // wl* and d* dead; only s_*, w_t* alive.
+
+    var w_x: array<u32, 8>;
+    var w_y: array<u32, 8>;
+    var w_z: array<u32, 8>;
+    {
+        let wrx = load_plane(in_wx, ir);
+        let wry = load_plane(in_wy, ir);
+        let wrz = load_plane(in_wz, ir);
+        let w_new = jac_add(w_tx, w_ty, w_tz, wrx, wry, wrz);
+        w_x = w_new[0]; w_y = w_new[1]; w_z = w_new[2];
+    }
+    // wr*, w_t* dead.
 
     store_six(out_sx, out_sy, out_sz, out_wx, out_wy, out_wz, t,
-              s_new[0], s_new[1], s_new[2], w_new[0], w_new[1], w_new[2]);
+              s_x, s_y, s_z, w_x, w_y, w_z);
     meta_out[t] = 1u; // is_present=1, unitp=0
 
     {{{ recompile }}}

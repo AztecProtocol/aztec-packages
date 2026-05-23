@@ -545,6 +545,13 @@ export class MsmV2 {
   private convMetaPipe!: GPUComputePipeline;
   private jbrAaPipe!: GPUComputePipeline; // round 0: AA -> J (S, W) leaf merge
   private jbrJjPipe!: GPUComputePipeline; // rounds 1..(c-2): JJ -> J merge
+  // Workgroup-cooperative reduction: when c <= 8 the per-window (S, W) tree
+  // fits inside one workgroup's threadgroup memory (N/2 ≤ 64 nodes ≤ 12.5 KiB
+  // TG), so we collapse the whole AA→J + (c−2) × JJ→J pipeline into one
+  // dispatch with workgroupBarrier between sub-rounds — saving (c−1) ×
+  // dispatch overhead. Null for c >= 9 (TG budget would exceed the
+  // WebGPU spec minimum), where the multi-dispatch path stays.
+  private jbrWindowCoopPipe: GPUComputePipeline | null = null;
   // layouts (needed by prepare to build bind groups)
   private plannerALayout!: GPUBindGroupLayout;
   private plannerBLayout!: GPUBindGroupLayout;
@@ -563,6 +570,7 @@ export class MsmV2 {
   private convMetaLayout!: GPUBindGroupLayout;
   private jbrAaLayout!: GPUBindGroupLayout;
   private jbrJjLayout!: GPUBindGroupLayout;
+  private jbrWindowCoopLayout: GPUBindGroupLayout | null = null;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every buffer prepare() allocated
@@ -615,6 +623,7 @@ export class MsmV2 {
   private jbrAaBind!: GPUBindGroup;
   private jbrJjBinds: GPUBindGroup[] = [];
   private jbrDispatchOutCount: number[] = [];
+  private jbrWindowCoopBind: GPUBindGroup | null = null;
   private levelBinds: LevelBind[] = [];
 
   private constructor() {}
@@ -714,6 +723,12 @@ export class MsmV2 {
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.jbrAaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.jbrJjLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
+    // WG-coop layout matches the AA→J layout (no separate input buf — reads
+    // bucket_result, writes per-window L_w + meta directly).
+    const coopFits = m.c <= 8; // N_HALF = 2^(c-2) ≤ 64 ⇒ TG ≤ 12.5 KiB
+    if (coopFits) {
+      m.jbrWindowCoopLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    }
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI). The
     // planner's PAIR_CAP loop is `break`-bounded, so a generous data-
@@ -772,6 +787,14 @@ export class MsmV2 {
     // num_doublings via the per-round uniform).
     m.jbrAaPipe = await compileOne(device, sm.gen_jbr_aa_to_jj_shader(REDUCE_WG), `jbr-aa`, m.jbrAaLayout);
     m.jbrJjPipe = await compileOne(device, sm.gen_jbr_jj_to_jj_shader(REDUCE_WG), `jbr-jj`, m.jbrJjLayout);
+    if (coopFits && m.jbrWindowCoopLayout) {
+      // workgroup_size = N/2 = 2^(c-2). For c=8 that's 64; one workgroup
+      // owns one window's whole tree.
+      const coopWg = 1 << (m.c - 2);
+      m.jbrWindowCoopPipe = await compileOne(
+        device, sm.gen_jbr_window_coop_shader(coopWg), `jbr-window-coop`, m.jbrWindowCoopLayout,
+      );
+    }
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
@@ -1083,6 +1106,15 @@ export class MsmV2 {
     const jbrAaOutPres = this.jbrRounds === 0 ? this.jbrPresenceFinal : this.jbrPresenceBufs[0];
     this.jbrAaBind = mkBind(this.jbrAaLayout, [bucketResult, jbrAaOutBuf, jbrAaOutPres, jbrAaParams]);
 
+    // WG-coop bind: bucket_result → jbrFinalBuf + jbrPresenceFinal. params:
+    //   x = NW, y = BW, z = B_TOTAL, w = out_plane_stride (= NW).
+    if (this.jbrWindowCoopPipe && this.jbrWindowCoopLayout) {
+      const coopParams = ubuf(new Uint32Array([NUM_WINDOWS, BW, B_TOTAL, this.jbrFinalPlaneStride]));
+      this.jbrWindowCoopBind = mkBind(this.jbrWindowCoopLayout, [
+        bucketResult, this.jbrFinalBuf, this.jbrPresenceFinal, coopParams,
+      ]);
+    }
+
     // Build the JJ dispatch sequence.
     this.jbrJjBinds = [];
     this.jbrDispatchOutCount = [jbrStage0];
@@ -1238,8 +1270,9 @@ export class MsmV2 {
         passes += 7; // decompose + xpose x4 + conv x2
         for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
       }
-      // Jacobian tree reduction: 1 AA -> J dispatch + jbrRounds JJ -> J dispatches.
-      passes += 1 + this.jbrRounds;
+      // Jacobian tree reduction: WG-coop path is a single dispatch; otherwise
+      // 1 AA -> J + jbrRounds JJ -> J dispatches.
+      passes += this.jbrWindowCoopPipe ? 1 : (1 + this.jbrRounds);
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -1315,18 +1348,22 @@ export class MsmV2 {
         dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1, 'finalize');
       }
     }
-    // Jacobian bucket reduction tree. Round 0 is AA -> J across all windows
-    // (one thread per (window, bucket-pair)). Rounds 1..jbrRounds are JJ -> J,
-    // each halving the per-window node count; thread t merges in_buf[2t] and
-    // in_buf[2t+1] into out_buf[t]. After the final round, jbrFinalBuf holds
-    // NW (S, W) Jacobian pairs — W of each is L_w.
-    {
-      const nx0 = Math.ceil(this.jbrDispatchOutCount[0] / this.reduceWg);
-      dispatch(this.jbrAaPipe, this.jbrAaBind, nx0, 1, 'redInit');
-    }
-    for (let r = 0; r < this.jbrRounds; r++) {
-      const nx = Math.ceil(this.jbrDispatchOutCount[r + 1] / this.reduceWg);
-      dispatch(this.jbrJjPipe, this.jbrJjBinds[r], nx, 1, 'redLevel');
+    // Jacobian bucket reduction tree. When the c-gated workgroup-cooperative
+    // pipeline is available (c ≤ 8), one dispatch handles AA→J + every
+    // JJ→J level inside a single workgroup per window — saving the
+    // per-round dispatch overhead. Otherwise the multi-dispatch fallback
+    // runs round 0 (AA→J) then jbrRounds (JJ→J) separately.
+    if (this.jbrWindowCoopPipe && this.jbrWindowCoopBind) {
+      dispatch(this.jbrWindowCoopPipe, this.jbrWindowCoopBind, this.numWindows, 1, 'redInit');
+    } else {
+      {
+        const nx0 = Math.ceil(this.jbrDispatchOutCount[0] / this.reduceWg);
+        dispatch(this.jbrAaPipe, this.jbrAaBind, nx0, 1, 'redInit');
+      }
+      for (let r = 0; r < this.jbrRounds; r++) {
+        const nx = Math.ceil(this.jbrDispatchOutCount[r + 1] / this.reduceWg);
+        dispatch(this.jbrJjPipe, this.jbrJjBinds[r], nx, 1, 'redLevel');
+      }
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
       enc.resolveQuerySet(this.querySet, 0, passIdx * 2, this.tsResolveBuf, 0);

@@ -10,6 +10,7 @@ import {
   jbr_jj_to_jj as jbr_jj_to_jj_shader,
   ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
   ba_planner_v2_emit as ba_planner_v2_emit_shader,
+  jbr_window_coop as jbr_window_coop_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -670,6 +671,39 @@ ${packLines.join('\n')}
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       jbr_aa_to_jj_shader,
+      {
+        workgroup_size,
+        addsub_unpack: false,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Workgroup-cooperative window reduction: one workgroup owns one window's
+   * (S, W) tree end-to-end (AA→J + all JJ→J levels) and stages every
+   * intermediate node through threadgroup memory. The `workgroup_size`
+   * argument must equal N/2 = 2^(c-2); the kernel hard-wires that as
+   * `N_HALF`. Caller is responsible for c ≤ 8 gating (above that the TG
+   * footprint exceeds WebGPU's 16 KiB workgroup-storage minimum).
+   */
+  public gen_jbr_window_coop_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_jbr_window_coop_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      jbr_window_coop_shader,
       {
         workgroup_size,
         addsub_unpack: false,
