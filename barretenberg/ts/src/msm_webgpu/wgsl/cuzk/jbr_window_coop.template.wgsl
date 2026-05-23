@@ -242,13 +242,13 @@ fn main(
 
     // ============================================================
     // Sub-rounds 1..log2(N_HALF) — JJ→J. At sub-round r (1-indexed),
-    // h = 2^r and active thread count halves: N_HALF/2, N_HALF/4, ...
+    // h = 2^r and live_n thread count halves: N_HALF/2, N_HALF/4, ...
     // ============================================================
-    var active: u32 = N_HALF >> 1u;
+    var live_n: u32 = N_HALF >> 1u;
     var num_doublings: u32 = 1u;
     loop {
-        if (active == 0u) { break; }
-        if (tid < active) {
+        if (live_n == 0u) { break; }
+        if (tid < live_n) {
             let il = 2u * tid;
             let ir = 2u * tid + 1u;
             let l_meta = tg_meta[il];
@@ -313,7 +313,7 @@ fn main(
             }
         }
         workgroupBarrier();
-        active = active >> 1u;
+        live_n = live_n >> 1u;
         num_doublings = num_doublings + 1u;
         if (num_doublings >= 32u) { break; } // safety
     }
