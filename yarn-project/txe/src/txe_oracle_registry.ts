@@ -256,7 +256,7 @@ export const TXE_ORACLE_REGISTRY = {
 
   aztec_avm_sender: makeEntry({ returnType: AZTEC_ADDRESS }),
 
-  aztec_avm_blockNumber: makeEntry({ returnType: FIELD }),
+  aztec_avm_blockNumber: makeEntry({ returnType: BLOCK_NUMBER }),
 
   aztec_avm_timestamp: makeEntry({ returnType: BIGINT }),
 
@@ -363,10 +363,17 @@ export async function callTxeHandler<K extends keyof typeof TXE_ORACLE_REGISTRY>
   ) => MaybePromise<Parameters<(typeof TXE_ORACLE_REGISTRY)[K]['serializeReturn']>[0]>;
 }): Promise<ForeignCallResult> {
   const entry = TXE_ORACLE_REGISTRY[oracle] as OracleRegistryEntry;
-  const normalized: InputSlot[] = inputs.map(v => (Array.isArray(v) ? (v as string[]) : [v as string]));
+  // TXE foreign calls use bare hex strings, but Fr.fromString requires a 0x prefix to parse as hex.
+  const prefixHex = (s: string) => (s.startsWith('0x') ? s : `0x${s}`);
+  const stripPrefix = (s: string) => (s.startsWith('0x') ? s.slice(2) : s);
+  const normalized: InputSlot[] = inputs.map(v =>
+    Array.isArray(v) ? (v as string[]).map(prefixHex) : [prefixHex(v as string)],
+  );
   const named = entry.deserializeParams(normalized);
   const positional = named.map((p: { value: unknown }) => p.value);
   const result = await handler(positional as any);
   const outputSlots = entry.serializeReturn(result);
-  return { values: outputSlots };
+  return {
+    values: outputSlots.map(slot => (Array.isArray(slot) ? slot.map(stripPrefix) : stripPrefix(slot))),
+  };
 }

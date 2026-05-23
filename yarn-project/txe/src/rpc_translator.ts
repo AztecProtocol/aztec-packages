@@ -1,5 +1,4 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 
@@ -913,7 +912,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_avm_blockNumber',
       inputs: [],
-      handler: async () => new Fr(await this.handlerAsAvm().blockNumber()),
+      handler: () => this.handlerAsAvm().blockNumber(),
     });
   }
 
