@@ -48,27 +48,29 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(3) var<storage, read_write> meta_out:  array<u32>;
 @group(0) @binding(4) var<uniform>             params:    vec4<u32>;
 
-// Workgroup-memory scratch for wl* and wr* (6 field-elements per thread =
-// 12 vec4<u32>). Loaded from in_buf at function entry, then sourced from
-// here during the W stages. The point is to FORCE these values out of
-// registers across the heavy S-stage jac_add: WGSL guarantees the
-// scratch read can't be reordered ahead of the write, so the compiler
-// can't legally keep the values in registers and re-use the same slots
-// for the jac_add internals. On WG=128 that's 192 B per thread × 128 =
-// 24 KiB per workgroup; comfortably within the 32 KiB Adreno typically
-// exposes, and gpu.ts already requests the adapter max.
-var<workgroup> tg_wlwr: array<vec4<u32>, 12u * WG>;
+// Workgroup-memory scratch for wr* only (3 field-elements per thread =
+// 6 vec4<u32>). Loaded from in_buf at function entry, then sourced from
+// here during the final W stage. The point is to FORCE wr* out of
+// registers across the heavy S-stage jac_add + doublings + W_tmp
+// jac_add: WGSL guarantees the scratch read can't be reordered ahead
+// of the write, so the compiler must drop the values from registers
+// in between. On WG=128 that's 96 B per thread × 128 = 12 KiB per
+// workgroup — within both the 16 KiB WebGPU spec minimum and the real
+// Adreno limit. (wl* is consumed sooner — right after the doublings —
+// so deferred source-level loading is enough; only wr* survives long
+// enough to dominate live-set.)
+var<workgroup> tg_wr: array<vec4<u32>, 6u * WG>;
 
 fn tg_store_w(lid: u32, plane_in_w: u32, v: array<u32, 8>) {
-    let base = 12u * lid + 2u * plane_in_w;
-    tg_wlwr[base + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
-    tg_wlwr[base + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
+    let base = 6u * lid + 2u * plane_in_w;
+    tg_wr[base + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
+    tg_wr[base + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
 }
 
 fn tg_load_w(lid: u32, plane_in_w: u32) -> array<u32, 8> {
-    let base = 12u * lid + 2u * plane_in_w;
-    let q0 = tg_wlwr[base + 0u];
-    let q1 = tg_wlwr[base + 1u];
+    let base = 6u * lid + 2u * plane_in_w;
+    let q0 = tg_wr[base + 0u];
+    let q1 = tg_wr[base + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 // params.x = M_out_pairs (output node count this round)
@@ -277,29 +279,20 @@ fn main(
         return;
     }
 
-    // Both present — full merge. To stop the compiler hoisting wl* / wr* loads
-    // up to function entry (which keeps 6 fields = 48 u32 alive across the
-    // heavy S-stage jac_add), we route them through workgroup memory:
-    // load → tg_wlwr write at entry, tg_wlwr read at the W stages. The
-    // WGSL memory model guarantees the read can't be reordered ahead of
-    // the write, so the compiler must materialise the values when needed
-    // and is free to use the same registers for the S-stage jac_add
-    // internals in between. The lid below indexes into the per-thread
-    // 6-field slot of tg_wlwr.
+    // Both present — full merge. wr* lives the longest (until the final
+    // W_new jac_add) so we offload it to workgroup memory at entry; the
+    // compiler must drop it from registers between the write here and the
+    // read in stage D (the WGSL memory model forbids reordering across
+    // the workgroup write). wl* is consumed at stage C, soon enough that
+    // source-level deferred loading suffices.
     let lid: u32 = lid_in.x;
     {
-        let wlx_e = load_plane(in_wx, il);
-        let wly_e = load_plane(in_wy, il);
-        let wlz_e = load_plane(in_wz, il);
         let wrx_e = load_plane(in_wx, ir);
         let wry_e = load_plane(in_wy, ir);
         let wrz_e = load_plane(in_wz, ir);
-        tg_store_w(lid, 0u, wlx_e);
-        tg_store_w(lid, 1u, wly_e);
-        tg_store_w(lid, 2u, wlz_e);
-        tg_store_w(lid, 3u, wrx_e);
-        tg_store_w(lid, 4u, wry_e);
-        tg_store_w(lid, 5u, wrz_e);
+        tg_store_w(lid, 0u, wrx_e);
+        tg_store_w(lid, 1u, wry_e);
+        tg_store_w(lid, 2u, wrz_e);
     }
 
     var dx: array<u32, 8>;
@@ -335,9 +328,9 @@ fn main(
     var w_ty: array<u32, 8>;
     var w_tz: array<u32, 8>;
     {
-        let wlx = tg_load_w(lid, 0u);
-        let wly = tg_load_w(lid, 1u);
-        let wlz = tg_load_w(lid, 2u);
+        let wlx = load_plane(in_wx, il);
+        let wly = load_plane(in_wy, il);
+        let wlz = load_plane(in_wz, il);
         let w_tmp = jac_add(wlx, wly, wlz, dx, dy, dz);
         w_tx = w_tmp[0]; w_ty = w_tmp[1]; w_tz = w_tmp[2];
     }
@@ -347,9 +340,9 @@ fn main(
     var w_y: array<u32, 8>;
     var w_z: array<u32, 8>;
     {
-        let wrx = tg_load_w(lid, 3u);
-        let wry = tg_load_w(lid, 4u);
-        let wrz = tg_load_w(lid, 5u);
+        let wrx = tg_load_w(lid, 0u);
+        let wry = tg_load_w(lid, 1u);
+        let wrz = tg_load_w(lid, 2u);
         let w_new = jac_add(w_tx, w_ty, w_tz, wrx, wry, wrz);
         w_x = w_new[0]; w_y = w_new[1]; w_z = w_new[2];
     }
