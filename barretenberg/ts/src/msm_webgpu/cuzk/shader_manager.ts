@@ -6,6 +6,8 @@ import {
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
+  jbr_aa_to_jj as jbr_aa_to_jj_shader,
+  jbr_jj_to_jj as jbr_jj_to_jj_shader,
   ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
   ba_planner_v2_emit as ba_planner_v2_emit_shader,
   bigint as bigint_funcs,
@@ -651,6 +653,67 @@ ${packLines.join('\n')}
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
         field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Bucket reduction round 0: Affine + Affine -> Jacobian (S, W) pair.
+   * One thread per output node; reads two adjacent weighted affine buckets
+   * from bucket_result and writes the level-1 (S, W) Jacobian pair.
+   */
+  public gen_jbr_aa_to_jj_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_jbr_aa_to_jj_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      jbr_aa_to_jj_shader,
+      {
+        workgroup_size,
+        addsub_unpack: false,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs,
+      },
+    );
+  }
+
+  /**
+   * Bucket reduction round r >= 1: Jacobian + Jacobian -> Jacobian (S, W).
+   * One thread per output node; reads two adjacent input (S, W) pairs and
+   * writes the merged pair. Number of doublings per merge is a per-round
+   * uniform (params.w).
+   */
+  public gen_jbr_jj_to_jj_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_jbr_jj_to_jj_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      jbr_jj_to_jj_shader,
+      {
+        workgroup_size,
+        addsub_unpack: false,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs,
       },
     );
   }

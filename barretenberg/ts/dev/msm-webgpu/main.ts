@@ -1398,12 +1398,67 @@ function hideProgress(): void {
   // Autorun support for BrowserStack-driven integration testing.
   // URL params:
   //   ?autorun=msm-cross-check    Click Run, capture gpu/mt result pair
+  //   ?autorun=msm-gpu-noble      GPU + Noble only (no WASM dispatch). Used to
+  //                               cross-check GPU correctness without paying
+  //                               for the bb.js WASM bootstrap; safe at
+  //                               logN <= 16 (noble's bigint MSM is the limit).
   //   ?logn=N                     logN to test (default keeps page default)
+  //   ?c=C ?reducewg=W ...        GPU pipeline knobs (forwarded via gpuKnobs).
   //   ?use_tree_reduce=1          Route SMVP through tree-reduce pipeline
   // Results posted via the standard /results endpoint so the BS harness
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
+  if (autorun === 'msm-gpu-noble') {
+    const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
+    const client = makeResultsClient({ page: 'msm-autorun-noble' });
+    log('info', `[autorun] msm-gpu-noble logN=${autorunLogN}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS not loaded within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const inputs = await generateInputs(autorunLogN, /* mirrorForNoble */ true);
+      const gpu = await runWebGpuOnce(inputs);
+      log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+      const noble = referenceMsm(inputs.points!, inputs.scalars!);
+      const ok = pointsEqual(gpu.xy, noble);
+      log(ok ? 'ok' : 'err', `[autorun-noble] ${ok ? 'GPU == Noble' : 'MISMATCH'}`);
+      await client.postResults({
+        state: ok ? 'done' : 'error',
+        params: { logN: autorunLogN, page: 'msm-autorun-noble' },
+        results: {
+          ok,
+          gpu_x: '0x' + gpu.xy.x.toString(16),
+          gpu_y: '0x' + gpu.xy.y.toString(16),
+          noble_x: '0x' + noble.x.toString(16),
+          noble_y: '0x' + noble.y.toString(16),
+          gpu_ms: gpu.ms,
+        },
+        error: ok ? null : `gpu.x=${gpu.xy.x.toString(16)} noble.x=${noble.x.toString(16)}`,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun-noble] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-autorun-noble' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+    return;
+  }
   if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
     const tree = qp.get('use_tree_reduce') === '1';

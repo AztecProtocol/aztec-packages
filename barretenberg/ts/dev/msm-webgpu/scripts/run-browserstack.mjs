@@ -41,6 +41,7 @@ const { values: argv } = parseArgs({
   options: {
     target: { type: "string", default: "macos" },
     page: { type: "string", default: "index" },
+    autorun: { type: "string", default: "msm-cross-check" },
     reps: { type: "string", default: "3" },
     total: { type: "string" },
     sizes: { type: "string" },
@@ -411,7 +412,7 @@ async function main() {
   // GPU-vs-WASM cross-check on load and POSTs the result, ?logn the size.
   const qp = new URLSearchParams();
   qp.set("coi", "1");
-  qp.set("autorun", "msm-cross-check");
+  qp.set("autorun", String(argv.autorun));
   qp.set("logn", String(argv.n ?? "16"));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);

@@ -219,52 +219,66 @@ function buildPadBuf(Mb: number, padPts: Pt[], R: bigint): Uint32Array {
   return padBuf;
 }
 
-// Window combine: Horner fold of the per-window weighted sums into the final
-// MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian coordinates
-// (a = 0) so every step is inversion-free; one inverse converts back to affine.
-function hostWindowCombine(L: Pt[], c: number): Pt {
+// Per-window L_w as a Jacobian point (a = 0). Z = 0 is the point at infinity.
+interface Jac {
+  x: bigint;
+  y: bigint;
+  z: bigint;
+}
+
+// Jacobian doubling, a = 0 (EFD dbl-2009-l).
+function jacDouble(P: Jac): Jac {
   const fadd = (a: bigint, b: bigint): bigint => (a + b) % FP;
-  // acc in Jacobian (X, Y, Z); the seed window is affine, so Z = 1.
-  let X = L[L.length - 1].x;
-  let Y = L[L.length - 1].y;
-  let Z = 1n;
+  const A = fmul(P.x, P.x);
+  const B = fmul(P.y, P.y);
+  const Bsq = fmul(B, B);
+  const xB = fadd(P.x, B);
+  const s = fsub(fmul(xB, xB), fadd(A, Bsq));
+  const D = fadd(s, s);
+  const E = fadd(fadd(A, A), A);
+  const X3 = fsub(fmul(E, E), fadd(D, D));
+  const Bsq4 = fadd(fadd(Bsq, Bsq), fadd(Bsq, Bsq));
+  const yz = fmul(P.y, P.z);
+  const Y3 = fsub(fmul(E, fsub(D, X3)), fadd(Bsq4, Bsq4));
+  const Z3 = fadd(yz, yz);
+  return { x: X3, y: Y3, z: Z3 };
+}
+
+// Jacobian + Jacobian add, a = 0 (EFD add-2007-bl). Caller guarantees neither
+// operand is the point at infinity and no x-collision.
+function jacAdd(P: Jac, Q: Jac): Jac {
+  const fadd = (a: bigint, b: bigint): bigint => (a + b) % FP;
+  const Z1Z1 = fmul(P.z, P.z);
+  const Z2Z2 = fmul(Q.z, Q.z);
+  const U1 = fmul(P.x, Z2Z2);
+  const U2 = fmul(Q.x, Z1Z1);
+  const S1 = fmul(fmul(P.y, Q.z), Z2Z2);
+  const S2 = fmul(fmul(Q.y, P.z), Z1Z1);
+  const H = fsub(U2, U1);
+  const twoH = fadd(H, H);
+  const I = fmul(twoH, twoH);
+  const J = fmul(H, I);
+  const r = fadd(fsub(S2, S1), fsub(S2, S1));
+  const V = fmul(U1, I);
+  const X3 = fsub(fsub(fmul(r, r), J), fadd(V, V));
+  const Y3 = fsub(fmul(r, fsub(V, X3)), fadd(fmul(S1, J), fmul(S1, J)));
+  const zSum = fadd(P.z, Q.z);
+  const Z3 = fmul(fsub(fsub(fmul(zSum, zSum), Z1Z1), Z2Z2), H);
+  return { x: X3, y: Y3, z: Z3 };
+}
+
+// Window combine: Horner fold of the per-window Jacobian L_w into the final
+// MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian (a = 0) so
+// every step is inversion-free; one inverse converts back to affine.
+function hostWindowCombine(L: Jac[], c: number): Pt {
+  let acc: Jac = L[L.length - 1];
   for (let w = L.length - 2; w >= 0; w--) {
-    for (let d = 0; d < c; d++) {
-      // Jacobian doubling, a = 0 (EFD dbl-2009-l).
-      const A = fmul(X, X);
-      const B = fmul(Y, Y);
-      const Bsq = fmul(B, B);
-      const xB = fadd(X, B);
-      const s = fsub(fmul(xB, xB), fadd(A, Bsq));
-      const D = fadd(s, s);
-      const E = fadd(fadd(A, A), A);
-      const X3 = fsub(fmul(E, E), fadd(D, D));
-      const Bsq4 = fadd(fadd(Bsq, Bsq), fadd(Bsq, Bsq));
-      const yz = fmul(Y, Z);
-      Y = fsub(fmul(E, fsub(D, X3)), fadd(Bsq4, Bsq4));
-      Z = fadd(yz, yz);
-      X = X3;
-    }
-    // Jacobian + affine mixed addition (EFD madd-2007-bl).
-    const Z1Z1 = fmul(Z, Z);
-    const U2 = fmul(L[w].x, Z1Z1);
-    const S2 = fmul(fmul(L[w].y, Z), Z1Z1);
-    const H = fsub(U2, X);
-    const HH = fmul(H, H);
-    const I = fadd(fadd(HH, HH), fadd(HH, HH));
-    const J = fmul(H, I);
-    const r = fadd(fsub(S2, Y), fsub(S2, Y));
-    const V = fmul(X, I);
-    const X3 = fsub(fsub(fmul(r, r), J), fadd(V, V));
-    const yJ = fmul(Y, J);
-    const zH = fadd(Z, H);
-    Y = fsub(fmul(r, fsub(V, X3)), fadd(yJ, yJ));
-    Z = fsub(fsub(fmul(zH, zH), Z1Z1), HH);
-    X = X3;
+    for (let d = 0; d < c; d++) acc = jacDouble(acc);
+    acc = jacAdd(acc, L[w]);
   }
-  const zInv = modInverse(Z, FP);
+  const zInv = modInverse(acc.z, FP);
   const zInv2 = fmul(zInv, zInv);
-  return { x: fmul(X, zInv2), y: fmul(Y, fmul(zInv2, zInv)) };
+  return { x: fmul(acc.x, zInv2), y: fmul(acc.y, fmul(zInv2, zInv)) };
 }
 
 async function compileOne(
@@ -488,7 +502,12 @@ export class MsmV2 {
   private pointXBuf!: GPUBuffer;
   private pointYBuf!: GPUBuffer;
   private padPts!: Pt[];
-  private reducePasses!: { isDouble: boolean; shaderPhase: number; p2x: number; p2y: number; ppw: number }[];
+  // Jacobian bucket reduction schedule:
+  //   round 0 is the AA -> J leaf merge (one thread per (window, pair));
+  //   rounds 1..(c-2) are JJ -> J merges, each thread doing 3 JJ adds + r
+  //   doublings (where r = round index = number of doublings for that round).
+  //   `jbrRounds` is c-2 (= number of JJ rounds), or 0 when c <= 2.
+  private jbrRounds!: number;
   // pipelines
   private plannerAPipe!: GPUComputePipeline;
   private plannerBPipe!: GPUComputePipeline;
@@ -505,8 +524,8 @@ export class MsmV2 {
   private xposeScatterPipe!: GPUComputePipeline;
   private convActivePipe!: GPUComputePipeline;
   private convMetaPipe!: GPUComputePipeline;
-  private reduceInitPipe!: GPUComputePipeline;
-  private reduceLevelPipes: GPUComputePipeline[] = [];
+  private jbrAaPipe!: GPUComputePipeline; // round 0: AA -> J (S, W) leaf merge
+  private jbrJjPipe!: GPUComputePipeline; // rounds 1..(c-2): JJ -> J merge
   // layouts (needed by prepare to build bind groups)
   private plannerALayout!: GPUBindGroupLayout;
   private plannerBLayout!: GPUBindGroupLayout;
@@ -523,8 +542,8 @@ export class MsmV2 {
   private xposeScatterLayout!: GPUBindGroupLayout;
   private convActiveLayout!: GPUBindGroupLayout;
   private convMetaLayout!: GPUBindGroupLayout;
-  private reduceInitLayout!: GPUBindGroupLayout;
-  private reduceLevelLayout!: GPUBindGroupLayout;
+  private jbrAaLayout!: GPUBindGroupLayout;
+  private jbrJjLayout!: GPUBindGroupLayout;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every buffer prepare() allocated
@@ -535,11 +554,18 @@ export class MsmV2 {
   private nXposePts = 0;
   private xposeNumChunks = 1;
   private nConvMeta = 0;
-  private nReduceInit = 0;
   private numWgsFinalize = 0;
   private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
-  private redBuf!: GPUBuffer; // gathered + decoded by run()
-  private redStaging!: GPUBuffer; // small mappable L_w gather target
+  // jbrBufs[0] is the round 0 -> 1 destination (also round 1 input); subsequent
+  // rounds ping-pong between jbrBufs[0] and jbrBufs[1]. After the last round
+  // (count = c-2 + 1 = c-1 dispatches in total) the final NW (S, W) pairs sit
+  // in jbrFinalBuf — its plane stride is numWindows so the per-window gather
+  // is a contiguous 3-plane copy into redStaging.
+  private jbrBufs: GPUBuffer[] = [];
+  private jbrFinalBuf!: GPUBuffer; // numWindows (S, W) pairs after the last round
+  private jbrPlaneStrides: number[] = []; // per-buffer plane stride in field-elements
+  private jbrFinalPlaneStride = 0;
+  private redStaging!: GPUBuffer; // small mappable L_w gather target (3 planes × NW × 32B)
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
   // profiling (created in prepare when this.profile)
   private querySet: GPUQuerySet | null = null;
@@ -553,9 +579,13 @@ export class MsmV2 {
   private xposeScatterBind!: GPUBindGroup;
   private convActiveBind!: GPUBindGroup;
   private convMetaBind!: GPUBindGroup;
-  private reduceInitBind!: GPUBindGroup;
-  private reduceLevelBinds: GPUBindGroup[] = [];
-  private reduceLevelKinds: number[] = [];
+  // Jacobian bucket reduction dispatches:
+  //   jbrAaBind: round 0 (AA -> J)
+  //   jbrJjBinds[r]: round r+1 (JJ -> J), for r = 0 .. jbrRounds - 1
+  //   jbrDispatchOutCount[i]: output node count for dispatch i (1 + jbrRounds total)
+  private jbrAaBind!: GPUBindGroup;
+  private jbrJjBinds: GPUBindGroup[] = [];
+  private jbrDispatchOutCount: number[] = [];
   private levelBinds: LevelBind[] = [];
 
   private constructor() {}
@@ -585,7 +615,7 @@ export class MsmV2 {
       console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
     }
     // Pull the knobs into the local names the rest of create() uses.
-    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
+    const { s: S, wgi: WGI, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
     m.numWindows = Math.ceil(NUMBITS / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
@@ -613,23 +643,14 @@ export class MsmV2 {
     for (let j = 0; j < 3; j++) m.padPts.push({ x: randomBelow(FP, rng), y: randomBelow(FP, rng) });
     if (m.padPts[0].x === m.padPts[1].x) m.padPts[1].x = (m.padPts[1].x + 1n) % FP;
 
-    // The reduction's data-independent 4-phase schedule.
-    const STRIDE = m.stride;
-    const C0 = Math.max(1, Math.min(L0_LOG, Math.log2(STRIDE) - 1));
-    const L0 = 1 << C0;
-    const D = STRIDE / L0;
-    m.reducePasses = [];
-    const push = (isDouble: boolean, shaderPhase: number, p2x: number, p2y: number, ppw: number) =>
-      m.reducePasses.push({ isDouble, shaderPhase, p2x, p2y, ppw });
-    for (let l = L0 - 1; l >= 1; l--) push(false, 0, L0, l, D);
-    for (let L1 = L0; L1 < STRIDE; L1 *= 2) push(false, 1, L0, L1, STRIDE / (2 * L1));
-    for (let j = 0; j < C0; j++) push(true, 2, L0, 0, D - 1);
-    for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
-    for (let mm = 1; mm < STRIDE; mm *= 2) push(false, 2, L0, mm, STRIDE / (2 * mm));
-    if (m.reducePasses.length > 64) throw new Error(`reduction schedule too long: ${m.reducePasses.length} > 64`);
-    // Per-level kind (0 phase-A add / 1 phase-B/D tree-add / 2 phase-C
-    // double) — picks the kind-specialized pipeline for the unfused path.
-    m.reduceLevelKinds = m.reducePasses.map(p => (p.isDouble ? 2 : p.shaderPhase === 0 ? 0 : 1));
+    // Jacobian (S, W) tree reduction: a single AA -> J dispatch (round 0)
+    // followed by c - 2 JJ -> J dispatches (one per tree level). Together
+    // they reduce the NW × 2^(c-1) weighted affine buckets to NW Jacobian
+    // (S, W) pairs; the W of each pair is L_w.
+    if (m.c < 2) {
+      throw new Error(`MsmV2.create: c (${m.c}) must be >= 2`);
+    }
+    m.jbrRounds = m.c - 2;
 
     // --- Layouts ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout =>
@@ -662,8 +683,8 @@ export class MsmV2 {
     m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
-    m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
-    m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
+    m.jbrAaLayout = lt(['read-only-storage', 'storage', 'uniform']);
+    m.jbrJjLayout = lt(['read-only-storage', 'storage', 'uniform']);
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI). The
     // planner's PAIR_CAP loop is `break`-bounded, so a generous data-
@@ -717,17 +738,11 @@ export class MsmV2 {
       device, sm.gen_csr_to_v2_active_sums_shader(WGI, true, true), `csr2v2-active`, m.convActiveLayout,
     );
     m.convMetaPipe = await compileOne(device, sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
-    m.reduceInitPipe = await compileOne(device, sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
-    // Three kind-specialized per-level reduction pipelines (one dispatch per
-    // schedule level); binding 4 is a per-level uniform.
-    for (const kind of [0, 1, 2]) {
-      m.reduceLevelPipes[kind] = await compileOne(
-        device,
-        sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, kind, INV_VARIANT, ADDSUB),
-        `reduce-level-k${kind}`,
-        m.reduceLevelLayout,
-      );
-    }
+    // Jacobian bucket reduction pipelines: one shared AA -> J kernel (round 0)
+    // and one shared JJ -> J kernel (rounds 1..c-2, parameterized by
+    // num_doublings via the per-round uniform).
+    m.jbrAaPipe = await compileOne(device, sm.gen_jbr_aa_to_jj_shader(REDUCE_WG), `jbr-aa`, m.jbrAaLayout);
+    m.jbrJjPipe = await compileOne(device, sm.gen_jbr_jj_to_jj_shader(REDUCE_WG), `jbr-jj`, m.jbrJjLayout);
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
@@ -975,38 +990,79 @@ export class MsmV2 {
     this.rowPtrBuf = rowPtrBuf;    this.nXposePts = Math.ceil(n / WGI);
     this.nConvMeta = Math.ceil(batchBuckets / WGI);
 
-    // --- Reduction ---
-    let MAXC = 1;
-    const schedule = new Uint32Array(64 * 4);
-    this.reducePasses.forEach((p, i) => {
-      const kind = p.isDouble ? 2 : p.shaderPhase === 0 ? 0 : 1;
-      const a = !p.isDouble && p.shaderPhase !== 0 ? p.p2y : p.p2x;
-      const b = !p.isDouble && p.shaderPhase === 0 ? p.p2y : 0;
-      schedule[i * 4 + 0] = kind;
-      schedule[i * 4 + 1] = a;
-      schedule[i * 4 + 2] = b;
-      schedule[i * 4 + 3] = p.ppw;
-      MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
-    });
-    const redBuf = soa(RED_M);
-    const isPresentBuf = sbuf(RED_M * 4);
-    const reducePrefScratch = sbuf(NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16);
-    const reduceInitParams = ubuf(new Uint32Array([RED_M, this.stride, BW, B_TOTAL]));
-    this.reduceInitBind = mkBind(this.reduceInitLayout, [bucketResult, redBuf, isPresentBuf, reduceInitParams]);
-    // One kind-specialized dispatch per level: the schedule's (a, b, ppw)
-    // ride a per-level uniform, the (M, maxc, stride) constants a shared one.
-    const cparams = ubuf(new Uint32Array([RED_M, MAXC, this.stride, 0]));
-    this.reduceLevelBinds = this.reducePasses.map((_, i) => {
-      const lparams = ubuf(new Uint32Array([schedule[i * 4 + 1], schedule[i * 4 + 2], schedule[i * 4 + 3], 0]));
-      return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
-    });
-    this.redBuf = redBuf;
+    // --- Reduction: Jacobian (S, W) tree ---
+    // jbrBufs[0]: round 0 output / round 1 input.
+    // jbrBufs[1]: round 2 input (= round 1 output) etc., ping-pong.
+    // jbrFinalBuf: last-round output, plane stride = NUM_WINDOWS so each
+    //              window's (S, W) is contiguous.
+    //
+    // Layout per buffer: 6 planes [S.X, S.Y, S.Z, W.X, W.Y, W.Z], each plane
+    // is `plane_stride` field-elements wide, packed PG = 2 vec4 per field
+    // element. We size jbrBufs[0] for the largest dispatch (round 0 output =
+    // NUM_WINDOWS * STRIDE / 2 pairs) and jbrBufs[1] for the second-largest
+    // (NUM_WINDOWS * STRIDE / 4 pairs); subsequent rounds reuse them.
+    const STRIDE = this.stride;
+    const jbrStage0 = NUM_WINDOWS * (STRIDE >> 1); // round 0 output node count
+    const allocJacBuf = (planeStride: number): GPUBuffer => {
+      const bytes = 6 * planeStride * PG * 4 * 4; // 6 planes × stride × 2 vec4 × 16 B
+      const b = device.createBuffer({
+        size: Math.max(bytes, 16),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+      this.prepBuffers.push(b);
+      return b;
+    };
+    if (this.jbrRounds === 0) {
+      // c == 2 -> only the AA -> J round. Its output IS the final per-window
+      // (S, W) buffer; no ping-pong needed.
+      this.jbrBufs = [];
+      this.jbrPlaneStrides = [];
+      this.jbrFinalPlaneStride = NUM_WINDOWS;
+      this.jbrFinalBuf = allocJacBuf(NUM_WINDOWS);
+    } else {
+      const planeA = jbrStage0;                 // round 0 -> 1
+      const planeB = Math.max(1, jbrStage0 >> 1); // round 1 -> 2 onwards
+      this.jbrBufs = [allocJacBuf(planeA), allocJacBuf(planeB)];
+      this.jbrPlaneStrides = [planeA, planeB];
+      this.jbrFinalPlaneStride = NUM_WINDOWS;
+      this.jbrFinalBuf = allocJacBuf(NUM_WINDOWS);
+    }
+    const jbrAaParams = ubuf(new Uint32Array([
+      jbrStage0,        // M_pairs
+      STRIDE >> 1,      // half_N (per window)
+      BW,               // bucket_result stride per window
+      B_TOTAL,          // bucket_result y-plane offset (= NW * BW)
+    ]));
+    const jbrAaOutBuf = this.jbrRounds === 0 ? this.jbrFinalBuf : this.jbrBufs[0];
+    const jbrAaOutStride = this.jbrRounds === 0 ? this.jbrFinalPlaneStride : this.jbrPlaneStrides[0];
+    this.jbrAaBind = mkBind(this.jbrAaLayout, [bucketResult, jbrAaOutBuf, jbrAaParams]);
+
+    // Build the JJ dispatch sequence.
+    this.jbrJjBinds = [];
+    this.jbrDispatchOutCount = [jbrStage0];
+    let prevStride = jbrAaOutStride;
+    let prevBuf = jbrAaOutBuf;
+    let prevCount = jbrStage0;
+    for (let r = 0; r < this.jbrRounds; r++) {
+      const isLast = r === this.jbrRounds - 1;
+      const outCount = prevCount >> 1;
+      const outBuf = isLast ? this.jbrFinalBuf : this.jbrBufs[(r & 1) ^ 1];
+      const outStride = isLast ? this.jbrFinalPlaneStride : this.jbrPlaneStrides[(r & 1) ^ 1];
+      const numDoublings = r + 1; // round 1 -> 1 doubling, round 2 -> 2, ...
+      const params = ubuf(new Uint32Array([outCount, prevStride, outStride, numDoublings]));
+      this.jbrJjBinds.push(mkBind(this.jbrJjLayout, [prevBuf, outBuf, params]));
+      this.jbrDispatchOutCount.push(outCount);
+      prevBuf = outBuf;
+      prevStride = outStride;
+      prevCount = outCount;
+    }
+
+    // Per-window L_w staging: 3 field-elements (W.X, W.Y, W.Z) × NUM_WINDOWS.
     this.redStaging = device.createBuffer({
-      size: NUM_WINDOWS * 64,
+      size: NUM_WINDOWS * 3 * 32,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
     this.prepBuffers.push(this.redStaging);
-    this.nReduceInit = Math.ceil(RED_M / WGI);
 
     // --- Per-level bind groups ---
     const finalizeParamsBufs: GPUBuffer[] = [];
@@ -1130,8 +1186,8 @@ export class MsmV2 {
         passes += 7; // decompose + xpose x4 + conv x2
         for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
       }
-      // reduceInit + one dispatch per reduction level.
-      passes += 1 + this.reducePasses.length;
+      // Jacobian tree reduction: 1 AA -> J dispatch + jbrRounds JJ -> J dispatches.
+      passes += 1 + this.jbrRounds;
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -1207,41 +1263,65 @@ export class MsmV2 {
         dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1, 'finalize');
       }
     }
-    // Bucket reduction over the global bucket_result.
-    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1, 'redInit');
-    for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-      const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
-      dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1, 'redLevel');
+    // Jacobian bucket reduction tree. Round 0 is AA -> J across all windows
+    // (one thread per (window, bucket-pair)). Rounds 1..jbrRounds are JJ -> J,
+    // each halving the per-window node count; thread t merges in_buf[2t] and
+    // in_buf[2t+1] into out_buf[t]. After the final round, jbrFinalBuf holds
+    // NW (S, W) Jacobian pairs — W of each is L_w.
+    {
+      const nx0 = Math.ceil(this.jbrDispatchOutCount[0] / this.reduceWg);
+      dispatch(this.jbrAaPipe, this.jbrAaBind, nx0, 1, 'redInit');
+    }
+    for (let r = 0; r < this.jbrRounds; r++) {
+      const nx = Math.ceil(this.jbrDispatchOutCount[r + 1] / this.reduceWg);
+      dispatch(this.jbrJjPipe, this.jbrJjBinds[r], nx, 1, 'redLevel');
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
       enc.resolveQuerySet(this.querySet, 0, passIdx * 2, this.tsResolveBuf, 0);
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, passIdx * 16);
     }
-    // Gather each window's weighted sum L_w (slot w*STRIDE of red_buf's
-    // x-plane||y-plane SoA) into a small staging buffer, encoded into the
-    // same command list — the whole run is then one submit + one map.
-    const yPlane = 32 * this.redM;
-    for (let w = 0; w < this.numWindows; w++) {
-      const g = 32 * w * this.stride;
-      enc.copyBufferToBuffer(this.redBuf, g, this.redStaging, w * 64, 32);
-      enc.copyBufferToBuffer(this.redBuf, yPlane + g, this.redStaging, w * 64 + 32, 32);
+    // Gather each window's W = L_w (Jacobian, 3 field-elements) from the
+    // final buffer. Plane stride = NUM_WINDOWS so each plane's chunk for
+    // window w is at byte offset (plane * NUM_WINDOWS + w) * 32. We pack
+    // (W.X, W.Y, W.Z) per window contiguously into redStaging.
+    {
+      const planeBytes = this.jbrFinalPlaneStride * 32;
+      const wxOffset = 3 * planeBytes;
+      const wyOffset = 4 * planeBytes;
+      const wzOffset = 5 * planeBytes;
+      for (let w = 0; w < this.numWindows; w++) {
+        const dst = w * 96; // 3 × 32 bytes per window
+        enc.copyBufferToBuffer(this.jbrFinalBuf, wxOffset + w * 32, this.redStaging, dst, 32);
+        enc.copyBufferToBuffer(this.jbrFinalBuf, wyOffset + w * 32, this.redStaging, dst + 32, 32);
+        enc.copyBufferToBuffer(this.jbrFinalBuf, wzOffset + w * 32, this.redStaging, dst + 64, 32);
+      }
     }
     device.queue.submit([enc.finish()]);
     await this.redStaging.mapAsync(GPUMapMode.READ);
 
-    // Decode L_w (Montgomery form) and Horner-combine the windows.
+    // Decode L_w (Jacobian, Montgomery form) and Horner-combine the windows.
     const red = new Uint32Array(this.redStaging.getMappedRange());
-    const L: Pt[] = new Array(this.numWindows);
+    const Ljac: Jac[] = new Array(this.numWindows);
     for (let w = 0; w < this.numWindows; w++) {
-      const x = (packedU32x8ToBigint(red, w * 16) * this.rinv) % FP;
-      const y = (packedU32x8ToBigint(red, w * 16 + 8) * this.rinv) % FP;
-      L[w] = { x, y };
+      const off = w * 24; // 3 field-elements × 8 u32
+      const x = (packedU32x8ToBigint(red, off) * this.rinv) % FP;
+      const y = (packedU32x8ToBigint(red, off + 8) * this.rinv) % FP;
+      const z = (packedU32x8ToBigint(red, off + 16) * this.rinv) % FP;
+      Ljac[w] = { x, y, z };
     }
     this.redStaging.unmap();
+    this.windowSumsJac = Ljac;
+    // Bridge: convert to affine per-window L_w by inverting Z so the C++
+    // hook can consume them in its native bb::g1 combine. Benchmark harness
+    // (combineOnHost = true) does the Horner here.
+    const L: Pt[] = Ljac.map(j => {
+      if (j.z === 0n) return { x: 0n, y: 0n };
+      const zInv = modInverse(j.z, FP);
+      const zInv2 = fmul(zInv, zInv);
+      return { x: fmul(j.x, zInv2), y: fmul(j.y, fmul(zInv2, zInv)) };
+    });
     this.windowSums = L;
-    // The bridge ships these per-window sums to the C++ hook for a native
-    // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
-    const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
+    const result = this.combineOnHost ? hostWindowCombine(Ljac, this.c) : { x: 0n, y: 0n };
 
     // Per-pass GPU timestamps -> category breakdown (profiling mode only).
     let profile: ProfileBreakdown | null = null;
@@ -1262,8 +1342,13 @@ export class MsmV2 {
     return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
   }
 
-  /** Per-window weighted sums L_w (normal form), set by the last run(). */
+  /** Per-window weighted sums L_w (normal form, affine), set by the last run(). */
   windowSums: Pt[] = [];
+
+  /** Per-window weighted sums L_w as Jacobian points (normal form). Avoids
+   * one inversion per window when the caller already wants to combine in
+   * Jacobian (the C++ hook and host Horner both do). */
+  windowSumsJac: Jac[] = [];
 
   /** Diagnostic: read back bucket_result. Element b's coords (Montgomery)
    * are at u32 offsets [PG*b*4] (x) and [PG*B_TOTAL*4 + PG*b*4] (y). */
