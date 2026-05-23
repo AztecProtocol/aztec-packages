@@ -24,7 +24,14 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
+import {
+  addAffinePoints,
+  combineWindowSums,
+  MsmV2,
+  MsmV2Pool,
+  type MsmConfig,
+  type MsmPoint,
+} from '../../src/msm_webgpu/msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
@@ -72,10 +79,24 @@ const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
 const SWEEP_REPS = 5;
 
+function pageParams(): URLSearchParams {
+  const qp = new URLSearchParams(window.location.search);
+  const coi = qp.get('coi');
+  const packedIdx = coi?.indexOf('&') ?? -1;
+  if (coi !== null && packedIdx >= 0) {
+    qp.set('coi', coi.slice(0, packedIdx));
+    const packed = new URLSearchParams(coi.slice(packedIdx + 1));
+    for (const [k, v] of packed) {
+      if (!qp.has(k)) qp.set(k, v);
+    }
+  }
+  return qp;
+}
+
 // GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
 // Lets index.html A/B-test a knob against the WASM Pippenger, e.g. ?s=4&wgi=128.
 const gpuKnobs: MsmConfig = (() => {
-  const q = new URLSearchParams(window.location.search);
+  const q = pageParams();
   const optInt = (k: string): number | undefined => {
     const raw = q.get(k);
     if (raw === null) return undefined;
@@ -87,7 +108,9 @@ const gpuKnobs: MsmConfig = (() => {
     s: optInt('s'),
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
+    maxBatchWindows: optInt('batch_windows'),
     l0Log: optInt('l0log'),
+    warmupRuns: optInt('warmup') ?? (q.get('warmup') === '0' ? 0 : undefined),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
   };
 })();
@@ -142,6 +165,7 @@ let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
 // dispatch so the first timed run doesn't pay shader JIT.
 let gpuDevice: GPUDevice | null = null;
 let msmV2: MsmV2 | null = null;
+let msmV2Chunks: { logN: number; chunkSize: number; msm: MsmV2 } | null = null;
 let msmV2Pool: MsmV2Pool | null = null;
 let msmV2LogN: number | null = null;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
@@ -293,9 +317,12 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
   // invalidates every buffer / pipeline it owns (MsmV2's included —
   // `msmV2.destroy()` on top is belt-and-braces). Next run lazily
   // re-creates everything via ensureWebGpuWarmed.
-  if (msmV2 !== null || gpuDevice !== null) {
+  if (msmV2 !== null || msmV2Chunks !== null || gpuDevice !== null) {
     try {
       msmV2?.destroy();
+      if (msmV2Chunks !== null) {
+        msmV2Chunks.msm.destroy();
+      }
     } catch (err) {
       log('warn', `[stop/gpu] msmV2.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -305,6 +332,7 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
       log('warn', `[stop/gpu] device.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
     msmV2 = null;
+    msmV2Chunks = null;
     msmV2LogN = null;
     gpuDevice = null;
     log('info', `[stop] GPU device destroyed`);
@@ -359,7 +387,7 @@ const FR_ORDER = bn254.fields.Fr.ORDER;
 let scalarPrngState: number | null = null;
 function maybeInitScalarPrng(): void {
   if (scalarPrngState !== null) return;
-  const s = new URLSearchParams(window.location.search).get('scalar_seed');
+  const s = pageParams().get('scalar_seed');
   if (s === null) return;
   scalarPrngState = parseInt(s, 10) >>> 0 || 1;
   log('info', `[gen] using deterministic scalar PRNG with seed=${scalarPrngState}`);
@@ -477,16 +505,20 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   if (msmV2 === null || msmV2LogN !== logN) {
-    if (msmV2 !== null) {
+    if (msmV2 !== null || msmV2Chunks !== null || msmV2Pool !== null) {
       log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
-      msmV2.destroy();
+      msmV2?.destroy();
+      if (msmV2Chunks !== null) {
+        msmV2Chunks.msm.destroy();
+        msmV2Chunks = null;
+      }
       msmV2Pool?.destroy();
       msmV2 = null;
       msmV2Pool = null;
       msmV2LogN = null;
     }
     const knobStr = Object.entries(gpuKnobs)
-      .filter(([, v]) => v !== undefined)
+      .filter(([, v]) => v !== undefined && typeof v !== 'function')
       .map(([k, v]) => `${k}=${v}`)
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
@@ -499,11 +531,118 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
   return msmV2;
 }
 
+async function ensureWebGpuChunked(inputs: TestInputs, chunkSize: number): Promise<MsmV2> {
+  const logN = Math.log2(inputs.n);
+  if (gpuDevice === null) {
+    log('info', '[gpu-warm] acquiring GPUDevice (one-time)');
+    const t0 = performance.now();
+    gpuDevice = await get_device();
+    log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
+  const numChunks = Math.ceil(inputs.n / chunkSize);
+  if (msmV2Chunks === null || msmV2Chunks.logN !== logN || msmV2Chunks.chunkSize !== chunkSize) {
+    msmV2?.destroy();
+    msmV2 = null;
+    if (msmV2Chunks !== null) {
+      msmV2Chunks.msm.destroy();
+      msmV2Chunks = null;
+    }
+    msmV2Pool?.destroy();
+    msmV2Pool = null;
+    msmV2LogN = null;
+
+    const chunkConfig: MsmConfig = { ...gpuKnobs, c: 13, combineOnHost: false };
+    const knobStr = Object.entries(chunkConfig)
+      .filter(([, v]) => v !== undefined && typeof v !== 'function')
+      .map(([k, v]) => `${k}=${v}`)
+      .join(' ');
+    log(
+      'info',
+      `[gpu-warm] building one reusable chunked MsmV2 for ${chunkSize.toLocaleString()} points ` +
+        `(${numChunks} sequential chunks) [${knobStr}]`,
+    );
+    const t0 = performance.now();
+    const bootstrapPool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf.subarray(0, chunkSize * 64));
+    let msm: MsmV2;
+    try {
+      msm = await MsmV2.create(gpuDevice, chunkSize, bootstrapPool, { ...chunkConfig, warmupRuns: 0 });
+    } finally {
+      bootstrapPool.destroy();
+    }
+    msmV2Chunks = { logN, chunkSize, msm };
+    log('ok', `[gpu-warm] chunked MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
+  return msmV2Chunks.msm;
+}
+
+function shouldChunkWebGpu(inputs: TestInputs): boolean {
+  const q = pageParams();
+  if (q.get('chunked') === '0') return false;
+  if (q.get('chunked') === '1') return true;
+  return inputs.n >= 1 << 18 && /\bAndroid\b/i.test(navigator.userAgent);
+}
+
 async function runWebGpuOnce(
   inputs: TestInputs,
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
   if (!('gpu' in navigator)) {
     throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
+  }
+  if (shouldChunkWebGpu(inputs)) {
+    const chunkLogN = Number(pageParams().get('chunk_logn')) || 17;
+    const chunkSize = Math.min(1 << chunkLogN, inputs.n);
+    if (inputs.n % chunkSize !== 0) {
+      throw new Error(`[gpu] chunk size ${chunkSize} does not divide n=${inputs.n}`);
+    }
+    const numChunks = inputs.n / chunkSize;
+    const msm = await ensureWebGpuChunked(inputs, chunkSize);
+    log(
+      'info',
+      `[gpu] dispatch n=${inputs.n.toLocaleString()} as ${numChunks} sequential chunks of ` +
+        `${chunkSize.toLocaleString()} points`,
+    );
+    let ms = 0;
+    let combinedWindows: MsmPoint[] | null = null;
+    let c = 13;
+    for (let ci = 0; ci < numChunks; ci++) {
+      const offset = ci * chunkSize;
+      let chunkPool: MsmV2Pool | null = null;
+      const scalarSlice = inputs.scalarsBuf.subarray(offset * 32, (offset + chunkSize) * 32);
+      try {
+        log('info', `[gpu] chunk ${ci + 1}/${numChunks}: upload ${chunkSize.toLocaleString()} points`);
+        chunkPool = await MsmV2Pool.create(
+          gpuDevice!,
+          inputs.pointsBuf.subarray(offset * 64, (offset + chunkSize) * 64),
+        );
+        msm.setPointPool(chunkPool);
+        msm.prepare(scalarSlice);
+        if (pageParams().get('gpu_run_warmup') !== '0') {
+          await msm.run();
+        }
+        const t0 = performance.now();
+        const gpu = await msm.run();
+        ms += performance.now() - t0;
+        c = gpu.c;
+        if (combinedWindows === null) {
+          combinedWindows = gpu.windowSums.map(p => ({ x: p.x, y: p.y }));
+        } else {
+          if (gpu.windowSums.length !== combinedWindows.length) {
+            throw new Error(
+              `[gpu] chunk ${ci} returned ${gpu.windowSums.length} windows, expected ${combinedWindows.length}`,
+            );
+          }
+          for (let w = 0; w < combinedWindows.length; w++) {
+            combinedWindows[w] = addAffinePoints(combinedWindows[w], gpu.windowSums[w]);
+          }
+        }
+      } finally {
+        msm.clearPrepared();
+        chunkPool?.destroy();
+      }
+    }
+    const xy = combineWindowSums(combinedWindows ?? [], c);
+    log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
+    return { ms, xy, capture: { profile: null } };
   }
   const msm = await ensureWebGpuWarmed(inputs);
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
@@ -514,7 +653,9 @@ async function runWebGpuOnce(
   // those fresh buffers pays a one-time first-use cost (driver lazy
   // zero-init / first-touch). Warm it out of the timed window so the
   // measurement is steady-state GPU, matching the bench's reused buffers.
-  await msm.run();
+  if (pageParams().get('gpu_run_warmup') !== '0') {
+    await msm.run();
+  }
   const t0 = performance.now();
   const gpu = await msm.run();
   const ms = performance.now() - t0;
@@ -1402,7 +1543,7 @@ function hideProgress(): void {
   //   ?use_tree_reduce=1          Route SMVP through tree-reduce pipeline
   // Results posted via the standard /results endpoint so the BS harness
   // can pick them up from JSONL.
-  const qp = new URLSearchParams(window.location.search);
+  const qp = pageParams();
   const autorun = qp.get('autorun');
   if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
@@ -1414,6 +1555,12 @@ function hideProgress(): void {
     // (= SRS + warmup complete) just before clicking Run.
     const client = makeResultsClient({ page: 'msm-autorun' });
     log('info', `[autorun] msm-cross-check logN=${autorunLogN} tree=${tree} debug_smvp=${debugSmvp}`);
+    log(
+      'info',
+      `[autorun] params ${Array.from(qp.entries())
+        .map(([k, v]) => `${k}=${v}`)
+        .join(' ')}`,
+    );
     // Wait for Run button to enable (SRS + WASM ready).
     const waitForRun = async (): Promise<void> => {
       for (let i = 0; i < 1200; i++) {
@@ -1479,9 +1626,14 @@ function hideProgress(): void {
         debug_dump: dump ?? null,
         tree_dump: treeDump ?? null,
       };
-      const state = (debugSmvp || debugTreeOut)
-        ? ((dump !== undefined || treeDump !== undefined) ? 'done' : 'error')
-        : (crossOk && errLines.length === 0 ? 'done' : 'error');
+      const state =
+        debugSmvp || debugTreeOut
+          ? dump !== undefined || treeDump !== undefined
+            ? 'done'
+            : 'error'
+          : crossOk && errLines.length === 0
+            ? 'done'
+            : 'error';
       await client.postResults({
         state,
         params,

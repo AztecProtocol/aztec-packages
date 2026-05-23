@@ -1786,7 +1786,11 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         let j2 = tid * C + k;
         let in_range = j2 < ppw;
 {{#kind2}}
-        let slot = base + (j2 + 1u) * pa;
+        // C = ceil(ppw / WG), so the final active lane can have one padded
+        // candidate with j2 == ppw. Keep its loads in-bounds; \`in_range\`
+        // still makes the candidate multiply by 1 and suppresses the store.
+        let safe_j2 = min(j2, ppw - 1u);
+        let slot = base + (safe_j2 + 1u) * pa;
         let present = in_range && (is_present[slot] != 0u);
         let yv: array<u32, 8> = load_y(slot, M);
         let real_denom: array<u32, 8> = fr_add_f8(yv, yv); // 2y
@@ -1827,7 +1831,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         let pp: array<u32, 8> = fr_select_f8(load_pref(scratch_base + km1), R, k == 0u);
         let inv_denom: array<u32, 8> = montgomery_product_f8(inv, pp);
 {{#kind2}}
-        let slot = base + (j2 + 1u) * pa;
+        let safe_j2 = min(j2, ppw - 1u);
+        let slot = base + (safe_j2 + 1u) * pa;
         let present = in_range && (is_present[slot] != 0u);
         let xv: array<u32, 8> = load_x(slot, M);
         let yv: array<u32, 8> = load_y(slot, M);

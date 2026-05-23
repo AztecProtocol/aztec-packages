@@ -54,6 +54,10 @@ export interface MsmConfig {
   wgi?: number;
   /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
   reduceWg?: number;
+  /** Optional cap on windows per GPU batch. */
+  maxBatchWindows?: number;
+  /** Point-pool start offset for SRS-prefix chunking. Default 0. */
+  pointOffset?: number;
   /** Reduction leaf-partition log2. Default 1. */
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
@@ -101,8 +105,10 @@ interface Pt {
   y: bigint;
 }
 
+export type MsmPoint = Pt;
+
 function makeRng(seed: number): () => number {
-  let state = (seed >>> 0) || 1;
+  let state = seed >>> 0 || 1;
   return () => {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
     return state;
@@ -222,7 +228,7 @@ function buildPadBuf(Mb: number, padPts: Pt[], R: bigint): Uint32Array {
 // Window combine: Horner fold of the per-window weighted sums into the final
 // MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian coordinates
 // (a = 0) so every step is inversion-free; one inverse converts back to affine.
-function hostWindowCombine(L: Pt[], c: number): Pt {
+export function combineWindowSums(L: Pt[], c: number): Pt {
   const fadd = (a: bigint, b: bigint): bigint => (a + b) % FP;
   // acc in Jacobian (X, Y, Z); the seed window is affine, so Z = 1.
   let X = L[L.length - 1].x;
@@ -265,6 +271,20 @@ function hostWindowCombine(L: Pt[], c: number): Pt {
   const zInv = modInverse(Z, FP);
   const zInv2 = fmul(zInv, zInv);
   return { x: fmul(X, zInv2), y: fmul(Y, fmul(zInv2, zInv)) };
+}
+
+export function addAffinePoints(a: Pt, b: Pt): Pt {
+  if (a.x === 0n && a.y === 0n) return b;
+  if (b.x === 0n && b.y === 0n) return a;
+  if (a.x === b.x) {
+    if (a.y !== b.y) return { x: 0n, y: 0n };
+    const slope = fmul(fmul(3n, fmul(a.x, a.x)), modInverse(fmul(2n, a.y), FP));
+    const x = fsub(fmul(slope, slope), fmul(2n, a.x));
+    return { x, y: fsub(fmul(slope, fsub(a.x, x)), a.y) };
+  }
+  const slope = fmul(fsub(b.y, a.y), modInverse(fsub(b.x, a.x), FP));
+  const x = fsub(fsub(fmul(slope, slope), a.x), b.x);
+  return { x, y: fsub(fmul(slope, fsub(a.x, x)), a.y) };
 }
 
 async function compileOne(
@@ -311,8 +331,20 @@ async function readbackU32(device: GPUDevice, buf: GPUBuffer, byteLength: number
 export function pickC(n: number): number {
   const logN = Math.round(Math.log2(n));
   const table: Record<number, number> = {
-    7: 4, 8: 4, 9: 5,
-    10: 8, 11: 8, 12: 8, 13: 8, 14: 8, 15: 10, 16: 13, 17: 13, 18: 15, 19: 15, 20: 15,
+    7: 4,
+    8: 4,
+    9: 5,
+    10: 8,
+    11: 8,
+    12: 8,
+    13: 8,
+    14: 8,
+    15: 10,
+    16: 13,
+    17: 13,
+    18: 15,
+    19: 15,
+    20: 15,
   };
   return table[logN] ?? 13;
 }
@@ -337,7 +369,9 @@ interface LevelBind {
   plannerABind: GPUBindGroup;
   plannerBBind: GPUBindGroup;
   fusedTiles: { bind: GPUBindGroup; nx: number }[];
+  fusedTilesByBatch?: { bind: GPUBindGroup; nx: number }[][];
   carryBind: GPUBindGroup;
+  carryBinds?: GPUBindGroup[];
   finalizeBinds: GPUBindGroup[]; // one per window-batch
   nCarry: number;
 }
@@ -421,9 +455,9 @@ export class MsmV2Pool {
     const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
     const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
     const layout = device.createBindGroupLayout({
-      entries: (['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform'] as GPUBufferBindingType[]).map(
-        (type, binding) => ({ binding, visibility: GPUShaderStage.COMPUTE, buffer: { type } }),
-      ),
+      entries: (
+        ['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform'] as GPUBufferBindingType[]
+      ).map((type, binding) => ({ binding, visibility: GPUShaderStage.COMPUTE, buffer: { type } })),
     });
     const pipeline = await compileOne(device, code, 'convert-points-pool', layout);
 
@@ -478,6 +512,8 @@ export class MsmV2 {
   private wgi!: number;
   private l0Log!: number;
   private reduceWg!: number;
+  private maxBatchWindows?: number;
+  private pointOffset = 0;
   private invVariant!: 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
@@ -487,6 +523,7 @@ export class MsmV2 {
   private redM!: number;
   private pointXBuf!: GPUBuffer;
   private pointYBuf!: GPUBuffer;
+  private pointPoolSize = 0;
   private padPts!: Pt[];
   private reducePasses!: { isDouble: boolean; shaderPhase: number; p2x: number; p2y: number; ppw: number }[];
   // pipelines
@@ -498,12 +535,6 @@ export class MsmV2 {
   private fusedPipeL0!: GPUComputePipeline;
   private carryPipeL0!: GPUComputePipeline;
   private finalizePipeL0!: GPUComputePipeline;
-  private decomposePipe!: GPUComputePipeline;
-  private xposeCountPipe!: GPUComputePipeline;
-  private xposeReducePipe!: GPUComputePipeline;
-  private xposeScanPipe!: GPUComputePipeline;
-  private xposeScatterPipe!: GPUComputePipeline;
-  private convActivePipe!: GPUComputePipeline;
   private convMetaPipe!: GPUComputePipeline;
   private reduceInitPipe!: GPUComputePipeline;
   private reduceLevelPipes: GPUComputePipeline[] = [];
@@ -516,12 +547,6 @@ export class MsmV2 {
   private carryLayoutL0!: GPUBindGroupLayout;
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
-  private decomposeLayout!: GPUBindGroupLayout;
-  private xposeCountLayout!: GPUBindGroupLayout;
-  private xposeReduceLayout!: GPUBindGroupLayout;
-  private xposeScanLayout!: GPUBindGroupLayout;
-  private xposeScatterLayout!: GPUBindGroupLayout;
-  private convActiveLayout!: GPUBindGroupLayout;
   private convMetaLayout!: GPUBindGroupLayout;
   private reduceInitLayout!: GPUBindGroupLayout;
   private reduceLevelLayout!: GPUBindGroupLayout;
@@ -529,15 +554,14 @@ export class MsmV2 {
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every buffer prepare() allocated
   private preparedFor: Uint8Array | null = null; // scalarsBuf identity cache key
+  private preparedPointOffset = 0;
   private numBatches = 1;
   private batchWindows = 0;
   private levels = 0;
-  private nXposePts = 0;
-  private xposeNumChunks = 1;
   private nConvMeta = 0;
   private nReduceInit = 0;
   private numWgsFinalize = 0;
-  private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
+  private valIdxBufs!: GPUBuffer[];
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
@@ -546,13 +570,7 @@ export class MsmV2 {
   private tsResolveBuf: GPUBuffer | null = null;
   private tsStagingBuf: GPUBuffer | null = null;
   private passCount = 0;
-  private decomposeBinds!: GPUBindGroup[];
-  private xposeCountBind!: GPUBindGroup;
-  private xposeReduceBind!: GPUBindGroup;
-  private xposeScanBind!: GPUBindGroup;
-  private xposeScatterBind!: GPUBindGroup;
-  private convActiveBind!: GPUBindGroup;
-  private convMetaBind!: GPUBindGroup;
+  private convMetaBinds!: GPUBindGroup[];
   private reduceInitBind!: GPUBindGroup;
   private reduceLevelBinds: GPUBindGroup[] = [];
   private reduceLevelKinds: number[] = [];
@@ -588,6 +606,8 @@ export class MsmV2 {
     const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
     m.numWindows = Math.ceil(NUMBITS / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
+    m.maxBatchWindows = config?.maxBatchWindows;
+    m.pointOffset = config?.pointOffset ?? 0;
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
@@ -600,11 +620,14 @@ export class MsmV2 {
     // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n
     // entries is consumed as its first-n prefix — no per-instance upload or
     // Montgomery conversion.
-    if (n > pool.srsN) {
-      throw new Error(`MsmV2.create: n (${n}) exceeds the pool's srsN (${pool.srsN})`);
+    if (m.pointOffset < 0 || m.pointOffset + n > pool.srsN) {
+      throw new Error(
+        `MsmV2.create: point range [${m.pointOffset}, ${m.pointOffset + n}) exceeds the pool's srsN (${pool.srsN})`,
+      );
     }
     m.pointXBuf = pool.poolX;
     m.pointYBuf = pool.poolY;
+    m.pointPoolSize = pool.srsN;
 
     // Pad trio — 3 distinct-x points (a dx==0 pad pair would poison a chunk's
     // batched inversion). Deterministic, so every instance is reproducible.
@@ -638,29 +661,54 @@ export class MsmV2 {
       });
     m.plannerALayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.plannerBLayout = lt([
-      'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage',
-      'storage', 'storage', 'storage', 'uniform', 'uniform',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'uniform',
+      'uniform',
     ]);
-    m.fusedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage']);
+    m.fusedLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'storage',
+    ]);
     m.fusedLayoutL0 = lt([
-      'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage',
-      'read-only-storage', 'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
     ]);
     m.carryLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.carryLayoutL0 = lt([
-      'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'read-only-storage',
     ]);
     m.finalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.finalizeLayoutL0 = lt([
-      'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform',
-      'read-only-storage', 'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'read-only-storage',
     ]);
-    m.decomposeLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
-    m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
-    m.xposeReduceLayout = lt(['storage', 'storage', 'uniform']);
-    m.xposeScanLayout = lt(['storage', 'uniform']);
-    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
@@ -670,54 +718,45 @@ export class MsmV2 {
     // independent bound (max per-bucket pairs <= ceil(n/2)) is free. ---
     const pairCap = Math.ceil(n / 2) + 16;
     m.plannerAPipe = await compileOne(
-      device, sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB, m.c, NUMBITS, m.BW),
-      `planner-a-c${m.c}`, m.plannerALayout,
+      device,
+      sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB, m.c, NUMBITS, m.BW),
+      `planner-a-c${m.c}`,
+      m.plannerALayout,
     );
     m.plannerBPipe = await compileOne(
-      device, sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, m.c, NUMBITS, S, pairCap, m.BW),
-      `planner-b-c${m.c}`, m.plannerBLayout,
+      device,
+      sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, m.c, NUMBITS, S, pairCap, m.BW),
+      `planner-b-c${m.c}`,
+      m.plannerBLayout,
     );
     m.fusedPipe = await compileOne(
-      device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB), `fused`, m.fusedLayout,
+      device,
+      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB),
+      `fused`,
+      m.fusedLayout,
     );
     m.carryPipe = await compileOne(device, sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
     m.finalizePipe = await compileOne(device, sm.gen_ba_finalize_copy_bench_shader(WGI), `finalize`, m.finalizeLayout);
     m.fusedPipeL0 = await compileOne(
-      device, sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB), `fused-l0`, m.fusedLayoutL0,
+      device,
+      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB),
+      `fused-l0`,
+      m.fusedLayoutL0,
     );
-    m.carryPipeL0 = await compileOne(
-      device, sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0,
-    );
+    m.carryPipeL0 = await compileOne(device, sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0);
     m.finalizePipeL0 = await compileOne(
-      device, sm.gen_ba_finalize_copy_bench_shader(WGI, true), `finalize-l0`, m.finalizeLayoutL0,
-    );
-    m.decomposePipe = await compileOne(device, sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
-    // Tiled counting-sort transpose: count + scatter dispatch across point-
-    // chunks (not just windows) so the GPU stays saturated; reduce folds the
-    // per-chunk partials; scan is the unchanged per-window prefix sum. Only
-    // on-chip shared atomics — no contended global atomics. tile is the
-    // shared histogram/cursor capacity (<= 8192 entries = 32KB).
-    m.xposeCountPipe = await compileOne(
       device,
-      sm.gen_transpose_count_tiled_shader(256, Math.min(m.BW, 8192)),
-      `xpose-count`,
-      m.xposeCountLayout,
-    );
-    m.xposeReducePipe = await compileOne(
-      device, sm.gen_transpose_reduce_tiled_shader(256), `xpose-reduce`, m.xposeReduceLayout,
-    );
-    m.xposeScanPipe = await compileOne(device, sm.gen_transpose_scan_shader(m.numWindows), `xpose-scan`, m.xposeScanLayout);
-    m.xposeScatterPipe = await compileOne(
-      device,
-      sm.gen_transpose_scatter_tiled_shader(256, Math.min(m.BW, 8192)),
-      `xpose-scatter`,
-      m.xposeScatterLayout,
-    );
-    m.convActivePipe = await compileOne(
-      device, sm.gen_csr_to_v2_active_sums_shader(WGI, true, true), `csr2v2-active`, m.convActiveLayout,
+      sm.gen_ba_finalize_copy_bench_shader(WGI, true),
+      `finalize-l0`,
+      m.finalizeLayoutL0,
     );
     m.convMetaPipe = await compileOne(device, sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
-    m.reduceInitPipe = await compileOne(device, sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
+    m.reduceInitPipe = await compileOne(
+      device,
+      sm.gen_ba_reduce_init_bench_shader(WGI),
+      `reduce-init`,
+      m.reduceInitLayout,
+    );
     // Three kind-specialized per-level reduction pipelines (one dispatch per
     // schedule level); binding 4 is a per-level uniform.
     for (const kind of [0, 1, 2]) {
@@ -771,12 +810,13 @@ export class MsmV2 {
    * cached by `scalarsBuf` identity, so the benchmark's repeated reps over
    * one input pay this once.
    */
-  prepare(scalarsBuf: Uint8Array): void {
-    if (this.preparedFor === scalarsBuf) return;
+  prepare(scalarsBuf: Uint8Array, pointOffset = this.pointOffset): void {
+    if (this.preparedFor === scalarsBuf && this.preparedPointOffset === pointOffset) return;
+    if (pointOffset < 0 || pointOffset + this.n > this.pointPoolSize || pointOffset + this.n >= 0x80000000) {
+      throw new Error(`MsmV2.prepare: point range [${pointOffset}, ${pointOffset + this.n}) is not in the point pool`);
+    }
     // Drop the previous prepared buffers (a re-prepare with new scalars).
-    for (const b of this.prepBuffers) b.destroy();
-    this.prepBuffers = [];
-    this.levelBinds = [];
+    this.clearPrepared();
 
     const device = this.device;
     const n = this.n;
@@ -812,21 +852,21 @@ export class MsmV2 {
       return b;
     };
     const mkBind = (layout: GPUBindGroupLayout, buffers: GPUBuffer[]): GPUBindGroup =>
-      device.createBindGroup({ layout, entries: buffers.map((buffer, binding) => ({ binding, resource: { buffer } })) });
+      device.createBindGroup({
+        layout,
+        entries: buffers.map((buffer, binding) => ({ binding, resource: { buffer } })),
+      });
 
-    // --- Host: scalars (canonical) -> 8×u32 + Booth-decode -> level-0 counts ---
-    const scalars = new Uint32Array(n * 8);
-    const scalarBig: bigint[] = new Array(n);
+    // --- Host: scalars (canonical) -> packed Booth digits + level-0 counts ---
+    const packedDigits = new Uint32Array(NUM_WINDOWS * n);
+    const initCounts = new Uint32Array(B_TOTAL);
     for (let i = 0; i < n; i++) {
       const s = leBytesToBigint(scalarsBuf, i * 32);
-      scalarBig[i] = s;
-      // The carry-free Booth decompose bit-slices the raw integer, so the GPU
-      // consumes canonical scalars directly — no Montgomery round-trip.
-      scalars.set(bigintToPackedU32x8(s), i * 8);
-    }
-    const initCounts = new Uint32Array(B_TOTAL);
-    for (let w = 0; w < NUM_WINDOWS; w++) {
-      for (let i = 0; i < n; i++) initCounts[w * BW + boothDigit(scalarBig[i], w, c).bucket]++;
+      for (let w = 0; w < NUM_WINDOWS; w++) {
+        const digit = boothDigit(s, w, c);
+        initCounts[w * BW + digit.bucket]++;
+        packedDigits[w * n + i] = digit.bucket | (digit.sign << 31);
+      }
     }
 
     // --- Host: plan every level ---
@@ -873,16 +913,29 @@ export class MsmV2 {
       const bSlots = bw * n;
       const bBuckets = bw * BW;
       const tc = bw * maxCpw;
+      const csrSlots = nb * bSlots;
+      const csrRowSlots = nb * bw * (BW + 1);
       const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
       return (
-        2 * 64 * m1 + 64 * B_TOTAL + 4 * 4 * bBuckets + 4 * (bSlots + 3) +
-        2 * (3 * tc * S + 2 * bw * maxCarpw) * 4 + tile * S * 8 * 4 + 3 * 4 * bSlots +
-        4 * bw * (BW + 1) + 4 * bBuckets + 4 * 32 * n + 68 * RED_M
+        2 * 64 * m1 +
+        64 * B_TOTAL +
+        4 * 4 * bBuckets +
+        4 * (bSlots + 3) +
+        2 * (3 * tc * S + 2 * bw * maxCarpw) * 4 +
+        tile * S * 8 * 4 +
+        4 * csrSlots +
+        4 * csrRowSlots +
+        4 * bBuckets +
+        4 * 32 * n +
+        68 * RED_M
       );
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
     let numBatches = 1;
     while (numBatches < NUM_WINDOWS && (estimateMem(numBatches) > MEM_BUDGET || !wgFits(numBatches))) numBatches++;
+    if (this.maxBatchWindows !== undefined) {
+      while (numBatches < NUM_WINDOWS && Math.ceil(NUM_WINDOWS / numBatches) > this.maxBatchWindows) numBatches++;
+    }
     this.numBatches = numBatches;
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     this.batchWindows = batchWindows;
@@ -894,7 +947,6 @@ export class MsmV2 {
     }
     const M1 = batchWindows * wstride1 + 3;
     const l0Slots = batchSlots + 3;
-    const WSTRIDE = n;
 
     // --- GPU buffers ---
     const padBuf = buildPadBuf(M1, this.padPts, R);
@@ -904,8 +956,6 @@ export class MsmV2 {
     device.queue.writeBuffer(bufB, 0, padBuf as BufferSource);
     const bucketResult = soa(B_TOTAL);
     this.bucketResultBuf = bucketResult;
-    const l0IdxBuf = sbuf(l0Slots * 4);
-    device.queue.writeBuffer(l0IdxBuf, batchSlots * 4, new Uint32Array([0, 1, 2]));
     const countsBufs = [sbuf(batchBuckets * 4), sbuf(batchBuckets * 4)];
     const offsetsBufs = [sbuf(batchBuckets * 4), sbuf(batchBuckets * 4)];
     const planMeta = sbuf((3 * NUM_WINDOWS + 6) * 4);
@@ -922,60 +972,52 @@ export class MsmV2 {
     }
     const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, M1 - 1, 0]));
     const padParams1Buf = ubuf(new Uint32Array([M1 - 3, M1 - 2, M1 - 1, 0]));
-    const FUSED_TILE = Math.min(
-      Math.ceil((1 << 16) / WGI) * WGI,
-      Math.max(WGI, Math.ceil(maxTChunks / WGI) * WGI),
-    );
+    const FUSED_TILE = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(maxTChunks / WGI) * WGI));
     const prefScratchBuf = sbuf(FUSED_TILE * S * 8 * 4);
 
-    // Pre-step buffers. Scalars are canonical — uploaded straight into the
-    // buffer the Booth-decompose pass reads (no demont pass).
-    const scalarsRawBuf = sbuf(scalars.byteLength);
-    device.queue.writeBuffer(scalarsRawBuf, 0, scalars);
-    const chunksBuf = sbuf(batchSlots * 4);
-    const signsBuf = sbuf(batchSlots * 4);
-    const rowPtrBuf = sbuf(batchWindows * (BW + 1) * 4);
-    const valIdxBuf = sbuf(batchSlots * 4);
-    const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
-    // Tiled-transpose geometry: split each window's n points into numChunks
-    // chunks so the count/scatter dispatch saturates the GPU. numChunks is
-    // capped at floor(n/BW), so the partials matrix (numChunks*BW per window)
-    // is <= batchSlots and fits the borrowed l0IdxBuf buffer.
-    const xposeNumChunks = Math.max(1, Math.floor(n / BW));
-    const xposeChunk = Math.ceil(n / xposeNumChunks);
-    const partialStride = xposeNumChunks * BW;
-    if (l0Slots < batchWindows * partialStride) {
-      throw new Error(
-        `tiled transpose: l0IdxBuf (${l0Slots}) too small for the ` +
-          `partials matrix (${batchWindows * partialStride})`,
-      );
-    }
-    this.xposeNumChunks = xposeNumChunks;
-    const xposeParams = ubuf(new Uint32Array([xposeNumChunks, BW, n, xposeChunk]));
-    const convActiveParams = ubuf(new Uint32Array([batchSlots, M1, WSTRIDE, n]));
+    // Pre-step buffers. Booth digits are packed as bucket | (sign << 31) on
+    // the host during prepare(), avoiding a separate GPU decompose pass and a
+    // separate signs buffer.
     const convMetaParams = ubuf(new Uint32Array([BW, batchBuckets, n, 0]));
-    const batchWindowBaseBufs: GPUBuffer[] = [];
+    const rowPtrBufs: GPUBuffer[] = [];
+    const valIdxBufs: GPUBuffer[] = [];
     for (let bi = 0; bi < numBatches; bi++) {
-      batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, 0, 0, 0])));
+      const rowPtr = new Uint32Array(batchWindows * (BW + 1));
+      const valIdx = new Uint32Array(l0Slots);
+      valIdx.set([0, 1, 2], batchSlots);
+      const cursors = new Uint32Array(batchWindows * BW);
+      const batchBase = bi * batchWindows;
+      const tbw = Math.min(batchWindows, NUM_WINDOWS - batchBase);
+      for (let w = 0; w < tbw; w++) {
+        const gw = batchBase + w;
+        let run = 0;
+        for (let b = 0; b < BW; b++) {
+          rowPtr[w * (BW + 1) + b] = run;
+          run += initCounts[gw * BW + b];
+          cursors[w * BW + b] = rowPtr[w * (BW + 1) + b];
+        }
+        rowPtr[w * (BW + 1) + BW] = run;
+        for (let i = 0; i < n; i++) {
+          const digit = packedDigits[gw * n + i];
+          const bucket = digit & 0x7fffffff;
+          valIdx[w * n + cursors[w * BW + bucket]++] = (pointOffset + i) | (digit & 0x80000000);
+        }
+      }
+      const rowPtrBuf = sbuf(rowPtr.byteLength);
+      const valIdxBuf = sbuf(valIdx.byteLength);
+      device.queue.writeBuffer(rowPtrBuf, 0, rowPtr as BufferSource);
+      device.queue.writeBuffer(valIdxBuf, 0, valIdx as BufferSource);
+      rowPtrBufs.push(rowPtrBuf);
+      valIdxBufs.push(valIdxBuf);
     }
 
-    this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.decomposeLayout, [scalarsRawBuf, chunksBuf, signsBuf, decomposeParams, bwb]));
-    // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
-    // [0, batchSlots) region is dormant until convActive (which runs strictly
-    // after the transpose, per batch) overwrites it; the level-0 seed trio
-    // sits above batchSlots and is never touched by the partials region.
-    const partialsBuf = l0IdxBuf;
-    this.xposeCountBind = mkBind(this.xposeCountLayout, [chunksBuf, partialsBuf, xposeParams]);
-    this.xposeReduceBind = mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams]);
-    this.xposeScanBind = mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams]);
-    this.xposeScatterBind = mkBind(this.xposeScatterLayout, [chunksBuf, rowPtrBuf, partialsBuf, valIdxBuf, xposeParams]);
-    this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, signsBuf]);
-    this.convMetaBind = mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams]);
-    this.rowPtrBuf = rowPtrBuf;    this.nXposePts = Math.ceil(n / WGI);
+    this.valIdxBufs = valIdxBufs;
+    this.convMetaBinds = rowPtrBufs.map(r =>
+      mkBind(this.convMetaLayout, [r, countsBufs[0], offsetsBufs[0], convMetaParams]),
+    );
     this.nConvMeta = Math.ceil(batchBuckets / WGI);
 
-    // --- Reduction ---
+    // --- Bucket-weight reduction ---
     let MAXC = 1;
     const schedule = new Uint32Array(64 * 4);
     this.reducePasses.forEach((p, i) => {
@@ -1014,13 +1056,8 @@ export class MsmV2 {
       finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, M1, bi * batchBuckets, B_TOTAL])));
     }
     this.numWgsFinalize = Math.ceil(batchBuckets / WGI);
-    // The two-pass planner borrows valIdxBuf as the per-bucket carry-prefix
-    // array. valIdxBuf (batchSlots) is dead once convActive has consumed it,
-    // strictly before the planner runs; B_TOTAL = numWindows*BW <= batchSlots.
-    if (batchSlots < B_TOTAL) {
-      throw new Error(`planner: valIdxBuf (${batchSlots}) too small for carry_off (${B_TOTAL})`);
-    }
-    const carryOffBuf = valIdxBuf;
+    // Per-bucket carry-prefix scratch for the two-pass planner.
+    const carryOffBuf = sbuf(B_TOTAL * 4);
     for (let lv = 0; lv < levels; lv++) {
       const plan = levelPlans[lv];
       const isL0 = lv === 0;
@@ -1028,44 +1065,54 @@ export class MsmV2 {
       const outIdx = inIdx ^ 1;
       const ring = lv & 1;
       const activeOut = inIdx === 0 ? bufB : bufA;
-      const activeIn = isL0 ? l0IdxBuf : inIdx === 0 ? bufA : bufB;
+      const activeIn = isL0 ? valIdxBufs[0] : inIdx === 0 ? bufA : bufB;
       const plannerParams = ubuf(new Uint32Array([plan.cpw, plan.carpw, WGI, wstride1]));
       const carryParams = ubuf(new Uint32Array([plan.tCarries, M1, M1, 0]));
-      const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
-      for (let tileBase = 0; tileBase < plan.tChunks; tileBase += FUSED_TILE) {
-        const tileThreads = Math.min(FUSED_TILE, plan.tChunks - tileBase);
-        const tileParams = ubuf(new Uint32Array([plan.tChunks, M1, M1, tileBase]));
+      const makeFusedTiles = (activeInBuf: GPUBuffer): { bind: GPUBindGroup; nx: number }[] => {
+        const tiles: { bind: GPUBindGroup; nx: number }[] = [];
+        for (let tileBase = 0; tileBase < plan.tChunks; tileBase += FUSED_TILE) {
+          const tileThreads = Math.min(FUSED_TILE, plan.tChunks - tileBase);
+          const tileParams = ubuf(new Uint32Array([plan.tChunks, M1, M1, tileBase]));
+          const entries: GPUBindGroupEntry[] = [
+            { binding: 0, resource: { buffer: chunkPlanRing[ring] } },
+            { binding: 1, resource: { buffer: scatterPlanRing[ring] } },
+            { binding: 2, resource: { buffer: activeInBuf } },
+            { binding: 3, resource: { buffer: activeOut } },
+            { binding: 4, resource: { buffer: tileParams } },
+            { binding: 5, resource: { buffer: prefScratchBuf } },
+          ];
+          if (isL0) {
+            entries.push(
+              { binding: 6, resource: { buffer: this.pointXBuf } },
+              { binding: 7, resource: { buffer: this.pointYBuf } },
+            );
+          }
+          tiles.push({
+            bind: device.createBindGroup({ layout: isL0 ? this.fusedLayoutL0 : this.fusedLayout, entries }),
+            nx: Math.ceil(tileThreads / WGI),
+          });
+        }
+        return tiles;
+      };
+      const fusedTiles = makeFusedTiles(activeIn);
+      const fusedTilesByBatch = isL0 ? valIdxBufs.map(v => makeFusedTiles(v)) : undefined;
+      const makeCarryBind = (activeInBuf: GPUBuffer): GPUBindGroup => {
         const entries: GPUBindGroupEntry[] = [
-          { binding: 0, resource: { buffer: chunkPlanRing[ring] } },
-          { binding: 1, resource: { buffer: scatterPlanRing[ring] } },
-          { binding: 2, resource: { buffer: activeIn } },
-          { binding: 3, resource: { buffer: activeOut } },
-          { binding: 4, resource: { buffer: tileParams } },
-          { binding: 5, resource: { buffer: prefScratchBuf } },
+          { binding: 0, resource: { buffer: carryPlanRing[ring] } },
+          { binding: 1, resource: { buffer: activeInBuf } },
+          { binding: 2, resource: { buffer: activeOut } },
+          { binding: 3, resource: { buffer: carryParams } },
         ];
         if (isL0) {
           entries.push(
-            { binding: 6, resource: { buffer: this.pointXBuf } },
-            { binding: 7, resource: { buffer: this.pointYBuf } },
+            { binding: 4, resource: { buffer: this.pointXBuf } },
+            { binding: 5, resource: { buffer: this.pointYBuf } },
           );
         }
-        fusedTiles.push({
-          bind: device.createBindGroup({ layout: isL0 ? this.fusedLayoutL0 : this.fusedLayout, entries }),
-          nx: Math.ceil(tileThreads / WGI),
-        });
-      }
-      const carryEntries: GPUBindGroupEntry[] = [
-        { binding: 0, resource: { buffer: carryPlanRing[ring] } },
-        { binding: 1, resource: { buffer: activeIn } },
-        { binding: 2, resource: { buffer: activeOut } },
-        { binding: 3, resource: { buffer: carryParams } },
-      ];
-      if (isL0) {
-        carryEntries.push(
-          { binding: 4, resource: { buffer: this.pointXBuf } },
-          { binding: 5, resource: { buffer: this.pointYBuf } },
-        );
-      }
+        return device.createBindGroup({ layout: isL0 ? this.carryLayoutL0 : this.carryLayout, entries });
+      };
+      const carryBind = makeCarryBind(activeIn);
+      const carryBinds = isL0 ? valIdxBufs.map(v => makeCarryBind(v)) : undefined;
       this.levelBinds.push({
         plannerABind: device.createBindGroup({
           layout: this.plannerALayout,
@@ -1094,15 +1141,15 @@ export class MsmV2 {
           ],
         }),
         fusedTiles,
-        carryBind: device.createBindGroup({
-          layout: isL0 ? this.carryLayoutL0 : this.carryLayout,
-          entries: carryEntries,
-        }),
-        finalizeBinds: finalizeParamsBufs.map(fp => {
+        fusedTilesByBatch,
+        carryBind,
+        carryBinds,
+        finalizeBinds: finalizeParamsBufs.map((fp, bi) => {
+          const finalizeActiveIn = isL0 ? valIdxBufs[bi] : activeIn;
           const fe: GPUBindGroupEntry[] = [
             { binding: 0, resource: { buffer: countsBufs[inIdx] } },
             { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
-            { binding: 2, resource: { buffer: activeIn } },
+            { binding: 2, resource: { buffer: finalizeActiveIn } },
             { binding: 3, resource: { buffer: bucketResult } },
             { binding: 4, resource: { buffer: fp } },
           ];
@@ -1127,7 +1174,7 @@ export class MsmV2 {
     if (this.profile) {
       let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
-        passes += 7; // decompose + xpose x4 + conv x2
+        passes += 1; // conv-meta (CSR transpose and active-index materialization are prepared outside shaders)
         for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
       }
       // reduceInit + one dispatch per reduction level.
@@ -1146,6 +1193,41 @@ export class MsmV2 {
     }
 
     this.preparedFor = scalarsBuf;
+    this.preparedPointOffset = pointOffset;
+  }
+
+  /**
+   * Rebind this instance to another Montgomery point pool with the same point
+   * count. The compiled pipelines are unchanged; the next prepare() rebuilds
+   * the level-0 bind groups against the new pool buffers.
+   */
+  setPointPool(pool: MsmV2Pool, pointOffset = 0): void {
+    if (pointOffset < 0 || pointOffset + this.n > pool.srsN || pointOffset + this.n >= 0x80000000) {
+      throw new Error(
+        `MsmV2.setPointPool: point range [${pointOffset}, ${pointOffset + this.n}) is not in the point pool`,
+      );
+    }
+    if (this.pointXBuf === pool.poolX && this.pointYBuf === pool.poolY && this.pointOffset === pointOffset) return;
+    this.clearPrepared();
+    this.pointXBuf = pool.poolX;
+    this.pointYBuf = pool.poolY;
+    this.pointPoolSize = pool.srsN;
+    this.pointOffset = pointOffset;
+  }
+
+  /** Destroy data-dependent buffers without freeing compiled pipelines. */
+  clearPrepared(): void {
+    for (const b of this.prepBuffers) b.destroy();
+    this.prepBuffers = [];
+    this.levelBinds = [];
+    this.valIdxBufs = [];
+    this.convMetaBinds = [];
+    this.reduceLevelBinds = [];
+    this.preparedFor = null;
+    this.querySet?.destroy();
+    this.querySet = null;
+    this.tsResolveBuf = null;
+    this.tsStagingBuf = null;
   }
 
   /**
@@ -1160,7 +1242,7 @@ export class MsmV2 {
     const { wgi: WGI } = this;
     const device = this.device;
     const wallT0 = performance.now();
-    const enc = device.createCommandEncoder();
+    let enc = device.createCommandEncoder();
     const cats: string[] = [];
     let passIdx = 0;
     const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1, cat = '') => {
@@ -1183,18 +1265,7 @@ export class MsmV2 {
 
     // Lever G: outer loop over window batches.
     for (let bi = 0; bi < this.numBatches; bi++) {
-      const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
-      const tSlots = tbw * this.n;
-      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw, 'decompose');
-      enc.clearBuffer(this.rowPtrBuf);
-      // Tiled counting sort: count + scatter parallelize across point-chunks;
-      // reduce folds the per-chunk partials; scan is the per-window prefix sum.
-      dispatch(this.xposeCountPipe, this.xposeCountBind, this.xposeNumChunks, tbw, 'transpose');
-      dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw, 'transpose');
-      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, 'transpose');
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.xposeNumChunks, tbw, 'transpose');
-      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, 'convert');
-      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1, 'convert');
+      dispatch(this.convMetaPipe, this.convMetaBinds[bi], this.nConvMeta, 1, 'convert');
       for (let lv = 0; lv < this.levels; lv++) {
         const lb = this.levelBinds[lv];
         const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
@@ -1202,12 +1273,15 @@ export class MsmV2 {
         const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
         dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1, 'planner');
         dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows, 'planner');
-        for (const tile of lb.fusedTiles) dispatch(fp, tile.bind, tile.nx, 1, 'fused');
-        dispatch(cp, lb.carryBind, lb.nCarry, 1, 'carry');
+        const fusedTiles = lb.fusedTilesByBatch?.[bi] ?? lb.fusedTiles;
+        for (let ti = 0; ti < fusedTiles.length; ti++) {
+          const tile = fusedTiles[ti];
+          dispatch(fp, tile.bind, tile.nx, 1, 'fused');
+        }
+        dispatch(cp, lb.carryBinds?.[bi] ?? lb.carryBind, lb.nCarry, 1, 'carry');
         dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1, 'finalize');
       }
     }
-    // Bucket reduction over the global bucket_result.
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1, 'redInit');
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
       const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
@@ -1241,7 +1315,7 @@ export class MsmV2 {
     this.windowSums = L;
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
-    const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
+    const result = this.combineOnHost ? combineWindowSums(L, this.c) : { x: 0n, y: 0n };
 
     // Per-pass GPU timestamps -> category breakdown (profiling mode only).
     let profile: ProfileBreakdown | null = null;
@@ -1250,8 +1324,16 @@ export class MsmV2 {
       const ts = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
       this.tsStagingBuf.unmap();
       profile = {
-        decompose: 0, transpose: 0, convert: 0, planner: 0,
-        fused: 0, carry: 0, finalize: 0, redInit: 0, redLevel: 0, wall: 0,
+        decompose: 0,
+        transpose: 0,
+        convert: 0,
+        planner: 0,
+        fused: 0,
+        carry: 0,
+        finalize: 0,
+        redInit: 0,
+        redLevel: 0,
+        wall: 0,
       };
       const acc = profile as unknown as Record<string, number>;
       for (let i = 0; i < cats.length; i++) {
@@ -1267,7 +1349,13 @@ export class MsmV2 {
 
   /** Diagnostic: read back bucket_result. Element b's coords (Montgomery)
    * are at u32 offsets [PG*b*4] (x) and [PG*B_TOTAL*4 + PG*b*4] (y). */
-  async debugBucketResult(): Promise<{ buf: Uint32Array; BW: number; numWindows: number; stride: number; rinv: bigint }> {
+  async debugBucketResult(): Promise<{
+    buf: Uint32Array;
+    BW: number;
+    numWindows: number;
+    stride: number;
+    rinv: bigint;
+  }> {
     const buf = await readbackU32(this.device, this.bucketResultBuf, 2 * PG * this.bTotal * 4 * 4);
     return { buf, BW: this.BW, numWindows: this.numWindows, stride: this.stride, rinv: this.rinv };
   }
@@ -1277,10 +1365,6 @@ export class MsmV2 {
    * owned by the {@link MsmV2Pool}, not by an instance, and is not freed here.
    */
   destroy(): void {
-    for (const b of this.prepBuffers) b.destroy();
-    this.prepBuffers = [];
-    this.preparedFor = null;
-    this.querySet?.destroy();
-    this.querySet = null;
+    this.clearPrepared();
   }
 }

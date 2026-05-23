@@ -1,4 +1,4 @@
-import { MsmV2, MsmV2Pool } from '../msm_v2.js';
+import { addAffinePoints, MsmV2, MsmV2Pool, type MsmPoint } from '../msm_v2.js';
 import { get_device } from '../cuzk/gpu.js';
 import {
   ERR_GENERIC,
@@ -21,6 +21,9 @@ import {
 // instances are cheap to build (they bind the shared pool — no point upload),
 // so a small cap is enough; bump it only if a proof interleaves many sizes.
 const MSM_LRU_CAP = 1;
+const ANDROID_SRS_CHUNK_THRESHOLD = 1 << 18;
+const ANDROID_SRS_CHUNK_SIZE = 1 << 17;
+const ANDROID_SRS_CHUNK_C = 13;
 
 /**
  * Main-thread host for the WebGPU MSM bridge. Owns one `GPUDevice`, one shared
@@ -56,7 +59,9 @@ export class WebGpuMsmHost {
   // through `lru` (insertion order == LRU order).
   private pool: MsmV2Pool | null = null;
   private srsN = 0;
+  private srsBytes: Uint8Array | null = null;
   private srsMsm: MsmV2 | null = null;
+  private srsChunkMsm: MsmV2 | null = null;
   private lru = new Map<number, MsmV2>();
 
   // If a request arrives before `setWasmMemory` is called, we can't service it.
@@ -108,6 +113,7 @@ export class WebGpuMsmHost {
     this.destroyed = true;
     try {
       this.srsMsm?.destroy();
+      this.srsChunkMsm?.destroy();
     } catch {
       /* idempotent */
     }
@@ -124,8 +130,10 @@ export class WebGpuMsmHost {
       /* idempotent */
     }
     this.srsMsm = null;
+    this.srsChunkMsm = null;
     this.lru.clear();
     this.pool = null;
+    this.srsBytes = null;
     // GPUDevice.destroy() lets the driver reclaim every shader pipeline and
     // buffer immediately instead of waiting for GC. Idempotent per the spec.
     if (this.device) {
@@ -165,12 +173,19 @@ export class WebGpuMsmHost {
 
     this.srsMsm?.destroy();
     this.srsMsm = null;
+    this.srsChunkMsm?.destroy();
+    this.srsChunkMsm = null;
     for (const m of this.lru.values()) m.destroy();
     this.lru.clear();
     this.pool?.destroy();
 
-    this.pool = await MsmV2Pool.create(device, srsBytes);
     this.srsN = n;
+    this.srsBytes = srsBytes;
+    if (this.shouldDeferFullSrsPool(n)) {
+      this.pool = null;
+      return;
+    }
+    this.pool = await MsmV2Pool.create(device, srsBytes);
   }
 
   /**
@@ -204,6 +219,18 @@ export class WebGpuMsmHost {
     return fresh;
   }
 
+  private async getOrCreateSrsChunkMsm(bootstrapPool: MsmV2Pool): Promise<MsmV2> {
+    const device = await this.getDevice();
+    if (this.srsChunkMsm === null) {
+      this.srsChunkMsm = await MsmV2.create(device, ANDROID_SRS_CHUNK_SIZE, bootstrapPool, {
+        warmupRuns: 0,
+        combineOnHost: false,
+        c: ANDROID_SRS_CHUNK_C,
+      });
+    }
+    return this.srsChunkMsm;
+  }
+
   private evict(n: number): void {
     if (n === this.srsN) {
       this.srsMsm?.destroy();
@@ -214,6 +241,87 @@ export class WebGpuMsmHost {
         m.destroy();
         this.lru.delete(n);
       }
+    }
+  }
+
+  private evictSrsChunkMsm(): void {
+    this.srsChunkMsm?.destroy();
+    this.srsChunkMsm = null;
+  }
+
+  private shouldChunkSrsPrefixMsm(n: number): boolean {
+    if (n < ANDROID_SRS_CHUNK_THRESHOLD || n % ANDROID_SRS_CHUNK_SIZE !== 0) {
+      return false;
+    }
+    return /\bAndroid\b/i.test(globalThis.navigator?.userAgent ?? '');
+  }
+
+  private shouldDeferFullSrsPool(n: number): boolean {
+    return n >= ANDROID_SRS_CHUNK_THRESHOLD && /\bAndroid\b/i.test(globalThis.navigator?.userAgent ?? '');
+  }
+
+  private async runChunkedSrsPrefixMsm(n: number, scalars: Uint8Array, resultPtr: number): Promise<void> {
+    if (this.srsBytes === null) {
+      throw new Error('WebGPU bridge: SRS bytes unavailable for chunked MSM');
+    }
+    const numChunks = n / ANDROID_SRS_CHUNK_SIZE;
+    let combinedWindows: MsmPoint[] | null = null;
+    let c = ANDROID_SRS_CHUNK_C;
+
+    for (let ci = 0; ci < numChunks; ci++) {
+      const pointOffset = ci * ANDROID_SRS_CHUNK_SIZE;
+      let chunkPool: MsmV2Pool | null = null;
+      const scalarChunk = scalars.subarray(pointOffset * 32, (pointOffset + ANDROID_SRS_CHUNK_SIZE) * 32);
+      try {
+        chunkPool = await MsmV2Pool.create(
+          await this.getDevice(),
+          this.srsBytes.subarray(pointOffset * 64, (pointOffset + ANDROID_SRS_CHUNK_SIZE) * 64),
+        );
+        const msm = await this.getOrCreateSrsChunkMsm(chunkPool);
+        msm.setPointPool(chunkPool);
+        msm.prepare(scalarChunk);
+        const { windowSums, c: chunkC } = await msm.run();
+        c = chunkC;
+        if (combinedWindows === null) {
+          combinedWindows = windowSums.map(p => ({ x: p.x, y: p.y }));
+        } else {
+          if (windowSums.length !== combinedWindows.length) {
+            throw new Error(
+              `WebGPU bridge: chunk ${ci} returned ${windowSums.length} windows, expected ${combinedWindows.length}`,
+            );
+          }
+          for (let w = 0; w < combinedWindows.length; w++) {
+            combinedWindows[w] = addAffinePoints(combinedWindows[w], windowSums[w]);
+          }
+        }
+      } finally {
+        this.srsChunkMsm?.clearPrepared();
+        chunkPool?.destroy();
+      }
+    }
+
+    const windows = combinedWindows ?? [];
+    this.writeWindowSumsLE(resultPtr, windows);
+    Atomics.store(this.ctrl, SLOT_NUM_WINDOWS, windows.length);
+    Atomics.store(this.ctrl, SLOT_C, c);
+  }
+
+  private async runLocalSrsPrefixMsm(n: number, scalars: Uint8Array, resultPtr: number): Promise<void> {
+    if (this.srsBytes === null) {
+      throw new Error('WebGPU bridge: SRS bytes unavailable for local-pool MSM');
+    }
+    const device = await this.getDevice();
+    const pool = await MsmV2Pool.create(device, this.srsBytes.subarray(0, n * 64));
+    const msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false });
+    try {
+      msm.prepare(scalars);
+      const { windowSums, c } = await msm.run();
+      this.writeWindowSumsLE(resultPtr, windowSums);
+      Atomics.store(this.ctrl, SLOT_NUM_WINDOWS, windowSums.length);
+      Atomics.store(this.ctrl, SLOT_C, c);
+    } finally {
+      msm.destroy();
+      pool.destroy();
     }
   }
 
@@ -243,20 +351,30 @@ export class WebGpuMsmHost {
 
     let msm: MsmV2;
     let oneOff: { pool: MsmV2Pool; msm: MsmV2 } | null = null;
-    if (pointsPtr === 0) {
-      if (this.pool === null || n > this.srsN) {
-        throw new Error(`WebGPU bridge: SRS-prefix MSM n=${n} with no matching pool (srsN=${this.srsN})`);
-      }
-      msm = await this.getOrCreateMsm(n);
-    } else {
-      const device = await this.getDevice();
-      const pointBytes = this.wasmSliceCopy(pointsPtr, n * 64);
-      const pool = await MsmV2Pool.create(device, pointBytes);
-      msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false });
-      oneOff = { pool, msm };
-    }
+    let chunkedSrsPrefix = false;
 
     try {
+      if (pointsPtr === 0) {
+        if (n > this.srsN || this.srsBytes === null) {
+          throw new Error(`WebGPU bridge: SRS-prefix MSM n=${n} with no matching pool (srsN=${this.srsN})`);
+        }
+        if (this.shouldChunkSrsPrefixMsm(n)) {
+          chunkedSrsPrefix = true;
+          await this.runChunkedSrsPrefixMsm(n, scalars, resultPtr);
+          return;
+        }
+        if (this.pool === null) {
+          await this.runLocalSrsPrefixMsm(n, scalars, resultPtr);
+          return;
+        }
+        msm = await this.getOrCreateMsm(n);
+      } else {
+        const device = await this.getDevice();
+        const pointBytes = this.wasmSliceCopy(pointsPtr, n * 64);
+        const pool = await MsmV2Pool.create(device, pointBytes);
+        msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false });
+        oneOff = { pool, msm };
+      }
       msm.prepare(scalars);
       const { windowSums, c } = await msm.run();
       this.writeWindowSumsLE(resultPtr, windowSums);
@@ -265,7 +383,11 @@ export class WebGpuMsmHost {
     } catch (e) {
       // A cached instance's prepared buffers may be torn — drop it so the next
       // request rebuilds. A one-off is torn down in `finally` regardless.
-      if (oneOff === null) this.evict(n);
+      if (chunkedSrsPrefix) {
+        this.evictSrsChunkMsm();
+      } else if (oneOff === null) {
+        this.evict(n);
+      }
       throw e;
     } finally {
       if (oneOff) {
