@@ -390,6 +390,16 @@ tests:
     owners:
       - *palla
 
+  # http://ci.aztec-labs.com/9a5fa90aa18f62e7
+  # Under proposer pipelining the multi-validator web3signer suite intermittently
+  # drops the first concurrently-submitted tx at the P2P layer before it reaches
+  # a proposer, failing waitForTx at Promise.all index 0 in the "should build
+  # blocks & attest with multiple validator keys" case.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh web3signer src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
+    error_regex: "Tx dropped by P2P node"
+    owners:
+      - *palla
+
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
   - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
