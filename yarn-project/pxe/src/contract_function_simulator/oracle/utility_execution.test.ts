@@ -25,7 +25,6 @@ import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
-import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -36,6 +35,7 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -405,9 +405,7 @@ describe('Utility Execution test suite', () => {
             otherAddress,
             BoundedVec.from({ data: [scope], maxLength: 1 }),
           ),
-        ).toThrow(
-          `Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`,
-        );
+        ).toThrow(`Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`);
         expect(contractSyncService.invalidateContractForScopes).not.toHaveBeenCalled();
       });
 
