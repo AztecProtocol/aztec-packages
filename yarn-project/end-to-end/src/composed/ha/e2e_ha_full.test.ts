@@ -27,6 +27,7 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { OffenseType } from '@aztec/stdlib/slashing';
 import { TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -283,18 +284,10 @@ describe('HA Full Setup', () => {
     // block the serial loop long enough to blow the jest hook timeout — e.g. a sequencer.stop() that
     // awaits an L1 publish whose tx-timeout was computed on a test-warped clock and never fires.
     if (haNodeServices) {
-      const STOP_DEADLINE_MS = 30_000;
       await Promise.allSettled(
         haNodeServices.map((service, i) => {
           logger.info(`Stopping HA peer node ${i}`);
-          return Promise.race([
-            service.stop().catch(error => {
-              logger.error(`Failed to stop HA peer node ${i}: ${error}`);
-            }),
-            sleep(STOP_DEADLINE_MS).then(() => {
-              logger.error(`HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`);
-            }),
-          ]);
+          return tryStop(service, logger, 30_000);
         }),
       );
     }
