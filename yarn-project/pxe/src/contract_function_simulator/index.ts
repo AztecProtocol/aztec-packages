@@ -22,6 +22,7 @@ export {
   type OracleRegistryEntry,
   type ParamTypes,
   type MaybePromise,
+  type NamedValue,
 } from './oracle/oracle_registry.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
 export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';

@@ -24,7 +24,7 @@ function build {
 
 function test_cmds {
   i=0
-  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
+  $NARGO test --list-tests --silence-warnings | grep -v __oracle_test__ | sort | while read -r package test; do
     # We assume there are 8 txe's running.
     port=$((14730 + (i++ % ${NUM_TXES:-1})))
     echo "$hash noir-projects/scripts/run_test.sh aztec-nr $package $test $port"
@@ -52,6 +52,38 @@ function test {
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | filter_test_cmds | parallelize
+
+  test_oracles
+}
+
+function test_oracles_cmds {
+  local resolver_port=$1
+  $NARGO test --list-tests --silence-warnings | grep __oracle_test__ | sort | while read -r package test; do
+    echo "$hash noir-projects/scripts/run_test.sh aztec-nr $package $test $resolver_port"
+  done
+}
+
+# Runs oracle roundtrip tests: starts a lightweight TS resolver server that matches oracle calls
+# against hardcoded fixtures (no TXE), then runs all __oracle_test__-prefixed tests against it.
+function test_oracles {
+  local resolver_port=14830
+  trap 'kill $(jobs -p)' EXIT
+  check_port $resolver_port || echo "WARNING: port $resolver_port is in use, oracle test resolver may fail to start"
+  (cd $root/yarn-project/txe && LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port yarn start:oracle-test-resolver) &
+  echo "Waiting for oracle test resolver to start..."
+  local j=0
+  while ! nc -z 127.0.0.1 $resolver_port &>/dev/null; do
+    if [ $j == 60 ]; then
+      echo "Oracle test resolver failed to start on port $resolver_port after 60s." >&2
+      check_port $resolver_port
+      exit 1
+    fi
+    sleep 1
+    j=$((j+1))
+  done
+
+  export NARGO_FOREIGN_CALL_TIMEOUT=300000
+  test_oracles_cmds $resolver_port | filter_test_cmds | parallelize
 }
 
 function format {
