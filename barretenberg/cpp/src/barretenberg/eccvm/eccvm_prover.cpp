@@ -60,7 +60,8 @@ void ECCVMProver::execute_wire_commitments_round()
 
     // Create and commit to Gemini masking polynomial (for ZK-PCS)
     key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
-    auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
+    auto masking_commitment =
+        key->commitment_key.commit(key->polynomials.gemini_masking_poly, "ECCVM_GEMINI_MASKING_POLY");
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     auto batch = key->commitment_key.start_batch();
@@ -107,7 +108,8 @@ void ECCVMProver::execute_log_derivative_commitments_round()
                                   typename Flavor::ProverPolynomials,
                                   true>(key->polynomials, relation_parameters, Flavor::TRACE_OFFSET);
     auto& li = key->polynomials.lookup_inverses;
-    transcript->send_to_verifier(commitment_labels.lookup_inverses, key->commitment_key.commit(li));
+    transcript->send_to_verifier(commitment_labels.lookup_inverses,
+                                 key->commitment_key.commit(li, "ECCVM_" + commitment_labels.lookup_inverses));
 }
 
 /**
@@ -120,7 +122,8 @@ void ECCVMProver::execute_grand_product_computation_round()
     // Compute permutation grand product (starts after disabled head region via gp_start)
     compute_grand_products<Flavor>(key->polynomials, relation_parameters);
     auto& zp = key->polynomials.z_perm;
-    transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key.commit(zp));
+    transcript->send_to_verifier(commitment_labels.z_perm,
+                                 key->commitment_key.commit(zp, "ECCVM_" + commitment_labels.z_perm));
 }
 
 /**

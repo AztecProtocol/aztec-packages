@@ -29,6 +29,24 @@ export const SLOT_ERROR_CODE = 6;
 // windows in native bb::g1.
 export const SLOT_NUM_WINDOWS = 7;
 export const SLOT_C = 8;
+// Point-index offset into the published SRS pool, written by the worker when
+// SLOT_POINTS_PTR is 0 (SRS-prefix path). Lets every commit share the one
+// uploaded pool regardless of the polynomial's start_index in the C++ SRS.
+export const SLOT_SRS_OFFSET = 9;
+// Batch-MSM extension. OP_BATCH_MSM runs N MSMs in a single GPU submit
+// (and one mapAsync wait), which collapses what was N × ~20 ms of Chrome
+// event-loop polling latency into a single wait. SLOT_N carries the
+// batch count; SLOT_POINTS_PTR points at a packed array of per-MSM
+// descriptors (5 u32s each — see the C++ side for layout); SLOT_SCALARS_PTR
+// at the concatenated scalars buffer; SLOT_RESULT_PTR at the concatenated
+// per-MSM result regions; SLOT_BATCH_META_PTR at the per-MSM (num_windows, c)
+// metadata the C++ side reads to drive `combine_windows`.
+export const SLOT_BATCH_META_PTR = 10;
+// Optional per-MSM labels for telemetry, packed as `batch_count` consecutive
+// records of `u8 len + len ASCII bytes`. Pointer is 0 when no labels were
+// supplied (the C++ hook only fills this when a labels span was threaded
+// through from the commit call site).
+export const SLOT_BATCH_LABELS_PTR = 11;
 
 // Values for SLOT_STATE.
 export const STATE_IDLE = 0;
@@ -39,6 +57,7 @@ export const STATE_ERROR = 3;
 // Values for SLOT_OPCODE.
 export const OP_MSM = 1;
 export const OP_PUBLISH_SRS = 2;
+export const OP_BATCH_MSM = 3;
 
 // Error codes the main thread can put in SLOT_ERROR_CODE when STATE_ERROR.
 export const ERR_GENERIC = 1;
@@ -50,9 +69,7 @@ export const ERR_NO_HOST = 2;
  */
 export function createControlBuffer(): SharedArrayBuffer {
   if (typeof SharedArrayBuffer === 'undefined') {
-    throw new Error(
-      'WebGPU MSM bridge requires SharedArrayBuffer (page needs COOP/COEP headers)',
-    );
+    throw new Error('WebGPU MSM bridge requires SharedArrayBuffer (page needs COOP/COEP headers)');
   }
   return new SharedArrayBuffer(CTRL_BYTES);
 }

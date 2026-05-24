@@ -1143,8 +1143,9 @@ export const ba_fused_super_bench = `{{> structs }}
 // Fused super-kernel for the bin-packed pair-tree MSM bucket-accumulate.
 //
 // Combines marshal + disjoint + scatter into one kernel. Each thread t
-// handles one chunk of S pairs:
-//   1. Read 2*S source indices from chunk_plan (idx_l, idx_r per slot).
+// handles one pair_block of S pairs (a "pair_block" = the unit of fused
+// affine-add work the level loop batches through a shared inversion):
+//   1. Read 2*S source indices from pair_block_plan (idx_l, idx_r per slot).
 //   2. Read S destination indices from scatter_plan.
 //   3. Load S pair-x values from active_sums_old, compute S dx values
 //      and forward prefix product.
@@ -1160,9 +1161,9 @@ export const ba_fused_super_bench = `{{> structs }}
 // Field elements are 8x u32 throughout (Lever 2); see field8_funcs.
 //
 // PARAMS:
-//   params.x = T_chunks  (active threads, one per chunk)
-//   params.y = M_old     (active_sums_old vec4-stride length)
-//   params.z = M_new     (active_sums_new vec4-stride length)
+//   params.x = total_pair_blocks  (active threads, one per pair_block)
+//   params.y = M_old              (active_sums_old vec4-stride length)
+//   params.z = M_new              (active_sums_new vec4-stride length)
 //
 // Layout (both active_sums buffers): 2 planes (P.x, P.y), PG=2 vec4 per
 // element. plane_p flat vec4 base = p * PG * M, element e at offset
@@ -1171,7 +1172,7 @@ export const ba_fused_super_bench = `{{> structs }}
 const S: u32 = {{ s }}u;
 const PG: u32 = 2u;
 
-@group(0) @binding(0) var<storage, read>       chunk_plan:      array<u32>;
+@group(0) @binding(0) var<storage, read>       pair_block_plan:      array<u32>;
 @group(0) @binding(1) var<storage, read>       scatter_plan:    array<u32>;
 {{#l0_index_mode}}
 // Lever B: at level 0 active_sums_old is a flat (point index | sign<<31)
@@ -1275,13 +1276,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let pref_base = t * S;
 {{/tiled}}
 
-    let chunk_base = 2u * S * t;
+    let block_base = 2u * S * t;
 
     // Forward: compute S dx values and accumulate the prefix product.
     var acc: array<u32, 8> = get_r_f8();
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+        let idx_l = pair_block_plan[block_base + 2u * k + 0u];
+        let idx_r = pair_block_plan[block_base + 2u * k + 1u];
         let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
         let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
         let dx: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
@@ -1293,9 +1294,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         store_pref(pref_base + k, acc);
     }
 
-    // Single inversion per chunk. The safegcd inverse is 20x13-limb; the
+    // Single inversion per pair_block. The safegcd inverse is 20x13-limb; the
     // accumulate is 8x u32, so expand on the way in and contract the
-    // result — one conversion pair per chunk.
+    // result — one conversion pair per pair_block.
     var acc20: BigInt = unpack256_to_limbs(acc);
     var inv20: BigInt = {{ inv_fn }}(acc20);
     var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
@@ -1316,8 +1317,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             inv_dx = montgomery_product_f8(inv, pp);
             // Advance the running inverse by dx_k for the next iteration;
             // dx_k is recomputed from the slot's x-coordinates.
-            let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-            let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+            let idx_l = pair_block_plan[block_base + 2u * k + 0u];
+            let idx_r = pair_block_plan[block_base + 2u * k + 1u];
             let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
             let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
             let dx_back: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
@@ -1332,8 +1333,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // just before first use to minimise the simultaneously-live set.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
         let k = S - 1u - jj;
-        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+        let idx_l = pair_block_plan[block_base + 2u * k + 0u];
+        let idx_r = pair_block_plan[block_base + 2u * k + 1u];
 
         let inv_dx: array<u32, 8> = load_pref(pref_base + k);
 
@@ -1368,15 +1369,21 @@ export const ba_planner_v2_emit = `// MSM bucket-accumulate planner — pass B o
 //
 // Dispatch (ceil(BW/TPB), NUM_WINDOWS): one workgroup per (bucket-group,
 // window), one thread per bucket. Reads the per-bucket offsets pass A
-// (ba_planner_v2_offsets) computed and emits the chunk / scatter / carry
-// plan entries — the O(pairs) work, now spread across NUM_GROUPS *
+// (ba_planner_v2_offsets) computed and emits the pair-block / scatter /
+// carry plan entries — the O(pairs) work, now spread across NUM_GROUPS *
 // NUM_WINDOWS workgroups instead of one workgroup per window.
+//
+// "pair_block": the unit of fused-affine-add work. The pair-tree level loop
+// pulls pairs S at a time (one block) and feeds them through a shared
+// batched inversion. Each window's pairs are packed into
+// \`pair_blocks_per_window\` blocks of S pairs each; \`pair_block_plan\` holds
+// 2*S u32 per block (S left-indices + S right-indices).
 //
 // The window-local pair prefix is derived as
 //   new_offsets[b] - w*wstride - carry_off[b].
 // After emitting, the window's NUM_GROUPS workgroups cooperatively pad
 // the plan tail (lever-E self-pad) with the pad trio. The emit writes
-// plan slots [0, total_pairs) and the pad writes [total_pairs, chunk
+// plan slots [0, total_pairs) and the pad writes [total_pairs, block
 // slots) — disjoint ranges, so no ordering between them is needed.
 
 const TPB: u32 = {{ workgroup_size }}u;
@@ -1391,11 +1398,11 @@ const S: u32 = {{ s }}u;
 @group(0) @binding(2) var<storage, read>       carry_off:    array<u32>;
 @group(0) @binding(3) var<storage, read>       new_offsets:  array<u32>;
 @group(0) @binding(4) var<storage, read>       plan_meta:    array<u32>;
-@group(0) @binding(5) var<storage, read_write> chunk_plan:   array<u32>;
-@group(0) @binding(6) var<storage, read_write> scatter_plan: array<u32>;
-@group(0) @binding(7) var<storage, read_write> carry_plan:   array<u32>;
-@group(0) @binding(8) var<uniform>             params:       vec4<u32>;
-@group(0) @binding(9) var<uniform>             pad_params:   vec4<u32>;
+@group(0) @binding(5) var<storage, read_write> pair_block_plan: array<u32>;
+@group(0) @binding(6) var<storage, read_write> scatter_plan:    array<u32>;
+@group(0) @binding(7) var<storage, read_write> carry_plan:      array<u32>;
+@group(0) @binding(8) var<uniform>             params:          vec4<u32>;
+@group(0) @binding(9) var<uniform>             pad_params:      vec4<u32>;
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(local_invocation_id) lid: vec3<u32>,
@@ -1405,11 +1412,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let w = wid.y;
     if (w >= NUM_WINDOWS) { return; }
 
-    let chunks_per_window  = params.x;
-    let carries_per_window = params.y;
-    let wstride            = params.w;
-    let window_chunk_base  = w * chunks_per_window;
-    let window_carry_base  = w * carries_per_window;
+    let pair_blocks_per_window = params.x;
+    let carries_per_window     = params.y;
+    let wstride                = params.w;
+    let window_block_base      = w * pair_blocks_per_window;
+    let window_carry_base      = w * carries_per_window;
 
     // Emit this bucket's pair / carry plan entries.
     let b_local = bg * TPB + tid;
@@ -1426,11 +1433,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         for (var j: u32 = 0u; j < PAIR_CAP; j = j + 1u) {
             if (j >= pc) { break; }
             let slot_in_window = po + j;
-            let global_chunk = window_chunk_base + slot_in_window / S;
-            let slot_in_chunk = slot_in_window % S;
-            let flat_slot = global_chunk * S + slot_in_chunk;
-            chunk_plan[2u * flat_slot + 0u] = bucket_base + 2u * j;
-            chunk_plan[2u * flat_slot + 1u] = bucket_base + 2u * j + 1u;
+            let global_block  = window_block_base + slot_in_window / S;
+            let slot_in_block = slot_in_window % S;
+            let flat_slot     = global_block * S + slot_in_block;
+            pair_block_plan[2u * flat_slot + 0u] = bucket_base + 2u * j;
+            pair_block_plan[2u * flat_slot + 1u] = bucket_base + 2u * j + 1u;
             scatter_plan[flat_slot] = no + j;
         }
         if (cf != 0u) {
@@ -1445,15 +1452,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let pad_l = pad_params.x;
     let pad_r = pad_params.y;
     let pad_d = pad_params.z;
-    let total_pairs = plan_meta[3u * w + 0u];
+    let total_pairs   = plan_meta[3u * w + 0u];
     let total_carries = plan_meta[3u * w + 1u];
-    let chunk_slots = chunks_per_window * S;
+    let block_slots   = pair_blocks_per_window * S;
     let stripe = bg * TPB + tid;
     let pad_stride = NUM_GROUPS * TPB;
-    for (var sp: u32 = total_pairs + stripe; sp < chunk_slots; sp = sp + pad_stride) {
-        let flat = window_chunk_base * S + sp;
-        chunk_plan[2u * flat + 0u] = pad_l;
-        chunk_plan[2u * flat + 1u] = pad_r;
+    for (var sp: u32 = total_pairs + stripe; sp < block_slots; sp = sp + pad_stride) {
+        let flat = window_block_base * S + sp;
+        pair_block_plan[2u * flat + 0u] = pad_l;
+        pair_block_plan[2u * flat + 1u] = pad_r;
         scatter_plan[flat] = pad_d;
     }
     for (var sc: u32 = total_carries + stripe; sc < carries_per_window; sc = sc + pad_stride) {
@@ -1471,8 +1478,8 @@ export const ba_planner_v2_offsets = `// MSM bucket-accumulate planner — pass 
 // One workgroup per Pippenger window. Computes, for every bucket, the
 // window-local prefix offsets the emit pass (ba_planner_v2_emit) needs,
 // plus new_counts / new_offsets and the per-window plan_meta totals — but
-// NOT the O(pairs) chunk / scatter / carry plans, which the emit pass
-// writes in parallel across buckets.
+// NOT the O(pairs) pair_block / scatter / carry plans, which the emit
+// pass writes in parallel across buckets.
 //
 // Phase A  per-thread tally of (pair, carry, new) counts.
 // Phase B  workgroup Hillis-Steele scan of the 3 per-thread totals.
@@ -1512,9 +1519,9 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let w = wid.x;
     if (w >= NUM_WINDOWS) { return; }
 
-    let chunks_per_window  = params.x;
-    let carries_per_window = params.y;
-    let wstride            = params.w;
+    let pair_blocks_per_window = params.x;
+    let carries_per_window     = params.y;
+    let wstride                = params.w;
     let window_bucket_base = w * BW;
 
     // Phase A: per-thread tally over this thread's PER_THREAD buckets.
@@ -1567,7 +1574,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     if (w == 0u && tid == 0u) {
         let wgi = max(params.z, 1u);
         let d = 3u * NUM_WINDOWS;
-        plan_meta[d + 0u] = ceil_div(NUM_WINDOWS * chunks_per_window, wgi);
+        plan_meta[d + 0u] = ceil_div(NUM_WINDOWS * pair_blocks_per_window, wgi);
         plan_meta[d + 1u] = 1u;
         plan_meta[d + 2u] = 1u;
         plan_meta[d + 3u] = ceil_div(NUM_WINDOWS * carries_per_window, wgi);
@@ -2043,6 +2050,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let INPUT_SIZE = input_size;
     let NUM_16_BIT_WORDS_PER_COORD = {{ num_16_bit_words_per_coord }}u;
+    // Dispatcher rounds totalThreads up to a multiple of (workgroup_size *
+    // numXWorkgroups * numYWorkgroups) so the tile covers srsN; ids past
+    // input_size are no-ops. Without this guard a non-power-of-two srsN
+    // (e.g. 88_899 for the ECDSA-r1 transfer flow) would OOB-write past
+    // the point_x / point_y buffers.
+    if (id >= INPUT_SIZE) {
+        return;
+    }
 
     var x_bytes: array<u32, {{ num_16_bit_words_per_coord }}>;
     var y_bytes: array<u32, {{ num_16_bit_words_per_coord }}>;
@@ -2108,11 +2123,12 @@ export const csr_to_v2_active_sums = `// Layout converter for the v2 pair-tree M
 // per-window stride, so the slot IS the active_sums element index.
 //
 // Sign handling: rendered with \`with_sign\` when fed by the carry-free
-// signed-Booth decompose, which emits a per-(window, point) sign bit. A
-// negative digit means the point is added negated, so when signs[...] is
-// set the y plane is sourced from new_point_y_neg (the precomputed field
-// negation -y); x is unchanged. Without \`with_sign\` the converter is a
-// plain copy (cuZK's signed-slice path folds the sign into the bucket).
+// signed-Booth decompose, which emits a per-(window, point) packed entry
+// in \`bucket_and_sign\`. The sign lives at bit 31; a 1 means the point
+// is added negated, so the y plane is sourced from new_point_y_neg (the
+// precomputed field negation -y); x is unchanged. Without \`with_sign\`
+// the converter is a plain copy (cuZK's signed-slice path folds the
+// sign into the bucket).
 //
 // Lever B (\`index_mode\`): instead of materializing a 64-byte point per
 // slot, write a 4-byte value — the point index in the low 31 bits, the
@@ -2122,9 +2138,18 @@ export const csr_to_v2_active_sums = `// Layout converter for the v2 pair-tree M
 {{#index_mode}}
 @group(0) @binding(0) var<storage, read>       val_idx:     array<u32>;
 @group(0) @binding(1) var<storage, read_write> active_sums: array<u32>;
-// params[0] = total_slots, params[2] = wstride, params[3] = input_size.
-@group(0) @binding(2) var<uniform>             params:      vec4<u32>;
-@group(0) @binding(3) var<storage, read>       signs:       array<u32>;
+// params[0] = total_slots
+// params[1] = base_offset (added to every pt_idx so the L0 pair-tree shaders
+//             gather from \`pool[pt_idx + base_offset]\`; lets a single uploaded
+//             SRS pool serve every commit regardless of the polynomial's
+//             start_index in the C++ SRS)
+// params[2] = wstride
+// params[3] = input_size
+@group(0) @binding(2) var<uniform>             params:          vec4<u32>;
+// One u32 per (window, point): low 31 bits = bucket index (we don't need
+// it here), bit 31 = sign. Replaces the old \`signs: array<u32>\` buffer —
+// the bucket and sign are packed at decompose time to halve the working set.
+@group(0) @binding(3) var<storage, read>       bucket_and_sign: array<u32>;
 
 @compute
 @workgroup_size({{ workgroup_size }})
@@ -2135,8 +2160,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let pt_idx = val_idx[slot];
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
-    active_sums[slot] = pt_idx | (neg << 31u);
+    // Sign bit lives at bit 31 of the packed entry; constant-shift extract.
+    let neg = bucket_and_sign[window * params[3] + pt_idx] >> 31u;
+    // Bake the SRS base_offset into the index BEFORE storing — downstream L0
+    // shaders (ba_fused_super, ba_carry_copy, ba_finalize) gather points via
+    // \`point_x[2 * (active_sums[idx] & L0_IDX_MASK)]\` without touching the
+    // offset themselves. 31 bits of address space (max ~2.1B) is plenty for
+    // any realistic SRS size.
+    let pt_real = pt_idx + params[1];
+    active_sums[slot] = pt_real | (neg << 31u);
 
     {{{ recompile }}}
 }
@@ -2154,7 +2186,7 @@ var<storage, read_write> active_sums: array<vec4<u32>>;
 // params[0] = total_slots (num_subtasks * input_size)
 // params[1] = M           (active_sums element stride; plane stride = PG*M)
 // params[2] = wstride     (per-window slot stride; with_sign only)
-// params[3] = input_size  (signs stride = per-window point count; with_sign)
+// params[3] = input_size  (bucket_and_sign stride = per-window point count; with_sign)
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
 {{#with_sign}}
@@ -2162,9 +2194,11 @@ var<uniform> params: vec4<u32>;
 // new_point_y; selected per slot when the digit sign bit is set.
 @group(0) @binding(5)
 var<storage, read> new_point_y_neg: array<vec4<u32>>;
-// signs[window*input_size + pt_idx] == 1 => negate this point's y.
+// bucket_and_sign[window*input_size + pt_idx]: bit 31 = sign (1 => negate y).
+// We only consume the sign here; the bucket bits were used by the transpose
+// to build the CSR. See decompose_scalars_booth header for the packing.
 @group(0) @binding(6)
-var<storage, read> signs: array<u32>;
+var<storage, read> bucket_and_sign: array<u32>;
 {{/with_sign}}
 
 const PG: u32 = 2u;
@@ -2187,7 +2221,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     active_sums[x_base + 1u] = new_point_x[2u * pt_idx + 1u];
 {{#with_sign}}
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
+    // Sign bit lives at bit 31 of the packed entry; constant-shift extract.
+    let neg = bucket_and_sign[window * params[3] + pt_idx] >> 31u;
     if (neg == 1u) {
         active_sums[y_base]      = new_point_y_neg[2u * pt_idx];
         active_sums[y_base + 1u] = new_point_y_neg[2u * pt_idx + 1u];
@@ -2269,25 +2304,34 @@ export const decompose_scalars_booth = `// Carry-free signed-Booth window decomp
 // every (point, window) digit is independent and the kernel is
 // embarrassingly parallel.
 //
-// Per (window, point) it writes a bucket index in [0, 2^(c-1)] (0 is the
-// zero digit) and a sign bit (1 => negate the point in this window). The
-// bucket feeds the transpose (all_csr_col_idx); the sign feeds point
-// negation at the csr_to_v2 gather. Scalars must be in normal (non-
-// Montgomery) form — the recoder slices raw integer bits.
+// Per (window, point) it writes one u32: bits [0..30] hold the bucket index
+// in [0, 2^(c-1)] (0 is the zero digit), bit 31 holds the sign (1 => negate
+// the point in this window). Packing both into one buffer (instead of two
+// parallel u32 arrays) halves the (window × point) working set — for n=131k
+// that's ~10MB less GPU memory. The transpose phase reads the bucket via
+// \`entry & 0x7FFFFFFFu\`; the csr_to_v2 gather reads the sign via
+// \`entry >> 31u\`. Scalars must be in normal (non-Montgomery) form.
+//
+// Why the sign sits at bit 31 (a literal) and not at bit \`c\` (a uniform):
+// Adreno's WGSL compiler (Galaxy S25, etc.) is unreliable for runtime
+// shift amounts — \`(neg << c)\` where \`c\` comes from a uniform produces
+// either garbage or compile errors. Bit 31 is a literal, Tint folds it
+// into a constant-shift instruction, every driver handles it cleanly. We
+// have plenty of headroom: pickC() caps c at 15, so bucket < 2^15 and
+// bits [15..30] are unused but harmless.
 
-@group(0) @binding(0) var<storage, read>       scalars: array<u32>;
-@group(0) @binding(1) var<storage, read_write> chunks:  array<u32>;
-@group(0) @binding(2) var<storage, read_write> signs:   array<u32>;
-@group(0) @binding(3) var<uniform>             params:  vec4<u32>;
+@group(0) @binding(0) var<storage, read>       scalars:         array<u32>;
+@group(0) @binding(1) var<storage, read_write> bucket_and_sign: array<u32>;
+@group(0) @binding(2) var<uniform>             params:          vec4<u32>;
 // params.x = input_size   (points per window)
 // params.y = num_windows  (windows in this batch)
 // params.z = window_bits  (c)
 // params.w = scalar_words (u32 words per scalar)
 // Lever G (window batching): batch.x = batch_window_base, the global
 // index of this batch's first window. Window bits are sliced from the
-// scalar at the GLOBAL window index (gid.y + batch_window_base); chunks /
-// signs are written at the batch-local index (gid.y). 0 when unbatched.
-@group(0) @binding(4) var<uniform>             batch:   vec4<u32>;
+// scalar at the GLOBAL window index (gid.y + batch_window_base);
+// bucket_and_sign is written at the batch-local index (gid.y).
+@group(0) @binding(3) var<uniform>             batch:           vec4<u32>;
 
 const WORD_BITS: u32 = 32u;
 
@@ -2342,8 +2386,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
     let idx = w * input_size + p;
-    chunks[idx] = bucket;
-    signs[idx] = neg;
+    // Pack: bucket in low bits, sign in bit 31. Constant shift — works on
+    // Adreno (see header).
+    bucket_and_sign[idx] = bucket | (neg << 31u);
 
     {{{ recompile }}}
 }
@@ -2589,35 +2634,38 @@ fn extract_word_from_bytes_le(
 }
 `;
 
-export const transpose_count_tiled = `// Parallel transpose — Phase 1 of 4: per-chunk bucket histogram.
+export const transpose_count_tiled = `// Parallel transpose — Phase 1 of 4: per-point-tile bucket histogram.
 //
-// Tiled counting-sort count. Dispatch (num_chunks, num_windows): workgroup
-// (chunk, window) histograms its point-chunk's column indices into a
-// workgroup-shared histogram and writes the chunk's partial-histogram row
-// to \`partials\`. Parallelizing across point-chunks (not just windows) keeps
-// the GPU saturated so DRAM latency is hidden; with one chunk holding
+// Tiled counting-sort count. Dispatch (num_point_tiles, num_windows):
+// workgroup (point_tile, window) histograms its tile's column indices into
+// a workgroup-shared histogram and writes the tile's partial-histogram row
+// to \`partials\`. Parallelizing across point-tiles (not just windows) keeps
+// the GPU saturated so DRAM latency is hidden; with one tile holding
 // ~BW digits over BW buckets the shared-atomic contention is ~1-deep. No
 // global atomics are used — only on-chip shared atomics.
 //
-// partials layout: [window][chunk][bucket], row stride num_chunks*BW;
-//   partials[(window*num_chunks + chunk)*BW + bucket] = count of \`bucket\`
-//   among this window's points in this chunk.
+// partials layout: [window][point_tile][bucket], row stride num_point_tiles*BW;
+//   partials[(window*num_point_tiles + point_tile)*BW + bucket] = count of
+//   \`bucket\` among this window's points in this tile.
 //
 // If BW exceeds the shared histogram capacity TILE, buckets are covered in
-// ceil(BW/TILE) tiles, each re-scanning the (coalesced) chunk.
+// ceil(BW/TILE) sub-tiles, each re-scanning the (coalesced) point tile.
 
 const WG: u32 = {{ workgroup_size }}u;
 const TILE: u32 = {{ tile }}u;          // shared histogram capacity (entries)
 
+// One u32 per (window, point): low 31 bits = bucket index (Booth digit),
+// bit 31 = sign. We mask off the sign bit when using the entry as a CSR
+// column index. See decompose_scalars_booth header for the packing rationale.
 @group(0) @binding(0)
-var<storage, read> all_csr_col_idx: array<u32>;
+var<storage, read> bucket_and_sign: array<u32>;
 
 @group(0) @binding(1)
 var<storage, read_write> partials: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_chunks  params[1] = BW  params[2] = n  params[3] = chunk_points
+// params[0] = num_point_tiles  params[1] = BW  params[2] = n  params[3] = points_per_tile
 
 var<workgroup> hist: array<atomic<u32>, {{ tile }}>;
 
@@ -2626,44 +2674,51 @@ var<workgroup> hist: array<atomic<u32>, {{ tile }}>;
 fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
     let tid = lid.x;
-    let chunk = wid.x;
+    let point_tile = wid.x;
     let window = wid.y;
 
-    let num_chunks = params[0];
+    let num_point_tiles = params[0];
     let n_cols = params[1];
     let n = params[2];
-    let chunk_points = params[3];
+    let points_per_tile = params[3];
 
     let cci_offset = window * n;
-    let part_offset = (window * num_chunks + chunk) * n_cols;
-    let chunk_lo = chunk * chunk_points;
-    var chunk_hi = chunk_lo + chunk_points;
-    if (chunk_hi > n) { chunk_hi = n; }
+    let part_offset = (window * num_point_tiles + point_tile) * n_cols;
+    let tile_point_lo = point_tile * points_per_tile;
+    var tile_point_hi = tile_point_lo + points_per_tile;
+    if (tile_point_hi > n) { tile_point_hi = n; }
 
-    let num_tiles = (n_cols + TILE - 1u) / TILE;
-    for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
-        let tile_lo = t * TILE;
-        let tile_hi = tile_lo + TILE;
+    // Sub-tile loop: shared histogram has fixed capacity TILE entries, so if
+    // the bucket count BW exceeds TILE, cover BW in ceil(BW/TILE) sub-tiles,
+    // re-scanning the point tile per sub-tile. Naming: \`bucket_subtile_*\` is
+    // a window of bucket indices [bucket_subtile_lo, bucket_subtile_hi) that
+    // fits in the shared hist.
+    let num_bucket_subtiles = (n_cols + TILE - 1u) / TILE;
+    for (var t: u32 = 0u; t < num_bucket_subtiles; t = t + 1u) {
+        let bucket_subtile_lo = t * TILE;
+        let bucket_subtile_hi = bucket_subtile_lo + TILE;
 
-        // Zero this tile's shared histogram.
+        // Zero this sub-tile's shared histogram.
         for (var s: u32 = tid; s < TILE; s = s + WG) {
             atomicStore(&hist[s], 0u);
         }
         workgroupBarrier();
 
-        // Tally every column index in this chunk that falls in this tile.
-        for (var i: u32 = chunk_lo + tid; i < chunk_hi; i = i + WG) {
-            let col = all_csr_col_idx[cci_offset + i];
-            if (col >= tile_lo && col < tile_hi) {
-                atomicAdd(&hist[col - tile_lo], 1u);
+        // Tally every column index in this point tile that falls in this
+        // bucket sub-tile. Mask off bit 31 (sign) — only the bucket index
+        // matters here.
+        for (var i: u32 = tile_point_lo + tid; i < tile_point_hi; i = i + WG) {
+            let col = bucket_and_sign[cci_offset + i] & 0x7FFFFFFFu;
+            if (col >= bucket_subtile_lo && col < bucket_subtile_hi) {
+                atomicAdd(&hist[col - bucket_subtile_lo], 1u);
             }
         }
         workgroupBarrier();
 
-        // Store this tile's counts to the chunk's partial row (one writer
-        // per cell — plain store, no atomic).
+        // Store this sub-tile's counts to the point tile's partial row (one
+        // writer per cell — plain store, no atomic).
         for (var s: u32 = tid; s < TILE; s = s + WG) {
-            let col = tile_lo + s;
+            let col = bucket_subtile_lo + s;
             if (col < n_cols) {
                 partials[part_offset + col] = atomicLoad(&hist[s]);
             }
@@ -2767,14 +2822,15 @@ fn main(
 }
 `;
 
-export const transpose_reduce_tiled = `// Parallel transpose — Phase 2 of 4: reduce per-chunk partials over the
-// chunk axis.
+export const transpose_reduce_tiled = `// Parallel transpose — Phase 2 of 4: reduce per-point-tile partials over
+// the point-tile axis.
 //
 // Dispatch (ceil(BW/WG), num_windows): each thread owns one bucket. It
-//   (a) sums the bucket's per-chunk counts into the window's column count,
+//   (a) sums the bucket's per-tile counts into the window's column count,
 //       written to all_csc_col_ptr[window*(BW+1) + bucket + 1], and
-//   (b) rewrites partials[window][chunk][bucket] in place with the chunk-
-//       exclusive prefix sum  Sum_{c<chunk} partials0[window][c][bucket].
+//   (b) rewrites partials[window][point_tile][bucket] in place with the
+//       point-tile-exclusive prefix sum
+//       Sum_{pt<point_tile} partials0[window][pt][bucket].
 //
 // Each thread owns a disjoint bucket column of \`partials\`, so the in-place
 // rewrite needs no atomics and has no races. Slot 0 of every window's
@@ -2791,24 +2847,24 @@ var<storage, read_write> all_csc_col_ptr: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_chunks  params[1] = BW
+// params[0] = num_point_tiles  params[1] = BW
 
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
-    let num_chunks = params[0];
+    let num_point_tiles = params[0];
     let n_cols = params[1];
     let bucket = gid.x;
     let window = wid.y;
     if (bucket >= n_cols) { return; }
 
-    let win_part = window * num_chunks * n_cols;
+    let win_part = window * num_point_tiles * n_cols;
     var run: u32 = 0u;
-    for (var k: u32 = 0u; k < num_chunks; k = k + 1u) {
+    for (var k: u32 = 0u; k < num_point_tiles; k = k + 1u) {
         let idx = win_part + k * n_cols + bucket;
         let t = partials[idx];
-        partials[idx] = run;          // chunk-exclusive prefix
+        partials[idx] = run;          // point-tile-exclusive prefix
         run = run + t;
     }
     // \`run\` is now the bucket's total count across the whole window.
@@ -2820,26 +2876,29 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
 export const transpose_scatter_tiled = `// Parallel transpose — Phase 4 of 4: scatter point indices into CSC slots.
 //
-// Tiled counting-sort scatter. Dispatch (num_chunks, num_windows): workgroup
-// (chunk, window) re-scans its point-chunk and places each point index into
-// all_csc_val_idxs. The within-chunk write cursor lives in workgroup-shared
-// memory (shared atomics only — no global atomics); one chunk holds ~BW
-// digits over BW buckets so contention is ~1-deep.
+// Tiled counting-sort scatter. Dispatch (num_point_tiles, num_windows):
+// workgroup (point_tile, window) re-scans its point tile and places each
+// point index into all_csc_val_idxs. The within-tile write cursor lives in
+// workgroup-shared memory (shared atomics only — no global atomics); one
+// tile holds ~BW digits over BW buckets so contention is ~1-deep.
 //
-// chunk (chunk, window)'s bucket-b points are written starting at
-//   all_csc_col_ptr[window*(BW+1) + b]        — global bucket start (post-scan)
-//   + partials[(window*num_chunks+chunk)*BW + b]  — chunk-exclusive prefix
-// and the shared cursor curr[] supplies the within-chunk slot. Each
+// Tile (point_tile, window)'s bucket-b points are written starting at
+//   all_csc_col_ptr[window*(BW+1) + b]                — global bucket start
+//   + partials[(window*num_point_tiles+point_tile)*BW + b]  — tile-excl prefix
+// and the shared cursor curr[] supplies the within-tile slot. Each
 // all_csc_val_idxs slot is written exactly once.
 //
 // If BW exceeds the shared cursor capacity TILE, buckets are covered in
-// ceil(BW/TILE) tiles, each re-scanning the chunk.
+// ceil(BW/TILE) sub-tiles, each re-scanning the point tile.
 
 const WG: u32 = {{ workgroup_size }}u;
 const TILE: u32 = {{ tile }}u;          // shared cursor capacity (entries)
 
+// One u32 per (window, point): low 31 bits = bucket index, bit 31 = sign.
+// We mask off the sign bit when scattering by bucket. See
+// decompose_scalars_booth header for the packing rationale.
 @group(0) @binding(0)
-var<storage, read> all_csr_col_idx: array<u32>;
+var<storage, read> bucket_and_sign: array<u32>;
 
 @group(0) @binding(1)
 var<storage, read> all_csc_col_ptr: array<u32>;
@@ -2852,7 +2911,7 @@ var<storage, read_write> all_csc_val_idxs: array<u32>;
 
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
-// params[0] = num_chunks  params[1] = BW  params[2] = n  params[3] = chunk_points
+// params[0] = num_point_tiles  params[1] = BW  params[2] = n  params[3] = points_per_tile
 
 var<workgroup> curr: array<atomic<u32>, {{ tile }}>;
 
@@ -2861,37 +2920,42 @@ var<workgroup> curr: array<atomic<u32>, {{ tile }}>;
 fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
     let tid = lid.x;
-    let chunk = wid.x;
+    let point_tile = wid.x;
     let window = wid.y;
 
-    let num_chunks = params[0];
+    let num_point_tiles = params[0];
     let n_cols = params[1];
     let n = params[2];
-    let chunk_points = params[3];
+    let points_per_tile = params[3];
 
     let cci_offset = window * n;
     let ccp_offset = window * (n_cols + 1u);
-    let part_offset = (window * num_chunks + chunk) * n_cols;
-    let chunk_lo = chunk * chunk_points;
-    var chunk_hi = chunk_lo + chunk_points;
-    if (chunk_hi > n) { chunk_hi = n; }
+    let part_offset = (window * num_point_tiles + point_tile) * n_cols;
+    let tile_point_lo = point_tile * points_per_tile;
+    var tile_point_hi = tile_point_lo + points_per_tile;
+    if (tile_point_hi > n) { tile_point_hi = n; }
 
-    let num_tiles = (n_cols + TILE - 1u) / TILE;
-    for (var t: u32 = 0u; t < num_tiles; t = t + 1u) {
-        let tile_lo = t * TILE;
-        let tile_hi = tile_lo + TILE;
+    // Sub-tile loop over buckets: shared \`curr\` cursor has fixed capacity
+    // TILE entries, so for large BW we cover BW in ceil(BW/TILE) sub-tiles,
+    // re-scanning the point tile per sub-tile.
+    let num_bucket_subtiles = (n_cols + TILE - 1u) / TILE;
+    for (var t: u32 = 0u; t < num_bucket_subtiles; t = t + 1u) {
+        let bucket_subtile_lo = t * TILE;
+        let bucket_subtile_hi = bucket_subtile_lo + TILE;
 
-        // Zero this tile's shared within-chunk write cursors.
+        // Zero this sub-tile's shared within-tile write cursors.
         for (var s: u32 = tid; s < TILE; s = s + WG) {
             atomicStore(&curr[s], 0u);
         }
         workgroupBarrier();
 
-        // Place every point in this chunk whose column falls in this tile.
-        for (var i: u32 = chunk_lo + tid; i < chunk_hi; i = i + WG) {
-            let col = all_csr_col_idx[cci_offset + i];
-            if (col >= tile_lo && col < tile_hi) {
-                let local_slot = atomicAdd(&curr[col - tile_lo], 1u);
+        // Place every point in this point tile whose column falls in this
+        // bucket sub-tile. Mask off bit 31 (sign) — only the bucket index
+        // addresses the CSC.
+        for (var i: u32 = tile_point_lo + tid; i < tile_point_hi; i = i + WG) {
+            let col = bucket_and_sign[cci_offset + i] & 0x7FFFFFFFu;
+            if (col >= bucket_subtile_lo && col < bucket_subtile_hi) {
+                let local_slot = atomicAdd(&curr[col - bucket_subtile_lo], 1u);
                 let base = all_csc_col_ptr[ccp_offset + col] + partials[part_offset + col];
                 all_csc_val_idxs[cci_offset + base + local_slot] = i;
             }

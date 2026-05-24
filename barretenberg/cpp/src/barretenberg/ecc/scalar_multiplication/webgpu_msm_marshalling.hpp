@@ -80,9 +80,19 @@ inline std::vector<uint8_t> marshal_scalars(std::span<const curve::BN254::Scalar
 
 inline curve::BN254::AffineElement read_affine_le(const uint8_t* buf)
 {
+    const numeric::uint256_t x = read_uint256_le(buf);
+    const numeric::uint256_t y = read_uint256_le(buf + 32);
+    // (0, 0) is the GPU/marshalling encoding of point-at-infinity (matches
+    // marshal_points). An empty per-window bucket sum naturally serialises
+    // as 64 zero bytes; without this check the Horner combine in
+    // combine_windows would treat (0,0) as a valid affine and trigger
+    // invert(0) on the first doubling.
+    if (x == 0 && y == 0) {
+        return curve::BN254::AffineElement::infinity();
+    }
     curve::BN254::AffineElement result;
-    result.x = curve::BN254::BaseField(read_uint256_le(buf));
-    result.y = curve::BN254::BaseField(read_uint256_le(buf + 32));
+    result.x = curve::BN254::BaseField(x);
+    result.y = curve::BN254::BaseField(y);
     return result;
 }
 

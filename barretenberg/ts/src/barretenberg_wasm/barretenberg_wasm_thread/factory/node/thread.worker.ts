@@ -7,6 +7,8 @@ if (!parentPort) {
   throw new Error('No parentPort');
 }
 
-const endpoint = nodeEndpoint(parentPort);
-
-expose(new BarretenbergWasmThread(), endpoint);
+// BarretenbergWasmBase pre-populates default stubs for the
+// BBERG_WEBGPU_MSM_HOOK env imports. The native Pippenger path in pthread
+// workers never invokes them; if BBERG_WEBGPU_MSM_HOOK is off, the imports
+// don't exist and the stubs are simply unused.
+expose(new BarretenbergWasmThread(), nodeEndpoint(parentPort));

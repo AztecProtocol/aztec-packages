@@ -16,11 +16,12 @@
 // per-window stride, so the slot IS the active_sums element index.
 //
 // Sign handling: rendered with `with_sign` when fed by the carry-free
-// signed-Booth decompose, which emits a per-(window, point) sign bit. A
-// negative digit means the point is added negated, so when signs[...] is
-// set the y plane is sourced from new_point_y_neg (the precomputed field
-// negation -y); x is unchanged. Without `with_sign` the converter is a
-// plain copy (cuZK's signed-slice path folds the sign into the bucket).
+// signed-Booth decompose, which emits a per-(window, point) packed entry
+// in `bucket_and_sign`. The sign lives at bit 31; a 1 means the point
+// is added negated, so the y plane is sourced from new_point_y_neg (the
+// precomputed field negation -y); x is unchanged. Without `with_sign`
+// the converter is a plain copy (cuZK's signed-slice path folds the
+// sign into the bucket).
 //
 // Lever B (`index_mode`): instead of materializing a 64-byte point per
 // slot, write a 4-byte value — the point index in the low 31 bits, the
@@ -30,9 +31,18 @@
 {{#index_mode}}
 @group(0) @binding(0) var<storage, read>       val_idx:     array<u32>;
 @group(0) @binding(1) var<storage, read_write> active_sums: array<u32>;
-// params[0] = total_slots, params[2] = wstride, params[3] = input_size.
-@group(0) @binding(2) var<uniform>             params:      vec4<u32>;
-@group(0) @binding(3) var<storage, read>       signs:       array<u32>;
+// params[0] = total_slots
+// params[1] = base_offset (added to every pt_idx so the L0 pair-tree shaders
+//             gather from `pool[pt_idx + base_offset]`; lets a single uploaded
+//             SRS pool serve every commit regardless of the polynomial's
+//             start_index in the C++ SRS)
+// params[2] = wstride
+// params[3] = input_size
+@group(0) @binding(2) var<uniform>             params:          vec4<u32>;
+// One u32 per (window, point): low 31 bits = bucket index (we don't need
+// it here), bit 31 = sign. Replaces the old `signs: array<u32>` buffer —
+// the bucket and sign are packed at decompose time to halve the working set.
+@group(0) @binding(3) var<storage, read>       bucket_and_sign: array<u32>;
 
 @compute
 @workgroup_size({{ workgroup_size }})
@@ -43,8 +53,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     let pt_idx = val_idx[slot];
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
-    active_sums[slot] = pt_idx | (neg << 31u);
+    // Sign bit lives at bit 31 of the packed entry; constant-shift extract.
+    let neg = bucket_and_sign[window * params[3] + pt_idx] >> 31u;
+    // Bake the SRS base_offset into the index BEFORE storing — downstream L0
+    // shaders (ba_fused_super, ba_carry_copy, ba_finalize) gather points via
+    // `point_x[2 * (active_sums[idx] & L0_IDX_MASK)]` without touching the
+    // offset themselves. 31 bits of address space (max ~2.1B) is plenty for
+    // any realistic SRS size.
+    let pt_real = pt_idx + params[1];
+    active_sums[slot] = pt_real | (neg << 31u);
 
     {{{ recompile }}}
 }
@@ -62,7 +79,7 @@ var<storage, read_write> active_sums: array<vec4<u32>>;
 // params[0] = total_slots (num_subtasks * input_size)
 // params[1] = M           (active_sums element stride; plane stride = PG*M)
 // params[2] = wstride     (per-window slot stride; with_sign only)
-// params[3] = input_size  (signs stride = per-window point count; with_sign)
+// params[3] = input_size  (bucket_and_sign stride = per-window point count; with_sign)
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
 {{#with_sign}}
@@ -70,9 +87,11 @@ var<uniform> params: vec4<u32>;
 // new_point_y; selected per slot when the digit sign bit is set.
 @group(0) @binding(5)
 var<storage, read> new_point_y_neg: array<vec4<u32>>;
-// signs[window*input_size + pt_idx] == 1 => negate this point's y.
+// bucket_and_sign[window*input_size + pt_idx]: bit 31 = sign (1 => negate y).
+// We only consume the sign here; the bucket bits were used by the transpose
+// to build the CSR. See decompose_scalars_booth header for the packing.
 @group(0) @binding(6)
-var<storage, read> signs: array<u32>;
+var<storage, read> bucket_and_sign: array<u32>;
 {{/with_sign}}
 
 const PG: u32 = 2u;
@@ -95,7 +114,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     active_sums[x_base + 1u] = new_point_x[2u * pt_idx + 1u];
 {{#with_sign}}
     let window = slot / params[2];
-    let neg = signs[window * params[3] + pt_idx];
+    // Sign bit lives at bit 31 of the packed entry; constant-shift extract.
+    let neg = bucket_and_sign[window * params[3] + pt_idx] >> 31u;
     if (neg == 1u) {
         active_sums[y_base]      = new_point_y_neg[2u * pt_idx];
         active_sums[y_base + 1u] = new_point_y_neg[2u * pt_idx + 1u];

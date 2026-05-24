@@ -154,7 +154,8 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
     compute_grand_sum_polynomial();
 
     // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
-    transcript->send_to_verifier(label_prefix + "grand_sum_commitment", commitment_key.commit(grand_sum_polynomial));
+    transcript->send_to_verifier(label_prefix + "grand_sum_commitment",
+                                 commitment_key.commit(grand_sum_polynomial, label_prefix + "GRAND_SUM"));
 
     // Compute C(X)
     compute_grand_sum_identity_polynomial();
@@ -164,7 +165,8 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
 
     // Send commitment [Q] to the verifier
     transcript->send_to_verifier(label_prefix + "quotient_commitment",
-                                 commitment_key.commit(grand_sum_identity_quotient));
+                                 commitment_key.commit(grand_sum_identity_quotient,
+                                                       label_prefix + "GRAND_SUM_QUOTIENT"));
 }
 
 /**

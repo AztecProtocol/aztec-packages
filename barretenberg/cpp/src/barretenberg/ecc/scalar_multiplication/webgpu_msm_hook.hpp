@@ -5,6 +5,12 @@
 // BBERG_WEBGPU_MSM_HOOK is defined — every other build path uses the
 // native Pippenger in scalar_multiplication.cpp unchanged.
 //
+// Even with the hook compiled in, the delegation is opt-in at runtime
+// via bb_set_webgpu_msm_enabled. The default is OFF so a WASM that has
+// no WebGPU host installed (e.g. running under Node, or in a tab where
+// the bridge wasn't wired up) still routes through the native Pippenger
+// and never attempts to call the JS imports.
+//
 // See barretenberg/ts/src/msm_webgpu/ for the JS side of this boundary
 // and WEBGPU_BBERG_INTEGRATION_PLAN.md for the architecture overview.
 
@@ -13,44 +19,42 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "barretenberg/common/wasm_export.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 
-// Per-MSM size at or above which a batch is delegated to the WebGPU
-// host. Below this, the JS bridge round-trip and GPU warmup typically
-// dominate the wall time vs the in-tree single-threaded WASM Pippenger,
-// so we stay on the native path. Override at configure time with
-// -DBBERG_WEBGPU_MSM_MIN_N=<value>; 2^16 is the empirical break-even
-// from tal-webgpu on a 2024 MacBook Pro.
-#ifndef BBERG_WEBGPU_MSM_MIN_N
-#define BBERG_WEBGPU_MSM_MIN_N (1u << 16)
-#endif
-
-// Per-MSM size below which an entry of a delegated batch is computed with the
-// native Pippenger instead of the GPU bridge — for a small MSM the bridge
-// round-trip dominates. Override with -DBBERG_WEBGPU_MSM_NATIVE_MAX_N=<value>.
-#ifndef BBERG_WEBGPU_MSM_NATIVE_MAX_N
-#define BBERG_WEBGPU_MSM_NATIVE_MAX_N (1u << 10)
+// Per-MSM size at or above which an individual MSM is delegated to the
+// WebGPU host. Below this size the JS bridge round-trip and GPU warmup
+// typically dominate the wall time vs the in-tree single-threaded WASM
+// Pippenger, so we stay on the native path. Override at configure time
+// with -DWEBGPU_MSM_THRESHOLD=<value>; 2^14 is the default break-even
+// for the MegaFlavor commitments that dominate Chonk proving.
+#ifndef WEBGPU_MSM_THRESHOLD
+#define WEBGPU_MSM_THRESHOLD (1u << 14)
 #endif
 
 namespace bb::scalar_multiplication {
 
-inline constexpr std::size_t webgpu_msm_min_n = static_cast<std::size_t>(BBERG_WEBGPU_MSM_MIN_N);
-inline constexpr std::size_t webgpu_msm_native_max_n = static_cast<std::size_t>(BBERG_WEBGPU_MSM_NATIVE_MAX_N);
+inline constexpr std::size_t webgpu_msm_threshold = static_cast<std::size_t>(WEBGPU_MSM_THRESHOLD);
 
-// Returns true if at least one MSM in the batch is large enough to be
-// worth routing through the WebGPU host. The current policy delegates
-// the entire batch as a unit (no per-entry mix); see scalar_multiplication.cpp.
-inline bool webgpu_msm_batch_should_delegate(std::span<std::span<curve::BN254::ScalarField>> scalars) noexcept
+// Runtime gate. Even when the hook is compiled in, callers must opt in
+// from JS via bb_set_webgpu_msm_enabled(1). Defaults to false so a WASM
+// without a wired-up WebGPU host never tries to call the bridge import.
+bool webgpu_msm_runtime_enabled() noexcept;
+
+// CSV-measurement mode. When set, `MSM::batch_multi_scalar_mul` runs every
+// MSM solo (no batching across threads) and emits a `[msm-csv-cpu]` log line
+// per MSM with the polynomial name + n + cpu_ms. Toggled at runtime from JS
+// via `bb_set_msm_csv_mode(uint8_t)`.
+bool msm_csv_mode_enabled() noexcept;
+
+// Per-MSM delegation predicate — runtime gate AND size at or above the
+// configured threshold. Each MSM in a batch decides independently.
+inline bool webgpu_msm_should_delegate(std::size_t n) noexcept
 {
-    for (const auto& s : scalars) {
-        if (s.size() >= webgpu_msm_min_n) {
-            return true;
-        }
-    }
-    return false;
+    return webgpu_msm_runtime_enabled() && n >= webgpu_msm_threshold;
 }
 
 // JS-implemented imports. WASM_IMPORT marks them as
@@ -60,32 +64,76 @@ inline bool webgpu_msm_batch_should_delegate(std::span<std::span<curve::BN254::S
 // object at instantiation time.
 //
 // Layout contract (all little-endian, NOT in Montgomery form):
-//   points  — n × 64 bytes, [x[32] || y[32]] per point; may be null when the
-//             MSM's points are a prefix of the already-published SRS
+//   points  — n × 64 bytes, [x[32] || y[32]] per point; pass NULL when the
+//             MSM's points are a prefix of the published SRS starting at
+//             `srs_offset` (the common case for every prover commit)
 //   scalars — n × 32 bytes (Fr)
 //   result  — num_windows × 64 bytes: the per-window sums, [x[32] || y[32]] each
+//   srs_offset — point-index offset into the published SRS pool; only consulted
+//                when points==nullptr. Lets a single uploaded SRS serve every
+//                polynomial commitment regardless of its `start_index`.
 //
 // Returns (num_windows << 16) | c — the per-window-sum count and the Pippenger
 // window-bit width. `combine_windows` (webgpu_msm_marshalling.hpp) Horner-folds
 // the result region into the final affine point.
 WASM_IMPORT("bb_external_msm_bn254")
-uint32_t bb_external_msm_bn254(const uint8_t* points, const uint8_t* scalars, uint32_t n, uint8_t* result);
+uint32_t bb_external_msm_bn254(
+    const uint8_t* points, const uint8_t* scalars, uint32_t n, uint8_t* result, uint32_t srs_offset);
 
-// One-shot SRS publisher. Called the first time we route an MSM through
-// the WebGPU hook. The JS side uploads the SRS to the GPU and converts it
-// to the Montgomery point pool once, reused by every subsequent MSM in the
-// same proving session.
+// Batched-MSM bridge entry. Runs every MSM in a batch as one GPU submit +
+// one mapAsync wait, collapsing N × ~10–30 ms of per-call Chrome polling
+// latency into a single wait. Used by the wrapper below — every commit batch
+// from `CommitmentKey::batch_commit` rides this one call when WebGPU is on.
+//
+// Layout:
+//   descriptors[i] = (n, srs_offset, scalars_byte_off, result_byte_off,
+//                     reserved=0) packed as 5 × u32 = 20 bytes per MSM
+//   scalars_base   — packed LE non-Montgomery Fr bytes (n_i × 32 per MSM,
+//                    starting at `scalars_base + descriptors[i].scalars_byte_off`)
+//   results_base   — per-MSM windowSums region (numWindows_i × 64 bytes per
+//                    MSM, starting at `results_base + descriptors[i].result_byte_off`)
+//   meta_base      — `batch_count × 8` bytes: (num_windows: u32, c: u32) per MSM,
+//                    written back by the host so the C++ side knows how to
+//                    Horner-combine each MSM
+// `labels_packed` is an optional pointer to per-MSM labels for telemetry.
+// Encoded as `batch_count` consecutive records, each `u8 length + length bytes
+// (ASCII)`. NULL → no labels. The bridge logs per-MSM `[msm-time]` lines with
+// the label so you can correlate `W_L / Z_PERM / …` to GPU compute time.
+WASM_IMPORT("bb_external_batch_msm_bn254")
+void bb_external_batch_msm_bn254(uint32_t batch_count,
+                                 const uint8_t* descriptors,
+                                 const uint8_t* scalars_base,
+                                 uint8_t* results_base,
+                                 uint8_t* meta_base,
+                                 const uint8_t* labels_packed);
+
+// SRS publisher. May be called more than once per session — every call uploads
+// (or re-uploads) a new SRS pool, discarding any previously-uploaded one. Used
+// by `webgpu_register_full_srs_bn254` to push the full monomial-points table
+// from the CommitmentKey the first time we see one (so every later MSM is a
+// prefix-with-offset of that one pool).
 WASM_IMPORT("bb_publish_srs_bn254")
 void bb_publish_srs_bn254(const uint8_t* points, uint32_t n);
 
+// Register the full monomial-points SRS held by the commit-key with the GPU
+// hook. Idempotent per (base, count) — does the upload only on the first
+// distinct registration of a session. The hook then routes every commit as a
+// prefix of this single uploaded pool, indexed by `start_index`, eliminating
+// per-commit point uploads. No-op when the runtime flag is off (so a build
+// with the hook compiled in but disabled at runtime pays no marshalling
+// cost). Safe to call from any thread; uses atomics for the published-state
+// flag.
+void webgpu_register_full_srs_bn254(const curve::BN254::AffineElement* base, std::size_t count) noexcept;
+
 // Batch wrapper. For each (points_i, scalars_i) pair in the batch,
-// marshals inputs into the layout above, invokes the JS hook, and
-// converts the affine result back into a Montgomery-form
-// `AffineElement`. Drop-in replacement for the SRS-safe path of
-// `MSM<curve::BN254>::batch_multi_scalar_mul`.
+// either runs the in-tree native Pippenger (when the per-MSM size is
+// below WEBGPU_MSM_THRESHOLD or the runtime flag is off) or marshals
+// inputs and invokes the JS hook. Drop-in replacement for the SRS-safe
+// path of `MSM<curve::BN254>::batch_multi_scalar_mul`.
 std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
     std::span<std::span<const curve::BN254::AffineElement>> points,
-    std::span<std::span<curve::BN254::ScalarField>> scalars) noexcept;
+    std::span<std::span<curve::BN254::ScalarField>> scalars,
+    std::span<const std::string> labels = {}) noexcept;
 
 } // namespace bb::scalar_multiplication
 

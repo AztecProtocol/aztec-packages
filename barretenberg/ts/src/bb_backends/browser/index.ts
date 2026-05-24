@@ -21,6 +21,8 @@ export async function createAsyncBackend(
         logger,
         memory: options.memory,
         useWorker,
+        webgpuMsm: options.webgpuMsm,
+        msmCsvMode: options.msmCsvMode,
       });
       return new Barretenberg(wasm, options);
     }

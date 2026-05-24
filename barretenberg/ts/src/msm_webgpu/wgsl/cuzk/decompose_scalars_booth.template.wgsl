@@ -9,25 +9,34 @@
 // every (point, window) digit is independent and the kernel is
 // embarrassingly parallel.
 //
-// Per (window, point) it writes a bucket index in [0, 2^(c-1)] (0 is the
-// zero digit) and a sign bit (1 => negate the point in this window). The
-// bucket feeds the transpose (all_csr_col_idx); the sign feeds point
-// negation at the csr_to_v2 gather. Scalars must be in normal (non-
-// Montgomery) form — the recoder slices raw integer bits.
+// Per (window, point) it writes one u32: bits [0..30] hold the bucket index
+// in [0, 2^(c-1)] (0 is the zero digit), bit 31 holds the sign (1 => negate
+// the point in this window). Packing both into one buffer (instead of two
+// parallel u32 arrays) halves the (window × point) working set — for n=131k
+// that's ~10MB less GPU memory. The transpose phase reads the bucket via
+// `entry & 0x7FFFFFFFu`; the csr_to_v2 gather reads the sign via
+// `entry >> 31u`. Scalars must be in normal (non-Montgomery) form.
+//
+// Why the sign sits at bit 31 (a literal) and not at bit `c` (a uniform):
+// Adreno's WGSL compiler (Galaxy S25, etc.) is unreliable for runtime
+// shift amounts — `(neg << c)` where `c` comes from a uniform produces
+// either garbage or compile errors. Bit 31 is a literal, Tint folds it
+// into a constant-shift instruction, every driver handles it cleanly. We
+// have plenty of headroom: pickC() caps c at 15, so bucket < 2^15 and
+// bits [15..30] are unused but harmless.
 
-@group(0) @binding(0) var<storage, read>       scalars: array<u32>;
-@group(0) @binding(1) var<storage, read_write> chunks:  array<u32>;
-@group(0) @binding(2) var<storage, read_write> signs:   array<u32>;
-@group(0) @binding(3) var<uniform>             params:  vec4<u32>;
+@group(0) @binding(0) var<storage, read>       scalars:         array<u32>;
+@group(0) @binding(1) var<storage, read_write> bucket_and_sign: array<u32>;
+@group(0) @binding(2) var<uniform>             params:          vec4<u32>;
 // params.x = input_size   (points per window)
 // params.y = num_windows  (windows in this batch)
 // params.z = window_bits  (c)
 // params.w = scalar_words (u32 words per scalar)
 // Lever G (window batching): batch.x = batch_window_base, the global
 // index of this batch's first window. Window bits are sliced from the
-// scalar at the GLOBAL window index (gid.y + batch_window_base); chunks /
-// signs are written at the batch-local index (gid.y). 0 when unbatched.
-@group(0) @binding(4) var<uniform>             batch:   vec4<u32>;
+// scalar at the GLOBAL window index (gid.y + batch_window_base);
+// bucket_and_sign is written at the batch-local index (gid.y).
+@group(0) @binding(3) var<uniform>             batch:           vec4<u32>;
 
 const WORD_BITS: u32 = 32u;
 
@@ -82,8 +91,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
     let idx = w * input_size + p;
-    chunks[idx] = bucket;
-    signs[idx] = neg;
+    // Pack: bucket in low bits, sign in bit 31. Constant shift — works on
+    // Adreno (see header).
+    bucket_and_sign[idx] = bucket | (neg << 31u);
 
     {{{ recompile }}}
 }

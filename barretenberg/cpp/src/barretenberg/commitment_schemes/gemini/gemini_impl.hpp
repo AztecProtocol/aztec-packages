@@ -73,7 +73,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
         // Virtual-round fold polynomials are constant; their commitments are zeroed by the verifier.
-        transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
+        transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l], label));
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 

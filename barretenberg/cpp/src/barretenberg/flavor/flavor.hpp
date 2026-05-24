@@ -189,7 +189,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     {
         CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
         for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
-            commitment = commitment_key.commit(polynomial);
+            commitment = commitment_key.commit(polynomial, "VK_PRECOMPUTED_POLY");
         }
     }
 

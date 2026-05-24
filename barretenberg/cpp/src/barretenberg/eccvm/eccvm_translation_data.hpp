@@ -77,7 +77,8 @@ template <typename Transcript> class TranslationData {
 
         // Commit to  M(X) + Z_H(X)*R(X), where R is a random polynomial of WITNESS_MASKING_TERM_LENGTH.
         transcript->send_to_verifier("Translation:concatenated_masking_term_commitment",
-                                     commitment_key.commit(masked_concatenated_polynomial));
+                                     commitment_key.commit(masked_concatenated_polynomial,
+                                                           "TRANSLATION_CONCATENATED_MASKING_TERM"));
     }
     /**
      * @brief Extract the first \f$ s = \text{TRACE\_OFFSET} \f$ coefficients from each of the \f$ T \f$ transcript

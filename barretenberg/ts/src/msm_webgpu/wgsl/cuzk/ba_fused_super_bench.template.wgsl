@@ -15,8 +15,9 @@
 // Fused super-kernel for the bin-packed pair-tree MSM bucket-accumulate.
 //
 // Combines marshal + disjoint + scatter into one kernel. Each thread t
-// handles one chunk of S pairs:
-//   1. Read 2*S source indices from chunk_plan (idx_l, idx_r per slot).
+// handles one pair_block of S pairs (a "pair_block" = the unit of fused
+// affine-add work the level loop batches through a shared inversion):
+//   1. Read 2*S source indices from pair_block_plan (idx_l, idx_r per slot).
 //   2. Read S destination indices from scatter_plan.
 //   3. Load S pair-x values from active_sums_old, compute S dx values
 //      and forward prefix product.
@@ -32,9 +33,9 @@
 // Field elements are 8x u32 throughout (Lever 2); see field8_funcs.
 //
 // PARAMS:
-//   params.x = T_chunks  (active threads, one per chunk)
-//   params.y = M_old     (active_sums_old vec4-stride length)
-//   params.z = M_new     (active_sums_new vec4-stride length)
+//   params.x = total_pair_blocks  (active threads, one per pair_block)
+//   params.y = M_old              (active_sums_old vec4-stride length)
+//   params.z = M_new              (active_sums_new vec4-stride length)
 //
 // Layout (both active_sums buffers): 2 planes (P.x, P.y), PG=2 vec4 per
 // element. plane_p flat vec4 base = p * PG * M, element e at offset
@@ -43,7 +44,7 @@
 const S: u32 = {{ s }}u;
 const PG: u32 = 2u;
 
-@group(0) @binding(0) var<storage, read>       chunk_plan:      array<u32>;
+@group(0) @binding(0) var<storage, read>       pair_block_plan:      array<u32>;
 @group(0) @binding(1) var<storage, read>       scatter_plan:    array<u32>;
 {{#l0_index_mode}}
 // Lever B: at level 0 active_sums_old is a flat (point index | sign<<31)
@@ -147,13 +148,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let pref_base = t * S;
 {{/tiled}}
 
-    let chunk_base = 2u * S * t;
+    let block_base = 2u * S * t;
 
     // Forward: compute S dx values and accumulate the prefix product.
     var acc: array<u32, 8> = get_r_f8();
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+        let idx_l = pair_block_plan[block_base + 2u * k + 0u];
+        let idx_r = pair_block_plan[block_base + 2u * k + 1u];
         let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
         let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
         let dx: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
@@ -165,9 +166,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         store_pref(pref_base + k, acc);
     }
 
-    // Single inversion per chunk. The safegcd inverse is 20x13-limb; the
+    // Single inversion per pair_block. The safegcd inverse is 20x13-limb; the
     // accumulate is 8x u32, so expand on the way in and contract the
-    // result — one conversion pair per chunk.
+    // result — one conversion pair per pair_block.
     var acc20: BigInt = unpack256_to_limbs(acc);
     var inv20: BigInt = {{ inv_fn }}(acc20);
     var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
@@ -188,8 +189,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             inv_dx = montgomery_product_f8(inv, pp);
             // Advance the running inverse by dx_k for the next iteration;
             // dx_k is recomputed from the slot's x-coordinates.
-            let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-            let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+            let idx_l = pair_block_plan[block_base + 2u * k + 0u];
+            let idx_r = pair_block_plan[block_base + 2u * k + 1u];
             let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
             let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
             let dx_back: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
@@ -204,8 +205,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // just before first use to minimise the simultaneously-live set.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
         let k = S - 1u - jj;
-        let idx_l = chunk_plan[chunk_base + 2u * k + 0u];
-        let idx_r = chunk_plan[chunk_base + 2u * k + 1u];
+        let idx_l = pair_block_plan[block_base + 2u * k + 0u];
+        let idx_r = pair_block_plan[block_base + 2u * k + 1u];
 
         let inv_dx: array<u32, 8> = load_pref(pref_base + k);
 

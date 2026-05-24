@@ -69,6 +69,36 @@ void (async () => {
     });
     /* eslint-enable @typescript-eslint/naming-convention */
 
+    // 'webgpu-control-sab' arrives from setupWebGpuMsmBridge() on the main
+    // thread when the host wants to wire the WebGPU MSM bridge into this
+    // worker's WASM. We replace the throwing default stubs with the
+    // WebGpuMsmWorkerStub's env imports. Must arrive BEFORE wasm.init()
+    // runs from the main thread; the main thread sequences postMessage(SAB)
+    // before the comlink wasm.init RPC, and the worker processes messages
+    // in arrival order, so the stub is in place before instantiation. The
+    // matching WASM memory is published back to the host AFTER init runs,
+    // via the publishWebGpuMemory method called from the main thread.
+    self.addEventListener('message', (ev: MessageEvent) => {
+      if (!ev.data || ev.data.kind !== 'webgpu-control-sab') return;
+      void (async () => {
+        try {
+          const { installWorkerStub } = await import('../../../../msm_webgpu/setup.js');
+          const stub = installWorkerStub(ev.data.sab, (msg: string) => self.postMessage(msg));
+          wasm.setExtraEnvImports(stub.getEnvImports());
+        } catch (err) {
+          self.postMessage({
+            type: 'worker-error',
+            message: 'webgpu-control-sab handler: ' + (err instanceof Error ? err.message : String(err)),
+            filename: '(main.worker.ts webgpu handler)',
+            lineno: 0,
+            colno: 0,
+            errorString: String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          });
+        }
+      })();
+    });
+
     expose(wasm);
     postMessage(Ready);
   } catch (e: unknown) {

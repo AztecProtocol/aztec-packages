@@ -270,7 +270,7 @@ template <typename Curve> class ShplonkProver_ {
                                                          gemini_fold_pos_evaluations,
                                                          libra_opening_claims,
                                                          sumcheck_round_claims);
-        auto batched_quotient_commitment = commitment_key.commit(batched_quotient);
+        auto batched_quotient_commitment = commitment_key.commit(batched_quotient, "SHPLONK_BATCHED_QUOTIENT");
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
 

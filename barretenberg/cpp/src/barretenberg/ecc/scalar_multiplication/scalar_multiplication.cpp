@@ -5,6 +5,10 @@
 // =====================
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/log.hpp"
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
@@ -498,23 +502,48 @@ template <typename Curve>
 std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<std::span<const typename Curve::AffineElement>> points,
     std::span<std::span<ScalarField>> scalars,
-    bool handle_edge_cases) noexcept
+    bool handle_edge_cases,
+    [[maybe_unused]] std::span<const std::string> labels) noexcept
 {
     BB_BENCH_NAME("MSM::batch_multi_scalar_mul");
     BB_ASSERT_EQ(points.size(), scalars.size());
 #ifdef BBERG_WEBGPU_MSM_HOOK
-    // WebGPU hook: when built with BBERG_WEBGPU_MSM_HOOK, the BN254
-    // SRS-safe path delegates to a JS-side WebGPU MSM via the bb.js
-    // bridge. handle_edge_cases==true keeps the C++ Jacobian path
-    // (rare callers: tests and a handful of unbatched commits with
-    // potentially equal points). Grumpkin always stays on C++.
-    //
-    // The batch is only delegated when at least one MSM in it meets
-    // the BBERG_WEBGPU_MSM_MIN_N threshold; for small batches the
-    // bridge round-trip and GPU warmup dominate the wall time.
+    // CSV-measurement mode: time every MSM individually on CPU (multi-
+    // threaded Pippenger, but one MSM at a time so the timing is per-MSM
+    // attributable, not interleaved across threads via work units). Emits
+    // `[msm-csv-cpu] name=<label> n=<size> cpu_ms=<ms>` per MSM. Skipped
+    // (along with the WebGPU delegation) when off.
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
-        if (!handle_edge_cases && webgpu_msm_batch_should_delegate(scalars)) {
-            return batch_multi_scalar_mul_webgpu_bn254(points, scalars);
+        if (msm_csv_mode_enabled()) {
+            const size_t batch_size = points.size();
+            std::vector<typename Curve::AffineElement> results;
+            results.reserve(batch_size);
+            for (size_t i = 0; i < batch_size; ++i) {
+                std::array<std::span<const typename Curve::AffineElement>, 1> p{ points[i] };
+                std::array<std::span<ScalarField>, 1> s{ scalars[i] };
+                const auto t0 = std::chrono::steady_clock::now();
+                auto r = batch_multi_scalar_mul_native(p, s, handle_edge_cases);
+                const auto t1 = std::chrono::steady_clock::now();
+                const double cpu_ms =
+                    std::chrono::duration<double, std::milli>(t1 - t0).count();
+                const std::string lbl = (labels.size() == batch_size) ? labels[i] : std::string("?");
+                // 4 decimal places — enough to distinguish microsecond-level
+                // MSMs from each other. Default operator<<(double) rounds to
+                // ~6 sig figs which loses precision for tiny n values.
+                std::ostringstream oss;
+                oss << std::fixed << std::setprecision(4) << cpu_ms;
+                info("[msm-csv-cpu] name=", lbl, " n=", scalars[i].size(), " cpu_ms=", oss.str());
+                results.push_back(r[0]);
+            }
+            return results;
+        }
+    }
+    // WebGPU hook: when built with BBERG_WEBGPU_MSM_HOOK and the runtime
+    // flag is on (set from JS via bb_set_webgpu_msm_enabled), the BN254
+    // SRS-safe path routes through the bb.js bridge.
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        if (!handle_edge_cases && webgpu_msm_runtime_enabled()) {
+            return batch_multi_scalar_mul_webgpu_bn254(points, scalars, labels);
         }
     }
 #endif

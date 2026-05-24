@@ -74,8 +74,8 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     for (size_t idx = 0; idx < N; ++idx) {
         for (size_t col = 0; col < NUM_WIRES; ++col) {
-            transcript->send_to_verifier("COLUMN_" + std::to_string(col) + "_" + std::to_string(idx),
-                                         pcs_commitment_key.commit(subtable_cols[idx][col]));
+            const std::string label = "COLUMN_" + std::to_string(col) + "_" + std::to_string(idx);
+            transcript->send_to_verifier(label, pcs_commitment_key.commit(subtable_cols[idx][col], label));
         }
         // update hash after each subtable to match verifier's transcript
         [[maybe_unused]] FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
@@ -95,7 +95,8 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     std::array<Polynomial, NUM_WIRES> zk_columns = op_queue->construct_zk_columns();
     for (size_t col = 0; col < NUM_WIRES; ++col) {
-        transcript->send_to_verifier("ZK_COLUMN_" + std::to_string(col), pcs_commitment_key.commit(zk_columns[col]));
+        const std::string label = "ZK_COLUMN_" + std::to_string(col);
+        transcript->send_to_verifier(label, pcs_commitment_key.commit(zk_columns[col], label));
     }
     max_shift_size = std::max(max_shift_size, zk_columns[0].size());
 
@@ -127,8 +128,8 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns());
     for (size_t col = 0; col < NUM_WIRES; ++col) {
-        transcript->send_to_verifier("MERGED_COLUMN_" + std::to_string(col),
-                                     pcs_commitment_key.commit(merged_table[col]));
+        const std::string label = "MERGED_COLUMN_" + std::to_string(col);
+        transcript->send_to_verifier(label, pcs_commitment_key.commit(merged_table[col], label));
     }
 
     // -------------------------------------------------------------------------
@@ -146,7 +147,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     Polynomial degree_check_poly =
         compute_degree_check_polynomial(flattened_cols, degree_check_challenges, max_shift_size);
-    transcript->send_to_verifier("DEGREE_CHECK_POLY", pcs_commitment_key.commit(degree_check_poly));
+    transcript->send_to_verifier("DEGREE_CHECK_POLY", pcs_commitment_key.commit(degree_check_poly, "DEGREE_CHECK_POLY"));
 
     // -------------------------------------------------------------------------
     // Step 7: Evaluation challenge κ

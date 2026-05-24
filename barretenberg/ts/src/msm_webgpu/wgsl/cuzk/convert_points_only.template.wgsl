@@ -61,6 +61,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let INPUT_SIZE = input_size;
     let NUM_16_BIT_WORDS_PER_COORD = {{ num_16_bit_words_per_coord }}u;
+    // Dispatcher rounds totalThreads up to a multiple of (workgroup_size *
+    // numXWorkgroups * numYWorkgroups) so the tile covers srsN; ids past
+    // input_size are no-ops. Without this guard a non-power-of-two srsN
+    // (e.g. 88_899 for the ECDSA-r1 transfer flow) would OOB-write past
+    // the point_x / point_y buffers.
+    if (id >= INPUT_SIZE) {
+        return;
+    }
 
     var x_bytes: array<u32, {{ num_16_bit_words_per_coord }}>;
     var y_bytes: array<u32, {{ num_16_bit_words_per_coord }}>;

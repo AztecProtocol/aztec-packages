@@ -169,16 +169,17 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     // Compute commitments [M_j] and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
-                                     pcs_commitment_key.commit(merged_table[idx]));
+        const std::string label = "MERGED_TABLE_" + std::to_string(idx);
+        transcript->send_to_verifier(label, pcs_commitment_key.commit(merged_table[idx], label));
     }
 
     // Generate degree check batching challenges, batch polynomials, compute reversed polynomial, send commitment to the
     // verifier
     std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
     Polynomial reversed_batched_left_tables = compute_degree_check_polynomial(left_table, degree_check_challenges);
-    transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
-                                 pcs_commitment_key.commit(reversed_batched_left_tables));
+    transcript->send_to_verifier(
+        "REVERSED_BATCHED_LEFT_TABLES",
+        pcs_commitment_key.commit(reversed_batched_left_tables, "REVERSED_BATCHED_LEFT_TABLES"));
 
     // Compute batching challenges
     std::vector<FF> shplonk_batching_challenges =
@@ -218,7 +219,8 @@ MergeProver::MergeProof MergeProver::construct_proof()
                                                                            reversed_batched_left_tables,
                                                                            evals);
 
-    transcript->send_to_verifier("SHPLONK_BATCHED_QUOTIENT", pcs_commitment_key.commit(shplonk_batched_quotient));
+    transcript->send_to_verifier("SHPLONK_BATCHED_QUOTIENT",
+                                 pcs_commitment_key.commit(shplonk_batched_quotient, "SHPLONK_BATCHED_QUOTIENT"));
 
     // Generate Shplonk opening challenge
     FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");

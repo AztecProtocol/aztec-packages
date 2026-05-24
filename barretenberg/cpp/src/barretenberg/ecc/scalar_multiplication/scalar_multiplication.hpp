@@ -14,6 +14,7 @@
 
 #include "./bitvector.hpp"
 #include "./process_buckets.hpp"
+#include <string>
 namespace bb::scalar_multiplication {
 
 template <typename Curve> class MSM {
@@ -216,9 +217,13 @@ template <typename Curve> class MSM {
      * @note Scalars are temporarily modified but restored before returning
      * @see README.md "Parallelization"
      */
+    // Per-MSM labels for telemetry — used by the WebGPU bridge to emit named
+    // per-MSM timing. Parallel to `points` / `scalars`. May be empty (no labels);
+    // when non-empty, must be the same length as `points`.
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
                                                              std::span<std::span<ScalarField>> scalars,
-                                                             bool handle_edge_cases = true) noexcept;
+                                                             bool handle_edge_cases = true,
+                                                             std::span<const std::string> labels = {}) noexcept;
 
     /**
      * @brief In-tree multi-threaded batch MSM, bypassing the BBERG_WEBGPU_MSM_HOOK delegation.

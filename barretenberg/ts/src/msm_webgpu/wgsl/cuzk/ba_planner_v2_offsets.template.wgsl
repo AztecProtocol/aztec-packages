@@ -3,8 +3,8 @@
 // One workgroup per Pippenger window. Computes, for every bucket, the
 // window-local prefix offsets the emit pass (ba_planner_v2_emit) needs,
 // plus new_counts / new_offsets and the per-window plan_meta totals — but
-// NOT the O(pairs) chunk / scatter / carry plans, which the emit pass
-// writes in parallel across buckets.
+// NOT the O(pairs) pair_block / scatter / carry plans, which the emit
+// pass writes in parallel across buckets.
 //
 // Phase A  per-thread tally of (pair, carry, new) counts.
 // Phase B  workgroup Hillis-Steele scan of the 3 per-thread totals.
@@ -44,9 +44,9 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let w = wid.x;
     if (w >= NUM_WINDOWS) { return; }
 
-    let chunks_per_window  = params.x;
-    let carries_per_window = params.y;
-    let wstride            = params.w;
+    let pair_blocks_per_window = params.x;
+    let carries_per_window     = params.y;
+    let wstride                = params.w;
     let window_bucket_base = w * BW;
 
     // Phase A: per-thread tally over this thread's PER_THREAD buckets.
@@ -99,7 +99,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     if (w == 0u && tid == 0u) {
         let wgi = max(params.z, 1u);
         let d = 3u * NUM_WINDOWS;
-        plan_meta[d + 0u] = ceil_div(NUM_WINDOWS * chunks_per_window, wgi);
+        plan_meta[d + 0u] = ceil_div(NUM_WINDOWS * pair_blocks_per_window, wgi);
         plan_meta[d + 1u] = 1u;
         plan_meta[d + 2u] = 1u;
         plan_meta[d + 3u] = ceil_div(NUM_WINDOWS * carries_per_window, wgi);
