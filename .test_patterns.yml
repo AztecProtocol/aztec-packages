@@ -390,6 +390,17 @@ tests:
     owners:
       - *palla
 
+  # http://ci.aztec-labs.com/136431da99834194
+  # Recurring HA full failure on merge-train/spartan: 5 peers race on
+  # checkpoint proposals under pipelining ("Timed out waiting for block with
+  # archive matching checkpoint proposal", "already proposed block for slot
+  # N index 0"). Failure mode keeps shifting (jest summary not always reached
+  # within the dashboard log window), so flag the whole suite as flake until
+  # the HA pipelining work stabilises.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
+    owners:
+      - *spyros
+
   # http://ci.aztec-labs.com/9a5fa90aa18f62e7
   # Under proposer pipelining the multi-validator web3signer suite intermittently
   # drops the first concurrently-submitted tx at the P2P layer before it reaches
