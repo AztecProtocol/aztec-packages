@@ -1,7 +1,9 @@
 import { getKeys, merge, pick, times } from '@aztec/foundation/collection';
+import { InterruptError } from '@aztec/foundation/error';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -42,6 +44,9 @@ const CurrentStrategy: PriorityFeeStrategy = P75AllTxsPriorityFeeStrategy;
 export class ReadOnlyL1TxUtils {
   public config: Required<L1TxUtilsConfig>;
   protected interrupted = false;
+  protected readonly interruptibleSleep = new InterruptibleSleep();
+  /** Listeners that reject pending awaits wrapped with raceInterrupt when interrupt() fires. */
+  private interruptListeners: Array<() => void> = [];
 
   constructor(
     public client: ViemClient,
@@ -55,10 +60,42 @@ export class ReadOnlyL1TxUtils {
 
   public interrupt() {
     this.interrupted = true;
+    this.interruptibleSleep.interrupt();
+    const listeners = this.interruptListeners;
+    this.interruptListeners = [];
+    for (const listener of listeners) {
+      listener();
+    }
   }
 
   public restart() {
     this.interrupted = false;
+  }
+
+  /**
+   * Races `promise` against the interrupt signal. If `interrupt()` is called (or has already been
+   * called) before `promise` settles, the returned promise rejects with `InterruptError`. Used to
+   * make viem RPC awaits unblock immediately on shutdown rather than waiting for an unresponsive
+   * L1 endpoint.
+   */
+  protected raceInterrupt<T>(promise: Promise<T>): Promise<T> {
+    if (this.interrupted) {
+      return Promise.reject(new InterruptError('L1 tx utils interrupted'));
+    }
+    return new Promise<T>((resolve, reject) => {
+      const onInterrupt = () => reject(new InterruptError('L1 tx utils interrupted'));
+      this.interruptListeners.push(onInterrupt);
+      promise.then(
+        value => {
+          this.interruptListeners = this.interruptListeners.filter(l => l !== onInterrupt);
+          resolve(value);
+        },
+        err => {
+          this.interruptListeners = this.interruptListeners.filter(l => l !== onInterrupt);
+          reject(err);
+        },
+      );
+    });
   }
 
   public getBlock() {

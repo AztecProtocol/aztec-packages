@@ -6,7 +6,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -434,24 +433,32 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     let l1Timestamp: number;
 
     while (true) {
-      l1Timestamp = await this.getL1Timestamp();
-
+      // Bail before any I/O if we've been interrupted, so stop() returns promptly even when the
+      // L1 client is unresponsive (e.g. anvil paused after a test-driven warp).
+      if (this.interrupted) {
+        break;
+      }
       try {
+        l1Timestamp = await this.raceInterrupt(this.getL1Timestamp());
+
         const timePassed = l1Timestamp - state.lastSentAtL1Ts.getTime();
-        const [currentNonce, pendingNonce] = await Promise.all([
-          this.client.getTransactionCount({ address: account, blockTag: 'latest' }),
-          this.client.getTransactionCount({ address: account, blockTag: 'pending' }),
-        ]);
+        const [currentNonce, pendingNonce] = await this.raceInterrupt(
+          Promise.all([
+            this.client.getTransactionCount({ address: account, blockTag: 'latest' }),
+            this.client.getTransactionCount({ address: account, blockTag: 'pending' }),
+          ]),
+        );
 
         // If the current nonce on our account is greater than our transaction's nonce then a tx with the same nonce has been mined.
         if (currentNonce > nonce) {
           // We try getting the receipt twice, since sometimes anvil fails to return it if the tx has just been mined
-          const receipt =
-            (await this.tryGetTxReceipt(state.cancelTxHashes, nonce, true)) ??
-            (await this.tryGetTxReceipt(state.txHashes, nonce, false)) ??
-            (await sleep(500)) ??
-            (await this.tryGetTxReceipt(state.cancelTxHashes, nonce, true)) ??
-            (await this.tryGetTxReceipt(state.txHashes, nonce, false));
+          let receipt = await this.raceInterrupt(this.tryGetTxReceipt(state.cancelTxHashes, nonce, true));
+          receipt ??= await this.raceInterrupt(this.tryGetTxReceipt(state.txHashes, nonce, false));
+          if (!receipt) {
+            await this.interruptibleSleep.sleep(500);
+            receipt = await this.raceInterrupt(this.tryGetTxReceipt(state.cancelTxHashes, nonce, true));
+            receipt ??= await this.raceInterrupt(this.tryGetTxReceipt(state.txHashes, nonce, false));
+          }
 
           if (receipt) {
             state.receipt = receipt;
@@ -523,7 +530,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           state.lastSentAtL1Ts = new Date(l1Timestamp);
           await this.updateState(state, isCancelTx ? TxUtilsState.CANCELLED : TxUtilsState.SPEED_UP);
 
-          await sleep(gasConfig.checkIntervalMs!);
+          await this.interruptibleSleep.sleep(gasConfig.checkIntervalMs!);
           continue;
         }
 
@@ -550,15 +557,21 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           },
         );
 
-        await sleep(gasConfig.checkIntervalMs!);
+        await this.interruptibleSleep.sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
         if (err instanceof DroppedTransactionError || err instanceof UnknownMinedTxError) {
           throw err;
         }
 
+        if (err instanceof InterruptError) {
+          // interrupt() unblocked one of the awaits above. Fall through to the normal timeout
+          // handling so callers see the same TimeoutError they would on a real timeout.
+          break;
+        }
+
         const viemError = formatViemError(err);
         this.logger.error(`Error while monitoring L1 tx ${currentTxHash}`, viemError, { nonce, account });
-        await sleep(gasConfig.checkIntervalMs!);
+        await this.interruptibleSleep.sleep(gasConfig.checkIntervalMs!);
       }
     }
 
