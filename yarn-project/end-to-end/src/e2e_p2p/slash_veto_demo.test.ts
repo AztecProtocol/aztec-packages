@@ -22,6 +22,7 @@ import path from 'path';
 import { encodeFunctionData, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { CI_SYSTEM_TIMING } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
@@ -32,9 +33,9 @@ const VETOER_PRIVATE_KEY_INDEX = 18; // This should be after all keys used by va
 const NUM_NODES = 3;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
-const EPOCH_DURATION = 2;
+const ETHEREUM_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 4;
+const AZTEC_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : 8;
+const EPOCH_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecEpochDuration : 2;
 // how many l2 slots make up a slashing round
 const SLASHING_ROUND_SIZE = 4;
 // how many block builders must signal for a single payload in a single round for it to be executable

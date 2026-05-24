@@ -36,6 +36,7 @@ import { join } from 'path';
 import type { Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { getCITimingOverride } from '../fixtures/fixtures.js';
 import {
   SCHNORR_HARDCODED_PRIVATE_KEY,
   SchnorrHardcodedKeyAccountContract,
@@ -95,6 +96,7 @@ export class EpochsTestContext {
   public nodes: AztecNodeService[] = [];
 
   public epochDuration!: number;
+  public aztecSlotDuration!: number;
 
   public L1_BLOCK_TIME_IN_S!: number;
   public L2_SLOT_DURATION_IN_S!: number;
@@ -106,12 +108,16 @@ export class EpochsTestContext {
   }
 
   public static getSlotDurations(opts: EpochsTestOpts = {}) {
+    const ciOverride = getCITimingOverride();
     const envEthereumSlotDuration = process.env.L1_BLOCK_TIME
       ? parseInt(process.env.L1_BLOCK_TIME)
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
-    const aztecSlotDuration = opts.aztecSlotDuration ?? (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
+    const aztecSlotDuration =
+      opts.aztecSlotDuration ??
+      ciOverride.aztecSlotDuration ??
+      (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? ciOverride.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     const l1PublishingTime = opts.l1PublishingTime ?? 1;
     return {
@@ -357,7 +363,7 @@ export class EpochsTestContext {
       this.l1Client,
       start - BigInt(this.L1_BLOCK_TIME_IN_S),
       undefined,
-      30 * this.epochDuration,
+      this.aztecSlotDuration * this.epochDuration,
     );
     return start;
   }

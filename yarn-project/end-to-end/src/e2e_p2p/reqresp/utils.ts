@@ -12,7 +12,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { getBootNodeUdpPort, shouldCollectMetrics } from '../../fixtures/fixtures.js';
+import { CI_SYSTEM_TIMING, getBootNodeUdpPort, shouldCollectMetrics } from '../../fixtures/fixtures.js';
 import { createNodes } from '../../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from '../p2p_network.js';
 import { prepareTransactions } from '../shared.js';
@@ -38,8 +38,8 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
     // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
     metricsPort: shouldCollectMetrics(),
     initialConfig: {
-      ethereumSlotDuration: 8,
-      aztecSlotDuration: 36,
+      ethereumSlotDuration: process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 8,
+      aztecSlotDuration: process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : 36,
       blockDurationMs: 6000,
       l1PublishingTime: 8,
       minTxsPerBlock: 1,

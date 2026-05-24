@@ -12,7 +12,7 @@ import os from 'os';
 import path from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
+import { CI_SYSTEM_TIMING, shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
@@ -25,8 +25,8 @@ jest.setTimeout(TEST_TIMEOUT);
 const NUM_VALIDATORS = 4;
 const BOOT_NODE_UDP_PORT = 4600;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = 8;
-const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 3;
+const ETHEREUM_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 8;
+const AZTEC_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : ETHEREUM_SLOT_DURATION * 3;
 const BLOCK_DURATION = 4;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duplicate-attestation-slash-'));

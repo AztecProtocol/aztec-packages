@@ -12,7 +12,10 @@ const testConfigSchema = z.object({
   CREATE_ETH_DEVNET: schemas.Boolean.optional().default(false),
   L1_RPC_URLS_JSON: z.string().optional(),
   L1_ACCOUNT_MNEMONIC: z.string().optional(),
-  AZTEC_SLOT_DURATION: z.coerce.number().optional().default(24),
+  AZTEC_SLOT_DURATION: z.coerce
+    .number()
+    .optional()
+    .default(process.env.CI ? 72 : 24),
   AZTEC_EPOCH_DURATION: z.coerce.number().optional().default(32),
   AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().optional().default(5),
   AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: z.coerce.number().optional().default(2),

@@ -29,6 +29,7 @@ import getPort from 'get-port';
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { getCITimingOverride } from '../fixtures/fixtures.js';
 import {
   SCHNORR_HARDCODED_PRIVATE_KEY,
   SchnorrHardcodedKeyAccountContract,
@@ -52,10 +53,11 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
 const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
-export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
+const ciOverride = getCITimingOverride();
+export const WAIT_FOR_TX_TIMEOUT = (ciOverride.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration) * 3;
 
 export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
-  aztecSlotDuration: 12,
+  aztecSlotDuration: ciOverride.aztecSlotDuration ?? 12,
   ethereumSlotDuration: 4,
   aztecProofSubmissionEpochs: 640,
 };
@@ -116,8 +118,12 @@ export class P2PNetworkTest {
     this.setupOptions = {
       ...initialValidatorConfig,
       ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
-      aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
-      aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+      aztecEpochDuration:
+        initialValidatorConfig.aztecEpochDuration ??
+        ciOverride.aztecEpochDuration ??
+        l1ContractsConfig.aztecEpochDuration,
+      aztecSlotDuration:
+        initialValidatorConfig.aztecSlotDuration ?? ciOverride.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
       aztecProofSubmissionEpochs:
         initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
       slashingRoundSizeInEpochs:
@@ -131,13 +137,17 @@ export class P2PNetworkTest {
 
     this.deployL1ContractsArgs = {
       ...initialValidatorConfig,
-      aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+      aztecEpochDuration:
+        initialValidatorConfig.aztecEpochDuration ??
+        ciOverride.aztecEpochDuration ??
+        l1ContractsConfig.aztecEpochDuration,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
       slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
 
       ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
-      aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
+      aztecSlotDuration:
+        initialValidatorConfig.aztecSlotDuration ?? ciOverride.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
       aztecProofSubmissionEpochs:
         initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
       aztecTargetCommitteeSize: numberOfValidators,

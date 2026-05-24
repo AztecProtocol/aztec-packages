@@ -10,6 +10,7 @@ import 'jest-extended';
 import os from 'os';
 import path from 'path';
 
+import { CI_SYSTEM_TIMING } from '../fixtures/fixtures.js';
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 
@@ -17,9 +18,9 @@ const NUM_NODES = 5;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
-const EPOCH_DURATION = 2;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
+const EPOCH_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecEpochDuration : 2;
+const ETHEREUM_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 4;
+const AZTEC_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : 8;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 

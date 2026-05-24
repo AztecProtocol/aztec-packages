@@ -8,6 +8,7 @@ import 'jest-extended';
 import os from 'os';
 import path from 'path';
 
+import { CI_SYSTEM_TIMING } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 
@@ -15,11 +16,11 @@ const NUM_NODES = 6;
 const NUM_VALIDATORS = NUM_NODES;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
 const SLASHING_QUORUM = 3;
-const EPOCH_DURATION = 2;
+const EPOCH_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecEpochDuration : 2;
 const SLASHING_ROUND_SIZE_IN_EPOCHS = 2;
 const BOOT_NODE_UDP_PORT = 4500;
-const ETHEREUM_SLOT_DURATION = process.env.CI ? 8 : 4;
-const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
+const ETHEREUM_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 4;
+const AZTEC_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : ETHEREUM_SLOT_DURATION * 2;
 const SLASHING_UNIT = BigInt(1e18);
 const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
 

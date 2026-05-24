@@ -10,7 +10,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
+import { CI_SYSTEM_TIMING, shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
@@ -23,8 +23,8 @@ jest.setTimeout(TEST_TIMEOUT);
 const NUM_VALIDATORS = 4;
 const BOOT_NODE_UDP_PORT = 4500;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
+const ETHEREUM_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 4;
+const AZTEC_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : ETHEREUM_SLOT_DURATION * 2;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'broadcasted-invalid-block-proposal-slash-'));
 

@@ -28,10 +28,11 @@ import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client'
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { CI_SYSTEM_TIMING } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
-const ETHEREUM_SLOT_DURATION = 8;
-const AZTEC_SLOT_DURATION = 16;
+const ETHEREUM_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 8;
+const AZTEC_SLOT_DURATION = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : 16;
 const TXS_PER_BLOCK = 1;
 const ROUND_SIZE = 2;
 const QUORUM_SIZE = 2;

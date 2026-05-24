@@ -10,7 +10,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
+import { CI_SYSTEM_TIMING, shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
@@ -38,9 +38,9 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
-  const ethereumSlotDuration = 8;
-  const aztecSlotDuration = 24;
-  const aztecEpochDuration = 2;
+  const ethereumSlotDuration = process.env.CI ? CI_SYSTEM_TIMING.ethereumSlotDuration : 8;
+  const aztecSlotDuration = process.env.CI ? CI_SYSTEM_TIMING.aztecSlotDuration : 24;
+  const aztecEpochDuration = process.env.CI ? CI_SYSTEM_TIMING.aztecEpochDuration : 2;
   const initialEpoch = 8;
   const slashingUnit = BigInt(1e18);
 

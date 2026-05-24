@@ -9,7 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
+import { CI_SYSTEM_TIMING, shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected, submitTransactions } from './shared.js';
@@ -23,7 +23,11 @@ const COMMITTEE_SIZE = NUM_VALIDATORS;
 
 // This test needs longer slot window to ensure that the client has enough time to submit their txs,
 // and have the nodes get recreated, prior to the reorg.
-const AZTEC_SLOT_DURATION = process.env.AZTEC_SLOT_DURATION ? parseInt(process.env.AZTEC_SLOT_DURATION) : 32;
+const AZTEC_SLOT_DURATION = process.env.CI
+  ? CI_SYSTEM_TIMING.aztecSlotDuration
+  : process.env.AZTEC_SLOT_DURATION
+    ? parseInt(process.env.AZTEC_SLOT_DURATION)
+    : 32;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'));
 
