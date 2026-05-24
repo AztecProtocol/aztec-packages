@@ -86,6 +86,7 @@ import { DEFAULT_ADDRESS, MAX_PRIVATE_EVENTS_PER_TXE_QUERY, MAX_PRIVATE_EVENT_LE
 import type { TXEStateMachine } from '../state_machine/index.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
 import type { TXEAccountStore } from '../utils/txe_account_store.js';
+import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
@@ -111,6 +112,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private readonly artifactResolver: TXEArtifactResolver,
+    private readonly rootPath: string,
+    private readonly packageName: string,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
@@ -249,19 +253,45 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return siloNullifier(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
   }
 
-  async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+  async deploy(
+    contractPath: string,
+    initializer: string,
+    args: Fr[],
+    secret: Fr,
+    salt: Fr,
+    deployer: AztecAddress,
+  ): Promise<Fr[]> {
+    const { artifact, instance } = await this.artifactResolver.resolveDeployArtifact({
+      rootPath: this.rootPath,
+      packageName: this.packageName,
+      contractPath,
+      initializer,
+      args,
+      secret,
+      salt,
+      deployer,
+    });
+
     // Emit deployment nullifier
     await this.mineBlock({
       nullifiers: [await this.deploymentNullifier(instance.address)],
     });
 
     if (!secret.equals(Fr.ZERO)) {
-      await this.addAccount(artifact, instance, secret);
+      await this.registerContractAndAddAccount(artifact, instance, secret);
     } else {
       await this.contractStore.addContractInstance(instance);
       await this.contractStore.addContractArtifact(artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
+
+    return [
+      instance.salt,
+      instance.deployer.toField(),
+      instance.currentContractClassId,
+      instance.initializationHash,
+      ...instance.publicKeys.toFields(),
+    ];
   }
 
   /**
@@ -273,7 +303,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
   }
 
-  async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
+  async addAccount(secret: Fr) {
+    const { artifact, instance } = await this.artifactResolver.resolveAccountArtifact(secret);
+    return this.registerContractAndAddAccount(artifact, instance, secret);
+  }
+
+  private async registerContractAndAddAccount(
+    artifact: ContractArtifact,
+    instance: ContractInstanceWithAddress,
+    secret: Fr,
+  ) {
     const partialAddress = await computePartialAddress(instance);
 
     this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);

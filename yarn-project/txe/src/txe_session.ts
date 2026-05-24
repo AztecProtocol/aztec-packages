@@ -61,6 +61,7 @@ import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock
 import type { ForeignCallArgs, ForeignCallResult } from './utils/encoding.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 import { TXEAccountStore } from './utils/txe_account_store.js';
+import type { TXEArtifactResolver } from './utils/txe_artifact_resolver.js';
 
 /**
  * A TXE Session can be in one of four states, which change as the test progresses and different oracles are called.
@@ -225,6 +226,9 @@ export class TXESession implements TXESessionStateHandler {
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
+    private readonly artifactResolver: TXEArtifactResolver,
+    private readonly rootPath: string,
+    private readonly packageName: string,
   ) {}
 
   /**
@@ -248,7 +252,12 @@ export class TXESession implements TXESessionStateHandler {
     }
   }
 
-  static async init(contractStore: ContractStore) {
+  static async init(
+    contractStore: ContractStore,
+    artifactResolver: TXEArtifactResolver,
+    rootPath: string,
+    packageName: string,
+  ) {
     // Size LMDB's reader slots to the libuv pool (capped to 2 in bin/index.ts via
     // HARDWARE_CONCURRENCY): each native LMDB read needs a libuv worker thread to run, so any
     // slot beyond the pool size would sit idle while still consuming a semaphore + reader-table
@@ -302,6 +311,9 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
+      artifactResolver,
+      rootPath,
+      packageName,
     );
 
     await topLevelOracleHandler.mineDeploymentNullifiers([STANDARD_AUTH_REGISTRY_ADDRESS]);
@@ -326,6 +338,9 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       nextBlockTimestamp,
+      artifactResolver,
+      rootPath,
+      packageName,
     );
   }
 
@@ -502,6 +517,9 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
+      this.artifactResolver,
+      this.rootPath,
+      this.packageName,
     );
 
     this.state = { name: 'TOP_LEVEL' };

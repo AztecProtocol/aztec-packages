@@ -22,6 +22,7 @@ import {
   ORACLE_REGISTRY,
   type OracleRegistryEntry,
   type ParamTypes,
+  STR,
   type TypeMapping,
   U32,
   makeEntry,
@@ -188,7 +189,25 @@ export const TXE_ORACLE_REGISTRY = {
     params: [{ name: 'duration', type: BIGINT }],
   }),
 
+  aztec_txe_deploy: makeEntry({
+    params: [
+      { name: 'contractPath', type: STR },
+      { name: 'initializer', type: STR },
+      { name: 'argsLength', type: U32 },
+      { name: 'args', type: ARRAY(FIELD) },
+      { name: 'secret', type: FIELD },
+      { name: 'salt', type: FIELD },
+      { name: 'deployer', type: AZTEC_ADDRESS },
+    ],
+    returnType: ARRAY(FIELD),
+  }),
+
   aztec_txe_createAccount: makeEntry({
+    params: [{ name: 'secret', type: FIELD }],
+    returnType: COMPLETE_ADDRESS,
+  }),
+
+  aztec_txe_addAccount: makeEntry({
     params: [{ name: 'secret', type: FIELD }],
     returnType: COMPLETE_ADDRESS,
   }),

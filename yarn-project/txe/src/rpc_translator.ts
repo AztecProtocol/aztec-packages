@@ -1,18 +1,9 @@
-import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { callTxeHandler } from './oracle/txe_oracle_registry.js';
 import type { TXESessionStateHandler } from './txe_session.js';
-import {
-  type ForeignCallArgs,
-  type ForeignCallSingle,
-  fromSingle,
-  toArray,
-  toForeignCallResult,
-  toSingle,
-} from './utils/encoding.js';
+import type { ForeignCallArgs } from './utils/encoding.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -183,25 +174,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_txe_deploy(
-    artifact: ContractArtifact,
-    instance: ContractInstanceWithAddress,
-    foreignSecret: ForeignCallSingle,
-  ) {
-    const secret = fromSingle(foreignSecret);
-
-    await this.handlerAsTxe().deploy(artifact, instance, secret);
-
-    return toForeignCallResult([
-      toArray([
-        instance.salt,
-        instance.deployer.toField(),
-        instance.currentContractClassId,
-        instance.initializationHash,
-        instance.immutablesHash,
-        ...instance.publicKeys.toFields(),
-      ]),
-    ]);
+  aztec_txe_deploy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_deploy',
+      inputs,
+      handler: ([contractPath, initializer, _, args, secret, salt, deployer]) =>
+        this.handlerAsTxe().deploy(contractPath, initializer, args, secret, salt, deployer),
+    });
   }
 
   // eslint-disable-next-line camelcase
@@ -214,19 +193,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_txe_addAccount(
-    artifact: ContractArtifact,
-    instance: ContractInstanceWithAddress,
-    foreignSecret: ForeignCallSingle,
-  ) {
-    const secret = fromSingle(foreignSecret);
-
-    const completeAddress = await this.handlerAsTxe().addAccount(artifact, instance, secret);
-
-    return toForeignCallResult([
-      toSingle(completeAddress.address),
-      ...completeAddress.publicKeys.toFields().map(toSingle),
-    ]);
+  aztec_txe_addAccount(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_addAccount',
+      inputs,
+      handler: ([secret]) => this.handlerAsTxe().addAccount(secret),
+    });
   }
 
   // eslint-disable-next-line camelcase
