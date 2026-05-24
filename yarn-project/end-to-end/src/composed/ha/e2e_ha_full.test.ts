@@ -279,16 +279,24 @@ describe('HA Full Setup', () => {
   });
 
   afterAll(async () => {
-    // Cleanup all HA peer nodes
+    // Stop all HA peer nodes in parallel with a per-node deadline. A single stuck node can otherwise
+    // block the serial loop long enough to blow the jest hook timeout — e.g. a sequencer.stop() that
+    // awaits an L1 publish whose tx-timeout was computed on a test-warped clock and never fires.
     if (haNodeServices) {
-      for (let i = 0; i < haNodeServices.length; i++) {
-        try {
+      const STOP_DEADLINE_MS = 30_000;
+      await Promise.allSettled(
+        haNodeServices.map((service, i) => {
           logger.info(`Stopping HA peer node ${i}`);
-          await haNodeServices[i].stop();
-        } catch (error) {
-          logger.error(`Failed to stop HA peer node ${i}: ${error}`);
-        }
-      }
+          return Promise.race([
+            service.stop().catch(error => {
+              logger.error(`Failed to stop HA peer node ${i}: ${error}`);
+            }),
+            sleep(STOP_DEADLINE_MS).then(() => {
+              logger.error(`HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`);
+            }),
+          ]);
+        }),
+      );
     }
 
     // Cleanup HA keystore temp directories
