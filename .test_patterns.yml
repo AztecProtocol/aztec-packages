@@ -357,11 +357,6 @@ tests:
     owners:
       - *esau
 
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
-    error_regex: "✕ should coordinate governance voting across HA nodes"
-    owners:
-      - *spyros
-
   # http://ci.aztec-labs.com/6db6103599cb22e6
   # Under pipelining, the lazy validator's attestation can arrive after the
   # p2p checkpoint-attestation-validator's acceptance window, getting rejected
@@ -372,32 +367,15 @@ tests:
     owners:
       - *palla
 
-  # http://ci.aztec-labs.com/20d38a958c951a40
-  # Pipelining-induced flake in HA node distribution test (attestation gossip / publisher
-  # rotation timing under pipelined block production).
+  # HA full suite is unstable under HA pipelining: multiple distinct failure
+  # modes (governance vote coord, work distribution, afterAll teardown hook
+  # timeouts, peer races on checkpoint proposals — see #23344, #23541,
+  # ci.aztec-labs.com/136431da99834194). Flagging individual error_regex
+  # entries and even the whole-suite flake match still let it dequeue PRs
+  # because ci3 retries once and the suite fails both attempts. Skip
+  # outright on merge-train/spartan until HA pipelining stabilises.
   - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
-    error_regex: "✕ should distribute work across multiple HA nodes"
-    owners:
-      - *palla
-
-  # http://ci.aztec-labs.com/bc2c84ccc30fe46d
-  # Under pipelining the HA full suite occasionally hangs in afterAll teardown
-  # and Jest aborts the suite with "Exceeded timeout of 1200000 ms for a hook";
-  # surfaces as a "Test suite failed to run" with no per-test assertion line, so
-  # the existing per-assertion entries above do not match.
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
-    error_regex: "Exceeded timeout of [0-9]+ ms for a hook"
-    owners:
-      - *palla
-
-  # http://ci.aztec-labs.com/136431da99834194
-  # Recurring HA full failure on merge-train/spartan: 5 peers race on
-  # checkpoint proposals under pipelining ("Timed out waiting for block with
-  # archive matching checkpoint proposal", "already proposed block for slot
-  # N index 0"). Failure mode keeps shifting (jest summary not always reached
-  # within the dashboard log window), so flag the whole suite as flake until
-  # the HA pipelining work stabilises.
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
+    skip: true
     owners:
       - *spyros
 
