@@ -399,7 +399,7 @@ tests:
   # the HA pipelining work stabilises.
   - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
     owners:
-      - *palla
+      - *spyros
 
   # http://ci.aztec-labs.com/9a5fa90aa18f62e7
   # Under proposer pipelining the multi-validator web3signer suite intermittently
