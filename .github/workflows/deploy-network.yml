@@ -46,7 +46,7 @@ on:
   workflow_dispatch:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)"
+        description: "Network to deploy (e.g., staging-public, testnet, next-net)"
         required: true
         type: choice
         options:

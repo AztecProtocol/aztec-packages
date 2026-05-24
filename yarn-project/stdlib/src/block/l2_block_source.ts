@@ -293,6 +293,7 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
+  [L2BlockSourceEvents.CheckpointEquivocationDetected]: (args: CheckpointEquivocationDetectedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -374,6 +375,7 @@ export enum L2BlockSourceEvents {
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
+  CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -403,4 +405,16 @@ export type L2CheckpointEvent = {
 export type InvalidCheckpointDetectedEvent = {
   type: 'invalidCheckpointDetected';
   validationResult: ValidateCheckpointNegativeResult;
+};
+
+/**
+ * Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed
+ * checkpoint at the same slot. The slot proposer signed both — equivocation.
+ */
+export type CheckpointEquivocationDetectedEvent = {
+  type: 'checkpointEquivocationDetected';
+  slotNumber: SlotNumber;
+  checkpointNumber: CheckpointNumber;
+  l1ArchiveRoot: Fr;
+  proposedArchiveRoot: Fr;
 };

@@ -19,17 +19,25 @@ import type { CircuitName } from '@aztec/stdlib/stats';
 import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 
 import TOML from '@iarna/toml';
-import '@jest/globals';
+import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
-// Set a very long 15 minute timeout.
-const TIMEOUT = 900_000;
+const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
+
+// Real proving can take 10+ min per epoch; under pipelined 12s slots a multi-epoch test
+// can exceed 30 min. Keep 15 min for fake proofs, 45 min for real.
+const TIMEOUT = REAL_PROOFS ? 45 * 60 * 1000 : 15 * 60 * 1000;
+
+// Apply the same budget to module-level hooks (beforeAll/afterAll/afterEach) so the
+// pipelined setup chain (account deploys + token deploy + mint + epoch advance +
+// prover-node startup) doesn't time out.
+jest.setTimeout(TIMEOUT);
 
 describe('full_prover', () => {
-  const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
@@ -44,7 +52,7 @@ describe('full_prover', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
 
     ({ provenAsset, accounts, tokenSim, logger, cheatCodes, provenWallet, aztecNode } = t);
     [sender, recipient] = accounts;
@@ -62,7 +70,7 @@ describe('full_prover', () => {
       address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
       client: t.l1Contracts.l1Client,
     });
-  }, 120_000);
+  }, TIMEOUT);
 
   afterAll(async () => {
     await t.teardown();

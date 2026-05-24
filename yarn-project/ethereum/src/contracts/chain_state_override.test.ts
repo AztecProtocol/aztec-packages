@@ -66,6 +66,30 @@ describe('SimulationOverridesBuilder', () => {
     expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(7), proven: CheckpointNumber(3) });
   });
 
+  it('merge does not erase prior chain tip values when the incoming half is undefined', () => {
+    const builder = new SimulationOverridesBuilder().withChainTips({
+      pending: CheckpointNumber(7),
+      proven: CheckpointNumber(5),
+    });
+    builder.merge({ chainTipsOverride: { pending: undefined, proven: CheckpointNumber(6) } });
+    const plan = builder.build();
+    expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(7), proven: CheckpointNumber(6) });
+  });
+
+  it('merge does not erase prior pending checkpoint state when the incoming field is undefined', () => {
+    const archive = Fr.random();
+    const builder = new SimulationOverridesBuilder()
+      .withChainTips({ pending: CheckpointNumber(7) })
+      .withPendingArchive(archive);
+    builder.merge({
+      chainTipsOverride: { pending: CheckpointNumber(7) },
+      pendingCheckpointState: { archive: undefined, slotNumber: SlotNumber(42) },
+    });
+    const plan = builder.build();
+    expect(plan?.pendingCheckpointState?.archive).toEqual(archive);
+    expect(plan?.pendingCheckpointState?.slotNumber).toEqual(SlotNumber(42));
+  });
+
   it('attaches temp checkpoint log fields under the configured pending checkpoint', () => {
     const headerHash = Fr.random();
     const outHash = Fr.random();

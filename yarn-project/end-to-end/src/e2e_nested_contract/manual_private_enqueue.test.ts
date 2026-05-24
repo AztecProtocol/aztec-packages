@@ -3,6 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual_enqueue', () => {
@@ -14,7 +15,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
 
   beforeAll(async () => {
     // We don't deploy contracts in beforeAll because every test requires a fresh setup
-    await t.setup();
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     ({ wallet, defaultAccountAddress, aztecNode } = t);
   });
 

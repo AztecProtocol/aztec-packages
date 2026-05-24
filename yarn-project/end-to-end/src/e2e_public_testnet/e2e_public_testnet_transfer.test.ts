@@ -7,6 +7,7 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { setup } from '../fixtures/utils.js';
 
 // process.env.SEQ_PUBLISHER_PRIVATE_KEY = '<PRIVATE_KEY_WITH_SEPOLIA_ETH>';
@@ -30,6 +31,7 @@ describe(`deploys and transfers a private only token`, () => {
     ({ logger, teardown, wallet, accounts } = await setup(
       2, // Deploy 2 accounts.
       {
+        ...PIPELINING_SETUP_OPTS,
         numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
         stateLoad: undefined,
       },

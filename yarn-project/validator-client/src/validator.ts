@@ -5,6 +5,7 @@ import { CheckpointNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -21,6 +22,7 @@ import {
 } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   ITxProvider,
@@ -59,19 +61,49 @@ import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
-import { type BlockProposalValidationFailureReason, ProposalHandler } from './proposal_handler.js';
+import {
+  type BlockProposalValidationFailureReason,
+  type CheckpointProposalValidationFailureReason,
+  type CheckpointProposalValidationFailureResult,
+  ProposalHandler,
+} from './proposal_handler.js';
 
 // We maintain a set of proposers who have proposed invalid blocks.
 // Just cap the set to avoid unbounded growth.
 const MAX_PROPOSERS_OF_INVALID_BLOCKS = 1000;
 const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
+const MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS = 1000;
 const MAX_TRACKED_BAD_ATTESTATIONS = 10_000;
 
 // What errors from the block proposal handler result in slashing
 const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
   'state_mismatch',
   'failed_txs',
+  'global_variables_mismatch',
+  'invalid_proposal',
+  'parent_block_wrong_slot',
+  'in_hash_mismatch',
 ];
+
+const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<CheckpointProposalValidationFailureReason, boolean> = {
+  // enabled
+  ['invalid_fee_asset_price_modifier']: true,
+  ['checkpoint_header_mismatch']: true,
+  // These late mismatches should normally be caught by earlier checks, but if reached after validating the local
+  // checkpoint inputs, the proposer-signed payload disagrees with deterministic recomputation.
+  ['archive_mismatch']: true,
+  ['out_hash_mismatch']: true,
+  ['no_blocks_for_slot']: true,
+  ['too_many_blocks_in_checkpoint']: true,
+  ['checkpoint_validation_failed']: true,
+  ['last_block_archive_mismatch']: true,
+
+  // disabled
+  ['invalid_signature']: false,
+  ['last_block_not_found']: false,
+  ['block_fetch_error']: false,
+  ['checkpoint_already_published']: false,
+};
 
 /**
  * Validator Client
@@ -95,10 +127,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   /** Tracks the last epoch in which each attester successfully submitted at least one attestation. */
   private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
-  private proposersOfInvalidBlocks: Set<string> = new Set();
-  private slotsWithInvalidBlockProposals: Set<string> = new Set();
-  private slotsWithProposalEquivocation: Set<string> = new Set();
-  private badAttestationOffenseKeys: Set<string> = new Set();
+  private proposersOfInvalidBlocks = FifoSet.withLimit<string>(MAX_PROPOSERS_OF_INVALID_BLOCKS);
+  private slotsWithInvalidBlockProposals = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+  private invalidCheckpointProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
+  private slotsWithProposalEquivocation = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+  private badAttestationOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
 
   /** Tracks the last checkpoint proposal we attested to, to prevent equivocation. */
   private lastAttestedProposal?: CheckpointProposalCore;
@@ -131,6 +164,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       keyStore,
       this.getSignatureContext(),
       this.log.createChild('validation-service'),
+    );
+    this.proposalHandler.setCheckpointProposalValidationFailureCallback((proposal, result, proposalInfo) =>
+      this.handleInvalidCheckpointProposal(proposal, result, proposalInfo),
     );
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
@@ -204,6 +240,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     txProvider: ITxProvider,
     keyStoreManager: KeystoreManager,
     blobClient: BlobClientInterface,
+    reexecutionTracker: CheckpointReexecutionTracker,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     slashingProtectionDb?: SlashingProtectionDatabase,
@@ -213,6 +250,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
+      skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
@@ -228,6 +266,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       epochCache,
       config,
       blobClient,
+      reexecutionTracker,
       metrics,
       dateProvider,
       telemetry,
@@ -317,6 +356,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public updateConfig(config: Partial<ValidatorClientFullConfig>) {
     this.config = { ...this.config, ...config };
+    this.proposalHandler.updateConfig(config);
   }
 
   public reloadKeystore(newManager: KeystoreManager): void {
@@ -528,6 +568,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
+    // Early-out for equivocation: refuses if we've already attested to a higher slot.
+    if (!this.shouldAttestToSlot(proposalSlotNumber)) {
+      return undefined;
+    }
+
     // Ignore proposals from ourselves (may happen in HA setups)
     if (proposer && this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
       this.log.debug(`Ignoring block proposal from self for slot ${proposalSlotNumber}`, {
@@ -702,12 +747,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
-    // Trim the set if it's too big.
-    if (this.proposersOfInvalidBlocks.size > MAX_PROPOSERS_OF_INVALID_BLOCKS) {
-      // remove oldest proposer. `values` is guaranteed to be in insertion order.
-      this.proposersOfInvalidBlocks.delete(this.proposersOfInvalidBlocks.values().next().value!);
-    }
-
     this.proposersOfInvalidBlocks.add(proposer.toString());
 
     this.emit(WANT_TO_SLASH_EVENT, [
@@ -720,9 +759,57 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     ]);
   }
 
+  private handleInvalidCheckpointProposal(
+    proposal: CheckpointProposalCore,
+    result: CheckpointProposalValidationFailureResult,
+    proposalInfo: LogData,
+  ): void {
+    if (!SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]) {
+      return;
+    }
+
+    if (this.slashInvalidCheckpointProposal(proposal)) {
+      this.log.warn(`Slashing proposer for invalid checkpoint proposal`, {
+        ...proposalInfo,
+        reason: result.reason,
+      });
+    }
+  }
+
+  private slashInvalidCheckpointProposal(proposal: CheckpointProposalCore): boolean {
+    if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
+      return false;
+    }
+
+    const proposer = proposal.getSender();
+    if (!proposer) {
+      this.log.warn(`Cannot slash checkpoint proposal with invalid signature`, {
+        slotNumber: proposal.slotNumber,
+        archive: proposal.archive.toString(),
+      });
+      return false;
+    }
+
+    const offenseType = OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL;
+    const offenseKey = `${proposer.toString()}:${offenseType}:${this.getSlotKey(proposal.slotNumber)}`;
+    if (!this.invalidCheckpointProposalOffenseKeys.addIfAbsent(offenseKey)) {
+      return false;
+    }
+
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: proposer,
+        amount: this.config.slashBroadcastedInvalidCheckpointProposalPenalty,
+        offenseType,
+        epochOrSlot: BigInt(proposal.slotNumber),
+      },
+    ]);
+    return true;
+  }
+
   private markInvalidProposalSlot(slotNumber: SlotNumber): void {
     const slotKey = this.getSlotKey(slotNumber);
-    this.addToBoundedSet(this.slotsWithInvalidBlockProposals, slotKey, MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+    this.slotsWithInvalidBlockProposals.add(slotKey);
   }
 
   private handleCheckpointAttestation(attestation: CheckpointAttestation): void {
@@ -750,7 +837,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const offenseKey = `${this.getSlotKey(slotNumber)}:${attester.toString()}`;
-    if (!this.addToBoundedSet(this.badAttestationOffenseKeys, offenseKey, MAX_TRACKED_BAD_ATTESTATIONS)) {
+    if (!this.badAttestationOffenseKeys.addIfAbsent(offenseKey)) {
       return;
     }
 
@@ -776,7 +863,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private handleDuplicateProposal(info: DuplicateProposalInfo): void {
     const { slot, proposer, type } = info;
     const slotKey = this.getSlotKey(slot);
-    this.addToBoundedSet(this.slotsWithProposalEquivocation, slotKey, MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+    this.slotsWithProposalEquivocation.add(slotKey);
 
     this.log.warn(`Triggering slash event for duplicate ${type} proposal from ${proposer.toString()} at slot ${slot}`, {
       proposer: proposer.toString(),
@@ -828,17 +915,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return slot.toString();
   }
 
-  private addToBoundedSet(set: Set<string>, value: string, maxSize: number): boolean {
-    if (set.has(value)) {
-      return false;
-    }
-    if (set.size >= maxSize) {
-      set.delete(set.values().next().value!);
-    }
-    set.add(value);
-    return true;
-  }
-
   async createBlockProposal(
     blockHeader: BlockHeader,
     checkpointNumber: CheckpointNumber,
@@ -876,7 +952,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       proposerAddress,
       {
         ...options,
-        broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+        broadcastInvalidBlockProposal:
+          options.broadcastInvalidBlockProposal || this.config.broadcastInvalidBlockProposal,
       },
     );
     this.lastProposedBlock = newProposal;
@@ -916,6 +993,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       options,
     );
     this.lastProposedCheckpoint = newProposal;
+    // Self-record this slot's outcome on the re-execution tracker. Proposers don't run their
+    // own proposals through `handleCheckpointProposal`, so without this call the proposer's
+    // sentinel would see no outcome for slots it proposed and would mis-attribute itself as
+    // inactive. We pass the locally-computed `archive` (not `newProposal.archive`, which may
+    // be intentionally corrupted under test-only flags); from the proposer's local-view
+    // perspective the work it just completed is valid by definition.
+    this.proposalHandler.recordOwnCheckpointProposalAsValid(checkpointHeader.slotNumber, archive, checkpointNumber);
     return newProposal;
   }
 

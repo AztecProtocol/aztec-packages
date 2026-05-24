@@ -2,6 +2,7 @@ import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 describe('e2e_slasher_config', () => {
@@ -11,6 +12,7 @@ describe('e2e_slasher_config', () => {
 
   beforeAll(async () => {
     ({ aztecNodeAdmin, aztecNode, teardown } = await setup(0, {
+      ...PIPELINING_SETUP_OPTS,
       anvilSlotsInAnEpoch: 4,
       slashInactivityTargetPercentage: 1,
       slashInactivityPenalty: 42n,

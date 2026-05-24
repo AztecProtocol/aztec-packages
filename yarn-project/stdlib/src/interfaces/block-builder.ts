@@ -45,6 +45,8 @@ export type PublicProcessorLimits = {
   maxBlobFields?: number;
   /** Deadline for processing the txs. Processor will stop as soon as it hits this time. */
   deadline?: Date;
+  /** Signal for interrupting processing before the deadline. */
+  signal?: AbortSignal;
   /** Whether this processor is building a proposal (as opposed to re-executing one). Skipping txs due to gas or blob limits is only done during proposal building. */
   isBuildingProposal?: boolean;
 };

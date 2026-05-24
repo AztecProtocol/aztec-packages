@@ -32,15 +32,6 @@ export const SortedTxStatuses: TxStatus[] = [
 export enum TxExecutionResult {
   SUCCESS = 'success',
   REVERTED = 'reverted',
-  /** @deprecated Use REVERTED instead. */
-  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
-  APP_LOGIC_REVERTED = 'reverted',
-  /** @deprecated Use REVERTED instead. */
-  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
-  TEARDOWN_REVERTED = 'reverted',
-  /** @deprecated Use REVERTED instead. */
-  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
-  BOTH_REVERTED = 'reverted',
 }
 
 /**

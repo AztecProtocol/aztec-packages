@@ -27,6 +27,7 @@ import {
   type L2BlockStreamEventHandler,
   getAttestationInfoFromPublishedCheckpoint,
 } from '@aztec/stdlib/block';
+import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
@@ -42,12 +43,14 @@ import type {
 
 import EventEmitter from 'node:events';
 
+import type { SentinelConfig } from './config.js';
 import { SentinelStore } from './store.js';
 
 export type SentinelRuntimeConfig = Pick<
   SlasherConfig,
   'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
 > &
+  Pick<SentinelConfig, 'sentinelEpochEndBufferSlots'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
 
 /** Maps a validator status to its category: proposer or attestation. */
@@ -61,6 +64,76 @@ function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
   }
 }
 
+/**
+ * The Sentinel observes validator behaviour every L2 slot, classifies it into a per-slot status,
+ * aggregates those statuses into per-epoch performance once each epoch is fully observed, and
+ * emits inactivity slash payloads when a validator has been inactive for the configured number
+ * of consecutive epochs.
+ *
+ * ## Two cadences
+ *
+ * The sentinel runs `work()` every quarter L2 slot and drives two independent pipelines:
+ *
+ * 1. **Per-slot activity recording.** `processSlot(currentSlot - 2)` runs once per slot, with a
+ *    two-slot lag to let P2P attestations settle and the archiver catch up. It classifies each
+ *    committee member's behaviour for that slot via `getSlotActivity` and persists the result to
+ *    `SentinelStore.historyMap` (sliding window of `sentinelHistoryLengthInEpochs * epochDuration`
+ *    slots, default 24 epochs).
+ *
+ * 2. **Per-epoch evaluation.** `processEpochEnds(currentSlot)` runs every tick too. Once
+ *    `sentinelEpochEndBufferSlots` (default 2) has elapsed past an epoch's last slot AND the
+ *    per-slot recorder has covered that last slot, the sentinel calls `handleEpochEnd(epoch)`.
+ *    That aggregates the slot-level statuses for the epoch into per-validator `{missed, total}`,
+ *    persists it to `SentinelStore.epochMap` (default 2000-epoch window), and runs the slashing
+ *    decision.
+ *
+ * Triggering per-epoch evaluation off local L2 state — rather than waiting for L1 proof
+ * publication — decouples slashing from prover availability.
+ *
+ * ## Six-case taxonomy in `getSlotActivity`
+ *
+ * For each slot, the sentinel assigns the proposer one of six statuses, ranked highest-confidence
+ * first:
+ *
+ *  - `checkpoint-mined`        — a checkpoint covering this slot has landed on L1
+ *                                (`slotNumberToCheckpoint` populated from `chain-checkpointed`).
+ *  - `checkpoint-valid`        — the local node re-executed a checkpoint proposal for this slot
+ *                                successfully (consulted via `CheckpointReexecutionTracker`).
+ *  - `checkpoint-invalid`      — the local node re-executed a checkpoint proposal for this slot
+ *                                and rejected it (e.g. header/archive/out-hash mismatch, limit
+ *                                breach). Proposer-fault.
+ *  - `checkpoint-unvalidated`  — the local node observed a checkpoint proposal but could not
+ *                                validate it (missing blocks/txs, timeouts). Treated as
+ *                                proposer-fault for slashing.
+ *  - `checkpoint-missed`       — block proposals seen on P2P but no checkpoint proposal at all.
+ *  - `blocks-missed`           — no block proposals seen for this slot.
+ *
+ * Missing-attestor faults are recorded only in `checkpoint-mined` and `checkpoint-valid`, where
+ * the local node has positive evidence the checkpoint was canonical or valid. In the other four
+ * cases the proposer is at fault and no attestor penalty applies.
+ *
+ * ## Re-execution tracker
+ *
+ * `CheckpointReexecutionTracker` is populated by the validator client's checkpoint proposal
+ * handler. Every early return in `validateCheckpointProposal` records an outcome
+ * (`valid` / `invalid` / `unvalidated`) keyed by slot.
+ *
+ * ## Inactivity slashing
+ *
+ * `handleEpochPerformance` filters the epoch's per-validator stats by
+ * `slashInactivityTargetPercentage` and then calls `checkPastInactivity` to require
+ * `slashInactivityConsecutiveEpochThreshold` consecutive past epochs over the same threshold
+ * (read from `SentinelStore.epochMap`). Only validators meeting both conditions are emitted as
+ * `WANT_TO_SLASH_EVENT` with `OffenseType.INACTIVITY`. The slot-level counters that feed this —
+ * `missedProposals` and `missedAttestations` — include the four proposer-fault statuses plus
+ * `attestation-missed`.
+ *
+ * ## Escape hatch
+ *
+ * If `epochCache.getCommittee(slot)` reports `isEscapeHatchOpen`, per-slot recording is skipped
+ * (no history entries for that slot) and per-epoch evaluation writes an empty performance map
+ * (no slashing).
+ */
 export class Sentinel extends (EventEmitter as new () => WatcherEmitter) implements L2BlockStreamEventHandler, Watcher {
   protected runningPromise: RunningPromise;
   protected blockStream!: L2BlockStream;
@@ -68,6 +141,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
+  /** Largest epoch number for which the end-of-epoch aggregator has run. */
+  protected lastEvaluatedEpoch: EpochNumber | undefined;
   protected slotNumberToCheckpoint: Map<
     SlotNumber,
     {
@@ -84,6 +159,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
+    protected reexecutionTracker: CheckpointReexecutionTracker,
     protected config: SentinelRuntimeConfig,
     protected logger = createLogger('node:sentinel'),
   ) {
@@ -109,12 +185,29 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.runningPromise.start();
   }
 
-  /** Loads initial slot and initializes blockstream. We will not process anything at or before the initial slot. */
+  /**
+   * Loads initial slot and initializes blockstream. We will not process anything at or before
+   * the initial slot. Floors at the archiver's synced L2 slot so the sentinel keeps making
+   * forward progress when L1 is advancing but L2 has no activity (the synced slot is driven by
+   * L1 sync, not by L2 blocks). Falls back to the wallclock if the archiver isn't ready yet
+   * (cold start).
+   */
   protected async init() {
-    this.initialSlot = this.epochCache.getSlotNow();
+    this.initialSlot = await this.getCurrentSlot();
     const startingBlock = BlockNumber(await this.archiver.getBlockNumber());
     this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
+  }
+
+  /**
+   * Returns the L2 slot the sentinel should treat as "current": the archiver's last fully
+   * synced L2 slot, falling back to the wallclock slot when the archiver isn't ready yet
+   * (cold start). Anchoring to the synced slot keeps timing arithmetic (initial floor,
+   * per-slot lag, end-of-epoch buffer, stats-range fallback) from speculating ahead of where
+   * L1 actually is.
+   */
+  protected async getCurrentSlot(): Promise<SlotNumber> {
+    return (await this.archiver.getSyncedL2SlotNumber()) ?? this.epochCache.getSlotNow();
   }
 
   public stop() {
@@ -125,8 +218,6 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     await this.l2TipsStore.handleBlockStreamEvent(event);
     if (event.type === 'chain-checkpointed') {
       this.handleCheckpoint(event);
-    } else if (event.type === 'chain-proven') {
-      await this.handleChainProven(event);
     }
   }
 
@@ -163,33 +254,25 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
   }
 
-  protected async handleChainProven(event: L2BlockStreamEvent) {
-    if (event.type !== 'chain-proven') {
-      return;
-    }
-    const blockNumber = event.block.number;
-    const header = (await this.archiver.getBlockData({ number: blockNumber }))?.header;
-    if (!header) {
-      this.logger.error(`Failed to get block header ${blockNumber}`);
-      return;
-    }
+  /**
+   * Called once per epoch, after the configured end-of-epoch buffer has elapsed beyond the
+   * epoch's last slot. Computes per-epoch performance from the slot-level history collected
+   * by `processSlot` and emits any inactivity slash payloads.
+   */
+  protected async handleEpochEnd(epoch: EpochNumber) {
+    this.logger.debug(`Computing epoch performance for epoch ${epoch}`);
+    const performance = await this.computeEpochPerformance(epoch);
+    this.logger.info(`Computed epoch performance for epoch ${epoch}`, performance);
 
-    // TODO(palla/slash): We should only be computing proven performance if this is
-    // a full proof epoch and not a partial one, otherwise we'll end up with skewed stats.
-    const epoch = getEpochAtSlot(header.getSlot(), this.epochCache.getL1Constants());
-    this.logger.debug(`Computing proven performance for epoch ${epoch}`);
-    const performance = await this.computeProvenPerformance(epoch);
-    this.logger.info(`Computed proven performance for epoch ${epoch}`, performance);
-
-    await this.store.updateProvenPerformance(epoch, performance);
-    await this.handleProvenPerformance(epoch, performance);
+    await this.store.updateEpochPerformance(epoch, performance);
+    await this.handleEpochPerformance(epoch, performance);
   }
 
-  protected async computeProvenPerformance(epoch: EpochNumber): Promise<ValidatorsEpochPerformance> {
+  protected async computeEpochPerformance(epoch: EpochNumber): Promise<ValidatorsEpochPerformance> {
     const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
     const { committee, isEscapeHatchOpen } = await this.epochCache.getCommittee(fromSlot);
     if (isEscapeHatchOpen) {
-      this.logger.info(`Skipping proven performance for epoch ${epoch} - escape hatch is open`);
+      this.logger.info(`Skipping epoch performance for epoch ${epoch} - escape hatch is open`);
       return {};
     }
     if (!committee) {
@@ -231,8 +314,8 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return true;
     }
 
-    // Get all historical performance for this validator
-    const allPerformance = await this.store.getProvenPerformance(validator);
+    // Get all historical per-epoch performance for this validator
+    const allPerformance = await this.store.getEpochPerformance(validator);
 
     // Sort by epoch descending to get most recent first, keep only epochs strictly before the current one, and get the first N
     const pastEpochs = allPerformance.sort((a, b) => Number(b.epoch - a.epoch)).filter(p => p.epoch < currentEpoch);
@@ -251,7 +334,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       .every(p => (p.total === 0 ? false : p.missed / p.total >= this.config.slashInactivityTargetPercentage));
   }
 
-  protected async handleProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
+  protected async handleEpochPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
     if (this.config.slashInactivityPenalty === 0n) {
       return;
     }
@@ -291,23 +374,69 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
    * Process data for two L2 slots ago.
    * Note that we do not process historical data, since we rely on p2p data for processing,
    * and we don't have that data if we were offline during the period.
+   *
+   * `currentSlot` is anchored to the archiver's last synced L2 slot rather than the wallclock,
+   * so the per-slot lag (`isReadyToProcess`) and the end-of-epoch buffer (`processEpochEnds`)
+   * advance with archiver.
    */
   public async work() {
-    const currentSlot = this.epochCache.getSlotNow();
+    const currentSlot = await this.getCurrentSlot();
     try {
       // Manually sync the block stream to ensure we have the latest data.
       // Note we never `start` the blockstream, so it loops at the same pace as we do.
       await this.blockStream.sync();
 
-      // Check if we are ready to process data for two L2 slots ago.
+      // Per-slot activity recording (lag = 2 slots for P2P attestation settlement).
       const targetSlot = await this.isReadyToProcess(currentSlot);
-
-      // And process it if we are.
       if (targetSlot !== false) {
         await this.processSlot(targetSlot);
       }
+
+      // End-of-epoch evaluation (lag = sentinelEpochEndBufferSlots beyond the epoch's last slot).
+      await this.processEpochEnds(currentSlot);
     } catch (err) {
       this.logger.error(`Failed to process slot ${currentSlot}`, err);
+    }
+  }
+
+  /**
+   * After the configured buffer has elapsed past an epoch's last slot, runs the end-of-epoch
+   * aggregator for that epoch. Catches up if multiple epochs become eligible at once.
+   */
+  protected async processEpochEnds(currentSlot: SlotNumber) {
+    const constants = this.epochCache.getL1Constants();
+    const buffer = this.config.sentinelEpochEndBufferSlots;
+    if (currentSlot < buffer) {
+      return;
+    }
+    if (this.initialSlot === undefined) {
+      return;
+    }
+
+    // We can close epoch E iff:
+    //  - the per-slot recorder has covered the epoch's last slot (lastProcessedSlot ≥ toSlot(E))
+    //  - the buffer has elapsed past the epoch's last slot (currentSlot − buffer ≥ toSlot(E))
+    //  - the epoch is not in the past relative to when the sentinel started (toSlot(E) > initialSlot)
+    if (this.lastProcessedSlot === undefined) {
+      return;
+    }
+    const slotForBuffer = SlotNumber(currentSlot - buffer);
+
+    // First eligible epoch to close is the one after lastEvaluatedEpoch, or the epoch containing
+    // the initial slot if we haven't evaluated any yet (the initialSlot epoch may be partial — we
+    // don't try to evaluate it, we start from initialSlot's epoch + 1).
+    const startEpoch =
+      this.lastEvaluatedEpoch !== undefined
+        ? EpochNumber(this.lastEvaluatedEpoch + 1)
+        : EpochNumber(getEpochAtSlot(this.initialSlot, constants) + 1);
+
+    for (let epoch = startEpoch; ; epoch = EpochNumber(epoch + 1)) {
+      const [, toSlot] = getSlotRangeForEpoch(epoch, constants);
+      if (toSlot > this.lastProcessedSlot || toSlot > slotForBuffer) {
+        break;
+      }
+      await this.handleEpochEnd(epoch);
+      this.lastEvaluatedEpoch = epoch;
     }
   }
 
@@ -379,49 +508,68 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.lastProcessedSlot = slot;
   }
 
-  /** Computes activity for a given slot. */
+  /**
+   * Computes activity for a given slot using the six-case taxonomy.
+   *
+   * Proposer status:
+   *  - case 6 `checkpoint-mined`        — a checkpoint covering this slot has landed on L1.
+   *  - case 5 `checkpoint-valid`        — the local node re-executed a checkpoint proposal for this
+   *                                       slot successfully.
+   *  - case 4 `checkpoint-invalid`      — the local node re-executed a checkpoint proposal for this
+   *                                       slot and rejected it.
+   *  - case 3 `checkpoint-unvalidated`  — the local node observed a checkpoint proposal for this
+   *                                       slot but could not validate it (missing data, timeouts).
+   *  - case 2 `checkpoint-missed`       — block proposals seen on P2P but no checkpoint proposal.
+   *  - case 1 `blocks-missed`           — no block proposals seen for this slot.
+   *
+   * Missing-attestor penalties apply only in cases 5 and 6, where the local node has positive
+   * evidence the checkpoint was valid or has been canonicalised on L1.
+   */
   protected async getSlotActivity(slot: SlotNumber, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
     this.logger.debug(`Computing stats for slot ${slot} at epoch ${epoch}`, { slot, epoch, proposer, committee });
 
-    // Check if there is an L2 block in L1 for this L2 slot
-
-    // Here we get all checkpoint attestations for the checkpoint at the given slot,
-    // or all checkpoint attestations for all proposals in the slot if no checkpoint was mined.
-    // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
-    // (contains the ones synced from mined checkpoints, which we may have missed from p2p).
+    // Gather attestors from both p2p (live attestations) and the archiver (signers on the
+    // checkpoint if one has landed on L1). Used regardless of which case applies.
     const checkpoint = this.slotNumberToCheckpoint.get(slot);
     const p2pAttested = await this.p2p.getCheckpointAttestationsForSlot(slot, checkpoint?.proposalPayloadHash);
-    // Filter out attestations with invalid signatures
     const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(
       [...p2pAttestors.map(a => a.toString()), ...(checkpoint?.attestors.map(a => a.toString()) ?? [])].filter(
-        addr => proposer.toString() !== addr, // Exclude the proposer from the attestors
+        addr => proposer.toString() !== addr,
       ),
     );
 
-    // We assume that there was a block proposal if at least one of the validators (other than the proposer) attested to it.
-    // It could be the case that every single validator failed, and we could differentiate it by having
-    // this node re-execute every block proposal it sees and storing it in the attestation pool.
-    // But we'll leave that corner case out to reduce pressure on the node.
-    // TODO(palla/slash): This breaks if a given node has more than one validator in the current committee,
-    // since they will attest to their own proposal it even if it's not re-executable.
-    let status: 'checkpoint-mined' | 'checkpoint-proposed' | 'checkpoint-missed' | 'blocks-missed';
+    // Determine the proposer status from the six-case taxonomy.
+    const reexecutionOutcome = this.reexecutionTracker.getOutcomeForSlot(slot);
+    let status:
+      | 'checkpoint-mined'
+      | 'checkpoint-valid'
+      | 'checkpoint-invalid'
+      | 'checkpoint-unvalidated'
+      | 'checkpoint-missed'
+      | 'blocks-missed';
     if (checkpoint) {
       status = 'checkpoint-mined';
-    } else if (attestors.size > 0) {
-      status = 'checkpoint-proposed';
+    } else if (reexecutionOutcome === 'valid') {
+      status = 'checkpoint-valid';
+    } else if (reexecutionOutcome === 'invalid') {
+      status = 'checkpoint-invalid';
+    } else if (reexecutionOutcome === 'unvalidated') {
+      status = 'checkpoint-unvalidated';
     } else {
-      // No checkpoint on L1 and no checkpoint attestations seen. Check if block proposals were sent for this slot.
+      // No L1 checkpoint, no local re-execution outcome for this slot. Distinguish "proposer
+      // sent block proposals but never made a checkpoint" from "proposer sent nothing".
       const hasBlockProposals = await this.p2p.hasBlockProposalsForSlot(slot);
       status = hasBlockProposals ? 'checkpoint-missed' : 'blocks-missed';
     }
     this.logger.debug(`Checkpoint status for slot ${slot}: ${status}`, { ...checkpoint, slot });
 
-    // Get attestors that failed their checkpoint attestation duties, but only if there was a checkpoint proposed or mined
+    // Missing-attestor faults only apply when we have positive evidence the proposal was valid.
+    const attestorsExpected = status === 'checkpoint-mined' || status === 'checkpoint-valid';
     const missedAttestors = new Set(
-      status === 'blocks-missed' || status === 'checkpoint-missed'
-        ? []
-        : committee.filter(v => !attestors.has(v.toString()) && !proposer.equals(v)).map(v => v.toString()),
+      attestorsExpected
+        ? committee.filter(v => !attestors.has(v.toString()) && !proposer.equals(v)).map(v => v.toString())
+        : [],
     );
 
     this.logger.debug(`Retrieved ${attestors.size} attestors out of ${committee.length} for slot ${slot}`, {
@@ -465,7 +613,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       ? fromEntries(await Promise.all(validators.map(async v => [v.toString(), await this.store.getHistory(v)])))
       : await this.store.getHistories();
 
-    const slotNow = this.epochCache.getSlotNow();
+    const slotNow = await this.getCurrentSlot();
     fromSlot ??= SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     toSlot ??= this.lastProcessedSlot ?? slotNow;
 
@@ -493,7 +641,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return undefined;
     }
 
-    const slotNow = this.epochCache.getSlotNow();
+    const slotNow = await this.getCurrentSlot();
     const effectiveFromSlot =
       fromSlot ?? SlotNumber(Math.max((this.lastProcessedSlot ?? slotNow) - this.store.getHistoryLength(), 0));
     const effectiveToSlot = toSlot ?? this.lastProcessedSlot ?? slotNow;
@@ -515,7 +663,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
     return {
       validator,
-      allTimeProvenPerformance: await this.store.getProvenPerformance(validatorAddress),
+      allTimeEpochPerformance: await this.store.getEpochPerformance(validatorAddress),
       lastProcessedSlot: this.lastProcessedSlot,
       initialSlot: this.initialSlot,
       slotWindow: this.store.getHistoryLength(),
@@ -530,16 +678,19 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   ): ValidatorStats {
     let history = fromSlot ? allHistory.filter(h => BigInt(h.slot) >= fromSlot) : allHistory;
     history = toSlot ? history.filter(h => BigInt(h.slot) <= toSlot) : history;
-    const lastProposal = history
-      .filter(h => h.status === 'checkpoint-proposed' || h.status === 'checkpoint-mined')
-      .at(-1);
+    const lastProposal = history.filter(h => h.status === 'checkpoint-valid' || h.status === 'checkpoint-mined').at(-1);
     const lastAttestation = history.filter(h => h.status === 'attestation-sent').at(-1);
     return {
       address: EthAddress.fromString(address),
       lastProposal: this.computeFromSlot(lastProposal?.slot),
       lastAttestation: this.computeFromSlot(lastAttestation?.slot),
       totalSlots: history.length,
-      missedProposals: this.computeMissed(history, 'proposer', ['checkpoint-missed', 'blocks-missed']),
+      missedProposals: this.computeMissed(history, 'proposer', [
+        'checkpoint-missed',
+        'blocks-missed',
+        'checkpoint-invalid',
+        'checkpoint-unvalidated',
+      ]),
       missedAttestations: this.computeMissed(history, 'attestation', ['attestation-missed']),
       history,
     };
