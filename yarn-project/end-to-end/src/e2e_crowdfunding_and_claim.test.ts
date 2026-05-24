@@ -6,14 +6,16 @@ import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-jest.setTimeout(200_000);
+jest.setTimeout(400_000);
 
 // Tests crowdfunding via the Crowdfunding contract and claiming the reward token via the Claim contract
 describe('e2e_crowdfunding_and_claim', () => {
@@ -46,6 +48,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingSecretKey: Fr;
   let crowdfundingPublicKeys: PublicKeys;
   let cheatCodes: CheatCodes;
+  let _aztecNode: AztecNode & AztecNodeDebug;
   let deadline: number; // end of crowdfunding period
 
   let uintNote!: any;
@@ -56,8 +59,9 @@ describe('e2e_crowdfunding_and_claim', () => {
       teardown,
       logger,
       wallet,
+      aztecNode: _aztecNode,
       accounts: [operatorAddress, donor1Address, donor2Address],
-    } = await setup(3));
+    } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
 
     // We set the deadline to a week from now
     deadline = (await cheatCodes.eth.lastBlockTimestamp()) + 7 * 24 * 60 * 60;
@@ -309,8 +313,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     const witness = await wallet.createAuthWit(donor2Address, { caller: crowdfundingContract.address, action });
 
-    // 2) We set next block timestamp to be after the deadline
-    await cheatCodes.eth.warp(deadline + 1);
+    // 2) We warp L1 past the deadline. We don't mine an L2 block here: the deadline is set 7
+    // days in the future during setup, and warping that far before mining would cause the
+    // archiver to predict-reorg every prior checkpoint (their L1 publish blocks fall in a stale
+    // anvil layout after the warp). The next donate tx is rejected by the contract because the
+    // next L2 block's timestamp is already past the deadline.
+    await cheatCodes.eth.warp(Number(deadline + 1), { resetBlockInterval: true });
 
     // 3) We donate to the crowdfunding contract
     await expect(

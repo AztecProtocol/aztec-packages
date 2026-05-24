@@ -20,6 +20,7 @@ export class ProposalValidator {
   private maxTxsPerBlock?: number;
   private maxBlocksPerCheckpoint?: number;
   private pipeliningWindow: PipeliningWindow;
+  private skipSlotValidation: boolean;
   private signatureContext: CoordinationSignatureContext;
 
   constructor(
@@ -29,6 +30,7 @@ export class ProposalValidator {
       maxTxsPerBlock?: number;
       maxBlocksPerCheckpoint?: number;
       p2pPropagationTime?: number;
+      skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
     },
     loggerName: string,
@@ -38,6 +40,7 @@ export class ProposalValidator {
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
     this.maxBlocksPerCheckpoint = opts.maxBlocksPerCheckpoint;
     this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
+    this.skipSlotValidation = opts.skipSlotValidation ?? false;
     this.signatureContext = opts.signatureContext;
     this.logger = createLogger(loggerName);
   }
@@ -60,7 +63,7 @@ export class ProposalValidator {
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 
       const slotNumber = proposal.slotNumber;
-      if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
+      if (!this.skipSlotValidation && slotNumber !== targetSlot && slotNumber !== nextSlot) {
         // When pipelining, accept proposals for the current slot (built in the previous slot)
         // if they're still within the shared proposal acceptance window.
         if (this.pipeliningWindow.acceptsProposal(slotNumber)) {
