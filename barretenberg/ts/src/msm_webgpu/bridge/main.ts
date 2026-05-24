@@ -184,6 +184,36 @@ export class WebGpuMsmHost {
   }
 
   /**
+   * Summarize per-instance + pool GPU memory for a batch's MSMs in a
+   * compact form suitable for inline log lines:
+   *   `pool=16MB,active=54MB,lru=128MB,total=198MB`
+   * - `pool` = shared SRS pool bytes.
+   * - `active` = sum across the MSMs in this batch (the ones the GPU just
+   *   touched).
+   * - `lru` = sum across every cached MsmV2 instance not in `active`
+   *   (the LRU memory "tax").
+   * - `total` = pool + active + lru.
+   * Used by the memory-reduction plan's per-phase verification.
+   */
+  private statsBytesSummary(activeMsms: MsmV2[]): string {
+    const pool = this.pool?.statsBytes() ?? 0;
+    // Dedupe — same-N batches share one MsmV2 instance, so a batch of 3
+    // same-N MSMs has activeMsms.length=3 but they all reference the same
+    // instance. Counting each only once gives the actual GPU bytes.
+    const activeSet = new Set<MsmV2>(activeMsms);
+    let active = 0;
+    for (const m of activeSet) active += m.statsBytes();
+    let lru = 0;
+    if (this.srsMsm && !activeSet.has(this.srsMsm)) lru += this.srsMsm.statsBytes();
+    for (const m of this.lru.values()) if (!activeSet.has(m)) lru += m.statsBytes();
+    for (const slotPool of this.slotPools.values()) {
+      for (const m of slotPool) if (!activeSet.has(m)) lru += m.statsBytes();
+    }
+    const mb = (b: number) => `${(b / (1024 * 1024)).toFixed(1)}MB`;
+    return `pool=${mb(pool)},active=${mb(active)},lru=${mb(lru)},total=${mb(pool + active + lru)}`;
+  }
+
+  /**
    * `OP_PUBLISH_SRS` — stream the SRS to the GPU once. Builds the shared
    * `MsmV2Pool` (raw upload + GPU Montgomery conversion); any previously cached
    * instances/pool are torn down first.
@@ -580,7 +610,8 @@ export class WebGpuMsmHost {
         `[batch-1enc] count=${batchCount} prepare=${(tPrepSum1 - tPrepSum0).toFixed(1)}ms ` +
           `encode=${(tEncoded - tPrepSum1).toFixed(1)}ms ` +
           `submit+wait=${(tMapped - tEncoded).toFixed(1)}ms ` +
-          `gpu_sum=${summed.toFixed(2)}ms`,
+          `gpu_sum=${summed.toFixed(2)}ms ` +
+          `mem=${this.statsBytesSummary(msms)}`,
       );
       return;
     }
@@ -678,7 +709,8 @@ export class WebGpuMsmHost {
     }
     console.log(
       `[batch-Nenc] count=${batchCount} maxSameN=${maxNCount} ` +
-        `encode=${(tEncoded - tBatch0).toFixed(1)}ms mapAsync=${(tMapped - tEncoded).toFixed(1)}ms`,
+        `encode=${(tEncoded - tBatch0).toFixed(1)}ms mapAsync=${(tMapped - tEncoded).toFixed(1)}ms ` +
+        `mem=${this.statsBytesSummary(pendings.map(p => p.msm))}`,
     );
     if (phaseTrace) {
       for (const p of phaseLog) {

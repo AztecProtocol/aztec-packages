@@ -477,6 +477,73 @@ class PipelineCache {
  * MsmV2 instances bound to the same pool never recompile a shader they've
  * collectively seen before.
  */
+/**
+ * The shared per-MSM scratch buffers, owned by {@link MsmV2Pool}. Sized to
+ * the high-water mark of every dimension `MsmV2.prepare` has asked for
+ * across all instances. Doubling-growth: any buffer reallocates only when
+ * its dimension exceeds the current size. After a reallocation the pool's
+ * `scratchEpoch` advances; MsmV2 instances detect a stale epoch and rebuild
+ * their bind groups against the new buffer identities.
+ *
+ * Replaces the old per-instance buffer ownership where every cached MsmV2
+ * in the bridge LRU held its own 200+ MB of scratch. With the shared pool
+ * the aggregate GPU memory is `one max-N copy + KB-sized bind groups per
+ * instance`, regardless of LRU size. Cold N-switch goes from ~150 ms
+ * (buffer alloc) to ~2 ms (bind-group rebuild).
+ */
+interface SharedScratch {
+  bufA: GPUBuffer;
+  bufB: GPUBuffer;
+  bucketResultBuf: GPUBuffer;
+  l0IdxBuf: GPUBuffer;
+  bucketAndSignBuf: GPUBuffer;
+  valIdxBuf: GPUBuffer;
+  rowPtrBuf: GPUBuffer;
+  planMeta: GPUBuffer;
+  pairBlockPlanRing: [GPUBuffer, GPUBuffer];
+  scatterPlanRing: [GPUBuffer, GPUBuffer];
+  carryPlanRing: [GPUBuffer, GPUBuffer];
+  countsBufs: [GPUBuffer, GPUBuffer];
+  offsetsBufs: [GPUBuffer, GPUBuffer];
+  prefScratchBuf: GPUBuffer;
+  scalarsRawBuf: GPUBuffer;
+  redBuf: GPUBuffer;
+  isPresentBuf: GPUBuffer;
+  reducePrefScratch: GPUBuffer;
+  // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
+  // sized for). Re-derived whenever bufA grows.
+  planeBytes: number;
+  padBytesPerPlane: number;
+  padXOffset: number;
+  padYOffset: number;
+  // The M1 the pool's bufA/bufB are sized to (in elements, not bytes).
+  // ALL MSMs binding to this pool MUST reference pad slots at element
+  // indices [poolM1-3, poolM1-2, poolM1-1] regardless of their own M1 —
+  // those are the only slots that contain the pad-trio data. The pool
+  // re-writes the pad bytes there whenever it grows bufA/bufB.
+  poolM1: number;
+}
+
+/** Dimensions a single MSM prepare asks the pool to fit. */
+interface ScratchDims {
+  M1: number;
+  batchSlots: number;
+  batchBuckets: number;
+  numWindows: number;
+  BW: number;
+  l0Slots: number;
+  rowPtrLen: number;
+  planMetaLen: number;
+  totalPairBlocks: number;
+  totalCarries: number;
+  fusedTile: number;
+  S: number;
+  scalarsBytes: number;
+  redM: number;
+  reducePrefBytes: number;
+  bTotal: number;
+}
+
 export class MsmV2Pool {
   /** @internal — used by MsmV2.create to share compiled pipelines. */
   readonly cache: PipelineCache;
@@ -490,6 +557,42 @@ export class MsmV2Pool {
    */
   readonly pairCap: number;
 
+  // Shared scratch state — allocated lazily on first MsmV2.prepare call,
+  // grown by doubling whenever a dimension exceeds the current size.
+  // See SharedScratch above.
+  private _scratch: SharedScratch | null = null;
+  private _maxDims: ScratchDims = {
+    M1: 0,
+    batchSlots: 0,
+    batchBuckets: 0,
+    numWindows: 0,
+    BW: 0,
+    l0Slots: 0,
+    rowPtrLen: 0,
+    planMetaLen: 0,
+    totalPairBlocks: 0,
+    totalCarries: 0,
+    fusedTile: 0,
+    S: 0,
+    scalarsBytes: 0,
+    redM: 0,
+    reducePrefBytes: 0,
+    bTotal: 0,
+  };
+  private _scratchEpoch = 0;
+  private _device: GPUDevice;
+
+  /** Bumped whenever `ensureScratch` reallocates any buffer. MsmV2
+   * instances cache the value at bind-group build time and rebuild when
+   * it advances. */
+  get scratchEpoch(): number {
+    return this._scratchEpoch;
+  }
+  /** Current shared scratch buffers. Null until first ensureScratch call. */
+  get scratch(): SharedScratch | null {
+    return this._scratch;
+  }
+
   private constructor(
     /** Number of base points held by the pool. */
     readonly srsN: number,
@@ -501,6 +604,236 @@ export class MsmV2Pool {
   ) {
     this.cache = new PipelineCache(device);
     this.pairCap = Math.ceil(srsN / 2) + 16;
+    this._device = device;
+  }
+
+  /**
+   * GPU bytes the pool itself owns — the SRS point coordinates `poolX` +
+   * `poolY` (the user's "points memory" line item) PLUS the shared scratch
+   * buffers (the per-MSM working set, shared across all MsmV2 instances).
+   * Pipelines and bind-group layouts cached in `this.cache` aren't counted
+   * here; they're driver-managed shader objects, not allocated storage.
+   */
+  statsBytes(): number {
+    let total = this.poolX.size + this.poolY.size;
+    if (this._scratch) {
+      const s = this._scratch;
+      total += s.bufA.size + s.bufB.size + s.bucketResultBuf.size;
+      total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size;
+      total += s.rowPtrBuf.size + s.planMeta.size;
+      total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
+      total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
+      total += s.carryPlanRing[0].size + s.carryPlanRing[1].size;
+      total += s.countsBufs[0].size + s.countsBufs[1].size;
+      total += s.offsetsBufs[0].size + s.offsetsBufs[1].size;
+      total += s.prefScratchBuf.size + s.scalarsRawBuf.size;
+      total += s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
+    }
+    return total;
+  }
+
+  /**
+   * Grow shared scratch buffers as needed to fit `dims`. Idempotent — if
+   * every dimension already fits, no buffer is touched and `scratchEpoch`
+   * stays put. If any dimension grows, the underlying buffers are destroyed
+   * and reallocated at the new max, the pad-trio is re-written into the
+   * fresh bufA/bufB, and `scratchEpoch` advances. Caller must consult
+   * `scratchEpoch` afterward to detect when bind groups need rebuilding.
+   *
+   * `padPts` and `R` are the pad-trio point coordinates + Montgomery R
+   * needed to refresh the pad slots on a bufA/bufB realloc.
+   */
+  ensureScratch(dims: ScratchDims, padPts: Pt[], R: bigint): SharedScratch {
+    const device = this._device;
+    const cur = this._maxDims;
+    let grew = false;
+    const grow = (cond: boolean, name: keyof ScratchDims): boolean => {
+      if (cond) {
+        cur[name] = dims[name];
+        return true;
+      }
+      return false;
+    };
+    const sbuf = (bytes: number): GPUBuffer =>
+      device.createBuffer({
+        size: Math.max(bytes, 4),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+    const soaSize = (M: number): number => 2 * PG * M * 4 * 4;
+    const soaBuf = (M: number): GPUBuffer => sbuf(soaSize(M));
+
+    const s = this._scratch;
+    let bufA = s?.bufA;
+    let bufB = s?.bufB;
+    let bucketResultBuf = s?.bucketResultBuf;
+    let l0IdxBuf = s?.l0IdxBuf;
+    let bucketAndSignBuf = s?.bucketAndSignBuf;
+    let valIdxBuf = s?.valIdxBuf;
+    let rowPtrBuf = s?.rowPtrBuf;
+    let planMeta = s?.planMeta;
+    let pairBlockPlanRing = s?.pairBlockPlanRing;
+    let scatterPlanRing = s?.scatterPlanRing;
+    let carryPlanRing = s?.carryPlanRing;
+    let countsBufs = s?.countsBufs;
+    let offsetsBufs = s?.offsetsBufs;
+    let prefScratchBuf = s?.prefScratchBuf;
+    let scalarsRawBuf = s?.scalarsRawBuf;
+    let redBuf = s?.redBuf;
+    let isPresentBuf = s?.isPresentBuf;
+    let reducePrefScratch = s?.reducePrefScratch;
+
+    // bufA/bufB depend on M1. They also need a pad-trio re-write whenever
+    // they realloc, so we handle them together.
+    if (!bufA || dims.M1 > cur.M1) {
+      bufA?.destroy();
+      bufB?.destroy();
+      grow(true, 'M1');
+      bufA = soaBuf(cur.M1);
+      bufB = soaBuf(cur.M1);
+      grew = true;
+    }
+    if (!bucketResultBuf || dims.bTotal > cur.bTotal) {
+      bucketResultBuf?.destroy();
+      grow(true, 'bTotal');
+      bucketResultBuf = soaBuf(cur.bTotal);
+      grew = true;
+    }
+    // l0IdxBuf must hold both the L0 input (l0Slots × 4) AND the transpose
+    // partials matrix (batchWindows × num_point_tiles × BW × 4). Its size
+    // is the max of those — caller passes the larger as `l0Slots`.
+    if (!l0IdxBuf || dims.l0Slots > cur.l0Slots) {
+      l0IdxBuf?.destroy();
+      grow(true, 'l0Slots');
+      l0IdxBuf = sbuf(cur.l0Slots * 4);
+      grew = true;
+    }
+    if (!bucketAndSignBuf || dims.batchSlots > cur.batchSlots) {
+      bucketAndSignBuf?.destroy();
+      valIdxBuf?.destroy();
+      grow(true, 'batchSlots');
+      bucketAndSignBuf = sbuf(cur.batchSlots * 4);
+      valIdxBuf = sbuf(cur.batchSlots * 4);
+      grew = true;
+    }
+    if (!rowPtrBuf || dims.rowPtrLen > cur.rowPtrLen) {
+      rowPtrBuf?.destroy();
+      grow(true, 'rowPtrLen');
+      rowPtrBuf = sbuf(cur.rowPtrLen * 4);
+      grew = true;
+    }
+    if (!planMeta || dims.planMetaLen > cur.planMetaLen) {
+      planMeta?.destroy();
+      grow(true, 'planMetaLen');
+      planMeta = sbuf(cur.planMetaLen * 4);
+      grew = true;
+    }
+    if (!pairBlockPlanRing || !scatterPlanRing || dims.totalPairBlocks > cur.totalPairBlocks) {
+      pairBlockPlanRing?.forEach(b => b.destroy());
+      scatterPlanRing?.forEach(b => b.destroy());
+      grow(true, 'totalPairBlocks');
+      const SmaxS = Math.max(cur.S, dims.S);
+      cur.S = SmaxS;
+      pairBlockPlanRing = [sbuf(2 * cur.totalPairBlocks * SmaxS * 4), sbuf(2 * cur.totalPairBlocks * SmaxS * 4)];
+      scatterPlanRing = [sbuf(cur.totalPairBlocks * SmaxS * 4), sbuf(cur.totalPairBlocks * SmaxS * 4)];
+      grew = true;
+    }
+    if (!carryPlanRing || dims.totalCarries > cur.totalCarries) {
+      carryPlanRing?.forEach(b => b.destroy());
+      grow(true, 'totalCarries');
+      carryPlanRing = [sbuf(2 * cur.totalCarries * 4), sbuf(2 * cur.totalCarries * 4)];
+      grew = true;
+    }
+    if (!countsBufs || !offsetsBufs || dims.batchBuckets > cur.batchBuckets) {
+      countsBufs?.forEach(b => b.destroy());
+      offsetsBufs?.forEach(b => b.destroy());
+      grow(true, 'batchBuckets');
+      countsBufs = [sbuf(cur.batchBuckets * 4), sbuf(cur.batchBuckets * 4)];
+      offsetsBufs = [sbuf(cur.batchBuckets * 4), sbuf(cur.batchBuckets * 4)];
+      grew = true;
+    }
+    if (!prefScratchBuf || dims.fusedTile > cur.fusedTile || dims.S > cur.S) {
+      prefScratchBuf?.destroy();
+      grow(true, 'fusedTile');
+      const SmaxS = Math.max(cur.S, dims.S);
+      cur.S = SmaxS;
+      prefScratchBuf = sbuf(cur.fusedTile * SmaxS * 8 * 4);
+      grew = true;
+    }
+    if (!scalarsRawBuf || dims.scalarsBytes > cur.scalarsBytes) {
+      scalarsRawBuf?.destroy();
+      grow(true, 'scalarsBytes');
+      scalarsRawBuf = sbuf(cur.scalarsBytes);
+      grew = true;
+    }
+    if (!redBuf || dims.redM > cur.redM) {
+      redBuf?.destroy();
+      isPresentBuf?.destroy();
+      grow(true, 'redM');
+      redBuf = soaBuf(cur.redM);
+      isPresentBuf = sbuf(cur.redM * 4);
+      grew = true;
+    }
+    if (!reducePrefScratch || dims.reducePrefBytes > cur.reducePrefBytes) {
+      reducePrefScratch?.destroy();
+      grow(true, 'reducePrefBytes');
+      reducePrefScratch = sbuf(cur.reducePrefBytes);
+      grew = true;
+    }
+
+    // Pad-trio layout in bufA/bufB. Recompute whenever bufA's size changed.
+    const planeBytes = cur.M1 * PG * 16;
+    const padBytesPerPlane = 3 * PG * 16;
+    const padXOffset = planeBytes - padBytesPerPlane;
+    const padYOffset = planeBytes + planeBytes - padBytesPerPlane;
+
+    const newScratch: SharedScratch = {
+      bufA: bufA!,
+      bufB: bufB!,
+      bucketResultBuf: bucketResultBuf!,
+      l0IdxBuf: l0IdxBuf!,
+      bucketAndSignBuf: bucketAndSignBuf!,
+      valIdxBuf: valIdxBuf!,
+      rowPtrBuf: rowPtrBuf!,
+      planMeta: planMeta!,
+      pairBlockPlanRing: pairBlockPlanRing!,
+      scatterPlanRing: scatterPlanRing!,
+      carryPlanRing: carryPlanRing!,
+      countsBufs: countsBufs!,
+      offsetsBufs: offsetsBufs!,
+      prefScratchBuf: prefScratchBuf!,
+      scalarsRawBuf: scalarsRawBuf!,
+      redBuf: redBuf!,
+      isPresentBuf: isPresentBuf!,
+      reducePrefScratch: reducePrefScratch!,
+      planeBytes,
+      padBytesPerPlane,
+      padXOffset,
+      padYOffset,
+      poolM1: cur.M1,
+    };
+
+    if (grew) {
+      // Re-write the pad-trio into the (possibly new) bufA/bufB. Other
+      // buffers are zero-initialized by WebGPU on creation, which is the
+      // correct starting state for them too.
+      const padBuf = buildPadBuf(cur.M1, padPts, R);
+      const padBytes = new Uint8Array(padBuf.buffer);
+      const xPadSlice = padBytes.subarray(padXOffset, padXOffset + padBytesPerPlane);
+      const yPadSlice = padBytes.subarray(padYOffset, padYOffset + padBytesPerPlane);
+      device.queue.writeBuffer(newScratch.bufA, padXOffset, xPadSlice as BufferSource);
+      device.queue.writeBuffer(newScratch.bufA, padYOffset, yPadSlice as BufferSource);
+      device.queue.writeBuffer(newScratch.bufB, padXOffset, xPadSlice as BufferSource);
+      device.queue.writeBuffer(newScratch.bufB, padYOffset, yPadSlice as BufferSource);
+      // Re-write the l0IdxBuf seed pad-trio at slots [batchSlots,
+      // batchSlots+1, batchSlots+2]. These positions move when batchSlots
+      // grows; the caller (MsmV2.prepare) writes the per-N value at its
+      // own batchSlots offset on every prepare. Nothing to do here.
+      this._scratch = newScratch;
+      this._scratchEpoch++;
+    } else {
+      this._scratch = newScratch;
+    }
+    return newScratch;
   }
 
   /**
@@ -600,10 +933,38 @@ export class MsmV2Pool {
     return pool;
   }
 
-  /** Free the pool's two GPU buffers. */
+  /** Free the pool's GPU buffers — the SRS (poolX/Y) and the shared
+   * scratch (every buffer in `_scratch`, if allocated). */
   destroy(): void {
     this.poolX.destroy();
     this.poolY.destroy();
+    if (this._scratch) {
+      const s = this._scratch;
+      s.bufA.destroy();
+      s.bufB.destroy();
+      s.bucketResultBuf.destroy();
+      s.l0IdxBuf.destroy();
+      s.bucketAndSignBuf.destroy();
+      s.valIdxBuf.destroy();
+      s.rowPtrBuf.destroy();
+      s.planMeta.destroy();
+      s.pairBlockPlanRing[0].destroy();
+      s.pairBlockPlanRing[1].destroy();
+      s.scatterPlanRing[0].destroy();
+      s.scatterPlanRing[1].destroy();
+      s.carryPlanRing[0].destroy();
+      s.carryPlanRing[1].destroy();
+      s.countsBufs[0].destroy();
+      s.countsBufs[1].destroy();
+      s.offsetsBufs[0].destroy();
+      s.offsetsBufs[1].destroy();
+      s.prefScratchBuf.destroy();
+      s.scalarsRawBuf.destroy();
+      s.redBuf.destroy();
+      s.isPresentBuf.destroy();
+      s.reducePrefScratch.destroy();
+      this._scratch = null;
+    }
   }
 }
 
@@ -614,6 +975,10 @@ export class MsmV2Pool {
 export class MsmV2 {
   // --- create-time (data-independent) state ---
   private device!: GPUDevice;
+  // The pool that owns the SRS, the pipeline cache, and the shared scratch
+  // buffers this instance binds against. Held by reference; not destroyed
+  // by MsmV2.destroy() (the pool outlives any individual instance).
+  private pool!: MsmV2Pool;
   private n!: number;
   /** Pippenger window bit width, picked by `pickC(n)`. Public so the
    *  bridge can ship it back to the C++ Horner combine. */
@@ -679,7 +1044,13 @@ export class MsmV2 {
   private reduceLevelLayout!: GPUBindGroupLayout;
 
   // --- prepare-time (data-dependent) state ---
-  private prepBuffers: GPUBuffer[] = []; // every buffer prepare() allocated
+  private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
+  // Bumped by MsmV2Pool.scratchEpoch when the pool's shared scratch
+  // reallocates. We compare against pool.scratchEpoch on every prepare; if
+  // they differ, our bind groups point to dead buffers and we re-enter the
+  // slow path even when the data-dependent caps would have allowed a fast-
+  // path uniform rewrite. -1 = no scratch yet bound.
+  private boundEpoch: number = -1;
   private preparedFor: Uint8Array | null = null; // scalarsBuf identity cache key
   private preparedSrsOffset: number = -1; // srsOffset used by the last prepare
 
@@ -753,13 +1124,18 @@ export class MsmV2 {
   // read by subsequent levels and corrupt the accumulation.
   private bufA!: GPUBuffer;
   private bufB!: GPUBuffer;
-  // Persistent GPU buffer holding the "clean" active_sums state: zeros
-  // everywhere plus the pad-trio bytes at slots [M1-3, M1-2, M1-1] of each
-  // plane. run() copies this into bufA / bufB to simultaneously clear stale
-  // accumulator state and restore the pad trio the planner relies on,
-  // without paying a host-to-GPU writeBuffer per call.
-  private padTemplateBuf!: GPUBuffer;
-  private padTemplateBytes: number = 0;
+  // Pad-trio reset state. The planner's lever-E self-pad relies on 3
+  // sentinel points sitting at slots [M1-3, M1-2, M1-1] of each plane of
+  // every active_sums buffer. Slow-path setup writes those 192 bytes (96
+  // per plane × 2 planes) directly into bufA + bufB once and never again;
+  // each `encodeIntoBatch` reset uses two `clearBuffer` calls per buffer
+  // to wipe the NON-pad regions, leaving the pad slots intact across runs.
+  // This replaces the 64×M1-byte `padTemplateBuf` (~52 MB at n=131k) that
+  // used to be copied into both bufA and bufB on every run.
+  private planeBytes: number = 0; // bytes per plane = M1 × PG × 16
+  private padBytesPerPlane: number = 0; // 3 × PG × 16 = 96
+  private padXOffset: number = 0; // X plane pad start = planeBytes - padBytesPerPlane
+  private padYOffset: number = 0; // Y plane pad start = 2*planeBytes - padBytesPerPlane
   private convMetaBind!: GPUBindGroup;
   private reduceInitBind!: GPUBindGroup;
   private reduceLevelBinds: GPUBindGroup[] = [];
@@ -777,6 +1153,7 @@ export class MsmV2 {
   static async create(device: GPUDevice, n: number, pool: MsmV2Pool, config?: MsmConfig): Promise<MsmV2> {
     const m = new MsmV2();
     m.device = device;
+    m.pool = pool;
     m.n = n;
     m.c = config?.c ?? pickC(n);
     m.s = config?.s ?? pickS(n);
@@ -1171,7 +1548,10 @@ export class MsmV2 {
     // --- Fast path: subsequent prepare() with a plan that fits in the
     // already-allocated buffers + bind groups. Skips the destroy+realloc of
     // ~40 GPU buffers (the dominant per-MSM cost on M4 Pro; ~150 ms each).
-    // Only rewrites the data-dependent uniforms in place.
+    // Only rewrites the data-dependent uniforms in place. Also requires
+    // that the pool's shared scratch hasn't grown since we last bound to
+    // it — if it has, our bind groups reference dead buffers and we MUST
+    // rebuild them.
     const fits =
       this.preparedFor !== null &&
       this.capM1 > 0 &&
@@ -1180,7 +1560,8 @@ export class MsmV2 {
       maxTotalCarries <= this.capTotalCarries &&
       levels <= this.capLevels &&
       numBatches === this.capNumBatches &&
-      MAXC <= this.capMAXC;
+      MAXC <= this.capMAXC &&
+      this.boundEpoch === this.pool.scratchEpoch;
     if (fits) {
       this.fastPathRewrite(scalars, srsOffset, levelPlans, levels);
       this.preparedFor = scalarsBuf;
@@ -1229,22 +1610,10 @@ export class MsmV2 {
     this.capNumBatches = numBatches;
     this.capMAXC = MAXC;
 
-    const soa = (M: number): GPUBuffer => {
-      const b = device.createBuffer({
-        size: 2 * PG * M * 4 * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-      });
-      this.prepBuffers.push(b);
-      return b;
-    };
-    const sbuf = (bytes: number): GPUBuffer => {
-      const b = device.createBuffer({
-        size: Math.max(bytes, 4),
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-      });
-      this.prepBuffers.push(b);
-      return b;
-    };
+    // Only uniform buffers are per-instance now — the big storage buffers
+    // live in `pool.scratch` and are shared across every MsmV2 bound to
+    // this pool. `prepBuffers` tracks only the uniforms we own and must
+    // destroy in destroy(); ensureScratch's buffers belong to the pool.
     const ubuf = (data: Uint32Array): GPUBuffer => {
       const b = device.createBuffer({
         size: Math.max(16, Math.ceil(data.byteLength / 16) * 16),
@@ -1263,72 +1632,6 @@ export class MsmV2 {
     const l0Slots = batchSlots + 3;
     const WSTRIDE = n;
 
-    // --- GPU buffers ---
-    const padBuf = buildPadBuf(M1, this.padPts, R);
-    const bufA = soa(M1);
-    const bufB = soa(M1);
-    // Stage the pad-trio template once into a persistent GPU buffer; run()
-    // copies it into bufA / bufB at the top of each encode. The template
-    // is mostly zeros + the pad slots at the tail of each plane, so a
-    // single copy both clears stale accumulator state and restores the
-    // planner's lever-E self-pad reference.
-    const padTemplateBuf = device.createBuffer({
-      size: padBuf.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(padTemplateBuf, 0, padBuf as BufferSource);
-    this.prepBuffers.push(padTemplateBuf);
-    this.padTemplateBuf = padTemplateBuf;
-    this.padTemplateBytes = padBuf.byteLength;
-    this.bufA = bufA;
-    this.bufB = bufB;
-    // First-time pad write so the initial run() works even before the
-    // copy-on-clear has been triggered (defensive — every run() copies
-    // anyway, but matches the original semantics that prepare leaves
-    // bufA / bufB with the pad already set).
-    device.queue.writeBuffer(bufA, 0, padBuf as BufferSource);
-    device.queue.writeBuffer(bufB, 0, padBuf as BufferSource);
-    const bucketResult = soa(B_TOTAL);
-    this.bucketResultBuf = bucketResult;
-    const l0IdxBuf = sbuf(l0Slots * 4);
-    device.queue.writeBuffer(l0IdxBuf, batchSlots * 4, new Uint32Array([0, 1, 2]));
-    const countsBufs = [sbuf(batchBuckets * 4), sbuf(batchBuckets * 4)];
-    const offsetsBufs = [sbuf(batchBuckets * 4), sbuf(batchBuckets * 4)];
-    const planMeta = sbuf((3 * NUM_WINDOWS + 6) * 4);
-
-    const pairBlockPlanRing: GPUBuffer[] = [];
-    const scatterPlanRing: GPUBuffer[] = [];
-    const carryPlanRing: GPUBuffer[] = [];
-    for (let r = 0; r < 2; r++) {
-      pairBlockPlanRing.push(sbuf(2 * maxTotalPairBlocks * S * 4));
-      scatterPlanRing.push(sbuf(maxTotalPairBlocks * S * 4));
-      carryPlanRing.push(sbuf(2 * maxTotalCarries * 4));
-    }
-    const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, M1 - 1, 0]));
-    const padParams1Buf = ubuf(new Uint32Array([M1 - 3, M1 - 2, M1 - 1, 0]));
-    const FUSED_TILE = Math.min(
-      Math.ceil((1 << 16) / WGI) * WGI,
-      Math.max(WGI, Math.ceil(this.capTotalPairBlocks / WGI) * WGI),
-    );
-    this.fusedTileSize = FUSED_TILE;
-    const prefScratchBuf = sbuf(FUSED_TILE * S * 8 * 4);
-
-    // Pre-step buffers. Scalars are canonical — uploaded straight into the
-    // buffer the Booth-decompose pass reads (no demont pass).
-    const scalarsRawBuf = sbuf(scalars.byteLength);
-    device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
-    this.scalarsRawBuf = scalarsRawBuf;
-    // One u32 per (window, point): bits [0..30] = bucket index (Booth digit
-    // in [0, 2^(c-1)]), bit 31 = sign (1 => negate the point's y). Replaces
-    // the old separate `chunks` + `signs` u32 arrays — packing halves the
-    // (window × point) working set, ~10 MB saved at n=131k. See
-    // `decompose_scalars_booth.template.wgsl` header for why bit 31 (a
-    // literal) and not bit `c` (a uniform) — Adreno doesn't reliably
-    // compile dynamic shift amounts.
-    const bucketAndSignBuf = sbuf(batchSlots * 4);
-    const rowPtrBuf = sbuf(batchWindows * (BW + 1) * 4);
-    const valIdxBuf = sbuf(batchSlots * 4);
-    const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
     // Tiled-transpose geometry: split each window's n points into
     // `transposeNumPointTiles` tiles of ~`pointsPerTile` each so the
     // count/scatter dispatch saturates the GPU instead of running one
@@ -1345,6 +1648,86 @@ export class MsmV2 {
       );
     }
     this.transposeNumPointTiles = transposeNumPointTiles;
+
+    const FUSED_TILE = Math.min(
+      Math.ceil((1 << 16) / WGI) * WGI,
+      Math.max(WGI, Math.ceil(this.capTotalPairBlocks / WGI) * WGI),
+    );
+    this.fusedTileSize = FUSED_TILE;
+
+    // Ask the pool to grow its shared scratch to fit this MSM's plan. Most
+    // prepares hit no growth (after the first MSM saturates max-N); growth
+    // bumps pool.scratchEpoch and our cached `boundEpoch` becomes stale.
+    const scratch = this.pool.ensureScratch(
+      {
+        M1,
+        batchSlots,
+        batchBuckets,
+        numWindows: NUM_WINDOWS,
+        BW,
+        l0Slots,
+        rowPtrLen: batchWindows * (BW + 1),
+        planMetaLen: 3 * NUM_WINDOWS + 6,
+        totalPairBlocks: maxTotalPairBlocks,
+        totalCarries: maxTotalCarries,
+        fusedTile: FUSED_TILE,
+        S,
+        scalarsBytes: scalars.byteLength,
+        redM: RED_M,
+        reducePrefBytes: NUM_WINDOWS * REDUCE_WG * this.capMAXC * 2 * 16,
+        bTotal: B_TOTAL,
+      },
+      this.padPts,
+      R,
+    );
+    this.boundEpoch = this.pool.scratchEpoch;
+
+    // Pad-trio layout from pool. Pool re-wrote the pad bytes into bufA/B if
+    // it grew them; otherwise we inherit pad bytes from the previous owner.
+    // Either way, the per-run reset's clearBuffer ranges avoid these slots.
+    this.planeBytes = scratch.planeBytes;
+    this.padBytesPerPlane = scratch.padBytesPerPlane;
+    this.padXOffset = scratch.padXOffset;
+    this.padYOffset = scratch.padYOffset;
+
+    // Local aliases so the per-level / per-tile bind-group setup below
+    // reads the same identifiers it always has. Each is a reference to
+    // pool.scratch.X — destroyed and re-created by the pool, not by us.
+    const bufA = scratch.bufA;
+    const bufB = scratch.bufB;
+    this.bufA = bufA;
+    this.bufB = bufB;
+    this.bucketResultBuf = scratch.bucketResultBuf;
+    const bucketResult = scratch.bucketResultBuf;
+    const l0IdxBuf = scratch.l0IdxBuf;
+    // L0 seed pad-trio — three index slots at [batchSlots, batchSlots+1,
+    // batchSlots+2] that l0-mode shaders use as a "self-pad anchor". The
+    // pool's ensureScratch sizes l0IdxBuf to fit l0Slots = batchSlots+3
+    // but doesn't initialize these slots (varies per N), so we write them
+    // here at the per-prepare batchSlots offset.
+    device.queue.writeBuffer(l0IdxBuf, batchSlots * 4, new Uint32Array([0, 1, 2]));
+    const countsBufs = scratch.countsBufs;
+    const offsetsBufs = scratch.offsetsBufs;
+    const planMeta = scratch.planMeta;
+    const pairBlockPlanRing = scratch.pairBlockPlanRing;
+    const scatterPlanRing = scratch.scatterPlanRing;
+    const carryPlanRing = scratch.carryPlanRing;
+    const prefScratchBuf = scratch.prefScratchBuf;
+    const scalarsRawBuf = scratch.scalarsRawBuf;
+    device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
+    this.scalarsRawBuf = scalarsRawBuf;
+    const bucketAndSignBuf = scratch.bucketAndSignBuf;
+    const rowPtrBuf = scratch.rowPtrBuf;
+    const valIdxBuf = scratch.valIdxBuf;
+    // ALL active-sums indices must reference the POOL's M1, not this MSM's.
+    // The pool's bufA/bufB are sized to its max-M1 (across all MSMs that
+    // have ever bound to it), and the pad-trio sits at [poolM1-3, poolM1-2,
+    // poolM1-1]. This MSM's planner writes into [0, batchWindows*wstride1)
+    // which is always < poolM1, so the pad slots don't get clobbered.
+    const poolM1 = scratch.poolM1;
+    const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, poolM1 - 1, 0]));
+    const padParams1Buf = ubuf(new Uint32Array([poolM1 - 3, poolM1 - 2, poolM1 - 1, 0]));
+    const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
     // Uniform layout: [num_point_tiles, BW, n, points_per_tile]; consumed by
     // transpose_count_tiled, transpose_reduce_tiled (only [0] [1]),
     // transpose_scatter_tiled (all four).
@@ -1398,9 +1781,9 @@ export class MsmV2 {
       schedule[i * 4 + 2] = b;
       schedule[i * 4 + 3] = p.ppw;
     });
-    const redBuf = soa(RED_M);
-    const isPresentBuf = sbuf(RED_M * 4);
-    const reducePrefScratch = sbuf(NUM_WINDOWS * REDUCE_WG * this.capMAXC * 2 * 16);
+    const redBuf = scratch.redBuf;
+    const isPresentBuf = scratch.isPresentBuf;
+    const reducePrefScratch = scratch.reducePrefScratch;
     const reduceInitParams = ubuf(new Uint32Array([RED_M, this.stride, BW, B_TOTAL]));
     this.reduceInitBind = mkBind(this.reduceInitLayout, [bucketResult, redBuf, isPresentBuf, reduceInitParams]);
     // One kind-specialized dispatch per level: the schedule's (a, b, ppw)
@@ -1421,7 +1804,9 @@ export class MsmV2 {
     // --- Per-level bind groups ---
     const finalizeParamsBufs: GPUBuffer[] = [];
     for (let bi = 0; bi < numBatches; bi++) {
-      finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, M1, bi * batchBuckets, B_TOTAL])));
+      // active_sums element stride is poolM1, not this MSM's M1 (the
+      // buffer is sized to the pool's max; see padParams comment above).
+      finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, poolM1, bi * batchBuckets, B_TOTAL])));
     }
     this.numWgsFinalize = Math.ceil(batchBuckets / WGI);
     // The two-pass planner borrows valIdxBuf as the per-bucket carry-prefix
@@ -1448,14 +1833,16 @@ export class MsmV2 {
       // can rewrite their contents in place on subsequent prepares (avoiding
       // ~40 createBuffer calls per MSM that today dominate wall time).
       const plannerParams = ubuf(new Uint32Array([plan.pairBlocksPerWindow, plan.carriesPerWindow, WGI, wstride1]));
-      const carryParams = ubuf(new Uint32Array([plan.totalCarries, M1, M1, 0]));
+      // carryParams[1] = M_old (stride of bufA/bufB) — must use pool's M1.
+      const carryParams = ubuf(new Uint32Array([plan.totalCarries, poolM1, poolM1, 0]));
       this.plannerParamsBufs[lv] = plannerParams;
       this.carryParamsBufs[lv] = carryParams;
       const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
       const levelTileBufs: GPUBuffer[] = [];
       for (let tileBase = 0; tileBase < plan.totalPairBlocks; tileBase += FUSED_TILE) {
         const tileThreads = Math.min(FUSED_TILE, plan.totalPairBlocks - tileBase);
-        const tileParams = ubuf(new Uint32Array([plan.totalPairBlocks, M1, M1, tileBase]));
+        // tileParams[1] = M_old, [2] = M_new (both = bufA/bufB stride) — pool's M1.
+        const tileParams = ubuf(new Uint32Array([plan.totalPairBlocks, poolM1, poolM1, tileBase]));
         levelTileBufs.push(tileParams);
         const entries: GPUBindGroupEntry[] = [
           { binding: 0, resource: { buffer: pairBlockPlanRing[ring] } },
@@ -1711,9 +2098,18 @@ export class MsmV2 {
       enc.copyBufferToBuffer(scalarsSrcBuf, scalarsSrcByteOff, this.scalarsRawBuf, 0, this.n * 32);
     }
 
-    // Reset active-sums + bucket-result buffers — see run() for why.
-    enc.copyBufferToBuffer(this.padTemplateBuf, 0, this.bufA, 0, this.padTemplateBytes);
-    enc.copyBufferToBuffer(this.padTemplateBuf, 0, this.bufB, 0, this.padTemplateBytes);
+    // Reset active-sums + bucket-result buffers. The pad-trio at slots
+    // [M1-3, M1-2, M1-1] of each plane must survive (planner anchor) —
+    // so we clearBuffer only the NON-pad regions of each plane. The 192
+    // bytes of pad data were written once at slow-path setup and never
+    // touched again. Two clearBuffer calls per buffer = 4 total, each
+    // negligible on every driver. Replaces the old 64×M1 byte
+    // copyBufferToBuffer from a persistent padTemplateBuf — saves
+    // 64×M1 bytes of GPU memory (~52 MB at n=131k).
+    enc.clearBuffer(this.bufA, 0, this.padXOffset);
+    enc.clearBuffer(this.bufA, this.planeBytes, this.padXOffset);
+    enc.clearBuffer(this.bufB, 0, this.padXOffset);
+    enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
     enc.clearBuffer(this.bucketResultBuf);
 
     for (let bi = 0; bi < this.numBatches; bi++) {
@@ -1864,6 +2260,19 @@ export class MsmV2 {
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */
   windowSums: Pt[] = [];
+
+  /**
+   * GPU bytes the instance itself owns — every buffer in `prepBuffers`,
+   * which the slow-path setup pushes every allocation into. Excludes the
+   * shared point pool (count that via `MsmV2Pool.statsBytes()`). Used by
+   * the bench harness to track per-phase memory savings as the memory-
+   * reduction plan lands. Sums after destroy() are 0.
+   */
+  statsBytes(): number {
+    let total = 0;
+    for (const b of this.prepBuffers) total += b.size;
+    return total;
+  }
 
   /** Diagnostic: read back bucket_result. Element b's coords (Montgomery)
    * are at u32 offsets [PG*b*4] (x) and [PG*B_TOTAL*4 + PG*b*4] (y). */
