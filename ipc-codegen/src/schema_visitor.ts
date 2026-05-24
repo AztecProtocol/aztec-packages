@@ -8,13 +8,25 @@
  *   - Output is "compiled schema" with resolved types
  */
 
-export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes' | 'fr' | 'field2' | 'enum_u32' | 'map_u32_pair';
+export type PrimitiveType =
+  | "bool"
+  | "u8"
+  | "u16"
+  | "u32"
+  | "u64"
+  | "f64"
+  | "string"
+  | "bytes"
+  | "fr"
+  | "field2"
+  | "enum_u32"
+  | "map_u32_pair";
 
 export interface Type {
-  kind: 'primitive' | 'vector' | 'array' | 'optional' | 'struct';
+  kind: "primitive" | "vector" | "array" | "optional" | "struct";
   primitive?: PrimitiveType;
-  element?: Type;  // For vector, array, optional
-  size?: number;   // For array
+  element?: Type; // For vector, array, optional
+  size?: number; // For array
   struct?: Struct; // For struct types
   originalName?: string; // Original type name from schema (e.g. 'MerkleTreeId', 'unordered_map')
 }
@@ -69,18 +81,23 @@ export class SchemaVisitor {
 
     // First, visit all response types (including ErrorResponse)
     for (const [respName, respSchema] of responsePairs) {
-      if (typeof respSchema !== 'string') {
+      if (typeof respSchema !== "string") {
         const respStruct = this.visitStruct(respName, respSchema);
         this.responses.set(respName, respStruct);
       }
     }
 
     // Find the error response type name (e.g. 'WsdbErrorResponse')
-    const errorResponses = responsePairs.filter(([name]: [string, any]) => name.endsWith('ErrorResponse'));
-    const errorTypeName = errorResponses.length > 0 ? errorResponses[0][0] : undefined;
+    const errorResponses = responsePairs.filter(([name]: [string, any]) =>
+      name.endsWith("ErrorResponse"),
+    );
+    const errorTypeName =
+      errorResponses.length > 0 ? errorResponses[0][0] : undefined;
 
     // Visit all commands and pair with responses
-    const normalResponses = responsePairs.filter(([name]: [string, any]) => !name.endsWith('ErrorResponse'));
+    const normalResponses = responsePairs.filter(
+      ([name]: [string, any]) => !name.endsWith("ErrorResponse"),
+    );
     for (let i = 0; i < commandPairs.length; i++) {
       const [cmdName, cmdSchema] = commandPairs[i];
       const [respName] = normalResponses[i];
@@ -110,7 +127,7 @@ export class SchemaVisitor {
 
     // Schema is an object with __typename and fields
     for (const [key, value] of Object.entries(schema)) {
-      if (key === '__typename') continue;
+      if (key === "__typename") continue;
 
       fields.push({
         name: key,
@@ -123,7 +140,7 @@ export class SchemaVisitor {
 
   private visitType(schema: any): Type {
     // Primitive string type
-    if (typeof schema === 'string') {
+    if (typeof schema === "string") {
       return this.resolvePrimitive(schema);
     }
 
@@ -132,52 +149,67 @@ export class SchemaVisitor {
       const [kind, args] = schema;
 
       switch (kind) {
-        case 'vector': {
+        case "vector": {
           const [elemType] = args as [any];
           // Special case: vector<unsigned char> = bytes
-          if (elemType === 'unsigned char') {
-            return { kind: 'primitive', primitive: 'bytes' };
+          if (elemType === "unsigned char") {
+            return { kind: "primitive", primitive: "bytes" };
           }
           return {
-            kind: 'vector',
+            kind: "vector",
             element: this.visitType(elemType),
           };
         }
 
-        case 'array': {
+        case "array": {
           const [elemType, size] = args as [any, number];
           // Special case: array<unsigned char, 32> = field element (Fr/Fq)
-          if (elemType === 'unsigned char' && size === 32) {
-            return { kind: 'primitive', primitive: 'fr' };
+          if (elemType === "unsigned char" && size === 32) {
+            return { kind: "primitive", primitive: "fr" };
           }
           // Special case: array<unsigned char, N> (other sizes) = bytes
-          if (elemType === 'unsigned char') {
-            return { kind: 'primitive', primitive: 'bytes' };
+          if (elemType === "unsigned char") {
+            return { kind: "primitive", primitive: "bytes" };
           }
           return {
-            kind: 'array',
+            kind: "array",
             element: this.visitType(elemType),
             size,
           };
         }
 
-        case 'optional': {
+        case "optional": {
           const [elemType] = args as [any];
           return {
-            kind: 'optional',
+            kind: "optional",
             element: this.visitType(elemType),
           };
         }
 
-        case 'shared_ptr': {
+        case "shared_ptr": {
           // Dereference shared_ptr - just use inner type
           const [innerType] = args as [any];
           return this.visitType(innerType);
         }
 
-        case 'alias': {
-          // Alias types (like uint256_t) are treated as bytes
-          return { kind: 'primitive', primitive: 'bytes' };
+        case "alias": {
+          // Aliases carry [aliasName, underlyingKind]. The underlying kind is
+          // always a bin32 byte buffer at the msgpack level, but we surface
+          // semantic 32-byte aliases that map to the same C++ struct as
+          // ["array","unsigned char",32]. Anything else (uint256_t, etc.)
+          // stays as a plain byte buffer.
+          const [aliasName] = args as [string, string];
+          if (
+            aliasName === "fr" ||
+            aliasName === "fq" ||
+            aliasName === "secp256k1_fr" ||
+            aliasName === "secp256k1_fq" ||
+            aliasName === "secp256r1_fr" ||
+            aliasName === "secp256r1_fq"
+          ) {
+            return { kind: "primitive", primitive: "fr" };
+          }
+          return { kind: "primitive", primitive: "bytes" };
         }
 
         default:
@@ -186,7 +218,7 @@ export class SchemaVisitor {
     }
 
     // Inline struct definition
-    if (typeof schema === 'object' && schema.__typename) {
+    if (typeof schema === "object" && schema.__typename) {
       const structName = schema.__typename as string;
       // Check if already visited
       if (!this.structs.has(structName)) {
@@ -194,7 +226,7 @@ export class SchemaVisitor {
         this.structs.set(structName, struct);
       }
       return {
-        kind: 'struct',
+        kind: "struct",
         struct: this.structs.get(structName)!,
       };
     }
@@ -204,30 +236,30 @@ export class SchemaVisitor {
 
   private resolvePrimitive(name: string): Type {
     const primitiveMap: Record<string, PrimitiveType> = {
-      'bool': 'bool',
-      'int': 'u32',
-      'unsigned int': 'u32',
-      'unsigned short': 'u16',
-      'unsigned long': 'u64',
-      'unsigned long long': 'u64',
-      'unsigned char': 'u8',
-      'double': 'f64',
-      'string': 'string',
-      'bin32': 'bytes',
-      'field2': 'field2',  // Extension field (Fq2) - pair of field elements
-      'MerkleTreeId': 'enum_u32',  // C++ enum serialized as uint32
-      'unordered_map': 'map_u32_pair',  // StateReference: map<MerkleTreeId, pair<fr, index_t>>
+      bool: "bool",
+      int: "u32",
+      "unsigned int": "u32",
+      "unsigned short": "u16",
+      "unsigned long": "u64",
+      "unsigned long long": "u64",
+      "unsigned char": "u8",
+      double: "f64",
+      string: "string",
+      bin32: "bytes",
+      field2: "field2", // Extension field (Fq2) - pair of field elements
+      MerkleTreeId: "enum_u32", // C++ enum serialized as uint32
+      unordered_map: "map_u32_pair", // StateReference: map<MerkleTreeId, pair<fr, index_t>>
     };
 
     const primitive = primitiveMap[name];
     if (primitive) {
-      return { kind: 'primitive', primitive, originalName: name };
+      return { kind: "primitive", primitive, originalName: name };
     }
 
     // Unknown primitive - treat as struct reference
     // This will be resolved later if it's a real struct
     return {
-      kind: 'struct',
+      kind: "struct",
       struct: { name, fields: [] }, // Placeholder
     };
   }
