@@ -75,6 +75,18 @@
       }
       #results .ok { color: #047857; }
       #results .err { color: #b91c1c; font-weight: 600; }
+      /* Dim grey for the (xx.x%) suffix next to a timing — readable but visually
+         secondary so the eye lands on the ms value first. */
+      #results .pct { color: #94a3b8; font-weight: 400; }
+      /* Top-3 highlight per column in the profile breakdown table. Warm tones
+         in descending intensity — top1 sticks out most. */
+      #results td.top1 { background: #fde68a; font-weight: 600; }
+      #results td.top2 { background: #fef3c7; }
+      #results td.top3 { background: #fefce8; }
+      #results .legend { padding: 0.05rem 0.3rem; border-radius: 3px; margin: 0 0.15rem; }
+      #results .legend.top1 { background: #fde68a; font-weight: 600; }
+      #results .legend.top2 { background: #fef3c7; }
+      #results .legend.top3 { background: #fefce8; }
     </style>
   </head>
   <body>
@@ -119,6 +131,8 @@
       <button id="run-sanity">Quick sanity check (WebGPU only)</button>
       <button id="run">Run</button>
       <button id="run-bench">Run × 5 (benchmark)</button>
+      <button id="run-profile">Profile (× 20)</button>
+      <label><input id="profile-per-batch" type="checkbox" /> per-batch breakdown</label>
       <button id="run-sweep">Sweep 2^10…2^20</button>
       <button id="stop" disabled>Stop</button>
       <button id="toggle-coi">Enable WASM (reload with COI)</button>

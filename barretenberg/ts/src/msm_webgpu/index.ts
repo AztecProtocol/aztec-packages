@@ -3,7 +3,7 @@
 // the algorithm; the bridge exports wire it into the bb.js WASM worker.
 
 export { MsmV2, MsmV2Pool } from "./msm_v2.js";
-export type { MsmConfig, ProfileBreakdown } from "./msm_v2.js";
+export type { MsmConfig, ProfileBreakdown, PassSample, HostPhases } from "./msm_v2.js";
 
 export { BN254_CURVE_CONFIG } from "./cuzk/curve_config.js";
 export type { CurveConfig } from "./cuzk/curve_config.js";

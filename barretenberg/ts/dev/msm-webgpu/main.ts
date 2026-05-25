@@ -24,28 +24,18 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
+import { MsmV2, MsmV2Pool, type MsmConfig, type ProfileBreakdown } from '../../src/msm_webgpu/msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
-// Per-rep profiling capture consumed by the sweep aggregator. `runWebGpuOnce`
-// only ever produces `{ profile: null }` (MsmV2's own ProfileBreakdown is a
-// different, flat shape), so the breakdown table renders empty GPU rows — this
-// type just keeps the aggregation code compiling.
-type ProfileCapture = {
-  profile: { label: string; kind: string; ms: number }[] | null;
-  cpu_phases?: { phases: { label: string; ms: number }[]; total_wall_ms: number };
-  gpu_readback?: {
-    gpu_compute_wall: number;
-    profiled_passes_sum: number;
-    untimestamped: number;
-    readback_total?: number;
-    mapasync_overhead?: number;
-  };
-};
+// Per-rep profiling capture from a single WebGPU MSM run. Null on non-profile
+// reps (the sweep / Run / Run × 5 buttons all run with profile=false because
+// `timestamp-query` enrolment doubles createQuerySet/buffer churn). Populated
+// only by the Profile (× 5) button.
+type ProfileCapture = ProfileBreakdown | null;
 
 const $log = document.getElementById('log') as HTMLDivElement;
 const $progress = document.getElementById('srs-progress') as HTMLDivElement;
@@ -53,6 +43,8 @@ const $status = document.getElementById('status') as HTMLSpanElement;
 const $run = document.getElementById('run') as HTMLButtonElement;
 const $runBench = document.getElementById('run-bench') as HTMLButtonElement;
 const $runSweep = document.getElementById('run-sweep') as HTMLButtonElement;
+const $runProfile = document.getElementById('run-profile') as HTMLButtonElement;
+const $profilePerBatch = document.getElementById('profile-per-batch') as HTMLInputElement;
 const $runSanity = document.getElementById('run-sanity') as HTMLButtonElement;
 const $stop = document.getElementById('stop') as HTMLButtonElement;
 const $logn = document.getElementById('logn') as HTMLInputElement;
@@ -67,6 +59,37 @@ const $results = document.getElementById('results') as HTMLDivElement;
 const LOGN_MIN = 10;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
+// 20 reps × 3 sizes ≈ 60 timed runs — well under a minute on Metal-3 at the
+// largest size, and tight enough confidence intervals on the small ones that
+// sub-millisecond stages don't bounce around with run-to-run jitter.
+const PROFILE_REPS = 20;
+// Sizes the Profile button sweeps in one click. One column per size in the
+// rendered breakdown table.
+const PROFILE_SIZES = [12, 16, 20] as const;
+
+// One-time setup phase timings, populated as SRS load / pool build run. The
+// breakdown renderer reads these to show the "Setup" section alongside the
+// per-MSM table. `srs_fetch_ms` and `srs_decompress_ms` are populated from
+// SrsEvent's `kind: 'phase'` events at page boot; `pool_*` are populated when
+// MsmV2Pool.create runs with `{ profile: true }` on the first Profile click.
+interface SetupTimings {
+  srs_fetch_ms: number;
+  srs_decompress_ms: number;
+  srs_cached: boolean;
+  pool_upload_ms: number;
+  pool_upload_bytes: number;
+  pool_convert_ms: number;
+  pool_built: boolean;
+}
+const setupTimings: SetupTimings = {
+  srs_fetch_ms: 0,
+  srs_decompress_ms: 0,
+  srs_cached: false,
+  pool_upload_ms: 0,
+  pool_upload_bytes: 0,
+  pool_convert_ms: 0,
+  pool_built: false,
+};
 
 const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
@@ -212,10 +235,11 @@ function setBusy(busy: boolean, text = ''): void {
   // the boot via ensureWasmBooted().
   const ready = srsBuf !== null;
   $runSanity.disabled = busy || !ready;
+  $runProfile.disabled = busy || !ready;
   // Sweep / Run / Run × 5 exercise the WASM paths in addition to WebGPU
   // — disable them when COI is off (the threaded WASM can't load without
-  // SharedArrayBuffer). The user can still hit Quick Sanity Check to run
-  // WebGPU on its own.
+  // SharedArrayBuffer). The user can still hit Quick Sanity Check / Profile
+  // to run WebGPU on its own.
   $run.disabled = busy || !ready || !WASM_AVAILABLE;
   $runBench.disabled = busy || !ready || !WASM_AVAILABLE;
   $runSweep.disabled = busy || !ready || !WASM_AVAILABLE;
@@ -468,7 +492,7 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
  *      pair-tree pipelines and runs warm-up dispatches so the next run pays
  *      no JIT.
  */
-async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
+async function ensureWebGpuWarmed(inputs: TestInputs, profile = false): Promise<MsmV2> {
   const logN = Math.log2(inputs.n);
   if (gpuDevice === null) {
     log('info', '[gpu-warm] acquiring GPUDevice (one-time)');
@@ -476,7 +500,11 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     gpuDevice = await get_device();
     log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
-  if (msmV2 === null || msmV2LogN !== logN) {
+  // Rebuild when logN changes OR when the cached instance was built without
+  // profile and the caller now asks for one (the query set is sized at
+  // create-time; a non-profile MsmV2 has no querySet at all).
+  const needRebuild = msmV2 === null || msmV2LogN !== logN || (profile && !msmV2.profileEnabled);
+  if (needRebuild) {
     if (msmV2 !== null) {
       log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
       msmV2.destroy();
@@ -491,22 +519,39 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
-    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf, { profile });
+    if (profile && msmV2Pool.createProfile) {
+      setupTimings.pool_upload_ms = msmV2Pool.createProfile.upload_ms;
+      setupTimings.pool_upload_bytes = msmV2Pool.createProfile.upload_bytes;
+      setupTimings.pool_convert_ms = msmV2Pool.createProfile.convert_ms;
+      setupTimings.pool_built = true;
+    } else if (profile) {
+      setupTimings.pool_built = true;
+    }
+    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, { ...gpuKnobs, profile });
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
-  return msmV2;
+  return msmV2!;
 }
 
 async function runWebGpuOnce(
   inputs: TestInputs,
+  opts: { profile?: boolean } = {},
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
   if (!('gpu' in navigator)) {
     throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
   }
-  const msm = await ensureWebGpuWarmed(inputs);
-  log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
+  const profile = opts.profile === true;
+  const msm = await ensureWebGpuWarmed(inputs, profile);
+  if (profile && !msm.profileEnabled) {
+    throw new Error(
+      "[gpu] requested profile mode but the WebGPU device lacks 'timestamp-query'. " +
+        'Chrome usually exposes it under chrome://flags/#enable-unsafe-webgpu (or via ' +
+        '--enable-dawn-features=allow_unsafe_apis).',
+    );
+  }
+  log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}${profile ? ' [profile]' : ''}`);
   // Plan the level tree for these scalars + (re)build the data-dependent
   // buffers — untimed setup, outside the `t0` window.
   msm.prepare(inputs.scalarsBuf);
@@ -515,13 +560,21 @@ async function runWebGpuOnce(
   // zero-init / first-touch). Warm it out of the timed window so the
   // measurement is steady-state GPU, matching the bench's reused buffers.
   await msm.run();
+  // Profile reps want a real prepare() in the timed window — the previous
+  // prepare() identity-cached, so a second call would no-op. Re-upload the
+  // scalars in a way that defeats the cache: bind a slice with a new
+  // identity, then re-prepare.
+  if (profile) {
+    const reidentified = new Uint8Array(inputs.scalarsBuf.buffer, inputs.scalarsBuf.byteOffset, inputs.scalarsBuf.byteLength);
+    // Force a non-cached prepare so host_prepare reflects the real cost
+    // (typically the fast-path uniform rewrite + scalar upload).
+    msm.prepare(reidentified);
+  }
   const t0 = performance.now();
   const gpu = await msm.run();
   const ms = performance.now() - t0;
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
-  // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
-  // a null-profile capture, so the GPU column there simply renders empty.
-  return { ms, xy: gpu, capture: { profile: null } };
+  return { ms, xy: gpu, capture: gpu.profile ?? null };
 }
 
 // Decode + upload the inputs into the WASM worker's native point/scalar
@@ -611,260 +664,434 @@ function fmtCheck(v: boolean | null): string {
   return v ? '<span class="ok">pass</span>' : '<span class="err">FAIL</span>';
 }
 
-// Pipeline-execution order so breakdown rows read top-to-bottom along
-// the dataflow. Stages not in this list (future labels, fallbacks) are
-// appended at the end. Labels match the `profiler.stage(...)` calls in
-// msm.ts and batch_affine.ts after `[…]` rollup (subtasks/rounds are
-// summed within a rep, then medianised across reps).
+// Pipeline-execution order so breakdown rows read top-to-bottom along the
+// dataflow. The labels are emitted by encodeIntoBatch as `<stage>#<batchIdx>`
+// (and bare `<stage>` for the reduction passes that live outside the batch
+// loop). Stages not in this list (added later, label drift) sort to the end
+// alphabetically.
 const STAGE_ORDER = [
-  'decompose_scalars_only',
-  'convert_points',
-  'transpose_count',
-  'transpose_scan',
-  'transpose_scatter',
-  'transpose',
-  'ba_init',
-  'ba_schedule',
-  'ba_inverse',
-  'ba_apply',
-  'ba_finalize_collect',
-  'ba_finalize_inverse',
-  'ba_finalize_apply',
-  'smvp',
-  'bpr_1',
-  'bpr_2',
-  'subtask_reduce',
+  'decompose',
+  'xpose_count',
+  'xpose_reduce',
+  'xpose_scan',
+  'xpose_scatter',
+  'csr2v2_active',
+  'csr2v2_meta',
+  'planner_a',
+  'planner_b',
+  'fused',
+  'carry',
+  'finalize',
+  'reduce_init',
+  'reduce_level',
 ];
 
-function rollupLabel(label: string): string {
-  const idx = label.indexOf('[');
-  return idx >= 0 ? label.substring(0, idx) : label;
+// `decompose#3` → `decompose`. Used for the collapsed-by-stage view.
+function stripBatch(label: string): string {
+  const hash = label.indexOf('#');
+  return hash < 0 ? label : label.substring(0, hash);
 }
 
-interface AggregatedProfile {
-  perStage: Map<string, number>;
-  perRegion: Map<string, number>;
-  gpuWallMs: number | null;
-  profiledSumMs: number | null;
-  untimestampedMs: number | null;
-  readbackMs: number | null;
-  mapasyncMs: number | null;
-  cpuTotalWallMs: number | null;
-  cpuPhases: Map<string, number>;
+// Median across all reps of (sum over passes with `keyOf(label) == key`).
+function aggregatePerKey(captures: ProfileCapture[], keyOf: (label: string) => string): Map<string, number> {
+  const perRepByKey = new Map<string, number[]>();
+  for (const c of captures) {
+    if (c === null) continue;
+    const repTotals = new Map<string, number>();
+    for (const p of c.passes) {
+      const k = keyOf(p.label);
+      repTotals.set(k, (repTotals.get(k) ?? 0) + p.ms);
+    }
+    for (const [k, v] of repTotals) {
+      if (!perRepByKey.has(k)) perRepByKey.set(k, []);
+      perRepByKey.get(k)!.push(v);
+    }
+  }
+  const out = new Map<string, number>();
+  for (const [k, xs] of perRepByKey) out.set(k, median(xs));
+  return out;
 }
 
-function aggregateCaptures(captures: ProfileCapture[]): AggregatedProfile | null {
-  if (captures.length === 0) return null;
-  // Per-rep stage sums (rolled up across subtasks/rounds), medianised
-  // across reps. Region entries are tracked separately — they overlap
-  // their inner stages and would distort the per-stage totals.
-  const perRepByStage = new Map<string, number[]>();
-  const perRepByRegion = new Map<string, number[]>();
-  for (const c of captures) {
-    if (!c.profile) continue;
-    const repStageTotals = new Map<string, number>();
-    const repRegionTotals = new Map<string, number>();
-    for (const e of c.profile) {
-      const k = rollupLabel(e.label);
-      if (e.kind === 'region') {
-        repRegionTotals.set(k, (repRegionTotals.get(k) ?? 0) + e.ms);
-      } else {
-        repStageTotals.set(k, (repStageTotals.get(k) ?? 0) + e.ms);
-      }
-    }
-    for (const [k, v] of repStageTotals) {
-      if (!perRepByStage.has(k)) perRepByStage.set(k, []);
-      perRepByStage.get(k)!.push(v);
-    }
-    for (const [k, v] of repRegionTotals) {
-      if (!perRepByRegion.has(k)) perRepByRegion.set(k, []);
-      perRepByRegion.get(k)!.push(v);
-    }
-  }
-  const perStage = new Map<string, number>();
-  for (const [k, samples] of perRepByStage) perStage.set(k, median(samples));
-  const perRegion = new Map<string, number>();
-  for (const [k, samples] of perRepByRegion) perRegion.set(k, median(samples));
+interface MedianedHost {
+  host_prepare: number;
+  prepare_kind_fast: number; // fraction of reps that were fast-path (0..1)
+  host_encode: number;
+  host_submit_wait: number;
+  host_decode: number;
+  wall: number;
+  scalar_upload_wall: number;
+  scalar_upload_bytes: number;
+  prep_host_plan: number;
+  prep_booth_decode: number;
+  prep_level_plan: number;
+  numBatches: number;
+  batchWindows: number;
+}
 
-  const fld = (pick: (c: ProfileCapture) => number | undefined): number | null => {
-    const xs: number[] = [];
-    for (const c of captures) {
-      const v = pick(c);
-      if (v !== undefined && Number.isFinite(v)) xs.push(v);
-    }
-    return xs.length ? median(xs) : null;
-  };
-
-  const cpuByPhase = new Map<string, number[]>();
-  for (const c of captures) {
-    if (!c.cpu_phases) continue;
-    for (const { label, ms } of c.cpu_phases.phases) {
-      if (!cpuByPhase.has(label)) cpuByPhase.set(label, []);
-      cpuByPhase.get(label)!.push(ms);
-    }
-  }
-  const cpuPhases = new Map<string, number>();
-  for (const [k, samples] of cpuByPhase) cpuPhases.set(k, median(samples));
-
+function aggregateHost(captures: ProfileCapture[]): MedianedHost | null {
+  const xs = captures.filter((c): c is ProfileBreakdown => c !== null);
+  if (xs.length === 0) return null;
+  const pick = (sel: (h: ProfileBreakdown['host']) => number): number => median(xs.map(c => sel(c.host)));
+  const fastCount = xs.filter(c => c.host.prepare_kind === 'fast').length;
   return {
-    perStage,
-    perRegion,
-    gpuWallMs: fld(c => c.gpu_readback?.gpu_compute_wall),
-    profiledSumMs: fld(c => c.gpu_readback?.profiled_passes_sum),
-    untimestampedMs: fld(c => c.gpu_readback?.untimestamped),
-    readbackMs: fld(c => c.gpu_readback?.readback_total),
-    mapasyncMs: fld(c => c.gpu_readback?.mapasync_overhead),
-    cpuTotalWallMs: fld(c => c.cpu_phases?.total_wall_ms),
-    cpuPhases,
+    host_prepare: pick(h => h.host_prepare),
+    prepare_kind_fast: fastCount / xs.length,
+    host_encode: pick(h => h.host_encode),
+    host_submit_wait: pick(h => h.host_submit_wait),
+    host_decode: pick(h => h.host_decode),
+    wall: pick(h => h.wall),
+    scalar_upload_wall: pick(h => h.scalar_upload_wall),
+    scalar_upload_bytes: xs[0].host.scalar_upload_bytes,
+    prep_host_plan: pick(h => h.prep_host_plan),
+    prep_booth_decode: pick(h => h.prep_booth_decode),
+    prep_level_plan: pick(h => h.prep_level_plan),
+    numBatches: xs[0].numBatches,
+    batchWindows: xs[0].batchWindows,
   };
 }
 
-function fmtCell(v: number | null | undefined): string {
+function fmtCell(v: number | null | undefined, digits = 2): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return '—';
-  return v.toFixed(1);
+  return v.toFixed(digits);
 }
 
-function fmtPctCell(v: number | null | undefined, total: number | null): string {
-  if (v === null || v === undefined || total === null || !total) return fmtCell(v);
-  if (!Number.isFinite(v) || !Number.isFinite(total)) return fmtCell(v);
-  return `${fmtCell(v)}<span class="samples"> (${((100 * v) / total).toFixed(0)}%)</span>`;
+function fmtBytes(b: number): string {
+  if (b >= 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MiB`;
+  if (b >= 1024) return `${(b / 1024).toFixed(1)} KiB`;
+  return `${b} B`;
 }
 
-function renderBreakdownTable(entries: { logN: number; captures: ProfileCapture[] }[]): string {
-  const aggregates = entries.map(e => ({
-    logN: e.logN,
-    agg: aggregateCaptures(e.captures),
-  }));
-  if (aggregates.every(({ agg }) => agg === null)) return '';
+// Auto-unit time formatter: switches to µs / ns when the value drops below
+// the precision threshold so sub-microsecond passes don't render as "0.00".
+// Named `fmtTime` rather than `fmtMs` because the existing benchmark renderer
+// already owns that name (and takes a samples array, not a scalar).
+function fmtTime(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+  if (v === 0) return '0 ms';
+  const abs = Math.abs(v);
+  if (abs < 0.001) return `${(v * 1e6).toFixed(0)} ns`;
+  if (abs < 0.1) return `${(v * 1000).toFixed(1)} µs`;
+  if (abs < 1) return `${v.toFixed(3)} ms`;
+  if (abs < 10) return `${v.toFixed(2)} ms`;
+  return `${v.toFixed(1)} ms`;
+}
 
-  const seenStages = new Set<string>();
-  const seenRegions = new Set<string>();
-  const seenCpuPhases = new Set<string>();
-  for (const { agg } of aggregates) {
-    if (!agg) continue;
-    for (const k of agg.perStage.keys()) seenStages.add(k);
-    for (const k of agg.perRegion.keys()) seenRegions.add(k);
-    for (const k of agg.cpuPhases.keys()) seenCpuPhases.add(k);
-  }
-  const orderedStages: string[] = [
-    ...STAGE_ORDER.filter(k => seenStages.has(k)),
-    ...Array.from(seenStages).filter(k => !STAGE_ORDER.includes(k)),
-  ];
+function fmtPct(v: number, total: number): string {
+  if (!Number.isFinite(v) || !Number.isFinite(total) || total <= 0) return '—';
+  return `${((100 * v) / total).toFixed(1)}%`;
+}
 
-  const headCells = aggregates
-    .map(({ logN }) => `<th>2^${logN}<br/><span class="samples">n=${(1 << logN).toLocaleString()}</span></th>`)
-    .join('');
+// Per-column aggregation for the multi-N profile table. `stagesMap` is keyed
+// by the label scheme picked by `expand` (full label vs. batch-stripped).
+interface ProfileColumn {
+  logN: number;
+  stagesMap: Map<string, number>;
+  host: MedianedHost | null;
+  profileReps: number;
+  profiledSum: number;
+  gpuOther: number;
+  wall: number;
+}
 
-  const stageRows = orderedStages
-    .map(stage => {
-      const cells = aggregates
-        .map(({ agg }) => {
-          if (!agg) return `<td>—</td>`;
-          return `<td>${fmtPctCell(agg.perStage.get(stage), agg.gpuWallMs)}</td>`;
-        })
-        .join('');
-      return `<tr><td>${stage}</td>${cells}</tr>`;
+function buildColumns(
+  entries: { logN: number; captures: ProfileCapture[] }[],
+  expand: boolean,
+): ProfileColumn[] {
+  return entries.map(({ logN, captures }) => {
+    const stagesMap = aggregatePerKey(captures, expand ? l => l : stripBatch);
+    const host = aggregateHost(captures);
+    const profileReps = captures.filter(c => c !== null).length;
+    const profiledSum = Array.from(stagesMap.values()).reduce((a, b) => a + b, 0);
+    const wall = host?.wall ?? 0;
+    const gpuOther = Math.max(0, wall - profiledSum);
+    return { logN, stagesMap, host, profileReps, profiledSum, gpuOther, wall };
+  });
+}
+
+// Per-column top-3 ranking by ms, restricted to per-stage rows (totals like
+// `profiled_sum` / `wall` don't get a ranking).
+function topRanksPerColumn(cols: ProfileColumn[]): Map<string, number>[] {
+  return cols.map(({ stagesMap }) => {
+    const sorted = Array.from(stagesMap.entries()).sort((a, b) => b[1] - a[1]);
+    const ranks = new Map<string, number>();
+    for (let i = 0; i < Math.min(3, sorted.length); i++) ranks.set(sorted[i][0], i + 1);
+    return ranks;
+  });
+}
+
+// Render one stage cell: `12.3 ms <span class="pct">(45.6%)</span>`, with
+// `top1`/`top2`/`top3` class on the `<td>` when this stage is in the
+// column's top-3.
+function renderStageCell(ms: number | undefined, wall: number, rank: number | undefined): string {
+  if (ms === undefined || !Number.isFinite(ms)) return `<td>—</td>`;
+  const pct = wall > 0 ? ` <span class="pct">(${((100 * ms) / wall).toFixed(1)}%)</span>` : '';
+  const cls = rank === 1 ? ' class="top1"' : rank === 2 ? ' class="top2"' : rank === 3 ? ' class="top3"' : '';
+  return `<td${cls}>${fmtTime(ms)}${pct}</td>`;
+}
+
+// Render a non-stage cell (totals / host phases) — same ms-with-pct format,
+// no top-N highlight.
+function renderPlainCell(ms: number | undefined, wall: number): string {
+  if (ms === undefined || !Number.isFinite(ms)) return `<td>—</td>`;
+  const pct = wall > 0 ? ` <span class="pct">(${((100 * ms) / wall).toFixed(1)}%)</span>` : '';
+  return `<td>${fmtTime(ms)}${pct}</td>`;
+}
+
+// Stage-label sort: known stages first (in pipeline order), then unknowns
+// alphabetically; within an expanded label like `decompose#3`, sort by the
+// `#` index numerically.
+function compareStageLabels(a: string, b: string): number {
+  const sa = stripBatch(a);
+  const sb = stripBatch(b);
+  const ia = STAGE_ORDER.indexOf(sa);
+  const ib = STAGE_ORDER.indexOf(sb);
+  if (ia !== ib) return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
+  if (sa !== sb) return sa < sb ? -1 : 1;
+  const ah = a.indexOf('#');
+  const bh = b.indexOf('#');
+  const an = ah < 0 ? -1 : parseInt(a.substring(ah + 1), 10);
+  const bn = bh < 0 ? -1 : parseInt(b.substring(bh + 1), 10);
+  return an - bn;
+}
+
+// Build the multi-N profile breakdown HTML and (on the final render) dump a
+// CSV to console. The table has one column per `entries` size — typically
+// `n ∈ {2^12, 2^16, 2^20}` — with per-cell `ms (pct%)` and top-3 highlight
+// per column. `progress[i]` reports rep status for column `i`; entries with
+// `done < target` get a "(d/t)" header tag, the final state gets "(t reps)".
+// The CSV is only logged on the final render (`progress.every(done === target)`)
+// to avoid spamming the console between in-progress renders.
+function renderProfileTable(
+  entries: { logN: number; captures: ProfileCapture[] }[],
+  expand: boolean,
+  progress?: { done: number; target: number }[],
+): string {
+  const cols = buildColumns(entries, expand);
+
+  // In collapsed mode, seed the row order with the full pipeline so the user
+  // sees the skeleton (empty cells) as soon as the button is clicked, before
+  // the first rep finishes. In expanded mode the labels depend on numBatches
+  // (which varies per N) so we can't pre-seed — rows grow as reps land.
+  const allLabels = new Set<string>();
+  if (!expand) for (const s of STAGE_ORDER) allLabels.add(s);
+  for (const { stagesMap } of cols) for (const l of stagesMap.keys()) allLabels.add(l);
+  const orderedLabels = Array.from(allLabels).sort(compareStageLabels);
+  const topRanks = topRanksPerColumn(cols);
+
+  const headCells = cols
+    .map(({ logN, host, profileReps }, i) => {
+      const nb = host
+        ? `numBatches=${host.numBatches}, batchWindows=${host.batchWindows}`
+        : 'no data yet';
+      const prog = progress?.[i];
+      let tag = '';
+      if (prog) {
+        if (prog.done === 0) tag = ' <span class="samples">(pending)</span>';
+        else if (prog.done < prog.target)
+          tag = ` <span class="samples">(${prog.done}/${prog.target}…)</span>`;
+        else tag = ` <span class="samples">(${prog.target} reps)</span>`;
+      } else if (profileReps === 0) {
+        tag = ' <span class="samples">(no data)</span>';
+      }
+      return `<th>n = 2<sup>${logN}</sup> = ${(1 << logN).toLocaleString()}${tag}<br/><span class="samples">${nb}</span></th>`;
     })
     .join('');
 
-  const sumRow = (label: string, pick: (a: AggregatedProfile) => number | null, withPct = false): string => {
-    const cells = aggregates
-      .map(({ agg }) => {
-        if (!agg) return `<td>—</td>`;
-        const v = pick(agg);
-        return `<td>${withPct ? fmtPctCell(v, agg.gpuWallMs) : fmtCell(v)}</td>`;
+  const stageRows = orderedLabels
+    .map(label => {
+      const cells = cols
+        .map(({ stagesMap, wall }, i) => renderStageCell(stagesMap.get(label), wall, topRanks[i].get(label)))
+        .join('');
+      return `<tr><td>${label}</td>${cells}</tr>`;
+    })
+    .join('');
+
+  const totalsRows = [
+    `<tr><td><b>profiled Σ</b></td>${cols.map(c => renderPlainCell(c.profiledSum, c.wall)).join('')}</tr>`,
+    `<tr><td><b>gpu_other</b><br/><span class="samples">wall − profiled Σ</span></td>${cols
+      .map(c => renderPlainCell(c.gpuOther, c.wall))
+      .join('')}</tr>`,
+    `<tr><td><b>wall</b></td>${cols.map(c => `<td><b>${fmtTime(c.wall)}</b></td>`).join('')}</tr>`,
+  ].join('');
+
+  // `host_prepare` and its sub-phases happen BEFORE `run()` returns, so
+  // they're not part of `wall`. Compare them against e2e = prepare + wall —
+  // that's the actual per-MSM cost the caller sees end-to-end. The three
+  // in-wall phases (encode, submit_wait, decode) still use `wall` as the
+  // denominator so they continue to sum to ~100%.
+  //
+  // Two indent levels: `host_prepare` and the three in-wall phases are
+  // top-level. `prep_host_plan`, `scalar_upload_wall`, and `prep_other`
+  // (the inferred residual) are sub-phases of `host_prepare` — indented
+  // and prefixed with "↳" so the user reads them as a decomposition.
+  // `indent` is the row's nesting depth: 0 = top-level, 1 = sub-phase of
+  // host_prepare, 2 = sub-phase of prep_host_plan. Renders as a "↳" prefix
+  // repeated per level so the decomposition reads as a tree.
+  const hostPhases: { key: keyof MedianedHost; denom: 'wall' | 'e2e'; indent?: 0 | 1 | 2 }[] = [
+    { key: 'host_prepare', denom: 'e2e' },
+    { key: 'prep_host_plan', denom: 'e2e', indent: 1 },
+    { key: 'prep_booth_decode', denom: 'e2e', indent: 2 },
+    { key: 'prep_level_plan', denom: 'e2e', indent: 2 },
+    { key: 'scalar_upload_wall', denom: 'e2e', indent: 1 },
+    // prep_other inserted between scalar_upload_wall and host_encode (see below).
+    { key: 'host_encode', denom: 'wall' },
+    { key: 'host_submit_wait', denom: 'wall' },
+    { key: 'host_decode', denom: 'wall' },
+  ];
+  const renderHostRow = ({
+    key,
+    denom,
+    indent,
+  }: { key: keyof MedianedHost; denom: 'wall' | 'e2e'; indent?: 0 | 1 | 2 }): string => {
+    const cells = cols
+      .map(({ host, wall }) => {
+        if (!host) return `<td>—</td>`;
+        const d = denom === 'e2e' ? host.host_prepare + wall : wall;
+        return renderPlainCell(host[key] as number, d);
       })
       .join('');
-    return `<tr><td><b>${label}</b></td>${cells}</tr>`;
+    const note = denom === 'e2e' ? ' <span class="samples">(% of e2e)</span>' : '';
+    const prefix = indent ? `<span class="samples">${'↳ '.repeat(indent)}</span>` : '';
+    return `<tr><td>${prefix}${key}${note}</td>${cells}</tr>`;
   };
 
-  const cpuRows = Array.from(seenCpuPhases)
-    .map(phase => {
-      const cells = aggregates
-        .map(({ agg }) => {
-          if (!agg) return `<td>—</td>`;
-          return `<td>${fmtCell(agg.cpuPhases.get(phase))}</td>`;
-        })
-        .join('');
-      return `<tr><td>${phase}</td>${cells}</tr>`;
+  // prep_other = host_prepare − prep_host_plan − scalar_upload_wall. Catches
+  // the per-level uniform writes in fastPathRewrite plus any per-rep
+  // overhead the named sub-phases didn't cover. Should be tiny on the fast
+  // path; if it's not, there's an unaccounted-for sink in prepare().
+  const prepOtherRow = `<tr><td><span class="samples">↳</span> prep_other <span class="samples">(% of e2e, host_prepare − above)</span></td>${cols
+    .map(({ host, wall }) => {
+      if (!host) return `<td>—</td>`;
+      const other = Math.max(0, host.host_prepare - host.prep_host_plan - host.scalar_upload_wall);
+      return renderPlainCell(other, host.host_prepare + wall);
     })
-    .join('');
+    .join('')}</tr>`;
 
-  const regionRows = Array.from(seenRegions)
-    .map(region => {
-      const cells = aggregates
-        .map(({ agg }) => {
-          if (!agg) return `<td>—</td>`;
-          return `<td>${fmtPctCell(agg.perRegion.get(region), agg.gpuWallMs)}</td>`;
-        })
-        .join('');
-      return `<tr><td>[region] ${region}</td>${cells}</tr>`;
+  const hostRows = [
+    renderHostRow(hostPhases[0]), // host_prepare
+    renderHostRow(hostPhases[1]), // ↳ prep_host_plan
+    renderHostRow(hostPhases[2]), // ↳↳ prep_booth_decode
+    renderHostRow(hostPhases[3]), // ↳↳ prep_level_plan
+    renderHostRow(hostPhases[4]), // ↳ scalar_upload_wall
+    prepOtherRow,                 // ↳ prep_other (residual)
+    renderHostRow(hostPhases[5]), // host_encode
+    renderHostRow(hostPhases[6]), // host_submit_wait
+    renderHostRow(hostPhases[7]), // host_decode
+  ].join('');
+
+  // e2e per-MSM = host_prepare + wall — the total wall a caller of MsmV2
+  // sees for one prepare()+run() round-trip.
+  const e2eRow = `<tr><td><b>e2e (prepare + wall)</b></td>${cols
+    .map(({ host, wall }) => {
+      if (!host) return `<td>—</td>`;
+      const e2e = host.host_prepare + wall;
+      return `<td><b>${fmtTime(e2e)}</b></td>`;
     })
-    .join('');
+    .join('')}</tr>`;
 
-  // `inter_pass_overhead` = encoder_all − Σ(inner stages). This is the
-  // Dawn-side barrier/state-change cost between consecutive compute
-  // passes — invisible to `timestampWrites`, only inferable from the
-  // outer-region delta.
-  const interPassRow = (() => {
-    const cells = aggregates
-      .map(({ agg }) => {
-        if (!agg) return `<td>—</td>`;
-        const region = agg.perRegion.get('encoder_all');
-        const stagesSum = agg.profiledSumMs;
-        if (region === undefined || stagesSum === null) return `<td>—</td>`;
-        const v = Math.max(0, region - stagesSum);
-        return `<td>${fmtPctCell(v, agg.gpuWallMs)}</td>`;
-      })
-      .join('');
-    return `<tr><td><b>inter_pass_overhead</b><br/><span class="samples">encoder_all − Σ stages</span></td>${cells}</tr>`;
-  })();
+  const prepKindRow = `<tr><td>prepare_kind</td>${cols
+    .map(({ host }) => {
+      if (!host) return `<td>—</td>`;
+      const f = host.prepare_kind_fast;
+      const label = f >= 1 ? 'fast' : f <= 0 ? 'slow' : `mixed (${(f * 100).toFixed(0)}% fast)`;
+      return `<td>${label}</td>`;
+    })
+    .join('')}</tr>`;
 
-  // `post_encoder_tail` = gpu_compute_wall − encoder_all. The work
-  // that runs in the same encoder *after* the outer region closes:
-  // `profiler.resolve()` (resolveQuerySet + 12.8 KB copy) plus the
-  // staging copies inside `read_from_gpu`.
-  const postTailRow = (() => {
-    const cells = aggregates
-      .map(({ agg }) => {
-        if (!agg) return `<td>—</td>`;
-        const region = agg.perRegion.get('encoder_all');
-        const wall = agg.gpuWallMs;
-        if (region === undefined || wall === null) return `<td>—</td>`;
-        const v = Math.max(0, wall - region);
-        return `<td>${fmtPctCell(v, wall)}</td>`;
-      })
-      .join('');
-    return `<tr><td><b>post_encoder_tail</b><br/><span class="samples">wall − encoder_all</span></td>${cells}</tr>`;
-  })();
+  const scalarBytesRow = `<tr><td>scalar_upload_bytes</td>${cols
+    .map(({ host }) => `<td>${host ? fmtBytes(host.scalar_upload_bytes) : '—'}</td>`)
+    .join('')}</tr>`;
 
-  return `
-  <h3>GPU per-pass breakdown (median ms; subtasks/rounds summed within each rep)</h3>
+  const setupSection = setupTimings.pool_built
+    ? `
+  <h3>Setup (one-time)</h3>
   <table>
-    <tr><th>Stage</th>${headCells}</tr>
+    <tr><th>Phase</th><th>ms</th><th>notes</th></tr>
+    <tr><td>srs_fetch</td><td>${fmtTime(setupTimings.srs_fetch_ms)}</td><td>${setupTimings.srs_cached ? '(cached)' : ''}</td></tr>
+    <tr><td>srs_decompress</td><td>${fmtTime(setupTimings.srs_decompress_ms)}</td><td>${setupTimings.srs_cached ? '(cached)' : ''}</td></tr>
+    <tr><td>pool_upload</td><td>${fmtTime(setupTimings.pool_upload_ms)}</td><td>${fmtBytes(setupTimings.pool_upload_bytes)} writeBuffer</td></tr>
+    <tr><td>pool_convert</td><td>${fmtTime(setupTimings.pool_convert_ms)}</td><td>GPU dispatch</td></tr>
+  </table>`
+    : '';
+
+  // CSV: only dump once everything is finished, so the user gets a clean
+  // paste-ready block in the console (incremental renders would spam ~60
+  // CSVs into devtools over the course of one click).
+  const isFinal = progress ? progress.every(p => p.done >= p.target && p.target > 0) : true;
+  if (isFinal) {
+    const csvCols = cols.flatMap(({ logN }) => [`logn${logN}_ms`, `logn${logN}_pct`]);
+    const csvHeader = ['stage', ...csvCols].join(',');
+    const csvNumFor = (ms: number, wall: number): string[] => [
+      Number.isFinite(ms) ? ms.toFixed(4) : '',
+      Number.isFinite(ms) && wall > 0 ? ((100 * ms) / wall).toFixed(2) : '',
+    ];
+    const csvCellFor = (m: Map<string, number>, label: string, wall: number): string[] => {
+      const v = m.get(label);
+      return v === undefined ? ['', ''] : csvNumFor(v, wall);
+    };
+    const csvBody = [
+      ...orderedLabels.map(label =>
+        [label, ...cols.flatMap(c => csvCellFor(c.stagesMap, label, c.wall))].join(','),
+      ),
+      ['profiled_sum', ...cols.flatMap(c => csvNumFor(c.profiledSum, c.wall))].join(','),
+      ['gpu_other', ...cols.flatMap(c => csvNumFor(c.gpuOther, c.wall))].join(','),
+      ['wall', ...cols.flatMap(c => csvNumFor(c.wall, c.wall))].join(','),
+      ['e2e', ...cols.flatMap(c =>
+        c.host ? csvNumFor(c.host.host_prepare + c.wall, c.host.host_prepare + c.wall) : ['', ''],
+      )].join(','),
+      ...hostPhases.map(({ key, denom }) =>
+        [
+          key,
+          ...cols.flatMap(c => {
+            if (!c.host) return ['', ''];
+            const d = denom === 'e2e' ? c.host.host_prepare + c.wall : c.wall;
+            return csvNumFor(c.host[key] as number, d);
+          }),
+        ].join(','),
+      ),
+      ['prep_other', ...cols.flatMap(c => {
+        if (!c.host) return ['', ''];
+        const other = Math.max(0, c.host.host_prepare - c.host.prep_host_plan - c.host.scalar_upload_wall);
+        return csvNumFor(other, c.host.host_prepare + c.wall);
+      })].join(','),
+    ];
+    console.log([csvHeader, ...csvBody].join('\n'));
+  }
+
+  const view = expand ? 'per-batch view' : 'collapsed view';
+  return `
+  ${setupSection}
+  <h3>Per-MSM breakdown — ${view}, median of ${PROFILE_REPS} reps</h3>
+  <p style="font-size: 0.85rem; color: #6b7280;">
+    Cell format: <code>median</code> <span class="pct">(% of wall)</span>.
+    Top 3 stages per column are highlighted —
+    <span class="legend top1">#1</span>
+    <span class="legend top2">#2</span>
+    <span class="legend top3">#3</span>.
+  </p>
+  <table>
+    <tr><th>Stage (GPU pass)</th>${headCells}</tr>
     ${stageRows}
-    ${sumRow('profiled passes (Σ)', a => a.profiledSumMs, true)}
-    ${sumRow('untimestamped', a => a.untimestampedMs, true)}
-    ${sumRow('GPU compute wall', a => a.gpuWallMs)}
-    ${regionRows}
-    ${interPassRow}
-    ${postTailRow}
-    ${sumRow('readback_total', a => a.readbackMs)}
-    ${sumRow('mapasync_overhead', a => a.mapasyncMs)}
+    ${totalsRows}
   </table>
-  <h3>CPU host phases (median ms)</h3>
+  <h3>Host phases</h3>
   <table>
     <tr><th>Phase</th>${headCells}</tr>
-    ${cpuRows}
-    ${sumRow('total wall (CPU)', a => a.cpuTotalWallMs)}
-  </table>`;
+    ${hostRows}
+    ${e2eRow}
+    ${prepKindRow}
+    ${scalarBytesRow}
+  </table>
+  <p style="font-size: 0.8rem; color: #6b7280;">
+    CSV (stage, logn{${PROFILE_SIZES.join(',')}}_ms / _pct) logged to the JavaScript console for copy-paste.
+  </p>`;
 }
 
-function captureEntriesFromRows(rows: SweepRow[]): { logN: number; captures: ProfileCapture[] }[] {
-  return rows.map(r => ({
-    logN: r.logN,
-    captures: r.webgpu.map(s => s.capture).filter((c): c is ProfileCapture => c !== undefined),
-  }));
+// Sweep-table consumer of the breakdown — currently produces an empty string
+// because no sweep path runs with profile=true. Kept as the integration
+// point in case we later add a "profile sweep" button.
+function captureEntriesFromRows(_rows: SweepRow[]): { logN: number; captures: ProfileCapture[] }[] {
+  return [];
 }
 
 function renderSweepTable(rows: SweepRow[]): void {
@@ -876,7 +1103,7 @@ function renderSweepTable(rows: SweepRow[]): void {
   // the `profile_capture` out-params collected on every WebGPU rep.
   const refRow = rows.find(r => r.logN === NOBLE_REFERENCE_LOGN);
   $results.innerHTML =
-    renderConsistencyTable(refRow) + renderPerfTable(rows) + renderBreakdownTable(captureEntriesFromRows(rows));
+    renderConsistencyTable(refRow) + renderPerfTable(rows);
   $results.classList.add('visible');
 }
 
@@ -1014,10 +1241,9 @@ $runBench.addEventListener('click', async () => {
       log('info', `  gpu=${gpu.ms.toFixed(1)}, mt=${mt.ms.toFixed(1)}`);
     }
     log('ok', `[bench] medians: gpu=${median(gpuSamples).toFixed(1)}, mt=${median(mtSamples).toFixed(1)} ms`);
-    // Surface the per-pass GPU/CPU breakdown for the single logN
-    // benched. Same renderer the sweep uses, just with one column.
-    $results.innerHTML = renderBreakdownTable([{ logN, captures: gpuCaptures }]);
-    $results.classList.add('visible');
+    // Run × 5 doesn't enrol timestamp-query, so gpuCaptures are all null.
+    // The per-pass breakdown lives behind the Profile button instead.
+    void gpuCaptures;
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[bench] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
@@ -1123,6 +1349,62 @@ $runSweep.addEventListener('click', async () => {
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[sweep] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+  } finally {
+    setBusy(false);
+  }
+});
+
+/**
+ * WebGPU-only profile harness: at each of log₂(n) ∈ {12, 16, 20}, runs
+ * `PROFILE_REPS` MSMs (currently 20) with `timestamp-query` enrolled,
+ * medianises per-pass GPU times + host phases, and renders one breakdown
+ * table with one column per size. The first run after each `prepare()` is a
+ * throwaway warm-up (the existing `runWebGpuOnce` pattern). No WASM, no
+ * noble — pure WebGPU profile, so the table is comparable across machines
+ * that can't load the threaded WASM.
+ */
+$runProfile.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  abortRequested = false;
+  setBusy(true, 'profiling…');
+  const expand = $profilePerBatch.checked;
+  // Pre-allocate one entry per size so the table can render an empty
+  // skeleton on click and fill in column-by-column as reps complete.
+  const entries: { logN: number; captures: ProfileCapture[] }[] = PROFILE_SIZES.map(logN => ({
+    logN,
+    captures: [],
+  }));
+  const progress = PROFILE_SIZES.map(() => ({ done: 0, target: PROFILE_REPS }));
+  const renderNow = (): void => {
+    $results.innerHTML = renderProfileTable(entries, expand, progress);
+    $results.classList.add('visible');
+  };
+  renderNow();
+  try {
+    for (let ci = 0; ci < PROFILE_SIZES.length; ci++) {
+      const logN = PROFILE_SIZES[ci];
+      throwIfAborted();
+      log('info', `[profile] === log₂(n) = ${logN} (n = ${(1 << logN).toLocaleString()}) ===`);
+      const inputs = await generateInputs(logN, false);
+      await yieldToBrowser();
+      for (let i = 0; i < PROFILE_REPS; i++) {
+        throwIfAborted();
+        setBusy(true, `profiling log₂(n)=${logN} rep ${i + 1}/${PROFILE_REPS}…`);
+        log('info', `[profile]   rep ${i + 1}/${PROFILE_REPS}`);
+        const gpu = await runWebGpuOnce(inputs, { profile: true });
+        entries[ci].captures.push(gpu.capture);
+        progress[ci].done = i + 1;
+        renderNow();
+        await yieldToBrowser();
+      }
+    }
+    log('ok', `[profile] done — ${PROFILE_SIZES.length} sizes × ${PROFILE_REPS} reps`);
+    renderNow();
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[profile] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+    // Keep whatever partial table the user has — don't blow it away on abort.
+    renderNow();
   } finally {
     setBusy(false);
   }
@@ -1254,11 +1536,10 @@ $runSanity.addEventListener('click', async () => {
     log('info', `[sanity] gpu.x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
     logMemSnapshot('sanity-end');
     log('ok', `[sanity] PASS in ${gpu.ms.toFixed(0)} ms`);
-    // Single-capture breakdown — same renderer the sweep / bench use,
-    // with one column. Useful as a one-click "where is my time going"
-    // view after a fresh page reload.
-    $results.innerHTML = renderBreakdownTable([{ logN: 16, captures: [gpu.capture] }]);
-    $results.classList.add('visible');
+    // Sanity runs with profile=false, so per-pass breakdown is unavailable
+    // — click the Profile (× 5) button for that.
+    $results.innerHTML = '';
+    $results.classList.remove('visible');
     // Expose the raw capture so Playwright-driven profile scripts can
     // pull per-stage GPU times without scraping the rendered table.
     // Cleared at the start of every click, so a stale value from a
@@ -1372,10 +1653,20 @@ function hideProgress(): void {
 (async () => {
   setBusy(true, 'loading SRS…');
   try {
+    // Page-load detects the IndexedDB cache hit through the info log line —
+    // it's the only signal `loadSrsPoints` gives for that case. When cached,
+    // fetch / decompress both report 0 ms; when not, the final phase events
+    // for each phase carry the cumulative `elapsedMs`.
+    setupTimings.srs_cached = true;
     srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
       if (event.kind === 'info') {
+        // A non-cache info line means we went through the download/decompress
+        // path; flip srs_cached so the 0 ms timings get reported as real.
+        if (!event.msg.includes('IndexedDB cache')) setupTimings.srs_cached = false;
         log('info', event.msg);
       } else if (event.kind === 'phase') {
+        if (event.phase === 'download') setupTimings.srs_fetch_ms = event.elapsedMs;
+        else if (event.phase === 'decompress') setupTimings.srs_decompress_ms = event.elapsedMs;
         renderProgress(event);
       } else if (event.kind === 'done') {
         hideProgress();

@@ -80,18 +80,62 @@ export interface MsmConfig {
   combineOnHost?: boolean;
 }
 
-/** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
-export interface ProfileBreakdown {
-  decompose: number;
-  transpose: number;
-  convert: number;
-  planner: number;
-  fused: number;
-  carry: number;
-  finalize: number;
-  redInit: number;
-  redLevel: number;
+/** One timestamped GPU compute pass within a `run()`. `label` is the stage
+ *  name with a `#<batchIdx>` suffix for passes inside the per-batch loop
+ *  (e.g. `decompose#0`); reduction passes that live outside the batch loop
+ *  carry no suffix (e.g. `reduce_init`). `ms` is `end - begin` of the pass's
+ *  timestamp pair, converted to milliseconds. */
+export interface PassSample {
+  label: string;
+  ms: number;
+}
+
+/** Host-side wall-clock breakdown of one `run()`, plus the matching `prepare()`
+ *  that immediately preceded it. */
+export interface HostPhases {
+  /** Wall time spent in the last `prepare()` call on this instance. */
+  host_prepare: number;
+  /** Which `prepare()` branch ran: `fast` = uniform rewrite only,
+   *  `slow` = full buffer + bind-group rebuild. */
+  prepare_kind: 'fast' | 'slow';
+  /** Wall time from encoder open through `enc.finish()`. */
+  host_encode: number;
+  /** Wall time between `queue.submit` and `redStaging.mapAsync` resolution —
+   *  the GPU compute window from the host's perspective. */
+  host_submit_wait: number;
+  /** Wall time spent decoding the mapped window-sums staging and host-combining
+   *  (if `combineOnHost`). */
+  host_decode: number;
+  /** Total wall time of the `run()` call (encode + submit_wait + decode + the
+   *  small overhead of reading the timestamp staging buffer). */
   wall: number;
+  /** Wall time of the per-MSM scalar `writeBuffer` inside `prepare()`. */
+  scalar_upload_wall: number;
+  /** Bytes uploaded by `scalar_upload_wall` (`n × 32`). */
+  scalar_upload_bytes: number;
+  /** Sub-phase of `host_prepare`: pure host-CPU work — `buildInitCounts`
+   *  (Booth decode + level-0 histogram) and the per-level planning loop.
+   *  Doesn't include any `writeBuffer` or `createBuffer` calls. */
+  prep_host_plan: number;
+  /** Of `prep_host_plan`, the `buildInitCounts` Booth-decode walk:
+   *  `n × numWindows` bit-extracts + counter bumps. The lion's share of the
+   *  level-0 histogram cost on large n. */
+  prep_booth_decode: number;
+  /** Of `prep_host_plan`, the per-level walk over the bucket grid that
+   *  computes the next-level counts + per-window pair/carry totals. */
+  prep_level_plan: number;
+}
+
+/** Per-MSM profile returned by `MsmV2.run()` when `profile` is set. */
+export interface ProfileBreakdown {
+  /** One entry per timestamped compute pass, in encode order. */
+  passes: PassSample[];
+  /** Host wall-clock decomposition of this `run()` + the matching `prepare()`. */
+  host: HostPhases;
+  /** Window-batch count for this MSM (= number of `decompose#i` passes). */
+  numBatches: number;
+  /** Windows per batch (= the `numWindows / numBatches` slice). */
+  batchWindows: number;
 }
 
 // --- pure helpers ---
@@ -845,11 +889,22 @@ export class MsmV2Pool {
    * once for the whole SRS), and its bounds guard discards threads whose
    * `id >= srsN`.
    */
-  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmV2Pool> {
+  /** One-time setup timings populated by `MsmV2Pool.create` when called with
+   *  `{ profile: true }`. The pool-convert pass uses a `timestamp-query`
+   *  query set when available; if the device lacks the feature, `convert_ms`
+   *  falls back to the host wall-clock around `onSubmittedWorkDone()`. */
+  createProfile: { upload_ms: number; upload_bytes: number; convert_ms: number } | null = null;
+
+  static async create(
+    device: GPUDevice,
+    srsCanonicalBytes: Uint8Array,
+    opts?: { profile?: boolean },
+  ): Promise<MsmV2Pool> {
     const srsN = srsCanonicalBytes.byteLength / 64;
     if (!Number.isInteger(srsN) || srsN <= 0) {
       throw new Error(`MsmV2Pool.create: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`);
     }
+    const wantProfile = opts?.profile === true;
 
     // convert_points_only reads the raw input from two storage buffers (its
     // first_half / second_half bindings); split by point count. For odd
@@ -863,6 +918,7 @@ export class MsmV2Pool {
       size: Math.max(4, srsCanonicalBytes.byteLength - halfBytes),
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
+    const tUpload0 = wantProfile ? performance.now() : 0;
     device.queue.writeBuffer(firstHalf, 0, srsCanonicalBytes as BufferSource, 0, halfBytes);
     device.queue.writeBuffer(
       secondHalf,
@@ -871,6 +927,7 @@ export class MsmV2Pool {
       halfBytes,
       srsCanonicalBytes.byteLength - halfBytes,
     );
+    const uploadMs = wantProfile ? performance.now() - tUpload0 : 0;
 
     // Montgomery-form pool: 8×u32 (32 bytes) per coordinate. Exactly srsN
     // slots — no over-allocation for non-power-of-two srsN.
@@ -918,18 +975,56 @@ export class MsmV2Pool {
       })),
     });
 
+    const tsAvailable = wantProfile && device.features.has('timestamp-query');
+    const querySet: GPUQuerySet | null = tsAvailable
+      ? device.createQuerySet({ type: 'timestamp', count: 2 })
+      : null;
+    const tsResolveBuf: GPUBuffer | null = tsAvailable
+      ? device.createBuffer({ size: 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC })
+      : null;
+    const tsStagingBuf: GPUBuffer | null = tsAvailable
+      ? device.createBuffer({ size: 16, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST })
+      : null;
     const enc = device.createCommandEncoder();
-    const pass = enc.beginComputePass();
+    const passDesc: GPUComputePassDescriptor = {};
+    if (querySet !== null) {
+      passDesc.timestampWrites = { querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 };
+    }
+    const pass = enc.beginComputePass(passDesc);
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bind);
     pass.dispatchWorkgroups(numXWorkgroups, numYWorkgroups, 1);
     pass.end();
+    if (querySet !== null && tsResolveBuf !== null && tsStagingBuf !== null) {
+      enc.resolveQuerySet(querySet, 0, 2, tsResolveBuf, 0);
+      enc.copyBufferToBuffer(tsResolveBuf, 0, tsStagingBuf, 0, 16);
+    }
+    const tConvert0 = wantProfile ? performance.now() : 0;
     device.queue.submit([enc.finish()]);
     await device.queue.onSubmittedWorkDone();
+    const convertWallMs = wantProfile ? performance.now() - tConvert0 : 0;
+
+    let convertMs = convertWallMs;
+    if (tsStagingBuf !== null) {
+      try {
+        await tsStagingBuf.mapAsync(GPUMapMode.READ);
+        const ts = new BigUint64Array(tsStagingBuf.getMappedRange().slice(0));
+        tsStagingBuf.unmap();
+        convertMs = Number(ts[1] - ts[0]) / 1e6;
+      } catch {
+        // Fall through to convertWallMs (mapAsync raced or was unavailable).
+      }
+    }
+    if (wantProfile) {
+      pool.createProfile = { upload_ms: uploadMs, upload_bytes: srsCanonicalBytes.byteLength, convert_ms: convertMs };
+    }
 
     firstHalf.destroy();
     secondHalf.destroy();
     params.destroy();
+    querySet?.destroy();
+    tsResolveBuf?.destroy();
+    tsStagingBuf?.destroy();
     return pool;
   }
 
@@ -1102,6 +1197,22 @@ export class MsmV2 {
   private tsResolveBuf: GPUBuffer | null = null;
   private tsStagingBuf: GPUBuffer | null = null;
   private passCount = 0;
+  // Per-pass label written by encodeIntoBatch on every `dispatch()` call, in
+  // the same order as the timestamp-query pairs. Populated only when
+  // `this.profile` is true; otherwise stays empty and the push is bypassed
+  // (so the bridge path with `profile: false` pays nothing). Reset at the top
+  // of each encodeIntoBatch.
+  private passLabels: string[] = [];
+  // Host-side prepare() instrumentation — populated by every prepare() call,
+  // consumed by run() to build ProfileBreakdown.host. The dev page profile
+  // mode reads these to surface per-MSM scalar upload bandwidth.
+  private lastPrepareMs = 0;
+  private lastPrepareKind: 'fast' | 'slow' = 'slow';
+  private lastScalarUploadMs = 0;
+  private lastScalarUploadBytes = 0;
+  private lastPrepHostPlanMs = 0;
+  private lastPrepBoothDecodeMs = 0;
+  private lastPrepLevelPlanMs = 0;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
   private xposeReduceBind!: GPUBindGroup;
@@ -1406,6 +1517,7 @@ export class MsmV2 {
     // Cache key includes srsOffset so a re-prepare with same scalars but
     // different offset rewrites the uniform.
     if (this.preparedFor === scalarsBuf && this.preparedSrsOffset === srsOffset) return;
+    const tPrepStart = performance.now();
 
     const device = this.device;
     const n = this.n;
@@ -1435,12 +1547,15 @@ export class MsmV2 {
       new Uint8Array(scalars.buffer).set(scalarsBuf);
     }
     // Level-0 histogram from the raw bytes — no BigInt in the hot path.
+    const tBooth0 = performance.now();
     const initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+    this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
 
     // Ping-pong two pre-allocated count buffers and fold the wstride1
     // computation into the same walk. Avoids ~18 × ~333 KB allocations per
     // prepare (>5 ms of GC churn for n=88_899) and removes the second pass
     // over `levelCounts` that wstride1 used to do.
+    const tLevelPlan0 = performance.now();
     const levelPlans: LevelPlan[] = [];
     let wstride1 = 1;
     {
@@ -1497,6 +1612,7 @@ export class MsmV2 {
       }
     }
     const levels = levelPlans.length;
+    this.lastPrepLevelPlanMs = performance.now() - tLevelPlan0;
 
     // --- Lever G: budget-driven window-batch count.
     const maxPairBlocksPerWindow = Math.max(1, ...levelPlans.map(p => p.pairBlocksPerWindow));
@@ -1545,6 +1661,13 @@ export class MsmV2 {
       MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
     }
 
+    // Stamp the host-CPU portion of prepare(): buildInitCounts + level-plan
+    // loop + estimateMem are everything above this point, all pure JS with no
+    // GPU calls. Everything below (fits-check, writeBuffers, createBuffers)
+    // touches the device. Surfacing this separately tells us whether
+    // host_prepare is dominated by JS loops or by GPU uploads.
+    this.lastPrepHostPlanMs = performance.now() - tPrepStart;
+
     // --- Fast path: subsequent prepare() with a plan that fits in the
     // already-allocated buffers + bind groups. Skips the destroy+realloc of
     // ~40 GPU buffers (the dominant per-MSM cost on M4 Pro; ~150 ms each).
@@ -1563,9 +1686,13 @@ export class MsmV2 {
       MAXC <= this.capMAXC &&
       this.boundEpoch === this.pool.scratchEpoch;
     if (fits) {
+      // fastPathRewrite times the scalar writeBuffer in isolation and sets
+      // lastScalarUploadMs / lastScalarUploadBytes directly.
       this.fastPathRewrite(scalars, srsOffset, levelPlans, levels);
       this.preparedFor = scalarsBuf;
       this.preparedSrsOffset = srsOffset;
+      this.lastPrepareKind = 'fast';
+      this.lastPrepareMs = performance.now() - tPrepStart;
       return;
     }
 
@@ -1714,7 +1841,10 @@ export class MsmV2 {
     const carryPlanRing = scratch.carryPlanRing;
     const prefScratchBuf = scratch.prefScratchBuf;
     const scalarsRawBuf = scratch.scalarsRawBuf;
+    const tScalarUpload0 = performance.now();
     device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
+    this.lastScalarUploadMs = performance.now() - tScalarUpload0;
+    this.lastScalarUploadBytes = scalars.byteLength;
     this.scalarsRawBuf = scalarsRawBuf;
     const bucketAndSignBuf = scratch.bucketAndSignBuf;
     const rowPtrBuf = scratch.rowPtrBuf;
@@ -1963,6 +2093,8 @@ export class MsmV2 {
 
     this.preparedFor = scalarsBuf;
     this.preparedSrsOffset = srsOffset;
+    this.lastPrepareKind = 'slow';
+    this.lastPrepareMs = performance.now() - tPrepStart;
   }
 
   /**
@@ -1986,7 +2118,14 @@ export class MsmV2 {
     const device = this.device;
     const WGI = this.wgi;
     const FUSED_TILE = this.fusedTileSize;
+    // Time the scalar writeBuffer in isolation — on the fast path it's the
+    // dominant cost at large n (32 MiB at ~120 MiB/s ≈ 270 ms at n=2^20), so
+    // surfacing it separately from the rest of prepare() is the whole point
+    // of the profile mode.
+    const tScalarUpload0 = performance.now();
     device.queue.writeBuffer(this.scalarsRawBuf, 0, scalars as BufferSource);
+    this.lastScalarUploadMs = performance.now() - tScalarUpload0;
+    this.lastScalarUploadBytes = scalars.byteLength;
     if (srsOffset !== this.preparedSrsOffset) {
       device.queue.writeBuffer(this.convActiveParamsBuf, 4, new Uint32Array([srsOffset]));
     }
@@ -2069,7 +2208,11 @@ export class MsmV2 {
     const { wgi: WGI } = this;
     let passIdx = 0;
     const profEnabled = this.profile && this.querySet;
-    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1): void => {
+    // Reset labels at the top of every encode. Bound to the same instance,
+    // so a second encodeIntoBatch on the same MSM (rare but legal) overwrites
+    // the prior batch's labels — matching what the query set itself does.
+    if (profEnabled) this.passLabels.length = 0;
+    const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny: number, label: string): void => {
       const desc: GPUComputePassDescriptor = {};
       if (profEnabled) {
         desc.timestampWrites = {
@@ -2077,6 +2220,7 @@ export class MsmV2 {
           beginningOfPassWriteIndex: 2 * passIdx,
           endOfPassWriteIndex: 2 * passIdx + 1,
         };
+        this.passLabels.push(label);
         passIdx++;
       }
       const pass = enc.beginComputePass(desc);
@@ -2115,32 +2259,33 @@ export class MsmV2 {
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
-      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
+      const bsfx = `#${bi}`;
+      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw, `decompose${bsfx}`);
       enc.clearBuffer(this.rowPtrBuf);
-      dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw);
-      dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw);
-      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1);
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw);
-      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
-      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1);
+      dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw, `xpose_count${bsfx}`);
+      dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw, `xpose_reduce${bsfx}`);
+      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, `xpose_scan${bsfx}`);
+      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw, `xpose_scatter${bsfx}`);
+      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, `csr2v2_active${bsfx}`);
+      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1, `csr2v2_meta${bsfx}`);
       for (let lv = 0; lv < this.levels; lv++) {
         const lb = this.levelBinds[lv];
         const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
         const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
         const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
-        dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1);
-        dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows);
+        dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1, `planner_a${bsfx}`);
+        dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows, `planner_b${bsfx}`);
         for (const tile of lb.fusedTiles) {
-          if (tile.nx > 0) dispatch(fp, tile.bind, tile.nx, 1);
+          if (tile.nx > 0) dispatch(fp, tile.bind, tile.nx, 1, `fused${bsfx}`);
         }
-        dispatch(cp, lb.carryBind, lb.nCarry, 1);
-        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1);
+        dispatch(cp, lb.carryBind, lb.nCarry, 1, `carry${bsfx}`);
+        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1, `finalize${bsfx}`);
       }
     }
-    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
+    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1, 'reduce_init');
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
       const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
-      dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+      dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1, 'reduce_level');
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset.
@@ -2150,9 +2295,14 @@ export class MsmV2 {
       enc.copyBufferToBuffer(this.redBuf, g, dstStaging, dstByteOff + w * 64, 32);
       enc.copyBufferToBuffer(this.redBuf, yPlane + g, dstStaging, dstByteOff + w * 64 + 32, 32);
     }
-    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
-      enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
-      enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
+    if (profEnabled && this.tsResolveBuf && this.tsStagingBuf) {
+      // Resolve only the slots we actually wrote (fast-path rewrites can
+      // skip fused tiles whose dispatch count fell to zero, so passIdx ≤
+      // this.passCount). Reading the unused tail would deliver zeros and
+      // pollute the per-pass breakdown.
+      const usedPairs = passIdx;
+      enc.resolveQuerySet(this.querySet!, 0, usedPairs * 2, this.tsResolveBuf, 0);
+      enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, usedPairs * 16);
     }
   }
 
@@ -2173,8 +2323,36 @@ export class MsmV2 {
     const ts = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
     this.tsStagingBuf.unmap();
     let totalNs = 0n;
-    for (let p = 0; p < this.passCount; p++) totalNs += ts[2 * p + 1] - ts[2 * p];
+    // Iterate only the passes actually written by the last encodeIntoBatch
+    // (this.passLabels.length), not the slow-path cap (this.passCount). On a
+    // fast-path rewrite some fused tiles fall to nx=0 and skip dispatch.
+    const actual = this.passLabels.length;
+    for (let p = 0; p < actual; p++) totalNs += ts[2 * p + 1] - ts[2 * p];
     return Number(totalNs) / 1e6;
+  }
+
+  /**
+   * Read the per-pass GPU timestamps and pair them with the labels pushed by
+   * the last encodeIntoBatch. Same staging-buffer contract as
+   * {@link readProfileGpuMs}: caller must ensure the encoder has been
+   * submitted and either `device.queue.onSubmittedWorkDone()` or the staging
+   * buffer's `mapAsync` has resolved. Returns `[]` when profile mode is off.
+   */
+  async readProfilePassSamples(): Promise<PassSample[]> {
+    if (!this.profile || !this.tsStagingBuf) return [];
+    try {
+      await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
+    } catch {
+      return [];
+    }
+    const ts = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
+    this.tsStagingBuf.unmap();
+    const labels = this.passLabels;
+    const out: PassSample[] = new Array(labels.length);
+    for (let p = 0; p < labels.length; p++) {
+      out[p] = { label: labels[p], ms: Number(ts[2 * p + 1] - ts[2 * p]) / 1e6 };
+    }
+    return out;
   }
 
   /**
@@ -2203,12 +2381,11 @@ export class MsmV2 {
     const wallT0 = performance.now();
     const enc = device.createCommandEncoder();
     this.encodeIntoBatch(enc, this.redStaging, 0);
-    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
-      enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
-      enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
-    }
-    device.queue.submit([enc.finish()]);
+    const cb = enc.finish();
+    const encT1 = performance.now();
+    device.queue.submit([cb]);
     await this.redStaging.mapAsync(GPUMapMode.READ);
+    const submitWaitT1 = performance.now();
 
     const stagingBytes = new Uint8Array(this.redStaging.getMappedRange());
     const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
@@ -2217,45 +2394,38 @@ export class MsmV2 {
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
+    const decodeT1 = performance.now();
 
-    // Per-pass GPU timestamps were tracked here pre-refactor; the new
-    // encodeIntoBatch path doesn't capture category labels (the dev page's
-    // profile-mode breakdown is no longer reconstructed from this code path
-    // — use the dev sweep page directly for that). Wall time still works.
     let profile: ProfileBreakdown | null = null;
     if (this.profile && this.tsStagingBuf) {
-      // Sum (end - begin) across every pass to get total GPU compute time,
-      // distinct from `wall` (which includes encode + submit + mapAsync poll).
-      // Categorized breakdown removed in the encodeIntoBatch refactor; the
-      // microbench-relevant number is total compute, which lands in `decompose`
-      // as the only non-zero field so the dev page's profile breakdown view
-      // still works as a "total GPU time" gauge.
-      let totalNs = 0n;
-      try {
-        await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
-        const tsArr = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
-        this.tsStagingBuf.unmap();
-        for (let p = 0; p < this.passCount; p++) {
-          totalNs += tsArr[2 * p + 1] - tsArr[2 * p];
-        }
-      } catch {
-        // mapAsync raced (already-mapped from a prior run); skip this sample.
-      }
-      const totalMs = Number(totalNs) / 1e6;
+      const passes = await this.readProfilePassSamples();
       profile = {
-        decompose: totalMs,
-        transpose: 0,
-        convert: 0,
-        planner: 0,
-        fused: 0,
-        carry: 0,
-        finalize: 0,
-        redInit: 0,
-        redLevel: 0,
-        wall: performance.now() - wallT0,
+        passes,
+        host: {
+          host_prepare: this.lastPrepareMs,
+          prepare_kind: this.lastPrepareKind,
+          host_encode: encT1 - wallT0,
+          host_submit_wait: submitWaitT1 - encT1,
+          host_decode: decodeT1 - submitWaitT1,
+          wall: performance.now() - wallT0,
+          scalar_upload_wall: this.lastScalarUploadMs,
+          scalar_upload_bytes: this.lastScalarUploadBytes,
+          prep_host_plan: this.lastPrepHostPlanMs,
+          prep_booth_decode: this.lastPrepBoothDecodeMs,
+          prep_level_plan: this.lastPrepLevelPlanMs,
+        },
+        numBatches: this.numBatches,
+        batchWindows: this.batchWindows,
       };
     }
     return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
+  }
+
+  /** True iff this MSM was built with `profile: true` and the device supports
+   *  `timestamp-query` — i.e. `run()` will return a non-null `ProfileBreakdown`
+   *  and `readProfilePassSamples()` returns real samples. */
+  get profileEnabled(): boolean {
+    return this.profile;
   }
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */
