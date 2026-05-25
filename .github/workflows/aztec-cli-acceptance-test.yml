@@ -42,7 +42,7 @@ jobs:
 
   notify:
     needs: release-acceptance
-    if: always() && github.event_name != 'workflow_dispatch'
+    if: (success() || failure()) && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
