@@ -15,8 +15,9 @@ mod test;
 /// Asserts that a nullifier existed by the time a block was mined.
 ///
 /// This function takes a _siloed_ nullifier, i.e. the value that is actually stored in the tree. Use
-/// [`crate::protocol::hash::compute_siloed_nullifier`] to convert an inner nullifier (what
-/// [`PrivateContext::push_nullifier`](crate::context::PrivateContext::push_nullifier) takes) into a siloed one.
+/// [`crate::protocol::hash::compute_siloed_nullifier`] to convert an inner nullifier
+/// (what [`PrivateContext::push_nullifier_unsafe`](crate::context::PrivateContext::push_nullifier_unsafe)
+/// takes) into a siloed one.
 ///
 /// Note that this does not mean that the nullifier was created **at** `block_header`, only that it was present in the
 /// tree once all transactions from `block_header` were executed.
@@ -56,8 +57,9 @@ pub fn assert_nullifier_existed_by(block_header: BlockHeader, siloed_nullifier: 
 /// Asserts that a nullifier did not exist by the time a block was mined.
 ///
 /// This function takes a _siloed_ nullifier, i.e. the value that is actually stored in the tree. Use
-/// [`crate::protocol::hash::compute_siloed_nullifier`] to convert an inner nullifier (what
-/// [`PrivateContext::push_nullifier`](crate::context::PrivateContext::push_nullifier) takes) into a siloed one.
+/// [`crate::protocol::hash::compute_siloed_nullifier`] to convert an inner nullifier
+/// (what [`PrivateContext::push_nullifier_unsafe`](crate::context::PrivateContext::push_nullifier_unsafe)
+/// takes) into a siloed one.
 ///
 /// In order to prove that a nullifier **did** exist by `block_header`, use [`assert_nullifier_existed_by`].
 ///
@@ -69,8 +71,8 @@ pub fn assert_nullifier_existed_by(block_header: BlockHeader, siloed_nullifier: 
 ///
 /// If you **must** prove that a nullifier does not exist by the time a transaction is executed, there only two ways to
 /// do this: by actually emitting the nullifier via
-/// [`PrivateContext::push_nullifier`](crate::context::PrivateContext::push_nullifier) (which can of course can be done
-/// once), or by calling a public contract function that calls
+/// [`PrivateContext::push_nullifier_unsafe`](crate::context::PrivateContext::push_nullifier_unsafe)
+/// (which can of course only be done once), or by calling a public contract function that calls
 /// [`PublicContext::nullifier_exists_unsafe`](crate::context::PublicContext::nullifier_exists_unsafe) (which leaks
 /// that this nullifier is being checked):
 ///
