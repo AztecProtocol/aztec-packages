@@ -962,6 +962,12 @@ describe('NativeWorldState', () => {
 
       await sleep(closeDelayMs * 3);
 
+      // The `closeDelayMs` branch of `[Symbol.asyncDispose]` is fire-and-forget, so under CI load the
+      // scheduled close may not have completed by the time `sleep` returns. `close()` is idempotent and
+      // returns the in-flight `closePromise` set by the timer-driven dispose (or triggers it now if the
+      // timer is still pending), giving the queue cleanup a deterministic point to settle.
+      await delayedFork.close();
+
       expect(warnSpy).not.toHaveBeenCalled();
       expect((ws as any).instance.queues.has(forkId)).toBe(false);
     });
