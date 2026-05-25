@@ -276,6 +276,24 @@ function stripAbis(obj: any) {
   });
 }
 
+/**
+ * Best-effort decode of a raw revert payload (`0x...`) against an ABI.
+ * Returns a human-readable `ErrorName(arg1, arg2, ...)` string, or `undefined` if the selector
+ * is unknown or the payload is empty. Use to surface decoded error names alongside the raw
+ * payload in log lines for operators.
+ */
+export function tryDecodeRevertReason(data: Hex | undefined, abi: Abi): string | undefined {
+  if (!data || data === '0x') {
+    return undefined;
+  }
+  try {
+    const decoded = decodeErrorResult({ abi, data });
+    return `${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`;
+  } catch {
+    return undefined;
+  }
+}
+
 export function tryGetCustomErrorName(err: any) {
   try {
     // See https://viem.sh/docs/contract/simulateContract#handling-custom-errors

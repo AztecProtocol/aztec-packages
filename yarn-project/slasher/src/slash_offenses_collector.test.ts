@@ -164,7 +164,7 @@ describe('SlashOffensesCollector', () => {
       {
         validator: validator3,
         amount: 1500000000000000000n,
-        offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         epochOrSlot: 175n, // slot 175 >= 110
       },
     ];
@@ -201,7 +201,7 @@ describe('SlashOffensesCollector', () => {
     expect(offensesByValidator[validator3.toString()]).toMatchObject({
       validator: validator3,
       amount: 1500000000000000000n,
-      offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+      offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
       epochOrSlot: 175n,
     });
   });

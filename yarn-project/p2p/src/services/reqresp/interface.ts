@@ -78,22 +78,10 @@ export interface ProtocolRateLimitQuota {
   globalLimit: RateLimitQuota;
 }
 
-export const noopValidator = () => Promise.resolve(true);
-
 /**
  * A type mapping from supprotocol to it's handling function
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
-
-type ResponseValidator<RequestIdentifier, Response> = (
-  request: RequestIdentifier,
-  response: Response,
-  peerId: PeerId,
-) => Promise<boolean>;
-
-export type ReqRespSubProtocolValidators = {
-  [S in ReqRespSubProtocol]: ResponseValidator<any, any>;
-};
 
 /**
  * Protocols that are always allowed without authentication, even when p2pAllowOnlyValidators is enabled.
@@ -112,15 +100,6 @@ export const UNAUTHENTICATED_ALLOWED_PROTOCOLS: ReadonlySet<ReqRespSubProtocol> 
  * Returns true if the peer should be rejected (i.e. p2pAllowOnlyValidators is on and peer is unauthenticated).
  */
 export type ShouldRejectPeer = (peerId: string) => boolean;
-
-export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [ReqRespSubProtocol.PING]: noopValidator,
-  [ReqRespSubProtocol.STATUS]: noopValidator,
-  [ReqRespSubProtocol.TX]: noopValidator,
-  [ReqRespSubProtocol.GOODBYE]: noopValidator,
-  [ReqRespSubProtocol.AUTH]: noopValidator,
-  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
-};
 
 /*
  * Helper class to sub-protocol validation error*/
@@ -244,24 +223,9 @@ export const subProtocolSizeCalculators: Record<ReqRespSubProtocol, ExpectedResp
 };
 
 export interface ReqRespInterface {
-  start(
-    subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,
-    subProtocolValidators: ReqRespSubProtocolValidators,
-  ): Promise<void>;
-  addSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void>;
+  start(subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>): Promise<void>;
+  addSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void>;
   stop(): Promise<void>;
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeer: PeerId | undefined,
-    timeoutMs?: number,
-    maxPeers?: number,
-    maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>;
   sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,

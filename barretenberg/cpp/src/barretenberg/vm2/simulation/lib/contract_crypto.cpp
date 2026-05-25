@@ -74,18 +74,17 @@ FF compute_contract_class_id(const FF& artifact_hash, const FF& private_fn_root,
     return poseidon2::hash({ DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_fn_root, public_bytecode_commitment });
 }
 
+// public_keys_hash combines the four hashes (with the ivpk_m one computed in-circuit
+// from its (x, y) coordinates) under DOM_SEP__PUBLIC_KEYS_HASH.
 FF hash_public_keys(const PublicKeys& public_keys)
 {
-    std::vector<FF> public_keys_hash_fields = public_keys.to_fields();
-
-    std::vector<FF> public_key_hash_vec{ DOM_SEP__PUBLIC_KEYS_HASH };
-    for (size_t i = 0; i < public_keys_hash_fields.size(); i += 2) {
-        public_key_hash_vec.push_back(public_keys_hash_fields[i]);
-        public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
-        // TODO(#7529): is_infinity will be removed from address preimage, assuming false.
-        public_key_hash_vec.push_back(FF::zero());
-    }
-    return poseidon2::hash({ public_key_hash_vec });
+    FF incoming_viewing_key_hash = poseidon2::hash(
+        { DOM_SEP__SINGLE_PUBLIC_KEY_HASH, public_keys.incoming_viewing_key.x, public_keys.incoming_viewing_key.y });
+    return poseidon2::hash({ DOM_SEP__PUBLIC_KEYS_HASH,
+                             public_keys.nullifier_key_hash,
+                             incoming_viewing_key_hash,
+                             public_keys.outgoing_viewing_key_hash,
+                             public_keys.tagging_key_hash });
 }
 
 // Computes a contract instance's derived address. Follows method of AddressDerivation::assert_derivation() (noir's
@@ -95,12 +94,13 @@ FF compute_contract_address(const ContractInstance& contract_instance)
     FF salted_initialization_hash = poseidon2::hash({ DOM_SEP__SALTED_INITIALIZATION_HASH,
                                                       contract_instance.salt,
                                                       contract_instance.initialization_hash,
-                                                      contract_instance.deployer });
+                                                      contract_instance.deployer,
+                                                      contract_instance.immutables_hash });
     FF partial_address = poseidon2::hash(
         { DOM_SEP__PARTIAL_ADDRESS, contract_instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(contract_instance.public_keys);
-    FF h = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    FF h = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
     // This is safe since BN254_Fr < GRUMPKIN_Fr so we know there is no modulo reduction
     grumpkin::fr h_fq = grumpkin::fr(h);
     BB_ASSERT(contract_instance.public_keys.incoming_viewing_key.on_curve(),

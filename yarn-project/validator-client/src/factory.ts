@@ -4,6 +4,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import { BlockProposalValidator, type P2PClient } from '@aztec/p2p';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { TelemetryClient } from '@aztec/telemetry-client';
@@ -26,6 +27,7 @@ export function createProposalHandler(
     blobClient: BlobClientInterface;
     dateProvider: DateProvider;
     telemetry: TelemetryClient;
+    reexecutionTracker: CheckpointReexecutionTracker;
   },
 ) {
   const metrics = new ValidatorMetrics(deps.telemetry);
@@ -48,6 +50,7 @@ export function createProposalHandler(
     deps.epochCache,
     config,
     deps.blobClient,
+    deps.reexecutionTracker,
     metrics,
     deps.dateProvider,
     deps.telemetry,
@@ -68,6 +71,7 @@ export function createValidatorClient(
     epochCache: EpochCache;
     keyStoreManager: KeystoreManager | undefined;
     blobClient: BlobClientInterface;
+    reexecutionTracker: CheckpointReexecutionTracker;
     slashingProtectionDb?: SlashingProtectionDatabase;
   },
 ) {
@@ -87,6 +91,7 @@ export function createValidatorClient(
     txProvider,
     deps.keyStoreManager,
     deps.blobClient,
+    deps.reexecutionTracker,
     deps.dateProvider,
     deps.telemetry,
     deps.slashingProtectionDb,

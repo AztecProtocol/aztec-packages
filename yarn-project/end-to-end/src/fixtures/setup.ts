@@ -213,6 +213,9 @@ export type SetupOptions = {
   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
   skipInitialSequencer?: boolean;
+  /** Whether to swap the production Sequencer for the minimal AutomineSequencer.
+   * Use only for single-sequencer non-block-building tests. See AUTOMINE_E2E_OPTS in `fixtures.ts`. */
+  useAutomineSequencer?: boolean;
   /** Options forwarded to PXE creation (e.g. execution hooks). */
   pxeCreationOptions?: PXECreationOptions;
 } & Partial<AztecNodeConfig>;
@@ -457,6 +460,24 @@ export async function setup(
     Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
+    // Propagate L1-contracts-config overrides back to the node config so the archiver's
+    // `l1Constants` (and any other node-side consumer) agrees with what was actually deployed.
+    // Without this, a per-test override like `aztecEpochDuration: 4` lands on the rollup contract
+    // but the node config keeps the default (32), so `archiver.isEpochComplete(0)` computes
+    // `endSlot=31` and `EpochTestSettler`/`EpochMonitor` never fires — letting the
+    // `aztecProofSubmissionEpochs` window expire mid-test and prune the pending chain.
+    // Skip undefined values: callers (e.g. `P2PNetworkTest`) sometimes build `l1ContractsArgs`
+    // by spreading a partial `AztecNodeConfig`, which leaves unset fields (notably `dataDirectory`)
+    // as `undefined`. A blind Object.assign would then clobber the temp `dataDirectory` set earlier
+    // in this function and crash `setupSharedBlobStorage`.
+    if (opts.l1ContractsArgs) {
+      for (const [key, value] of Object.entries(opts.l1ContractsArgs)) {
+        if (value !== undefined) {
+          (config as unknown as Record<string, unknown>)[key] = value;
+        }
+      }
+    }
+
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
@@ -526,7 +547,11 @@ export async function setup(
     const shouldDeployAccounts = numberOfAccounts > 0 && !opts.skipAccountDeployment;
     // Only set minTxsPerBlock=0 if we need an empty block (no accounts at all, not skipped deployment)
     const needsEmptyBlock = numberOfAccounts === 0 && !opts.skipAccountDeployment;
-    config.minTxsPerBlock = shouldDeployAccounts ? 1 : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
+    // Under proposer pipelining the sequencer builds during slot N-1 for slot N. A tx submitted at
+    // slot N start is too late -- it arrives after the build. Forcing minTxsPerBlock=1 then stalls
+    // the chain on alternating slots, so allow empty checkpoints under pipelining.
+    const accountsDeployMinTxs = config.enableProposerPipelining ? 0 : 1;
+    config.minTxsPerBlock = shouldDeployAccounts ? accountsDeployMinTxs : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
@@ -598,7 +623,12 @@ export async function setup(
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
+    const cheatCodes = await CheatCodes.create(
+      config.l1RpcUrls,
+      aztecNodeService,
+      dateProvider,
+      aztecNodeService.getAutomineSequencer(),
+    );
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -627,6 +657,11 @@ export async function setup(
       accounts = accountManagers.map(accountManager => accountManager.address);
     } else if (needsEmptyBlock) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
+      // AutomineSequencer only builds on tx arrival; explicitly request an empty block.
+      const automine = aztecNodeService.getAutomineSequencer();
+      if (automine) {
+        await automine.buildEmptyBlock();
+      }
       while ((await aztecNodeService.getBlockNumber()) === 0) {
         await sleep(2000);
       }

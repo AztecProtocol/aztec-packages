@@ -19,6 +19,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const VALIDATOR_KEY_INDICES = [0, 2, 4, 5];
@@ -92,6 +93,7 @@ describe('e2e_reload_keystore', () => {
       accounts: [ownerAddress],
       sequencer: sequencerClient,
     } = await setup(1, {
+      ...PIPELINING_SETUP_OPTS,
       initialValidators,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       keyStoreDirectory,

@@ -428,7 +428,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 1 },
         history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(1),
       slotWindow: 100,
@@ -453,7 +453,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 0 },
         history: [{ slot: SlotNumber(5), status: 'attestation-sent' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(5),
       slotWindow: 5,
@@ -492,9 +492,10 @@ describe('AztecNodeApiSchema', () => {
       originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
+      immutablesHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),
-      version: 1,
+      version: 2,
     });
   });
 
@@ -845,11 +846,12 @@ class MockAztecNode implements AztecNode {
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
-      version: 1 as const,
+      version: 2 as const,
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       address: await AztecAddress.random(),

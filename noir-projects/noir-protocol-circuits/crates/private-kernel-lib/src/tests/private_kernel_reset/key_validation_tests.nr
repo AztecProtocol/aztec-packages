@@ -28,7 +28,7 @@ fn validate_and_propagate_key_validation_requests() {
     );
 }
 
-#[test(should_fail_with = "Failed to derive matching master public key from the secret key")]
+#[test(should_fail_with = "Failed to derive matching master public key hash from the secret key")]
 fn wrong_order_for_key_validation_request() {
     let mut builder = TestBuilder::new();
 
