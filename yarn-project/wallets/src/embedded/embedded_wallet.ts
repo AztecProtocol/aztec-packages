@@ -392,7 +392,7 @@ export class EmbeddedWallet extends BaseWallet {
       }
     }
 
-    const accountManager = await AccountManager.create(this, secret, contract, salt);
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const existingInstance = await this.pxe.getContractInstance(instance.address);
