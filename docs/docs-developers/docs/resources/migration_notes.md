@@ -9,6 +9,17 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `AccountManager.create` takes an options bag
+
+`AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:
+
+```diff
+- AccountManager.create(wallet, secret, accountContract, salt)
++ AccountManager.create(wallet, secret, accountContract, { salt })
+```
+
+`immutablesHash` lets callers commit a non-zero immutables hash on the resulting `ContractInstance` (folded into the salted initialization hash, so it affects the derived address). `deployer` overrides the deployer address recorded on the instance (defaults to `AztecAddress.ZERO`). The same `immutablesHash` field is now also threaded through `DeployMethod` / `DeployAccountMethod` so the address derived at deploy time matches the one on `accountManager.getInstance()`.
+
 ### [Aztec.nr] Defining a custom `sync_state` function now requires `AztecConfig`
 
 Contracts that previously overrode the default `sync_state` by defining their own function with that name will now get a compile error. Use `AztecConfig::custom_sync_state()` instead.
