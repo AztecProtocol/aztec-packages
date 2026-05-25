@@ -31,7 +31,12 @@ const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
-const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
+// Lever-G batch-count target. Tightened from 248→180 MiB: the picker is
+// greedy-min on numBatches, so a generous budget lets it use ONE big batch
+// even when several smaller batches would fit comfortably on weaker mobile
+// GPUs. 180 MiB keeps numBatches>=2 at logN=17 c=15 and reins in mobile
+// footprint without forcing 1-window-per-batch at any (n, c) we measure.
+const MEM_BUDGET = 180 * (1 << 20);
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
 // `reduceWg` are instead chosen per problem size — by pickC / pickS /
@@ -858,7 +863,6 @@ export class MsmV2 {
     // Both are bounded by the max over ALL levels, but odd-level outputs
     // are ~1/2× even-level outputs because the pair-tree halves at each
     // step. Sizing bufA separately to its actual width halves its footprint.
-    let wstride1 = 1;        // max over lv>=1 (= bufA width upper bound when both buffers share M1)
     let wstride_evenOut = 1; // max over even-level outputs (bufB width)
     let wstride_oddOut = 1;  // max over odd-level outputs (bufA width)
     for (let lv = 1; lv <= levels; lv++) {
@@ -866,7 +870,6 @@ export class MsmV2 {
       for (let w = 0; w < NUM_WINDOWS; w++) {
         let cnt = 0;
         for (let b = 0; b < BW; b++) cnt += lc[w * BW + b];
-        if (cnt > wstride1) wstride1 = cnt;
         // levelCounts[lv] is the output of level lv-1 in the pair-tree.
         // outIdx parity for lv (in run()) = (lv & 1) ^ 1, so:
         //   lv=0 writes outIdx=1 (bufB); lv=1 writes outIdx=0 (bufA); ...
@@ -882,13 +885,14 @@ export class MsmV2 {
     const RED_M = this.redM;
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
-      const m1 = bw * wstride1 + 3;
+      const m1A = bw * wstride_oddOut + 3;
+      const m1B = bw * wstride_evenOut + 3;
       const bSlots = bw * n;
       const bBuckets = bw * BW;
       const tc = bw * maxCpw;
       const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
       return (
-        2 * 64 * m1 + 64 * B_TOTAL + 4 * 4 * bBuckets + 4 * (bSlots + 3) +
+        64 * (m1A + m1B) + 64 * B_TOTAL + 4 * 4 * bBuckets + 4 * (bSlots + 3) +
         2 * (3 * tc * S + 2 * bw * maxCarpw) * 4 + tile * S * 8 * 4 + 3 * 4 * bSlots +
         4 * bw * (BW + 1) + 4 * bBuckets + 4 * 32 * n + 68 * RED_M
       );
@@ -905,18 +909,20 @@ export class MsmV2 {
       p.tChunks = batchWindows * p.cpw;
       p.tCarries = batchWindows * p.carpw;
     }
-    const M1 = batchWindows * wstride1 + 3;
-    const M1_A = M1;
-    const M1_B = M1;
+    const M1_A = batchWindows * wstride_oddOut + 3;
+    const M1_B = batchWindows * wstride_evenOut + 3;
     const l0Slots = batchSlots + 3;
     const WSTRIDE = n;
 
     // --- GPU buffers ---
-    const padBuf = buildPadBuf(M1, this.padPts, R);
-    const bufA = soa(M1);
-    const bufB = soa(M1);
-    device.queue.writeBuffer(bufA, 0, padBuf as BufferSource);
-    device.queue.writeBuffer(bufB, 0, padBuf as BufferSource);
+    // bufA carries odd-level fused outputs (lv=1, 3, …) which are ~half the
+    // per-window width of bufB because the pair-tree halves every round.
+    // Sizing each buffer to its own max output stride saves ~25% of the
+    // active-sums footprint vs the prior single-M1 sizing.
+    const bufA = soa(M1_A);
+    const bufB = soa(M1_B);
+    device.queue.writeBuffer(bufA, 0, buildPadBuf(M1_A, this.padPts, R) as BufferSource);
+    device.queue.writeBuffer(bufB, 0, buildPadBuf(M1_B, this.padPts, R) as BufferSource);
     const bucketResult = soa(B_TOTAL);
     this.bucketResultBuf = bucketResult;
     const l0IdxBuf = sbuf(l0Slots * 4);
@@ -938,8 +944,16 @@ export class MsmV2 {
       scatterPlanRing.push(sp, sp);
       carryPlanRing.push(yp, yp);
     }
-    const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, M1 - 1, 0]));
-    const padParams1Buf = ubuf(new Uint32Array([M1 - 3, M1 - 2, M1 - 1, 0]));
+    // padParams trio: (pad_src_l, pad_src_r, pad_dst).
+    // L0: pad sources are u32 indices stored in l0IdxBuf at batchSlots[+0/+1];
+    // pad scatter destination is M_out-1 in the level-0 output buffer (bufB).
+    const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, M1_B - 1, 0]));
+    // L>=1: pad sources sit at the tail of active_sums_OLD (M_in-3, M_in-2);
+    // pad scatter dest is active_sums_NEW[M_out-1]. M_in/M_out differ by level
+    // parity, so we precompute both pairings: BA (lv=1, 3, …) reads bufB pad
+    // and writes bufA pad; AB (lv=2, 4, …) reads bufA pad and writes bufB pad.
+    const padParamsBA = ubuf(new Uint32Array([M1_B - 3, M1_B - 2, M1_A - 1, 0]));
+    const padParamsAB = ubuf(new Uint32Array([M1_A - 3, M1_A - 2, M1_B - 1, 0]));
     const FUSED_TILE = Math.min(
       Math.ceil((1 << 16) / WGI) * WGI,
       Math.max(WGI, Math.ceil(maxTChunks / WGI) * WGI),
@@ -974,7 +988,9 @@ export class MsmV2 {
     }
     this.xposeNumChunks = xposeNumChunks;
     const xposeParams = ubuf(new Uint32Array([xposeNumChunks, BW, n, xposeChunk]));
-    const convActiveParams = ubuf(new Uint32Array([batchSlots, M1, WSTRIDE, n]));
+    // csr_to_v2_active_sums materialises level-0 active_sums (= bufB), so its
+    // M stride is M1_B.
+    const convActiveParams = ubuf(new Uint32Array([batchSlots, M1_B, WSTRIDE, n]));
     const convMetaParams = ubuf(new Uint32Array([BW, batchBuckets, n, 0]));
     const batchWindowBaseBufs: GPUBuffer[] = [];
     for (let bi = 0; bi < numBatches; bi++) {
@@ -1061,10 +1077,22 @@ export class MsmV2 {
     this.nReduceInit = Math.ceil(RED_M / WGI);
 
     // --- Per-level bind groups ---
-    const finalizeParamsBufs: GPUBuffer[] = [];
-    for (let bi = 0; bi < numBatches; bi++) {
-      finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, M1, bi * batchBuckets, B_TOTAL])));
-    }
+    // Finalize params depend on activeIn's stride (M_in), so build one set of
+    // per-batch uniforms per distinct M_in:
+    //   0    — lv=0 (l0_index_mode shader ignores M)
+    //   M1_A — lv with inIdx=0 (activeIn = bufA)
+    //   M1_B — lv with inIdx=1 (activeIn = bufB)
+    const finalizeParamsBufsByMIn = new Map<number, GPUBuffer[]>();
+    const finalizeParamsFor = (mIn: number): GPUBuffer[] => {
+      const cached = finalizeParamsBufsByMIn.get(mIn);
+      if (cached) return cached;
+      const arr: GPUBuffer[] = [];
+      for (let bi = 0; bi < numBatches; bi++) {
+        arr.push(ubuf(new Uint32Array([batchBuckets, mIn, bi * batchBuckets, B_TOTAL])));
+      }
+      finalizeParamsBufsByMIn.set(mIn, arr);
+      return arr;
+    };
     this.numWgsFinalize = Math.ceil(batchBuckets / WGI);
     // The two-pass planner borrows valIdxBuf as the per-bucket carry-prefix
     // array. valIdxBuf (batchSlots) is dead once convActive has consumed it,
@@ -1083,13 +1111,18 @@ export class MsmV2 {
       const activeIn = isL0 ? l0IdxBuf : inIdx === 0 ? bufA : bufB;
       // bufA holds odd-level outputs (M1_A); bufB holds even-level outputs
       // (M1_B). For lv >= 1, activeIn = activeOut of lv-1, which has the
-      // OPPOSITE parity — so M_in == M of the "other" buffer.
-      const plannerParams = ubuf(new Uint32Array([plan.cpw, plan.carpw, WGI, wstride1]));
-      const carryParams = ubuf(new Uint32Array([plan.tCarries, M1, M1, 0]));
+      // OPPOSITE parity — so M_in is the OTHER buffer's M.
+      const M_out = outIdx === 0 ? M1_A : M1_B;
+      // At L0 the fused/carry shaders gather from the point pool (l0_index_mode)
+      // and never read M_in; 0 is a safe sentinel.
+      const M_in = isL0 ? 0 : inIdx === 0 ? M1_A : M1_B;
+      const wstrideOut = outIdx === 0 ? wstride_oddOut : wstride_evenOut;
+      const plannerParams = ubuf(new Uint32Array([plan.cpw, plan.carpw, WGI, wstrideOut]));
+      const carryParams = ubuf(new Uint32Array([plan.tCarries, M_in, M_out, 0]));
       const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
       for (let tileBase = 0; tileBase < plan.tChunks; tileBase += FUSED_TILE) {
         const tileThreads = Math.min(FUSED_TILE, plan.tChunks - tileBase);
-        const tileParams = ubuf(new Uint32Array([plan.tChunks, M1, M1, tileBase]));
+        const tileParams = ubuf(new Uint32Array([plan.tChunks, M_in, M_out, tileBase]));
         const entries: GPUBindGroupEntry[] = [
           { binding: 0, resource: { buffer: chunkPlanRing[ring] } },
           { binding: 1, resource: { buffer: scatterPlanRing[ring] } },
@@ -1145,7 +1178,7 @@ export class MsmV2 {
             { binding: 6, resource: { buffer: scatterPlanRing[ring] } },
             { binding: 7, resource: { buffer: carryPlanRing[ring] } },
             { binding: 8, resource: { buffer: plannerParams } },
-            { binding: 9, resource: { buffer: isL0 ? padParams0Buf : padParams1Buf } },
+            { binding: 9, resource: { buffer: isL0 ? padParams0Buf : outIdx === 0 ? padParamsBA : padParamsAB } },
           ],
         }),
         fusedTiles,
@@ -1153,7 +1186,7 @@ export class MsmV2 {
           layout: isL0 ? this.carryLayoutL0 : this.carryLayout,
           entries: carryEntries,
         }),
-        finalizeBinds: finalizeParamsBufs.map(fp => {
+        finalizeBinds: finalizeParamsFor(M_in).map(fp => {
           const fe: GPUBindGroupEntry[] = [
             { binding: 0, resource: { buffer: countsBufs[inIdx] } },
             { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
@@ -1208,9 +1241,10 @@ export class MsmV2 {
       totalMiB: totalBytes / (1 << 20),
       numBatches: this.numBatches,
       batchWindows,
-      M1,
+      M1_A,
+      M1_B,
     };
-    console.log(`[msm.mem] prepBuffers=${this.prepBuffers.length} totalBytes=${totalBytes} (${(totalBytes / (1 << 20)).toFixed(1)} MiB) numBatches=${this.numBatches} batchWindows=${batchWindows} M1=${M1}`);
+    console.log(`[msm.mem] prepBuffers=${this.prepBuffers.length} totalBytes=${totalBytes} (${(totalBytes / (1 << 20)).toFixed(1)} MiB) numBatches=${this.numBatches} batchWindows=${batchWindows} M1_A=${M1_A} M1_B=${M1_B}`);
   }
 
   /**

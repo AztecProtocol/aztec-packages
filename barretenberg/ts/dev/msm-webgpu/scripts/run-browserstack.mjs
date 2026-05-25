@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+//
+// MSM WebGPU validation policy (per Zac, 2026-05-24): when validating or
+// profiling a memory-related change on this branch, fire exactly ONE
+// BrowserStack job — Galaxy S25 Ultra, `--n 17`. We are optimising for low
+// memory on the weakest real-device target; M2 and Pixel runs are cross-
+// references that burn the per-session 3h wall clock without adding signal.
+// If a change genuinely needs more than one BS job to validate, STOP and ask.
+//
 // Drive a WebGPU MSM bench/sanity page on a BrowserStack real device.
 //
 // Pattern mirrors `barretenberg/wasm-bench/scripts/run-browserstack.mjs`
