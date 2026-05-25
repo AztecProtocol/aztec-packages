@@ -26,7 +26,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
   let test: EpochsTestContext;
 
-  const getCheckpointNumber = (n: AztecNode) => n.getL2Tips().then(tips => tips.checkpointed.checkpoint.number);
+  const getCheckpointNumber = (n: AztecNode) => n.getCheckpointNumber('checkpointed');
 
   /**
    * Looks up the epoch a given checkpoint sits in by reading its slot from the archiver.
