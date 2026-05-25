@@ -145,8 +145,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
   async handleEpochReadyToProve(epochNumber: EpochNumber): Promise<boolean> {
     try {
       this.log.info(`Epoch ${epochNumber} is complete on L1, checking if ready to complete`);
-      await this.tryCompleteEpoch(epochNumber);
-      return true;
+      return await this.tryCompleteEpoch(epochNumber);
     } catch (err) {
       this.log.error(`Error handling epoch ready to prove`, err);
       return false;
@@ -384,15 +383,20 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
    * expected checkpoint has been delivered (as pending or tracked). The job itself is
    * then responsible for waiting for any pending entries to settle and running the
    * full finalization. Idempotent — if the job has already been completed, returns.
+   *
+   * Returns `true` if the epoch is in a handled state (handed off now, previously handed
+   * off, or no job exists for an already-finalized epoch). Returns `false` only when the
+   * caller should retry — the archiver hasn't yet confirmed completion, or some expected
+   * checkpoints have not yet been registered with the job.
    */
-  private async tryCompleteEpoch(epochNumber: EpochNumber) {
-    const job = this.epochJobs.get(Number(epochNumber));
-    if (!job || job.isEpochComplete()) {
-      return;
+  private async tryCompleteEpoch(epochNumber: EpochNumber): Promise<boolean> {
+    if (!(await this.l2BlockSource.isEpochComplete(epochNumber))) {
+      return false;
     }
 
-    if (!(await this.l2BlockSource.isEpochComplete(epochNumber))) {
-      return;
+    const job = this.epochJobs.get(Number(epochNumber));
+    if (!job || job.isEpochComplete()) {
+      return true;
     }
 
     const archiverCheckpoints = await this.l2BlockSource.getCheckpoints({ epoch: epochNumber });
@@ -401,12 +405,13 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
       this.log.debug(
         `Epoch ${epochNumber} complete on L1 but only ${known}/${archiverCheckpoints.length} checkpoints known to job`,
       );
-      return;
+      return false;
     }
 
     this.log.info(`Handing epoch ${epochNumber} off to job for finalization (${known} checkpoints known)`);
     job.completeEpoch();
     void job.whenComplete().then(state => this.cleanupCompletedJob(Number(epochNumber), job, state));
+    return true;
   }
 
   /** Called once the job's whenComplete() resolves. Uploads failure data if needed and clears prover-node state. */
