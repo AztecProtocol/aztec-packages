@@ -609,7 +609,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     epochNumber: EpochNumber,
     l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
   ): Promise<boolean> {
-    const provenBlockNumber = await this.l2BlockSource.getProvenBlockNumber();
+    const provenBlockNumber = await this.l2BlockSource.getBlockNumber({ tag: 'proven' });
     if (!provenBlockNumber || provenBlockNumber <= 0) {
       return false;
     }
@@ -664,8 +664,8 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
    *    scratch.
    */
   protected async computeStartingBlock(): Promise<BlockNumber> {
-    const provenBlockNumber = await this.l2BlockSource.getProvenBlockNumber();
-    if (provenBlockNumber <= 0) {
+    const provenBlockNumber = await this.l2BlockSource.getBlockNumber({ tag: 'proven' });
+    if (!provenBlockNumber || provenBlockNumber <= 0) {
       return BlockNumber(1);
     }
 

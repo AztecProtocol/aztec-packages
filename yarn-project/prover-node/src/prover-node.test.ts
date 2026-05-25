@@ -84,6 +84,13 @@ describe('prover-node', () => {
       config,
     );
 
+  // Helper: mock the (tag: 'proven') overload of L2BlockSource.getBlockNumber.
+  // Replaces the legacy getProvenBlockNumber API which was removed from the interface.
+  const mockProvenBlockNumber = (value: BlockNumber) => {
+    l2BlockSource.getBlockNumber.mockImplementation(((query?: any) =>
+      Promise.resolve(query?.tag === 'proven' ? value : undefined)) as any);
+  };
+
   beforeEach(async () => {
     prover = mock<EpochProverManager & EpochProverFactory>({
       getProverId: () => EthAddress.random(),
@@ -626,7 +633,7 @@ describe('prover-node', () => {
         l1GenesisTime: BigInt(l1GenesisTime),
         epochDuration: 32,
       });
-      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(10));
+      mockProvenBlockNumber(BlockNumber(10));
       l2BlockSource.getBlockData.mockImplementation((query: any) => {
         if (!('number' in query)) {
           return Promise.resolve(undefined);
@@ -700,7 +707,7 @@ describe('prover-node', () => {
     };
 
     it('returns 1 when nothing has been proven', async () => {
-      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      mockProvenBlockNumber(BlockNumber.ZERO);
       const start = await proverNode.publicComputeStartingBlock();
       expect(start).toEqual(1);
     });
@@ -712,7 +719,7 @@ describe('prover-node', () => {
         l1GenesisTime: BigInt(l1GenesisTime),
         epochDuration: 4,
       });
-      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(7));
+      mockProvenBlockNumber(BlockNumber(7));
       setupBlock(7, 7);
       const start = await proverNode.publicComputeStartingBlock();
       expect(start).toEqual(8);
@@ -725,7 +732,7 @@ describe('prover-node', () => {
         l1GenesisTime: BigInt(l1GenesisTime),
         epochDuration: 4,
       });
-      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
+      mockProvenBlockNumber(BlockNumber(5));
       // Block 5 -> slot 5 (epoch 1), block 4 -> slot 4 (epoch 1), block 3 -> slot 3 (epoch 0).
       l2BlockSource.getBlockData.mockImplementation((query: any) =>
         'number' in query
@@ -751,7 +758,7 @@ describe('prover-node', () => {
         l1GenesisTime: BigInt(l1GenesisTime),
         epochDuration: 4,
       });
-      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
+      mockProvenBlockNumber(BlockNumber(5));
       l2BlockSource.getBlockData.mockImplementation((query: any) => {
         if (!('number' in query)) {
           return Promise.resolve(undefined);
@@ -784,7 +791,7 @@ describe('prover-node', () => {
         l1GenesisTime: BigInt(l1GenesisTime),
         epochDuration: 4,
       });
-      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
+      mockProvenBlockNumber(BlockNumber(5));
       l2BlockSource.getBlockData.mockImplementation((query: any) => {
         if (!('number' in query)) {
           return Promise.resolve(undefined);
