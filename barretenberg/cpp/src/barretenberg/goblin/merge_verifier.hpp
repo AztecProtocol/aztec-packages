@@ -49,6 +49,11 @@ template <typename Curve> class MergeVerifier_ {
      *     verifier with which the Merge verifier shares a transcript
      *  - `T_prev_commitments`: commitments to the aggregate op_queue table prior to this merge (i.e. covering all
      *     subtables up to and including the tail subtable, but excluding the one currently being appended)
+     *
+     * The Merge verifier receives these commitments from its caller rather than from the merge proof. Callers must
+     * ensure they are already bound to the shared Fiat-Shamir transcript before Merge samples its challenges. Chonk
+     * satisfies this by running MegaZK Oink first on the same transcript: `t_commitments` are the ecc-op wire
+     * commitments read by Oink, and `T_prev_commitments` are reconstructed from public inputs read by Oink.
      */
     struct InputCommitments {
         TableCommitments t_commitments;

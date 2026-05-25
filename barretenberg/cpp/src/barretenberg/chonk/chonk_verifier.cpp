@@ -52,6 +52,8 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     }
 
     // Step 3: Merge verification
+    // These commitments are already in the shared Fiat-Shamir transcript: Oink read the ecc-op wire commitments
+    // directly, and it read the public inputs from which HidingKernelIO reconstructs the prior table commitments.
     MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
     GoblinVerifier::MergeVerifier merge_verifier{ transcript };
@@ -153,6 +155,8 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     kernel_io.kernel_return_data.incomplete_assert_equal(kernel_calldata_commitment);
 
     // Step 3: Merge verification
+    // These commitments are already in the shared Fiat-Shamir transcript: Oink read the ecc-op wire commitments
+    // directly, and it read the public inputs from which HidingKernelIO reconstructs the prior table commitments.
     MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
     typename GoblinVerifier::MergeVerifier merge_verifier{ transcript };
