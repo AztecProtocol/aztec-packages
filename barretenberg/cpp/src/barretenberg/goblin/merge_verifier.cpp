@@ -130,6 +130,8 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
 
     // Vector of commitments
     // The vector is composed of: [L_1], .., [L_4], [R_1], .., [R_4], [M_1], .., [M_4], [G]
+    // The input commitments are not absorbed here; the caller must already have bound them to the shared transcript.
+    // In Chonk this happens in the preceding Oink phase.
     std::vector<Commitment> table_commitments;
     table_commitments.reserve((3 * NUM_WIRES) + 1);
     table_commitments.insert(table_commitments.end(),
