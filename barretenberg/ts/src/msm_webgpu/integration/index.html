@@ -10,6 +10,11 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 
+<!-- Computer Modern fonts (BaKoMa) for the TikZ-rendered SVG diagrams.
+     Pulled in at page level so they're available to inlined SVGs; an
+     <img>-embedded SVG is sandboxed and can't load its own fonts. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-tikzjax@1.0.5/css/fonts.css">
+
 <!-- highlight.js (theme swapped on toggle; bundle includes common languages) -->
 <link id="hljs-css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -240,7 +245,8 @@ article li > p { margin: 4px 0; }
 }
 .katex { font-size: 1.05em; }
 
-article img {
+article img,
+article svg.inlined-diagram {
   max-width: 100%;
   height: auto;
   display: block;
@@ -249,8 +255,19 @@ article img {
   background: #ffffff;
   padding: 12px;
   border: 1px solid var(--border);
+  box-sizing: border-box;
 }
-[data-theme="dark"] article img { background: #fafafa; }
+[data-theme="dark"] article img,
+[data-theme="dark"] article svg.inlined-diagram { background: #fafafa; }
+
+/* Diagrams that paint their own dark background (e.g. tensor_cube.svg)
+   should sit flush with that background — no white padding frame. */
+article svg.inlined-diagram.dark-fig,
+[data-theme="dark"] article svg.inlined-diagram.dark-fig {
+  background: #0f192d;
+  padding: 0;
+  border-color: #0f192d;
+}
 article p > img + em,
 article p:has(> img) + p > em:first-child:last-child {
   display: block;
@@ -455,6 +472,41 @@ function postProcess(container) {
   }
 }
 
+// Replace `<img src="*.svg">` with the inline SVG content. Needed
+// because TikZ-rendered SVGs reference Computer Modern fonts via a
+// stylesheet that `<img>`-embedded SVGs can't load (the embed is
+// sandboxed). Inlined into the DOM, the SVG inherits the page's CSS,
+// including the BaKoMa @font-face rules pulled in at the head.
+async function inlineSvgImages(container) {
+  const imgs = [...container.querySelectorAll('img[src$=".svg"]')];
+  await Promise.all(imgs.map(async img => {
+    try {
+      const r = await fetch(img.src, { cache: 'force-cache' });
+      if (!r.ok) return;
+      const text = await r.text();
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = text;
+      const svg = wrapper.querySelector('svg');
+      if (!svg) return;
+      svg.classList.add('inlined-diagram');
+      // If the SVG paints its own dark background (sample the top-left
+      // pixel of the first <path fill="..."> in the document, looking
+      // for an explicit `#0f...` navy), flag it so CSS strips the
+      // padding frame.
+      const firstFill = (svg.querySelector('[fill]')?.getAttribute('fill') || '').toLowerCase();
+      if (firstFill === '#0f192d' || firstFill === '#0e1729' || firstFill === '#0f1a2d') {
+        svg.classList.add('dark-fig');
+      }
+      if (img.alt) svg.setAttribute('aria-label', img.alt);
+      img.replaceWith(svg);
+    } catch (e) {
+      // Leave the <img> in place if anything fails; the alt-text +
+      // broken-image icon at least signals that the diagram exists.
+      console.warn('inlineSvgImages: ' + img.src + ': ' + (e?.message || e));
+    }
+  }));
+}
+
 // --- Scroll-spy for TOC ---
 let scrollSpyObs = null;
 function setupScrollSpy(container) {
@@ -514,6 +566,7 @@ async function loadDoc(id, pushHash = true) {
 
   contentEl.innerHTML = renderMarkdown(md);
   postProcess(contentEl);
+  await inlineSvgImages(contentEl);
   setupScrollSpy(contentEl);
   window.scrollTo(0, 0);
 }

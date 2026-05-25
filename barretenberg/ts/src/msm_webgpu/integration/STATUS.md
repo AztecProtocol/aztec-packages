@@ -129,3 +129,64 @@ that could flip this.
 - Do we own the cross-platform validation surface (Apple/NVIDIA/Adreno) or
   is Zac running that? The `Adreno-safe bucket+sign pack` commit
   (`e0337c3515`) suggests active multi-vendor work.
+
+## Profile snapshot — 2026-05-25
+
+The dev page now has a **Profile (× 5)** button next to *Run × 5* that runs
+WebGPU-only at the current `log₂(n)`, enrols a `timestamp-query` query set
+on every `encodeIntoBatch` dispatch, and renders a per-pass breakdown
+(absolute median ms + % of wall) plus a CSV dump on the JavaScript console.
+A *per-batch breakdown* checkbox switches between collapsed (one row per
+stage) and expanded (one row per `(stage, batch)`) views.
+
+### Stage labels surfaced
+
+GPU passes (`<stage>#<batchIdx>` for everything inside the per-batch loop,
+bare `<stage>` for the reduction tail):
+
+```
+decompose, xpose_count, xpose_reduce, xpose_scan, xpose_scatter,
+csr2v2_active, csr2v2_meta, planner_a, planner_b, fused, carry, finalize,
+reduce_init, reduce_level
+```
+
+Host phases (`performance.now()` deltas per rep, surfaced in a separate
+table):
+
+```
+host_prepare (with prepare_kind = fast|slow), host_encode, host_submit_wait,
+host_decode, scalar_upload_wall + scalar_upload_bytes, wall
+```
+
+One-time setup (rendered as a separate *Setup* table the first time the
+button is clicked):
+
+```
+srs_fetch, srs_decompress (annotated "(cached)" when 0),
+pool_upload (writeBuffer wall + bytes), pool_convert (timestamped GPU pass)
+```
+
+`gpu_other = wall − Σ profiled_passes` accounts for the `clearBuffer`s,
+`resolveQuerySet`, and per-window gather `copyBufferToBuffer`s that
+`timestampWrites` doesn't cover. The breakdown table includes it as a
+labelled row, and the sum of (profiled Σ + gpu_other) matches `wall` within
+~1%.
+
+### Snapshots @ log₂(n) ∈ {12, 16, 20}
+
+These three sizes need to be run on a real WebGPU device (an M4 Pro with
+Metal-3, per the existing perf table) — the sandbox where this branch was
+built has no `navigator.gpu`, so the top-3 rows below are *placeholders to
+be filled in on first capture*. The CSV is paste-ready from the JS console
+after each click.
+
+| log₂(n) | 1st / % of wall | 2nd / % of wall | 3rd / % of wall | wall (ms) |
+|---|---|---|---|---|
+| 12 | _TODO_ | _TODO_ | _TODO_ | _TODO_ |
+| 16 | _TODO_ | _TODO_ | _TODO_ | _TODO_ |
+| 20 | _TODO_ | _TODO_ | _TODO_ | _TODO_ |
+
+Run order: load the page once (warms the SRS cache), pick `log₂(n) = 12`,
+click *Probe GPU* once to confirm `timestamp-query` is in the device
+features, then *Profile (× 5)* at each of `12 / 16 / 20` in turn. Paste
+each top-3 (by `pct_of_wall`) above.

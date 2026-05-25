@@ -66,19 +66,37 @@ fused dispatch.
 
 ### Visual overview
 
-![Three panels: (a) the bucket-membership tensor M_{i,k,j} with one window slice highlighted; (b) the slice with column k=3 highlighted, receiving 5 points; (c) the pair-tree reduction of those 5 points across log_2(5) = 3 levels.](diagrams/pair_tree_tensor.svg)
+The whole MSM lives inside a sparse 3-D tensor. The $i$ axis enumerates
+the $n$ input points, the $j$ axis the $T$ Pippenger windows, the $k$
+axis the $B_W$ buckets per window. A single nonzero $M_{i,k,j} = 1$ at
+position $(i, k, j)$ says "the $j$-th window of scalar $s_i$ recoded to
+the digit with magnitude $k$"; every $(i, j)$ column has exactly one
+nonzero, so the tensor is *extremely* sparse — $T \cdot n$ nonzeros in
+$T \cdot n \cdot B_W$ cells.
 
-*Figure 1.* The three views of one Pippenger column. **(a)** The
-bucket-membership tensor $M_{i,k,j} = \mathbb{1}[\lvert s_{i,j} \rvert = k]$ —
-each $(i, j)$ column has exactly one nonzero, because every scalar's
-window-$j$ digit lands in exactly one bucket. §6 turns this CSR-by-row
-view into the CSC-by-column view of one slice $M^{(j)}$. **(b)** The
-slice with bucket $k=3$ highlighted; the five points in that column
-become §7's `active_sums[colPtr_j[3]..colPtr_j[4])`. **(c)** The
-pair-tree of §8 reducing those five points to the single bucket sum
-$B_{j,3}$ in $\lceil \log_2 5 \rceil = 3$ levels, with $P_5$ riding
-through as an odd-count carry until finalize-and-drop at level 3 — the
-exact $N_0 = 5$ trace tabulated in §8.5.
+![Bucket-membership tensor M_{i,k,j} with one window slice M^{(j)} highlighted in blue, one bucket column k=3 within that slice outlined in red, and a four-level pair tree growing upward from the column's five nonzero cells (labelled P1..P5) up to the root bucket sum B_{j,k}. Solid edges are pair-sums; dashed edges trace the odd-count carry of P5 across three levels.](diagrams/tensor_cube.svg)
+
+Fix one window $j$ — pull out the slice $M^{(j)}$ shown in blue. That
+slice is what §3 (transpose) actually operates on: turning the $(i, k)$
+sparsity pattern from row-major (CSR, indexed by $i$ which is what
+Booth recoding produced) into column-major (CSC, indexed by $k$ which
+is what §4 needs to know "give me all the points in bucket $k$"). The
+red column $k = 3$ called out on the slice is one such bucket: five
+points $P_1, \ldots, P_5$ land there. The same arithmetic primitive
+runs on every $(j, k)$ column — a **pair tree** that folds $N_{j,k}$
+points down to one $B_{j,k} = \sum_m P_m$, halving the active count
+per level with batched affine addition.
+
+The four-level tree drawn above the slice shows how the $N = 5$
+example resolves: solid edges are pair-sums (level 0 → 1 fuses
+$(P_1, P_2)$ and $(P_3, P_4)$; level 1 → 2 fuses those two
+intermediates), dashed edges trace $P_5$ riding through as an
+**odd-count carry** because $N$ is odd at every level until the
+root. That's the $N \to \lceil N/2 \rceil$ recurrence of §8.5, where
+every level pays *one* batched inversion regardless of how many pairs
+it adds. Every bucket in every window of every same-$N$ MSM runs an
+instance of this tree concurrently; that's where the throughput comes
+from.
 
 ---
 
