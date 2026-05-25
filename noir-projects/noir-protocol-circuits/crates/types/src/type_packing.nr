@@ -1,4 +1,4 @@
-use crate::traits::Packable;
+use crate::traits::{Deserialize, Packable, Serialize};
 
 global BOOL_PACKED_LEN: u32 = 1;
 global U8_PACKED_LEN: u32 = 1;
@@ -11,6 +11,7 @@ global I8_PACKED_LEN: u32 = 1;
 global I16_PACKED_LEN: u32 = 1;
 global I32_PACKED_LEN: u32 = 1;
 global I64_PACKED_LEN: u32 = 1;
+global POINT_PACKED_LEN: u32 = 2;
 
 impl Packable for bool {
     let N: u32 = BOOL_PACKED_LEN;
@@ -163,6 +164,17 @@ impl Packable for i64 {
     #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         fields[0] as u64 as i64
+    }
+}
+
+impl Packable for super::point::EmbeddedCurvePoint {
+    let N: u32 = POINT_PACKED_LEN;
+    fn pack(self) -> [Field; Self::N] {
+        self.serialize()
+    }
+
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        Self::deserialize(packed)
     }
 }
 

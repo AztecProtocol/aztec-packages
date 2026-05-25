@@ -2,6 +2,7 @@ import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
+import type { AutomineSequencer } from '@aztec/sequencer-client';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 /**
@@ -18,15 +19,22 @@ export class CheatCodes {
     public eth: EthCheatCodes,
     /** Cheat codes for the Aztec Rollup contract on L1. */
     public rollup: RollupCheatCodes,
+    /** When wired, redirects time-warps through the AutomineSequencer queue (test-only). */
+    private automine?: AutomineSequencer,
   ) {}
 
-  static async create(rpcUrls: string[], node: AztecNode, dateProvider: DateProvider): Promise<CheatCodes> {
+  static async create(
+    rpcUrls: string[],
+    node: AztecNode,
+    dateProvider: DateProvider,
+    automine?: AutomineSequencer,
+  ): Promise<CheatCodes> {
     const ethCheatCodes = new EthCheatCodes(rpcUrls, dateProvider);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await node.getNodeInfo().then(n => n.l1ContractAddresses),
     );
-    return new CheatCodes(ethCheatCodes, rollupCheatCodes);
+    return new CheatCodes(ethCheatCodes, rollupCheatCodes, automine);
   }
 
   /**
@@ -44,6 +52,15 @@ export class CheatCodes {
       throw new Error(
         `warpL2TimeAtLeastTo: target timestamp ${targetBigInt} is not in the future (current L1 timestamp is ${currentTimestamp}).`,
       );
+    }
+
+    // AutomineSequencer owns time control through its serial queue — delegate to keep warps atomic
+    // with respect to any in-flight build, and avoid the mineBlock-loop hack below.
+    // `warpTo` internally builds an empty L2 checkpoint, which auto-mines exactly one L1 block at
+    // the target slot boundary, so no separate `node.mineBlock()` is needed here.
+    if (this.automine) {
+      await this.automine.warpTo(Number(targetBigInt));
+      return;
     }
 
     const currentSlot = await this.rollup.getSlot();

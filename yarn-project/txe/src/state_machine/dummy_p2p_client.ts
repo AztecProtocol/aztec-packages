@@ -13,12 +13,17 @@ import type {
   PeerId,
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
-  ReqRespSubProtocolValidators,
   StatusMessage,
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicType } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposal,
+  CheckpointProposalCore,
+  TopicType,
+} from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
@@ -159,6 +164,13 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "addOwnCheckpointAttestations"');
   }
 
+  public getProposalsForSlot(_slot: SlotNumber): Promise<{
+    blockProposals: BlockProposal[];
+    checkpointProposals: CheckpointProposalCore[];
+  }> {
+    return Promise.resolve({ blockProposals: [], checkpointProposals: [] });
+  }
+
   public getL2BlockHash(_number: number): Promise<string | undefined> {
     throw new Error('DummyP2P does not implement "getL2BlockHash"');
   }
@@ -207,11 +219,7 @@ export class DummyP2P implements P2P {
     return Promise.resolve();
   }
 
-  addReqRespSubProtocol(
-    _subProtocol: ReqRespSubProtocol,
-    _handler: ReqRespSubProtocolHandler,
-    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
+  addReqRespSubProtocol(_subProtocol: ReqRespSubProtocol, _handler: ReqRespSubProtocolHandler): Promise<void> {
     throw new Error('DummyP2P does not implement "addReqRespSubProtocol".');
   }
   handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
