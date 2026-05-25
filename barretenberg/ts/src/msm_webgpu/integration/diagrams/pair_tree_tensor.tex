@@ -1,0 +1,264 @@
+% pair_tree_tensor.tex
+% =====================================================================
+% Three-panel figure for the v2 pair-tree MSM:
+%   (a) the 3D bucket-membership tensor with one slice highlighted
+%       (uses tikz-3dplot for a proper camera projection)
+%   (b) the 2D slice M^(j) with one column highlighted
+%   (c) the pair-tree reducing that column to a single bucket sum
+% Compile with:  pdflatex pair_tree_tensor.tex
+% =====================================================================
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage{tikz}
+\usepackage{tikz-3dplot}
+\usepackage{amsmath}
+\usetikzlibrary{calc,arrows.meta,positioning,decorations.pathreplacing,fit,backgrounds}
+
+% ----- palette (shared across all three panels) -----
+\definecolor{axisColor}   {RGB}{40,55,75}
+\definecolor{cubeEdge}    {RGB}{60,90,130}
+\definecolor{cubeFaint}   {RGB}{160,175,195}
+\definecolor{slicePlane}  {RGB}{40,90,170}
+\definecolor{sliceFill}   {RGB}{210,228,250}
+\definecolor{oneCell}     {RGB}{225,90,90}
+\definecolor{oneCellEdge} {RGB}{160,40,40}
+\definecolor{fgText}      {RGB}{120,120,120}
+\definecolor{colhi}       {RGB}{255,225,225}
+\definecolor{colstroke}   {RGB}{180,40,40}
+\definecolor{nodeFill}    {RGB}{255,245,205}
+\definecolor{nodeEdge}    {RGB}{180,140,30}
+\definecolor{carryFill}   {RGB}{235,235,235}
+
+% Camera angles: elevation, azimuth.
+\tdplotsetmaincoords{68}{120}
+
+\begin{document}
+\begin{tikzpicture}[font=\small, >={Latex[length=2.4mm, width=2.2mm]}]
+
+% =====================================================================
+% PANEL (a): 3D tensor (tikz-3dplot)
+% =====================================================================
+\begin{scope}[
+    tdplot_main_coords,
+    scale=0.40,
+    every node/.style={font=\small\sffamily},
+    axis/.style       ={->, thick, axisColor, line cap=round},
+    edgeFront/.style  ={cubeEdge, semithick},
+    edgeBack/.style   ={cubeFaint, thin, dashed},
+    sliceEdge/.style  ={slicePlane, thick},
+    nonzeroCell/.style={fill=oneCell, draw=oneCellEdge, very thin, fill opacity=0.9},
+]
+
+    % Tensor extents (illustrative; n >> B >> T to reflect reality).
+    \def\Ni{20}
+    \def\Nk{10}
+    \def\Nj{4}
+    \def\jSlice{1}
+
+    \pgfmathtruncatemacro{\NiMinusOne}{\Ni-1}
+    \pgfmathtruncatemacro{\NkMinusOne}{\Nk-1}
+    \pgfmathtruncatemacro{\NjMinusOne}{\Nj-1}
+
+    % Sparse pattern: each input i lands in exactly one bucket k for the
+    % highlighted window. Bucket k = 3 gets FIVE hits — this is the column
+    % we pull out in panels (b) and (c). The other 15 rows are spread.
+    \def\sparsePattern{%
+        0/3, 1/8, 2/1, 3/3, 4/0, 5/7, 6/2, 7/9, 8/3, 9/6,%
+        10/1, 11/3, 12/7, 13/0, 14/3, 15/2, 16/8, 17/6, 18/9, 19/4}
+
+    % Back face (dashed, faint)
+    \draw[edgeBack]
+        (0,0,\Nj) -- (\Ni,0,\Nj) -- (\Ni,\Nk,\Nj) -- (0,\Nk,\Nj) -- cycle;
+    \foreach \xc/\yc in {0/0, \Ni/0, \Ni/\Nk, 0/\Nk}
+        \draw[edgeBack] (\xc,\yc,0) -- (\xc,\yc,\Nj);
+
+    % (j, k) grid on the i = 0 face — each cell is one (j, k) bucket.
+    \foreach \kk in {1,...,\NkMinusOne}
+        \draw[fgText, thin, densely dotted, opacity=0.55]
+            (0, \kk, 0) -- (0, \kk, \Nj);
+    \foreach \jj in {1,...,\NjMinusOne}
+        \draw[fgText, thin, densely dotted, opacity=0.55]
+            (0, 0, \jj) -- (0, \Nk, \jj);
+
+    % Highlighted slice
+    \fill[slicePlane, opacity=0.10]
+        (0,0,\jSlice) -- (\Ni,0,\jSlice) -- (\Ni,\Nk,\jSlice) -- (0,\Nk,\jSlice) -- cycle;
+    \draw[sliceEdge]
+        (0,0,\jSlice) -- (\Ni,0,\jSlice) -- (\Ni,\Nk,\jSlice) -- (0,\Nk,\jSlice) -- cycle;
+
+    % Subtle slice grid
+    \foreach \xc in {1,...,\NiMinusOne}
+        \draw[slicePlane, very thin, opacity=0.20] (\xc,0,\jSlice) -- (\xc,\Nk,\jSlice);
+    \foreach \yc in {1,...,\NkMinusOne}
+        \draw[slicePlane, very thin, opacity=0.20] (0,\yc,\jSlice) -- (\Ni,\yc,\jSlice);
+
+    % Nonzero cells on the highlighted slice
+    \foreach \ihit/\khit in \sparsePattern {
+        \fill[nonzeroCell]
+            (\ihit,   \khit,   \jSlice) --
+            (\ihit+1, \khit,   \jSlice) --
+            (\ihit+1, \khit+1, \jSlice) --
+            (\ihit,   \khit+1, \jSlice) -- cycle;
+    }
+
+    % Front face (solid, drawn last)
+    \draw[edgeFront]
+        (0,0,0) -- (\Ni,0,0) -- (\Ni,\Nk,0) -- (0,\Nk,0) -- cycle;
+
+    % Axes
+    \draw[axis] (0,0,0) -- (\Ni+1.0, 0, 0) coordinate (iTip);
+    \draw[axis] (0,0,0) -- (0, \Nk+1.0, 0) coordinate (kTip);
+    \draw[axis] (0,0,0) -- (0, 0, \Nj+1.0) coordinate (jTip);
+
+    \node[font=\footnotesize, text=axisColor, anchor=east, xshift=-4pt, inner sep=1.5pt]
+        at (iTip) {$i$ \,\scriptsize($n$ inputs, $\sim 2^{16}\,\text{--}\,2^{20}$)};
+    \node[font=\footnotesize, text=axisColor, anchor=west, xshift=4pt, inner sep=1.5pt]
+        at (jTip) {$j$ \,\scriptsize($T$ windows, $\approx 17$)};
+    \node[font=\footnotesize, text=axisColor, anchor=west, xshift=4pt, inner sep=1.5pt]
+        at (kTip) {$k$ \,\scriptsize($B_W$ buckets, $\sim 2^{14}$)};
+
+    \node[font=\scriptsize, text=axisColor, anchor=north east]
+        at (-0.05, -0.05, 0) {$0$};
+
+    % Slice annotation
+    \node[slicePlane, font=\footnotesize\itshape, anchor=west]
+        (sliceLabel) at (-2.5, -1.0, \jSlice) {slice $M^{(j)}$};
+    \draw[slicePlane, semithick, opacity=0.55]
+        (sliceLabel.west) -- (0, 0, \jSlice);
+
+\end{scope}
+
+% Panel (a) title (outside the tdplot scope so it sits where we want)
+\node[align=center,below=0pt] at (5.4cm,-5.6cm)
+    {\textbf{(a)} bucket-membership tensor\\
+     \scriptsize $M_{i,k,j} = \mathbb{1}\bigl[\lvert s_{i,j}\rvert = k\bigr]$,
+     one nonzero per $(i,j)$ column};
+
+% =====================================================================
+% PANEL (b): the 2D slice with column k=3 highlighted
+% =====================================================================
+\begin{scope}[xshift=12.2cm, yshift=-1.6cm]
+  \def\Ni{6}
+  \def\Nk{8}
+  \def\cellsz{0.42}
+  \def\khl{3}
+
+  % Highlight column k = 3 first
+  \fill[colhi]
+       (\khl*\cellsz,0) rectangle ($(\khl*\cellsz+\cellsz,-\Ni*\cellsz)$);
+
+  % Grid lines
+  \foreach \kk in {0,...,\Nk}
+    \draw[cubeFaint,thin] (\kk*\cellsz,0) -- (\kk*\cellsz,-\Ni*\cellsz);
+  \foreach \ii in {0,...,\Ni}
+    \draw[cubeFaint,thin] (0,-\ii*\cellsz) -- (\Nk*\cellsz,-\ii*\cellsz);
+
+  % Slice outer border + highlighted column border
+  \draw[slicePlane,thick] (0,0) rectangle ++(\Nk*\cellsz,-\Ni*\cellsz);
+  \draw[colstroke,very thick]
+       (\khl*\cellsz,0) rectangle ($(\khl*\cellsz+\cellsz,-\Ni*\cellsz)$);
+
+  % Six nonzero rows — five in column 3, one elsewhere — same story
+  % as in panel (a). Labelled so the tree in (c) can refer to them.
+  \foreach \ii/\kk/\lbl in
+       {0/3/$P_1$, 1/3/$P_2$, 2/6/$P_x$,
+        3/3/$P_3$, 4/3/$P_4$, 5/3/$P_5$} {
+    \fill[oneCell] (\kk*\cellsz+0.5*\cellsz,-\ii*\cellsz-0.5*\cellsz)
+                   circle (0.13);
+    \node[font=\tiny,white]
+         at (\kk*\cellsz+0.5*\cellsz,-\ii*\cellsz-0.5*\cellsz) {\lbl};
+  }
+
+  % Axis labels
+  \node[left,font=\footnotesize,text=axisColor]
+       at (-0.05,-\Ni*\cellsz/2) {$i$};
+  \node[above,font=\footnotesize,text=axisColor]
+       at (\Nk*\cellsz/2, 0.05) {$k$};
+  \node[colstroke,above=-1pt,font=\scriptsize]
+       at (\khl*\cellsz+0.5*\cellsz,0) {$k = 3$};
+
+  % Column readout to the right
+  \node[colstroke,right,align=left,font=\scriptsize]
+       at (\Nk*\cellsz+0.25,-\Ni*\cellsz/2)
+       {$N_{j,3} = 5$\\
+        $\{P_1, P_2, P_3,$\\$\,\,P_4, P_5\}$\\[2pt]
+        \itshape($P_x$ goes\\to $k = 6$)};
+
+  \node[below=0.4cm,align=center]
+       at (\Nk*\cellsz/2,-\Ni*\cellsz-0.4)
+       {\textbf{(b)} slice $M^{(j)}$, column $k = 3$ highlighted\\
+        \scriptsize this bucket receives $N = 5$ points};
+\end{scope}
+
+% =====================================================================
+% PANEL (c): the pair-tree on the highlighted column
+% =====================================================================
+\begin{scope}[xshift=19.6cm, yshift=-1.6cm]
+
+  \tikzset{
+    leaf/.style  ={draw=nodeEdge, fill=nodeFill, rounded corners=2pt,
+                   minimum width=0.7cm, minimum height=0.5cm,
+                   font=\scriptsize, inner sep=1pt},
+    inode/.style ={draw=nodeEdge, fill=nodeFill!85, rounded corners=2pt,
+                   minimum width=0.9cm, minimum height=0.5cm,
+                   font=\scriptsize, inner sep=1pt},
+    carry/.style ={draw=nodeEdge, fill=carryFill, rounded corners=2pt,
+                   minimum width=0.7cm, minimum height=0.5cm,
+                   font=\scriptsize, dashed, inner sep=1pt},
+    op/.style    ={->, thick, nodeEdge},
+    opc/.style   ={->, thick, nodeEdge, dashed},
+    lvl/.style   ={font=\scriptsize\itshape, gray, align=right,
+                   anchor=east, text width=1.6cm},
+  }
+
+  % Level 0 — 5 leaves
+  \def\dx{1.00}
+  \foreach \i/\name in {0/$P_1$, 1/$P_2$, 2/$P_3$, 3/$P_4$, 4/$P_5$}
+    \node[leaf] (L0-\i) at (\i*\dx,0) {\name};
+  \node[lvl] at (-0.45,0) {level 0\\count = 5};
+
+  % Level 1 — pair (P_1,P_2) and (P_3,P_4); carry P_5
+  \node[inode] (L1-0) at ($(L0-0)!0.5!(L0-1)+(0,-1.10)$) {$P_{12}$};
+  \node[inode] (L1-1) at ($(L0-2)!0.5!(L0-3)+(0,-1.10)$) {$P_{34}$};
+  \node[carry] (L1-2) at (L0-4 |- L1-1)                  {$P_5$};
+  \draw[op]  (L0-0) -- (L1-0);  \draw[op]  (L0-1) -- (L1-0);
+  \draw[op]  (L0-2) -- (L1-1);  \draw[op]  (L0-3) -- (L1-1);
+  \draw[opc] (L0-4) -- (L1-2);
+  \node[lvl] at (-0.45,-1.10) {level 1\\count = 3};
+
+  % Level 2 — pair (P_12, P_34); carry P_5
+  \node[inode] (L2-0) at ($(L1-0)!0.5!(L1-1)+(0,-1.10)$) {$P_{1234}$};
+  \node[carry] (L2-1) at (L1-2 |- L2-0)                   {$P_5$};
+  \draw[op]  (L1-0) -- (L2-0);  \draw[op]  (L1-1) -- (L2-0);
+  \draw[opc] (L1-2) -- (L2-1);
+  \node[lvl] at (-0.45,-2.20) {level 2\\count = 2};
+
+  % Level 3 — pair (P_1234, P_5) -> B_{j,3}
+  \node[inode] (L3-0) at ($(L2-0)!0.5!(L2-1)+(0,-1.10)$) {$B_{j,3}$};
+  \draw[op] (L2-0) -- (L3-0);  \draw[op] (L2-1) -- (L3-0);
+  \node[lvl] at (-0.45,-3.30) {level 3\\count = 1};
+
+  % Finalize-and-drop annotation
+  \node[colstroke, right=0.30cm of L3-0, align=left, font=\scriptsize]
+    {$B_{j,3} = \displaystyle\sum_{m=1}^{5} P_m$\\
+     \itshape finalize-and-drop};
+
+  % Legend
+  \node[anchor=west, font=\scriptsize, align=left]
+    at (-0.45,-4.30)
+    {\itshape Legend:\quad
+     \tikz[baseline=-0.5ex]{\node[inode,minimum width=0.5cm,minimum height=0.35cm]{};}~pair-sum
+     \quad
+     \tikz[baseline=-0.5ex]{\node[carry,minimum width=0.5cm,minimum height=0.35cm]{};}~odd-count carry
+     \quad
+     \tikz[baseline=-0.5ex]{\draw[op] (0,0) -- (0.4,0);}~affine add};
+
+  % Panel title
+  \node[below=0.05cm,align=center] at (2.0,-4.9)
+    {\textbf{(c)} pair-tree reduction of column $k=3$\\
+     \scriptsize $\lceil \log_2 N \rceil = 3$ levels for $N = 5$;\
+     one batched inversion per level};
+
+\end{scope}
+
+\end{tikzpicture}
+\end{document}
