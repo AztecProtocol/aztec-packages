@@ -299,10 +299,10 @@ ContractArtifacts build_bytecode_and_artifacts(FuzzerData& fuzzer_data)
         .current_contract_class_id = class_id, // Initial and current are the same
         .original_contract_class_id = class_id,
         .public_keys = {
-            .nullifier_key = { 0, 0 },
+            .nullifier_key_hash = 0,
             .incoming_viewing_key = grumpkin::g1::element::one(),
-            .outgoing_viewing_key = { 0, 0 },
-            .tagging_key = { 0, 0 },
+            .outgoing_viewing_key_hash = 0,
+            .tagging_key_hash =  0,
         },
     };
     return { bytecode, contract_class, contract_instance };

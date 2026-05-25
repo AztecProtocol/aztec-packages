@@ -63,6 +63,10 @@ constexpr element<Fq, Fr, T>& element<Fq, Fr, T>::operator=(element&& other) noe
     return *this;
 }
 
+// Warning: variable-time — calls `z.invert()` (Bernstein-Yang safegcd).  Do not
+// use on points derived from secret material (signing nonces, private keys, DH
+// shared secrets).  For those, call `to_affine_const_time()` explicitly; the
+// implicit conversion does NOT pick up the const-time path.
 template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator affine_element<Fq, Fr, T>() const noexcept
 {
     if (is_point_at_infinity()) {
@@ -73,6 +77,23 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator af
         return result;
     }
     Fq z_inv = z.invert();
+    Fq zz_inv = z_inv.sqr();
+    Fq zzz_inv = zz_inv * z_inv;
+    affine_element<Fq, Fr, T> result(x * zz_inv, y * zzz_inv);
+    return result;
+}
+
+template <class Fq, class Fr, class T>
+constexpr affine_element<Fq, Fr, T> element<Fq, Fr, T>::to_affine_const_time() const noexcept
+{
+    if (is_point_at_infinity()) {
+        affine_element<Fq, Fr, T> result;
+        result.x = Fq(0);
+        result.y = Fq(0);
+        result.self_set_infinity();
+        return result;
+    }
+    Fq z_inv = z.invert_const_time();
     Fq zz_inv = z_inv.sqr();
     Fq zzz_inv = zz_inv * z_inv;
     affine_element<Fq, Fr, T> result(x * zz_inv, y * zzz_inv);
@@ -461,10 +482,18 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_const_time(const Fr& scalar, numeric:
     return R0;
 }
 
+// Warning: variable-time via the implicit affine conversion above.  For
+// secret-input points use `normalize_const_time()`.
 template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T> element<Fq, Fr, T>::normalize() const noexcept
 {
     const affine_element<Fq, Fr, T> converted = *this;
     return element(converted);
+}
+
+template <class Fq, class Fr, class T>
+constexpr element<Fq, Fr, T> element<Fq, Fr, T>::normalize_const_time() const noexcept
+{
+    return element(to_affine_const_time());
 }
 
 template <class Fq, class Fr, class T> element<Fq, Fr, T> element<Fq, Fr, T>::infinity()

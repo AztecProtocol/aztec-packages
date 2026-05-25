@@ -270,7 +270,7 @@ Aztec automatically retries failed requests on alternative endpoints when multip
 Enable detailed RPC logging:
 
 ```bash
-LOG_LEVEL=debug # or verbose
+LOG_LEVEL="debug; info: json-rpc, simulator" # or verbose
 ```
 
 Look for log entries related to:

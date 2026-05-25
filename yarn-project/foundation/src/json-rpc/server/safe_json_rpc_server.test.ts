@@ -91,6 +91,64 @@ describe('SafeJsonRpcServer', () => {
       expectError(response, 400, 'Test state failed');
     });
 
+    it('runs diagnostics around the dispatched RPC function', async () => {
+      const calls: string[] = [];
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        diagnostic: async (ctx, next) => {
+          calls.push(`start:${ctx.method}:${ctx.id}:${ctx.headers['x-test-header']}`);
+          await next();
+          calls.push(`end:${ctx.method}`);
+        },
+      });
+
+      const response = await request(server.getApp().callback())
+        .post('/')
+        .send({ jsonrpc: '2.0', method: 'count', params: [], id: 42 })
+        .set({ 'content-type': 'application/json', 'x-test-header': 'test-value' });
+
+      expect(response.status).toBe(200);
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc, id: 42, result: 2 }));
+      expect(calls).toEqual(['start:count:42:test-value', 'end:count']);
+    });
+
+    it('runs diagnostics for each request in a batch', async () => {
+      const methods: string[] = [];
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        diagnostic: async (ctx, next) => {
+          methods.push(ctx.method);
+          await next();
+        },
+        maxBatchSize: 10,
+      });
+
+      const response = await sendBatch(
+        { jsonrpc: '2.0', method: 'getStatus', params: [], id: 42 },
+        { jsonrpc: '2.0', method: 'clear', params: [], id: 43 },
+      );
+
+      expect(response.status).toBe(200);
+      expect(methods).toEqual(['getStatus', 'clear']);
+    });
+
+    it('lets diagnostics observe handler failures', async () => {
+      const errors: string[] = [];
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        diagnostic: async (ctx, next) => {
+          try {
+            await next();
+          } catch (err) {
+            errors.push(`${ctx.method}:${err instanceof Error ? err.message : String(err)}`);
+            throw err;
+          }
+        },
+      });
+
+      const response = await send({ method: 'fail', params: [] });
+
+      expectError(response, 400, 'Test state failed');
+      expect(errors).toEqual(['fail:Test state failed']);
+    });
+
     it('fails if sends invalid JSON', async () => {
       const response = await send('{');
       expectError(response, 400, expect.stringContaining('Parse error'));

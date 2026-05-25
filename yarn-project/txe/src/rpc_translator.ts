@@ -245,6 +245,7 @@ export class RPCTranslator {
         instance.deployer.toField(),
         instance.currentContractClassId,
         instance.initializationHash,
+        instance.immutablesHash,
         ...instance.publicKeys.toFields(),
       ]),
     ]);
@@ -647,6 +648,7 @@ export class RPCTranslator {
         instance.deployer.toField(),
         instance.currentContractClassId,
         instance.initializationHash,
+        instance.immutablesHash,
         ...instance.publicKeys.toFields(),
       ].map(toSingle),
     );
@@ -662,12 +664,24 @@ export class RPCTranslator {
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (result === undefined) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(13).fill(new Fr(0)))]);
+      // Wire shape: [npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, partial_address] = 6 fields.
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(6).fill(new Fr(0)))]);
     } else {
-      // Data was found so we set `some` to 1 and return it along with `value`.
+      // The Noir side hand-decodes a `[Field; 6]` here (see aztec-nr/aztec/src/oracle/keys.nr), so we
+      // emit the 5-field PublicKeys shape + partial_address explicitly
+      // rather than going through `publicKeys.toFields()` (which is the struct-flattened 6-field
+      // wire for oracle returns that decode via struct shape).
+      const { publicKeys, partialAddress } = result;
       return toForeignCallResult([
         toSingle(new Fr(1)),
-        toArray([...result.publicKeys.toFields(), result.partialAddress]),
+        toArray([
+          publicKeys.npkMHash,
+          publicKeys.ivpkM.x,
+          publicKeys.ivpkM.y,
+          publicKeys.ovpkMHash,
+          publicKeys.tpkMHash,
+          partialAddress,
+        ]),
       ]);
     }
   }
@@ -1111,6 +1125,19 @@ export class RPCTranslator {
 
     return toForeignCallResult([
       toSingle(instance.initializationHash),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
+    ]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_avm_getContractInstanceImmutablesHash(foreignAddress: ForeignCallSingle) {
+    const address = addressFromSingle(foreignAddress);
+
+    const instance = await this.handlerAsUtility().getContractInstance(address);
+
+    return toForeignCallResult([
+      toSingle(instance.immutablesHash),
       // AVM requires an extra boolean indicating the instance was found
       toSingle(new Fr(1)),
     ]);

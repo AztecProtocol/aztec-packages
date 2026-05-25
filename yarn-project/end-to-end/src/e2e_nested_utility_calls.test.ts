@@ -5,9 +5,10 @@ import type { UtilityCallAuthorizationRequest } from '@aztec/pxe/server';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 // Verifies nested utility calls via pow_utility(x, n) = x^n (recursive utility→utility),
 // calling it from a private function via pow_private, and the default hook behavior.
@@ -25,7 +26,7 @@ describe('Nested utility calls', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     ({ contract: contractA } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contractB } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
@@ -77,6 +78,7 @@ describe('authorizeUtilityCall hook', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
       pxeCreationOptions: {
         hooks: {
           authorizeUtilityCall: (req: UtilityCallAuthorizationRequest) => {

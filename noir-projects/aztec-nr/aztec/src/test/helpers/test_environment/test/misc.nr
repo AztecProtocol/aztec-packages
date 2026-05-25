@@ -60,8 +60,5 @@ unconstrained fn txe_oracle_version_is_checked_upon_env_creation() {
     let _env = TestEnvironment::new();
 
     assert_eq(mock.times_called(), 1);
-    assert_eq(
-        mock.get_last_params::<(Field, Field)>(),
-        (TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR),
-    );
+    assert_eq(mock.get_last_params::<(Field, Field)>(), (TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR));
 }

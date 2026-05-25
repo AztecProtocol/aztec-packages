@@ -23,7 +23,6 @@ struct MultiScalarMul {
 
     uint32_t out_point_x;
     uint32_t out_point_y;
-    uint32_t out_point_is_infinite;
 
     friend bool operator==(MultiScalarMul const& lhs, MultiScalarMul const& rhs) = default;
 };

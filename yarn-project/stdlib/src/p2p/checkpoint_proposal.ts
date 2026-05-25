@@ -27,6 +27,7 @@ import {
   type CoordinationSignatureType,
   EMPTY_COORDINATION_SIGNATURE_CONTEXT,
   type Signable,
+  coordinationSignatureContextEquals,
   getCoordinationSignatureTypedData,
   readCoordinationSignatureContext,
   recoverCoordinationSigner,
@@ -99,9 +100,28 @@ export class CheckpointProposal extends Gossipable implements Signable {
     public readonly signatureContext: CoordinationSignatureContext,
 
     /** Optional last block info, including its own signature for BlockProposal extraction */
-    public readonly lastBlock?: CheckpointLastBlock,
+    public readonly lastBlock?: CheckpointLastBlock | BlockProposal,
   ) {
     super();
+
+    // Check that last block properties match those of the checkpoint.
+    if (lastBlock && 'inHash' in lastBlock && !lastBlock.inHash.equals(checkpointHeader.inHash)) {
+      throw new Error(
+        `CheckpointProposal lastBlock inHash ${lastBlock.inHash} does not match checkpoint inHash ${checkpointHeader.inHash}`,
+      );
+    }
+    if (lastBlock && 'archiveRoot' in lastBlock && !lastBlock.archiveRoot.equals(archive)) {
+      throw new Error(
+        `CheckpointProposal lastBlock archive ${lastBlock.archiveRoot} does not match checkpoint archive ${archive}`,
+      );
+    }
+    if (
+      lastBlock &&
+      'signatureContext' in lastBlock &&
+      !coordinationSignatureContextEquals(lastBlock.signatureContext, signatureContext)
+    ) {
+      throw new Error(`CheckpointProposal lastBlock signatureContext does not match checkpoint signatureContext`);
+    }
   }
 
   override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
