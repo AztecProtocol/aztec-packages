@@ -239,11 +239,6 @@ export class Oracle {
     const parsedNoteHash = Fr.fromString(noteHash);
 
     const witness = await this.handlerAsUtility().getNoteHashMembershipWitness(parsedAnchorBlockHash, parsedNoteHash);
-    if (!witness) {
-      throw new Error(
-        `Note hash ${noteHash} not found in the note hash tree at anchor block hash ${parsedAnchorBlockHash.toString()}.`,
-      );
-    }
     return witness.toNoirRepresentation();
   }
 
@@ -269,11 +264,6 @@ export class Oracle {
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().getNullifierMembershipWitness(parsedBlockHash, parsedNullifier);
-    if (!witness) {
-      throw new Error(
-        `Nullifier witness not found for nullifier ${parsedNullifier} at block hash ${parsedBlockHash.toString()}.`,
-      );
-    }
     return witness.toNoirRepresentation();
   }
 
@@ -286,11 +276,6 @@ export class Oracle {
     const parsedNullifier = Fr.fromString(nullifier);
 
     const witness = await this.handlerAsUtility().getLowNullifierMembershipWitness(parsedBlockHash, parsedNullifier);
-    if (!witness) {
-      throw new Error(
-        `Low nullifier witness not found for nullifier ${parsedNullifier} at block hash ${parsedBlockHash.toString()}.`,
-      );
-    }
     return witness.toNoirRepresentation();
   }
 
@@ -303,11 +288,6 @@ export class Oracle {
     const parsedLeafSlot = Fr.fromString(leafSlot);
 
     const witness = await this.handlerAsUtility().getPublicDataWitness(parsedBlockHash, parsedLeafSlot);
-    if (!witness) {
-      throw new Error(
-        `Public data witness not found for slot ${parsedLeafSlot} at block hash ${parsedBlockHash.toString()}.`,
-      );
-    }
     return witness.toNoirRepresentation();
   }
 
@@ -316,9 +296,6 @@ export class Oracle {
     const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
 
     const header = await this.handlerAsUtility().getBlockHeader(BlockNumber(parsedBlockNumber));
-    if (!header) {
-      throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
-    }
     return header.toFields().map(toACVMField);
   }
 
@@ -326,9 +303,6 @@ export class Oracle {
   async aztec_utl_getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[][]> {
     const messageHashField = Fr.fromString(messageHash);
     const witness = await this.handlerAsUtility().getAuthWitness(messageHashField);
-    if (!witness) {
-      throw new Error(`Unknown auth witness for message hash ${messageHashField}`);
-    }
     return [witness.map(toACVMField)];
   }
 
@@ -799,11 +773,11 @@ export class Oracle {
     const symKeyBuffer = fromUintArray(symKey, 8);
 
     // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
-    try {
-      const plaintext = await this.handlerAsUtility().decryptAes128(ciphertext, ivBuffer, symKeyBuffer);
+    const plaintext = await this.handlerAsUtility().decryptAes128(ciphertext, ivBuffer, symKeyBuffer);
+    if (plaintext) {
       const [storage, length] = bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
       return [toACVMField(1), storage, length];
-    } catch {
+    } else {
       const zeroStorage = Array(ciphertextBVecStorage.length).fill(toACVMField(0));
       return [toACVMField(0), zeroStorage, toACVMField(0)];
     }

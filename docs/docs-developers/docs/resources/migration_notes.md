@@ -9,6 +9,76 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] Defining a custom `sync_state` function now requires `AztecConfig`
+
+Contracts that previously overrode the default `sync_state` by defining their own function with that name will now get a compile error. Use `AztecConfig::custom_sync_state()` instead.
+
+The custom hook receives the same parameters as `do_sync_state` and is responsible for calling it if default behavior is also desired. You can perform work before and/or after the default `do_sync_state` call, or skip it entirely.
+
+```diff
++ unconstrained fn my_custom_sync(
++     contract_address: AztecAddress,
++     compute_note_hash: ComputeNoteHash,
++     compute_note_nullifier: ComputeNoteNullifier,
++     process_custom_message: Option<CustomMessageHandler>,
++     offchain_inbox_sync: Option<OffchainInboxSync>,
++     scope: AztecAddress,
++ ) {
++     // optional: work before default sync
++     do_sync_state(contract_address, compute_note_hash, compute_note_nullifier, process_custom_message, offchain_inbox_sync, scope);
++     // optional: work after default sync
++ }
+
+- #[aztec]
++ #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::my_custom_sync))]
+  contract MyContract {
+-     use aztec::macros::functions::external;
+-
+-     #[external("utility")]
+-     unconstrained fn sync_state(scope: AztecAddress) {
+-         // custom sync logic
+-     }
+  }
+```
+
+**Impact**: Only contracts that manually defined a `sync_state` function are affected. Contracts using the default macro-generated `sync_state` require no changes.
+
+### [Aztec.nr] `push_nullifier` renamed to `push_nullifier_unsafe`
+
+`PrivateContext::push_nullifier` and `PublicContext::push_nullifier` have been renamed to `push_nullifier_unsafe` to
+make it clear that they are low-level functions that require careful domain separation. This is consistent with the
+`_unsafe` suffix already used by `emit_private_log_unsafe`, `emit_raw_note_log_unsafe`, and `emit_public_log_unsafe`.
+
+```diff
+- context.push_nullifier(nullifier);
++ context.push_nullifier_unsafe(nullifier);
+```
+
+Prefer higher-level abstractions like `SingleUseClaim` or `destroy_note` which handle domain separation automatically.
+
+### [Aztec.nr] `LogRetrievalRequest` now includes `source`, `from_block`, and `to_block` fields
+
+`LogRetrievalRequest` has been extended with three new fields to support filtering logs by source and block range. The `get_logs_by_tag` oracle now also returns all matching logs per tag instead of only the first match.
+
+A `LogRetrievalRequest::new(contract_address, tag)` constructor is provided that defaults to querying both public and private logs with no block range filter:
+
+```rust
+LogRetrievalRequest::new(contract_address, my_tag)
+```
+
+If you need to customize source or block range, construct the struct manually with the new fields:
+
+```diff
+  LogRetrievalRequest {
+      tag: my_tag,
++     source: LogSource.PUBLIC_AND_PRIVATE,
++     from_block: Option::none(),
++     to_block: Option::none(),
+  }
+```
+
+`source` controls which RPCs are queried: `LogSource.PRIVATE`, `LogSource.PUBLIC`, or `LogSource.PUBLIC_AND_PRIVATE`. `from_block` and `to_block` define a half-open `[from, to)` block range filter. Both are `Option<Field>` and default to `Option::none()` (no filtering).
+
 ### [Protocol] Public-key hashes replace points in `PublicKeys`
 
 Ships together with immutables hash changes (shown below).
@@ -52,7 +122,6 @@ The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_
 
 **Security note (PXE side).** The kernel circuit no longer checks that `npk_m`, `ovpk_m`, `tpk_m` are on-curve or non-infinity (those points are no longer in the witness). The PXE / key store relies on `deriveKeys`'s by-construction guarantee that derived points are on-curve and non-infinity. Account-creation flows that bypass `deriveKeys` (e.g. importing pre-derived public keys from an external source) must validate this themselves, or risk producing unspendable notes.
 
-
 ### [Contracts] `ContractInstance` gains `immutablesHash`, address derivation changes
 
 `ContractInstance` now has a new `immutablesHash: Fr` field that commits to a contract's immutable storage values. The field is folded into the salted initialization hash, so contract addresses are impacted:
@@ -85,7 +154,6 @@ salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [sal
   ```
 
 The `aztec.js` `publishInstance` helper handles this automatically.
-
 
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` now take `BoundedVec`
 
@@ -180,7 +248,7 @@ The `Schnorr` TypeScript API in `@aztec/foundation/crypto/schnorr` keeps the sam
 + env.call_public_incognito(SampleContract::at(addr).some_function());
 ```
 
-If you need to call a public function *with* a sender, use `call_public` instead.
+If you need to call a public function _with_ a sender, use `call_public` instead.
 
 ### [Aztec.nr] TXE `view_public_incognito` is deprecated
 
@@ -333,7 +401,13 @@ If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/cur
 ```typescript
 const result = await contract.methods.read_balance(account).simulate({
   overrides: {
-    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+    publicStorage: [
+      {
+        contract: contract.address,
+        slot: BALANCE_SLOT,
+        value: new Fr(1_000_000n),
+      },
+    ],
   },
 });
 ```
@@ -350,7 +424,7 @@ Direct callers of the `SimulationOverrides` constructor must switch from a posit
 `overrides.contracts` swaps contract instances in the simulator's contract DB — useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete onchain upgrade flow, use the `fastForwardContractUpdate` helper which returns a `SimulationOverrides` covering both registry storage rewrites and the upgraded instance entry:
 
 ```typescript
-import { fastForwardContractUpdate } from '@aztec/aztec.js';
+import { fastForwardContractUpdate } from "@aztec/aztec.js";
 
 const overrides = await fastForwardContractUpdate({
   instanceAddress: contract.address,
@@ -477,8 +551,8 @@ If you want the latest L1-confirmed checkpoint regardless of proposed state, swi
 
 ```ts
 // Throws BadRequestError when a proposed entry exists at the resolved number:
-await node.getCheckpoint('proposed', { includeAttestations: true });
-await node.getCheckpoint('proposed', { includeL1PublishInfo: true });
+await node.getCheckpoint("proposed", { includeAttestations: true });
+await node.getCheckpoint("proposed", { includeL1PublishInfo: true });
 
 // And when a by-number / by-slot lookup falls back to a proposed entry:
 await node.getCheckpoint({ number: N }, { includeAttestations: true });

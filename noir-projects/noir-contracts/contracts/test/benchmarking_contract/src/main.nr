@@ -78,7 +78,7 @@ pub contract Benchmarking {
         // Safety: Benchmarking code
         let random_seed = unsafe { random() };
         for i in 0..MAX_NULLIFIERS_PER_CALL {
-            self.context.push_nullifier(random_seed + (i as Field));
+            self.context.push_nullifier_unsafe(random_seed + (i as Field));
         }
     }
 
