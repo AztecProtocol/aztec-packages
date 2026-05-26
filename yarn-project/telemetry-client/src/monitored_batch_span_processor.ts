@@ -1,11 +1,18 @@
 import type { Logger } from '@aztec/foundation/log';
 
-import type { Context } from '@opentelemetry/api';
+import { type Context, SpanStatusCode } from '@opentelemetry/api';
+import { hrTimeToMilliseconds } from '@opentelemetry/core';
 import type { SpanExporter } from '@opentelemetry/sdk-trace-base';
 import { BatchSpanProcessor, type BufferConfig, type ReadableSpan, type Span } from '@opentelemetry/sdk-trace-node';
 
 /** Minimum interval between drop warnings to avoid log spam. */
 const DROP_WARNING_INTERVAL_MS = 30_000;
+
+const DEFAULT_MIN_TRACE_DURATION_MS = 10;
+
+export type MonitoredBatchSpanProcessorConfig = BufferConfig & {
+  minTraceDurationMs?: number;
+};
 
 /**
  * Wraps BatchSpanProcessor to emit warnings when spans are dropped due to a full queue.
@@ -14,6 +21,7 @@ const DROP_WARNING_INTERVAL_MS = 30_000;
  */
 export class MonitoredBatchSpanProcessor extends BatchSpanProcessor {
   private readonly maxQueueSize: number;
+  private readonly minTraceDurationMs: number;
   private readonly log: Logger;
 
   private approxQueueSize = 0;
@@ -21,10 +29,11 @@ export class MonitoredBatchSpanProcessor extends BatchSpanProcessor {
   private totalDropped = 0;
   private lastWarningTime = 0;
 
-  constructor(exporter: SpanExporter, log: Logger, config?: BufferConfig) {
+  constructor(exporter: SpanExporter, log: Logger, config?: MonitoredBatchSpanProcessorConfig) {
     const maxQueueSize = config?.maxQueueSize ?? 2048;
     super(exporter, { ...config, maxQueueSize });
     this.maxQueueSize = maxQueueSize;
+    this.minTraceDurationMs = Math.max(0, config?.minTraceDurationMs ?? DEFAULT_MIN_TRACE_DURATION_MS);
     this.log = log;
   }
 
@@ -33,6 +42,10 @@ export class MonitoredBatchSpanProcessor extends BatchSpanProcessor {
   }
 
   override onEnd(span: ReadableSpan): void {
+    if (this.shouldDropShortSpan(span)) {
+      return;
+    }
+
     if (this.approxQueueSize >= this.maxQueueSize) {
       this.droppedSinceLastWarning++;
       this.totalDropped++;
@@ -55,6 +68,14 @@ export class MonitoredBatchSpanProcessor extends BatchSpanProcessor {
       });
     }
     await super.shutdown();
+  }
+
+  private shouldDropShortSpan(span: ReadableSpan): boolean {
+    return (
+      this.minTraceDurationMs > 0 &&
+      span.status.code !== SpanStatusCode.ERROR &&
+      hrTimeToMilliseconds(span.duration) < this.minTraceDurationMs
+    );
   }
 
   private maybeLogDropWarning(): void {

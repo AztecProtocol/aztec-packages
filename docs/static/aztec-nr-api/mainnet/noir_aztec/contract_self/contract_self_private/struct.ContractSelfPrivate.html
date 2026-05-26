@@ -28,6 +28,7 @@
 <li><a href="#structfield.enqueue_self_static">enqueue_self_static</a></li>
 <li><a href="#structfield.internal">internal</a></li>
 <li><a href="#structfield.storage">storage</a></li>
+<li><a href="#structfield.utility">utility</a></li>
 </ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
@@ -46,12 +47,13 @@
 <h2>In module contract_self_private</h2>
 <h3>Structs</h3><ul class="item-list">
 <li><a href="struct.ContractSelfPrivate.html">ContractSelfPrivate</a></div></li>
+<li><a href="struct.PrivateUtilityCalls.html">PrivateUtilityCalls</a></div></li>
 </ul>
 </nav>
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_private</a></div>
 <h1>Struct <span id="struct" class="struct">ContractSelfPrivate</span></h1>
-<pre><code>pub struct ContractSelfPrivate&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal&gt; {
+<pre><code>pub struct ContractSelfPrivate&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility&gt; {
     pub address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     pub storage: Storage,
     pub context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
@@ -60,6 +62,7 @@
     pub call_self_static: CallSelfStatic,
     pub enqueue_self_static: EnqueueSelfStatic,
     pub internal: CallInternal,
+    pub utility: <a href="../../../noir_aztec/contract_self/contract_self_private/struct.PrivateUtilityCalls.html" class="struct">PrivateUtilityCalls</a>&lt;CallSelfUtility&gt;,
 }
 </code></pre>
 <div class="comments">
@@ -98,6 +101,7 @@ the contract has no storage</li>
 <li><code>CallSelfStatic</code>: Macro-generated type for calling contract's own view functions</li>
 <li><code>EnqueueSelfStatic</code>: Macro-generated type for enqueuing calls to the contract's own view functions</li>
 <li><code>CallInternal</code>: Macro-generated type for calling internal functions</li>
+<li><code>CallSelfUtility</code>: Macro-generated type for calling the contract's own utility functions</li>
 </ul></div>
 <h2>Fields</h2>
 <div id="structfield.address" class="struct-field"><code class="code-header">address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
@@ -145,8 +149,14 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p>Provides type-safe methods for calling internal functions.</p>
 <p>Example API:</p>
 <pre><code>self.internal.some_internal_function(args)</code></pre></div>
+</div><div id="structfield.utility" class="struct-field"><code class="code-header">utility: <a href="../../../noir_aztec/contract_self/contract_self_private/struct.PrivateUtilityCalls.html" class="struct">PrivateUtilityCalls</a>&lt;CallSelfUtility&gt;</code></div>
+<div class="padded-description"><div class="comments">
+<p>A struct that allows for ergonomic calling of utility functions from this private context.</p>
+<p>Example API:</p>
+<pre><code><span class="comment">// Safety: result is unconstrained</span>
+<span class="kw">unsafe</span> { self.utility.call(MyContract::at(address).my_utility_function(args)) }</code></pre></div>
 </div><h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;CallInternal, CallSelf, CallSelfStatic, EnqueueSelf, EnqueueSelfStatic, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html" class="struct">ContractSelfPrivate</a>&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal&gt;</code></h3>
+<h3><code class="code-header">impl&lt;CallInternal, CallSelf, CallSelfStatic, CallSelfUtility, EnqueueSelf, EnqueueSelfStatic, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html" class="struct">ContractSelfPrivate</a>&lt;Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility&gt;</code></h3>
 
 <div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(
     context: &mut <a href="../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>,
@@ -156,6 +166,7 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
     call_self_static: CallSelfStatic,
     enqueue_self_static: EnqueueSelfStatic,
     internal: CallInternal,
+    utility: <a href="../../../noir_aztec/contract_self/contract_self_private/struct.PrivateUtilityCalls.html" class="struct">PrivateUtilityCalls</a>&lt;CallSelfUtility&gt;,
 ) -> Self</code>
 
 <div class="padded-description"><div class="comments">

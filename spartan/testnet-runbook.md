@@ -12,7 +12,7 @@ The engineering team's public testnet responsibilities begin after code-freeze. 
 2. Create a named release branch (eg: `release/sassy-salamander`) from the desired `master` release (eg:`v0.64.0`).
 3. Complete all QA testing against `release/sassy-salamander`.
 4. For tests that do not pass, create a hotfix into the `release/sassy-salamander` release branch.
-5. After testing is complete, initiate a `release-please` CI workflow from `release/sassy-salamander` to publish release artifacts.
+5. After testing is complete, push a semver release tag from `release/sassy-salamander` to trigger the release CI workflow and publish release artifacts.
 
 ### Release Notes and Artifact Builds
 
@@ -39,7 +39,7 @@ After cutting a release, deploy a public testnet using the new Docker containers
 Verbose logging on Aztec nodes should be enabled by default using the following `ENV VARS`:
 
 - `LOG_JSON=1`
-- `LOG_LEVEL=debug`
+- `LOG_LEVEL="debug; info: json-rpc, simulator"`
 
 Deployments are initiated from CI by manually running the (_name pending_) workflow.
 

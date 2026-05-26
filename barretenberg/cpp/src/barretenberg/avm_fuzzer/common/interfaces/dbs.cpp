@@ -136,10 +136,10 @@ ContractInstance FuzzerContractDB::from_logs(const PrivateLog& log) const
     FF contract_class_id = log.fields[offset++];
     FF initialization_hash = log.fields[offset++];
     PublicKeys public_keys = {
-        .nullifier_key = { log.fields[offset++], log.fields[offset++] },
+        .nullifier_key_hash = log.fields[offset++],
         .incoming_viewing_key = { log.fields[offset++], log.fields[offset++] },
-        .outgoing_viewing_key = { log.fields[offset++], log.fields[offset++] },
-        .tagging_key = { log.fields[offset++], log.fields[offset++] },
+        .outgoing_viewing_key_hash = log.fields[offset++],
+        .tagging_key_hash = log.fields[offset++],
     };
     auto deployer = AztecAddress(log.fields[offset++]);
     return ContractInstance{

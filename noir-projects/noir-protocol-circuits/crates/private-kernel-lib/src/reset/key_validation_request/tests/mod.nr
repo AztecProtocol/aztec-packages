@@ -10,7 +10,8 @@ use types::{
     abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndSeparator},
     address::AztecAddress,
     hash::compute_app_siloed_secret_key,
-    point::Point,
+    point::EmbeddedCurvePoint,
+    public_keys::hash_public_key,
     scalar::Scalar,
     side_effect::Scoped,
     traits::{Empty, FromField},
@@ -73,14 +74,15 @@ impl TestBuilder {
         let contract_address = AztecAddress::from_field(456654);
 
         let sk_m = Scalar::from_field(sk);
-        let pk_m: Point = derive_public_key(sk_m).into();
+        let pk_m = derive_public_key(sk_m);
+        let pk_m_hash = hash_public_key(pk_m);
 
         let key_type_domain_separator = 123321;
         let sk_app =
             compute_app_siloed_secret_key(sk_m, contract_address, key_type_domain_separator);
 
         let request = KeyValidationRequestAndSeparator {
-            request: KeyValidationRequest { pk_m, sk_app },
+            request: KeyValidationRequest { pk_m_hash, sk_app },
             key_type_domain_separator,
         }
             .scope(contract_address);

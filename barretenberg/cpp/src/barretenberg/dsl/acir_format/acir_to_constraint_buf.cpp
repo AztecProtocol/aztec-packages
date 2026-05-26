@@ -252,9 +252,8 @@ void update_max_witness_index_from_opcode(Acir::Opcode const& opcode, AcirFormat
                 }
             },
             [&](const Acir::Opcode::MemoryOp& arg) {
-                update_max_witness_index_from_expression(arg.op.index, af);
-                update_max_witness_index_from_expression(arg.op.value, af);
-                update_max_witness_index_from_expression(arg.op.operation, af);
+                update_max_witness_index_from_witness(arg.op.index);
+                update_max_witness_index_from_witness(arg.op.value);
             },
             [&](const Acir::Opcode::BrilligCall& arg) {
                 for (const auto& input : arg.inputs) {
@@ -703,7 +702,6 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                             .predicate = parse_input(arg.predicate),
                             .out_point_x = to_witness((*arg.outputs)[0]),
                             .out_point_y = to_witness((*arg.outputs)[1]),
-                            .out_point_is_infinite = to_witness((*arg.outputs)[2]),
                         });
                         af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
                     },
@@ -711,14 +709,11 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                         af.ec_add_constraints.push_back(EcAdd{
                             .input1_x = parse_input((*arg.input1)[0]),
                             .input1_y = parse_input((*arg.input1)[1]),
-                            .input1_infinite = parse_input((*arg.input1)[2]),
                             .input2_x = parse_input((*arg.input2)[0]),
                             .input2_y = parse_input((*arg.input2)[1]),
-                            .input2_infinite = parse_input((*arg.input2)[2]),
                             .predicate = parse_input(arg.predicate),
                             .result_x = to_witness((*arg.outputs)[0]),
                             .result_y = to_witness((*arg.outputs)[1]),
-                            .result_infinite = to_witness((*arg.outputs)[2]),
                         });
                         af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
                     },
@@ -817,36 +812,8 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
 
 void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
-    // Lambda to convert an Acir::Expression to a witness index. Noir always emits a single unscaled witness term for
-    // memory op indices and values, so anything else is a malformed input.
-    auto acir_expression_to_witness = [](const Acir::Expression& expr) -> uint32_t {
-        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp should not have multiplication terms");
-        BB_ASSERT_EQ(expr.linear_combinations.size(), 1U, "MemoryOp expression must be a single witness");
-
-        const fr a_scaling = from_buffer_with_bound_checks(std::get<0>(expr.linear_combinations[0]));
-        const fr constant_term = from_buffer_with_bound_checks(expr.q_c);
-
-        BB_ASSERT(a_scaling == fr::one() && constant_term == fr::zero(),
-                  "MemoryOp expression must be a single unscaled witness with no constant term");
-
-        return std::get<1>(expr.linear_combinations[0]).value;
-    };
-
-    // Lambda to determine whether a memory operation is a read or write operation
-    auto is_read_operation = [](const Acir::Expression& expr) {
-        BB_ASSERT(expr.mul_terms.empty(), "MemoryOp expression should not have multiplication terms");
-        BB_ASSERT(expr.linear_combinations.empty(), "MemoryOp expression should not have linear terms");
-
-        const fr const_term = from_buffer_with_bound_checks(expr.q_c);
-
-        BB_ASSERT((const_term == fr::one()) || (const_term == fr::zero()),
-                  "MemoryOp expression should be either zero or one");
-
-        // A read operation is given by a zero Expression
-        return const_term == fr::zero();
-    };
-
-    AccessType access_type = is_read_operation(mem_op.op.operation) ? AccessType::Read : AccessType::Write;
+    // Acir::MemOp::read is the serialized MemOpKind bool: false = Read, true = Write.
+    AccessType access_type = mem_op.op.read ? AccessType::Write : AccessType::Read;
     if (access_type == AccessType::Write) {
         // We are not allowed to write on the databus
         BB_ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));
@@ -856,8 +823,8 @@ void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, Blo
 
     MemOp acir_mem_op = MemOp{
         .access_type = access_type,
-        .index = acir_expression_to_witness(mem_op.op.index),
-        .value = acir_expression_to_witness(mem_op.op.value),
+        .index = mem_op.op.index.value,
+        .value = mem_op.op.value.value,
     };
     block.trace.push_back(acir_mem_op);
 }

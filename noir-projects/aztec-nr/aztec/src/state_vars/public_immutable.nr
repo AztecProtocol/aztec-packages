@@ -154,7 +154,7 @@ impl<T> PublicImmutable<T, PublicContext> {
         // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents the value
         // from being initialized again as each nullifier can be emitted only once.
         let nullifier = self.compute_initialization_inner_nullifier();
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
 
         self.context.storage_write(self.storage_slot, WithHash::new(value));
     }

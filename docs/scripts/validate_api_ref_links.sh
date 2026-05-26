@@ -211,22 +211,22 @@ get_pr_context() {
   fi
 }
 
-# Send a Slack message to #devrel-docs-updates
+# Send a Slack message to #docs-alerts
 # Args: $1 = message text
 send_slack_message() {
   local message=$1
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  if [[ -z "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+    echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0
   fi
 
   local data
-  data=$(jq -n --arg channel "#devrel-docs-updates" --arg text "$message" \
+  data=$(jq -n --arg channel "#docs-alerts" --arg text "$message" \
     '{channel: $channel, text: $text}')
 
   local response
   if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data"); then
     echo "Slack API request failed (curl error)" >&2
@@ -292,7 +292,7 @@ send_alert() {
   message+=$'\n'"*Action required:* Run \`yarn generate:aztec-nr-api\` and/or \`yarn generate:typescript-api\` to regenerate the API docs."
 
   if send_slack_message "$message"; then
-    echo "Slack notification sent to #devrel-docs-updates."
+    echo "Slack notification sent to #docs-alerts."
   else
     echo "WARNING: Failed to send Slack notification." >&2
   fi

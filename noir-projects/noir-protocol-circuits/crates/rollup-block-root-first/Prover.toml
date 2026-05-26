@@ -1113,7 +1113,7 @@ new_archive_sibling_path = [
 
         [inputs.previous_rollups.public_inputs.constants.l1_to_l2_tree_snapshot]
         root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
-        next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002800"
+        next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002c00"
 
         [inputs.previous_rollups.public_inputs.constants.global_variables]
         chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
@@ -1825,7 +1825,7 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 
         [inputs.previous_rollups.public_inputs.constants.l1_to_l2_tree_snapshot]
         root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
-        next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002800"
+        next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002c00"
 
         [inputs.previous_rollups.public_inputs.constants.global_variables]
         chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
@@ -1863,6 +1863,18 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 [inputs.previous_rollups.public_inputs.end_tree_snapshots.nullifier_tree]
 root = "0x0ff51198f73bfb671b273bc3811ec2faca38059ba18ccd93ede4fd84101cfcbe"
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000380"
+
+[inputs.previous_rollups.public_inputs.start_tree_snapshots.public_data_tree]
+root = "0x2ee93e7bf272c4871c6ea3459ba1e3cfb0a00ee0432439a6095280b78ed82244"
+next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008a"
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.note_hash_tree]
+root = "0x17220b63d32aab917a748a18b8074aff52332c70604bcad27008d4867e2feea8"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000340"
+
+[inputs.previous_rollups.public_inputs.end_tree_snapshots.nullifier_tree]
+root = "0x1cfed5fd7ef032befae488393236dfabcdca928fd71b5775b02eeeca5952b149"
+next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000003c0"
 
 [inputs.previous_rollups.public_inputs.end_tree_snapshots.public_data_tree]
 root = "0x2b250aeaf51dbfe3bd387c18b534c7a1649c73dd06e7be04d24b3b0f8b3ca405"
@@ -2038,4 +2050,4 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 
   [inputs.previous_l1_to_l2]
   root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
-  next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002400"
+  next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000002800"

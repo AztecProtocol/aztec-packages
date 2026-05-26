@@ -494,7 +494,7 @@ describe('SenderTaggingStore', () => {
   describe('finalizePendingIndexesOfAPartiallyRevertedTx', () => {
     function makeTxEffect(txHash: TxHash, siloedTags: SiloedTag[]): TxEffect {
       return new TxEffect(
-        RevertCode.APP_LOGIC_REVERTED,
+        RevertCode.REVERTED,
         txHash,
         Fr.ZERO,
         [Fr.random()], // noteHashes (at least 1 nullifier required below, not here)
