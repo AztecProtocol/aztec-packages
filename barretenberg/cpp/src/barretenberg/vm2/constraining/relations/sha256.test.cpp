@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 // Temporary imports, see comment in test.
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -60,6 +61,7 @@ using simulation::Sha256CompressionEvent;
 using tracegen::BitwiseTraceBuilder;
 using tracegen::GreaterThanTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
+using tracegen::RangeCheckTraceBuilder;
 using tracegen::Sha256TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -159,6 +161,9 @@ TEST(Sha256ConstrainingTest, Interaction)
 
     GreaterThanTraceBuilder gt_builder;
     gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    RangeCheckTraceBuilder range_check_builder;
+    range_check_builder.process(range_check_event_emitter.dump_events(), trace);
 
     builder.process(sha256_event_emitter.get_events(), trace);
 
