@@ -18,7 +18,7 @@ The `privately_check_timestamp`, `privately_check_block_number`, and related cal
 + use aztec::public_checks::privately_check_timestamp;
 ```
 
-The on-chain `PublicChecks` contract itself is unchanged in this PR.
+The deployed `PublicChecks` contract itself is unchanged in this PR.
 
 ### [Aztec.js] `AccountManager.create` takes an options bag
 
