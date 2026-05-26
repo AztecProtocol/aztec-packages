@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <utility>
 #include <variant>
 
@@ -27,6 +28,19 @@ enum class CircuitKind : uint8_t {
     Kernel = 1,
     HidingKernel = 2,
 };
+
+inline std::ostream& operator<<(std::ostream& os, CircuitKind kind)
+{
+    switch (kind) {
+    case CircuitKind::App:
+        return os << "app";
+    case CircuitKind::Kernel:
+        return os << "kernel";
+    case CircuitKind::HidingKernel:
+        return os << "hiding";
+    }
+    return os << "unknown(" << static_cast<int>(kind) << ")";
+}
 
 using CircuitVerificationKey = std::variant<std::shared_ptr<MegaAppFlavor::VerificationKey>,
                                             std::shared_ptr<MegaKernelFlavor::VerificationKey>,
