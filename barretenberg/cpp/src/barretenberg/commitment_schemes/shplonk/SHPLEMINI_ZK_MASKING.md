@@ -1,21 +1,15 @@
 # Shplemini Masking
 
 This note states a masking lemma for replacing the current full-size random
-`gemini_masking_poly` in the Gemini + Shplonk + KZG path of Shplemini. It
-also records the analogous IPA support and the remaining proof obligation for
-that path.
+`gemini_masking_poly` in the Gemini + Shplonk + KZG path of Shplemini.
 
 Let $N$ be the dyadic circuit size and $d = \log_2 N$. Write $E_j(X) = X^j$
 for the standard monomial basis of $\mathbb{F}[X]_{<N}$, so a polynomial
 $P = \sum_j c_j\, E_j$ is identified with its coefficient vector $(c_0,
 \ldots, c_{N-1})$ as stored by the prover.
 
-In both cases the proposed replacement is a sparse masking polynomial with a
-small number of random entries on a fixed support: $2d$ entries on a
-**tail-halving** layout for KZG, and $4d - 2$ entries on a **dyadic-cut**
-layout for IPA (assuming $d \ge 4$; for $d \le 3$ the dyadic-cut indices
-already cover all of $[0, N-1]$, so the "sparse" mask degenerates to the
-dense one — irrelevant for real flavors, where $d \approx 15$).
+The proposed replacement is a sparse masking polynomial with a small number of
+random entries on a fixed support: $2d$ entries on a **tail-halving** layout.
 
 ## Lemma 1 (KZG)
 
@@ -46,17 +40,25 @@ bad set consisting of:
 - vanishing multilinear Lagrange factors $L_b(u_0,\ldots,u_{t-1})$ used by
   the local blocks below.
 
-The rank target depends on where the top pair lies. When the top pair is in the
-upper quarter, the Gemini projection is expected to have full column rank $2d$.
-When $E \le 3N/4$, the raw $2d\times2d$ Gemini determinant drops rank by one;
-the expected proof target is then that the crafted sparse image has rank
-$2d-1$ and contains the dense degree-$<E$ leakage image, whose rank is at most
-$2d-1$. This is still sufficient for zero-knowledge, because the mask only needs
-to randomize every leakage direction that dense masking could expose.
+The rank behaviour splits into two regimes by where the top pair $(E-1,E-2)$
+falls. With $K := \mathbb{F}(u_0,\ldots,u_{d-1},r_0,\ldots,r_{d-1},\tau)$ the
+rational function field:
+
+- **High tail** ($E > 3N/4$): the top pair sits in the upper quarter and the
+  Gemini block has full column rank $2d$ ($\det B \ne 0$ in $K$).
+- **Low tail** ($E \le 3N/4$): the Gemini block drops rank by exactly one to
+  $2d-1$; the sparse image still contains the dense degree-$<E$ leakage image.
+
+Either way the mask randomises every leakage direction a dense mask on
+$\mathbb{F}[X]_{<E}$ could expose, which is what the simulation step needs.
 
 ### Proof
 
-The proof has three steps.
+Steps 1 and 2 (reduction to the Gemini block and its structural normal form)
+are common to both regimes. The rank computation then splits into the
+high-tail Step 3A and the low-tail Step 3B. Steps 4 and 5 (Schwartz–Zippel and
+simulation) are again common. Numerical/symbolic *exhibitions* supporting the
+two regimes are deferred to Appendices A and B.
 
 **1. The Shplemini transcript space and a first rank bound.** In the
 algebraic group model for KZG, a commitment $[P]$ is represented by the scalar
@@ -72,17 +74,8 @@ $M$ contributes the following scalars to the transcript:
 | $W_M(\tau)$ | KZG witness commitment $[W]$ |
 
 These $1 + d + d + 1 + 1 = 2d + 3$ scalars live in the **Shplemini transcript
-space**
-
-$$
-\mathcal{T} \;:=\; \mathbb{F}^{\,2d+3}.
-$$
-
-The total $M$-leakage is captured by the linear map
-
-$$
-\Psi:\ \mathrm{span}(E_j : j \in S)\ \longrightarrow\ \mathcal{T}.
-$$
+space** $\mathcal{T} := \mathbb{F}^{\,2d+3}$. The total $M$-leakage is captured
+by the linear map $\Psi:\ \mathrm{span}(E_j : j \in S)\ \longrightarrow\ \mathcal{T}$.
 
 **Shplonk collapse and the rank bound.** Shplonk batches the opening claims at
 points $z_t$ with challenge $\nu$:
@@ -109,42 +102,21 @@ witness row is only a scalar multiple of $Q_M(\tau)$. Therefore both
 `Shplonk:Q` and `KZG:W` lie in the span of the Gemini scalars above, and
 $\mathrm{rank}(\Psi)$ equals the rank of its Gemini projection onto
 $\mathbb{F}^{2d+1}$. The domain has dimension $|S|=2d$, so the rank is at
-most $2d$. In the high-tail case the target is full column rank $2d$; in the
-low-tail case the target is the image-containment statement recorded below.
+most $2d$.
 
-**2. Rank of the Gemini projection.** By the argument above it suffices
-to work with the Gemini projection. In this section write
-
-$$
-\mathcal{T}_{\mathrm{Gem}}=\mathbb{F}^{2d+1},\qquad
-V=\mathrm{span}\{E_j:j\in S\},
-$$
-
-and let
-
-$$
-\Psi_{\mathrm{Gem}}:V\longrightarrow\mathcal{T}_{\mathrm{Gem}}
-$$
-
-be the Gemini leakage map with coordinates
+**2. The Gemini block and its normal form.** It suffices to work with the
+Gemini projection. Write $\mathcal{T}_{\mathrm{Gem}}=\mathbb{F}^{2d+1}$,
+$V=\mathrm{span}\{E_j:j\in S\}$, and let
+$\Psi_{\mathrm{Gem}}:V\longrightarrow\mathcal{T}_{\mathrm{Gem}}$ be the Gemini
+leakage map with coordinates
 
 $$
 M(u),\quad M_0(\tau),\ldots,M_{d-1}(\tau),\quad
 M_0(-r_0),\ldots,M_{d-1}(-r_{d-1}).
 $$
 
-The row $M(u)$ is not needed for the rank lower bound. Let $B$ be the
-$2d\times 2d$ matrix obtained from $\Psi_{\mathrm{Gem}}$ by dropping the
-$M(u)$ row. In the high-tail case one can aim to prove $\det B \ne 0$ in the
-rational function field
-
-$$
-K \;=\; \mathbb{F}(u_0,\ldots,u_{d-1},\,r_0,\ldots,r_{d-1},\,\tau).
-$$
-
-For $E\le 3N/4$, experiments show $\det B=0$ for this particular square
-minor. The replacement target is a rank-$(2d-1)$ minor after quotienting the
-one-dimensional redundant row direction described below.
+The row $M(u)$ is not needed for the rank bound. Let $B$ be the $2d\times 2d$
+matrix obtained by dropping the $M(u)$ row.
 
 **Fold formula.** The only formula we need is the effect of Gemini folding
 on one monomial. After $t$ folds,
@@ -167,13 +139,8 @@ x^{\lfloor s/2^t\rfloor}.
 $$
 
 **Row basis change.** Replace each pair $(M_t(\tau),M_t(-r_t))$ by
-$(D_t,M_t(-r_t))$, where
-
-$$
-D_t \;:=\; M_t(\tau)-M_t(-r_t).
-$$
-
-This is a determinant-preserving row change: the change-of-basis matrix is
+$(D_t,M_t(-r_t))$, where $D_t := M_t(\tau)-M_t(-r_t)$. This is a
+determinant-preserving row change: the change-of-basis matrix is
 block-diagonal with $2\times 2$ blocks $\begin{pmatrix}1 & -1\\0 & 1\end{pmatrix}$
 of unit determinant. From the fold formula,
 
@@ -182,67 +149,14 @@ D_t(E_s) \;=\; L_{s\bmod 2^t}(u)\,\bigl(\tau^{q}-(-r_t)^{q}\bigr),\qquad
 q=\lfloor s/2^t\rfloor.
 $$
 
-The structural observation that drives the rank argument is:
+The structural observation that drives both regimes is:
 
 > **(★)** $D_t(E_s) = 0$ whenever $s < 2^t$.
 
 Indeed for $s<2^t$ we have $q=0$ and $\tau^0-(-r_t)^0=0$.
 
-**Low-tail rank-drop conjecture.** Suppose $E\le 3N/4$. Apply Step A/B and the
-triangularising row operation from `SHPLEMINI_ZK_FILTRATION_PROOF.md`, replacing
-$M_k^{\mathrm{new}}$ for $k\ge1$ by
-
-$$
-N_k := M_k^{\mathrm{new}} - u_{k-1}D_{k-1}' - (1-u_{k-1})M_{k-1}^{\mathrm{new}}.
-$$
-
-On every support column where $D_{d-1}'$ is nonzero, one has
-$q_{d-1}=1$, $q_{d-2}=2$, and $\mathrm{bit}_{d-2}=0$. Therefore the final
-triangularised row pair is proportional on the whole support:
-
-$$
-N_{d-1}
-=
--\frac{u_{d-2}(\tau-r_{d-2})+(1-u_{d-2})\tau r_{d-2}}{1-u_{d-2}}\;D_{d-1}'.
-$$
-
-Conjecturally this is the only generic relation among the Gemini rows in the
-crafted sparse support, so the sparse image has rank $2d-1$ in this range. The
-dense degree-$<E$ image should have rank at most $2d-1$, with equality except
-near the smaller endpoint where the dense polynomial space itself is too short.
-Thus the intended low-tail statement is
-
-$$
-\mathrm{Im}(\Psi_{\mathrm{Gem}}|_{\mathbb F[X]_{<E}})
-\subseteq
-\mathrm{Im}(\Psi_{\mathrm{Gem}}|_{\mathrm{span}(E_j:j\in S)}),
-$$
-
-not full column rank of the raw $2d\times2d$ minor.
-
-A rank-$(2d-1)$ determinant formula should be obtained by deleting one of
-$D_{d-1}',N_{d-1}$ and deleting one suitable support column. In the minimal
-case $d=3$, $N=8$, $E=6$, $S=[5,4,3,2,1,0]$, deleting $N_2$ and the top column
-$5$ gives the symbolic minor
-
-$$
-(r_0-\tau)(u_0-1)(u_1-1)
-(r_0u_0-r_0-u_0)(\tau u_0-\tau+u_0),
-$$
-
-i.e. up to sign
-
-$$
-(\tau-r_0)(1-u_0)(1-u_1)A_0^+(r_0)A_0^-(\tau).
-$$
-
-Other deleted columns insert the expected one-variable Lucas residuals in
-$\tau,r_0$; for example, in the $d=4$ specialisations the good reduced minors
-show residuals such as $(\tau^6-r_0^6)/(\tau^2-r_0^2)$ and
-$(\tau^8-r_0^8)/(\tau^2-r_0^2)$ as $E$ moves through $10$ and $12$.
-
-**Pair filtration for the high-tail full-rank route.** Index the support as
-adjacent pairs by their larger monomial:
+**3A. High tail ($E > 3N/4$): full rank $2d$.** Index the support as adjacent
+pairs by their larger monomial:
 
 $$
 P_{\mathrm{top}}=\{E-1,E-2\},\qquad
@@ -257,24 +171,16 @@ V_m=\mathrm{span}(P_2\cup\cdots\cup P_{2^m})\ \ (1\le m\le d-1),\qquad
 V_d=V.
 $$
 
-Let $B_{\le m}$ be the submatrix of columns in $V_m$. In the high-tail case
-we show by induction that $\mathrm{rank}(B_{\le m})=2m$. In the low-tail
-case the same filtration should be applied after quotienting the final
-rank-one row-pair relation above.
+Let $B_{\le m}$ be the submatrix of columns in $V_m$. We show by induction that
+$\mathrm{rank}(B_{\le m})=2m$.
 
 **Induction via Schur complements.** Suppose
 $\mathrm{rank}(B_{\le m-1})=2(m-1)$. Let $C_{m-1}$ be any full-rank
 $2(m-1)\times 2(m-1)$ minor of $B_{\le m-1}$. Augment with the two new
 columns of the pair $P\in\{P_{2^m},P_{\mathrm{top}}\}$ and two new rows
 $(D_k,M_k(-r_k))$ — with $k=m$ for a dyadic pair and $k=0$ for the top pair
-— to form
-
-$$
-\begin{pmatrix} C_{m-1} & R \\ L & A \end{pmatrix}.
-$$
-
-In the high-tail route, the pair contributes rank $2$ modulo $V_{m-1}$ iff the
-Schur complement
+— to form $\begin{pmatrix} C_{m-1} & R \\ L & A \end{pmatrix}$. The pair
+contributes rank $2$ modulo $V_{m-1}$ iff the Schur complement
 
 $$
 S \;:=\; A \;-\; L\,C_{m-1}^{-1}\,R
@@ -339,8 +245,8 @@ $\det S_{\mathrm{top}}\ne 0$ in $K$.
 
 **Filtered-minor lemma.**
 
-> *Lemma (FM).* For the tail-halving support $S$ and the row ordering above,
-> the rational functions
+> *Lemma (FM).* For the tail-halving support $S$ with $E > 3N/4$ and the row
+> ordering above, the rational functions
 > $$
 > L_{2^k-1}(u_0,\ldots,u_{k-1})-\rho_k\quad(1\le k\le d-1)
 > \qquad\text{and}\qquad
@@ -349,7 +255,7 @@ $\det S_{\mathrm{top}}\ne 0$ in $K$.
 > are all nonzero in $K$.
 
 The Schur-complement induction shows (FM) implies $\mathrm{rank}(B_{\le m})=2m$
-at every step in the high-tail route. Iterating the Schur factorization yields
+at every step. Iterating the Schur factorization yields
 
 $$
 \det B \;=\; \det S_{\mathrm{top}}\;\cdot\;\prod_{k=1}^{d-1}
@@ -357,183 +263,247 @@ L_0(u_0,\ldots,u_{k-1})\,(\tau+r_k)\,\bigl(L_{2^k-1}(u_0,\ldots,u_{k-1})-\rho_k\
 $$
 
 Each $L_0$ and $(\tau+r_k)$ is a nonzero polynomial in $K$, so $\det B\ne 0$
-iff (FM) holds.
+iff (FM) holds. **Appendix A** gives an explicit closed form for $\det B_E$ as a
+product of manifestly nonzero factors, establishing (FM); it is verified
+symbolically at $d=4,5$ and numerically for large $d$, and for $E=N$ it is
+proved uniformly in $d$ in `SHPLEMINI_ZK_FILTRATION_PROOF.md`. Hence
+$\mathrm{rank}(B) = 2d$ in the high-tail regime.
 
-**High-tail proof of (FM) by exhibition.** $\det B$ is a polynomial in
-$u_0,\ldots,u_{d-1}, r_0,\ldots,r_{d-1}, \tau$ — the row basis change clears
-no denominator and the rest is a determinant of polynomial entries. A
-single specialization where the value is nonzero suffices, deterministically,
-to prove $\det B\ne 0$ as a polynomial; by the factorization above this is
-equivalent to (FM). The script `shplemini_zk_mask_rank.py` evaluates the
-Gemini block at a sampled
-$(u,r,\tau)\in\mathbb{F}_{\mathrm{BN254}}^{\,2d+1}$ for each supported $d$
-and finds rank $2d$, i.e. $\det B(u,r,\tau)\ne 0$. Example output:
+**3B. Low tail ($E \le 3N/4$): rank $2d-1$.** Continue from the $D_t$ normal
+form of Step 2. Set $D_k' := D_k/(\tau+r_k)$ and
+$M_k^{\mathrm{new}} := M_k(-r_k)+r_kD_k'$, and apply the triangularising row
+operation from `SHPLEMINI_ZK_FILTRATION_PROOF.md`: replace $M_k^{\mathrm{new}}$
+for $k\ge 1$ by
 
-```text
-d= 8 halving-tail support size= 16: [(16, 16, 16, 19)]
-d=10 halving-tail support size= 20: [(20, 20, 20, 23)]
-```
+$$
+N_k := M_k^{\mathrm{new}} - u_{k-1}D_{k-1}' - (1-u_{k-1})M_{k-1}^{\mathrm{new}}.
+$$
 
-The tuple is (rank of Gemini block, rank after appending `Shplonk:Q` row,
-rank after appending `KZG:W` row, total rows in the sampled full matrix);
-the first entry equals $2d$, witnessing $\det B\ne 0$ at the sampled point
-and therefore $\det B\ne 0$ in $K$. This proves (FM) for the high-tail
-full-rank route. The low-tail route should replace this determinant by the
-rank-$(2d-1)$ reduced minor described above.
+These operations are invertible (the $D_k'$ rescaling is by the nonzero
+$(\tau+r_k)$, and the $N_k$ substitution is unit-triangular in the row index),
+so they preserve the rank of every column restriction.
 
-**Schwartz-Zippel.** After specializing the Fiat-Shamir challenges in
-$\mathbb{F}$, rank can drop only on the zero locus of the chosen full-rank
-minor: $\det B$ in the high-tail route, or the reduced rank-$(2d-1)$ minor in
-the low-tail route. The bad set in the lemma statement is the union of this
-zero locus with the previously listed Shplonk/KZG denominator events,
-Fiat-Shamir collisions, and vanishing-Lagrange events. Its measure over BN254
-is bounded by the degree of the chosen minor divided by
-$|\mathbb{F}_{\mathrm{BN254}}|$, which is negligible for the $d\approx 15$
-used in real flavors.
+**Dense rank upper bound (proved).** Put $m=d-2$, $u=u_m$, $r=r_m$, and
+$\ell=\ell_m(s)$. Define
 
-**3. Simulate.** In the high-tail case, $\mathrm{rank}(B)=2d$, so the random
-coefficients on $S$ induce a uniform mask over the full $2d$-dimensional Gemini
-leakage subspace. In the low-tail case, the expected rank is $2d-1$ and the
-needed statement is that this sparse image contains the dense degree-$<E$
-leakage image. In either case, a simulator with access to $\tau$ samples a
+$$
+\lambda := -\frac{u(\tau-r)+(1-u)\tau r}{1-u}.
+$$
+
+For every monomial $s<3N/4$, the final triangularised rows satisfy
+
+$$
+N_{d-1}(s)=\lambda\,D_{d-1}'(s).
+$$
+
+This is a direct case check on
+
+$$
+q_m(s)=\left\lfloor \frac{s}{2^m}\right\rfloor
+\qquad\text{and}\qquad
+q_{d-1}(s)=\left\lfloor \frac{s}{2^{d-1}}\right\rfloor.
+$$
+
+Only the following three cases occur for $s<3N/4$:
+
+| range of $s$ | $q_m(s)$ | $\mathrm{bit}_m(s)$ | $q_{d-1}(s)$ | values |
+|---|---:|---:|---:|---|
+| $s<N/4$ | $0$ | $0$ | $0$ | $D_{d-1}'=0$, $N_{d-1}=(1-u)\ell-(1-u)\ell=0$ |
+| $N/4\le s<N/2$ | $1$ | $1$ | $0$ | $D_{d-1}'=0$, $N_{d-1}=u\ell-u\ell=0$ |
+| $N/2\le s<3N/4$ | $2$ | $0$ | $1$ | $D_{d-1}'=(1-u)\ell$, $N_{d-1}=-\ell[u(\tau-r)+(1-u)\tau r]$ |
+
+In the first two ranges both sides vanish. In the third range the displayed
+values give $N_{d-1}(s)=\lambda D_{d-1}'(s)$. Thus, if $E\le3N/4$, the identity
+holds on every dense monomial $s\in\{0,\ldots,E-1\}$.
+
+For contrast, the next range $3N/4\le s<N$ has $q_m(s)=3$ and
+$\mathrm{bit}_m(s)=1$. There $N_{d-1}$ contains a $\phi_3(\tau,-r)$ contribution
+from $D_m'$, so the same scalar multiple of $D_{d-1}'$ cannot match. This degree
+mismatch is the exact source of the $E\le3N/4$ threshold.
+
+Therefore, for $E\le3N/4$, the transformed $2d\times E$ dense Gemini matrix has
+two proportional rows. Since the row operations above are invertible over $K$,
+the original dense Gemini image obeys
+
+$$
+\mathrm{rank}\bigl(\Psi_{\mathrm{Gem}}|_{\mathbb F[X]_{<E}}\bigr)\;\le\;2d-1
+\qquad(E\le 3N/4).
+$$
+
+**Sparse rank lower bound (conjectural).** The matching lower bound — that the
+crafted sparse support already realises rank $2d-1$ — holds iff the
+proportionality above is the *only* generic relation among the transformed
+rows. This is verified at $d=3,4,5$ by the reduced-minor computation in
+**Appendix B** but not yet proved uniformly in $d$. Granting it, the sparse
+image is the full hyperplane cut out by the row relation above. Since the dense
+image lies in that same hyperplane by the proved upper bound, we get the
+containment
+
+$$
+\mathrm{Im}(\Psi_{\mathrm{Gem}}|_{\mathbb F[X]_{<E}})
+\subseteq
+\mathrm{Im}(\Psi_{\mathrm{Gem}}|_{\mathrm{span}(E_j:j\in S)}).
+$$
+
+The dense rank equals $2d-1$ for $E$ in $(N/2,\,3N/4]$, dropping further only at
+the small endpoint $E\approx N/2$ where the dense polynomial space is itself too
+short — harmless for zero-knowledge, since a smaller leakage space needs less
+masking.
+
+**4. Schwartz–Zippel.** Write $r^\ast$ for the rank witness of the active
+regime: $\det B$ (high tail) or the reduced rank-$(2d-1)$ minor of Appendix B
+(low tail). After specializing the Fiat-Shamir challenges in $\mathbb{F}$, rank
+can drop only on the zero locus of $r^\ast$. The bad set in the lemma statement
+is the union of this zero locus with the previously listed Shplonk/KZG
+denominator events, Fiat-Shamir collisions, and vanishing-Lagrange events. Its
+measure over BN254 is bounded by $\deg(r^\ast)/|\mathbb{F}_{\mathrm{BN254}}|$,
+negligible for the $d\approx 15$ used in real flavors.
+
+**5. Simulate.** Let $r$ be the realised rank ($2d$ in the high tail, $2d-1$ in
+the low tail). The random coefficients on $S$ induce a uniform mask over the
+$r$-dimensional sparse image $\mathrm{Im}(\Psi_{\mathrm{Gem}})$, which contains
+the dense degree-$<E$ leakage image. A simulator with access to $\tau$ samples a
 uniform point in the sparse image, solves the corresponding full-rank linear
 system for the sparse coefficients, and derives consistent `Shplonk:Q` and
 `KZG:W` from the same masked Gemini data. Therefore the verifier sees a
 transcript distributed independently of the unmasked witness contribution,
 except with negligible probability from the bad set defined above.
 
-## Lemma 2 (IPA)
+## Appendix A — High-tail closed form and (FM)
 
-For IPA, assume the opened polynomial has the full dyadic size $N=2^d$ and
-$d\ge4$. Work in the algebraic group model for IPA: every group message is
-represented by its coefficients in the independent basis
-$\{G_0,\ldots,G_{N-1},U\}$ of CRS generators and the IPA auxiliary generator.
+$\det B$ is a polynomial in $u_0,\ldots,u_{d-1},r_0,\ldots,r_{d-1},\tau$: the
+row basis change clears no denominator and the rest is a determinant of
+polynomial entries. (FM) is equivalent to $\det B\ne 0$ in $K$.
 
-The support is shifted by one relative to the IPA cut coordinates because
-Shplonk maps a monomial $X^s$ to a quotient with leading term $X^{s-1}$.
-Define the terminal block
-
-$$
-B_3=\{1,2,3,4,5,6,7,8\},
-$$
-
-and, for $4\le m\le d$,
+**Explicit closed form (conjecture, verified symbolically at $d=4,5$).** Set
+$h := 2^{d-2}$ and $\rho := (E-1)\bmod h$. For even disjoint $E$ with
+$3N/4 < E \le N$,
 
 $$
-B_m=\{2^{m-1}+1,\ 2^{m-1}+2,\ 2^m-2,\ 2^m-1\}.
+\det B_E
+=
+\epsilon_E\,
+r_0^2\tau^2\,(\tau^{E-4}-r_0^{E-4})
+\prod_{k=1}^{d-2}(\tau^2-r_k^2)\,
+(\tau+r_{d-1})\,
+\mathcal A\,
+\mathcal L_E^{\mathrm{hi}},
 $$
 
-Use
+where $\epsilon_E\in\{\pm1\}$ is a column-ordering sign,
 
 $$
-S_{\mathrm{ipa}}=B_3\cup B_4\cup\cdots\cup B_d,
+\mathcal A
+=
+\prod_{k=0}^{d-2}A_k^+(r_k)\,A_k^-(\tau),
+\qquad
+\mathcal L_E^{\mathrm{hi}}
+=
+\Bigl(\prod_{k=1}^{d-3} L_0(u_{<k})\,L_{2^k-1}(u_{<k})\Bigr)\,
+L_0(u_{<d-2})\,L_{\rho}(u_{<d-2}),
 $$
 
-and let $V=\mathrm{span}\{E_s:s\in S_{\mathrm{ipa}}\}$.
+and $A_k^+(r_k) = u_k+(1-u_k)r_k$, $A_k^-(\tau)=u_k-(1-u_k)\tau$,
+$L_b(u_{<k}) := L_b(u_0,\ldots,u_{k-1})$. Every factor is a nonzero polynomial
+in $K$, so $\det B_E\ne 0$, establishing (FM). For $E=N$ we have
+$\rho = 2^{d-2}-1$, recovering the dyadic formula of
+`SHPLEMINI_ZK_FILTRATION_PROOF.md`.
 
-Assume the Fiat-Shamir challenges avoid the bad set consisting of Shplonk
-denominator-zero events, zero IPA round challenges, and the vanishing of the
-finite determinants described below. Then the Gemini + Shplonk + IPA
-transcript is zero-knowledge.
+The only $E$-dependence (beyond the cyclotomic exponent $E-4$) is the final
+Lagrange index $\rho$: the top pair $(E-1,E-2)$ lands on multilinear-Lagrange
+weight $L_\rho(u_{<d-2})$ instead of $L_{2^{d-2}-1}$. Verified by exact
+computation (`SHPLEMINI_ZK_FILTRATION_VERIFY.py`): the ratio
+$\det B_E / (\text{formula})$ is the constant $\epsilon_E$ at $d=4$
+($E=14,16$, $\epsilon=+1$) and $d=5$ ($E=28,30,32$, $\epsilon=-1$).
 
-### Proof
+**Numerical cross-check for large $d$.** The script `shplemini_zk_mask_rank.py`
+evaluates the Gemini block at a sampled
+$(u,r,\tau)\in\mathbb{F}_{\mathrm{BN254}}^{\,2d+1}$ and finds rank $2d$:
 
-The proof follows the same three-part structure as the KZG proof.
+```text
+d= 8 halving-tail support size= 16: [(16, 16, 16, 19)]
+d=10 halving-tail support size= 20: [(20, 20, 20, 23)]
+```
 
-**1. Transcript projection.** Define a projected transcript space
-$\mathcal{T}_{\mathrm{IPA}\circ\mathrm{Gem}}$ as follows. For each
-$4\le m\le d$, keep from the IPA round at length $2^m$ the four
-CRS-generator coordinates in the $R$ message corresponding to the positions
-listed in $C_m$ below. For the terminal block $B_3$, keep the constant-size
-set of IPA transcript coordinates used by the terminal minor. Let
+The first tuple entry equals $2d$, witnessing $\det B\ne 0$ at the sampled
+point and therefore in $K$.
 
-$$
-\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}:V\to
-\mathcal{T}_{\mathrm{IPA}\circ\mathrm{Gem}}
-$$
+For the extreme endpoint $E=N$, `SHPLEMINI_ZK_FILTRATION_PROOF.md` gives a
+fully symbolic, uniform-in-$d$ proof of the closed form above.
 
-be the composed leakage map from the mask coefficients through Gemini,
-Shplonk, and the IPA transcript, followed by this projection. Full rank of
-this projection implies full rank of the actual transcript leakage.
+## Appendix B — Low-tail reduced-minor closed form
 
-**2. Rank of the composed map.** We show that
-$\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}$ has rank $|S_{\mathrm{ipa}}|$.
+In the low-tail regime the final row pair collapses ($N_{d-1}=\lambda D_{d-1}'$,
+Step 3B), so the raw block has rank $2d-1$. A rank witness is obtained from a
+**fixed elimination**: delete the redundant row $N_{d-1}$ and the column
+$N/2 = 2^{d-1}$. Call the resulting $(2d-1)\times(2d-1)$ determinant
+$\Delta_E^{\mathrm{lo}}$.
 
-The Shplonk part of the composed map is triangular in the monomial basis. For
-$s>0$,
-
-$$
-\frac{X^s-z^s}{X-z}=\sum_{i=0}^{s-1}z^{s-1-i}X^i,
-$$
-
-so the column of $E_s$ has leading coefficient $1$ in IPA coordinate $s-1$.
-Lower-degree terms only affect later pieces of the filtration below.
-
-Order the blocks by decreasing $m$ and define
-
-$$
-V_m=\mathrm{span}(B_d\cup B_{d-1}\cup\cdots\cup B_m)
-\qquad(4\le m\le d),
-$$
-
-with $V_3=V$ and $V_{d+1}=\{0\}$. For $m\ge4$, the quotient
-$V_m/V_{m+1}$ is spanned by the four exponents in $B_m$. Their Shplonk
-leading coordinates are
+**Explicit closed form (conjecture, verified symbolically at $d=3,4,5$).** With
+$h := 2^{d-2}$, $\rho := (E-1)\bmod h$, and
+$R_E(\tau,r_0) := (\tau^{E-4}-r_0^{E-4})/(\tau^2-r_0^2)$, for even disjoint $E$
+with $N/2 < E \le 3N/4$,
 
 $$
-C_m=B_m-1=\{2^{m-1},\ 2^{m-1}+1,\ 2^m-3,\ 2^m-2\}.
+\Delta_E^{\mathrm{lo}}
+=
+\eta_E\,
+(r_0\tau)^{\alpha_d}\,
+(\tau-r_0)\,
+R_E(\tau,r_0)\,
+\prod_{k=1}^{d-3}(\tau-r_k)\,
+\prod_{k=0}^{d-3}A_k^+(r_k)\,A_k^-(\tau)\,
+\mathcal L_E^{\mathrm{lo}},
 $$
 
-Consider the IPA round that splits a vector of length $2^m$. Modulo
-$V_{m+1}$, all earlier blocks have already been removed from both source and
-target. The coordinates in $C_m$ lie in the upper half. The $R$ message
-contains
+where $\eta_E\in\{\pm1\}$ is a column-ordering sign,
 
 $$
-R=\langle a_{\mathrm{high}},G_{\mathrm{low}}\rangle
-  +\langle a_{\mathrm{high}},b_{\mathrm{low}}\rangle U.
+\alpha_d =
+\begin{cases} 0 & d=3,\\ 2 & d\ge 4, \end{cases}
+\qquad
+\mathcal L_E^{\mathrm{lo}}
+=
+(1-u_{d-2})\,L_{\rho}(u_{<d-2})\,
+\Bigl(\prod_{k=1}^{d-3} L_0(u_{<k})\,L_{2^k-1}(u_{<k})\Bigr).
 $$
 
-Thus the four leading coordinates in $C_m$ appear in four distinct
-CRS-generator coordinates of $R$. Previous IPA folds multiply them by products
-of non-zero round challenges. After quotienting the target by
-$\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}(V_{m+1})$, the lower-degree Shplonk
-terms from higher blocks are gone. Therefore, on the quotient, the local
-matrix is the product of:
+The $(r_0\tau)$-power **saturates** at $\alpha_d = 2$ for $d\ge 4$: the reduced
+determinant deletes the collapsed top row, so only the fixed level-$0$ boundary
+anomaly contributes the leading $r_0^2\tau^2$; deeper levels contribute through
+the local $(\tau-r_k)$ and Lagrange factors, not extra $r_0\tau$ powers. ($d=3$
+is degenerate — the support needs a zero-column pad — so $\alpha_3 = 0$.)
 
-1. a triangular Shplonk block with diagonal entries $1$; and
-2. a diagonal or permutation-diagonal IPA block with non-zero entries.
+**Verification (`SHPLEMINI_ZK_FILTRATION_VERIFY.py`).** The ratio
+$\Delta_E^{\mathrm{lo}}/(\text{formula})$ is a constant $\eta_E$:
 
-Hence the induced map
+| $d$ | valid low-tail $E$ | $\rho$ | $\eta_E$ |
+|---|---|---|---|
+| $3$ | $6$ (degenerate, padded support) | $1$ | $-1$ |
+| $4$ | $12$ | $3$ | $+1$ |
+| $5$ | $20,22,24$ | $3,5,7$ | $-1$ |
 
-$$
-V_m/V_{m+1}\longrightarrow
-\mathcal{T}_{\mathrm{IPA}\circ\mathrm{Gem}}/
-\Psi_{\mathrm{IPA}\circ\mathrm{Gem}}(V_{m+1})
-$$
+The valid low-tail range excludes $E = B$ and $E = B+2$ for every dyadic
+$B = N/2^\ell$ (the disjointness condition of Lemma 1). At $d=4$ this excludes
+$E=8$ and $E=10$, so $E=12$ is the first valid case; the apparent rank drop at
+$E=10$ is an artifact of the excluded, colliding support, not a formula signal.
 
-has rank $4$.
+**Worked case $d=3$, $E=6$** (degenerate, $S=[5,4,3,2,1,0]$). All six reduced
+$5\times5$ minors (delete the $N_2$ row and one column) factor against the
+common core $G := (\tau-r_0)\,A_0^+(r_0)\,A_0^-(\tau)$:
 
-The terminal quotient $V_3/V_4$ is the constant-size block $B_3$. On this
-quotient, Shplonk maps $E_1,\ldots,E_8$ triangularly onto IPA coordinates
-$0,\ldots,7$ with diagonal entries $1$. The length-$8$ IPA transcript has a
-fixed $8\times8$ minor on CRS-generator coordinates whose determinant is a
-non-zero polynomial in the IPA round challenges. This proves that the
-terminal quotient has rank $8$ outside the zero locus of that determinant.
+  | deleted column $s$ | reduced minor (up to sign) |
+  |---|---|
+  | $5$ | $(1-u_0)(1-u_1)\,G$ |
+  | $4 = N/2$ | $u_0(1-u_1)\,G$ |
+  | $3$ | $(\tau^2+r_0^2)(1-u_0)(1-u_1)\,G$ |
+  | $2$ | $(\tau^2+r_0^2)\,u_0(1-u_1)\,G$ |
+  | $1$ | $r_0^2\tau^2(1-u_0)(1-u_1)\,G$ |
+  | $0$ | $r_0^2\tau^2\,u_0(1-u_1)\,G$ |
 
-Summing the quotient ranks gives
-
-$$
-\mathrm{rank}(\Psi_{\mathrm{IPA}\circ\mathrm{Gem}})=|S_{\mathrm{ipa}}|
-$$
-
-outside the algebraic bad set where a Shplonk denominator, an IPA challenge,
-or one of the selected determinant factors vanishes.
-
-**3. Simulate.** The random coefficients on $S_{\mathrm{ipa}}$ induce a
-uniform mask over $\mathrm{image}(\Psi_{\mathrm{IPA}\circ\mathrm{Gem}})$. A
-simulator samples a uniform point in this image, solves the full-rank linear
-system for the sparse coefficients, and derives the remaining Gemini,
-Shplonk, and IPA transcript entries consistently from those coefficients. The
-projected transcript, and therefore the full transcript, is distributed
-independently of the unmasked witness contribution except on the bad set.
+The canonical choice (delete column $N/2 = 4$) gives $u_0(1-u_1)\,G$, matching
+the formula with $\alpha_3=0$, $\rho=1$ ($L_\rho(u_{<1}) = L_1(u_0) = u_0$),
+$R_E = 1$. The other deletions only change the residual, distributing the same
+level-$0$ anomaly fragments ($\tau^2+r_0^2$, $r_0^2\tau^2$) seen in the
+high-tail $\det U_d$ of `SHPLEMINI_ZK_FILTRATION_PROOF.md` across the
+deleted-column choice.

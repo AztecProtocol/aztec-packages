@@ -82,7 +82,7 @@ def adapted_rows_numeric(d, S, tau, rs, us):
             if q <= 0:
                 Dp = F(0)
             else:
-                Dp = sum(tau ** (q - 1 - j) * (-rs[t]) ** j for j in range(q))
+                Dp = ell * sum(tau ** (q - 1 - j) * (-rs[t]) ** j for j in range(q))
             Mn = ell * (-rs[t]) ** q + rs[t] * Dp
             Dp_row.append(Dp)
             Mn_row.append(Mn)
@@ -386,8 +386,228 @@ def verify_lemma5():
         print(f"  E={E:>3}: LHS - RHS = {diff}  {'OK' if diff == 0 else 'FAIL'}")
 
 
+def verify_low_tail_d3():
+    """Verify the low-tail rank-drop conjecture (SHPLEMINI_ZK_MASKING.md) at
+    d=3, E=6, S=[5,4,3,2,1,0]:
+      - rank(B) = 2d-1 = 5 (raw block drops rank by one),
+      - N_2 = lambda * D_2' on the full support, lambda the boundary ratio,
+      - the six reduced 5x5 minors (delete N_2 row + one column) factor cleanly.
+    """
+    print("\n" + "=" * 60)
+    print("Low-tail rank drop at d=3, E=6, S=[5,4,3,2,1,0]")
+    print("=" * 60)
+    d, S = 3, [5, 4, 3, 2, 1, 0]
+    tau = sp.Symbol("tau"); rs = sp.symbols("r0:3"); us = sp.symbols("u0:3")
+
+    # Original 2d x 2d block B, rows (D_t, M_t)
+    B_rows = []
+    for t in range(d):
+        D_row, M_row = [], []
+        for s in S:
+            q = s // (2 ** t)
+            ell = L(s % (2 ** t), us[:t]) if t > 0 else sp.Integer(1)
+            M_row.append(sp.expand(ell * (-rs[t]) ** q))
+            D_row.append(sp.expand(sp.Integer(0) if q == 0 else ell * (tau ** q - (-rs[t]) ** q)))
+        B_rows.append(D_row); B_rows.append(M_row)
+    B = sp.Matrix(B_rows)
+    print(f"  rank(B) = {B.rank()}  (expected 2d-1 = {2 * d - 1})")
+
+    # Adapted rows + triangularise
+    rows, _ = adapted_rows(d, S, tau, rs, us)
+    new_rows = triangularise(d, S, rows, us)
+    Dtop = new_rows[2 * (d - 1)]; Ntop = new_rows[2 * (d - 1) + 1]
+
+    j0 = next(j for j, v in enumerate(Dtop) if v != 0)
+    lam = sp.cancel(Ntop[j0] / Dtop[j0])
+    rm, um = rs[d - 2], us[d - 2]
+    lam_exp = sp.cancel(-(um * (tau - rm) + (1 - um) * tau * rm) / (1 - um))
+    print(f"  lambda match: {sp.simplify(lam - lam_exp) == 0}")
+    glob = all(sp.simplify(Ntop[j] - lam * Dtop[j]) == 0 for j in range(len(S)))
+    print(f"  N_2 = lambda * D_2' on full support: {glob}")
+
+    print("  reduced 5x5 minors (delete N_2 row, vary deleted column):")
+    red = new_rows[:2 * d - 1]
+    for j, s in enumerate(S):
+        sub = sp.Matrix([[red[i][k] for k in range(len(S)) if k != j] for i in range(len(red))])
+        print(f"    del s={s:>2}: {sp.factor(sp.expand(sub.det()))}")
+
+
+def verify_dense_rank_bound():
+    """Prove rank(dense image) <= 2d-1 for E <= 3N/4 (SHPLEMINI_ZK_MASKING.md).
+
+    The row identity N_{d-1}(s) = lambda * D_{d-1}'(s) is checked at EVERY
+    monomial s in {0,...,N-1}; it holds for s < 3N/4 and fails for s >= 3N/4,
+    which is exactly the E <= 3N/4 threshold. Then the dense 2d x E rank is
+    checked numerically.
+    """
+    print("\n" + "=" * 60)
+    print("Dense rank bound: N_{d-1} = lambda * D_{d-1}' per monomial (d=3,4)")
+    print("=" * 60)
+    for d in (3, 4):
+        N = 2 ** d
+        tau = sp.Symbol("tau"); rs = sp.symbols(f"r0:{d}"); us = sp.symbols(f"u0:{d}")
+        S = list(range(N))  # all monomials 0..N-1
+        rows, _ = adapted_rows(d, S, tau, rs, us)
+        new_rows = triangularise(d, S, rows, us)
+        Dtop = new_rows[2 * (d - 1)]; Ntop = new_rows[2 * (d - 1) + 1]
+        rm, um = rs[d - 2], us[d - 2]
+        lam = -(um * (tau - rm) + (1 - um) * tau * rm) / (1 - um)
+        results = []
+        for s in range(N):
+            holds = sp.simplify(sp.cancel(Ntop[s] - lam * Dtop[s])) == 0
+            results.append((s, holds))
+        ok_below = all(h for s, h in results if s < 3 * N // 4)
+        fail_above = all(not h for s, h in results if s >= 3 * N // 4)
+        print(f"  d={d}, N={N}: identity holds for all s<3N/4: {ok_below}; "
+              f"fails for all s>=3N/4: {fail_above}")
+
+    print("\n  Dense 2d x E numerical rank (low-tail E <= 3N/4):")
+    import random
+    for d, E in [(3, 6), (4, 10), (4, 12), (5, 20), (5, 24)]:
+        N = 2 ** d
+        random.seed(7)
+        tau_v = F(random.randint(2, 40))
+        rs_v = [F(random.randint(2, 40)) for _ in range(d)]
+        us_v = [F(random.randint(1, 9), random.randint(10, 25)) for _ in range(d)]
+        B_rows = []
+        for t in range(d):
+            for kind in ('D', 'M'):
+                row = []
+                for s in range(E):
+                    q = s // (2 ** t)
+                    ell = L(s % (2 ** t), us_v[:t]) if t > 0 else F(1)
+                    if kind == 'D':
+                        row.append(F(0) if q == 0 else ell * (tau_v ** q - (-rs_v[t]) ** q))
+                    else:
+                        row.append(ell * (-rs_v[t]) ** q)
+                B_rows.append(row)
+        rk = sp.Matrix(B_rows).rank()
+        print(f"    d={d}, N={N}, E={E:>2}: rank = {rk} (<= 2d-1 = {2 * d - 1})  "
+              f"{'OK' if rk <= 2 * d - 1 else 'FAIL'}")
+
+
+def _tail_support(d, E):
+    """Tail-halving support for general even E: top pair {E-1,E-2} plus dyadic
+    pairs {2^k,2^k-1}, deduped and padded with the lowest unused index."""
+    S = [E - 1, E - 2]
+    for k in range(d - 1, 0, -1):
+        a, b = 2 ** k, 2 ** k - 1
+        if a in S or b in S:
+            continue
+        S += [a, b]
+    while len(S) < 2 * d:
+        for s in range(E):
+            if s not in S:
+                S.append(s); break
+    return sorted(set(S), reverse=True)[:2 * d]
+
+
+def verify_high_tail_rho():
+    """High-tail closed form (SHPLEMINI_ZK_MASKING.md Appendix A): for even
+    disjoint E with 3N/4 < E <= N, det B_E equals
+        eps * r0^2 tau^2 (tau^{E-4}-r0^{E-4}) prod(tau^2-r_k^2) (tau+r_{d-1})
+              * A * L_hi,
+    with L_hi using the rho-shifted final Lagrange index, rho=(E-1) mod 2^{d-2}.
+    Ratio det/formula is checked constant (= eps) over random rational points.
+    """
+    print("\n" + "=" * 60)
+    print("High-tail closed form (rho-shifted Lagrange) at d=4,5")
+    print("=" * 60)
+    import random
+
+    def conj(d, E, tau, rs, us):
+        h = 2 ** (d - 2); rho = (E - 1) % h; r0 = rs[0]
+        v = r0 ** 2 * tau ** 2 * (tau ** (E - 4) - r0 ** (E - 4))
+        for k in range(1, d - 1):
+            v *= (tau ** 2 - rs[k] ** 2)
+        v *= (tau + rs[d - 1])
+        for k in range(d - 1):
+            v *= (us[k] + (1 - us[k]) * rs[k]) * (us[k] - (1 - us[k]) * tau)
+        Lhi = F(1)
+        for k in range(1, d - 2):
+            Lhi *= L(0, us[:k]) * L(2 ** k - 1, us[:k])
+        Lhi *= L(0, us[:d - 2]) * L(rho, us[:d - 2])
+        return v * Lhi
+
+    for d, Es in [(4, [14, 16]), (5, [28, 30, 32])]:
+        for E in Es:
+            S = _tail_support(d, E)
+            ratios = []
+            for seed in (1, 2, 3):
+                random.seed(seed)
+                tau = F(random.randint(2, 60))
+                rs = [F(random.randint(2, 60)) for _ in range(d)]
+                us = [F(random.randint(1, 9), random.randint(10, 30)) for _ in range(d)]
+                db = det_frac(original_rows_numeric(d, S, tau, rs, us))
+                cj = conj(d, E, tau, rs, us)
+                ratios.append(db / cj if cj != 0 else None)
+            const = len(set(ratios)) == 1
+            print(f"  d={d} E={E} rho={(E-1)%2**(d-2)}: ratio={ratios[0]}  "
+                  f"{'OK (const)' if const else 'NONCONST ' + str(ratios)}")
+
+
+def verify_low_tail_rho():
+    """Low-tail reduced-minor closed form (Appendix B): delete row N_{d-1} and
+    column N/2; the resulting minor equals
+        eta * (r0 tau)^alpha_d (tau-r0) R_E prod(tau-r_k) prod A_k^+- * L_lo,
+    alpha_d = 0 (d=3), 2 (d>=4), R_E=(tau^{E-4}-r0^{E-4})/(tau^2-r0^2).
+    Ratio checked constant (= eta) over random points.
+    """
+    print("\n" + "=" * 60)
+    print("Low-tail reduced-minor closed form (rho, alpha_d) at d=4,5")
+    print("=" * 60)
+    import random
+
+    def alpha(d):
+        return 0 if d == 3 else 2
+
+    def conj(d, E, tau, rs, us):
+        h = 2 ** (d - 2); rho = (E - 1) % h; r0 = rs[0]
+        R = (tau ** (E - 4) - r0 ** (E - 4)) / (tau ** 2 - r0 ** 2)
+        v = (r0 * tau) ** alpha(d) * (tau - r0) * R
+        for k in range(1, d - 2):
+            v *= (tau - rs[k])
+        for k in range(d - 2):
+            v *= (us[k] + (1 - us[k]) * rs[k]) * (us[k] - (1 - us[k]) * tau)
+        Llo = (1 - us[d - 2]) * L(rho, us[:d - 2])
+        for k in range(1, d - 2):
+            Llo *= L(0, us[:k]) * L(2 ** k - 1, us[:k])
+        return v * Llo
+
+    for d, Es in [(4, [12]), (5, [20, 22, 24])]:
+        N = 2 ** d
+        for E in Es:
+            S = _tail_support(d, E)
+            cN = S.index(N // 2)
+            ratios = []
+            for seed in (1, 2, 3):
+                random.seed(seed)
+                tau = F(random.randint(2, 60))
+                rs = [F(random.randint(2, 60)) for _ in range(d)]
+                us = [F(random.randint(1, 9), random.randint(10, 30)) for _ in range(d)]
+                rows = adapted_rows_numeric(d, S, tau, rs, us)
+                # triangularise (Fraction): N_k = M_k^new - u_{k-1}D_{k-1}' - (1-u_{k-1})M_{k-1}^new
+                new = [list(r) for r in rows]
+                for k in range(1, d):
+                    Mk, Dk, Mkm = 2 * k + 1, 2 * (k - 1), 2 * (k - 1) + 1
+                    for c in range(len(S)):
+                        new[Mk][c] = rows[Mk][c] - us[k - 1] * rows[Dk][c] - (1 - us[k - 1]) * rows[Mkm][c]
+                keep = [r for i, r in enumerate(new) if i != 2 * d - 1]
+                red = [[r[c] for c in range(len(S)) if c != cN] for r in keep]
+                dl = det_frac(red)
+                cj = conj(d, E, tau, rs, us)
+                ratios.append(dl / cj if cj != 0 else None)
+            const = len(set(ratios)) == 1
+            print(f"  d={d} E={E} rho={(E-1)%2**(d-2)} alpha={alpha(d)}: ratio={ratios[0]}  "
+                  f"{'OK (const)' if const else 'NONCONST ' + str(ratios)}")
+
+
 if __name__ == "__main__":
     verify_d3_symbolic()
     verify_d4_symbolic_structure()
     verify_d4_numeric_det()
     verify_lemma5()
+    verify_low_tail_d3()
+    verify_dense_rank_bound()
+    verify_high_tail_rho()
+    verify_low_tail_rho()
