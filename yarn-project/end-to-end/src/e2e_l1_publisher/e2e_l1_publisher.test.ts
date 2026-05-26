@@ -175,6 +175,23 @@ describe('L1Publisher integration', () => {
     }
   };
 
+  // Warp the chain forward so that the current L2 slot matches `targetSlot`, and resync the
+  // dateProvider so `epochCache.getSlotNow()` (used by the bundle-level eth_simulateV1 and the
+  // L1 tx mine timestamp) also lands on `targetSlot`. The rollup contract rejects header slots
+  // that don't match block.timestamp, so the test must align both the chain and the date
+  // provider to the header's slot before calling sendRequests.
+  const progressToSlot = async (targetSlot: bigint) => {
+    const currentSlot = await rollup.getSlotNumber();
+    if (BigInt(targetSlot) > BigInt(currentSlot)) {
+      await progressTimeBySlot(Number(BigInt(targetSlot) - BigInt(currentSlot)));
+    }
+    // Always resync the dateProvider so `epochCache.getSlotNow()` matches L1's block.timestamp.
+    // `sendRequests` derives its bundle-simulate timestamp from `getCurrentL2Slot()`, so if the
+    // dateProvider lags the chain the simulate runs at a stale slot and the rollup rejects the
+    // header with `HeaderLib__InvalidSlotNumber`.
+    await ethCheatCodes.syncDateProvider();
+  };
+
   let port = 8545; // We increase the port for each test to avoid anvil conflicts
   const setup = async (deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {}) => {
     ({ rpcUrl, anvil } = await startAnvil({ port: port++ }));
@@ -532,6 +549,8 @@ describe('L1Publisher integration', () => {
           CommitteeAttestationsAndSigners.empty(getSignatureContext()),
           Signature.empty(),
         );
+        // Align chain time so the bundle simulate and the L1 send both run at the header's slot.
+        await progressToSlot(BigInt(checkpoint.header.slotNumber));
         await publisher.sendRequests();
 
         const logs = await l1Client.getLogs({
@@ -643,6 +662,8 @@ describe('L1Publisher integration', () => {
         new CommitteeAttestationsAndSigners(attestations, getSignatureContext()),
         signature,
       );
+      // Align chain time so the bundle simulate and the L1 send both run at the header's slot.
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['propose']);
       expect(result!.failedActions).toEqual([]);
@@ -680,9 +701,23 @@ describe('L1Publisher integration', () => {
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
-      await expect(
-        publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, Signature.empty()),
-      ).rejects.toThrow(/ValidatorSelection__InvalidCommitteeCommitment/);
+      // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
+      // and sendRequests returns undefined (no surviving actions). The drop is reported via a
+      // warn log carrying the on-chain revert reason (raw hex selector since the propose request
+      // has no ABI attached).
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, Signature.empty());
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xca8d5954 == ValidatorSelection__InvalidCommitteeCommitment selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xca8d5954/),
+        }),
+      );
     });
 
     it('rejects flipped proposer signature', async () => {
@@ -701,13 +736,25 @@ describe('L1Publisher integration', () => {
         validators.find(v => v.address.equals(proposer!))!,
       );
 
-      await expect(
-        publisher.enqueueProposeCheckpoint(
-          checkpoint,
-          attestationsAndSigners,
-          flipSignature(attestationsAndSignersSignature),
-        ),
-      ).rejects.toThrow(/ECDSAInvalidSignatureS/);
+      // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
+      // and sendRequests returns undefined.
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        attestationsAndSigners,
+        flipSignature(attestationsAndSignersSignature),
+      );
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xd78bce0c == ECDSAInvalidSignatureS selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xd78bce0c/),
+        }),
+      );
     });
 
     it('rejects signature with invalid recovery value', async () => {
@@ -732,8 +779,20 @@ describe('L1Publisher integration', () => {
       const wrongV = attestationsAndSignersSignature.v - 27;
       const wrongSig = new Signature(attestationsAndSignersSignature.r, attestationsAndSignersSignature.s, wrongV);
 
-      await expect(publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, wrongSig)).rejects.toThrow(
-        /ECDSAInvalidSignature/,
+      // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
+      // and sendRequests returns undefined.
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, wrongSig);
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xf645eedf == ECDSAInvalidSignature selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xf645eedf/),
+        }),
       );
     });
 
@@ -810,9 +869,7 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
-      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature, {
-        simulationOverridesPlan: invalidationSimulationOverridesPlan,
-      });
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature);
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
@@ -853,20 +910,24 @@ describe('L1Publisher integration', () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
       const { checkpoint } = await buildSingleCheckpoint({ l1ToL2Messages });
 
-      // Expect the simulation to fail
-      const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
-      await expect(
-        publisher.enqueueProposeCheckpoint(
-          checkpoint,
-          CommitteeAttestationsAndSigners.empty(getSignatureContext()),
-          Signature.empty(),
-        ),
-      ).rejects.toThrow(/Rollup__InvalidInHash/);
-      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        2,
-        expect.stringMatching('Rollup__InvalidInHash'),
-        expect.anything(),
-        expect.objectContaining({ checkpointNumber: 1 }),
+      // Enqueue no longer simulates per action — the bundle simulate at send time drops the
+      // failing propose and reports the on-chain revert reason via a warn log.
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+        Signature.empty(),
+      );
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xcd6f4233 == Rollup__InvalidInHash selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xcd6f4233/),
+        }),
       );
     });
   });
@@ -1022,10 +1083,21 @@ describe('L1Publisher integration', () => {
       expect(BigInt(block2.slot)).toEqual(initialL2Slot + 1n);
       sendRequestsResult = undefined;
       await enqueueProposeL2Checkpoint(checkpoint2);
+      // Align chain time so the bundle simulate at send time runs at slot N+1 (matches the
+      // checkpoint2 header). Without this the bundle simulate (which uses getSlotNow()) sees
+      // the wrong slot and drops the propose entry.
+      await progressToSlot(BigInt(checkpoint2.header.slotNumber));
       await sendRequests();
 
-      // Wait for the new proposal to be sent to the pool
-      await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.queued + s.pending > 1), 'tx queued', 20, 0.1);
+      // Wait for the new proposal to be sent to the pool. The progressToSlot warp above may have
+      // already mined the cancellation from the first proposal, so the pool may hold either the
+      // cancel-and-new-propose (two entries) or just the new propose (one entry).
+      await retryUntil(
+        () => ethCheatCodes.getTxPoolStatus().then(s => s.queued + s.pending >= 1),
+        'tx queued',
+        20,
+        0.1,
+      );
 
       // Mine a block
       await ethCheatCodes.mine();

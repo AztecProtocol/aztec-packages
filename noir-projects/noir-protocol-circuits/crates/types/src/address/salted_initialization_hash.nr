@@ -20,9 +20,14 @@ impl SaltedInitializationHash {
         Self { inner: field }
     }
 
-    pub fn compute(salt: Field, initialization_hash: Field, deployer: AztecAddress) -> Self {
+    pub fn compute(
+        salt: Field,
+        initialization_hash: Field,
+        deployer: AztecAddress,
+        immutables_hash: Field,
+    ) -> Self {
         SaltedInitializationHash::from_field(poseidon2_hash_with_separator(
-            [salt, initialization_hash, deployer.to_field()],
+            [salt, initialization_hash, deployer.to_field(), immutables_hash],
             DOM_SEP__SALTED_INITIALIZATION_HASH,
         ))
     }

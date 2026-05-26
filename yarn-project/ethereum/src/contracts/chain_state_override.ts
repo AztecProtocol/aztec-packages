@@ -1,6 +1,7 @@
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import type { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Buffer32 } from '@aztec/foundation/buffer';
+import { merge } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { StateOverride } from 'viem';
@@ -45,18 +46,22 @@ export class SimulationOverridesBuilder {
     return new SimulationOverridesBuilder().merge(plan);
   }
 
-  /** Merges another plan into this builder. Later values win on a per-half basis for chain tips. */
+  /**
+   * Merges another plan into this builder. Later values win on a per-half basis for chain tips,
+   * but explicit `undefined` fields in the incoming plan are ignored so they cannot erase a
+   * previously-set value.
+   */
   public merge(plan: SimulationOverridesPlan | undefined): this {
     if (!plan) {
       return this;
     }
 
     if (plan.chainTipsOverride) {
-      this.chainTipsOverride = { ...(this.chainTipsOverride ?? {}), ...plan.chainTipsOverride };
+      this.chainTipsOverride = merge(this.chainTipsOverride ?? {}, plan.chainTipsOverride);
     }
-    this.pendingCheckpointState = plan.pendingCheckpointState
-      ? { ...(this.pendingCheckpointState ?? {}), ...plan.pendingCheckpointState }
-      : this.pendingCheckpointState;
+    if (plan.pendingCheckpointState) {
+      this.pendingCheckpointState = merge(this.pendingCheckpointState ?? {}, plan.pendingCheckpointState);
+    }
     this.disableBlobCheck = this.disableBlobCheck || (plan.disableBlobCheck ?? false);
 
     return this;
@@ -87,15 +92,21 @@ export class SimulationOverridesBuilder {
   }
 
   /**
-   * Overrides the locally-derivable `tempCheckpointLogs` cell fields for the configured pending
-   * checkpoint. Callers populate these together because they all come from the same proposed
-   * checkpoint payload — there is no use case for setting them independently.
+   * Overrides one or more `tempCheckpointLogs` cell fields for the configured pending checkpoint.
+   * Fields are independent: any subset can be provided. The translator (`makeTempCheckpointLogOverride`)
+   * emits a stateDiff entry per field actually set, so unspecified fields stay at their on-chain
+   * values.
+   *
+   * `slotNumber` is load-bearing for `STFLib.canPruneAtTime`: when the simulation overrides `pending`
+   * to a checkpoint that has no on-chain `tempCheckpointLogs` entry yet, the missing slotNumber falls
+   * back to 0 and the contract treats the pending tip as belonging to epoch 0, triggering a phantom
+   * prune that silently undoes the `pending` override.
    */
   public withPendingTempCheckpointLogFields(fields: {
-    headerHash: Fr;
-    outHash: Fr;
-    payloadDigest: Buffer32;
-    slotNumber: SlotNumber;
+    headerHash?: Fr;
+    outHash?: Fr;
+    payloadDigest?: Buffer32;
+    slotNumber?: SlotNumber;
   }): this {
     this.assertPendingCheckpointNumber();
     this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };

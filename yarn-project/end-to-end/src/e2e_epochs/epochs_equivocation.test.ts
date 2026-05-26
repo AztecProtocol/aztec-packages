@@ -10,6 +10,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { OffenseType } from '@aztec/stdlib/slashing';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -58,6 +59,7 @@ describe('e2e_epochs/epochs_equivocation', () => {
     // - checkpointFinalization = 0.5s (assemble) + 0 (p2p in test) + 2s (L1 publish) = 2.5s
     // - finalBlockDuration = 8s (re-execution)
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
+    const slashingUnit = BigInt(1e14);
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
@@ -76,6 +78,28 @@ describe('e2e_epochs/epochs_equivocation', () => {
       l1PublishingTime: 2,
       aztecTargetCommitteeSize: 4,
       skipInitialSequencer: true,
+      // Enable the slasher so we can assert the equivocating proposer is detected for slashing.
+      // Round size is aztecEpochDuration * slashingRoundSizeInEpochs = 4 slots; the L1 contract
+      // requires QUORUM > ROUND_SIZE / 2, so quorum must be at least 3.
+      slasherEnabled: true,
+      slashingQuorum: 3,
+      slashingRoundSizeInEpochs: 1,
+      slashingOffsetInRounds: 1,
+      slashAmountSmall: slashingUnit,
+      slashAmountMedium: slashingUnit * 2n,
+      slashAmountLarge: slashingUnit * 3n,
+      slashSelfAllowed: true,
+      slashDuplicateProposalPenalty: slashingUnit,
+      // Disable other offense penalties so we only see the equivocation offense.
+      slashInactivityPenalty: 0n,
+      slashDataWithholdingPenalty: 0n,
+      slashBroadcastedInvalidBlockPenalty: 0n,
+      slashBroadcastedInvalidCheckpointProposalPenalty: 0n,
+      slashDuplicateAttestationPenalty: 0n,
+      slashProposeInvalidAttestationsPenalty: 0n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
+      slashAttestInvalidCheckpointProposalPenalty: 0n,
+      slashUnknownPenalty: 0n,
     });
 
     logger = test.logger;
@@ -271,9 +295,26 @@ describe('e2e_epochs/epochs_equivocation', () => {
       ),
     );
 
-    // TODO(A-980): assert the equivocating proposer of the first slot is eventually slashed
-    // for the DUPLICATE_PROPOSAL offense. Slasher is currently disabled in the harness
-    // (slasherEnabled: false) and enabling it requires plumbing offense submission and
-    // waiting for the slasher's offense window.
+    // Every observing validator should have recorded the equivocation offense. A has been stopped
+    // above and D is a non-validator (no slasher), so we poll only B and C.
+    logger.warn(`Waiting for DUPLICATE_PROPOSAL offense on every observing node`, {
+      proposerAttester,
+      submissionSlot,
+    });
+    const matchesOffense = (o: { offenseType: OffenseType; validator: { toString(): string }; epochOrSlot: bigint }) =>
+      o.offenseType === OffenseType.DUPLICATE_PROPOSAL &&
+      o.validator.toString() === proposerAttester.toString() &&
+      o.epochOrSlot === BigInt(submissionSlot);
+    await retryUntil(
+      async () => {
+        const found = await Promise.all(
+          [nodeB, nodeC].map(async n => (await n.getSlashOffenses('all')).some(matchesOffense)),
+        );
+        return found.every(Boolean);
+      },
+      `DUPLICATE_PROPOSAL offense on every observing node`,
+      test.L2_SLOT_DURATION_IN_S * 4,
+      0.5,
+    );
   });
 });
