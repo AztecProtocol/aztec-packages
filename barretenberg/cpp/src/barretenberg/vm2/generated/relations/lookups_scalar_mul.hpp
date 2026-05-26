@@ -56,7 +56,7 @@ struct lookup_scalar_mul_double_settings_ {
         ColumnAndShifts::scalar_mul_sel_not_end
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::ecc_r_x,      ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf,
+        ColumnAndShifts::ecc_r_x,      ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_result_infinity,
         ColumnAndShifts::ecc_p_x,      ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
         ColumnAndShifts::ecc_double_op
     };
@@ -84,7 +84,7 @@ struct lookup_scalar_mul_add_settings_ {
         ColumnAndShifts::scalar_mul_temp_inf
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf,
+        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_result_infinity,
         ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
         ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf
     };

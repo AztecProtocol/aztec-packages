@@ -24,7 +24,7 @@ export interface OwnSlasherConfig {
   slashDuplicateProposalPenalty: bigint;
   slashDuplicateAttestationPenalty: bigint;
   slashProposeInvalidAttestationsPenalty: bigint;
-  slashAttestDescendantOfInvalidPenalty: bigint;
+  slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: bigint;
   slashAttestInvalidCheckpointProposalPenalty: bigint;
   slashUnknownPenalty: bigint;
   slashOffenseExpirationRounds: number; // Number of rounds after which pending offenses expire
@@ -53,7 +53,7 @@ export const SlasherConfigSchema = zodFor<SlasherConfig>()(
     slashBroadcastedInvalidCheckpointProposalPenalty: schemas.BigInt.default(0n),
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
-    slashAttestDescendantOfInvalidPenalty: schemas.BigInt,
+    slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: schemas.BigInt,
     slashAttestInvalidCheckpointProposalPenalty: schemas.BigInt,
     slashUnknownPenalty: schemas.BigInt,
     slashOffenseExpirationRounds: z.number(),

@@ -8,15 +8,14 @@ argument-hint: <action> e.g. "run", "compare", "wasm", "instrument <area>", "per
 
 Run realistic Chonk IVC benchmarks using **pinned protocol inputs** (real transaction flows captured from end-to-end tests).
 
-**Chonk has no synthetic micro-benchmark.** Past attempts (`chonk_bench`) used trivially small mock circuits and produced misleading numbers — the target was deleted to prevent regression of that mistake. Always benchmark Chonk via `bb prove --scheme chonk` against pinned `ivc-inputs.msgpack` for real transaction flows. If a Chonk proving question seems to call for a micro-benchmark, the answer is still `bb prove` on a real flow.
+**Chonk has no synthetic micro-benchmark.** Always benchmark Chonk via `bb prove --scheme chonk` against pinned `ivc-inputs.msgpack` for real transaction flows. If a Chonk proving question seems to call for a micro-benchmark, the answer is still `bb prove` on a real flow.
 
 ## Step 1: Get pinned IVC inputs
 
-The real benchmark inputs are pinned to an S3 artifact keyed by a short hash. Download them:
+The real benchmark inputs are pinned to an S3 artifact keyed by a 16-character hash prefix. Download them:
 
 ```bash
-cd barretenberg/cpp/scripts
-./test_chonk_standalone_vks_havent_changed.sh --download_pinned_inputs
+barretenberg/cpp/scripts/chonk_inputs.sh download
 ```
 
 This populates `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`.
@@ -26,33 +25,51 @@ Available flows (typical):
 - `schnorr+deploy_tokenContract_with_registration+sponsored_fpc`
 - `ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc`
 - `ecdsar1+transfer_1_recursions+private_fpc`
-- and more — run `ls yarn-project/end-to-end/example-app-ivc-inputs-out/` after downloading
+- and more under `yarn-project/end-to-end/example-app-ivc-inputs-out/` after downloading
 
-The pinned hash is maintained in `barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh` (variable `pinned_short_hash`). The S3 URL is:
+The pinned hash prefix is maintained in `barretenberg/cpp/scripts/chonk-inputs.hash`. The S3 URL is:
 ```
 https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-<hash>.tar.gz
 ```
 
 To update the pinned inputs (after protocol changes that affect VKs):
 ```bash
-./test_chonk_standalone_vks_havent_changed.sh --update_inputs
+barretenberg/cpp/scripts/chonk_inputs.sh update
 ```
 
-## Step 2: Build bb in release mode
+## Step 2: Build bb
 
 ```bash
 cd barretenberg/cpp
-cmake --preset clang20-no-avm    # AVM not needed for Chonk
-cmake --build --preset clang20-no-avm --target bb
+cmake --preset clang20
+cmake --build --preset clang20 --target bb
 ```
 
-Build dir: `build-no-avm` (or `build` if using the `clang20` preset).
+Build dir: `build`. To use a different native preset, build with that preset and set `NATIVE_PRESET` when running the benchmark script.
 
 ## Step 3: Run the benchmark
 
 **Always set `HARDWARE_CONCURRENCY=8` for local runs.** The remote benchmarking machine uses 16, but local/shared machines should use 8. See `/remote-bench` for remote execution.
 
 ### Native
+
+For the standard local path, download the pinned inputs and use the same benchmark script CI uses:
+
+```bash
+barretenberg/cpp/scripts/chonk_inputs.sh download
+HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native
+```
+
+The benchmark script defaults to `ecdsar1+transfer_0_recursions+sponsored_fpc`. If a flow fails, the pinned inputs remain in `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`; rerun the same case by passing the flow directory:
+
+```bash
+HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native \
+  yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>
+```
+
+The CI benchmark also cross-checks the proof against the generated protocol VK artifacts under `noir-projects/noir-protocol-circuits/target`. That is a post-prove check, not part of the pinned input download.
+
+For manual runs:
 
 ```bash
 cd barretenberg/cpp
@@ -61,7 +78,7 @@ FLOW="schnorr+deploy_tokenContract_with_registration+sponsored_fpc"
 OUTPUT_DIR="/tmp/chonk-bench-out"
 mkdir -p $OUTPUT_DIR
 
-HARDWARE_CONCURRENCY=8 ./build-no-avm/bin/bb prove \
+HARDWARE_CONCURRENCY=8 ./build/bin/bb prove \
   -o $OUTPUT_DIR \
   --ivc_inputs_path ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/ivc-inputs.msgpack \
   --scheme chonk \
@@ -71,6 +88,15 @@ HARDWARE_CONCURRENCY=8 ./build-no-avm/bin/bb prove \
 ```
 
 ### WASM (via wasmtime)
+
+Use the CI benchmark script with the WASM runtime:
+
+```bash
+barretenberg/cpp/scripts/chonk_inputs.sh download
+HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm
+```
+
+For manual runs:
 
 Build the WASM binary with threads enabled:
 
@@ -283,7 +309,7 @@ The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/test_chonk_standalone_vks_havent_changed.sh` | Download/update/verify pinned inputs |
+| `scripts/chonk_inputs.sh` | Download, check, and update pinned inputs |
 | `scripts/ci_benchmark_ivc_flows.sh` | CI: proves a flow, extracts components, uploads to dashboard |
 | `scripts/benchmark_example_ivc_flow_remote.sh` | Proves a pinned flow on the remote machine (uses `/remote-bench`) |
 | `scripts/wasmtime.sh` | wasmtime wrapper with standard flags |
@@ -305,7 +331,7 @@ The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 
 ## Presenting results
 
-When sharing benchmark results, create an **HTML gist** with an interactive visualization. Include:
+When sharing benchmark results, create an **HTML report** with an interactive visualization. Include:
 
 - **Native vs WASM tabs** with per-circuit comparison table
 - **Stacked bar charts** showing time distribution across circuits
@@ -313,4 +339,4 @@ When sharing benchmark results, create an **HTML gist** with an interactive visu
 - **Summary cards** with total time, slowdown ratio, and heaviest circuit
 - **Color-coded circuit types**: kernel (blue), app (red), infra (gray)
 
-Use `create_gist` / `update_gist` with a `.html` file. GitHub renders HTML gists — viewers can open the raw HTML to interact with tabs and tooltips. This is much more useful than plain markdown tables for benchmark data.
+Prefer the benchmark dashboard for CI results. For local comparisons, keep the HTML report as a local artifact unless the reviewer asks for a shared upload.

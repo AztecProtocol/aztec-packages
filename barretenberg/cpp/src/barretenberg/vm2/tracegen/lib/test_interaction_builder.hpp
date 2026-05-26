@@ -53,7 +53,7 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
 template <typename PermutationSettings>
 class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings> {
   public:
-    // Use array for storage in map keys (tuples of references can't be stored).
+    // Owning value array; see get_multiple_as_array in interaction_builder.hpp for why we can't key on RefTuple.
     using ArrayTuple = std::array<FF, PermutationSettings::COLUMNS_PER_SET>;
 
     void process(TraceContainer& trace) override
@@ -63,13 +63,11 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
         // Collect the source and destination tuples.
         source_tuples.clear();
         trace.visit_column(PermutationSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
-            auto src_values = trace.get_multiple(PermutationSettings::SRC_COLUMNS, row);
-            source_tuples[to_array(src_values)].insert(row);
+            source_tuples[get_multiple_as_array(trace, PermutationSettings::SRC_COLUMNS, row)].insert(row);
         });
         destination_tuples.clear();
         trace.visit_column(PermutationSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
-            auto dst_values = trace.get_multiple(PermutationSettings::DST_COLUMNS, row);
-            destination_tuples[to_array(dst_values)].insert(row);
+            destination_tuples[get_multiple_as_array(trace, PermutationSettings::DST_COLUMNS, row)].insert(row);
         });
 
         auto build_error_message =
@@ -115,14 +113,6 @@ class CheckingPermutationBuilder : public PermutationBuilder<PermutationSettings
     }
 
   private:
-    // Helper to convert tuple of references to array for storage.
-    template <typename... Ts> static ArrayTuple to_array(const flat_tuple::tuple<Ts...>& tup)
-    {
-        return [&]<size_t... Is>(std::index_sequence<Is...>) {
-            return ArrayTuple{ flat_tuple::get<Is>(tup)... };
-        }(std::make_index_sequence<sizeof...(Ts)>{});
-    }
-
     unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> source_tuples;
     unordered_flat_map<ArrayTuple, std::unordered_set<uint32_t>> destination_tuples;
 };

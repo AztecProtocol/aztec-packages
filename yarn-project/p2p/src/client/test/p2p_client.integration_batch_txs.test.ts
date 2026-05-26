@@ -9,7 +9,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -20,7 +20,6 @@ import type { AttestationPool } from '../../mem_pools/attestation_pool/attestati
 import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import { BatchTxRequester } from '../../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../../services/reqresp/batch-tx-requester/interface.js';
-import type { IBatchRequestTxValidator } from '../../services/reqresp/batch-tx-requester/tx_validator.js';
 import type { ConnectionSampler } from '../../services/reqresp/connection-sampler/connection_sampler.js';
 import { RequestTracker } from '../../services/tx_collection/request_tracker.js';
 import { generatePeerIdPrivateKeys } from '../../test-helpers/generate-peer-id-private-keys.js';
@@ -39,7 +38,7 @@ describe('p2p client integration batch txs', () => {
 
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
   let connectionSampler: MockProxy<ConnectionSampler>;
-  let txValidator: IBatchRequestTxValidator;
+  let txValidator: TxValidator;
 
   let logger: Logger;
   let p2pBaseConfig: P2PConfig;
@@ -53,10 +52,12 @@ describe('p2p client integration batch txs', () => {
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
     connectionSampler = mock<ConnectionSampler>();
-    mockP2PService = mock<BatchTxRequesterLibP2PService>({ connectionSampler });
+    mockP2PService = mock<BatchTxRequesterLibP2PService>({
+      connectionSampler,
+      validateRequestedBlockTxsConsistency: () => Promise.resolve(true),
+    });
     txValidator = {
-      validateRequestedTx: () => Promise.resolve({ result: 'valid' }),
-      validateRequestedTxs: txs => Promise.resolve(txs.map(() => ({ result: 'valid' }))),
+      validateTx: () => Promise.resolve({ result: 'valid' }),
     };
 
     logger = createLogger('p2p:test:integration:batch');

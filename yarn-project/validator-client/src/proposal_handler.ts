@@ -46,6 +46,7 @@ import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
 
 export type BlockProposalValidationFailureReason =
+  | 'invalid_signature'
   | 'invalid_proposal'
   | 'parent_block_not_found'
   | 'block_source_not_synced'
@@ -58,6 +59,8 @@ export type BlockProposalValidationFailureReason =
   | 'failed_txs'
   | 'initial_state_mismatch'
   | 'timeout'
+  | 'block_proposal_beyond_checkpoint'
+  | 'checkpoint_proposal_equivocation'
   | 'unknown_error';
 
 type ReexecuteTransactionsResult = {
@@ -145,6 +148,10 @@ type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
   | { checkpointNumber?: undefined; reason: 'invalid_proposal' | 'global_variables_mismatch' };
 
+type BlockProposalSlotValidationResult =
+  | { isValid: true }
+  | { isValid: false; reason: 'block_proposal_beyond_checkpoint' | 'checkpoint_proposal_equivocation' };
+
 /** Handles block and checkpoint proposals for both validator and non-validator nodes. */
 export class ProposalHandler {
   public readonly tracer: Tracer;
@@ -162,6 +169,9 @@ export class ProposalHandler {
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
+
+  /** P2P proposal pool access for deciding when retained proposals should block archiver processing. */
+  private p2pClient?: Pick<P2P, 'getProposalsForSlot'>;
 
   private checkpointProposalValidationFailureCallback?: CheckpointProposalValidationFailureCallback;
 
@@ -212,6 +222,7 @@ export class ProposalHandler {
 
   /**
    * Registers handlers for block and checkpoint proposals on the p2p client.
+   * Records the p2p client so validation can inspect retained proposals.
    * Block proposals are registered for non-validator nodes (validators register their own enhanced handler).
    * The all-nodes checkpoint proposal handler is always registered for validation, caching, and pipelining.
    * @param archiver - Archiver reference for setting proposed checkpoints (pipelining)
@@ -223,6 +234,7 @@ export class ProposalHandler {
     archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
+    this.p2pClient = p2pClient;
     this.archiver = archiver;
     this.getOwnValidatorAddresses = getOwnValidatorAddresses;
 
@@ -338,7 +350,7 @@ export class ProposalHandler {
     // Reject proposals with invalid signatures
     if (!proposer) {
       this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
-      return { isValid: false, reason: 'invalid_proposal' };
+      return { isValid: false, reason: 'invalid_signature' };
     }
 
     const proposalInfo = {
@@ -359,6 +371,16 @@ export class ProposalHandler {
     if (validationResult.result !== 'accept') {
       this.log.warn(`Proposal is not valid, skipping processing`, proposalInfo);
       return { isValid: false, reason: 'invalid_proposal' };
+    }
+
+    const retainedSlotValidation = await this.validateNewBlockInSlot(proposal);
+    if (!retainedSlotValidation.isValid) {
+      this.log.info(`Block proposal conflicts with retained proposals, skipping archiver processing`, {
+        ...proposalInfo,
+        indexWithinCheckpoint: proposal.indexWithinCheckpoint,
+        reason: retainedSlotValidation.reason,
+      });
+      return { isValid: false, blockNumber: proposal.blockNumber, reason: retainedSlotValidation.reason };
     }
 
     // Ensure the block source is synced before checking for existing blocks,
@@ -497,6 +519,26 @@ export class ProposalHandler {
     );
 
     return { isValid: true, blockNumber, reexecutionResult };
+  }
+
+  private async validateNewBlockInSlot(blockProposal: BlockProposal): Promise<BlockProposalSlotValidationResult> {
+    if (!this.p2pClient) {
+      return { isValid: true };
+    }
+
+    const { blockProposals, checkpointProposals } = await this.p2pClient.getProposalsForSlot(blockProposal.slotNumber);
+
+    if (checkpointProposals.length === 0) {
+      return { isValid: true };
+    } else if (checkpointProposals.length > 1) {
+      return { isValid: false, reason: 'checkpoint_proposal_equivocation' };
+    } else {
+      const checkpointProposal = checkpointProposals[0];
+      const terminalBlock = blockProposals.find(block => block.archive.equals(checkpointProposal.archive));
+      return terminalBlock !== undefined && blockProposal.indexWithinCheckpoint > terminalBlock.indexWithinCheckpoint
+        ? { isValid: false, reason: 'block_proposal_beyond_checkpoint' }
+        : { isValid: true };
+    }
   }
 
   private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockData | undefined> {
