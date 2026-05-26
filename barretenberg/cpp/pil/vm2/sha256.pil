@@ -211,9 +211,7 @@ namespace sha256;
     // Check Modulo Add Operation
     // COMPUTED_W is the sum of 4 terms < 2^32, so lhs < 4 (fits in 8 bits).
     #[RANGE_COMP_W_LHS]
-    sel_compute_w { computed_w_lhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
+    sel_compute_w { computed_w_lhs } in precomputed.sel_range_8 { precomputed.idx };
     #[RANGE_COMP_W_RHS]
     sel_compute_w { computed_w_rhs, rng_chk_32 }
     in
@@ -514,9 +512,7 @@ namespace sha256;
     // Check Modulo Add Operation
     // NEXT_A is the sum of 7 terms < 2^32, so lhs < 7 (fits in 8 bits).
     #[RANGE_COMP_NEXT_A_LHS]
-    perform_round { next_a_lhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
+    perform_round { next_a_lhs } in precomputed.sel_range_8 { precomputed.idx };
     #[RANGE_COMP_NEXT_A_RHS]
     perform_round { next_a_rhs, rng_chk_32 }
     in
@@ -530,9 +526,7 @@ namespace sha256;
     // Check Modulo Add Operation
     // NEXT_E is the sum of 6 terms < 2^32, so lhs < 6 (fits in 8 bits).
     #[RANGE_COMP_NEXT_E_LHS]
-    perform_round { next_e_lhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
+    perform_round { next_e_lhs } in precomputed.sel_range_8 { precomputed.idx };
     #[RANGE_COMP_NEXT_E_RHS]
     perform_round { next_e_rhs, rng_chk_32 }
     in
@@ -570,65 +564,44 @@ namespace sha256;
     pol OUT_H = h + init_h;
     last * (OUT_H - (output_h_lhs * 2**32 + output_h_rhs)) = 0;
 
-    // Check Modulo Add Operation for final outputs
-    #[RANGE_COMP_A_LHS]
-    last { output_a_lhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
+    // OUT_X = X + init_X where both operands are < 2^32, so the sum is < 2^33 and
+    // output_X_lhs (the carry) is 0 or 1. No `last` guard needed: these columns are
+    // unconstrained on non-last rows, so the prover can set them to 0.
+    output_a_lhs * (output_a_lhs - 1) = 0;
+    output_b_lhs * (output_b_lhs - 1) = 0;
+    output_c_lhs * (output_c_lhs - 1) = 0;
+    output_d_lhs * (output_d_lhs - 1) = 0;
+    output_e_lhs * (output_e_lhs - 1) = 0;
+    output_f_lhs * (output_f_lhs - 1) = 0;
+    output_g_lhs * (output_g_lhs - 1) = 0;
+    output_h_lhs * (output_h_lhs - 1) = 0;
+
     #[RANGE_COMP_A_RHS]
     last { output_a_rhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_COMP_B_LHS]
-    last { output_b_lhs, rng_chk_32 }
     in
     range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_B_RHS]
     last { output_b_rhs, rng_chk_32 }
     in
     range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_COMP_C_LHS]
-    last { output_c_lhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_C_RHS]
     last { output_c_rhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_COMP_D_LHS]
-    last { output_d_lhs, rng_chk_32 }
     in
     range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_D_RHS]
     last { output_d_rhs, rng_chk_32 }
     in
     range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_COMP_E_LHS]
-    last { output_e_lhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_E_RHS]
     last { output_e_rhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_COMP_F_LHS]
-    last { output_f_lhs, rng_chk_32 }
     in
     range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_F_RHS]
     last { output_f_rhs, rng_chk_32 }
     in
     range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_COMP_G_LHS]
-    last { output_g_lhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_G_RHS]
     last { output_g_rhs, rng_chk_32 }
-    in
-    range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
-    #[RANGE_COMP_H_LHS]
-    last { output_h_lhs, rng_chk_32 }
     in
     range_check.sel_sha256 { range_check.value, range_check.rng_chk_bits };
     #[RANGE_COMP_H_RHS]
