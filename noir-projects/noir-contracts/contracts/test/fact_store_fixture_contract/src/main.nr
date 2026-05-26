@@ -21,6 +21,7 @@ pub contract FactStoreFixture {
     #[derive(Deserialize, Serialize)]
     pub struct PackedFact {
         fact_type_id: Field,
+        // packed by the TS side to mirror the stored fact; not inspected by this fold
         payload: [Field; MAX_PAYLOAD],
     }
 
@@ -45,7 +46,7 @@ pub contract FactStoreFixture {
                 found_expired = true;
             }
         }
-        let state: Field = if found_finalized {
+        if found_finalized {
             4
         } else if found_tx_confirmed {
             if found_discovered {
@@ -57,7 +58,6 @@ pub contract FactStoreFixture {
             1
         } else {
             0
-        };
-        state
+        }
     }
 }
