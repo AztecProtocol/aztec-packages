@@ -81,6 +81,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
     const auto incoming_viewing_key_y = FF(0x201);
     const auto outgoing_viewing_key_hash = FF(0x300);
     const auto tagging_key_hash = FF(0x400);
+    const auto message_signing_key_hash = FF(0x500);
+    const auto fallback_key_hash = FF(0x600);
 
     // Test complete valid trace with all constraints
     TestTraceContainer trace({
@@ -104,6 +106,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
           { C::contract_instance_retrieval_incoming_viewing_key_y, incoming_viewing_key_y },
           { C::contract_instance_retrieval_outgoing_viewing_key_hash, outgoing_viewing_key_hash },
           { C::contract_instance_retrieval_tagging_key_hash, tagging_key_hash },
+          { C::contract_instance_retrieval_message_signing_key_hash, message_signing_key_hash },
+          { C::contract_instance_retrieval_fallback_key_hash, fallback_key_hash },
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
@@ -160,6 +164,9 @@ TEST(ContractInstanceRetrievalConstrainingTest, MultipleInstancesTrace)
             { C::contract_instance_retrieval_outgoing_viewing_key_hash,
               contract_instance.public_keys.outgoing_viewing_key_hash },
             { C::contract_instance_retrieval_tagging_key_hash, contract_instance.public_keys.tagging_key_hash },
+            { C::contract_instance_retrieval_message_signing_key_hash,
+              contract_instance.public_keys.message_signing_key_hash },
+            { C::contract_instance_retrieval_fallback_key_hash, contract_instance.public_keys.fallback_key_hash },
             { C::contract_instance_retrieval_deployer_protocol_contract_address,
               CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
             // Protocol Contract conditionals
@@ -274,6 +281,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
           { C::contract_instance_retrieval_incoming_viewing_key_y, max_field },
           { C::contract_instance_retrieval_outgoing_viewing_key_hash, max_field },
           { C::contract_instance_retrieval_tagging_key_hash, max_field },
+          { C::contract_instance_retrieval_message_signing_key_hash, max_field },
+          { C::contract_instance_retrieval_fallback_key_hash, max_field },
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
@@ -548,6 +557,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenNonExistentIn
                   { C::address_derivation_incoming_viewing_key_y, 0 },
                   { C::address_derivation_outgoing_viewing_key_hash, 0 },
                   { C::address_derivation_tagging_key_hash, 0 },
+                  { C::address_derivation_message_signing_key_hash, 0 },
+                  { C::address_derivation_fallback_key_hash, 0 },
                   // For update check lookup (only populated when nullifier exists)
                   { C::update_check_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::update_check_address, contract_address },
@@ -627,6 +638,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, IntegrationTracegenAddressZero)
                   { C::address_derivation_incoming_viewing_key_y, 0 },
                   { C::address_derivation_outgoing_viewing_key_hash, 0 },
                   { C::address_derivation_tagging_key_hash, 0 },
+                  { C::address_derivation_message_signing_key_hash, 0 },
+                  { C::address_derivation_fallback_key_hash, 0 },
                   // For update check lookup (only populated when nullifier exists)
                   { C::update_check_sel, 0 }, // Not selected since nullifier doesn't exist
                   { C::update_check_address, contract_address },

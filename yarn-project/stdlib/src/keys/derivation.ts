@@ -112,7 +112,7 @@ export async function deriveKeys(secretKey: Fr) {
   // store can persist them under `${account}-{n|ov|t}pk_m` (only their hashes live in publicKeys).
   // The ivpk_m point isn't returned separately because it already lives in publicKeys.ivpkM.
   //
-  // There isn't a derivation path for the message signing(msk) and fallback(fbk) keys yet. So we just use the the
+  // TODO: There isn't a derivation path for the message signing(msk) and fallback(fbk) keys yet. So we just use the the
   // default values for now.
   const publicKeys = new PublicKeys(
     await hashPublicKey(masterNullifierPublicKey),

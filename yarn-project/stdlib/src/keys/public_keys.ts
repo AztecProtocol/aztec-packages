@@ -199,15 +199,7 @@ export class PublicKeys {
    * (7 fields).
    */
   toFields(): Fr[] {
-    return [
-      this.npkMHash,
-      this.ivpkM.x,
-      this.ivpkM.y,
-      this.ovpkMHash,
-      this.tpkMHash,
-      this.mspkMHash,
-      this.fbpkMHash,
-    ];
+    return [this.npkMHash, this.ivpkM.x, this.ivpkM.y, this.ovpkMHash, this.tpkMHash, this.mspkMHash, this.fbpkMHash];
   }
 
   // Used in foundation/src/abi/encoder. Probably non-optimal but the encoder needs a refactor.

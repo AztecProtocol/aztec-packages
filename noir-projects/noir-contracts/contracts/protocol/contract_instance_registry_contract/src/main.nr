@@ -88,7 +88,8 @@ pub contract ContractInstanceRegistry {
     /// This function:
     /// 1. Verifies the contract class is registered in ContractClassRegistry (nullifier existence check).
     /// 2. Validates `ivpk_m` is on the Grumpkin curve and not the point at infinity (preventing AVM DoS via an invalid
-    /// point). `npk_m`, `ovpk_m`, and `tpk_m` are exposed only as hashes and are not validated in-circuit.
+    /// point). `npk_m`, `ovpk_m`, `tpk_m`, `mspk_m`, and `fbpk_m` are exposed only as hashes and are not validated
+    /// in-circuit.
     /// 3. Computes the deterministic contract address from the deployment parameters.
     /// 4. Emits the address as a nullifier (proving publication preventing duplicate deployment)
     ///    --> this address nullifier is then checked to exist by the AVM upon public function execution (if it doesn't
