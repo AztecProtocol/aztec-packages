@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
-import type { AppTaggingSecret, ExtendedDirectionalAppTaggingSecret, TaggingIndexRange } from '@aztec/stdlib/logs';
-import { PrivateLog, SiloedTag, siloedTagFor } from '@aztec/stdlib/logs';
+import type { AppTaggingSecret, TaggingIndexRange } from '@aztec/stdlib/logs';
+import { ExtendedDirectionalAppTaggingSecret, PrivateLog, SiloedTag, siloedTagFor } from '@aztec/stdlib/logs';
 import { randomConstrainedAppTaggingSecret, randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
@@ -629,7 +629,6 @@ describe('SenderTaggingStore', () => {
     // finalizer must not treat it as a surviving constrained-tag. The onchain emission would have used the
     // constrained domain separator, so the values are different.
     it('does not cross-match a tag computed under the wrong domain separator', async () => {
-      const sharedFr = Fr.random();
       const constrainedSecret = await randomConstrainedAppTaggingSecret();
 
       const txHash = TxHash.random();
@@ -639,7 +638,7 @@ describe('SenderTaggingStore', () => {
       // this via the public construction path keeps the test independent of how the production code derives Frs.
       // Emit a tag using the *unconstrained* domain separator for the same Fr/index combination. This should NOT match.
       const wrongDomSepTag = await SiloedTag.compute({
-        extendedSecret: { secret: sharedFr, app: constrainedSecret.app } as ExtendedDirectionalAppTaggingSecret,
+        extendedSecret: new ExtendedDirectionalAppTaggingSecret(constrainedSecret.secret, constrainedSecret.app),
         index: 1,
       });
       const txEffect = makeTxEffect(txHash, [wrongDomSepTag]);
