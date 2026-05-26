@@ -9,7 +9,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { jest } from '@jest/globals';
 
 import { sendThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
-import { DUPLICATE_NULLIFIER_ERROR, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { type EndToEndContext, ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
@@ -31,7 +31,7 @@ describe('e2e_authwit_tests', () => {
       teardown,
       wallet,
       accounts: [account1Address, account2Address],
-    } = await setup(2, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
     ({ contract: auth } = await AuthWitTestContract.deploy(wallet).send({ from: account1Address }));

@@ -40,10 +40,10 @@ ContractInstance create_default_instance(const ContractClassId& class_id)
         .initialization_hash = 0,
         .public_keys =
             PublicKeys{
-                .nullifier_key = affine_one,
+                .nullifier_key_hash = 0,
                 .incoming_viewing_key = affine_one,
-                .outgoing_viewing_key = affine_one,
-                .tagging_key = affine_one,
+                .outgoing_viewing_key_hash = 0,
+                .tagging_key_hash = 0,
             },
     };
 }

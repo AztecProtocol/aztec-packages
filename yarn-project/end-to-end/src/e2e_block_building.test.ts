@@ -562,11 +562,7 @@ describe('e2e_block_building', () => {
     // The culprit is a nullifier not being cleared up from world state during block building if a tx fails processing,
     // which translates in an incorrect end state for world state. We can easily detect this by checking whether the nullifier
     // tree next available leaf index is a multiple of 64.
-    // TODO(kill-non-pipelined): under pipelining, an AVM failure mid-block triggers a
-    // `DELETE_FORK failed: Fork not found` loop in world-state and the sequencer's publisher
-    // is left in `Transaction sending is interrupted`. This needs a source-level fix in the
-    // pipelined checkpoint job's fork-cleanup path; the test invariant is still relevant.
-    it.skip('clears up all nullifiers if tx processing fails', async () => {
+    it('clears up all nullifiers if tx processing fails', async () => {
       const context = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1, numberOfInitialFundedAccounts: 1 });
       ({
         teardown,
@@ -598,23 +594,28 @@ describe('e2e_block_building', () => {
       const txHashResults = await Promise.all(batches.map(batch => batch.send({ from: ownerAddress, wait: NO_WAIT })));
       const txHashes = txHashResults.map(({ txHash }) => txHash);
       logger.warn(`Sent two txs to test contract`, { txs: txHashes.map(hash => hash.toString()) });
-      await Promise.race(txHashes.map(txHash => waitForTx(aztecNode, txHash, { timeout: 60 })));
+      // Use Promise.any (not Promise.race): exactly one of the two txs will be dropped (the one that hits
+      // the fake AVM error in tx processing), so the dropped-tx rejection would settle Promise.race first.
+      // We want the first *successful* mine.
+      const minedTxHash = await Promise.any(
+        txHashes.map(async txHash => {
+          await waitForTx(aztecNode, txHash, { timeout: 60 });
+          return txHash;
+        }),
+      );
 
-      logger.warn(`At least one tx has been mined`);
-      const lastBlock = (await context.aztecNode.getBlockData('latest'))?.header;
-      expect(lastBlock).toBeDefined();
+      logger.warn(`At least one tx has been mined`, { minedTxHash: minedTxHash.toString() });
+      const minedReceipt = await aztecNode.getTxReceipt(minedTxHash);
+      const block = await context.aztecNode.getBlock(minedReceipt.blockNumber!);
+      expect(block).toBeDefined();
 
-      logger.warn(`Latest block is ${lastBlock!.getBlockNumber()}`, { state: lastBlock?.state.partial });
-      const nextNullifierIndex = lastBlock!.state.partial.nullifierTree.nextAvailableLeafIndex;
+      logger.warn(`Mined block is ${block!.header.getBlockNumber()}`, { state: block!.header.state.partial });
+      const nextNullifierIndex = block!.header.state.partial.nullifierTree.nextAvailableLeafIndex;
       expect(nextNullifierIndex % 64).toEqual(0);
     });
   });
 
-  // TODO(kill-non-pipelined): reorg path under pipelined sequencer hangs to wallclock after
-  // `advanceToNextEpoch` + `markAsProven`. The world-state hits a `DELETE_FORK failed: Fork not
-  // found` loop and PXE catch-up never completes. Needs source-level fix in the pipelined
-  // checkpoint job's fork-cleanup path on prune.
-  describe.skip('reorgs', () => {
+  describe('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
     let ownerAddress: AztecAddress;
@@ -630,7 +631,7 @@ describe('e2e_block_building', () => {
         cheatCodes,
         watcher,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+      } = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
 
       ({ contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }));
       initialBlockNumber = await aztecNode.getBlockNumber();
@@ -638,10 +639,12 @@ describe('e2e_block_building', () => {
 
       await cheatCodes.rollup.advanceToNextEpoch();
 
+      // Mark all blocks up to the current pending tip as proven so the contract-deployment block
+      // is anchored against a proven checkpoint. The e2e fixture's AnvilTestWatcher does NOT
+      // auto-prove under interval mining (only under automining), so we must drive proven manually.
+      await cheatCodes.rollup.markAsProven();
       const bn = await aztecNode.getBlockNumber();
-      while ((await aztecNode.getBlockNumber('proven')) < bn) {
-        await sleep(1000);
-      }
+      await retryUntil(async () => (await aztecNode.getBlockNumber('proven')) >= bn, 'wait-proven', 60, 1);
 
       watcher.setIsMarkingAsProven(false);
     });

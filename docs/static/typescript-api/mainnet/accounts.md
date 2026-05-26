@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -48,7 +48,7 @@ new EcdsaKAccountContract(signingPrivateKey: Buffer)
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
-- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: Buffer<ArrayBufferLike>[]; constructorName: string }>`
+- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: number[][]; constructorName: string }>`
 
 ### EcdsaRAccountContract
 
@@ -65,7 +65,7 @@ new EcdsaRAccountContract(signingPrivateKey: Buffer)
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
-- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: Buffer<ArrayBufferLike>[]; constructorName: string }>`
+- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: number[][]; constructorName: string }>`
 
 ### EcdsaRSSHAccountContract
 
@@ -82,7 +82,7 @@ new EcdsaRSSHAccountContract(signingPublicKey: Buffer)
 - `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
-- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: Buffer<ArrayBufferLike>[]; constructorName: string }>`
+- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: number[][]; constructorName: string }>`
 
 ### SchnorrAccountContract
 

@@ -1,3 +1,8 @@
+---
+name: update-doc-references
+description: Analyze source-file changes referenced by documentation, update affected docs when needed, and report documentation reference updates for a PR.
+---
+
 # Update Documentation References
 
 When source files referenced by documentation change in a PR, analyze the

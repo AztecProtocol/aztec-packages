@@ -29,7 +29,9 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashDuplicateAttestationPenalty: BigInt(slasherDefaultEnv.SLASH_DUPLICATE_ATTESTATION_PENALTY),
   slashInactivityPenalty: BigInt(slasherDefaultEnv.SLASH_INACTIVITY_PENALTY),
   slashProposeInvalidAttestationsPenalty: BigInt(slasherDefaultEnv.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY),
-  slashAttestDescendantOfInvalidPenalty: BigInt(slasherDefaultEnv.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY),
+  slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: BigInt(
+    slasherDefaultEnv.SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY,
+  ),
   slashAttestInvalidCheckpointProposalPenalty: BigInt(
     slasherDefaultEnv.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY,
   ),
@@ -118,11 +120,11 @@ const ownSlasherConfigMappings: ConfigMappingsType<OwnSlasherConfig> = {
     description: 'Penalty amount for slashing a proposer that proposed invalid attestations (set to 0 to disable).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashProposeInvalidAttestationsPenalty),
   },
-  slashAttestDescendantOfInvalidPenalty: {
-    env: 'SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY',
+  slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: {
+    env: 'SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY',
     description:
-      'Penalty amount for slashing a validator that attested to a descendant of an invalid block (set to 0 to disable).',
-    ...bigintConfigHelper(DefaultSlasherConfig.slashAttestDescendantOfInvalidPenalty),
+      'Penalty amount for slashing a proposer that published a checkpoint building on an invalid checkpoint (set to 0 to disable).',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty),
   },
   slashAttestInvalidCheckpointProposalPenalty: {
     env: 'SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY',

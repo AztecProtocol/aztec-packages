@@ -466,7 +466,7 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
 
 /**
  * @brief Populate the GETCONTRACTINSTANCE lookup table.
- * @details One row per ContractInstanceMember enum value (DEPLOYER=0, CLASS_ID=1, INIT_HASH=2).
+ * @details One row per ContractInstanceMember enum value (DEPLOYER=0, CLASS_ID=1, INIT_HASH=2, IMMUTABLES_HASH=3).
  * Each row holds a validity flag and one-hot member selectors. See
  * `opcodes/get_contract_instance.pil` for an ascii version of this table.
  */
@@ -482,6 +482,7 @@ void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer
                       { C::precomputed_is_deployer, spec.is_deployer ? 1 : 0 },
                       { C::precomputed_is_class_id, spec.is_class_id ? 1 : 0 },
                       { C::precomputed_is_init_hash, spec.is_init_hash ? 1 : 0 },
+                      { C::precomputed_is_immutables_hash, spec.is_immutables_hash ? 1 : 0 },
                   } });
     }
 }

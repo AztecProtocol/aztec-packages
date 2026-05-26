@@ -175,10 +175,9 @@ sel_sha256_op[6] * (1 - sel_sha256_op[6]) = 0;
 sel_sha256_op[7] * (1 - sel_sha256_op[7]) = 0;
 
 // Permutation selectors (ecc_mem.pil).
-pol commit sel_ecc_write[3]; // @boolean
+pol commit sel_ecc_write[2]; // @boolean
 sel_ecc_write[0] * (1 - sel_ecc_write[0]) = 0;
 sel_ecc_write[1] * (1 - sel_ecc_write[1]) = 0;
-sel_ecc_write[2] * (1 - sel_ecc_write[2]) = 0;
 
 // Permutation selectors (to_radix_mem.pil).
 pol commit sel_to_radix_write; // @boolean
@@ -212,7 +211,7 @@ sel = // Addressing.
     + sel_sha256_op[0] + sel_sha256_op[1] + sel_sha256_op[2] + sel_sha256_op[3]
     + sel_sha256_op[4] + sel_sha256_op[5] + sel_sha256_op[6] + sel_sha256_op[7]
     // ECC.
-    + sel_ecc_write[0] + sel_ecc_write[1] + sel_ecc_write[2]
+    + sel_ecc_write[0] + sel_ecc_write[1]
     // To Radix.
     + sel_to_radix_write;
 

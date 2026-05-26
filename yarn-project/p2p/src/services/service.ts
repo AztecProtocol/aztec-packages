@@ -17,11 +17,7 @@ import type EventEmitter from 'events';
 import type { BatchTxRequesterLibP2PService } from './reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from './reqresp/config.js';
 import type { StatusMessage } from './reqresp/index.js';
-import type {
-  ReqRespSubProtocol,
-  ReqRespSubProtocolHandler,
-  ReqRespSubProtocolValidators,
-} from './reqresp/interface.js';
+import type { ReqRespSubProtocol, ReqRespSubProtocolHandler } from './reqresp/interface.js';
 import type { AuthRequest, AuthResponse } from './reqresp/protocols/auth.js';
 
 export enum PeerDiscoveryState {
@@ -133,11 +129,7 @@ export interface P2PService {
 
   validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void>;
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void>;
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 

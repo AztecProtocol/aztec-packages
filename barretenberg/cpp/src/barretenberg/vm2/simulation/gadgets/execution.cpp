@@ -1469,19 +1469,15 @@ void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress s
  * @param context The context.
  * @param p_x_addr The resolved address of the x coordinate of the first point.
  * @param p_y_addr The resolved address of the y coordinate of the first point.
- * @param p_inf_addr The resolved address of the infinity flag of the first point.
  * @param q_x_addr The resolved address of the x coordinate of the second point.
  * @param q_y_addr The resolved address of the y coordinate of the second point.
- * @param q_inf_addr The resolved address of the infinity flag of the second point.
  * @param dst_addr The resolved address of the destination memory address.
  *
  * @throws RegisterValidationException if the tags of the input values do not match the expected tags:
  *        - tag of the memory value at p_x_addr is not FF.
  *        - tag of the memory value at p_y_addr is not FF.
- *        - tag of the memory value at p_inf_addr is not U1.
  *        - tag of the memory value at q_x_addr is not FF.
  *        - tag of the memory value at q_y_addr is not FF.
- *        - tag of the memory value at q_inf_addr is not U1.
  * @throws OutOfGasException if the gas limit is exceeded.
  * @throws OpcodeExecutionException if the elliptic curve addition operation fails:
  *        - memory write out of bounds.
@@ -1490,10 +1486,8 @@ void Execution::poseidon2_permutation(ContextInterface& context, MemoryAddress s
 void Execution::ecc_add(ContextInterface& context,
                         MemoryAddress p_x_addr,
                         MemoryAddress p_y_addr,
-                        MemoryAddress p_inf_addr,
                         MemoryAddress q_x_addr,
                         MemoryAddress q_y_addr,
-                        MemoryAddress q_inf_addr,
                         MemoryAddress dst_addr)
 {
     BB_BENCH_NAME("Execution::ecc_add");
@@ -1503,19 +1497,17 @@ void Execution::ecc_add(ContextInterface& context,
     // Read the points from memory.
     const auto& p_x = memory.get(p_x_addr);
     const auto& p_y = memory.get(p_y_addr);
-    const auto& p_inf = memory.get(p_inf_addr);
 
     const auto& q_x = memory.get(q_x_addr);
     const auto& q_y = memory.get(q_y_addr);
-    const auto& q_inf = memory.get(q_inf_addr);
 
-    set_and_validate_inputs(opcode, { p_x, p_y, p_inf, q_x, q_y, q_inf });
+    set_and_validate_inputs(opcode, { p_x, p_y, q_x, q_y });
     get_gas_tracker().consume_gas();
 
     // Once inputs are tag checked the conversion to EmbeddedCurvePoint is safe, on curve checks are done in the add
     // method.
-    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff(), p_inf == MemoryValue::from<uint1_t>(1));
-    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff(), q_inf == MemoryValue::from<uint1_t>(1));
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x.as_ff(), p_y.as_ff());
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x.as_ff(), q_y.as_ff());
 
     try {
         embedded_curve.add(memory, p, q, dst_addr);

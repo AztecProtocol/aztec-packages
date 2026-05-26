@@ -74,7 +74,7 @@ impl AccountActions<&mut PrivateContext> {
 
         if cancellable {
             let tx_nullifier = poseidon2_hash_with_separator([app_payload.tx_nonce], DOM_SEP__TX_NULLIFIER);
-            self.context.push_nullifier(tx_nullifier);
+            self.context.push_nullifier_unsafe(tx_nullifier);
         }
     }
 

@@ -1,7 +1,7 @@
 use aztec::{
     keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     macros::notes::note,
-    protocol::{address::AztecAddress, point::Point, traits::{Deserialize, Packable, Serialize}},
+    protocol::{address::AztecAddress, point::EmbeddedCurvePoint, traits::{Deserialize, Packable, Serialize}},
 };
 
 /// A record of a handshake established by the note's owner (the sender).
@@ -20,11 +20,11 @@ pub struct HandshakeNote {
     recipient: AztecAddress,
     /// The raw ECDH shared-secret point `S = eph_sk * recipient_address_point`. Only this module can read it for
     /// siloing, and it is never returned by an external function.
-    secret: Point,
+    secret: EmbeddedCurvePoint,
 }
 
 impl HandshakeNote {
-    pub(crate) fn new(shared_secret: Point, handshake_type: u8, recipient: AztecAddress) -> Self {
+    pub(crate) fn new(shared_secret: EmbeddedCurvePoint, handshake_type: u8, recipient: AztecAddress) -> Self {
         Self { handshake_type, recipient, secret: shared_secret }
     }
 
