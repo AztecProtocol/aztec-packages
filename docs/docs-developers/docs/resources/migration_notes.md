@@ -42,7 +42,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`, and it is deployed on first use rather than at genesis.
+`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
