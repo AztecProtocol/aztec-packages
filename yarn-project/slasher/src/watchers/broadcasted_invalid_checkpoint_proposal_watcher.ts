@@ -89,10 +89,6 @@ export class BroadcastedInvalidCheckpointProposalWatcher
    * `currentSlot` at the archiver's last synced L2 slot.
    */
   public async scan(): Promise<void> {
-    if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
-      return;
-    }
-
     const currentSlot = (await this.l2BlockSource.getSyncedL2SlotNumber()) ?? this.epochCache.getSlotNow();
     if (currentSlot <= SlotNumber(SCAN_SLOT_LAG)) {
       return;
@@ -111,10 +107,6 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 
   /** Scans a single slot. Public for tests. */
   public async scanSlot(slot: SlotNumber): Promise<void> {
-    if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
-      return;
-    }
-
     const proposals = await this.p2pClient.getProposalsForSlot(slot);
     const slashArgs = this.getSlashArgsForProposals(slot, proposals).filter(args => this.markAsNewOffense(args));
     if (slashArgs.length === 0) {
@@ -125,6 +117,7 @@ export class BroadcastedInvalidCheckpointProposalWatcher
       slot,
       offenses: slashArgs.map(args => ({
         validator: args.validator.toString(),
+        amount: args.amount,
         offenseType: args.offenseType,
         epochOrSlot: args.epochOrSlot,
       })),

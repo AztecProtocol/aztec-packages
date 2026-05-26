@@ -743,34 +743,30 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       if (!proverOnly) {
         validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
-        if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
+        if (validatorsSentinel) {
           watchers.push(validatorsSentinel);
         }
 
-        if (config.slashDataWithholdingPenalty > 0n) {
-          dataWithholdingWatcher = new DataWithholdingWatcher(
-            epochCache,
-            archiver,
-            p2pClient.getTxProvider(),
-            p2pClient,
-            reexecutionTracker,
-            { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
-            config,
-          );
-          watchers.push(dataWithholdingWatcher);
-        }
+        dataWithholdingWatcher = new DataWithholdingWatcher(
+          epochCache,
+          archiver,
+          p2pClient.getTxProvider(),
+          p2pClient,
+          reexecutionTracker,
+          { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
+          config,
+        );
+        watchers.push(dataWithholdingWatcher);
 
-        if (config.slashBroadcastedInvalidCheckpointProposalPenalty > 0n) {
-          broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
-            p2pClient,
-            archiver,
-            epochCache,
-            config,
-          );
-          watchers.push(broadcastedInvalidCheckpointProposalWatcher);
-        }
+        broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
+          p2pClient,
+          archiver,
+          epochCache,
+          config,
+        );
+        watchers.push(broadcastedInvalidCheckpointProposalWatcher);
 
-        if (validatorClient && config.slashAttestInvalidCheckpointProposalPenalty > 0n) {
+        if (validatorClient) {
           attestedInvalidProposalWatcher = new AttestedInvalidProposalWatcher(
             p2pClient,
             validatorClient,
@@ -782,19 +778,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           watchers.push(attestedInvalidProposalWatcher);
         }
 
-        if (config.slashDuplicateProposalPenalty > 0n) {
-          checkpointEquivocationWatcher = new CheckpointEquivocationWatcher(archiver, epochCache, config);
-          watchers.push(checkpointEquivocationWatcher);
-        }
+        checkpointEquivocationWatcher = new CheckpointEquivocationWatcher(archiver, epochCache, config);
+        watchers.push(checkpointEquivocationWatcher);
 
-        // We assume we want to slash for invalid attestations unless all max penalties are set to 0
-        if (
-          config.slashProposeInvalidAttestationsPenalty > 0n ||
-          config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty > 0n
-        ) {
-          attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config, log.getBindings());
-          watchers.push(attestationsBlockWatcher);
-        }
+        attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config, log.getBindings());
+        watchers.push(attestationsBlockWatcher);
       }
 
       const watchersToStart = compactArray([

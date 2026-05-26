@@ -88,6 +88,51 @@ describe('AttestedInvalidProposalWatcher', () => {
     ]);
   });
 
+  it('emits zero-amount offenses when the penalty is zero', async () => {
+    const slot = SlotNumber(10);
+    const attesterSigner = Secp256k1Signer.random();
+    invalidProposalSlots.add(slot);
+    watcher.updateConfig({ slashAttestInvalidCheckpointProposalPenalty: 0n });
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([await makeAttestation(slot, attesterSigner)]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledWith([
+      {
+        validator: attesterSigner.address,
+        amount: 0n,
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 10n,
+      },
+    ]);
+  });
+
+  it('deduplicates repeated scans for the same attester and slot', async () => {
+    const slot = SlotNumber(10);
+    invalidProposalSlots.add(slot);
+    const attestation = await makeAttestation(slot);
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+    await watcher.scanSlot(slot);
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('deduplicates repeated scans for the same offense when the penalty changes', async () => {
+    const slot = SlotNumber(10);
+    invalidProposalSlots.add(slot);
+    const attestation = await makeAttestation(slot);
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+    watcher.updateConfig({ slashAttestInvalidCheckpointProposalPenalty: 0n });
+    await watcher.scanSlot(slot);
+    watcher.updateConfig({ slashAttestInvalidCheckpointProposalPenalty: 13n });
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
   it('scans only marked invalid proposal slots once they are past the scan lag', async () => {
     watcher = new AttestedInvalidProposalWatcher(
       p2pClient,

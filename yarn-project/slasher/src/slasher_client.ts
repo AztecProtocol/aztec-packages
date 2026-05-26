@@ -343,7 +343,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
       return undefined;
     }
 
-    this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
+    this.log.debug(`Computing slash votes for ${offensesToSlash.length} offenses`, {
       slotNumber,
       currentRound,
       slashedRound,
@@ -370,6 +370,14 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
       });
       return undefined;
     }
+
+    this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
+      slotNumber,
+      slashedRound,
+      currentRound,
+      votes,
+      offensesToSlash,
+    });
 
     this.log.debug(`Computed votes for slashing ${offensesToSlash.length} offenses`, {
       slashedRound,
