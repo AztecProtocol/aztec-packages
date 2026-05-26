@@ -16,7 +16,7 @@ export { SecretValue, getActiveNetworkName };
 export { secretFrConfigHelper, secretFqConfigHelper } from './field_config.js';
 export type { EnvVar, NetworkNames };
 export type { NetworkConfig, NetworkConfigMap } from './network_config.js';
-export { NetworkConfigMapSchema, NetworkConfigSchema } from './network_config.js';
+export { NetworkConfigMapSchema, NetworkConfigSchema, networkConfigToTyped } from './network_config.js';
 
 export interface ConfigMapping<T> {
   env?: EnvVar;
@@ -40,6 +40,38 @@ export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
 
 export type ConfigMappingsType<T> = {
   [K in keyof T]-?: ConfigMapping<Required<T>[K]>;
+};
+
+export enum ConfigLayerName {
+  CLI = 'cli',
+  ENV = 'env',
+  NETWORK = 'network',
+  DEFAULT = 'default',
+}
+
+// Ordered list of config layers in order of precedence.
+export const ORDERED_CONFIG_LAYERS = [ConfigLayerName.CLI, ConfigLayerName.ENV, ConfigLayerName.NETWORK] as const;
+export type OrderedConfigLayerName = (typeof ORDERED_CONFIG_LAYERS)[number];
+
+export interface ConfigLayer<T> {
+  name: OrderedConfigLayerName;
+  values: Partial<T>;
+}
+
+export interface LayerEntry<T> {
+  layer: ConfigLayerName;
+  value: T;
+}
+
+export interface ResolvedValue<T> {
+  value: T;
+  source: ConfigLayerName;
+  envVar?: EnvVar;
+  layers: LayerEntry<T>[];
+}
+
+export type ResolvedConfig<T> = {
+  [K in keyof T]-?: ResolvedValue<T[K]>;
 };
 
 type AnyConfig = Record<string, unknown>;
@@ -96,12 +128,39 @@ export function getValueFromEnvWithFallback<T>(
 }
 
 export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>): T {
-  const config = {} as T;
+  return { ...getDefaultConfig(configMappings), ...envToTyped(configMappings) } as T;
+}
 
-  for (const key in configMappings) {
-    const { env, parseEnv, defaultValue, fallback, deprecatedFallback } = configMappings[key];
+/**
+ * Reads environment variables for the given mappings and returns only the keys that were
+ * explicitly set in the environment (primary env var or fallbacks). Default values are not
+ * included — callers use `getDefaultConfig` separately if they need them.
+ *
+ * Suitable for building the ENV layer for `resolveConfig`.
+ *
+ * @param mappings - Config mappings describing env var names and parsers.
+ * @param envSource - Environment variable source (defaults to `process.env`).
+ */
+export function envToTyped<T>(mappings: ConfigMappingsType<T>, envSource: NodeJS.ProcessEnv = process.env): Partial<T> {
+  const result: Partial<T> = {};
+
+  for (const key in mappings) {
+    const { env, parseEnv, fallback, deprecatedFallback } = mappings[key];
+
+    let rawValue: string | undefined = env ? envSource[env] : undefined;
+    if (rawValue === undefined && fallback?.length) {
+      for (const fb of fallback) {
+        rawValue = envSource[fb];
+        if (rawValue !== undefined) {
+          break;
+        }
+      }
+    }
+
     try {
-      (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
+      if (rawValue !== undefined && rawValue !== '') {
+        result[key as keyof T] = (parseEnv ? parseEnv(rawValue) : rawValue) as T[keyof T];
+      }
     } catch (e: any) {
       throw new Error(`Failed to parse config '${key}' (env: ${env ?? 'none'}): ${e.message}`);
     }
@@ -109,7 +168,7 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
     if (deprecatedFallback?.length) {
       const userLog = createConsoleLogger('[DEPRECATED]');
       for (const { env: deprecatedEnv, message } of deprecatedFallback) {
-        if (process.env[deprecatedEnv]) {
+        if (envSource[deprecatedEnv]) {
           const warningMessage =
             message ?? `Environment variable ${deprecatedEnv} is deprecated. Please use ${env} instead.`;
           userLog(warningMessage, { deprecatedEnvVar: deprecatedEnv, newEnvVar: env });
@@ -118,7 +177,134 @@ export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>):
     }
   }
 
-  return config;
+  return result;
+}
+
+/**
+ * Extracts typed config values from a Commander options object for a single component. Only
+ * keys that are explicitly present and non-undefined in `options` are emitted — Commander
+ * outputs `undefined` for unset flags, so this naturally filters out defaults set at
+ * Commander registration time.
+ *
+ * When `namespace` is supplied, dotted keys are matched against `${namespace}.${mainKey}`
+ * (e.g. `'bot.nodeUrl'` with `namespace='bot'`). This is required when two components
+ * register the same flag name under different namespaces (e.g. `--bot.nodeUrl` and
+ * `--pxe.nodeUrl` both map to `nodeUrl` but belong to distinct config types). Bare keys
+ * (no namespace prefix in `options`) are always picked up if their `mainKey` is in
+ * `mappings` and not duplicated elsewhere in `options` — this covers `universalOptions`
+ * registered without a namespace.
+ *
+ * Suitable for building the CLI layer for `resolveConfig`.
+ *
+ * @param mappings - Config mappings for the target type `T`.
+ * @param options - Raw Commander `opts()` object.
+ * @param namespace - Namespace prefix for this component (e.g. `'bot'`, `'pxe'`).
+ */
+export function cliToTyped<T>(
+  mappings: ConfigMappingsType<T>,
+  options: Record<string, unknown>,
+  namespace?: string,
+): Partial<T> {
+  const result: Partial<T> = {};
+  const optionKeys = Object.keys(options);
+
+  for (const optionKey of optionKeys) {
+    const parts = optionKey.split('.');
+    const optionNamespace = parts.length > 1 ? parts[0] : '';
+    const mainKey = parts.length > 1 ? parts[1] : parts[0];
+
+    if (!(mainKey in mappings)) {
+      continue;
+    }
+
+    const value = options[optionKey];
+    if (value === undefined) {
+      continue;
+    }
+
+    // If the same mainKey appears more than once across the options (e.g. `bot.nodeUrl` and
+    // `pxe.nodeUrl`), only the entry whose namespace matches this component wins.
+    const duplicateCount = optionKeys.filter(k => {
+      const p = k.split('.');
+      return (p.length > 1 ? p[1] : p[0]) === mainKey;
+    }).length;
+
+    if (duplicateCount > 1) {
+      if (namespace === optionNamespace) {
+        result[mainKey as keyof T] = value as T[keyof T];
+      }
+    } else {
+      result[mainKey as keyof T] = value as T[keyof T];
+    }
+  }
+
+  return result;
+}
+
+export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: ConfigLayer<T>[]): ResolvedConfig<T> {
+  const resolvedConfig: Partial<ResolvedConfig<T>> = {};
+  const layerSources = new Map<OrderedConfigLayerName, Partial<T>>();
+
+  for (const layer of layers) {
+    if (layerSources.has(layer.name)) {
+      throw new Error(`Duplicate config layer '${layer.name}' in resolveConfig input`);
+    }
+    layerSources.set(layer.name, layer.values);
+  }
+
+  for (const key of Object.keys(configMappings) as Array<keyof T>) {
+    const mapping = configMappings[key];
+    const resolvedLayers: LayerEntry<Required<T>[typeof key]>[] = [];
+
+    for (const layerName of ORDERED_CONFIG_LAYERS) {
+      const layerSource = layerSources.get(layerName);
+      if (!layerSource) {
+        continue;
+      }
+
+      const layerValue = layerSource[key];
+      if (layerValue !== undefined) {
+        resolvedLayers.push({
+          layer: layerName,
+          value: layerValue as Required<T>[typeof key],
+        });
+      }
+    }
+
+    if (mapping.defaultValue !== undefined) {
+      resolvedLayers.push({
+        layer: ConfigLayerName.DEFAULT,
+        value: mapping.defaultValue as Required<T>[typeof key],
+      });
+    }
+
+    // TODO(A-1065): optional config keys (e.g. `slashingQuorum?: number`) legitimately resolve to
+    // undefined when no layer provides a value and no defaultValue exists, so this throw is
+    // incorrect for those cases. Uncomment and gate on a per-mapping `optional` flag once that
+    // field is added to ConfigMapping.
+    // if (resolvedLayers.length === 0) {
+    //   throw new Error(`Missing required config '${String(key)}' (env: ${mapping.env ?? 'none'})`);
+    // }
+    if (resolvedLayers.length === 0) {
+      resolvedConfig[key] = {
+        value: undefined as T[typeof key],
+        source: ConfigLayerName.DEFAULT,
+        envVar: mapping.env,
+        layers: [],
+      };
+      continue;
+    }
+
+    const winningLayer = resolvedLayers[0];
+    resolvedConfig[key] = {
+      value: winningLayer.value,
+      source: winningLayer.layer,
+      envVar: mapping.env,
+      layers: resolvedLayers,
+    };
+  }
+
+  return resolvedConfig as ResolvedConfig<T>;
 }
 
 /**
@@ -134,6 +320,45 @@ export function omitConfigMappings<T, K extends keyof T>(
   return Object.fromEntries(
     Object.entries(configMappings).filter(([key]) => !keysToFilter.includes(key as K)),
   ) as ConfigMappingsType<Omit<T, K>>;
+}
+
+/**
+ * Finds config keys that are shared across multiple component mappings via the same mapping
+ * object (reference equality). These are candidates for "universal" CLI registration — a single
+ * top-level flag instead of one per component namespace.
+ *
+ * A key is included only if it appears in two or more `componentMappings` AND every component
+ * holds the exact same `ConfigMapping<unknown>` reference for it. Keys whose references diverge
+ * between components are intentionally excluded — they represent genuinely different settings
+ * that happen to share a name (e.g. bot.nodeUrl vs proverNode.nodeUrl).
+ *
+ * @param componentMappings - One config mapping object per component to compare.
+ */
+export function findUniversalConfigKeys(...componentMappings: AnyConfigMappings[]): Set<string> {
+  const presenceByKey = new Map<string, { count: number; firstRef: ConfigMapping<unknown>; allSame: boolean }>();
+
+  for (const mappings of componentMappings) {
+    for (const [key, mapping] of Object.entries(mappings)) {
+      const ref = mapping as ConfigMapping<unknown>;
+      let entry = presenceByKey.get(key);
+      if (!entry) {
+        entry = { count: 0, firstRef: ref, allSame: true };
+        presenceByKey.set(key, entry);
+      }
+      entry.count += 1;
+      if (ref !== entry.firstRef) {
+        entry.allSame = false;
+      }
+    }
+  }
+
+  const universal = new Set<string>();
+  for (const [key, { count, allSame }] of presenceByKey) {
+    if (count >= 2 && allSame) {
+      universal.add(key);
+    }
+  }
+  return universal;
 }
 
 /**

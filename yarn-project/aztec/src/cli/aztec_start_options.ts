@@ -125,7 +125,8 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--local-network.l1Mnemonic <value>',
-      description: 'Mnemonic for L1 accounts. Will be used ',
+      description:
+        'Mnemonic for L1 accounts. Will be used to generate private keys for the sequencer/validator accounts',
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
     },

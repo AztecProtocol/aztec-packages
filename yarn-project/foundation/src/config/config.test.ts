@@ -1,13 +1,18 @@
 import { jest } from '@jest/globals';
 
 import {
+  ConfigLayerName,
   type ConfigMappingsType,
   booleanConfigHelper,
+  cliToTyped,
   composeConfigMappings,
+  envToTyped,
+  findUniversalConfigKeys,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
+  resolveConfig,
 } from './index.js';
 
 describe('Config', () => {
@@ -137,6 +142,192 @@ describe('Config', () => {
 
         consoleSpy.mockRestore();
       });
+    });
+  });
+
+  describe('resolveConfig', () => {
+    interface ResolveConfigFixture {
+      port: number;
+      enabled: boolean;
+      networkName: string;
+      requiredToken: string;
+    }
+
+    const mappings: ConfigMappingsType<ResolveConfigFixture> = {
+      port: {
+        description: 'Port',
+        env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+        ...numberConfigHelper(8080),
+      },
+      enabled: {
+        description: 'Enabled',
+        ...booleanConfigHelper(false),
+      },
+      networkName: {
+        description: 'Network name',
+        defaultValue: 'alpha',
+      },
+      requiredToken: {
+        description: 'Required token',
+      },
+    };
+
+    it('resolves values by layer priority and keeps provenance for each key', () => {
+      const resolved = resolveConfig(mappings, [
+        {
+          name: ConfigLayerName.ENV,
+          values: {
+            port: 5050,
+            enabled: true,
+            requiredToken: 'env-token',
+          },
+        },
+        {
+          name: ConfigLayerName.NETWORK,
+          values: {
+            port: 6060,
+            networkName: 'mainnet',
+          },
+        },
+        {
+          name: ConfigLayerName.CLI,
+          values: {
+            port: 4040,
+          },
+        },
+      ]);
+
+      expect(resolved.port).toEqual({
+        value: 4040,
+        source: ConfigLayerName.CLI,
+        envVar: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+        layers: [
+          { layer: ConfigLayerName.CLI, value: 4040 },
+          { layer: ConfigLayerName.ENV, value: 5050 },
+          { layer: ConfigLayerName.NETWORK, value: 6060 },
+          { layer: ConfigLayerName.DEFAULT, value: 8080 },
+        ],
+      });
+      expect(resolved.enabled).toEqual({
+        value: true,
+        source: ConfigLayerName.ENV,
+        envVar: undefined,
+        layers: [
+          { layer: ConfigLayerName.ENV, value: true },
+          { layer: ConfigLayerName.DEFAULT, value: false },
+        ],
+      });
+      expect(resolved.networkName).toEqual({
+        value: 'mainnet',
+        source: ConfigLayerName.NETWORK,
+        envVar: undefined,
+        layers: [
+          { layer: ConfigLayerName.NETWORK, value: 'mainnet' },
+          { layer: ConfigLayerName.DEFAULT, value: 'alpha' },
+        ],
+      });
+      expect(resolved.requiredToken).toEqual({
+        value: 'env-token',
+        source: ConfigLayerName.ENV,
+        envVar: undefined,
+        layers: [{ layer: ConfigLayerName.ENV, value: 'env-token' }],
+      });
+    });
+
+    // TODO(A-1065): once ConfigMapping gains an `optional` flag, restore a throw test for truly
+    // required keys. For now, missing keys resolve to { value: undefined }.
+    it('resolves to undefined when a key has no value in any layer and no default', () => {
+      const resolved = resolveConfig(mappings, [
+        {
+          name: ConfigLayerName.ENV,
+          values: {
+            port: 5050,
+          },
+        },
+      ]);
+      expect(resolved.requiredToken).toEqual({
+        value: undefined,
+        source: ConfigLayerName.DEFAULT,
+        envVar: undefined,
+        layers: [],
+      });
+    });
+
+    it('does not call parseEnv while resolving already-typed layer values', () => {
+      const parseEnv = jest.fn((_val: string) => 999);
+      const typedMappings: ConfigMappingsType<{ safeInteger: number }> = {
+        safeInteger: {
+          description: 'Safe integer',
+          parseEnv,
+          defaultValue: 1,
+        },
+      };
+
+      const resolved = resolveConfig(typedMappings, [
+        {
+          name: ConfigLayerName.ENV,
+          values: {
+            safeInteger: 42,
+          },
+        },
+      ]);
+
+      expect(resolved.safeInteger.value).toBe(42);
+      expect(resolved.safeInteger.layers).toEqual([
+        { layer: ConfigLayerName.ENV, value: 42 },
+        { layer: ConfigLayerName.DEFAULT, value: 1 },
+      ]);
+      expect(parseEnv).not.toHaveBeenCalled();
+    });
+
+    it('throws when the same layer is provided more than once', () => {
+      expect(() =>
+        resolveConfig(mappings, [
+          { name: ConfigLayerName.ENV, values: { requiredToken: 'one' } },
+          { name: ConfigLayerName.ENV, values: { requiredToken: 'two' } },
+        ]),
+      ).toThrow("Duplicate config layer 'env' in resolveConfig input");
+    });
+
+    it('produces correct merged result and provenance across CLI > ENV > NETWORK > DEFAULT', () => {
+      const integrationMappings: ConfigMappingsType<{
+        port: number;
+        host: string;
+        network: string;
+        timeout: number;
+      }> = {
+        port: { description: 'port', ...numberConfigHelper(8080) },
+        host: { description: 'host', defaultValue: 'localhost' },
+        network: { description: 'network', env: 'NETWORK', defaultValue: 'local' },
+        timeout: { description: 'timeout', ...numberConfigHelper(30) },
+      };
+
+      const resolved = resolveConfig(integrationMappings, [
+        {
+          name: ConfigLayerName.CLI,
+          values: cliToTyped(integrationMappings, { port: 9000, host: undefined }),
+        },
+        {
+          name: ConfigLayerName.ENV,
+          values: envToTyped(integrationMappings, { NETWORK: 'testnet' } as NodeJS.ProcessEnv),
+        },
+        {
+          name: ConfigLayerName.NETWORK,
+          values: { timeout: 60 },
+        },
+      ]);
+
+      expect(resolved.port.value).toBe(9000);
+      expect(resolved.port.source).toBe(ConfigLayerName.CLI);
+
+      expect(resolved.network.value).toBe('testnet');
+      expect(resolved.network.source).toBe(ConfigLayerName.ENV);
+
+      expect(resolved.timeout.value).toBe(60);
+      expect(resolved.timeout.source).toBe(ConfigLayerName.NETWORK);
+
+      expect(resolved.host.value).toBe('localhost');
+      expect(resolved.host.source).toBe(ConfigLayerName.DEFAULT);
     });
   });
 
@@ -334,6 +525,296 @@ describe('Config', () => {
       } finally {
         process.env = originalEnv;
       }
+    });
+  });
+
+  describe('envToTyped', () => {
+    interface EnvFixture {
+      port: number;
+      network: string;
+      enabled: boolean;
+    }
+
+    const mappings: ConfigMappingsType<EnvFixture> = {
+      port: {
+        description: 'aztec port',
+        env: 'AZTEC_PORT',
+        ...numberConfigHelper(8080),
+      },
+      network: {
+        description: 'aztec network',
+        env: 'NETWORK',
+        defaultValue: 'default-network',
+      },
+      enabled: {
+        description: 'is enabled',
+        ...booleanConfigHelper(false),
+      },
+    };
+
+    it('emits only keys present in the env source, not defaults', () => {
+      const result = envToTyped(mappings, { AZTEC_PORT: '9090' });
+      expect(result).toEqual({ port: 9090 });
+      expect('network' in result).toBe(false);
+      expect('enabled' in result).toBe(false);
+    });
+
+    it('runs parseEnv and returns typed values', () => {
+      const result = envToTyped(mappings, {
+        AZTEC_PORT: '3000',
+        NETWORK: 'testnet',
+      });
+      expect(result.port).toBe(3000);
+      expect(typeof result.port).toBe('number');
+      expect(result.network).toBe('testnet');
+    });
+
+    it('honors fallback env vars', () => {
+      interface FallbackFixture {
+        fee: number;
+      }
+      const fallbackMappings: ConfigMappingsType<FallbackFixture> = {
+        fee: {
+          description: 'fee',
+          env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+          fallback: ['L1_FIXED_PRIORITY_FEE_PER_GAS'],
+          ...numberConfigHelper(0),
+        },
+      };
+
+      const result = envToTyped(fallbackMappings, { L1_FIXED_PRIORITY_FEE_PER_GAS: '42' });
+      expect(result.fee).toBe(42);
+    });
+
+    it('logs deprecation warnings via the provided env source', () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      interface DeprecatedFixture {
+        fee: number;
+      }
+      const deprecatedMappings: ConfigMappingsType<DeprecatedFixture> = {
+        fee: {
+          description: 'fee',
+          env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+          fallback: ['L1_FIXED_PRIORITY_FEE_PER_GAS'],
+          deprecatedFallback: [
+            {
+              env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
+              message: 'L1_FIXED_PRIORITY_FEE_PER_GAS is deprecated.',
+            },
+          ],
+          ...numberConfigHelper(0),
+        },
+      };
+
+      envToTyped(deprecatedMappings, { L1_FIXED_PRIORITY_FEE_PER_GAS: '55' });
+
+      expect(consoleSpy).toHaveBeenCalledWith('[DEPRECATED]:', 'L1_FIXED_PRIORITY_FEE_PER_GAS is deprecated.', {
+        deprecatedEnvVar: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
+        newEnvVar: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+      });
+      consoleSpy.mockRestore();
+    });
+
+    it('wraps parser errors with key and env name', () => {
+      interface ErrorFixture {
+        value: number;
+      }
+      const errorMappings: ConfigMappingsType<ErrorFixture> = {
+        value: {
+          description: 'value',
+          env: 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI',
+          parseEnv: () => {
+            throw new Error('boom');
+          },
+        },
+      };
+      expect(() => envToTyped(errorMappings, { L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: 'bad' })).toThrow(
+        "Failed to parse config 'value' (env: L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI): boom",
+      );
+    });
+
+    it('treats empty string env values as absent', () => {
+      const result = envToTyped(mappings, { AZTEC_PORT: '' });
+      expect('port' in result).toBe(false);
+    });
+
+    it('accepts a custom env source without touching process.env', () => {
+      const customEnv = { NETWORK: 'custom-network' };
+      const result = envToTyped(mappings, customEnv);
+      expect(result).toEqual({ network: 'custom-network' });
+    });
+  });
+
+  describe('cliToTyped', () => {
+    interface CliFixture {
+      port: number;
+      host: string;
+      enabled: boolean;
+    }
+
+    const mappings: ConfigMappingsType<CliFixture> = {
+      port: { description: 'aztec port', ...numberConfigHelper(8080) },
+      host: { description: 'network host', defaultValue: 'localhost' },
+      enabled: { description: 'is enabled', ...booleanConfigHelper(false) },
+    };
+
+    it('emits only keys with defined values', () => {
+      const result = cliToTyped(mappings, { port: 9000, host: undefined, enabled: undefined });
+      expect(result).toEqual({ port: 9000 });
+    });
+
+    it('ignores option keys not present in mappings', () => {
+      const result = cliToTyped(mappings, { port: 9000, unknownOption: 'foo' });
+      expect(result).toEqual({ port: 9000 });
+    });
+
+    it('does not call parseEnv — values are already typed', () => {
+      const parseEnv = jest.fn(() => 999);
+      const mappingsWithSpy: ConfigMappingsType<{ value: number }> = {
+        value: { description: 'value', parseEnv },
+      };
+      const result = cliToTyped(mappingsWithSpy, { value: 42 });
+      expect(result.value).toBe(42);
+      expect(parseEnv).not.toHaveBeenCalled();
+    });
+
+    it('handles bare keys (no namespace prefix)', () => {
+      const result = cliToTyped(mappings, { port: 7070 });
+      expect(result.port).toBe(7070);
+    });
+
+    it('strips the namespace prefix from dotted keys when no duplicates exist', () => {
+      const result = cliToTyped(mappings, { 'api.port': 7070 }, 'api');
+      expect(result.port).toBe(7070);
+    });
+
+    it('picks the namespace-matching entry when the same mainKey appears under multiple namespaces', () => {
+      // e.g. --bot.nodeUrl and --pxe.nodeUrl both reduce to mainKey 'nodeUrl'.
+      // Asking for namespace 'bot' should return only the bot value.
+      interface NodeUrlConfig {
+        nodeUrl: string;
+      }
+      const nodeUrlMappings: ConfigMappingsType<NodeUrlConfig> = {
+        nodeUrl: { description: 'node url' },
+      };
+      const result = cliToTyped(nodeUrlMappings, { 'bot.nodeUrl': 'http://bot', 'pxe.nodeUrl': 'http://pxe' }, 'bot');
+      expect(result.nodeUrl).toBe('http://bot');
+    });
+
+    it('skips duplicated mainKeys when no namespace matches', () => {
+      interface NodeUrlConfig {
+        nodeUrl: string;
+      }
+      const nodeUrlMappings: ConfigMappingsType<NodeUrlConfig> = {
+        nodeUrl: { description: 'node url' },
+      };
+      const result = cliToTyped(
+        nodeUrlMappings,
+        { 'bot.nodeUrl': 'http://bot', 'pxe.nodeUrl': 'http://pxe' },
+        'archiver',
+      );
+      expect('nodeUrl' in result).toBe(false);
+    });
+  });
+
+  describe('findUniversalConfigKeys', () => {
+    it('returns empty when fewer than two components are passed', () => {
+      expect(findUniversalConfigKeys()).toEqual(new Set());
+      const mappings: ConfigMappingsType<{ port: number }> = {
+        port: { description: 'port', ...numberConfigHelper(8080) },
+      };
+      expect(findUniversalConfigKeys(mappings)).toEqual(new Set());
+    });
+
+    it('returns keys shared by reference across two components', () => {
+      const sharedPortMapping = { description: 'port', ...numberConfigHelper(8080) };
+      const componentA: ConfigMappingsType<{ port: number; aOnly: number }> = {
+        port: sharedPortMapping,
+        aOnly: { description: 'a', ...numberConfigHelper(1) },
+      };
+      const componentB: ConfigMappingsType<{ port: number; bOnly: number }> = {
+        port: sharedPortMapping,
+        bOnly: { description: 'b', ...numberConfigHelper(2) },
+      };
+      expect(findUniversalConfigKeys(componentA, componentB)).toEqual(new Set(['port']));
+    });
+
+    it('excludes keys present in only one component', () => {
+      const componentA: ConfigMappingsType<{ aOnly: number }> = {
+        aOnly: { description: 'a', ...numberConfigHelper(1) },
+      };
+      const componentB: ConfigMappingsType<{ bOnly: number }> = {
+        bOnly: { description: 'b', ...numberConfigHelper(2) },
+      };
+      expect(findUniversalConfigKeys(componentA, componentB)).toEqual(new Set());
+    });
+
+    it('excludes keys whose mapping objects differ between components', () => {
+      // Same key name, distinct mapping objects — bot.nodeUrl vs proverNode.nodeUrl scenario.
+      const componentA: ConfigMappingsType<{ nodeUrl: string }> = {
+        nodeUrl: { description: 'a node url' },
+      };
+      const componentB: ConfigMappingsType<{ nodeUrl: string }> = {
+        nodeUrl: { description: 'b node url' },
+      };
+      expect(findUniversalConfigKeys(componentA, componentB)).toEqual(new Set());
+    });
+
+    it('handles a shared mapping across three components', () => {
+      const sharedMapping = { description: 'shared', ...numberConfigHelper(0) };
+      const a: ConfigMappingsType<{ shared: number; aOnly: number }> = {
+        shared: sharedMapping,
+        aOnly: { description: 'a', ...numberConfigHelper(1) },
+      };
+      const b: ConfigMappingsType<{ shared: number; bOnly: number }> = {
+        shared: sharedMapping,
+        bOnly: { description: 'b', ...numberConfigHelper(2) },
+      };
+      const c: ConfigMappingsType<{ shared: number; cOnly: number }> = {
+        shared: sharedMapping,
+        cOnly: { description: 'c', ...numberConfigHelper(3) },
+      };
+      expect(findUniversalConfigKeys(a, b, c)).toEqual(new Set(['shared']));
+    });
+
+    it('still excludes a key when one component diverges from a shared reference', () => {
+      // a, b share by reference; c uses a different mapping object → key is no longer
+      // universally promotable because c would need its own registration.
+      const sharedMapping = { description: 'shared', ...numberConfigHelper(0) };
+      const divergentMapping = { description: 'shared', ...numberConfigHelper(0) };
+      const a: ConfigMappingsType<{ shared: number }> = { shared: sharedMapping };
+      const b: ConfigMappingsType<{ shared: number }> = { shared: sharedMapping };
+      const c: ConfigMappingsType<{ shared: number }> = { shared: divergentMapping };
+      expect(findUniversalConfigKeys(a, b, c)).toEqual(new Set());
+    });
+
+    it('finds multiple shared keys across the same component pair', () => {
+      const portMapping = { description: 'port', ...numberConfigHelper(8080) };
+      const hostMapping = { description: 'host', defaultValue: 'localhost' };
+      const a: ConfigMappingsType<{ port: number; host: string; aOnly: number }> = {
+        port: portMapping,
+        host: hostMapping,
+        aOnly: { description: 'a', ...numberConfigHelper(1) },
+      };
+      const b: ConfigMappingsType<{ port: number; host: string; bOnly: number }> = {
+        port: portMapping,
+        host: hostMapping,
+        bOnly: { description: 'b', ...numberConfigHelper(2) },
+      };
+      expect(findUniversalConfigKeys(a, b)).toEqual(new Set(['port', 'host']));
+    });
+
+    it('works with composeConfigMappings output as input', () => {
+      // Real-world usage: each component is itself composed of multiple sub-mappings.
+      const blobMapping = { description: 'blob', ...numberConfigHelper(0) };
+      const sharedBlobMappings = { blobUrl: blobMapping };
+      const archiverComposed = composeConfigMappings(sharedBlobMappings, {
+        archiverOnly: { description: 'arch', ...numberConfigHelper(1) },
+      });
+      const sequencerComposed = composeConfigMappings(sharedBlobMappings, {
+        sequencerOnly: { description: 'seq', ...numberConfigHelper(2) },
+      });
+      expect(findUniversalConfigKeys(archiverComposed, sequencerComposed)).toEqual(new Set(['blobUrl']));
     });
   });
 });
