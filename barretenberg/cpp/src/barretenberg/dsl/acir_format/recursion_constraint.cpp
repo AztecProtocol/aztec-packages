@@ -163,7 +163,7 @@ void process_hn_recursion_constraints(
     const std::pair<std::vector<RecursionConstraint>, std::vector<size_t>>& hn_recursion_data,
     const std::shared_ptr<Chonk>& ivc_base)
 {
-    using StdlibFF = Chonk::RecursiveFlavor::FF;
+    using StdlibFF = Chonk::StdlibFF;
     using AppStdlibVK = Chonk::AppRecursiveFlavor::VerificationKey;
     using AppStdlibVKAndHash = Chonk::AppRecursiveVKAndHash;
     using KernelStdlibVK = Chonk::KernelRecursiveFlavor::VerificationKey;

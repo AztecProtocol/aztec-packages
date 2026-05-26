@@ -416,8 +416,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     if (!is_init_kernel) {
-        current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
-            &circuit, recursive_verifier_native_accum);
+        current_stdlib_verifier_accumulator =
+            RecursiveVerifierAccumulator::stdlib_from_native<KernelRecursiveFlavor::Curve>(
+                &circuit, recursive_verifier_native_accum);
     }
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();

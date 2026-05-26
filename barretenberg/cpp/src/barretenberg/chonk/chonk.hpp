@@ -11,7 +11,6 @@
 #include "barretenberg/chonk/circuit_input.hpp"
 #include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
-#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
@@ -21,8 +20,7 @@
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 #ifndef NDEBUG
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #endif
@@ -55,36 +53,31 @@ class Chonk {
     // directly from the curve so no flavor name leaks into callers that just want a scalar / point.
     using FF = bb::fr;
     using Commitment = curve::BN254::AffineElement;
-    using Point = curve::BN254::AffineElement;
     using HidingKernelProverInstance = ProverInstance_<HidingKernelFlavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using Transcript = NativeTranscript;
-    // Recursive types
-    using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
+    // Recursive types — folding uses heterogeneous App/Kernel recursive flavors per slot. Scalar /
+    // commitment / transcript shapes are common to both (they share the BN254 stdlib base), so we
+    // expose them as flavor-agnostic aliases sourced from the kernel recursive flavor.
     using AppRecursiveFlavor = MegaAppRecursiveFlavor;
     using KernelRecursiveFlavor = MegaKernelRecursiveFlavor;
-    using StdlibFF = RecursiveFlavor::FF;
-    using RecursiveCommitment = RecursiveFlavor::Commitment;
-    using RecursiveVerifierInstance = VerifierInstance_<RecursiveFlavor>;
+    using StdlibFF = KernelRecursiveFlavor::FF;
+    using RecursiveCommitment = KernelRecursiveFlavor::Commitment;
+    using RecursiveTranscript = KernelRecursiveFlavor::Transcript;
     using AppRecursiveVerifierInstance = VerifierInstance_<AppRecursiveFlavor>;
     using KernelRecursiveVerifierInstance = VerifierInstance_<KernelRecursiveFlavor>;
-    using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
-    using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using AppRecursiveVKAndHash = AppRecursiveFlavor::VKAndHash;
     using KernelRecursiveVKAndHash = KernelRecursiveFlavor::VKAndHash;
-    using RecursiveTranscript = RecursiveFlavor::Transcript;
     using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<ClientCircuit>>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
-    using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
     using AppWitnessCommitments = AppRecursiveFlavor::WitnessCommitments;
     using KernelWitnessCommitments = KernelRecursiveFlavor::WitnessCommitments;
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
     // Folding. The Hypernova accumulator (MultilinearBatchingVerifierClaim<Curve>) is flavor-agnostic,
     // so apps and kernels (each with their own slim flavor) fold into the same accumulator type.
     using FoldingProver = HypernovaFoldingProver;
