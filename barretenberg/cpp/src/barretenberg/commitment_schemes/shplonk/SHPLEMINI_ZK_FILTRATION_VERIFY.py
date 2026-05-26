@@ -602,6 +602,82 @@ def verify_low_tail_rho():
                   f"{'OK (const)' if const else 'NONCONST ' + str(ratios)}")
 
 
+def verify_boundary_port_decomposition():
+    """Check the filtration-proof port: divide the full determinant/reduced minor
+    by the already-proved middle-block product and compare only the boundary
+    factor. This isolates the remaining non-dyadic boundary lemma in
+    SHPLEMINI_ZK_MASKING.md Step 3C.
+    """
+    print("\n" + "=" * 60)
+    print("Boundary-only decomposition after removing middle T_k blocks")
+    print("=" * 60)
+    import random
+
+    def middle_prod(d, tau, rs, us):
+        v = F(1)
+        for k in range(1, d - 1):
+            j = k - 1
+            lag = L(0, us[:j]) * L(2 ** j - 1, us[:j]) if j > 0 else F(1)
+            v *= -lag * (tau - rs[j]) * (us[j] + (1 - us[j]) * rs[j]) * (us[j] - (1 - us[j]) * tau)
+        return v
+
+    def boundary_hi(d, E, tau, rs, us):
+        rho = (E - 1) % (2 ** (d - 2))
+        r0 = rs[0]
+        R = (tau ** (E - 4) - r0 ** (E - 4)) / (tau ** 2 - r0 ** 2)
+        return (r0 ** 2 * tau ** 2 * R * (tau - rs[d - 2])
+                * (us[d - 2] + (1 - us[d - 2]) * rs[d - 2])
+                * (us[d - 2] - (1 - us[d - 2]) * tau)
+                * L(0, us[:d - 2]) * L(rho, us[:d - 2]))
+
+    def boundary_lo(d, E, tau, rs, us):
+        rho = (E - 1) % (2 ** (d - 2))
+        r0 = rs[0]
+        alpha = 0 if d == 3 else 2
+        R = (tau ** (E - 4) - r0 ** (E - 4)) / (tau ** 2 - r0 ** 2)
+        return (r0 * tau) ** alpha * R * (1 - us[d - 2]) * L(rho, us[:d - 2])
+
+    for d, Es in [(4, [14, 16]), (5, [28, 30, 32])]:
+        for E in Es:
+            S = _tail_support(d, E)
+            ratios = []
+            for seed in (1, 2, 3):
+                random.seed(seed)
+                tau = F(random.randint(2, 60))
+                rs = [F(random.randint(2, 60)) for _ in range(d)]
+                us = [F(random.randint(1, 9), random.randint(10, 30)) for _ in range(d)]
+                det_tilde = det_frac(adapted_rows_numeric(d, S, tau, rs, us))
+                bd = det_tilde / middle_prod(d, tau, rs, us)
+                ratios.append(bd / boundary_hi(d, E, tau, rs, us))
+            print(f"  HIGH d={d} E={E}: boundary ratio={ratios[0]}  "
+                  f"{'OK (const)' if len(set(ratios)) == 1 else 'NONCONST ' + str(ratios)}")
+
+    for d, Es in [(4, [12]), (5, [20, 22, 24])]:
+        N = 2 ** d
+        for E in Es:
+            S = _tail_support(d, E)
+            cN = S.index(N // 2)
+            ratios = []
+            for seed in (1, 2, 3):
+                random.seed(seed)
+                tau = F(random.randint(2, 60))
+                rs = [F(random.randint(2, 60)) for _ in range(d)]
+                us = [F(random.randint(1, 9), random.randint(10, 30)) for _ in range(d)]
+                rows = adapted_rows_numeric(d, S, tau, rs, us)
+                new = [list(r) for r in rows]
+                for k in range(1, d):
+                    Mk, Dk, Mkm = 2 * k + 1, 2 * (k - 1), 2 * (k - 1) + 1
+                    for c in range(len(S)):
+                        new[Mk][c] = rows[Mk][c] - us[k - 1] * rows[Dk][c] - (1 - us[k - 1]) * rows[Mkm][c]
+                keep = [r for i, r in enumerate(new) if i != 2 * d - 1]
+                red = [[r[c] for c in range(len(S)) if c != cN] for r in keep]
+                det_red = det_frac(red)
+                bd = det_red / middle_prod(d, tau, rs, us)
+                ratios.append(bd / boundary_lo(d, E, tau, rs, us))
+            print(f"  LOW  d={d} E={E}: boundary ratio={ratios[0]}  "
+                  f"{'OK (const)' if len(set(ratios)) == 1 else 'NONCONST ' + str(ratios)}")
+
+
 if __name__ == "__main__":
     verify_d3_symbolic()
     verify_d4_symbolic_structure()
@@ -611,3 +687,4 @@ if __name__ == "__main__":
     verify_dense_rank_bound()
     verify_high_tail_rho()
     verify_low_tail_rho()
+    verify_boundary_port_decomposition()
