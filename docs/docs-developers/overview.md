@@ -92,3 +92,5 @@ As Aztec has native account abstraction, accounts do not automatically have a si
 ## Noir
 
 Noir is a zero-knowledge domain specific language used for writing smart contracts for the Aztec network. It is also possible to write circuits with Noir that can be verified on or offchain. For more in-depth docs into the features of Noir, go to the [Noir website](https://noir-lang.org/).
+
+<!-- docs-alerts wiring test (validate_api_ref_links.sh): broken typescript-api link → expect BROKEN_COUNT=1 and a Slack post to #docs-alerts. Remove after the test fires. [link](pathname:///typescript-api/nightly/__docs_alerts_wiring_test_does_not_exist__.md) -->
