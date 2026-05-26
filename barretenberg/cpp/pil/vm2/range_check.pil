@@ -17,6 +17,8 @@ include "precomputed.pil";
  *  2) sel_gt
  *  3) sel_memory
  *  4) sel_alu
+ *  5) sel_sha256
+ *
  *
  * Preconditions:
  * - 0 <= value < 2^128. Any value >= 2^128 is unsatisfiable because the 16-bit range checks
