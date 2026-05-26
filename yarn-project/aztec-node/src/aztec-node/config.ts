@@ -1,6 +1,11 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import type { GenesisStateConfig } from '@aztec/ethereum/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  composeConfigMappings,
+  getConfigFromMappings,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import {
   type KeyStore,
@@ -11,11 +16,7 @@ import {
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { type ProverClientUserConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
-import {
-  type ProverNodeConfig,
-  proverNodeConfigMappings,
-  specificProverNodeConfigMappings,
-} from '@aztec/prover-node/config';
+import { type ProverNodeConfig, proverNodeConfigMappings } from '@aztec/prover-node/config';
 import {
   type SequencerClientConfig,
   type SequencerTxSenderConfig,
@@ -51,35 +52,23 @@ export type AztecNodeConfig = ArchiverConfig &
   GenesisStateConfig &
   NodeRPCConfig &
   SlasherConfig &
-  ProverNodeConfig & {
-    /** Whether to skip waiting for the archiver to be fully synced before starting other services */
-    skipArchiverInitialSync: boolean;
-    /** Whether to enable the prover node as a subsystem. */
-    enableProverNode: boolean;
-    /**
-     * Test-only: use the deterministic AutomineSequencer instead of the production Sequencer.
-     * Requires `aztecTargetCommitteeSize === 0` on the deployed rollup and anvil-backed L1.
-     * See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
-     */
-    useAutomineSequencer?: boolean;
-  };
+  ProverNodeConfig &
+  OwnAztecNodeConfig;
 
-export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
-  ...dataConfigMappings,
-  ...keyStoreConfigMappings,
-  ...archiverConfigMappings,
-  ...sequencerClientConfigMappings,
-  ...proverNodeConfigMappings,
-  ...validatorClientConfigMappings,
-  ...proverClientConfigMappings,
-  ...worldStateConfigMappings,
-  ...p2pConfigMappings,
-  ...sentinelConfigMappings,
-  ...sharedNodeConfigMappings,
-  ...genesisStateConfigMappings,
-  ...nodeRpcConfigMappings,
-  ...slasherConfigMappings,
-  ...specificProverNodeConfigMappings,
+type OwnAztecNodeConfig = {
+  /** Whether to skip waiting for the archiver to be fully synced before starting other services */
+  skipArchiverInitialSync: boolean;
+  /** Whether to enable the prover node as a subsystem. */
+  enableProverNode: boolean;
+  /**
+   * Test-only: use the deterministic AutomineSequencer instead of the production Sequencer.
+   * Requires `aztecTargetCommitteeSize === 0` on the deployed rollup and anvil-backed L1.
+   * See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
+   */
+  useAutomineSequencer?: boolean;
+};
+
+const ownAztecNodeConfigMappings: ConfigMappingsType<OwnAztecNodeConfig> = {
   skipArchiverInitialSync: {
     env: 'SKIP_ARCHIVER_INITIAL_SYNC',
     description: 'Whether to skip waiting for the archiver to be fully synced before starting other services.',
@@ -96,6 +85,23 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     ...booleanConfigHelper(false),
   },
 };
+
+export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = composeConfigMappings(
+  ownAztecNodeConfigMappings,
+  dataConfigMappings,
+  keyStoreConfigMappings,
+  archiverConfigMappings,
+  sequencerClientConfigMappings,
+  proverNodeConfigMappings,
+  validatorClientConfigMappings,
+  proverClientConfigMappings,
+  worldStateConfigMappings,
+  p2pConfigMappings,
+  sentinelConfigMappings,
+  sharedNodeConfigMappings,
+  nodeRpcConfigMappings,
+  slasherConfigMappings,
+);
 
 /**
  * Returns the config of the aztec node from environment variables with reasonable defaults.

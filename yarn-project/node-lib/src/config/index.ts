@@ -1,23 +1,27 @@
 import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
-import { type ConfigMappingsType, booleanConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  composeConfigMappings,
+  parseCommaSeparated,
+} from '@aztec/foundation/config';
 import { type FishermanModeConfig, fishermanModeConfigMappings } from '@aztec/stdlib/config';
 
-export type SharedNodeConfig = FishermanModeConfig &
-  GenesisStateConfig & {
-    /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
-    syncMode: 'full' | 'snapshot' | 'force-snapshot';
-    /** Base URLs for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
-    snapshotsUrls?: string[];
-    /** URL of the Web3Signer instance */
-    web3SignerUrl?: string;
-    /** Force verification of tx Chonk proofs. Only used for testnet */
-    debugForceTxProofVerification: boolean;
-    /** Check if the node version matches the latest version for the network */
-    enableVersionCheck: boolean;
-  };
+export type OwnSharedNodeConfig = {
+  /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
+  syncMode: 'full' | 'snapshot' | 'force-snapshot';
+  /** Base URLs for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
+  snapshotsUrls?: string[];
+  /** URL of the Web3Signer instance */
+  web3SignerUrl?: string;
+  /** Force verification of tx Chonk proofs. Only used for testnet */
+  debugForceTxProofVerification: boolean;
+  /** Check if the node version matches the latest version for the network */
+  enableVersionCheck: boolean;
+};
+export type SharedNodeConfig = OwnSharedNodeConfig & FishermanModeConfig & GenesisStateConfig;
 
-export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
-  ...genesisStateConfigMappings,
+const ownSharedNodeConfigMappings: ConfigMappingsType<OwnSharedNodeConfig> = {
   syncMode: {
     env: 'SYNC_MODE',
     description:
@@ -27,11 +31,7 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
   snapshotsUrls: {
     env: 'SYNC_SNAPSHOTS_URLS',
     description: 'Base URLs for snapshots index, comma-separated.',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(url => url.trim())
-        .filter(url => url.length > 0),
+    parseEnv: parseCommaSeparated,
     fallback: ['SYNC_SNAPSHOTS_URL'],
     defaultValue: [],
   },
@@ -40,7 +40,6 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     description: 'URL of the Web3Signer instance',
     parseEnv: (val: string) => val.trim(),
   },
-  ...fishermanModeConfigMappings,
   debugForceTxProofVerification: {
     env: 'DEBUG_FORCE_TX_PROOF_VERIFICATION',
     description: 'Whether to force tx proof verification. Only has an effect if real proving is turned off',
@@ -53,3 +52,9 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     ...booleanConfigHelper(true),
   },
 };
+
+export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = composeConfigMappings(
+  ownSharedNodeConfigMappings,
+  genesisStateConfigMappings,
+  fishermanModeConfigMappings,
+);

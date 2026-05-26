@@ -3,7 +3,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { jest } from '@jest/globals';
 
 import type { ViemClient } from '../../types.js';
-import type { L1TxUtilsConfig } from '../config.js';
 import { P75AllTxsPriorityFeeStrategy } from './p75_competitive.js';
 import type { PriorityFeeStrategy, PriorityFeeStrategyContext } from './types.js';
 
@@ -30,7 +29,6 @@ describe('PriorityFeeStrategy', () => {
       } as unknown as ViemClient;
 
       const context: PriorityFeeStrategyContext = {
-        gasConfig: {} as L1TxUtilsConfig,
         isBlobTx: false,
         logger,
       };
@@ -71,7 +69,6 @@ describe('PriorityFeeStrategy', () => {
       } as unknown as ViemClient;
 
       const context: PriorityFeeStrategyContext = {
-        gasConfig: {} as L1TxUtilsConfig,
         isBlobTx: true,
         logger,
       };
@@ -101,7 +98,6 @@ describe('PriorityFeeStrategy', () => {
       } as unknown as ViemClient;
 
       const context: PriorityFeeStrategyContext = {
-        gasConfig: {} as L1TxUtilsConfig,
         isBlobTx: false,
         logger,
       };
@@ -123,7 +119,6 @@ describe('PriorityFeeStrategy', () => {
       } as unknown as ViemClient;
 
       const context: PriorityFeeStrategyContext = {
-        gasConfig: {} as L1TxUtilsConfig,
         isBlobTx: false,
         logger,
       };
@@ -161,7 +156,6 @@ describe('PriorityFeeStrategy', () => {
       } as unknown as ViemClient;
 
       const context: PriorityFeeStrategyContext = {
-        gasConfig: {} as L1TxUtilsConfig,
         isBlobTx: false,
         logger,
       };

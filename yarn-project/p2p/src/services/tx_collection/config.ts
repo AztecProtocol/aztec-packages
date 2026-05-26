@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
+import { type ConfigMappingsType, numberConfigHelper, parseCommaSeparated } from '@aztec/foundation/config';
 import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/api-limit';
 
 export type TxCollectionConfig = {
@@ -39,11 +39,7 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
     env: 'TX_COLLECTION_NODE_RPC_URLS',
     fallback: ['PROVER_COORDINATION_NODE_URLS'],
     description: 'A comma-separated list of Aztec node RPC URLs to use for tx collection',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(url => url.trim().replace(/\/$/, ''))
-        .filter(url => url.length > 0),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(url => url.replace(/\/$/, '')),
     defaultValue: [],
   },
   txCollectionFastMaxParallelRequestsPerNode: {
@@ -59,11 +55,7 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
   txCollectionFileStoreUrls: {
     env: 'TX_COLLECTION_FILE_STORE_URLS',
     description: 'A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(url => url.trim())
-        .filter(url => url.length > 0),
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
   txCollectionFileStoreFastDelayMs: {

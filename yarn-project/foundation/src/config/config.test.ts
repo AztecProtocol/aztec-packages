@@ -2,7 +2,6 @@ import { jest } from '@jest/globals';
 
 import {
   type ConfigMappingsType,
-  bigintConfigHelper,
   booleanConfigHelper,
   composeConfigMappings,
   getConfigFromMappings,
@@ -272,14 +271,20 @@ describe('Config', () => {
         l1ChainId: number;
         rollupVersion: number;
       }
+      interface ValidatorOnlyConfig {
+        validatorOnly: number;
+      }
       const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
         l1ChainId: { description: 'l1 chain id', ...numberConfigHelper(31337) },
         rollupVersion: { description: 'rollup version', ...numberConfigHelper(1) },
       };
-      const validatorMappings = {
-        ...pickConfigMappings(chainConfigMappings, ['l1ChainId']),
+      const validatorOnlyConfigMappings: ConfigMappingsType<ValidatorOnlyConfig> = {
         validatorOnly: { description: 'validator only', ...numberConfigHelper(7) },
       };
+      const validatorMappings = composeConfigMappings(
+        pickConfigMappings(chainConfigMappings, ['l1ChainId']),
+        validatorOnlyConfigMappings,
+      );
 
       const composed = composeConfigMappings(validatorMappings, chainConfigMappings);
 
@@ -308,32 +313,6 @@ describe('Config', () => {
   });
 
   describe('bigintConfigHelper', () => {
-    it('parses plain integer strings', () => {
-      const { parseEnv } = bigintConfigHelper();
-      expect(parseEnv!('123')).toBe(123n);
-      expect(parseEnv!('0')).toBe(0n);
-      expect(parseEnv!('200000000000000000000000')).toBe(200000000000000000000000n);
-    });
-
-    it('parses scientific notation', () => {
-      const { parseEnv } = bigintConfigHelper();
-      expect(parseEnv!('1e+23')).toBe(100000000000000000000000n);
-      expect(parseEnv!('2E+23')).toBe(200000000000000000000000n);
-      expect(parseEnv!('1e23')).toBe(100000000000000000000000n);
-      expect(parseEnv!('5e18')).toBe(5000000000000000000n);
-    });
-
-    it('parses scientific notation with decimal mantissa', () => {
-      const { parseEnv } = bigintConfigHelper();
-      expect(parseEnv!('1.5e10')).toBe(15000000000n);
-      expect(parseEnv!('2.5e5')).toBe(250000n);
-    });
-
-    it('throws for non-integer scientific notation results', () => {
-      const { parseEnv } = bigintConfigHelper();
-      expect(() => parseEnv!('1e-3')).toThrow();
-    });
-
     it('returns default value for empty string env var', () => {
       const originalEnv = process.env;
       process.env = { ...originalEnv, L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI: '' };

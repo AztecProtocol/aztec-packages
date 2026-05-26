@@ -3,10 +3,12 @@ import {
   SecretValue,
   bigintConfigHelper,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  parseCommaSeparated,
   percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
@@ -18,9 +20,11 @@ import {
   type AllowedElement,
   type ChainConfig,
   type SequencerConfig,
+  type SlashDataWithholdingToleranceSlotsConfig,
   type ValidatorConstraintsConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
+  slashDataWithholdingToleranceSlotsConfigMappings,
   validatorConstraintsConfigMappings,
 } from '@aztec/stdlib/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
@@ -33,25 +37,7 @@ import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqr
 import { type TxCollectionConfig, txCollectionConfigMappings } from './services/tx_collection/config.js';
 import { type TxFileStoreConfig, txFileStoreConfigMappings } from './services/tx_file_store/config.js';
 
-/**
- * P2P client configuration values.
- */
-export interface P2PConfig
-  extends P2PReqRespConfig,
-    BatchTxRequesterConfig,
-    ChainConfig,
-    TxCollectionConfig,
-    TxFileStoreConfig,
-    ValidatorConstraintsConfig,
-    Pick<
-      SequencerConfig,
-      | 'blockDurationMs'
-      | 'expectedBlockProposalsPerSlot'
-      | 'l1PublishingTime'
-      | 'maxTxsPerBlock'
-      | 'attestationPropagationTime'
-      | 'maxBlocksPerCheckpoint'
-    > {
+type OwnP2PConfig = {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -188,6 +174,7 @@ export interface P2PConfig
 
   /** True to disable participating in discovery */
   p2pDiscoveryDisabled?: boolean;
+
   /** Number of auth attempts to allow before peer is banned. Number is inclusive*/
   p2pMaxFailedAuthAttemptsAllowed: number;
 
@@ -210,12 +197,6 @@ export interface P2PConfig
   minTxPoolAgeMs: number;
 
   /**
-   * Number of full L2 slots to wait after a checkpoint's slot before declaring its txs missing
-   * for data-withholding slashing.
-   */
-  slashDataWithholdingToleranceSlots: number;
-
-  /**
    * Number of L2 slots after a mined block's slot to keep collecting its missing txs. Clamped
    * up so that collection always runs at least until the data-withholding slash verdict is
    * rendered (`block.slot + slashDataWithholdingToleranceSlots + 1`). Defaults to undefined,
@@ -228,10 +209,26 @@ export interface P2PConfig
 
   /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
   skipIncomingProposals?: boolean;
+};
 
-  /** Accept proposal gossip regardless of slot timing (for testing only). */
-  skipProposalSlotValidation?: boolean;
-}
+/** P2P client configuration values. */
+export type P2PConfig = OwnP2PConfig &
+  SlashDataWithholdingToleranceSlotsConfig &
+  P2PReqRespConfig &
+  BatchTxRequesterConfig &
+  ChainConfig &
+  TxCollectionConfig &
+  TxFileStoreConfig &
+  ValidatorConstraintsConfig &
+  Pick<
+    SequencerConfig,
+    | 'blockDurationMs'
+    | 'expectedBlockProposalsPerSlot'
+    | 'l1PublishingTime'
+    | 'maxTxsPerBlock'
+    | 'attestationPropagationTime'
+    | 'maxBlocksPerCheckpoint'
+  >;
 
 export const DEFAULT_P2P_PORT = 40400;
 
@@ -243,7 +240,7 @@ export const DEFAULT_PUBLIC_IP_SERVICES: string[] = [
   'https://icanhazip.com/',
 ];
 
-export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
+const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
@@ -314,7 +311,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   bootstrapNodes: {
     env: 'BOOTSTRAP_NODES',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
     defaultValue: [],
   },
@@ -341,11 +338,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   publicIpServices: {
     env: 'P2P_PUBLIC_IP_SERVICES',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean),
+    parseEnv: parseCommaSeparated,
     description:
       'Comma-separated HTTPS URLs that return plain-text public IPv4. Used when P2P_QUERY_FOR_IP is true and P2P_IP is unset. Tried in order until one succeeds.',
     defaultValue: DEFAULT_PUBLIC_IP_SERVICES,
@@ -412,7 +405,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',
-    parseEnv: (val: string) => val.split(',').map(Number),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(Number),
     description:
       'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
     defaultValue: [2, 10, 50],
@@ -435,20 +428,20 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   trustedPeers: {
     env: 'P2P_TRUSTED_PEERS',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description: 'A list of trusted peer ENRs that will always be persisted. Separated by commas.',
     defaultValue: [],
   },
   privatePeers: {
     env: 'P2P_PRIVATE_PEERS',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description:
       'A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
     defaultValue: [],
   },
   preferredPeers: {
     env: 'P2P_PREFERRED_PEERS',
-    parseEnv: (val: string) => val.split(','),
+    parseEnv: parseCommaSeparated,
     description:
       'A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
     defaultValue: [],
@@ -523,20 +516,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
     ...booleanConfigHelper(false),
   },
-  skipProposalSlotValidation: {
-    description: 'Accept proposal gossip regardless of slot timing (for testing only)',
-    ...booleanConfigHelper(false),
-  },
   minTxPoolAgeMs: {
     env: 'P2P_MIN_TX_POOL_AGE_MS',
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
-  },
-  slashDataWithholdingToleranceSlots: {
-    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
-    description:
-      'L2 slots to wait after a checkpoint slot before declaring its txs missing. Drives both the data-withholding slasher check and the missing-tx collection deadline.',
-    ...numberConfigHelper(3),
   },
   p2pMissingTxCollectionDeadlineSlots: {
     env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_SLOTS',
@@ -550,14 +533,19 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
     ...bigintConfigHelper(10n),
   },
-  ...sharedSequencerConfigMappings,
-  ...p2pReqRespConfigMappings,
-  ...batchTxRequesterConfigMappings,
-  ...chainConfigMappings,
-  ...txCollectionConfigMappings,
-  ...txFileStoreConfigMappings,
-  ...validatorConstraintsConfigMappings,
 };
+
+export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = composeConfigMappings(
+  ownP2PConfigMappings,
+  slashDataWithholdingToleranceSlotsConfigMappings,
+  sharedSequencerConfigMappings,
+  p2pReqRespConfigMappings,
+  batchTxRequesterConfigMappings,
+  chainConfigMappings,
+  txCollectionConfigMappings,
+  txFileStoreConfigMappings,
+  validatorConstraintsConfigMappings,
+);
 
 /**
  * Gets the config values for p2p client from environment variables.
@@ -606,7 +594,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
-  { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
+  composeConfigMappings(p2pConfigMappings, dataConfigMappings),
   bootnodeConfigKeys,
 );
 
@@ -659,11 +647,7 @@ export function parseAllowList(value: string): AllowedElement[] {
     return entries;
   }
 
-  for (const val of value.split(',')) {
-    const trimmed = val.trim();
-    if (!trimmed) {
-      continue;
-    }
+  for (const trimmed of parseCommaSeparated(value)) {
     const [typeString, identifierString, selectorString, flagsString] = trimmed.split(':');
 
     if (!selectorString) {

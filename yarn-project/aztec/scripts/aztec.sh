@@ -42,7 +42,7 @@ case $cmd in
       export P2P_BLOCK_CHECK_INTERVAL_MS=500
       export SEQ_TX_POLLING_INTERVAL_MS=500
       export WS_BLOCK_CHECK_INTERVAL_MS=500
-      export ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
+      export L1_READER_VIEM_POLLING_INTERVAL_MS=500
       export TEST_ACCOUNTS=${TEST_ACCOUNTS:-true}
       export LOG_LEVEL=${LOG_LEVEL:-info;silent:sequencer;verbose:debug_log}
       export DEPLOY_AZTEC_CONTRACTS_SALT=${DEPLOY_AZTEC_CONTRACTS_SALT:-$RANDOM}

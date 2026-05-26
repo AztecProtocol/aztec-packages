@@ -36,6 +36,7 @@ describe('prover-node-publisher', () => {
       l1DebugRpcUrls: [],
       publisherPrivateKeys: [new SecretValue('0x1234')],
       viemPollingIntervalMS: 1000,
+      ethereumSlotDuration: 12,
       ...randomL1ContractAddresses(),
     };
   });

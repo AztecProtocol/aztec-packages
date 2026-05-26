@@ -8,6 +8,8 @@ import {
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 
+import { l1ContractsDefaultEnv } from '../generated/l1-contracts-defaults.js';
+
 export interface L1TxUtilsConfig {
   /**
    * How much to increase calculated gas limit.
@@ -61,12 +63,21 @@ export interface L1TxUtilsConfig {
    * How long a tx nonce can be unseen in the mempool before considering it dropped
    */
   txUnseenConsideredDroppedMs?: number;
-  /** Enable tx delayer. When true, wraps the viem client to intercept and delay txs. Test-only. */
+  /**
+   * Enable tx delayer. When true, wraps the viem client to intercept and delay txs. Test-only.
+   * When false, txs are sent immediately.
+   */
   enableDelayer?: boolean;
-  /** Max seconds into an L1 slot for tx inclusion. Txs sent later are deferred to next slot. Only used when enableDelayer is true. */
+  /**
+   * Max seconds into an L1 slot for tx inclusion. Txs sent later are deferred to next slot.
+   * Only used when enableDelayer is true.
+   */
   txDelayerMaxInclusionTimeIntoSlot?: number;
-  /** How many seconds an L1 slot lasts. */
-  ethereumSlotDuration?: number;
+  /**
+   * How many seconds an L1 slot lasts.
+   * When not set, the value is inferred from the L1 contracts config.
+   */
+  ethereumSlotDuration: number;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -160,7 +171,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   ethereumSlotDuration: {
     env: 'ETHEREUM_SLOT_DURATION',
     description: 'How many seconds an L1 slot lasts.',
-    ...numberConfigHelper(12),
+    ...numberConfigHelper(l1ContractsDefaultEnv.ETHEREUM_SLOT_DURATION),
   },
 };
 

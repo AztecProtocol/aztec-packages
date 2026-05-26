@@ -45,9 +45,6 @@ export type ArchiverSpecificConfig = {
   /** The number of L2 blocks the archiver will attempt to download at a time. */
   archiverBatchSize?: number;
 
-  /** The polling interval viem uses in ms */
-  viemPollingIntervalMS?: number;
-
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 
@@ -73,7 +70,6 @@ export type ArchiverSpecificConfig = {
 export const ArchiverSpecificConfigSchema = z.object({
   archiverPollingIntervalMS: schemas.Integer.optional(),
   archiverBatchSize: schemas.Integer.optional(),
-  viemPollingIntervalMS: schemas.Integer.optional(),
   maxLogs: schemas.Integer.optional(),
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),

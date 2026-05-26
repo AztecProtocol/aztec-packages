@@ -2,11 +2,12 @@ import {
   type ConfigMappingsType,
   bigintConfigHelper,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
-  omitConfigMappings,
   optionalNumberConfigHelper,
+  parseCommaSeparated,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -22,9 +23,7 @@ export type GenesisStateConfig = {
   prefundAddresses: string[];
 };
 
-export type L1ContractsConfig = {
-  /** How many seconds an L1 slot lasts. */
-  ethereumSlotDuration: number;
+type OwnL1ContractsConfig = {
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
   aztecSlotDuration: number;
   /** How many L2 slots an epoch lasts. */
@@ -81,19 +80,15 @@ export type L1ContractsConfig = {
   initialEthPerFeeAsset: bigint;
   /** The number of seconds to wait for an exit */
   exitDelaySeconds: number;
-} & L1TxUtilsConfig;
+};
+export type L1ContractsConfig = OwnL1ContractsConfig & L1TxUtilsConfig;
 
 /**
  * Config mappings for L1ContractsConfig.
  * Default values come from generated l1-contracts-defaults.json (source: defaults.yml).
  * Real deployments use forge scripts which require explicit env vars (vm.envUint).
  */
-export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
-  ethereumSlotDuration: {
-    env: 'ETHEREUM_SLOT_DURATION',
-    description: 'How many seconds an L1 slot lasts.',
-    ...numberConfigHelper(l1ContractsDefaultEnv.ETHEREUM_SLOT_DURATION),
-  },
+const ownL1ContractsConfigMappings: ConfigMappingsType<OwnL1ContractsConfig> = {
   aztecSlotDuration: {
     env: 'AZTEC_SLOT_DURATION',
     description: 'How many seconds an L2 slots lasts (must be multiple of ethereum slot duration).',
@@ -237,8 +232,12 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The delay before a validator can exit the set',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EXIT_DELAY_SECONDS),
   },
-  ...omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
 };
+
+export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = composeConfigMappings(
+  ownL1ContractsConfigMappings,
+  l1TxUtilsConfigMappings,
+);
 
 /**
  * Default L1 contracts configuration derived from l1ContractsConfigMappings.
@@ -260,11 +259,7 @@ export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> 
   prefundAddresses: {
     env: 'PREFUND_ADDRESSES',
     description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis (local network only).',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(a => a.trim())
-        .filter(a => a.length > 0),
+    parseEnv: parseCommaSeparated,
     defaultValue: [],
   },
 };

@@ -1,38 +1,38 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
-  pickConfigMappings,
+  parseCommaSeparated,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { chainConfigMappings, validatorConstraintsConfigMappings } from '@aztec/stdlib/config';
+import {
+  l1ChainIdConfigMapping,
+  pushProposedBlocksToArchiverConfigMappings,
+  validatorConstraintsConfigMappings,
+} from '@aztec/stdlib/config';
 import { localSignerConfigMappings, validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
-import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
+import type { OwnValidatorClientConfig, ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
 export type { ValidatorClientConfig };
 
-export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
+const ownValidatorClientConfigMappings: ConfigMappingsType<OwnValidatorClientConfig> = {
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
     description: 'List of private keys of the validators participating in attestation duties',
     ...secretValueConfigHelper<`0x${string}`[]>(val =>
-      val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
+      val ? parseCommaSeparated(val).map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
     ),
     fallback: ['VALIDATOR_PRIVATE_KEY'],
   },
   validatorAddresses: {
     env: 'VALIDATOR_ADDRESSES',
     description: 'List of addresses of the validators to use with remote signers',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .filter(address => address && address.trim().length > 0)
-        .map(address => EthAddress.fromString(address.trim())),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(address => EthAddress.fromString(address)),
     defaultValue: [],
   },
-  ...pickConfigMappings(chainConfigMappings, ['l1ChainId']),
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Do not run the validator',
@@ -40,11 +40,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   },
   disabledValidators: {
     description: 'Temporarily disable these specific validator addresses',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .filter(address => address && address.trim().length > 0)
-        .map(address => EthAddress.fromString(address.trim())),
+    parseEnv: (val: string) => parseCommaSeparated(val).map(address => EthAddress.fromString(address)),
     defaultValue: [],
   },
   attestationPollingIntervalMs: {
@@ -61,22 +57,20 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Skip checkpoint proposal validation and always attest (default: false)',
     defaultValue: false,
   },
-  skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing re-executed blocks to archiver (default: false)',
-    defaultValue: false,
-  },
   attestToEquivocatedProposals: {
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
-  skipProposalSlotValidation: {
-    description: 'Accept proposal validation regardless of slot timing (for testing only)',
-    ...booleanConfigHelper(false),
-  },
-  ...validatorConstraintsConfigMappings,
-  ...localSignerConfigMappings,
-  ...validatorHASignerConfigMappings,
 };
+
+export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = composeConfigMappings(
+  ownValidatorClientConfigMappings,
+  pushProposedBlocksToArchiverConfigMappings,
+  l1ChainIdConfigMapping,
+  validatorConstraintsConfigMappings,
+  localSignerConfigMappings,
+  validatorHASignerConfigMappings,
+);
 
 /**
  * Returns the prover configuration from the environment variables.

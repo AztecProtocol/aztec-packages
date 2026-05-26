@@ -663,7 +663,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     _blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     abi: Abi = RollupAbi,
-    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint; ignoreBlockGasLimit?: boolean },
+    _gasConfig?: Partial<L1TxUtilsConfig> & { fallbackGasEstimate?: bigint; ignoreBlockGasLimit?: boolean },
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const blockOverrides = { ..._blockOverrides };
     const gasConfig = merge(this.config, _gasConfig);

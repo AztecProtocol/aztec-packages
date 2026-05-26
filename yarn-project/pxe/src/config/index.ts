@@ -1,6 +1,7 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   enumConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
@@ -42,9 +43,7 @@ export type CliPXEOptions = {
   nodeUrl?: string;
 };
 
-export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
-  ...dataConfigMappings,
-  ...chainConfigMappings,
+const pxeBlockSyncConfigMappings: ConfigMappingsType<BlockSynchronizerConfig> = {
   l2BlockBatchSize: {
     env: 'PXE_L2_BLOCK_BATCH_SIZE',
     ...numberConfigHelper(50),
@@ -57,11 +56,6 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
   //   description: 'True to skip cleanup of temporary files for debugging purposes',
   //   ...booleanConfigHelper(),
   // },
-  proverEnabled: {
-    env: 'PXE_PROVER_ENABLED',
-    description: 'Enable real proofs',
-    ...booleanConfigHelper(true),
-  },
   syncChainTip: {
     env: 'PXE_SYNC_CHAIN_TIP',
     description: 'Which chain tip to sync to (proposed, checkpointed, proven, finalized)',
@@ -75,21 +69,16 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
   },
 };
 
-/**
- * Creates an instance of PXEConfig out of environment variables using sensible defaults for integration testing if not set.
- */
-export function getPXEConfig(): PXEConfig {
-  return getConfigFromMappings<PXEConfig>(pxeConfigMappings);
-}
-
-export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = {
-  ...nodeUrlConfigMappings,
+const proverEnabledMapping: ConfigMappingsType<KernelProverConfig> = {
+  proverEnabled: {
+    env: 'PXE_PROVER_ENABLED',
+    description: 'Enable real proofs',
+    ...booleanConfigHelper(true),
+  },
 };
 
-export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEConfig> = {
-  ...pxeConfigMappings,
-  ...pxeCliConfigMappings,
-  ...dataConfigMappings,
+// CLI variant: also activates when NETWORK env var is set.
+const proverEnabledCliMapping: ConfigMappingsType<KernelProverConfig> = {
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
@@ -98,6 +87,30 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEConfig>
     defaultValue: true,
   },
 };
+
+export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = composeConfigMappings(
+  dataConfigMappings,
+  chainConfigMappings,
+  pxeBlockSyncConfigMappings,
+  proverEnabledMapping,
+);
+
+/**
+ * Creates an instance of PXEConfig out of environment variables using sensible defaults for integration testing if not set.
+ */
+export function getPXEConfig(): PXEConfig {
+  return getConfigFromMappings<PXEConfig>(pxeConfigMappings);
+}
+
+export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = composeConfigMappings(nodeUrlConfigMappings);
+
+export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEConfig> = composeConfigMappings(
+  dataConfigMappings,
+  chainConfigMappings,
+  pxeBlockSyncConfigMappings,
+  proverEnabledCliMapping,
+  nodeUrlConfigMappings,
+);
 
 /**
  * Creates an instance of CliPxeOptions out of environment variables
