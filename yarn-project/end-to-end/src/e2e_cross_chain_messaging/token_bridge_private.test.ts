@@ -82,13 +82,19 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     await t.advanceToEpochProven(l2TxReceipt);
 
-    const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(aztecNode, l2ToL1Message, l2TxReceipt.txHash))!;
+    const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(
+      aztecNode,
+      crossChainTestHarness.outboxContract,
+      l2ToL1Message,
+      l2TxReceipt,
+    ))!;
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2ToL1MessageResult.epochNumber,
+      l2ToL1MessageResult.numCheckpointsInEpoch,
       l2ToL1MessageResult.leafIndex,
       l2ToL1MessageResult.siblingPath,
     );

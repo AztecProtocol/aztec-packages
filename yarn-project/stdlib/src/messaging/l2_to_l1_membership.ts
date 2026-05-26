@@ -1,10 +1,25 @@
-import { OUT_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
+import { MAX_CHECKPOINTS_PER_EPOCH, OUT_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
 import type { AztecNode } from '../interfaces/aztec-node.js';
 import { TxHash } from '../tx/tx_hash.js';
+import { TxReceipt } from '../tx/tx_receipt.js';
+
+/**
+ * Provides access to the L1 Outbox's per-epoch roots so the witness helper can pick the smallest
+ * partial-proof root that covers a tx's checkpoint. Implemented by `OutboxContract` in the
+ * ethereum package.
+ */
+export interface OutboxRootsReader {
+  /**
+   * Returns the array of roots stored for `epoch`. Slot `i` holds the root inserted for
+   * `numCheckpointsInEpoch = i + 1`, or `Fr.ZERO` if no proof of that depth has landed yet. The
+   * returned array length is `MAX_CHECKPOINTS_PER_EPOCH`.
+   */
+  getRoots(epoch: EpochNumber): Promise<Fr[]>;
+}
 
 /**
  * # L2-to-L1 Message Tree Structure and Leaf IDs
@@ -96,29 +111,47 @@ export function getL2ToL1MessageLeafId(
 }
 
 export type L2ToL1MembershipWitness = {
+  epochNumber: EpochNumber;
+  /**
+   * The number of checkpoints covered by the partial-proof root this witness was built against
+   * (1-indexed; equal to `roots-array-index + 1` on the Outbox). Pass this through to
+   * `Outbox.consume` so the contract reads the matching root slot.
+   */
+  numCheckpointsInEpoch: number;
   root: Fr;
   leafIndex: bigint;
   siblingPath: SiblingPath<number>;
-  epochNumber: EpochNumber;
 };
 
 /**
  * Computes the L2 to L1 membership witness for a given message in a transaction.
  *
+ * Queries the L1 Outbox to find the smallest partial-proof root that covers the tx's checkpoint,
+ * then builds the witness against that root by including only the first `numCheckpointsInEpoch`
+ * checkpoints of the epoch in the tree (the remaining slots are zero-padded, matching the shape
+ * the rollup proved). Returns `undefined` if the tx is not yet in a block/epoch or if the Outbox
+ * holds no root yet that covers the tx's checkpoint.
+ *
  * @param node - The Aztec node to query for block/tx/epoch data.
+ * @param outboxOrRoots - Either an `OutboxRootsReader` (the helper will fetch the per-epoch roots),
+ *   or an already-resolved roots array of length `MAX_CHECKPOINTS_PER_EPOCH`. Pass the array when
+ *   you already read the outbox (e.g. inside a tight loop that resolves witnesses for many
+ *   messages in the same epoch) to avoid redundant L1 reads.
  * @param message - The L2 to L1 message hash to prove membership of.
- * @param txHash - The hash of the transaction that emitted the message.
+ * @param txHashOrReceipt - Either the tx hash, or the already-fetched `TxReceipt`. Passing the
+ *   receipt skips an internal `getTxReceipt` call.
  * @param messageIndexInTx - Optional index of the message within the transaction's L2-to-L1 messages.
  *   If not provided, the message is found by scanning the tx's messages (throws if duplicates exist).
- * @returns The membership witness and epoch number, or undefined if the tx is not yet in a block/epoch.
  */
 export async function computeL2ToL1MembershipWitness(
   node: Pick<AztecNode, 'getL2ToL1Messages' | 'getTxReceipt' | 'getTxEffect' | 'getBlock' | 'getCheckpointsData'>,
+  outboxOrRoots: OutboxRootsReader | Fr[],
   message: Fr,
-  txHash: TxHash,
+  txHashOrReceipt: TxHash | Pick<TxReceipt, 'txHash' | 'epochNumber' | 'blockNumber'>,
   messageIndexInTx?: number,
 ): Promise<L2ToL1MembershipWitness | undefined> {
-  const { epochNumber, blockNumber } = await node.getTxReceipt(txHash);
+  const receipt = 'txHash' in txHashOrReceipt ? txHashOrReceipt : await node.getTxReceipt(txHashOrReceipt);
+  const { txHash, epochNumber, blockNumber } = receipt;
   if (epochNumber === undefined || blockNumber === undefined) {
     return undefined;
   }
@@ -142,15 +175,57 @@ export async function computeL2ToL1MembershipWitness(
   const blockIndex = block.indexWithinCheckpoint;
   const txIndex = txEffect.txIndexInBlock;
 
+  // Pick the smallest partial-proof root on the Outbox that covers checkpointIndex. The Outbox
+  // stores roots keyed by `numCheckpointsInEpoch - 1`, so to cover a tx in checkpoint at index
+  // `checkpointIndex` we need a non-zero entry at array index >= checkpointIndex.
+  const roots = Array.isArray(outboxOrRoots)
+    ? (outboxOrRoots as Fr[])
+    : await (outboxOrRoots as OutboxRootsReader).getRoots(epochNumber);
+  const numCheckpointsInEpoch = findSmallestCoveringRootCount(roots, checkpointIndex);
+  if (numCheckpointsInEpoch === undefined) {
+    return undefined;
+  }
+
+  // Build the witness against the first `numCheckpointsInEpoch` checkpoints. The inner builder
+  // pads to OUT_HASH_TREE_LEAF_COUNT internally, so slicing the outer array narrows the real-leaf
+  // prefix and grows the zero suffix — exactly the shape the rollup proved against.
+  const messagesInPartialEpoch = messagesInEpoch.slice(0, numCheckpointsInEpoch);
+
   const { root, leafIndex, siblingPath } = computeL2ToL1MembershipWitnessFromMessagesInEpoch(
-    messagesInEpoch,
+    messagesInPartialEpoch,
     message,
     checkpointIndex,
     blockIndex,
     txIndex,
     messageIndexInTx,
   );
-  return { epochNumber, root, leafIndex, siblingPath };
+
+  // Cross-check: the recomputed root must equal the root the Outbox is holding for this depth.
+  // A mismatch means the node and L1 disagree about the epoch's contents; fail loud rather than
+  // return a witness that will revert on chain.
+  const expected = roots[numCheckpointsInEpoch - 1];
+  if (!root.equals(expected)) {
+    throw new Error(
+      `Local epoch out-hash does not match Outbox at epoch ${epochNumber} numCheckpointsInEpoch ` +
+        `${numCheckpointsInEpoch}: local=${root.toString()} outbox=${expected.toString()}`,
+    );
+  }
+
+  return { epochNumber, numCheckpointsInEpoch, root, leafIndex, siblingPath };
+}
+
+/**
+ * Returns the smallest `numCheckpointsInEpoch` (1-indexed) for which the Outbox holds a root that
+ * covers the message at `checkpointIndex` (0-indexed). Returns `undefined` if no covering root has
+ * been inserted yet.
+ */
+function findSmallestCoveringRootCount(roots: Fr[], checkpointIndex: number): number | undefined {
+  for (let i = checkpointIndex; i < Math.min(roots.length, MAX_CHECKPOINTS_PER_EPOCH); i++) {
+    if (!roots[i].isZero()) {
+      return i + 1;
+    }
+  }
+  return undefined;
 }
 
 /**

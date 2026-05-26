@@ -285,12 +285,14 @@ export class RollupCheatCodes {
     });
   }
 
-  public insertOutbox(epoch: EpochNumber, outHash: bigint) {
+  public insertOutbox(epoch: EpochNumber, numCheckpointsInEpoch: number, outHash: bigint) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const outboxAddress = await this.rollup.read.getOutbox();
-      const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch);
+      const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch, numCheckpointsInEpoch);
       await this.ethCheatCodes.store(EthAddress.fromString(outboxAddress), epochRootSlot, outHash);
-      this.logger.warn(`Advanced outbox to epoch ${epoch} with out hash ${outHash}`);
+      this.logger.warn(
+        `Advanced outbox to epoch ${epoch} numCheckpointsInEpoch ${numCheckpointsInEpoch} with out hash ${outHash}`,
+      );
     });
   }
 

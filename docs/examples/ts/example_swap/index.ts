@@ -5,6 +5,7 @@ import { SetPublicAuthwitContractInteraction } from "@aztec/aztec.js/authorizati
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { OutboxContract } from "@aztec/ethereum/contracts";
 import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
@@ -445,8 +446,14 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
 // docs:end:consume_l1_messages_setup
 
 // docs:start:consume_l1_messages_witnesses
+// The Outbox is queried to pick the smallest partial-proof root that covers each tx's checkpoint.
+const outbox = new OutboxContract(
+  l1Client,
+  nodeInfo.l1ContractAddresses.outboxAddress,
+);
 const exitWitness = await computeL2ToL1MembershipWitness(
   node,
+  outbox,
   exitMsgLeaf,
   swapReceipt.txHash,
 );
@@ -501,6 +508,7 @@ const swapMsgLeaf = computeL2ToL1MessageHash({
 
 const swapWitness = await computeL2ToL1MembershipWitness(
   node,
+  outbox,
   swapMsgLeaf,
   swapReceipt.txHash,
 );
@@ -528,6 +536,10 @@ const l1SwapHash = await l1Client.writeContract({
       size: 32,
     }),
     [BigInt(exitWitness!.epochNumber), BigInt(swapWitness!.epochNumber)],
+    [
+      BigInt(exitWitness!.numCheckpointsInEpoch),
+      BigInt(swapWitness!.numCheckpointsInEpoch),
+    ],
     [BigInt(exitWitness!.leafIndex), BigInt(swapWitness!.leafIndex)],
     [exitSiblingPath, swapSiblingPath],
   ],
