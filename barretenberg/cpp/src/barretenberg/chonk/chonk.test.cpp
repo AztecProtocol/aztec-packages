@@ -44,13 +44,9 @@ class ChonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    using Flavor = Chonk::Flavor;
-    using FF = typename Flavor::FF;
-    using Commitment = Flavor::Commitment;
-    using VerificationKey = Flavor::VerificationKey;
+    using FF = Chonk::FF;
+    using Commitment = Chonk::Commitment;
     using Builder = Chonk::ClientCircuit;
-    using ProverInstance = Chonk::ProverInstance;
-    using VerifierInstance = Chonk::VerifierInstance;
     using DeciderProver = Chonk::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using ChonkVerifier = ChonkNativeVerifier;

@@ -610,6 +610,7 @@ template HonkProof create_mock_oink_proof<avm2::AvmFlavor, stdlib::recursion::ho
     const size_t);
 
 template HonkProof create_mock_pcs_proof<MegaFlavor>();
+template HonkProof create_mock_pcs_proof<MegaKernelFlavor>();
 template HonkProof create_mock_pcs_proof<TranslatorFlavor>();
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();

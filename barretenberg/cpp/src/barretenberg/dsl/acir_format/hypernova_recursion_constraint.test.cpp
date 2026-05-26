@@ -22,9 +22,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
   public:
     using Builder = MegaCircuitBuilder;
-    using Flavor = MegaFlavor;
-    using VerificationKey = MegaFlavor::VerificationKey;
-    using FF = Flavor::FF;
+    using FF = Chonk::FF;
     using VerifierInputs = Chonk::VerifierInputs;
     using QUEUE_TYPE = Chonk::QUEUE_TYPE;
     using VerificationQueue = Chonk::VerificationQueue;

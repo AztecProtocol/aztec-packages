@@ -198,8 +198,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
 
         if (check_circuit_sizes) {
-            auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
-            size_t log2_dyadic_size = prover_instance->log_dyadic_size();
+            // Size the circuit under its actual proving flavor — apps are MegaAppFlavor, kernels
+            // are MegaKernelFlavor (trailing kernels included: the hiding-kernel-sized
+            // MegaZKFlavor only differs in TRACE_OFFSET, not in dyadic size for these mocks).
+            const size_t log2_dyadic_size = is_kernel ? ProverInstance_<Chonk::KernelFlavor>(circuit).log_dyadic_size()
+                                                      : ProverInstance_<Chonk::AppFlavor>(circuit).log_dyadic_size();
             if (log2_num_gates != 0) {
                 if (is_kernel) {
                     // There are various possibilities here, so we provide a bound

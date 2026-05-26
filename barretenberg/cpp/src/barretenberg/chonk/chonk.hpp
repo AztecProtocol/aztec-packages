@@ -10,7 +10,6 @@
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/chonk/circuit_input.hpp"
 #include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
-#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
@@ -44,28 +43,23 @@ class Chonk {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 
   public:
-    // `Flavor` retained as the "shape-superset" alias. Per-circuit accumulation actually uses the
-    // slimmer MegaAppFlavor / MegaKernelFlavor variants below; folding is heterogeneous because the
-    // Hypernova accumulator is just two batched polynomials.
-    using Flavor = MegaFlavor;
+    // Per-circuit accumulation uses these slim Mega flavors; folding is heterogeneous (different
+    // flavors per slot) because the Hypernova accumulator only depends on `MultilinearBatchingFlavor`.
     using AppFlavor = MegaAppFlavor;
     using KernelFlavor = MegaKernelFlavor;
     using HidingKernelFlavor = MegaZKFlavor;
-    using MegaVerificationKey = Flavor::VerificationKey;
     using AppVerificationKey = AppFlavor::VerificationKey;
     using KernelVerificationKey = KernelFlavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
-    using FF = Flavor::FF;
-    using Commitment = Flavor::Commitment;
-    using ProverPolynomials = Flavor::ProverPolynomials;
-    using Point = Flavor::Curve::AffineElement;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using HidingKernelProverInstance = ProverInstance_<MegaZKFlavor>;
-    using VerifierInstance = VerifierInstance_<Flavor>;
+    // Field / commitment types are the same across all Mega flavors (all on BN254). Source them
+    // directly from the curve so no flavor name leaks into callers that just want a scalar / point.
+    using FF = bb::fr;
+    using Commitment = curve::BN254::AffineElement;
+    using Point = curve::BN254::AffineElement;
+    using HidingKernelProverInstance = ProverInstance_<HidingKernelFlavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MegaProver = UltraProver_<Flavor>;
     using Transcript = NativeTranscript;
     // Recursive types
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
