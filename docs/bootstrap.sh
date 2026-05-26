@@ -53,6 +53,11 @@ function test {
   test_cmds | parallelize
 }
 
+function check_orphaned_urls {
+  echo_header "Check orphaned URLs"
+  FAIL_ON_ORPHAN=1 ./scripts/check_orphaned_urls.sh snapshots/published-urls.txt
+}
+
 function check_references {
   if [[ "${GITHUB_EVENT_NAME:-}" != "merge_group" ]]; then
     echo "Skipping doc reference check (only runs in merge queue)."
@@ -81,11 +86,13 @@ case "$cmd" in
     build_examples
     build_docs
     test
+    check_orphaned_urls
     check_references
     ;;
   "")
     build_examples
     build_docs
+    check_orphaned_urls
     check_references
     ;;
   "hash")
