@@ -1,4 +1,4 @@
-import type { ACVMConfig, BBConfig } from '@aztec/bb-prover';
+import { type ACVMConfig, type BBConfig, acvmConfigMappings } from '@aztec/bb-prover';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -21,14 +21,6 @@ export type ProverClientUserConfig = ProverConfig & ProverAgentConfig & ProverBr
 export type ProverClientConfig = ProverClientUserConfig & Required<Pick<ProverClientUserConfig, 'proverId'>>;
 
 export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
-  acvmWorkingDirectory: {
-    env: 'ACVM_WORKING_DIRECTORY',
-    description: 'The working directory to use for simulation/proving',
-  },
-  acvmBinaryPath: {
-    env: 'ACVM_BINARY_PATH',
-    description: 'The path to the ACVM binary',
-  },
   bbWorkingDirectory: {
     env: 'BB_WORKING_DIRECTORY',
     description: 'The working directory to use for proving',
@@ -68,6 +60,7 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description:
       'When set, bb.js operations write input/output files and log equivalent CLI commands to this directory',
   },
+  ...acvmConfigMappings,
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {

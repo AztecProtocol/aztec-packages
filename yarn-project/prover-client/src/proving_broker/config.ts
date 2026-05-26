@@ -5,9 +5,10 @@ import {
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
-import { pickConfigMappings } from '@aztec/foundation/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { proverConfigMappings } from '@aztec/stdlib/interfaces/prover-config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
@@ -117,11 +118,15 @@ export const ProverAgentConfig = z.object({
 export type ProverAgentConfig = z.infer<typeof ProverAgentConfig>;
 
 export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = {
-  proverAgentCount: {
-    env: 'PROVER_AGENT_COUNT',
-    description: 'Whether this prover has a local prover agent',
-    ...numberConfigHelper(1),
-  },
+  ...pickConfigMappings(proverConfigMappings, [
+    'proverAgentCount',
+    'realProofs',
+    'proverTestDelayType',
+    'proverTestDelayMs',
+    'proverTestDelayFactor',
+    'cancelJobsOnStop',
+    'proofStore',
+  ]),
   proverAgentPollIntervalMs: {
     env: 'PROVER_AGENT_POLL_INTERVAL_MS',
     description: 'The interval agents poll for jobs at',
@@ -140,40 +145,9 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
     env: 'PROVER_BROKER_HOST',
     description: 'The URL where this agent takes jobs from',
   },
-  realProofs: {
-    env: 'PROVER_REAL_PROOFS',
-    description: 'Whether to construct real proofs',
-    ...booleanConfigHelper(true),
-  },
-  proverTestDelayType: {
-    env: 'PROVER_TEST_DELAY_TYPE',
-    description: 'The type of artificial delay to introduce',
-    defaultValue: 'fixed',
-  },
-  proverTestDelayMs: {
-    env: 'PROVER_TEST_DELAY_MS',
-    description: 'Artificial delay to introduce to all operations to the test prover.',
-    ...numberConfigHelper(0),
-  },
-  proverTestDelayFactor: {
-    env: 'PROVER_TEST_DELAY_FACTOR',
-    description: 'If using realistic delays, what percentage of realistic times to apply.',
-    ...numberConfigHelper(1),
-  },
   proverTestVerificationDelayMs: {
     env: 'PROVER_TEST_VERIFICATION_DELAY_MS',
     description: 'The delay (ms) to inject during fake proof verification',
     ...numberConfigHelper(10),
-  },
-  cancelJobsOnStop: {
-    env: 'PROVER_CANCEL_JOBS_ON_STOP',
-    description:
-      'Whether to abort pending proving jobs when the orchestrator is cancelled. ' +
-      'When false (default), jobs remain in the broker queue and can be reused on restart/reorg.',
-    ...booleanConfigHelper(false),
-  },
-  proofStore: {
-    env: 'PROVER_PROOF_STORE',
-    description: 'Optional proof input store for the prover',
   },
 };

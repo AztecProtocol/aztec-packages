@@ -1,49 +1,23 @@
+import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
 import { type ConfigMappingsType, booleanConfigHelper } from '@aztec/foundation/config';
+import { type FishermanModeConfig, fishermanModeConfigMappings } from '@aztec/stdlib/config';
 
-export type SharedNodeConfig = {
-  /** Whether to populate the genesis state with initial fee juice for the test accounts */
-  testAccounts: boolean;
-  /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
-  sponsoredFPC: boolean;
-  /** Additional addresses to prefund with fee juice at genesis */
-  prefundAddresses: string[];
-  /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
-  syncMode: 'full' | 'snapshot' | 'force-snapshot';
-  /** Base URLs for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
-  snapshotsUrls?: string[];
-  /** URL of the Web3Signer instance */
-  web3SignerUrl?: string;
-  /** Whether to run in fisherman mode */
-  fishermanMode?: boolean;
-
-  /** Force verification of tx Chonk proofs. Only used for testnet */
-  debugForceTxProofVerification: boolean;
-
-  /** Check if the node version matches the latest version for the network */
-  enableVersionCheck: boolean;
-};
+export type SharedNodeConfig = FishermanModeConfig &
+  GenesisStateConfig & {
+    /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
+    syncMode: 'full' | 'snapshot' | 'force-snapshot';
+    /** Base URLs for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
+    snapshotsUrls?: string[];
+    /** URL of the Web3Signer instance */
+    web3SignerUrl?: string;
+    /** Force verification of tx Chonk proofs. Only used for testnet */
+    debugForceTxProofVerification: boolean;
+    /** Check if the node version matches the latest version for the network */
+    enableVersionCheck: boolean;
+  };
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
-  testAccounts: {
-    env: 'TEST_ACCOUNTS',
-    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
-    ...booleanConfigHelper(),
-  },
-  sponsoredFPC: {
-    env: 'SPONSORED_FPC',
-    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
-    ...booleanConfigHelper(false),
-  },
-  prefundAddresses: {
-    env: 'PREFUND_ADDRESSES',
-    description: 'Comma-separated list of Aztec addresses to prefund with fee juice at genesis (local network only).',
-    parseEnv: (val: string) =>
-      val
-        .split(',')
-        .map(a => a.trim())
-        .filter(a => a.length > 0),
-    defaultValue: [],
-  },
+  ...genesisStateConfigMappings,
   syncMode: {
     env: 'SYNC_MODE',
     description:
@@ -66,11 +40,7 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     description: 'URL of the Web3Signer instance',
     parseEnv: (val: string) => val.trim(),
   },
-  fishermanMode: {
-    env: 'FISHERMAN_MODE',
-    description: 'Whether to run in fisherman mode.',
-    ...booleanConfigHelper(false),
-  },
+  ...fishermanModeConfigMappings,
   debugForceTxProofVerification: {
     env: 'DEBUG_FORCE_TX_PROOF_VERIFICATION',
     description: 'Whether to force tx proof verification. Only has an effect if real proving is turned off',

@@ -5,11 +5,12 @@ import type { Prettify } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import type { FishermanModeConfig } from '../config/validator-config.js';
 import { schemas, zodFor } from '../schemas/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 
 /** Sequencer configuration */
-export interface SequencerConfig {
+export interface SequencerConfig extends FishermanModeConfig {
   /** The number of ms to wait between polling for pending txs. */
   sequencerPollingIntervalMS?: number;
   /** The maximum number of txs to include in a block. */
@@ -78,8 +79,6 @@ export interface SequencerConfig {
   injectHighSValueAttestation?: boolean;
   /** Inject an attestation with an unrecoverable signature (for testing only) */
   injectUnrecoverableSignatureAttestation?: boolean;
-  /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing */
-  fishermanMode?: boolean;
   /** Shuffle attestation ordering to create invalid ordering (for testing only) */
   shuffleAttestationOrdering?: boolean;
   /** Duration per block in milliseconds when building multiple blocks per slot (default: undefined = single block per slot) */

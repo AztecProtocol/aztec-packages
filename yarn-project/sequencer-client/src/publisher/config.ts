@@ -3,6 +3,7 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from '@aztec/ethereum/l1-tx-utils/config';
 import { type ConfigMappingsType, SecretValue, booleanConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type FishermanModeConfig, fishermanModeConfigMappings } from '@aztec/stdlib/config';
 
 import { parseEther } from 'viem';
 
@@ -43,11 +44,10 @@ export function getTxSenderConfigFromSequencerConfig(config: SequencerTxSenderCo
 
 /** Configuration of the L1Publisher. */
 export type PublisherConfig = L1TxUtilsConfig &
-  BlobClientConfig & {
+  BlobClientConfig &
+  FishermanModeConfig & {
     /** True to use publishers in invalid states (timed out, cancelled, etc) if no other is available */
     publisherAllowInvalidStates?: boolean;
-    /** Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1 */
-    fishermanMode?: boolean;
     /** Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only) */
     publisherForwarderAddress?: EthAddress;
     /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
@@ -75,8 +75,8 @@ const publisherFundingConfigMappings = {
 };
 
 export type ProverPublisherConfig = L1TxUtilsConfig &
-  BlobClientConfig & {
-    fishermanMode?: boolean;
+  BlobClientConfig &
+  FishermanModeConfig & {
     proverPublisherAllowInvalidStates?: boolean;
     proverPublisherForwarderAddress?: EthAddress;
     /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
@@ -86,8 +86,8 @@ export type ProverPublisherConfig = L1TxUtilsConfig &
   };
 
 export type SequencerPublisherConfig = L1TxUtilsConfig &
-  BlobClientConfig & {
-    fishermanMode?: boolean;
+  BlobClientConfig &
+  FishermanModeConfig & {
     sequencerPublisherAllowInvalidStates?: boolean;
     sequencerPublisherForwarderAddress?: EthAddress;
     /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
@@ -159,12 +159,7 @@ export const sequencerPublisherConfigMappings: ConfigMappingsType<SequencerPubli
     description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
     ...booleanConfigHelper(true),
   },
-  fishermanMode: {
-    env: 'FISHERMAN_MODE',
-    description:
-      'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
-    ...booleanConfigHelper(false),
-  },
+  ...fishermanModeConfigMappings,
   sequencerPublisherForwarderAddress: {
     env: `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
@@ -185,12 +180,7 @@ export const proverPublisherConfigMappings: ConfigMappingsType<ProverPublisherCo
     description: 'True to use publishers in invalid states (timed out, cancelled, etc) if no other is available',
     ...booleanConfigHelper(true),
   },
-  fishermanMode: {
-    env: 'FISHERMAN_MODE',
-    description:
-      'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
-    ...booleanConfigHelper(false),
-  },
+  ...fishermanModeConfigMappings,
   proverPublisherForwarderAddress: {
     env: `PROVER_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',

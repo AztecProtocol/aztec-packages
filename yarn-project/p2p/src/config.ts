@@ -18,8 +18,10 @@ import {
   type AllowedElement,
   type ChainConfig,
   type SequencerConfig,
+  type ValidatorConstraintsConfig,
   chainConfigMappings,
   sharedSequencerConfigMappings,
+  validatorConstraintsConfigMappings,
 } from '@aztec/stdlib/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
@@ -40,6 +42,7 @@ export interface P2PConfig
     ChainConfig,
     TxCollectionConfig,
     TxFileStoreConfig,
+    ValidatorConstraintsConfig,
     Pick<
       SequencerConfig,
       | 'blockDurationMs'
@@ -49,18 +52,6 @@ export interface P2PConfig
       | 'attestationPropagationTime'
       | 'maxBlocksPerCheckpoint'
     > {
-  /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
-  validateMaxTxsPerBlock?: number;
-
-  /** Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set. */
-  validateMaxTxsPerCheckpoint?: number;
-
-  /** Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected. */
-  validateMaxL2BlockGas?: number;
-
-  /** Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected. */
-  validateMaxDABlockGas?: number;
-
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -212,9 +203,6 @@ export interface P2PConfig
   /** Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY */
   debugP2PInstrumentMessages: boolean;
 
-  /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
-  fishermanMode: boolean;
-
   /** Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only). */
   broadcastEquivocatedProposals?: boolean;
 
@@ -256,28 +244,6 @@ export const DEFAULT_PUBLIC_IP_SERVICES: string[] = [
 ];
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
-  validateMaxTxsPerBlock: {
-    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
-    description:
-      'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
-    ...optionalNumberConfigHelper(),
-  },
-  validateMaxTxsPerCheckpoint: {
-    env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
-    description:
-      'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
-    ...optionalNumberConfigHelper(),
-  },
-  validateMaxL2BlockGas: {
-    env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
-    description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
-  validateMaxDABlockGas: {
-    env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
-    description: 'Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
@@ -548,17 +514,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY',
     ...booleanConfigHelper(false),
   },
-  l1PublishingTime: {
-    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    ...optionalNumberConfigHelper(),
-  },
-  fishermanMode: {
-    env: 'FISHERMAN_MODE',
-    description:
-      'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
-    ...booleanConfigHelper(false),
-  },
   broadcastEquivocatedProposals: {
     description:
       'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
@@ -601,6 +556,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   ...chainConfigMappings,
   ...txCollectionConfigMappings,
   ...txFileStoreConfigMappings,
+  ...validatorConstraintsConfigMappings,
 };
 
 /**

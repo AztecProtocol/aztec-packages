@@ -1,6 +1,19 @@
 import { DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
 
+/** Config for the Aztec node URL, shared across clients that connect to an Aztec node. */
+export interface NodeUrlConfig {
+  /** The URL of the Aztec node to connect to. */
+  nodeUrl: string;
+}
+
+export const nodeUrlConfigMappings: ConfigMappingsType<NodeUrlConfig> = {
+  nodeUrl: {
+    env: 'AZTEC_NODE_URL',
+    description: 'The URL of the Aztec node to connect to.',
+  },
+};
+
 export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
   rpcSimulatePublicMaxGasLimit: {
     env: 'RPC_SIMULATE_PUBLIC_MAX_GAS_LIMIT',

@@ -20,6 +20,7 @@ import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
 import type { ChainConfig } from '../config/chain-config.js';
+import type { ValidatorConstraintsConfig } from '../config/validator-config.js';
 import {
   type LocalSignerConfig,
   LocalSignerConfigSchema,
@@ -32,7 +33,8 @@ import { AllowedElementSchema } from './allowed_element.js';
  * Validator client configuration
  */
 export type ValidatorClientConfig = ValidatorHASignerConfig &
-  LocalSignerConfig & {
+  LocalSignerConfig &
+  ValidatorConstraintsConfig & {
     /** The L1 chain id used for EIP-712 proposal-path signing. */
     l1ChainId: ChainConfig['l1ChainId'];
 
@@ -54,9 +56,6 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
     /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the current committee */
     alwaysReexecuteBlockProposals?: boolean;
 
-    /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus */
-    fishermanMode?: boolean;
-
     /** Skip checkpoint proposal validation and always attest (default: false) */
     skipCheckpointProposalValidation?: boolean;
 
@@ -68,18 +67,6 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
 
     /** Accept proposal validation regardless of slot timing (for testing only) */
     skipProposalSlotValidation?: boolean;
-
-    /** Maximum L2 gas per block for validation. Proposals exceeding this limit are rejected. */
-    validateMaxL2BlockGas?: number;
-
-    /** Maximum DA gas per block for validation. Proposals exceeding this limit are rejected. */
-    validateMaxDABlockGas?: number;
-
-    /** Maximum transactions per block for validation. Proposals exceeding this limit are rejected. */
-    validateMaxTxsPerBlock?: number;
-
-    /** Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected. */
-    validateMaxTxsPerCheckpoint?: number;
   };
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &

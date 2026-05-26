@@ -1,0 +1,52 @@
+import { type ConfigMappingsType, booleanConfigHelper, optionalNumberConfigHelper } from '@aztec/foundation/config';
+
+/** Config for fisherman mode, shared across validator-client, sequencer-client, p2p, and node-lib. */
+export interface FishermanModeConfig {
+  /** Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus. */
+  fishermanMode?: boolean;
+}
+
+export const fishermanModeConfigMappings: ConfigMappingsType<FishermanModeConfig> = {
+  fishermanMode: {
+    env: 'FISHERMAN_MODE',
+    description:
+      'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
+    ...booleanConfigHelper(false),
+  },
+};
+
+/** Validator block constraint config shared across validator-client and p2p. */
+export interface ValidatorConstraintsConfig extends FishermanModeConfig {
+  /** Maximum L2 block gas for validation. Proposals exceeding this limit are rejected. */
+  validateMaxL2BlockGas?: number;
+  /** Maximum DA block gas for validation. Proposals exceeding this limit are rejected. */
+  validateMaxDABlockGas?: number;
+  /** Maximum transactions per block for validation. Proposals exceeding this limit are rejected. */
+  validateMaxTxsPerBlock?: number;
+  /** Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected. */
+  validateMaxTxsPerCheckpoint?: number;
+}
+
+export const validatorConstraintsConfigMappings: ConfigMappingsType<ValidatorConstraintsConfig> = {
+  ...fishermanModeConfigMappings,
+  validateMaxL2BlockGas: {
+    env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
+    description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',
+    ...optionalNumberConfigHelper(),
+  },
+  validateMaxDABlockGas: {
+    env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
+    description: 'Maximum DA block gas for validation. Proposals exceeding this limit are rejected.',
+    ...optionalNumberConfigHelper(),
+  },
+  validateMaxTxsPerBlock: {
+    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
+    description: 'Maximum transactions per block for validation. Proposals exceeding this limit are rejected.',
+    ...optionalNumberConfigHelper(),
+  },
+  validateMaxTxsPerCheckpoint: {
+    env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
+    description: 'Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.',
+    ...optionalNumberConfigHelper(),
+  },
+};

@@ -7,10 +7,22 @@ import {
 
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
-/** Configuration of the L1GlobalReader. */
-export type L1ReaderConfig = {
+export type L1RpcUrlsConfig = {
   /** List of URLs of Ethereum RPC nodes that services will connect to (comma separated). */
   l1RpcUrls: string[];
+};
+
+export const l1RpcUrlsConfigMappings: ConfigMappingsType<L1RpcUrlsConfig> = {
+  l1RpcUrls: {
+    env: 'ETHEREUM_HOSTS',
+    description: 'List of URLs of Ethereum RPC nodes that services will connect to (comma separated).',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    defaultValue: [],
+  },
+};
+
+/** Configuration of the L1GlobalReader. */
+export type L1ReaderConfig = L1RpcUrlsConfig & {
   /** The RPC Url of the ethereum debug host for trace and debug methods. */
   l1DebugRpcUrls: string[];
   /** The chain ID of the ethereum host. */
@@ -24,15 +36,10 @@ export type L1ReaderConfig = {
 export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
   l1ChainId: {
     env: 'L1_CHAIN_ID',
-    ...optionalNumberConfigHelper(),
+    ...numberConfigHelper(31337),
     description: 'The chain ID of the ethereum host.',
   },
-  l1RpcUrls: {
-    env: 'ETHEREUM_HOSTS',
-    description: 'List of URLs of Ethereum RPC nodes that services will connect to (comma separated).',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
-    defaultValue: [],
-  },
+  ...l1RpcUrlsConfigMappings,
   l1DebugRpcUrls: {
     env: 'ETHEREUM_DEBUG_HOSTS',
     description: 'The RPC Url of the ethereum debug host for trace and debug methods.',

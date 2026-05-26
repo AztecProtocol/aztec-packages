@@ -8,6 +8,7 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  pickConfigMappings,
 } from './index.js';
 
 describe('Config', () => {
@@ -264,6 +265,26 @@ describe('Config', () => {
         publisherOnly: 2,
         cOnly: 3,
       });
+    });
+
+    it('works with pickConfigMappings', () => {
+      interface ChainConfig {
+        l1ChainId: number;
+        rollupVersion: number;
+      }
+      const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
+        l1ChainId: { description: 'l1 chain id', ...numberConfigHelper(31337) },
+        rollupVersion: { description: 'rollup version', ...numberConfigHelper(1) },
+      };
+      const validatorMappings = {
+        ...pickConfigMappings(chainConfigMappings, ['l1ChainId']),
+        validatorOnly: { description: 'validator only', ...numberConfigHelper(7) },
+      };
+
+      const composed = composeConfigMappings(validatorMappings, chainConfigMappings);
+
+      expect(Object.keys(composed)).toEqual(['l1ChainId', 'validatorOnly', 'rollupVersion']);
+      expect(getDefaultConfig(composed)).toEqual({ l1ChainId: 31337, validatorOnly: 7, rollupVersion: 1 });
     });
 
     it('throws on duplicate property keys with different mapping objects even if definitions are equivalent', () => {

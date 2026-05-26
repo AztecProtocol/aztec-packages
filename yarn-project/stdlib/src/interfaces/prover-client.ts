@@ -3,6 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { z } from 'zod';
 
+import { nodeUrlConfigMappings } from '../config/index.js';
 import { schemas, zodFor } from '../schemas/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { EpochProver } from './epoch-prover.js';
@@ -60,10 +61,7 @@ export const ProverConfigSchema = zodFor<ProverConfig>()(
 );
 
 export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
-  nodeUrl: {
-    env: 'AZTEC_NODE_URL',
-    description: 'The URL to the Aztec node to take proving jobs from',
-  },
+  ...nodeUrlConfigMappings,
   realProofs: {
     env: 'PROVER_REAL_PROOFS',
     description: 'Whether to construct real proofs',
@@ -77,6 +75,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   proverTestDelayType: {
     env: 'PROVER_TEST_DELAY_TYPE',
     description: 'The type of artificial delay to introduce',
+    defaultValue: 'fixed' as const,
   },
   proverTestDelayMs: {
     env: 'PROVER_TEST_DELAY_MS',

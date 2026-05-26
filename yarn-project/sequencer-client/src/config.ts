@@ -1,3 +1,4 @@
+import { acvmConfigMappings } from '@aztec/bb-prover';
 import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
@@ -18,6 +19,7 @@ import {
   type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
+  fishermanModeConfigMappings,
   pipelineConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
@@ -136,14 +138,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     parseEnv: (val: string) => AztecAddress.fromString(val),
     description: 'Address to receive fees.',
   },
-  acvmWorkingDirectory: {
-    env: 'ACVM_WORKING_DIRECTORY',
-    description: 'The working directory to use for simulation/proving',
-  },
-  acvmBinaryPath: {
-    env: 'ACVM_BINARY_PATH',
-    description: 'The path to the ACVM binary',
-  },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',
@@ -153,11 +147,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
     description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
-  },
-  l1PublishingTime: {
-    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    ...optionalNumberConfigHelper(),
   },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
@@ -213,12 +202,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Inject an attestation with an unrecoverable signature (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
   },
-  fishermanMode: {
-    env: 'FISHERMAN_MODE',
-    description:
-      'Whether to run in fisherman mode: builds blocks on every slot for validation without publishing to L1',
-    ...booleanConfigHelper(DefaultSequencerConfig.fishermanMode),
-  },
+  ...fishermanModeConfigMappings,
   shuffleAttestationOrdering: {
     description: 'Shuffle attestation ordering to create invalid ordering (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.shuffleAttestationOrdering),
@@ -250,6 +234,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
       'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
+  ...acvmConfigMappings,
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {

@@ -25,6 +25,7 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
     SequencerConfig,
     | 'blockDurationMs'
     | 'expectedBlockProposalsPerSlot'
+    | 'l1PublishingTime'
     | 'maxTxsPerBlock'
     | 'attestationPropagationTime'
     | 'maxBlocksPerCheckpoint'
@@ -61,5 +62,10 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
       'Maximum number of blocks the sequencer packs into a single checkpoint, and the maximum indexWithinCheckpoint accepted on inbound block proposals.',
     parseEnv: (val: string) => parseInt(val, 10),
     defaultValue: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
+  },
+  l1PublishingTime: {
+    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
+    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
+    ...optionalNumberConfigHelper(),
   },
 };

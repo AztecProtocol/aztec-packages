@@ -6,7 +6,7 @@ import {
   numberConfigHelper,
   parseBooleanEnv,
 } from '@aztec/foundation/config';
-import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ChainConfig, chainConfigMappings, nodeUrlConfigMappings } from '@aztec/stdlib/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
 export { getPackageInfo } from './package_info.js';
@@ -83,10 +83,7 @@ export function getPXEConfig(): PXEConfig {
 }
 
 export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = {
-  nodeUrl: {
-    env: 'AZTEC_NODE_URL',
-    description: 'Custom Aztec Node URL to connect to',
-  },
+  ...nodeUrlConfigMappings,
 };
 
 export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEConfig> = {
