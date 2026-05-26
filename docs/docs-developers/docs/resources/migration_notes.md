@@ -55,6 +55,10 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
 
+### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
+
+`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`, and it is deployed on first use rather than at genesis.
+
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
 `public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
