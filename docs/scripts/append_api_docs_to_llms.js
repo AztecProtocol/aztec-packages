@@ -326,7 +326,10 @@ function main() {
 
   let totalFiles = 0;
   let sectionsAdded = 0;
-  let linksSection = "\n\n# API Reference Documentation\n\n";
+  let linksSection =
+    "\n\n# Community Resources\n\n" +
+    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n" +
+    "\n# API Reference Documentation\n\n";
   let fullContentSection = "\n\n---\n\n# API Reference Documentation\n\n";
 
   for (const apiDir of API_DIRS) {
@@ -390,9 +393,11 @@ function main() {
         if (SKIPPED_CRATES.has(crate)) return false;
         const maxDepth = CRATE_MAX_DEPTH[crate];
         if (maxDepth !== undefined) {
-          // depth = number of directories between crate root and this module
-          // (parts excludes the trailing index.html since we use path.sep)
-          const depth = parts.length - 1; // -1 for index.html filename
+          // parts has the form [crate_name, sub1, sub2, ..., "index.html"].
+          // We want the path segment count (1 = crate root, 2 = first-level
+          // submodule, ...) so subtract 1 for the trailing index.html.
+          // maxDepth=2 keeps crate root + first-level submodules only.
+          const depth = parts.length - 1;
           if (depth > maxDepth) return false;
         }
         return true;

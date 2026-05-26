@@ -17,6 +17,12 @@ on:
       - docs/docs/**
       - docs/developer_versioned_docs/**
       - docs/network_versioned_docs/**
+      # Version configs decide which versioned docs dir resolves /developers/* and /operate/*.
+      - docs/developer_version_config.json
+      - docs/network_version_config.json
+      - docs/developer_versions.json
+      - docs/network_versions.json
+      - docs/docusaurus.config.js
       - docs/netlify.toml
       - docs/snapshots/published-urls.txt
       - docs/scripts/check_orphaned_urls.sh
