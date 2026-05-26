@@ -4,9 +4,7 @@
 // generator would produce right now. Both this test and the generator share `contract_data.ts`
 // and `drift.ts`, so they cannot disagree on derivation, rendering, or formatting.
 //
-// If the artifacts haven't been built yet (running `yarn test` without a prior bootstrap), the
-// content-drift suite gracefully skips with a `console.warn` — the same pattern protocol-contracts
-// uses for its freshness gates.
+// Requires noir-contracts to be built first; the test fails loud if artifacts are missing.
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -49,11 +47,10 @@ describe('standard_contract_data drift', () => {
     for (const { name, src } of standardContracts) {
       it(`${name}: derived address and class data match committed values`, async () => {
         if (!(await artifactExists(src))) {
-          console.warn(
-            `Skipping drift check for ${name}: artifact \`${src}.json\` not found under ${srcArtifactsPath}. ` +
-              `Run the noir-contracts build first (e.g. \`./bootstrap.sh\` from the repo root) to enable this check.`,
+          throw new Error(
+            `Artifact \`${src}.json\` not found under ${srcArtifactsPath}. ` +
+              `Run \`./bootstrap.sh\` from the repo root to build noir-contracts first.`,
           );
-          return;
         }
 
         const artifact = await loadArtifact(src);
@@ -94,16 +91,14 @@ describe('standard_contract_data drift', () => {
     // Render every target once and assert per-target so an individual stale file (e.g. only one of
     // the two `standard_addresses.nr` twins drifted) shows up as its own failure rather than being
     // hidden behind another.
-    let targets: { path: string; content: string }[] | null = null;
-    let skipReason: string | null = null;
+    let targets: { path: string; content: string }[];
 
     beforeAll(async () => {
       if (!(await allArtifactsExist())) {
-        skipReason =
+        throw new Error(
           `One or more standard-contract artifacts are missing under ${srcArtifactsPath}. ` +
-          `Run the noir-contracts build first (e.g. \`./bootstrap.sh\` from the repo root) to enable this check.`;
-        console.warn(`Skipping standard_contract_data content drift checks: ${skipReason}`);
-        return;
+            `Run \`./bootstrap.sh\` from the repo root to build noir-contracts first.`,
+        );
       }
 
       const names = standardContracts.map(c => c.name);
@@ -115,10 +110,7 @@ describe('standard_contract_data drift', () => {
     });
 
     it('committed standard_contract_data.ts matches re-rendered output', async () => {
-      if (skipReason !== null) {
-        return;
-      }
-      const tsTarget = targets!.find(t => t.path.endsWith('standard_contract_data.ts'));
+      const tsTarget = targets.find(t => t.path.endsWith('standard_contract_data.ts'));
       expect(tsTarget).toBeDefined();
       const committed = await readIfExists(tsTarget!.path);
       expect(committed).not.toBeNull();
@@ -126,10 +118,7 @@ describe('standard_contract_data drift', () => {
     });
 
     it('committed standard_addresses.nr twins match re-rendered output', async () => {
-      if (skipReason !== null) {
-        return;
-      }
-      const noirTargets = targets!.filter(t => t.path.endsWith('.nr'));
+      const noirTargets = targets.filter(t => t.path.endsWith('.nr'));
       expect(noirTargets.length).toBeGreaterThan(0);
       for (const target of noirTargets) {
         const committed = await readIfExists(target.path);
