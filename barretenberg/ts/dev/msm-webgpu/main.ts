@@ -67,27 +67,33 @@ const PROFILE_REPS = 40;
 // rendered breakdown table.
 const PROFILE_SIZES = [12, 16, 20] as const;
 
-// One-time setup phase timings, populated as SRS load / pool build run. The
-// breakdown renderer reads these to show the "Setup" section alongside the
-// per-MSM table. `srs_fetch_ms` and `srs_decompress_ms` are populated from
-// SrsEvent's `kind: 'phase'` events at page boot; `pool_*` are populated when
-// MsmV2Pool.create runs with `{ profile: true }` on the first Profile click.
+// One-time setup phase timings. `srs_fetch_ms` and `srs_decompress_ms`
+// are populated once at page boot from SrsEvent's `kind: 'phase'`
+// events — they cover the full SRS load (always the max prefix this
+// dev page supports) and are IndexedDB-cached after the first run, so
+// they're not per-n. The pool buffers ARE per-n: `MsmV2Pool.create`
+// uploads + converts the n-prefix of the SRS (n × 64 bytes / n GPU
+// threads), and the pool is rebuilt whenever the dev page's logN
+// changes. So pool timings live in `poolByLogN` keyed by logN.
+interface PoolBuildTimings {
+  pool_upload_ms: number;
+  pool_upload_bytes: number;
+  pool_convert_ms: number;
+}
 interface SetupTimings {
   srs_fetch_ms: number;
   srs_decompress_ms: number;
   srs_cached: boolean;
-  pool_upload_ms: number;
-  pool_upload_bytes: number;
-  pool_convert_ms: number;
+  poolByLogN: Map<number, PoolBuildTimings>;
+  /** True once at least one pool has been built with `profile: true`,
+   *  so the renderer knows the table has data worth showing. */
   pool_built: boolean;
 }
 const setupTimings: SetupTimings = {
   srs_fetch_ms: 0,
   srs_decompress_ms: 0,
   srs_cached: false,
-  pool_upload_ms: 0,
-  pool_upload_bytes: 0,
-  pool_convert_ms: 0,
+  poolByLogN: new Map(),
   pool_built: false,
 };
 
@@ -526,9 +532,11 @@ async function ensureWebGpuWarmed(inputs: TestInputs, profile = false): Promise<
     const t0 = performance.now();
     msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf, { profile });
     if (profile && msmV2Pool.createProfile) {
-      setupTimings.pool_upload_ms = msmV2Pool.createProfile.upload_ms;
-      setupTimings.pool_upload_bytes = msmV2Pool.createProfile.upload_bytes;
-      setupTimings.pool_convert_ms = msmV2Pool.createProfile.convert_ms;
+      setupTimings.poolByLogN.set(logN, {
+        pool_upload_ms: msmV2Pool.createProfile.upload_ms,
+        pool_upload_bytes: msmV2Pool.createProfile.upload_bytes,
+        pool_convert_ms: msmV2Pool.createProfile.convert_ms,
+      });
       setupTimings.pool_built = true;
     } else if (profile) {
       setupTimings.pool_built = true;
@@ -994,15 +1002,43 @@ function renderProfileTable(
     .map(({ host }) => `<td>${host ? fmtBytes(host.scalar_upload_bytes) : '—'}</td>`)
     .join('')}</tr>`;
 
+  // Setup table. `srs_*` are page-global (cached after the first load,
+  // not per-n) so they get a `colspan` cell across all size columns.
+  // `pool_*` ARE per-n because the pool is rebuilt for each logN —
+  // each size gets its own cell, with `—` when the pool for that size
+  // hasn't been built yet (e.g. mid-sweep incremental renders).
+  const sizeHeaders = cols
+    .map(({ logN }) => `<th>n = 2<sup>${logN}</sup> = ${(1 << logN).toLocaleString()}</th>`)
+    .join('');
+  const colspanAll = cols.length;
+  const srsNote = setupTimings.srs_cached ? '(cached)' : '';
+  const poolRow = (key: 'pool_upload_ms' | 'pool_convert_ms', label: string): string => {
+    const cells = cols
+      .map(({ logN }) => {
+        const p = setupTimings.poolByLogN.get(logN);
+        return `<td>${p ? fmtTime(p[key]) : '—'}</td>`;
+      })
+      .join('');
+    return `<tr><td>${label}</td>${cells}</tr>`;
+  };
+  // pool_upload_bytes row mirrors the scalar_upload_bytes row in the
+  // per-MSM breakdown: shows the per-n SRS-prefix byte count.
+  const poolUploadBytesRow = `<tr><td>pool_upload_bytes</td>${cols
+    .map(({ logN }) => {
+      const p = setupTimings.poolByLogN.get(logN);
+      return `<td>${p ? fmtBytes(p.pool_upload_bytes) : '—'}</td>`;
+    })
+    .join('')}</tr>`;
   const setupSection = setupTimings.pool_built
     ? `
   <h3>Setup (one-time)</h3>
   <table>
-    <tr><th>Phase</th><th>ms</th><th>notes</th></tr>
-    <tr><td>srs_fetch</td><td>${fmtTime(setupTimings.srs_fetch_ms)}</td><td>${setupTimings.srs_cached ? '(cached)' : ''}</td></tr>
-    <tr><td>srs_decompress</td><td>${fmtTime(setupTimings.srs_decompress_ms)}</td><td>${setupTimings.srs_cached ? '(cached)' : ''}</td></tr>
-    <tr><td>pool_upload</td><td>${fmtTime(setupTimings.pool_upload_ms)}</td><td>${fmtBytes(setupTimings.pool_upload_bytes)} writeBuffer</td></tr>
-    <tr><td>pool_convert</td><td>${fmtTime(setupTimings.pool_convert_ms)}</td><td>GPU dispatch</td></tr>
+    <tr><th>Phase</th>${sizeHeaders}</tr>
+    <tr><td>srs_fetch</td><td colspan="${colspanAll}">${fmtTime(setupTimings.srs_fetch_ms)} ${srsNote}</td></tr>
+    <tr><td>srs_decompress</td><td colspan="${colspanAll}">${fmtTime(setupTimings.srs_decompress_ms)} ${srsNote}</td></tr>
+    ${poolRow('pool_upload_ms', 'pool_upload')}
+    ${poolUploadBytesRow}
+    ${poolRow('pool_convert_ms', 'pool_convert')}
   </table>`
     : '';
 
