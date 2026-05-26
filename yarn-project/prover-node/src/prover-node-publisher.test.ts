@@ -1,5 +1,6 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { RollupContract } from '@aztec/ethereum/contracts';
+import { randomL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -35,19 +36,7 @@ describe('prover-node-publisher', () => {
       l1DebugRpcUrls: [],
       publisherPrivateKeys: [new SecretValue('0x1234')],
       viemPollingIntervalMS: 1000,
-      l1Contracts: {
-        rollupAddress: EthAddress.random(),
-        registryAddress: EthAddress.random(),
-        inboxAddress: EthAddress.random(),
-        outboxAddress: EthAddress.random(),
-        rewardDistributorAddress: EthAddress.random(),
-        feeJuicePortalAddress: EthAddress.random(),
-        coinIssuerAddress: EthAddress.random(),
-        governanceAddress: EthAddress.random(),
-        governanceProposerAddress: EthAddress.random(),
-        feeJuiceAddress: EthAddress.random(),
-        stakingAssetAddress: EthAddress.random(),
-      },
+      ...randomL1ContractAddresses(),
     };
   });
 
@@ -198,6 +187,82 @@ describe('prover-node-publisher', () => {
       }
     },
   );
+
+  it('waits until the proven checkpoint reaches the checkpoint before the proof start', async () => {
+    const checkpoints = Array.from({ length: 100 }, () => RootRollupPublicInputs.random());
+    const fromCheckpoint = CheckpointNumber(33);
+    const toCheckpoint = CheckpointNumber(64);
+
+    rollup.getTips
+      .mockResolvedValueOnce({
+        pending: CheckpointNumber(65),
+        proven: CheckpointNumber(31),
+      })
+      .mockResolvedValueOnce({
+        pending: CheckpointNumber(65),
+        proven: CheckpointNumber(32),
+      })
+      .mockResolvedValue({
+        pending: CheckpointNumber(65),
+        proven: CheckpointNumber(32),
+      });
+    rollup.getRollupConstants.mockResolvedValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: BigInt(Math.floor(Date.now() / 1000)),
+      slotDuration: 1,
+      epochDuration: 1,
+      proofSubmissionEpochs: 100,
+      targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    });
+
+    rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
+      Promise.resolve({
+        archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+        attestationsHash: Buffer32.ZERO,
+        payloadDigest: Buffer32.ZERO,
+        headerHash: Buffer32.ZERO,
+        blobCommitmentsHash: Buffer32.ZERO,
+        outHash: '0x',
+        slotNumber: SlotNumber(0),
+        feeHeader: {
+          excessMana: 0n,
+          manaUsed: 0n,
+          ethPerFeeAsset: 0n,
+          congestionCost: 0n,
+          proverCost: 0n,
+        },
+      }),
+    );
+
+    const ourPublicInputs = RootRollupPublicInputs.random();
+    ourPublicInputs.previousArchiveRoot = checkpoints[fromCheckpoint - 2].endArchiveRoot;
+    ourPublicInputs.endArchiveRoot = checkpoints[toCheckpoint - 1].endArchiveRoot;
+
+    const ourBatchedBlob = new BatchedBlob(
+      ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+      ourPublicInputs.blobPublicInputs.z,
+      ourPublicInputs.blobPublicInputs.y,
+      ourPublicInputs.blobPublicInputs.c,
+      ourPublicInputs.blobPublicInputs.c.negate(),
+    );
+
+    rollup.getEpochProofPublicInputs.mockResolvedValue(ourPublicInputs.toFields());
+
+    await publisher.submitEpochProof({
+      epochNumber: EpochNumber(2),
+      fromCheckpoint,
+      toCheckpoint,
+      publicInputs: ourPublicInputs,
+      proof: Proof.empty(),
+      batchedBlobInputs: ourBatchedBlob,
+      attestations: [],
+    });
+
+    expect(rollup.getRollupConstants).toHaveBeenCalled();
+    expect(rollup.getTips).toHaveBeenCalledTimes(3);
+    expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalled();
+  });
 
   it('analyzeEpochProofSubmission validates, estimates, and does not send tx', async () => {
     const fromCheckpoint = 33;

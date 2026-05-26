@@ -25,7 +25,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { Tx, type TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import {
@@ -50,9 +50,10 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type Message, type MultiaddrConnection, type PeerId, TopicValidatorResult } from '@libp2p/interface';
-import type { ConnectionManager } from '@libp2p/interface-internal';
+import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
+import { multiaddr } from '@multiformats/multiaddr';
 import { ENR } from '@nethermindeth/enr';
 import { createLibp2p } from 'libp2p';
 
@@ -73,7 +74,6 @@ import {
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
-  createTxValidatorForReqResponseReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -92,15 +92,12 @@ import {
   AuthRequest,
   BlockTxsRequest,
   BlockTxsResponse,
-  DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
-  type ReqRespSubProtocolValidators,
   StatusMessage,
-  type SubProtocolMap,
   ValidationError,
   pingHandler,
   reqGoodbyeHandler,
@@ -111,6 +108,7 @@ import {
 import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
   P2PDuplicateAttestationCallback,
   P2PService,
@@ -156,6 +154,9 @@ export class LibP2PService extends WithTracer implements P2PService {
   /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
   private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
 
+  /** Callback invoked when a valid checkpoint attestation is accepted into the pool. */
+  private checkpointAttestationCallback?: P2PCheckpointAttestationCallback;
+
   /**
    * Callback for when a block is received from a peer.
    * @param block - The block received from the peer.
@@ -177,6 +178,9 @@ export class LibP2PService extends WithTracer implements P2PService {
   private validatorCheckpointReceivedCallback: P2PCheckpointReceivedCallback;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
+
+  private ipChangedHandler?: (ip: string) => void;
+  private discoveredP2pIp?: string;
 
   private instrumentation: P2PInstrumentation;
 
@@ -233,9 +237,10 @@ export class LibP2PService extends WithTracer implements P2PService {
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       p2pPropagationTime,
+      skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
       },
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
@@ -467,8 +472,9 @@ export class LibP2PService extends WithTracer implements P2PService {
             topics: topicScoreParams,
           }),
         }) as (components: GossipSubComponents) => GossipSub,
-        components: (components: { connectionManager: ConnectionManager }) => ({
+        components: (components: { connectionManager: ConnectionManager; addressManager: AddressManager }) => ({
           connectionManager: components.connectionManager,
+          addressManager: components.addressManager,
         }),
       },
       logger: createLibp2pComponentLogger(logger.module, logger.getBindings()),
@@ -529,12 +535,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       throw new Error('P2P service already started');
     }
 
-    // Get listen & announce addresses for logging
     const { p2pIp, p2pPort } = this.config;
-    if (!p2pIp) {
-      throw new Error('Announce address not provided.');
+    if (!p2pIp && !this.config.queryForIp) {
+      throw new Error('Announce address not provided and queryForIp is not enabled.');
     }
-    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
+    const announceTcpMultiaddr = p2pIp ? convertToMultiaddr(p2pIp, p2pPort, 'tcp') : undefined;
 
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
@@ -560,16 +565,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       requestResponseHandlers[ReqRespSubProtocol.TX] = txHandler.bind(this);
     }
 
-    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
-    const reqrespSubProtocolValidators = {
-      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
-      [ReqRespSubProtocol.TX]: this.validateRequestedTxs.bind(this),
-      [ReqRespSubProtocol.BLOCK_TXS]: this.validateRequestedBlockTxs.bind(this),
-    };
-
     await this.peerManager.initializePeers();
 
-    await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
+    await this.reqresp.start(requestResponseHandlers);
 
     await this.node.start();
 
@@ -585,6 +583,38 @@ export class LibP2PService extends WithTracer implements P2PService {
     if (!this.config.p2pDiscoveryDisabled) {
       await this.peerDiscoveryService.start();
     }
+
+    // Bridge discv5 IP changes to libp2p's AddressManager so peers see the updated address
+    if (this.config.queryForIp) {
+      this.discoveredP2pIp = this.config.p2pIp;
+      this.logger.info('IP change tracking enabled, bridging discv5 IP updates to libp2p AddressManager');
+      this.ipChangedHandler = (ip: string) => {
+        const addressManager = this.node.services.components.addressManager;
+        const newAddr = multiaddr(convertToMultiaddr(ip, this.config.p2pPort, 'tcp'));
+        const previousIp = this.discoveredP2pIp;
+
+        if (previousIp) {
+          const oldAddr = multiaddr(convertToMultiaddr(previousIp, this.config.p2pPort, 'tcp'));
+          addressManager.removeObservedAddr(oldAddr);
+          this.logger.info('Libp2p announce address updated due to IP change', {
+            previousIp,
+            newIp: ip,
+            newMultiaddr: newAddr.toString(),
+          });
+        } else {
+          this.logger.info('Libp2p announce address set from initial discv5 IP discovery', {
+            ip,
+            multiaddr: newAddr.toString(),
+          });
+        }
+
+        addressManager.addObservedAddr(newAddr);
+        addressManager.confirmObservedAddr(newAddr);
+        this.discoveredP2pIp = ip;
+      };
+      this.peerDiscoveryService.on('ip:changed', this.ipChangedHandler);
+    }
+
     this.discoveryRunningPromise = new RunningPromise(
       async () => {
         await this.peerManager.heartbeat();
@@ -610,6 +640,11 @@ export class LibP2PService extends WithTracer implements P2PService {
     // Remove gossip sub listener
     this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
 
+    if (this.ipChangedHandler) {
+      this.peerDiscoveryService.removeListener('ip:changed', this.ipChangedHandler);
+      this.ipChangedHandler = undefined;
+    }
+
     // Stop peer manager
     this.logger.debug('Stopping peer manager...');
     await this.peerManager.stop();
@@ -624,12 +659,8 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.logger.info('LibP2P service stopped');
   }
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
-    return this.reqresp.addSubProtocol(subProtocol, handler, validator);
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void> {
+    return this.reqresp.addSubProtocol(subProtocol, handler);
   }
 
   public registerThisValidatorAddresses(address: EthAddress[]): void {
@@ -655,20 +686,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
     };
     setImmediate(() => void safeJob());
-  }
-
-  /**
-   * Send a batch of requests to peers, and return the responses
-   * @param protocol - The request response protocol to use
-   * @param requests - The requests to send to the peers
-   * @returns The responses to the requests
-   */
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    protocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeerId: PeerId | undefined,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
   public sendRequestToPeer(
@@ -721,6 +738,10 @@ export class LibP2PService extends WithTracer implements P2PService {
    */
   public registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void {
     this.duplicateAttestationCallback = callback;
+  }
+
+  public registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void {
+    this.checkpointAttestationCallback = callback;
   }
 
   /**
@@ -1183,6 +1204,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     }
 
     // Attestation was added successfully - accept it so other nodes can also detect the equivocation
+    this.checkpointAttestationCallback?.(attestation);
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
@@ -1485,22 +1507,21 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   /**
-   * Validate the requested block transactions. Allow partial returns.
+   * Validate the requested block transactions request-response consistency.
+   * It does NOT validate the transactions themselves.
    * @param request - The block transactions request.
    * @param response - The block transactions response.
    * @param peerId - The ID of the peer that made the request.
-   * @returns True if the requested block transactions are valid, false otherwise.
+   * @returns True if the request-response is consistent, false otherwise.
    */
-  @trackSpan('Libp2pService.validateRequestedBlockTxs', request => ({
+  @trackSpan('Libp2pService.validateRequestedBlockTxsConsistency', request => ({
     [Attributes.BLOCK_ARCHIVE]: request.archiveRoot.toString(),
   }))
-  protected async validateRequestedBlockTxs(
+  protected async validateRequestedBlockTxsConsistency(
     request: BlockTxsRequest,
     response: BlockTxsResponse,
     peerId: PeerId,
   ): Promise<boolean> {
-    const requestedTxValidator = this.createRequestedTxValidator();
-
     try {
       if (!response.archiveRoot.equals(request.archiveRoot)) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
@@ -1560,7 +1581,6 @@ export class LibP2PService extends WithTracer implements P2PService {
         return false;
       }
 
-      await Promise.all(response.txs.map(tx => this.validateRequestedTx(tx, peerId, requestedTxValidator)));
       return true;
     } catch (e: any) {
       if (e instanceof ValidationError) {
@@ -1571,69 +1591,6 @@ export class LibP2PService extends WithTracer implements P2PService {
 
       return false;
     }
-  }
-
-  /**
-   * Validate a collection of txs that has been requested from a peer.
-   *
-   * The core component of this validator is that each tx hash MUST match the requested tx hash,
-   * In order to perform this check, the tx proof must be verified.
-   *
-   * Note: This function is called from within `ReqResp.sendRequest` as part of the
-   * ReqRespSubProtocol.TX subprotocol validation.
-   *
-   * @param requestedTxHash - The collection of the txs that was requested.
-   * @param responseTx - The collection of txs that was received as a response to the request.
-   * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the whole collection of txs is valid, false otherwise.
-   */
-  @trackSpan('Libp2pService.validateRequestedTx', (requestedTxHash, _responseTx) => ({
-    [Attributes.TX_HASH]: requestedTxHash.toString(),
-  }))
-  private async validateRequestedTxs(requestedTxHash: TxHash[], responseTx: Tx[], peerId: PeerId): Promise<boolean> {
-    const requested = new Set(requestedTxHash.map(h => h.toString()));
-    const requestedTxValidator = this.createRequestedTxValidator();
-
-    //TODO: (mralj) - this is somewhat naive implementation, if single tx is invalid we consider the whole response invalid.
-    // I think we should still extract the valid txs and return them, so that we can still use the response.
-    try {
-      await Promise.all(responseTx.map(tx => this.validateRequestedTx(tx, peerId, requestedTxValidator, requested)));
-      return true;
-    } catch (e: any) {
-      if (e instanceof ValidationError) {
-        this.logger.warn(`Failed to validate requested txs from peer ${peerId.toString()}, reason ${e.message}`);
-      } else {
-        this.logger.error(`Error during validation of requested txs`, e);
-      }
-
-      return false;
-    }
-  }
-
-  protected async validateRequestedTx(
-    tx: Tx,
-    peerId: PeerId,
-    txValidator: TxValidator,
-    requested?: Set<`0x${string}`>,
-  ) {
-    const penalize = (severity: PeerErrorSeverity) => this.peerManager.penalizePeer(peerId, severity);
-    if (requested && !requested.has(tx.getTxHash().toString())) {
-      penalize(PeerErrorSeverity.MidToleranceError);
-      throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that was not requested.`);
-    }
-
-    const { result } = await txValidator.validateTx(tx);
-    if (result === 'invalid') {
-      penalize(PeerErrorSeverity.LowToleranceError);
-      throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that is invalid.`);
-    }
-  }
-
-  protected createRequestedTxValidator(): TxValidator {
-    return createTxValidatorForReqResponseReceivedTxs(this.proofVerifier, {
-      l1ChainId: this.config.l1ChainId,
-      rollupVersion: this.config.rollupVersion,
-    });
   }
 
   private getGasFees(): Promise<GasFees> {
@@ -1653,6 +1610,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         proofVerifier: this.proofVerifier,
       },
       peerScoring: this.peerManager,
+      validateRequestedBlockTxsConsistency: this.validateRequestedBlockTxsConsistency.bind(this),
     };
   }
 

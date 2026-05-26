@@ -89,7 +89,10 @@ export const AbiDecodedSchema: ZodFor<AbiDecoded> = z.union([
   z.boolean(),
   schemas.AztecAddress,
   z.array(z.lazy(() => AbiDecodedSchema)),
-  z.record(z.lazy(() => AbiDecodedSchema)),
+  z.record(
+    z.string(),
+    z.lazy(() => AbiDecodedSchema),
+  ),
 ]);
 
 // C++ only supports null values, which we want to convert to undefined.
@@ -103,6 +106,8 @@ export {
   hexSchemaFor,
   bufferSchemaFor,
   type ApiSchemaFor,
+  getSchemaParameters,
+  getSchemaReturnType,
   optional,
   mapSchema,
   pickFromSchema,

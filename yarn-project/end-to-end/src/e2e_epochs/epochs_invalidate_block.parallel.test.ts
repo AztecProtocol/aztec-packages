@@ -172,7 +172,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     disableConfig: Record<string, unknown>;
   }) {
     const sequencers = nodes.map(node => node.getSequencer()!);
-    const initialCheckpointNumber = (await nodes[0].getL2Tips()).checkpointed.checkpoint.number;
+    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
 
     sequencers.forEach(sequencer => {
       sequencer.updateConfig({ ...opts.attackConfig, minTxsPerBlock: 0 });
@@ -264,7 +264,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   it('proposer invalidates previous checkpoint with multiple blocks while posting its own', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
     const [initialCheckpointNumber, initialBlockNumber] = await nodes[0]
-      .getL2Tips()
+      .getChainTips()
       .then(t => [t.checkpointed.checkpoint.number, t.checkpointed.block.number] as const);
 
     // Configure all sequencers to skip collecting attestations before starting
@@ -376,14 +376,21 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`Started all sequencers, waiting for first checkpoint before applying malicious config`);
 
     // Wait for at least one checkpoint to be mined so that any in-progress slot has completed
-    const initialCheckpointNumber = (await nodes[0].getL2Tips()).checkpointed.checkpoint.number;
+    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
     await test.waitUntilCheckpointNumber(CheckpointNumber(initialCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 4);
+
+    // Align to the start of an L2 slot before computing the bad slots, so we have a generous
+    // buffer to push the malicious config to badSlot1's proposer before it snapshots its config
+    // into a new CheckpointProposalJob. Under proposer pipelining, that job is built during the
+    // last L1 slot of the previous L2 slot (when getEpochAndSlotInNextL1Slot first returns the
+    // proposer's target slot), so the practical window is somewhat less than a full L2 slot.
+    await test.monitor.waitUntilNextL2Slot();
     const { l2SlotNumber: currentSlot } = await test.monitor.run();
     logger.warn(`First checkpoint mined, current slot is ${currentSlot}`);
 
-    // Pick the next two slots after the current one, with a 1-slot gap to account for pipelining
-    const badSlot1 = SlotNumber.add(currentSlot, 2);
-    const badSlot2 = SlotNumber.add(currentSlot, 3);
+    // Pick the next two slots with a 2-slot gap to account for pipelining plus a margin
+    const badSlot1 = SlotNumber.add(currentSlot, 3);
+    const badSlot2 = SlotNumber.add(currentSlot, 4);
     const badSlots = [badSlot1, badSlot2];
     const badProposers = await Promise.all(badSlots.map(s => test.epochCache.getProposerAttesterAddressInSlot(s)));
 
@@ -469,7 +476,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   // instead waits for a committee member to invalidate the block after several proposers not doing so.
   it('committee member invalidates a block if proposer does not come through', async () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
-    const initialCheckpointNumber = await nodes[0].getL2Tips().then(t => t.checkpointed.checkpoint.number);
+    const initialCheckpointNumber = await nodes[0].getChainTips().then(t => t.checkpointed.checkpoint.number);
 
     // Configure all sequencers to skip collecting attestations before starting
     logger.warn('Configuring all sequencers to skip attestation collection and invalidation as proposer');

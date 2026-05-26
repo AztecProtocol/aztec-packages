@@ -33,7 +33,12 @@ import {
   MaliciousCommitteeAttestationsAndSigners,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { type Checkpoint, type ProposedCheckpointData, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  type Checkpoint,
+  type ProposedCheckpointData,
+  getPreviousCheckpointOutHashes,
+  validateCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import { computeQuorum, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -61,10 +66,7 @@ import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validato
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import {
-  buildPipelinedParentSimulationOverridesPlan,
-  buildSubmissionSimulationOverridesPlan,
-} from './chain_state_overrides.js';
+import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
@@ -104,8 +106,13 @@ export class CheckpointProposalJob implements Traceable {
   /** Tracks the fire-and-forget L1 submission promise so it can be awaited during shutdown. */
   private pendingL1Submission: Promise<void> | undefined;
 
-  /** Pipelined parent chain state used while building and later submitting this checkpoint. */
-  private pipelinedParentSimulationOverridesPlan?: SimulationOverridesPlan;
+  /**
+   * Chain state overrides built once per slot in proposeCheckpoint after the checkpoint is
+   * complete. Carries the pending parent override (archive + slot + fee header) for pipelining,
+   * or the invalidation pending override when rolling back. Consumed by
+   * publisher.validateBlockHeader before broadcast.
+   */
+  private checkpointSimulationOverridesPlan?: SimulationOverridesPlan;
 
   private getSignatureContext(): CoordinationSignatureContext {
     return this.signatureContext;
@@ -117,6 +124,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly targetEpoch: EpochNumber,
     private readonly checkpointNumber: CheckpointNumber,
     private readonly syncedToBlockNumber: BlockNumber,
+    private readonly checkpointedCheckpointNumber: CheckpointNumber,
     // TODO(palla/mbps): Can we remove the proposer in favor of attestorAddress? Need to check fisherman-node flows.
     private readonly proposer: EthAddress | undefined,
     private readonly publisher: SequencerPublisher,
@@ -198,9 +206,14 @@ export class CheckpointProposalJob implements Traceable {
 
     if (!broadcast) {
       await Promise.all(votesPromises);
-      // Still submit votes even without a checkpoint
+      // Still submit votes even without a checkpoint.
+      // Under proposer pipelining, vote-offenses signatures are EIP-712-bound to `targetSlot`
+      // (the pipelined slot in which the multicall is expected to mine). Submitting at the
+      // wall-clock time would let the multicall mine in a different L2 slot, causing
+      // signature verification to fail silently inside Multicall3. Delay submission to the
+      // start of `targetSlot` so the tx mines in the slot the vote was signed for.
       if (!this.config.fishermanMode) {
-        this.pendingL1Submission = this.publisher.sendRequestsAt(this.dateProvider.nowAsDate()).then(() => {});
+        this.pendingL1Submission = this.publisher.sendRequestsAt(this.targetSlot).then(() => {});
       }
       return undefined;
     }
@@ -259,12 +272,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Send whatever was enqueued: votes + (propose | invalidation | nothing).
-      // Compute the earliest time to submit: pipeline slot start when pipelining, now otherwise.
-      const submitAfter = isPipelining
-        ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
-        : new Date(this.dateProvider.now());
-
-      const l1Response = await this.publisher.sendRequestsAt(submitAfter);
+      const l1Response = await this.publisher.sendRequestsAt(this.targetSlot);
       const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
       if (proposedAction) {
         this.logCheckpointEvent('published', `Checkpoint published for slot ${this.targetSlot}`, {
@@ -344,17 +352,8 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
-    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-    const submissionSimulationOverridesPlan = buildSubmissionSimulationOverridesPlan({
-      pipelinedParentPlan: this.pipelinedParentSimulationOverridesPlan,
-      invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-      lastArchiveRoot: checkpoint.header.lastArchiveRoot,
-      pipeliningEnabled: isPipelining,
-    });
-
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
-      ...(submissionSimulationOverridesPlan ? { simulationOverridesPlan: submissionSimulationOverridesPlan } : {}),
     });
   }
 
@@ -536,37 +535,52 @@ export class CheckpointProposalJob implements Traceable {
         this.publisher.enqueueInvalidateCheckpoint(this.invalidateCheckpoint);
       }
 
-      // Create checkpoint builder for the slot.
-      // When pipelining, force the proposed checkpoint number and fee header to our parent so the
-      // fee computation sees the same chain tip that L1 will see once the previous pipelined checkpoint lands.
+      // Build the simulation plan for this slot. When pipelining, this overrides L1's view of
+      // pending/archive/fee-header to "as if the proposed parent had landed", so both the
+      // mana-min-fee simulation (in the globals builder) and the pre-broadcast
+      // validateBlockHeader see the chain tip the eventual L1 send will see.
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-      this.pipelinedParentSimulationOverridesPlan = isPipelining
-        ? await buildPipelinedParentSimulationOverridesPlan({
-            checkpointNumber: this.checkpointNumber,
-            proposedCheckpointData: this.proposedCheckpointData,
-            rollup: this.publisher.rollupContract,
-            log: this.log,
-          })
-        : undefined;
+      this.checkpointSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber: this.checkpointNumber,
+        proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
+        invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
+        checkpointedCheckpointNumber: this.checkpointedCheckpointNumber,
+        rollup: this.publisher.rollupContract,
+        signatureContext: this.signatureContext,
+        log: this.log,
+      });
 
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
         feeRecipient,
         this.targetSlot,
-        this.pipelinedParentSimulationOverridesPlan,
+        this.checkpointSimulationOverridesPlan,
       );
 
       // Collect L1 to L2 messages for the checkpoint and compute their hash
       const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(this.checkpointNumber);
       const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
-      // Collect the out hashes of all the checkpoints before this one in the same epoch
-      const previousCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsDataForEpoch(this.targetEpoch))
-        .filter(c => c.checkpointNumber < this.checkpointNumber)
-        .map(c => c.checkpointOutHash);
+      // Collect the out hashes of all the checkpoints before this one in the same epoch.
+      // Under pipelining the parent checkpoint may not be on L1 yet at build time, so the helper
+      // splices in the parent's checkpointOutHash from the locally-known proposed checkpoint so
+      // the resulting `epochOutHash` matches what validators (and L1) compute once the parent
+      // lands on L1.
+      const previousCheckpointOutHashes = await getPreviousCheckpointOutHashes({
+        blockSource: this.l2BlockSource,
+        epoch: this.targetEpoch,
+        checkpointNumber: this.checkpointNumber,
+        l1Constants: this.epochCache.getL1Constants(),
+        pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
+        proposedCheckpointData: this.proposedCheckpointData,
+        log: this.log,
+      });
 
-      // Get the fee asset price modifier from the oracle
-      const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
+      // Anchor the modifier to the predicted parent fee header: L1 will apply it against
+      // that, not against the latest published checkpoint (which lags by one under pipelining).
+      const predictedParentEthPerFeeAssetE12 =
+        this.checkpointSimulationOverridesPlan?.pendingCheckpointState?.feeHeader?.ethPerFeeAsset;
+      const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12);
 
       // Create a long-lived forked world state for the checkpoint builder
       await using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
@@ -590,7 +604,8 @@ export class CheckpointProposalJob implements Traceable {
 
       const checkpointProposalOptions: CheckpointProposalOptions = {
         publishFullTxs: !!this.config.publishTxsWithProposals,
-        broadcastInvalidCheckpointProposal: this.config.broadcastInvalidBlockProposal,
+        broadcastInvalidCheckpointProposal:
+          this.config.broadcastInvalidCheckpointProposalOnly || this.config.broadcastInvalidBlockProposal,
       };
 
       let blocksInCheckpoint: L2Block[] = [];
@@ -722,6 +737,25 @@ export class CheckpointProposalJob implements Traceable {
         return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now() };
       }
 
+      // Validate the header against L1 state before broadcasting.
+      // If this fails the slot is aborted before any gossip work; state drift between here
+      // and the eventual L1 send is caught by the bundle simulate at send time.
+      try {
+        await this.publisher.validateBlockHeader(checkpoint.header, this.checkpointSimulationOverridesPlan);
+      } catch (err) {
+        this.log.error(`Pre-broadcast header validation failed for slot ${this.targetSlot}; aborting`, err, {
+          slot: this.targetSlot,
+          checkpointNumber: this.checkpointNumber,
+        });
+        this.metrics.recordCheckpointProposalFailed('header_validation_failed');
+        this.eventEmitter.emit('header-validation-failed', {
+          slot: this.targetSlot,
+          checkpointNumber: this.checkpointNumber,
+          reason: err instanceof Error ? err.message : String(err),
+        });
+        return undefined;
+      }
+
       // Create the checkpoint proposal and broadcast it
       const proposal = await this.validatorClient.createCheckpointProposal(
         checkpoint.header,
@@ -846,7 +880,12 @@ export class CheckpointProposalJob implements Traceable {
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
       // Sign the block proposal. This will throw if HA signing fails.
-      const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
+      const proposal = await this.createBlockProposal(block, inHash, usedTxs, {
+        ...blockProposalOptions,
+        broadcastInvalidBlockProposal:
+          blockProposalOptions.broadcastInvalidBlockProposal ||
+          block.indexWithinCheckpoint === this.config.invalidBlockProposalIndexWithinCheckpoint,
+      });
 
       // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal,
       // so we avoid polluting our archive with a block that would fail.
@@ -1066,6 +1105,9 @@ export class CheckpointProposalJob implements Traceable {
       // `buildSlot` is the wall-clock slot during which the block was actually built.
       this.eventEmitter.emit('block-proposed', {
         blockNumber: block.number,
+        blockHash,
+        checkpointNumber: this.checkpointNumber,
+        indexWithinCheckpoint: block.indexWithinCheckpoint,
         slot: this.targetSlot,
         buildSlot: this.slotNow,
       });

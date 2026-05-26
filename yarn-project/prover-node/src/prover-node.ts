@@ -166,10 +166,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   async stop() {
     this.log.info('Stopping ProverNode');
     await this.epochsMonitor.stop();
-    await this.prover.stop();
-    await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
+    await this.prover.stop();
+    await tryStop(this.publisherFactory);
     this.rewardsMetrics.stop();
     this.l1Metrics.stop();
     await this.telemetryClient.stop();
@@ -312,24 +312,19 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
   private async gatherEpochData(epochNumber: EpochNumber): Promise<EpochProvingJobData> {
-    const checkpoints = await this.gatherCheckpoints(epochNumber);
+    const publishedCheckpoints = await this.l2BlockSource.getCheckpoints({ epoch: epochNumber });
+    if (publishedCheckpoints.length === 0) {
+      throw new EmptyEpochError(epochNumber);
+    }
+    const checkpoints = publishedCheckpoints.map(p => p.checkpoint);
+    const attestations = publishedCheckpoints.at(-1)?.attestations ?? [];
     const txArray = await this.gatherTxs(epochNumber, checkpoints);
     const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
     const l1ToL2Messages = await this.gatherMessages(epochNumber, checkpoints);
     const [firstBlock] = checkpoints[0].blocks;
     const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, firstBlock.number - 1);
-    const [lastPublishedCheckpoint] = await this.l2BlockSource.getCheckpoints(checkpoints.at(-1)!.number, 1);
-    const attestations = lastPublishedCheckpoint?.attestations ?? [];
 
     return { checkpoints, txs, l1ToL2Messages, epochNumber, previousBlockHeader, attestations };
-  }
-
-  private async gatherCheckpoints(epochNumber: EpochNumber) {
-    const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epochNumber);
-    if (checkpoints.length === 0) {
-      throw new EmptyEpochError(epochNumber);
-    }
-    return checkpoints;
   }
 
   private async gatherTxs(epochNumber: EpochNumber, checkpoints: Checkpoint[]) {

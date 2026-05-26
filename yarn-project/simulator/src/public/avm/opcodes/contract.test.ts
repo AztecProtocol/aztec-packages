@@ -16,6 +16,7 @@ describe('Contract opcodes', () => {
   let deployer: AztecAddress;
   let contractClassId: Fr;
   let initializationHash: Fr;
+  let immutablesHash: Fr;
 
   let persistableState: jest.Mocked<PublicPersistableStateManager>;
   let context: AvmContext;
@@ -26,6 +27,7 @@ describe('Contract opcodes', () => {
     deployer = contractInstance.deployer;
     contractClassId = contractInstance.currentContractClassId;
     initializationHash = contractInstance.initializationHash;
+    immutablesHash = contractInstance.immutablesHash;
     persistableState = mock<PublicPersistableStateManager>();
     context = initContext({ persistableState });
   });
@@ -54,6 +56,7 @@ describe('Contract opcodes', () => {
       [ContractInstanceMember.DEPLOYER, () => deployer.toField()],
       [ContractInstanceMember.CLASS_ID, () => contractClassId.toField()],
       [ContractInstanceMember.INIT_HASH, () => initializationHash.toField()],
+      [ContractInstanceMember.IMMUTABLES_HASH, () => immutablesHash.toField()],
     ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, valueGetter: () => Fr) => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         const value = valueGetter();
@@ -87,6 +90,7 @@ describe('Contract opcodes', () => {
       [ContractInstanceMember.DEPLOYER],
       [ContractInstanceMember.CLASS_ID],
       [ContractInstanceMember.INIT_HASH],
+      [ContractInstanceMember.IMMUTABLES_HASH],
     ])(
       'GETCONTRACTINSTANCE member instruction works when contract does not exist',
       (memberEnum: ContractInstanceMember) => {
@@ -124,7 +128,7 @@ describe('Contract opcodes', () => {
         /*memberEnum=*/ invalidEnum,
       );
       await expect(instruction.execute(context)).rejects.toThrow(
-        `Invalid GETCONSTRACTINSTANCE member enum ${invalidEnum}`,
+        `Invalid GETCONTRACTINSTANCE member enum ${invalidEnum}`,
       );
     });
   });

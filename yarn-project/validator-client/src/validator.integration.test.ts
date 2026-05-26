@@ -21,7 +21,7 @@ import { TestTxProvider } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
-import { L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -109,7 +109,7 @@ describe('ValidatorClient Integration', () => {
     // production wiring (see aztec-node/server.ts). Both sides must agree on the genesis hash for
     // L2BlockStream's `areBlockHashesEqualAt` check to succeed at block 0.
     const wsConfig = {
-      l1Contracts: { rollupAddress },
+      rollupAddress,
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 10,
       worldStateDbMapSizeKb: 1024 * 1024,
@@ -170,15 +170,17 @@ describe('ValidatorClient Integration', () => {
     // Create and start validator
     const validator = await ValidatorClient.new(
       {
-        l1Contracts: { rollupAddress },
+        rollupAddress,
         l1ChainId: chainId.toNumber(),
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
         disableValidator: false,
         disabledValidators: [],
         slashBroadcastedInvalidBlockPenalty: 10n,
+        slashBroadcastedInvalidCheckpointProposalPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
         slashDuplicateAttestationPenalty: 10n,
+        slashAttestInvalidCheckpointProposalPenalty: 10n,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,
@@ -196,6 +198,7 @@ describe('ValidatorClient Integration', () => {
       txProvider,
       keyStoreManager,
       blobClient,
+      new CheckpointReexecutionTracker(),
       dateProvider,
     );
 

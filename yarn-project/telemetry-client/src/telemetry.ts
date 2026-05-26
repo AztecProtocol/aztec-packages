@@ -48,7 +48,6 @@ type BannedMetricAttributeNames = (typeof Attributes)[
   | 'TX_HASH'
   | 'PROVING_JOB_ID'
   | 'P2P_ID'
-  | 'P2P_REQ_RESP_BATCH_REQUESTS_COUNT'
   | 'TARGET_ADDRESS'
   | 'MANA_USED'
   | 'TOTAL_INSTRUCTIONS'];

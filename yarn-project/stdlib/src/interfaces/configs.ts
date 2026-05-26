@@ -1,3 +1,4 @@
+import { type SlotNumber, SlotNumberSchema } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Prettify } from '@aztec/foundation/types';
 
@@ -63,6 +64,14 @@ export interface SequencerConfig {
   skipInvalidateBlockAsProposer?: boolean;
   /** Broadcast invalid block proposals with corrupted state (for testing only) */
   broadcastInvalidBlockProposal?: boolean;
+  /** Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only) */
+  invalidBlockProposalIndexWithinCheckpoint?: number;
+  /**
+   * Broadcast invalid checkpoint proposals (with corrupted archive) while keeping the underlying
+   * block proposals valid (for testing only). When unset, the checkpoint follows
+   * `broadcastInvalidBlockProposal`.
+   */
+  broadcastInvalidCheckpointProposalOnly?: boolean;
   /** Inject a fake attestation (for testing only) */
   injectFakeAttestation?: boolean;
   /** Inject a malleable attestation with a high-s value (for testing only) */
@@ -87,6 +96,8 @@ export interface SequencerConfig {
   skipPublishingCheckpointsPercent?: number;
   /** Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only) */
   skipBroadcastProposals?: boolean;
+  /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
+  pauseProposingForSlots?: SlotNumber[];
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -118,6 +129,8 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
     secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
+    invalidBlockProposalIndexWithinCheckpoint: z.number().int().nonnegative().optional(),
+    broadcastInvalidCheckpointProposalOnly: z.boolean().optional(),
     injectFakeAttestation: z.boolean().optional(),
     injectHighSValueAttestation: z.boolean().optional(),
     injectUnrecoverableSignatureAttestation: z.boolean().optional(),
@@ -130,6 +143,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
     skipBroadcastProposals: z.boolean().optional(),
+    pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
   }),
 );
 
@@ -145,6 +159,7 @@ type SequencerConfigOptionalKeys =
   | 'fakeThrowAfterProcessingTxCount'
   | 'l1PublishingTime'
   | 'txPublicSetupAllowListExtend'
+  | 'invalidBlockProposalIndexWithinCheckpoint'
   | 'minValidTxsPerBlock'
   | 'minBlocksForCheckpoint'
   | 'maxTxsPerBlock'
@@ -152,7 +167,8 @@ type SequencerConfigOptionalKeys =
   | 'maxL2BlockGas'
   | 'maxDABlockGas'
   | 'redistributeCheckpointBudget'
-  | 'skipBroadcastProposals';
+  | 'skipBroadcastProposals'
+  | 'pauseProposingForSlots';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

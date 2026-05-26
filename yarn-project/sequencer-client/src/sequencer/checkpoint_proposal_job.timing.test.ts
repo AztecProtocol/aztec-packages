@@ -301,6 +301,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epoch,
       checkpointNumber,
       BlockNumber.ZERO,
+      CheckpointNumber(checkpointNumber - 1),
       proposer,
       publisher,
       attestorAddress,
@@ -405,7 +406,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -435,7 +436,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
     l2BlockSource = mock<L2BlockSource>();
-    l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsData.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -1047,6 +1048,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
         epoch,
         checkpointNumber,
         BlockNumber.ZERO,
+        CheckpointNumber(checkpointNumber - 1),
         proposer,
         publisher,
         attestorAddress,

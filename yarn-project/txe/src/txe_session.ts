@@ -24,7 +24,6 @@ import {
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
   Oracle,
-  PrivateExecutionOracle,
   UtilityExecutionOracle,
 } from '@aztec/pxe/simulator';
 import {
@@ -38,7 +37,7 @@ import {
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasSettings } from '@aztec/stdlib/gas';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -46,13 +45,15 @@ import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } 
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS } from './constants.js';
+import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
+import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
+import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './txe_oracle_version.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
@@ -109,9 +110,16 @@ export type TXEOracleFunctionName = Exclude<
 >;
 
 export interface TXESessionStateHandler {
+  /** Records the TXE oracle version reported by the Noir test code for diagnostics. */
+  setTxeOracleVersion(major: number, minor: number): void;
+
   enterTopLevelState(): Promise<void>;
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
-  enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
+  enterPrivateState(
+    contractAddress: AztecAddress | undefined,
+    anchorBlockNumber: BlockNumber | undefined,
+    gasSettings: GasSettings,
+  ): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 
   // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
@@ -186,6 +194,7 @@ export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
   private lastCallInfo: LastCallState = emptyLastCallState();
+  private txeOracleVersion: { major: number; minor: number } | undefined;
 
   constructor(
     private logger: Logger,
@@ -306,7 +315,28 @@ export class TXESession implements TXESessionStateHandler {
       return translator[validatedFunctionName](...inputs);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`${functionName} does not correspond to any oracle handler available on RPCTranslator`);
+        let versionHint: string;
+        if (!this.txeOracleVersion) {
+          versionHint =
+            ' The test appears to use an older version of Aztec.nr that does not' +
+            ' support test environment oracle versioning. Update Aztec.nr to a compatible version.' +
+            ' See https://docs.aztec.network/errors/12';
+        } else if (this.txeOracleVersion.minor > TXE_ORACLE_VERSION_MINOR) {
+          versionHint =
+            ` The test uses Aztec.nr test oracle version` +
+            ` ${this.txeOracleVersion.major}.${this.txeOracleVersion.minor}, but this test environment` +
+            ` only supports up to ${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}.` +
+            ` Upgrade the Aztec CLI to a compatible version.` +
+            ` See https://docs.aztec.network/errors/12`;
+        } else {
+          versionHint =
+            ` The test's oracle version (${this.txeOracleVersion.major}.${this.txeOracleVersion.minor})` +
+            ` is compatible with this test environment` +
+            ` (${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}), so this oracle should be` +
+            ` available. This is an unexpected error, please report it.` +
+            ` See https://docs.aztec.network/errors/13`;
+        }
+        throw new Error(`Unknown oracle '${functionName}'.${versionHint}`);
       } else if (error instanceof Error) {
         throw new Error(
           `Execution error while processing function ${functionName} in state ${this.state.name}: ${error.message}`,
@@ -358,7 +388,8 @@ export class TXESession implements TXESessionStateHandler {
     this.resetLastCall();
     // Capture the anchor *before* `work` runs: private/public executor calls mine a new block as a
     // side effect, and that block's timestamp should not be attributed to this call's anchor.
-    const anchorBlockTimestamp = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
+    const anchorBlockTimestamp = (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables
+      .timestamp;
     const { result, txHash } = await work();
     this.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
     return result;
@@ -366,12 +397,36 @@ export class TXESession implements TXESessionStateHandler {
 
   getLastCallOffchainEffects(): { effects: Fr[][] } {
     this.lastCallInfo.queried = true;
-    return { effects: this.lastCallInfo.offchainEffects };
+    const effects = this.lastCallInfo.offchainEffects;
+
+    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
+      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
+    }
+    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
+      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
+    }
+
+    return { effects };
   }
 
   getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
     const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
     return { txHash, anchorBlockTimestamp };
+  }
+
+  setTxeOracleVersion(major: number, minor: number): void {
+    if (major !== TXE_ORACLE_VERSION_MAJOR) {
+      const hint =
+        major > TXE_ORACLE_VERSION_MAJOR
+          ? 'The test was compiled with a newer version of Aztec.nr than your test environment supports. Upgrade your test environment to a compatible version.'
+          : 'The test was compiled with an older version of Aztec.nr than your test environment supports. Recompile the test with a compatible version of Aztec.nr.';
+      throw new Error(
+        `Incompatible test environment version: ${hint} See https://docs.aztec.network/errors/12 (expected test oracle major version ${TXE_ORACLE_VERSION_MAJOR}, got ${major})`,
+      );
+    }
+
+    this.txeOracleVersion = { major, minor };
+    this.logger.debug(`Test compiled with test oracle version ${major}.${minor}`);
   }
 
   async enterTopLevelState() {
@@ -423,7 +478,8 @@ export class TXESession implements TXESessionStateHandler {
 
   async enterPrivateState(
     contractAddress: AztecAddress = DEFAULT_ADDRESS,
-    anchorBlockNumber?: BlockNumber,
+    anchorBlockNumber: BlockNumber | undefined,
+    gasSettings: GasSettings,
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
     this.resetLastCall();
@@ -431,13 +487,13 @@ export class TXESession implements TXESessionStateHandler {
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
-    const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
+    const anchorBlock = await this.stateMachine.node.getBlock(anchorBlockNumber ?? 'latest').then(b => b?.header);
 
     await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
       contractAddress,
       await this.keyStore.getAccounts(),
     );
-    const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
+    const latestBlock = await this.stateMachine.node.getBlock('latest').then(b => b?.header);
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
       blockNumber: BlockNumber(latestBlock!.globalVariables.blockNumber + 1),
@@ -452,9 +508,9 @@ export class TXESession implements TXESessionStateHandler {
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
-    this.oracleHandler = new PrivateExecutionOracle({
+    this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
-      txContext: new TxContext(this.chainId, this.version, GasSettings.empty()),
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlockHeader: anchorBlock!,
       utilityExecutor,
@@ -474,7 +530,7 @@ export class TXESession implements TXESessionStateHandler {
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
-      l2TipsStore: this.stateMachine.node,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
@@ -493,7 +549,7 @@ export class TXESession implements TXESessionStateHandler {
     // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
     this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
 
-    return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
+    return (this.oracleHandler as TXEPrivateExecutionOracle).getPrivateContextInputs();
   }
 
   async enterPublicState(contractAddress?: AztecAddress) {
@@ -502,7 +558,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // The PublicContext will create a block with a single transaction in it, containing the effects of what was done in
     // the test. The block therefore gets the *next* block number and timestamp.
-    const latestHeader = (await this.stateMachine.node.getBlockHeader('latest'))!;
+    const latestHeader = (await this.stateMachine.node.getBlockData('latest'))!.header;
     const globalVariables = makeGlobalVariables(undefined, {
       blockNumber: BlockNumber(latestHeader.globalVariables.blockNumber + 1),
       timestamp: this.nextBlockTimestamp,
@@ -558,10 +614,11 @@ export class TXESession implements TXESessionStateHandler {
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
       contractSyncService: this.stateMachine.contractSyncService,
-      l2TipsStore: this.stateMachine.node,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
+      utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
     });
 
     this.state = { name: 'UTILITY' };
@@ -657,10 +714,11 @@ export class TXESession implements TXESessionStateHandler {
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
           contractSyncService: this.stateMachine.contractSyncService,
-          l2TipsStore: this.stateMachine.node,
+          l2TipsStore: this.stateMachine.l2TipsProvider,
           jobId: this.currentJobId,
           scopes,
           simulator,
+          utilityExecutor: this.utilityExecutorForContractSync(anchorBlock),
         });
         await simulator
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

@@ -69,7 +69,7 @@ import {
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
-import { computePipelinedParentFeeHeader } from './chain_state_overrides.js';
+import { buildCheckpointSimulationOverridesPlan, computePipelinedParentFeeHeader } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
@@ -177,6 +177,7 @@ describe('CheckpointProposalJob', () => {
       epoch: EpochNumber(1),
       isEscapeHatchOpen: false,
     });
+    epochCache.getL1Constants.mockImplementation(() => l1Constants);
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -184,8 +185,15 @@ describe('CheckpointProposalJob', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
+
+    // Default rollup contract reads used by pipelined fee-header derivation. Tests that exercise
+    // the failure modes override these via jest.spyOn.
+    jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockResolvedValue({
+      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
+    } as any);
+    jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as TransactionReceipt, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as TransactionReceipt },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -234,7 +242,7 @@ describe('CheckpointProposalJob', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
     l2BlockSource = mock<L2BlockSource>();
-    l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsData.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -365,6 +373,8 @@ describe('CheckpointProposalJob', () => {
       checkpointBuilder.seedBlocks([block], [txs]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      // We build checkpoint 2 on top of proposed parent at checkpoint 1.
+      checkpointNumber = CheckpointNumber(2);
 
       const checkpoint = await createCheckpointProposalJob({
         targetSlot: SlotNumber(newSlotNumber + 1),
@@ -460,7 +470,7 @@ describe('CheckpointProposalJob', () => {
       );
 
       // Mock l2BlockSource to return the previous checkpoints
-      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue(previousCheckpointsData);
+      l2BlockSource.getCheckpointsData.mockResolvedValue(previousCheckpointsData);
 
       // Build block successfully
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
@@ -497,7 +507,7 @@ describe('CheckpointProposalJob', () => {
       );
 
       // Mock l2BlockSource to return all three checkpoints as data
-      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([
+      l2BlockSource.getCheckpointsData.mockResolvedValue([
         toCheckpointData(previousCheckpoint),
         toCheckpointData(currentCheckpoint),
         toCheckpointData(futureCheckpoint),
@@ -529,7 +539,7 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(2);
       const previousCheckpoint = await Checkpoint.random(CheckpointNumber(1));
 
-      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
+      l2BlockSource.getCheckpointsData.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
 
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
       job.setTimetable(
@@ -548,8 +558,136 @@ describe('CheckpointProposalJob', () => {
 
       await job.execute();
 
-      // Verify getCheckpointsDataForEpoch was called with targetEpoch (1), not the wall-clock epoch (0)
-      expect(l2BlockSource.getCheckpointsDataForEpoch).toHaveBeenCalledWith(targetEpoch);
+      // Verify getCheckpointsData was called with targetEpoch (1), not the wall-clock epoch (0)
+      expect(l2BlockSource.getCheckpointsData).toHaveBeenCalledWith({ epoch: targetEpoch });
+    });
+
+    it('splices the parent checkpointOutHash from proposedCheckpointData when pipelining and parent not yet on L1', async () => {
+      // Build checkpoint 2, where the parent (checkpoint 1) is in the same epoch but not yet checkpointed on L1.
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      checkpointNumber = CheckpointNumber(2);
+
+      // L1 archiver knows nothing yet — checkpoint 1's L1 tx is still in flight.
+      l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+
+      const parentCheckpointOutHash = Fr.random();
+      const parentHeader = CheckpointHeader.empty();
+      parentHeader.slotNumber = SlotNumber(newSlotNumber); // same epoch as targetEpoch (epoch 0)
+      const proposedCheckpointData: ProposedCheckpointData = {
+        checkpointNumber: CheckpointNumber(1),
+        header: parentHeader,
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: parentCheckpointOutHash,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 5000n,
+        feeAssetPriceModifier: 100n,
+      };
+
+      job = createCheckpointProposalJob({
+        targetSlot: SlotNumber(newSlotNumber + 1),
+        proposedCheckpointData,
+      });
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.executeAndAwait();
+
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      const call = checkpointsBuilder.startCheckpointCalls[0];
+      expect(call.previousCheckpointOutHashes).toEqual([parentCheckpointOutHash]);
+    });
+
+    it('does not splice the parent outHash when pipelining is disabled', async () => {
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
+      checkpointNumber = CheckpointNumber(2);
+
+      l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+
+      const proposedCheckpointData: ProposedCheckpointData = {
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.random(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 5000n,
+        feeAssetPriceModifier: 100n,
+      };
+
+      job = createCheckpointProposalJob({ proposedCheckpointData });
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.executeAndAwait();
+
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      expect(checkpointsBuilder.startCheckpointCalls[0].previousCheckpointOutHashes).toEqual([]);
+    });
+
+    it('does not splice the parent outHash when the parent is in a different epoch', async () => {
+      // Parent checkpoint sits at the last slot of the previous epoch; we are building the first
+      // checkpoint of the new epoch, so the parent's outHash must NOT contribute to our epochOutHash.
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      const targetEpoch = EpochNumber(1);
+      const targetSlot = SlotNumber(l1Constants.epochDuration);
+      const slotNow = SlotNumber(l1Constants.epochDuration - 1);
+
+      checkpointNumber = CheckpointNumber(2);
+
+      l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+
+      const parentHeader = CheckpointHeader.empty();
+      parentHeader.slotNumber = slotNow; // last slot of previous epoch
+      const proposedCheckpointData: ProposedCheckpointData = {
+        checkpointNumber: CheckpointNumber(1),
+        header: parentHeader,
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.random(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 5000n,
+        feeAssetPriceModifier: 100n,
+      };
+
+      job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch, proposedCheckpointData });
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.execute();
+
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      expect(checkpointsBuilder.startCheckpointCalls[0].previousCheckpointOutHashes).toEqual([]);
     });
   });
 
@@ -640,6 +778,7 @@ describe('CheckpointProposalJob', () => {
       overrides?.targetEpoch ?? epoch,
       checkpointNumber,
       lastBlockNumber,
+      CheckpointNumber(checkpointNumber - 1),
       proposer,
       publisher,
       attestorAddress,
@@ -674,11 +813,11 @@ describe('CheckpointProposalJob', () => {
     const pipelinedCheckpointNumber = CheckpointNumber(3);
 
     const pendingData: ProposedCheckpointData = {
-      checkpointNumber: CheckpointNumber(1),
+      checkpointNumber: CheckpointNumber(2),
       header: CheckpointHeader.empty(),
       archive: AppendOnlyTreeSnapshot.empty(),
       checkpointOutHash: Fr.ZERO,
-      startBlock: BlockNumber(1),
+      startBlock: BlockNumber(2),
       blockCount: 1,
       totalManaUsed: 5000n,
       feeAssetPriceModifier: 100n,
@@ -692,10 +831,10 @@ describe('CheckpointProposalJob', () => {
       proverCost: 10n,
     };
 
-    it('returns undefined when proposedCheckpointData is not set', async () => {
+    it('returns undefined when checkpoint number is below 2 (genesis grandparent)', async () => {
       const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: undefined,
+        checkpointNumber: CheckpointNumber(1),
+        proposedCheckpointData: pendingData,
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -731,40 +870,156 @@ describe('CheckpointProposalJob', () => {
       expect(result).toEqual(expected);
     });
 
-    it('returns undefined when grandparent checkpoint is not found', async () => {
+    it('throws when grandparent checkpoint is not found', async () => {
       mockRollup({ grandparentCheckpoint: undefined });
 
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: pendingData,
-        rollup: publisher.rollupContract,
-        log: createLogger('test'),
-      });
-      expect(result).toBeUndefined();
+      await expect(
+        computePipelinedParentFeeHeader({
+          checkpointNumber: pipelinedCheckpointNumber,
+          proposedCheckpointData: pendingData,
+          rollup: publisher.rollupContract,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/Grandparent checkpoint or feeHeader missing/);
     });
 
-    it('returns undefined when grandparent checkpoint has no feeHeader', async () => {
+    it('throws when grandparent checkpoint has no feeHeader', async () => {
       mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
 
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: pendingData,
-        rollup: publisher.rollupContract,
-        log: createLogger('test'),
-      });
-      expect(result).toBeUndefined();
+      await expect(
+        computePipelinedParentFeeHeader({
+          checkpointNumber: pipelinedCheckpointNumber,
+          proposedCheckpointData: pendingData,
+          rollup: publisher.rollupContract,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/Grandparent checkpoint or feeHeader missing/);
     });
 
-    it('returns undefined when rollup calls throw', async () => {
+    it('propagates errors from rollup calls', async () => {
       jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
 
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: pendingData,
+      await expect(
+        computePipelinedParentFeeHeader({
+          checkpointNumber: pipelinedCheckpointNumber,
+          proposedCheckpointData: pendingData,
+          rollup: publisher.rollupContract,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/rpc error/);
+    });
+  });
+
+  describe('buildCheckpointSimulationOverridesPlan', () => {
+    const checkpointNumberUnderTest = CheckpointNumber(2);
+
+    const grandparentFeeHeader: FeeHeader = {
+      manaUsed: 3000n,
+      excessMana: 1000n,
+      ethPerFeeAsset: 500n,
+      congestionCost: 50n,
+      proverCost: 10n,
+    };
+
+    function mockGrandparentFeeHeader() {
+      jest
+        .spyOn(publisher.rollupContract, 'getCheckpoint')
+        .mockResolvedValue({ feeHeader: grandparentFeeHeader } as any);
+      jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
+    }
+
+    function makeProposedParent(checkpointNumber: CheckpointNumber): ProposedCheckpointData {
+      return {
+        checkpointNumber,
+        header: CheckpointHeader.empty(),
+        archive: new AppendOnlyTreeSnapshot(Fr.random(), 1),
+        checkpointOutHash: Fr.random(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 5000n,
+        feeAssetPriceModifier: 100n,
+      };
+    }
+
+    it('pins both pending and proven to the snapshot when no proposed/invalidate input is provided', async () => {
+      const plan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        checkpointedCheckpointNumber: CheckpointNumber(4),
         rollup: publisher.rollupContract,
+        signatureContext,
         log: createLogger('test'),
       });
-      expect(result).toBeUndefined();
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(4));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(4));
+      expect(plan?.pendingCheckpointState).toBeUndefined();
+    });
+
+    it('overrides the full pending checkpoint cell from a pipelined parent', async () => {
+      mockGrandparentFeeHeader();
+      const proposedData = makeProposedParent(CheckpointNumber(1));
+
+      const plan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        proposedCheckpointData: proposedData,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
+        rollup: publisher.rollupContract,
+        signatureContext,
+        log: createLogger('test'),
+      });
+
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(1));
+      expect(plan?.pendingCheckpointState?.archive).toEqual(proposedData.archive.root);
+      expect(plan?.pendingCheckpointState?.slotNumber).toEqual(proposedData.header.slotNumber);
+      expect(plan?.pendingCheckpointState?.headerHash).toEqual(proposedData.header.hash());
+      expect(plan?.pendingCheckpointState?.outHash).toEqual(proposedData.checkpointOutHash);
+      expect(plan?.pendingCheckpointState?.payloadDigest).toBeDefined();
+      expect(plan?.pendingCheckpointState?.feeHeader).toBeDefined();
+    });
+
+    it('throws when the pipelined parent does not match the expected parent checkpoint', async () => {
+      const proposedData = makeProposedParent(CheckpointNumber(5));
+
+      await expect(
+        buildCheckpointSimulationOverridesPlan({
+          checkpointNumber: checkpointNumberUnderTest,
+          proposedCheckpointData: proposedData,
+          checkpointedCheckpointNumber: CheckpointNumber(0),
+          rollup: publisher.rollupContract,
+          signatureContext,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/does not match expected parent/);
+    });
+
+    it('throws when both proposedCheckpointData and invalidateToPendingCheckpointNumber are provided', async () => {
+      const proposedData = makeProposedParent(CheckpointNumber(1));
+
+      await expect(
+        buildCheckpointSimulationOverridesPlan({
+          checkpointNumber: checkpointNumberUnderTest,
+          proposedCheckpointData: proposedData,
+          invalidateToPendingCheckpointNumber: CheckpointNumber(0),
+          checkpointedCheckpointNumber: CheckpointNumber(0),
+          rollup: publisher.rollupContract,
+          signatureContext,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/mutually exclusive/);
+    });
+
+    it('sets pending and proven from an invalidation rollback without archive/fee overrides', async () => {
+      const plan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        invalidateToPendingCheckpointNumber: CheckpointNumber(0),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        rollup: publisher.rollupContract,
+        signatureContext,
+        log: createLogger('test'),
+      });
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(0));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(0));
+      expect(plan?.pendingCheckpointState).toBeUndefined();
     });
   });
 

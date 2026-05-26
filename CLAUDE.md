@@ -83,6 +83,8 @@ Before writing a new helper, utility, or component, search for an existing one w
 
 <preserve_todos>
 Preserve existing `// TODO`, `// TODO(name)`, and `// NOTE:` comments unless the current task is to resolve them. A "tidy up" refactor that deletes another author's deferred-work markers destroys context that is not recoverable from git history.
+
+During cleanup or review passes, do not delete useful explanatory comments merely to reduce diff size. Remove or rewrite a comment only when it is incorrect, obsolete, noise, or directly resolved by the current task.
 </preserve_todos>
 
 <bash_hygiene>

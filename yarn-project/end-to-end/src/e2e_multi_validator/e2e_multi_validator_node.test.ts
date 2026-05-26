@@ -1,12 +1,12 @@
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { waitForProven } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
@@ -19,22 +19,30 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { TxStatus } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 const VALIDATOR_COUNT = 5;
 const COMMITTEE_SIZE = VALIDATOR_COUNT - 2;
 const PUBLISHER_COUNT = 2;
 
 describe('e2e_multi_validator_node', () => {
+  // Each test starts its own multi-validator network and waits for checkpointed L2 transactions.
+  jest.setTimeout(15 * 60 * 1000);
+
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let ownerAddress: AztecAddress;
+  let initialFundedAccounts: InitialAccountData[];
   let aztecNode: AztecNode;
   let config: AztecNodeConfig;
   let logger: Logger;
@@ -67,26 +75,22 @@ describe('e2e_multi_validator_node', () => {
     });
     const { aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
 
-    ({
-      teardown,
-      logger,
-      wallet,
-      accounts: [ownerAddress],
-      aztecNode,
-      config,
-      deployL1ContractsValues,
-      cheatCodes,
-    } = await setup(1, {
-      initialValidators,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      sequencerPublisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
-      minTxsPerBlock: 1,
-      archiverPollingIntervalMS: 200,
-      sequencerPollingIntervalMS: 200,
-      worldStateBlockCheckIntervalMS: 200,
-      blockCheckIntervalMS: 200,
-      startProverNode: true,
-    }));
+    ({ teardown, logger, wallet, initialFundedAccounts, aztecNode, config, deployL1ContractsValues, cheatCodes } =
+      await setup(
+        1,
+        {
+          ...PIPELINING_SETUP_OPTS,
+          initialValidators,
+          aztecTargetCommitteeSize: COMMITTEE_SIZE,
+          sequencerPublisherPrivateKeys: publisherPrivateKeys.map(k => new SecretValue(k)),
+          archiverPollingIntervalMS: 200,
+          sequencerPollingIntervalMS: 200,
+          worldStateBlockCheckIntervalMS: 200,
+          blockCheckIntervalMS: 200,
+          skipAccountDeployment: true,
+        },
+        { syncChainTip: 'checkpointed' },
+      ));
 
     rollup = new RollupContract(
       deployL1ContractsValues.l1Client,
@@ -109,21 +113,39 @@ describe('e2e_multi_validator_node', () => {
     await teardown();
   });
 
+  const deployOwnerAccount = async () => {
+    const accountData = initialFundedAccounts[0];
+    const accountManager = await wallet.createSchnorrAccount(
+      accountData.secret,
+      accountData.salt,
+      accountData.signingKey,
+    );
+    const deployMethod = await accountManager.getDeployMethod();
+    await deployMethod.send({
+      from: NO_FROM,
+      wait: {
+        waitForStatus: TxStatus.CHECKPOINTED,
+        timeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
+      },
+    });
+    await wallet.sync();
+    ownerAddress = accountManager.address;
+  };
+
   it('should build blocks & attest with multiple validator keys', async () => {
+    await deployOwnerAccount();
+
     const deployer = new ContractDeployer(artifact, wallet);
 
     logger.info(`Deploying contract from ${ownerAddress}`);
     const { receipt: tx } = await deployer
       .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
       .send({ from: ownerAddress });
-    await waitForProven(aztecNode, tx, {
-      provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
-    });
     expect(tx.blockNumber).toBeDefined();
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
@@ -166,6 +188,7 @@ describe('e2e_multi_validator_node', () => {
         BigInt(await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochsForValidatorSet + 1),
       ),
     );
+    await deployOwnerAccount();
 
     // check that the committee is undefined
     const committee = await rollup.getCurrentEpochCommittee();
@@ -177,14 +200,11 @@ describe('e2e_multi_validator_node', () => {
     const { receipt: tx } = await deployer
       .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
       .send({ from: ownerAddress });
-    await waitForProven(aztecNode, tx, {
-      provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
-    });
     expect(tx.blockNumber).toBeDefined();
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
@@ -196,8 +216,13 @@ describe('e2e_multi_validator_node', () => {
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender()!.toString());
+    const signers = attestations.map(att => att.getSender()!.toString().toLowerCase());
+    const validatorAddressesLower = validatorAddresses.map(a => a.toLowerCase());
+    expect(signers.every(s => validatorAddressesLower.includes(s))).toBe(true);
 
-    expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, COMMITTEE_SIZE)));
+    const committeeAtCheckpoint = await rollup.getCommitteeAt(publishedCheckpoint.checkpoint.header.timestamp);
+    expect(committeeAtCheckpoint?.length).toBe(COMMITTEE_SIZE);
+    const committeeAtCheckpointLower = committeeAtCheckpoint!.map(a => a.toString().toLowerCase());
+    expect(signers.every(s => committeeAtCheckpointLower.includes(s))).toBe(true);
   });
 });

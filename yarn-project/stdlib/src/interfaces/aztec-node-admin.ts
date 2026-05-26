@@ -1,3 +1,4 @@
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
 import { z } from 'zod';
@@ -47,6 +48,15 @@ export interface AztecNodeAdmin {
   /** Resumes archiver and world state syncing. */
   resumeSync(): Promise<void>;
 
+  /**
+   * Pauses block production. Pending txs remain in the mempool; no new blocks will be
+   * produced until {@link resumeSequencer} is called. Throws if no sequencer is running.
+   */
+  pauseSequencer(): Promise<void>;
+
+  /** Resumes block production previously paused via {@link pauseSequencer}. */
+  resumeSequencer(): Promise<void>;
+
   /** Returns all offenses applicable for the given round. */
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
 
@@ -71,8 +81,8 @@ export interface AztecNodeAdmin {
   reloadKeystore(): Promise<void>;
 }
 
-// L1 contracts are not mutable via admin updates.
-export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'> &
+// L1 contract addresses are pinned at startup and are not mutable via admin updates.
+export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, keyof L1ContractAddresses> &
   SequencerConfig &
   ProverConfig &
   SlasherConfig &
@@ -87,7 +97,7 @@ export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
-  .merge(ValidatorClientFullConfigSchema.omit({ l1Contracts: true }))
+  .merge(ValidatorClientFullConfigSchema.omit({ rollupAddress: true }))
   .merge(
     ArchiverSpecificConfigSchema.pick({
       archiverPollingIntervalMS: true,
@@ -98,17 +108,22 @@ export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConf
   .merge(z.object({ maxPendingTxCount: z.number(), skipIncomingProposals: z.boolean().optional() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
-  getConfig: z.function().returns(AztecNodeAdminConfigSchema),
-  setConfig: z.function().args(AztecNodeAdminConfigSchema.partial()).returns(z.void()),
-  startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
-  rollbackTo: z.function().args(z.number(), optional(z.boolean()), optional(z.boolean())).returns(z.void()),
-  pauseSync: z.function().returns(z.void()),
-  resumeSync: z.function().returns(z.void()),
-  getSlashOffenses: z
-    .function()
-    .args(z.union([z.bigint(), z.literal('all'), z.literal('current')]))
-    .returns(z.array(OffenseSchema)),
-  reloadKeystore: z.function().returns(z.void()),
+  getConfig: z.function({ input: z.tuple([]), output: AztecNodeAdminConfigSchema }),
+  setConfig: z.function({ input: z.tuple([AztecNodeAdminConfigSchema.partial()]), output: z.void() }),
+  startSnapshotUpload: z.function({ input: z.tuple([z.string()]), output: z.void() }),
+  rollbackTo: z.function({
+    input: z.tuple([z.number(), optional(z.boolean()), optional(z.boolean())]),
+    output: z.void(),
+  }),
+  pauseSync: z.function({ input: z.tuple([]), output: z.void() }),
+  resumeSync: z.function({ input: z.tuple([]), output: z.void() }),
+  pauseSequencer: z.function({ input: z.tuple([]), output: z.void() }),
+  resumeSequencer: z.function({ input: z.tuple([]), output: z.void() }),
+  getSlashOffenses: z.function({
+    input: z.tuple([z.union([z.bigint(), z.literal('all'), z.literal('current')])]),
+    output: z.array(OffenseSchema),
+  }),
+  reloadKeystore: z.function({ input: z.tuple([]), output: z.void() }),
 };
 
 export function createAztecNodeAdminClient(

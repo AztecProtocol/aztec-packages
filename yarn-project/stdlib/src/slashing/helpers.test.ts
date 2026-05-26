@@ -3,6 +3,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import {
   getEpochForOffense,
   getEpochsForRound,
+  getPenaltyForOffense,
   getRoundForOffense,
   getRoundForSlot,
   getRoundsForEpoch,
@@ -98,6 +99,15 @@ describe('SlashingHelpers', () => {
       expect(slot).toEqual(SlotNumber(25));
     });
 
+    it('returns slot directly for attesting to invalid checkpoint proposal', () => {
+      const offense = {
+        epochOrSlot: 25n,
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+      };
+      const slot = getSlotForOffense(offense, constants);
+      expect(slot).toEqual(SlotNumber(25));
+    });
+
     it('returns first slot of epoch for epoch-based offenses', () => {
       const offense = {
         epochOrSlot: 5n,
@@ -168,7 +178,7 @@ describe('SlashingHelpers', () => {
     it('handles epoch-based offense that spans multiple rounds', () => {
       const offense = {
         epochOrSlot: 2n, // epoch 2 = slot 8
-        offenseType: OffenseType.DATA_WITHHOLDING,
+        offenseType: OffenseType.INACTIVITY,
       };
       const round = getRoundForOffense(offense, constants);
       expect(round).toEqual(0n); // slot 8 / roundSize 10 = round 0
@@ -177,10 +187,46 @@ describe('SlashingHelpers', () => {
     it('handles epoch-based offense when round is multiple of epoch duration', () => {
       const offense = {
         epochOrSlot: 2n, // epoch 2 = slot 8
-        offenseType: OffenseType.DATA_WITHHOLDING,
+        offenseType: OffenseType.INACTIVITY,
       };
       const round = getRoundForOffense(offense, { ...constants, slashingRoundSize: 8 });
       expect(round).toEqual(1n); // slot 8 / roundSize 8 = round 1
+    });
+  });
+
+  describe('getPenaltyForOffense', () => {
+    it('returns the configured penalty for attesting to invalid checkpoint proposal', () => {
+      const penalty = getPenaltyForOffense(OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, {
+        slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 1n,
+        slashBroadcastedInvalidBlockPenalty: 2n,
+        slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
+        slashDuplicateProposalPenalty: 3n,
+        slashDuplicateAttestationPenalty: 4n,
+        slashAttestInvalidCheckpointProposalPenalty: 5n,
+        slashDataWithholdingPenalty: 7n,
+        slashUnknownPenalty: 8n,
+        slashInactivityPenalty: 9n,
+        slashProposeInvalidAttestationsPenalty: 10n,
+      });
+
+      expect(penalty).toBe(5n);
+    });
+
+    it('returns the configured penalty for broadcasting invalid checkpoint proposal', () => {
+      const penalty = getPenaltyForOffense(OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL, {
+        slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 1n,
+        slashBroadcastedInvalidBlockPenalty: 2n,
+        slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
+        slashDuplicateProposalPenalty: 3n,
+        slashDuplicateAttestationPenalty: 4n,
+        slashAttestInvalidCheckpointProposalPenalty: 5n,
+        slashDataWithholdingPenalty: 7n,
+        slashUnknownPenalty: 8n,
+        slashInactivityPenalty: 9n,
+        slashProposeInvalidAttestationsPenalty: 10n,
+      });
+
+      expect(penalty).toBe(11n);
     });
   });
 });

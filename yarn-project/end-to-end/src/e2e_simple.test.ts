@@ -11,6 +11,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_simple', () => {
@@ -37,14 +38,13 @@ describe('e2e_simple', () => {
         config,
         aztecNode,
       } = await setup(1, {
+        ...PIPELINING_SETUP_OPTS,
         archiverPollingIntervalMS: 200,
         sequencerPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
         aztecEpochDuration: 4,
-        aztecSlotDuration: 12,
-        ethereumSlotDuration: 4,
         aztecTargetCommitteeSize: 0,
         startProverNode: true,
       }));
@@ -53,7 +53,7 @@ describe('e2e_simple', () => {
     afterAll(() => teardown());
 
     it('returns initial block data', async () => {
-      const initialHeader = await aztecNode.getBlockHeader(BlockNumber.ZERO);
+      const initialHeader = (await aztecNode.getBlockData(BlockNumber.ZERO))?.header;
       expect(initialHeader).toBeDefined();
       const initialHeaderHash = await initialHeader!.hash();
       const initialBlockByHash = await aztecNode.getBlock(initialHeaderHash, { includeTransactions: true });

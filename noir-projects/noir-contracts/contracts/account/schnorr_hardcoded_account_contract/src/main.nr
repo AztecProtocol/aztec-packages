@@ -7,9 +7,9 @@ pub contract SchnorrHardcodedAccount {
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::functions::{allow_phase_change, external, view},
-        oracle::auth_witness::get_auth_witness_as_bytes,
+        oracle::auth_witness::get_auth_witness,
     };
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
+    use std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar};
 
     global signing_public_key: EmbeddedCurvePoint = EmbeddedCurvePoint {
         x: 0x16b93f4afae55cab8507baeb8e7ab4de80f5ab1e9e1f5149bf8cd0d375451d90,
@@ -36,13 +36,10 @@ pub contract SchnorrHardcodedAccount {
     fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
         // Hence it's safe.
-        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
+        let limbs: [Field; 4] = unsafe { get_auth_witness(outer_hash) };
+        let signature = (EmbeddedCurveScalar::new(limbs[0], limbs[1]), EmbeddedCurveScalar::new(limbs[2], limbs[3]));
 
         // Verify signature using hardcoded public key
-        schnorr::verify_signature(
-            signing_public_key,
-            signature,
-            outer_hash.to_be_bytes::<32>(),
-        )
+        schnorr::verify_signature(signing_public_key, signature, outer_hash)
     }
 }

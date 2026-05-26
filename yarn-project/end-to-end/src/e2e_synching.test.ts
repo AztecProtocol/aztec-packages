@@ -66,6 +66,7 @@ import * as fs from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
@@ -340,6 +341,7 @@ describe('e2e_synching', () => {
         initialFundedAccounts,
         cheatCodes,
       } = await setup(1, {
+        ...PIPELINING_SETUP_OPTS,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
@@ -422,6 +424,7 @@ describe('e2e_synching', () => {
       initialFundedAccounts,
       dateProvider,
     } = await setup(0, {
+      ...PIPELINING_SETUP_OPTS,
       l1StartTime: START_TIME,
       numberOfInitialFundedAccounts: 10,
     });
@@ -441,10 +444,10 @@ describe('e2e_synching', () => {
     const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
       deployL1ContractsValues.l1Client,
-      config.l1Contracts.governanceProposerAddress.toString(),
+      config.governanceProposerAddress.toString(),
     );
     const slashingProposerContract = await rollupContract.getSlashingProposer();
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {

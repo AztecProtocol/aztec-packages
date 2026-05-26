@@ -29,13 +29,14 @@ where
     // The event commitment is emitted as a nullifier instead of as a note because these are simpler: nullifiers cannot
     // be squashed, making kernel processing simpler, and they have no nonce that recipients need to discover.
     let commitment = compute_private_event_commitment(event, randomness);
-    context.push_nullifier(commitment);
+    context.push_nullifier_unsafe(commitment);
 
     EventMessage::new(NewEvent { event, randomness }, context)
 }
 
 /// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelfPublic::emit`].
-pub fn emit_event_in_public<Event>(context: PublicContext, event: Event)
+#[inline_never]
+pub unconstrained fn emit_event_in_public<Event>(context: PublicContext, event: Event)
 where
     Event: EventInterface + Serialize,
 {

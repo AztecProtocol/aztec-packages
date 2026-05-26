@@ -279,28 +279,33 @@ export class IpcWorldState implements NativeWorldStateInstance {
       this.queues.set(forkId, requestQueue);
     }
 
-    const response = await requestQueue.execute(
-      async () => {
-        assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the IPC instance');
-        assert.equal(this.open, true, 'IPC instance is closed');
-        let response: WorldStateResponse[T];
-        try {
-          response = await this._sendMessage(messageType, body);
-        } catch (error: any) {
-          errorHandler(error.message);
-          throw error;
-        }
-        return responseHandler(response);
-      },
-      messageType,
-      committedOnly,
-    );
-
-    if (messageType === WorldStateMessageType.DELETE_FORK) {
-      await requestQueue.stop();
-      this.queues.delete(forkId);
+    // The per-fork queue is cleaned up in `finally` even on error, so the JS-side queues map cannot outlive
+    // the native fork (e.g. when the native fork was already destroyed by an unwind/historical-prune and
+    // DELETE_FORK rejects with "Fork not found").
+    try {
+      const response = await requestQueue.execute(
+        async () => {
+          assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the IPC instance');
+          assert.equal(this.open, true, 'IPC instance is closed');
+          let response: WorldStateResponse[T];
+          try {
+            response = await this._sendMessage(messageType, body);
+          } catch (error: any) {
+            errorHandler(error.message);
+            throw error;
+          }
+          return responseHandler(response);
+        },
+        messageType,
+        committedOnly,
+      );
+      return response;
+    } finally {
+      if (messageType === WorldStateMessageType.DELETE_FORK) {
+        await requestQueue.stop();
+        this.queues.delete(forkId);
+      }
     }
-    return response;
   }
 
   async close(): Promise<void> {

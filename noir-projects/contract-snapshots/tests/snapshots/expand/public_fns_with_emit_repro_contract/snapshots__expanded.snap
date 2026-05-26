@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -307,7 +308,7 @@ pub contract PublicFnsWithEmitRepro {
 
     unconstrained fn sync_state(scope: aztec::protocol::address::AztecAddress) {
         let address: aztec::protocol::address::AztecAddress = aztec::context::UtilityContext::new().this_address();
-        aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none(), Option::<unconstrained fn(aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress) -> aztec::ephemeral::EphemeralArray<aztec::messages::processing::OffchainMessageWithContext>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
+        aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<unconstrained fn(aztec::protocol::address::AztecAddress, u64, u64, BoundedVec<Field, 11>, aztec::messages::processing::MessageContext, aztec::protocol::address::AztecAddress)>::none(), Option::<unconstrained fn(aztec::protocol::address::AztecAddress, aztec::protocol::address::AztecAddress) -> aztec::ephemeral::EphemeralArray<aztec::messages::processing::OffchainMessageWithContext>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
     }
 
     pub struct offchain_receive_parameters {
@@ -866,17 +867,22 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     #[contract_library_method]
-    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
-        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
-            aztec::hash::hash_args(serialized_args)
-        });
+    unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
         let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
         let self_address: aztec::protocol::address::AztecAddress = context.this_address();
         let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
         let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
         let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
         aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
+    }
+
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
+            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
+            aztec::hash::hash_args(serialized_args)
+        });
+        __aztec_nr_internals__create_public_self_from_context(context)
     }
 
     unconstrained fn __aztec_nr_internals__fn_01(v: u64) {

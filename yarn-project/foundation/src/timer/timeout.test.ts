@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 import { sleep } from '../sleep/index.js';
-import { executeTimeout } from './timeout.js';
+import { execWithSignal, executeTimeout } from './timeout.js';
 
 describe('timeout', () => {
   it('execs within timeout', async () => {
@@ -24,5 +24,33 @@ describe('timeout', () => {
     await expect(executeTimeout(() => sleep(500), -100, 'Timed out!')).rejects.toThrow(
       /The value of .* is out of range/,
     );
+  });
+
+  it('execs with a non-aborted signal', async () => {
+    const controller = new AbortController();
+    await expect(execWithSignal(() => sleep(20).then(() => 'ok'), controller.signal)).resolves.toEqual('ok');
+  });
+
+  it('rejects with custom error when signal aborts', async () => {
+    const controller = new AbortController();
+    const promise = execWithSignal(
+      () => sleep(500),
+      controller.signal,
+      () => new Error('Aborted!'),
+    );
+
+    controller.abort();
+
+    await expect(promise).rejects.toThrow('Aborted!');
+  });
+
+  it('execs with AbortSignal.timeout', async () => {
+    await expect(
+      execWithSignal(
+        () => sleep(500),
+        AbortSignal.timeout(20),
+        signal => new Error(signal.reason?.name ?? 'Aborted'),
+      ),
+    ).rejects.toThrow('TimeoutError');
   });
 });

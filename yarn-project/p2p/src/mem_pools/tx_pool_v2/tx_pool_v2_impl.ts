@@ -1,4 +1,5 @@
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import type { Logger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -41,6 +42,13 @@ import { type TxMetaData, type TxState, buildTxMetaData, checkNullifierConflict 
 import { TxPoolIndices } from './tx_pool_indices.js';
 
 /**
+ * Maximum number of full transactions to load into memory at once when finalizing a block.
+ * Bounds peak memory while archiving and hard-deleting mined txs (~23k txs/epoch at 10 TPS would
+ * otherwise OOM the node).
+ */
+const FINALIZE_BLOCK_CHUNK_SIZE = 100;
+
+/**
  * Callbacks for the implementation to notify the outer class about events and metrics.
  */
 export interface TxPoolV2Callbacks {
@@ -75,7 +83,7 @@ export class TxPoolV2Impl {
   #evictionManager: EvictionManager;
   #dateProvider: DateProvider;
   #instrumentation: TxPoolV2Instrumentation;
-  #evictedTxHashes: Set<string> = new Set();
+  #evictedTxHashes: FifoSet<string>;
   #log: Logger;
   #callbacks: TxPoolV2Callbacks;
 
@@ -98,6 +106,7 @@ export class TxPoolV2Impl {
     this.#checkAllowedSetupCalls = deps.checkAllowedSetupCalls;
 
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
+    this.#evictedTxHashes = FifoSet.withLimit<string>(this.#config.evictedTxCacheSize);
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
     this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
     this.#dateProvider = dateProvider;
@@ -140,39 +149,67 @@ export class TxPoolV2Impl {
     // Step 0: Hydrate deleted pool state
     await this.#deletedPool.hydrateFromDatabase();
 
-    // Step 1: Load all transactions from DB (excluding soft-deleted)
-    const { loaded, errors: deserializationErrors } = await this.#loadAllTxsFromDb();
+    // Step 1: Stream txs from DB, building metadata and mined status one at a time.
+    const minedMetas: TxMetaData[] = [];
+    const pendingMetas: TxMetaData[] = [];
+    const deserializationErrors: string[] = [];
 
-    // Step 2: Check mined status for each tx
-    await this.#markMinedStatusBatch(loaded.map(l => l.meta));
+    for await (const [txHashStr, buffer] of this.#txsDB.entriesAsync()) {
+      // Skip soft-deleted transactions - they stay in DB but not in indices
+      if (this.#deletedPool.isSoftDeleted(txHashStr)) {
+        continue;
+      }
 
-    // Step 3: Partition by mined status
-    const mined: TxMetaData[] = [];
-    const nonMined: { tx: Tx; meta: TxMetaData }[] = [];
-    for (const entry of loaded) {
-      if (entry.meta.minedL2BlockId !== undefined) {
-        mined.push(entry.meta);
+      let meta: TxMetaData;
+      let txEffect: Awaited<ReturnType<L2BlockSource['getTxEffect']>>;
+      try {
+        const tx = Tx.fromBuffer(buffer);
+        // Resolve allowed-setup-calls and the tx effect concurrently
+        // getTxEffect failures are non-fatal (we just treat the tx as not-yet-mined), so
+        // its rejection is swallowed before the Promise.all so it can't fail-fast the batch.
+        const txEffectPromise = this.#l2BlockSource.getTxEffect(tx.getTxHash()).catch(err => {
+          this.#log.warn(`Failed to check mined status for tx ${txHashStr}`, { err });
+          return undefined;
+        });
+        const [allowedSetupCalls, fetchedTxEffect] = await Promise.all([
+          this.#checkAllowedSetupCalls(tx),
+          txEffectPromise,
+        ]);
+        meta = await buildTxMetaData(tx, allowedSetupCalls);
+        txEffect = fetchedTxEffect;
+      } catch (err) {
+        this.#log.warn(`Failed to deserialize tx ${txHashStr}, deleting`, { err });
+        deserializationErrors.push(txHashStr);
+        continue;
+      }
+
+      if (txEffect) {
+        meta.minedL2BlockId = {
+          number: txEffect.l2BlockNumber,
+          hash: txEffect.l2BlockHash.toString(),
+        };
+      }
+
+      if (meta.minedL2BlockId !== undefined) {
+        minedMetas.push(meta);
       } else {
-        nonMined.push(entry);
+        pendingMetas.push(meta);
       }
     }
 
-    // Step 4: Validate non-mined transactions
-    const { valid, invalid } = await this.#revalidateMetadata(
-      nonMined.map(e => e.meta),
-      'on startup',
-    );
+    // Step 2: Validate non-mined transactions
+    const { valid, invalid } = await this.#revalidateMetadata(pendingMetas, 'on startup');
 
-    // Step 5: Populate mined indices (these don't need conflict resolution)
-    for (const meta of mined) {
+    // Step 3: Populate mined indices (these don't need conflict resolution)
+    for (const meta of minedMetas) {
       this.#indices.addMined(meta);
     }
 
-    // Step 6: Rebuild pending pool by running pre-add rules for each tx
+    // Step 4: Rebuild pending pool by running pre-add rules for each tx
     // This resolves nullifier conflicts, fee payer balance issues, and pool size limits
     const { rejected } = await this.#rebuildPendingPool(valid);
 
-    // Step 7: Delete invalid and rejected txs from DB only (indices were never populated for these)
+    // Step 5: Delete invalid and rejected txs from DB only (indices were never populated for these)
     const toDelete = [...deserializationErrors, ...invalid, ...rejected];
     if (toDelete.length === 0) {
       return;
@@ -640,28 +677,29 @@ export class TxPoolV2Impl {
     // Step 1: Find mined txs at or before finalized block
     const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
 
-    await this.#store.transactionAsync(async () => {
-      // Step 2: Collect mined txs for archiving (before deletion)
-      const txsToArchive: Tx[] = [];
-      if (this.#archive.isEnabled()) {
-        for (const txHashStr of minedTxsToFinalize) {
+    // Step 2: Archive in chunks if archiving is enabled. Hydrating an entire epoch's worth of
+    // mined txs at once would OOM under load. When archiving is disabled there is no need to hydrate the txs at all.
+    if (this.#archive.isEnabled()) {
+      for (let i = 0; i < minedTxsToFinalize.length; i += FINALIZE_BLOCK_CHUNK_SIZE) {
+        const chunk = minedTxsToFinalize.slice(i, i + FINALIZE_BLOCK_CHUNK_SIZE);
+        const txsToArchive: Tx[] = [];
+        for (const txHashStr of chunk) {
           const buffer = await this.#txsDB.getAsync(txHashStr);
           if (buffer) {
             txsToArchive.push(Tx.fromBuffer(buffer));
           }
         }
+        if (txsToArchive.length > 0) {
+          await this.#archive.archiveTxs(txsToArchive);
+        }
       }
+    }
 
-      // Step 3: Delete mined txs from active pool
+    // Step 3: Delete mined txs from the active pool and finalize soft-deleted txs in one
+    // transaction. Only tx hashes are touched here, so memory is bounded and atomicity is preserved.
+    await this.#store.transactionAsync(async () => {
       await this.#deleteTxsBatch(minedTxsToFinalize);
-
-      // Step 4: Finalize soft-deleted txs
       await this.#deletedPool.finalizeBlock(blockNumber);
-
-      // Step 5: Archive mined txs
-      if (txsToArchive.length > 0) {
-        await this.#archive.archiveTxs(txsToArchive);
-      }
     });
 
     if (minedTxsToFinalize.length > 0) {
@@ -867,19 +905,9 @@ export class TxPoolV2Impl {
     this.#instrumentation.recordEvictions(txHashes.length, reason);
     for (const txHashStr of txHashes) {
       this.#log.debug(`Evicting tx ${txHashStr}`, { txHash: txHashStr, reason });
-      this.#addToEvictedCache(txHashStr);
+      this.#evictedTxHashes.add(txHashStr);
     }
     await this.#deleteTxsBatch(txHashes);
-  }
-
-  /** Adds a tx hash to the bounded evicted cache, evicting the oldest entry if at capacity. */
-  #addToEvictedCache(txHashStr: string): void {
-    if (this.#evictedTxHashes.size >= this.#config.evictedTxCacheSize) {
-      // FIFO eviction: remove the first (oldest) entry
-      const oldest = this.#evictedTxHashes.values().next().value!;
-      this.#evictedTxHashes.delete(oldest);
-    }
-    this.#evictedTxHashes.add(txHashStr);
   }
 
   // ============================================================================
@@ -974,51 +1002,6 @@ export class TxPoolV2Impl {
       number: txEffect.l2BlockNumber,
       hash: txEffect.l2BlockHash.toString(),
     };
-  }
-
-  /** Loads all transactions from the database, returning loaded txs and deserialization errors */
-  async #loadAllTxsFromDb(): Promise<{
-    loaded: { tx: Tx; meta: TxMetaData }[];
-    errors: string[];
-  }> {
-    const loaded: { tx: Tx; meta: TxMetaData }[] = [];
-    const errors: string[] = [];
-
-    for await (const [txHashStr, buffer] of this.#txsDB.entriesAsync()) {
-      // Skip soft-deleted transactions - they stay in DB but not in indices
-      if (this.#deletedPool.isSoftDeleted(txHashStr)) {
-        continue;
-      }
-
-      try {
-        const tx = Tx.fromBuffer(buffer);
-        const allowedSetupCalls = await this.#checkAllowedSetupCalls(tx);
-        const meta = await buildTxMetaData(tx, allowedSetupCalls);
-        loaded.push({ tx, meta });
-      } catch (err) {
-        this.#log.warn(`Failed to deserialize tx ${txHashStr}, deleting`, { err });
-        errors.push(txHashStr);
-      }
-    }
-
-    return { loaded, errors };
-  }
-
-  /** Queries block source and marks mined status on transaction metadata */
-  async #markMinedStatusBatch(metas: TxMetaData[]): Promise<void> {
-    for (const meta of metas) {
-      try {
-        const txEffect = await this.#l2BlockSource.getTxEffect(TxHash.fromString(meta.txHash));
-        if (txEffect) {
-          meta.minedL2BlockId = {
-            number: txEffect.l2BlockNumber,
-            hash: txEffect.l2BlockHash.toString(),
-          };
-        }
-      } catch (err) {
-        this.#log.warn(`Failed to check mined status for tx ${meta.txHash}`, { err });
-      }
-    }
   }
 
   /**

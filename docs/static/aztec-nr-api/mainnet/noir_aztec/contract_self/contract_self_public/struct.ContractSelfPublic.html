@@ -126,7 +126,7 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p><a href="../../../noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html#enqueue_incognito"><code>ContractSelfPrivate::enqueue_incognito</code></a>).
 This function reverts when executed in such a context.</p>
 <p>If you need to handle these cases, use <a href="../../../noir_aztec/context/struct.PublicContext.html#maybe_msg_sender"><code>PublicContext::maybe_msg_sender</code></a>.</p></div>
-</div><code id="emit" class="code-header">pub fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event)
+</div><code id="emit" class="code-header">pub unconstrained fn <a href="#emit"><span class="fn">emit</span></a>&lt;Event&gt;(&mut self, event: Event)
 <div class="where-clause">where
     Event: <a href="../../../noir_aztec/event/event_interface/trait.EventInterface.html" class="trait">EventInterface</a>,
     Event: <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code>

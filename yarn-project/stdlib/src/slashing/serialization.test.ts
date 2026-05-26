@@ -92,7 +92,7 @@ describe('slashing/serialization', () => {
       const validator2 = EthAddress.fromString('0x2222222222222222222222222222222222222222');
 
       const offense1 = createOffense(validator1, 500n, OffenseType.DATA_WITHHOLDING, 25n);
-      const offense2 = createOffense(validator2, 750n, OffenseType.VALID_EPOCH_PRUNED, 30n);
+      const offense2 = createOffense(validator2, 750n, OffenseType.INACTIVITY, 30n);
 
       const serialized1 = serializeOffense(offense1);
       const deserialized1 = deserializeOffense(serialized1);
@@ -107,7 +107,7 @@ describe('slashing/serialization', () => {
 
       expect(deserialized2.validator).toEqual(validator2);
       expect(deserialized2.amount).toEqual(750n);
-      expect(deserialized2.offenseType).toEqual(OffenseType.VALID_EPOCH_PRUNED);
+      expect(deserialized2.offenseType).toEqual(OffenseType.INACTIVITY);
       expect(deserialized2.epochOrSlot).toEqual(30n);
 
       // Ensure they produce different serialized data
@@ -118,7 +118,7 @@ describe('slashing/serialization', () => {
       const originalOffense = createOffense(
         EthAddress.random(),
         12345n,
-        OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         98765n,
       );
 
@@ -160,7 +160,7 @@ describe('slashing/serialization', () => {
       const epochOffenses = [
         OffenseType.INACTIVITY,
         OffenseType.DATA_WITHHOLDING,
-        OffenseType.VALID_EPOCH_PRUNED,
+        OffenseType.INACTIVITY,
         OffenseType.UNKNOWN,
       ];
 
@@ -168,7 +168,8 @@ describe('slashing/serialization', () => {
       const slotOffenses = [
         OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         OffenseType.PROPOSED_INCORRECT_ATTESTATIONS,
-        OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
+        OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
         OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       ];
 

@@ -11,6 +11,7 @@ import { waitForPublicClient } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -59,7 +60,7 @@ export async function deployContractsToL1(
     genesisArchiveRoot?: Fr;
     feeJuicePortalInitialBalance?: bigint;
   } = {},
-) {
+): Promise<L1ContractAddresses> {
   await waitForPublicClient(aztecNodeConfig);
 
   const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, foundry.id, {
@@ -74,10 +75,10 @@ export async function deployContractsToL1(
     realVerifier: false,
   });
 
-  aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
+  Object.assign(aztecNodeConfig, l1Contracts.l1ContractAddresses);
   aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
-  return aztecNodeConfig.l1Contracts;
+  return l1Contracts.l1ContractAddresses;
 }
 
 /** Local network settings. */
@@ -205,6 +206,21 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
       SequencerState.SYNCHRONIZING,
     ]);
     watcher?.setIsSequencerBuilding(() => !idleStates.has(sequencer.getState()));
+    // Under proposer pipelining the L1 publish for slot N happens during wall-clock slot N,
+    // but the proposer for slot N has already built the checkpoint during slot N-1 and is
+    // waiting for L1 to advance. We need to fast-forward L1 to wake that wait — and the wait
+    // we have to break first is `waitForValidParentCheckpointOnL1`, which blocks the
+    // checkpoint_proposal_job's background submission task until the archiver has synced past
+    // the build slot. That wait happens *before* `PUBLISHING_CHECKPOINT` is set, so a hook on
+    // that state transition would be circular (L1 has to advance before the state we'd use to
+    // advance L1 fires). The earliest pre-wait signal is `block-proposed`, which the sequencer
+    // emits once each block is built. In sandbox single-block-per-slot mode this is
+    // effectively "checkpoint built", and the watcher warp is harmless if a subsequent
+    // assembly/validation/parent-wait step aborts: L1 just sits one slot ahead, which the
+    // cascade absorbs.
+    if (watcher) {
+      sequencer.on('block-proposed', ({ slot }) => watcher!.setProposedTargetSlot(Number(slot)));
+    }
   }
 
   let epochTestSettler: EpochTestSettler | undefined;
@@ -262,11 +278,10 @@ export async function createAztecNode(
   options: { genesis?: GenesisData } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.
-  const { l1Contracts, ...rest } = getConfigEnvVars();
+  // Not sure why this was ever done. Will be fixed in A-989, A-991, A-990.
   const aztecNodeConfig: AztecNodeConfig = {
-    ...rest,
+    ...getConfigEnvVars(),
     ...config,
-    l1Contracts: { ...l1Contracts, ...config.l1Contracts },
   };
   const node = await AztecNodeService.createAndSync(
     aztecNodeConfig,

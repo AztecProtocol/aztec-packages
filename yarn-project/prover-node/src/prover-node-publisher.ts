@@ -8,11 +8,13 @@ import { areArraysEqual } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
@@ -101,6 +103,11 @@ export class ProverNodePublisher {
     const ctx = { epochNumber, fromCheckpoint, toCheckpoint };
 
     if (!this.interrupted) {
+      if (!(await this.waitUntilStartBuildsOnProven(args))) {
+        this.log.verbose('Checkpoint data syncing interrupted', ctx);
+        return false;
+      }
+
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting
       await this.validateEpochProofSubmission(args);
@@ -145,6 +152,53 @@ export class ProverNodePublisher {
 
     this.log.verbose('Checkpoint data syncing interrupted', ctx);
     return false;
+  }
+
+  private async waitUntilStartBuildsOnProven(args: { epochNumber: EpochNumber; fromCheckpoint: CheckpointNumber }) {
+    const { epochNumber, fromCheckpoint } = args;
+    const provenCheckpoint = await this.getProvenCheckpoint();
+    if (this.isStartBuildingOnProven(fromCheckpoint, provenCheckpoint)) {
+      return true;
+    }
+
+    const timeout = await this.getSecondsUntilProofSubmissionWindowEnd(epochNumber);
+    this.log.info(`Waiting for proven checkpoint to reach proof start`, {
+      epochNumber,
+      fromCheckpoint,
+      provenCheckpoint,
+      timeout,
+    });
+
+    await retryUntil(
+      async () => {
+        if (this.interrupted) {
+          return true;
+        }
+
+        const proven = await this.getProvenCheckpoint();
+        this.log.verbose(`Proven checkpoint is at ${proven} (waiting for ${fromCheckpoint - 1})`, { epochNumber });
+        return this.isStartBuildingOnProven(fromCheckpoint, proven) ? true : undefined;
+      },
+      `proven checkpoint to reach ${fromCheckpoint - 1}`,
+      timeout,
+      4,
+    );
+
+    return !this.interrupted;
+  }
+
+  private async getProvenCheckpoint() {
+    return (await this.rollupContract.getTips()).proven;
+  }
+
+  private isStartBuildingOnProven(fromCheckpoint: CheckpointNumber, provenCheckpoint: CheckpointNumber) {
+    return fromCheckpoint - 1 <= provenCheckpoint;
+  }
+
+  private async getSecondsUntilProofSubmissionWindowEnd(epochNumber: EpochNumber) {
+    const deadline = getProofSubmissionDeadlineTimestamp(epochNumber, await this.rollupContract.getRollupConstants());
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    return Math.max(Number(deadline - now), 0.001);
   }
 
   private async validateEpochProofSubmission(args: {
@@ -203,10 +257,14 @@ export class ProverNodePublisher {
     const argsPublicInputs = [...publicInputs.toFields()];
 
     if (!areArraysEqual(rollupPublicInputs, argsPublicInputs, (a, b) => a.equals(b))) {
-      const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
-      throw new Error(
-        `Root rollup public inputs mismatch:\nRollup:  ${fmt(rollupPublicInputs)}\nComputed:${fmt(argsPublicInputs)}`,
-      );
+      throw await reportPublicInputsMismatch({
+        rollupPublicInputs,
+        argsPublicInputs,
+        fromCheckpoint,
+        toCheckpoint,
+        rollupContract: this.rollupContract,
+        log: this.log,
+      });
     }
   }
 
@@ -371,4 +429,101 @@ export class ProverNodePublisher {
       proof: proofHex,
     };
   }
+}
+
+/**
+ * Decodes a `Root rollup public inputs mismatch`, fetches the on-chain CheckpointLog for any
+ * mismatching `checkpointHeaderHashes[i]`, emits a structured error log, and returns a thrown-ready
+ * Error with a human-readable summary.
+ *
+ * Layout of `RootRollupPublicInputs.toFields()`:
+ *   [0]                   previousArchiveRoot
+ *   [1]                   endArchiveRoot
+ *   [2]                   outHash
+ *   [3 .. 3+N-1]          checkpointHeaderHashes[i] for i in 0..N-1   (N = MAX_CHECKPOINTS_PER_EPOCH)
+ *   [3+N .. 3+3N-1]       fees[i] = (recipient, value) for i in 0..N-1
+ *   [3+3N .. 3+3N+4]      EpochConstantData (chainId, version, vkTreeRoot, protocolContractsHash, proverId)
+ *   [3+3N+5 ..]           blobPublicInputs (FinalBlobAccumulator)
+ */
+async function reportPublicInputsMismatch(input: {
+  rollupPublicInputs: readonly Fr[];
+  argsPublicInputs: readonly Fr[];
+  fromCheckpoint: CheckpointNumber;
+  toCheckpoint: CheckpointNumber;
+  rollupContract: RollupContract;
+  log: Logger;
+}): Promise<Error> {
+  const { rollupPublicInputs, argsPublicInputs, fromCheckpoint, toCheckpoint, rollupContract, log } = input;
+  const N = MAX_CHECKPOINTS_PER_EPOCH;
+  const constantsStart = 3 + 3 * N;
+  const blobStart = constantsStart + 5;
+  const constantLabels = ['chainId', 'version', 'vkTreeRoot', 'protocolContractsHash', 'proverId'];
+
+  const diffs: { index: number; label: string; rollup: Fr; computed: Fr; checkpointIndex?: number }[] = [];
+  const len = Math.max(rollupPublicInputs.length, argsPublicInputs.length);
+  for (let i = 0; i < len; i++) {
+    const a = rollupPublicInputs[i] ?? Fr.ZERO;
+    const b = argsPublicInputs[i] ?? Fr.ZERO;
+    if (a.equals(b)) {
+      continue;
+    }
+    let label: string;
+    let checkpointIndex: number | undefined;
+    if (i === 0) {
+      label = 'previousArchiveRoot';
+    } else if (i === 1) {
+      label = 'endArchiveRoot';
+    } else if (i === 2) {
+      label = 'outHash';
+    } else if (i < 3 + N) {
+      checkpointIndex = i - 3;
+      label = `checkpointHeaderHashes[${checkpointIndex}]`;
+    } else if (i < 3 + 3 * N) {
+      const feePairIndex = i - (3 + N);
+      const feeIndex = Math.floor(feePairIndex / 2);
+      const sub = feePairIndex % 2 === 0 ? 'recipient' : 'value';
+      label = `fees[${feeIndex}].${sub}`;
+    } else if (i < blobStart) {
+      label = `constants.${constantLabels[i - constantsStart]}`;
+    } else {
+      label = `blobPublicInputs[${i - blobStart}]`;
+    }
+    diffs.push({ index: i, label, rollup: a, computed: b, checkpointIndex });
+  }
+
+  // For each mismatching checkpointHeaderHash, fetch the L1 CheckpointLog so the operator can
+  // see what was published on-chain alongside the prover's recomputed hash.
+  const onChainCheckpoints = await Promise.all(
+    diffs
+      .filter(d => d.checkpointIndex !== undefined)
+      .map(async d => {
+        const checkpointNumber = CheckpointNumber(fromCheckpoint + d.checkpointIndex!);
+        try {
+          const cp = await rollupContract.getCheckpoint(checkpointNumber);
+          return { checkpointIndex: d.checkpointIndex!, checkpointNumber, headerHash: cp.headerHash.toString() };
+        } catch (err) {
+          return { checkpointIndex: d.checkpointIndex!, checkpointNumber, error: (err as Error).message };
+        }
+      }),
+  );
+
+  log.error(`Root rollup public inputs mismatch`, undefined, {
+    fromCheckpoint,
+    toCheckpoint,
+    numDiffs: diffs.length,
+    diffs: diffs.map(d => ({
+      index: d.index,
+      label: d.label,
+      rollup: d.rollup.toString(),
+      computed: d.computed.toString(),
+    })),
+    onChainCheckpoints,
+  });
+
+  const fmt = (inputs: readonly Fr[]) => inputs.map(x => x.toString()).join(', ');
+  const summary = diffs.map(d => `[${d.index} ${d.label}] L1=${d.rollup} prover=${d.computed}`).join('\n');
+  return new Error(
+    `Root rollup public inputs mismatch (${diffs.length} fields differ):\n${summary}\n` +
+      `Rollup:  ${fmt(rollupPublicInputs)}\nComputed:${fmt(argsPublicInputs)}`,
+  );
 }

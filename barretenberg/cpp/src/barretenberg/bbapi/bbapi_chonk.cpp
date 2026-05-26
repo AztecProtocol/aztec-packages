@@ -189,6 +189,33 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
     return { .valid = verified };
 }
 
+ChonkVerifyFromFields::Response ChonkVerifyFromFields::execute(const BBApiRequest& /*request*/) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+
+    using VerificationKey = Chonk::MegaVerificationKey;
+    validate_vk_size<VerificationKey>(vk);
+
+    auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
+
+    // Validate total field count: must match num_public_inputs + fixed overhead.
+    const size_t expected_field_count =
+        static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+    if (proof.size() != expected_field_count) {
+        throw_or_abort("ChonkVerifyFromFields: proof has wrong field count: expected " +
+                       std::to_string(expected_field_count) + ", got " + std::to_string(proof.size()));
+    }
+
+    // Split the flat field array into the structured ChonkProof. Layout knowledge stays here.
+    auto structured = ChonkProof::from_field_elements(proof);
+
+    auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
+    ChonkNativeVerifier verifier(vk_and_hash);
+    const bool verified = verifier.verify(structured);
+
+    return { .valid = verified };
+}
+
 ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);

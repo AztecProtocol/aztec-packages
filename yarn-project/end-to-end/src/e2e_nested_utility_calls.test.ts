@@ -5,9 +5,10 @@ import type { UtilityCallAuthorizationRequest } from '@aztec/pxe/server';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 // Verifies nested utility calls via pow_utility(x, n) = x^n (recursive utility→utility),
 // calling it from a private function via pow_private, and the default hook behavior.
@@ -25,7 +26,7 @@ describe('Nested utility calls', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     ({ contract: contractA } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contractB } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
@@ -77,6 +78,7 @@ describe('authorizeUtilityCall hook', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
       pxeCreationOptions: {
         hooks: {
           authorizeUtilityCall: (req: UtilityCallAuthorizationRequest) => {
@@ -152,5 +154,19 @@ describe('authorizeUtilityCall hook', () => {
       functionName: 'pow_utility',
       callerContext: 'private',
     });
+  });
+
+  it('syncs target contract notes on cross-contract utility call', async () => {
+    hookAllows = true;
+
+    // Store x=2, n=10 as private notes on contract B.
+    await contractB.methods.set_pow_args(2n, 10n).send({ from: defaultAccountAddress });
+
+    // Cross-contract call from A → B: B must be synced before the nested utility call
+    // so that B's notes (set above) are discovered.
+    const { result: crossContractResult } = await contractA.methods
+      .delegate_pow_from_storage(contractB.address, defaultAccountAddress)
+      .simulate({ from: defaultAccountAddress });
+    expect(crossContractResult).toEqual(2n ** 10n);
   });
 });

@@ -172,7 +172,9 @@ function validate-webapp-tutorial {
 
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules 2>/dev/null || true
-    yarn install
+    # Yarn 4 auto-enables --immutable when CI is set; we intentionally start
+    # with an empty yarn.lock that this install populates, so disable that.
+    YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
 
     # yarn's `link:` protocol creates portals into yarn-project/*, which require
     # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly
@@ -208,7 +210,10 @@ function execute-examples {
 }
 
 function test_cmds {
-  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
+  # Bumped from the default 600s by ~50% (now 15m) to absorb cumulative-runtime growth
+  # under merge-queue load — example_swap's `wait-for-proven` poll was tipping SIGTERM
+  # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
+  echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
 }
 
 function test {
@@ -235,9 +240,9 @@ function get_pr_number {
 
 function send_slack_message {
   local message=$1
-  local channel=${2:-"#devrel-docs-updates"}
-  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
-    echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
+  local channel=${2:-"#docs-alerts"}
+  if [[ -z "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
+    echo "AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0
   fi
 
@@ -247,7 +252,7 @@ function send_slack_message {
 
   local response
   if ! response=$(curl -s --fail-with-body -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+    -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data"); then
     echo "Slack API request failed (curl error)" >&2

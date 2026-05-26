@@ -152,11 +152,11 @@ export class ArchiverL1Synchronizer implements Traceable {
       return;
     }
 
-    // Warn if the latest L1 block timestamp is too old
+    // Log at error if the latest L1 block timestamp is too old
     const maxAllowedDelay = this.config.maxAllowedEthClientDriftSeconds;
     const now = this.dateProvider.nowInSeconds();
     if (maxAllowedDelay > 0 && Number(currentL1Timestamp) <= now - maxAllowedDelay) {
-      this.log.warn(
+      this.log.error(
         `Latest L1 block ${currentL1BlockNumber} timestamp ${currentL1Timestamp} is too old. Make sure your Ethereum node is synced.`,
         { currentL1BlockNumber, currentL1Timestamp, now, maxAllowedDelay },
       );
@@ -973,10 +973,10 @@ export class ArchiverL1Synchronizer implements Traceable {
           ),
         );
 
-        if (checkpointsToAdd.length > 0) {
+        if (validCheckpoints.length > 0) {
           this.instrumentation.processNewCheckpointedBlocks(
-            processDuration / checkpointsToAdd.length,
-            checkpointsToAdd.flatMap(c => c.checkpoint.blocks),
+            processDuration / validCheckpoints.length,
+            validCheckpoints.flatMap(c => c.checkpoint.blocks),
           );
         }
 
@@ -1076,6 +1076,19 @@ export class ArchiverL1Synchronizer implements Traceable {
           calldataArchiveRoot: calldataCheckpoint.archiveRoot.toString(),
         },
       );
+      // Both the locally-proposed checkpoint and the L1-confirmed one are signed by the
+      // slot proposer; emit a divergence event so the slasher can attribute equivocation.
+      // Only emit when the slots match — uncheckpointed entries are pruned above so this
+      // should always hold, but guard defensively to avoid mis-attributing a slash.
+      if (proposed.header.slotNumber === calldataCheckpoint.header.slotNumber) {
+        this.events.emit(L2BlockSourceEvents.CheckpointEquivocationDetected, {
+          type: L2BlockSourceEvents.CheckpointEquivocationDetected,
+          slotNumber: calldataCheckpoint.header.slotNumber,
+          checkpointNumber: calldataCheckpoint.checkpointNumber,
+          l1ArchiveRoot: calldataCheckpoint.archiveRoot,
+          proposedArchiveRoot: proposed.archive.root,
+        });
+      }
       // Return a divergence signal so the caller can evict pending >= this number
       return { diverged: true, fromCheckpointNumber: proposed.checkpointNumber };
     }

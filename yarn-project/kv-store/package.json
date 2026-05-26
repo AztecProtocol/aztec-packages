@@ -11,6 +11,16 @@
     "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
     "./stores": "./dest/stores/index.js"
   },
+  "imports": {
+    "#msgpackr": {
+      "browser": "msgpackr/index-no-eval",
+      "default": "msgpackr"
+    },
+    "#ordered-binary": {
+      "browser": "./dest/sqlite-opfs/internal/ordered-binary-browser.js",
+      "default": "ordered-binary"
+    }
+  },
   "scripts": {
     "build": "yarn clean && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",

@@ -53,6 +53,7 @@ export const DefaultSequencerConfig = {
   skipCollectingAttestations: false,
   skipInvalidateBlockAsProposer: false,
   broadcastInvalidBlockProposal: false,
+  broadcastInvalidCheckpointProposalOnly: false,
   injectFakeAttestation: false,
   injectHighSValueAttestation: false,
   injectUnrecoverableSignatureAttestation: false,
@@ -191,6 +192,15 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Broadcast invalid block proposals with corrupted state (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.broadcastInvalidBlockProposal),
   },
+  invalidBlockProposalIndexWithinCheckpoint: {
+    description: 'Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only)',
+    ...optionalNumberConfigHelper(),
+  },
+  broadcastInvalidCheckpointProposalOnly: {
+    description:
+      'Broadcast invalid checkpoint proposals while keeping the underlying block proposals valid (for testing only). When unset, the checkpoint follows broadcastInvalidBlockProposal.',
+    ...booleanConfigHelper(DefaultSequencerConfig.broadcastInvalidCheckpointProposalOnly),
+  },
   injectFakeAttestation: {
     description: 'Inject a fake attestation (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectFakeAttestation),
@@ -235,12 +245,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only)',
     ...booleanConfigHelper(false),
   },
+  pauseProposingForSlots: {
+    description:
+      'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
-  // chainConfigMappings must come first: its l1Contracts only maps rollupAddress,
-  // while l1ReaderConfigMappings (spread later) maps all L1 contract addresses.
   ...chainConfigMappings,
   ...validatorClientConfigMappings,
   ...sequencerConfigMappings,

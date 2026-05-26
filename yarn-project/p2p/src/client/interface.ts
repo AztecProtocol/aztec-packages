@@ -9,15 +9,12 @@ import type { ENR } from '@nethermindeth/enr';
 
 import type { P2PConfig } from '../config.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
-import type {
-  ReqRespSubProtocol,
-  ReqRespSubProtocolHandler,
-  ReqRespSubProtocolValidators,
-} from '../services/reqresp/interface.js';
+import type { ReqRespSubProtocol, ReqRespSubProtocolHandler } from '../services/reqresp/interface.js';
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
 } from '../services/service.js';
 
@@ -108,6 +105,9 @@ export type P2P = P2PClient & {
    * @param callback - Function called with info about the duplicate attestation
    */
   registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void;
+
+  /** Registers a callback invoked when a valid checkpoint attestation is accepted into the pool. */
+  registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void;
 
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
@@ -224,11 +224,7 @@ export type P2P = P2PClient & {
   /** Clears the db. */
   clear(): Promise<void>;
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void>;
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void>;
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 

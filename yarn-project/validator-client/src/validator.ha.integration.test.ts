@@ -17,6 +17,7 @@ import type { P2P, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -135,17 +136,23 @@ describe('ValidatorClient HA Integration', () => {
     const baseConfig: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       > = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
-      l1Contracts: { rollupAddress },
+      slashBroadcastedInvalidCheckpointProposalPenalty: 1n,
+      rollupAddress,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1n,
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
@@ -188,7 +195,11 @@ describe('ValidatorClient HA Integration', () => {
     config: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       >,
   ): Promise<ValidatorClient> {
     // Track pool for cleanup
@@ -219,6 +230,7 @@ describe('ValidatorClient HA Integration', () => {
       epochCache,
       config,
       blobClient,
+      new CheckpointReexecutionTracker(),
       metrics,
       dateProvider,
       getTelemetryClient(),

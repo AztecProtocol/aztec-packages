@@ -28,7 +28,7 @@ import {
   type L2BlockSource,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -40,6 +40,7 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -221,7 +222,7 @@ describe('sequencer', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -241,6 +242,11 @@ describe('sequencer', () => {
 
     rollupContract = mockDeep<RollupContract>();
     rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
+    // Default rollup reads used by pipelined fee-header derivation.
+    rollupContract.getCheckpoint.mockResolvedValue({
+      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
+    } as any);
+    rollupContract.getManaTarget.mockResolvedValue(10_000n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -317,10 +323,9 @@ describe('sequencer', () => {
       getL1Timestamp: mockFn().mockResolvedValue(1000n),
       isPendingChainInvalid: mockFn().mockResolvedValue(false),
       getPendingChainValidationStatus: mockFn().mockResolvedValue({ valid: true }),
-      getCheckpointsForEpoch: mockFn().mockResolvedValue([]),
-      getCheckpointsDataForEpoch: mockFn().mockResolvedValue([]),
+      getCheckpointsData: mockFn().mockResolvedValue([]),
       getSyncedL2SlotNumber: mockFn().mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER)),
-      getLastCheckpoint: mockFn().mockResolvedValue(undefined),
+      getProposedCheckpointData: mockFn().mockResolvedValue(undefined),
     });
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
@@ -360,11 +365,11 @@ describe('sequencer', () => {
     dateProvider = new TestDateProvider();
 
     signatureContext = { chainId: chainId.toNumber(), rollupAddress: EthAddress.random() };
-    const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'> = {
+    const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> = {
       enforceTimeTable: true,
       maxTxsPerBlock: 4,
       l1ChainId: signatureContext.chainId,
-      l1Contracts: { rollupAddress: signatureContext.rollupAddress },
+      rollupAddress: signatureContext.rollupAddress,
     };
     sequencer = new TestSequencer(
       publisherFactory,
@@ -388,6 +393,30 @@ describe('sequencer', () => {
   describe('block building', () => {
     it('builds a block out of a single tx', async () => {
       await setupSingleTxBlock();
+      await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
+
+      expectPublisherProposeL2Block();
+    });
+
+    it('does not build a block when targetSlot is in pauseProposingForSlots', async () => {
+      await setupSingleTxBlock();
+      const targetSlot = block.header.globalVariables.slotNumber;
+      sequencer.updateConfig({ pauseProposingForSlots: [targetSlot] });
+
+      await sequencer.work();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('still builds a block when targetSlot is not in pauseProposingForSlots', async () => {
+      await setupSingleTxBlock();
+      const targetSlot = block.header.globalVariables.slotNumber;
+      const otherSlot = SlotNumber(Number(targetSlot) + 1);
+      sequencer.updateConfig({ pauseProposingForSlots: [otherSlot] });
+
       await sequencer.work();
       await sequencer.awaitLastProposalSubmission();
 
@@ -539,7 +568,7 @@ describe('sequencer', () => {
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
         pub.sendRequestsAt.mockResolvedValue({
-          result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+          result: { receipt: { status: 'success' } as any },
           successfulActions: ['propose'],
           failedActions: [],
           sentActions: ['propose'],
@@ -647,7 +676,10 @@ describe('sequencer', () => {
       expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalled();
-      expect(publisher.sendRequests).toHaveBeenCalled();
+      // Submission goes through sendRequestsAt so the bundle simulate's block.timestamp
+      // override matches the slot the EIP-712 signatures were generated for.
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      expect(publisher.sendRequests).not.toHaveBeenCalled();
 
       // But checkpoint proposal must not start
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
@@ -670,16 +702,16 @@ describe('sequencer', () => {
 
       await sequencer.work();
       expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
-      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
 
       publisher.enqueueSlashingActions.mockClear();
-      publisher.sendRequests.mockClear();
+      publisher.sendRequestsAt.mockClear();
       slasherClient.getProposerActions.mockClear();
 
       await sequencer.work();
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
-      expect(publisher.sendRequests).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
   });
 
@@ -733,7 +765,8 @@ describe('sequencer', () => {
         expect.any(EthAddress),
         expect.any(Function),
       );
-      expect(publisher.sendRequests).toHaveBeenCalled();
+      // Votes are submitted via sendRequestsAt (fire-and-forget, scheduled at target slot start).
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
     it('should not vote when sync fails and within time limit', async () => {
@@ -793,18 +826,19 @@ describe('sequencer', () => {
       // First attempt should succeed
       await sequencer.work();
       expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
-      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+      // Votes are submitted via sendRequestsAt (fire-and-forget, scheduled at target slot start).
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
 
       // Reset mocks
       publisher.enqueueSlashingActions.mockClear();
-      publisher.sendRequests.mockClear();
+      publisher.sendRequestsAt.mockClear();
       slasherClient.getProposerActions.mockClear();
 
       // Second attempt in the same slot should be skipped
       await sequencer.work();
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
-      expect(publisher.sendRequests).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
   });
 
@@ -1075,15 +1109,22 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getLastCheckpoint.mockResolvedValue({
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
-      } as any);
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      } satisfies ProposedCheckpointData);
 
       await sequencer.work();
 
       const simulationOverridesPlan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
-      expect(simulationOverridesPlan?.pendingCheckpointNumber).toEqual(CheckpointNumber(1));
-      expect(simulationOverridesPlan?.pendingCheckpointState?.archive).toEqual(expect.anything());
+      expect(simulationOverridesPlan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
+      // The archive root is passed directly as the first arg to canProposeAt (not inside the plan).
     });
 
     it('skips proposal when checkpoint exceeds pipeline depth', async () => {
@@ -1136,7 +1177,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getLastCheckpoint.mockResolvedValue({
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
         checkpointNumber: CheckpointNumber(2),
       } as any);
 
@@ -1146,15 +1187,19 @@ describe('sequencer', () => {
       expect(publisher.canProposeAt).not.toHaveBeenCalled();
     });
 
-    it('calls L1 check without archive override when no proposed checkpoint', async () => {
+    it('pins both chain tips to the on-chain pending snapshot when no proposed checkpoint applies', async () => {
       await setupSingleTxBlock();
 
       await sequencer.work();
 
-      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
+      // The default `getL2Tips` mock has checkpointed.checkpoint.number == CheckpointNumber.ZERO.
+      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber.ZERO);
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
+      expect(plan?.pendingCheckpointState).toBeUndefined();
     });
 
-    it('calls L1 check without overrides when not pipelining', async () => {
+    it('pins both chain tips to the on-chain pending snapshot when not pipelining', async () => {
       await setupSingleTxBlock();
 
       // Override back to non-pipelining
@@ -1173,7 +1218,97 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
+      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber.ZERO);
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
+      expect(plan?.pendingCheckpointState).toBeUndefined();
+    });
+
+    it('mirrors pending onto proven when the caller overrides pending via pipelining', async () => {
+      await setupSingleTxBlock();
+
+      // Set up a pipelined parent (pending override = parentCheckpointNumber = 1).
+      const nonGenesisHash = Fr.random().toString();
+      const proposedCheckpointHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: BlockNumber(1),
+          latestBlockHash: nonGenesisHash,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus);
+      const tipsWithBlock1 = {
+        proposed: { number: BlockNumber(1), hash: nonGenesisHash },
+        proposedCheckpoint: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
+        },
+        checkpointed: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        proven: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        finalized: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+      };
+      l2BlockSource.getL2Tips.mockResolvedValue(tipsWithBlock1);
+      l1ToL2MessageSource.getL2Tips.mockResolvedValue(tipsWithBlock1);
+      p2p.getStatus.mockResolvedValue({
+        syncedToL2Block: { number: BlockNumber(1), hash: nonGenesisHash },
+      } as any);
+      l2BlockSource.getBlockData.mockResolvedValue({
+        header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }) }),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: BlockHash.ZERO,
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } satisfies BlockData);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      } satisfies ProposedCheckpointData);
+
+      await sequencer.work();
+
+      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(1));
+    });
+
+    it('emits preparing-checkpoint with snapshot-pinned tips when no override applies', async () => {
+      await setupSingleTxBlock();
+
+      const events: any[] = [];
+      sequencer.on('preparing-checkpoint', args => events.push(args));
+
+      await sequencer.work();
+
+      expect(events).toHaveLength(1);
+      // With no pipelined or invalidation override, both `pending` and `proven` are pinned to the
+      // on-chain pending snapshot (checkpointedCheckpointNumber) so `canPruneAtTime` short-circuits
+      // and a live re-read inside `makeChainTipsOverride` can't reintroduce a phantom prune.
+      // `provenOverride` mirrors the pinned proven tip whenever a plan was built.
+      expect(events[0]).toEqual({
+        targetSlot: SlotNumber(2),
+        checkpointNumber: expect.anything(),
+        hadProposedParent: false,
+        provenOverride: CheckpointNumber.ZERO,
+        simulatedPending: CheckpointNumber.ZERO,
+      });
     });
   });
 

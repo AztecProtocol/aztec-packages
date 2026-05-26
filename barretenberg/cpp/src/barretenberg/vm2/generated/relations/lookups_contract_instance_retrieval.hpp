@@ -108,7 +108,7 @@ using lookup_contract_instance_retrieval_deployment_nullifier_read_relation =
 struct lookup_contract_instance_retrieval_address_derivation_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTRACT_INSTANCE_RETRIEVAL_ADDRESS_DERIVATION";
     static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 11;
     static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_exists;
     static constexpr Column DST_SELECTOR = Column::address_derivation_sel;
     static constexpr Column COUNTS = Column::lookup_contract_instance_retrieval_address_derivation_counts;
@@ -119,14 +119,12 @@ struct lookup_contract_instance_retrieval_address_derivation_settings_ {
         ColumnAndShifts::contract_instance_retrieval_deployer_addr,
         ColumnAndShifts::contract_instance_retrieval_original_class_id,
         ColumnAndShifts::contract_instance_retrieval_init_hash,
-        ColumnAndShifts::contract_instance_retrieval_nullifier_key_x,
-        ColumnAndShifts::contract_instance_retrieval_nullifier_key_y,
+        ColumnAndShifts::contract_instance_retrieval_immutables_hash,
+        ColumnAndShifts::contract_instance_retrieval_nullifier_key_hash,
         ColumnAndShifts::contract_instance_retrieval_incoming_viewing_key_x,
         ColumnAndShifts::contract_instance_retrieval_incoming_viewing_key_y,
-        ColumnAndShifts::contract_instance_retrieval_outgoing_viewing_key_x,
-        ColumnAndShifts::contract_instance_retrieval_outgoing_viewing_key_y,
-        ColumnAndShifts::contract_instance_retrieval_tagging_key_x,
-        ColumnAndShifts::contract_instance_retrieval_tagging_key_y
+        ColumnAndShifts::contract_instance_retrieval_outgoing_viewing_key_hash,
+        ColumnAndShifts::contract_instance_retrieval_tagging_key_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::address_derivation_address,
@@ -134,14 +132,12 @@ struct lookup_contract_instance_retrieval_address_derivation_settings_ {
         ColumnAndShifts::address_derivation_deployer_addr,
         ColumnAndShifts::address_derivation_class_id,
         ColumnAndShifts::address_derivation_init_hash,
-        ColumnAndShifts::address_derivation_nullifier_key_x,
-        ColumnAndShifts::address_derivation_nullifier_key_y,
+        ColumnAndShifts::address_derivation_immutables_hash,
+        ColumnAndShifts::address_derivation_nullifier_key_hash,
         ColumnAndShifts::address_derivation_incoming_viewing_key_x,
         ColumnAndShifts::address_derivation_incoming_viewing_key_y,
-        ColumnAndShifts::address_derivation_outgoing_viewing_key_x,
-        ColumnAndShifts::address_derivation_outgoing_viewing_key_y,
-        ColumnAndShifts::address_derivation_tagging_key_x,
-        ColumnAndShifts::address_derivation_tagging_key_y
+        ColumnAndShifts::address_derivation_outgoing_viewing_key_hash,
+        ColumnAndShifts::address_derivation_tagging_key_hash
     };
 };
 

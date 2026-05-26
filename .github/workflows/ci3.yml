@@ -45,7 +45,8 @@ jobs:
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     permissions:
       id-token: write   # required for OIDC assume-role with AWS
-      contents: read
+      contents: read    # checkout/fetch with the default github.token
+      pull-requests: read # merge_group mode looks up the source PR
     steps:
       - name: Remove wakeup label
         if: contains(github.event.pull_request.labels.*.name, 'ci-wakeup-pr-after-merge')
@@ -95,6 +96,8 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Used by docs CI scripts to post to #docs-alerts (the SLACK_BOT_TOKEN bot lacks access there).
+          AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN: ${{ secrets.AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN }}
           AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION: ${{ vars.AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION }}
           # For automatic documentation updates via Claude Code
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -456,9 +459,6 @@ jobs:
   # Escape hatch: ci-skip-compat-e2e label makes failures non-blocking on release PRs.
   ci-compat-e2e:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     needs: [ci]
     if: |
       always()
@@ -478,17 +478,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: us-east-2
-          role-session-name: ci3-compat-e2e-${{ github.run_id }}
-          role-duration-seconds: 21600 # 6h – covers AWS_SHUTDOWN_TIME (300 min) + 60 min buffer
-
       - name: Run Backwards Compatibility E2E Tests
-        timeout-minutes: 330
+        timeout-minutes: 60
         env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -498,7 +492,7 @@ jobs:
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 300
+          AWS_SHUTDOWN_TIME: 60
         run: ./.github/ci3.sh compat-e2e
 
   # Publishes the release (npm, Docker, GitHub release, aztec-up scripts, etc.).
@@ -508,6 +502,9 @@ jobs:
   ci-release-publish:
     runs-on: ubuntu-latest
     environment: master
+    permissions:
+      id-token: write
+      contents: read
     needs: [ci, ci-compat-e2e]
     if: |
       startsWith(github.ref, 'refs/tags/v')
@@ -523,10 +520,16 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-release-publish-${{ github.run_id }}
+          role-duration-seconds: 21600
+
       - name: Run Release Publish
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
