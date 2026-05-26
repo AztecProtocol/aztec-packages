@@ -30,6 +30,17 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
     static constexpr size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
 
+    static void pad_hn_recursion_vk_keys(AcirProgram& program, size_t padded_size)
+    {
+        uint32_t next_witness_idx = program.constraints.max_witness_index + 1;
+        for (auto& constraint : program.constraints.hn_recursion_constraints) {
+            while (constraint.key.size() < padded_size) {
+                constraint.key.push_back(next_witness_idx++);
+            }
+        }
+        program.constraints.max_witness_index = next_witness_idx - 1;
+    }
+
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
      *
@@ -518,6 +529,36 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstrai
     }
 
     EXPECT_EQ(*kernel_vk.get(), *expected_hiding_kernel_vk.get());
+}
+
+TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromPaddedKernelVkConstraint)
+{
+    BB_DISABLE_ASSERTS();
+
+    std::shared_ptr<Chonk::MegaZKVerificationKey> expected_hiding_kernel_vk;
+    {
+        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        program.witness = {};
+        auto kernel = acir_format::create_circuit<Builder>(program);
+        Chonk::HidingKernelProverInstance prover_instance(kernel);
+        expected_hiding_kernel_vk = std::make_shared<Chonk::MegaZKVerificationKey>(prover_instance.get_precomputed());
+    }
+
+    std::shared_ptr<Chonk::MegaZKVerificationKey> padded_hiding_kernel_vk;
+    {
+        auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
+        AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+        pad_hn_recursion_vk_keys(program, MegaFlavor::VerificationKey::calc_num_data_types());
+        program.witness = {};
+        auto kernel = acir_format::create_circuit<Builder>(program);
+        Chonk::HidingKernelProverInstance prover_instance(kernel);
+        padded_hiding_kernel_vk = std::make_shared<Chonk::MegaZKVerificationKey>(prover_instance.get_precomputed());
+    }
+
+    EXPECT_EQ(*padded_hiding_kernel_vk.get(), *expected_hiding_kernel_vk.get());
 }
 
 /**
