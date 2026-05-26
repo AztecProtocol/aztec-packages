@@ -1,5 +1,5 @@
 // Fixture hosting the hand-written offchain-reception fold so PXE can run it via the simulator.
-// The fact-type ids and array bounds MUST match offchain_reception_fixture.ts (created in a later task).
+// The fact-type ids and array bounds MUST match offchain_reception_fixture.ts.
 use aztec::macros::aztec;
 
 #[aztec]
