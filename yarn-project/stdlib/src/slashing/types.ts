@@ -16,8 +16,8 @@ export enum OffenseType {
   PROPOSED_INSUFFICIENT_ATTESTATIONS = 5,
   /** A proposer pushed to L1 a block with incorrect committee attestations (ie signature from a non-committee member) */
   PROPOSED_INCORRECT_ATTESTATIONS = 6,
-  /** A committee member attested to a block that was built as a descendent of an invalid block (as in a block with invalid attestations) */
-  ATTESTED_DESCENDANT_OF_INVALID = 7,
+  /** A proposer published a checkpoint to L1 that builds on an invalid checkpoint (as in a checkpoint with invalid or insufficient attestations) */
+  PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS = 7,
   /** A proposer sent duplicate proposals for the same position (slot, indexWithinCheckpoint for blocks or slot for checkpoints) */
   DUPLICATE_PROPOSAL = 8,
   /** A validator signed attestations for different proposals at the same slot (equivocation) */
@@ -42,8 +42,8 @@ export function getOffenseTypeName(offense: OffenseType) {
       return 'proposed_insufficient_attestations';
     case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
       return 'proposed_incorrect_attestations';
-    case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
-      return 'attested_descendant_of_invalid';
+    case OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS:
+      return 'proposed_descendant_of_checkpoint_with_invalid_attestations';
     case OffenseType.DUPLICATE_PROPOSAL:
       return 'duplicate_proposal';
     case OffenseType.DUPLICATE_ATTESTATION:
@@ -66,7 +66,7 @@ export const OffenseToBigInt: Record<OffenseType, bigint> = {
   [OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL]: 4n,
   [OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS]: 5n,
   [OffenseType.PROPOSED_INCORRECT_ATTESTATIONS]: 6n,
-  [OffenseType.ATTESTED_DESCENDANT_OF_INVALID]: 7n,
+  [OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS]: 7n,
   [OffenseType.DUPLICATE_PROPOSAL]: 8n,
   [OffenseType.DUPLICATE_ATTESTATION]: 9n,
   [OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL]: 10n,
@@ -88,7 +88,7 @@ export function bigIntToOffense(offense: bigint): OffenseType {
     case 6n:
       return OffenseType.PROPOSED_INCORRECT_ATTESTATIONS;
     case 7n:
-      return OffenseType.ATTESTED_DESCENDANT_OF_INVALID;
+      return OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS;
     case 8n:
       return OffenseType.DUPLICATE_PROPOSAL;
     case 9n:

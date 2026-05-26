@@ -13,9 +13,9 @@ import type { ContractInstance } from './interfaces/contract_instance.js';
 /**
  * Returns the deployment address for a given contract instance.
  * ```
- * salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer])
+ * salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash])
  * partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash])
- * address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point
+ * address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */
@@ -34,7 +34,7 @@ export async function computeContractAddressFromInstance(
  */
 export async function computePartialAddress(
   instance:
-    | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer'>
+    | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer' | 'immutablesHash'>
     | { originalContractClassId: Fr; saltedInitializationHash: Fr },
 ): Promise<Fr> {
   const saltedInitializationHash =
@@ -53,10 +53,10 @@ export async function computePartialAddress(
  * @param instance - Contract instance for which to compute the salted initialization hash.
  */
 export function computeSaltedInitializationHash(
-  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'deployer'>,
+  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'deployer' | 'immutablesHash'>,
 ): Promise<Fr> {
   return poseidon2HashWithSeparator(
-    [instance.salt, instance.initializationHash, instance.deployer],
+    [instance.salt, instance.initializationHash, instance.deployer, instance.immutablesHash],
     DomainSeparator.SALTED_INITIALIZATION_HASH,
   );
 }

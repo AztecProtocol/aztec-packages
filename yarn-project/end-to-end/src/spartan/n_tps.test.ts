@@ -6,6 +6,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -318,7 +319,7 @@ describe('sustained N TPS test', () => {
           wallet,
           secret,
           new SchnorrAccountContract(deriveSigningKey(secret)),
-          salt,
+          { salt },
         );
         const deployMethod = await manager.getDeployMethod();
         // Explicit gas estimation: BaseWallet's fallback bakes
@@ -552,6 +553,34 @@ describe('sustained N TPS test', () => {
     }));
     const startedAt = new Date().toISOString();
 
+    // Block-watcher: stamps wall-clock minedAtMs on each sent tx the first time
+    // its block becomes visible to this client. Runs throughout sending AND the
+    // post-window waitForTx tail so late blocks still get a true client-observed
+    // timestamp. recordMinedTx (in waitForTx) is the slow-path fallback for any
+    // tx the watcher misses.
+    let lastSeenBlock = await aztecNode.getBlockNumber();
+    const blockWatcher = new RunningPromise(
+      async () => {
+        const current = await aztecNode.getBlockNumber();
+        while (lastSeenBlock < current) {
+          const n = BlockNumber.add(lastSeenBlock, 1);
+          const block = await aztecNode.getBlock(n, { includeTransactions: true });
+          lastSeenBlock = n;
+          if (!block) {
+            continue;
+          }
+          metrics.observeBlockForMinedTxs(
+            n,
+            block.body.txEffects.map(t => t.txHash),
+            Date.now(),
+          );
+        }
+      },
+      logger,
+      1000,
+    );
+    blockWatcher.start();
+
     sendTxsAtTps(logger, abortController.signal, lowValueLanes, lowValueTps, lowValueSendTx);
     const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueLanes, highValueTps, highValueSendTx);
 
@@ -563,11 +592,6 @@ describe('sustained N TPS test', () => {
       highValueTxs,
       highValueSent: sentTxHashes.length,
     });
-
-    // metadata about the test run for the scraper script
-    const metadataPath = '/tmp/n_tps_timing_data.json';
-    await writeFile(metadataPath, JSON.stringify({ startedAt, endedAt, runId: process.env.BENCH_RUN_ID }));
-    logger.info('Wrote benchmark metadata', { path: metadataPath, startedAt, endedAt });
 
     const results: { success: boolean; txHash: string; error?: any }[] = [];
     const waitForTx = async (txHash: string, txName: string) => {
@@ -606,6 +630,24 @@ describe('sustained N TPS test', () => {
       index += chunk.length;
       logger.debug('Processed tx batch', { processed: index, remaining: sentTxHashes.length });
     }
+
+    await blockWatcher.stop();
+
+    // Metadata + per-tx inclusion records for the bench_scrape script. Records
+    // are filtered to the high-value group, so this is the authoritative
+    // client-observed inclusion-latency dataset for the run.
+    const inclusionRecords = metrics.getInclusionRecords('tx_inclusion_time');
+    const metadataPath = '/tmp/n_tps_timing_data.json';
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ startedAt, endedAt, runId: process.env.BENCH_RUN_ID, inclusionRecords }),
+    );
+    logger.info('Wrote benchmark metadata', {
+      path: metadataPath,
+      startedAt,
+      endedAt,
+      inclusionRecords: inclusionRecords.length,
+    });
 
     // Count successes and failures
     const successCount = results.filter(r => r.success).length;

@@ -1,15 +1,13 @@
 pub(crate) const MSM_ASSEMBLY: &str = "
                 ; We are passed three pointers and one usize.
-                ; d0 points to the points. Points are represented by (x: Field, y: Field, is_infinite: bool)
+                ; d0 points to the points. Points are represented by (x: Field, y: Field).
                 ; d1 points to the scalars. Scalars are represented by (lo: Field, hi: Field) both range checked to 128 bits.
                 ; d2 contains the number of points.
                 ; d3 points to the result. The result is a point.
                 ADD d3, /*the reserved register 'one_usize'*/ $2, d4; Compute the pointer to the result y.
-                ADD d4, $2, d5; Compute the pointer to the result is_infinite
                 ; Initialize the msm result: point at infinity
                 SET i3, 0 ff
                 SET i4, 0 ff
-                SET i5, 1 u1
                 ; Loop globals
                 SET d6, 0 u32; Initialize the outer loop variable, ranging from 0 to the number of points
                 SET d8, 0 ff; Initialize a 0 FF
@@ -18,13 +16,12 @@ pub(crate) const MSM_ASSEMBLY: &str = "
                 SET d10, 128 u32; Initialize a constant 128
                 SET d11, 1 u1; Initialize a constant true
                 SET d12, 0 u1; Initialize a constant false
-                SET d13, 2 u32; Initialize a constant 2
-                SET d14, 3 u32; Initialize a constant 3 for computing pointers to the point components
+                SET d13, 2 u32; Initialize a constant 2 for computing pointers to point and scalar components
                 ; Main loop: iterate over the points/scalars
 OUTER_HEAD:     LT d6, d2, d15 ; Check if we are done with the outer loop
                 JUMPI d15, OUTER_BODY
                 JUMP OUTER_END
-OUTER_BODY:     MUL d6, d14, d16; Compute the pointer to the point
+OUTER_BODY:     MUL d6, d13, d16; Compute the pointer to the point
                 ADD d16, d0, d16;
                 MUL d6, d13, d17; Compute the pointer to the scalar lo
                 ADD d17, d1, d17
@@ -51,16 +48,13 @@ FIND_MSB_BODY:  JUMPI i19, FIND_MSB_END; Check if the current bit is one
                 JUMP FIND_MSB_BODY
                 ; Now we have the pointer of the MSB in d19
 
-                ; Now store the result of the scalar multiplication in d22, d23, d24
+                ; Now store the result of the scalar multiplication in d22, d23
 FIND_MSB_END:   MOV i16, d22; x
                 ADD d16, $2, d25; pointer to y
                 MOV i25, d23; y
-                ADD d25, $2, d25; pointer to is_infinite
-                MOV i25, d24; is_infinite
-                ; Also store the original point in d25, d26, d27
+                ; Also store the original point in d25, d26
                 MOV d22, d25; x
                 MOV d23, d26; y
-                MOV d24, d27; is_infinite
 
                 ; Now we need to do the inner loop, that will do double then add
                 ; We need to iterate from the pointer of the MSB + 1 to the end pointer (d21)
@@ -68,18 +62,18 @@ FIND_MSB_END:   MOV i16, d22; x
 INNER_HEAD:     LT d19, d21, d28; Check if we are done with the loop
                 JUMPI d28, INNER_BODY
                 JUMP INNER_END
-INNER_BODY:     ECADD d22, d23, d24, d22, d23, d24, /*not indirect, so the result is stored in d22, d23, d24*/ d22; Double the current result.
+INNER_BODY:     ECADD d22, d23, d22, d23, /*not indirect, so the result is stored in d22, d23*/ d22; Double the current result.
                 EQ i19, d12, d28; Check if the current bit is zero
                 JUMPI d28, INNER_INC; If the current bit is zero, continue
-                ECADD d25, d26, d27, d22, d23, d24, /*not indirect, so the result is stored in d22, d23, d24*/ d22; Add the original point to the result
+                ECADD d25, d26, d22, d23, /*not indirect, so the result is stored in d22, d23*/ d22; Add the original point to the result
 INNER_INC:      ADD d19, $2, d19; Increment the pointer
                 JUMP INNER_HEAD
 
                 ; After the inner loop we have computed the scalar multiplication. Add it to the msm result
-INNER_END:      ECADD i3, i4, i5, d22, d23, d24, i3; Add the result to the msm result
+INNER_END:      ECADD i3, i4, d22, d23, i3; Add the result to the msm result
 OUTER_INC:      ADD d6, $2, d6; Increment the outer loop variable
                 JUMP OUTER_HEAD
-                ; After the outer loop we have computed the msm. We can return since we wrote the result in i3, i4, i5
+                ; After the outer loop we have computed the msm. We can return since we wrote the result in i3, i4
 OUTER_END:      INTERNALRETURN
 ";
 

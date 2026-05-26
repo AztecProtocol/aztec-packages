@@ -39,11 +39,7 @@ import type { AttestationPoolApi, ProposalsForSlot } from '../mem_pools/attestat
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
-import {
-  ReqRespSubProtocol,
-  type ReqRespSubProtocolHandler,
-  type ReqRespSubProtocolValidators,
-} from '../services/reqresp/interface.js';
+import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../services/reqresp/interface.js';
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
@@ -283,12 +279,8 @@ export class P2PClient extends WithTracer implements P2P {
     return this.syncPromise;
   }
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
-    return this.p2pService.addReqRespSubProtocol(subProtocol, handler, validator);
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void> {
+    return this.p2pService.addReqRespSubProtocol(subProtocol, handler);
   }
 
   private initBlockStream(startingBlock?: BlockNumber) {

@@ -5,7 +5,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
@@ -40,7 +40,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     );
 
     ({ teardown, logger, wallet, accounts } = await setup(numAccounts, {
-      ...PIPELINING_SETUP_OPTS,
+      ...AUTOMINE_E2E_OPTS,
       initialFundedAccounts,
     }));
     logger.info('Account contracts deployed');

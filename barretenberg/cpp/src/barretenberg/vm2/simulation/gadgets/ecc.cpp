@@ -18,7 +18,7 @@ class InternalEccException : public std::runtime_error {
  * @brief Adds Grumpkin curve points P and Q and emits an EccAddEvent.
  *  Corresponds to the non-memory aware subtrace ecc.pil.
  *
- * @throws Unexpected exception if points are not on the curve or not normalized.
+ * @throws Unexpected exception if points are not on the curve.
  *  Note: This function assumes that the points p and q are on the curve. You should only use this function internally
  * if you can guarantee this. Otherwise it is called via the opcode ECADD, see the overloaded function Ecc::add (which
  * performs the curve check).
@@ -32,13 +32,6 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
     // Check if points are on the curve. These will throw an unexpected exception if they fail.
     BB_ASSERT(p.on_curve(), "Point p is not on the curve");
     BB_ASSERT(q.on_curve(), "Point q is not on the curve");
-    // Check if the points are normalized (infinity points must be (0, 0, true)).
-    if (p.is_infinity()) {
-        BB_ASSERT((p.x() == 0) && (p.y() == 0), "Point p is not normalized");
-    }
-    if (q.is_infinity()) {
-        BB_ASSERT((q.x() == 0) && (q.y() == 0), "Point q is not normalized");
-    }
 
     EmbeddedCurvePoint result = p + q;
     add_events.emit({ .p = p, .q = q, .result = result });
@@ -70,14 +63,11 @@ EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& sc
     // Emits ToRadixEvent, see #[TO_RADIX] in scalar_mul.pil.
     auto bits = to_radix.to_le_bits(scalar, 254).first;
 
-    // Normalize input infinity point (infinity points must be (0, 0, true)).
-    EmbeddedCurvePoint point_input = point.is_infinity() ? EmbeddedCurvePoint::infinity() : point;
-
     // First iteration does conditional assignment instead of addition. Note: in circuit we perform reverse aggregation,
     // so the corresponding constraints for below are gated by 'end'.
 
     // See 'Temp Computation' section in scalar_mul.pil.
-    EmbeddedCurvePoint temp = point_input;
+    EmbeddedCurvePoint temp = point;
     bool bit = bits[0];
 
     // See 'Result Computation' section in scalar_mul.pil.
@@ -94,10 +84,8 @@ EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& sc
         }
         intermediate_states[i] = { result, temp, bit };
     }
-    scalar_mul_events.emit({ .point = point_input,
-                             .scalar = scalar,
-                             .intermediate_states = std::move(intermediate_states),
-                             .result = result });
+    scalar_mul_events.emit(
+        { .point = point, .scalar = scalar, .intermediate_states = std::move(intermediate_states), .result = result });
     return result;
 }
 
@@ -124,11 +112,9 @@ void Ecc::add(MemoryInterface& memory,
     uint16_t space_id = memory.get_space_id();
 
     try {
-        // The resulting EmbeddedCurvePoint is a triple of (x, y, is_infinity).
-        // The x and y coordinates are stored at dst_address and dst_address + 1 respectively,
-        // and the is_infinity flag is stored at dst_address + 2.
-        // Therefore, the maximum address that needs to be written to is dst_address + 2.
-        uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 2;
+        // The resulting EmbeddedCurvePoint is (x, y), stored at dst_address and dst_address + 1 respectively.
+        // Therefore, the maximum address that needs to be written to is dst_address + 1.
+        uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 1;
         // Emits GreaterThanEvent, see #[CHECK_DST_ADDR_IN_RANGE] in ecc_mem.pil.
         if (gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
             throw InternalEccException("dst address out of range");
@@ -138,18 +124,12 @@ void Ecc::add(MemoryInterface& memory,
             throw InternalEccException("One of the points is not on the curve");
         }
 
-        // Normalize input infinity points.
-        EmbeddedCurvePoint p_input = p.is_infinity() ? EmbeddedCurvePoint::infinity() : p;
-        EmbeddedCurvePoint q_input = q.is_infinity() ? EmbeddedCurvePoint::infinity() : q;
-
         // Emits EccAddEvent, see #[INPUT_OUTPUT_ECC_ADD] in ecc_mem.pil.
-        EmbeddedCurvePoint result =
-            add(p_input, q_input); // Cannot throw since we have checked on_curve() and normalized.
+        EmbeddedCurvePoint result = add(p, q); // Cannot throw since we have checked on_curve().
 
-        // Emits MemoryEvents, see #[WRITE_MEM_i] for i = 0, 1, 2,  in ecc_mem.pil.
+        // Emits MemoryEvents, see #[WRITE_MEM_i] for i = 0, 1 in ecc_mem.pil.
         memory.set(dst_address, MemoryValue::from<FF>(result.x()));
         memory.set(dst_address + 1, MemoryValue::from<FF>(result.y()));
-        memory.set(dst_address + 2, MemoryValue::from<uint1_t>(result.is_infinity() ? 1 : 0));
 
         add_memory_events.emit({ .execution_clk = execution_clk,
                                  .space_id = space_id,
@@ -158,9 +138,11 @@ void Ecc::add(MemoryInterface& memory,
                                  .result = result,
                                  .dst_address = dst_address });
     } catch (const InternalEccException& e) {
-        // Note this point is not on the curve, but corresponds
-        // to default values the circuit will assign.
-        EmbeddedCurvePoint res = EmbeddedCurvePoint(0, 0, false);
+        // Note this point is technically infinity, but we are treating it as 'empty' to corresponds
+        // to default values the circuit will assign. Since we have caught an InternalEccException,
+        // we have an error which the circuit should recognise and assign sel_should_exec == 0, so res will not be
+        // treated as inf.
+        EmbeddedCurvePoint res = EmbeddedCurvePoint(0, 0);
         add_memory_events.emit({ .execution_clk = execution_clk,
                                  .space_id = space_id,
                                  .p = p,

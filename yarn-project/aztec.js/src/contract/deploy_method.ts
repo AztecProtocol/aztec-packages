@@ -67,6 +67,11 @@ export type DeployInstantiationOptions = {
   universalDeploy?: boolean;
   /** Public keys mixed into the address. Defaults to PublicKeys.default(). */
   publicKeys?: PublicKeys;
+  /**
+   * Commitment to the contract's immutable storage values. Folded into the salted initialization
+   * hash, so a non-zero value affects the derived address. Defaults to `Fr.ZERO`.
+   */
+  immutablesHash?: Fr;
 };
 
 /**
@@ -79,6 +84,11 @@ type SharedInstantiationOptions = {
   salt?: Fr;
   /** Public keys mixed into the address. Defaults to `PublicKeys.default()`. */
   publicKeys?: PublicKeys;
+  /**
+   * Commitment to the contract's immutable storage values. Folded into the salted initialization
+   * hash, so a non-zero value affects the derived address. Defaults to `Fr.ZERO`.
+   */
+  immutablesHash?: Fr;
 };
 
 /**
@@ -242,6 +252,8 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
   protected readonly salt: Fr;
   /** Public keys mixed into the address preimage. */
   protected readonly publicKeys: PublicKeys;
+  /** Immutables hash folded into the salted initialization hash. */
+  protected readonly immutablesHash: Fr;
 
   /** Cached instance promise; resolved once the deployer is known. */
   #instancePromise?: Promise<ContractInstanceWithAddress>;
@@ -264,6 +276,7 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
     contract: DeployMethodContract<TContract>,
     salt: Fr | undefined,
     publicKeys: PublicKeys | undefined,
+    immutablesHash: Fr | undefined,
     payload: DeployMethodPayload = {},
   ) {
     super(wallet, payload.authWitnesses ?? [], payload.capsules ?? []);
@@ -273,6 +286,7 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
     this.constructorArtifact = getInitializer(contract.artifact, contract.constructorNameOrArtifact);
     this.salt = salt ?? Fr.random();
     this.publicKeys = publicKeys ?? PublicKeys.default();
+    this.immutablesHash = immutablesHash ?? Fr.ZERO;
     this.extraHashedArgs = payload.extraHashedArgs ?? [];
   }
 
@@ -324,19 +338,24 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
     if (instantiation.deployer !== undefined && instantiation.universalDeploy) {
       throw new Error('DeployInstantiationOptions: `deployer` and `universalDeploy` are mutually exclusive.');
     }
-    const { salt, publicKeys, deployer, universalDeploy } = instantiation;
+    const { salt, publicKeys, immutablesHash, deployer, universalDeploy } = instantiation;
     if (universalDeploy) {
       return new UniversalDeployMethod<TContract>(
         wallet,
         contract,
-        { salt, publicKeys, universalDeploy: true },
+        { salt, publicKeys, immutablesHash, universalDeploy: true },
         payload,
       );
     }
     if (deployer !== undefined) {
-      return new BoundDeployMethod<TContract>(wallet, contract, { salt, publicKeys, deployer }, payload);
+      return new BoundDeployMethod<TContract>(
+        wallet,
+        contract,
+        { salt, publicKeys, immutablesHash, deployer },
+        payload,
+      );
     }
-    return new PendingDeployMethod<TContract>(wallet, contract, { salt, publicKeys }, payload);
+    return new PendingDeployMethod<TContract>(wallet, contract, { salt, publicKeys, immutablesHash }, payload);
   }
 
   /**
@@ -540,6 +559,7 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
         constructorArgs: this.args,
         salt: this.salt,
         publicKeys: this.publicKeys,
+        immutablesHash: this.immutablesHash,
         constructorArtifact: this.constructorArtifact,
         deployer,
       }).then(instance => {
@@ -676,7 +696,7 @@ export class BoundDeployMethod<TContract extends ContractBase = ContractBase> ex
         'BoundDeployMethod requires a non-zero `deployer`; use `UniversalDeployMethod` (`{ universalDeploy: true }`) for universal deploys.',
       );
     }
-    super(wallet, contract, instantiation.salt, instantiation.publicKeys, payload);
+    super(wallet, contract, instantiation.salt, instantiation.publicKeys, instantiation.immutablesHash, payload);
     this.deployer = instantiation.deployer;
   }
 
@@ -703,7 +723,12 @@ export class BoundDeployMethod<TContract extends ContractBase = ContractBase> ex
 
   /** Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume. */
   public cloneInstantiation(): DeployInstantiationOptions {
-    return { salt: this.salt, publicKeys: this.publicKeys, deployer: this.deployer };
+    return {
+      salt: this.salt,
+      publicKeys: this.publicKeys,
+      immutablesHash: this.immutablesHash,
+      deployer: this.deployer,
+    };
   }
 }
 
@@ -720,7 +745,7 @@ export class UniversalDeployMethod<TContract extends ContractBase = ContractBase
   ) {
     // `UniversalInstantiationOptions` forbids `deployer` and requires `universalDeploy: true` at
     // the type level — no runtime check is needed.
-    super(wallet, contract, instantiation.salt, instantiation.publicKeys, payload);
+    super(wallet, contract, instantiation.salt, instantiation.publicKeys, instantiation.immutablesHash, payload);
   }
 
   /** Universal deploys are anchored at `AztecAddress.ZERO`; the sender does not enter the preimage. */
@@ -738,7 +763,12 @@ export class UniversalDeployMethod<TContract extends ContractBase = ContractBase
 
   /** Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume. */
   public cloneInstantiation(): DeployInstantiationOptions {
-    return { salt: this.salt, publicKeys: this.publicKeys, universalDeploy: true };
+    return {
+      salt: this.salt,
+      publicKeys: this.publicKeys,
+      immutablesHash: this.immutablesHash,
+      universalDeploy: true,
+    };
   }
 }
 
@@ -766,7 +796,7 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
     instantiation: PendingInstantiationOptions = {},
     payload: DeployMethodPayload = {},
   ) {
-    super(wallet, contract, instantiation.salt, instantiation.publicKeys, payload);
+    super(wallet, contract, instantiation.salt, instantiation.publicKeys, instantiation.immutablesHash, payload);
   }
 
   /**
@@ -802,7 +832,7 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
   /** Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume. */
   public cloneInstantiation(): DeployInstantiationOptions {
     if (!this.#locked) {
-      return { salt: this.salt, publicKeys: this.publicKeys };
+      return { salt: this.salt, publicKeys: this.publicKeys, immutablesHash: this.immutablesHash };
     }
     return this.#locked.cloneInstantiation();
   }
@@ -815,7 +845,18 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
   #promoteFrom(
     from: SendInteractionOptionsWithoutWait['from'] | undefined,
   ): BoundDeployMethod<TContract> | UniversalDeployMethod<TContract> {
-    const { wallet, artifact, postDeployCtor, args, salt, publicKeys, authWitnesses, capsules, extraHashedArgs } = this;
+    const {
+      wallet,
+      artifact,
+      postDeployCtor,
+      args,
+      salt,
+      publicKeys,
+      immutablesHash,
+      authWitnesses,
+      capsules,
+      extraHashedArgs,
+    } = this;
     const contract: DeployMethodContract<TContract> = {
       artifact,
       postDeployCtor,
@@ -827,10 +868,15 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
       return new UniversalDeployMethod<TContract>(
         wallet,
         contract,
-        { salt, publicKeys, universalDeploy: true },
+        { salt, publicKeys, immutablesHash, universalDeploy: true },
         payload,
       );
     }
-    return new BoundDeployMethod<TContract>(wallet, contract, { salt, publicKeys, deployer: from }, payload);
+    return new BoundDeployMethod<TContract>(
+      wallet,
+      contract,
+      { salt, publicKeys, immutablesHash, deployer: from },
+      payload,
+    );
   }
 }

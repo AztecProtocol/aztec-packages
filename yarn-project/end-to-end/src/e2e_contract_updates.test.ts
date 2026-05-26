@@ -6,7 +6,6 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -22,11 +21,14 @@ import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
-// Set the update delay in genesis data so it's feasible to test in an e2e test
-const { aztecSlotDuration } = getL1ContractsConfigEnvVars();
-const DEFAULT_TEST_UPDATE_DELAY = BigInt(aztecSlotDuration) * 10n;
+// Set the update delay in genesis data so it's feasible to test in an e2e test.
+// The protocol enforces `MINIMUM_UPDATE_DELAY` (600 seconds, see constants.gen.ts), so we use that
+// as the test delay: it's the smallest the chain will accept, which keeps `warpL2TimeAtLeastBy`
+// times reasonable while still exercising the same code path.
+const DEFAULT_TEST_UPDATE_DELAY = BigInt(MINIMUM_UPDATE_DELAY);
 
 const INITIAL_UPDATABLE_CONTRACT_VALUE = 1n;
 // Constant copied over from Updated contract
@@ -90,14 +92,6 @@ describe('e2e_contract_updates', () => {
     const constructorArgs = [INITIAL_UPDATABLE_CONTRACT_VALUE];
     const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, initialFundedAccounts[0].address);
 
-    // TODO(kill-non-pipelined): runs under legacy until §6 B2 (proposed-chain invalidation
-    // + PXE/anchor recovery) is fixed. Under pipelining, `propose_action_not_successful`
-    // mid-test triggers an archiver prune cascade ("Pruning blocks after block 8 due to
-    // slot 10 not being checkpointed" → "Reorg detected. Pruning blocks from 1 to 8" →
-    // "Chain pruned to block 0"), wiping wallet state and wedging the sequencer; subsequent
-    // `cheatCodes.warpL2TimeAtLeastBy` then fails with "Timeout awaiting mineBlock". Same
-    // un-opt-in pattern as e2e_bot (e32ea4fb60), e2e_fees/failures (eb542676f8), and
-    // e2e_avm_simulator (a8ea0e9c36).
     ({
       aztecNode,
       teardown,
@@ -105,6 +99,7 @@ describe('e2e_contract_updates', () => {
       accounts: [defaultAccountAddress],
       cheatCodes,
     } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
       genesisPublicData,
       initialFundedAccounts,
     }));
@@ -130,7 +125,9 @@ describe('e2e_contract_updates', () => {
       INITIAL_UPDATABLE_CONTRACT_VALUE,
     );
     await contract.methods.update_to(updatedContractClassId).send({ from: defaultAccountAddress });
-    // Warp time to get past the timestamp of change where the update takes effect
+    // Warp time to get past the timestamp of change where the update takes effect so the latest
+    // header's timestamp (which the PXE uses to read the current class id) is past the update's
+    // timestampOfChange.
     await cheatCodes.warpL2TimeAtLeastBy(aztecNode, DEFAULT_TEST_UPDATE_DELAY);
     // Should be updated now
     await wallet.registerContract(instance, UpdatedContract.artifact);

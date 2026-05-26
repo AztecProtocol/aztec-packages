@@ -16,13 +16,26 @@ import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
  * changed and the oracle version needs to be bumped:
  *   - If the change is backward-breaking (e.g. removing/renaming an oracle), bump ORACLE_VERSION_MAJOR.
  *   - If the change is an oracle addition (non-breaking), bump ORACLE_VERSION_MINOR.
- *
- * TODO(F-667): The following only takes into consideration changes to the oracles defined in Oracle.ts and omits TXE
- * oracles. Ensure this checks TXE oracles as well. This hasn't been implemented yet since we don't have a clean TXE
- * oracle interface like we do in PXE (i.e., there is no single Oracle class that contains only the oracles).
  */
 function assertOracleInterfaceMatches(): void {
-  const oracleInterfaceSignature = getOracleInterfaceSignature();
+  const excludedProps = [
+    'handler',
+    'constructor',
+    'toACIRCallback',
+    'handlerAsMisc',
+    'handlerAsUtility',
+    'handlerAsPrivate',
+  ];
+
+  // Get the path to Oracle.ts source file
+  // The script runs from dest/bin/ after compilation, so we need to go up to the package root
+  // then into src/ to find the source file
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  // Go up from dest/bin/ or src/bin/ to the package root (pxe/), then into src/
+  const packageRoot = dirname(dirname(currentDir)); // Go up from bin/ to pxe/
+  const oracleSourcePath = join(packageRoot, 'src/contract_function_simulator/oracle/oracle.ts');
+
+  const oracleInterfaceSignature = getOracleInterfaceSignature(oracleSourcePath, ['Oracle'], excludedProps);
 
   // We use keccak256 here just because we already have it in the dependencies.
   const oracleInterfaceHash = keccak256String(oracleInterfaceSignature);
@@ -34,43 +47,40 @@ function assertOracleInterfaceMatches(): void {
 }
 
 /**
- * Constructs a signature of the Oracle interface while ignoring methods that are not foreign call handlers.
+ * Extracts method signatures from TypeScript classes or interfaces and returns a deterministic string representation.
+ *
+ * This is used to detect when an oracle interface changes so that the oracle version can be bumped. It works with both
+ * class declarations (e.g. PXE's `Oracle` class) and interface declarations (e.g. TXE's `IAvmExecutionOracle`).
+ *
+ * @param sourcePath - Absolute path to the TypeScript source file to parse.
+ * @param targets - Names of classes or interfaces to extract methods from.
+ * @param excludedMembers - Method names to skip (e.g. non-oracle helpers like `constructor`).
  */
-function getOracleInterfaceSignature(): string {
-  const excludedProps = [
-    'handler',
-    'constructor',
-    'toACIRCallback',
-    'handlerAsMisc',
-    'handlerAsUtility',
-    'handlerAsPrivate',
-  ] as const;
-
-  // Get the path to Oracle.ts source file
-  // The script runs from dest/bin/ after compilation, so we need to go up to the package root
-  // then into src/ to find the source file
-  const currentDir = dirname(fileURLToPath(import.meta.url));
-  // Go up from dest/bin/ or src/bin/ to the package root (pxe/), then into src/
-  const packageRoot = dirname(dirname(currentDir)); // Go up from bin/ to pxe/
-  const oracleSourcePath = join(packageRoot, 'src/contract_function_simulator/oracle/oracle.ts');
-
+export function getOracleInterfaceSignature(sourcePath: string, targets: string[], excludedMembers: string[]): string {
   // Read and parse the TypeScript source file
-  const sourceCode = readFileSync(oracleSourcePath, 'utf-8');
-  const sourceFile = ts.createSourceFile('oracle.ts', sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const sourceCode = readFileSync(sourcePath, 'utf-8');
+  const sourceFile = ts.createSourceFile(sourcePath, sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 
-  // Extract method signatures from the Oracle class
+  // Extract method signatures from the target classes/interfaces
   const methodSignatures: string[] = [];
 
   function visit(node: ts.Node) {
-    // Look for class declaration named "Oracle"
-    if (ts.isClassDeclaration(node) && node.name?.text === 'Oracle') {
-      // Visit all members of the class
+    // Look for class or interface declarations matching the target names
+    const isTarget =
+      (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) && targets.includes(node.name?.text ?? '');
+
+    if (isTarget) {
+      // Visit all members of the class/interface
       node.members.forEach(member => {
-        if (ts.isMethodDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
+        if (
+          (ts.isMethodDeclaration(member) || ts.isMethodSignature(member)) &&
+          member.name &&
+          ts.isIdentifier(member.name)
+        ) {
           const methodName = member.name.text;
 
           // Skip excluded methods
-          if (excludedProps.includes(methodName as (typeof excludedProps)[number])) {
+          if (excludedMembers.includes(methodName)) {
             return;
           }
 

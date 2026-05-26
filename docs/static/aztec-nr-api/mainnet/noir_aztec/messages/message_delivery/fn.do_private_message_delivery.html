@@ -48,7 +48,10 @@ message in scenarios where the plaintext will be encrypted with unconstrained en
 note hash's side effect counter is passed, then the log will be squashed alongside the note should its nullifier be
 emitted in the current transaction. This is typically only used for note messages: since the note will not actually
 be created, there is no point in delivering the message.</p>
-<p><code>delivery_mode</code> must be one of <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html"><code>MessageDeliveryEnum</code></a>.</p></div>
+<p><code>delivery_mode</code> must be one of <a href="../../../noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html"><code>MessageDeliveryEnum</code></a>.</p>
+<h2>Privacy</h2>
+<p>The emitted log always has the same length regardless of <code>MESSAGE_PLAINTEXT_LEN</code>, because all message ciphertexts
+also have the same length. This prevents accidental privacy leakage via the log length.</p></div>
 </main>
 </span>
 </body>

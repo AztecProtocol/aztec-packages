@@ -117,6 +117,7 @@ describe('ValidatorClient', () => {
     p2pClient.getCheckpointAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
     p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
     p2pClient.broadcastCheckpointAttestations.mockResolvedValue();
+    p2pClient.getProposalsForSlot.mockResolvedValue({ blockProposals: [], checkpointProposals: [] });
     checkpointsBuilder = mock<FullNodeCheckpointsBuilder>();
     checkpointsBuilder.getConfig.mockReturnValue({
       l1GenesisTime: 1n,
@@ -518,6 +519,121 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(true);
+    });
+
+    it('does not push a block proposal beyond a retained checkpoint terminal block to the archiver', async () => {
+      validatorClient.updateConfig({ skipPushProposedBlocksToArchiver: false });
+      validatorClient.getProposalHandler().register(p2pClient, true);
+
+      const signer = Secp256k1Signer.random();
+      const emptyInHash = computeInHashFromL1ToL2Messages([]);
+      const checkpointProposal = await makeCheckpointProposal({
+        signer,
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber, inHash: emptyInHash }),
+        archiveRoot: Fr.random(),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+          txHashes: proposal.txHashes,
+        },
+      });
+      const terminalBlock = checkpointProposal.getBlockProposal()!;
+
+      const terminalGlobals = terminalBlock.blockHeader.globalVariables;
+      const laterBlockHeader = makeBlockHeader(2, {
+        lastArchive: new AppendOnlyTreeSnapshot(terminalBlock.archive, terminalBlock.blockNumber),
+        blockNumber: BlockNumber(terminalBlock.blockNumber + 1),
+        slotNumber: proposal.slotNumber,
+        chainId: terminalGlobals.chainId,
+        version: terminalGlobals.version,
+        timestamp: terminalGlobals.timestamp,
+        coinbase: terminalGlobals.coinbase,
+        feeRecipient: terminalGlobals.feeRecipient,
+        gasFees: terminalGlobals.gasFees,
+      });
+      const laterBlock = await makeBlockProposal({
+        signer,
+        blockHeader: laterBlockHeader,
+        indexWithinCheckpoint: IndexWithinCheckpoint(1),
+        inHash: emptyInHash,
+        archiveRoot: Fr.random(),
+      });
+
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      p2pClient.getProposalsForSlot.mockResolvedValue({
+        blockProposals: [terminalBlock, laterBlock],
+        checkpointProposals: [checkpointProposal.toCore()],
+      });
+
+      const terminalBlockData = {
+        header: terminalBlock.blockHeader,
+        archive: new AppendOnlyTreeSnapshot(terminalBlock.archive, terminalBlock.blockNumber),
+        blockHash: BlockHash.random(),
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: terminalBlock.indexWithinCheckpoint,
+      } as unknown as BlockData;
+      blockSource.getBlockData.mockImplementation(query =>
+        Promise.resolve('number' in query ? undefined : terminalBlockData),
+      );
+
+      const blockAddedIfProcessed = {
+        ...blockBuildResult.block,
+        header: laterBlock.blockHeader,
+        body: { txEffects: times(laterBlock.txHashes.length, () => TxEffect.empty()) },
+        archive: new AppendOnlyTreeSnapshot(laterBlock.archive, laterBlock.blockNumber),
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: laterBlock.indexWithinCheckpoint,
+      } as unknown as L2Block;
+      mockCheckpointBuilder.buildBlock.mockResolvedValue({
+        ...blockBuildResult,
+        block: blockAddedIfProcessed,
+        numTxs: laterBlock.txHashes.length,
+      });
+      worldState.fork.mockResolvedValue({
+        close: () => Promise.resolve(),
+        [Symbol.asyncDispose]: () => Promise.resolve(),
+        getTreeInfo: () => Promise.resolve({ root: laterBlock.blockHeader.lastArchive.root.toBuffer() }),
+      } as never);
+
+      const result = await validatorClient.getProposalHandler().handleBlockProposal(laterBlock, sender, true);
+
+      expect(result).toMatchObject({ isValid: false, reason: 'block_proposal_beyond_checkpoint' });
+      expect(blockSource.addBlock).not.toHaveBeenCalled();
+    });
+
+    it('does not push a block proposal to the archiver when retained checkpoint proposals equivocate', async () => {
+      validatorClient.updateConfig({ skipPushProposedBlocksToArchiver: false });
+      validatorClient.getProposalHandler().register(p2pClient, true);
+
+      const emptyInHash = computeInHashFromL1ToL2Messages([]);
+      const checkpointProposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber, inHash: emptyInHash }),
+        archiveRoot: Fr.random(),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+          txHashes: proposal.txHashes,
+        },
+      });
+      const equivocatedCheckpointProposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber, inHash: emptyInHash }),
+        archiveRoot: Fr.random(),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { blockNumber, slotNumber: proposal.slotNumber }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+          txHashes: proposal.txHashes,
+        },
+      });
+
+      p2pClient.getProposalsForSlot.mockResolvedValue({
+        blockProposals: [proposal],
+        checkpointProposals: [checkpointProposal.toCore(), equivocatedCheckpointProposal.toCore()],
+      });
+
+      const result = await validatorClient.getProposalHandler().handleBlockProposal(proposal, sender, true);
+
+      expect(result).toMatchObject({ isValid: false, reason: 'checkpoint_proposal_equivocation' });
+      expect(blockSource.addBlock).not.toHaveBeenCalled();
     });
 
     it('uses the next wall-clock slot as the tx collection deadline for pipelined proposals', async () => {

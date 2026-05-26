@@ -140,14 +140,20 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     // re-execution state_mismatch and therefore never push to their archivers, so the malicious
     // node's checkpoint proposals can't find their last block and observers record `unvalidated`.
     const targetAddress = await spawnMaliciousAndHonestNodes({ broadcastInvalidBlockProposal: true });
-    const targetSlot = await warpToSlotBeforeTargetProposer(targetAddress);
+    // Warp near the malicious node's proposer slot to keep wall-clock down. We discover the slot at
+    // which the fault is actually recorded rather than assuming it is the warped block-proposer
+    // slot: the re-execution outcome is keyed by the checkpoint proposal's slot, and a proposer
+    // only emits a checkpoint proposal when its slot closes a checkpoint, which does not always
+    // coincide with the block-proposer slot we warp to.
+    await warpToSlotBeforeTargetProposer(targetAddress);
     // nodes[0] is the malicious node; honest observers are nodes[1..].
     const honestObservers = nodes.slice(1);
-    await assertAllObserversSentinelStatus(honestObservers, targetAddress, targetSlot, 'checkpoint-unvalidated');
-    // The malicious node self-records `checkpoint-valid` for its own slot using the locally
-    // computed archive (broadcastInvalidBlockProposal only corrupts the broadcast archive,
-    // not the proposer's local state).
-    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, targetSlot, 'checkpoint-valid');
+    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-unvalidated');
+    await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-unvalidated');
+    // The malicious node self-records `checkpoint-valid` for that slot using the locally computed
+    // archive (broadcastInvalidBlockProposal only corrupts the broadcast archive, not the
+    // proposer's local state).
+    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, faultSlot, 'checkpoint-valid');
     await assertInactivityOffenseFor(targetAddress, nodes[1]);
   });
 
@@ -156,12 +162,13 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     // block proposals valid; observers accept the blocks (so they land in the archiver) but
     // reject the checkpoint via header_mismatch, recording `invalid`.
     const targetAddress = await spawnMaliciousAndHonestNodes({ broadcastInvalidCheckpointProposalOnly: true });
-    const targetSlot = await warpToSlotBeforeTargetProposer(targetAddress);
+    await warpToSlotBeforeTargetProposer(targetAddress);
     const honestObservers = nodes.slice(1);
-    await assertAllObserversSentinelStatus(honestObservers, targetAddress, targetSlot, 'checkpoint-invalid');
-    // Malicious self-records `checkpoint-valid` for its own slot — proposers always consider
-    // their own freshly-built proposal valid from their local-state perspective.
-    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, targetSlot, 'checkpoint-valid');
+    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-invalid');
+    await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-invalid');
+    // Malicious self-records `checkpoint-valid` for that slot — proposers always consider their
+    // own freshly-built proposal valid from their local-state perspective.
+    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, faultSlot, 'checkpoint-valid');
     await assertInactivityOffenseFor(targetAddress, nodes[1]);
   });
 
@@ -295,6 +302,43 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     throw new Error(
       `Target proposer ${targetAddress} not found with sufficient buffer within ${maxEpochAttempts} epochs`,
     );
+  }
+
+  /**
+   * Finds the earliest slot at which EVERY honest observer has recorded `expectedStatus` for
+   * `targetAddress`. The slot at which the malicious node closes its checkpoint (and so the fault
+   * is recorded) is not necessarily the block-proposer slot we warp to, so we discover it rather
+   * than assuming it. Requiring cross-observer agreement avoids picking a slot that only one
+   * observer saw (e.g. one peer happened to be synced to the malicious proposer's gossip earlier
+   * than the others), which would then time out the downstream per-observer assertion. Times out
+   * — and therefore fails the test — if no common fault slot is ever recorded, so a genuine
+   * failure to detect the malicious proposal is still caught.
+   */
+  async function findObservedStatusSlot(
+    observerNodes: AztecNodeService[],
+    targetAddress: EthAddress,
+    expectedStatus: ValidatorStatusInSlot,
+  ): Promise<SlotNumber> {
+    const slot = await retryUntil(
+      async () => {
+        const slotSets = await Promise.all(
+          observerNodes.map(async observerNode => {
+            const stats = await observerNode.getValidatorsStats();
+            const history = stats.stats[targetAddress.toString()]?.history ?? [];
+            return new Set(history.filter(h => h.status === expectedStatus).map(h => Number(h.slot)));
+          }),
+        );
+        if (slotSets.some(s => s.size === 0)) {
+          return undefined;
+        }
+        const [first, ...rest] = slotSets;
+        const common = [...first].filter(s => rest.every(other => other.has(s))).sort((a, b) => a - b);
+        return common.length > 0 ? SlotNumber(common[0]) : undefined;
+      },
+      `cross-observer ${expectedStatus} for ${targetAddress}`,
+      AZTEC_SLOT_DURATION * 15,
+    );
+    return slot;
   }
 
   /**

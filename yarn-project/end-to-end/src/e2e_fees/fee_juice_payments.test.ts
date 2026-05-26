@@ -6,10 +6,17 @@ import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { GasSettings } from '@aztec/stdlib/gas';
 
+import { jest } from '@jest/globals';
+
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees Fee Juice payments', () => {
+  // FeesTest.setup + applyFundAliceWithBananas chains many dependent txs which run at the
+  // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
+  jest.setTimeout(15 * 60 * 1000);
+
   let aliceAddress: AztecAddress;
   let wallet: TestWallet;
   let bobAddress: AztecAddress;
@@ -20,7 +27,7 @@ describe('e2e_fees Fee Juice payments', () => {
   const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     await t.applyFundAliceWithBananas();
     ({ feeJuiceContract, aliceAddress, wallet, bananaCoin, gasSettings } = t);
 
