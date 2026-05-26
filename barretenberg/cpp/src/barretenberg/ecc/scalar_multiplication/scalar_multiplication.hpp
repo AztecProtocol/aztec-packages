@@ -178,7 +178,20 @@ extern template class MSM<curve::BN254>;
 // and bench targets can pin behaviour at the boundary.
 inline constexpr size_t MIN_PTS_PER_THREAD_FOR_PIPPENGER = 24;
 
+// Per-MSM arena sizer. Returns 0 for shapes that fall back to the Jacobian-fast path
+// (no affine arena). Mirrors the inline budget calc inside `pippenger_round_parallel`;
+// declared here so the test suite can exercise the same sizer.
+template <typename Curve>
+size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, bool dedup_active = false) noexcept;
+
 namespace round_parallel_detail {
+
+// Above this N, GLV's 2x point-count cost outweighs the windows-halved benefit.
+#ifdef __wasm__
+inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 16;
+#else
+inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 13;
+#endif
 
 /**
  * @brief Single-MSM, no-affine-trick Pippenger over window_bits-wide windows.

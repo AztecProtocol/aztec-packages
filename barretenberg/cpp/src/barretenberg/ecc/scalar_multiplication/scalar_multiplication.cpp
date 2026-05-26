@@ -1,5 +1,7 @@
 #include "./scalar_multiplication.hpp"
 
+#include "./pippenger_arena_layout.hpp"
+#include "./pippenger_constantine.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -16,6 +18,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
@@ -115,434 +118,12 @@ template <typename ScalarField>
     return static_cast<uint32_t>(lo_slice | (hi_slice << lo_bits));
 }
 
-/**
- * @brief Per-window precomputed slice parameters for the carry-less signed-Booth window
- *        recoding (after Constantine `signedWindowEncoding` / `getSignedFullWindowAt`,
- *        `constantine/math/arithmetic/bigints.nim`). Computed once per window outside the
- *        Stage 1 / Stage 4 inner loops; the per-(point, window) hot path is then 2 i32
- *        loads + a fixed bit-twiddle, no branches and no per-iter address arithmetic.
- *        Carry-less because every non-bottom window's c+1-bit read shares its boundary bit
- *        with the previous window — the bit a non-overlapping recoder would carry.
- */
-// Precomputed per-window slice params for Constantine's signed-Booth recoder.
-//
-// `slice_localised_to_one_u64`: true iff every bit of the c+1-bit window lives inside a
-// single uint64 limb. ~75% of windows on typical 254-bit scalars with c ∈ [12, 18]
-// (lookback bits at non-boundary positions) hit this and take the fast path: one load,
-// one shift, one mask. The slow path is the boundary-straddling case + the synthetic-
-// lookback bottom window.
-struct ConstantineSliceParams {
-    uint32_t lo_mask;
-    uint32_t hi_mask;
-    uint32_t lo_limb;
-    uint32_t hi_limb; // == lo_limb + 1, except clamped to last valid limb at the top window
-    uint32_t lo_off;
-    uint32_t lo_bits;
-    bool slice_localised_to_one_u64;
-};
+// Constantine signed-Booth window recoder (scalar + SIMD x4 paths) lives in
+// pippenger_constantine.hpp.
 
-/**
- * @brief Compute the Constantine slice params for a window starting at absolute bit position
- *        `bit_offset` (= Σ_{k<w} window_bits_k under variable-window, or w·window_bits under
- *        uniform-window). The slice is `[bit_offset - 1, bit_offset + window_bits)`; the bit at
- *        bit_offset - 1 is the shared boundary bit. The bottom window (bit_offset == 0) is
- *        encoded specially so its inner loop body matches non-bottom windows.
- */
-[[nodiscard]] inline ConstantineSliceParams compute_constantine_slice_params(size_t bit_offset,
-                                                                             size_t window_bits,
-                                                                             size_t num_uint64_limbs) noexcept
-{
-    constexpr size_t LIMB_BITS = 64;
-    ConstantineSliceParams sp;
-    if (bit_offset == 0) {
-        // Bottom window: the boundary bit below the LSB is a synthetic 0. Encode this by
-        // reading "limb -1" as a zero-masked load (lo_mask = 0), then reading window_bits
-        // bits from limb 0 into the hi side and shifting them left by 1. This puts the
-        // window_bits-bit window at bits 1..window_bits with bit 0 = 0, matching the inner-
-        // loop body used by every other window. Not localised — the synthetic-lookback
-        // assembly only works in the slow path.
-        sp.lo_limb = 0; // safe in-range, but masked to 0
-        sp.hi_limb = 0; // = scalar limb 0
-        sp.lo_off = LIMB_BITS - 1;
-        sp.lo_bits = 1; // shifts hi_part left by 1, planting the window_bits-bit window at bits 1..window_bits
-        sp.lo_mask = 0; // lo_part contributes nothing
-        sp.hi_mask = (uint32_t{ 1 } << window_bits) - 1;
-        sp.slice_localised_to_one_u64 = false;
-    } else {
-        const size_t lookback_bit = bit_offset - 1;
-        const size_t bits_to_read = window_bits + 1;
-        sp.lo_limb = static_cast<uint32_t>(lookback_bit / LIMB_BITS);
-        sp.lo_off = static_cast<uint32_t>(lookback_bit & (LIMB_BITS - 1));
-        sp.lo_bits = static_cast<uint32_t>(LIMB_BITS - sp.lo_off < bits_to_read ? LIMB_BITS - sp.lo_off : bits_to_read);
-        const uint32_t hi_bits = static_cast<uint32_t>(bits_to_read) - sp.lo_bits;
-        // window_bits+1 ≤ 32 for our windows ⇒ lo_bits ≤ 32 ⇒ mask fits in uint32.
-        sp.lo_mask = (uint32_t{ 1 } << sp.lo_bits) - 1;
-        // If the natural hi-limb read would land past the end of the scalar's storage,
-        // clamp `hi_limb` to a safe in-range index and mask its contribution to zero. The
-        // top window's hi_bits worth of bits are conceptually zero (scalar < 2^num_bits ≤
-        // num_windows·window_bits). Re-reading lo_limb under a zero mask keeps the slow
-        // path's two unconditional limb loads branch-free.
-        if (static_cast<size_t>(sp.lo_limb) + 1 >= num_uint64_limbs) {
-            sp.hi_limb = sp.lo_limb;
-            sp.hi_mask = 0;
-        } else {
-            sp.hi_limb = sp.lo_limb + 1;
-            sp.hi_mask = (uint32_t{ 1 } << hi_bits) - 1;
-        }
-        // Fast path: the full (window_bits+1)-bit window lives inside `lo_limb`. hi_bits == 0
-        // captures both the in-limb case (window doesn't straddle a 64-bit boundary) and the
-        // clamped top-window case (above) where hi_mask was forced to 0.
-        sp.slice_localised_to_one_u64 = (hi_bits == 0);
-    }
-    return sp;
-}
-
-/**
- * @brief Read (window_bits+1) bits from `scalar_data` (uint64 limbs) using precomputed
- *        slice params and apply Constantine's signedWindowEncoding to produce a
- *        `(sign | bucket)` packed digit. Inner-loop body for Stage 1 / Stage 4 —
- *        fully inlined.
- *
- *        Takes the slice params as scalar value parameters rather than a struct reference
- *        so the compiler reliably holds them in registers across the inner loop. (Passing
- *        a const-ref to a small struct sometimes blocks the same hoisting an explicit
- *        unpack-then-pass guarantees; we saw exactly this regression with the variable-c
- *        split params before unpacking.)
- *
- *        `slice_localised_to_one_u64` selects the single-load fast path: ~75% of windows
- *        on typical 254-bit scalars (window_bits ∈ [12, 18]) hit this. Because the slice
- *        params are loop-invariant within a window, the branch resolves once per inner-
- *        loop iter and the inner branch predictor pins it.
- */
-[[nodiscard]] [[gnu::always_inline]] inline uint32_t get_constantine_packed_digit(const uint64_t* scalar_data,
-                                                                                  uint32_t lo_limb,
-                                                                                  uint32_t hi_limb,
-                                                                                  uint32_t lo_off,
-                                                                                  uint32_t lo_bits,
-                                                                                  uint32_t lo_mask,
-                                                                                  uint32_t hi_mask,
-                                                                                  bool slice_localised_to_one_u64,
-                                                                                  size_t window_bits) noexcept
-{
-    uint64_t raw_wide = 0;
-    if (slice_localised_to_one_u64) {
-        // Fast path: one load + shift + mask. hi_part vanishes (hi_mask == 0); skip it.
-        raw_wide = (scalar_data[lo_limb] >> lo_off) & lo_mask;
-    } else if (lo_mask == 0) {
-        // Bottom-window fast path: synthetic-zero lookback bit, so the lo_part contribution is
-        // always 0 (lo_mask == 0). Skip the lo limb load entirely. lo_bits == 1 here, so the
-        // shift plants the window_bits-bit slice at bits 1..window_bits with bit 0 = 0.
-        // sp_lo_mask is loop-invariant within a window but is a runtime stack value, so the
-        // compiler does NOT constant-fold the `(s_lo >> lo_off) & 0 = 0` path inside the
-        // boundary branch; this explicit check saves ~3 ALU ops per scalar on the bottom window.
-        raw_wide = (scalar_data[hi_limb] & hi_mask) << lo_bits;
-    } else {
-        // Slow path: window straddles a uint64 boundary.
-        const uint64_t s_lo = scalar_data[lo_limb];
-        const uint64_t s_hi = scalar_data[hi_limb];
-        const uint64_t lo_part = (s_lo >> lo_off) & lo_mask;
-        const uint64_t hi_part = (s_hi & hi_mask) << lo_bits;
-        raw_wide = lo_part | hi_part;
-    }
-    // raw fits in window_bits+1 ≤ 32 bits, safe to narrow.
-    const uint32_t raw = static_cast<uint32_t>(raw_wide);
-
-    // signedWindowEncoding(raw, window_bits). raw fits in window_bits+1 bits; bit
-    // `window_bits` is the sign indicator.
-    //
-    // The conditional-negate trick `((encode + neg_mask) ^ neg_mask)` is the standard
-    // branchless idiom. We use the equivalent `(encode - neg) ^ neg_mask` to break the
-    // latency chain: `encode - neg` and `neg_mask = -neg` can issue in parallel (both
-    // depend only on `neg` / `encode`), whereas `encode + neg_mask` first waits for
-    // `neg_mask` to materialise. Saves one cycle on the inner-loop critical path
-    // (neg → neg_mask → +neg_mask → ^neg_mask → &val_mask vs neg → {neg_mask, enc_neg}
-    // in parallel → ^neg_mask → &val_mask). Identical result by:
-    //   neg=0: enc_neg = encode, xored = encode ^ 0 = encode. ✓
-    //   neg=1: enc_neg = encode−1, xored = (encode−1) ^ −1 = ~(encode−1) = −encode. ✓
-    const uint32_t neg = (raw >> window_bits) & uint32_t{ 1 };
-    const uint32_t neg_mask = uint32_t{ 0 } - neg; // 0 or 0xFFFFFFFF
-    const uint32_t val_mask = (uint32_t{ 1 } << window_bits) - 1;
-    const uint32_t encode = (raw + 1) >> 1;
-    const uint32_t bucket_idx = ((encode - neg) ^ neg_mask) & val_mask;
-
-    // Pack into (sign | bucket). Stage 1 uses the bucket bits for histograms; Stage 4
-    // stores only the sign bit because Stage 6 recovers bucket magnitude from bucket_start.
-    return (neg << 31) | bucket_idx;
-}
-
-// 128-bit SIMD-friendly 4-wide variant of get_constantine_packed_digit. Computes 4 packed
-// digits in parallel via GCC's vector_size extension, which lowers to native SIMD on x86
-// (SSE2), ARM (NEON), and WASM (wasm-simd128). The branch on slice path is hoisted from
-// the per-call site to the per-window outer loop, so Stage 1 / Stage 4 callers select the
-// localised / bottom / boundary specialisation once per window.
-//
-// We index the scalar via a `const uint32_t*` view rather than the natural `uint64_t*`:
-// each lane is one uint32, so a 128-bit SIMD register holds 4 (raw, encode, bucket, …)
-// values. `scalar.data` is a `std::array<uint64_t, 4>` whose byte layout is identical to
-// `uint32_t[8]` on every target we ship to (x86 / ARM / WASM are all little-endian, and the
-// codebase already assumes this layout in many places — `from_montgomery`, `uint256_t`,
-// etc.). The reinterpret_cast is the same alias pattern.
-//
-// Returns the four packed digits in `out[0..3]`. The caller scatters them to the histogram
-// (Stage 1) or schedule (Stage 4) individually, since the consuming write is a
-// non-vectorisable scatter. Switching from 2-wide uint64 to 4-wide uint32 doubles the
-// compute throughput per SIMD instruction at the cost of slightly more straddle hits (the
-// "localised" fast-path rate drops from ~77 % to ~50 % at c=14), but compute dominates
-// per-iter cost so the net win is positive.
-using SimdU32x4 = uint32_t __attribute__((vector_size(16)));
-
-// Helpers return `SimdU32x4` directly so the v128 stays in the SIMD register file end-to-end.
-// Wrapping in a 4-uint32 struct round-tripped the v128 through 4 scalar memory slots.
-
-// uint32-indexed Constantine slice params, mirroring `ConstantineSliceParams` but with
-// limb indices measured in 32-bit (rather than 64-bit) chunks. Computed once per window in
-// `compute_constantine_slice_params_u32`; consumed by the SIMD x4 helpers below.
-struct ConstantineSliceParamsU32 {
-    uint32_t lo_mask;
-    uint32_t hi_mask;
-    uint32_t lo_limb; // u32 limb index of the lookback bit
-    uint32_t hi_limb; // == lo_limb + 1, clamped to last in-range u32 limb at the top window
-    uint32_t lo_off;  // bit-offset of the lookback bit within `lo_limb`
-    uint32_t lo_bits; // # bits read from `lo_limb` (also acts as the hi_part left-shift amount)
-    bool slice_localised_to_one_u32;
-    bool is_bottom_window;
-};
-
-[[nodiscard]] inline ConstantineSliceParamsU32 compute_constantine_slice_params_u32(size_t bit_offset,
-                                                                                    size_t window_bits,
-                                                                                    size_t num_u32_limbs) noexcept
-{
-    constexpr size_t LIMB_BITS_U32 = 32;
-    ConstantineSliceParamsU32 sp;
-    if (bit_offset == 0) {
-        sp.lo_limb = 0;
-        sp.hi_limb = 0;
-        sp.lo_off = LIMB_BITS_U32 - 1;
-        sp.lo_bits = 1;
-        sp.lo_mask = 0;
-        sp.hi_mask = (uint32_t{ 1 } << window_bits) - 1;
-        sp.slice_localised_to_one_u32 = false;
-        sp.is_bottom_window = true;
-    } else {
-        const size_t lookback_bit = bit_offset - 1;
-        const size_t bits_to_read = window_bits + 1;
-        sp.lo_limb = static_cast<uint32_t>(lookback_bit / LIMB_BITS_U32);
-        sp.lo_off = static_cast<uint32_t>(lookback_bit & (LIMB_BITS_U32 - 1));
-        const uint32_t in_lo = static_cast<uint32_t>(LIMB_BITS_U32 - sp.lo_off);
-        sp.lo_bits = (in_lo < static_cast<uint32_t>(bits_to_read)) ? in_lo : static_cast<uint32_t>(bits_to_read);
-        const uint32_t hi_bits = static_cast<uint32_t>(bits_to_read) - sp.lo_bits;
-        sp.lo_mask = (sp.lo_bits == LIMB_BITS_U32) ? ~uint32_t{ 0 } : ((uint32_t{ 1 } << sp.lo_bits) - 1);
-        if (static_cast<size_t>(sp.lo_limb) + 1 >= num_u32_limbs) {
-            sp.hi_limb = sp.lo_limb;
-            sp.hi_mask = 0;
-        } else {
-            sp.hi_limb = sp.lo_limb + 1;
-            sp.hi_mask = (uint32_t{ 1 } << hi_bits) - 1;
-        }
-        sp.slice_localised_to_one_u32 = (hi_bits == 0);
-        sp.is_bottom_window = false;
-    }
-    return sp;
-}
-
-// Gather 4 disjoint uint32 values into one v128 via wasm v128.load32_lane. On WASM this
-// is 1 splat + 3 load32_lane (4 ops); brace-init `{a, b, c, d}` with runtime values emits
-// 4 scalar i32.load + 1 splat + 3 replace_lane (8 ops). On native it falls back to brace-
-// init which clang lowers to NEON ins / SSE2 pinsrd.
-[[nodiscard]] [[gnu::always_inline]] inline SimdU32x4 gather_x4_u32(
-    const uint32_t* p0, const uint32_t* p1, const uint32_t* p2, const uint32_t* p3, uint32_t idx) noexcept
-{
-#ifdef __wasm_simd128__
-    v128_t v = wasm_i32x4_splat(0);
-    v = wasm_v128_load32_lane(p0 + idx, v, 0);
-    v = wasm_v128_load32_lane(p1 + idx, v, 1);
-    v = wasm_v128_load32_lane(p2 + idx, v, 2);
-    v = wasm_v128_load32_lane(p3 + idx, v, 3);
-    return reinterpret_cast<SimdU32x4>(v);
-#else
-    return SimdU32x4{ p0[idx], p1[idx], p2[idx], p3[idx] };
-#endif
-}
-
-// All four mask / constant v128s (lo_mask_v, hi_mask_v, one_v, val_mask) are loop-invariant
-// within a window. Callers build them ONCE per window in the outer-w loop and pass them in,
-// so the inner-i compute loop has zero v128.const / splat / shl+sub for the masks.
-// `neg_mask = -neg` uses GCC vector-ext unary minus which lowers to `i32x4.neg` on WASM.
-//
-// Helpers write the v128 result DIRECTLY into the caller's stack buffer via an aligned
-// `v128.store` (or equivalent on native). No return-by-value, no temporary, no memcpy —
-// the v128 register flows from the bit-pack pipeline straight into the destination buffer.
-[[gnu::always_inline]] inline void store_constantine_packed_digits_x4_localised(uint32_t* dst,
-                                                                                const uint32_t* scalar_data_0,
-                                                                                const uint32_t* scalar_data_1,
-                                                                                const uint32_t* scalar_data_2,
-                                                                                const uint32_t* scalar_data_3,
-                                                                                uint32_t lo_limb,
-                                                                                uint32_t lo_off,
-                                                                                SimdU32x4 lo_mask_v,
-                                                                                SimdU32x4 one_v,
-                                                                                SimdU32x4 val_mask,
-                                                                                uint32_t window_bits) noexcept
-{
-    const SimdU32x4 lo = gather_x4_u32(scalar_data_0, scalar_data_1, scalar_data_2, scalar_data_3, lo_limb);
-    const SimdU32x4 raw = (lo >> lo_off) & lo_mask_v;
-    const SimdU32x4 neg = (raw >> window_bits) & one_v;
-    const SimdU32x4 neg_mask = -neg;
-    const SimdU32x4 encode = (raw + one_v) >> 1;
-    const SimdU32x4 bucket = ((encode - neg) ^ neg_mask) & val_mask;
-    const SimdU32x4 packed = (neg << 31) | bucket;
-#ifdef __wasm_simd128__
-    wasm_v128_store(dst, reinterpret_cast<v128_t>(packed));
-#else
-    *reinterpret_cast<SimdU32x4*>(dst) = packed;
-#endif
-}
-
-[[gnu::always_inline]] inline void store_constantine_packed_digits_x4_bottom(uint32_t* dst,
-                                                                             const uint32_t* scalar_data_0,
-                                                                             const uint32_t* scalar_data_1,
-                                                                             const uint32_t* scalar_data_2,
-                                                                             const uint32_t* scalar_data_3,
-                                                                             uint32_t hi_limb,
-                                                                             uint32_t lo_bits,
-                                                                             SimdU32x4 hi_mask_v,
-                                                                             SimdU32x4 one_v,
-                                                                             SimdU32x4 val_mask,
-                                                                             uint32_t window_bits) noexcept
-{
-    const SimdU32x4 hi = gather_x4_u32(scalar_data_0, scalar_data_1, scalar_data_2, scalar_data_3, hi_limb);
-    const SimdU32x4 raw = (hi & hi_mask_v) << lo_bits;
-    const SimdU32x4 neg = (raw >> window_bits) & one_v;
-    const SimdU32x4 neg_mask = -neg;
-    const SimdU32x4 encode = (raw + one_v) >> 1;
-    const SimdU32x4 bucket = ((encode - neg) ^ neg_mask) & val_mask;
-    const SimdU32x4 packed = (neg << 31) | bucket;
-#ifdef __wasm_simd128__
-    wasm_v128_store(dst, reinterpret_cast<v128_t>(packed));
-#else
-    *reinterpret_cast<SimdU32x4*>(dst) = packed;
-#endif
-}
-
-[[gnu::always_inline]] inline void store_constantine_packed_digits_x4_boundary(uint32_t* dst,
-                                                                               const uint32_t* scalar_data_0,
-                                                                               const uint32_t* scalar_data_1,
-                                                                               const uint32_t* scalar_data_2,
-                                                                               const uint32_t* scalar_data_3,
-                                                                               uint32_t lo_limb,
-                                                                               uint32_t hi_limb,
-                                                                               uint32_t lo_off,
-                                                                               uint32_t lo_bits,
-                                                                               SimdU32x4 lo_mask_v,
-                                                                               SimdU32x4 hi_mask_v,
-                                                                               SimdU32x4 one_v,
-                                                                               SimdU32x4 val_mask,
-                                                                               uint32_t window_bits) noexcept
-{
-    const SimdU32x4 lo = gather_x4_u32(scalar_data_0, scalar_data_1, scalar_data_2, scalar_data_3, lo_limb);
-    const SimdU32x4 hi = gather_x4_u32(scalar_data_0, scalar_data_1, scalar_data_2, scalar_data_3, hi_limb);
-    const SimdU32x4 lo_part = (lo >> lo_off) & lo_mask_v;
-    const SimdU32x4 hi_part = (hi & hi_mask_v) << lo_bits;
-    const SimdU32x4 raw = lo_part | hi_part;
-    const SimdU32x4 neg = (raw >> window_bits) & one_v;
-    const SimdU32x4 neg_mask = -neg;
-    const SimdU32x4 encode = (raw + one_v) >> 1;
-    const SimdU32x4 bucket = ((encode - neg) ^ neg_mask) & val_mask;
-    const SimdU32x4 packed = (neg << 31) | bucket;
-#ifdef __wasm_simd128__
-    wasm_v128_store(dst, reinterpret_cast<v128_t>(packed));
-#else
-    *reinterpret_cast<SimdU32x4*>(dst) = packed;
-#endif
-}
-
-// Path-selector enum (used by Stage 1 / Stage 4 to dispatch on the SIMD specialisation
-// once per window rather than once per scalar).
-enum class ConstantineSlicePath : uint8_t {
-    Localised = 0,
-    Bottom = 1,
-    Boundary = 2,
-};
-
-[[nodiscard]] [[gnu::always_inline]] inline ConstantineSlicePath classify_slice_path_u32(
-    const ConstantineSliceParamsU32& sp) noexcept
-{
-    if (sp.is_bottom_window) {
-        return ConstantineSlicePath::Bottom;
-    }
-    if (sp.slice_localised_to_one_u32) {
-        return ConstantineSlicePath::Localised;
-    }
-    return ConstantineSlicePath::Boundary;
-}
-
-[[nodiscard]] inline uint32_t choose_window_bits(
-    size_t num_points, size_t num_bits, size_t n_input, size_t num_logical_threads, bool use_rebalance) noexcept
-{
-    constexpr uint32_t MAX_C = 20;
-    uint32_t best = 2;
-
-#ifdef __wasm__
-    // Closed-form for wasm: c = ⌊log2(num_points / target_load)⌋ + 1, where target_load is
-    // num_logical_threads × 2/3 above n_input=4096 and × 1/3 below — the per-bucket density
-    // that keeps the batched-affine drains amortised in each regime.
-    static_cast<void>(num_bits);
-    static_cast<void>(use_rebalance);
-    const size_t target_load = (n_input > 4096) ? (num_logical_threads * 2 / 3) : (num_logical_threads / 3);
-    if (target_load == 0 || num_points <= target_load) {
-        best = 2;
-    } else {
-        // ⌊log2(num_points / target_load)⌋ + 1
-        const size_t ratio = num_points / target_load;
-        const uint32_t lg = static_cast<uint32_t>(numeric::get_msb(ratio));
-        best = lg + 1;
-        if (best < 2) {
-            best = 2;
-        } else if (best >= MAX_C) {
-            best = MAX_C - 1;
-        }
-    }
-#else
-    // Native: linear cost model `cost = rounds · (n + 15·B)` with BUCKET_ACC_COST=15.
-    // The closed-form WASM formula above has not been recalibrated for native — keep the
-    // existing native model until that's done.
-    static_cast<void>(n_input);
-    static_cast<void>(num_logical_threads);
-    static_cast<void>(use_rebalance);
-    uint64_t best_cost = static_cast<uint64_t>(-1);
-    for (uint32_t window_bits = 2; window_bits < MAX_C; ++window_bits) {
-        const uint64_t rounds = (num_bits + 2 + window_bits - 1) / window_bits;
-        const uint64_t buckets = (uint64_t{ 1 } << (window_bits - 1)) + 1;
-        const uint64_t n = num_points;
-        constexpr uint64_t BUCKET_ACC_COST = 15;
-        const uint64_t cost = rounds * (n + (buckets * BUCKET_ACC_COST));
-        if (cost < best_cost) {
-            best_cost = cost;
-            best = window_bits;
-        }
-    }
-#endif
-
-    return best;
-}
-
-// Variable-window-bits Pippenger schedule. SPLIT mode covers bits [0, b_star) with `window_bits_lo`
-// windows iterated by every non-zero scalar, and bits [b_star, NUM_BITS) with
-// `window_bits_hi < window_bits_lo` windows iterated by `idx_large` only (scalars whose msb sits in
-// the upper region). NO_SPLIT mode is a single region of uniform window-bits.
-inline constexpr size_t VAR_WINDOW_MAX_WINDOWS = 128;
-
-// Above this N, GLV's 2× point-count cost outweighs the windows-halved benefit. The
-// crossover is platform-specific: WASM keeps GLV up to 2^16 (V8/wasmtime's branchless
-// bias-decode is slow enough that halving num_windows still pays at large N), while
-// native's faster decode makes the 2× point-count dominate above 2^13. Empirically
-// calibrated against chonk-prove fixtures — see the call sites for the original sweep
-// notes.
-#ifdef __wasm__
-inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 16;
-#else
-inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 13;
-#endif
+// `choose_window_bits` and `build_var_window_schedule` are defined inline in
+// `pippenger_arena_layout.hpp` so the test suite can build identical schedules.
+// `VAR_WINDOW_MAX_WINDOWS` and `VariableWindowSchedule` likewise live there.
 
 // Sentinel value for `msb_per_scalar[i]` when scalar i is zero. uint8_t fits the 254 valid msb
 // positions (0..253) plus this sentinel; matching `msb_hist` bin layout uses bin 0 = zero count
@@ -593,7 +174,8 @@ inline constexpr uint32_t DEDUP_INVALID_EXTRA = ~uint32_t{ 0 };
 // branch never fires anyway (the end-of-loop drain catches the residue). Keeping it
 // constexpr lets the compiler turn the per-iter `if (pair_count >= BATCH_CAPACITY)` into
 // a compare-against-immediate and fold the drain-trigger condition into the loop shape.
-inline constexpr size_t BATCH_CAPACITY = 256;
+// `BATCH_CAPACITY` is defined in `pippenger_arena_layout.hpp` so the layout struct can
+// reference it without depending on this TU.
 
 inline int msb_of_2limb(uint64_t lo, uint64_t hi) noexcept
 {
@@ -630,251 +212,10 @@ inline void record_msb(int msb, uint8_t& dst, std::array<uint32_t, 256>& th_hist
     ++th_hist[static_cast<size_t>(msb) + 1];
 }
 
-struct VariableWindowSchedule {
-    size_t W_lo = 0;        // # of lower windows (use window_bits_lo)
-    size_t W_hi = 0;        // # of upper windows (use window_bits_hi); 0 → NO_SPLIT
-    size_t num_windows = 0; // = W_lo + W_hi
-    std::array<uint8_t, VAR_WINDOW_MAX_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> num_buckets{};           // 2^(window_bits_w - 1) + 1
-};
-
-// One window range. The driver iterates each region's windows in batches. Bundles the
-// per-region numerics that bind the for-loop bounds + the lambda call args; the per-region
-// msb-filter behaviour is selected via the `bool is_upper` argument to run_batch (kept as
-// a separate flag for codegen reasons — clang constant-folds the literal `false` / `true`
-// at the call site through the inlined lambda body, eliding the upper-only branch from the
-// lower region's hot loops; a `uint8_t threshold` field on this struct does not get the
-// same treatment and costs ~6% Stage 6a wall on chonk).
-struct RegionView {
-    size_t window_start = 0;  // first window index in the global schedule
-    size_t window_count = 0;  // # of windows owned by this region
-    size_t window_bits_R = 0; // typical c (matches window_bits_per_window for all but possibly the last window)
-    size_t B_R = 0;           // typical bucket count = (1 << (window_bits_R - 1)) + 1
-    size_t capacity_R = 0;    // schedule capacity per window (= n for lower, n_large for upper)
-    size_t n_iter = 0;        // # of scalar indices iterated (= n for both regions post-C2)
-    size_t windows_per_batch = 0;
-};
-
-inline size_t optimal_window_bits_for(size_t n_points,
-                                      size_t num_bits,
-                                      size_t n_input,
-                                      size_t num_logical_threads) noexcept
-{
-    return static_cast<size_t>(
-        choose_window_bits(n_points, num_bits, n_input, num_logical_threads, /*use_rebalance=*/true));
-}
-
-inline uint64_t predict_schedule_cost(
-    size_t n, size_t n_large, size_t W_lo, size_t W_hi, size_t window_bits_lo, size_t window_bits_hi, size_t T) noexcept
-{
-    // ALPHA_PER_WINDOW bills the per-window parallel-for dispatch + barrier overhead.
-    // Without it, the model under-penalises split shapes with many narrow upper windows
-    // (e.g. W_hi=57 / window_bits_hi=2 against a tiny n_large), which would regress real wall.
-    //
-    // Trivial-stride penalty: when B <= 2T+1, recursive_affine_bucket_reduce_strided
-    // short-circuits to per-window Jacobian and gives up cross-window batched-affine
-    // inversion amortisation. Per-pair work is similar but the per-window fixed cost
-    // (chunk_infos check, is_present scan, dispatch) dominates when each task only has
-    // 1-2 buckets per window. Bill 1.6× the bucket cost in that regime.
-    constexpr uint64_t ALPHA_SCAN = 1;
-    constexpr uint64_t ALPHA_BUCKET = 4;
-    constexpr uint64_t ALPHA_PER_WINDOW = 256;
-    constexpr uint64_t TRIVIAL_STRIDE_PENALTY_NUM = 8; // 1.6×
-    constexpr uint64_t TRIVIAL_STRIDE_PENALTY_DEN = 5;
-    auto bucket_cost_with_penalty = [T](size_t W, size_t window_bits) -> uint64_t {
-        if (W == 0) {
-            return 0;
-        }
-        const uint64_t B = (uint64_t{ 1 } << (window_bits - 1)) + 1;
-        const uint64_t base = static_cast<uint64_t>(W) * B;
-        // Trivial-stride threshold: stride = next_pow2(⌈(B-1)/T⌉) ≤ 2 ⇔ B - 1 ≤ T (after the
-        // ceiling) ⇔ B ≤ T + 1 to give stride 1, or B ≤ 2T to give stride 2. The actual cutoff
-        // uses next_pow2 rounding: ⌈(B-1)/T⌉ ≤ 2 means (B-1) ≤ 2T, so B ≤ 2T + 1.
-        if (B <= 2 * static_cast<uint64_t>(T) + 1) {
-            return (base * TRIVIAL_STRIDE_PENALTY_NUM) / TRIVIAL_STRIDE_PENALTY_DEN;
-        }
-        return base;
-    };
-    const uint64_t scan_lo = static_cast<uint64_t>(n) * W_lo;
-    const uint64_t scan_hi = static_cast<uint64_t>(n_large) * W_hi;
-    const uint64_t scan = scan_lo + scan_hi;
-    const uint64_t bucket_lo = bucket_cost_with_penalty(W_lo, window_bits_lo);
-    const uint64_t bucket_hi = bucket_cost_with_penalty(W_hi, window_bits_hi);
-    const uint64_t bucket = T * (bucket_lo + bucket_hi);
-    const uint64_t per_window = T * ALPHA_PER_WINDOW * (W_lo + W_hi);
-    return (ALPHA_SCAN * scan) + (ALPHA_BUCKET * bucket) + per_window;
-}
-
 /**
- * @brief Pick (b_star, window_bits_lo, window_bits_hi) for SPLIT mode. Returns is_split=false when no candidate
- *        on the bit-position grid beats the unsplit cost by enough margin (predicted ≤ 85% of
- *        unsplit) to clear the cost-model's residual variance.
+ * @brief Build a uniform window schedule.
  */
-struct VariableWindowSplitDecision {
-    bool is_split = false;
-    size_t b_star = 0;
-    size_t window_bits_lo = 0;
-    size_t window_bits_hi = 0;
-};
-
-inline VariableWindowSplitDecision choose_var_window_split(const std::array<uint64_t, 256>& msb_hist,
-                                                           size_t n,
-                                                           size_t num_bits,
-                                                           size_t n_input,
-                                                           size_t num_logical_threads) noexcept
-{
-    VariableWindowSplitDecision out{};
-    if (n == 0 || num_bits == 0 || num_bits > 254) {
-        return out;
-    }
-    // msb_hist bin layout: bin 0 = zero-scalar count, bin (k+1) = scalars with msb == k.
-    auto cdf_ge = [&](size_t b) -> uint64_t {
-        uint64_t s = 0;
-        const size_t lo = std::min<size_t>(b + 1, 256);
-        for (size_t i = lo; i < 256; ++i) {
-            s += msb_hist[i];
-        }
-        return s;
-    };
-    // idx_large includes scalars with msb >= b - 1 (the boundary bit needs to be included so
-    // the upper region cancels the negative-signed digit the lower region's last window emits).
-    // The cost model must see the same n_large the runtime will iterate.
-    auto cdf_ge_boundary = [&](size_t b) -> uint64_t {
-        const size_t bb = (b == 0) ? 0 : b - 1;
-        return cdf_ge(bb);
-    };
-    const uint64_t n_active_u = static_cast<uint64_t>(n) - msb_hist[0];
-    const size_t window_bits_unsplit = optimal_window_bits_for(n, num_bits, n_input, num_logical_threads);
-    const size_t W_unsplit = (num_bits + 2 + window_bits_unsplit - 1) / window_bits_unsplit;
-    const uint64_t cost_unsplit =
-        predict_schedule_cost(n, 0, W_unsplit, 0, window_bits_unsplit, window_bits_unsplit, num_logical_threads);
-
-    uint64_t best_cost = cost_unsplit;
-    size_t best_b = 0;
-    size_t best_window_bits_lo = 0;
-    size_t best_window_bits_hi = 0;
-    bool found = false;
-
-    static constexpr std::array<size_t, 14> SPLIT_GRID = { 16,  32,  48,  64,  80,  96,  112,
-                                                           128, 144, 160, 176, 192, 208, 224 };
-    for (size_t b : SPLIT_GRID) {
-        if (b == 0 || b >= num_bits) {
-            continue;
-        }
-        const uint64_t n_large_u = cdf_ge_boundary(b);
-        if (n_large_u >= n_active_u) {
-            continue;
-        }
-        const uint64_t n_small_active_u = n_active_u - n_large_u;
-        if (n_large_u == 0 || n_small_active_u == 0) {
-            continue;
-        }
-        // The upper region must be the minority population, the lower region must hold at
-        // least 10% of n, and the upper region must have enough scalars (≥ 64 absolute and
-        // ≥ 5% of n_active) to amortise its per-window dispatch overhead.
-        if (n_large_u * 2 > static_cast<uint64_t>(n)) {
-            continue;
-        }
-        if (n_small_active_u * 10 < static_cast<uint64_t>(n)) {
-            continue;
-        }
-        constexpr uint64_t MIN_N_LARGE_ABS = 64;
-        if (n_large_u < MIN_N_LARGE_ABS || n_large_u * 20 < n_active_u) {
-            continue;
-        }
-        // window_bits_lo's bit budget must drop materially below baseline (≥ 32 bits left for the
-        // upper region) for the split to be worth considering.
-        if (b + 32 > num_bits) {
-            continue;
-        }
-        const size_t window_bits_lo = optimal_window_bits_for(n, b, n_input, num_logical_threads);
-        const size_t window_bits_hi =
-            optimal_window_bits_for(static_cast<size_t>(n_large_u), num_bits - b, n_input, num_logical_threads);
-        if (window_bits_lo == 0 || window_bits_hi == 0 || window_bits_hi >= window_bits_lo) {
-            continue;
-        }
-        const size_t W_lo = (b + window_bits_lo - 1) / window_bits_lo;
-        const size_t W_hi = ((num_bits - b) + window_bits_hi - 1) / window_bits_hi;
-        if (W_lo + W_hi > VAR_WINDOW_MAX_WINDOWS) {
-            continue;
-        }
-        const uint64_t cost = predict_schedule_cost(
-            n, static_cast<size_t>(n_large_u), W_lo, W_hi, window_bits_lo, window_bits_hi, num_logical_threads);
-        if (cost < best_cost) {
-            best_cost = cost;
-            best_b = b;
-            best_window_bits_lo = window_bits_lo;
-            best_window_bits_hi = window_bits_hi;
-            found = true;
-        }
-    }
-
-    // Require the predicted SPLIT cost to be ≤ 85% of unsplit, so marginal candidates inside
-    // the cost-model's residual variance don't fire.
-    if (!found || best_cost * 100 > cost_unsplit * 85) {
-        return out;
-    }
-    out.is_split = true;
-    out.b_star = best_b;
-    out.window_bits_lo = best_window_bits_lo;
-    out.window_bits_hi = best_window_bits_hi;
-    return out;
-}
-
-/**
- * @brief Build a VariableWindowSchedule from the split decision (or NO_SPLIT default with uniform c).
- *        For NO_SPLIT, all `num_windows` windows use the unsplit c; W_lo = num_windows, W_hi = 0.
- *        For SPLIT, the lower region uses window_bits_lo for all windows except possibly the last (which
- *        gets the remainder b_star - (W_lo - 1) * window_bits_lo); upper region similarly.
- */
-inline VariableWindowSchedule build_var_window_schedule(const VariableWindowSplitDecision& decision,
-                                                        size_t num_bits,
-                                                        size_t window_bits_unsplit) noexcept
-{
-    VariableWindowSchedule sched{};
-
-    auto fill_region = [&](size_t bits_in_region, size_t window_bits_R, size_t out_offset) -> size_t {
-        size_t bits_remaining = bits_in_region;
-        size_t w = out_offset;
-        size_t bit_offset = (w == 0) ? 0 : sched.bit_base[w - 1] + sched.window_bits_per_window[w - 1];
-        while (bits_remaining > 0) {
-            const size_t window_bits_w = std::min<size_t>(window_bits_R, bits_remaining);
-            sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
-            sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
-            sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
-            bit_offset += window_bits_w;
-            bits_remaining -= window_bits_w;
-            ++w;
-            if (w >= VAR_WINDOW_MAX_WINDOWS) {
-                break;
-            }
-        }
-        return w - out_offset;
-    };
-
-    if (!decision.is_split) {
-        // NUM_BITS + 2 to match the existing num_windows formula (+2 accommodates the carry-less
-        // top bit of the Constantine recoder).
-        const size_t total_bits = num_bits + 2;
-        sched.W_lo = fill_region(total_bits, window_bits_unsplit, /*out_offset=*/0);
-        sched.W_hi = 0;
-    } else {
-        // Split region has b_star covered by window_bits_lo; remaining (num_bits + 2 - b_star) by window_bits_hi.
-        const size_t total_bits = num_bits + 2;
-        const size_t lower_bits = std::min(decision.b_star, total_bits);
-        sched.W_lo = fill_region(lower_bits, decision.window_bits_lo, /*out_offset=*/0);
-        const size_t upper_bits = total_bits - lower_bits;
-        if (upper_bits > 0) {
-            sched.W_hi = fill_region(upper_bits, decision.window_bits_hi, /*out_offset=*/sched.W_lo);
-        }
-    }
-    sched.num_windows = sched.W_lo + sched.W_hi;
-    return sched;
-}
-
-// Forward declaration of AffineBucketChunkInfo so ThreadScratch can hold a vector of them.
-struct AffineBucketChunkInfo;
+// `AffineBucketChunkInfo` is defined in `pippenger_arena_layout.hpp` (included above).
 
 /**
  * @brief Per-thread scratch: VIEWS into the per-MSM arena. Each `std::span` is rebound at
@@ -927,6 +268,45 @@ template <typename Curve> struct ThreadScratch {
     // Per-window metadata consumed by recursive_affine_bucket_reduce_strided (lo, hi, buckets_padded,
     // empty per window). Filled in the lambda before the call.
     std::span<AffineBucketChunkInfo> chunk_infos;
+};
+
+struct MsmArena {
+    std::unique_ptr<std::byte[]> local_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    std::byte* data = nullptr;
+    uintptr_t base_addr = 0;
+    size_t capacity = 0;
+    size_t cursor = 0;
+
+    MsmArena(size_t required_bytes, std::span<std::byte> external_arena)
+    {
+        if (!external_arena.empty() && required_bytes <= external_arena.size()) {
+            data = external_arena.data();
+            capacity = external_arena.size();
+        } else {
+            // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+            local_owner = std::make_unique_for_overwrite<std::byte[]>(required_bytes);
+            data = local_owner.get();
+            capacity = required_bytes;
+        }
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        base_addr = reinterpret_cast<uintptr_t>(data);
+    }
+
+    template <typename T> std::span<T> alloc(size_t count) { return bump_alloc<T>(count, cursor, capacity, 0); }
+
+    template <typename T> std::span<T> bump_alloc(size_t count, size_t& local_cursor, size_t bound, size_t base_offset)
+    {
+        const size_t align = alignof(T);
+        const uintptr_t cur_addr = base_addr + base_offset + local_cursor;
+        const uintptr_t aligned_addr = (cur_addr + align - 1) & ~(uintptr_t{ align } - 1);
+        const size_t aligned_local = static_cast<size_t>(aligned_addr - (base_addr + base_offset));
+        const size_t bytes = count * sizeof(T);
+        BB_ASSERT_LTE(aligned_local + bytes, bound);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        T* p = reinterpret_cast<T*>(data + base_offset + aligned_local);
+        local_cursor = aligned_local + bytes;
+        return std::span<T>{ p, count };
+    }
 };
 
 template <typename Curve> inline void drain_batch(ThreadScratch<Curve>& s, size_t pair_count) noexcept
@@ -1132,36 +512,14 @@ void reduce_chunk(ThreadScratch<Curve>& s,
     tree_reduce_in_place<Curve>(s, valid_len);
 }
 
-/**
- * @brief Per-window outputs of Stage 6 bucket accumulation (tree reduce + recursive affine bucket reduction).
- *
- *   R / L are group elements; `lo` / `hi` are the lowest/highest non-empty digit in the
- *   chunk; `empty == 1` iff the chunk had no non-empty digits.
- */
-template <typename Curve> struct ChunkOutput {
-    typename Curve::Element R{};
-    typename Curve::Element L{};
-    uint32_t lo = 0;
-    uint32_t hi = 0;
-    uint8_t empty = 1;
-};
+// `ChunkOutput<Curve>` (Stage 6 per-chunk bucket-reduce output) is defined in
+// `pippenger_arena_layout.hpp` so the test suite can size the Zone S slot the
+// same way the live allocator does.
 
-/**
- * @brief Round-trip cell describing one chunk's contribution to the cross-window
- *        recursive affine bucket reduction. Filled by the densification loop and consumed
- *        by the four phases.
- *
- *   `lo`, `hi` = lowest / highest non-empty digit in the chunk (inclusive).
- *   `buckets_padded` = next power of two ≥ (hi - lo + 1); the chunk's dense bucket layout has
- *                exactly this many slots, indexed 0..buckets_padded-1 (slot i = digit lo + i).
- *   `empty`    = 1 iff the chunk had no entries (len == 0); the algorithm skips it entirely.
- */
-struct AffineBucketChunkInfo {
-    uint32_t lo = 0;
-    uint32_t hi = 0;
-    uint32_t buckets_padded = 0;
-    uint8_t empty = 1;
-};
+// `AffineBucketChunkInfo` is defined in `pippenger_arena_layout.hpp` (forward declared
+// above at line ~674 for ThreadScratch). It describes one chunk's contribution to the
+// cross-window recursive affine bucket reduction (lo/hi digit bounds, buckets_padded,
+// empty flag).
 
 /**
  * @brief Inline filter for one (dst, src) candidate pair, called from each phase's
@@ -1911,14 +1269,8 @@ inline size_t dedup_tree_reduce_in_place(typename Curve::AffineElement* pts,
 // All phases ≤ 4 MB regardless of input shape. The caps degrade gracefully: when hit
 // we leave un-deduped scalars on the standard pippenger path (still correct, just
 // less savings).
-inline constexpr size_t DEDUP_MAX_CLUSTERS = 16384; // extra_points ≤ 1 MB
-inline constexpr size_t DEDUP_MAX_MEMBERS = 32768;  // total cluster member rows
-// Phase A's chunked tree-reduce limit. Capped at SUBCHUNK_ENTRIES_CAP so the per-worker
-// chunk_pts/chunk_ids slab matches the Stage 6a per-worker scratch and overlaps cleanly
-// in later arena-layout phases. Outer-loop iteration count rises ~4× vs the historical
-// 8192 cap, but the dominant amortisation (inside tree_reduce over BATCH_CAPACITY=256)
-// is unaffected.
-inline constexpr size_t DEDUP_MAX_CHUNK_MEMBERS = 2048; // chunk_pts ≤ 128 KB during tree-reduce
+// `DEDUP_MAX_CLUSTERS`, `DEDUP_MAX_MEMBERS`, and `DEDUP_MAX_CHUNK_MEMBERS` are defined
+// in `pippenger_arena_layout.hpp` so the test harness can size the matching slabs.
 static_assert(DEDUP_MAX_CLUSTERS <= size_t{ SCHEDULE_INDEX_MASK } + 1,
               "dedup extra-point ids must fit in the schedule payload");
 
@@ -2177,12 +1529,11 @@ size_t dedup_phase_a_worker_hash(const uint32_t* schedule_w0,
         }
     } // MSM::PhaseA/cluster_scan
 
-    // After the per-bucket loop we have `clusters_opened` total clusters, each
-    // with members in cluster_members starting at cluster_offsets[k]. The
-    // cluster_offsets vector already contains end-offsets for each cluster
-    // because we push_back'd at promotion time. Convert it into the same
-    // [start, end) layout the existing tree-reduce + publish loops expect.
-    const size_t num_clusters = clusters_opened;
+    // Only flattened clusters are published. `clusters_opened` counts every promoted
+    // hash-table singleton, including clusters later skipped because cluster_members_cap
+    // would be exceeded. Skipped clusters intentionally fall through the normal Pippenger
+    // path because they never get redirect_lookup entries.
+    const size_t num_clusters = cluster_offsets_size - 1;
     if (num_clusters == 0) {
         return 0;
     }
@@ -2326,6 +1677,11 @@ template <typename Curve>
 }
 
 } // namespace
+
+// PerWorkerArenaLayout (and its dependencies BATCH_CAPACITY, DEDUP_MAX_CHUNK_MEMBERS,
+// AffineBucketChunkInfo) lives in `pippenger_arena_layout.hpp`. Used by the sizer
+// below, the live allocator in `pippenger_round_parallel`, and the arena-layout
+// regression test.
 } // namespace round_parallel_detail
 
 /**
@@ -2456,12 +1812,10 @@ typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve
 // Compute the exact arena bytes a single MSM of `n_input` points will need.
 // Mirrors the inline budget calculation inside `pippenger_round_parallel`.
 // Returns 0 when N is small enough that we'll fall back to the Jacobian fast path
-// (no affine arena needed).
-namespace {
+// (no affine arena needed). Exposed (declared in `scalar_multiplication.hpp`)
+// so the test suite can exercise the same sizer the live allocator uses.
 template <typename Curve>
-inline size_t compute_arena_bytes_for_msm(size_t n_input,
-                                          bool external_glv_provided,
-                                          bool dedup_active = false) noexcept
+size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, bool dedup_active) noexcept
 {
     using ScalarField = typename Curve::ScalarField;
     constexpr size_t FULL_NUM_BITS = ScalarField::modulus.get_msb() + 1;
@@ -2500,121 +1854,42 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
 
     constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
 
-    const size_t dense_stride_est = std::max<size_t>(
-        2, std::bit_ceil((num_buckets > 1) ? ((num_buckets - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
-    const size_t bucket_partials_per_window_max = (num_buckets > 0) ? (num_buckets - 1 + num_threads - 1) : 0;
-
     // num_threads sizes the per-task arrays; worker_total sizes the per-OS-thread scratch
     // (FIFO-shared by every task that lands on that OS thread).
     const size_t worker_total_for_budget = num_threads;
-    // HIST slot — overlays two non-coexisting lifetime classes within one byte slab per
-    // window:
-    //   H (S1-S4): digit_cursors
-    //   O (S6b-S7): chunk_outputs + window_partial_sums
-    // H is dead before O is born (Stage 4 cursor ends before Stage 6b first writes
-    // chunk_outputs / window_partial_sums). Slot per-window = max(H, O).
-    //
-    // D-class (bucket_partials_dense + bucket_partials_present) used to overlay this
-    // slot at the D-region offset, but a 10× interleaved WASM Chonk bench showed Stage 6a
-    // regressed +1.29% (t=+58) because of L1-cache aliasing on the
-    // `dense[slot]/present[slot]` writes when D sat at the HIST-overlaid offset (see trace
-    // report at https://gist.github.com/AztecBot/8cc506ff429bdf5104fa02104c0e731b). D-class
-    // now has its own dedicated Zone-S slot below.
-    //
-    // Match the tight calc in `pippenger_round_parallel` (which uses B_eff); here
-    // num_buckets is the conservative upper bound on B_eff before the SPLIT decision.
-    // `digit_cursors` is a single per-(w, t, d) uint32 buffer that holds three roles
-    // across epoch H: Stage 1 fills it with bucket counts, Stage 2 overwrites each slot
-    // with that bucket's exclusive prefix-sum offset, and Stage 4 advances each (w, t)
-    // slice in place as its scatter cursor. One buffer, three meanings — bytes are not
-    // duplicated. Stage 2 also writes each digit's per-window total directly into
-    // bucket_start_all[w][d+1] (its own Zone S slot, sized as B_eff+1 per window), so
-    // Stage 3 can prefix-sum in place without a separate bucket_total_counts buffer.
-    const size_t hist_h_bytes_pw = (size_t{ 4 } * num_threads * num_buckets);                        // digit_cursors
-    const size_t hist_o_bytes_pw = (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) // chunk_outputs
-                                   + (size_t{ 96 } * num_threads); // window_partial_sums
-    const size_t hist_slot_bytes_pw = std::max(hist_h_bytes_pw, hist_o_bytes_pw);
-    // DENSE slot — dedicated Zone-S slot for the D-class buffers, isolated from the HIST
-    // slot's offset to avoid the L1 alias hot-spot on Stage 6a scatter writes.
-    const size_t dense_slot_bytes_pw =
-        (size_t{ 65 } * bucket_partials_per_window_max); // bucket_partials_dense + bucket_partials_present
+    const size_t dense_stride_est = round_parallel_detail::compute_dense_stride(num_buckets, num_threads);
 
-    const size_t per_window_bytes =
-        (size_t{ 4 } * n)                                              // schedule
-        + hist_slot_bytes_pw                                           // HIST slot (H ∪ O)
-        + dense_slot_bytes_pw                                          // DENSE slot (D)
-        + (size_t{ 8 } * (num_buckets + 1))                            // bucket_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_bucket_lo_all
-        + (size_t{ 8 } * num_threads)                                  // chunk_bucket_hi_all
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_lo
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_hi
-        + (size_t{ 16 } * worker_total_for_budget)                     // chunk_infos (per-OS-thread)
-        + (size_t{ 8 } * num_threads)                                  // bucket_partials_offsets
-        + (size_t{ 87 } * worker_total_for_budget * dense_stride_est); // s.dense_buckets + aux
+    // Pre-schedule conservative per-window cost: uses `num_buckets` (= 2^(c-1)+1) as the
+    // B upper bound. The lambda below recomputes once the actual schedule is built.
+    const size_t per_window_bytes = round_parallel_detail::compute_per_window_bytes<Curve>(
+        num_threads, num_buckets, n, dense_stride_est, worker_total_for_budget);
 
-    // Per-thread overflow scratch: bounded above by ceil(max_chunk_len / SUBCHUNK_CAP)
-    // entries, each holding a uint32_t slot index + an AffineElement.
     constexpr size_t SUBCHUNK_ENTRIES_CAP_LOCAL = 2048;
-    const size_t global_max_chunk_len = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window =
-        (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP_LOCAL - 1) / SUBCHUNK_ENTRIES_CAP_LOCAL;
-    const size_t per_thread_overflow_bytes = (size_t{ 4 } + size_t{ 64 }) * global_max_overflow_per_window;
+        round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP_LOCAL);
 
-    constexpr size_t PER_THREAD_CHUNK_CAPACITY_BYTES =
-        (size_t{ 2048 } * size_t{ 64 }) + (size_t{ 2048 } * size_t{ 4 }) +
-        (size_t{ 2 } * size_t{ 256 } * size_t{ 64 }) + (size_t{ 256 } * size_t{ 32 }) + (size_t{ 256 } * size_t{ 4 }) +
-        size_t{ 328 };
-
-    // Phase 1 prologue bytes that live in the per-MSM arena (rather than on the heap):
-    //   - msb_per_scalar       : n bytes
-    //   - glv_scalars_storage  : n * 32 bytes  (when use_glv)
-    //   - glv_points_storage   : n * 64 bytes  (when use_glv && inline-doubling path)
-    //   - per_thread_msb_hist  : profile_threads * 1024 bytes (256 * uint32_t per thread)
-    // The PhaseA scratch slab (one per worker) is only allocated when dedup is active.
-    // See `pippenger_round_parallel` for the mirrored allocation site.
     const bool inline_glv_double = use_glv && !external_glv_provided;
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
-    const size_t phase_one_prologue_bytes = n                                            // msb_per_scalar
-                                            + (use_glv ? size_t{ 32 } * n : size_t{ 0 }) // glv_scalars_storage
-                                            + (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) // glv_points_storage
-                                            + (profile_threads * size_t{ 1024 }); // per_thread_msb_hist
+    const size_t phase_one_prologue_bytes =
+        round_parallel_detail::compute_phase_one_prologue_bytes(n, use_glv, inline_glv_double, profile_threads);
 
-    // Per-worker PhaseA scratch slab (only allocated when dedup_active). Each cap is
-    // documented at the PhaseAScratch struct definition; they collectively cap the
-    // worst-case worker working set at ~160 KiB so the slab overlaps cleanly with the
-    // Stage 6a per-worker scratch in later arena-layout phases.
-    constexpr size_t PHASE_A_DIRTY_SLOTS_CAP = 4096; // HT_SIZE
-    constexpr size_t PHASE_A_BUCKET_REP_CAP = 256;   // loose cap
-    constexpr size_t PHASE_A_STAGED_CAP = 1024;      // loose cap
-    constexpr size_t PHASE_A_CHUNK_CAP = round_parallel_detail::DEDUP_MAX_CHUNK_MEMBERS;
-    // Per-worker cluster_members cap: n is a hard upper bound on cluster_members across
-    // all workers (each scalar contributes to at most one cluster_member entry), so
-    // min(DEDUP_MAX_MEMBERS, n) is exact and tighter than the constant for small-n MSMs.
-    // The publish-flatten step enforces this cap algorithmically: clusters that would
-    // overflow are skipped and fall through to the standard Stage 4/6a path with their
-    // original signed digits.
-    const size_t phase_a_cluster_members_cap = std::min(round_parallel_detail::DEDUP_MAX_MEMBERS, n);
-    // Per-worker cluster_offsets cap: clusters_opened is hard-capped at
-    // cids_per_thread = DEDUP_MAX_CLUSTERS / num_threads per worker; cluster_offsets
-    // holds clusters_opened + 1 entries. The +2 covers the leading-zero sentinel and
-    // the post-last terminator slot.
-    const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
-    const size_t phase_a_per_worker_bytes = (size_t{ 4 } * phase_a_cluster_members_cap)   // cluster_members (uint32)
-                                            + (size_t{ 4 } * phase_a_cluster_offsets_cap) // cluster_offsets (uint32)
-                                            + (size_t{ 2 } * PHASE_A_DIRTY_SLOTS_CAP)     // dirty_slots (uint16)
-                                            + (size_t{ 4 } * PHASE_A_BUCKET_REP_CAP)      // bucket_rep (uint32)
-                                            + (size_t{ 8 } * PHASE_A_STAGED_CAP)          // staged (pair<u32,u32>)
-                                            + (sizeof(typename Curve::AffineElement) * PHASE_A_CHUNK_CAP) // chunk_pts
-                                            + (size_t{ 4 } * PHASE_A_CHUNK_CAP);                          // chunk_ids
+    const auto phase_a_caps = round_parallel_detail::compute_phase_a_caps(n, num_threads);
+    const size_t phase_a_cluster_members_cap = phase_a_caps.members_cap;
+    const size_t phase_a_cluster_offsets_cap = phase_a_caps.offsets_cap;
 
-    // Zone W per-worker UNION: ThreadScratch's wpb-independent fields and PhaseAScratch
-    // overlay the SAME per-worker bytes (Stage 6a, Stage 6b, and Phase A run in disjoint
-    // parallel_for invocations on each worker). The union size is the max of either layout,
-    // not the sum — see the Arena zone layout block in `pippenger_round_parallel`.
-    const size_t ts_fixed_bytes = PER_THREAD_CHUNK_CAPACITY_BYTES + per_thread_overflow_bytes;
-    const size_t worker_union_bytes =
-        dedup_active ? std::max(ts_fixed_bytes, phase_a_per_worker_bytes) : ts_fixed_bytes;
+    // Zone W per-worker UNION via the canonical layout walk. Stage 6a, Stage 6b, and
+    // Phase A overlay the same per-worker bytes; the struct returns the max-of-layouts
+    // (the Stage 6 wpb-dependent tail is added below once `windows_per_batch` is known).
+    // Passing `windows_per_batch = 0` here skips the tail — we only need the union bytes
+    // for the fixed_overhead → wpb solve.
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> union_layout(/*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP_LOCAL,
+                                                                          global_max_overflow_per_window,
+                                                                          dedup_active,
+                                                                          phase_a_cluster_members_cap,
+                                                                          phase_a_cluster_offsets_cap,
+                                                                          /*windows_per_batch=*/0,
+                                                                          /*dense_stride_est=*/0);
+    const size_t worker_union_bytes = union_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes * worker_total_for_budget) +
                                   (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
@@ -2622,29 +1897,39 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
                                   + phase_one_prologue_bytes;
 
     // wpb fallback when fixed_overhead has eaten the BATCH_MEM_BUDGET headroom: the inline
-    // `pick_wpb` in `pippenger_round_parallel` returns `W_R` (the whole region) — running
-    // every window in a single batch — when `available_budget == 0`. The arena sizer must
-    // mirror that fallback exactly or the post-decision (P + W + S) cursor overflows the
-    // pre-Phase-1 buffer. Previously this branch returned `wpb = 1` and relied on a
-    // `worst_case_arena = BATCH_MEM_BUDGET + 32K` floor, but that floor is wrong: with large
-    // num_threads the fixed_overhead alone already exceeds BATCH_MEM_BUDGET and the floor
-    // does not cover `fixed_overhead + num_windows * per_window_bytes`. Bumping wpb to
-    // num_windows here makes the conservative_arena formula track the inline path's tight
-    // calc to within the per_window_bytes alignment slop.
-    size_t windows_per_batch = 0;
-    if (BATCH_MEM_BUDGET <= fixed_overhead) {
-        windows_per_batch = num_windows;
-    } else {
-        const size_t available_budget = BATCH_MEM_BUDGET - fixed_overhead;
-        windows_per_batch = std::max<size_t>(1, available_budget / per_window_bytes);
-    }
-    windows_per_batch = std::min(windows_per_batch, num_windows);
+    // `solve_wpb` in `pippenger_round_parallel` returns `W_R` (the whole region) — running
+    // every window in a single batch — when `available_budget == 0`. Previously the sizer
+    // returned `wpb = 1` and relied on a `worst_case_arena = BATCH_MEM_BUDGET + 32K` floor;
+    // that floor failed for large num_threads where fixed_overhead alone exceeds the budget.
+    const size_t available_budget_outer =
+        (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+    const size_t windows_per_batch =
+        round_parallel_detail::solve_wpb(per_window_bytes, available_budget_outer, num_windows);
     // Dedup state lives in the arena (allocated post-Phase-1, retained through Stage 6a).
     // Worst-case sizes: redirect_lookup is one uint32 per working scalar (4n bytes);
     // extra_points is the fixed DEDUP_MAX_CLUSTERS cap (≈1 MB) regardless of n.
     const size_t dedup_bytes = dedup_active ? ((size_t{ 4 } * n) + (size_t{ sizeof(typename Curve::AffineElement) } *
                                                                     round_parallel_detail::DEDUP_MAX_CLUSTERS))
                                             : size_t{ 0 };
+    auto arena_bytes_for_window_layout = [&](size_t bit_budget) {
+        const size_t wb = round_parallel_detail::choose_window_bits(
+            n, bit_budget, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+        const auto layout_sched = round_parallel_detail::build_var_window_schedule(bit_budget, wb);
+        size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
+        for (size_t w = 0; w < layout_sched.num_windows; ++w) {
+            B_eff_layout = std::max(B_eff_layout, static_cast<size_t>(layout_sched.num_buckets[w]));
+        }
+        const size_t dense_stride_layout = round_parallel_detail::compute_dense_stride(B_eff_layout, num_threads);
+        const size_t per_window_bytes_layout = round_parallel_detail::compute_per_window_bytes<Curve>(
+            num_threads, B_eff_layout, n, dense_stride_layout, worker_total_for_budget);
+
+        const size_t available_budget =
+            (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
+        const size_t wpb = round_parallel_detail::solve_wpb(
+            per_window_bytes_layout, available_budget, static_cast<size_t>(layout_sched.num_windows));
+        return fixed_overhead + (wpb * per_window_bytes_layout) + 32768 + dedup_bytes;
+    };
+
     // Tight return: the arena holds `fixed_overhead + wpb · per_window_bytes` of typed
     // buffers plus a 32 KiB alignment pad and the dedup state (when active). Sizing
     // tightly — rather than padding up to BATCH_MEM_BUDGET — matters for many-MSM flows
@@ -2652,10 +1937,19 @@ inline size_t compute_arena_bytes_for_msm(size_t n_input,
     // `make_unique_for_overwrite<std::byte[]>` mmap/munmaps the buffer above glibc's
     // M_MMAP_THRESHOLD; a 32 MiB floor here would tax every MSM with the page-fault
     // first-touch cost regardless of how much of the arena the small MSM actually uses.
-    return fixed_overhead + (windows_per_batch * per_window_bytes) + 32768 + dedup_bytes;
-}
+    size_t arena_bytes = fixed_overhead + (windows_per_batch * per_window_bytes) + 32768 + dedup_bytes;
 
-} // namespace
+    // The live pipeline shrinks NUM_BITS to the observed max scalar bit before choosing
+    // window_bits. GLV MSMs and large non-GLV MSMs can therefore select a different
+    // schedule/zone layout than the full-bit pre-sizer. Keep the common Chonk wire/IPA
+    // non-GLV sizes on the original tight path.
+    if (use_glv || n_input >= (size_t{ 1 } << 17)) {
+        for (size_t bit_budget = 1; bit_budget <= NUM_BITS; ++bit_budget) {
+            arena_bytes = std::max(arena_bytes, arena_bytes_for_window_layout(bit_budget));
+        }
+    }
+    return arena_bytes;
+}
 
 // Round-parallel Pippenger MSM.
 //   `external_glv_doubled` — optional caller-supplied [P_0, φP_0, …, P_{n-1}, φP_{n-1}]
@@ -2714,15 +2008,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // to n=2^16; native to n=2^13 (clang's branchless bias-decode is fast enough that the 2×
     // point-count cost dominates above that). Threshold is platform-conditional in the
     // hoisted GLV_SMALL_N_THRESHOLD declaration.
-    const bool use_glv =
-        !external_glv_doubled.empty() ? true : (n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
+    const bool external_glv_provided = !external_glv_doubled.empty();
+    const bool use_glv = external_glv_provided || n_input <= round_parallel_detail::GLV_SMALL_N_THRESHOLD;
 
     // Stage 6 splits into 6a (per-thread bucket partials over the contiguous-by-schedule-
     // index partition) and 6b (cross-thread bucket reduction over a uniform-width digit
     // slice). Small MSMs short-circuit to trivial_msm_threaded above this point.
 
     // n is the working scalar/point count (GLV doubles it); NUM_BITS is the post-recoding
-    // window-bit budget (128 for GLV, FULL_NUM_BITS otherwise) and bounds b_star.
+    // window-bit budget (128 for GLV, FULL_NUM_BITS otherwise).
     const size_t n = use_glv ? (2 * n_input) : n_input;
     const size_t NUM_BITS = use_glv ? size_t{ 128 } : FULL_NUM_BITS;
     BB_ASSERT_LTE(n,
@@ -2730,7 +2024,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                   "working scalar indices must fit in the 29-bit schedule payload");
     std::span<ScalarField> scalars;
     std::span<const AffineElement> points;
-    const bool inline_glv_double = use_glv && external_glv_doubled.empty();
+    const bool inline_glv_double = use_glv && !external_glv_provided;
 
     // Activation gate: caller-supplied hint opts this MSM into the dedup pre-pass.
     // Hint-driven so polynomials with low duplicate density (PC counters, range checks)
@@ -2744,61 +2038,21 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     //
     // The per-MSM arena is allocated BEFORE Phase 1 so the Phase 1 prologue (msb_per_scalar,
     // glv_*_storage, per_thread_msb_hist) lives inside the arena instead of on the heap.
-    // Once Phase 1 finishes and the var-window split decision is made (T, B_eff,
-    // dense_stride, wpb), we partition the remaining capacity into three named zones
+    // Once Phase 1 finishes and the window schedule is known (T, B_eff, dense_stride, wpb),
+    // we partition the remaining capacity into three named zones
     // (Zone P / Zone W / Zone S) — see the "Arena zone layout" block after the wpb solve.
     //
     // We size the buffer using `compute_arena_bytes_for_msm`, whose conservative bound
     // dominates the inline-tight (P + W + S) sum for any wpb we choose below.
     // ---------------------------------------------------------------------------------------
-    const size_t arena_total_bytes =
-        compute_arena_bytes_for_msm<Curve>(n_input, !external_glv_doubled.empty(), dedup_active);
-    std::unique_ptr<std::byte[]> local_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
-    std::byte* arena_data = nullptr;
-    size_t arena_capacity = 0;
-    if (!external_arena.empty() && arena_total_bytes <= external_arena.size()) {
-        arena_data = external_arena.data();
-        arena_capacity = external_arena.size();
-    } else {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        local_arena_owner = std::make_unique_for_overwrite<std::byte[]>(arena_total_bytes);
-        arena_data = local_arena_owner.get();
-        arena_capacity = arena_total_bytes;
-    }
-    // make_unique_for_overwrite<std::byte[]> only guarantees __STDCPP_DEFAULT_NEW_ALIGNMENT__
-    // (typically 16 on x86_64), but Element / AffineElement are alignas(32) / alignas(64).
-    // Aligning the cursor isn't enough — the resulting pointer inherits the base's
-    // misalignment — so align in absolute address space. AVX vmovdqa against an Element*
-    // allocation otherwise raises #GP / SIGSEGV when the base is only 16-byte aligned.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    const auto arena_base_addr = reinterpret_cast<uintptr_t>(arena_data);
-    // The bump cursor below allocates the Phase 1 prologue slabs (Zone P prefix). Once
-    // Phase 1 finishes and the var-window split decision is made (T, B_eff, dense_stride,
-    // wpb), we freeze the prologue cursor and partition the remaining arena into named
-    // zones — see the Arena zone layout block further down.
-    size_t arena_cursor = 0;
-    auto bump_alloc_within =
-        [&]<typename T>(size_t count, size_t& cursor, size_t bound_bytes, size_t base_offset) -> std::span<T> {
-        const size_t align = alignof(T);
-        const uintptr_t cur_addr = arena_base_addr + base_offset + cursor;
-        const uintptr_t aligned_addr = (cur_addr + align - 1) & ~(uintptr_t{ align } - 1);
-        const size_t aligned_local = static_cast<size_t>(aligned_addr - (arena_base_addr + base_offset));
-        const size_t bytes = count * sizeof(T);
-        BB_ASSERT_LTE(aligned_local + bytes, bound_bytes);
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        T* p = reinterpret_cast<T*>(arena_data + base_offset + aligned_local);
-        cursor = aligned_local + bytes;
-        return std::span<T>{ p, count };
-    };
-    auto arena_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-        return bump_alloc_within.template operator()<T>(count, arena_cursor, arena_capacity, 0);
-    };
+    const size_t arena_total_bytes = compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active);
+    round_parallel_detail::MsmArena arena(arena_total_bytes, external_arena);
 
     // ---------------------------------------------------------------------------------------
     // Phase 1 — convert scalars from Montgomery, optionally GLV-split, populate msb buffer.
-    // The msb_per_scalar buffer feeds Item 1 (max-msb num_windows) and idx_large building;
+    // The msb_per_scalar buffer feeds max-msb num_windows selection;
     // per-thread msb_hist counts (bin 0 = zero, bin k+1 = msb == k) feed the n_active gate
-    // and the cost model in choose_split.
+    // and the active-scalar gate.
     //
     // When dedup is active the per-scalar dedup work (hash + linear-probe shared atomic
     // table, per-thread dup_pair recording) is fused into the same per-thread loop so
@@ -2808,9 +2062,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // ---------------------------------------------------------------------------------------
     using round_parallel_detail::MSB_ZERO_SENTINEL;
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
-    auto msb_per_scalar = arena_alloc.template operator()<uint8_t>(n);
-    auto per_thread_msb_hist = arena_alloc.template operator()<std::array<uint32_t, 256>>(profile_threads);
-    // arena_alloc returns uninitialised memory; the histograms must be zero-initialised so
+    auto msb_per_scalar = arena.template alloc<uint8_t>(n);
+    auto per_thread_msb_hist = arena.template alloc<std::array<uint32_t, 256>>(profile_threads);
+    // MsmArena::alloc returns uninitialised memory; the histograms must be zero-initialised so
     // record_msb's increments land on a clean slate.
     std::fill_n(per_thread_msb_hist.data(), profile_threads, std::array<uint32_t, 256>{});
 
@@ -2820,9 +2074,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     std::span<ScalarField> glv_scalars_storage;
     std::span<AffineElement> glv_points_storage;
     if (use_glv) {
-        glv_scalars_storage = arena_alloc.template operator()<ScalarField>(n);
+        glv_scalars_storage = arena.template alloc<ScalarField>(n);
         if (inline_glv_double) {
-            glv_points_storage = arena_alloc.template operator()<AffineElement>(n);
+            glv_points_storage = arena.template alloc<AffineElement>(n);
         } else {
             BB_ASSERT_EQ(external_glv_doubled.size(), n);
         }
@@ -2911,14 +2165,12 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     }
 
     // ---------------------------------------------------------------------------------------
-    // Phase 3 — pick the window-range layout (single full-coverage region or split [lo, hi]),
-    // build the schedule + idx_large, run the per-region pipeline, sum into the result.
+    // Phase 3 — pick the window layout, build the schedule, run the pipeline, sum into the result.
     // ---------------------------------------------------------------------------------------
     const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
 
     // Shrink the bit budget to the highest non-empty msb_hist bin so num_windows is determined
-    // by the actual data, not the conservative GLV / FULL_NUM_BITS bound. NO_SPLIT and SPLIT
-    // both inherit it.
+    // by the actual data, not the conservative GLV / FULL_NUM_BITS bound.
     size_t effective_num_bits = 0;
     for (size_t bin = 256; bin > 1;) {
         --bin;
@@ -2935,9 +2187,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
     // Schedule-based dedup state. The two arrays are allocated from the per-MSM arena
-    // *after* arena_alloc is set up (further down — they need the arena cursor to exist).
-    // Until then, both spans are empty; the small-set peel below skips its dedup branch
-    // when redirect_lookup.empty() so we don't trip on the unallocated state.
+    // *from the arena after Phase 1.
+    // Until then, both spans are empty.
     // Lifetimes:
     //   redirect_lookup  — written by Phase A; read by Stage 4b's dedup_patch_schedule per batch
     //   extra_points     — written by Phase A; read by Stage 6a's reduce_chunk per batch
@@ -2945,118 +2196,13 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // when this function returns).
     round_parallel_detail::DedupResult<Curve> dedup_state;
 
-    // choose_var_window_split returns is_split=false for inputs that don't beat the unsplit cost
-    // model — the typical NO_SPLIT path then degenerates to a single-region uniform-window schedule.
-    auto var_window_decision = round_parallel_detail::choose_var_window_split(
-        msb_hist, n, effective_num_bits, n_input, num_logical_threads_for_c);
-    if (const char* force = std::getenv("VAR_WINDOW_FORCE_SPLIT")) {
-        size_t fb = 0;
-        size_t force_window_bits_lo = 0;
-        size_t force_window_bits_hi = 0;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg, cert-err34-c, hicpp-vararg) — debug env-var parse
-        if (std::sscanf(force, "%zu,%zu,%zu", &fb, &force_window_bits_lo, &force_window_bits_hi) == 3 && fb > 0 &&
-            fb < effective_num_bits) {
-            var_window_decision.is_split = true;
-            var_window_decision.b_star = fb;
-            var_window_decision.window_bits_lo = force_window_bits_lo;
-            var_window_decision.window_bits_hi = force_window_bits_hi;
-        }
-    }
-    // SPLIT iterates [0, n) in both regions with a per-region msb filter at the Stage 1 /
-    // Stage 4 inner loop — no idx_large vector is materialised. `upper_iter_threshold_msb`
-    // is captured here, BEFORE Item 4 may override `var_window_decision.b_star`: Item 4 collapses
-    // W_lo=0 but the upper region must still iterate the *original* large-scalar set.
-    //
-    // Threshold is msb >= b_star - 1 (NOT >= b_star). The Booth recoder shares bit
-    // (b_star - 1) between the lower region's last window and the upper region's first;
-    // excluding msb == b_star - 1 leaves the lower window's negative-signed digit
-    // uncancelled and the result drifts by 2^b_star.
-    size_t upper_iter_threshold_msb = 0;
-    size_t n_large = 0;
-    if (var_window_decision.is_split) {
-        const size_t b_star = var_window_decision.b_star;
-        upper_iter_threshold_msb = (b_star == 0) ? 0 : b_star - 1;
-        // n_large = scalars with msb >= upper_iter_threshold_msb. The msb_hist bin layout
-        // is bin (k+1) = scalars with msb == k (bin 0 = zero count). The boundary inclusion
-        // criterion msb >= b_star - 1 ⇔ msb_bin >= b_star, so we sum bins [b_star..255].
-        // For b_star == 0 (no constraint), we sum bins [1..255] = all non-zero scalars.
-        const size_t lo_bin = (b_star == 0) ? 1 : b_star;
-        for (size_t b = lo_bin; b < 256; ++b) {
-            n_large += static_cast<size_t>(msb_hist[b]);
-        }
-    }
-
-    // If SPLIT fired but idx_small's per-thread slice is too thin to amortise pippenger's
-    // per-window pipeline, peel idx_small off into a straus_msm partial sum and rewrite the
-    // schedule as "idx_large only, full bit coverage" (b_star = 0 collapses W_lo to 0).
-    Element peeled_small_partial = Curve::Group::point_at_infinity;
-    bool peeled_small_active = false;
-    if (var_window_decision.is_split) {
-        BB_ASSERT_LTE(n_large, n_active_early);
-        const size_t n_small = n_active_early - n_large;
-        const size_t max_threads_for_check = bb::get_num_cpus();
-        const size_t threads_for_check = std::max<size_t>(1, std::min(n_small, max_threads_for_check));
-        const size_t small_pts_per_thread = (n_small + threads_for_check - 1) / threads_for_check;
-        if (n_small > 0 && small_pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER) {
-            const size_t b_star_orig = var_window_decision.b_star;
-            const size_t threshold_orig = (b_star_orig == 0) ? 0 : b_star_orig - 1;
-            std::vector<ScalarField> small_scalars_mont;
-            std::vector<AffineElement> small_points;
-            small_scalars_mont.reserve(n_small);
-            small_points.reserve(n_small);
-            for (size_t i = 0; i < n; ++i) {
-                const uint8_t m = msb_per_scalar[i];
-                if (m == MSB_ZERO_SENTINEL || static_cast<size_t>(m) >= threshold_orig) {
-                    continue;
-                }
-                // Honour dedup redirect for small-set scalars: cluster reps fetch from
-                // `extra_points[cid]` (the combined cluster point — must use the aggregate
-                // here, otherwise the small-set peel silently drops every duplicate's
-                // contribution). Non-reps are skipped — their points are already inside
-                // the rep's aggregate, processing them again would double-count.
-                // Phase A runs LATER in the pipeline (inside the batch loop, after arena
-                // setup), so when this peel runs `redirect_lookup` is unallocated and the
-                // dedup branch falls through to the plain path. The empty() guard is what
-                // makes that fall-through safe.
-                if (dedup_active && !dedup_state.redirect_lookup.empty()) {
-                    const uint32_t r = dedup_state.redirect_lookup[i];
-                    if (r != round_parallel_detail::DEDUP_INVALID_EXTRA) {
-                        if ((r & round_parallel_detail::DEDUP_SKIP_BIT) != 0) {
-                            continue;
-                        }
-                        ScalarField s = scalars[i];
-                        s.self_to_montgomery_form();
-                        small_scalars_mont.push_back(s);
-                        small_points.push_back(
-                            dedup_state.extra_points[r & round_parallel_detail::SCHEDULE_INDEX_MASK]);
-                        continue;
-                    }
-                }
-                ScalarField s = scalars[i];
-                s.self_to_montgomery_form();
-                small_scalars_mont.push_back(s);
-                small_points.push_back(points[i]);
-            }
-            std::span<const ScalarField> sscs(small_scalars_mont.data(), small_scalars_mont.size());
-            std::span<const AffineElement> spts(small_points.data(), small_points.size());
-            PolynomialSpan<const ScalarField> ssp(0, sscs);
-            peeled_small_partial = trivial_msm_threaded<Curve>(ssp, spts);
-            peeled_small_active = true;
-
-            const size_t window_bits_large = round_parallel_detail::optimal_window_bits_for(
-                n_large, effective_num_bits, n_input, num_logical_threads_for_c);
-            var_window_decision.is_split = true;
-            var_window_decision.b_star = 0;
-            var_window_decision.window_bits_lo = window_bits_large;
-            var_window_decision.window_bits_hi = window_bits_large;
-        }
-    }
-
-    const auto sched =
-        round_parallel_detail::build_var_window_schedule(var_window_decision, effective_num_bits, window_bits);
+    // Variable-window split was removed from the production path after Chonk traces showed
+    // it regressing this rewrite. Keep the schedule uniform and run one region over all
+    // non-zero scalars.
+    const auto sched = round_parallel_detail::build_var_window_schedule(effective_num_bits, window_bits);
     BB_ASSERT_LTE(sched.num_windows,
                   round_parallel_detail::VAR_WINDOW_MAX_WINDOWS,
-                  "variable-window schedule exceeds compile-time max window count");
+                  "window schedule exceeds compile-time max window count");
 
     using round_parallel_detail::BATCH_CAPACITY;
     constexpr size_t MIN_BATCH_CAPACITY = 32;
@@ -3084,168 +2230,54 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // exactly. Anyone adding an arena buffer must update both the alloc and the corresponding
     // term in those formulas, otherwise windows_per_batch drifts off the BATCH_MEM_BUDGET.
 
-    // Per-(w, t) slot stride must fit the widest schedule window: max(num_buckets, B_lo, B_hi).
-    // SPLIT can pick window_bits_lo > window_bits_unsplit when the lower region's bit budget makes a wider window
-    // optimal, so we can't assume num_buckets is the maximum.
+    // Per-(w, t) slot stride must fit the widest schedule window.
     size_t B_eff = num_buckets;
     for (size_t w = 0; w < sched.num_windows; ++w) {
         B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
     }
 
-    // s.dense_buckets stride upper bound. Used both for the budget calculation and the
-    // arena allocation. Stage 6 always rebalances now: stride = next_pow2(⌈(B-1)/T⌉)
-    // where each Stage-6b task owns a uniform bucket-index slice.
-    const size_t dense_stride_est =
-        std::max<size_t>(2, std::bit_ceil((B_eff > 1) ? ((B_eff - 1 + num_threads - 1) / num_threads) : size_t{ 1 }));
-    // Σ_t buckets_per_thread[t][w] per window. Each thread's slice covers a contiguous
-    // bucket-index range; adjacent threads may share a boundary bucket (counted twice
-    // in the sum). With T threads and T−1 possible shared boundaries, the sum is at
-    // most B + T − 1. For typical (uniform-random) scalar distributions, the sum is
-    // ≈ B; this bound is tight to within T.
-    const size_t bucket_partials_per_window_max = (B_eff > 0) ? (B_eff - 1 + num_threads - 1) : 0;
-
-    // Per-region per-window bytes — schedule capacity differs by region. Lower iterates
-    // [0, n) directly so capacity_lo = n; upper also iterates [0, n) but only n_large
-    // entries pass the msb-threshold filter, so capacity_hi = n_large is a tight upper
-    // bound on the number of schedule entries Stage 4 will emit per upper-region window.
-    // Other per-window dimensions (digit_cursors/B_eff, bucket_partials, dense_buckets
-    // stride) are shared across regions and use B_eff. We size each region's
-    // per_window_bytes accurately so windows_per_batch_R can be picked per-region; the
-    // upper region can fit MUCH more windows per batch when n_large << n.
     const size_t worker_total_for_budget = num_threads;
-    // HIST slot — two non-coexisting lifetime classes share one byte slab per window:
-    //   H (S1-S4): digit_cursors
-    //   O (S6b-S7): chunk_outputs + window_partial_sums
-    // H dies before O is born (Stage 4's cursor advance ends before Stage 6b first writes
-    // chunk_outputs / window_partial_sums). Slot per-window = max(H, O).
-    //
-    // D-class (bucket_partials_dense + bucket_partials_present) used to overlay this
-    // slot at the D-region offset, but a 10× interleaved WASM Chonk bench showed Stage 6a
-    // regressed +1.29% (t=+58) due to L1 cache aliasing on the `dense[slot]/present[slot]`
-    // scatter writes when D sat at the HIST-overlaid offset (trace report:
-    // https://gist.github.com/AztecBot/8cc506ff429bdf5104fa02104c0e731b). D-class has its
-    // own dedicated Zone-S DENSE slot below; HIST keeps only H ↔ O.
-    //
-    // The single `digit_cursors` buffer carries the per-(w, t, d) Stage 1 counts AND the
-    // Stage 2 prefix-sum offsets (Stage 2 overwrites each slot with the offset Stage 4
-    // needs as a cursor), so H sizes as one uint32 per (w, t, d). Phase 5 additionally
-    // folds the per-window per-digit totals into bucket_start_all[w][d+1] (its own Zone S
-    // slot, sized B_eff+1 per window) so Stage 3 can prefix-sum in place without a
-    // separate bucket_total_counts buffer. At chonk (T=32, c=12, B_eff=2049):
-    //   H ≈ 4·32·2049 ≈ 256 KiB/window
-    //   O ≈ (sizeof(ChunkOutput)+96)·32 ≈ 5 KiB/window
-    //   D ≈ 65·2080 ≈ 135 KiB/window  (in its own DENSE slot)
-    // so HIST_SLOT ≈ 256 KiB/window — H-bound. Per-window swing total grows by
-    // D_pw - max(0, D_pw - (H_pw - O_pw)) ≈ 135 KiB/window vs the pre-fix layout; this
-    // additional swing is paid for by isolating the Stage 6a scatter from the H/O bytes.
-    const size_t hist_h_bytes_pw_shared = (size_t{ 4 } * num_threads * B_eff); // digit_cursors
-    const size_t hist_o_bytes_pw_shared =
-        (sizeof(round_parallel_detail::ChunkOutput<Curve>) * num_threads) // chunk_outputs
-        + (size_t{ 96 } * num_threads);                                   // window_partial_sums
-    const size_t hist_slot_bytes_pw_shared = std::max(hist_h_bytes_pw_shared, hist_o_bytes_pw_shared);
-    // DENSE slot — dedicated Zone-S slot for the D-class buffers, isolated from the HIST
-    // slot's offset to avoid the L1 alias hot-spot on Stage 6a scatter writes.
-    const size_t dense_slot_bytes_pw_shared =
-        (size_t{ 65 } * bucket_partials_per_window_max); // bucket_partials_dense + bucket_partials_present
+    const size_t dense_stride_est = round_parallel_detail::compute_dense_stride(B_eff, num_threads);
+    const size_t bucket_partials_per_window_max =
+        round_parallel_detail::compute_bucket_partials_max(B_eff, num_threads);
+    const size_t capacity_lo = n;
+    const size_t per_window_bytes_lo = round_parallel_detail::compute_per_window_bytes<Curve>(
+        num_threads, B_eff, n, dense_stride_est, worker_total_for_budget);
 
-    const size_t per_window_bytes_shared =
-        hist_slot_bytes_pw_shared                                      // HIST slot (H ∪ O)
-        + dense_slot_bytes_pw_shared                                   // DENSE slot (D)
-        + (size_t{ 8 } * (B_eff + 1))                                  // bucket_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_start_all
-        + (size_t{ 8 } * (num_threads + 1))                            // chunk_bucket_lo_all
-        + (size_t{ 8 } * num_threads)                                  // chunk_bucket_hi_all
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_lo
-        + (size_t{ 8 } * num_threads)                                  // orig_thread_hi
-        + (size_t{ 16 } * worker_total_for_budget)                     // chunk_infos
-        + (size_t{ 8 } * num_threads)                                  // bucket_partials_offsets
-        + (size_t{ 87 } * worker_total_for_budget * dense_stride_est); // s.dense_buckets + aux
-
-    // Per-region schedule contribution: capacity_R uint32 entries per (window, region).
-    const size_t capacity_lo = n;                                        // lower iterates [0, n)
-    const size_t capacity_hi = (sched.W_hi > 0) ? n_large : size_t{ 0 }; // upper emits at most n_large entries
-    const size_t per_window_bytes_lo = (size_t{ 4 } * capacity_lo) + per_window_bytes_shared;
-    const size_t per_window_bytes_hi = (size_t{ 4 } * capacity_hi) + per_window_bytes_shared;
-
-    constexpr size_t PER_THREAD_CHUNK_CAPACITY_BYTES =
-        // SUBCHUNK_ENTRIES_CAP=2048, BATCH_CAPACITY=256:
-        (size_t{ 2048 } * size_t{ 64 })                // curr_pts (AffineElement)         = 131072
-        + (size_t{ 2048 } * size_t{ 4 })               // curr_buckets (uint32_t)          =   8192
-        + (size_t{ 2 } * size_t{ 256 } * size_t{ 64 }) // points_to_add        =  32768
-        + (size_t{ 256 } * size_t{ 32 })               // inversion_scratch (BaseField)    =   8192
-        + (size_t{ 256 } * size_t{ 4 })                // pair_dest (uint32_t)             =   1024
-        + size_t{ 328 };                               // ThreadScratch struct overhead    =    328
-    // Per-OS-thread Stage 6a seam overflow scratch: at most ceil(max_chunk_len / SUBCHUNK_CAP)
-    // entries × (uint32 slot index + AffineElement). Scales with logical-task chunk size,
-    // not OS-thread count.
-    const size_t global_max_chunk_len_for_budget = (n + num_threads - 1) / num_threads;
     const size_t global_max_overflow_per_window_for_budget =
-        (global_max_chunk_len_for_budget + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
-    const size_t per_thread_overflow_bytes = (size_t{ 4 } + size_t{ 64 }) * global_max_overflow_per_window_for_budget;
+        round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
-    // Phase 1 prologue bytes living in the per-MSM arena — mirrors the formula in
-    // `compute_arena_bytes_for_msm`. Anyone adding a per-MSM arena buffer must update both
-    // sites or `windows_per_batch` drifts off the BATCH_MEM_BUDGET.
-    const size_t phase_one_prologue_bytes = n                                            // msb_per_scalar
-                                            + (use_glv ? size_t{ 32 } * n : size_t{ 0 }) // glv_scalars_storage
-                                            + (inline_glv_double ? size_t{ 64 } * n : size_t{ 0 }) // glv_points_storage
-                                            + (profile_threads * size_t{ 1024 }); // per_thread_msb_hist
+    const size_t phase_one_prologue_bytes =
+        round_parallel_detail::compute_phase_one_prologue_bytes(n, use_glv, inline_glv_double, profile_threads);
 
-    // Per-worker PhaseA scratch slab (one per worker, allocated only when dedup_active).
-    // See `round_parallel_detail::PhaseAScratch` for cap rationale.
-    constexpr size_t PHASE_A_DIRTY_SLOTS_CAP = 4096;
-    constexpr size_t PHASE_A_BUCKET_REP_CAP = 256;
-    constexpr size_t PHASE_A_STAGED_CAP = 1024;
-    constexpr size_t PHASE_A_CHUNK_CAP = round_parallel_detail::DEDUP_MAX_CHUNK_MEMBERS;
-    // Per-worker cluster_members cap: n is a hard upper bound on cluster_members across
-    // all workers (each scalar contributes to at most one cluster_member entry), so
-    // min(DEDUP_MAX_MEMBERS, n) is exact and tighter than the constant for small-n MSMs.
-    // The publish-flatten step enforces this cap algorithmically: clusters that would
-    // overflow are skipped and fall through to the standard Stage 4/6a path with their
-    // original signed digits.
-    const size_t phase_a_cluster_members_cap = std::min(round_parallel_detail::DEDUP_MAX_MEMBERS, n);
-    // Per-worker cluster_offsets cap: clusters_opened is hard-capped at
-    // cids_per_thread = DEDUP_MAX_CLUSTERS / num_threads per worker; cluster_offsets
-    // holds clusters_opened + 1 entries. The +2 covers the leading-zero sentinel and
-    // the post-last terminator slot.
-    const size_t phase_a_cluster_offsets_cap = (round_parallel_detail::DEDUP_MAX_CLUSTERS / num_threads) + 2;
-    const size_t phase_a_per_worker_bytes =
-        (size_t{ 4 } * phase_a_cluster_members_cap) + (size_t{ 4 } * phase_a_cluster_offsets_cap) +
-        (size_t{ 2 } * PHASE_A_DIRTY_SLOTS_CAP) + (size_t{ 4 } * PHASE_A_BUCKET_REP_CAP) +
-        (size_t{ 8 } * PHASE_A_STAGED_CAP) + (sizeof(AffineElement) * PHASE_A_CHUNK_CAP) +
-        (size_t{ 4 } * PHASE_A_CHUNK_CAP);
+    const auto phase_a_caps = round_parallel_detail::compute_phase_a_caps(n, num_threads);
+    const size_t phase_a_cluster_members_cap = phase_a_caps.members_cap;
+    const size_t phase_a_cluster_offsets_cap = phase_a_caps.offsets_cap;
 
-    // Zone W per-worker UNION (see Arena zone layout block below). Stage 6a / Stage 6b
-    // ThreadScratch fixed fields and PhaseAScratch overlay the SAME per-worker bytes; the
-    // worker's slab consumes max(ts_fixed, phase_a) bytes, not the sum, because the three
-    // stages run in disjoint parallel_for invocations on each worker.
-    const size_t ts_fixed_bytes = PER_THREAD_CHUNK_CAPACITY_BYTES + per_thread_overflow_bytes;
-    const size_t worker_union_bytes_for_budget =
-        dedup_active ? std::max(ts_fixed_bytes, phase_a_per_worker_bytes) : ts_fixed_bytes;
+    // Zone W per-worker UNION via the canonical layout walk. The wpb-dependent Stage 6
+    // tail is added separately after `windows_per_batch` is solved; here we only need
+    // the union bytes for the fixed_overhead → wpb budget.
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> budget_layout(
+        /*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
+        global_max_overflow_per_window_for_budget,
+        dedup_active,
+        phase_a_cluster_members_cap,
+        phase_a_cluster_offsets_cap,
+        /*windows_per_batch=*/0,
+        /*dense_stride_est=*/0);
+    const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total_for_budget) +
                                   (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
                                   + (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
-    // Solve `wpb_R · per_window_bytes_R ≤ BATCH_MEM_BUDGET − fixed_overhead` per region.
-    // For sparse upper regions per_window_bytes_hi is much smaller so wpb_hi can be much
-    // bigger, fitting the entire upper region in one batch and amortising parallel_for
-    // dispatch over the whole region. NO_SPLIT runs only the lower region (W_hi = 0).
+    // Solve `wpb · per_window_bytes ≤ BATCH_MEM_BUDGET − fixed_overhead`.
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
-    auto pick_wpb = [&](size_t per_window_bytes_R, size_t W_R) -> size_t {
-        if (W_R == 0) {
-            return 1;
-        }
-        if (per_window_bytes_R == 0 || available_budget == 0) {
-            return std::max<size_t>(1, W_R);
-        }
-        return std::min(std::max<size_t>(1, available_budget / per_window_bytes_R), W_R);
-    };
-    const size_t windows_per_batch_lo = pick_wpb(per_window_bytes_lo, sched.W_lo);
-    const size_t windows_per_batch_hi = pick_wpb(per_window_bytes_hi, sched.W_hi);
-    const size_t windows_per_batch = std::max(windows_per_batch_lo, windows_per_batch_hi);
+    const size_t windows_per_batch_lo =
+        round_parallel_detail::solve_wpb(per_window_bytes_lo, available_budget, sched.num_windows);
+    const size_t windows_per_batch = windows_per_batch_lo;
 
     // Per-thread chunk-capacity scratch sizing. A thread's per-window slice is split into
     // sub-chunks of at most SUBCHUNK_ENTRIES_CAP entries. Worst-case overflow per
@@ -3274,7 +2306,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     }
 
     // ---------------------------------------------------------------------------------------
-    // Arena zone layout — set up AFTER Phase 1 + varc split decision (see
+    // Arena zone layout — set up after Phase 1 and schedule selection (see
     // https://gist.github.com/AztecBot/7c5ef0581350f6fdb9711679552fd86f §1, §4, §5).
     //
     //   [0 .. bytes_P)                  Zone P — whole-MSM permanent
@@ -3290,7 +2322,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     //                                       after the union. Stage 6a, Stage 6b, and Phase A
     //                                       run in distinct parallel_for invocations and
     //                                       never co-exist on a worker.
-    //   [bytes_P + bytes_W .. arena_capacity)
+    //   [bytes_P + bytes_W .. arena.capacity)
     //                                   Zone S — per-batch swing region (schedule, HIST slot,
     //                                       DENSE slot, partition metadata).
     //                                       HIST slot overlays H ↔ O on one byte slab:
@@ -3313,7 +2345,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
 
     // Freeze Zone P prefix at the post-Phase-1 cursor — everything allocated so far
     // (msb_per_scalar, glv storage, per_thread_msb_hist) is Zone P permanent state.
-    const size_t bytes_P_prefix = arena_cursor;
+    const size_t bytes_P_prefix = arena.cursor;
 
     // Per-worker fixed-bytes "union": ThreadScratch's wpb-independent fields overlay the
     // PhaseAScratch fields. Compute each layout's strict byte requirement (including the
@@ -3321,56 +2353,19 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     auto align_up = [](size_t off, size_t align) -> size_t { return (off + align - 1) & ~(align - 1); };
     auto layout_add = [&](size_t& off, size_t bytes, size_t align) { off = align_up(off, align) + bytes; };
 
-    // ThreadScratch fixed (curr_pts/curr_buckets/points_to_add/inversion_scratch/pair_dest/
-    // overflow_slots/overflow_pts). Mirrors the alloc order below.
-    size_t ts_fixed_layout = 0;
-    layout_add(ts_fixed_layout, sizeof(AffineElement) * chunk_capacity, alignof(AffineElement));
-    layout_add(ts_fixed_layout, sizeof(uint32_t) * chunk_capacity, alignof(uint32_t));
-    layout_add(ts_fixed_layout, sizeof(AffineElement) * 2 * BATCH_CAPACITY, alignof(AffineElement));
-    layout_add(ts_fixed_layout, sizeof(BaseField) * BATCH_CAPACITY, alignof(BaseField));
-    layout_add(ts_fixed_layout, sizeof(uint32_t) * BATCH_CAPACITY, alignof(uint32_t));
-    layout_add(ts_fixed_layout, sizeof(uint32_t) * global_max_overflow_per_window, alignof(uint32_t));
-    layout_add(ts_fixed_layout, sizeof(AffineElement) * global_max_overflow_per_window, alignof(AffineElement));
-
-    // PhaseA layout (cluster_members/cluster_offsets/dirty_slots/bucket_rep/staged/chunk_pts/chunk_ids).
-    size_t pa_layout = 0;
-    if (dedup_active) {
-        layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_members_cap, alignof(uint32_t));
-        layout_add(pa_layout, sizeof(uint32_t) * phase_a_cluster_offsets_cap, alignof(uint32_t));
-        layout_add(pa_layout, sizeof(uint16_t) * PHASE_A_DIRTY_SLOTS_CAP, alignof(uint16_t));
-        layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_BUCKET_REP_CAP, alignof(uint32_t));
-        layout_add(pa_layout,
-                   sizeof(std::pair<uint32_t, uint32_t>) * PHASE_A_STAGED_CAP,
-                   alignof(std::pair<uint32_t, uint32_t>));
-        layout_add(pa_layout, sizeof(AffineElement) * PHASE_A_CHUNK_CAP, alignof(AffineElement));
-        layout_add(pa_layout, sizeof(uint32_t) * PHASE_A_CHUNK_CAP, alignof(uint32_t));
-    }
-
-    // Per-worker union: ThreadScratch fixed and PhaseA overlay the same bytes. Stage 6's
-    // wpb-dependent fields (dense_buckets / is_present / pair scratch / chunk_infos) sit
-    // immediately after the union, so each worker's slab = union + wpb-dependent tail.
-    // Use the worst-case AffineElement alignment between regions to avoid mid-slab
-    // misalignment when the next worker begins.
-    constexpr size_t WORKER_SLAB_ALIGN = alignof(AffineElement);
-    const size_t per_worker_union_bytes = align_up(std::max(ts_fixed_layout, pa_layout), WORKER_SLAB_ALIGN);
-
-    // wpb-dependent per-worker tail (Stage 6 only — PhaseA has no per-wpb part).
-    size_t per_worker_per_wpb_layout = 0;
-    {
-        const size_t dense_total = windows_per_batch * dense_stride_est;
-        const size_t dense_pair_max = dense_total / 2;
-        layout_add(per_worker_per_wpb_layout, sizeof(AffineElement) * dense_total, alignof(AffineElement));
-        layout_add(per_worker_per_wpb_layout, sizeof(uint8_t) * dense_total, alignof(uint8_t));
-        layout_add(per_worker_per_wpb_layout,
-                   sizeof(std::pair<uint32_t, uint32_t>) * dense_pair_max,
-                   alignof(std::pair<uint32_t, uint32_t>));
-        layout_add(per_worker_per_wpb_layout, sizeof(uint32_t) * dense_pair_max, alignof(uint32_t));
-        layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_pair_max, alignof(BaseField));
-        layout_add(per_worker_per_wpb_layout,
-                   sizeof(round_parallel_detail::AffineBucketChunkInfo) * windows_per_batch,
-                   alignof(round_parallel_detail::AffineBucketChunkInfo));
-    }
-    const size_t per_worker_bytes = align_up(per_worker_union_bytes + per_worker_per_wpb_layout, WORKER_SLAB_ALIGN);
+    // Per-worker layout via the canonical walk (single source of truth shared with
+    // `compute_arena_bytes_for_msm`). Pre-wpb-solve usage there passes wpb=0; here we
+    // pass the actual windows_per_batch so the Stage 6 wpb-dependent tail is included.
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> worker_layout(chunk_capacity,
+                                                                           global_max_overflow_per_window,
+                                                                           dedup_active,
+                                                                           phase_a_cluster_members_cap,
+                                                                           phase_a_cluster_offsets_cap,
+                                                                           windows_per_batch,
+                                                                           dense_stride_est);
+    constexpr size_t WORKER_SLAB_ALIGN = round_parallel_detail::PerWorkerArenaLayout<Curve>::WORKER_SLAB_ALIGN;
+    const size_t per_worker_union_bytes = worker_layout.per_worker_union_bytes;
+    const size_t per_worker_bytes = worker_layout.per_worker_bytes;
 
     // Zone P extra (post-decision permanent state): window_sums + dedup state. Sized
     // with the strict alignment a bump cursor would apply.
@@ -3384,12 +2379,12 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                    alignof(AffineElement));
     }
 
-    // Zone sizes. The Zone W slab uses `bump_alloc_within` which aligns in ABSOLUTE address
+    // Zone sizes. The Zone W slab uses `MsmArena::bump_alloc` which aligns in ABSOLUTE address
     // space (the arena buffer base is only `__STDCPP_DEFAULT_NEW_ALIGNMENT__`-aligned, but
     // AffineElement is alignas(64)). To make the per-worker layout match the layout-only
     // calc (which assumes the slab starts on a 64-byte boundary), bias bytes_P so the
-    // absolute address `arena_data + bytes_P` is 64-aligned.
-    const size_t arena_base_misalign = static_cast<size_t>(arena_base_addr & (WORKER_SLAB_ALIGN - 1));
+    // absolute address `arena.data + bytes_P` is 64-aligned.
+    const size_t arena_base_misalign = static_cast<size_t>(arena.base_addr & (WORKER_SLAB_ALIGN - 1));
     const size_t bytes_P_min = align_up(bytes_P_prefix, alignof(Element)) + bytes_P_extra_layout;
     const size_t bytes_P = align_up(bytes_P_min + arena_base_misalign, WORKER_SLAB_ALIGN) - arena_base_misalign;
     // bytes_W: per_worker_bytes is already rounded to WORKER_SLAB_ALIGN, so consecutive
@@ -3399,8 +2394,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // Sanity: zones must fit. The conservative `compute_arena_bytes_for_msm` upper bound
     // sized the buffer to `BATCH_MEM_BUDGET + 32K + dedup_bytes` at worst, which dominates
     // every reachable (P + W + S) sum at the inline-tight wpb chosen above.
-    BB_ASSERT_LTE(bytes_P + bytes_W, arena_capacity);
-    const size_t bytes_S_total = arena_capacity - bytes_P - bytes_W;
+    BB_ASSERT_LTE(bytes_P + bytes_W, arena.capacity);
+    const size_t bytes_S_total = arena.capacity - bytes_P - bytes_W;
 
     // Per-zone bump cursors. Zone P continues from `bytes_P_prefix`; Zones W and S start
     // fresh at their zone base. Zone P's bound is `bytes_P` so the bump cursor stays inside
@@ -3408,15 +2403,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     size_t zone_P_cursor = bytes_P_prefix;
     size_t zone_S_cursor = 0;
     auto zone_P_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-        return bump_alloc_within.template operator()<T>(count, zone_P_cursor, bytes_P, 0);
+        return arena.template bump_alloc<T>(count, zone_P_cursor, bytes_P, 0);
     };
     auto zone_S_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-        return bump_alloc_within.template operator()<T>(count, zone_S_cursor, bytes_S_total, bytes_P + bytes_W);
+        return arena.template bump_alloc<T>(count, zone_S_cursor, bytes_S_total, bytes_P + bytes_W);
     };
-    // Zone W is carved into per-worker slabs directly via `bump_alloc_within` below — each
+    // Zone W is carved into per-worker slabs directly via `MsmArena::bump_alloc` below — each
     // worker gets its own (cursor, bound) pair, so a single zone-wide allocator would not
     // capture the per-worker discipline.
-    // The pre-Phase-1 `arena_alloc` cursor is retired here — every subsequent allocation
+    // The pre-Phase-1 `MsmArena::alloc` cursor is retired here — every subsequent allocation
     // routes through `zone_P_alloc`, the per-worker Zone W allocators, or `zone_S_alloc`.
 
     // Zone W: per-worker union slab — Stage6a/6b ThreadScratch and PhaseA fields overlay the
@@ -3429,8 +2424,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // ThreadScratch fixed fields — first view into the union. Bound = union size.
         size_t ts_fixed_cur = 0;
         auto ts_fixed_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-            return bump_alloc_within.template operator()<T>(
-                count, ts_fixed_cur, per_worker_union_bytes, bytes_P + slab_base);
+            return arena.template bump_alloc<T>(count, ts_fixed_cur, per_worker_union_bytes, bytes_P + slab_base);
         };
         s.curr_pts = ts_fixed_alloc.template operator()<AffineElement>(chunk_capacity);
         s.curr_buckets = ts_fixed_alloc.template operator()<uint32_t>(chunk_capacity);
@@ -3446,17 +2440,17 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         if (dedup_active) {
             size_t pa_cur = 0;
             auto pa_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-                return bump_alloc_within.template operator()<T>(
-                    count, pa_cur, per_worker_union_bytes, bytes_P + slab_base);
+                return arena.template bump_alloc<T>(count, pa_cur, per_worker_union_bytes, bytes_P + slab_base);
             };
             auto& ps = phase_a_scratch[t];
+            using PWAL = round_parallel_detail::PerWorkerArenaLayout<Curve>;
             ps.cluster_members = pa_alloc.template operator()<uint32_t>(phase_a_cluster_members_cap);
             ps.cluster_offsets = pa_alloc.template operator()<uint32_t>(phase_a_cluster_offsets_cap);
-            ps.dirty_slots = pa_alloc.template operator()<uint16_t>(PHASE_A_DIRTY_SLOTS_CAP);
-            ps.bucket_rep = pa_alloc.template operator()<uint32_t>(PHASE_A_BUCKET_REP_CAP);
-            ps.staged = pa_alloc.template operator()<std::pair<uint32_t, uint32_t>>(PHASE_A_STAGED_CAP);
-            ps.chunk_pts = pa_alloc.template operator()<AffineElement>(PHASE_A_CHUNK_CAP);
-            ps.chunk_ids = pa_alloc.template operator()<uint32_t>(PHASE_A_CHUNK_CAP);
+            ps.dirty_slots = pa_alloc.template operator()<uint16_t>(PWAL::PHASE_A_DIRTY_SLOTS_CAP);
+            ps.bucket_rep = pa_alloc.template operator()<uint32_t>(PWAL::PHASE_A_BUCKET_REP_CAP);
+            ps.staged = pa_alloc.template operator()<std::pair<uint32_t, uint32_t>>(PWAL::PHASE_A_STAGED_CAP);
+            ps.chunk_pts = pa_alloc.template operator()<AffineElement>(PWAL::PHASE_A_CHUNK_CAP);
+            ps.chunk_ids = pa_alloc.template operator()<uint32_t>(PWAL::PHASE_A_CHUNK_CAP);
         }
 
         // Stage 6 wpb-dependent fields — tail of the per-worker slab, BEYOND the union. Bound
@@ -3464,7 +2458,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // overwrite the union region.
         size_t ts_tail_cur = per_worker_union_bytes;
         auto ts_tail_alloc = [&]<typename T>(size_t count) -> std::span<T> {
-            return bump_alloc_within.template operator()<T>(count, ts_tail_cur, per_worker_bytes, bytes_P + slab_base);
+            return arena.template bump_alloc<T>(count, ts_tail_cur, per_worker_bytes, bytes_P + slab_base);
         };
         const size_t dense_total = windows_per_batch * dense_stride_est;
         const size_t dense_pair_max = dense_total / 2;
@@ -3480,9 +2474,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     }
 
     // Zone S: per-batch swing region — schedule + HIST slot + DENSE slot + partition metadata.
-    // Schedule slot stride is per-region (capacity_lo = n, capacity_hi = n_large), so
-    // the buffer is sized to fit the larger total: max(wpb_lo * n, wpb_hi * n_large).
-    const size_t schedule_total = std::max(windows_per_batch_lo * capacity_lo, windows_per_batch_hi * capacity_hi);
+    const size_t schedule_total = windows_per_batch_lo * capacity_lo;
     auto schedule = zone_S_alloc.template operator()<uint32_t>(schedule_total);
 
     // ----- HIST slot ------------------------------------------------------------------
@@ -3638,15 +2630,12 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     auto orig_thread_lo = zone_S_alloc.template operator()<size_t>(windows_per_batch * num_threads);
     auto orig_thread_hi = zone_S_alloc.template operator()<size_t>(windows_per_batch * num_threads);
 
-    // Zone P: window_sums (Stage 7 cross-region accumulator — survives the whole MSM).
-    // SPLIT can produce more windows than the unsplit num_windows (small window_bits_hi → many
-    // tight upper windows). Sizing to the compile-time VAR_WINDOW_MAX_WINDOWS cap (12 KiB)
-    // avoids a per-region resize.
+    // Zone P: window_sums (Stage 7 accumulator — survives the whole MSM).
     auto window_sums = zone_P_alloc.template operator()<typename Curve::Element>(VAR_WINDOW_WINDOW_SUMS_CAP);
     std::fill_n(window_sums.begin(), VAR_WINDOW_WINDOW_SUMS_CAP, Curve::Group::point_at_infinity);
 
-    // Zone P: dedup state — written by Phase A, read through Stage 6a of every batch and
-    // (when SPLIT fires) the upper region, so it must outlive every batch.
+    // Zone P: dedup state — written by Phase A and read through Stage 6a of every batch,
+    // so it must outlive every batch.
     // - redirect_lookup: parallel-filled with DEDUP_INVALID_EXTRA below before Phase A reads it.
     // - extra_points:    no init needed; Phase A writes per-thread cid ranges, and consumers
     //                    only read indices Phase A actually populated.
@@ -3673,32 +2662,16 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // adjacency holds in any window's sorted schedule because true duplicates land in the
     // same bucket of every window. So we Phase A on the very first batch's window-0
     // schedule, populate `dedup_state.{redirect_lookup, extra_points}` once, and reuse the
-    // result for every subsequent batch (and SPLIT upper region). The flag is captured by
-    // the per-region `run_batch` lambda below.
+    // result for every subsequent batch.
     bool phase_a_done = false;
 
-    // Per-region batch body. The driver invokes this twice (lower + upper on SPLIT, lower-only
-    // on NO_SPLIT). Parameters are passed explicitly rather than through a struct ref:
-    // `bool is_upper` lets each call site's literal (`false` / `true`) constant-fold the
-    // inner-loop msb filter — for the lower region, the `if (m < threshold) continue;` branch
-    // becomes dead code at compile time. With a `uint8_t` threshold passed as `0` the compiler
-    // does not reliably constant-fold the same branch through the lambda's hidden indirection,
-    // costing ~6% Stage 6a wall on chonk.
-    auto run_batch = [&](size_t batch_start,
-                         size_t windows_in_batch,
-                         size_t window_bits_R,
-                         size_t B_R,
-                         size_t n_iter,
-                         size_t capacity_R,
-                         bool is_upper) noexcept {
-        static_cast<void>(window_bits_R);
-        static_cast<void>(n_iter);
+    auto run_batch = [&](size_t batch_start, size_t windows_in_batch, size_t B_R) noexcept {
         // Per-(w, t) slot stride uses `B_eff` = max(num_buckets, B_lo, B_hi); each call
         // iterates only the region's first B_R entries. The arena was sized for B_eff per slot.
         const size_t bucket_stride = B_eff;
-        // Per-window slice params. The LAST window of a region has window_bits_w < window_bits_R when the region's
-        // bit count doesn't divide evenly by window_bits_R, and the Booth recoder must use that narrower
-        // window_bits_w (not window_bits_R) or it encroaches on the next region's bits and emits a wrong digit.
+        // Per-window slice params. The final window can be narrower when the bit budget
+        // does not divide evenly by the default window size; the Booth recoder must use
+        // that narrower width or it encroaches on bits beyond the schedule.
         constexpr size_t SCALAR_UINT64_LIMBS = sizeof(ScalarField) / sizeof(uint64_t);
         std::array<round_parallel_detail::ConstantineSliceParams, 128> slice_params{};
         std::array<round_parallel_detail::ConstantineSliceParamsU32, 128> slice_params_u32{};
@@ -3784,14 +2757,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             }
         };
 
-        // The inner-loop filter is two-stage: zero-skip (MSB_ZERO_SENTINEL) is unconditional;
-        // the boundary-low skip (msb < upper_iter_threshold_msb) is gated on `is_upper`. The
-        // ternary collapses to `0` for the lower call site under inlining + constant-folding,
-        // so the lower region's hot loop ends up with a single branch. Sequential
-        // scalars[]/msb_per_scalar[] access keeps HW prefetch happy even when the upper
-        // region's filter pass-rate is <2 %.
-        const uint8_t msb_filter_threshold = is_upper ? static_cast<uint8_t>(upper_iter_threshold_msb) : uint8_t{ 0 };
-
         // Capture the dedup state before Stage 1. The first batch must build the ordinary
         // R14 schedule so Phase A can discover clusters, then patch+compact that batch.
         // Later batches can schedule cluster reps directly and omit non-reps up front.
@@ -3809,8 +2774,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 uint32_t* my_counts = digit_cursors.data() + (((w * num_threads) + tid) * bucket_stride);
                 std::memset(my_counts, 0, B_R * sizeof(uint32_t));
             }
-            const size_t start = tid * n_iter / num_threads;
-            const size_t end = (tid + 1) * n_iter / num_threads;
+            const size_t start = tid * n / num_threads;
+            const size_t end = (tid + 1) * n / num_threads;
 
             alignas(16) std::array<uint32_t, SIMD_BATCH> packed_buf{};
             // Pack the per-block filter into a uint64 bitmask. When every scalar in the block
@@ -3821,7 +2786,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 for (size_t k = 0; k < SIMD_BATCH; ++k) {
                     const size_t scalar_idx = block_start + k;
                     const uint8_t m = msb_per_scalar[scalar_idx];
-                    bool include = (m != MSB_ZERO_SENTINEL && m >= msb_filter_threshold);
+                    bool include = (m != MSB_ZERO_SENTINEL);
                     if constexpr (DedupKnown) {
                         if (include) {
                             const uint32_t patch = rl_data[scalar_idx];
@@ -3866,7 +2831,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             // active check inlined since the block is short.
             for (; i < end; ++i) {
                 const uint8_t m = msb_per_scalar[i];
-                if (m == MSB_ZERO_SENTINEL || m < msb_filter_threshold) {
+                if (m == MSB_ZERO_SENTINEL) {
                     continue;
                 }
                 if constexpr (DedupKnown) {
@@ -3979,15 +2944,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // that the WASM JIT does not hoist (~13 ns/iter penalty observed).
         auto stage4_emit = [&]<bool DedupKnown>(size_t tid) noexcept {
             [[maybe_unused]] const uint32_t* const rl_data = dedup_state.redirect_lookup.data();
-            const size_t start = tid * n_iter / num_threads;
-            const size_t end = (tid + 1) * n_iter / num_threads;
+            const size_t start = tid * n / num_threads;
+            const size_t end = (tid + 1) * n / num_threads;
             std::array<uint32_t*, 128> cursors{};
             std::array<const size_t*, 128> bucket_starts{};
             std::array<uint32_t*, 128> schedules{};
             for (size_t w = 0; w < windows_in_batch; ++w) {
                 cursors[w] = digit_cursors.data() + (((w * num_threads) + tid) * bucket_stride);
                 bucket_starts[w] = bucket_start_all.data() + (w * (bucket_stride + 1));
-                schedules[w] = schedule.data() + (w * capacity_R);
+                schedules[w] = schedule.data() + (w * n);
             }
 
             alignas(16) std::array<uint32_t, SIMD_BATCH> packed_buf{};
@@ -4001,7 +2966,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 for (size_t j = 0; j < tile_len; ++j) {
                     const size_t scalar_idx = tile_start + j;
                     const uint8_t m = msb_per_scalar[scalar_idx];
-                    bool include = (m != MSB_ZERO_SENTINEL && m >= msb_filter_threshold);
+                    bool include = (m != MSB_ZERO_SENTINEL);
                     if constexpr (DedupKnown) {
                         uint32_t out_base = static_cast<uint32_t>(scalar_idx);
                         if (include) {
@@ -4108,14 +3073,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // `phase_a_done` from the enclosing function scope). Cluster membership is decided
         // by scalar value (memcmp), so any window's bucket-sorted schedule places duplicates
         // consecutively — Phase A on this first-batch's window-0 schedule produces the
-        // correct redirect_lookup + extra_points for ALL subsequent batches (and the SPLIT
-        // upper region). We deliberately do NOT re-run Phase A per batch: the dedup_state
-        // is populated once and reused. Note: the SPLIT upper region's `points` span differs
-        // from the lower region's (GLV-doubled), so cluster aggregates built from the lower
-        // region's points must continue to be the correct contributions for the upper
-        // region's same-scalar-value buckets. This holds because both regions' `points`
-        // spans index by the same scalar_idx and a duplicate scalar always picks the
-        // SAME orig_idx → SAME point per region.
+        // correct redirect_lookup + extra_points for all subsequent batches. We deliberately
+        // do not re-run Phase A per batch: the dedup_state is populated once and reused.
         if (dedup_active && windows_in_batch > 0 && !phase_a_done) {
             BB_BENCH_NAME("MSM::PhaseA_dedup_detect");
             uint32_t* sched_w0 = schedule.data();
@@ -4214,7 +3173,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             const uint32_t* const rl_data = dedup_state.redirect_lookup.data();
             const size_t bs_stride = bucket_stride + 1;
             const size_t br = B_R;
-            const size_t cap_R = capacity_R;
+            const size_t cap_R = n;
             bb::parallel_for(num_threads, [&, rl_data, bs_stride, br, cap_R](size_t tid) noexcept {
                 BB_BENCH_NAME("MSM::dedup_patch_schedule/worker");
                 for (size_t w = tid; w < windows_in_batch; w += num_threads) {
@@ -4380,7 +3339,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                     if (cs_lo == cs_hi) {
                         continue;
                     }
-                    const uint32_t* sched_w = schedule.data() + (w * capacity_R);
+                    const uint32_t* sched_w = schedule.data() + (w * n);
                     const size_t* bucket_start = bucket_start_all.data() + (w * (bucket_stride + 1));
                     AffineElement* dst_dense =
                         bucket_partials_dense.data() + bucket_partials_offsets[(tid * windows_in_batch) + w];
@@ -4571,58 +3530,12 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         }
     };
 
-    // Per-region dispatch. NO_SPLIT runs only the lower region (W_hi = 0). SPLIT also runs
-    // the upper region with msb_threshold = b_star - 1 (boundary criterion). Two explicit
-    // call sites, NOT a runtime-iterated regions[] array — gives the compiler a static call
-    // graph for run_batch and lets it apply per-call-site specialization on the lambda body
-    // (regions[]+outer-for-loop costs ~6% Stage 6a wall on the chonk fixture, despite the
-    // body being identical, presumably from reduced inlining at the single dynamic call site).
+    // Uniform-schedule dispatch over all windows.
     {
-        const size_t window_bits_lo_R = var_window_decision.is_split ? var_window_decision.window_bits_lo : window_bits;
-        const size_t B_lo_R = (size_t{ 1 } << (window_bits_lo_R - 1)) + 1;
-        const round_parallel_detail::RegionView lower = {
-            .window_start = 0,
-            .window_count = sched.W_lo,
-            .window_bits_R = window_bits_lo_R,
-            .B_R = B_lo_R,
-            .capacity_R = n,
-            .n_iter = n,
-            .windows_per_batch = windows_per_batch_lo,
-        };
-        const size_t lower_end = lower.window_start + lower.window_count;
-        for (size_t batch_start = lower.window_start; batch_start < lower_end; batch_start += lower.windows_per_batch) {
-            const size_t windows_in_batch = std::min(lower.windows_per_batch, lower_end - batch_start);
-            run_batch(batch_start,
-                      windows_in_batch,
-                      lower.window_bits_R,
-                      lower.B_R,
-                      lower.n_iter,
-                      lower.capacity_R,
-                      /*is_upper=*/false);
-        }
-    }
-    if (sched.W_hi > 0) {
-        const size_t window_bits_hi_R = var_window_decision.window_bits_hi;
-        const size_t B_hi_R = (size_t{ 1 } << (window_bits_hi_R - 1)) + 1;
-        const round_parallel_detail::RegionView upper = {
-            .window_start = sched.W_lo,
-            .window_count = sched.W_hi,
-            .window_bits_R = window_bits_hi_R,
-            .B_R = B_hi_R,
-            .capacity_R = n_large,
-            .n_iter = n,
-            .windows_per_batch = windows_per_batch_hi,
-        };
-        const size_t upper_end = upper.window_start + upper.window_count;
-        for (size_t batch_start = upper.window_start; batch_start < upper_end; batch_start += upper.windows_per_batch) {
-            const size_t windows_in_batch = std::min(upper.windows_per_batch, upper_end - batch_start);
-            run_batch(batch_start,
-                      windows_in_batch,
-                      upper.window_bits_R,
-                      upper.B_R,
-                      upper.n_iter,
-                      upper.capacity_R,
-                      /*is_upper=*/true);
+        const size_t B_R = (size_t{ 1 } << (window_bits - 1)) + 1;
+        for (size_t batch_start = 0; batch_start < sched.num_windows; batch_start += windows_per_batch) {
+            const size_t windows_in_batch = std::min(windows_per_batch, sched.num_windows - batch_start);
+            run_batch(batch_start, windows_in_batch, B_R);
         }
     }
 
@@ -4635,12 +3548,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             result.self_dbl();
         }
         result += window_sums[w_rev - 1];
-    }
-
-    // Fold in the peeled-off small-scalar contribution. `result` covers idx_large only,
-    // `peeled_small_partial` covers idx_small only.
-    if (peeled_small_active) {
-        result += peeled_small_partial;
     }
 
     // GLV path leaves input_scalars untouched (it reads via from_montgomery_form_reduced into
@@ -4760,7 +3667,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         // n[m] <= group_max_n; if group_max_n is in the small-N regime, every MSM
         // is too, so they all want GLV. If group_max_n is in the large-N regime,
         // no MSM in the group wants GLV (they'd be slower with it).
-        group_uses_glv[g] = (glv_groups[g].group_max_n <= round_parallel_detail::GLV_SMALL_N_THRESHOLD);
+        group_uses_glv[g] = glv_groups[g].group_max_n <= round_parallel_detail::GLV_SMALL_N_THRESHOLD;
     }
 
     // Build ONE shared GLV-doubled buffer covering the union of every GLV-using group's
@@ -4842,7 +3749,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         }
         const size_t g = msm_to_group[m];
         const bool ext_glv =
-            (g != std::numeric_limits<size_t>::max() && group_uses_glv[g] && !glv_groups[g].doubled.empty());
+            g != std::numeric_limits<size_t>::max() && group_uses_glv[g] && !glv_groups[g].doubled.empty();
         // The internal short-circuits to trivial_msm_threaded for tiny MSMs, so the hint
         // alone is the right arena-sizing predicate (over-sizing for a path that bails
         // is harmless — under-sizing would crash).
@@ -5066,5 +3973,7 @@ template curve::Grumpkin::Element pippenger_round_parallel_jacobian_fast<curve::
     std::span<const curve::Grumpkin::AffineElement> points,
     size_t min_pts_per_thread_override) noexcept;
 } // namespace round_parallel_detail
+
+template size_t compute_arena_bytes_for_msm<curve::BN254>(size_t, bool, bool) noexcept;
 
 } // namespace bb::scalar_multiplication
