@@ -326,10 +326,12 @@ function main() {
 
   let totalFiles = 0;
   let sectionsAdded = 0;
-  let linksSection =
+  // Community resources are independent of the generated API docs, so they are
+  // always appended (see write logic below), even if no API docs are on disk.
+  let communitySection =
     "\n\n# Community Resources\n\n" +
-    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n" +
-    "\n# API Reference Documentation\n\n";
+    "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n";
+  let linksSection = "\n# API Reference Documentation\n\n";
   let fullContentSection = "\n\n---\n\n# API Reference Documentation\n\n";
 
   for (const apiDir of API_DIRS) {
@@ -450,15 +452,23 @@ function main() {
   }
 
   if (sectionsAdded === 0) {
+    // No API docs on disk: still append the community section so the
+    // awesome-aztec link survives builds that skip API generation.
+    fs.writeFileSync(llmsTxtPath, llmsTxtContent + communitySection);
     console.log(
-      "No API docs found on disk — leaving llms.txt and llms-full.txt unchanged",
+      "No API docs found on disk — appended Community Resources only",
     );
     return;
   }
 
-  // Append to llms.txt
-  fs.writeFileSync(llmsTxtPath, llmsTxtContent + linksSection);
-  console.log(`Updated llms.txt with API reference links`);
+  // Append community resources + API reference links to llms.txt
+  fs.writeFileSync(
+    llmsTxtPath,
+    llmsTxtContent + communitySection + linksSection,
+  );
+  console.log(
+    `Updated llms.txt with community resources and API reference links`,
+  );
 
   // Append to llms-full.txt
   fs.writeFileSync(llmsFullTxtPath, llmsFullTxtContent + fullContentSection);
