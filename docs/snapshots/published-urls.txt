@@ -6,13 +6,7 @@
 # /search are excluded — they regenerate from source and aren't subject
 # to the 'delete-without-redirect' failure mode this guard exists to catch.
 #
-# To refresh after intentional deletions:
-#   curl -fsSL https://docs.aztec.network/sitemap.xml \
-#     | grep -oE '<loc>[^<]+</loc>' \
-#     | sed -E 's|<loc>https?://[^/]+||; s|</loc>||' \
-#     | grep -vE '^/(aztec-nr-api|typescript-api|search)(/|$)' \
-#     | grep -vE '^/(developers|operate)/tags(/|$)' \
-#     | sort -u > docs/snapshots/published-urls.txt
+# Regenerate with scripts/refresh_url_snapshot.sh (do not hand-edit).
 #
 # Lines starting with # are ignored by the checker.
 /
