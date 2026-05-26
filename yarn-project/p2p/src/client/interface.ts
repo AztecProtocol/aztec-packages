@@ -9,11 +9,7 @@ import type { ENR } from '@nethermindeth/enr';
 
 import type { P2PConfig } from '../config.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
-import type {
-  ReqRespSubProtocol,
-  ReqRespSubProtocolHandler,
-  ReqRespSubProtocolValidators,
-} from '../services/reqresp/interface.js';
+import type { ReqRespSubProtocol, ReqRespSubProtocolHandler } from '../services/reqresp/interface.js';
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
@@ -228,11 +224,7 @@ export type P2P = P2PClient & {
   /** Clears the db. */
   clear(): Promise<void>;
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void>;
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void>;
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 

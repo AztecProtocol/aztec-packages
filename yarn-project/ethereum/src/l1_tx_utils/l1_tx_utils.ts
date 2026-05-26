@@ -131,6 +131,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     );
   }
 
+  /**
+   * Clears the cached `lastSentNonce` so the next `sendTransaction` call fetches the real
+   * nonce from the chain. Call this after an L1 reorg to prevent stale nonce references.
+   */
+  public resetNonce(): void {
+    this.lastSentNonce = undefined;
+  }
+
   public getSenderAddress() {
     return this.address;
   }
@@ -213,6 +221,19 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return await this.signTransaction(txRequest as TransactionSerializable);
   }
 
+  private async checkInterruptedOrTimedOut(gasConfig: Pick<L1TxConfig, 'txTimeoutAt'>): Promise<Date> {
+    if (this.interrupted) {
+      throw new InterruptError(`Transaction sending is interrupted`);
+    }
+    const now = new Date(await this.getL1Timestamp());
+    if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
+      throw new TimeoutError(
+        `Transaction timed out before sending (now ${now.toISOString()} > timeoutAt ${gasConfig.txTimeoutAt.toISOString()})`,
+      );
+    }
+    return now;
+  }
+
   /**
    * Sends a transaction with gas estimation and pricing
    * @param request - The transaction request (to, data, value)
@@ -225,13 +246,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     blobInputs?: L1BlobInputs,
     stateChange: TxUtilsState = TxUtilsState.SENT,
   ): Promise<{ txHash: Hex; state: L1TxState }> {
-    if (this.interrupted) {
-      throw new InterruptError(`Transaction sending is interrupted`);
-    }
-
     try {
       const gasConfig = merge(this.config, gasConfigOverrides);
       const account = this.getSenderAddress().toString();
+
+      // Fail fast before doing any work (gas estimation, balance check) if we've been interrupted
+      // or if the caller's deadline has already passed. The same check is repeated after gas
+      // estimation in case it took long enough to push us past the deadline.
+      await this.checkInterruptedOrTimedOut(gasConfig);
 
       let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
@@ -245,16 +267,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
-      if (this.interrupted) {
-        throw new InterruptError(`Transaction sending is interrupted`);
-      }
-
-      const now = new Date(await this.getL1Timestamp());
-      if (gasConfig.txTimeoutAt && now > gasConfig.txTimeoutAt) {
-        throw new TimeoutError(
-          `Transaction timed out before sending (now ${now.toISOString()} > timeoutAt ${gasConfig.txTimeoutAt.toISOString()})`,
-        );
-      }
+      const now = await this.checkInterruptedOrTimedOut(gasConfig);
 
       let txHash: Hex;
       let nonce: number;

@@ -2,22 +2,31 @@
 /**
  * This subtrace supports point addition over the Grumpkin curve.
  * Given two points, P & Q, this trace computes R = P + Q.
- * PRECONDITIONS: The only assumption here is that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity = (0, 0) is considered on the curve):
- * Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17.
+ * PRECONDITIONS: This trace assumes that the inputs P & Q are points on the Grumpkin curve and infinity points are correctly
+ * flagged with p_is_inf and/or q_is_inf (note that the Point at Infinity = (0, 0) is considered on the curve):
+ *      Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17.
  * Note: Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
  *
  * USAGE: This is a non-memory aware subtrace used to constrain point addition as defined above. Each point can be looked up
  *        by coordinates (lookup as defined in ecc_mem.pil):
  *        #[INPUT_OUTPUT_ECC_ADD]
  *        sel_should_exec {
- *          p_x_n, p_y_n, p_is_inf, // Point P
- *          q_x_n, q_y_n, q_is_inf, // Point Q
- *          res_x, res_y, res_is_inf // Point R
+ *          p_x_n, p_y_n, // Point P
+ *          p_is_inf, // P == O
+ *          q_x_n, q_y_n, // Point Q
+ *          q_is_inf, // Q == O
+ *          res_x, res_y // Point R
  *        } in ecc.sel {
- *          ecc.p_x, ecc.p_y, ecc.p_is_inf, // Point P
- *          ecc.q_x, ecc.q_y, ecc.q_is_inf, // Point Q
- *          ecc.r_x, ecc.r_y, ecc.r_is_inf // Point R
+ *          ecc.p_x, ecc.p_y, // Point P
+ *          ecc.p_is_inf, // P == O
+ *          ecc.q_x, ecc.q_y,, // Point Q
+ *          ecc.q_is_inf, // Q == O
+ *          ecc.r_x, ecc.r_y // Point R
  *        };
+ *
+ * NOTE: For now, the calling trace MUST constrain that p_is_inf, q_is_inf above are correct. This is so if we have a calling
+ *       trace in which we know inf would never be an input we can simply use precomputed.zero and avoid wasting gates on deriving is_inf.
+ *       This follows the same logic for points being on the curve.
  *
  * TRACE SHAPE: 1 single row per computation (P + Q = R).
  *
@@ -37,11 +46,11 @@ namespace ecc;
     // We perform point addition over our Short Weierstrass (SW) curve with 3 cases outlined in the last section ('Assign Result').
     // The notation will be as follows:
     //    P + Q = R where:
-    //      P = (p_x, p_y, p_is_inf), Q = (q_x, q_y, q_is_inf), R = (r_x, r_y, r_is_inf),
+    //      P = (p_x, p_y), Q = (q_x, q_y), R = (r_x, r_y),
     //    where the coordinates satisfy:
     //      y^2 = x^3 - 17 (unless is_inf is true).
     // The point at infinity, O, does not have valid coordinates (a property of SW curves). We represent it as:
-    //    O = (0, 0, true).
+    //    O = (0, 0).
     //    Note: this is NOT enforced here for inputs, see ecc_mem.pil for example of constraining.
     //
 
@@ -70,20 +79,20 @@ namespace ecc;
     // Point P in affine form
     pol commit p_x;
     pol commit p_y;
+    // Must be constrained by the calling trace:
     pol commit p_is_inf; // @boolean
     p_is_inf * (1 - p_is_inf) = 0;
 
     // Point Q in affine form
     pol commit q_x;
     pol commit q_y;
+    // Must be constrained by the calling trace:
     pol commit q_is_inf; // @boolean
     q_is_inf * (1 - q_is_inf) = 0;
 
     // Resulting Point R in affine form
     pol commit r_x;
     pol commit r_y;
-    pol commit r_is_inf; // @boolean
-    r_is_inf * (1 - r_is_inf) = 0;
 
     // Check x coordinates, i.e. p_x == q_x
     pol commit x_match; // @boolean
@@ -147,9 +156,9 @@ namespace ecc;
     //    If P != Q where x_match, this implies p_y == -q_y <==> P == -Q (INVERSE_PRED == true):
     //      R := O
     //    If P == O:
-    //      R := Q (r_x := q_x, r_y := q_y, r_is_inf = q_is_inf)
+    //      R := Q (r_x := q_x, r_y := q_y)
     //    Vice versa, if Q == O:
-    //      R := P (r_x := p_x, r_y := p_y, r_is_inf = p_is_inf)
+    //      R := P (r_x := p_x, r_y := p_y)
     //
 
     pol INVERSE_PRED = x_match * (1 - y_match);
@@ -182,6 +191,4 @@ namespace ecc;
     sel * (r_x - (EITHER_INF * (p_is_inf * q_x + q_is_inf * p_x)) - result_infinity * INFINITY_X - use_computed_result * COMPUTED_R_X) = 0;
     #[OUTPUT_Y_COORD]
     sel * (r_y - (EITHER_INF * (p_is_inf * q_y + q_is_inf * p_y)) - result_infinity * INFINITY_Y - use_computed_result * COMPUTED_R_Y) = 0;
-    #[OUTPUT_INF_FLAG]
-    sel * (r_is_inf - result_infinity) = 0;
 

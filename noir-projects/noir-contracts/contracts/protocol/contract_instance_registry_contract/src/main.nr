@@ -32,14 +32,16 @@ pub contract ContractInstanceRegistry {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
+        immutables_hash: Field,
         public_keys: PublicKeys,
         deployer: AztecAddress,
     }
 
-    // Custom serialization is required because we don't want to waste one field for the `is_infinite` flag of public
-    // key points (public key points will never be the infinity point).
+    // Custom serialization is required because:
+    // - npk_m, ovpk_m, and tpk_m are exposed only as hashes so we serialize the hashes directly.
+    // - For ivpk_m we drop the `is_infinite` flag (we assume non-infinity).
     impl ContractInstancePublished {
-        fn serialize_non_standard(self) -> [Field; 15] {
+        fn serialize_non_standard(self) -> [Field; 13] {
             [
                 self.CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
                 self.address.to_field(),
@@ -47,14 +49,12 @@ pub contract ContractInstanceRegistry {
                 self.salt,
                 self.contract_class_id.to_field(),
                 self.initialization_hash,
-                self.public_keys.npk_m.serialize()[0],
-                self.public_keys.npk_m.serialize()[1],
-                self.public_keys.ivpk_m.serialize()[0],
-                self.public_keys.ivpk_m.serialize()[1],
-                self.public_keys.ovpk_m.serialize()[0],
-                self.public_keys.ovpk_m.serialize()[1],
-                self.public_keys.tpk_m.serialize()[0],
-                self.public_keys.tpk_m.serialize()[1],
+                self.immutables_hash,
+                self.public_keys.npk_m_hash,
+                self.public_keys.ivpk_m.inner.x,
+                self.public_keys.ivpk_m.inner.y,
+                self.public_keys.ovpk_m_hash,
+                self.public_keys.tpk_m_hash,
                 self.deployer.to_field(),
             ]
         }
@@ -77,13 +77,15 @@ pub contract ContractInstanceRegistry {
 
     /// Publishes a new contract instance.
     ///
-    /// The caller provides deployment parameters (salt, class_id, init_hash, public_keys, universal_deploy).
+    /// The caller provides deployment parameters (salt, class_id, init_hash, immutables_hash, public_keys,
+    /// universal_deploy).
     /// The `universal_deploy` flag controls whether the deployer address is bound into the contract address:
     /// when true, deployer is zero (anyone can deploy the same instance); when false, deployer is the caller.
     ///
     /// This function:
     /// 1. Verifies the contract class is registered in ContractClassRegistry (nullifier existence check).
-    /// 2. Validates public key points are on the Grumpkin curve (preventing AVM DoS via invalid points).
+    /// 2. Validates `ivpk_m` is on the Grumpkin curve and not the point at infinity (preventing AVM DoS via an invalid
+    /// point). `npk_m`, `ovpk_m`, and `tpk_m` are exposed only as hashes and are not validated in-circuit.
     /// 3. Computes the deterministic contract address from the deployment parameters.
     /// 4. Emits the address as a nullifier (proving publication preventing duplicate deployment)
     ///    --> this address nullifier is then checked to exist by the AVM upon public function execution (if it doesn't
@@ -95,6 +97,7 @@ pub contract ContractInstanceRegistry {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
+        immutables_hash: Field,
         public_keys: PublicKeys,
         universal_deploy: bool,
     ) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
@@ -103,7 +106,9 @@ pub contract ContractInstanceRegistry {
         // body, I have removed that check.
         assert_compatible_oracle_version();
 
-        let serialized_params: [Field; 16] = [salt, contract_class_id.to_field(), initialization_hash]
+        // 4 prefix fields (salt, class_id, init_hash, immutables_hash) + 5 public-key fields + 1
+        // universal_deploy flag = 10.
+        let serialized_params: [Field; 10] = [salt, contract_class_id.to_field(), initialization_hash, immutables_hash]
             .concat(public_keys.serialize())
             .concat([universal_deploy.to_field()]);
 
@@ -126,9 +131,17 @@ pub contract ContractInstanceRegistry {
             context.maybe_msg_sender().unwrap()
         };
 
-        let partial_address = PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
+        let partial_address = PartialAddress::compute(
+            contract_class_id,
+            salt,
+            initialization_hash,
+            deployer,
+            immutables_hash,
+        );
 
-        // Validate public key points lie on the Grumpkin curve and are non-0 to prevent AVM DoS attacks.
+        // Validate `ivpk_m` is on the Grumpkin curve and is not the point at infinity (preventing AVM
+        // DoS attacks). The other three master keys are exposed as hashes and have no
+        // curve-point to validate here.
         public_keys.validate_on_curve();
         public_keys.validate_non_infinity();
 
@@ -138,23 +151,24 @@ pub contract ContractInstanceRegistry {
         // We use no domain separators because these are the only nullifiers this contract uses.
         context.push_nullifier(address.to_field());
 
-        // Broadcast deployment event. Uses non-standard serialization (2 fields per point,
-        // omitting is_infinite) for TypeScript SDK compatibility.
+        // Broadcast deployment event. Version 2 carries hashes for npk/ovpk/tpk and the affine
+        // coordinates of ivpk only; see `serialize_non_standard`.
         let event = ContractInstancePublished {
             CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
             contract_class_id,
             address,
             public_keys,
             initialization_hash,
+            immutables_hash,
             salt,
             deployer,
-            version: 1,
+            version: 2,
         };
         let payload = event.serialize_non_standard();
         debug_log_format("ContractInstancePublished: {}", payload);
-        // We pad the payload with [0] to match the length required by emit_private_log. Since the log is not
+        // We pad the payload with zeros to match the length required by emit_private_log. Since the log is not
         // encrypted, padding with zero rather than a random value is acceptable (we don't care about privacy here).
-        let padded_log = payload.concat([0]);
+        let padded_log = payload.concat([0, 0, 0]);
         let length = payload.len();
         context.emit_private_log(padded_log, length);
 
@@ -307,6 +321,7 @@ pub contract ContractInstanceRegistry {
         pub _salt: Field,
         pub _contract_class_id: ContractClassId,
         pub _initialization_hash: Field,
+        pub _immutables_hash: Field,
         pub _public_keys: PublicKeys,
         pub _universal_deploy: bool,
     }

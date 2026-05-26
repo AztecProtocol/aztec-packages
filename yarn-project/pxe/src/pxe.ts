@@ -185,6 +185,7 @@ export class PXE {
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
+    private autoSync: boolean,
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
     private log: Logger,
@@ -297,6 +298,7 @@ export class PXE {
       l2TipsStore,
       simulator,
       proverEnabled,
+      config.autoSync,
       proofCreator,
       protocolContractsProvider,
       log,
@@ -539,7 +541,27 @@ export class PXE {
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
+  /**
+   * Syncs with the node only when `autoSync` is enabled.
+   * When `autoSync` is disabled, callers (typically a wallet) are
+   * responsible for invoking `pxe.sync()` at the right granularity.
+   */
+  async #maybeSync(): Promise<void> {
+    if (this.autoSync) {
+      await this.blockStateSynchronizer.sync();
+    }
+  }
+
   // Public API
+
+  /**
+   * Triggers a sync of PXE state with the node, regardless of the `autoSync` config flag. Use this to
+   * batch syncs across composite flows when `autoSync` is disabled (e.g. one sync per simulate+send
+   * instead of one per inner PXE call). Serialized through the job queue.
+   */
+  public sync(): Promise<void> {
+    return this.#putInJobQueue(() => this.blockStateSynchronizer.sync());
+  }
 
   /**
    * Returns the block header up to which the PXE has synced.
@@ -744,7 +766,7 @@ export class PXE {
         throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
       }
       const contractClass = await getContractClassFromArtifact(artifact);
-      await this.blockStateSynchronizer.sync();
+      await this.#maybeSync();
 
       const header = await this.anchorBlockStore.getBlockHeader();
 
@@ -795,7 +817,7 @@ export class PXE {
       const totalTimer = new Timer();
       try {
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -892,7 +914,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
@@ -1000,7 +1022,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
@@ -1137,7 +1159,7 @@ export class PXE {
       try {
         const totalTimer = new Timer();
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -1212,7 +1234,7 @@ export class PXE {
     let anchorBlockNumber: BlockNumber;
 
     await this.#putInJobQueue(async jobId => {
-      await this.blockStateSynchronizer.sync();
+      await this.#maybeSync();
 
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
       anchorBlockNumber = anchorBlockHeader.getBlockNumber();

@@ -65,19 +65,15 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         constexpr bool scalars_are_constant =
             (Constancy == InputConstancy::Scalars || Constancy == InputConstancy::Both);
 
-        // Helper to add points: either as witnesses or constants based on Constancy
+        // Helper to add points: either as witnesses or constants based on Constancy.
+        // Points are encoded as (x, y); the point at infinity is encoded as (0, 0).
         auto construct_points = [&]() -> std::vector<WitnessOrConstant<FF>> {
             if constexpr (points_are_constant) {
-                // Points are constants
-                return { WitnessOrConstant<FF>::from_constant(point.x),
-                         WitnessOrConstant<FF>::from_constant(point.y),
-                         WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) };
+                return { WitnessOrConstant<FF>::from_constant(point.x), WitnessOrConstant<FF>::from_constant(point.y) };
             }
-            // Points are witnesses
             std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
             return { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                     WitnessOrConstant<FF>::from_index(point_indices[1]),
-                     WitnessOrConstant<FF>::from_index(point_indices[2]) };
+                     WitnessOrConstant<FF>::from_index(point_indices[1]) };
         };
 
         // Helper to add scalars: either as witnesses or constants based on Constancy
@@ -112,7 +108,6 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
             .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
             .out_point_x = result_indices[0],
             .out_point_y = result_indices[1],
-            .out_point_is_infinite = result_indices[2],
         };
     }
 
@@ -142,7 +137,6 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
             // Tamper with the result by setting it to the generator point
             witness_values[constraint.out_point_x] = GrumpkinPoint::one().x;
             witness_values[constraint.out_point_y] = GrumpkinPoint::one().y;
-            witness_values[constraint.out_point_is_infinite] = FF::zero();
             break;
         }
         case InvalidWitness::Target::None:
@@ -314,20 +308,16 @@ TYPED_TEST(MultiScalarMulTestsBothConstant, InvalidWitnesses)
 }
 
 // ============================================================
-// Infinity flag tests
+// Infinity tests: the point at infinity is encoded as (0, 0).
 // ============================================================
 
-// ACIR convention for encoding a curve point: (x, y, is_infinite) as field values.
 using MsmGrumpkinPoint = bb::grumpkin::g1::affine_element;
 using MsmFF = bb::fr;
 
 struct MsmAcirPoint {
-    MsmFF x, y, inf;
-    static MsmAcirPoint from_native(const MsmGrumpkinPoint& p)
-    {
-        return { p.x, p.y, p.is_point_at_infinity() ? MsmFF(1) : MsmFF(0) };
-    }
-    static MsmAcirPoint infinity() { return { MsmFF(0), MsmFF(0), MsmFF(1) }; }
+    MsmFF x, y;
+    static MsmAcirPoint from_native(const MsmGrumpkinPoint& p) { return { p.x, p.y }; }
+    static MsmAcirPoint infinity() { return { MsmFF(0), MsmFF(0) }; }
 };
 
 // Grumpkin scalar split into low 128-bit and high 128-bit field limbs.
@@ -347,16 +337,14 @@ template <typename Builder> class MsmSingleTermFixture : public ::testing::Test 
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    // Push an MsmAcirPoint to witness; return [x, y, inf] indices.
-    static std::array<uint32_t, 3> push_point(WitnessVector& witness, const MsmAcirPoint& pt)
+    // Push an MsmAcirPoint to witness; return [x, y] indices.
+    static std::array<uint32_t, 2> push_point(WitnessVector& witness, const MsmAcirPoint& pt)
     {
         uint32_t xi = static_cast<uint32_t>(witness.size());
         witness.emplace_back(pt.x);
         uint32_t yi = static_cast<uint32_t>(witness.size());
         witness.emplace_back(pt.y);
-        uint32_t ii = static_cast<uint32_t>(witness.size());
-        witness.emplace_back(pt.inf);
-        return { xi, yi, ii };
+        return { xi, yi };
     }
 
     // Push a scalar (lo, hi) to witness; return [lo_idx, hi_idx].
@@ -381,14 +369,11 @@ template <typename Builder> class MsmSingleTermFixture : public ::testing::Test 
         witness.emplace_back(MsmFF(1));
 
         MultiScalarMul c{
-            .points = { WitnessOrConstant<MsmFF>::from_index(p[0]),
-                        WitnessOrConstant<MsmFF>::from_index(p[1]),
-                        WitnessOrConstant<MsmFF>::from_index(p[2]) },
+            .points = { WitnessOrConstant<MsmFF>::from_index(p[0]), WitnessOrConstant<MsmFF>::from_index(p[1]) },
             .scalars = { WitnessOrConstant<MsmFF>::from_index(s[0]), WitnessOrConstant<MsmFF>::from_index(s[1]) },
             .predicate = WitnessOrConstant<MsmFF>::from_index(pred_idx),
             .out_point_x = r[0],
             .out_point_y = r[1],
-            .out_point_is_infinite = r[2],
         };
         return { c, witness };
     }
@@ -408,7 +393,7 @@ template <typename Builder> class MultiScalarMulInfinityTests : public MsmSingle
 
 TYPED_TEST_SUITE(MultiScalarMulInfinityTests, BuilderTypes);
 
-// scalar=0 → result = ∞: valid proof with out_point_is_infinite=1.
+// scalar=0 → result = (0, 0): valid circuit.
 TYPED_TEST(MultiScalarMulInfinityTests, ResultIsInfinity)
 {
     BB_DISABLE_ASSERTS();
@@ -418,40 +403,6 @@ TYPED_TEST(MultiScalarMulInfinityTests, ResultIsInfinity)
 
     auto [ok, err] = TestFixture::run_circuit(constraint, witness);
     EXPECT_TRUE(ok) << "0 * P = infinity should produce a valid circuit";
-}
-
-// A finite result with out_point_is_infinite=1 (forged) must fail.
-TYPED_TEST(MultiScalarMulInfinityTests, ForgedInfinityFlagOnFiniteResultFails)
-{
-    BB_DISABLE_ASSERTS();
-    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
-    bb::fq scalar_native = bb::fq::random_element();
-    while (scalar_native.is_zero()) {
-        scalar_native = bb::fq::random_element();
-    }
-    MsmGrumpkinPoint result = point * scalar_native;
-    ASSERT_FALSE(result.is_point_at_infinity());
-    auto [constraint, witness] = TestFixture::make_msm(
-        MsmAcirPoint::from_native(point), MsmScalar::from_native(scalar_native), MsmAcirPoint::from_native(result));
-    witness[constraint.out_point_is_infinite] = MsmFF(1); // forge: finite result claimed as infinite
-
-    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
-    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
-        << "Forged infinity flag on finite result should fail";
-}
-
-// An infinity result with out_point_is_infinite=0 (forged) must fail.
-TYPED_TEST(MultiScalarMulInfinityTests, ForgedFiniteFlagOnInfinityResultFails)
-{
-    BB_DISABLE_ASSERTS();
-    MsmGrumpkinPoint point = MsmGrumpkinPoint::random_element();
-    // Forge result: (0,0) coordinates but is_infinite=0 (should be 1)
-    auto [constraint, witness] = TestFixture::make_msm(
-        MsmAcirPoint::from_native(point), MsmScalar::zero(), MsmAcirPoint{ MsmFF(0), MsmFF(0), MsmFF(0) });
-
-    auto [ok, err] = TestFixture::run_circuit(constraint, witness);
-    EXPECT_TRUE(!ok || err.find("assert_eq") != std::string::npos)
-        << "Forged finite flag on infinity result should fail";
 }
 
 // ============================================================

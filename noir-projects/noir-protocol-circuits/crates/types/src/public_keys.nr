@@ -1,101 +1,67 @@
 use crate::{
     address::public_keys_hash::PublicKeysHash,
     constants::{
-        DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_X,
-        DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y, DOM_SEP__PUBLIC_KEYS_HASH,
+        DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_HASH, DEFAULT_OVPK_M_HASH,
+        DEFAULT_TPK_M_HASH, DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
     },
     hash::poseidon2_hash_with_separator,
-    point::validate_on_curve,
+    point::{EmbeddedCurvePoint, validate_on_curve},
     traits::{Deserialize, Hash, Serialize},
 };
 
-use crate::point::Point;
 use std::{default::Default, meta::derive};
 
 pub trait ToPoint {
-    fn to_point(self) -> Point;
+    fn to_point(self) -> EmbeddedCurvePoint;
 }
 
-#[derive(Deserialize, Eq, Serialize)]
-pub struct NpkM {
-    pub inner: Point,
-}
-
-impl ToPoint for NpkM {
-    fn to_point(self) -> Point {
-        self.inner
-    }
-}
-
-// Note: If we store npk_m_hash directly we can remove this trait implementation. See #8091
-impl Hash for NpkM {
-    fn hash(self) -> Field {
-        self.inner.hash()
-    }
+/// Hashes a public key point under the canonical single-public-key domain separator.
+///
+/// Defined as `Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, x, y)`.
+pub fn hash_public_key(p: EmbeddedCurvePoint) -> Field {
+    poseidon2_hash_with_separator([p.x, p.y], DOM_SEP__SINGLE_PUBLIC_KEY_HASH as Field)
 }
 
 #[derive(Deserialize, Eq, Serialize)]
 pub struct IvpkM {
-    pub inner: Point,
+    pub inner: EmbeddedCurvePoint,
 }
 
 impl ToPoint for IvpkM {
-    fn to_point(self) -> Point {
+    fn to_point(self) -> EmbeddedCurvePoint {
         self.inner
     }
 }
 
-#[derive(Deserialize, Eq, Serialize)]
-pub struct OvpkM {
-    pub inner: Point,
-}
-
-impl Hash for OvpkM {
+impl Hash for IvpkM {
     fn hash(self) -> Field {
-        self.inner.hash()
+        hash_public_key(self.inner)
     }
 }
 
-impl ToPoint for OvpkM {
-    fn to_point(self) -> Point {
-        self.inner
-    }
-}
-
-#[derive(Deserialize, Eq, Serialize)]
-pub struct TpkM {
-    pub inner: Point,
-}
-
-impl ToPoint for TpkM {
-    fn to_point(self) -> Point {
-        self.inner
-    }
-}
-
+/// A non-owner's view of an account's master public keys.
+///
+/// `npk_m_hash`, `ovpk_m_hash`, and `tpk_m_hash` are the [`hash_public_key`] digests of the
+/// underlying points. The points themselves are not exposed here -- they are only known to the
+/// owner. `ivpk_m` remains a point because address derivation (encrypt-to-address) requires the
+/// raw point in-circuit.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct PublicKeys {
-    pub npk_m: NpkM,
+    pub npk_m_hash: Field,
     pub ivpk_m: IvpkM,
-    pub ovpk_m: OvpkM,
-    pub tpk_m: TpkM,
+    pub ovpk_m_hash: Field,
+    pub tpk_m_hash: Field,
 }
 
 impl Default for PublicKeys {
     fn default() -> Self {
         PublicKeys {
-            npk_m: NpkM {
-                inner: Point { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y, is_infinite: false },
-            },
+            npk_m_hash: DEFAULT_NPK_M_HASH,
             ivpk_m: IvpkM {
-                inner: Point { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y, is_infinite: false },
+                inner: EmbeddedCurvePoint { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y },
             },
-            ovpk_m: OvpkM {
-                inner: Point { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y, is_infinite: false },
-            },
-            tpk_m: TpkM {
-                inner: Point { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y, is_infinite: false },
-            },
+            ovpk_m_hash: DEFAULT_OVPK_M_HASH,
+            tpk_m_hash: DEFAULT_TPK_M_HASH,
         }
     }
 }
@@ -103,70 +69,97 @@ impl Default for PublicKeys {
 impl PublicKeys {
     pub fn hash(self) -> PublicKeysHash {
         PublicKeysHash::from_field(poseidon2_hash_with_separator(
-            self.serialize(),
+            [self.npk_m_hash, self.ivpk_m.hash(), self.ovpk_m_hash, self.tpk_m_hash],
             DOM_SEP__PUBLIC_KEYS_HASH as Field,
         ))
     }
 
+    /// Validates that the (only) point-form key, `ivpk_m`, lies on the Grumpkin curve.
+    ///
+    /// The other three keys are exposed only as hashes and are unverifiable on-circuit; the PXE
+    /// is responsible for ensuring they were derived from on-curve points before persistence.
     pub fn validate_on_curve(self) {
-        validate_on_curve(self.npk_m.inner);
         validate_on_curve(self.ivpk_m.inner);
-        validate_on_curve(self.ovpk_m.inner);
-        validate_on_curve(self.tpk_m.inner);
     }
 
+    /// Validates that `ivpk_m` is not the point at infinity.
+    ///
+    /// As with [`Self::validate_on_curve`], the other three keys are now exposed only as hashes
+    /// and this property must be enforced PXE-side.
     pub fn validate_non_infinity(self) {
-        assert_eq(self.npk_m.inner.is_infinite, false, "NpkM is the point at infinity");
-        assert_eq(self.ivpk_m.inner.is_infinite, false, "IvpkM is the point at infinity");
-        assert_eq(self.ovpk_m.inner.is_infinite, false, "OvpkM is the point at infinity");
-        assert_eq(self.tpk_m.inner.is_infinite, false, "TpkM is the point at infinity");
+        assert_eq(self.ivpk_m.inner.is_infinite(), false, "IvpkM is the point at infinity");
     }
 }
 
 pub struct AddressPoint {
-    pub inner: Point,
+    pub inner: EmbeddedCurvePoint,
 }
 
 impl ToPoint for AddressPoint {
-    fn to_point(self) -> Point {
+    fn to_point(self) -> EmbeddedCurvePoint {
         self.inner
     }
 }
 
 mod test {
-    use crate::point::Point;
+    use crate::constants::{
+        DEFAULT_NPK_M_HASH, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_HASH, DEFAULT_OVPK_M_X,
+        DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_HASH, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y,
+    };
     use crate::{
-        point::POINT_LENGTH,
-        public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
+        point::EmbeddedCurvePoint,
+        public_keys::{hash_public_key, IvpkM, PublicKeys},
         traits::{Deserialize, Serialize},
     };
-    use std::ops::Neg;
+
+    global PUBLIC_KEYS_LENGTH: u32 = 5;
+
+    /// Catches drift between the precomputed `DEFAULT_*_M_HASH` constants and the
+    /// `DEFAULT_*_M_X/Y` curve points they're derived from. If anyone updates the X/Y
+    /// constants (or the hashing primitive) without also updating the *_HASH constants,
+    /// this test fails and `PublicKeys::default()` would silently produce a stale value.
+    #[test]
+    unconstrained fn default_hashes_match_default_points() {
+        let npk = hash_public_key(
+            EmbeddedCurvePoint { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y },
+        );
+        assert_eq(npk, DEFAULT_NPK_M_HASH);
+
+        let ovpk = hash_public_key(
+            EmbeddedCurvePoint { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y },
+        );
+        assert_eq(ovpk, DEFAULT_OVPK_M_HASH);
+
+        let tpk = hash_public_key(
+            EmbeddedCurvePoint { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y },
+        );
+        assert_eq(tpk, DEFAULT_TPK_M_HASH);
+    }
 
     #[test]
     unconstrained fn compute_public_keys_hash() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
-            ovpk_m: OvpkM { inner: Point { x: 5, y: 6, is_infinite: false } },
-            tpk_m: TpkM { inner: Point { x: 7, y: 8, is_infinite: false } },
+            npk_m_hash: 11,
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
+            ovpk_m_hash: 22,
+            tpk_m_hash: 33,
         };
 
-        let actual = keys.hash();
+        let actual = keys.hash().to_field();
 
-        // The following value was generated by `public_keys.test.ts`.
         let expected_public_keys_hash =
-            0x056998309f6c119e4d753e404f94fef859dddfa530a9379634ceb0854b29bf7a;
+            0x0b8c7b67576d3ac859a7fab578b2b2e305c67eba9e133b0fa46af8d19a50b8fc;
 
-        assert(actual.to_field() == expected_public_keys_hash);
+        assert_eq(actual, expected_public_keys_hash);
     }
 
     #[test]
     unconstrained fn test_validate_on_curve() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point::generator() },
-            ivpk_m: IvpkM { inner: Point::generator().double() },
-            ovpk_m: OvpkM { inner: Point::generator().neg() },
-            tpk_m: TpkM { inner: Point::generator() + Point::generator().double() },
+            npk_m_hash: 0,
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint::generator().double() },
+            ovpk_m_hash: 0,
+            tpk_m_hash: 0,
         };
 
         keys.validate_on_curve();
@@ -175,10 +168,10 @@ mod test {
     #[test(should_fail_with = "Point not on curve")]
     unconstrained fn test_validate_not_on_curve() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
-            ovpk_m: OvpkM { inner: Point { x: 5, y: 6, is_infinite: false } },
-            tpk_m: TpkM { inner: Point { x: 7, y: 8, is_infinite: false } },
+            npk_m_hash: 0,
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
+            ovpk_m_hash: 0,
+            tpk_m_hash: 0,
         };
 
         keys.validate_on_curve();
@@ -187,22 +180,22 @@ mod test {
     #[test]
     unconstrained fn test_validate_non_infinity() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point::generator() },
-            ivpk_m: IvpkM { inner: Point::generator().double() },
-            ovpk_m: OvpkM { inner: Point::generator().neg() },
-            tpk_m: TpkM { inner: Point::generator() + Point::generator().double() },
+            npk_m_hash: 0,
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint::generator().double() },
+            ovpk_m_hash: 0,
+            tpk_m_hash: 0,
         };
 
         keys.validate_non_infinity();
     }
 
-    #[test(should_fail_with = "TpkM is the point at infinity")]
+    #[test(should_fail_with = "IvpkM is the point at infinity")]
     unconstrained fn test_validate_infinity() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point::generator() },
-            ivpk_m: IvpkM { inner: Point::generator().double() },
-            ovpk_m: OvpkM { inner: Point::generator().neg() },
-            tpk_m: TpkM { inner: Point::point_at_infinity() },
+            npk_m_hash: 0,
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint::point_at_infinity() },
+            ovpk_m_hash: 0,
+            tpk_m_hash: 0,
         };
 
         keys.validate_non_infinity();
@@ -212,26 +205,24 @@ mod test {
     unconstrained fn compute_default_hash() {
         let keys = PublicKeys::default();
 
-        let actual = keys.hash();
+        let actual = keys.hash().to_field();
 
-        // The following value was generated by `public_keys.test.ts`.
         let test_data_default_hash =
-            0x023547e676dba19784188825b901a0e70d8ad978300d21d6185a54281b734da0;
+            0x147a900f3e1abdfcc56355d65ab9bebb1016400cb9d81ee1c977d0df16bb198c;
 
-        assert(actual.to_field() == test_data_default_hash);
+        assert_eq(actual, test_data_default_hash);
     }
 
     #[test]
     unconstrained fn serde() {
         let keys = PublicKeys {
-            npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
-            ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
-            ovpk_m: OvpkM { inner: Point { x: 5, y: 6, is_infinite: false } },
-            tpk_m: TpkM { inner: Point { x: 7, y: 8, is_infinite: false } },
+            npk_m_hash: 11,
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: 3, y: 4 } },
+            ovpk_m_hash: 22,
+            tpk_m_hash: 33,
         };
 
-        // We use the PUBLIC_KEYS_LENGTH constant to ensure that there is a match between the derived trait
-        let serialized: [Field; POINT_LENGTH * 4] = keys.serialize();
+        let serialized: [Field; PUBLIC_KEYS_LENGTH] = keys.serialize();
         let deserialized = PublicKeys::deserialize(serialized);
 
         assert_eq(keys, deserialized);

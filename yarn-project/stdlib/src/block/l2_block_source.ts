@@ -42,14 +42,14 @@ export type BlocksQuery =
   | { from: BlockNumber; limit: number; onlyCheckpointed?: boolean }
   | { epoch: EpochNumber; onlyCheckpointed: true };
 
-export const BlockQuerySchema: z.ZodType<BlockQuery, z.ZodTypeDef, unknown> = z.union([
+export const BlockQuerySchema: z.ZodType<BlockQuery, unknown> = z.union([
   z.object({ number: BlockNumberSchema }).strict(),
   z.object({ hash: BlockHash.schema }).strict(),
   z.object({ archive: schemas.Fr }).strict(),
   z.object({ tag: BlockTagWithoutLatestSchema }).strict(),
 ]);
 
-export const BlocksQuerySchema: z.ZodType<BlocksQuery, z.ZodTypeDef, unknown> = z.union([
+export const BlocksQuerySchema: z.ZodType<BlocksQuery, unknown> = z.union([
   z
     .object({ from: BlockNumberSchema, limit: z.number().int().min(1), onlyCheckpointed: z.boolean().optional() })
     .strict(),
@@ -72,18 +72,18 @@ export type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epo
  */
 export type ProposedCheckpointQuery = { number: CheckpointNumber } | { slot: SlotNumber } | { tag: 'proposed' };
 
-export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, z.ZodTypeDef, unknown> = z.union([
+export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, unknown> = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
   z.object({ slot: SlotNumberSchema }).strict(),
   z.object({ tag: z.union([z.literal('checkpointed'), z.literal('proven'), z.literal('finalized')]) }).strict(),
 ]);
 
-export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, z.ZodTypeDef, unknown> = z.union([
+export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, unknown> = z.union([
   z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
   z.object({ epoch: EpochNumberSchema }).strict(),
 ]);
 
-export const ProposedCheckpointQuerySchema: z.ZodType<ProposedCheckpointQuery, z.ZodTypeDef, unknown> = z.union([
+export const ProposedCheckpointQuerySchema: z.ZodType<ProposedCheckpointQuery, unknown> = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
   z.object({ slot: SlotNumberSchema }).strict(),
   z.object({ tag: z.literal('proposed') }).strict(),
@@ -293,6 +293,7 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
+  [L2BlockSourceEvents.CheckpointEquivocationDetected]: (args: CheckpointEquivocationDetectedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -374,6 +375,7 @@ export enum L2BlockSourceEvents {
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
+  CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -403,4 +405,16 @@ export type L2CheckpointEvent = {
 export type InvalidCheckpointDetectedEvent = {
   type: 'invalidCheckpointDetected';
   validationResult: ValidateCheckpointNegativeResult;
+};
+
+/**
+ * Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed
+ * checkpoint at the same slot. The slot proposer signed both — equivocation.
+ */
+export type CheckpointEquivocationDetectedEvent = {
+  type: 'checkpointEquivocationDetected';
+  slotNumber: SlotNumber;
+  checkpointNumber: CheckpointNumber;
+  l1ArchiveRoot: Fr;
+  proposedArchiveRoot: Fr;
 };

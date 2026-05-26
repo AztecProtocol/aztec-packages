@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct PrivateUtilityCalls documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PrivateUtilityCalls</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PrivateUtilityCalls</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.call_self">call_self</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#call">call</a></li>
+</ul>
+<h2>In module contract_self_private</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ContractSelfPrivate.html">ContractSelfPrivate</a></div></li>
+<li><a href="struct.PrivateUtilityCalls.html">PrivateUtilityCalls</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_private</a></div>
+<h1>Struct <span id="struct" class="struct">PrivateUtilityCalls</span></h1>
+<pre><code>pub struct PrivateUtilityCalls&lt;CallSelf&gt; {
+    pub call_self: CallSelf,
+}
+</code></pre>
+<div class="comments">
+<p>A struct that allows for ergonomic calling of utility functions from a private context.</p>
+<p>Accessible via <code>self.utility</code> in private functions. Results are not part of any circuit
+proof; use them to inform logic, not as inputs to constrained assertions.</p>
+<h2>Type Parameters</h2>
+<ul>
+<li><code>CallSelf</code>: Macro-generated type for calling the contract's own utility functions (same type
+as <code>CallSelf</code> in [<code>ContractSelfUtility</code>])</li>
+</ul>
+</div>
+<h2>Fields</h2>
+<div id="structfield.call_self" class="struct-field"><code class="code-header">call_self: CallSelf</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling this contract's own utility functions.</p>
+<p>Example API:</p>
+<pre><code><span class="comment">// Safety: result is unconstrained</span>
+<span class="kw">unsafe</span> { self.utility.call_self.some_utility_function(args) }</code></pre></div>
+</div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;CallSelf&gt; <a href="../../../noir_aztec/contract_self/contract_self_private/struct.PrivateUtilityCalls.html" class="struct">PrivateUtilityCalls</a>&lt;CallSelf&gt;</code></h3>
+
+<div class="padded-methods"><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    _self: Self,
+    call: <a href="../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a utility contract call from a private function.</p>
+<p>Note: only same-contract utility calls are currently supported. See TODO(F-29).</p>
+<h4>Example</h4>
+<pre><code><span class="kw">unsafe</span> { self.utility.call(Token::at(self.address).get_balance_of(owner)) }</code></pre></div>
+</div></div></main>
+</span>
+</body>
+</html>

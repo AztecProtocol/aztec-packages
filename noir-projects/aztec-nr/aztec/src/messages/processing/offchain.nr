@@ -48,7 +48,7 @@ global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 ///
 /// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
 /// based eviction and automatic transaction context resolution.
-pub(crate) type OffchainInboxSync<Env> = unconstrained fn[Env](
+pub type OffchainInboxSync = unconstrained fn(
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
 /// A message delivered via the `offchain_receive` utility function.

@@ -1,26 +1,24 @@
 /* eslint-disable camelcase */
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import type { CheatCodes } from '@aztec/aztec/testing';
-import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { getLogger, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('e2e_offchain_payment', () => {
   let contract: OffchainPaymentContract;
   let aztecNode: AztecNode;
-  let aztecNodeAdmin: AztecNodeAdmin;
-  let cheatCodes: CheatCodes;
+  let aztecNodeService: AztecNodeService;
   let wallet: TestWallet;
   let accounts: AztecAddress[];
   let teardown: () => Promise<void>;
@@ -29,7 +27,8 @@ describe('e2e_offchain_payment', () => {
   jest.setTimeout(TIMEOUT);
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts, aztecNode, aztecNodeAdmin, cheatCodes } = await setup(2, {
+    ({ teardown, wallet, accounts, aztecNode, aztecNodeService } = await setup(2, {
+      ...AUTOMINE_E2E_OPTS,
       anvilSlotsInAnEpoch: 32,
     }));
   });
@@ -43,43 +42,14 @@ describe('e2e_offchain_payment', () => {
   async function forceEmptyBlock() {
     const blockBefore = await aztecNode.getBlockNumber();
     logger.info(`Forcing empty block. Current L2 block: ${blockBefore}`);
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
-    await retryUntil(
-      async () => {
-        const current = await aztecNode.getBlockNumber();
-        logger.info(`Waiting for new L2 block. Current: ${current}`);
-        return current > blockBefore;
-      },
-      'new L2 block',
-      30,
-      1,
-    );
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    await aztecNodeService.mineBlock();
+    logger.info(`Empty block mined. New L2 block: ${await aztecNode.getBlockNumber()}`);
   }
 
-  async function forceReorg(block: BlockNumber) {
-    // Pause sync as soon as the block is checkpointed so finalization doesn't race ahead
-    // of the rollback target. Without this, the archiver can finalize past the target block
-    // between the retryUntil returning and pauseSync executing.
-    await retryUntil(
-      async () => {
-        const tips = await aztecNode.getChainTips();
-        if (tips.checkpointed.block.number >= block) {
-          await aztecNodeAdmin.pauseSync();
-          return true;
-        }
-        return false;
-      },
-      'checkpointed block',
-      30,
-      1,
-    );
-
-    await cheatCodes.eth.reorg(1);
-    // Pass resumeSync=false so the archiver doesn't immediately re-download the same checkpoint
-    // (which would re-sync the PXE before callers can inspect the rolled-back state).
-    await aztecNodeAdmin.rollbackTo(Number(block) - 1, /* force */ false, /* resumeSync */ false);
-    expect(await aztecNode.getBlockNumber()).toBe(Number(block) - 1);
+  async function forceReorg(checkpointBeforeTx: number) {
+    const automine = aztecNodeService.getAutomineSequencer()!;
+    await automine.revertToCheckpoint(checkpointBeforeTx);
+    logger.info(`Reverted to checkpoint ${checkpointBeforeTx}`);
   }
 
   it('processes an offchain-delivered private payment via QR-style handoff', async () => {
@@ -142,6 +112,9 @@ describe('e2e_offchain_payment', () => {
 
     await contract.methods.mint(mintAmount, alice).send({ from: alice });
 
+    // Capture the checkpoint tip before the transfer tx so we know where to revert to.
+    const checkpointBeforeTx = (await aztecNode.getChainTips()).checkpointed.checkpoint.number;
+
     const provenTx = await proveInteraction(wallet, contract.methods.transfer_offchain(paymentAmount, bob), {
       from: alice,
     });
@@ -149,7 +122,6 @@ describe('e2e_offchain_payment', () => {
     const receipt = await provenTx.send();
     expect(receipt.blockNumber).toBeDefined();
 
-    const txBlockNumber = receipt.blockNumber!;
     const txHash = provenTx.getTxHash();
 
     const txEffectBeforeReorg = await aztecNode.getTxEffect(txHash);
@@ -196,7 +168,7 @@ describe('e2e_offchain_payment', () => {
     const { result: aliceBalance } = await contract.methods.get_balance(alice).simulate({ from: alice });
     expect(aliceBalance).toBe(mintAmount - paymentAmount);
 
-    await forceReorg(txBlockNumber);
+    await forceReorg(checkpointBeforeTx);
 
     // Verify that the payment TX is no longer present after the reorg
     const txEffectAfterRollback = await aztecNode.getTxEffect(txHash);
@@ -210,12 +182,22 @@ describe('e2e_offchain_payment', () => {
     const { result: aliceAfterRollback } = await contract.methods.get_balance(alice).simulate({ from: alice });
     expect(aliceAfterRollback).toBe(mintAmount);
 
-    // Resume sync so the archiver can re-download the checkpoints and the sequencer can produce blocks.
-    await aztecNodeAdmin.resumeSync();
-
-    // The archiver re-syncs the same checkpoints from L1 after the reorg, so the tx gets re-mined automatically.
-    // Force an empty block so the PXE re-syncs and reprocesses the offchain-delivered notes.
+    // The p2p tx pool marks rolled-back txs as pending again, so the AutomineSequencer
+    // re-mines the transfer tx automatically. Force a block build so the PXE re-syncs
+    // and reprocesses the offchain-delivered notes.
     await forceEmptyBlock();
+
+    // Wait for the PXE to process the re-mined block and update its note view.
+    // The PXE syncs asynchronously from the archiver, so the balance may lag briefly.
+    await retryUntil(
+      async () => {
+        const { result } = await contract.methods.get_balance(bob).simulate({ from: bob });
+        return result === paymentAmount;
+      },
+      'Bob balance restored after re-mine',
+      30,
+      0.1,
+    );
 
     // Check that the message was reprocessed and Bob has his payment again.
     // Notice what we want to test here is that the offchain effects don't need to be re-enqueued

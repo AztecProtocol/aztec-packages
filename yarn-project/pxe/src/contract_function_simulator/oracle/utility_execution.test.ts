@@ -1,7 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -14,7 +14,7 @@ import {
   computeContractAddressFromInstance,
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
+import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
@@ -150,12 +150,13 @@ describe('Utility Execution test suite', () => {
     // The initializer nullifier check requires the instance to be a valid preimage of the contract address, so we
     // can't use a random contract address here.
     const instanceFields = {
-      version: 1 as const,
+      version: 2 as const,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
     };
     const contractAddress = await computeContractAddressFromInstance(instanceFields);
@@ -242,12 +243,13 @@ describe('Utility Execution test suite', () => {
     const expectedSum = new Fr(9);
 
     const instanceFields = {
-      version: 1 as const,
+      version: 2 as const,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
     };
     const contractAddress = await computeContractAddressFromInstance(instanceFields);
@@ -412,27 +414,13 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('utilityResolveMessageContexts', () => {
-      const requestSlot = Fr.random();
-      const responseSlot = Fr.random();
+    describe('getMessageContextsByTxHash', () => {
+      it('sets null in response for zero tx hashes', async () => {
+        const requestSlot = Fr.random();
+        utilityExecutionOracle.pushEphemeral(requestSlot, [Fr.ZERO]);
 
-      it('throws when contractAddress does not match', async () => {
-        const wrongAddress = await AztecAddress.random();
-        await expect(
-          utilityExecutionOracle.getMessageContextsByTxHash(wrongAddress, requestSlot, responseSlot, scope),
-        ).rejects.toThrow(`Got a message context request from ${wrongAddress}, expected ${contractAddress}`);
-      });
-
-      it('sets null in response capsule for zero tx hashes', async () => {
-        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[Fr.ZERO]]);
-
-        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
-
-        const response = capsuleStore.setCapsuleArray.mock.calls.find(
-          call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
-        );
-        expect(response).toBeDefined();
-        const responseFields = response![2][0];
+        const responseSlot = await utilityExecutionOracle.getMessageContextsByTxHash(requestSlot);
+        const responseFields = utilityExecutionOracle.getEphemeral(responseSlot, 0);
         expect(responseFields).toEqual(MessageContext.toSerializedOption(null));
         expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
       });
@@ -442,7 +430,6 @@ describe('Utility Execution test suite', () => {
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
 
-        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[txHash.hash]]);
         aztecNode.getTxEffect.mockResolvedValueOnce({
           l2BlockNumber: BlockNumber(syncedBlockNumber - 1),
           l2BlockHash: BlockHash.random(),
@@ -450,21 +437,18 @@ describe('Utility Execution test suite', () => {
           data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
         } as any);
 
-        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
+        const requestSlot = Fr.random();
+        utilityExecutionOracle.pushEphemeral(requestSlot, [txHash.hash]);
 
-        const response = capsuleStore.setCapsuleArray.mock.calls.find(
-          call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
-        );
-        expect(response).toBeDefined();
-        const responseFields = response![2][0];
+        const responseSlot = await utilityExecutionOracle.getMessageContextsByTxHash(requestSlot);
+        const responseFields = utilityExecutionOracle.getEphemeral(responseSlot, 0);
         const expected = MessageContext.toSerializedOption(new MessageContext(txHash, [noteHash], firstNullifier));
         expect(responseFields).toEqual(expected);
       });
 
-      it('sets null in response capsule for tx effects beyond anchor block', async () => {
+      it('sets null in response for tx effects beyond anchor block', async () => {
         const txHash = TxHash.random();
 
-        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[txHash.hash]]);
         aztecNode.getTxEffect.mockResolvedValueOnce({
           l2BlockNumber: BlockNumber(syncedBlockNumber + 1),
           l2BlockHash: BlockHash.random(),
@@ -472,70 +456,47 @@ describe('Utility Execution test suite', () => {
           data: { txHash, noteHashes: [], nullifiers: [Fr.random()] },
         } as any);
 
-        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
+        const requestSlot = Fr.random();
+        utilityExecutionOracle.pushEphemeral(requestSlot, [txHash.hash]);
 
-        const response = capsuleStore.setCapsuleArray.mock.calls.find(
-          call => call[0].equals(contractAddress) && call[1].equals(responseSlot),
-        );
-        expect(response).toBeDefined();
-        const responseFields = response![2][0];
+        const responseSlot = await utilityExecutionOracle.getMessageContextsByTxHash(requestSlot);
+        const responseFields = utilityExecutionOracle.getEphemeral(responseSlot, 0);
         expect(responseFields).toEqual(MessageContext.toSerializedOption(null));
       });
 
-      it('throws on empty capsule entry', async () => {
-        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[]]);
-        await expect(
-          utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope),
-        ).rejects.toThrow('Malformed message context request at index 0: expected 1 field (tx hash), got 0');
-      });
+      it('throws on empty ephemeral entry', async () => {
+        const requestSlot = Fr.random();
+        utilityExecutionOracle.pushEphemeral(requestSlot, []);
 
-      it('throws on capsule entry with extra fields', async () => {
-        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[Fr.random(), Fr.random()]]);
-        await expect(
-          utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope),
-        ).rejects.toThrow('Malformed message context request at index 0: expected 1 field (tx hash), got 2');
-      });
-
-      it('clears the request capsule after processing', async () => {
-        capsuleStore.readCapsuleArray.mockResolvedValueOnce([]);
-        await utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope);
-        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
-          contractAddress,
-          requestSlot,
-          [],
-          'test-job-id',
-          scope,
+        await expect(utilityExecutionOracle.getMessageContextsByTxHash(requestSlot)).rejects.toThrow(
+          'Malformed message context request at index 0: expected 1 field (tx hash), got 0',
         );
       });
 
-      it('clears the request capsule even on error', async () => {
-        capsuleStore.readCapsuleArray.mockResolvedValueOnce([[]]);
-        await expect(
-          utilityExecutionOracle.getMessageContextsByTxHash(contractAddress, requestSlot, responseSlot, scope),
-        ).rejects.toThrow();
-        expect(capsuleStore.setCapsuleArray).toHaveBeenCalledWith(
-          contractAddress,
-          requestSlot,
-          [],
-          'test-job-id',
-          scope,
+      it('throws on ephemeral entry with extra fields', async () => {
+        const requestSlot = Fr.random();
+        utilityExecutionOracle.pushEphemeral(requestSlot, [Fr.random(), Fr.random()]);
+
+        await expect(utilityExecutionOracle.getMessageContextsByTxHash(requestSlot)).rejects.toThrow(
+          'Malformed message context request at index 0: expected 1 field (tx hash), got 2',
         );
       });
     });
 
-    describe('getSharedSecret', () => {
+    describe('getSharedSecrets', () => {
       it('returns different shared secrets for different contract addresses', async () => {
         // Generate a deterministic ephemeral public key
         const ephSk = GrumpkinScalar.random();
         const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
 
-        // Derive keys so we can mock getMasterSecretKey (used by getSharedSecret)
+        // Derive keys so we can mock getMasterSecretKey (used by getSharedSecrets)
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
-        keyStore.getMasterSecretKey.mockImplementation((publicKey: Point) => {
-          if (publicKey.equals(ownerCompleteAddress.publicKeys.masterIncomingViewingPublicKey)) {
+        const ownerIvpkMHash = await hashPublicKey(ownerCompleteAddress.publicKeys.ivpkM);
+        keyStore.getMasterSecretKey.mockImplementation((pkMHash: Fr) => {
+          if (pkMHash.equals(ownerIvpkMHash)) {
             return Promise.resolve(ownerIvskM);
           }
-          throw new Error(`Unknown public key ${publicKey}`);
+          throw new Error(`Unknown pk_m_hash ${pkMHash}`);
         });
 
         const contractAddressA = await AztecAddress.random();
@@ -544,8 +505,15 @@ describe('Utility Execution test suite', () => {
         const oracleA = makeOracle({ contractAddress: contractAddressA });
         const oracleB = makeOracle({ contractAddress: contractAddressB });
 
-        const secretA = await oracleA.getSharedSecret(owner, ephPk, contractAddressA);
-        const secretB = await oracleB.getSharedSecret(owner, ephPk, contractAddressB);
+        const slotA = Fr.random();
+        oracleA.pushEphemeral(slotA, ephPk.toFields());
+        const responseSlotA = await oracleA.getSharedSecrets(owner, slotA, contractAddressA);
+        const [secretA] = oracleA.getEphemeral(responseSlotA, 0);
+
+        const slotB = Fr.random();
+        oracleB.pushEphemeral(slotB, ephPk.toFields());
+        const responseSlotB = await oracleB.getSharedSecrets(owner, slotB, contractAddressB);
+        const [secretB] = oracleB.getEphemeral(responseSlotB, 0);
 
         // After app-siloing, different contracts must get different shared secrets for the same
         // (address, ephPk) pair. This prevents cross-contract decryption attacks.
@@ -559,8 +527,10 @@ describe('Utility Execution test suite', () => {
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
         keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
 
+        const slot = Fr.random();
+        utilityExecutionOracle.pushEphemeral(slot, ephPk.toFields());
         const wrongAddress = await AztecAddress.random();
-        await expect(utilityExecutionOracle.getSharedSecret(owner, ephPk, wrongAddress)).rejects.toThrow(/expected/);
+        await expect(utilityExecutionOracle.getSharedSecrets(owner, slot, wrongAddress)).rejects.toThrow(/expected/);
       });
     });
 

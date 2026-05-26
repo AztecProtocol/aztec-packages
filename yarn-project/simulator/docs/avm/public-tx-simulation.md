@@ -35,7 +35,7 @@ The app logic phase contains the main application functionality. This is where m
 - State changes from app logic are rolled back
 - Side effects from private's revertible portion are also discarded
 - Teardown still executes
-- The transaction appears on-chain with `APP_LOGIC_REVERTED` status
+- The transaction appears on-chain with `REVERTED` status
 
 ### TEARDOWN Phase (Revertible, Always Runs)
 

@@ -176,14 +176,14 @@ describe('AttestationsBlockWatcher', () => {
     expect(handler).toHaveBeenCalledWith([
       {
         validator: attestor1,
-        amount: config.slashAttestDescendantOfInvalidPenalty,
-        offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        amount: config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
+        offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         epochOrSlot: 2n,
       },
       {
         validator: attestor2,
-        amount: config.slashAttestDescendantOfInvalidPenalty,
-        offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        amount: config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty,
+        offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         epochOrSlot: 2n,
       },
     ] satisfies WantToSlashArgs[]);

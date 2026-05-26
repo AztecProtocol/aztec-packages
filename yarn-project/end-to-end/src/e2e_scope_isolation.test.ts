@@ -2,6 +2,7 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { ScopeTestContract } from '@aztec/noir-test-contracts.js/ScopeTest';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e scope isolation', () => {
@@ -18,7 +19,7 @@ describe('e2e scope isolation', () => {
   const BOB_NOTE_VALUE = 100n;
 
   beforeAll(async () => {
-    ({ teardown, wallet, accounts } = await setup(3));
+    ({ teardown, wallet, accounts } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
     [alice, bob, charlie] = accounts;
 
     ({ contract } = await ScopeTestContract.deploy(wallet).send({ from: alice }));

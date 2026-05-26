@@ -37,7 +37,7 @@ pub contract PrivateInitTest {
     #[external("private")]
     #[noinitcheck]
     fn private_no_init_check_emit_nullifier(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("utility")]

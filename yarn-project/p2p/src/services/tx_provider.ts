@@ -32,6 +32,11 @@ export class TxProvider implements ITxProvider {
     this.instrumentation = new TxProviderInstrumentation(client, 'TxProvider');
   }
 
+  /** Returns whether each tx hash is currently in the local tx pool. */
+  public hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return this.txPool.hasTxs(txHashes);
+  }
+
   /** Returns txs from the tx pool given their hashes.*/
   public async getAvailableTxs(txHashes: TxHash[]): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
     const response = await this.txPool.getTxsByHash(txHashes);

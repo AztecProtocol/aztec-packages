@@ -47,6 +47,7 @@ members = [
     "contracts/test/child_contract",
     "contracts/test/counter/counter_contract",
     "contracts/test/custom_message_contract",
+    "contracts/test/custom_sync_state_contract",
     "contracts/test/ephemeral_child_contract",
     "contracts/test/ephemeral_parent_contract",
     "contracts/test/event_only_contract",

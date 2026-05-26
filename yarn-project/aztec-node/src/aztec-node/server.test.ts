@@ -1031,6 +1031,81 @@ describe('aztec node', () => {
     });
   });
 
+  describe('pauseSequencer + setConfig', () => {
+    const INITIAL_MIN_TXS_PER_BLOCK = 2;
+
+    let sequencerClient: MockProxy<SequencerClient>;
+    let nodeWithSequencer: AztecNodeService;
+
+    beforeEach(() => {
+      const sequencer = mock<Sequencer>();
+      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
+
+      sequencerClient = mock<SequencerClient>();
+      sequencerClient.getSequencer.mockReturnValue(sequencer);
+
+      nodeWithSequencer = new AztecNodeService(
+        nodeConfig,
+        p2p,
+        l2BlockSource,
+        mock(),
+        mock(),
+        mock(),
+        worldState,
+        sequencerClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        12345,
+        rollupVersion.toNumber(),
+        globalVariablesBuilder,
+        mock<FeeProvider>(),
+        epochCache,
+        getPackageVersion(),
+        new TestCircuitVerifier(),
+        new TestCircuitVerifier(),
+      );
+    });
+
+    it('keeps the sequencer frozen when setConfig updates minTxsPerBlock while paused', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      sequencerClient.updateConfig.mockClear();
+
+      await nodeWithSequencer.setConfig({ minTxsPerBlock: 1 });
+
+      // The sequencer must not receive the new minTxsPerBlock while paused; the freeze stays in place.
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      const minTxsUpdates = updateCalls.filter(([cfg]) => 'minTxsPerBlock' in cfg);
+      expect(minTxsUpdates).toEqual([]);
+    });
+
+    it('resumeSequencer applies the value set via setConfig during pause (not the pre-pause value)', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      await nodeWithSequencer.setConfig({ minTxsPerBlock: 5 });
+      sequencerClient.updateConfig.mockClear();
+
+      await nodeWithSequencer.resumeSequencer();
+
+      // Resume must use the test-supplied value (5), not the pre-pause snapshot (INITIAL_MIN_TXS_PER_BLOCK).
+      expect(sequencerClient.updateConfig).toHaveBeenCalledWith({ minTxsPerBlock: 5 });
+    });
+
+    it('still forwards non-minTxsPerBlock config changes while paused', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      sequencerClient.updateConfig.mockClear();
+
+      const coinbase = EthAddress.random();
+      await nodeWithSequencer.setConfig({ coinbase, minTxsPerBlock: 3 });
+
+      // coinbase still reaches the sequencer; only minTxsPerBlock is filtered.
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      expect(updateCalls).toHaveLength(1);
+      expect(updateCalls[0][0]).toEqual({ coinbase });
+    });
+  });
+
   describe('getL2ToL1Messages', () => {
     const makeBlock = (slotNumber: number, l2ToL1MsgsByTx: Fr[][]): L2Block => {
       const block = L2Block.empty(
