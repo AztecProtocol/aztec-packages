@@ -27,13 +27,20 @@ const developerVersions = require("../developer_versions.json");
 
 // Determine the default (highest-priority) API docs version to append.
 // Only include one set to avoid bloating llms.txt. Priority: mainnet > testnet.
-const defaultType = developerVersionConfig?.mainnet ? "mainnet"
-  : developerVersionConfig?.testnet ? "testnet"
-  : null;
-const defaultVersion = defaultType ? developerVersionConfig[defaultType] : (developerVersions[0] || null);
+const defaultType = developerVersionConfig?.mainnet
+  ? "mainnet"
+  : developerVersionConfig?.testnet
+    ? "testnet"
+    : null;
+const defaultVersion = defaultType
+  ? developerVersionConfig[defaultType]
+  : developerVersions[0] || null;
 
 const API_DIRS = [];
-if (defaultType && fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultType}`))) {
+if (
+  defaultType &&
+  fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultType}`))
+) {
   API_DIRS.push({
     name: "Aztec.nr API Reference",
     dir: `aztec-nr-api/${defaultType}`,
@@ -43,7 +50,10 @@ if (defaultType && fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultTy
 } else if (!defaultType) {
   console.warn("Warning: No default version found for API docs");
 }
-if (defaultType && fs.existsSync(path.join(STATIC_DIR, `typescript-api/${defaultType}`))) {
+if (
+  defaultType &&
+  fs.existsSync(path.join(STATIC_DIR, `typescript-api/${defaultType}`))
+) {
   API_DIRS.push({
     name: "TypeScript API Reference",
     dir: `typescript-api/${defaultType}`,
@@ -76,7 +86,10 @@ function htmlToText(html) {
       .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n")
       .replace(/<h4[^>]*>([\s\S]*?)<\/h4>/gi, "\n#### $1\n")
       // Convert code blocks
-      .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, "\n```\n$1\n```\n")
+      .replace(
+        /<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi,
+        "\n```\n$1\n```\n",
+      )
       .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, "`$1`")
       // Convert links - extract href and text
       .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)")
@@ -130,6 +143,123 @@ function findFiles(dir, ext, files = []) {
 function findHtmlFiles(dir) {
   return findFiles(dir, ".html");
 }
+
+/**
+ * Recursively find every module index.html in a directory. A "module" is a
+ * subdirectory that contains an `index.html` (the rustdoc convention used by
+ * the nargo-generated API site).
+ */
+function findModuleIndexes(dir) {
+  return findFiles(dir, "index.html");
+}
+
+/**
+ * Extract the first paragraph from the rustdoc `<div class="comments">` block.
+ * Returns "" if the module has no docstring.
+ *
+ * The HTML pattern produced by nargo doc is roughly:
+ *   <main>
+ *     <h1>Module <span ...>foo</span></h1>
+ *     <div class="comments">
+ *       <p>First paragraph - the summary sentence.</p>
+ *       <p>Second paragraph - more detail.</p>
+ *       ...
+ *     </div>
+ */
+function extractModuleSummary(htmlPath) {
+  let html;
+  try {
+    html = fs.readFileSync(htmlPath, "utf-8");
+  } catch {
+    return "";
+  }
+  const commentsMatch = html.match(/<div class="comments">([\s\S]*?)<\/div>/);
+  if (!commentsMatch) return "";
+  const firstP = commentsMatch[1].match(/<p[^>]*>([\s\S]*?)<\/p>/);
+  if (!firstP) return "";
+  return firstP[1]
+    .replace(/<[^>]+>/g, "") // strip inline tags (a, code, em, ...)
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Extract the list of structs, traits, and functions declared on a module
+ * page. Returns an object like { Structs: ["Foo", "Bar"], Traits: ["Baz"] }.
+ *
+ * Nargo doc emits each section as:
+ *   <h2 id="structs">Structs</h2><ul class="item-list">
+ *     <li><div class="item-name"><a ...>Name</a></div><div class="item-description">...</div></li>
+ *     ...
+ *   </ul>
+ *
+ * Including item names in llms.txt is what makes individual types like
+ * SingleUseClaim grep-able by an agent. Descriptions are dropped to keep the
+ * file compact — the module entry already has its own description.
+ */
+function extractModuleItems(htmlPath) {
+  let html;
+  try {
+    html = fs.readFileSync(htmlPath, "utf-8");
+  } catch {
+    return {};
+  }
+
+  const result = {};
+  const sectionRegex =
+    /<h2 id="(structs|traits|functions)">[^<]*<\/h2>\s*<ul class="item-list">([\s\S]*?)<\/ul>/g;
+  let match;
+  while ((match = sectionRegex.exec(html)) !== null) {
+    const kind = match[1];
+    const body = match[2];
+    const names = [];
+    const itemRegex = /<div class="item-name">[\s\S]*?>([A-Za-z_][\w]*)<\/a>/g;
+    let item;
+    while ((item = itemRegex.exec(body)) !== null) {
+      names.push(item[1]);
+    }
+    if (names.length > 0) {
+      // Capitalize kind: structs → Structs
+      const label = kind.charAt(0).toUpperCase() + kind.slice(1);
+      result[label] = names;
+    }
+  }
+  return result;
+}
+
+/**
+ * Convert a module index path on disk to its rustdoc path notation.
+ * E.g. .../noir_aztec/state_vars/balance_set/index.html → noir_aztec::state_vars::balance_set
+ */
+function moduleNameFromPath(filePath, apiRoot) {
+  const rel = path.relative(apiRoot, filePath);
+  const dir = path.dirname(rel);
+  if (dir === "" || dir === ".") return "aztec-nr (all crates)";
+  return dir.split(path.sep).join("::");
+}
+
+/**
+ * Crates to skip in the module TOC. `std` and `serde` are noir stdlib / generic
+ * helpers documented elsewhere. `protocol_types` is included but capped at
+ * MAX_DEPTH below — it has ~120 deeply-nested kernel-internal entries that
+ * application developers rarely need.
+ */
+const SKIPPED_CRATES = new Set(["std", "serde"]);
+
+/**
+ * Per-crate max depth in the module TOC. Crates listed here only contribute
+ * modules up to this depth (relative to the crate root). Crates not listed
+ * have no depth limit.
+ */
+const CRATE_MAX_DEPTH = {
+  protocol_types: 2,
+};
 
 /**
  * Recursively find all markdown files in a directory.
@@ -212,7 +342,9 @@ function main() {
       ? findMarkdownFiles(dirPath).sort()
       : sortByImportance(findHtmlFiles(dirPath));
     const ext = isMarkdown ? ".md" : ".html";
-    console.log(`Found ${files.length} ${isMarkdown ? "markdown" : "HTML"} files in ${apiDir.dir}`);
+    console.log(
+      `Found ${files.length} ${isMarkdown ? "markdown" : "HTML"} files in ${apiDir.dir}`,
+    );
 
     if (files.length === 0) {
       continue;
@@ -242,22 +374,53 @@ function main() {
         linksSection += `- ... and ${files.length - 100} more files\n`;
       }
     } else {
-      // For HTML API docs, process only index files for links
-      const indexFiles = files.filter(
-        (f) => f.endsWith("index.html") || f.includes("/fn.") || f.includes("/struct.") || f.includes("/trait.")
-      );
+      // For HTML API docs, emit a module-index TOC. One entry per module
+      // (every subdirectory containing an index.html), with the module's
+      // first-paragraph docstring as description, plus the names of structs,
+      // traits, and functions declared on that module page.
+      //
+      // The item names are what makes specific types (e.g. SingleUseClaim)
+      // findable: an agent searching llms.txt for the name lands on the
+      // owning module, then follows the link to the actual rustdoc page.
+      const moduleIndexes = findModuleIndexes(dirPath).filter((f) => {
+        const rel = path.relative(dirPath, f);
+        const parts = rel.split(path.sep);
+        if (parts.length === 0) return false;
+        const crate = parts[0];
+        if (SKIPPED_CRATES.has(crate)) return false;
+        const maxDepth = CRATE_MAX_DEPTH[crate];
+        if (maxDepth !== undefined) {
+          // depth = number of directories between crate root and this module
+          // (parts excludes the trailing index.html since we use path.sep)
+          const depth = parts.length - 1; // -1 for index.html filename
+          if (depth > maxDepth) return false;
+        }
+        return true;
+      });
 
-      // Add links for key files
-      for (const file of indexFiles.slice(0, 100)) {
-        // Limit to 100 links per section
+      moduleIndexes.sort();
+
+      linksSection += `Module index. Each entry lists the module's exported structs, traits, and functions; follow the link to the rustdoc page for full signatures and docs.\n\n`;
+
+      for (const file of moduleIndexes) {
         const urlPath = getUrlPath(file, STATIC_DIR);
-        const fileName = path.basename(file, ext);
-        linksSection += `- [${fileName}](${urlPath})\n`;
+        const moduleName = moduleNameFromPath(file, dirPath);
+        const summary = extractModuleSummary(file);
+        const items = extractModuleItems(file);
+
+        let line = `- [${moduleName}](${urlPath})`;
+        if (summary) line += `: ${summary}`;
+        const itemParts = [];
+        for (const kind of ["Structs", "Traits", "Functions"]) {
+          if (items[kind]) itemParts.push(`${kind}: ${items[kind].join(", ")}`);
+        }
+        if (itemParts.length > 0) line += ` — ${itemParts.join("; ")}.`;
+        linksSection += line + "\n";
       }
 
-      if (indexFiles.length > 100) {
-        linksSection += `- ... and ${indexFiles.length - 100} more files\n`;
-      }
+      console.log(
+        `  Emitted ${moduleIndexes.length} module-index entries (from ${files.length} HTML files)`,
+      );
     }
 
     linksSection += "\n";
@@ -282,7 +445,9 @@ function main() {
   }
 
   if (sectionsAdded === 0) {
-    console.log("No API docs found on disk — leaving llms.txt and llms-full.txt unchanged");
+    console.log(
+      "No API docs found on disk — leaving llms.txt and llms-full.txt unchanged",
+    );
     return;
   }
 
