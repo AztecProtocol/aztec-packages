@@ -25,6 +25,7 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   fr_pow as fr_pow_funcs,
+  level_plan as level_plan_shader,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
@@ -347,6 +348,28 @@ ${packLines.join('\n')}
     return mustache.render(
       bucket_histogram_shader,
       { workgroup_size, buckets_per_window, recompile: this.recompile },
+      {},
+    );
+  }
+
+  /**
+   * Per-level bucket walk for the pair-tree plan. One workgroup per
+   * window; the workgroup walks BW buckets and reduces per-window
+   * (pairs, carries, strideCnt) into a small per-level stats buffer.
+   * `BW` and `num_windows` are compile-time constants so the kernel can
+   * loop without recomputing indices; `workgroup_size` is baked into the
+   * `@workgroup_size` attribute.
+   */
+  public gen_level_plan_shader(workgroup_size: number, BW: number, num_windows: number): string {
+    if (!Number.isInteger(BW) || BW <= 0) {
+      throw new Error(`gen_level_plan_shader: BW (${BW}) must be a positive integer`);
+    }
+    if (!Number.isInteger(num_windows) || num_windows <= 0) {
+      throw new Error(`gen_level_plan_shader: num_windows (${num_windows}) must be a positive integer`);
+    }
+    return mustache.render(
+      level_plan_shader,
+      { workgroup_size, BW, num_windows, recompile: this.recompile },
       {},
     );
   }

@@ -117,6 +117,10 @@ const gpuKnobs: MsmConfig = (() => {
     // hypothesis — compare per-pass `fused` between this and the default
     // (GPU-histogram) path.
     useHostHistogram: q.get('hostHist') === '1',
+    // `?hostLevelWalk=1`: GPU histogram + host JS level walk. Default is
+    // GPU histogram + GPU level walk in one submit. Use the flag to A/B
+    // the cost of moving the per-level walk to the GPU.
+    useHostLevelWalk: q.get('hostLevelWalk') === '1',
   };
 })();
 

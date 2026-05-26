@@ -32,6 +32,13 @@ const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per wind
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
+// Upper bound on pair-tree depth, used to size the level-plan stats
+// buffer and bound both the host and GPU per-level loops. The
+// recurrence `s_{k+1} ≤ floor(2/3 · s_k)` converges in log_{3/2}(n) ≈ 35
+// levels at n=2^20; 64 is comfortably above the worst case. The GPU
+// `level_plan` kernel dispatches exactly this many times — levels past
+// convergence emit zeros for every (window, bucket).
+const LEVEL_PLAN_MAX_LEVELS = 64;
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
 // `reduceWg` are instead chosen per problem size — by pickC / pickS /
@@ -86,6 +93,12 @@ export interface MsmConfig {
    *  per-level walk, fits-check, fast/slow path) is identical. Default
    *  `false` (use GPU histogram). */
   useHostHistogram?: boolean;
+  /** A/B knob for the per-level bucket walk. When `true`, `prepare()`
+   *  reads the histogram back to the host and walks the bucket grid in
+   *  JS; when `false`, the `level_plan` GPU kernel does the walk and
+   *  only the small per-level stats buffer comes back to host. Default
+   *  `false` (GPU). */
+  useHostLevelWalk?: boolean;
 }
 
 /** One timestamped GPU compute pass within a `run()`. `label` is the stage
@@ -270,6 +283,70 @@ function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindow
   return initCounts;
 }
 
+
+/**
+ * Host JS implementation of the per-level bucket walk. Called from
+ * `MsmV2.prepare()` when either `useHostHistogram` or `useHostLevelWalk`
+ * is set. Mirrors the GPU `level_plan` kernel: per level, walks every
+ * (window, bucket) of the current counts and emits next-level counts +
+ * per-window (pairs, carries, strideCnt) totals. Stops at the first
+ * level where no bucket has count > 0 — `levelPlans.length` is then the
+ * pair-tree depth, `wstride1` the max stride across all levels.
+ */
+function hostLevelWalk(
+  initCounts: Uint32Array,
+  numWindows: number,
+  BW: number,
+  bTotal: number,
+  S: number,
+): { levelPlans: LevelPlan[]; wstride1: number } {
+  const levelPlans: LevelPlan[] = [];
+  let wstride1 = 1;
+  // Ping-pong scratch indexed by lv & 1. Level 0 reads initCounts directly;
+  // subsequent levels write into and read from the ping-pong slots.
+  let countsCur: Uint32Array = initCounts;
+  const countsAlt = new Uint32Array(bTotal);
+  const countsPing = new Uint32Array(bTotal);
+  let countsNext: Uint32Array = countsAlt;
+  const swap = (): void => {
+    const tmp = countsCur;
+    countsCur = countsNext;
+    countsNext = tmp === initCounts ? countsPing : tmp;
+  };
+  for (let lv = 0; lv < LEVEL_PLAN_MAX_LEVELS; lv++) {
+    let anyActive = false;
+    let pairBlocksPerWindow = 1;
+    let carriesPerWindow = 1;
+    for (let w = 0; w < numWindows; w++) {
+      let pairs = 0;
+      let carries = 0;
+      let strideCnt = 0;
+      const base = w * BW;
+      for (let bl = 0; bl < BW; bl++) {
+        const g = base + bl;
+        const cnt = countsCur[g];
+        if (cnt > 0) anyActive = true;
+        // bucketSplit inlined: pc = floor(cnt/2), cf = (cnt===1?0:cnt&1),
+        // nc = pc + cf.
+        const pc = cnt >>> 1;
+        const cf = cnt === 1 ? 0 : cnt & 1;
+        const nc = pc + cf;
+        countsNext[g] = nc;
+        pairs += pc;
+        carries += cf;
+        strideCnt += nc;
+      }
+      const blocks = Math.ceil(pairs / S);
+      if (blocks > pairBlocksPerWindow) pairBlocksPerWindow = blocks;
+      if (carries > carriesPerWindow) carriesPerWindow = carries;
+      if (strideCnt > wstride1) wstride1 = strideCnt;
+    }
+    if (!anyActive) break;
+    levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
+    swap();
+  }
+  return { levelPlans, wstride1 };
+}
 
 interface LevelPlan {
   // pair_blocks_per_window: the per-window count of "pair_blocks" the fused
@@ -1188,6 +1265,11 @@ export class MsmV2 {
   // start of `prepare()` to feed the level walk with GPU-computed counts —
   // replaces the 250 ms host Booth-decode walk at n=2^20.
   private histogramPipe!: GPUComputePipeline;
+  // Per-level bucket-walk pipeline. Consumes the GPU-produced histogram
+  // counts and emits per-level (pairs, carries, strideCnt) totals which
+  // the host reads back to build `levelPlans`. See
+  // wgsl/cuzk/level_plan.template.wgsl.
+  private levelPlanPipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -1207,6 +1289,7 @@ export class MsmV2 {
   private finalizeLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
   private histogramLayout!: GPUBindGroupLayout;
+  private levelPlanLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
@@ -1290,6 +1373,29 @@ export class MsmV2 {
   private histogramQuerySet: GPUQuerySet | null = null;
   private histogramTsResolveBuf: GPUBuffer | null = null;
   private histogramTsStagingBuf: GPUBuffer | null = null;
+  // Per-level bucket walk on GPU. The `level_plan` kernel ping-pongs the
+  // counts between `histogramBuf` (slot A; filled by the histogram
+  // dispatch) and `levelPlanCountsBuf` (slot B). After `LEVEL_PLAN_MAX_LEVELS`
+  // dispatches, the `levelPlanStatsBuf` holds per-level (pairs, carries,
+  // strideCnt) totals which the host reads back to build `levelPlans`.
+  // All five fields are allocated in create() and pinned for the
+  // instance's lifetime — bTotal and the level cap are fixed by `c`.
+  private levelPlanCountsBuf!: GPUBuffer;
+  private levelPlanStatsBuf!: GPUBuffer;
+  private levelPlanStatsStagingBuf!: GPUBuffer;
+  // One uniform per dispatched level: params.x = level_idx. Lets us
+  // bake `LEVEL_PLAN_MAX_LEVELS` bind groups at create-time and reuse
+  // them across every prepare().
+  private levelPlanParamsBufs: GPUBuffer[] = [];
+  // Pre-baked bind groups, alternating (counts_in, counts_out) per level.
+  // Level lv reads from buffer (lv & 1), writes to buffer ((lv+1) & 1).
+  private levelPlanBinds: GPUBindGroup[] = [];
+  // Reusable host-side Uint32Array for the readback. Sized to
+  // LEVEL_PLAN_MAX_LEVELS × NUM_WINDOWS × 3 (very small — ~12 KB at c=16).
+  private levelPlanStatsHost: Uint32Array | null = null;
+  // A/B knob — see MsmConfig. When true, prepare() runs the per-level
+  // walk on the host instead of dispatching the GPU kernel.
+  private useHostLevelWalk = false;
   private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
@@ -1385,6 +1491,7 @@ export class MsmV2 {
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.useHostHistogram = config?.useHostHistogram ?? false;
+    m.useHostLevelWalk = config?.useHostLevelWalk ?? false;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1495,6 +1602,8 @@ export class MsmV2 {
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform']);
     // 3 bindings: scalars (read), counts (atomic<u32> storage), params.
     m.histogramLayout = lt(['read-only-storage', 'storage', 'uniform']);
+    // 4 bindings: counts_in (read), counts_out (storage), stats (storage), params.
+    m.levelPlanLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform']);
@@ -1548,6 +1657,11 @@ export class MsmV2 {
       `bucket-histogram-c${m.c}`,
       m.histogramLayout,
     );
+    m.levelPlanPipe = await compile(
+      sm.gen_level_plan_shader(PLANNER_TPB, m.BW, m.numWindows),
+      `level-plan-c${m.c}`,
+      m.levelPlanLayout,
+    );
 
     // Allocate the per-instance histogram + staging buffers and the fixed
     // params uniform. These are sized by `bTotal = NUM_WINDOWS × BW` (c is
@@ -1588,6 +1702,54 @@ export class MsmV2 {
         usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
       });
     }
+
+    // Level-plan ping-pong buffer (slot B). Same size as histogramBuf
+    // (slot A); the kernel alternates which is read vs written per
+    // level. Reuses the same bTotal sizing.
+    m.levelPlanCountsBuf = device.createBuffer({
+      size: histogramBytes,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    // Per-level (pairs, carries, strideCnt) totals — one tuple per
+    // (level, window). LEVEL_PLAN_MAX_LEVELS × num_windows × 3 × u32.
+    const levelStatsBytes = LEVEL_PLAN_MAX_LEVELS * m.numWindows * 3 * 4;
+    m.levelPlanStatsBuf = device.createBuffer({
+      size: levelStatsBytes,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    m.levelPlanStatsStagingBuf = device.createBuffer({
+      size: levelStatsBytes,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    // Pre-create one uniform per dispatched level holding (level_idx, 0, 0, 0).
+    // 16 B × 64 = 1 KiB total — written once at create, read by the bind
+    // group below.
+    for (let lv = 0; lv < LEVEL_PLAN_MAX_LEVELS; lv++) {
+      const ubuf = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(ubuf, 0, new Uint32Array([lv, 0, 0, 0]));
+      m.levelPlanParamsBufs.push(ubuf);
+    }
+    // Bake `LEVEL_PLAN_MAX_LEVELS` bind groups: even levels read
+    // histogramBuf and write levelPlanCountsBuf; odd levels read
+    // levelPlanCountsBuf and write histogramBuf. All share the same
+    // stats buffer; their level_idx uniform differs.
+    for (let lv = 0; lv < LEVEL_PLAN_MAX_LEVELS; lv++) {
+      const countsIn = lv % 2 === 0 ? m.histogramBuf : m.levelPlanCountsBuf;
+      const countsOut = lv % 2 === 0 ? m.levelPlanCountsBuf : m.histogramBuf;
+      m.levelPlanBinds.push(device.createBindGroup({
+        layout: m.levelPlanLayout,
+        entries: [
+          { binding: 0, resource: { buffer: countsIn } },
+          { binding: 1, resource: { buffer: countsOut } },
+          { binding: 2, resource: { buffer: m.levelPlanStatsBuf } },
+          { binding: 3, resource: { buffer: m.levelPlanParamsBufs[lv] } },
+        ],
+      }));
+    }
+
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
@@ -1718,20 +1880,26 @@ export class MsmV2 {
     device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
     this.lastScalarUploadMs = performance.now() - tScalarUpload0;
     this.lastScalarUploadBytes = scalars.byteLength;
-    // Level-0 histogram. Default path: GPU dispatch. Bypass path
-    // (`useHostHistogram`): host JS loop via `buildInitCounts`, no GPU
-    // dispatch, no mapAsync, no readback memcpy. The bypass is an A/B
-    // diagnostic — it isolates whether the GPU histogram pass (which
-    // touches ~34 MB and likely evicts SLC) is the cause of the per-pass
-    // GPU regression observed when the GPU path is enabled.
+    // Plan computation. Three modes, gated by the A/B knobs in MsmConfig:
+    //   - default (both false): GPU bucket-histogram + GPU level_plan in
+    //     a single submit; the host only reads back the small per-level
+    //     stats buffer and assembles `levelPlans`.
+    //   - `useHostLevelWalk`: GPU histogram + host JS level walk —
+    //     histogram counts come back as a 2 MB readback.
+    //   - `useHostHistogram`: host `buildInitCounts` + host JS level walk
+    //     — no GPU work in prepare's plan phase. SLC-thrash A/B baseline.
     const tBooth0 = performance.now();
-    let initCounts: Uint32Array;
+    let levelPlans: LevelPlan[];
+    let wstride1: number;
+
     if (this.useHostHistogram) {
-      // No GPU work in this block — write `lastBucketHistogramGpuMs = 0`
-      // and let the rest of the pipeline run as normal.
       this.lastBucketHistogramGpuMs = 0;
-      initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
-    } else {
+      const initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+      this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
+      const tLevelPlan0 = performance.now();
+      ({ levelPlans, wstride1 } = hostLevelWalk(initCounts, NUM_WINDOWS, BW, B_TOTAL, S));
+      this.lastPrepLevelPlanMs = performance.now() - tLevelPlan0;
+    } else if (this.useHostLevelWalk) {
       // Rebuild the histogram bind group when scalarsRawBuf's identity changes —
       // ensureScalarsRawBuf bumped scratchEpoch in that case, which is the
       // same signal the run-time bind groups consult.
@@ -1768,9 +1936,6 @@ export class MsmV2 {
           enc.copyBufferToBuffer(this.histogramTsResolveBuf, 0, this.histogramTsStagingBuf, 0, 16);
         }
         device.queue.submit([enc.finish()]);
-        // Map the histogram counts and the timestamp staging in parallel.
-        // Counts is 2 MB; timestamps are 16 bytes — they resolve effectively
-        // together, so no extra round-trip cost.
         if (this.profile && this.histogramTsStagingBuf) {
           await Promise.all([
             this.histogramStagingBuf.mapAsync(GPUMapMode.READ),
@@ -1790,72 +1955,121 @@ export class MsmV2 {
       }
       this.histogramHost.set(new Uint32Array(this.histogramStagingBuf.getMappedRange()));
       this.histogramStagingBuf.unmap();
-      initCounts = this.histogramHost;
-    }
-    this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
+      this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
+      const tLevelPlan0 = performance.now();
+      ({ levelPlans, wstride1 } = hostLevelWalk(this.histogramHost, NUM_WINDOWS, BW, B_TOTAL, S));
+      this.lastPrepLevelPlanMs = performance.now() - tLevelPlan0;
+    } else {
+      // GPU histogram + GPU level walk in one submit. Only the small
+      // per-level stats buffer (LEVEL_PLAN_MAX_LEVELS × NUM_WINDOWS × 3 × u32
+      // ≈ 12 KiB at c=16) is read back to the host — the 2 MB count
+      // buffer never leaves the GPU.
+      if (this.histogramBind === null || this.histogramBindScalarsBuf !== scalarsRawBuf) {
+        this.histogramBind = device.createBindGroup({
+          layout: this.histogramLayout,
+          entries: [
+            { binding: 0, resource: { buffer: scalarsRawBuf } },
+            { binding: 1, resource: { buffer: this.histogramBuf } },
+            { binding: 2, resource: { buffer: this.histogramParamsBuf } },
+          ],
+        });
+        this.histogramBindScalarsBuf = scalarsRawBuf;
+      }
+      const statsBytes = LEVEL_PLAN_MAX_LEVELS * NUM_WINDOWS * 3 * 4;
+      {
+        const enc = device.createCommandEncoder();
+        enc.clearBuffer(this.histogramBuf);
+        // Histogram pass — same as the useHostLevelWalk path, optionally
+        // timestamped via the dedicated histogramQuerySet.
+        const histDesc: GPUComputePassDescriptor = {};
+        if (this.profile && this.histogramQuerySet) {
+          histDesc.timestampWrites = {
+            querySet: this.histogramQuerySet,
+            beginningOfPassWriteIndex: 0,
+            endOfPassWriteIndex: 1,
+          };
+        }
+        const histPass = enc.beginComputePass(histDesc);
+        histPass.setPipeline(this.histogramPipe);
+        histPass.setBindGroup(0, this.histogramBind);
+        histPass.dispatchWorkgroups(Math.ceil(n / this.wgi), NUM_WINDOWS, 1);
+        histPass.end();
+        // Level-plan dispatches — one per (potential) level. Each reads
+        // counts from the buffer the previous level wrote, writes the
+        // next-level counts to the other buffer, and emits per-window
+        // (pairs, carries, stride) into stats[lv * num_windows * 3 + ...].
+        // levelPlanBinds[lv] is pre-baked at create-time with the right
+        // (counts_in, counts_out, params) bindings for parity lv.
+        for (let lv = 0; lv < LEVEL_PLAN_MAX_LEVELS; lv++) {
+          const lpPass = enc.beginComputePass();
+          lpPass.setPipeline(this.levelPlanPipe);
+          lpPass.setBindGroup(0, this.levelPlanBinds[lv]);
+          lpPass.dispatchWorkgroups(NUM_WINDOWS, 1, 1);
+          lpPass.end();
+        }
+        enc.copyBufferToBuffer(this.levelPlanStatsBuf, 0, this.levelPlanStatsStagingBuf, 0, statsBytes);
+        if (this.profile && this.histogramQuerySet && this.histogramTsResolveBuf && this.histogramTsStagingBuf) {
+          enc.resolveQuerySet(this.histogramQuerySet, 0, 2, this.histogramTsResolveBuf, 0);
+          enc.copyBufferToBuffer(this.histogramTsResolveBuf, 0, this.histogramTsStagingBuf, 0, 16);
+        }
+        device.queue.submit([enc.finish()]);
+        if (this.profile && this.histogramTsStagingBuf) {
+          await Promise.all([
+            this.levelPlanStatsStagingBuf.mapAsync(GPUMapMode.READ),
+            this.histogramTsStagingBuf.mapAsync(GPUMapMode.READ),
+          ]);
+          const tsBytes = this.histogramTsStagingBuf.getMappedRange();
+          const ts = new BigUint64Array(tsBytes.slice(0));
+          this.histogramTsStagingBuf.unmap();
+          this.lastBucketHistogramGpuMs = Number(ts[1] - ts[0]) / 1e6;
+        } else {
+          await this.levelPlanStatsStagingBuf.mapAsync(GPUMapMode.READ);
+          this.lastBucketHistogramGpuMs = 0;
+        }
+      }
+      // Copy the stats readback into a persistent host array so we can
+      // unmap the staging buffer (its mapped range becomes invalid on
+      // unmap).
+      const statsU32Count = LEVEL_PLAN_MAX_LEVELS * NUM_WINDOWS * 3;
+      if (this.levelPlanStatsHost === null || this.levelPlanStatsHost.length !== statsU32Count) {
+        this.levelPlanStatsHost = new Uint32Array(statsU32Count);
+      }
+      this.levelPlanStatsHost.set(new Uint32Array(this.levelPlanStatsStagingBuf.getMappedRange()));
+      this.levelPlanStatsStagingBuf.unmap();
+      this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
 
-    // Ping-pong two pre-allocated count buffers and fold the wstride1
-    // computation into the same walk. Avoids ~18 × ~333 KB allocations per
-    // prepare (>5 ms of GC churn for n=88_899) and removes the second pass
-    // over `levelCounts` that wstride1 used to do.
-    const tLevelPlan0 = performance.now();
-    const levelPlans: LevelPlan[] = [];
-    let wstride1 = 1;
-    {
-      // Two scratch arrays, indexed by inIdx = lv & 1. Level 0 reads
-      // initCounts directly; subsequent levels write into and read from
-      // the ping-pong slots.
-      let countsCur: Uint32Array = initCounts;
-      const countsAlt = new Uint32Array(B_TOTAL);
-      const countsPing = new Uint32Array(B_TOTAL);
-      // Slot allocation: level lv reads `countsCur` and writes `countsNext`.
-      // lv=0 reads initCounts, writes countsAlt.
-      // lv=1 reads countsAlt, writes countsPing.
-      // lv=2 reads countsPing, writes countsAlt.
-      // …
-      let countsNext: Uint32Array = countsAlt;
-      const swap = (): void => {
-        const tmp = countsCur;
-        countsCur = countsNext;
-        countsNext = tmp === initCounts ? countsPing : tmp;
-      };
-      for (let lv = 0; lv < 64; lv++) {
-        // Check active + compute next-level counts + per-window stride in
-        // a single fused pass over the bucket grid.
-        let anyActive = false;
+      // Host: scan the stats array, build levelPlans + wstride1. Tiny
+      // loop (≤ LEVEL_PLAN_MAX_LEVELS × NUM_WINDOWS × 3 = ~3 K u32 reads
+      // at c=16) so prep_level_plan should be sub-ms.
+      const tLevelPlan0 = performance.now();
+      const stats = this.levelPlanStatsHost;
+      levelPlans = [];
+      wstride1 = 1;
+      for (let lv = 0; lv < LEVEL_PLAN_MAX_LEVELS; lv++) {
+        let totalStride = 0;
         let pairBlocksPerWindow = 1;
         let carriesPerWindow = 1;
         for (let w = 0; w < NUM_WINDOWS; w++) {
-          let pairs = 0;
-          let carries = 0;
-          let strideCnt = 0;
-          const base = w * BW;
-          for (let bl = 0; bl < BW; bl++) {
-            const g = base + bl;
-            const cnt = countsCur[g];
-            if (cnt > 0) anyActive = true;
-            // bucketSplit inlined: pc = floor(cnt/2), cf = (cnt===1?0:cnt&1),
-            // nc = pc + cf.
-            const pc = cnt >>> 1;
-            const cf = cnt === 1 ? 0 : cnt & 1;
-            const nc = pc + cf;
-            countsNext[g] = nc;
-            pairs += pc;
-            carries += cf;
-            strideCnt += nc;
-          }
+          const base = lv * NUM_WINDOWS * 3 + w * 3;
+          const pairs = stats[base + 0];
+          const carries = stats[base + 1];
+          const strideCnt = stats[base + 2];
           const blocks = Math.ceil(pairs / S);
           if (blocks > pairBlocksPerWindow) pairBlocksPerWindow = blocks;
           if (carries > carriesPerWindow) carriesPerWindow = carries;
           if (strideCnt > wstride1) wstride1 = strideCnt;
+          totalStride += strideCnt;
         }
-        if (!anyActive) break;
+        // The GPU runs all LEVEL_PLAN_MAX_LEVELS dispatches unconditionally;
+        // levels past convergence have all-zero (pairs, carries, stride)
+        // because every bucket's count has gone to zero. The first such
+        // level is the trim point.
+        if (totalStride === 0) break;
         levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
-        swap();
       }
+      this.lastPrepLevelPlanMs = performance.now() - tLevelPlan0;
     }
     const levels = levelPlans.length;
-    this.lastPrepLevelPlanMs = performance.now() - tLevelPlan0;
 
     // --- Lever G: budget-driven window-batch count.
     const maxPairBlocksPerWindow = Math.max(1, ...levelPlans.map(p => p.pairBlocksPerWindow));
@@ -2729,5 +2943,12 @@ export class MsmV2 {
     this.histogramTsResolveBuf = null;
     this.histogramTsStagingBuf?.destroy();
     this.histogramTsStagingBuf = null;
+    this.levelPlanCountsBuf?.destroy();
+    this.levelPlanStatsBuf?.destroy();
+    this.levelPlanStatsStagingBuf?.destroy();
+    for (const b of this.levelPlanParamsBufs) b.destroy();
+    this.levelPlanParamsBufs = [];
+    this.levelPlanBinds = [];
+    this.levelPlanStatsHost = null;
   }
 }
