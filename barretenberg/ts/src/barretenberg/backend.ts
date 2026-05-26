@@ -310,16 +310,16 @@ export class AztecClientBackend {
     private api: Barretenberg,
     private circuitNames: string[] = [],
     /**
-     * Per-step CircuitKind, one entry per `acirBuf` slot, supplied by PXE.
-     * The trailing slot must be `HidingKernel`. If omitted, the constructor falls back to a
-     * legacy heuristic (last = HidingKernel, rest = App) — kept only for callers that haven't
-     * migrated yet and produces wrong VKs for kernels.
+     * Per-step CircuitKind, one entry per `acirBuf` slot, supplied by PXE. The trailing slot
+     * must be `HidingKernel`. Caller is required to provide the kinds — the wire path
+     * downstream asserts `kind == ivc.next_circuit_kind()` per slot and would throw far from
+     * the actual call site on a mismatch, so we fail eagerly here instead.
      */
     private circuitKinds: CircuitKind[] = [],
   ) {
-    if (circuitKinds.length === 0 && acirBuf.length > 0) {
-      this.circuitKinds = acirBuf.map((_, i) =>
-        i === acirBuf.length - 1 ? CircuitKind.HidingKernel : CircuitKind.App,
+    if (acirBuf.length > 0 && circuitKinds.length !== acirBuf.length) {
+      throw new AztecClientBackendError(
+        `circuitKinds must have one entry per bytecode (got ${circuitKinds.length} kinds for ${acirBuf.length} circuits)`,
       );
     }
   }
@@ -336,9 +336,6 @@ export class AztecClientBackend {
     if (vksBuf.length !== 0 && vksBuf.length !== witnessBuf.length) {
       // NOTE: we allow 0 as an explicit 'I have no VKs'. This is a deprecated feature.
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
-    }
-    if (this.circuitKinds.length !== this.acirBuf.length) {
-      throw new AztecClientBackendError('circuitKinds must have one entry per bytecode!');
     }
 
     // Queue IVC start with the number of circuits

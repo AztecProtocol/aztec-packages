@@ -53,6 +53,7 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
     request.loaded_circuit_name.clear();
     request.loaded_circuit_constraints.reset();
     request.loaded_circuit_vk.clear();
+    request.loaded_circuit_kind = CircuitKind::App;
 
     return Response{};
 }
