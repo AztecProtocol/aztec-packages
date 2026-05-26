@@ -309,12 +309,6 @@ export class AztecClientBackend {
     private acirBuf: Uint8Array[],
     private api: Barretenberg,
     private circuitNames: string[] = [],
-    /**
-     * Per-step CircuitKind, one entry per `acirBuf` slot, supplied by PXE. The trailing slot
-     * must be `HidingKernel`. Caller is required to provide the kinds — the wire path
-     * downstream asserts `kind == ivc.next_circuit_kind()` per slot and would throw far from
-     * the actual call site on a mismatch, so we fail eagerly here instead.
-     */
     private circuitKinds: CircuitKind[] = [],
   ) {
     if (acirBuf.length > 0 && circuitKinds.length !== acirBuf.length) {
@@ -338,10 +332,8 @@ export class AztecClientBackend {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
 
-    // Queue IVC start with the number of circuits
     this.api.chonkStart({ numCircuits: this.acirBuf.length });
 
-    // Queue load and accumulate for each circuit
     const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
       const bytecode = this.acirBuf[i];
@@ -351,8 +343,7 @@ export class AztecClientBackend {
       if (vk.length === 0) {
         throw new AztecClientBackendError(
           `Missing precomputed VK for circuit ${i} (${functionName}). ` +
-            'AztecClientBackend no longer recomputes VKs on the fly — callers must supply the ' +
-            'precomputed VK that was pinned alongside the circuit artifact.',
+            'Callers must supply the precomputed VK pinned alongside the circuit artifact.',
         );
       }
 
@@ -365,18 +356,13 @@ export class AztecClientBackend {
         kind: this.circuitKinds[i],
       });
 
-      // Accumulate with witness
       this.api.chonkAccumulate({
         witness,
       });
     }
 
-    // Generate the proof (and wait for all previous steps to finish)
     const proveResult = await this.api.chonkProve({});
-    // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
-    // The hiding kernel VK was supplied by PXE alongside the last circuit's bytecode and got
-    // pushed into Chonk during `chonkLoad`/`chonkAccumulate`. Reuse it here instead of recomputing.
     if (this.circuitKinds[lastIdx] !== CircuitKind.HidingKernel) {
       throw new AztecClientBackendError(
         `Last circuit must be tagged CircuitKind.HidingKernel, got ${this.circuitKinds[lastIdx]}.`,

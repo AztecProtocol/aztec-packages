@@ -121,15 +121,9 @@ class Chonk {
      */
     enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
 
-    // `CircuitKind` and `CircuitVerificationKey` are the PXE/bbapi-facing tag + VK surface; see
-    // `chonk/circuit_input.hpp`. Re-exported as nested aliases so existing `Chonk::CircuitKind`
-    // callers keep working.
     using CircuitKind = bb::CircuitKind;
     using CircuitVerificationKey = bb::CircuitVerificationKey;
 
-    // An entry in the native verification queue. Only App and Kernel kinds appear here — the
-    // hiding kernel does not fold and never lands in the queue. The matching VK pointer is the one
-    // selected by `kind`.
     struct VerifierInputs {
         std::vector<FF> proof; // oink or HN
         std::shared_ptr<AppVerificationKey> app_honk_vk;
@@ -139,15 +133,11 @@ class Chonk {
 
         [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
 
-        // Uniform accessor: returns num_public_inputs from whichever VK is populated.
         [[nodiscard]] size_t num_public_inputs() const
         {
             return static_cast<size_t>(is_kernel() ? kernel_honk_vk->num_public_inputs
                                                    : app_honk_vk->num_public_inputs);
         }
-
-        // Uniform accessors over the kind-tagged VK pair. Centralizing the App/Kernel branch here
-        // keeps callers free of `is_kernel() ? kernel_honk_vk->X : app_honk_vk->X` ternaries.
         [[nodiscard]] std::vector<FF> vk_to_field_elements() const
         {
             return is_kernel() ? kernel_honk_vk->to_field_elements() : app_honk_vk->to_field_elements();
@@ -156,7 +146,6 @@ class Chonk {
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
-    // An entry in the stdlib verification queue. Mirrors `VerifierInputs` on the stdlib side.
     struct StdlibVerifierInputs {
         StdlibProof proof; // oink or HN
         std::shared_ptr<AppRecursiveVKAndHash> app_honk_vk_and_hash;
@@ -164,7 +153,6 @@ class Chonk {
         QUEUE_TYPE type;
         CircuitKind kind = CircuitKind::App;
 
-        // App constructor
         StdlibVerifierInputs(StdlibProof proof_,
                              std::shared_ptr<AppRecursiveVKAndHash> app_vk_and_hash_,
                              QUEUE_TYPE type_)
@@ -174,7 +162,6 @@ class Chonk {
             , kind(CircuitKind::App)
         {}
 
-        // Kernel constructor
         StdlibVerifierInputs(StdlibProof proof_,
                              std::shared_ptr<KernelRecursiveVKAndHash> kernel_vk_and_hash_,
                              QUEUE_TYPE type_)
@@ -186,7 +173,6 @@ class Chonk {
 
         [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
 
-        // num_public_inputs of the in-circuit VK (resolved as a stdlib field value).
         [[nodiscard]] size_t vk_num_public_inputs() const
         {
             return static_cast<size_t>(uint64_t(is_kernel() ? kernel_honk_vk_and_hash->vk->num_public_inputs.get_value()
@@ -275,8 +261,6 @@ class Chonk {
     /**
      * @brief What kind of circuit Chonk expects next, derived from the IVC state machine.
      *
-     * Callers that don't yet have an out-of-band tag (PXE will eventually carry one) can use this
-     * to pick the matching VK type before calling `accumulate`.
      */
     [[nodiscard]] CircuitKind next_circuit_kind() const;
 

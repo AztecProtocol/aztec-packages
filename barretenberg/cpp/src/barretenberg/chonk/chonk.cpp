@@ -277,9 +277,8 @@ Chonk::PublicInputsResult Chonk::process_app_public_inputs(std::vector<StdlibFF>
 
 /**
  * @brief Orchestrate recursive verification, databus consistency checks, and merge verification for a single circuit.
- * @details Delegates to three steps: (1) recursive folding verification via verify_folding, (2) public inputs
- * processing and databus consistency checks via process_public_inputs_and_consistency_checks, and (3) merge recursive
- * verification. Returns the output accumulator, aggregated pairing points, and merged table commitments.
+ * @details Runs recursive folding verification, public input checks, and merge recursive verification.
+ * Returns the output accumulator, aggregated pairing points, and merged table commitments.
  *
  * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/HN)} A set of inputs for recursive verification
@@ -618,20 +617,16 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
 {
     BB_BENCH_NAME("Chonk::accumulate_and_fold");
 
-    // Sanity-check the caller's `kind` against the queue state — they must agree on whether this
-    // circuit is a kernel (verification_queue is drained by the kernel recursive verifier).
     const bool state_says_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
     BB_ASSERT_EQ(state_says_kernel,
                  kind == CircuitKind::Kernel,
-                 "Chonk::accumulate_and_fold: caller-provided CircuitKind disagrees with the IVC state machine");
+                 "Chonk::accumulate_and_fold: CircuitKind disagrees with the IVC state machine");
 
-    // Transcript shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1,n} (app).
     if (kind == CircuitKind::Kernel) {
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
 #ifndef NDEBUG
-    // Make a copy of the prover_accumulation_transcript for the native verifier to use.
     auto verifier_transcript =
         Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
 #endif
@@ -661,7 +656,6 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
 #ifndef NDEBUG
     update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
-    // Keep one subtable per folded circuit and prove the batched merge after the tail kernel.
     goblin.op_queue->merge();
 
     num_circuits_accumulated++;
@@ -699,7 +693,7 @@ void Chonk::accumulate(ClientCircuit& circuit, CircuitKind kind, const CircuitVe
         accumulate_and_fold(circuit, kind, queue_type, vk);
 
         if (queue_type == QUEUE_TYPE::HN_FINAL) {
-            prover_accumulator = ProverAccumulator(); // Free; no longer needed before the hiding-kernel fold.
+            prover_accumulator = ProverAccumulator();
             goblin.prove_batch_merge();
         }
         break;

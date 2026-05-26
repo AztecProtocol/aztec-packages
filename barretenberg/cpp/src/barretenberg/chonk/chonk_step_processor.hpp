@@ -25,9 +25,6 @@ struct ChonkExecutionStep {
     std::string name;
     acir_format::AcirProgram program;
     std::vector<uint8_t> precomputed_vk;
-    // CircuitKind tag supplied by the caller (PXE / msgpack wire). The IVC state machine still
-    // computes the kind for the next slot; `process_step` validates the two agree so that a wrong
-    // tag from PXE fails loudly instead of silently mis-folding.
     CircuitKind kind = CircuitKind::App;
 };
 

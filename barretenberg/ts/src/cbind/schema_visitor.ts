@@ -222,7 +222,7 @@ export class SchemaVisitor {
       bin32: 'bytes',
       field2: 'field2', // Extension field (Fq2) - pair of field elements
       MerkleTreeId: 'enum_u32', // C++ enum serialized as uint32
-      CircuitKind: 'enum_u32', // bb::CircuitKind (uint8_t enum), travels as numeric
+      CircuitKind: 'enum_u32',
       unordered_map: 'map_u32_pair', // StateReference: map<MerkleTreeId, pair<fr, index_t>>
     };
 

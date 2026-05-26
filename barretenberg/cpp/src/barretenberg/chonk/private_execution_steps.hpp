@@ -39,8 +39,6 @@ struct PrivateExecutionStepRaw {
     std::vector<uint8_t> vk;
     // Represents the function name.
     std::string function_name;
-    // CircuitKind tag (App / Kernel / HidingKernel) written by PXE. Determines which slim
-    // proof flavor this step gets accumulated under.
     CircuitKind kind = CircuitKind::App;
 
     // Unrolled from SERIALIZATION_FIELDS for custom name for function_name.
@@ -73,7 +71,7 @@ struct PrivateExecutionSteps {
     std::vector<acir_format::AcirProgram> folding_stack; ///< ACIR programs with witnesses
     std::vector<std::string> function_names;             ///< Function names for logging
     std::vector<std::vector<uint8_t>> precomputed_vks;   ///< Serialized precomputed VKs (performance)
-    std::vector<CircuitKind> kinds;                      ///< Per-step CircuitKind from PXE
+    std::vector<CircuitKind> kinds;                      ///< Per-step CircuitKind
 
     /**
      * @brief Creates a Chonk instance and accumulates each circuit in the folding stack.

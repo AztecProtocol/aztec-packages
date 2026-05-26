@@ -9,12 +9,9 @@ namespace bb {
 
 /**
  * @brief Bundle of precomputed VKs returned by `precompute_vks`.
- * @details One entry per circuit in IVC order. The variant alternative is determined by
- * `Chonk::CircuitKind` (App / Kernel / HidingKernel) — same shape that PXE/bbapi carries.
  */
 struct PrecomputedVks {
     std::vector<Chonk::CircuitVerificationKey> per_circuit_vks;
-    std::shared_ptr<typename MegaZKFlavor::VerificationKey> hiding_kernel_vk; // convenience handle
 };
 
 std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_with_precomputed_vks(
@@ -69,8 +66,6 @@ inline PrecomputedVks precompute_vks(PrivateFunctionExecutionMockCircuitProducer
         auto circuit = circuit_producer.create_next_circuit(ivc);
         const Chonk::CircuitKind kind = ivc.next_circuit_kind();
 
-        // Derive the per-kind VK by running a throwaway ProverInstance against a copy of the
-        // builder. `dispatch_kind` selects the flavor that matches `kind`.
         Chonk::CircuitVerificationKey vk = dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
             using FlavorT = flavor_for<K>;
             using VK = typename FlavorT::VerificationKey;
@@ -79,9 +74,6 @@ inline PrecomputedVks precompute_vks(PrivateFunctionExecutionMockCircuitProducer
             return Chonk::CircuitVerificationKey{ std::make_shared<VK>(
                 ProverInstance_<FlavorT>(builder).get_precomputed()) };
         });
-        if (kind == Chonk::CircuitKind::HidingKernel) {
-            out.hiding_kernel_vk = std::get<std::shared_ptr<Chonk::HidingKernelFlavor::VerificationKey>>(vk);
-        }
 
         out.per_circuit_vks.push_back(vk);
         ivc.accumulate(circuit, kind, vk);

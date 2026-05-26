@@ -74,7 +74,6 @@ struct ChonkLoad {
 
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
-    /** @brief CircuitKind tag (App / Kernel / HidingKernel) supplied by PXE for the next IVC slot. */
     CircuitKind kind = CircuitKind::App;
     Response execute(BBApiRequest& request) &&;
     SERIALIZATION_FIELDS(circuit, kind);

@@ -33,11 +33,6 @@ export interface PrivateExecutionStep {
   witness: WitnessMap;
   /* TODO(https://github.com/AztecProtocol/barretenberg/issues/1328) this should get its own proper class. */
   vk: Buffer;
-  /**
-   * Which slim Mega flavor this step gets accumulated under
-   * (App / Kernel / HidingKernel). Set by the simulator/orchestrator
-   * when the step is produced.
-   */
   kind: CircuitKind;
   timings: {
     witgen: number;

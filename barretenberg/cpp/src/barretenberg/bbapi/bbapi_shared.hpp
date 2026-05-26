@@ -183,7 +183,6 @@ struct BBApiRequest {
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
-    // CircuitKind tag for the last loaded circuit (App / Kernel / HidingKernel), supplied by PXE.
     CircuitKind loaded_circuit_kind = CircuitKind::App;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;

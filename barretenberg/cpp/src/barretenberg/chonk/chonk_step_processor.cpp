@@ -53,14 +53,9 @@ void accumulate_next_chonk_circuit(Chonk& ivc,
                                    const std::vector<uint8_t>& precomputed_vk,
                                    ChonkPrecomputedVkPolicy policy)
 {
-    // PXE carries the kind explicitly; double-check against the IVC state machine so a stale
-    // / wrong tag fails loudly rather than silently mis-folding.
     BB_ASSERT(kind == ivc.next_circuit_kind(),
               "ChonkStepProcessor: supplied CircuitKind disagrees with IVC state machine");
 
-    // Per-kind body: resolve a typed VK for the kind's flavor according to `policy`, then hand it
-    // back to Chonk wrapped in the variant. The runtime kind → static flavor mapping lives in
-    // `dispatch_kind` so this body is identical for App / Kernel / HidingKernel.
     dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
         using FlavorT = flavor_for<K>;
         using VK = typename FlavorT::VerificationKey;

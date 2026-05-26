@@ -192,9 +192,6 @@ void process_hn_recursion_constraints(
             }
         }
 
-        // Construct a kind-tagged stdlib VK + hash for each constraint, picking the flavor that matches
-        // the corresponding queue entry (App vs Kernel). The witness layout differs per kind, so the
-        // dispatch must happen here rather than inside Chonk.
         std::vector<bb::StdlibCircuitVKAndHash> stdlib_vk_and_hashs;
         stdlib_vk_and_hashs.reserve(hn_recursion_data.first.size());
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
@@ -229,8 +226,6 @@ void process_hn_recursion_constraints(
                       "process_hn_recursion_constraints: unexpected non-empty public_inputs in HN constraint - "
                       "Noir HN constraints should have empty public_inputs (public inputs are handled by IVC IO)");
 
-            // Validate public input layout: IO region size must match VK's num_public_inputs.
-            // `io_for<kind>` resolves to the stdlib IO type (`KernelIO` / `AppIO`).
             const size_t expected_io_size = bb::dispatch_kind(
                 queue_entry.kind, [&]<bb::CircuitKind K>() -> size_t { return bb::io_for<K>::PUBLIC_INPUTS_SIZE; });
             const size_t vk_num_public_inputs = queue_entry.vk_num_public_inputs();
@@ -238,8 +233,6 @@ void process_hn_recursion_constraints(
                          vk_num_public_inputs,
                          "process_hn_recursion_constraints: IO size mismatch with VK num_public_inputs");
 
-            // Sanity check: proof vector should have at least num_public_inputs elements
-            // (HN proofs store public inputs at the start of the proof vector)
             BB_ASSERT_GTE(queue_entry.proof.size(),
                           vk_num_public_inputs,
                           "process_hn_recursion_constraints: proof vector smaller than num_public_inputs - malformed "

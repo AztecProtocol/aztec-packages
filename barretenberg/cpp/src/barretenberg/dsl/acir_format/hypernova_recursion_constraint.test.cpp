@@ -43,7 +43,6 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         return circuit;
     }
 
-    // Builds a per-kind VK (App/Kernel/HidingKernel) wrapped in the variant carried by Chonk::accumulate.
     static Chonk::CircuitVerificationKey make_circuit_vk(Builder& builder_in, CircuitKind kind)
     {
         MegaCircuitBuilder_<bb::fr> builder{ builder_in };
