@@ -17,7 +17,7 @@ class AvmHardCodedVKAndHash {
     using FF = bb::curve::BN254::ScalarField;
 
     // Precomputed VK hash (hash of all commitments below).
-    static FF vk_hash() { return FF(uint256_t("0x2ce5e4c008713d119883b056af880f6216ad3190d8274e288f37263485f60b7e")); }
+    static FF vk_hash() { return FF(uint256_t("0x08a0466331b855c2ba3d8da7e4439e32fb22bcd5d849a9abc88117199e404ab7")); }
 
     static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
