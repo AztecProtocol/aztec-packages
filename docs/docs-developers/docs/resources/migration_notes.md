@@ -9,6 +9,17 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
+
+The `privately_check_timestamp`, `privately_check_block_number`, and related caller helpers previously in `noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr` are now in `aztec-nr/aztec/src/public_checks.nr`. Consumer contracts should update their imports:
+
+```diff
+- use public_checks::utils::privately_check_timestamp;
++ use aztec::public_checks::privately_check_timestamp;
+```
+
+The on-chain `PublicChecks` contract itself is unchanged in this PR.
+
 ### [Aztec.js] `AccountManager.create` takes an options bag
 
 `AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:
