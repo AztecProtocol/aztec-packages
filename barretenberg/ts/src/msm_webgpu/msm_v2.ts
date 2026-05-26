@@ -78,6 +78,14 @@ export interface MsmConfig {
    * the C++ hook does the combine in native `bb::g1`.
    */
   combineOnHost?: boolean;
+  /** A/B knob for diagnosing whether the GPU bucket-histogram pass causes
+   *  `fused` to slow down via system-level-cache eviction. When `true`,
+   *  `prepare()` runs the level-0 histogram on the host (via the
+   *  `buildInitCounts` JS loop — ~250 ms at n=2^20) and skips the GPU
+   *  dispatch + readback. Everything else (writeBuffer of scalars,
+   *  per-level walk, fits-check, fast/slow path) is identical. Default
+   *  `false` (use GPU histogram). */
+  useHostHistogram?: boolean;
 }
 
 /** One timestamped GPU compute pass within a `run()`. `label` is the stage
@@ -113,17 +121,28 @@ export interface HostPhases {
   scalar_upload_wall: number;
   /** Bytes uploaded by `scalar_upload_wall` (`n × 32`). */
   scalar_upload_bytes: number;
-  /** Sub-phase of `host_prepare`: pure host-CPU work — `buildInitCounts`
-   *  (Booth decode + level-0 histogram) and the per-level planning loop.
-   *  Doesn't include any `writeBuffer` or `createBuffer` calls. */
-  prep_host_plan: number;
-  /** Of `prep_host_plan`, the `buildInitCounts` Booth-decode walk:
-   *  `n × numWindows` bit-extracts + counter bumps. The lion's share of the
-   *  level-0 histogram cost on large n. */
+  /** Sub-phase of `host_prepare`: the GPU-histogram phase — encoder build +
+   *  dispatch + submit + `mapAsync` wait + 2 MB readback memcpy. Excludes
+   *  the `writeBuffer` upload (that is its own `scalar_upload_wall` sibling)
+   *  and the host level walk below. */
   prep_booth_decode: number;
-  /** Of `prep_host_plan`, the per-level walk over the bucket grid that
-   *  computes the next-level counts + per-window pair/carry totals. */
+  /** Sub-phase of `host_prepare`: the host-side per-level walk over the
+   *  bucket grid that computes the next-level counts + per-window
+   *  pair/carry totals. Pure JS loop, no GPU calls. */
   prep_level_plan: number;
+  /** Sub-phase of `prep_booth_decode`: the GPU dispatch time for the
+   *  bucket-histogram pass (from `timestamp-query`). The rest of
+   *  `prep_booth_decode` is the host `mapAsync` wait + staging memcpy.
+   *  Knowing the split tells us whether the cost is GPU work or host idle.
+   *  Zero when profile is off. */
+  bucket_histogram_gpu: number;
+  /** Sub-phase of `host_prepare`: everything not captured by the other
+   *  prepare sub-phases — fits-check, `ensureScratch`, bind-group rebuild,
+   *  per-level uniform writes on the fast path, etc.
+   *  Equals `host_prepare − scalar_upload_wall − prep_booth_decode −
+   *  prep_level_plan` and is stamped directly to avoid clamping a
+   *  near-zero residual to zero on the fast path. */
+  prep_other: number;
 }
 
 /** Per-MSM profile returned by `MsmV2.run()` when `profile` is set. */
@@ -214,19 +233,13 @@ function boothDigit(scalar: bigint, w: number, c: number): { bucket: number; sig
 }
 
 /**
- * Build the level-0 per-bucket histogram by reading each scalar's c-bit
- * windows directly out of the LE byte buffer — no `bigint` shifts, no
- * intermediate `bigint[]` array.
- *
- * For c ≤ 24 (every value pickC returns is ≤ 15) the c+1 bits of a window
- * plus its lookback fit inside a single u32 read (we load 4 bytes starting
- * at the byte containing the window's low bit and mask). Booth uses the
- * lookback bit (top bit of the window below), so we need c+1 bits; with
- * `c+1 ≤ 25 + bitShift ≤ 32`, one u32 load per window is enough.
- *
- * Replaces the host hot path that was doing `n × numWindows` BigInt shifts
- * (~80–200 ms for n=88_899 — the dominant `prepare()` cost on the M4 Pro
- * end-to-end bench before this change).
+ * Host-side per-bucket histogram of carry-free signed-Booth digits. Reads
+ * each scalar's c-bit windows directly out of the LE byte buffer (one u32
+ * load per window, no `bigint` shifts) and increments
+ * `counts[w * BW + bucket]`. Mirrors the GPU `bucket_histogram` kernel
+ * exactly — preserved here as the bypass path for the `useHostHistogram`
+ * config flag (A/B experiment for the GPU-dispatch cache-thrash hypothesis).
+ * Single-threaded JS — ~250 ms at n=2^20.
  */
 function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindows: number, BW: number): Uint32Array {
   const initCounts = new Uint32Array(numWindows * BW);
@@ -239,10 +252,6 @@ function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindow
       const inOff = lo >>> 3;
       const byteOff = off + inOff;
       const bitShift = lo & 7;
-      // Load up to 4 bytes covering bits [lo, lo+c). Bytes past index 31 of
-      // *this* scalar must read as 0 — otherwise the high windows (e.g. w=19 /
-      // c=13 → bits 247..259) pull in the next scalar's low bytes and produce
-      // garbage buckets. The mirror WGSL `read_bits` does the same bound check.
       const b0 = scalarsBuf[byteOff];
       const b1 = inOff + 1 < 32 ? scalarsBuf[byteOff + 1] : 0;
       const b2 = inOff + 2 < 32 ? scalarsBuf[byteOff + 2] : 0;
@@ -255,13 +264,12 @@ function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindow
       const encode = (raw + 1) >>> 1;
       const bucket = (((encode - neg) >>> 0) ^ negMask) & cMask;
       initCounts[w * BW + bucket]++;
-      // Lookback for window w+1 is the top bit of window w — i.e. bit (lo+c-1).
-      // Same u32 load already covers it; just mask + shift.
       lookback = (v >>> (bitShift + c - 1)) & 1;
     }
   }
   return initCounts;
 }
+
 
 interface LevelPlan {
   // pair_blocks_per_window: the per-window count of "pair_blocks" the fused
@@ -626,6 +634,13 @@ export class MsmV2Pool {
   private _scratchEpoch = 0;
   private _device: GPUDevice;
 
+  // Holds a `scalarsRawBuf` between `ensureScalarsRawBuf()` (called early
+  // in prepare so the GPU Booth-histogram has a buffer to read) and the
+  // matching `ensureScratch()` (called later in the same prepare to grow
+  // the rest of the scratch). On `ensureScratch`, the pending buffer is
+  // adopted into `_scratch.scalarsRawBuf` and this field cleared.
+  private _pendingScalarsRawBuf: GPUBuffer | null = null;
+
   /** Bumped whenever `ensureScratch` reallocates any buffer. MsmV2
    * instances cache the value at bind-group build time and rebuild when
    * it advances. */
@@ -635,6 +650,53 @@ export class MsmV2Pool {
   /** Current shared scratch buffers. Null until first ensureScratch call. */
   get scratch(): SharedScratch | null {
     return this._scratch;
+  }
+
+  /**
+   * Lazy grow of the pool's `scalarsRawBuf` BEFORE the rest of the scratch
+   * is sized. The Booth-histogram pass needs an input buffer at the very
+   * start of `MsmV2.prepare()`, but the histogram's counts are themselves
+   * an input to the per-level plan that decides how large the rest of the
+   * scratch needs to be. So we split scalars-buffer growth out: this
+   * method allocates (or grows) just that one buffer, and the matching
+   * `ensureScratch` call later in the same prepare() picks it up.
+   *
+   * Returns the buffer. Caller writeBuffer's the scalar bytes into it.
+   * Bumps `scratchEpoch` iff the buffer identity changed (so bind groups
+   * referencing it know to rebuild).
+   */
+  ensureScalarsRawBuf(scalarsBytes: number): GPUBuffer {
+    const cur = this._maxDims;
+    // Case 1: scratch already exists and its scalarsRawBuf is big enough.
+    if (this._scratch && cur.scalarsBytes >= scalarsBytes) {
+      return this._scratch.scalarsRawBuf;
+    }
+    // Case 2: scratch exists but the buffer is too small. Replace in place.
+    if (this._scratch) {
+      this._scratch.scalarsRawBuf.destroy();
+      const buf = this._device.createBuffer({
+        size: Math.max(scalarsBytes, 4),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+      this._scratch.scalarsRawBuf = buf;
+      cur.scalarsBytes = scalarsBytes;
+      this._scratchEpoch++;
+      return buf;
+    }
+    // Case 3: no scratch yet — stash in the pending field and let the next
+    // `ensureScratch` adopt it. Same growth-by-doubling protocol as the
+    // rest of the buffers.
+    if (this._pendingScalarsRawBuf && cur.scalarsBytes >= scalarsBytes) {
+      return this._pendingScalarsRawBuf;
+    }
+    this._pendingScalarsRawBuf?.destroy();
+    const buf = this._device.createBuffer({
+      size: Math.max(scalarsBytes, 4),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    this._pendingScalarsRawBuf = buf;
+    cur.scalarsBytes = scalarsBytes;
+    return buf;
   }
 
   private constructor(
@@ -721,7 +783,13 @@ export class MsmV2Pool {
     let countsBufs = s?.countsBufs;
     let offsetsBufs = s?.offsetsBufs;
     let prefScratchBuf = s?.prefScratchBuf;
-    let scalarsRawBuf = s?.scalarsRawBuf;
+    // Adopt the pending scalarsRawBuf (allocated by an earlier
+    // `ensureScalarsRawBuf` call in this same prepare). The growth check
+    // below stays a no-op if the pending buffer already fits `dims.scalarsBytes`
+    // — `ensureScalarsRawBuf` updates `cur.scalarsBytes` so the check correctly
+    // sees an up-to-date max.
+    let scalarsRawBuf = s?.scalarsRawBuf ?? this._pendingScalarsRawBuf ?? undefined;
+    this._pendingScalarsRawBuf = null;
     let redBuf = s?.redBuf;
     let isPresentBuf = s?.isPresentBuf;
     let reducePrefScratch = s?.reducePrefScratch;
@@ -1060,6 +1128,8 @@ export class MsmV2Pool {
       s.reducePrefScratch.destroy();
       this._scratch = null;
     }
+    this._pendingScalarsRawBuf?.destroy();
+    this._pendingScalarsRawBuf = null;
   }
 }
 
@@ -1095,6 +1165,9 @@ export class MsmV2 {
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
+  // A/B knob: when true, prepare() does the level-0 histogram on the host
+  // (buildInitCounts) and skips the GPU dispatch. See MsmConfig.
+  private useHostHistogram = false;
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -1111,6 +1184,10 @@ export class MsmV2 {
   private carryPipeL0!: GPUComputePipeline;
   private finalizePipeL0!: GPUComputePipeline;
   private decomposePipe!: GPUComputePipeline;
+  // Booth-recoded per-bucket histogram pipeline. Dispatched at the very
+  // start of `prepare()` to feed the level walk with GPU-computed counts —
+  // replaces the 250 ms host Booth-decode walk at n=2^20.
+  private histogramPipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -1129,6 +1206,7 @@ export class MsmV2 {
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
+  private histogramLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
@@ -1188,6 +1266,30 @@ export class MsmV2 {
   private nConvMeta = 0;
   private nReduceInit = 0;
   private numWgsFinalize = 0;
+  // GPU-side Booth-recoded per-bucket histogram. Sized to `bTotal` u32; reused
+  // across prepares on this instance (cleared at the top of each dispatch).
+  private histogramBuf!: GPUBuffer;
+  // CPU-visible staging that `histogramBuf` is copied into; mapped for read
+  // each prepare so the host can run the per-level plan walk.
+  private histogramStagingBuf!: GPUBuffer;
+  // (n, num_windows, c, scalar_words) uniform — fixed for this instance's
+  // lifetime, written once in create().
+  private histogramParamsBuf!: GPUBuffer;
+  // Bind group for the histogram pass. Re-built when the pool's
+  // `scalarsRawBuf` identity changes (scratchEpoch advance).
+  private histogramBind: GPUBindGroup | null = null;
+  private histogramBindScalarsBuf: GPUBuffer | null = null;
+  // Reusable host-side Uint32Array holding the latest histogram readback;
+  // sized to `bTotal` and overwritten on each prepare (allocated lazily in
+  // prepare on first call).
+  private histogramHost: Uint32Array | null = null;
+  // Timestamp-query plumbing for the prepare()-time bucket-histogram pass.
+  // Lets us split `prep_booth_decode` into "GPU dispatch time" vs "host
+  // mapAsync wait + memcpy" so we know whether the bottleneck is GPU work
+  // or host idle. Allocated in create() when profile is enabled.
+  private histogramQuerySet: GPUQuerySet | null = null;
+  private histogramTsResolveBuf: GPUBuffer | null = null;
+  private histogramTsStagingBuf: GPUBuffer | null = null;
   private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
@@ -1210,8 +1312,15 @@ export class MsmV2 {
   private lastPrepareKind: 'fast' | 'slow' = 'slow';
   private lastScalarUploadMs = 0;
   private lastScalarUploadBytes = 0;
-  private lastPrepHostPlanMs = 0;
+  // Residual host_prepare time that isn't accounted for by scalar_upload_wall,
+  // prep_booth_decode, or prep_level_plan — i.e. fits-check + ensureScratch +
+  // bind-group creation (slow path) or per-level uniform writes (fast path).
+  // Stamped at the bottom of prepare() in both branches.
+  private lastPrepOtherMs = 0;
   private lastPrepBoothDecodeMs = 0;
+  // GPU dispatch time of the prepare()-time bucket-histogram pass, in ms,
+  // measured via `timestamp-query`. 0 when profile is off.
+  private lastBucketHistogramGpuMs = 0;
   private lastPrepLevelPlanMs = 0;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
@@ -1275,6 +1384,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
+    m.useHostHistogram = config?.useHostHistogram ?? false;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1383,6 +1493,8 @@ export class MsmV2 {
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform']);
+    // 3 bindings: scalars (read), counts (atomic<u32> storage), params.
+    m.histogramLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform']);
@@ -1431,6 +1543,51 @@ export class MsmV2 {
       m.finalizeLayoutL0,
     );
     m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
+    m.histogramPipe = await compile(
+      sm.gen_bucket_histogram_shader(WGI, m.BW),
+      `bucket-histogram-c${m.c}`,
+      m.histogramLayout,
+    );
+
+    // Allocate the per-instance histogram + staging buffers and the fixed
+    // params uniform. These are sized by `bTotal = NUM_WINDOWS × BW` (c is
+    // fixed for the life of the instance), so they never grow and stay
+    // pinned. The bind group is built lazily inside prepare() because
+    // `scalarsRawBuf` doesn't exist until the first `ensureScalarsRawBuf`
+    // call.
+    const histogramBytes = m.bTotal * 4;
+    m.histogramBuf = device.createBuffer({
+      size: histogramBytes,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    m.histogramStagingBuf = device.createBuffer({
+      size: histogramBytes,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    m.histogramParamsBuf = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    // params = (n, num_windows, c, scalar_words). Fixed for this instance.
+    device.queue.writeBuffer(
+      m.histogramParamsBuf,
+      0,
+      new Uint32Array([n, m.numWindows, m.c, 8]),
+    );
+    // Profile mode: a dedicated 2-slot timestamp-query for the prepare-time
+    // histogram pass so we can split `prep_booth_decode` into "GPU dispatch
+    // wall" vs "host mapAsync wait + readback".
+    if (m.profile) {
+      m.histogramQuerySet = device.createQuerySet({ type: 'timestamp', count: 2 });
+      m.histogramTsResolveBuf = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+      });
+      m.histogramTsStagingBuf = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+    }
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
@@ -1492,7 +1649,7 @@ export class MsmV2 {
         for (let k = 0; k < n; k++) {
           dummy[k * 32 + 31] &= 0x1f;
         }
-        m.prepare(dummy);
+        await m.prepare(dummy);
         for (let w = 0; w < warmupRuns; w++) await m.run();
       } catch (e) {
         console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
@@ -1513,7 +1670,7 @@ export class MsmV2 {
    * bind a pool already aligned to their MSM (the dev page) — that path
    * stays byte-identical to the no-offset behavior.
    */
-  prepare(scalarsBuf: Uint8Array, srsOffset: number = 0): void {
+  async prepare(scalarsBuf: Uint8Array, srsOffset: number = 0): Promise<void> {
     // Cache key includes srsOffset so a re-prepare with same scalars but
     // different offset rewrites the uniform.
     if (this.preparedFor === scalarsBuf && this.preparedSrsOffset === srsOffset) return;
@@ -1546,9 +1703,95 @@ export class MsmV2 {
       scalars = new Uint32Array(n * 8);
       new Uint8Array(scalars.buffer).set(scalarsBuf);
     }
-    // Level-0 histogram from the raw bytes — no BigInt in the hot path.
+    // One writeBuffer for the whole prepare — both the histogram pass and the
+    // run-time pipeline read this same buffer, so the fast/slow paths below
+    // skip their own writeBuffer. Chrome's `writeBuffer` is host-blocking on
+    // large buffers (a synchronous memcpy from the JS-side TypedArray into a
+    // driver-managed staging area before returning), so its wall is a real
+    // sub-phase of host_prepare worth tracking separately from the
+    // GPU-histogram phase below — `tBooth0` is therefore stamped AFTER the
+    // upload so `prep_booth_decode` reflects only the histogram dispatch +
+    // readback, not the upload.
+    const scalarsRawBuf = this.pool.ensureScalarsRawBuf(scalars.byteLength);
+    this.scalarsRawBuf = scalarsRawBuf;
+    const tScalarUpload0 = performance.now();
+    device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
+    this.lastScalarUploadMs = performance.now() - tScalarUpload0;
+    this.lastScalarUploadBytes = scalars.byteLength;
+    // Level-0 histogram. Default path: GPU dispatch. Bypass path
+    // (`useHostHistogram`): host JS loop via `buildInitCounts`, no GPU
+    // dispatch, no mapAsync, no readback memcpy. The bypass is an A/B
+    // diagnostic — it isolates whether the GPU histogram pass (which
+    // touches ~34 MB and likely evicts SLC) is the cause of the per-pass
+    // GPU regression observed when the GPU path is enabled.
     const tBooth0 = performance.now();
-    const initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+    let initCounts: Uint32Array;
+    if (this.useHostHistogram) {
+      // No GPU work in this block — write `lastBucketHistogramGpuMs = 0`
+      // and let the rest of the pipeline run as normal.
+      this.lastBucketHistogramGpuMs = 0;
+      initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+    } else {
+      // Rebuild the histogram bind group when scalarsRawBuf's identity changes —
+      // ensureScalarsRawBuf bumped scratchEpoch in that case, which is the
+      // same signal the run-time bind groups consult.
+      if (this.histogramBind === null || this.histogramBindScalarsBuf !== scalarsRawBuf) {
+        this.histogramBind = device.createBindGroup({
+          layout: this.histogramLayout,
+          entries: [
+            { binding: 0, resource: { buffer: scalarsRawBuf } },
+            { binding: 1, resource: { buffer: this.histogramBuf } },
+            { binding: 2, resource: { buffer: this.histogramParamsBuf } },
+          ],
+        });
+        this.histogramBindScalarsBuf = scalarsRawBuf;
+      }
+      {
+        const enc = device.createCommandEncoder();
+        enc.clearBuffer(this.histogramBuf);
+        const passDesc: GPUComputePassDescriptor = {};
+        if (this.profile && this.histogramQuerySet) {
+          passDesc.timestampWrites = {
+            querySet: this.histogramQuerySet,
+            beginningOfPassWriteIndex: 0,
+            endOfPassWriteIndex: 1,
+          };
+        }
+        const pass = enc.beginComputePass(passDesc);
+        pass.setPipeline(this.histogramPipe);
+        pass.setBindGroup(0, this.histogramBind);
+        pass.dispatchWorkgroups(Math.ceil(n / this.wgi), NUM_WINDOWS, 1);
+        pass.end();
+        enc.copyBufferToBuffer(this.histogramBuf, 0, this.histogramStagingBuf, 0, B_TOTAL * 4);
+        if (this.profile && this.histogramQuerySet && this.histogramTsResolveBuf && this.histogramTsStagingBuf) {
+          enc.resolveQuerySet(this.histogramQuerySet, 0, 2, this.histogramTsResolveBuf, 0);
+          enc.copyBufferToBuffer(this.histogramTsResolveBuf, 0, this.histogramTsStagingBuf, 0, 16);
+        }
+        device.queue.submit([enc.finish()]);
+        // Map the histogram counts and the timestamp staging in parallel.
+        // Counts is 2 MB; timestamps are 16 bytes — they resolve effectively
+        // together, so no extra round-trip cost.
+        if (this.profile && this.histogramTsStagingBuf) {
+          await Promise.all([
+            this.histogramStagingBuf.mapAsync(GPUMapMode.READ),
+            this.histogramTsStagingBuf.mapAsync(GPUMapMode.READ),
+          ]);
+          const tsBytes = this.histogramTsStagingBuf.getMappedRange();
+          const ts = new BigUint64Array(tsBytes.slice(0));
+          this.histogramTsStagingBuf.unmap();
+          this.lastBucketHistogramGpuMs = Number(ts[1] - ts[0]) / 1e6;
+        } else {
+          await this.histogramStagingBuf.mapAsync(GPUMapMode.READ);
+          this.lastBucketHistogramGpuMs = 0;
+        }
+      }
+      if (this.histogramHost === null || this.histogramHost.length !== B_TOTAL) {
+        this.histogramHost = new Uint32Array(B_TOTAL);
+      }
+      this.histogramHost.set(new Uint32Array(this.histogramStagingBuf.getMappedRange()));
+      this.histogramStagingBuf.unmap();
+      initCounts = this.histogramHost;
+    }
     this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
 
     // Ping-pong two pre-allocated count buffers and fold the wstride1
@@ -1661,12 +1904,12 @@ export class MsmV2 {
       MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
     }
 
-    // Stamp the host-CPU portion of prepare(): buildInitCounts + level-plan
-    // loop + estimateMem are everything above this point, all pure JS with no
-    // GPU calls. Everything below (fits-check, writeBuffers, createBuffers)
-    // touches the device. Surfacing this separately tells us whether
-    // host_prepare is dominated by JS loops or by GPU uploads.
-    this.lastPrepHostPlanMs = performance.now() - tPrepStart;
+    // `prep_other` is computed at each path's exit point as the residual
+    // `lastPrepareMs − scalar_upload − booth_decode − level_plan`. That
+    // catches the Uint32Array view setup at the top, this estimateMem +
+    // numBatches walk, the fits-check, ensureScratch + bind-group creation
+    // on the slow path, and the per-level uniform rewrites on the fast
+    // path — everything in `host_prepare` not in a named sub-phase.
 
     // --- Fast path: subsequent prepare() with a plan that fits in the
     // already-allocated buffers + bind groups. Skips the destroy+realloc of
@@ -1686,13 +1929,17 @@ export class MsmV2 {
       MAXC <= this.capMAXC &&
       this.boundEpoch === this.pool.scratchEpoch;
     if (fits) {
-      // fastPathRewrite times the scalar writeBuffer in isolation and sets
-      // lastScalarUploadMs / lastScalarUploadBytes directly.
-      this.fastPathRewrite(scalars, srsOffset, levelPlans, levels);
+      // Scalars are already uploaded at the top of prepare(); fastPathRewrite
+      // just rewrites the per-level uniforms.
+      this.fastPathRewrite(srsOffset, levelPlans, levels);
       this.preparedFor = scalarsBuf;
       this.preparedSrsOffset = srsOffset;
       this.lastPrepareKind = 'fast';
       this.lastPrepareMs = performance.now() - tPrepStart;
+      this.lastPrepOtherMs = Math.max(
+        0,
+        this.lastPrepareMs - this.lastScalarUploadMs - this.lastPrepBoothDecodeMs - this.lastPrepLevelPlanMs,
+      );
       return;
     }
 
@@ -1840,12 +2087,9 @@ export class MsmV2 {
     const scatterPlanRing = scratch.scatterPlanRing;
     const carryPlanRing = scratch.carryPlanRing;
     const prefScratchBuf = scratch.prefScratchBuf;
-    const scalarsRawBuf = scratch.scalarsRawBuf;
-    const tScalarUpload0 = performance.now();
-    device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
-    this.lastScalarUploadMs = performance.now() - tScalarUpload0;
-    this.lastScalarUploadBytes = scalars.byteLength;
-    this.scalarsRawBuf = scalarsRawBuf;
+    // Scalars are already uploaded and timed at the top of prepare(); the
+    // pool adopted our pending scalarsRawBuf, so scratch.scalarsRawBuf is
+    // the same identity we already cached on `this`.
     const bucketAndSignBuf = scratch.bucketAndSignBuf;
     const rowPtrBuf = scratch.rowPtrBuf;
     const valIdxBuf = scratch.valIdxBuf;
@@ -1874,7 +2118,7 @@ export class MsmV2 {
     }
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb]),
+      mkBind(this.decomposeLayout, [scratch.scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb]),
     );
     // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
     // [0, batchSlots) region is dormant until convActive (which runs strictly
@@ -2095,6 +2339,10 @@ export class MsmV2 {
     this.preparedSrsOffset = srsOffset;
     this.lastPrepareKind = 'slow';
     this.lastPrepareMs = performance.now() - tPrepStart;
+    this.lastPrepOtherMs = Math.max(
+      0,
+      this.lastPrepareMs - this.lastScalarUploadMs - this.lastPrepBoothDecodeMs - this.lastPrepLevelPlanMs,
+    );
   }
 
   /**
@@ -2114,18 +2362,14 @@ export class MsmV2 {
    * Caller has already verified `fits` (M1, maxTotalPairBlocks, maxTotalCarries,
    * levels, numBatches, MAXC all ≤ the saved caps).
    */
-  private fastPathRewrite(scalars: Uint32Array, srsOffset: number, levelPlans: LevelPlan[], levels: number): void {
+  private fastPathRewrite(srsOffset: number, levelPlans: LevelPlan[], levels: number): void {
     const device = this.device;
     const WGI = this.wgi;
     const FUSED_TILE = this.fusedTileSize;
-    // Time the scalar writeBuffer in isolation — on the fast path it's the
-    // dominant cost at large n (32 MiB at ~120 MiB/s ≈ 270 ms at n=2^20), so
-    // surfacing it separately from the rest of prepare() is the whole point
-    // of the profile mode.
-    const tScalarUpload0 = performance.now();
-    device.queue.writeBuffer(this.scalarsRawBuf, 0, scalars as BufferSource);
-    this.lastScalarUploadMs = performance.now() - tScalarUpload0;
-    this.lastScalarUploadBytes = scalars.byteLength;
+    // Scalars were uploaded (and timed into `lastScalarUploadMs`) at the
+    // top of prepare(), before the GPU histogram dispatch. Nothing to do
+    // here for the scalars buffer — the histogram pass and the run-time
+    // pipeline both consume the same buffer.
     if (srsOffset !== this.preparedSrsOffset) {
       device.queue.writeBuffer(this.convActiveParamsBuf, 4, new Uint32Array([srsOffset]));
     }
@@ -2407,12 +2651,18 @@ export class MsmV2 {
           host_encode: encT1 - wallT0,
           host_submit_wait: submitWaitT1 - encT1,
           host_decode: decodeT1 - submitWaitT1,
-          wall: performance.now() - wallT0,
+          // Stamp at `decodeT1`, NOT `performance.now()` — `readProfilePassSamples`
+          // above adds another mapAsync wait that exists only in profile mode.
+          // Including it in `wall` would make profile-mode `wall` strictly
+          // larger than non-profile `wall` and inflate `gpu_other` in the
+          // per-pass table.
+          wall: decodeT1 - wallT0,
           scalar_upload_wall: this.lastScalarUploadMs,
           scalar_upload_bytes: this.lastScalarUploadBytes,
-          prep_host_plan: this.lastPrepHostPlanMs,
           prep_booth_decode: this.lastPrepBoothDecodeMs,
           prep_level_plan: this.lastPrepLevelPlanMs,
+          bucket_histogram_gpu: this.lastBucketHistogramGpuMs,
+          prep_other: this.lastPrepOtherMs,
         },
         numBatches: this.numBatches,
         batchWindows: this.batchWindows,
@@ -2467,5 +2717,17 @@ export class MsmV2 {
     this.preparedFor = null;
     this.querySet?.destroy();
     this.querySet = null;
+    this.histogramBuf?.destroy();
+    this.histogramStagingBuf?.destroy();
+    this.histogramParamsBuf?.destroy();
+    this.histogramBind = null;
+    this.histogramBindScalarsBuf = null;
+    this.histogramHost = null;
+    this.histogramQuerySet?.destroy();
+    this.histogramQuerySet = null;
+    this.histogramTsResolveBuf?.destroy();
+    this.histogramTsResolveBuf = null;
+    this.histogramTsStagingBuf?.destroy();
+    this.histogramTsStagingBuf = null;
   }
 }

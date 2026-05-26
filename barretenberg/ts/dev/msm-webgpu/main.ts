@@ -34,7 +34,7 @@ type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 // Per-rep profiling capture from a single WebGPU MSM run. Null on non-profile
 // reps (the sweep / Run / Run × 5 buttons all run with profile=false because
 // `timestamp-query` enrolment doubles createQuerySet/buffer churn). Populated
-// only by the Profile (× 5) button.
+// only by the Profile button (the run-profile control).
 type ProfileCapture = ProfileBreakdown | null;
 
 const $log = document.getElementById('log') as HTMLDivElement;
@@ -62,7 +62,7 @@ const SRS_NUM_POINTS = 1 << LOGN_MAX;
 // 20 reps × 3 sizes ≈ 60 timed runs — well under a minute on Metal-3 at the
 // largest size, and tight enough confidence intervals on the small ones that
 // sub-millisecond stages don't bounce around with run-to-run jitter.
-const PROFILE_REPS = 20;
+const PROFILE_REPS = 40;
 // Sizes the Profile button sweeps in one click. One column per size in the
 // rendered breakdown table.
 const PROFILE_SIZES = [12, 16, 20] as const;
@@ -112,6 +112,11 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
+    // `?hostHist=1`: route prepare() through the host buildInitCounts loop
+    // (no GPU histogram dispatch). A/B knob for the SLC cache-thrash
+    // hypothesis — compare per-pass `fused` between this and the default
+    // (GPU-histogram) path.
+    useHostHistogram: q.get('hostHist') === '1',
   };
 })();
 
@@ -554,7 +559,7 @@ async function runWebGpuOnce(
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}${profile ? ' [profile]' : ''}`);
   // Plan the level tree for these scalars + (re)build the data-dependent
   // buffers — untimed setup, outside the `t0` window.
-  msm.prepare(inputs.scalarsBuf);
+  await msm.prepare(inputs.scalarsBuf);
   // prepare() reallocates every data-dependent buffer; the first run() on
   // those fresh buffers pays a one-time first-use cost (driver lazy
   // zero-init / first-touch). Warm it out of the timed window so the
@@ -568,7 +573,7 @@ async function runWebGpuOnce(
     const reidentified = new Uint8Array(inputs.scalarsBuf.buffer, inputs.scalarsBuf.byteOffset, inputs.scalarsBuf.byteLength);
     // Force a non-cached prepare so host_prepare reflects the real cost
     // (typically the fast-path uniform rewrite + scalar upload).
-    msm.prepare(reidentified);
+    await msm.prepare(reidentified);
   }
   const t0 = performance.now();
   const gpu = await msm.run();
@@ -721,9 +726,10 @@ interface MedianedHost {
   wall: number;
   scalar_upload_wall: number;
   scalar_upload_bytes: number;
-  prep_host_plan: number;
   prep_booth_decode: number;
+  bucket_histogram_gpu: number;
   prep_level_plan: number;
+  prep_other: number;
   numBatches: number;
   batchWindows: number;
 }
@@ -742,9 +748,10 @@ function aggregateHost(captures: ProfileCapture[]): MedianedHost | null {
     wall: pick(h => h.wall),
     scalar_upload_wall: pick(h => h.scalar_upload_wall),
     scalar_upload_bytes: xs[0].host.scalar_upload_bytes,
-    prep_host_plan: pick(h => h.prep_host_plan),
     prep_booth_decode: pick(h => h.prep_booth_decode),
+    bucket_histogram_gpu: pick(h => h.bucket_histogram_gpu),
     prep_level_plan: pick(h => h.prep_level_plan),
+    prep_other: pick(h => h.prep_other),
     numBatches: xs[0].numBatches,
     batchWindows: xs[0].batchWindows,
   };
@@ -920,20 +927,27 @@ function renderProfileTable(
   // in-wall phases (encode, submit_wait, decode) still use `wall` as the
   // denominator so they continue to sum to ~100%.
   //
-  // Two indent levels: `host_prepare` and the three in-wall phases are
-  // top-level. `prep_host_plan`, `scalar_upload_wall`, and `prep_other`
-  // (the inferred residual) are sub-phases of `host_prepare` — indented
-  // and prefixed with "↳" so the user reads them as a decomposition.
-  // `indent` is the row's nesting depth: 0 = top-level, 1 = sub-phase of
-  // host_prepare, 2 = sub-phase of prep_host_plan. Renders as a "↳" prefix
-  // repeated per level so the decomposition reads as a tree.
+  // Containment hierarchy as actually measured in `MsmV2.prepare()`:
+  //
+  //   host_prepare
+  //     ├─ scalar_upload_wall   (writeBuffer host call)
+  //     ├─ prep_booth_decode    (encode + dispatch + mapAsync + readback)
+  //     │    └─ bucket_histogram_gpu   (GPU dispatch, timestamped)
+  //     ├─ prep_level_plan      (host CPU level walk)
+  //     └─ prep_other           (residual — see msm_v2.ts)
+  //
+  // The three in-wall phases (host_encode / host_submit_wait / host_decode)
+  // hang off `wall`, not `host_prepare`. They use `wall` as their denominator
+  // so they continue to sum to ~100% of `wall`. Everything else uses `e2e`
+  // (= host_prepare + wall) so the rows comparing prepare and run share the
+  // same denominator.
   const hostPhases: { key: keyof MedianedHost; denom: 'wall' | 'e2e'; indent?: 0 | 1 | 2 }[] = [
     { key: 'host_prepare', denom: 'e2e' },
-    { key: 'prep_host_plan', denom: 'e2e', indent: 1 },
-    { key: 'prep_booth_decode', denom: 'e2e', indent: 2 },
-    { key: 'prep_level_plan', denom: 'e2e', indent: 2 },
     { key: 'scalar_upload_wall', denom: 'e2e', indent: 1 },
-    // prep_other inserted between scalar_upload_wall and host_encode (see below).
+    { key: 'prep_booth_decode', denom: 'e2e', indent: 1 },
+    { key: 'bucket_histogram_gpu', denom: 'e2e', indent: 2 },
+    { key: 'prep_level_plan', denom: 'e2e', indent: 1 },
+    { key: 'prep_other', denom: 'e2e', indent: 1 },
     { key: 'host_encode', denom: 'wall' },
     { key: 'host_submit_wait', denom: 'wall' },
     { key: 'host_decode', denom: 'wall' },
@@ -955,29 +969,7 @@ function renderProfileTable(
     return `<tr><td>${prefix}${key}${note}</td>${cells}</tr>`;
   };
 
-  // prep_other = host_prepare − prep_host_plan − scalar_upload_wall. Catches
-  // the per-level uniform writes in fastPathRewrite plus any per-rep
-  // overhead the named sub-phases didn't cover. Should be tiny on the fast
-  // path; if it's not, there's an unaccounted-for sink in prepare().
-  const prepOtherRow = `<tr><td><span class="samples">↳</span> prep_other <span class="samples">(% of e2e, host_prepare − above)</span></td>${cols
-    .map(({ host, wall }) => {
-      if (!host) return `<td>—</td>`;
-      const other = Math.max(0, host.host_prepare - host.prep_host_plan - host.scalar_upload_wall);
-      return renderPlainCell(other, host.host_prepare + wall);
-    })
-    .join('')}</tr>`;
-
-  const hostRows = [
-    renderHostRow(hostPhases[0]), // host_prepare
-    renderHostRow(hostPhases[1]), // ↳ prep_host_plan
-    renderHostRow(hostPhases[2]), // ↳↳ prep_booth_decode
-    renderHostRow(hostPhases[3]), // ↳↳ prep_level_plan
-    renderHostRow(hostPhases[4]), // ↳ scalar_upload_wall
-    prepOtherRow,                 // ↳ prep_other (residual)
-    renderHostRow(hostPhases[5]), // host_encode
-    renderHostRow(hostPhases[6]), // host_submit_wait
-    renderHostRow(hostPhases[7]), // host_decode
-  ].join('');
+  const hostRows = hostPhases.map(renderHostRow).join('');
 
   // e2e per-MSM = host_prepare + wall — the total wall a caller of MsmV2
   // sees for one prepare()+run() round-trip.
@@ -1049,11 +1041,6 @@ function renderProfileTable(
           }),
         ].join(','),
       ),
-      ['prep_other', ...cols.flatMap(c => {
-        if (!c.host) return ['', ''];
-        const other = Math.max(0, c.host.host_prepare - c.host.prep_host_plan - c.host.scalar_upload_wall);
-        return csvNumFor(other, c.host.host_prepare + c.wall);
-      })].join(','),
     ];
     console.log([csvHeader, ...csvBody].join('\n'));
   }
@@ -1356,7 +1343,7 @@ $runSweep.addEventListener('click', async () => {
 
 /**
  * WebGPU-only profile harness: at each of log₂(n) ∈ {12, 16, 20}, runs
- * `PROFILE_REPS` MSMs (currently 20) with `timestamp-query` enrolled,
+ * `PROFILE_REPS` MSMs with `timestamp-query` enrolled,
  * medianises per-pass GPU times + host phases, and renders one breakdown
  * table with one column per size. The first run after each `prepare()` is a
  * throwaway warm-up (the existing `runWebGpuOnce` pattern). No WASM, no
@@ -1537,7 +1524,7 @@ $runSanity.addEventListener('click', async () => {
     logMemSnapshot('sanity-end');
     log('ok', `[sanity] PASS in ${gpu.ms.toFixed(0)} ms`);
     // Sanity runs with profile=false, so per-pass breakdown is unavailable
-    // — click the Profile (× 5) button for that.
+    // — click the Profile button for that.
     $results.innerHTML = '';
     $results.classList.remove('visible');
     // Expose the raw capture so Playwright-driven profile scripts can

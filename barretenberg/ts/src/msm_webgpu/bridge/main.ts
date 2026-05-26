@@ -375,7 +375,7 @@ export class WebGpuMsmHost {
       // SRS-prefix MSMs pass the offset so MsmV2 bakes it into the
       // per-point indices written into active_sums; off-SRS uses the
       // one-off pool starting at index 0 (offset=0).
-      msm.prepare(scalars, oneOff === null ? srsOffset : 0);
+      await msm.prepare(scalars, oneOff === null ? srsOffset : 0);
       const tPrepEnd = performance.now();
       const { windowSums, c } = await msm.run();
       const tRunEnd = performance.now();
@@ -561,7 +561,7 @@ export class WebGpuMsmHost {
         }
         const msm = await this.getOrCreateMsm(n);
         const scalarsBytes = new Uint8Array(this.wasmMemory.buffer, scalarsBase + scalarsOff, n * SCALAR_BYTES);
-        msm.prepare(scalarsBytes, srsOffset);
+        await msm.prepare(scalarsBytes, srsOffset);
         msms[i] = msm;
         resultOffs[i] = resultOff;
         // 4-byte align so the next MSM's u32 writes from the GPU are aligned.
@@ -647,7 +647,7 @@ export class WebGpuMsmHost {
       const msm = await this.getOrCreateMsm(n);
       const scalarsBytes = new Uint8Array(this.wasmMemory.buffer, scalarsBase + scalarsOff, n * SCALAR_BYTES);
       const tPrep0 = performance.now();
-      msm.prepare(scalarsBytes, srsOffset);
+      await msm.prepare(scalarsBytes, srsOffset);
       const tPrep1 = performance.now();
       const windowSumBytes = msm.windowSumsByteLength;
       const staging = device.createBuffer({

@@ -216,3 +216,58 @@ walk through.
   (like this one) also work but produce one wide SVG. Splitting into
   per-panel SVGs would mean per-panel .tex files — defer unless we
   need per-section placement.
+
+---
+
+## 2026-05-26 — moved the level-0 Booth histogram to GPU
+
+**What we did.** Replaced `buildInitCounts` (a 250 ms single-threaded JS
+loop at n=2²⁰) with a new `bucket_histogram` GPU compute pass
+dispatched at the top of `MsmV2.prepare()`. `prepare()` is now async;
+all callers (dev page, bridge collision + no-collision paths, internal
+warm-up) updated to `await`. The host runs the per-level walk on the
+GPU-produced counts, identical to before. End-to-end at n=2²⁰ on M4
+Pro: `e2e` 355 → 229 ms (−126 ms, 35%). At chonk's n∈[16k, 131k] the
+absolute number is smaller but the win compounds across ~1000 MSMs/proof.
+
+**Also landed** in the same change:
+- Profile harness measurement fixes. Five issues found by audit:
+  `prep_booth_decode` was double-counting `scalar_upload_wall`; the
+  `prep_other` residual was being clamped to zero by a wrong formula;
+  the `prep_host_plan` intermediate had become a misleading "sum of
+  children" row; `wall` in profile mode silently included the profile
+  readback wait; one stale doc comment. Hierarchy is now `host_prepare`
+  → {`scalar_upload_wall`, `prep_booth_decode` → `bucket_histogram_gpu`,
+  `prep_level_plan`, `prep_other`}; sums close to within ms.
+- New `?hostHist=1` URL flag on the dev page routes `prepare()` through
+  the host loop instead of the GPU dispatch — an in-tree A/B knob for
+  diagnosing whether changes to the GPU histogram pass affect
+  downstream cache state.
+- `bucket_histogram_gpu` is the new sub-row in the host-phases table —
+  GPU dispatch time of the histogram pass, separated from the host
+  `mapAsync` wait + 2 MB readback memcpy that share the
+  `prep_booth_decode` row.
+
+**What we learned (worth recording).**
+- **`writeBuffer` is host-blocking on Chrome.** At n=2²⁰ the 32 MB scalar
+  upload takes ~12 ms of pure host time (synchronous memcpy from the JS
+  TypedArray into Chrome's driver-managed staging area) before the call
+  returns. This is the lower bound for any prepare() refactor; the
+  upload can be overlapped with GPU work but the call itself is host
+  cost.
+- **The GPU dispatch is essentially free.** `bucket_histogram_gpu` is
+  1.38 ms at n=2²⁰. Most of `prep_booth_decode` (5.6 ms total) is host
+  overhead — `mapAsync` polling latency + the 2 MB readback memcpy.
+- **`fused` regressed ~15 ms (10%) at n=2²⁰** due to system-level-cache
+  eviction by the histogram pass (34 MB touched: 32 MB scalar read +
+  2 MB count write). Confirmed via `?hostHist=1` A/B — Δ scales with
+  workload size, which is the cache-thrash fingerprint. See
+  [STATUS.md](STATUS.md) "Known performance regression" and
+  [ROADMAP.md](ROADMAP.md) M8 for the three candidate fixes (static
+  plan revival, workgroup-shared histogram, cache warm-up).
+
+**Why landed despite the regression.** Net trade is +140 ms per MSM at
+n=2²⁰; the +15 ms `fused` cost is bounded and well-understood. M8 in
+the roadmap tracks the recovery path; the diagnostic infrastructure
+(`?hostHist=1`, the timestamped histogram pass, the corrected profile
+hierarchy) is in place to validate any future improvement.

@@ -130,19 +130,20 @@ that could flip this.
   is Zac running that? The `Adreno-safe bucket+sign pack` commit
   (`e0337c3515`) suggests active multi-vendor work.
 
-## Profile snapshot — 2026-05-25
+## Profile snapshot — 2026-05-26
 
-The dev page now has a **Profile (× 5)** button next to *Run × 5* that runs
-WebGPU-only at the current `log₂(n)`, enrols a `timestamp-query` query set
-on every `encodeIntoBatch` dispatch, and renders a per-pass breakdown
-(absolute median ms + % of wall) plus a CSV dump on the JavaScript console.
-A *per-batch breakdown* checkbox switches between collapsed (one row per
-stage) and expanded (one row per `(stage, batch)`) views.
+The dev page **Profile** button (currently × 40) runs WebGPU-only at the
+current `log₂(n)`, enrols `timestamp-query` on every `encodeIntoBatch`
+dispatch + the prepare-time `bucket_histogram` pass, and renders a
+per-pass breakdown (absolute median ms + % of wall) + a host-phases
+breakdown table + a CSV dump on the JavaScript console. A *per-batch
+breakdown* checkbox switches between collapsed (one row per stage) and
+expanded (one row per `(stage, batch)`) views.
 
 ### Stage labels surfaced
 
-GPU passes (`<stage>#<batchIdx>` for everything inside the per-batch loop,
-bare `<stage>` for the reduction tail):
+GPU passes inside `run()` (`<stage>#<batchIdx>` for everything inside the
+per-batch loop, bare `<stage>` for the reduction tail):
 
 ```
 decompose, xpose_count, xpose_reduce, xpose_scan, xpose_scatter,
@@ -150,43 +151,106 @@ csr2v2_active, csr2v2_meta, planner_a, planner_b, fused, carry, finalize,
 reduce_init, reduce_level
 ```
 
-Host phases (`performance.now()` deltas per rep, surfaced in a separate
-table):
+Prepare-time GPU pass (its own row, separate from run-time passes):
+`bucket_histogram_gpu` — the per-bucket Booth-recoded histogram dispatch
+that feeds the level-walk planner ([msm_v2.ts](../msm_v2.ts)).
+
+Host phases (one row per `performance.now()` delta inside `prepare()` /
+`run()`):
 
 ```
-host_prepare (with prepare_kind = fast|slow), host_encode, host_submit_wait,
-host_decode, scalar_upload_wall + scalar_upload_bytes, wall
+host_prepare (= scalar_upload_wall + prep_booth_decode + prep_level_plan + prep_other)
+  ↳ scalar_upload_wall    (Chrome's host-blocking writeBuffer memcpy)
+  ↳ prep_booth_decode     (histogram dispatch + mapAsync wait + readback memcpy)
+      ↳ bucket_histogram_gpu  (GPU dispatch only — timestamp-query)
+  ↳ prep_level_plan       (host JS loop over the bucket grid)
+  ↳ prep_other            (fits-check + ensureScratch + bind groups OR fast-path uniform writes)
+host_encode, host_submit_wait, host_decode, wall, e2e (= host_prepare + wall)
+prepare_kind = fast | slow
 ```
 
 One-time setup (rendered as a separate *Setup* table the first time the
-button is clicked):
+button is clicked): `srs_fetch`, `srs_decompress`, `pool_upload`,
+`pool_convert`.
 
-```
-srs_fetch, srs_decompress (annotated "(cached)" when 0),
-pool_upload (writeBuffer wall + bytes), pool_convert (timestamped GPU pass)
-```
-
-`gpu_other = wall − Σ profiled_passes` accounts for the `clearBuffer`s,
+`gpu_other = wall − Σ profiled_passes` accounts for `clearBuffer`s,
 `resolveQuerySet`, and per-window gather `copyBufferToBuffer`s that
-`timestampWrites` doesn't cover. The breakdown table includes it as a
-labelled row, and the sum of (profiled Σ + gpu_other) matches `wall` within
-~1%.
+`timestampWrites` doesn't cover.
 
-### Snapshots @ log₂(n) ∈ {12, 16, 20}
+### Snapshot @ log₂(n) ∈ {12, 16, 20} — M4 Pro, Chromium
 
-These three sizes need to be run on a real WebGPU device (an M4 Pro with
-Metal-3, per the existing perf table) — the sandbox where this branch was
-built has no `navigator.gpu`, so the top-3 rows below are *placeholders to
-be filled in on first capture*. The CSV is paste-ready from the JS console
-after each click.
+Captured 2026-05-26 with the GPU bucket-histogram path enabled (default).
+Medians of 40 reps each, all reps on the fast path after the first.
 
-| log₂(n) | 1st / % of wall | 2nd / % of wall | 3rd / % of wall | wall (ms) |
-|---|---|---|---|---|
-| 12 | _TODO_ | _TODO_ | _TODO_ | _TODO_ |
-| 16 | _TODO_ | _TODO_ | _TODO_ | _TODO_ |
-| 20 | _TODO_ | _TODO_ | _TODO_ | _TODO_ |
+| log₂(n) | host_prepare | wall | e2e | fused (in wall) | bucket_histogram_gpu |
+|---|---:|---:|---:|---:|---:|
+| 12 | 0.78 ms | 8.4 ms | 9.2 ms | 3.2 ms | < 0.1 ms |
+| 16 | 2.93 ms | 19.0 ms | 22 ms | 10.2 ms | 0.13 ms |
+| 20 | 25.1 ms | 203.6 ms | 229 ms | 154 ms | 1.38 ms |
 
-Run order: load the page once (warms the SRS cache), pick `log₂(n) = 12`,
-click *Probe GPU* once to confirm `timestamp-query` is in the device
-features, then *Profile (× 5)* at each of `12 / 16 / 20` in turn. Paste
-each top-3 (by `pct_of_wall`) above.
+The GPU histogram dispatch itself is essentially free (1.38 ms at n=2²⁰).
+Inside `prep_booth_decode = 5.6 ms` at n=2²⁰, that 1.38 ms is the GPU
+dispatch; the remaining ~4 ms is `mapAsync` polling + 2 MB readback.
+
+### GPU bucket-histogram path
+
+The level-0 Booth decode + per-bucket histogram (previously a 250 ms
+single-threaded JS loop in `buildInitCounts` on n=2²⁰) moved to GPU as a
+new `bucket_histogram` compute pass dispatched at the top of
+`MsmV2.prepare()`. The host then runs the per-level walk on the
+GPU-produced counts. See [msm_v2.ts](../msm_v2.ts) and
+[wgsl/cuzk/bucket_histogram.template.wgsl](../wgsl/cuzk/bucket_histogram.template.wgsl).
+
+End-to-end win (n=2²⁰, M4 Pro): `e2e` 355 → 229 ms (−126 ms, 35%
+faster). The win compounds across the chonk flow (~1000 MSMs/proof in
+the n∈[16k, 131k] band) because every distinct-`n` MSM pays the
+slow-path Booth cost.
+
+`prepare()` is now `async` — callers must `await msm.prepare(...)`. All
+three real call-sites (dev page, bridge no-collision path, bridge
+collision path) updated.
+
+### Known performance regression — `fused` at n=2²⁰
+
+The GPU-histogram path comes with a measurable **per-MSM regression of
+~15 ms (≈10%) on the `fused` GPU pass at n=2²⁰**, confirmed via the
+in-page `?hostHist=1` A/B knob:
+
+| `fused` median, 40 reps | n=2¹² | n=2¹⁶ | n=2²⁰ |
+|---|---:|---:|---:|
+| GPU-histogram (default) | 3.15 ms | 10.3 ms | 151.9 ms |
+| Host-histogram (`?hostHist=1`) | 3.60 ms | 9.04 ms | 137.2 ms |
+| Δ | +0.45 ms (noise) | −1.26 ms (12%) | **−14.7 ms (10%)** |
+
+The Δ scales with workload size — the fingerprint of a **system-level-cache
+eviction**. The histogram pass at n=2²⁰ touches ~34 MB of GPU memory
+(32 MB scalar read + 2 MB atomic-count write), which fills Apple's SLC
+(~48 MB on M4) and evicts SRS lines that level-0 `fused` then has to
+refetch from main memory. At n=2¹⁶ the cache pressure is smaller; at
+n=2¹² fused is small enough that variance dominates the signal.
+
+**Net trade**: −15 ms on `fused` vs −155 ms on `host_prepare` at n=2²⁰ →
+the GPU-histogram path is still ~140 ms faster per MSM. Worth landing
+as-is; the regression is bounded.
+
+**Potential fixes**, in increasing engineering cost (cross-referenced as
+M8 in [ROADMAP.md](ROADMAP.md)):
+1. *Workgroup-shared histogram.* Each workgroup atomic-adds into private
+   shared memory; one final reduce writes to global. Cuts the 2 MB
+   atomic-write streaming traffic to ~256 KB. Doesn't help with the
+   32 MB scalar read (unavoidable). Modest gain, contained change.
+2. *Eliminate the histogram pass entirely* by reviving the static
+   upper-bound plan (per-level pair/carry/stride from the recurrence
+   `s_{k+1} ≤ floor(2/3·s_k)`). First attempt threw "value is not
+   invertible" at n=2²⁰ — root cause was never isolated. If revived,
+   eliminates both the histogram dispatch AND the prepare-time
+   `mapAsync`. Largest win.
+3. *Cache warm-up dispatch* after the histogram readback — a tiny
+   compute pass that reads the first ~16 MB of `point_x`/`point_y` to
+   repopulate SLC before `fused` submits. Hacky and device-tunable;
+   discouraged unless (1) and (2) both fail.
+
+**Diagnostic infra in tree.** The A/B knob `?hostHist=1` on the dev page
+routes `prepare()` through the host `buildInitCounts` loop instead of
+the GPU histogram dispatch. Use it to re-measure the cache effect after
+any change to the bucket-histogram kernel or the surrounding scheduling.

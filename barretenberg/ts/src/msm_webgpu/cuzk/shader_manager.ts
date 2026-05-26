@@ -11,6 +11,7 @@ import {
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
+  bucket_histogram as bucket_histogram_shader,
   // Register-minimal BY safegcd inverse (BATCH=12 / NUM_OUTER=62, rolling
   // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
   // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
@@ -330,6 +331,24 @@ ${packLines.join('\n')}
 
   public gen_decompose_scalars_booth_shader(workgroup_size: number): string {
     return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
+  }
+
+  /**
+   * Per-bucket histogram of Booth-recoded scalars. Used at MsmV2.prepare
+   * time to obtain the level-0 counts without paying the 250 ms host
+   * Booth-decode walk at n=2^20. `buckets_per_window` is the host-side
+   * `m.BW` so the shader can index `counts[w * BW + bucket]` without an
+   * extra uniform slot.
+   */
+  public gen_bucket_histogram_shader(workgroup_size: number, buckets_per_window: number): string {
+    if (!Number.isInteger(buckets_per_window) || buckets_per_window <= 0) {
+      throw new Error(`gen_bucket_histogram_shader: buckets_per_window (${buckets_per_window}) must be a positive integer`);
+    }
+    return mustache.render(
+      bucket_histogram_shader,
+      { workgroup_size, buckets_per_window, recompile: this.recompile },
+      {},
+    );
   }
 
   public gen_transpose_scan_shader(workgroup_size: number): string {
