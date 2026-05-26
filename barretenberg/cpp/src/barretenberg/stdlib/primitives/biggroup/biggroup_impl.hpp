@@ -47,11 +47,11 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool assert
     // This works because: (1) after reduction, each limb is non-negative and range-constrained,
     // so sum=0 iff all limbs=0; (2) max sum is 8 * 2^68 ≈ 2^71 << n ≈ 2^254, so no native wraparound.
     field_ct limb_sum = 0;
-    for (const auto& limb : _x.binary_basis_limbs) {
-        limb_sum += limb.element;
+    for (size_t i = 0; i < Fq::NUM_LIMBS; ++i) {
+        limb_sum += _x.get_limb(i).element;
     }
-    for (const auto& limb : _y.binary_basis_limbs) {
-        limb_sum += limb.element;
+    for (size_t i = 0; i < Fq::NUM_LIMBS; ++i) {
+        limb_sum += _y.get_limb(i).element;
     }
     _is_infinity = limb_sum.is_zero();
 
@@ -1014,27 +1014,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vecto
     BB_ASSERT_EQ(
         points.size(), scalars.size(), "biggroup batch_mul: points and scalars size mismatch after handling edgecases");
 
-    // Separate out zero scalars and corresponding points (because NAF(0) = NAF(modulus) which is 254 bits long)
-    // Also add the last point and scalar to big_points and big_scalars (because its a 254-bit scalar)
-    // We do this only if max_num_bits != 0 (i.e. we are not forced to use 254 bits anyway)
+    // Partition scalars into big and small paths using compile-time information.
+    // Since `with_edgecases` appends a 254-bit randomization scalar at the end (via
+    // `mask_points`), the last scalar must go to big. Everything else routes by
+    // `max_num_bits`: `0` forces the full-width path, anything else uses the small path.
     const size_t original_size = scalars.size();
     std::vector<Fr> big_scalars;
     std::vector<element> big_points;
     std::vector<Fr> small_scalars;
     std::vector<element> small_points;
     for (size_t i = 0; i < original_size; ++i) {
-        if (max_num_bits == 0) {
+        const bool is_last_scalar_big = (i == original_size - 1) && with_edgecases;
+        if (max_num_bits == 0 || is_last_scalar_big) {
             big_points.emplace_back(points[i]);
             big_scalars.emplace_back(scalars[i]);
         } else {
-            const bool is_last_scalar_big = ((i == original_size - 1) && with_edgecases);
-            if (scalars[i].get_value() == 0 || is_last_scalar_big) {
-                big_points.emplace_back(points[i]);
-                big_scalars.emplace_back(scalars[i]);
-            } else {
-                small_points.emplace_back(points[i]);
-                small_scalars.emplace_back(scalars[i]);
-            }
+            small_points.emplace_back(points[i]);
+            small_scalars.emplace_back(scalars[i]);
         }
     }
 

@@ -561,19 +561,13 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     // Base point coordinates must be zero when transcript_Pinfinity is set
     std::get<INFINITY_BASE_PX>(accumulator) += transcript_Pinfinity * transcript_Px * scaling_factor; // degree 2
     std::get<INFINITY_BASE_PY>(accumulator) += transcript_Pinfinity * transcript_Py * scaling_factor; // degree 2
-    // Accumulator coordinates must be zero when is_accumulator_empty is set
+    // Accumulator coordinates must be zero when is_accumulator_empty is set.
+    // The required `transcript_accumulator_not_empty[lagrange_first row] = 0` (which makes
+    // is_accumulator_empty[lagrange_first row] = 1, cascading to acc_x[4] = acc_y[4] = 0)
+    // is enforced by TRANSCRIPT_ACCUMULATOR_NOT_EMPTY_INIT in ECCVMShiftableInitRelation.
     std::get<INFINITY_ACC_X>(accumulator) +=
         is_accumulator_empty * transcript_accumulator_x * scaling_factor; // degree 2
     std::get<INFINITY_ACC_Y>(accumulator) +=
         is_accumulator_empty * transcript_accumulator_y * scaling_factor; // degree 2
-
-    /**
-     * @brief Enforce accumulator_not_empty = 0 at the lagrange_first row.
-     * Without this, a malicious prover can set accumulator_not_empty = 1 at the lagrange_first row,
-     * which disables INFINITY_ACC_X/Y above, allowing arbitrary accumulator coordinates to be injected
-     * without any relation catching it.
-     */
-    std::get<ACCUMULATOR_NOT_EMPTY_INIT>(accumulator) +=
-        lagrange_first * View(in.transcript_accumulator_not_empty) * scaling_factor; // degree 2
 }
 } // namespace bb

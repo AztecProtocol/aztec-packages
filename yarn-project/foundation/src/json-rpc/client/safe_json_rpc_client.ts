@@ -2,7 +2,7 @@ import { format } from 'util';
 
 import { type Logger, createLogger } from '../../log/pino-logger.js';
 import { type PromiseWithResolvers, promiseWithResolvers } from '../../promise/utils.js';
-import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
+import { type ApiSchema, type ApiSchemaFor, getSchemaReturnType, schemaHasMethod } from '../../schemas/api.js';
 import { jsonStringify } from '../convert.js';
 import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
@@ -236,7 +236,7 @@ export function createSafeJsonRpcClient<T extends object>(
     if ([null, undefined, 'null', 'undefined'].includes(response.result)) {
       return;
     }
-    return (schema as ApiSchema)[methodName].returnType().parseAsync(response.result);
+    return getSchemaReturnType((schema as ApiSchema)[methodName]).parseAsync(response.result);
   };
 
   const clientId = nextClientId++;

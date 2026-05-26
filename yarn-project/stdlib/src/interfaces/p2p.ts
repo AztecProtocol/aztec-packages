@@ -70,19 +70,22 @@ export interface P2PClient extends P2PApi {
 }
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
-  getCheckpointAttestationsForSlot: z
-    .function()
-    .args(
+  getCheckpointAttestationsForSlot: z.function({
+    input: z.tuple([
       schemas.SlotNumber,
       optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
-    )
-    .returns(z.array(CheckpointAttestation.schema)),
-  getPendingTxs: z
-    .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
-    .returns(z.array(Tx.schema)),
+    ]),
+    output: z.array(CheckpointAttestation.schema),
+  }),
+  getPendingTxs: z.function({
+    input: z.tuple([
+      optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
+      optional(TxHash.schema),
+    ]),
+    output: z.array(Tx.schema),
+  }),
 
-  getPendingTxCount: z.function().returns(schemas.Integer),
-  getEncodedEnr: z.function().returns(z.string().optional()),
-  getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
+  getPendingTxCount: z.function({ input: z.tuple([]), output: schemas.Integer }),
+  getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
+  getPeers: z.function({ input: z.tuple([optional(z.boolean())]), output: z.array(PeerInfoSchema) }),
 };

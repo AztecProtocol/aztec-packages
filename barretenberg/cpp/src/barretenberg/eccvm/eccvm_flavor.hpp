@@ -26,6 +26,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_set_relation.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_shiftable_init_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -125,7 +126,8 @@ class ECCVMFlavor {
                                   ECCVMMSMRelation<FF>,
                                   ECCVMSetRelation<FF>,
                                   ECCVMLookupRelation<FF>,
-                                  ECCVMBoolsRelation<FF>>;
+                                  ECCVMBoolsRelation<FF>,
+                                  ECCVMShiftableInitRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 

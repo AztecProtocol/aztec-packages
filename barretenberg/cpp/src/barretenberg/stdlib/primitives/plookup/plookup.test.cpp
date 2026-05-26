@@ -524,6 +524,26 @@ TEST(PlookupTests, MixedConstantVariableInputs)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+// Regression: the eight SECP256K1 generator MultiTables previously declared slice_sizes = 512
+// while the basic tables only have 256 rows, so a key in [256, 511] would slip past the
+// slice bound in slice_input_using_variable_bases and OOB-index generator_*_table.
+TEST(PlookupTests, Secp256k1GeneratorSliceSizeBound)
+{
+    const std::array<MultiTableId, 8> ids{
+        MultiTableId::SECP256K1_XLO,      MultiTableId::SECP256K1_XHI,          MultiTableId::SECP256K1_YLO,
+        MultiTableId::SECP256K1_YHI,      MultiTableId::SECP256K1_XYPRIME,      MultiTableId::SECP256K1_XLO_ENDO,
+        MultiTableId::SECP256K1_XHI_ENDO, MultiTableId::SECP256K1_XYPRIME_ENDO,
+    };
+    for (const auto id : ids) {
+        // Last valid key.
+        EXPECT_NO_THROW(plookup::get_lookup_accumulators(id, bb::fr(255), bb::fr(0), false));
+        // First out-of-range key — used to silently OOB-read.
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(256), bb::fr(0), false), std::runtime_error);
+        // Mid-range OOB witness from the auditor's PoC.
+        EXPECT_THROW(plookup::get_lookup_accumulators(id, bb::fr(300), bb::fr(0), false), std::runtime_error);
+    }
+}
+
 /**
  * @brief Invariant check for SHA-256 input multitables: basic-table sizes match declared slice_sizes.
  *
@@ -548,7 +568,7 @@ TEST(PlookupTests, Sha256InputMultiTablesMatchBasicTableSizes)
             << ": basic_table_ids and slice_sizes have different sizes";
 
         for (size_t slot = 0; slot < mt.slice_sizes.size(); ++slot) {
-            const auto basic = create_basic_table(mt.basic_table_ids[slot], 0);
+            const auto basic = create_basic_table(mt.basic_table_ids[slot], 1);
             EXPECT_EQ(basic.size(), mt.slice_sizes[slot])
                 << "MultiTable id=" << static_cast<size_t>(mt_id) << " slot=" << slot << ": basic-table size "
                 << basic.size() << " != declared slice_size " << mt.slice_sizes[slot];
