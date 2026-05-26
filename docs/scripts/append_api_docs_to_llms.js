@@ -346,13 +346,17 @@ function main() {
 
   let totalFiles = 0;
   let sectionsAdded = 0;
-  // Community resources are independent of the generated API docs, so they are
-  // always appended (see write logic below), even if no API docs are on disk.
+  // Per the llms.txt spec there is a single H1 (the project title, emitted by
+  // docusaurus-plugin-llms). Everything we append is an H2 section. The
+  // `## Optional` section has special meaning: its links may be skipped when a
+  // shorter context is needed, so secondary community resources live there and
+  // are ordered last. Community resources are independent of the generated API
+  // docs, so they are always appended (see write logic below).
   let communitySection =
-    "\n\n# Community Resources\n\n" +
+    "\n\n## Optional\n\n" +
     "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n";
-  let linksSection = "\n# API Reference Documentation\n\n";
-  let fullContentSection = "\n\n---\n\n# API Reference Documentation\n\n";
+  let linksSection = "\n";
+  let fullContentSection = "\n\n---\n\n## API Reference Documentation\n\n";
 
   for (const apiDir of API_DIRS) {
     const dirPath = path.join(STATIC_DIR, apiDir.dir);
@@ -384,10 +388,16 @@ function main() {
     fullContentSection += `${apiDir.description}\n\n`;
 
     if (isMarkdown) {
-      // For markdown API docs, add a link per file and include llm-summary.txt if present
+      // For markdown API docs, add a link per file and include llm-summary.txt if present.
+      // The summary carries its own heading hierarchy (starting at H1); demote
+      // every heading by two levels so it nests under this section's H2 and the
+      // file keeps a single top-level H1 (the project title).
       const summaryPath = path.join(dirPath, "llm-summary.txt");
       if (fs.existsSync(summaryPath)) {
-        linksSection += fs.readFileSync(summaryPath, "utf-8") + "\n\n";
+        const summary = fs
+          .readFileSync(summaryPath, "utf-8")
+          .replace(/^(#{1,4}) /gm, "##$1 ");
+        linksSection += summary + "\n\n";
       }
       // Cap link list at 100 entries to bound llms.txt size as the API surface grows.
       for (const file of files.slice(0, 100)) {
@@ -481,13 +491,14 @@ function main() {
     return;
   }
 
-  // Append community resources + API reference links to llms.txt
+  // Append API reference links, then the Optional (community) section last
+  // so it can be dropped when a shorter context is needed.
   fs.writeFileSync(
     llmsTxtPath,
-    llmsTxtContent + communitySection + linksSection,
+    llmsTxtContent + linksSection + communitySection,
   );
   console.log(
-    `Updated llms.txt with community resources and API reference links`,
+    `Updated llms.txt with API reference links and optional resources`,
   );
 
   // Append to llms-full.txt
