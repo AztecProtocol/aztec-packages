@@ -355,8 +355,13 @@ function main() {
   let communitySection =
     "\n\n## Optional\n\n" +
     "- [awesome-aztec](https://github.com/AztecProtocol/awesome-aztec): Curated index of high-quality community resources, tools, libraries, and example projects for building on Aztec.\n";
-  let linksSection = "\n";
   let fullContentSection = "\n\n---\n\n## API Reference Documentation\n\n";
+
+  // Hub-and-spoke (the pattern used by Cloudflare/Next/Svelte): the root
+  // llms.txt stays a lean navigational map and links to one scoped llms.txt per
+  // API surface, which carries the full module/symbol index. Collected here for
+  // the root "## API Reference" section.
+  const apiReferenceLinks = [];
 
   for (const apiDir of API_DIRS) {
     const dirPath = path.join(STATIC_DIR, apiDir.dir);
@@ -380,43 +385,37 @@ function main() {
     }
 
     sectionsAdded++;
-
-    // Add section header
-    linksSection += `## ${apiDir.name}\n\n`;
-    linksSection += `${apiDir.description}\n\n`;
     fullContentSection += `## ${apiDir.name}\n\n`;
     fullContentSection += `${apiDir.description}\n\n`;
 
+    // Build the standalone scoped index: its own single H1 + blockquote
+    // summary, then the module/package body.
+    let scopedDoc = `# ${apiDir.name}\n\n> ${apiDir.description}\n\n`;
+
     if (isMarkdown) {
-      // For markdown API docs, add a link per file and include llm-summary.txt if present.
-      // The summary carries its own heading hierarchy (starting at H1); demote
-      // every heading by two levels so it nests under this section's H2 and the
-      // file keeps a single top-level H1 (the project title).
+      // Include the generated llm-summary.txt (package overview). It carries its
+      // own heading hierarchy starting at H1; demote by one level so it nests
+      // under this scoped file's H1 (which is the only top-level heading).
       const summaryPath = path.join(dirPath, "llm-summary.txt");
       if (fs.existsSync(summaryPath)) {
         const summary = fs
           .readFileSync(summaryPath, "utf-8")
-          .replace(/^(#{1,4}) /gm, "##$1 ");
-        linksSection += summary + "\n\n";
+          .replace(/^(#{1,5}) /gm, "#$1 ");
+        scopedDoc += summary + "\n\n";
       }
-      // Cap link list at 100 entries to bound llms.txt size as the API surface grows.
-      for (const file of files.slice(0, 100)) {
+      scopedDoc += "## Package reference files\n\n";
+      for (const file of files) {
         const urlPath = getUrlPath(file, STATIC_DIR);
         const fileName = path.basename(file, ext);
-        linksSection += `- [${fileName}](${urlPath})\n`;
-      }
-      if (files.length > 100) {
-        linksSection += `- ... and ${files.length - 100} more files\n`;
+        scopedDoc += `- [${fileName}](${urlPath})\n`;
       }
     } else {
-      // For HTML API docs, emit a module-index TOC. One entry per module
-      // (every subdirectory containing an index.html), with the module's
-      // first-paragraph docstring as description, plus the names of structs,
-      // traits, and functions declared on that module page.
-      //
-      // The item names are what makes specific types (e.g. SingleUseClaim)
-      // findable: an agent searching llms.txt for the name lands on the
-      // owning module, then follows the link to the actual rustdoc page.
+      // Module-index TOC. One entry per module (every subdirectory with an
+      // index.html), with its first-paragraph docstring as description, plus
+      // the names of exported structs, traits, and functions. The item names
+      // are what makes specific types (e.g. SingleUseClaim) findable: an agent
+      // searching this index for the name lands on the owning module, then
+      // follows the link to the rustdoc page.
       const moduleIndexes = findModuleIndexes(dirPath).filter((f) => {
         const rel = path.relative(dirPath, f);
         const parts = rel.split(path.sep);
@@ -437,7 +436,7 @@ function main() {
 
       moduleIndexes.sort();
 
-      linksSection += `Module index. Each entry lists the module's exported structs, traits, and functions; follow the link to the rustdoc page for full signatures and docs.\n\n`;
+      scopedDoc += `## Module index\n\nEach entry lists the module's exported structs, traits, and functions; follow the link to the rustdoc page for full signatures and docs.\n\n`;
 
       for (const file of moduleIndexes) {
         const urlPath = getUrlPath(file, STATIC_DIR);
@@ -452,7 +451,7 @@ function main() {
           if (items[kind]) itemParts.push(`${kind}: ${items[kind].join(", ")}`);
         }
         if (itemParts.length > 0) line += ` — ${itemParts.join("; ")}.`;
-        linksSection += line + "\n";
+        scopedDoc += line + "\n";
       }
 
       console.log(
@@ -460,9 +459,30 @@ function main() {
       );
     }
 
-    linksSection += "\n";
+    // Write the scoped index alongside the API docs in the build output
+    // (build/<apiDir.dir>/llms.txt, served at SITE_URL/<apiDir.dir>/llms.txt).
+    const scopedPath = path.join(BUILD_DIR, apiDir.dir, "llms.txt");
+    try {
+      fs.mkdirSync(path.dirname(scopedPath), { recursive: true });
+      if (fs.existsSync(scopedPath)) {
+        console.warn(
+          `  Warning: overwriting existing ${path.relative(BUILD_DIR, scopedPath)}`,
+        );
+      }
+      fs.writeFileSync(scopedPath, scopedDoc);
+      console.log(
+        `  Wrote scoped index ${path.relative(BUILD_DIR, scopedPath)}`,
+      );
+      apiReferenceLinks.push(
+        `- [${apiDir.name}](${SITE_URL}/${apiDir.dir}/llms.txt): ${apiDir.description}`,
+      );
+    } catch (err) {
+      console.error(
+        `  Failed to write scoped index for ${apiDir.name}: ${err.message}`,
+      );
+    }
 
-    // Add full content for all files
+    // Add full content for all files (llms-full.txt)
     for (const file of files) {
       try {
         const raw = fs.readFileSync(file, "utf-8");
@@ -481,24 +501,30 @@ function main() {
     }
   }
 
+  // Root "## API Reference" section: a steering sentence plus one link per
+  // scoped index. Detailed module/symbol listings live in the scoped files.
+  let apiSection = "";
+  if (apiReferenceLinks.length > 0) {
+    apiSection =
+      "\n\n## API Reference\n\n" +
+      "Use these when writing or debugging Aztec contracts (Aztec.nr) or TypeScript apps; the guides above are better for concepts and how-tos. Each link is a complete, scoped API index.\n\n" +
+      apiReferenceLinks.join("\n") +
+      "\n";
+  }
+
   if (sectionsAdded === 0) {
-    // No API docs on disk: still append the community section so the
+    // No API docs on disk: still append the Optional section so the
     // awesome-aztec link survives builds that skip API generation.
     fs.writeFileSync(llmsTxtPath, llmsTxtContent + communitySection);
-    console.log(
-      "No API docs found on disk — appended Community Resources only",
-    );
+    console.log("No API docs found on disk — appended Optional only");
     return;
   }
 
-  // Append API reference links, then the Optional (community) section last
+  // Append the API reference index, then the Optional (community) section last
   // so it can be dropped when a shorter context is needed.
-  fs.writeFileSync(
-    llmsTxtPath,
-    llmsTxtContent + linksSection + communitySection,
-  );
+  fs.writeFileSync(llmsTxtPath, llmsTxtContent + apiSection + communitySection);
   console.log(
-    `Updated llms.txt with API reference links and optional resources`,
+    `Updated llms.txt with scoped API reference links and optional resources`,
   );
 
   // Append to llms-full.txt
