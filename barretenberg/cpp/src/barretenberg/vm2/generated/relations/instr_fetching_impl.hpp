@@ -92,25 +92,37 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                      static_cast<View>(in.get(C::instr_fetching_instr_out_of_range))));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
-    { // TAG_VALUE
+    { // SEL_HAS_TAG_ZERO
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::instr_fetching_sel_has_tag)) *
+                   (FF(1) - static_cast<View>(in.get(C::instr_fetching_sel_pc_in_range)));
+        std::get<10>(evals) += (tmp * scaling_factor);
+    }
+    { // TAG_OUT_OF_RANGE_ZERO
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::instr_fetching_tag_out_of_range)) *
+                   (FF(1) - static_cast<View>(in.get(C::instr_fetching_sel_has_tag)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // TAG_VALUE
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_tag_value)) -
                     ((static_cast<View>(in.get(C::instr_fetching_sel_has_tag)) -
                       static_cast<View>(in.get(C::instr_fetching_sel_tag_is_op2))) *
                          static_cast<View>(in.get(C::instr_fetching_op3)) +
                      static_cast<View>(in.get(C::instr_fetching_sel_tag_is_op2)) *
                          static_cast<View>(in.get(C::instr_fetching_op2))));
-        std::get<10>(evals) += (tmp * scaling_factor);
+        std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_sel_pc_in_range)) -
                     static_cast<View>(in.get(C::instr_fetching_sel)) *
                         (FF(1) - static_cast<View>(in.get(C::instr_fetching_pc_out_of_range))));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<13>(evals) += (tmp * scaling_factor);
     }
     { // ADDRESSING_MODE_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::instr_fetching_addressing_mode)) -
              (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
@@ -118,10 +130,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                       (static_cast<View>(in.get(C::instr_fetching_bd1)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd2)) * FF(1)) +
                   CView(instr_fetching_SEL_OP_DC_17) * static_cast<View>(in.get(C::instr_fetching_bd1)) * FF(1)));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<14>(evals) += (tmp * scaling_factor);
     }
     { // OP1_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_op1)) -
                     (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
@@ -137,10 +149,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                               static_cast<View>(in.get(C::instr_fetching_bd2)) * FF(65536) +
                               static_cast<View>(in.get(C::instr_fetching_bd3)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd4)) * FF(1))));
-        std::get<13>(evals) += (tmp * scaling_factor);
+        std::get<15>(evals) += (tmp * scaling_factor);
     }
     { // OP2_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_op2)) -
                     (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
@@ -158,10 +170,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                               static_cast<View>(in.get(C::instr_fetching_bd5)) * FF(65536) +
                               static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd7)) * FF(1))));
-        std::get<14>(evals) += (tmp * scaling_factor);
+        std::get<16>(evals) += (tmp * scaling_factor);
     }
     { // OP3_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::instr_fetching_op3)) -
              (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
@@ -256,10 +268,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                        static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(1)) +
                   static_cast<View>(in.get(C::instr_fetching_sel_op_dc_14)) *
                       static_cast<View>(in.get(C::instr_fetching_bd4)) * FF(1)));
-        std::get<15>(evals) += (tmp * scaling_factor);
+        std::get<17>(evals) += (tmp * scaling_factor);
     }
     { // OP4_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_op4)) -
                     (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
@@ -268,10 +280,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                          static_cast<View>(in.get(C::instr_fetching_sel_op_dc_5)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd8)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd9)) * FF(1))));
-        std::get<16>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
     { // OP5_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_op5)) -
                     (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
@@ -280,25 +292,25 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                          static_cast<View>(in.get(C::instr_fetching_sel_op_dc_5)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd10)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd11)) * FF(1))));
-        std::get<17>(evals) += (tmp * scaling_factor);
+        std::get<19>(evals) += (tmp * scaling_factor);
     }
     { // OP6_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_op6)) -
                     (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_1)) *
                         (static_cast<View>(in.get(C::instr_fetching_bd13)) * FF(256) +
                          static_cast<View>(in.get(C::instr_fetching_bd14)) * FF(1)));
-        std::get<18>(evals) += (tmp * scaling_factor);
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
     { // OP7_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::instr_fetching_op7)) -
                     (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_1)) *
                         (static_cast<View>(in.get(C::instr_fetching_bd15)) * FF(256) +
                          static_cast<View>(in.get(C::instr_fetching_bd16)) * FF(1)));
-        std::get<19>(evals) += (tmp * scaling_factor);
+        std::get<21>(evals) += (tmp * scaling_factor);
     }
 }
 
