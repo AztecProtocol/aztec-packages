@@ -118,7 +118,7 @@ describe('slashing/serialization', () => {
       const originalOffense = createOffense(
         EthAddress.random(),
         12345n,
-        OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         98765n,
       );
 
@@ -168,7 +168,7 @@ describe('slashing/serialization', () => {
       const slotOffenses = [
         OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         OffenseType.PROPOSED_INCORRECT_ATTESTATIONS,
-        OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
         OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       ];

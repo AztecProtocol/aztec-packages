@@ -10,6 +10,7 @@ echo
 
 export LOG_LEVEL=silent
 export PXE_PROVER=none
+export SEQ_ENABLE_PROPOSER_PIPELINING=true
 
 # Start local network and wait for port to open.
 aztec start --local-network &

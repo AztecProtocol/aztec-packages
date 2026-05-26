@@ -4,6 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual', () => {
@@ -14,7 +15,7 @@ describe('e2e_nested_contract manual', () => {
     aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     await t.applyManual();
     ({ wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t);
   });

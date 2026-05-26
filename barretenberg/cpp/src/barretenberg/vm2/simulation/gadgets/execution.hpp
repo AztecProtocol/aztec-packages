@@ -173,10 +173,8 @@ class Execution : public ExecutionInterface {
     void ecc_add(ContextInterface& context,
                  MemoryAddress p_x_addr,
                  MemoryAddress p_y_addr,
-                 MemoryAddress p_inf_addr,
                  MemoryAddress q_x_addr,
                  MemoryAddress q_y_addr,
-                 MemoryAddress q_inf_addr,
                  MemoryAddress dst_addr);
     void to_radix_be(ContextInterface& context,
                      MemoryAddress value_addr,

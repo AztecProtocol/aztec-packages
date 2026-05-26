@@ -56,6 +56,12 @@ export type AztecNodeConfig = ArchiverConfig &
     skipArchiverInitialSync: boolean;
     /** Whether to enable the prover node as a subsystem. */
     enableProverNode: boolean;
+    /**
+     * Test-only: use the deterministic AutomineSequencer instead of the production Sequencer.
+     * Requires `aztecTargetCommitteeSize === 0` on the deployed rollup and anvil-backed L1.
+     * See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
+     */
+    useAutomineSequencer?: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -82,6 +88,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   enableProverNode: {
     env: 'ENABLE_PROVER_NODE',
     description: 'Whether to enable the prover node as a subsystem.',
+    ...booleanConfigHelper(false),
+  },
+  useAutomineSequencer: {
+    env: 'USE_AUTOMINE_SEQUENCER',
+    description: 'Test-only: use AutomineSequencer instead of the production Sequencer.',
     ...booleanConfigHelper(false),
   },
 };

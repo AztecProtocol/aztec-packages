@@ -78,7 +78,7 @@ pub contract Benchmarking {
         // Safety: Benchmarking code
         let random_seed = unsafe { random() };
         for i in 0..MAX_NULLIFIERS_PER_CALL {
-            self.context.push_nullifier(random_seed + (i as Field));
+            self.context.push_nullifier_unsafe(random_seed + (i as Field));
         }
     }
 
@@ -113,7 +113,7 @@ pub contract Benchmarking {
             for j in 0..PRIVATE_LOG_CIPHERTEXT_LEN {
                 log.push(random_seed + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field);
             }
-            self.context.emit_private_log_vec_unsafe(0, log);
+            self.context.emit_private_log_unsafe(0, log);
         }
     }
 

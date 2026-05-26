@@ -76,6 +76,12 @@ export class BlacklistTokenContractTest {
   }
 
   async crossTimestampOfChange() {
+    // Under AUTOMINE_E2E_OPTS, the 86400s warp crosses many epochs without any proofs being
+    // submitted. Mark current pending checkpoints as proven first so the rollup contract's
+    // pruning window doesn't reset the chain tip to genesis (which would make the warp's
+    // own empty-checkpoint propose fail with Rollup__InvalidArchive). See the AutomineSequencer
+    // README "Epoch proving caveat" and the equivalent pattern in lending_simulator.progressSlots.
+    await this.cheatCodes.rollup.markAsProven();
     await this.cheatCodes.warpL2TimeAtLeastBy(this.aztecNode, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
   }
 

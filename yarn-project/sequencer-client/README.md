@@ -219,6 +219,7 @@ Key entry points:
 | `GlobalVariableBuilder` | `src/global_variable_builder/` | Computes `CheckpointGlobalVariables` and predicts the per-slot fee asset price modifier. See its [README](src/global_variable_builder/README.md). |
 | `L1TxFailedStore` | `src/publisher/l1_tx_failed_store/` | Persists actions that returned a revert reason so they aren't retried in the same form on the next slot. |
 | `ChainStateOverrides` | `src/sequencer/chain_state_overrides.ts` | Builds the L1 `eth_call` overrides used during the pipelined parent + invalidation simulations. |
+| `AutomineSequencer` | `src/sequencer/automine/` | Minimal queue-driven sequencer for single-sequencer e2e tests. Bypasses consensus, pipelining, and timetable enforcement. See [`src/sequencer/automine/README.md`](src/sequencer/automine/README.md). |
 
 ## Configuration
 

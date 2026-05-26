@@ -45,7 +45,9 @@
 <pre><code>pub trait IndexedTreeLeafPreimage&lt;Value&gt;:
     <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>
     + <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a>
-{
+<div class="where-clause">where
+    _: <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a>,
+    _: <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a></div>{
     <span class="comment">// Required methods</span>
     pub fn <a href="#get_next_key"><span class="fn">get_next_key</span></a>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a>
 <div class="where-clause">    where

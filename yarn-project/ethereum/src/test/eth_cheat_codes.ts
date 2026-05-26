@@ -96,6 +96,16 @@ export class EthCheatCodes {
   }
 
   /**
+   * Get the timestamp of the pending L1 block — the block that anvil will mine next.
+   * Reflects any prior `setNextBlockTimestamp` call or the configured block interval.
+   * @returns The pending block timestamp in seconds.
+   */
+  public async nextBlockTimestamp(): Promise<number> {
+    const res = await this.doRpcCall('eth_getBlockByNumber', ['pending', false]);
+    return parseInt(res.timestamp, 16);
+  }
+
+  /**
    * Advance the chain by a number of blocks
    * @param numberOfBlocks - The number of blocks to mine
    */

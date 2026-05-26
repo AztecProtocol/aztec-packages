@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { Fr } from '@aztec/aztec.js/fields';
 import { BlockNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -21,16 +22,16 @@ import os from 'os';
 import path from 'path';
 
 import { P2PNetworkTest } from '../e2e_p2p/p2p_network.js';
-import { awaitCommitteeExists } from '../e2e_p2p/shared.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists } from '../e2e_p2p/shared.js';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode } from '../fixtures/setup_p2p_test.js';
+import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 
 const TEST_TIMEOUT = 1_000_000;
 
 jest.setTimeout(TEST_TIMEOUT);
 
-const NUM_VALIDATORS = 1;
+const NUM_VALIDATORS = 2;
 const BOOT_NODE_UDP_PORT = 4900;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
 const ETHEREUM_SLOT_DURATION = 4;
@@ -79,6 +80,29 @@ async function awaitBroadcastedInvalidCheckpointOffense({
     },
     `A-520 offense for slot ${slot}`,
     AZTEC_SLOT_DURATION * 3,
+    1,
+  );
+}
+
+async function awaitAnyBroadcastedInvalidCheckpointOffense({
+  nodes,
+  validator,
+}: {
+  nodes: AztecNodeService[];
+  validator: string;
+}) {
+  return await retryUntil(
+    async () => {
+      const offenses = (await Promise.all(nodes.map(node => node.getSlashOffenses('all')))).flat();
+      const matchingOffenses = offenses.filter(
+        offense =>
+          offense.validator.toString() === validator &&
+          offense.offenseType === OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+      );
+      return matchingOffenses.length > 0 ? matchingOffenses : undefined;
+    },
+    `broadcasted invalid checkpoint proposal offense for ${validator}`,
+    AZTEC_SLOT_DURATION * 12,
     1,
   );
 }
@@ -221,7 +245,9 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         aztecProofSubmissionEpochs: 1024,
-        enableProposerPipelining: false,
+        minTxsPerBlock: 0,
+        enableProposerPipelining: true,
+        inboxLag: 2,
         mockGossipSubNetwork: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / AZTEC_EPOCH_DURATION,
@@ -235,7 +261,7 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
         slashDuplicateProposalPenalty: 0n,
         slashDuplicateAttestationPenalty: 0n,
         slashProposeInvalidAttestationsPenalty: 0n,
-        slashAttestDescendantOfInvalidPenalty: 0n,
+        slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
         slashAttestInvalidCheckpointProposalPenalty: 0n,
         slashUnknownPenalty: 0n,
         slashSelfAllowed: true,
@@ -251,7 +277,9 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
     if (t.monitor) {
       await t.teardown();
     }
-    fs.rmSync(`${DATA_DIR}-0`, { recursive: true, force: true, maxRetries: 3 });
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
+    }
   });
 
   const setupNodeAndValidator = async () => {
@@ -264,7 +292,8 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
       {
         ...t.ctx.aztecNodeConfig,
         dontStartSequencer: true,
-        enableProposerPipelining: false,
+        minTxsPerBlock: 0,
+        enableProposerPipelining: true,
         slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
         slashSelfAllowed: true,
       },
@@ -329,6 +358,79 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
       slot: targetSlot,
     });
     expect(firstOffense.amount).toEqual(slashingUnit);
+  });
+
+  it('slashes a validator that broadcasts a checkpoint with a mismatched header', async () => {
+    const { rollup } = await t.getContracts();
+
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
+    await t.ctx.cheatCodes.rollup.debugRollup();
+
+    const invalidProposerNodes = await createNodes(
+      {
+        ...t.ctx.aztecNodeConfig,
+        broadcastInvalidCheckpointProposalOnly: true,
+        dontStartSequencer: true,
+        minTxsPerBlock: 0,
+        slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
+        slashSelfAllowed: true,
+      },
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      1,
+      BOOT_NODE_UDP_PORT,
+      t.genesis,
+      DATA_DIR,
+      shouldCollectMetrics(),
+      0,
+    );
+    const honestNodes = await createNodes(
+      {
+        ...t.ctx.aztecNodeConfig,
+        dontStartSequencer: true,
+        minTxsPerBlock: 0,
+        slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
+        slashSelfAllowed: true,
+      },
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      NUM_VALIDATORS - 1,
+      BOOT_NODE_UDP_PORT,
+      t.genesis,
+      DATA_DIR,
+      shouldCollectMetrics(),
+      1,
+    );
+    nodes = [...invalidProposerNodes, ...honestNodes];
+
+    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+    await awaitCommitteeExists({ rollup, logger: t.logger });
+
+    const invalidProposer = invalidProposerNodes[0].getSequencer()!.validatorAddresses![0];
+    const epochCache = (honestNodes[0] as TestAztecNodeService).epochCache;
+    const { targetEpoch } = await advanceToEpochBeforeProposer({
+      epochCache,
+      cheatCodes: t.ctx.cheatCodes.rollup,
+      targetProposer: invalidProposer,
+      logger: t.logger,
+    });
+
+    await Promise.all(nodes.map(node => node.getSequencer()!.start()));
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
+
+    const offenses = await awaitAnyBroadcastedInvalidCheckpointOffense({
+      nodes: honestNodes,
+      validator: invalidProposer.toString(),
+    });
+
+    t.logger.warn(`Collected broadcasted invalid checkpoint proposal offenses`, { offenses });
+    expect(offenses.length).toBeGreaterThan(0);
+    for (const offense of offenses) {
+      expect(offense.validator.toString()).toEqual(invalidProposer.toString());
+      expect(offense.offenseType).toEqual(OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL);
+      expect(offense.amount).toEqual(slashingUnit);
+      expect(offense.epochOrSlot > 0n).toBe(true);
+    }
   });
 
   it('does not slash a valid checkpoint whose lastBlock supplies the terminal proposal until a delayed higher-index block is retained', async () => {
