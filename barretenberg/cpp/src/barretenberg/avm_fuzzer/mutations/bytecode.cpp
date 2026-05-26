@@ -206,7 +206,7 @@ void mutate_contract_instances(std::vector<ContractInstance>& contract_instances
         break;
     case 3:
         // Mutate nullifier key
-        mutate_point(instance.public_keys.nullifier_key, rng);
+        mutate_field(instance.public_keys.nullifier_key_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     case 4:
         // Mutate incoming viewing key
@@ -214,11 +214,11 @@ void mutate_contract_instances(std::vector<ContractInstance>& contract_instances
         break;
     case 5:
         // Mutate outgoing viewing key
-        mutate_point(instance.public_keys.outgoing_viewing_key, rng);
+        mutate_field(instance.public_keys.outgoing_viewing_key_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     case 6:
         // Mutate tagging key
-        mutate_point(instance.public_keys.tagging_key, rng);
+        mutate_field(instance.public_keys.tagging_key_hash, rng, BASIC_FIELD_MUTATION_CONFIGURATION);
         break;
     default:
         break;

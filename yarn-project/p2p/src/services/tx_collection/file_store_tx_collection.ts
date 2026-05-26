@@ -1,10 +1,11 @@
+import { times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import type { FileStoreTxSource } from './file_store_tx_source.js';
+import type { IRequestTracker } from './request_tracker.js';
 import type { TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 
 /** Configuration for a FileStoreTxCollection instance. */
@@ -16,8 +17,6 @@ export type FileStoreCollectionConfig = {
 
 type FileStoreTxEntry = {
   txHash: string;
-  context: TxAddContext;
-  deadline: Date;
   attempts: number;
   lastAttemptTime: number;
   nextSourceIndex: number;
@@ -25,96 +24,60 @@ type FileStoreTxEntry = {
 
 /**
  * Collects txs from file stores as a fallback after P2P methods have been tried.
- * Uses a shared worker pool that pulls entries with priority (fewest attempts first),
- * retries with round-robin across sources, and applies exponential backoff between
- * full cycles through all sources.
+ * Each call to startCollecting spins up its own worker pool which pulls entries with priority
+ * (fewest attempts first), retries with round-robin across sources, and applies exponential
+ * backoff between full cycles through all sources. Workers self-terminate when the request
+ * tracker is cancelled (deadline / all-fetched / external) or when there is nothing left to do.
  */
 export class FileStoreTxCollection {
-  /** Map from tx hash string to entry for all pending downloads. */
-  private entries = new Map<string, FileStoreTxEntry>();
-
-  /** Worker promises for the shared worker pool. */
-  private workers: Promise<void>[] = [];
-
-  /** Whether the worker pool is running. */
-  private running = false;
-
-  /** Signal used to wake sleeping workers when new entries arrive or stop is called. */
-  private wakeSignal: PromiseWithResolvers<void>;
-
   constructor(
     private readonly sources: FileStoreTxSource[],
     private readonly txCollectionSink: TxCollectionSink,
     private readonly config: FileStoreCollectionConfig,
     private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly log: Logger = createLogger('p2p:file_store_tx_collection'),
-  ) {
-    this.wakeSignal = promiseWithResolvers<void>();
-  }
+  ) {}
 
-  /** Starts the shared worker pool. */
-  public start(): void {
-    if (this.sources.length === 0) {
-      this.log.debug('No file store sources configured');
-      return;
-    }
-    this.running = true;
-    for (let i = 0; i < this.config.workerCount; i++) {
-      this.workers.push(this.workerLoop());
-    }
-  }
-
-  /** Stops all workers and clears state. */
-  public async stop(): Promise<void> {
-    this.running = false;
-    this.wake();
-    await Promise.all(this.workers);
-    this.workers = [];
-    this.entries.clear();
-  }
-
-  /** Adds entries to the shared map and wakes workers. */
-  public startCollecting(txHashes: TxHash[], context: TxAddContext, deadline: Date): void {
-    if (this.sources.length === 0 || txHashes.length === 0) {
-      return;
-    }
-    if (+deadline <= this.dateProvider.now()) {
+  /**
+   * Spins up workers to download all txs still missing from the tracker, racing across the
+   * configured file store sources. Resolves once all workers settle.
+   */
+  public async startCollecting(requestTracker: IRequestTracker, context: TxAddContext): Promise<void> {
+    if (this.sources.length === 0 || requestTracker.checkCancelled()) {
       return;
     }
 
-    for (const txHash of txHashes) {
-      const hashStr = txHash.toString();
-      if (!this.entries.has(hashStr)) {
-        this.entries.set(hashStr, {
-          txHash: hashStr,
-          context,
-          deadline,
-          attempts: 0,
-          lastAttemptTime: 0,
-          nextSourceIndex: Math.floor(Math.random() * this.sources.length),
-        });
-      }
+    // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+    const entries: Set<FileStoreTxEntry> = new Set();
+    for (const hashStr of requestTracker.missingTxHashes) {
+      entries.add({
+        txHash: hashStr,
+        attempts: 0,
+        lastAttemptTime: 0,
+        nextSourceIndex: Math.floor(Math.random() * this.sources.length),
+      });
     }
-    this.wake();
-  }
 
-  /** Removes entries for txs that have been found elsewhere. */
-  public foundTxs(txs: Tx[]): void {
-    for (const tx of txs) {
-      this.entries.delete(tx.getTxHash().toString());
+    // Yield before spawning so the synchronous caller can finish any follow-up (eg. marking a tx
+    // as fetched on the tracker, or cancelling it) before workers begin scanning entries.
+    await Promise.resolve();
+    if (requestTracker.checkCancelled()) {
+      return;
     }
+
+    await Promise.allSettled(times(this.config.workerCount, () => this.workerLoop(entries, requestTracker, context)));
   }
 
-  /** Clears all pending entries. */
-  public clearPending(): void {
-    this.entries.clear();
-  }
-
-  private async workerLoop(): Promise<void> {
-    while (this.running) {
-      const action = this.getNextAction();
+  private async workerLoop(
+    // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+    entries: Set<FileStoreTxEntry>,
+    requestTracker: IRequestTracker,
+    context: TxAddContext,
+  ): Promise<void> {
+    while (!requestTracker.checkCancelled() && entries.size > 0) {
+      const action = this.getNextAction(entries, requestTracker);
       if (action.type === 'sleep') {
-        await action.promise;
+        await Promise.race([sleep(action.ms), requestTracker.cancellationToken]);
         continue;
       }
 
@@ -133,10 +96,10 @@ export class FileStoreTxCollection {
             method: 'file-store',
             fileStore: source.getInfo(),
           },
-          entry.context,
+          context,
         );
         if (result.txs.length > 0) {
-          this.entries.delete(entry.txHash);
+          entries.delete(entry);
         }
       } catch (err) {
         this.log.trace(`Error downloading tx ${entry.txHash} from ${source.getInfo()}`, { err });
@@ -144,15 +107,20 @@ export class FileStoreTxCollection {
     }
   }
 
-  /** Single-pass scan: removes expired entries, finds the best ready entry, or computes sleep time. */
-  private getNextAction(): { type: 'process'; entry: FileStoreTxEntry } | { type: 'sleep'; promise: Promise<void> } {
+  /** Single-pass scan: removes stale entries, finds the best ready entry, or computes sleep time. */
+  private getNextAction(
+    // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+    entries: Set<FileStoreTxEntry>,
+    requestTracker: IRequestTracker,
+  ): { type: 'process'; entry: FileStoreTxEntry } | { type: 'sleep'; ms: number } {
     const now = this.dateProvider.now();
     let best: FileStoreTxEntry | undefined;
     let earliestReadyAt = Infinity;
 
-    for (const [key, entry] of this.entries) {
-      if (+entry.deadline <= now) {
-        this.entries.delete(key);
+    for (const entry of entries) {
+      // Drop entries whose tx was already found via another collection path.
+      if (!requestTracker.isMissing(entry.txHash)) {
+        entries.delete(entry);
         continue;
       }
       const backoffMs = this.getBackoffMs(entry);
@@ -169,10 +137,9 @@ export class FileStoreTxCollection {
     if (best) {
       return { type: 'process', entry: best };
     }
-    if (earliestReadyAt < Infinity) {
-      return { type: 'sleep', promise: this.sleepOrWake(earliestReadyAt - now) };
-    }
-    return { type: 'sleep', promise: this.waitForWake() };
+    // earliestReadyAt is finite whenever there are surviving entries; if entries became empty,
+    // the outer worker loop will exit on its next iteration via entries.size === 0.
+    return { type: 'sleep', ms: earliestReadyAt === Infinity ? 0 : earliestReadyAt - now };
   }
 
   /** Computes backoff for an entry. Backoff applies after a full cycle through all sources. */
@@ -182,21 +149,5 @@ export class FileStoreTxCollection {
       return 0;
     }
     return Math.min(this.config.backoffBaseMs * Math.pow(2, fullCycles - 1), this.config.backoffMaxMs);
-  }
-
-  /** Resolves the current wake signal and creates a new one. */
-  private wake(): void {
-    this.wakeSignal.resolve();
-    this.wakeSignal = promiseWithResolvers<void>();
-  }
-
-  /** Waits until the wake signal is resolved. */
-  private async waitForWake(): Promise<void> {
-    await this.wakeSignal.promise;
-  }
-
-  /** Sleeps for the given duration or until the wake signal is resolved. */
-  private async sleepOrWake(ms: number): Promise<void> {
-    await Promise.race([sleep(ms), this.wakeSignal.promise]);
   }
 }

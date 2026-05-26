@@ -15,7 +15,7 @@ use aztec::{
             DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         },
         hash::{compute_log_tag, compute_siloed_nullifier, poseidon2_hash_with_separator},
-        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Packable, Serialize, ToField},
     },
 };
 
@@ -64,8 +64,7 @@ impl NoteHash for UintNote {
         owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
-        let owner_npk_m = get_public_keys(owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
         let secret = context.request_nhk_app(owner_npk_m_hash);
         compute_note_nullifier(note_hash_for_nullification, [secret])
     }
@@ -76,8 +75,7 @@ impl NoteHash for UintNote {
         note_hash_for_nullification: Field,
     ) -> Option<Field> {
         try_get_public_keys(owner).map(|public_keys| {
-            let owner_npk_m = public_keys.npk_m;
-            let owner_npk_m_hash = owner_npk_m.hash();
+            let owner_npk_m_hash = public_keys.npk_m_hash;
             let secret = get_nhk_app(owner_npk_m_hash);
             compute_note_nullifier(note_hash_for_nullification, [secret])
         })
@@ -135,7 +133,7 @@ impl UintNote {
         // nullifier tree since it uses its own separator, making collisions with actual note nullifiers practically
         // impossible.
         let validity_commitment = partial_note.compute_validity_commitment(completer);
-        context.push_nullifier(validity_commitment);
+        context.push_nullifier_unsafe(validity_commitment);
 
         partial_note
     }
@@ -228,7 +226,7 @@ impl PartialUintNote {
         // inserted in public as the public values are provided and the note hash computed.
         let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
         let payload = BoundedVec::from_array([storage_slot, value.to_field()]);
-        context.emit_private_log_vec_unsafe(log_tag, payload);
+        context.emit_private_log_unsafe(log_tag, payload);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, value));
     }
 

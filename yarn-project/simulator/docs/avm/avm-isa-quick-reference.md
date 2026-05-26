@@ -250,9 +250,9 @@ Click on an opcode name to view its detailed documentation.
 * **[🔗ECADD](opcodes/ecadd.md)**: Grumpkin elliptic curve addition
     * Opcode `0x42`
     ```javascript
-    M[dstOffset:dstOffset+3] = grumpkinAdd(
-        /*point1=*/{x: M[p1XOffset], y: M[p1YOffset], isInfinite: M[p1IsInfiniteOffset]},
-        /*point2=*/{x: M[p2XOffset], y: M[p2YOffset], isInfinite: M[p2IsInfiniteOffset]}
+    M[dstOffset:dstOffset+1] = grumpkinAdd(
+        /*point1=*/{x: M[p1XOffset], y: M[p1YOffset]},
+        /*point2=*/{x: M[p2XOffset], y: M[p2YOffset]}
     )
     ```
 * **[🔗TORADIXBE](opcodes/toradixbe.md)**: Convert to radix (big-endian)

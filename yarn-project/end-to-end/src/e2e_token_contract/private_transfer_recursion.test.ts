@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { mintNotes } from '../fixtures/token_utils.js';
 import { TokenContractTest } from './token_contract_test.js';
 
@@ -10,7 +11,7 @@ describe('e2e_token_contract private transfer recursion', () => {
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    await t.setup();
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     ({ asset, wallet, adminAddress, account1Address, node } = t);
   });
 

@@ -14,13 +14,15 @@ import {
   deriveMasterNullifierHidingKey,
   deriveMasterOutgoingViewingSecretKey,
   derivePublicKeyFromSecretKey,
+  hashPublicKey,
 } from '@aztec/stdlib/keys';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('Keys', () => {
   jest.setTimeout(TIMEOUT);
@@ -42,7 +44,7 @@ describe('Keys', () => {
       wallet,
       accounts: [defaultAccountAddress],
       initialFundedAccounts,
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
 
     ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 
@@ -114,9 +116,13 @@ describe('Keys', () => {
 
   describe('ovsk_app', () => {
     it('gets ovsk_app', async () => {
-      // Derive the ovpk_m_hash from the account secret
+      // Derive the ovpk_m_hash from the account secret. Use `hashPublicKey` (the
+      // domain-separated hash over `[x, y]`) rather than `Point.hash()` (which hashes
+      // `[x, y, is_infinite]` with no separator) -- the PXE's `KeyStore.addAccount` stores
+      // master-key hashes computed via `hashPublicKey`, so this is what the
+      // `aztec_utl_getKeyValidationRequest` lookup compares against.
       const ovskM = deriveMasterOutgoingViewingSecretKey(secret);
-      const ovpkMHash = await (await derivePublicKeyFromSecretKey(ovskM)).hash();
+      const ovpkMHash = await hashPublicKey(await derivePublicKeyFromSecretKey(ovskM));
 
       // Compute the expected ovsk_app
       const expectedOvskApp = await computeAppSecretKey(ovskM, testContract.address, 'ov');

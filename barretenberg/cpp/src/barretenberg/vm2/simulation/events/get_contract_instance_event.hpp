@@ -26,12 +26,13 @@ struct GetContractInstanceEvent {
     FF nullifier_tree_root = 0;
     FF public_data_tree_root = 0;
 
-    // Instance retrieval results including all three members which are all needed for tracegen
+    // Instance retrieval results including all four members which are all needed for tracegen
     // despite only needing the selected member in simulation.
     bool instance_exists = false;
     FF retrieved_deployer_addr = 0;
     FF retrieved_class_id = 0;
     FF retrieved_init_hash = 0;
+    FF retrieved_immutables_hash = 0;
 };
 
 } // namespace bb::avm2::simulation

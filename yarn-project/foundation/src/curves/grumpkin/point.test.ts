@@ -8,7 +8,7 @@ describe('Point', () => {
     it('always returns a valid point', async () => {
       for (let i = 0; i < 100; ++i) {
         const point = await Point.random();
-        expect(point.isOnGrumpkin()).toEqual(true);
+        expect(point.isOnCurve()).toEqual(true);
       }
     });
 
@@ -26,7 +26,6 @@ describe('Point', () => {
     const p = new Point(
       new Fr(0x30426e64aee30e998c13c8ceecda3a77807dbead52bc2f3bf0eae851b4b710c1n),
       new Fr(0x113156a068f603023240c96b4da5474667db3b8711c521c748212a15bc034ea6n),
-      false,
     );
 
     const [x, sign] = p.toXAndSign();
@@ -53,7 +52,6 @@ describe('Point', () => {
     const p = new Point(
       new Fr(0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73n),
       new Fr(0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4an),
-      false,
     );
     expect(p.toXAndSign()[1]).toBe(true);
 
@@ -74,7 +72,6 @@ describe('Point', () => {
     const p = new Point(
       new Fr(0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5n),
       new Fr(0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0n),
-      false,
     );
     expect(p.toXAndSign()[1]).toBe(false);
 

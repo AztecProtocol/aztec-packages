@@ -63,30 +63,21 @@
 }</code></pre>
 
 <div class="comments">
-<p>A trait that defines the common interface for all Aztec state variables. State variables are variables that can be
-stored in the contract's storage. Examples of state variables are <code>Owned</code>, <code>PublicMutable</code>, <code>Map</code> or
-<code>DelayedPublicMutable</code>.</p>
-<h2>Type Parameters</h2>
-<ul>
-<li><code>N</code> - A compile-time constant that determines how many storage slots need to be reserved for this state variable.</li>
-<li><code>Context</code> - The execution context type (e.g., <code>PublicContext</code>, <code>PrivateContext</code>, <code>UtilityContext</code>). The context
-determines which methods of the state variable are available and controls whether the variable can be accessed in
-public, private or utility functions.</li>
-</ul>
-</div>
+<p>A container for contract state.</p>
+<p>All contract state is stored in state variables, and all state variables implement the <code>StateVariable</code> trait. For
+more information on the different types of state variables see the <a href="../../noir_aztec/state_vars/index.html"><code>state_vars</code></a> module.</p></div>
 <h2>Required methods</h2>
 <div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: Context, storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
 
 <div class="padded-description"><div class="comments">
-<p>Initializes a new state variable at a given storage slot.</p>
-<p>This function is automatically called within the <a href="../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> macro and needs
-to
-be manually called only when <a href="../../noir_aztec/macros/storage/fn.storage_no_init.html"><code>storage_no_init</code></a> is used.</p></div>
+<p>Creates a state variable.</p>
+<p>This function is automatically called by aztec-nr as the <a href="../../noir_aztec/contract_self/index.html"><code>self</code></a> object is created. Users
+are expected to only ever need to invoke it when using the
+<a href="../../noir_aztec/macros/storage/fn.storage_no_init.html"><code>#[storage_no_init]</code></a> macro.</p></div>
 </div><code id="get_storage_slot" class="code-header">pub fn <a href="#get_storage_slot"><span class="fn">get_storage_slot</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
 
 <div class="padded-description"><div class="comments">
-<p>Returns the storage slot at which the state variable is placed. Typically used only when testing the contract
-or when using a lower-level API like <code>get_notes</code> function.</p>
+<p>Returns the state variable's storage slot.</p>
 </div>
 </div></div><h2>Implementors</h2>
 <h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-DelayedPublicMutable<T, InitialDelay, Context>"><code class="code-header">impl&lt;Context, let InitialDelay: <a href="../../std/primitive.u64.html" class="primitive">u64</a>, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html" class="struct">DelayedPublicMutable</a>&lt;T, InitialDelay, Context&gt;

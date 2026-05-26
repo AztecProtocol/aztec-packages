@@ -49,6 +49,10 @@ When simulating private functions, the caller must have access to any private st
 
 If the caller doesn't have access to another address's notes, the simulation will fail with an error.
 
+:::tip
+If `.simulate()` is prompting the user to sign every call, or failing with `min_revertible_side_effect_counter must not be 0` when you pass `from: AztecAddress.ZERO`, see [Simulate without signing prompts](./how_to_simulate_without_signing.md).
+:::
+
 :::warning
 Simulation runs locally without generating proofs. No correctness guarantees are provided on the result. See [Call Types](../foundational-topics/call_types.md#simulate) for more details.
 :::

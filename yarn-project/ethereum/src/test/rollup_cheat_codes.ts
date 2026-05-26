@@ -179,6 +179,21 @@ export class RollupCheatCodes {
   }
 
   /**
+   * Warps L1 time to the start of an explicit absolute slot. Unlike `advanceSlots(N)` which is
+   * relative to the current L1 timestamp at call time and therefore races with real-time
+   * progression between query and warp, this lands at the slot regardless of latency.
+   *
+   * Throws if the requested slot is in the past relative to current L1 time (anvil cannot
+   * rewind).
+   */
+  public async advanceToSlot(slot: SlotNumber) {
+    const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(slot)]);
+    await this.ethCheatCodes.warp(Number(timestamp), { silent: true, resetBlockInterval: true });
+    this.logger.warn(`Advanced to slot ${slot}`, { timestamp });
+    return timestamp;
+  }
+
+  /**
    * Warps time in L1 equivalent to however many slots.
    * @param howMany - The number of slots to advance.
    */

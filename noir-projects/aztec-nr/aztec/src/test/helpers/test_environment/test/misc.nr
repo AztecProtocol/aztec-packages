@@ -45,7 +45,7 @@ unconstrained fn private_public_and_utility_context_share_default_chain_id() {
 
 #[test]
 unconstrained fn oracle_version_is_checked_upon_env_creation() {
-    let mock = OracleMock::mock("aztec_utl_assertCompatibleOracleVersionV2");
+    let mock = OracleMock::mock("aztec_utl_assertCompatibleOracleVersion");
 
     let _env = TestEnvironment::new();
 
@@ -60,8 +60,5 @@ unconstrained fn txe_oracle_version_is_checked_upon_env_creation() {
     let _env = TestEnvironment::new();
 
     assert_eq(mock.times_called(), 1);
-    assert_eq(
-        mock.get_last_params::<(Field, Field)>(),
-        (TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR),
-    );
+    assert_eq(mock.get_last_params::<(Field, Field)>(), (TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR));
 }

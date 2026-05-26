@@ -134,9 +134,12 @@ export class ProvingMetrics {
 
 export type TxInclusionData = {
   txHash: string;
-  sentAt: number;
-  minedAt: number;
-  attestedAt: number;
+  /** Wall-clock at client when the tx was submitted, in ms (Date.now()). */
+  sentAtMs: number;
+  /** Wall-clock at client when the block containing the tx first became visible, in ms (Date.now()). -1 if never observed. */
+  minedAtMs: number;
+  /** Reserved for future attestation-observed-at signal; -1 today. */
+  attestedAtMs: number;
   blocknumber: number;
   priorityFee: number;
   totalFee: number;
@@ -174,9 +177,9 @@ export class TxInclusionMetrics {
 
     this.data.set(txHash, {
       txHash,
-      sentAt: Math.trunc(Date.now() / 1000),
-      minedAt: -1,
-      attestedAt: -1,
+      sentAtMs: Date.now(),
+      minedAtMs: -1,
+      attestedAtMs: -1,
       blocknumber: -1,
       priorityFee: Number(priorityFees.feePerDaGas + priorityFees.feePerL2Gas),
       totalFee: -1,
@@ -184,6 +187,28 @@ export class TxInclusionMetrics {
       group,
     });
     this.groups.add(group);
+  }
+
+  /**
+   * Stamp mined-at metadata for any tracked tx contained in this block, using
+   * `observedAtMs` (caller-supplied wall-clock at the moment they first saw the
+   * block). Idempotent: existing minedAtMs is preserved so the first observer
+   * wins (typically the block-watcher; recordMinedTx is a fallback).
+   */
+  observeBlockForMinedTxs(
+    blockNumber: number,
+    txHashes: ReadonlyArray<{ toString(): string }>,
+    observedAtMs: number,
+  ): void {
+    txHashes.forEach((txHash, position) => {
+      const data = this.data.get(txHash.toString());
+      if (!data || data.minedAtMs !== -1) {
+        return;
+      }
+      data.blocknumber = blockNumber;
+      data.minedAtMs = observedAtMs;
+      data.positionInBlock = position;
+    });
   }
 
   async recordMinedTx(txReceipt: TxReceipt): Promise<void> {
@@ -197,26 +222,43 @@ export class TxInclusionMetrics {
       return;
     }
 
-    if (!this.blocks.has(blockNumber)) {
-      this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber, { includeTransactions: true }));
-    }
-
-    const block = await this.blocks.get(blockNumber)!;
-    if (!block) {
-      this.logger?.warn('Failed to load block for mined tx receipt', { txHash: txHash.toString(), blockNumber });
-      return;
-    }
     const data = this.data.get(txHash.toString());
     if (!data) {
       const message = `Missing sent tx record for mined tx ${txHash.toString()}`;
       this.logger?.warn(message, { txHash: txHash.toString(), blockNumber });
       throw new Error(message);
     }
-    data.blocknumber = blockNumber;
-    data.minedAt = Number(block.header.globalVariables.timestamp);
-    data.attestedAt = -1;
     data.totalFee = Number(txReceipt.transactionFee ?? 0n);
-    data.positionInBlock = block.body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
+
+    // Fallback path for txs the block-watcher missed (e.g. observed only after
+    // the watcher stopped). Stamp with the block's L2 slot timestamp; this is
+    // earlier than the true client-observed time by attestation+propagation
+    // lag, but it's the only deterministic timestamp available post-hoc.
+    if (data.minedAtMs === -1) {
+      if (!this.blocks.has(blockNumber)) {
+        this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber, { includeTransactions: true }));
+      }
+      const block = await this.blocks.get(blockNumber)!;
+      if (!block) {
+        this.logger?.warn('Failed to load block for mined tx receipt', { txHash: txHash.toString(), blockNumber });
+        return;
+      }
+      data.blocknumber = blockNumber;
+      data.minedAtMs = Number(block.header.globalVariables.timestamp) * 1000;
+      data.positionInBlock = block.body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
+    }
+  }
+
+  /** Per-tx inclusion records for a group. Used to serialise out for downstream tooling. */
+  getInclusionRecords(group?: string): TxInclusionData[] {
+    const out: TxInclusionData[] = [];
+    for (const tx of this.data.values()) {
+      if (group !== undefined && tx.group !== group) {
+        continue;
+      }
+      out.push({ ...tx });
+    }
+    return out;
   }
 
   public inclusionTimeInSeconds(group: string): {
@@ -231,19 +273,23 @@ export class TxInclusionMetrics {
     const histogram = createHistogram({});
     let nonPositive = 0;
     for (const tx of this.data.values()) {
-      if (!tx.blocknumber || tx.group !== group || tx.minedAt === -1) {
+      if (!tx.blocknumber || tx.group !== group || tx.minedAtMs === -1) {
         continue;
       }
 
-      // `minedAt` is the block's L2 slot timestamp (seconds) while `sentAt` is the wall-clock
-      // send time. Because the slot timestamp can precede or equal the send time, the delta
-      // can be <= 0, which perf_hooks.createHistogram rejects. Skip those instead of crashing.
-      const delta = tx.minedAt - tx.sentAt;
-      if (delta <= 0) {
+      // Both timestamps are client wall-clock (ms). A negative delta should be
+      // impossible since the watcher stamps minedAtMs strictly after sentAtMs,
+      // but the fallback path (recordMinedTx via L2 slot timestamp) can stamp
+      // earlier than sentAtMs. perf_hooks.createHistogram rejects <=0; skip
+      // those instead of crashing.
+      const deltaMs = tx.minedAtMs - tx.sentAtMs;
+      if (deltaMs <= 0) {
         nonPositive++;
         continue;
       }
-      histogram.record(delta);
+      // Histogram is recorded in seconds (rounded) to match the existing
+      // toGithubActionBenchmarkJSON output unit; per-tx records carry the raw ms.
+      histogram.record(Math.max(1, Math.round(deltaMs / 1000)));
     }
     if (nonPositive > 0) {
       this.logger?.debug(`Dropped ${nonPositive} tx inclusion samples with non-positive delta`, { group });

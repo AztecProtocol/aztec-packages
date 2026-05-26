@@ -92,6 +92,37 @@ export async function executeTimeout<T>(
   return await task.exec();
 }
 
+function defaultSignalError(signal: AbortSignal) {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+
+  return new Error(signal.reason ? String(signal.reason) : 'Operation aborted');
+}
+
+/** Executes a function until it completes or the given signal aborts. */
+export async function execWithSignal<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal,
+  errorFn: (signal: AbortSignal) => Error = defaultSignalError,
+) {
+  if (signal.aborted) {
+    throw errorFn(signal);
+  }
+
+  const abortPromise = promiseWithResolvers<never>();
+  const abortListener = () => abortPromise.reject(errorFn(signal));
+  signal.addEventListener('abort', abortListener, { once: true });
+
+  try {
+    return await Promise.race<T>([fn(signal), abortPromise.promise]);
+  } finally {
+    if (abortListener) {
+      signal.removeEventListener('abort', abortListener);
+    }
+  }
+}
+
 /** Returns a promise that rejects after the given timeout */
 export function timeoutPromise(timeoutMs: number, errorMessage?: string) {
   const promise = promiseWithResolvers<never>();
