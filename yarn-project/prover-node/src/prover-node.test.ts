@@ -239,6 +239,62 @@ describe('prover-node', () => {
     expect(proverNode.totalJobCount).toEqual(0);
   });
 
+  it('reports active job timing, history, and current epoch totals', async () => {
+    const partialJob = promiseWithResolvers<void>();
+    l2BlockSource.getCheckpoints
+      .mockResolvedValueOnce(publishedCheckpoints)
+      .mockResolvedValueOnce(publishedCheckpoints.slice(0, 2))
+      .mockResolvedValue(publishedCheckpoints);
+    proverNode.nextJobRun = () => partialJob.promise;
+    proverNode.nextJobState = 'processing';
+
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    try {
+      await expect(proverNode.getJobs()).resolves.toEqual([
+        expect.objectContaining({
+          uuid: '0',
+          status: 'processing',
+          epochNumber: EpochNumber.fromBigInt(10n),
+          startedAt: expect.any(Number),
+          stateTransitions: [
+            { state: 'initialized', startedAt: expect.any(Number) },
+            { state: 'processing', startedAt: expect.any(Number) },
+          ],
+          checkpointCount: 2,
+          totalCheckpointCount: 3,
+          blockCount: 2,
+          totalBlockCount: 3,
+          txCount: 2,
+          totalTxCount: 3,
+        }),
+      ]);
+    } finally {
+      partialJob.resolve();
+    }
+  });
+
+  it('caches current epoch totals while reporting jobs', async () => {
+    const partialJob = promiseWithResolvers<void>();
+    l2BlockSource.getCheckpoints
+      .mockResolvedValueOnce(publishedCheckpoints)
+      .mockResolvedValueOnce(publishedCheckpoints.slice(0, 2))
+      .mockResolvedValue(publishedCheckpoints);
+    proverNode.nextJobRun = () => partialJob.promise;
+    proverNode.nextJobState = 'processing';
+
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+
+    try {
+      await proverNode.getJobs();
+      await proverNode.getJobs();
+
+      expect(l2BlockSource.getCheckpoints).toHaveBeenCalledTimes(3);
+    } finally {
+      partialJob.resolve();
+    }
+  });
+
   it('does not prove the same epoch twice', async () => {
     const firstJob = promiseWithResolvers<void>();
     proverNode.nextJobRun = () => firstJob.promise;
@@ -310,9 +366,15 @@ describe('prover-node', () => {
       this.nextJobState = 'completed';
       const run = this.nextJobRun;
       this.nextJobRun = () => Promise.resolve();
+      const startedAt = 1_767_225_600;
       const job = mock<EpochProvingJob>({
         run,
         getState: () => state,
+        getStartedAt: () => startedAt,
+        getStateTransitions: () => [
+          { state: 'initialized', startedAt },
+          { state, startedAt: startedAt + 1 },
+        ],
         getEpochNumber: () => data.epochNumber,
         getDeadline: () => deadline,
         getProvingData: () => data,

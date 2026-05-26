@@ -2,7 +2,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
 import type { L2Tips } from '../block/l2_block_source.js';
-import { type EpochProvingJobState, type ProverNodeApi, ProverNodeApiSchema } from './prover-node.js';
+import { type ProverNodeApi, ProverNodeApiSchema, type ProverNodeJob } from './prover-node.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
 describe('ProvingNodeApiSchema', () => {
@@ -82,15 +82,34 @@ class MockProverNode implements ProverNodeApi {
     });
   }
 
-  getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
-    return Promise.resolve([
-      { uuid: 'uuid1', status: 'initialized', epochNumber: 10 },
-      { uuid: 'uuid2', status: 'processing', epochNumber: 10 },
-      { uuid: 'uuid3', status: 'awaiting-prover', epochNumber: 10 },
-      { uuid: 'uuid4', status: 'publishing-proof', epochNumber: 10 },
-      { uuid: 'uuid5', status: 'completed', epochNumber: 10 },
-      { uuid: 'uuid6', status: 'failed', epochNumber: 10 },
-    ]);
+  getJobs(): Promise<ProverNodeJob[]> {
+    const startedAt = 1_767_225_600;
+    const statuses: ProverNodeJob['status'][] = [
+      'initialized',
+      'processing',
+      'awaiting-prover',
+      'publishing-proof',
+      'completed',
+      'failed',
+    ];
+    return Promise.resolve(
+      statuses.map((status, index) => ({
+        uuid: `uuid${index + 1}`,
+        status,
+        epochNumber: 10,
+        startedAt,
+        stateTransitions: [
+          { state: 'initialized', startedAt },
+          { state: status, startedAt: startedAt + 1 },
+        ],
+        checkpointCount: 1,
+        totalCheckpointCount: 2,
+        blockCount: 3,
+        totalBlockCount: 4,
+        txCount: 5,
+        totalTxCount: 6,
+      })),
+    );
   }
 
   startProof(epochNumber: number): Promise<void> {

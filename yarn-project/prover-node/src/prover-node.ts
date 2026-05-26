@@ -18,6 +18,7 @@ import {
   EpochProvingJobTerminalState,
   type ITxProvider,
   type ProverNodeApi,
+  type ProverNodeJob,
   type Service,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -47,6 +48,23 @@ import type { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
 type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
+type CheckpointCounts = { checkpointCount: number; blockCount: number; txCount: number };
+
+const PROVER_NODE_JOB_TOTALS_CACHE_MS = 1_000;
+
+function getCheckpointCounts(checkpoints: Checkpoint[]): CheckpointCounts {
+  const blockCount = sum(checkpoints.map(checkpoint => checkpoint.blocks.length));
+  const txCount = sum(checkpoints.map(checkpoint => sum(checkpoint.blocks.map(block => block.body.txEffects.length))));
+  return { checkpointCount: checkpoints.length, blockCount, txCount };
+}
+
+function maxCheckpointCounts(a: CheckpointCounts, b: CheckpointCounts): CheckpointCounts {
+  return {
+    checkpointCount: Math.max(a.checkpointCount, b.checkpointCount),
+    blockCount: Math.max(a.blockCount, b.blockCount),
+    txCount: Math.max(a.txCount, b.txCount),
+  };
+}
 
 /**
  * An Aztec Prover Node is a standalone process that monitors the unfinalized chain on L1 for unproven epochs,
@@ -61,6 +79,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
   private startingProofEpochs: Set<EpochNumber> = new Set();
+  private readonly currentEpochCountsCache: Map<EpochNumber, { counts: CheckpointCounts; expiresAtMs: number }> =
+    new Map();
+  private readonly currentEpochCountsPromises: Map<EpochNumber, Promise<CheckpointCounts>> = new Map();
 
   public readonly tracer: Tracer;
 
@@ -273,21 +294,76 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   /**
    * Returns an array of jobs being processed.
    */
-  public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
-    return Promise.resolve(
-      Array.from(this.jobs.entries()).map(([uuid, job]) => ({
+  public async getJobs(): Promise<ProverNodeJob[]> {
+    const jobs = Array.from(this.jobs.entries());
+    const currentCountsByEpoch = new Map(
+      await Promise.all(
+        Array.from(new Set(jobs.map(([, job]) => job.getEpochNumber()))).map(
+          async epochNumber => [epochNumber, await this.getCurrentEpochCounts(epochNumber)] as const,
+        ),
+      ),
+    );
+
+    return jobs.map(([uuid, job]) => {
+      const jobCounts = getCheckpointCounts(job.getProvingData().checkpoints);
+      const totalCounts = maxCheckpointCounts(currentCountsByEpoch.get(job.getEpochNumber()) ?? jobCounts, jobCounts);
+      return {
         uuid,
         status: job.getState(),
         epochNumber: job.getEpochNumber(),
-      })),
+        startedAt: job.getStartedAt(),
+        stateTransitions: job.getStateTransitions(),
+        checkpointCount: jobCounts.checkpointCount,
+        totalCheckpointCount: totalCounts.checkpointCount,
+        blockCount: jobCounts.blockCount,
+        totalBlockCount: totalCounts.blockCount,
+        txCount: jobCounts.txCount,
+        totalTxCount: totalCounts.txCount,
+      };
+    });
+  }
+
+  private async getCurrentEpochCounts(epochNumber: EpochNumber): Promise<CheckpointCounts> {
+    const cached = this.currentEpochCountsCache.get(epochNumber);
+    if (cached && cached.expiresAtMs > this.dateProvider.now()) {
+      return cached.counts;
+    }
+
+    const inFlight = this.currentEpochCountsPromises.get(epochNumber);
+    if (inFlight) {
+      return await inFlight;
+    }
+
+    const promise = this.fetchCurrentEpochCounts(epochNumber);
+    this.currentEpochCountsPromises.set(epochNumber, promise);
+    try {
+      return await promise;
+    } finally {
+      if (this.currentEpochCountsPromises.get(epochNumber) === promise) {
+        this.currentEpochCountsPromises.delete(epochNumber);
+      }
+    }
+  }
+
+  private async fetchCurrentEpochCounts(epochNumber: EpochNumber): Promise<CheckpointCounts> {
+    const checkpoints = (await this.l2BlockSource.getCheckpoints({ epoch: epochNumber })).map(
+      published => published.checkpoint,
     );
+    const counts = getCheckpointCounts(checkpoints);
+    this.currentEpochCountsCache.set(epochNumber, {
+      counts,
+      expiresAtMs: this.dateProvider.now() + PROVER_NODE_JOB_TOTALS_CACHE_MS,
+    });
+    return counts;
   }
 
   protected async getActiveJobsForEpoch(
     epochNumber: EpochNumber,
   ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
-    const jobs = await this.getJobs();
-    return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
+    return Array.from(this.jobs.entries())
+      .map(([uuid, job]) => ({ uuid, status: job.getState(), epochNumber: job.getEpochNumber() }))
+      .filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status))
+      .map(({ uuid, status }) => ({ uuid, status }));
   }
 
   private async activeJobsCoverEpoch(epochNumber: EpochNumber): Promise<boolean> {
@@ -437,6 +513,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       deadline,
       { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
       this.log.getBindings(),
+      this.dateProvider,
     );
   }
 

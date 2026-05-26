@@ -149,6 +149,17 @@ describe('epoch-proving-job', () => {
     await job.run();
 
     expect(job.getState()).toEqual('completed');
+    expect(job.getStartedAt()).toEqual(expect.any(Number));
+    expect(job.getStateTransitions().map(({ state }) => state)).toEqual([
+      'initialized',
+      'processing',
+      'awaiting-prover',
+      'publishing-proof',
+      'completed',
+    ]);
+    expect(job.getStateTransitions().every(({ startedAt }) => Number.isInteger(startedAt) && startedAt >= 0)).toBe(
+      true,
+    );
     expect(db.close).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessorFactory.create).toHaveBeenCalledTimes(NUM_BLOCKS);

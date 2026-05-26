@@ -3,7 +3,7 @@ import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { Timer } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { AVM_MAX_CONCURRENT_SIMULATIONS } from '@aztec/native';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
@@ -15,6 +15,7 @@ import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
   type EpochProver,
   type EpochProvingJobState,
+  type EpochProvingJobStateTransition,
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
@@ -44,6 +45,8 @@ export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
   private log: Logger;
   private uuid: string;
+  private readonly startedAt: number;
+  private readonly stateTransitions: EpochProvingJobStateTransition[];
 
   private runPromise: Promise<void> | undefined;
   private abortController = new AbortController();
@@ -63,9 +66,12 @@ export class EpochProvingJob implements Traceable {
     private deadline: Date | undefined,
     private config: EpochProvingJobOptions,
     bindings?: LoggerBindings,
+    private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
+    this.startedAt = this.nowInSeconds();
+    this.stateTransitions = [{ state: this.state, startedAt: this.startedAt }];
     this.log = createLogger('prover-node:epoch-proving-job', {
       ...bindings,
       instanceId: `epoch-${data.epochNumber}`,
@@ -79,6 +85,14 @@ export class EpochProvingJob implements Traceable {
 
   public getState(): EpochProvingJobState {
     return this.state;
+  }
+
+  public getStartedAt(): number {
+    return this.startedAt;
+  }
+
+  public getStateTransitions(): EpochProvingJobStateTransition[] {
+    return this.stateTransitions.map(transition => ({ ...transition }));
   }
 
   public getEpochNumber(): EpochNumber {
@@ -289,7 +303,7 @@ export class EpochProvingJob implements Traceable {
         } catch (err) {
           this.log.warn(`Failed to analyze estimated L1 fees for epoch ${epochNumber}`, err);
         }
-        this.state = 'completed';
+        this.setState('completed');
         this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
         return;
       }
@@ -311,7 +325,7 @@ export class EpochProvingJob implements Traceable {
         epochNumber,
         uuid: this.uuid,
       });
-      this.state = 'completed';
+      this.setState('completed');
       this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeCheckpoints, epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
       if (err && err.name === 'HaltExecutionError') {
@@ -324,7 +338,7 @@ export class EpochProvingJob implements Traceable {
       }
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
       if (this.state === 'processing' || this.state === 'awaiting-prover' || this.state === 'publishing-proof') {
-        this.state = 'failed';
+        this.setState('failed');
       }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
@@ -394,7 +408,19 @@ export class EpochProvingJob implements Traceable {
 
   private progressState(state: EpochProvingJobState) {
     this.checkState();
+    this.setState(state);
+  }
+
+  private setState(state: EpochProvingJobState) {
+    if (this.state === state) {
+      return;
+    }
     this.state = state;
+    this.stateTransitions.push({ state, startedAt: this.nowInSeconds() });
+  }
+
+  private nowInSeconds(): number {
+    return this.dateProvider.nowInSeconds();
   }
 
   private checkState() {
@@ -404,7 +430,7 @@ export class EpochProvingJob implements Traceable {
   }
 
   public async stop(state: EpochProvingJobTerminalState = 'stopped') {
-    this.state = state;
+    this.setState(state);
     this.interruptProcessing();
     if (this.runPromise) {
       await this.runPromise;
@@ -413,7 +439,7 @@ export class EpochProvingJob implements Traceable {
 
   private failProcessing() {
     if (!EpochProvingJobTerminalState.includes(this.state)) {
-      this.state = 'failed';
+      this.setState('failed');
     }
     this.interruptProcessing();
   }

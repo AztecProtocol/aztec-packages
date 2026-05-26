@@ -28,9 +28,34 @@ export const EpochProvingJobTerminalState: EpochProvingJobState[] = [
 
 export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)[number];
 
+const EpochProvingJobStateTransitionSchema = z.object({
+  state: z.enum(EpochProvingJobState),
+  startedAt: z.number().int().nonnegative(),
+});
+
+/** A recorded state change for an epoch proving job. */
+export type EpochProvingJobStateTransition = z.infer<typeof EpochProvingJobStateTransitionSchema>;
+
+const ProverNodeJobSchema = z.object({
+  uuid: z.string(),
+  status: z.enum(EpochProvingJobState),
+  epochNumber: z.number(),
+  startedAt: z.number().int().nonnegative(),
+  stateTransitions: z.array(EpochProvingJobStateTransitionSchema),
+  checkpointCount: z.number().int().nonnegative(),
+  totalCheckpointCount: z.number().int().nonnegative(),
+  blockCount: z.number().int().nonnegative(),
+  totalBlockCount: z.number().int().nonnegative(),
+  txCount: z.number().int().nonnegative(),
+  totalTxCount: z.number().int().nonnegative(),
+});
+
+/** Public status summary for an epoch proving job. */
+export type ProverNodeJob = z.infer<typeof ProverNodeJobSchema>;
+
 /** JSON RPC public interface to a prover node. */
 export interface ProverNodeApi {
-  getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]>;
+  getJobs(): Promise<ProverNodeJob[]>;
 
   startProof(epochNumber: number): Promise<void>;
 
@@ -43,7 +68,7 @@ export interface ProverNodeApi {
 export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
   getJobs: z.function({
     input: z.tuple([]),
-    output: z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState), epochNumber: z.number() })),
+    output: z.array(ProverNodeJobSchema),
   }),
 
   startProof: z.function({ input: z.tuple([schemas.Integer]), output: z.void() }),
