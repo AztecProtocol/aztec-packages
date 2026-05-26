@@ -15,6 +15,25 @@ const path = require("path");
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
 
+// Site URL used to build absolute links, matching the rest of llms.txt (which
+// docusaurus-plugin-llms generates with absolute URLs). Read from
+// docusaurus.config.js so it tracks the configured domain. Trailing slash
+// stripped so it can be concatenated with leading-slash paths.
+function loadSiteUrl() {
+  try {
+    const config = fs.readFileSync(
+      path.join(__dirname, "..", "docusaurus.config.js"),
+      "utf-8",
+    );
+    const match = config.match(/^\s*url:\s*["']([^"']+)["']/m);
+    if (match) return match[1].replace(/\/$/, "");
+  } catch {
+    // fall through to default
+  }
+  return "https://docs.aztec.network";
+}
+const SITE_URL = loadSiteUrl();
+
 // Load version config (source of truth for type→version mapping)
 let developerVersionConfig;
 try {
@@ -270,12 +289,13 @@ function findMarkdownFiles(dir) {
 }
 
 /**
- * Get the relative URL path for a file.
+ * Get the absolute URL for a file, matching the absolute-URL style used by the
+ * rest of llms.txt.
  */
 function getUrlPath(filePath, staticDir) {
   const relativePath = path.relative(staticDir, filePath);
   // Convert to URL path format
-  return "/" + relativePath.replace(/\\/g, "/");
+  return SITE_URL + "/" + relativePath.replace(/\\/g, "/");
 }
 
 /**
