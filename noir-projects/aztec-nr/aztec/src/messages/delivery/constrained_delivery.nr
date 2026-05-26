@@ -1,6 +1,7 @@
 //! Sender-side helpers for constrained message delivery.
 
-use crate::context::{NullifierExistenceRequest, PrivateContext};
+use crate::context::PrivateContext;
+use crate::nullifier::utils::compute_nullifier_existence_request;
 use crate::oracle::{call_utility_function::call_utility_function, notes::get_next_constrained_index};
 
 use crate::protocol::{
@@ -31,9 +32,10 @@ use crate::protocol::{
 ///      note.
 ///    - `index > 0`: asserts the prior nullifier
 ///      `poseidon2_hash_with_separator([sender, recipient, secret, index - 1], DOM_SEP__CONSTRAINED_MSG_NULLIFIER)`
-///      exists in the app's pending set / nullifier tree. The chain transitively constrains back to the
-///      index-0 `validate_handshake`. The caller is expected to emit the matching nullifier alongside each
-///      constrained send so subsequent calls can prove the chain.
+///      exists via [`compute_nullifier_existence_request`](crate::nullifier::utils::compute_nullifier_existence_request).
+///      The chain transitively constrains back to the index-0 `validate_handshake`. The caller is expected
+///      to emit the matching nullifier alongside each constrained send so subsequent calls can prove the
+///      chain.
 pub fn calculate_secret_and_index(
     context: &mut PrivateContext,
     registry: AztecAddress,
@@ -90,10 +92,8 @@ pub fn calculate_secret_and_index(
                 [sender.to_field(), recipient.to_field(), secret, (index - 1) as Field],
                 DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
             );
-            context.assert_nullifier_exists(NullifierExistenceRequest::for_pending(
-                prev_nullifier,
-                caller,
-            ));
+            // TODO(F-670): exercise the index > 0 path end-to-end once send_constrained_msg emits nullifiers.
+            context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
         }
 
         (secret, index)
