@@ -253,9 +253,9 @@ spec:
         - name: SLASH_DUPLICATE_ATTESTATION_PENALTY
           value: {{ .Values.node.slash.duplicateAttestationPenalty | quote }}
         {{- end }}
-        {{- if .Values.node.slash.attestDescendantOfInvalidPenalty }}
-        - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
-          value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
+        {{- if .Values.node.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty }}
+        - name: SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY
+          value: {{ .Values.node.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty | quote }}
         {{- end }}
         {{- if .Values.node.slash.attestInvalidCheckpointProposalPenalty }}
         - name: SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY

@@ -131,6 +131,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     );
   }
 
+  /**
+   * Clears the cached `lastSentNonce` so the next `sendTransaction` call fetches the real
+   * nonce from the chain. Call this after an L1 reorg to prevent stale nonce references.
+   */
+  public resetNonce(): void {
+    this.lastSentNonce = undefined;
+  }
+
   public getSenderAddress() {
     return this.address;
   }

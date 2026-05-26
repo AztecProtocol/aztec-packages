@@ -1,30 +1,26 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 // Tests PXE interacting with a node that has pruned relevant blocks, preventing usage of the archive API (which PXE
 // should not rely on).
 describe('e2e_pruned_blocks', () => {
-  // Mining WORLD_STATE_CHECKPOINT_HISTORY+3 sequential dependent txs takes ~24s/block under
-  // pipelining, exceeding the default 5min jest timeout. Bump to 15 minutes.
-  jest.setTimeout(15 * 60 * 1000);
+  jest.setTimeout(5 * 60 * 1000);
 
   let logger: Logger;
   let teardown: () => Promise<void>;
 
-  let aztecNode: AztecNode;
-  let aztecNodeAdmin: AztecNodeAdmin | undefined;
+  let aztecNode: AztecNode & AztecNodeDebug;
   let cheatCodes: CheatCodes;
 
   let wallet: Wallet;
@@ -45,14 +41,13 @@ describe('e2e_pruned_blocks', () => {
   beforeAll(async () => {
     ({
       aztecNode,
-      aztecNodeAdmin,
       cheatCodes,
       logger,
       teardown,
       wallet,
       accounts: [admin, sender, recipient],
     } = await setup(3, {
-      ...PIPELINING_SETUP_OPTS,
+      ...AUTOMINE_E2E_OPTS,
       worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
       archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
@@ -65,10 +60,10 @@ describe('e2e_pruned_blocks', () => {
 
   afterAll(() => teardown());
 
-  async function waitBlocks(blocks: number): Promise<void> {
-    logger.warn(`Awaiting ${blocks} blocks to be mined`);
+  async function mineEmptyBlocks(blocks: number): Promise<void> {
+    logger.warn(`Mining ${blocks} empty blocks`);
     for (let i = 0; i < blocks; i++) {
-      await token.methods.private_get_name().send({ from: admin });
+      await aztecNode.mineBlock();
       logger.warn(`Mined ${i + 1}/${blocks} blocks`);
     }
   }
@@ -98,20 +93,13 @@ describe('e2e_pruned_blocks', () => {
         .data,
     ).toBeGreaterThan(0);
 
-    // Mine enough blocks past the first mint block so it becomes eligible for pruning, then mark
-    // the chain as proven (the AnvilTestWatcher's automatic markAsProven loop only runs under
-    // automine, but this fixture uses interval mining — so we mark it explicitly here, the same
-    // way the test did before PR #21156 dropped the explicit call). World-state prunes on the
-    // chain-finalized event; with Anvil's `finalized = latest - 2` heuristic, we need a couple
-    // of additional L1 blocks after markAsProven so the archiver's `getFinalizedL1Block` query
-    // resolves to a block that already sees the new proven tip. Mine the buffer as raw L1 blocks
-    // rather than further L2 checkpoints: under pipelining, sending another dependent L2 tx right
-    // after the cheat code is a race against the sequencer's in-flight pipelined propose (its
-    // L1 propose for the next checkpoint can revert silently inside the multicall3 aggregator
-    // when its build-time state predates the cheat-code write, triggering an L1-side reorg that
-    // drops the in-flight L2 tx).
-    await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
-    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + 1);
+    // Mine enough empty blocks past the first mint block so it becomes eligible for pruning, then
+    // mark the chain as proven. AUTOMINE_E2E_OPTS disables AnvilTestWatcher (no auto-markAsProven
+    // loop) and no EpochTestSettler is wired in the e2e fixture, so we mark explicitly here.
+    // World-state prunes on the chain-finalized event; with Anvil's `finalized = latest - 2`
+    // heuristic, we need a couple of additional L1 blocks after markAsProven so the archiver's
+    // `getFinalizedL1Block` query resolves to a block that already sees the new proven tip.
+    await mineEmptyBlocks(WORLD_STATE_CHECKPOINT_HISTORY + 1);
     await cheatCodes.rollup.markAsProven();
     await cheatCodes.eth.mineEmptyBlock(3);
 

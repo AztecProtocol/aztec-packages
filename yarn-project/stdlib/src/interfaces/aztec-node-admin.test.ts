@@ -57,6 +57,14 @@ describe('AztecNodeAdminApiSchema', () => {
     await context.client.resumeSync();
   });
 
+  it('pauseSequencer', async () => {
+    await context.client.pauseSequencer();
+  });
+
+  it('resumeSequencer', async () => {
+    await context.client.resumeSequencer();
+  });
+
   it('getSlashOffenses', async () => {
     const offenses = await context.client.getSlashOffenses('all');
     expect(offenses).toHaveLength(1);
@@ -120,7 +128,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
-      slashAttestDescendantOfInvalidPenalty: 1000n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 1000n,
       slashOffenseExpirationRounds: 4,
       slashMaxPayloadSize: 50,
       slashUnknownPenalty: 1000n,
@@ -151,6 +159,12 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     return Promise.resolve();
   }
   resumeSync(): Promise<void> {
+    return Promise.resolve();
+  }
+  pauseSequencer(): Promise<void> {
+    return Promise.resolve();
+  }
+  resumeSequencer(): Promise<void> {
     return Promise.resolve();
   }
   reloadKeystore(): Promise<void> {

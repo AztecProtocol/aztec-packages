@@ -21,7 +21,7 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { jest } from '@jest/globals';
 
-import { DUPLICATE_NULLIFIER_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract contract class registration', () => {
@@ -41,7 +41,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   let publicationTxReceipt: TxReceipt;
 
   beforeAll(async () => {
-    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup({ ...PIPELINING_SETUP_OPTS }));
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
     artifact = StatefulTestContract.artifact;
     publicationTxReceipt = await publishContractClass(wallet, artifact).then(c =>
       c.send({ from: defaultAccountAddress }).then(({ receipt }) => receipt),
@@ -156,6 +156,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           expect(deployed!.address).toEqual(instance.address);
           expect(deployed!.currentContractClassId).toEqual(contractClass.id);
           expect(deployed!.initializationHash).toEqual(instance.initializationHash);
+          expect(deployed!.immutablesHash).toEqual(instance.immutablesHash);
           expect(deployed!.publicKeys).toEqual(instance.publicKeys);
           expect(deployed!.salt).toEqual(instance.salt);
           expect(deployed!.deployer).toEqual(instance.deployer);

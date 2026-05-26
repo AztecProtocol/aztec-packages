@@ -7,7 +7,7 @@ import { AbiTypesContract } from '@aztec/noir-test-contracts.js/AbiTypes';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
@@ -31,7 +31,7 @@ describe('AbiTypes', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     ({ contract: abiTypesContract } = await AbiTypesContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 

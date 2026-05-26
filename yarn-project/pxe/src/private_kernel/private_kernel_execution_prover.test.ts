@@ -130,12 +130,13 @@ describe('Private Kernel Sequencer', () => {
     oracle.getMasterSecretKey.mockResolvedValue(Fr.random() as any);
 
     oracle.getContractAddressPreimage.mockResolvedValue({
-      version: 1 as const,
+      version: 2 as const,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       address: await AztecAddress.random(),
       saltedInitializationHash: Fr.random(),

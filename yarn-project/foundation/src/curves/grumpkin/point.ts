@@ -1,5 +1,4 @@
 import { toBigIntBE } from '../../bigint-buffer/index.js';
-import { poseidon2Hash } from '../../crypto/poseidon/index.js';
 import { randomBoolean } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader, FieldReader, serializeToBuffer } from '../../serialize/index.js';
@@ -13,12 +12,15 @@ import { Fr } from '../bn254/field.js';
  * TODO(#7386): Clean up this class.
  */
 export class Point {
-  static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);
+  static INFINITY = new Point(Fr.ZERO, Fr.ZERO);
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
   static COMPRESSED_SIZE_IN_BYTES = Fr.SIZE_IN_BYTES;
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
+
+  /** Whether the point is at infinity */
+  public readonly isInfinite: boolean;
 
   constructor(
     /**
@@ -29,12 +31,10 @@ export class Point {
      * The point's y coordinate
      */
     public readonly y: Fr,
-    /**
-     * Whether the point is at infinity
-     */
-    public readonly isInfinite: boolean,
   ) {
     // TODO(#7386): check if on curve
+    // NOTE: now there is no isInfinite in the struct, empty == inf, so an empty class would pass an on-curve check. This may be fine depending on the usage.
+    this.isInfinite = x.isZero() && y.isZero();
   }
 
   toJSON() {
@@ -61,7 +61,7 @@ export class Point {
     if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
       return Point.fromBuffer(obj);
     }
-    return new Point(Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y), obj.isInfinite ?? false);
+    return new this(Fr.fromPlainObject(obj.x), Fr.fromPlainObject(obj.y));
   }
 
   /**
@@ -92,7 +92,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader), false);
+    return new this(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   /**
@@ -125,19 +125,17 @@ export class Point {
   }
 
   /**
-   * Returns the contents of the point as an array of 3 fields.
-   * @returns The point as an array of 3 fields
+   * Returns the contents of the point as an array of 2 fields.
+   * @returns The point as an array of 2 fields
    */
-  // TODO(F-553): Once we take the breaking change and drop the custom Noir `Point` wrapper in
-  // `noir-projects/noir-protocol-circuits/crates/types/src/point.nr`, revert this to serialize as `[x, y]` (2 fields)
-  // and drop the `is_infinite` flag from `fromFields` / `toNoirStruct` below.
   toFields() {
-    return [this.x, this.y, new Fr(this.isInfinite)];
+    return [this.x, this.y];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new this(reader.readField(), reader.readField(), reader.readBoolean());
+    const [x, y] = [reader.readField(), reader.readField()];
+    return new this(x, y);
   }
 
   /**
@@ -162,11 +160,12 @@ export class Point {
     const finalY = sign ? new Fr(yPositiveBigInt) : new Fr(yNegativeBigInt);
 
     // Create and return the new Point
-    return new this(x, finalY, false);
+    return new this(x, finalY);
   }
 
   /**
-   * @returns
+   * @param x - The x coordinate of the point
+   * @returns y^2 such that y^2 = x^3 - 17
    */
   static YFromX(x: Fr): Promise<Fr | null> {
     // Calculate y^2 = x^3 - 17 (i.e. the Grumpkin curve equation)
@@ -194,24 +193,15 @@ export class Point {
     return {
       x: this.x.toBigInt(),
       y: this.y.toBigInt(),
-      isInfinite: this.isInfinite ? 1n : 0n,
     };
   }
 
   /**
    * Converts the Point instance to a Buffer representation of the coordinates.
    * @returns A Buffer representation of the Point instance.
-   * @dev Note that toBuffer does not include the isInfinite flag and other serialization methods do (e.g. toFields).
-   * This is because currently when we work with point as bytes we don't want to populate the extra bytes for
-   * isInfinite flag because:
-   * 1. Our Grumpkin BB API currently does not handle point at infinity,
-   * 2. we use toBuffer when serializing notes and events and there we only work with public keys and point at infinity
-   *   is not considered a valid public key and the extra byte would raise DA cost.
+   * @dev Note that toBuffer does not include the isInfinite flag. The point at infinity is serialized as (0, 0).
    */
   toBuffer() {
-    if (this.isInfinite) {
-      throw new Error('Cannot serialize infinite point with isInfinite flag');
-    }
     const buf = serializeToBuffer([this.x, this.y]);
     if (buf.length !== Point.SIZE_IN_BYTES) {
       throw new Error(`Invalid buffer length for Point: ${buf.length}`);
@@ -261,12 +251,10 @@ export class Point {
   }
 
   toNoirStruct() {
-    /* eslint-disable camelcase */
-    return { x: this.x, y: this.y, is_infinite: this.isInfinite };
-    /* eslint-enable camelcase */
+    return { x: this.x, y: this.y };
   }
 
-  // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.
+  // Used for IvpkM. TODO(#8124): Consider removing this method.
   toWrappedNoirStruct() {
     return { inner: this.toNoirStruct() };
   }
@@ -286,21 +274,13 @@ export class Point {
     return this.x.isZero() && this.y.isZero();
   }
 
-  hash() {
-    return poseidon2Hash(this.toFields());
-  }
-
   /**
-   * Check if this is point at infinity.
-   * Check this is consistent with how bb is encoding the point at infinity
+   * @param x - The x coordinate of the point
+   * @param y - The y coordinate of the point
+   * @returns Whether the point exists on Grumpkin
    */
-  public get inf() {
-    return this.isInfinite;
-  }
-
-  isOnGrumpkin() {
-    // TODO: Check this against how bb handles curve check and infinity point check
-    if (this.inf) {
+  isOnCurve() {
+    if (this.isInfinite) {
       return true;
     }
 

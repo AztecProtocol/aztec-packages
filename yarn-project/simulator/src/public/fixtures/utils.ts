@@ -233,17 +233,13 @@ export async function addNewContractInstanceToTx(
   contractInstance: ContractInstanceWithAddress,
   skipNullifierInsertion = false,
 ) {
-  // can't use publicKeys.toFields() because it includes isInfinite which
-  // is not broadcast in such private logs
+  // Only ivpk_m is broadcast as a point (x, y); the other three keys are hashes.
   const publicKeysAsFields = [
-    contractInstance.publicKeys.masterNullifierPublicKey.x,
-    contractInstance.publicKeys.masterNullifierPublicKey.y,
-    contractInstance.publicKeys.masterIncomingViewingPublicKey.x,
-    contractInstance.publicKeys.masterIncomingViewingPublicKey.y,
-    contractInstance.publicKeys.masterOutgoingViewingPublicKey.x,
-    contractInstance.publicKeys.masterOutgoingViewingPublicKey.y,
-    contractInstance.publicKeys.masterTaggingPublicKey.x,
-    contractInstance.publicKeys.masterTaggingPublicKey.y,
+    contractInstance.publicKeys.npkMHash,
+    contractInstance.publicKeys.ivpkM.x,
+    contractInstance.publicKeys.ivpkM.y,
+    contractInstance.publicKeys.ovpkMHash,
+    contractInstance.publicKeys.tpkMHash,
   ];
   const logFields = [
     CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG,
@@ -252,6 +248,7 @@ export async function addNewContractInstanceToTx(
     new Fr(contractInstance.salt),
     contractInstance.currentContractClassId,
     contractInstance.initializationHash,
+    contractInstance.immutablesHash,
     ...publicKeysAsFields,
     contractInstance.deployer.toField(),
   ];

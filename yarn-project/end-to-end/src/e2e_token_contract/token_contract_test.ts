@@ -7,7 +7,14 @@ import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAcc
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
+import {
+  type EndToEndContext,
+  type SetupOptions,
+  deployAccounts,
+  publicDeployAccounts,
+  setup,
+  teardown,
+} from '../fixtures/setup.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
@@ -115,8 +122,9 @@ export class TokenContractTest {
     );
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.context = await setup(0, {
+      ...opts,
       metricsPort: this.metricsPort,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,

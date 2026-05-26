@@ -1,29 +1,31 @@
 import { KEY_VALIDATION_REQUEST_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * Request for validating keys used in the app.
+ *
+ * The master public key is exposed only as `pkMHash` (its `hashPublicKey` digest).
+ * The kernel reset circuit derives the corresponding point from the master secret key hint and
+ * asserts that its hash matches `pkMHash`.
  */
 export class KeyValidationRequest {
-  /** App-siloed secret key corresponding to the same underlying secret as master public key above. */
+  /** App-siloed secret key corresponding to the same underlying secret as `pkMHash`. */
   public readonly skApp: Fr;
 
   constructor(
-    /** Master public key corresponding to the same underlying secret as app secret key below. */
-    public readonly pkM: Point,
+    /** Hash of the master public key corresponding to the same underlying secret as `skApp`. */
+    public readonly pkMHash: Fr,
     skApp: Fr | GrumpkinScalar,
   ) {
-    // I am doing this conversion here because in some places skApp is represented as GrumpkinScalar (Fq).
-    // I can do this conversion even though Fq.MODULUS is larger than Fr.MODULUS because when we pass in
-    // the skApp as GrumpkinScalar it was converted to that form from Fr. So, it is safe to convert it back
-    // to Fr. If this would change in the future the code below will throw an error so it should be easy to debug.
+    // skApp may arrive as a GrumpkinScalar (Fq) in some code paths; safe to truncate to Fr because
+    // the value originally came from an Fr poseidon hash and was widened to GrumpkinScalar.
     this.skApp = skApp instanceof Fr ? skApp : new Fr(skApp.toBigInt());
   }
 
   toBuffer() {
-    return serializeToBuffer(this.pkM, this.skApp);
+    return serializeToBuffer(this.pkMHash, this.skApp);
   }
 
   get skAppAsGrumpkinScalar() {
@@ -32,11 +34,11 @@ export class KeyValidationRequest {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new KeyValidationRequest(Point.fromBuffer(reader), Fr.fromBuffer(reader));
+    return new KeyValidationRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
   toFields(): Fr[] {
-    const fields = [this.pkM.toFields(), this.skApp].flat();
+    const fields = [this.pkMHash, this.skApp];
     if (fields.length !== KEY_VALIDATION_REQUEST_LENGTH) {
       throw new Error(
         `Invalid number of fields for KeyValidationRequest. Expected ${KEY_VALIDATION_REQUEST_LENGTH}, got ${fields.length}`,
@@ -47,18 +49,18 @@ export class KeyValidationRequest {
 
   static fromFields(fields: Fr[] | FieldReader): KeyValidationRequest {
     const reader = FieldReader.asReader(fields);
-    return new KeyValidationRequest(Point.fromFields(reader), reader.readField());
+    return new KeyValidationRequest(reader.readField(), reader.readField());
   }
 
   isEmpty() {
-    return this.pkM.isZero() && this.skApp.isZero();
+    return this.pkMHash.isZero() && this.skApp.isZero();
   }
 
   static empty() {
-    return new KeyValidationRequest(Point.ZERO, Fr.ZERO);
+    return new KeyValidationRequest(Fr.ZERO, Fr.ZERO);
   }
 
-  static async random() {
-    return new KeyValidationRequest(await Point.random(), Fr.random());
+  static random() {
+    return new KeyValidationRequest(Fr.random(), Fr.random());
   }
 }

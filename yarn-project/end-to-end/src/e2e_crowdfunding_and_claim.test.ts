@@ -10,7 +10,7 @@ import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client'
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -61,7 +61,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       wallet,
       aztecNode: _aztecNode,
       accounts: [operatorAddress, donor1Address, donor2Address],
-    } = await setup(3, { ...PIPELINING_SETUP_OPTS }));
+    } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
 
     // We set the deadline to a week from now
     deadline = (await cheatCodes.eth.lastBlockTimestamp()) + 7 * 24 * 60 * 60;
@@ -313,11 +313,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     const witness = await wallet.createAuthWit(donor2Address, { caller: crowdfundingContract.address, action });
 
-    // 2) We set next block timestamp to be after the deadline. Warp L1 only (not L2) — the
-    //    huge 7-day warp would cascade publishers if we forced an L2 mineBlock, and the
-    //    donate's deadline check only needs the next-mined slot's timestamp to be past the
-    //    deadline, which follows from L1 time alone.
-    await cheatCodes.eth.warp(deadline + 1, { resetBlockInterval: true });
+    // 2) We warp L1 past the deadline. We don't mine an L2 block here: the deadline is set 7
+    // days in the future during setup, and warping that far before mining would cause the
+    // archiver to predict-reorg every prior checkpoint (their L1 publish blocks fall in a stale
+    // anvil layout after the warp). The next donate tx is rejected by the contract because the
+    // next L2 block's timestamp is already past the deadline.
+    await cheatCodes.eth.warp(Number(deadline + 1), { resetBlockInterval: true });
 
     // 3) We donate to the crowdfunding contract
     await expect(

@@ -174,7 +174,6 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              // ECADD
              perm_ecc_mem_write_mem_0_settings,
              perm_ecc_mem_write_mem_1_settings,
-             perm_ecc_mem_write_mem_2_settings,
              // To Radix.
              perm_to_radix_mem_write_mem_settings
              // Others.

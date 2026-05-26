@@ -200,10 +200,7 @@ class TXEDispatcher {
       if (!TXEArtifactsCacheInFlight.has(cacheKey)) {
         const compute = async () => {
           const keys = await deriveKeys(secret);
-          const args = [
-            keys.publicKeys.masterIncomingViewingPublicKey.x,
-            keys.publicKeys.masterIncomingViewingPublicKey.y,
-          ];
+          const args = [keys.publicKeys.ivpkM.x, keys.publicKeys.ivpkM.y];
           const computedArtifact: ContractArtifactWithHash = {
             ...SchnorrAccountContractArtifact,
             // Artifact hash is *very* expensive to compute, so we do it here once

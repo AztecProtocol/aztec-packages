@@ -15,6 +15,7 @@ import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { type EndToEndContext, setup } from './fixtures/utils.js';
 
 const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
@@ -32,7 +33,7 @@ describe('e2e_snapshot_sync', () => {
 
   beforeAll(async () => {
     context = await setup(0, {
-      minTxsPerBlock: 0,
+      ...PIPELINING_SETUP_OPTS,
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
       aztecSlotDuration: L1_BLOCK_TIME_IN_S * 2,
       aztecEpochDuration: 64,

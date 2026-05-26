@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -40,7 +41,7 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 {
   private readonly log: Logger = createLogger('broadcasted-invalid-checkpoint-proposal-watcher');
   private readonly runningPromise: RunningPromise;
-  private readonly emittedOffenses = new Set<string>();
+  private readonly emittedOffenses: FifoSet<string>;
   private readonly scanSlotLookback: number;
   private config: BroadcastedInvalidCheckpointProposalWatcherConfig;
   private lastScannedSlot: SlotNumber | undefined;
@@ -56,6 +57,12 @@ export class BroadcastedInvalidCheckpointProposalWatcher
     const constants = epochCache.getL1Constants();
     this.config = pick(config, ...BroadcastedInvalidCheckpointProposalWatcherConfigKeys);
     this.scanSlotLookback = Math.max(1, scanSlotLookback);
+
+    // Bound emitted offenses to the number of slots we rescan. This watcher currently tracks one offense type,
+    // and at most one offense of that type can be emitted per slot.
+    const offenseTypes = 1;
+    this.emittedOffenses = FifoSet.withLimit<string>(offenseTypes * this.scanSlotLookback);
+
     const intervalMs = Math.max(1000, (constants.ethereumSlotDuration * 1000) / 4);
     this.runningPromise = new RunningPromise(() => this.scan(), this.log, intervalMs);
     this.log.info('BroadcastedInvalidCheckpointProposalWatcher initialized', {
@@ -187,10 +194,6 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 
   private markAsNewOffense(args: WantToSlashArgs): boolean {
     const key = `${args.validator.toString()}-${args.offenseType}-${args.epochOrSlot}`;
-    if (this.emittedOffenses.has(key)) {
-      return false;
-    }
-    this.emittedOffenses.add(key);
-    return true;
+    return this.emittedOffenses.addIfAbsent(key);
   }
 }
