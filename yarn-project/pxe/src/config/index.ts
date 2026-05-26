@@ -1,9 +1,9 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
   enumConfigHelper,
-  getConfigFromMappings,
   numberConfigHelper,
   parseBooleanEnv,
 } from '@aztec/foundation/config';
@@ -99,7 +99,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = composeConfigMap
  * Creates an instance of PXEConfig out of environment variables using sensible defaults for integration testing if not set.
  */
 export function getPXEConfig(): PXEConfig {
-  return getConfigFromMappings<PXEConfig>(pxeConfigMappings);
+  return buildConfigFromEnv<PXEConfig>(pxeConfigMappings);
 }
 
 export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = composeConfigMappings(nodeUrlConfigMappings);
@@ -117,7 +117,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEConfig>
  */
 export function getCliPXEOptions(): CliPXEOptions & PXEConfig {
   const pxeConfig = getPXEConfig();
-  const cliOptions = getConfigFromMappings<CliPXEOptions>(pxeCliConfigMappings);
+  const cliOptions = buildConfigFromEnv<CliPXEOptions>(pxeCliConfigMappings);
   return {
     ...pxeConfig,
     ...cliOptions,

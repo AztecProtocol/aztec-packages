@@ -3,8 +3,8 @@ import {
   SecretValue,
   bigintConfigHelper,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -552,7 +552,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = composeConfigMap
  * @returns The config values for p2p client.
  */
 export function getP2PConfigFromEnv(): P2PConfig {
-  return getConfigFromMappings<P2PConfig>(p2pConfigMappings);
+  return buildConfigFromEnv<P2PConfig>(p2pConfigMappings);
 }
 
 export function getP2PDefaultConfig(): P2PConfig {

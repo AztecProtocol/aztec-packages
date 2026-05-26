@@ -1,8 +1,8 @@
 import { type L1ContractAddresses, pickL1ContractAddressMappings } from '@aztec/ethereum/l1-contract-addresses';
 import {
   type ConfigMappingsType,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
 
@@ -36,5 +36,5 @@ export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = composeCo
  * @returns The archiver configuration.
  */
 export function getDataConfigFromEnv(): DataStoreConfig {
-  return getConfigFromMappings<DataStoreConfig>(dataConfigMappings);
+  return buildConfigFromEnv<DataStoreConfig>(dataConfigMappings);
 }

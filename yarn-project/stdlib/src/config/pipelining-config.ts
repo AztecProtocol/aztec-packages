@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, buildConfigFromEnv } from '@aztec/foundation/config';
 
 import { z } from 'zod';
 
@@ -27,5 +27,5 @@ export const PipelineConfigSchema = zodFor<PipelineConfig>()(
 );
 
 export function getPipelineConfigEnvVars(): PipelineConfig {
-  return getConfigFromMappings(pipelineConfigMappings);
+  return buildConfigFromEnv(pipelineConfigMappings);
 }

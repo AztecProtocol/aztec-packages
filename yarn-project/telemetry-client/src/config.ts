@@ -1,7 +1,7 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
-  getConfigFromMappings,
+  buildConfigFromEnv,
   numberConfigHelper,
   parseCommaSeparated,
 } from '@aztec/foundation/config';
@@ -96,5 +96,5 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
 };
 
 export function getConfigEnvVars(): TelemetryClientConfig {
-  return getConfigFromMappings<TelemetryClientConfig>(telemetryClientConfigMappings);
+  return buildConfigFromEnv<TelemetryClientConfig>(telemetryClientConfigMappings);
 }

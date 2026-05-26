@@ -1,8 +1,8 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   floatConfigHelper,
-  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -181,7 +181,7 @@ export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(
 ) as Required<L1TxUtilsConfig>;
 
 export function getL1TxUtilsConfigEnvVars(): L1TxUtilsConfig {
-  return getConfigFromMappings(l1TxUtilsConfigMappings);
+  return buildConfigFromEnv(l1TxUtilsConfigMappings);
 }
 
 function deprecatedFixedFeeMessage(envVar: string): string {

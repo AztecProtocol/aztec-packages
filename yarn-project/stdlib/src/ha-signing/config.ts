@@ -7,8 +7,8 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -152,7 +152,7 @@ export const defaultValidatorHASignerConfig: ValidatorHASignerConfig = getDefaul
  * @returns The validator HA signer configuration.
  */
 export function getConfigEnvVars(): ValidatorHASignerConfig {
-  return getConfigFromMappings<ValidatorHASignerConfig>(validatorHASignerConfigMappings);
+  return buildConfigFromEnv<ValidatorHASignerConfig>(validatorHASignerConfigMappings);
 }
 
 export const ValidatorHASignerConfigSchema = BaseSignerConfigSchema.extend({

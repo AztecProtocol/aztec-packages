@@ -4,7 +4,7 @@ import {
   acvmConfigMappings,
   bbConfigMappings as bbProverConfigMappings,
 } from '@aztec/bb-prover';
-import { type ConfigMappingsType, composeConfigMappings, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, buildConfigFromEnv, composeConfigMappings } from '@aztec/foundation/config';
 import { type ProverConfig, proverConfigMappings } from '@aztec/stdlib/interfaces/prover-config';
 
 import {
@@ -38,5 +38,5 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConf
  * @returns The prover configuration.
  */
 export function getProverEnvVars(): ProverClientUserConfig {
-  return getConfigFromMappings<ProverClientUserConfig>(proverClientConfigMappings);
+  return buildConfigFromEnv<ProverClientUserConfig>(proverClientConfigMappings);
 }

@@ -1,7 +1,7 @@
 import {
   type ConfigMappingsType,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
   parseCommaSeparated,
@@ -76,5 +76,5 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = compos
 );
 
 export function getL1ReaderConfigFromEnv(): L1ReaderConfig {
-  return getConfigFromMappings<L1ReaderConfig>(l1ReaderConfigMappings);
+  return buildConfigFromEnv<L1ReaderConfig>(l1ReaderConfigMappings);
 }

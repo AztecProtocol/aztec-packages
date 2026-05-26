@@ -2,8 +2,8 @@ import {
   type ConfigMappingsType,
   bigintConfigHelper,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -265,9 +265,9 @@ export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> 
 };
 
 export function getL1ContractsConfigEnvVars(): L1ContractsConfig {
-  return getConfigFromMappings(l1ContractsConfigMappings);
+  return buildConfigFromEnv(l1ContractsConfigMappings);
 }
 
 export function getGenesisStateConfigEnvVars(): GenesisStateConfig {
-  return getConfigFromMappings(genesisStateConfigMappings);
+  return buildConfigFromEnv(genesisStateConfigMappings);
 }

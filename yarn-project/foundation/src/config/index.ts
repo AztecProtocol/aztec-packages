@@ -50,7 +50,12 @@ export enum ConfigLayerName {
 }
 
 // Ordered list of config layers in order of precedence.
-export const ORDERED_CONFIG_LAYERS = [ConfigLayerName.CLI, ConfigLayerName.ENV, ConfigLayerName.NETWORK] as const;
+export const ORDERED_CONFIG_LAYERS = [
+  ConfigLayerName.CLI,
+  ConfigLayerName.ENV,
+  ConfigLayerName.NETWORK,
+  ConfigLayerName.DEFAULT,
+] as const;
 export type OrderedConfigLayerName = (typeof ORDERED_CONFIG_LAYERS)[number];
 
 export interface ConfigLayer<T> {
@@ -74,6 +79,18 @@ export type ResolvedConfig<T> = {
   [K in keyof T]-?: ResolvedValue<T[K]>;
 };
 
+/**
+ * Flattens a `ResolvedConfig<T>` to a plain `T` by extracting the winning `.value` from each key.
+ * Use after `resolveConfig` when downstream code expects a plain config object.
+ */
+export function resolvedToConfig<T>(resolved: ResolvedConfig<T>): T {
+  const result = {} as T;
+  for (const key of Object.keys(resolved) as Array<keyof T>) {
+    result[key] = resolved[key].value;
+  }
+  return result;
+}
+
 type AnyConfig = Record<string, unknown>;
 type AnyConfigMappings = ConfigMappingsType<AnyConfig>;
 type ConfigFromMappings<TMappings> = TMappings extends ConfigMappingsType<infer T> ? T : never;
@@ -86,7 +103,7 @@ type ComposedConfigType<TSources extends readonly AnyConfigMappings[]> = UnionTo
 
 /**
  * Shared utility function to get a value from environment variables with fallback support.
- * This can be used by both getConfigFromMappings and CLI utilities.
+ * This can be used by both buildConfigFromEnv and CLI utilities.
  *
  * @param env - The primary environment variable name
  * @param fallback - Optional array of fallback environment variable names
@@ -127,7 +144,7 @@ export function getValueFromEnvWithFallback<T>(
   return defaultValue;
 }
 
-export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>): T {
+export function buildConfigFromEnv<T>(configMappings: ConfigMappingsType<T>): T {
   return { ...getDefaultConfig(configMappings), ...envToTyped(configMappings) } as T;
 }
 
@@ -252,6 +269,9 @@ export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: 
     layerSources.set(layer.name, layer.values);
   }
 
+  // extract default values from config mappings and add to layer sources
+  layerSources.set(ConfigLayerName.DEFAULT, getDefaultConfig(configMappings));
+
   for (const key of Object.keys(configMappings) as Array<keyof T>) {
     const mapping = configMappings[key];
     const resolvedLayers: LayerEntry<Required<T>[typeof key]>[] = [];
@@ -269,13 +289,6 @@ export function resolveConfig<T>(configMappings: ConfigMappingsType<T>, layers: 
           value: layerValue as Required<T>[typeof key],
         });
       }
-    }
-
-    if (mapping.defaultValue !== undefined) {
-      resolvedLayers.push({
-        layer: ConfigLayerName.DEFAULT,
-        value: mapping.defaultValue as Required<T>[typeof key],
-      });
     }
 
     // TODO(A-1065): optional config keys (e.g. `slashingQuorum?: number`) legitimately resolve to

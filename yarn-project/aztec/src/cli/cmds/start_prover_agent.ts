@@ -1,38 +1,38 @@
 import { times } from '@aztec/foundation/collection';
+import { composeConfigMappings } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
 import {
-  type ProverAgentConfig,
   ProvingAgent,
   createProofStore,
   createProvingJobBrokerClient,
   proverAgentConfigMappings,
   proverBrokerBackoff,
 } from '@aztec/prover-client/broker';
-import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
+import { bbConfigMappings } from '@aztec/prover-client/config';
 import { ProverAgentApiSchema } from '@aztec/stdlib/interfaces/server';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { extractRelevantOptions, preloadCrsDataForServerSideProving } from '../util.js';
+import { type ConfigResolverFn, preloadCrsDataForServerSideProving } from '../util.js';
 import { getVersions } from '../versioning.js';
+
+const proverAgentFullConfigMappings = composeConfigMappings(proverAgentConfigMappings, bbConfigMappings);
 
 export async function startProverAgent(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
+  resolveConfig: ConfigResolverFn,
 ) {
   if (options.node || options.sequencer || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover agent with --node, --sequencer, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 
-  const config = {
-    ...getProverNodeAgentConfigFromEnv(), // get default config from env
-    ...extractRelevantOptions<ProverAgentConfig>(options, proverAgentConfigMappings, 'proverAgent'), // override with command line options
-  };
+  const config = resolveConfig(proverAgentFullConfigMappings, 'proverAgent');
 
   if (config.realProofs && (!config.bbBinaryPath || !config.acvmBinaryPath)) {
     userLog(`Requested real proving but no path to bb or acvm binaries provided`);
@@ -50,7 +50,7 @@ export async function startProverAgent(
   const fetch = makeTracedFetch(proverBrokerBackoff, false, makeUndiciFetch(new Agent({ connections: 10 })));
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);
 
-  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
+  const telemetry = await initTelemetryClient(resolveConfig(telemetryClientConfigMappings, 'tel'));
   const prover = await buildServerCircuitProver(config, telemetry);
   const proofStore = await createProofStore(config.proofStore);
   const agents = times(

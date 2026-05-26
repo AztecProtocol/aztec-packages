@@ -2,8 +2,8 @@ import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  buildConfigFromEnv,
   composeConfigMappings,
-  getConfigFromMappings,
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
@@ -110,19 +110,19 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = co
 );
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
-  return getConfigFromMappings(proverNodeConfigMappings);
+  return buildConfigFromEnv(proverNodeConfigMappings);
 }
 
 export function getProverNodeBrokerConfigFromEnv(): ProverBrokerConfig {
   return {
-    ...getConfigFromMappings(proverBrokerConfigMappings),
+    ...buildConfigFromEnv(proverBrokerConfigMappings),
   };
 }
 
 export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig & ACVMConfig {
   return {
-    ...getConfigFromMappings(proverAgentConfigMappings),
-    ...getConfigFromMappings(bbConfigMappings),
+    ...buildConfigFromEnv(proverAgentConfigMappings),
+    ...buildConfigFromEnv(bbConfigMappings),
   };
 }
 

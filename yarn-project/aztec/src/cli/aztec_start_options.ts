@@ -5,25 +5,22 @@ import { l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import { getKeys } from '@aztec/foundation/collection';
-import {
-  type ConfigMapping,
-  type EnvVar,
-  booleanConfigHelper,
-  isBooleanConfigValue,
-  omitConfigMappings,
-} from '@aztec/foundation/config';
+import { type ConfigMapping, type EnvVar, booleanConfigHelper, omitConfigMappings } from '@aztec/foundation/config';
 import { sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
 import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker/config';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
-import { chainConfigMappings, nodeRpcConfigMappings } from '@aztec/stdlib/config';
+import { chainConfigMappings } from '@aztec/stdlib/config';
 import { dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/config';
 import { worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { DefaultMnemonic } from '../mnemonic.js';
+import kebabCase from 'lodash.kebabcase';
+
+import { localNetworkCliConfigMappings } from '../local-network/config.js';
+import { apiConfigMappings } from './api_config.js';
 
 // Define an interface for options
 export interface AztecStartOption {
@@ -38,15 +35,25 @@ export interface AztecStartOption {
 
 export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping<unknown>>) => {
   const options: AztecStartOption[] = [];
-  for (const [key, { env, defaultValue: def, parseEnv, description, printDefault, fallback }] of Object.entries(
-    configMappings,
-  )) {
+  for (const [
+    key,
+    { env, defaultValue: def, parseEnv, description, printDefault, fallback, isBoolean },
+  ] of Object.entries(configMappings)) {
     if (universalOptions.includes(key)) {
       continue;
     }
-    const isBoolean = isBooleanConfigValue(configMappings, key as keyof typeof configMappings);
+    // const flagPrefix = namespace ? `${namespace}.` : '';
+    let flagPrefix: string;
+    let flag: string;
+    if (!namespace) {
+      flagPrefix = '';
+      flag = kebabCase(key);
+    } else {
+      flagPrefix = `${namespace}.`;
+      flag = key;
+    }
     options.push({
-      flag: `--${namespace}.${key}${isBoolean ? '' : ' <value>'}`,
+      flag: `--${flagPrefix}${flag}${isBoolean ? ' [value]' : ' <value>'}`,
       description,
       defaultValue: def,
       printDefault,
@@ -123,75 +130,9 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       env: undefined,
     },
-    {
-      flag: '--local-network.l1Mnemonic <value>',
-      description:
-        'Mnemonic for L1 accounts. Will be used to generate private keys for the sequencer/validator accounts',
-      defaultValue: DefaultMnemonic,
-      env: 'MNEMONIC',
-    },
-    {
-      flag: '--local-network.testAccounts',
-      description: 'Deploy test accounts on local network start',
-      env: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(true),
-    },
+    ...getOptions('local-network', localNetworkCliConfigMappings),
   ],
-  API: [
-    {
-      flag: '--port <value>',
-      description: 'Port to run the Aztec Services on',
-      defaultValue: 8080,
-      env: 'AZTEC_PORT',
-      parseVal: val => parseInt(val, 10),
-    },
-    {
-      flag: '--admin-port <value>',
-      description: 'Port to run admin APIs of Aztec Services on',
-      defaultValue: 8880,
-      env: 'AZTEC_ADMIN_PORT',
-      parseVal: val => parseInt(val, 10),
-    },
-    {
-      flag: '--admin-api-key-hash <value>',
-      description:
-        'SHA-256 hex hash of a pre-generated admin API key. When set, the node uses this hash for authentication instead of auto-generating a key.',
-      defaultValue: undefined,
-      env: 'AZTEC_ADMIN_API_KEY_HASH',
-    },
-    {
-      flag: '--disable-admin-api-key',
-      description:
-        'Disable API key authentication on the admin RPC endpoint. By default, a key is auto-generated, displayed once, and its hash is persisted.',
-      defaultValue: false,
-      env: 'AZTEC_DISABLE_ADMIN_API_KEY',
-      // undefined means the flag was passed without a value (boolean toggle), treat as true.
-      parseVal: val => val === undefined || val === 'true' || val === '1',
-    },
-    {
-      flag: '--reset-admin-api-key',
-      description:
-        'Force-generate a new admin API key, replacing any previously persisted key hash. The new key is displayed once at startup.',
-      defaultValue: false,
-      env: 'AZTEC_RESET_ADMIN_API_KEY',
-      parseVal: val => val === 'true' || val === '1',
-    },
-    {
-      flag: '--node-debug',
-      description: 'Expose debug endpoints (e.g. mineBlock) on the main RPC port',
-      defaultValue: false,
-      env: 'AZTEC_NODE_DEBUG',
-      parseVal: val => val === undefined || val === 'true' || val === '1',
-    },
-    {
-      flag: '--api-prefix <value>',
-      description: 'Prefix for API routes on any service that is started',
-      defaultValue: '',
-      env: 'API_PREFIX',
-    },
-    configToFlag('--rpcMaxBatchSize', nodeRpcConfigMappings.rpcMaxBatchSize),
-    configToFlag('--rpcMaxBodySize', nodeRpcConfigMappings.rpcMaxBodySize),
-  ],
+  API: [...getOptions('', apiConfigMappings)],
   ETHEREUM: [
     // Do not set defaults for CLI: keep undefined unless provided via flag or env
     configToFlag('--l1-chain-id', { ...l1ReaderConfigMappings.l1ChainId, defaultValue: undefined }),
