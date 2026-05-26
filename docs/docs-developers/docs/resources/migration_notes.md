@@ -266,6 +266,7 @@ and update `is_valid_impl` to consume the auth witness as four `Field` limbs and
 ```
 
 The `Schnorr` TypeScript API in `@aztec/foundation/crypto/schnorr` keeps the same surface (`constructSignature(msg: Uint8Array, ...)`, `verifySignature(msg, ...)`), but the `msg` parameter is now required to be exactly 32 bytes — a serialized field element (e.g. `Fr.toBuffer()` or `messageHash.toBuffer()`). Passing arbitrary-length byte strings will fail at the bb.js boundary.
+
 ### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
 
 `attempt_note_discovery` is now crate-private. Custom message handlers (implementations of `CustomMessageHandler`) that previously called it directly should call `process_private_note_msg` instead, which runs the standard private note message decoding and discovery pipeline.
