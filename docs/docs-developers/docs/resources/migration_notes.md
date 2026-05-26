@@ -57,7 +57,7 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`, and it is deployed on first use rather than at genesis.
+`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
