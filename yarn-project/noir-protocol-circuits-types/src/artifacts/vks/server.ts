@@ -19,8 +19,6 @@ import {
   PRIVATE_KERNEL_INNER_2_VK_INDEX,
   PRIVATE_KERNEL_INNER_3_VK_INDEX,
   PRIVATE_KERNEL_INNER_VK_INDEX,
-  PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX,
-  PRIVATE_KERNEL_TAIL_VK_INDEX,
   PRIVATE_TX_BASE_ROLLUP_VK_INDEX,
   PUBLIC_CHONK_VERIFIER_VK_INDEX,
   PUBLIC_TX_BASE_ROLLUP_VK_INDEX,
@@ -46,7 +44,11 @@ import RootRollup from '../../../artifacts/rollup_root.json' with { type: 'json'
 import PrivateTxBaseRollup from '../../../artifacts/rollup_tx_base_private.json' with { type: 'json' };
 import PublicTxBaseRollup from '../../../artifacts/rollup_tx_base_public.json' with { type: 'json' };
 import TxMergeRollup from '../../../artifacts/rollup_tx_merge.json' with { type: 'json' };
-import { PrivateKernelResetVkIndexes } from '../../private_kernel_reset_vks.js';
+import {
+  PrivateKernelResetTailToPublicVkIndexes,
+  PrivateKernelResetTailVkIndexes,
+  PrivateKernelResetVkIndexes,
+} from '../../private_kernel_reset_vks.js';
 import { abiToVKData } from '../../utils/vk_json.js';
 import type { ProtocolCircuitName, ServerProtocolCircuitName } from '../types.js';
 
@@ -77,8 +79,8 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_VK_INDEX,
   PrivateKernelInner2Artifact: PRIVATE_KERNEL_INNER_2_VK_INDEX,
   PrivateKernelInner3Artifact: PRIVATE_KERNEL_INNER_3_VK_INDEX,
-  PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_VK_INDEX,
-  PrivateKernelTailToPublicArtifact: PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX,
+  // Tail and tail-to-public are produced by the PrivateKernelResetTail* / PrivateKernelResetTailToPublic*
+  // families below.
   HidingKernelToRollup: HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
   HidingKernelToPublic: HIDING_KERNEL_TO_PUBLIC_VK_INDEX,
   PublicChonkVerifier: PUBLIC_CHONK_VERIFIER_VK_INDEX,
@@ -99,4 +101,6 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   CheckpointMergeRollupArtifact: CHECKPOINT_MERGE_ROLLUP_VK_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_VK_INDEX,
   ...PrivateKernelResetVkIndexes,
+  ...PrivateKernelResetTailVkIndexes,
+  ...PrivateKernelResetTailToPublicVkIndexes,
 };

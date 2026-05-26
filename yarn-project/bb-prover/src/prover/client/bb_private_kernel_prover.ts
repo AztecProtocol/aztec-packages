@@ -19,12 +19,13 @@ import {
   convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
   convertPrivateKernelResetInputsToWitnessMapWithAbi,
   convertPrivateKernelResetOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelResetTailInputsToWitnessMapWithAbi,
+  convertPrivateKernelResetTailToPublicInputsToWitnessMapWithAbi,
   convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
-  convertPrivateKernelTailInputsToWitnessMapWithAbi,
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
-  convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
   foreignCallHandler,
   getPrivateKernelResetArtifactName,
+  getPrivateKernelResetTailArtifactName,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
 import {
@@ -47,8 +48,8 @@ import type {
   PrivateKernelInner3CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelResetTailCircuitPrivateInputs,
   PrivateKernelSimulateOutput,
-  PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
@@ -228,40 +229,42 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async generateTailOutput(
-    inputs: PrivateKernelTailCircuitPrivateInputs,
+  public async generateResetTailOutput(
+    inputs: PrivateKernelResetTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const artifactName = getPrivateKernelResetTailArtifactName(inputs.dimensions, inputs.isForPublic());
     if (!inputs.isForPublic()) {
       return await this.generateCircuitOutput(
         inputs,
-        'PrivateKernelTailArtifact',
-        convertPrivateKernelTailInputsToWitnessMapWithAbi,
+        artifactName,
+        convertPrivateKernelResetTailInputsToWitnessMapWithAbi,
         convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
       );
     }
     return await this.generateCircuitOutput(
       inputs,
-      'PrivateKernelTailToPublicArtifact',
-      convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+      artifactName,
+      convertPrivateKernelResetTailToPublicInputsToWitnessMapWithAbi,
       convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
   }
 
-  public async simulateTail(
-    inputs: PrivateKernelTailCircuitPrivateInputs,
+  public async simulateResetTail(
+    inputs: PrivateKernelResetTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const artifactName = getPrivateKernelResetTailArtifactName(inputs.dimensions, inputs.isForPublic());
     if (!inputs.isForPublic()) {
       return await this.simulateCircuitOutput(
         inputs,
-        'PrivateKernelTailArtifact',
-        convertPrivateKernelTailInputsToWitnessMapWithAbi,
+        artifactName,
+        convertPrivateKernelResetTailInputsToWitnessMapWithAbi,
         convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
       );
     }
     return await this.simulateCircuitOutput(
       inputs,
-      'PrivateKernelTailToPublicArtifact',
-      convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+      artifactName,
+      convertPrivateKernelResetTailToPublicInputsToWitnessMapWithAbi,
       convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
   }

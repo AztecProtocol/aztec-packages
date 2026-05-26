@@ -210,8 +210,8 @@ function test_cmds {
     private-kernel-init
     private-kernel-inner
     private-kernel-reset
-    private-kernel-tail-to-public
-    private-kernel-tail
+    private-kernel-reset-tail-to-public
+    private-kernel-reset-tail
     rollup-tx-base-private
     rollup-tx-base-public
     rollup-tx-merge

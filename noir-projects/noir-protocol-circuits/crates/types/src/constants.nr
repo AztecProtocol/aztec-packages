@@ -105,8 +105,7 @@ pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 1 << L1_TO_L2_MSG_SUBTREE_
 // VK TREE CONSTANTS
 pub global PRIVATE_KERNEL_INIT_VK_INDEX: u32 = 0;
 pub global PRIVATE_KERNEL_INNER_VK_INDEX: u32 = 1;
-pub global PRIVATE_KERNEL_TAIL_VK_INDEX: u32 = 2;
-pub global PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX: u32 = 3;
+// VK indices 2 and 3 are intentionally unallocated.
 pub global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
 pub global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
@@ -126,8 +125,20 @@ pub global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 19;
 pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PARITY_BASE_VK_INDEX: u32 = 21;
 pub global PARITY_ROOT_VK_INDEX: u32 = 22;
+// The three families below carve up the reset-family range (23-42). Each base is the VK index
+// of its family's first variant; subsequent variants occupy successive indices. Bases must
+// stay ascending; `validate_vk_in_vk_tree` depends on this ordering.
+//   inner             : 23 + i   (mid-tx resets, no siloing)
+//   finalTail         : 31 + i   (terminal reset+tail, rollup-bound)
+//   finalTailToPublic : 37 + i   (terminal reset+tail-to-public, public-bound)
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
-// Important: Do not define indexes between 24 and 64. They are allocated for the variants of private kernel reset. Add new non-reset kernel indices at 65+.
+pub global PRIVATE_KERNEL_RESET_TAIL_VK_INDEX: u32 = 31;
+pub global PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX: u32 = 37;
+// Upper bound (exclusive) of the generated reset-family VK-tree range; used by VK-index normalisation
+// to know when to stop family-base matching.
+pub global PRIVATE_KERNEL_RESET_BLOCK_END: u32 = 43;
+// Important: Do not define indexes between 23 and 42 except via the three reset families above.
+// Indices 43-64 are intentionally unallocated; add new non-reset kernel indices at 65+.
 pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
 pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
 pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
@@ -1126,7 +1137,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
 
 // AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
 // Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15535;
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15530;
 
 // GAS DEFAULTS
 pub global DA_BYTES_PER_FIELD: u32 = 32;

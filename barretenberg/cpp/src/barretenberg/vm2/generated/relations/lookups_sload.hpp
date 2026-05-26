@@ -16,18 +16,20 @@ namespace bb::avm2 {
 struct lookup_sload_storage_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SLOAD_STORAGE_READ";
     static constexpr std::string_view RELATION_NAME = "sload";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_sload;
     static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_sload_storage_read_counts;
     static constexpr Column INVERSES = Column::lookup_sload_storage_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_register_1_,
         ColumnAndShifts::execution_register_2_,
         ColumnAndShifts::execution_prev_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::public_data_check_write,
         ColumnAndShifts::public_data_check_slot,
         ColumnAndShifts::public_data_check_address,
         ColumnAndShifts::public_data_check_value,
