@@ -39,6 +39,18 @@ Aztec is in active development. Each version may introduce breaking changes that
 ```
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
+
+### [Aztec.nr] `auth_registry` demoted from protocol contract
+
+`auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`, and it is deployed on first use rather than at genesis. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::CANONICAL_AUTH_REGISTRY_ADDRESS;
++ use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
+```
+
+Tests and fixtures that assumed `AuthRegistry` exists at address `1` from genesis must now trigger its deployment.
+
 ### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
 
 The `privately_check_timestamp`, `privately_check_block_number`, and related caller helpers previously in `noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr` are now in `aztec-nr/aztec/src/public_checks.nr`. Consumer contracts should update their imports:
@@ -254,7 +266,6 @@ and update `is_valid_impl` to consume the auth witness as four `Field` limbs and
 ```
 
 The `Schnorr` TypeScript API in `@aztec/foundation/crypto/schnorr` keeps the same surface (`constructSignature(msg: Uint8Array, ...)`, `verifySignature(msg, ...)`), but the `msg` parameter is now required to be exactly 32 bytes — a serialized field element (e.g. `Fr.toBuffer()` or `messageHash.toBuffer()`). Passing arbitrary-length byte strings will fail at the bb.js boundary.
-
 ### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
 
 `attempt_note_discovery` is now crate-private. Custom message handlers (implementations of `CustomMessageHandler`) that previously called it directly should call `process_private_note_msg` instead, which runs the standard private note message decoding and discovery pipeline.
