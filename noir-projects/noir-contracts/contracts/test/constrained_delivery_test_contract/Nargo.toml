@@ -1,0 +1,9 @@
+[package]
+name = "constrained_delivery_test_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+handshake_registry_contract = { path = "../../message_discovery/handshake_registry_contract" }

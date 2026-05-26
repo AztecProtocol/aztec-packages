@@ -720,6 +720,8 @@ pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
 /// sender derives the tag from an app-siloed shared secret rather than the directional `(sender, recipient)`
 /// tagging secret.
 pub global DOM_SEP__CONSTRAINED_MSG_LOG_TAG: u32 = 3715244738;
+/// Domain separator for constrained message nullifiers.
+pub global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
 /// [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
