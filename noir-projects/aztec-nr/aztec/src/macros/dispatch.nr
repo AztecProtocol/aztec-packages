@@ -6,13 +6,7 @@ use super::utils::compute_fn_selector;
 use std::panic;
 
 /// Minimum number of public functions that must share a parameter-type signature before we extract a shared
-/// `__aztec_nr_internals__unpack_arguments_<N>` helper for it.
-///
-/// The real break-even depends on the size of the inlined boilerplate at each call site (which scales with the
-/// parameter types' `stream_deserialize` cost), not just the share count: a signature with one `Field` arg
-/// inlines to a few opcodes per site, while a signature like `(AztecAddress, U128, PartialUintNote)` inlines into
-/// many. For now we approximate that with a single share-count threshold, which is the simplest knob that keeps the
-/// macro readable. If we ever want to be more precise we can size each helper against its per-site savings.
+/// unpack helper. See [compute_unpack_prelude] for the rationale behind the chosen value.
 global EXTRACTION_THRESHOLD: u32 = 4;
 
 /// Generates a `public_dispatch` function for an Aztec contract module `m`.
@@ -21,12 +15,9 @@ global EXTRACTION_THRESHOLD: u32 = 4;
 /// `generate_emit_public_init_nullifier` is true, it also handles dispatch to the macro-generated
 /// `__emit_public_init_nullifier` function.
 ///
-/// In addition to `public_dispatch`, this also emits one
-/// `__aztec_nr_internals__unpack_arguments_<N>` helper per parameter-type signature that is shared by at least
-/// `EXTRACTION_THRESHOLD` public functions. Each helper performs the `calldata_copy` + per-parameter
-/// `stream_deserialize` shared by every entry point with that signature, and is marked `#[inline_never]` so the
-/// boilerplate is not duplicated into every dispatch arm. Less-shared signatures are kept inline since the per-call
-/// CALL/RET cost would exceed the savings.
+/// Alongside `public_dispatch`, this also emits one `__aztec_nr_internals__unpack_arguments_<N>` helper per
+/// parameter-type signature shared by enough public functions to be worth extracting; see [compute_unpack_prelude]
+/// for the extraction criterion.
 pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nullifier: bool) -> Quoted {
     let functions = get_public_functions(m);
 
@@ -158,6 +149,12 @@ comptime fn signature_key(parameters: [(Quoted, Type)]) -> Quoted {
 /// `__aztec_nr_internals__unpack_arguments_<N>` helper. Otherwise the calldata read is inlined, matching the
 /// pre-extraction shape; this avoids paying the helper-call overhead on signatures that would not benefit from the
 /// shared body.
+///
+/// The real break-even depends on the size of the inlined boilerplate at each call site (which scales with the
+/// parameter types' `stream_deserialize` cost), not just the share count: a signature with one `Field` arg inlines
+/// to a few opcodes per site, while a signature like `(AztecAddress, U128, PartialUintNote)` inlines into many. For
+/// now we approximate that with a single share-count threshold, which is the simplest knob that keeps the macro
+/// readable. If we ever want to be more precise we can size each helper against its per-site savings.
 comptime fn compute_unpack_prelude(
     parameters: [(Quoted, Type)],
     signature_counts: &mut CHashMap<Quoted, u32>,
