@@ -41,5 +41,8 @@ export async function foldOffchainReception(
   });
 
   const { result } = await simulator.runUtility(call, [], anchorBlockHeader, [], jobId);
-  return receptionStateFromCode(Number(result[0].toBigInt()));
+  if (result.length === 0) {
+    throw new Error('offchain_reception_fold returned no value');
+  }
+  return receptionStateFromCode(result[0].toNumber());
 }

@@ -38,16 +38,19 @@ export function packFacts(facts: StoredFact[]): PackedFact[] {
   if (facts.length > MAX_FACTS) {
     throw new Error(`Fact set of ${facts.length} exceeds fixture cap ${MAX_FACTS}`);
   }
-  // eslint-disable-next-line camelcase
+  // eslint-disable-next-line camelcase -- matches the Noir PackedFact struct field name
   const packed = facts.map(f => ({ fact_type_id: f.factType, payload: payloadToFields(f.payload) }));
   while (packed.length < MAX_FACTS) {
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line camelcase -- matches the Noir PackedFact struct field name
     packed.push({ fact_type_id: Fr.ZERO, payload: zeroPayload() });
   }
   return packed;
 }
 
 function payloadToFields(payload: Buffer): Fr[] {
+  if (payload.length > MAX_PAYLOAD * 32) {
+    throw new Error(`Payload of ${payload.length} bytes exceeds fixture cap ${MAX_PAYLOAD * 32}`);
+  }
   const fields: Fr[] = [];
   for (let i = 0; i < MAX_PAYLOAD; i++) {
     const chunk = payload.subarray(i * 32, i * 32 + 32);
