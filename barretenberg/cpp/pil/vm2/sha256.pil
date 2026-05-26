@@ -23,8 +23,8 @@ include "sha256_mem.pil";
  * - As destination: execution.pil dispatches into this component via a permutation on `start`.
  *   See sha256_mem.pil header for the full USAGE block (tuple, selector, column roles).
  * - As source: this file looks up into:
- *   - gt.sel_sha256: range checks for rotation limbs and modular addition limbs.
- *     Tuple: { bound, value, result }, where result = 1 iff bound > value.
+ *   - range_check.sel_sha256: range checks for rotation limbs and modular addition limbs.
+ *     Tuple: { value, rng_chk_bits }; range_check enforces `0 <= value < 2^rng_chk_bits`.
  *   - bitwise.start_sha256: XOR and AND operations for compression computation.
  *     Tuple: { input_a, input_b, output_c, op_id, tag_a, tag_b }.
  *     Note: tag_a and tag_b are both passed u32_tag since inputs are known to share the same tag;
@@ -223,9 +223,8 @@ namespace sha256;
     // w[i-15] `rotr` 7 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit w_15_rotr_7;
     pol commit rhs_w_7;
-    sel_compute_w * (helper_w1 - (lhs_w_7 * 2**7 + rhs_w_7)) = 0;
-    sel_compute_w * (w_15_rotr_7 - (rhs_w_7 * 2**25 + lhs_w_7)) = 0;
-    ///// Check rhs_w_7 < 2**7 (we don't have to check lhs_w_7 < 2**25 (32 - 7), see NOTE_ON_ROTATIONS at the top of this file
+    sel_compute_w * (helper_w1 - w_15_rotr_7 * 2**7 + rhs_w_7 * (2**32 - 1)) = 0;
+    ///// Check rhs_w_7 < 2**7 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_7; // todo: while no constants in lookup
     sel_compute_w * (rng_chk_7 - 7) = 0;
     #[RANGE_RHS_W_7]
@@ -237,9 +236,8 @@ namespace sha256;
     // w[i-15] `rotr` 18 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit w_15_rotr_18;
     pol commit rhs_w_18;
-    sel_compute_w * (helper_w1 - (lhs_w_18 * 2**18 + rhs_w_18)) = 0;
-    sel_compute_w * (w_15_rotr_18 - (rhs_w_18 * 2**14 + lhs_w_18)) = 0;
-    ///// Check rhs_w_18 < 2**18 (we don't have to check lhs_w_18 < 2**14 (32 - 18), see NOTE_ON_ROTATIONS at the top of this file
+    sel_compute_w * (helper_w1 - w_15_rotr_18 * 2**18 + rhs_w_18 * (2**32 - 1)) = 0;
+    ///// Check rhs_w_18 < 2**18 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_18; // todo: while no constants in lookup
     sel_compute_w * (rng_chk_18 - 18) = 0;
     #[RANGE_RHS_W_18]
@@ -254,8 +252,7 @@ namespace sha256;
     pol commit lhs_w_3;
     pol commit rhs_w_3;
     sel_compute_w * (helper_w1 - (lhs_w_3 * 2**3 + rhs_w_3)) = 0;
-    sel_compute_w * (w_15_rshift_3 - lhs_w_3) = 0;
-    ///// Check rhs_w_3 < 2**3 (we don't have to check lhs_w_3 < 2**32 (aka w_15_rshift_3) since it's used in the lookup #[W_S_0_XOR_0])
+    ///// Check rhs_w_3 < 2**3 (we don't have to check lhs_w_3 < 2**32 since it's used in the lookup #[W_S_0_XOR_1])
     pol commit rng_chk_3; // todo: while no constants in lookup
     sel_compute_w * (rng_chk_3 - 3) = 0;
     #[RANGE_RHS_W_3]
@@ -281,9 +278,8 @@ namespace sha256;
     // w[i-2] `rotr` 17 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit w_2_rotr_17;
     pol commit rhs_w_17;
-    sel_compute_w * (helper_w14 - (lhs_w_17 * 2**17 + rhs_w_17)) = 0;
-    sel_compute_w * (w_2_rotr_17 - (rhs_w_17 * 2**15 + lhs_w_17)) = 0;
-    ///// Check rhs_w_17 < 2**17 (we don't have to check lhs_w_17 < 2**15 (32 - 17), see NOTE_ON_ROTATIONS at the top of this file
+    sel_compute_w * (helper_w14 - w_2_rotr_17 * 2**17 + rhs_w_17 * (2**32 - 1)) = 0;
+    ///// Check rhs_w_17 < 2**17 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_17; // todo: while no constants in lookup
     sel_compute_w * (rng_chk_17 - 17) = 0;
     #[RANGE_RHS_W_17]
@@ -295,9 +291,8 @@ namespace sha256;
     // w[i-2] `rotr` 19 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit w_2_rotr_19;
     pol commit rhs_w_19;
-    sel_compute_w * (helper_w14 - (lhs_w_19 * 2**19 + rhs_w_19)) = 0;
-    sel_compute_w * (w_2_rotr_19 - (rhs_w_19 * 2**13 + lhs_w_19)) = 0;
-    ///// Check rhs_w_19 < 2**19 (we don't have to check lhs_w_19 < 2**13 (32 - 19), see NOTE_ON_ROTATIONS at the top of this file
+    sel_compute_w * (helper_w14 - w_2_rotr_19 * 2**19 + rhs_w_19 * (2**32 - 1)) = 0;
+    ///// Check rhs_w_19 < 2**19 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_19; // todo: while no constants in lookup
     sel_compute_w * (rng_chk_19 - 19) = 0;
     #[RANGE_RHS_W_19]
@@ -312,8 +307,7 @@ namespace sha256;
     pol commit lhs_w_10;
     pol commit rhs_w_10;
     sel_compute_w * (helper_w14 - (lhs_w_10 * 2**10 + rhs_w_10)) = 0;
-    sel_compute_w * (w_2_rshift_10 - lhs_w_10) = 0;
-    ///// Check rhs_w_10 < 2**10 (we don't have to check lhs_w_10 < 2**32 (aka w_2_rshift_10) since it's used in the lookup #[W_S_1_XOR_0])
+    ///// Check rhs_w_10 < 2**10 (we don't have to check lhs_w_10 < 2**32 since it's used in the lookup #[W_S_1_XOR_1])
     pol commit rng_chk_10; // todo: while no constants in lookup
     sel_compute_w * (rng_chk_10 - 10) = 0;
     #[RANGE_RHS_W_10]
@@ -341,9 +335,8 @@ namespace sha256;
     // e `rotr` 6 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit e_rotr_6;
     pol commit rhs_e_6;
-    perform_round * (e - (lhs_e_6 * 2**6 + rhs_e_6)) = 0;
-    perform_round * (e_rotr_6 - (rhs_e_6 * 2**26 + lhs_e_6)) = 0;
-    ///// Check rhs_e_6 < 2**6 (we don't have to check lhs_e_6 < 2**26 (32 - 6), see NOTE_ON_ROTATIONS at the top of this file
+    perform_round * (e - e_rotr_6 * 2**6 + rhs_e_6 * (2**32 - 1)) = 0;
+    ///// Check rhs_e_6 < 2**6 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_6; // todo: while no constants in lookup
     perform_round * (rng_chk_6 - 6) = 0;
     #[RANGE_RHS_E_6]
@@ -355,9 +348,8 @@ namespace sha256;
     // e `rotr` 11 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit e_rotr_11;
     pol commit rhs_e_11;
-    perform_round * (e - (lhs_e_11 * 2**11 + rhs_e_11)) = 0;
-    perform_round * (e_rotr_11 - (rhs_e_11 * 2**21 + lhs_e_11)) = 0;
-    ///// Check rhs_e_11 < 2**11 (we don't have to check lhs_e_11 < 2**21 (32 - 11), see NOTE_ON_ROTATIONS at the top of this file
+    perform_round * (e - e_rotr_11 * 2**11 + rhs_e_11 * (2**32 - 1)) = 0;
+    ///// Check rhs_e_11 < 2**11 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_11; // todo: while no constants in lookup
     perform_round * (rng_chk_11 - 11) = 0;
     #[RANGE_RHS_E_11]
@@ -369,9 +361,8 @@ namespace sha256;
     // e `rotr` 25 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit e_rotr_25;
     pol commit rhs_e_25;
-    perform_round * (e - (lhs_e_25 * 2**25 + rhs_e_25)) = 0;
-    perform_round * (e_rotr_25 - (rhs_e_25 * 2**7 + lhs_e_25)) = 0;
-    ///// Check rhs_e_25 < 2**25 (we don't have to check lhs_e_25 < 2**7 (32 - 25), see NOTE_ON_ROTATIONS at the top of this file
+    perform_round * (e - e_rotr_25 * 2**25 + rhs_e_25 * (2**32 - 1)) = 0;
+    ///// Check rhs_e_25 < 2**25 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_25; // todo: while no constants in lookup
     perform_round * (rng_chk_25 - 25) = 0;
     #[RANGE_RHS_E_25]
@@ -433,9 +424,8 @@ namespace sha256;
     // a `rotr` 2 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit a_rotr_2;
     pol commit rhs_a_2;
-    perform_round * (a - (lhs_a_2 * 2**2 + rhs_a_2)) = 0;
-    perform_round * (a_rotr_2 - (rhs_a_2 * 2**30 + lhs_a_2)) = 0;
-    ///// Check rhs_a_2 < 2**2 (we don't have to check lhs_a_2 < 2**30 (32 - 2), see NOTE_ON_ROTATIONS at the top of this file
+    perform_round * (a - a_rotr_2 * 2**2 + rhs_a_2 * (2**32 - 1)) = 0;
+    ///// Check rhs_a_2 < 2**2 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_2; // todo: while no constants in lookup
     perform_round * (rng_chk_2 - 2) = 0;
     #[RANGE_RHS_A_2]
@@ -447,9 +437,8 @@ namespace sha256;
     // a `rotr` 13 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit a_rotr_13;
     pol commit rhs_a_13;
-    perform_round * (a - (lhs_a_13 * 2**13 + rhs_a_13)) = 0;
-    perform_round * (a_rotr_13 - (rhs_a_13 * 2**19 + lhs_a_13)) = 0;
-    ///// Check rhs_a_13 < 2**13 (we don't have to check lhs_a_13 < 2**19 (32 - 13), see NOTE_ON_ROTATIONS at the top of this file
+    perform_round * (a - a_rotr_13 * 2**13 + rhs_a_13 * (2**32 - 1)) = 0;
+    ///// Check rhs_a_13 < 2**13 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_13; // todo: while no constants in lookup
     perform_round * (rng_chk_13 - 13) = 0;
     #[RANGE_RHS_A_13]
@@ -461,9 +450,8 @@ namespace sha256;
     // a `rotr` 22 — combined constraint (see NOTE_ON_ROTATIONS)
     pol commit a_rotr_22;
     pol commit rhs_a_22;
-    perform_round * (a - (lhs_a_22 * 2**22 + rhs_a_22)) = 0;
-    perform_round * (a_rotr_22 - (rhs_a_22 * 2**10 + lhs_a_22)) = 0;
-    ///// Check rhs_a_22 < 2**22 (we don't have to check lhs_a_22 < 2**10 (32 - 10), see NOTE_ON_ROTATIONS at the top of this file
+    perform_round * (a - a_rotr_22 * 2**22 + rhs_a_22 * (2**32 - 1)) = 0;
+    ///// Check rhs_a_22 < 2**22 (see NOTE_ON_ROTATIONS at the top of this file)
     pol commit rng_chk_22; // todo: while no constants in lookup
     perform_round * (rng_chk_22 - 22) = 0;
     #[RANGE_RHS_A_22]
