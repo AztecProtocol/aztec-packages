@@ -233,8 +233,11 @@ function format {
 function pin-standard-build {
   rm -f pinned-standard-contracts.tar.gz
   local standard_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^standard/")
-  build $standard_contracts
+  build $standard_contracts || { echo_stderr "Build failed; refusing to create tarball."; return 1; }
   local standard_artifacts=$(jq -r '.[]' standard_contracts.json | sed 's/$/.json/')
+  for a in $standard_artifacts; do
+    [ -f "target/$a" ] || { echo_stderr "Missing artifact target/$a; refusing to create tarball."; return 1; }
+  done
   echo_stderr "Creating pinned-standard-contracts.tar.gz..."
   (cd target && tar czf ../pinned-standard-contracts.tar.gz $standard_artifacts)
   echo_stderr "Done. pinned-standard-contracts.tar.gz created. Commit it to pin these artifacts."
