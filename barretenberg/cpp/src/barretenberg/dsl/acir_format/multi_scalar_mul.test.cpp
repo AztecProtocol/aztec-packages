@@ -389,7 +389,6 @@ template <typename Builder> class MsmSingleTermFixture : public ::testing::Test 
             auto p = push_point(witness, pt);
             points.push_back(WitnessOrConstant<MsmFF>::from_index(p[0]));
             points.push_back(WitnessOrConstant<MsmFF>::from_index(p[1]));
-            points.push_back(WitnessOrConstant<MsmFF>::from_index(p[2]));
             auto s = push_scalar(witness, sc);
             scalars.push_back(WitnessOrConstant<MsmFF>::from_index(s[0]));
             scalars.push_back(WitnessOrConstant<MsmFF>::from_index(s[1]));
