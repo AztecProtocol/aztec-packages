@@ -779,7 +779,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           config.slashProposeInvalidAttestationsPenalty > 0n ||
           config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty > 0n
         ) {
-          attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
+          attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config, log.getBindings());
           watchers.push(attestationsBlockWatcher);
         }
       }
