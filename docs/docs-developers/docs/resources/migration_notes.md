@@ -42,14 +42,12 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.nr] `auth_registry` demoted from protocol contract
 
-`auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`, and it is deployed on first use rather than at genesis. The aztec-nr constant has moved and been renamed:
+`auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`. The aztec-nr constant has moved and been renamed:
 
 ```diff
 - use protocol_types::constants::CANONICAL_AUTH_REGISTRY_ADDRESS;
 + use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 ```
-
-Tests and fixtures that assumed `AuthRegistry` exists at address `1` from genesis must now trigger its deployment.
 
 ### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
 
