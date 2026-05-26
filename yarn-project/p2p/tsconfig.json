@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../standard-contracts"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -35,6 +32,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../standard-contracts"
     },
     {
       "path": "../stdlib"

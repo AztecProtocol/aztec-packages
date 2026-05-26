@@ -94,13 +94,13 @@
     ]
   },
   "dependencies": {
-    "@aztec/standard-contracts": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "axios": "^1.15.1",
     "tslib": "^2.4.0",

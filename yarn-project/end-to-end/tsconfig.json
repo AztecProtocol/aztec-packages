@@ -35,9 +35,6 @@
       "path": "../bot"
     },
     {
-      "path": "../standard-contracts"
-    },
-    {
       "path": "../cli"
     },
     {
@@ -96,6 +93,9 @@
     },
     {
       "path": "../slasher"
+    },
+    {
+      "path": "../standard-contracts"
     },
     {
       "path": "../stdlib"
