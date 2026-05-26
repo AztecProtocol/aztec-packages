@@ -1,0 +1,5 @@
+[
+  "auth_registry_contract-AuthRegistry",
+  "public_checks_contract-PublicChecks",
+  "multi_call_entrypoint_contract-MultiCallEntrypoint"
+]
