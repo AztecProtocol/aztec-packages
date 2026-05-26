@@ -44,6 +44,23 @@ resource "google_compute_global_address" "otel_collector_ingress" {
   }
 }
 
+data "google_compute_subnetwork" "default" {
+  name   = "default"
+  region = var.region
+}
+
+resource "google_compute_address" "prometheus_internal_lb" {
+  provider     = google
+  name         = "${var.RELEASE_NAME}-prometheus-internal-lb"
+  address_type = "INTERNAL"
+  region       = var.region
+  subnetwork   = data.google_compute_subnetwork.default.id
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 resource "kubernetes_namespace" "ns" {
   provider = kubernetes.gke-cluster
   metadata {
@@ -177,6 +194,21 @@ resource "helm_release" "public_prometheus" {
   reset_values      = true
 
   values = [file("./values/public-prometheus.yaml")]
+
+  set {
+    name  = "server.service.type"
+    value = "LoadBalancer"
+  }
+
+  set {
+    name  = "server.service.annotations.networking\\.gke\\.io\\/load-balancer-type"
+    value = "Internal"
+  }
+
+  set {
+    name  = "server.service.loadBalancerIP"
+    value = google_compute_address.prometheus_internal_lb.address
+  }
 
   timeout         = 300
   wait            = true
