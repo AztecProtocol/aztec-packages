@@ -40,6 +40,10 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
 
+### [Aztec.nr] `public_checks` demoted from protocol contract
+
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `4`, and it is deployed on first use rather than at genesis. The aztec-nr constant has moved and been renamed (`CANONICAL_PUBLIC_CHECKS_ADDRESS` is now `STANDARD_PUBLIC_CHECKS_ADDRESS` under `crate::standard_addresses`).
+
 ### [Aztec.nr] `auth_registry` demoted from protocol contract
 
 `auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`. The aztec-nr constant has moved and been renamed:
