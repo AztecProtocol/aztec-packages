@@ -19,21 +19,21 @@
 
 namespace bb::wsdb {
 
-inline ::Fr fr_to_wire(const bb::fr& d)
+inline std::array<uint8_t, 32> fr_to_wire(const bb::fr& d)
 {
-    ::Fr r{};
+    std::array<uint8_t, 32> r{};
     bb::fr::serialize_to_buffer(d, r.data());
     return r;
 }
 
-inline bb::fr fr_from_wire(const ::Fr& w)
+inline bb::fr fr_from_wire(const std::array<uint8_t, 32>& w)
 {
     return bb::fr::serialize_from_buffer(w.data());
 }
 
-inline std::vector<::Fr> fr_vec_to_wire(const std::vector<bb::fr>& d)
+inline std::vector<std::array<uint8_t, 32>> fr_vec_to_wire(const std::vector<bb::fr>& d)
 {
-    std::vector<::Fr> r;
+    std::vector<std::array<uint8_t, 32>> r;
     r.reserve(d.size());
     for (const auto& x : d) {
         r.push_back(fr_to_wire(x));
@@ -41,7 +41,7 @@ inline std::vector<::Fr> fr_vec_to_wire(const std::vector<bb::fr>& d)
     return r;
 }
 
-inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<::Fr>& w)
+inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<std::array<uint8_t, 32>>& w)
 {
     std::vector<bb::fr> r;
     r.reserve(w.size());

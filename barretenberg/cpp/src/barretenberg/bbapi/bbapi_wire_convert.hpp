@@ -75,16 +75,18 @@ inline bb::fr fr_from_wire(const ::Fr& w)
     return field_from_wire<bb::fr>(w);
 }
 
-// Wrap/unwrap a raw 32-byte buffer as the wire Fr struct. Used when the
-// domain side already speaks std::array<uint8_t, 32> (e.g. Schnorr/ECDSA
-// signature components, Blake2s hash output) and the wire side needs Fr.
-inline ::Fr fr_wrap(std::array<uint8_t, 32> bytes)
+// Wire `Fr` / `Fq` / `Secp256k1Fr` / … are all `using` aliases for
+// std::array<uint8_t, 32>, so what used to be `fr_wrap` / `fr_unwrap` is the
+// identity. The handlers can pass the byte array straight through without
+// helper calls; these names stay as compile-time-checked no-ops so existing
+// call sites read clearly at the conversion boundary.
+inline std::array<uint8_t, 32> fr_wrap(std::array<uint8_t, 32> bytes)
 {
-    return ::Fr{ .bytes = bytes };
+    return bytes;
 }
-inline std::array<uint8_t, 32> fr_unwrap(const ::Fr& w)
+inline std::array<uint8_t, 32> fr_unwrap(std::array<uint8_t, 32> bytes)
 {
-    return w.bytes;
+    return bytes;
 }
 
 // Fixed-size array <-> std::vector<uint8_t> for fields the schema declares as

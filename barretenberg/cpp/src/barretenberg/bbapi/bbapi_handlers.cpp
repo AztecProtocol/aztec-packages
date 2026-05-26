@@ -205,19 +205,15 @@ wire::Blake2sToFieldResponse handle_blake2s_to_field(BBApiRequest& ctx, wire::Bl
 }
 wire::AesEncryptResponse handle_aes_encrypt(BBApiRequest& ctx, wire::AesEncrypt&& cmd)
 {
-    AesEncrypt domain_cmd{ .plaintext = std::move(cmd.plaintext),
-                           .iv = array_from_vec<16>(cmd.iv),
-                           .key = array_from_vec<16>(cmd.key),
-                           .length = cmd.length };
+    AesEncrypt domain_cmd{ .plaintext = std::move(cmd.plaintext), .iv = cmd.iv, .key = cmd.key, .length = cmd.length };
     auto resp = std::move(domain_cmd).execute(ctx);
     return { .ciphertext = std::move(resp.ciphertext) };
 }
 wire::AesDecryptResponse handle_aes_decrypt(BBApiRequest& ctx, wire::AesDecrypt&& cmd)
 {
-    AesDecrypt domain_cmd{ .ciphertext = std::move(cmd.ciphertext),
-                           .iv = array_from_vec<16>(cmd.iv),
-                           .key = array_from_vec<16>(cmd.key),
-                           .length = cmd.length };
+    AesDecrypt domain_cmd{
+        .ciphertext = std::move(cmd.ciphertext), .iv = cmd.iv, .key = cmd.key, .length = cmd.length
+    };
     auto resp = std::move(domain_cmd).execute(ctx);
     return { .plaintext = std::move(resp.plaintext) };
 }
@@ -255,7 +251,7 @@ wire::GrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BBApiRequest& ct
 }
 wire::GrumpkinReduce512Response handle_grumpkin_reduce512(BBApiRequest& ctx, wire::GrumpkinReduce512&& cmd)
 {
-    GrumpkinReduce512 domain_cmd{ .input = array_from_vec<64>(cmd.input) };
+    GrumpkinReduce512 domain_cmd{ .input = cmd.input };
     auto resp = std::move(domain_cmd).execute(ctx);
     return { .value = fr_to_wire(resp.value) };
 }
@@ -279,7 +275,7 @@ wire::Secp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BBApiRequest& 
 }
 wire::Secp256k1Reduce512Response handle_secp256k1_reduce512(BBApiRequest& ctx, wire::Secp256k1Reduce512&& cmd)
 {
-    Secp256k1Reduce512 domain_cmd{ .input = array_from_vec<64>(cmd.input) };
+    Secp256k1Reduce512 domain_cmd{ .input = cmd.input };
     auto resp = std::move(domain_cmd).execute(ctx);
     return { .value = field_to_wire<secp256k1::fr>(resp.value) };
 }

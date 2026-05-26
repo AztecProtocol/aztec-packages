@@ -19,7 +19,15 @@ import type {
   Field,
   Command,
 } from "./schema_visitor.ts";
-import { toSnakeCase } from "./naming.ts";
+import { toPascalCase, toSnakeCase } from "./naming.ts";
+
+// Convert a schema alias name into its C++ type name. Strips a trailing
+// `_t` (uint256_t → Uint256) and PascalCases the rest, so `fr` → `Fr`,
+// `secp256k1_fr` → `Secp256k1Fr`, `uint256_t` → `Uint256`.
+function toAliasName(name: string): string {
+  const trimmed = name.endsWith("_t") ? name.slice(0, -2) : name;
+  return toPascalCase(trimmed);
+}
 
 export interface CppCodegenOptions {
   /** C++ namespace for generated code, e.g. 'bb::cdb' */
@@ -359,6 +367,39 @@ ${methods}
   generateStandaloneTypes(schema: CompiledSchema): string {
     const { namespace: ns, prefix } = this.opts;
 
+    // Collect every distinct bin32 alias name in the schema. Each becomes
+    // a `using` declaration so wire fields with semantic aliases (Fr / Fq /
+    // Secp256k1Fr / …) surface with their names. All share the same
+    // underlying type (std::array<uint8_t, 32>) and msgpack bin encoding
+    // (via ipc_runtime/std_array_bin.hpp's global adapter).
+    const aliasNames = new Set<string>();
+    const collect = (type: import("./schema_visitor.ts").Type): void => {
+      if (
+        type.kind === "primitive" &&
+        type.primitive === "bin32_alias" &&
+        type.originalName
+      ) {
+        // Capitalise first letter for the C++ alias (fr → Fr, secp256k1_fr → Secp256k1Fr).
+        aliasNames.add(toAliasName(type.originalName));
+      } else if (
+        type.kind === "vector" ||
+        type.kind === "array" ||
+        type.kind === "optional"
+      ) {
+        if (type.element) collect(type.element);
+      }
+    };
+    for (const s of schema.structs.values()) {
+      for (const f of s.fields) collect(f.type);
+    }
+    for (const s of schema.responses.values()) {
+      for (const f of s.fields) collect(f.type);
+    }
+    const aliasDecls = [...aliasNames]
+      .sort()
+      .map((n) => `using ${n} = std::array<uint8_t, 32>;`)
+      .join("\n");
+
     // Map schema types to C++ types
     const mapType = (type: import("./schema_visitor.ts").Type): string => {
       switch (type.kind) {
@@ -381,9 +422,14 @@ ${methods}
             case "bytes":
               return "std::vector<uint8_t>";
             case "fr":
-              return "Fr"; // std::array<uint8_t, 32>
+              // Legacy path (kept in case anything still produces this).
+              return "std::array<uint8_t, 32>";
+            case "bin32_alias":
+              return type.originalName
+                ? toAliasName(type.originalName)
+                : "std::array<uint8_t, 32>";
             case "field2":
-              return "std::array<Fr, 2>";
+              return "std::array<std::array<uint8_t, 32>, 2>";
             case "enum_u32":
               return "uint32_t";
             case "map_u32_pair":
@@ -480,68 +526,14 @@ ${methods}
 #endif
 
 // ---------------------------------------------------------------------------
-// 32-byte field element (Fr/Fq).
-//
-// Wire format: msgpack \`bin\` (2-byte header + raw 32 bytes), matching the
-// schema's ["fr", "bin32"] alias and barretenberg's own bb::fr msgpack adapter.
-//
-// The default std::array<T, N> msgpack adapter packs as \`array<uint8>\` which
-// is the wrong wire encoding (and incompatible with bb::fr / Rust /
-// msgpackr-bin clients), so we wrap the array in a struct and provide
-// explicit msgpack::adaptor specializations below.
+// Wire aliases for the schema's bin32 alias family. msgpack-c's
+// std::array<unsigned char, N> adapter already packs as \`bin\` (which is
+// what we want — byte-identical with bb::fr / Rust serde_bytes / msgpackr
+// Uint8Array), so the aliases below carry no extra machinery beyond the
+// std::array typedef.
 // ---------------------------------------------------------------------------
-struct Fr {
-    std::array<uint8_t, 32> bytes{};
 
-    uint8_t* data() { return bytes.data(); }
-    const uint8_t* data() const { return bytes.data(); }
-    constexpr std::size_t size() const { return bytes.size(); }
-    uint8_t& operator[](std::size_t i) { return bytes[i]; }
-    const uint8_t& operator[](std::size_t i) const { return bytes[i]; }
-
-    bool operator==(const Fr&) const = default;
-};
-
-namespace msgpack {
-MSGPACK_API_VERSION_NAMESPACE(v1) {
-namespace adaptor {
-
-template <> struct pack<::Fr> {
-    template <typename Stream> packer<Stream>& operator()(packer<Stream>& o, ::Fr const& v) const
-    {
-        o.pack_bin(static_cast<uint32_t>(v.bytes.size()));
-        o.pack_bin_body(reinterpret_cast<const char*>(v.bytes.data()), static_cast<uint32_t>(v.bytes.size()));
-        return o;
-    }
-};
-
-template <> struct convert<::Fr> {
-    msgpack::object const& operator()(msgpack::object const& o, ::Fr& v) const
-    {
-        // Preferred: bin (matches schema + bb::fr).
-        if (o.type == msgpack::type::BIN) {
-            if (o.via.bin.size != v.bytes.size())
-                throw msgpack::type_error();
-            std::memcpy(v.bytes.data(), o.via.bin.ptr, v.bytes.size());
-            return o;
-        }
-        // Fallback: array<uint8> — kept so this type can decode payloads
-        // emitted by msgpack libraries that don't distinguish.
-        if (o.type == msgpack::type::ARRAY) {
-            if (o.via.array.size != v.bytes.size())
-                throw msgpack::type_error();
-            for (std::size_t i = 0; i < v.bytes.size(); ++i) {
-                o.via.array.ptr[i].convert(v.bytes[i]);
-            }
-            return o;
-        }
-        throw msgpack::type_error();
-    }
-};
-
-} // namespace adaptor
-} // MSGPACK_API_VERSION_NAMESPACE(v1)
-} // namespace msgpack
+${aliasDecls}
 
 namespace ${ns}${this.opts.wireNamespace ? "::" + this.opts.wireNamespace : ""} {
 

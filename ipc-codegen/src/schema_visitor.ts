@@ -18,6 +18,7 @@ export type PrimitiveType =
   | "string"
   | "bytes"
   | "fr"
+  | "bin32_alias" // ["alias", [<name>, "bin32"]] — 32 bytes named per alias
   | "field2"
   | "enum_u32"
   | "map_u32_pair";
@@ -163,14 +164,14 @@ export class SchemaVisitor {
 
         case "array": {
           const [elemType, size] = args as [any, number];
-          // Special case: array<unsigned char, 32> = field element (Fr/Fq)
-          if (elemType === "unsigned char" && size === 32) {
-            return { kind: "primitive", primitive: "fr" };
-          }
-          // Special case: array<unsigned char, N> (other sizes) = bytes
-          if (elemType === "unsigned char") {
-            return { kind: "primitive", primitive: "bytes" };
-          }
+          // ["array", ["unsigned char", N]] → std::array<uint8_t, N> in
+          // C++. The default msgpack adapter for std::array<uint8_t, N>
+          // packs it as `array<uint8>`, which is the wrong wire shape;
+          // ipc_runtime/std_array_bin.hpp ships a global override that
+          // makes it pack as `bin` instead (matching bb::fr / Rust /
+          // msgpackr). So no special-casing here — the schema's array
+          // declaration produces a fixed-size byte buffer with the right
+          // wire encoding via the adapter.
           return {
             kind: "array",
             element: this.visitType(elemType),
@@ -194,20 +195,19 @@ export class SchemaVisitor {
 
         case "alias": {
           // Aliases carry [aliasName, underlyingKind]. The underlying kind is
-          // always a bin32 byte buffer at the msgpack level, but we surface
-          // semantic 32-byte aliases that map to the same C++ struct as
-          // ["array","unsigned char",32]. Anything else (uint256_t, etc.)
-          // stays as a plain byte buffer.
-          const [aliasName] = args as [string, string];
-          if (
-            aliasName === "fr" ||
-            aliasName === "fq" ||
-            aliasName === "secp256k1_fr" ||
-            aliasName === "secp256k1_fq" ||
-            aliasName === "secp256r1_fr" ||
-            aliasName === "secp256r1_fq"
-          ) {
-            return { kind: "primitive", primitive: "fr" };
+          // bin32 (32 raw bytes) for the field-element / uint256 family;
+          // anything else falls back to a plain byte buffer.
+          // We preserve the alias *name* so the codegen can emit
+          //   using <AliasName> = std::array<uint8_t, 32>;
+          // and downstream callers see semantically-named types
+          // (Fr, Fq, Secp256k1Fr, …) even though they share one byte shape.
+          const [aliasName, underlying] = args as [string, string];
+          if (underlying === "bin32") {
+            return {
+              kind: "primitive",
+              primitive: "bin32_alias",
+              originalName: aliasName,
+            };
           }
           return { kind: "primitive", primitive: "bytes" };
         }
