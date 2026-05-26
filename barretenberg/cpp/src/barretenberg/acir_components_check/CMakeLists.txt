@@ -22,13 +22,19 @@ if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32" AND NOT BB_LITE)
     add_dependencies(acir_components_check_lib lmdb_repo)
 endif()
 
-add_executable(acir_components_check main.cpp)
-target_link_libraries(
-    acir_components_check
-    PRIVATE
-    acir_components_check_lib
-    vm2_stub
-)
+# The CLI binary has its own `main()` — not a libFuzzer entry point. Under FUZZING the static libs
+# it links against are instrumented with `-fsanitize=fuzzer-no-link`, so a non-fuzzer executable
+# fails to resolve `__sanitizer_cov_*` at link time. The library above is still built so any fuzz
+# target can pull in components-check logic.
+if(NOT FUZZING)
+    add_executable(acir_components_check main.cpp)
+    target_link_libraries(
+        acir_components_check
+        PRIVATE
+        acir_components_check_lib
+        vm2_stub
+    )
+endif()
 
 if(NOT WASM AND NOT FUZZING)
     add_executable(acir_components_check_tests components_check.test.cpp)
