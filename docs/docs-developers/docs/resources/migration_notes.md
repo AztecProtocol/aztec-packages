@@ -55,9 +55,9 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
 
-### [Protocol] `MAX_PROTOCOL_CONTRACTS` reduced to 3; remaining protocol-contract addresses renumbered to 1-3
+### [Protocol] Remaining protocol-contract addresses compacted to 1-3
 
-After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions, only `ContractInstanceRegistry`, `ContractClassRegistry`, and `FeeJuice` remain as protocol contracts. Their addresses now occupy values `1`, `2`, and `3`, and `MAX_PROTOCOL_CONTRACTS` is `3`. Code that hardcoded previous protocol-contract addresses (e.g. `AuthRegistry` at `1`, `PublicChecks` at `4`, `MultiCallEntrypoint` at `6`) or iterated to the old `MAX_PROTOCOL_CONTRACTS` value must be updated.
+After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
