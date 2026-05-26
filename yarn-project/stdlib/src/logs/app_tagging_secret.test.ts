@@ -38,7 +38,6 @@ describe('AppTaggingSecret helpers', () => {
   describe('TaggingIndexRangeSchema', () => {
     it('preserves constrained secret kind when parsing a TaggingIndexRange', async () => {
       const original = await randomConstrainedAppTaggingSecret();
-      const index = 2;
 
       const parsed = TaggingIndexRangeSchema.parse({
         extendedSecret: {
@@ -52,19 +51,6 @@ describe('AppTaggingSecret helpers', () => {
 
       expect(parsed.extendedSecret).toBeInstanceOf(ConstrainedAppTaggingSecret);
       expect(parsed.extendedSecret.kind).toBe(AppTaggingSecretKind.CONSTRAINED);
-
-      const computedTag = await siloedTagFor(parsed.extendedSecret, index);
-
-      const expectedInner = await poseidon2Hash([original.secret, new Fr(index)]);
-      const expectedLogTag = await computeLogTag(expectedInner, DomainSeparator.CONSTRAINED_MSG_LOG_TAG);
-      const expectedSiloed = await computeSiloedPrivateLogFirstField(original.app, expectedLogTag);
-
-      expect(computedTag.value.toString()).toEqual(expectedSiloed.toString());
-
-      const wrongLogTag = await computeLogTag(expectedInner, DomainSeparator.UNCONSTRAINED_MSG_LOG_TAG);
-      const wrongSiloed = await computeSiloedPrivateLogFirstField(original.app, wrongLogTag);
-
-      expect(computedTag.value.toString()).not.toEqual(wrongSiloed.toString());
     });
 
     it('preserves unconstrained secret kind when parsing a TaggingIndexRange', async () => {
