@@ -10,8 +10,8 @@ import type {
   PrivateKernelInner3CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelResetTailCircuitPrivateInputs,
   PrivateKernelSimulateOutput,
-  PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/index.js';
 import type { ChonkProofWithPublicInputs } from '../proofs/chonk_proof.js';
@@ -166,23 +166,21 @@ export interface PrivateKernelProver {
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**
-   * Creates a proof output based on the last inner kernel iteration kernel data for the final ordering iteration.
+   * Creates a proof output for the terminal reset+tail step. Dispatches to the rollup-bound or
+   * public-bound family based on `inputs.isForPublic()`.
    *
-   * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
-   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   * @param privateKernelInputs - Reset hints, dimensions, and tail params.
+   * @returns A Promise resolving to a ProofOutput containing the tail-shaped public inputs.
    */
-  generateTailOutput(
-    privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
+  generateResetTailOutput(
+    privateKernelInputs: PrivateKernelResetTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
 
   /**
-   * Executes the final ordering iteration circuit.
-   *
-   * @param privateKernelInputsTail - The private input data structure for the final ordering iteration.
-   * @returns A Promise resolving to a ProofOutput object containing public inputs an empty kernel proof.
+   * Simulates the terminal reset+tail step without generating a proof.
    */
-  simulateTail(
-    privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
+  simulateResetTail(
+    privateKernelInputs: PrivateKernelResetTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>>;
 
   generateHidingToRollupOutput(

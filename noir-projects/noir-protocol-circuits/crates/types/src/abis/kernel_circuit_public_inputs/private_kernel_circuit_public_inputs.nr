@@ -32,6 +32,11 @@ pub struct PrivateKernelCircuitPublicInputs {
     // be emitted by any private call. The first nullifier is used for computing nonces for note hashes. This hint is
     // necessary to avoid the situation where a Reset circuit is used to silo note hashes before the first nullifier is
     // emitted. It remains constant throughout the private execution and is checked in the Tail(-to-Public) circuit.
+    // TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): this field is no longer needed. Siloing
+    // only happens in the terminal reset path, at which point the first nullifier is already present in the accumulated
+    // data, so it can be read directly without a separate hint. Remove the field and update every consumer
+    // (`private_kernel_circuit_output_composer.nr`, `reset_output_composer.nr`, the TS mirror in
+    // `private_kernel_circuit_public_inputs.ts`, and tests).
     pub claimed_first_nullifier: Field,
     // A hint to what will be the `min_revertible_side_effect_counter` of the transaction. It remains constant
     // throughout the private execution and is checked in the Tail(-to-Public) circuit.

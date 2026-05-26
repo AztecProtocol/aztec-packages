@@ -1,7 +1,9 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
+        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_BLOCK_END,
+        PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX, PRIVATE_KERNEL_RESET_TAIL_VK_INDEX,
+        PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
     },
     proof::vk_data::VkData,
     utils::arrays::find_first_index,
@@ -13,16 +15,23 @@ pub struct PrivateKernelData {
 }
 
 impl PrivateKernelData {
-    /// Validates that the vk hash exists in the vk tree at the expected index.
-    /// Note: There's a similar function in vk_data.nr. This function is slightly different but necessary, because it
-    /// lets us set only `PRIVATE_KERNEL_RESET_VK_INDEX` in the `allowed_indices` to allow all the reset circuits.
+    /// Validates the vk hash is in the vk tree at an allowed index. Differs from the helper in
+    /// `vk_data.nr`: an entry in `allowed_indices` that is a reset-family base permits every variant
+    /// of that family.
+    ///
+    /// Reset families occupy contiguous blocks within `[PRIVATE_KERNEL_RESET_VK_INDEX,
+    /// PRIVATE_KERNEL_RESET_BLOCK_END)`; a variant's leaf index is normalised to its family base.
     pub fn validate_vk_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
-        let vk_index = if self.vk_data.leaf_index >= PRIVATE_KERNEL_RESET_VK_INDEX {
-            // Kernel circuits only need to include `PRIVATE_KERNEL_RESET_VK_INDEX` in the list to allow all private kernel
-            // reset variants.
-            PRIVATE_KERNEL_RESET_VK_INDEX
+        let leaf = self.vk_data.leaf_index;
+        let vk_index = if leaf < PRIVATE_KERNEL_RESET_VK_INDEX
+            | leaf >= PRIVATE_KERNEL_RESET_BLOCK_END {
+            leaf
+        } else if leaf >= PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX {
+            PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX
+        } else if leaf >= PRIVATE_KERNEL_RESET_TAIL_VK_INDEX {
+            PRIVATE_KERNEL_RESET_TAIL_VK_INDEX
         } else {
-            self.vk_data.leaf_index
+            PRIVATE_KERNEL_RESET_VK_INDEX
         };
 
         // Safety: `index_hint` is validated against the `allowed_indices` array below.

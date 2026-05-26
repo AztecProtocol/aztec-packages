@@ -3,5 +3,5 @@ mod private_kernel_batch;
 mod private_kernel_init;
 mod private_kernel_inner;
 mod private_kernel_reset;
-mod private_kernel_tail;
-mod private_kernel_tail_to_public;
+mod tail_validators;
+mod tail_to_public_validators;
