@@ -5,16 +5,16 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 import type { Anchor, Anchored } from '../foundation/anchor.js';
 import { type CanonicalityCheck, filterCanonical } from '../foundation/anchored_read.js';
 
-/** Stable identifier for an entity type. Hand-assigned in Slice 1; macro-derived later. */
+/** Stable identifier for an entity type. */
 export type EntityTypeId = Fr;
-/** Stable identifier for a fact type. Hand-assigned in Slice 1; macro-derived later. */
+/** Stable identifier for a fact type. */
 export type FactTypeId = Fr;
 
 /** One stored fact: its type, opaque payload, and the chain position that produced it (or null). */
 export type StoredFact = { factType: FactTypeId; payload: Buffer; anchor: Anchor | null };
 
 /**
- * Slice-1 FactStore: append facts and read back the currently-canonical fact set for one entity.
+ * Appends facts and reads back the currently-canonical fact set for one entity.
  * Anchored facts are filtered by the canonicality predicate; unanchored facts are always visible.
  */
 export class FactStore {
@@ -51,40 +51,34 @@ export class FactStore {
   }
 
   /** All facts for one entity that are currently canonical (anchored facts filtered, unanchored kept). */
-  loadCanonicalFactSet(entityType: EntityTypeId, correlationKey: Buffer): Promise<StoredFact[]> {
+  async loadCanonicalFactSet(entityType: EntityTypeId, correlationKey: Buffer): Promise<StoredFact[]> {
     const entityKey = this.#entityKey(entityType, correlationKey);
-    return this.#store.transactionAsync(async () => {
-      const seen = new Set<string>();
-      const unanchoredRows: StoredFact[] = [];
-      const anchoredRows: Anchored<StoredFact>[] = [];
 
+    const facts = await this.#store.transactionAsync(async () => {
+      const seen = new Set<string>();
+      const reads: Promise<Buffer | undefined>[] = [];
       for await (const dedupKey of this.#factsByEntity.getValuesAsync(entityKey)) {
         if (seen.has(dedupKey)) {
           continue;
         }
         seen.add(dedupKey);
-        const buf = await this.#facts.getAsync(dedupKey);
-        if (!buf) {
-          continue;
-        }
-        const fact = this.#deserialize(buf);
-        if (fact.anchor) {
-          anchoredRows.push({ ...fact, anchor: fact.anchor });
-        } else {
-          unanchoredRows.push(fact);
-        }
+        reads.push(this.#facts.getAsync(dedupKey));
       }
-
-      const canonical = await filterCanonical(this.#chain, anchoredRows);
-      return [...unanchoredRows, ...canonical];
+      const buffers = await Promise.all(reads);
+      return buffers.filter((b): b is Buffer => b !== undefined).map(b => this.#deserialize(b));
     });
+
+    const unanchored = facts.filter(f => f.anchor === null);
+    const anchored = facts.filter((f): f is Anchored<StoredFact> => f.anchor !== null);
+    const canonical = await filterCanonical(this.#chain, anchored);
+    return [...unanchored, ...canonical];
   }
 
   #entityKey(entityType: EntityTypeId, correlationKey: Buffer): string {
     return `${entityType.toString()}:${correlationKey.toString('hex')}`;
   }
 
-  // Slice 1 keys on the raw payload bytes rather than a payloadHash: correct dedup with no crypto
+  // Keys on the raw payload bytes rather than a payloadHash: correct dedup with no crypto
   // dependency, since payloads are small here. The anchor is part of the key, so the same payload
   // re-mined on a competing fork (different blockHash) yields a distinct row.
   #dedupKey(
