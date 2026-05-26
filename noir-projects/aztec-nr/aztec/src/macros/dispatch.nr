@@ -16,8 +16,8 @@ global EXTRACTION_THRESHOLD: u32 = 4;
 /// `__emit_public_init_nullifier` function.
 ///
 /// Alongside `public_dispatch`, this also emits one `__aztec_nr_internals__unpack_arguments_<N>` helper per
-/// parameter-type signature shared by enough public functions to be worth extracting; see [compute_unpack_prelude]
-/// for the extraction criterion.
+/// parameter-type signature shared by enough public functions; see [compute_unpack_prelude] for the extraction
+/// criterion.
 pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nullifier: bool) -> Quoted {
     let functions = get_public_functions(m);
 
@@ -186,8 +186,7 @@ comptime fn compute_unpack_prelude(
                 *unpack_helpers = (*unpack_helpers).push_back(helper_def);
                 new_idx
             };
-            let helper_name =
-                f"__aztec_nr_internals__unpack_arguments_{helper_idx}".quoted_contents();
+            let helper_name = f"__aztec_nr_internals__unpack_arguments_{helper_idx}".quoted_contents();
             if parameters.len() == 1 {
                 quote { let arg0 = $helper_name(); }
             } else {
