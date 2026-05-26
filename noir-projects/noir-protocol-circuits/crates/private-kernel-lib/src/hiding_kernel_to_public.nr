@@ -1,7 +1,9 @@
 use types::{
     abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
     constants::{
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX, PROOF_TYPE_HN_FINAL,
+        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_BLOCK_END,
+        PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX, PRIVATE_KERNEL_RESET_TAIL_VK_INDEX,
+        PROOF_TYPE_HN_FINAL,
     },
     proof::vk_data::VkData,
 };
@@ -47,8 +49,7 @@ pub fn execute(
         );
     }
 
-    // Validate that the vk index corresponds to the `private_kernel_tail_to_public` circuit.
-    assert_eq(inputs.previous_kernel_vk_data.leaf_index, PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX);
+    assert_previous_kernel_is_reset_tail_to_public(inputs.previous_kernel_vk_data.leaf_index);
 
     // Validates that the vk hash exists in the vk tree at the expected index.
     // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
@@ -57,4 +58,34 @@ pub fn execute(
     );
 
     inputs.previous_kernel_public_inputs
+}
+
+fn assert_previous_kernel_is_reset_tail_to_public(leaf: u32) {
+    // vk index must fall in the `private_kernel_reset_tail_to_public` variant range
+    // [PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX, PRIVATE_KERNEL_RESET_BLOCK_END).
+    assert(
+        leaf >= PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX
+            & leaf < PRIVATE_KERNEL_RESET_BLOCK_END,
+        "previous kernel must be a private_kernel_reset_tail_to_public variant",
+    );
+}
+
+#[test]
+fn previous_kernel_reset_tail_to_public_lower_bound_allowed() {
+    assert_previous_kernel_is_reset_tail_to_public(PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX);
+}
+
+#[test]
+fn previous_kernel_reset_tail_to_public_upper_bound_allowed() {
+    assert_previous_kernel_is_reset_tail_to_public(PRIVATE_KERNEL_RESET_BLOCK_END - 1);
+}
+
+#[test(should_fail_with = "previous kernel must be a private_kernel_reset_tail_to_public variant")]
+fn previous_kernel_reset_tail_not_allowed_for_hiding_to_public() {
+    assert_previous_kernel_is_reset_tail_to_public(PRIVATE_KERNEL_RESET_TAIL_VK_INDEX);
+}
+
+#[test(should_fail_with = "previous kernel must be a private_kernel_reset_tail_to_public variant")]
+fn previous_kernel_reset_block_end_not_allowed_for_hiding_to_public() {
+    assert_previous_kernel_is_reset_tail_to_public(PRIVATE_KERNEL_RESET_BLOCK_END);
 }

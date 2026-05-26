@@ -68,14 +68,24 @@ export const privateKernelResetDimensionNames: DimensionName[] = [
   'PRIVATE_LOG_SILOING',
 ];
 
-export interface DimensionConfig {
-  variants: number[];
-  standalone: number[];
+export interface ResetCatalogEntry {
+  name: string;
+  dimensions: number[];
+  // Measured gate count (circuit_size) of the compiled variant. Used by the selector to pick the
+  // cheapest variant that covers the requested dimensions, e.g. if the required dimensions are
+  // `6 - 2 - 2` then a variant with capacity `8 - 2 - 2` might be cheaper than one with capacity
+  // `6 - 4 - 4`.
   cost: number;
 }
 
 // Must match the config in noir-projects/noir-protocol-circuits/private_kernel_reset_config.json
 export interface PrivateKernelResetDimensionsConfig {
-  dimensions: { [K in DimensionName]: DimensionConfig };
-  specialCases: number[][];
+  // Variants used for mid-tx resets that prevent overflow. Never the last kernel in the chain.
+  inner: ResetCatalogEntry[];
+  // Variants used as the terminal kernel for the rollup-bound private-only path. Each runs
+  // final-reset siloing and tail finalisation in one proof.
+  finalTail: ResetCatalogEntry[];
+  // Terminal variants for the public-bound path (transactions with public function calls). Runs
+  // final-reset siloing and tail-to-public partitioning by revertibility in one proof.
+  finalTailToPublic: ResetCatalogEntry[];
 }

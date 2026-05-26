@@ -115,3 +115,12 @@ export class PrivateKernelCircuitPublicInputs {
     );
   }
 }
+
+/**
+ * Returns true iff the tx requires the public-bound terminal path: it has either un-processed
+ * public-call requests in the side-effect stream or a pending public-teardown call request. Every
+ * site picking between the rollup-bound and public-bound terminal artifact must route through this.
+ */
+export function kernelStateIsForPublic(publicInputs: PrivateKernelCircuitPublicInputs): boolean {
+  return publicInputs.end.publicCallRequests.claimedLength > 0 || !publicInputs.publicTeardownCallRequest.isEmpty();
+}

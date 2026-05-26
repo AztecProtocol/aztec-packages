@@ -336,7 +336,9 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
  */
 export function expectedExecutionSteps(apps: number): number {
   const kernels = Math.ceil(apps / MAX_APPS_PER_KERNEL);
-  return apps + kernels + 1 /* final reset */ + 1 /* tail */ + 1 /* hiding */;
+  // The final reset and tail are proved as a single circuit (reset_tail or reset_tail_to_public),
+  // so they share one execution step.
+  return apps + kernels + 1 /* reset+tail */ + 1 /* hiding */;
 }
 
 export async function captureProfile(
