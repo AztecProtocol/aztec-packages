@@ -18,8 +18,6 @@ The `privately_check_timestamp`, `privately_check_block_number`, and related cal
 + use aztec::public_checks::privately_check_timestamp;
 ```
 
-The deployed `PublicChecks` contract itself is unchanged in this PR.
-
 ### [Aztec.js] `AccountManager.create` takes an options bag
 
 `AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:
