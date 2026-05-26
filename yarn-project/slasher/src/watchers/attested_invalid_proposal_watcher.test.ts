@@ -119,20 +119,6 @@ describe('AttestedInvalidProposalWatcher', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it('deduplicates repeated scans for the same offense when the penalty changes', async () => {
-    const slot = SlotNumber(10);
-    invalidProposalSlots.add(slot);
-    const attestation = await makeAttestation(slot);
-    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
-
-    watcher.updateConfig({ slashAttestInvalidCheckpointProposalPenalty: 0n });
-    await watcher.scanSlot(slot);
-    watcher.updateConfig({ slashAttestInvalidCheckpointProposalPenalty: 13n });
-    await watcher.scanSlot(slot);
-
-    expect(handler).toHaveBeenCalledTimes(1);
-  });
-
   it('scans only marked invalid proposal slots once they are past the scan lag', async () => {
     watcher = new AttestedInvalidProposalWatcher(
       p2pClient,

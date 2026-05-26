@@ -8,7 +8,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { P2PClient, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
@@ -127,12 +127,12 @@ export class AttestedInvalidProposalWatcher extends (EventEmitter as new () => W
       return;
     }
 
-    this.log.warn('Detected attestations to invalid checkpoint proposal', {
+    this.log.info('Detected attestations to invalid checkpoint proposal', {
       slot,
       offenses: slashArgs.map(args => ({
         validator: args.validator.toString(),
         amount: args.amount,
-        offenseType: args.offenseType,
+        offenseType: getOffenseTypeName(args.offenseType),
         epochOrSlot: args.epochOrSlot,
       })),
     });

@@ -8,7 +8,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { P2PClient, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
@@ -118,7 +118,7 @@ export class BroadcastedInvalidCheckpointProposalWatcher
       offenses: slashArgs.map(args => ({
         validator: args.validator.toString(),
         amount: args.amount,
-        offenseType: args.offenseType,
+        offenseType: getOffenseTypeName(args.offenseType),
         epochOrSlot: args.epochOrSlot,
       })),
     });
