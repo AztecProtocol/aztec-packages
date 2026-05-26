@@ -1,5 +1,5 @@
 ---
-title: Counter Contract
+title: Counter contract
 description: Code-along tutorial for creating a simple counter contract on Aztec.
 sidebar_position: 0
 references: ["docs/examples/contracts/counter_contract/src/main.nr"]
@@ -152,8 +152,8 @@ aztec codegen -o src/artifacts target
 
 You can now use the artifact and/or the TS class in your Aztec.js!
 
-## Next Steps
+## Next steps
 
-### Optional: Learn more about concepts mentioned here
+### Optional: learn more about concepts mentioned here
 
 - [Functions and annotations like `#[external("private")]`](../../aztec-nr/framework-description/functions/function_transforms.md#private-functions)

@@ -17,7 +17,7 @@ unconstrained fn test_initialize_sets_headstart() {
     let (env, contract_address, owner) = setup(headstart);
 
     let value = env.execute_utility(Counter::at(contract_address).get_counter(owner));
-    assert(value == headstart, "initial counter should equal headstart");
+    assert(value == headstart, f"Expected {headstart} but got {value}");
 }
 
 #[test]
@@ -27,6 +27,22 @@ unconstrained fn test_increment_increases_caller_counter() {
 
     env.call_private(owner, Counter::at(contract_address).increment());
 
+    let expected = headstart + 1;
     let value = env.execute_utility(Counter::at(contract_address).get_counter(owner));
-    assert(value == headstart + 1, "counter should be incremented by 1");
+    assert(value == expected, f"Expected {expected} but got {value}");
+}
+
+#[test]
+unconstrained fn test_increment_does_not_affect_other_account() {
+    let headstart = 5;
+    let (mut env, contract_address, owner) = setup(headstart);
+    let other = env.create_light_account();
+
+    env.call_private(other, Counter::at(contract_address).increment());
+
+    let owner_value = env.execute_utility(Counter::at(contract_address).get_counter(owner));
+    assert(
+        owner_value == headstart,
+        f"Expected owner counter unchanged at {headstart} but got {owner_value}",
+    );
 }
