@@ -96,10 +96,11 @@ export async function computeContractData(artifact: NoirCompiledContract): Promi
   const constructorArtifact = loaded.functions.find(f => f.name === 'constructor');
   const initializationHash = await computeInitializationHash(constructorArtifact, []);
   const instance = {
-    version: 1 as const,
+    version: 2 as const,
     currentContractClassId: contractClass.id,
     originalContractClassId: contractClass.id,
     initializationHash,
+    immutablesHash: Fr.ZERO,
     publicKeys: PublicKeys.default(),
     salt,
     deployer,
