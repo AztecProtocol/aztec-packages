@@ -2,7 +2,10 @@
   "name": "@aztec/txe",
   "version": "0.0.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./server": "./dest/rpc_server.js"
+  },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
@@ -12,8 +15,9 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && ../scripts/tsc.sh",
+    "build": "yarn clean && ../scripts/tsc.sh && yarn bundle",
     "build:dev": "../scripts/tsc.sh --watch",
+    "bundle": "node ./esbuild.config.mjs",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "dev": "LOG_LEVEL=\"debug; trace: simulator:state_manager; info: json-rpc:proxy\" node ./dest/bin/index.js",
@@ -21,7 +25,8 @@
     "check_txe_oracle_version": "node ./dest/bin/check_txe_oracle_version.js"
   },
   "inherits": [
-    "../package.common.json"
+    "../package.common.json",
+    "./package.local.json"
   ],
   "jest": {
     "moduleNameMapper": {
@@ -67,6 +72,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/bb.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
@@ -76,6 +82,7 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
+    "msgpackr": "^1.11.2",
     "zod": "^4"
   },
   "devDependencies": {
@@ -83,6 +90,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "esbuild": "^0.27.0",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
