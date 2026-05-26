@@ -379,20 +379,6 @@ tests:
     owners:
       - *spyros
 
-  # Multi-validator web3signer suite is unstable under proposer pipelining:
-  # two distinct failure modes have been seen in the same "should build blocks
-  # & attest with multiple validator keys" case — Promise.all index-0
-  # waitForTx aborting with "Tx dropped by P2P node"
-  # (ci.aztec-labs.com/9a5fa90aa18f62e7), and the proposer missing the slot's
-  # 5-attestation deadline ("AttestationTimeoutError" / "Block .* not found .*
-  # reorg") on PR #23344 run 26370196367 (ci.aztec-labs.com/b91d3218b5e88ae4).
-  # Error-regex flake matches still let ci3 retry-and-fail both attempts. Skip
-  # outright on merge-train/spartan until proposer pipelining stabilises.
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh web3signer src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
-    skip: true
-    owners:
-      - *palla
-
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
   - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
