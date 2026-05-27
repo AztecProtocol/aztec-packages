@@ -116,8 +116,10 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       );
 
       // Two entries with distinct (number, hash) pairs so any encoding change shows up in the snapshot diff.
-      await canonicalChainStore.set(83, new Fr(89n).toString());
-      await canonicalChainStore.set(97, new Fr(101n).toString());
+      await canonicalChainStore.setMany([
+        { blockNumber: 83, blockHash: new Fr(89n).toString() },
+        { blockNumber: 97, blockHash: new Fr(101n).toString() },
+      ]);
     },
     snapshotStore: async kvStore => ({
       header: await snapshotSingleton(kvStore.openSingleton<Buffer>('header')),

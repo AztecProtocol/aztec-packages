@@ -66,9 +66,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        for (const block of event.blocks) {
-          await this.canonicalChainStore.set(block.number, (await block.hash()).toString());
-        }
+        const anchors = await Promise.all(
+          event.blocks.map(async block => ({ blockNumber: block.number, blockHash: (await block.hash()).toString() })),
+        );
+        await this.canonicalChainStore.setMany(anchors);
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
           const lastBlock = event.blocks.at(-1)!;
           await this.updateAnchorBlockHeader(lastBlock.header);

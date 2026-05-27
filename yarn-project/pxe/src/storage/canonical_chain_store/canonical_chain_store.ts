@@ -124,8 +124,6 @@ export class CanonicalChainStore {
       return;
     }
     const blocks = await node.getBlocks(from, to - from + 1);
-    for (const block of blocks) {
-      await this.set(block.number, block.hash.toString());
-    }
+    await this.setMany(blocks.map(block => ({ blockNumber: block.number, blockHash: block.hash.toString() })));
   }
 }

@@ -106,8 +106,10 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
     expect(await fold()).toBe('AWAITING_TX');
 
     // 2. Tx mined at (105, A): TxConfirmed + Discovered, both anchored.
-    await chain.set(104, Fr.random().toString());
-    await chain.set(105, A);
+    await chain.setMany([
+      { blockNumber: 104, blockHash: Fr.random().toString() },
+      { blockNumber: 105, blockHash: A },
+    ]);
     await put(FACT_TX_CONFIRMED, { blockNumber: 105, blockHash: A });
     await put(FACT_DISCOVERED, { blockNumber: 105, blockHash: A });
     expect(await fold()).toBe('DISCOVERED');
