@@ -1462,34 +1462,6 @@ export class MsmV2 {
     // source; identical sources collapse to one compile per pool. ---
     const compile = (code: string, label: string, layout: GPUBindGroupLayout) =>
       pool.cache.getPipeline(code, layout, label);
-    m.plannerAPipe = await compile(
-      sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB, m.c, NUMBITS, m.BW),
-      `planner-a-c${m.c}`,
-      m.plannerALayout,
-    );
-    m.plannerBPipe = await compile(
-      sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, m.c, NUMBITS, S, pool.pairCap, m.BW),
-      `planner-b-c${m.c}`,
-      m.plannerBLayout,
-    );
-    m.fusedPipe = await compile(
-      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB),
-      `fused`,
-      m.fusedLayout,
-    );
-    m.carryPipe = await compile(sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
-    m.finalizePipe = await compile(sm.gen_ba_finalize_copy_bench_shader(WGI), `finalize`, m.finalizeLayout);
-    m.fusedPipeL0 = await compile(
-      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB),
-      `fused-l0`,
-      m.fusedLayoutL0,
-    );
-    m.carryPipeL0 = await compile(sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0);
-    m.finalizePipeL0 = await compile(
-      sm.gen_ba_finalize_copy_bench_shader(WGI, true),
-      `finalize-l0`,
-      m.finalizeLayoutL0,
-    );
     m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
@@ -2077,126 +2049,6 @@ export class MsmV2 {
       // buffer is sized to the pool's max; see padParams comment above).
       finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, poolM1, bi * batchBuckets, B_TOTAL])));
     }
-    this.numWgsFinalize = Math.ceil(batchBuckets / WGI);
-    // The two-pass planner borrows valIdxBuf as the per-bucket carry-prefix
-    // array. valIdxBuf (batchSlots) is dead once convActive has consumed it,
-    // strictly before the planner runs; B_TOTAL = numWindows*BW <= batchSlots.
-    if (batchSlots < B_TOTAL) {
-      throw new Error(`planner: valIdxBuf (${batchSlots}) too small for carry_off (${B_TOTAL})`);
-    }
-    const carryOffBuf = valIdxBuf;
-    // Pre-size per-level state so fast-path rewrite has a stable index.
-    this.levelTotalPairBlocks = new Array(levels).fill(0);
-    this.levelTotalCarries = new Array(levels).fill(0);
-    for (let lv = 0; lv < levels; lv++) {
-      const plan = levelPlans[lv];
-      this.levelTotalPairBlocks[lv] = plan.totalPairBlocks;
-      this.levelTotalCarries[lv] = plan.totalCarries;
-      const isL0 = lv === 0;
-      const inIdx = lv & 1;
-      const outIdx = inIdx ^ 1;
-      const ring = lv & 1;
-      const activeOut = inIdx === 0 ? bufB : bufA;
-      const activeIn = isL0 ? l0IdxBuf : inIdx === 0 ? bufA : bufB;
-      // Per-level uniform buffers cached on the instance so fastPathRewrite()
-      // can rewrite their contents in place on subsequent prepares (avoiding
-      // ~40 createBuffer calls per MSM that today dominate wall time).
-      const plannerParams = ubuf(new Uint32Array([plan.pairBlocksPerWindow, plan.carriesPerWindow, WGI, wstride1]));
-      // carryParams[1] = M_old (stride of bufA/bufB) — must use pool's M1.
-      const carryParams = ubuf(new Uint32Array([plan.totalCarries, poolM1, poolM1, 0]));
-      this.plannerParamsBufs[lv] = plannerParams;
-      this.carryParamsBufs[lv] = carryParams;
-      const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
-      const levelTileBufs: GPUBuffer[] = [];
-      for (let tileBase = 0; tileBase < plan.totalPairBlocks; tileBase += FUSED_TILE) {
-        const tileThreads = Math.min(FUSED_TILE, plan.totalPairBlocks - tileBase);
-        // tileParams[1] = M_old, [2] = M_new (both = bufA/bufB stride) — pool's M1.
-        const tileParams = ubuf(new Uint32Array([plan.totalPairBlocks, poolM1, poolM1, tileBase]));
-        levelTileBufs.push(tileParams);
-        const entries: GPUBindGroupEntry[] = [
-          { binding: 0, resource: { buffer: pairBlockPlanRing[ring] } },
-          { binding: 1, resource: { buffer: scatterPlanRing[ring] } },
-          { binding: 2, resource: { buffer: activeIn } },
-          { binding: 3, resource: { buffer: activeOut } },
-          { binding: 4, resource: { buffer: tileParams } },
-          { binding: 5, resource: { buffer: prefScratchBuf } },
-        ];
-        if (isL0) {
-          entries.push(
-            { binding: 6, resource: { buffer: this.pointXBuf } },
-            { binding: 7, resource: { buffer: this.pointYBuf } },
-          );
-        }
-        fusedTiles.push({
-          bind: device.createBindGroup({ layout: isL0 ? this.fusedLayoutL0 : this.fusedLayout, entries }),
-          nx: Math.ceil(tileThreads / WGI),
-        });
-      }
-      this.tileParamsBufs[lv] = levelTileBufs;
-      const carryEntries: GPUBindGroupEntry[] = [
-        { binding: 0, resource: { buffer: carryPlanRing[ring] } },
-        { binding: 1, resource: { buffer: activeIn } },
-        { binding: 2, resource: { buffer: activeOut } },
-        { binding: 3, resource: { buffer: carryParams } },
-      ];
-      if (isL0) {
-        carryEntries.push(
-          { binding: 4, resource: { buffer: this.pointXBuf } },
-          { binding: 5, resource: { buffer: this.pointYBuf } },
-        );
-      }
-      this.levelBinds.push({
-        plannerABind: device.createBindGroup({
-          layout: this.plannerALayout,
-          entries: [
-            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
-            { binding: 1, resource: { buffer: carryOffBuf } },
-            { binding: 2, resource: { buffer: countsBufs[outIdx] } },
-            { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
-            { binding: 4, resource: { buffer: planMeta } },
-            { binding: 5, resource: { buffer: plannerParams } },
-          ],
-        }),
-        plannerBBind: device.createBindGroup({
-          layout: this.plannerBLayout,
-          entries: [
-            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
-            { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
-            { binding: 2, resource: { buffer: carryOffBuf } },
-            { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
-            { binding: 4, resource: { buffer: planMeta } },
-            { binding: 5, resource: { buffer: pairBlockPlanRing[ring] } },
-            { binding: 6, resource: { buffer: scatterPlanRing[ring] } },
-            { binding: 7, resource: { buffer: carryPlanRing[ring] } },
-            { binding: 8, resource: { buffer: plannerParams } },
-            { binding: 9, resource: { buffer: isL0 ? padParams0Buf : padParams1Buf } },
-          ],
-        }),
-        fusedTiles,
-        carryBind: device.createBindGroup({
-          layout: isL0 ? this.carryLayoutL0 : this.carryLayout,
-          entries: carryEntries,
-        }),
-        finalizeBinds: finalizeParamsBufs.map(fp => {
-          const fe: GPUBindGroupEntry[] = [
-            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
-            { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
-            { binding: 2, resource: { buffer: activeIn } },
-            { binding: 3, resource: { buffer: bucketResult } },
-            { binding: 4, resource: { buffer: fp } },
-          ];
-          if (isL0) {
-            fe.push(
-              { binding: 5, resource: { buffer: this.pointXBuf } },
-              { binding: 6, resource: { buffer: this.pointYBuf } },
-            );
-          }
-          return device.createBindGroup({ layout: isL0 ? this.finalizeLayoutL0 : this.finalizeLayout, entries: fe });
-        }),
-        nCarry: Math.ceil(plan.totalCarries / WGI),
-      });
-    }
-
     // --- Profiling: (re)create the timestamp query set, sized to the pass
     // count of the run() this prepare() set up. ---
     this.querySet?.destroy();
@@ -2206,10 +2058,9 @@ export class MsmV2 {
     if (this.profile) {
       let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
-        passes += 7; // decompose + xpose x4 + conv x2
-        for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
+        // decompose + xpose x4 + conv x2 + streaming planner (16) + accum kernels (3)
+        passes += 7 + 16 + 3;
       }
-      // reduceInit + one dispatch per reduction level.
       passes += 1 + this.reducePasses.length;
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });

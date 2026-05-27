@@ -1,13 +1,8 @@
 import mustache from 'mustache';
 import {
   barrett as barrett_funcs,
-  ba_carry_copy_bench as ba_carry_copy_bench_shader,
-  ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
-  ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
-  ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
-  ba_planner_v2_emit as ba_planner_v2_emit_shader,
   ba_planner_classify as ba_planner_classify_shader,
   ba_planner_meta_fixup as ba_planner_meta_fixup_shader,
   ba_planner_radix_count as ba_planner_radix_count_shader,
@@ -423,112 +418,6 @@ ${packLines.join('\n')}
   }
 
   /**
-   * Fused super-kernel for the v3 pipeline: combines marshal + disjoint
-   * + scatter into one kernel. Per chunk-thread: reads chunk_plan +
-   * scatter_plan, gathers from active_sums_old, computes batched-
-   * inverse pair sums in registers, writes directly to active_sums_new.
-   * Carry is a separate kernel.
-   */
-  public gen_ba_fused_super_bench_shader(
-    workgroup_size: number,
-    s: number,
-    variant: 'loop' | 'pk' = 'pk',
-    tiled = false,
-    l0_index_mode = false,
-    addsub: 'native' | 'unpack' = 'native',
-  ): string {
-    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
-    }
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_fused_super_bench_shader,
-      {
-        workgroup_size, s, inv_fn, tiled, l0_index_mode,
-        addsub_unpack: addsub === 'unpack',
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  /**
-   * Planner pass A: per-window scan + per-bucket offsets. One workgroup per
-   * window — O(BW), flat in n. Writes new_counts / new_offsets / carry_off
-   * and the plan_meta totals; the emit pass writes the O(pairs) plans.
-   */
-  public gen_ba_planner_v2_offsets_shader(
-    workgroup_size: number,
-    c: number,
-    num_bits: number,
-    buckets_per_window_override?: number,
-  ): string {
-    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 ||
-        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits)) {
-      throw new Error(`gen_ba_planner_v2_offsets_shader: positive integer args required`);
-    }
-    const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
-    const num_windows = Math.ceil(num_bits / c);
-    if (buckets_per_window % workgroup_size !== 0) {
-      throw new Error(
-        `gen_ba_planner_v2_offsets_shader: buckets_per_window (${buckets_per_window}) ` +
-          `must be a positive multiple of workgroup_size (${workgroup_size})`,
-      );
-    }
-    const per_thread = buckets_per_window / workgroup_size;
-    return mustache.render(
-      ba_planner_v2_offsets_shader,
-      { workgroup_size, buckets_per_window, per_thread, num_windows, recompile: this.recompile },
-    );
-  }
-
-  /**
-   * Planner pass B: parallel plan emit. Dispatch (ceil(BW/wg), numWindows) —
-   * one workgroup per (bucket-group, window). Emits the chunk / scatter /
-   * carry plans from pass A's offsets, then cooperatively self-pads.
-   */
-  public gen_ba_planner_v2_emit_shader(
-    workgroup_size: number,
-    c: number,
-    num_bits: number,
-    s: number,
-    pair_cap: number,
-    buckets_per_window_override?: number,
-  ): string {
-    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
-        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
-        !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
-      throw new Error(`gen_ba_planner_v2_emit_shader: positive integer args required`);
-    }
-    const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
-    const num_windows = Math.ceil(num_bits / c);
-    if (buckets_per_window % workgroup_size !== 0) {
-      throw new Error(
-        `gen_ba_planner_v2_emit_shader: buckets_per_window (${buckets_per_window}) ` +
-          `must be a positive multiple of workgroup_size (${workgroup_size})`,
-      );
-    }
-    const num_groups = buckets_per_window / workgroup_size;
-    return mustache.render(
-      ba_planner_v2_emit_shader,
-      { workgroup_size, buckets_per_window, num_windows, num_groups, pair_cap, s, recompile: this.recompile },
-    );
-  }
-
-  /**
    * Layout converter (active_sums materialization): copies packed
    * 8×u32 base coords from cached_bases into bucket-major active_sums
    * indexed by val_idx. One thread per (subtask, slot). Pure raw vec4
@@ -558,56 +447,6 @@ ${packLines.join('\n')}
       csr_to_v2_meta_shader,
       { workgroup_size, recompile: this.recompile },
       {},
-    );
-  }
-
-  /**
-   * Bin-packed pair-tree: carry-copy kernel. Propagates the odd-count
-   * carry element forward to the next level without modification.
-   * Pure memory shuffle.
-   */
-  public gen_ba_carry_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
-    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
-      throw new Error(`gen_ba_carry_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
-    }
-    // l0_index_mode pulls in the field stack to negate y while
-    // materializing a level-0 (point index | sign) carry from the pool.
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      ba_carry_copy_bench_shader,
-      {
-        workgroup_size, l0_index_mode,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
-    );
-  }
-
-  /**
-   * Bin-packed pair-tree: finalize-copy kernel. Harvests a bucket's
-   * accumulated sum into bucket_result[b] at the level it reaches
-   * count 1 (the planner's finalize-and-drop). Pure memory shuffle.
-   */
-  public gen_ba_finalize_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
-    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
-      throw new Error(`gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
-    }
-    // l0_index_mode pulls in the field stack to negate y while
-    // materializing a level-0 (point index | sign) element from the pool.
-    const dec = this.decoupledPackUnpackWgsl();
-    return mustache.render(
-      ba_finalize_copy_bench_shader,
-      {
-        workgroup_size, l0_index_mode,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
     );
   }
 
