@@ -197,5 +197,5 @@ export interface IPrivateExecutionOracle {
   getSenderForTags(): Promise<Option<AztecAddress>>;
   setSenderForTags(senderForTags: AztecAddress): Promise<void>;
   getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
-  getNextConstrainedIndex(appSiloedSecret: Fr): Promise<number>;
+  getNextConstrainedTaggingIndex(appSiloedSecret: Fr): Promise<number>;
 }

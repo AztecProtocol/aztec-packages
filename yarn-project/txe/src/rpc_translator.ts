@@ -1447,10 +1447,10 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getNextConstrainedIndex(foreignAppSiloedSecret: ForeignCallSingle) {
+  async aztec_prv_getNextConstrainedTaggingIndex(foreignAppSiloedSecret: ForeignCallSingle) {
     const appSiloedSecret = fromSingle(foreignAppSiloedSecret);
 
-    const index = await this.handlerAsPrivate().getNextConstrainedIndex(appSiloedSecret);
+    const index = await this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret);
 
     return toForeignCallResult([toSingle(new Fr(index))]);
   }

@@ -620,7 +620,7 @@ const ORACLE_REGISTRY = {
     returnType: TAG,
   }),
 
-  aztec_prv_getNextConstrainedIndex: makeEntry({
+  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
     params: [{ name: 'appSiloedSecret', type: FIELD }],
     returnType: U32,
   }),

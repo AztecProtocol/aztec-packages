@@ -44,7 +44,7 @@ export class AppTaggingSecret {
    * @param recipient - Recipient of the log. Defines the "direction of the secret".
    * @returns The secret that can be used along with an index to compute a tag to be included in a log.
    */
-  static async compute(
+  static async computeUnconstrained(
     localAddress: CompleteAddress,
     localIvsk: Fq,
     externalAddress: AztecAddress,

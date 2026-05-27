@@ -201,12 +201,12 @@ unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recip
 /// As with the unconstrained variant, the simulator persists the index increment only if the tagged log is found in
 /// an actual block - a reverting transaction can otherwise cause the sender to accidentally skip indices and later
 /// produce notes that are not found by the recipient.
-pub unconstrained fn get_next_constrained_index(app_siloed_secret: Field) -> u32 {
-    get_next_constrained_index_oracle(app_siloed_secret)
+pub unconstrained fn get_next_constrained_tagging_index(app_siloed_secret: Field) -> u32 {
+    get_next_constrained_tagging_index_oracle(app_siloed_secret)
 }
 
-#[oracle(aztec_prv_getNextConstrainedIndex)]
-unconstrained fn get_next_constrained_index_oracle(_app_siloed_secret: Field) -> u32 {}
+#[oracle(aztec_prv_getNextConstrainedTaggingIndex)]
+unconstrained fn get_next_constrained_tagging_index_oracle(_app_siloed_secret: Field) -> u32 {}
 
 /// Gets the sender for tags.
 ///

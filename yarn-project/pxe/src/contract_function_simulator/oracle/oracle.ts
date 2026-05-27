@@ -492,11 +492,11 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_getNextConstrainedIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+  aztec_prv_getNextConstrainedTaggingIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
-      oracle: 'aztec_prv_getNextConstrainedIndex',
+      oracle: 'aztec_prv_getNextConstrainedTaggingIndex',
       inputs,
-      handler: ([appSiloedSecret]) => this.handlerAsPrivate().getNextConstrainedIndex(appSiloedSecret),
+      handler: ([appSiloedSecret]) => this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret),
     });
   }
 

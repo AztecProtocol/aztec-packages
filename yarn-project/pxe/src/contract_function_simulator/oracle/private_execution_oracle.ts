@@ -246,7 +246,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param appSiloedSecret - The app-siloed shared secret retrieved from the handshake registry by the caller.
    * @returns The next index to use for this secret.
    */
-  public async getNextConstrainedIndex(appSiloedSecret: Fr): Promise<number> {
+  public async getNextConstrainedTaggingIndex(appSiloedSecret: Fr): Promise<number> {
     const secret = new AppTaggingSecret(appSiloedSecret, this.contractAddress, AppTaggingSecretKind.CONSTRAINED);
     const index = await this.#reserveNextIndexForSecret(secret);
     this.logger.debug(
@@ -265,7 +265,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return AppTaggingSecret.compute(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
+    return AppTaggingSecret.computeUnconstrained(
+      senderCompleteAddress,
+      senderIvsk,
+      recipient,
+      contractAddress,
+      recipient,
+    );
   }
 
   async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
