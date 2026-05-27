@@ -495,41 +495,44 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
         minTxsPerBlock: 0,
       }),
     );
-    await Promise.all(sequencers.map(s => s.start()));
-    logger.warn(`Started all sequencers, waiting for first checkpoint before applying malicious config`);
-
-    // Wait for at least one good checkpoint to be mined so any in-progress slot has completed.
-    const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
-    await test.waitUntilCheckpointNumber(CheckpointNumber(initialCheckpointNumber + 1), test.L2_SLOT_DURATION_IN_S * 4);
-
-    // Align to the start of an L2 slot, then pick two slots with a 3-slot gap so the malicious
-    // config has time to land on each proposer's job snapshot under pipelining, and P1's proposal
-    // has time to propagate to P2 before P2 starts pipelined building.
-    await test.monitor.waitUntilNextL2Slot();
-    const { l2SlotNumber: currentSlot } = await test.monitor.run();
-    logger.warn(`First checkpoint mined, current slot is ${currentSlot}`);
-
-    let badSlot1 = SlotNumber.add(currentSlot, 3);
-    let badSlot2 = SlotNumber.add(currentSlot, 4);
-    let p1Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot1);
-    let p2Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot2);
-
-    // Ensure the two slots belong to different proposers; retry by walking forward one slot at
-    // a time. With committee size 6 and random shuffling this should usually succeed first try.
-    let attempts = 0;
-    while (p1Proposer && p2Proposer && p1Proposer.equals(p2Proposer)) {
-      attempts += 1;
-      if (attempts > 6) {
-        throw new Error(`Could not find two consecutive slots with different proposers`);
+    let badSlot1: SlotNumber | undefined;
+    let p1Proposer: EthAddress | undefined;
+    let p2Proposer: EthAddress | undefined;
+    let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
+    const maxAttempts = 200;
+    for (let attempt = 0; attempt < maxAttempts && badSlot1 === undefined; attempt++) {
+      try {
+        const [p1, p2] = await Promise.all([
+          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
+          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
+        ]);
+        if (p1 && p2 && !p1.equals(p2)) {
+          badSlot1 = SlotNumber(candidate);
+          p1Proposer = p1;
+          p2Proposer = p2;
+          break;
+        }
+        candidate++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes('EpochNotStable')) {
+          throw err;
+        }
+        const block = await test.l1Client.getBlock({ includeTransactions: false });
+        const warpBy = test.epochDuration * test.L2_SLOT_DURATION_IN_S;
+        const newTs = Number(block.timestamp) + warpBy;
+        logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
+        await test.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
+        const newCurrentSlot = Number(test.epochCache.getEpochAndSlotNow().slot);
+        if (candidate < newCurrentSlot + 4) {
+          candidate = newCurrentSlot + 4;
+        }
       }
-      badSlot1 = SlotNumber.add(badSlot1, 1);
-      badSlot2 = SlotNumber.add(badSlot2, 1);
-      p1Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot1);
-      p2Proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot2);
     }
-    if (!p1Proposer || !p2Proposer) {
-      throw new Error(`Could not resolve proposers for slots ${badSlot1} and ${badSlot2}`);
+    if (badSlot1 === undefined || !p1Proposer || !p2Proposer) {
+      throw new Error(`Could not find two consecutive slots with different proposers after ${maxAttempts} attempts`);
     }
+    const badSlot2 = SlotNumber.add(badSlot1, 1);
 
     const p1NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p1Proposer!)));
     const p2NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p2Proposer!)));
@@ -580,10 +583,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     observerArchiver.events.on(L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected, onDescendant);
 
-    // Send a couple of txs so there's content for both checkpoints.
-    logger.warn('Sending transactions to fill the bad checkpoints');
-    await Promise.all(times(4, i => testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from, wait: NO_WAIT })));
-
     // Watch for both CheckpointProposed events at the targeted slots.
     const p1CheckpointPromise = promiseWithResolvers<CheckpointNumber>();
     const p2CheckpointPromise = promiseWithResolvers<CheckpointNumber>();
@@ -595,6 +594,22 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
         p2CheckpointPromise.resolve(checkpointNumber);
       }
     });
+
+    // Send a couple of txs so there's content for both checkpoints.
+    logger.warn('Sending transactions to fill the bad checkpoints');
+    await Promise.all(times(4, i => testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from, wait: NO_WAIT })));
+
+    // Sequencers are still stopped. Warp to the L1 block immediately before the pipelined build
+    // window for P1, so the first proposer job that can observe the malicious config is the
+    // intended checkpoint, not an earlier slot owned by the same validator.
+    const buildSlot = SlotNumber.add(badSlot1, -1);
+    const buildSlotStart = getTimestampForSlot(buildSlot, test.constants);
+    const warpTo = buildSlotStart - BigInt(test.L1_BLOCK_TIME_IN_S);
+    logger.warn(`Warping L1 to timestamp ${warpTo} (one L1 block before build slot ${buildSlot})`);
+    await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
+
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers after warping to the target build window`);
 
     logger.warn(`Waiting for two checkpoints to be mined on slots ${badSlot1} and ${badSlot2}`);
     const [p1Checkpoint, p2Checkpoint] = await executeTimeout(
