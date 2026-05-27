@@ -6,7 +6,6 @@
  */
 import { BatchChonkVerifier } from '@aztec/bb-prover';
 import { createLogger } from '@aztec/foundation/log';
-import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 
 import { jest } from '@jest/globals';
 import { execFile } from 'node:child_process';
@@ -82,9 +81,11 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
     // Prove the flow
     logger.info(`Proving flow: ${flow}...`);
     const proveStart = performance.now();
-    await execFileAsync(BB_PATH, ['prove', '--scheme', 'chonk', '--ivc_inputs_path', ivcInputsPath, '-o', proofDir], {
-      timeout: 600_000,
-    });
+    await execFileAsync(
+      BB_PATH,
+      ['prove', '--scheme', 'chonk', '--ivc_inputs_path', ivcInputsPath, '-o', proofDir, '--write_vk'],
+      { timeout: 600_000 },
+    );
     const proveMs = performance.now() - proveStart;
     logger.info(`Proof generated in ${Math.ceil(proveMs)}ms`);
 
@@ -93,8 +94,8 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
     validProofFields = proofToFields(proofBuf);
     invalidProofFields = corruptProofFields(validProofFields);
 
-    // Get the protocol VK (HidingKernelToRollup — matches most flows)
-    vk = ProtocolCircuitVks['HidingKernelToRollup'].keyAsBytes;
+    // Use the VK produced for the pinned flow's final hiding-kernel circuit.
+    vk = await readFile(resolve(proofDir, 'vk'));
 
     logger.info(`Proof: ${proofBuf.length} bytes, ${validProofFields.length} fields`);
   });
