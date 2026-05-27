@@ -8,7 +8,7 @@ import {
 import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/foundation/log';
-import { openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { cloneEphemeralStoreFrom, openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContractName } from '@aztec/protocol-contracts';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
@@ -19,8 +19,7 @@ import { zodFor } from '@aztec/stdlib/schemas';
 
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
-import { copyFile, mkdtemp, readFile, readdir } from 'fs/promises';
-import { tmpdir } from 'os';
+import { readFile, readdir } from 'fs/promises';
 import { join, parse } from 'path';
 import { z } from 'zod';
 
@@ -177,21 +176,21 @@ export class TXEDispatcher {
     if (this.contractStoreSourceDir) {
       // LMDB env on disk is `data.mdb` (data + b-tree) + `lock.mdb` (process lock table).
       // Only data.mdb carries state; lock.mdb is rebuilt the first time an env is opened on
-      // the new path. Copying just the data file gives this worker a writable LMDB
-      // pre-populated with every entry the pool's main thread wrote into the source.
-      const cloneDir = await mkdtemp(join(tmpdir(), 'txe-contracts-'));
-      await copyFile(join(this.contractStoreSourceDir, 'data.mdb'), join(cloneDir, 'data.mdb'));
-      const tClone = Date.now();
-      const kvStore = await openStoreAt(cloneDir, undefined, 2);
+      // the new path. The clone factory copies just the data file into a fresh tmpdir and
+      // opens it with NOSYNC + auto-cleanup.
+      const kvStore = await cloneEphemeralStoreFrom(
+        join(this.contractStoreSourceDir, 'data.mdb'),
+        'txe-contracts',
+        undefined,
+        2,
+      );
       this.contractStore = new ContractStore(kvStore);
       this.logger.info('Cloned shared protocol-contracts store', {
-        cloneMs: tClone - t0,
-        openMs: Date.now() - tClone,
         totalMs: Date.now() - t0,
       });
       return;
     }
-    const kvStore = await openTmpStore('txe-contracts', true, undefined, 1);
+    const kvStore = await openEphemeralStore('txe-contracts', undefined, 1);
     const tKv = Date.now();
     this.contractStore = new ContractStore(kvStore);
     const provider = new LazyProtocolContractsProvider();

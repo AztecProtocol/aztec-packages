@@ -1,7 +1,7 @@
 import { getSchnorrAccountContractArtifact } from '@aztec/accounts/schnorr/lazy';
 import { BackendType, Barretenberg, BarretenbergSync } from '@aztec/bb.js';
 import type { Logger } from '@aztec/foundation/log';
-import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -100,73 +100,84 @@ export class TXEDispatcherPool {
   private readonly sessionToWorker = new Map<number, number>();
   private readonly pending = new Map<number, PendingRequest>();
   private nextRequestId = 0;
+  private readonly maxWorkers: number;
   private readonly readyPromise: Promise<void>;
+  private contractStoreSourceDir?: string;
+  private schnorrClassId?: string;
+  private workerPath?: URL;
 
   constructor(
     private readonly logger: Logger,
     opts: TXEDispatcherPoolOptions = {},
   ) {
-    const n = Math.max(1, opts.workers ?? Math.min(cpus().length, 16));
-    this.readyPromise = this.start(n);
+    this.maxWorkers = Math.max(1, opts.workers ?? Math.min(cpus().length, 16));
+    this.readyPromise = this.init();
   }
 
-  /** Resolves once every worker has acknowledged readiness. */
+  /**
+   * Resolves once the shared protocol-contracts store is built — workers themselves are spawned
+   * lazily on first session arrival, so this completes well before the pool is fully populated.
+   */
   public ready(): Promise<void> {
     return this.readyPromise;
   }
 
-  private async start(n: number): Promise<void> {
-    const poolStart = Date.now();
-    // Build the shared protocol-contracts LMDB on main BEFORE spawning workers, so each
-    // worker can clone the data.mdb instead of re-running the artifact load + LMDB writes.
-    // Empirically saves ~5s of warm wall-clock at w128 vs. each worker registering on its
-    // own (per-worker registration is ~100ms but the contention across 128 parallel workers
-    // multiplies that out).
-    const { dataDir: contractStoreSourceDir, schnorrClassId } = await this.buildSharedContractStore();
-    this.logger.info(`Built shared protocol-contracts store`, {
-      contractStoreSourceDir,
+  private async init(): Promise<void> {
+    const t0 = Date.now();
+    // Build the shared protocol-contracts LMDB up front. Workers clone the resulting data.mdb
+    // instead of re-running the artifact load + LMDB writes, so this has to exist before the
+    // first worker is spawned (regardless of how many we ultimately spawn).
+    const { dataDir, schnorrClassId } = await this.buildSharedContractStore();
+    this.contractStoreSourceDir = dataDir;
+    this.schnorrClassId = schnorrClassId;
+    this.workerPath = resolveWorkerBundlePath();
+    this.logger.info(`TXE dispatcher pool ready (lazy spawn, cap=${this.maxWorkers})`, {
+      contractStoreSourceDir: dataDir,
       schnorrClassId,
-      ms: Date.now() - poolStart,
+      ms: Date.now() - t0,
     });
+  }
 
-    const workerPath = resolveWorkerBundlePath();
-    for (let i = 0; i < n; i++) {
-      const spawnStart = Date.now();
-      const w = new Worker(workerPath, { workerData: { contractStoreSourceDir, schnorrClassId } });
-      let resolveReady!: () => void;
-      let rejectReady!: (err: Error) => void;
-      const ready = new Promise<void>((resolve, reject) => {
-        resolveReady = resolve;
-        rejectReady = reject;
-      });
-      const slot: WorkerSlot = {
-        worker: w,
-        sessions: new Set(),
-        inFlightRequestIds: new Set(),
-        ready,
-        resolveReady,
-        rejectReady,
-        warmed: false,
-        spawnStart,
-      };
-      this.workers.push(slot);
-      w.on('message', (msg: WorkerMessage) => this.handleMessage(i, msg));
-      w.on('error', err => this.handleWorkerError(i, err));
-      w.on('exit', code => {
-        if (code !== 0) {
-          this.handleWorkerError(i, new Error(`Worker ${i} exited with code ${code}`));
-        }
-      });
-      w.postMessage({ type: 'warm' });
-    }
-    this.logger.info(`Started TXE dispatcher pool with ${n} workers; warming up...`);
-    try {
-      await Promise.all(this.workers.map(s => s.ready));
-      this.logger.info(`TXE dispatcher pool warmed`, { workers: n, wallClockMs: Date.now() - poolStart });
-    } catch (err) {
-      this.logger.error('TXE dispatcher pool warm-up failed', err);
-      throw err;
-    }
+  /**
+   * Spawns a fresh worker and posts the 'warm' message. Caller must have awaited `init()` so the
+   * shared contract store is in place. Returns the index of the new worker in `this.workers`.
+   */
+  private spawnWorker(): number {
+    const workerIdx = this.workers.length;
+    const spawnStart = Date.now();
+    const w = new Worker(this.workerPath!, {
+      workerData: { contractStoreSourceDir: this.contractStoreSourceDir, schnorrClassId: this.schnorrClassId },
+    });
+    let resolveReady!: () => void;
+    let rejectReady!: (err: Error) => void;
+    const ready = new Promise<void>((resolve, reject) => {
+      resolveReady = resolve;
+      rejectReady = reject;
+    });
+    const slot: WorkerSlot = {
+      worker: w,
+      sessions: new Set(),
+      inFlightRequestIds: new Set(),
+      ready,
+      resolveReady,
+      rejectReady,
+      warmed: false,
+      spawnStart,
+    };
+    this.workers.push(slot);
+    w.on('message', (msg: WorkerMessage) => this.handleMessage(workerIdx, msg));
+    w.on('error', err => this.handleWorkerError(workerIdx, err));
+    w.on('exit', code => {
+      if (code !== 0) {
+        this.handleWorkerError(workerIdx, new Error(`Worker ${workerIdx} exited with code ${code}`));
+      }
+    });
+    w.postMessage({ type: 'warm' });
+    this.logger.debug(`Spawning TXE worker ${workerIdx} on demand`, {
+      cap: this.maxWorkers,
+      poolSize: this.workers.length,
+    });
+    return workerIdx;
   }
 
   /**
@@ -178,10 +189,10 @@ export class TXEDispatcherPool {
    *
    * Returns the directory path and the SchnorrAccount class id (hex). The store is
    * intentionally not closed here: keeping the writer handle alive avoids LMDB removing the
-   * tmp directory mid-flight (see `openTmpStore`'s cleanup hook).
+   * tmp directory mid-flight (see `openEphemeralStore`'s cleanup hook).
    */
   private async buildSharedContractStore(): Promise<{ dataDir: string; schnorrClassId: string }> {
-    const kvStore = await openTmpStore('txe-shared-contracts', true, undefined, 2);
+    const kvStore = await openEphemeralStore('txe-shared-contracts', undefined, 2);
     const dataDir = kvStore.dataDirectory;
     const contractStore = new ContractStore(kvStore);
     const provider = new LazyProtocolContractsProvider();
@@ -221,10 +232,12 @@ export class TXEDispatcherPool {
 
   // eslint-disable-next-line camelcase
   async resolve_foreign_call(callData: TXEForeignCallInput): Promise<ForeignCallResult> {
+    // Make sure the shared contract store + worker bundle path are in place before we spawn.
+    await this.readyPromise;
     const sessionId = callData.session_id;
     let workerIdx = this.sessionToWorker.get(sessionId);
     if (workerIdx === undefined) {
-      workerIdx = this.pickLeastLoadedWorker();
+      workerIdx = this.pickOrSpawnWorker();
       this.sessionToWorker.set(sessionId, workerIdx);
       this.workers[workerIdx].sessions.add(sessionId);
       this.logger.debug(`Routing new session ${sessionId} to worker ${workerIdx}`);
@@ -251,7 +264,15 @@ export class TXEDispatcherPool {
     }
   }
 
-  private pickLeastLoadedWorker(): number {
+  /**
+   * Returns the index of the worker that should handle a new session. Spawns a fresh worker if
+   * the pool hasn't reached its cap; otherwise picks the existing worker with the fewest
+   * assigned sessions. Always returns a valid index into `this.workers`.
+   */
+  private pickOrSpawnWorker(): number {
+    if (this.workers.length < this.maxWorkers) {
+      return this.spawnWorker();
+    }
     let minIdx = 0;
     let minCount = this.workers[0].sessions.size;
     for (let i = 1; i < this.workers.length; i++) {

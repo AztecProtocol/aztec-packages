@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
@@ -263,7 +263,7 @@ export class TXESession implements TXESessionStateHandler {
     // 2 reader slots are plenty for a single-threaded worker — the default 16 allocates 16 mutex
     // slots in LMDB's C side that this session never uses, multiplied by every worker × every
     // session.
-    const store = await openTmpStore('txe-session', true, undefined, 2);
+    const store = await openEphemeralStore('txe-session', undefined, 2);
     const tStore = Date.now();
 
     const addressStore = new AddressStore(store);
