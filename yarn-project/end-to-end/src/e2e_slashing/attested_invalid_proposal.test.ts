@@ -135,15 +135,18 @@ async function advanceToEpochBeforePipelinedTargetSlot({
     const currentEpoch = await cheatCodes.getEpoch();
     const nextEpoch = Number(currentEpoch) + 1;
     const firstSlotOfNextEpoch = nextEpoch * Number(epochDuration);
+    // The prior pipelined target can start first after the epoch warp and consume the bad proposer config.
+    const priorPipelinedTargetSlot = SlotNumber(firstSlotOfNextEpoch);
     const pipelinedTargetSlot = SlotNumber(firstSlotOfNextEpoch + 1);
+    const priorProposer = await epochCache.getProposerAttesterAddressInSlot(priorPipelinedTargetSlot);
     const proposer = await epochCache.getProposerAttesterAddressInSlot(pipelinedTargetSlot);
 
     logger.info(
       `Checking pipelined target slot ${pipelinedTargetSlot} in epoch ${nextEpoch} for proposer ${targetProposer}`,
-      { proposer: proposer?.toString() },
+      { proposer: proposer?.toString(), priorPipelinedTargetSlot, priorProposer: priorProposer?.toString() },
     );
 
-    if (proposer?.equals(targetProposer)) {
+    if (proposer?.equals(targetProposer) && !priorProposer?.equals(targetProposer)) {
       return { targetEpoch: EpochNumber(nextEpoch), targetSlot: pipelinedTargetSlot };
     }
 
