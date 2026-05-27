@@ -2517,12 +2517,13 @@ fn ld_y(cursor: u32) -> array<u32, 8> {
     return fr_sub_f8(zero, y);
 }
 
-@compute @workgroup_size(1)
-fn main() {
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let num_dense = planner_meta[1];
     let M_buckets = params.x;
+    let t = gid.x;
 
-    for (var i: u32 = 0u; i < num_dense; i = i + 1u) {
+    for (var i: u32 = t; i < num_dense; i = i + 256u) {
         let bucket_idx = sorted_bucket_list[i];
         let count = sorted_count_list[i];
         let off = offsets[bucket_idx];

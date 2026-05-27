@@ -2244,13 +2244,10 @@ export class MsmV2 {
         pass.end();
       };
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
-      // @ts-ignore — useDebugAccum is set by the run() method for A/B comparison
-      if (this._useDebugAccum) {
-        dispatch(this.debugAccumPipe, this.debugAccumBind, 1, 1);
-      } else {
-        indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-        indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
-      }
+      // Use parallel debug accumulator (one inversion per add, 256 threads)
+      dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
+      // indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
+      // indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
     }
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
@@ -2412,6 +2409,23 @@ export class MsmV2 {
       const sba = new Uint32Array(sb2.getMappedRange().slice(0));
       sb2.unmap(); sb2.destroy();
       console.log(`[DBG] sortedBuckets[0..15]=${Array.from(sba).join(',')} (original bucket indices)`);
+      // Check for duplicates in sorted_bucket_list (first num_dense entries)
+      const numDense2 = a[1];
+      const sbRdSz = Math.min(numDense2 * 4, 65536);
+      const sbFull = device.createBuffer({ size: sbRdSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const esbf = device.createCommandEncoder();
+      esbf.copyBufferToBuffer(sbb, 0, sbFull, 0, sbRdSz);
+      device.queue.submit([esbf.finish()]);
+      await sbFull.mapAsync(GPUMapMode.READ);
+      const sbArr = new Uint32Array(sbFull.getMappedRange().slice(0));
+      sbFull.unmap(); sbFull.destroy();
+      const seen = new Set<number>();
+      let dupes = 0;
+      for (let i = 0; i < Math.min(numDense2, sbArr.length); i++) {
+        if (seen.has(sbArr[i])) dupes++;
+        seen.add(sbArr[i]);
+      }
+      console.log(`[DBG] sortedBucketList: ${Math.min(numDense2, sbArr.length)} entries, ${dupes} duplicates, ${seen.size} unique`);
       // Count how many dense_bucket_list entries have bucket_idx=108
       const dbb = this.pool.scratch!.denseBucketList;
       const dcb = this.pool.scratch!.denseCountList;
@@ -2516,22 +2530,23 @@ export class MsmV2 {
       const bucketOfFirst = firstMismatch >= 0 ? Math.floor(firstMismatch / 2) : -1;
       console.log(`[A/B] compared ${debugData.length} u32s: ${mismatches} mismatches, first at u32[${firstMismatch}] (bucket ~${bucketOfFirst})`);
       // List first 10 mismatched bucket indices and their status
+      // Each bucket x-coord = PG * 4 = 8 u32. Compare per-bucket.
+      const PGU = 8; // u32 per bucket x-coord (PG=2, 4 u32 per vec4)
+      const numBuckets = Math.floor(debugData.length / PGU);
       const mmBuckets: number[] = [];
-      for (let i = 0; i < debugData.length; i += 2) {
-        const bk = i / 2;
-        const dNz = debugData[i] !== 0 || debugData[i+1] !== 0;
-        const sNz = streamData[i] !== 0 || streamData[i+1] !== 0;
-        if (dNz !== sNz || (dNz && sNz && (debugData[i] !== streamData[i] || debugData[i+1] !== streamData[i+1]))) {
-          mmBuckets.push(bk);
+      for (let bk = 0; bk < numBuckets; bk++) {
+        let match = true;
+        for (let j = 0; j < PGU; j++) {
+          if (debugData[bk * PGU + j] !== streamData[bk * PGU + j]) { match = false; break; }
         }
+        if (!match) mmBuckets.push(bk);
       }
-      const mmStr = mmBuckets.slice(0, 20).map(b => {
-        const di = b*2;
-        const dNz = debugData[di] !== 0;
-        const sNz = streamData[di] !== 0;
+      const mmStr = mmBuckets.slice(0, 30).map(b => {
+        const dNz = debugData[b * PGU] !== 0;
+        const sNz = streamData[b * PGU] !== 0;
         return `${b}(d=${dNz?'nz':'0'} s=${sNz?'nz':'0'})`;
       }).join(' ');
-      console.log(`[A/B] mismatched buckets (first 20): ${mmStr}`);
+      console.log(`[A/B] ${mmBuckets.length} mismatched buckets out of ${numBuckets}. First 30: ${mmStr}`);
     }
     // Find first count-2 bucket and verify its sum
     {
