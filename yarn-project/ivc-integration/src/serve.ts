@@ -103,7 +103,10 @@ if (!document.getElementById('status')) {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     button.addEventListener('click', async () => {
       logger.info(`generating circuit and witness...`);
-      const [bytecodes, witnessStack, _publicInputs, precomputedVks] = await generateTestingIVCStack(1, 0);
+      const [bytecodes, witnessStack, _publicInputs, precomputedVks, circuitKinds] = await generateTestingIVCStack(
+        1,
+        0,
+      );
       logger.info(`done. proving and verifying...`);
 
       const barretenberg = await Barretenberg.initSingleton({
@@ -111,7 +114,7 @@ if (!document.getElementById('status')) {
         logger: (m: string) => logger.info(m),
       });
 
-      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
       const { proof, vk } = await backend.prove(witnessStack, precomputedVks);
       const verified = await backend.verify(proof, vk);
 

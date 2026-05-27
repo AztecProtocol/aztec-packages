@@ -98,9 +98,9 @@ describe('AVM Integration', () => {
       'bb-avm',
     );
 
-    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
+    const [bytecodes, witnessStack, tailPublicInputs, vks, circuitKinds] = await generateTestingIVCStack(1, 0);
     chonkPublicInputs = tailPublicInputs;
-    backend = new AztecClientBackend(bytecodes, barretenberg);
+    backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
     const { proofFields: proofAsFields, vk: vkBytes } = await backend.prove(witnessStack, vks);
     chonkProof = await proofBytesToRecursiveProof(proofAsFields, vkBytes);
   });

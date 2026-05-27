@@ -310,14 +310,14 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
             console.log('[Test] Barretenberg initialized');
 
             console.log('[Test] Generating testing IVC stack...');
-            const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(
+            const [bytecodes, witnessStack, , vks, circuitKinds] = await generateTestingIVCStack(
               numCreatorApps,
               numReaderApps
             );
             console.log(\`[Test] Generated stack with \${bytecodes.length} circuits\`);
 
             console.log('[Test] Creating AztecClientBackend...');
-            const backend = new AztecClientBackend(bytecodes, barretenberg);
+            const backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
 
             console.log('[Test] Proving...');
             const { proof, vk } = await backend.prove(witnessStack, vks);
