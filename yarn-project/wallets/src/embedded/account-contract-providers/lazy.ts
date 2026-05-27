@@ -1,8 +1,7 @@
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
-import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
 import type { Fq } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 
 import type { AccountType } from '../wallet_db.js';
 import type { AccountContractsProvider } from './types.js';
@@ -45,9 +44,5 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
       const { createStubEcdsaAccount } = await import('@aztec/accounts/stub/ecdsa/lazy');
       return createStubEcdsaAccount(address);
     }
-  }
-
-  getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }> {
-    return getStandardMultiCallEntrypoint();
   }
 }
