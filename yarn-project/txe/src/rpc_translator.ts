@@ -44,6 +44,11 @@ import {
 const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
 
+// These must match the FACT_MAX_* globals in aztec-nr's `oracle/fact_store.nr`.
+const FACT_MAX_PAYLOAD = 20;
+const FACT_MAX_FACTS = 8;
+const FACT_MAX_ACTIVE_ENTITIES = 64;
+
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
     super(`${oracleName} oracles not available with the current handler`);
@@ -1060,6 +1065,114 @@ export class RPCTranslator {
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope);
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_recordFact(
+    foreignContractAddress: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+    foreignEntityType: ForeignCallSingle,
+    foreignFactType: ForeignCallSingle,
+    foreignCorrelationKey: ForeignCallSingle,
+    foreignPayload: ForeignCallArray,
+    foreignHasAnchor: ForeignCallSingle,
+    foreignAnchorBlockNumber: ForeignCallSingle,
+    foreignAnchorBlockHash: ForeignCallSingle,
+  ) {
+    const anchor = fromSingle(foreignHasAnchor).toBool()
+      ? {
+          blockNumber: fromSingle(foreignAnchorBlockNumber).toNumber(),
+          blockHash: fromSingle(foreignAnchorBlockHash),
+        }
+      : null;
+
+    await this.handlerAsUtility().recordFact(
+      AztecAddress.fromField(fromSingle(foreignContractAddress)),
+      AztecAddress.fromField(fromSingle(foreignScope)),
+      fromSingle(foreignEntityType),
+      fromSingle(foreignFactType),
+      fromSingle(foreignCorrelationKey),
+      fromArray(foreignPayload),
+      anchor,
+    );
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_activeEntities(
+    foreignContractAddress: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+    foreignEntityType: ForeignCallSingle,
+  ) {
+    const keys = await this.handlerAsUtility().activeEntities(
+      AztecAddress.fromField(fromSingle(foreignContractAddress)),
+      AztecAddress.fromField(fromSingle(foreignScope)),
+      fromSingle(foreignEntityType),
+    );
+
+    if (keys.length > FACT_MAX_ACTIVE_ENTITIES) {
+      throw new Error(`Active entities count ${keys.length} exceeds max ${FACT_MAX_ACTIVE_ENTITIES}`);
+    }
+
+    // The Noir oracle returns the tuple `([Field; FACT_MAX_ACTIVE_ENTITIES], u32)`: storage array first, then length.
+    return toForeignCallResult(arrayToBoundedVec(toArray(keys), FACT_MAX_ACTIVE_ENTITIES));
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_loadCanonicalFacts(
+    foreignContractAddress: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+    foreignEntityType: ForeignCallSingle,
+    foreignCorrelationKey: ForeignCallSingle,
+  ) {
+    const facts = await this.handlerAsUtility().loadCanonicalFacts(
+      AztecAddress.fromField(fromSingle(foreignContractAddress)),
+      AztecAddress.fromField(fromSingle(foreignScope)),
+      fromSingle(foreignEntityType),
+      fromSingle(foreignCorrelationKey),
+    );
+
+    if (facts.length > FACT_MAX_FACTS) {
+      throw new Error(`Canonical fact count ${facts.length} exceeds max ${FACT_MAX_FACTS}`);
+    }
+
+    // The Noir oracle returns `[PackedFact; FACT_MAX_FACTS]`, where each `PackedFact` flattens to its `fact_type_id`
+    // followed by `FACT_MAX_PAYLOAD` payload fields. We flatten all slots into a single field stream, padding each
+    // payload to `FACT_MAX_PAYLOAD` and the missing facts with all-zero `PackedFact`s.
+    const flat: Fr[] = [];
+    for (let i = 0; i < FACT_MAX_FACTS; i++) {
+      const fact = facts[i];
+      if (fact) {
+        if (fact.payload.length > FACT_MAX_PAYLOAD) {
+          throw new Error(`Fact payload length ${fact.payload.length} exceeds max ${FACT_MAX_PAYLOAD}`);
+        }
+        flat.push(fact.factType);
+        flat.push(...fact.payload, ...Array(FACT_MAX_PAYLOAD - fact.payload.length).fill(new Fr(0)));
+      } else {
+        flat.push(new Fr(0));
+        flat.push(...Array<Fr>(FACT_MAX_PAYLOAD).fill(new Fr(0)));
+      }
+    }
+
+    return toForeignCallResult([toArray(flat)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_terminateEntity(
+    foreignContractAddress: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+    foreignEntityType: ForeignCallSingle,
+    foreignCorrelationKey: ForeignCallSingle,
+  ) {
+    await this.handlerAsUtility().terminateEntity(
+      AztecAddress.fromField(fromSingle(foreignContractAddress)),
+      AztecAddress.fromField(fromSingle(foreignScope)),
+      fromSingle(foreignEntityType),
+      fromSingle(foreignCorrelationKey),
+    );
 
     return toForeignCallResult([]);
   }

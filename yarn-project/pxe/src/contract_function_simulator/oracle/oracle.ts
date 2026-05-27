@@ -39,6 +39,11 @@ export class UnavailableOracleError extends Error {
   }
 }
 
+// These must match the FACT_MAX_* globals in aztec-nr's `oracle/fact_store.nr`.
+const FACT_MAX_PAYLOAD = 20;
+const FACT_MAX_FACTS = 8;
+const FACT_MAX_ACTIVE_ENTITIES = 64;
+
 /**
  * A data source that has all the apis required by Aztec.nr.
  *
@@ -810,6 +815,104 @@ export class Oracle {
       Fr.fromString(dstSlot),
       Fr.fromString(numEntries).toNumber(),
       AztecAddress.fromField(Fr.fromString(scope)),
+    );
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_recordFact(
+    [contractAddress]: ACVMField[],
+    [scope]: ACVMField[],
+    [entityType]: ACVMField[],
+    [factType]: ACVMField[],
+    [correlationKey]: ACVMField[],
+    payload: ACVMField[],
+    [hasAnchor]: ACVMField[],
+    [anchorBlockNumber]: ACVMField[],
+    [anchorBlockHash]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const anchor = Fr.fromString(hasAnchor).toBigInt()
+      ? { blockNumber: Fr.fromString(anchorBlockNumber).toNumber(), blockHash: Fr.fromString(anchorBlockHash) }
+      : null;
+    await this.handlerAsUtility().recordFact(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      AztecAddress.fromField(Fr.fromString(scope)),
+      Fr.fromString(entityType),
+      Fr.fromString(factType),
+      Fr.fromString(correlationKey),
+      payload.map(Fr.fromString),
+      anchor,
+    );
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_activeEntities(
+    [contractAddress]: ACVMField[],
+    [scope]: ACVMField[],
+    [entityType]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const keys = await this.handlerAsUtility().activeEntities(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      AztecAddress.fromField(Fr.fromString(scope)),
+      Fr.fromString(entityType),
+    );
+    if (keys.length > FACT_MAX_ACTIVE_ENTITIES) {
+      throw new Error(`Active entities count ${keys.length} exceeds max ${FACT_MAX_ACTIVE_ENTITIES}`);
+    }
+    // The Noir oracle returns the tuple `([Field; FACT_MAX_ACTIVE_ENTITIES], u32)`: storage array first, then length.
+    const padded = padArrayEnd(keys, Fr.ZERO, FACT_MAX_ACTIVE_ENTITIES);
+    return [padded.map(toACVMField), toACVMField(keys.length)];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_loadCanonicalFacts(
+    [contractAddress]: ACVMField[],
+    [scope]: ACVMField[],
+    [entityType]: ACVMField[],
+    [correlationKey]: ACVMField[],
+  ): Promise<ACVMField[][]> {
+    const facts = await this.handlerAsUtility().loadCanonicalFacts(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      AztecAddress.fromField(Fr.fromString(scope)),
+      Fr.fromString(entityType),
+      Fr.fromString(correlationKey),
+    );
+    if (facts.length > FACT_MAX_FACTS) {
+      throw new Error(`Canonical fact count ${facts.length} exceeds max ${FACT_MAX_FACTS}`);
+    }
+    // The Noir oracle returns `[PackedFact; FACT_MAX_FACTS]`, where each `PackedFact` flattens to its `fact_type_id`
+    // followed by `FACT_MAX_PAYLOAD` payload fields. We flatten all slots into a single field stream, padding each
+    // payload to `FACT_MAX_PAYLOAD` and the missing facts with all-zero `PackedFact`s.
+    const flat: Fr[] = [];
+    for (let i = 0; i < FACT_MAX_FACTS; i++) {
+      const fact = facts[i];
+      if (fact) {
+        if (fact.payload.length > FACT_MAX_PAYLOAD) {
+          throw new Error(`Fact payload length ${fact.payload.length} exceeds max ${FACT_MAX_PAYLOAD}`);
+        }
+        flat.push(fact.factType);
+        flat.push(...padArrayEnd(fact.payload, Fr.ZERO, FACT_MAX_PAYLOAD));
+      } else {
+        flat.push(Fr.ZERO);
+        flat.push(...Array<Fr>(FACT_MAX_PAYLOAD).fill(Fr.ZERO));
+      }
+    }
+    return [flat.map(toACVMField)];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_terminateEntity(
+    [contractAddress]: ACVMField[],
+    [scope]: ACVMField[],
+    [entityType]: ACVMField[],
+    [correlationKey]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().terminateEntity(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      AztecAddress.fromField(Fr.fromString(scope)),
+      Fr.fromString(entityType),
+      Fr.fromString(correlationKey),
     );
     return [];
   }
