@@ -113,10 +113,15 @@ inline world_state::StateReference state_reference_from_wire(
     return r;
 }
 
-// Generic msgpack roundtrip — for status/meta types whose wire and domain
-// representations have isomorphic SERIALIZATION_FIELDS shapes (same field
-// names + msgpack-compatible field types). Cheaper to roundtrip the bytes
-// than to write field-by-field accessors for ~20 fields.
+// Generic msgpack roundtrip — used only for `WorldStateStatusFull` and
+// `WorldStateStatusSummary`. Both are 4-level nested aggregates (Full →
+// DBStats → TreeDBStats → DBStats, and parallel Meta → TreeMeta with
+// `bb::fr root` fields, fanning out across all 5 trees). Hand-writing
+// field-by-field convertors is ~150 LOC of mechanical boilerplate that
+// would have to track future field additions on the world_state side.
+// The 6 call sites (commit / sync / finalize / unwind / remove_historical
+// / get_status) are all dominated by the merkle-tree work they bracket,
+// so the per-call pack+unpack overhead is not in the critical path.
 template <typename Wire, typename Domain> inline Wire msgpack_roundtrip_to_wire(const Domain& d)
 {
     msgpack::sbuffer buf;

@@ -6,18 +6,10 @@
  * but as a non-template overload for `BBApiRequest` so
  * `make_bb_handler<BBApiRequest>` resolves to these via overload resolution.
  *
- * Two implementation styles:
- *
- * 1. **Field-by-field conversion** (simple cryptographic primitives).
- *    Builds the domain command struct from wire fields, calls execute(),
- *    builds the wire response from the domain response fields. Explicit,
- *    fast, surfaces wire/domain mismatches at compile time.
- *
- * 2. **msgpack_roundtrip** (chonk / ultra_honk / circuit / avm / chonk
- *    batch verifier commands). Wire/domain types share a SERIALIZATION_FIELDS
- *    shape; pack-then-unpack converts losslessly. The extra pack+unpack
- *    pair is acceptable for these non-hot-path commands and keeps handler
- *    bodies short for the most intricate aggregate types.
+ * Every handler converts wire fields to domain fields, calls
+ * `Cmd::execute()`, and converts the domain response back to wire fields —
+ * all explicit, all field-by-field. The shared converters live in
+ * `bbapi_wire_convert.hpp`.
  */
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/bbapi/bbapi_avm.hpp"
@@ -34,127 +26,194 @@
 namespace bb::bbapi {
 
 // ===========================================================================
-// AVM (msgpack_roundtrip — wire/domain CircuitInputs are byte-identical aggregates).
+// AVM
 // ===========================================================================
 
 wire::AvmProveResponse handle_avm_prove(BBApiRequest& ctx, wire::AvmProve&& cmd)
 {
-    return msgpack_roundtrip<wire::AvmProveResponse>(msgpack_roundtrip<AvmProve>(cmd).execute(ctx));
+    AvmProve domain_cmd{ .inputs = std::move(cmd.inputs) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .proof = fr_vec_to_wire(resp.proof), .stats = avm_stat_vec_to_wire(std::move(resp.stats)) };
 }
 wire::AvmVerifyResponse handle_avm_verify(BBApiRequest& ctx, wire::AvmVerify&& cmd)
 {
-    return msgpack_roundtrip<wire::AvmVerifyResponse>(msgpack_roundtrip<AvmVerify>(cmd).execute(ctx));
+    AvmVerify domain_cmd{ .proof = fr_vec_from_wire(cmd.proof), .public_inputs = std::move(cmd.public_inputs) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .verified = resp.verified };
 }
 wire::AvmCheckCircuitResponse handle_avm_check_circuit(BBApiRequest& ctx, wire::AvmCheckCircuit&& cmd)
 {
-    return msgpack_roundtrip<wire::AvmCheckCircuitResponse>(msgpack_roundtrip<AvmCheckCircuit>(cmd).execute(ctx));
+    AvmCheckCircuit domain_cmd{ .inputs = std::move(cmd.inputs) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .passed = resp.passed, .stats = avm_stat_vec_to_wire(std::move(resp.stats)) };
 }
 
 // ===========================================================================
-// Circuit + Chonk + UltraHonk (msgpack_roundtrip — wire/domain CircuitInput,
-// ProofSystemSettings, ChonkProof are byte-identical aggregates).
+// Circuit + Chonk + UltraHonk
 // ===========================================================================
 
 wire::CircuitProveResponse handle_circuit_prove(BBApiRequest& ctx, wire::CircuitProve&& cmd)
 {
-    return msgpack_roundtrip<wire::CircuitProveResponse>(msgpack_roundtrip<CircuitProve>(cmd).execute(ctx));
+    CircuitProve domain_cmd{ .circuit = circuit_input_from_wire(std::move(cmd.circuit)),
+                             .witness = std::move(cmd.witness),
+                             .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .public_inputs = uint256_vec_to_wire(resp.public_inputs),
+             .proof = uint256_vec_to_wire(resp.proof),
+             .vk = circuit_compute_vk_response_to_wire(std::move(resp.vk)) };
 }
 wire::CircuitComputeVkResponse handle_circuit_compute_vk(BBApiRequest& ctx, wire::CircuitComputeVk&& cmd)
 {
-    return msgpack_roundtrip<wire::CircuitComputeVkResponse>(msgpack_roundtrip<CircuitComputeVk>(cmd).execute(ctx));
+    CircuitComputeVk domain_cmd{ .circuit = circuit_input_no_vk_from_wire(std::move(cmd.circuit)),
+                                 .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return circuit_compute_vk_response_to_wire(std::move(resp));
 }
 wire::CircuitInfoResponse handle_circuit_stats(BBApiRequest& ctx, wire::CircuitStats&& cmd)
 {
-    return msgpack_roundtrip<wire::CircuitInfoResponse>(msgpack_roundtrip<CircuitStats>(cmd).execute(ctx));
+    CircuitStats domain_cmd{ .circuit = circuit_input_from_wire(std::move(cmd.circuit)),
+                             .include_gates_per_opcode = cmd.include_gates_per_opcode,
+                             .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .num_gates = resp.num_gates,
+             .num_gates_dyadic = resp.num_gates_dyadic,
+             .num_acir_opcodes = resp.num_acir_opcodes,
+             .gates_per_opcode = std::move(resp.gates_per_opcode) };
 }
 wire::CircuitVerifyResponse handle_circuit_verify(BBApiRequest& ctx, wire::CircuitVerify&& cmd)
 {
-    return msgpack_roundtrip<wire::CircuitVerifyResponse>(msgpack_roundtrip<CircuitVerify>(cmd).execute(ctx));
+    CircuitVerify domain_cmd{ .verification_key = std::move(cmd.verification_key),
+                              .public_inputs = uint256_vec_from_wire(cmd.public_inputs),
+                              .proof = uint256_vec_from_wire(cmd.proof),
+                              .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .verified = resp.verified };
 }
 wire::ChonkComputeVkResponse handle_chonk_compute_vk(BBApiRequest& ctx, wire::ChonkComputeVk&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkComputeVkResponse>(msgpack_roundtrip<ChonkComputeVk>(cmd).execute(ctx));
+    ChonkComputeVk domain_cmd{ .circuit = circuit_input_no_vk_from_wire(std::move(cmd.circuit)),
+                               .use_zk_flavor = cmd.use_zk_flavor };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .bytes = std::move(resp.bytes), .fields = fr_vec_to_wire(resp.fields) };
 }
 wire::ChonkStartResponse handle_chonk_start(BBApiRequest& ctx, wire::ChonkStart&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkStartResponse>(msgpack_roundtrip<ChonkStart>(cmd).execute(ctx));
+    ChonkStart domain_cmd{ .num_circuits = cmd.num_circuits };
+    std::move(domain_cmd).execute(ctx);
+    return {};
 }
 wire::ChonkLoadResponse handle_chonk_load(BBApiRequest& ctx, wire::ChonkLoad&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkLoadResponse>(msgpack_roundtrip<ChonkLoad>(cmd).execute(ctx));
+    ChonkLoad domain_cmd{ .circuit = circuit_input_from_wire(std::move(cmd.circuit)) };
+    std::move(domain_cmd).execute(ctx);
+    return {};
 }
 wire::ChonkAccumulateResponse handle_chonk_accumulate(BBApiRequest& ctx, wire::ChonkAccumulate&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkAccumulateResponse>(msgpack_roundtrip<ChonkAccumulate>(cmd).execute(ctx));
+    ChonkAccumulate domain_cmd{ .witness = std::move(cmd.witness) };
+    std::move(domain_cmd).execute(ctx);
+    return {};
 }
-wire::ChonkProveResponse handle_chonk_prove(BBApiRequest& ctx, wire::ChonkProve&& cmd)
+wire::ChonkProveResponse handle_chonk_prove(BBApiRequest& ctx, wire::ChonkProve&& /*cmd*/)
 {
-    return msgpack_roundtrip<wire::ChonkProveResponse>(msgpack_roundtrip<ChonkProve>(cmd).execute(ctx));
+    ChonkProve domain_cmd{};
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .proof = chonk_proof_to_wire(resp.proof) };
 }
 wire::ChonkVerifyResponse handle_chonk_verify(BBApiRequest& ctx, wire::ChonkVerify&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkVerifyResponse>(msgpack_roundtrip<ChonkVerify>(cmd).execute(ctx));
+    ChonkVerify domain_cmd{ .proof = chonk_proof_from_wire(std::move(cmd.proof)), .vk = std::move(cmd.vk) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .valid = resp.valid };
 }
 wire::ChonkVerifyFromFieldsResponse handle_chonk_verify_from_fields(BBApiRequest& ctx,
                                                                     wire::ChonkVerifyFromFields&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkVerifyFromFieldsResponse>(
-        msgpack_roundtrip<ChonkVerifyFromFields>(cmd).execute(ctx));
+    ChonkVerifyFromFields domain_cmd{ .proof = fr_vec_from_wire(cmd.proof), .vk = std::move(cmd.vk) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .valid = resp.valid };
 }
 wire::ChonkBatchVerifyResponse handle_chonk_batch_verify(BBApiRequest& ctx, wire::ChonkBatchVerify&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkBatchVerifyResponse>(msgpack_roundtrip<ChonkBatchVerify>(cmd).execute(ctx));
+    ChonkBatchVerify domain_cmd{ .proofs = chonk_proof_vec_from_wire(std::move(cmd.proofs)),
+                                 .vks = std::move(cmd.vks) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .valid = resp.valid };
 }
 wire::VkAsFieldsResponse handle_vk_as_fields(BBApiRequest& ctx, wire::VkAsFields&& cmd)
 {
-    return msgpack_roundtrip<wire::VkAsFieldsResponse>(msgpack_roundtrip<VkAsFields>(cmd).execute(ctx));
+    VkAsFields domain_cmd{ .verification_key = std::move(cmd.verification_key) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .fields = fr_vec_to_wire(resp.fields) };
 }
 wire::MegaVkAsFieldsResponse handle_mega_vk_as_fields(BBApiRequest& ctx, wire::MegaVkAsFields&& cmd)
 {
-    return msgpack_roundtrip<wire::MegaVkAsFieldsResponse>(msgpack_roundtrip<MegaVkAsFields>(cmd).execute(ctx));
+    MegaVkAsFields domain_cmd{ .verification_key = std::move(cmd.verification_key) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .fields = fr_vec_to_wire(resp.fields) };
 }
 wire::CircuitWriteSolidityVerifierResponse handle_circuit_write_solidity_verifier(
     BBApiRequest& ctx, wire::CircuitWriteSolidityVerifier&& cmd)
 {
-    return msgpack_roundtrip<wire::CircuitWriteSolidityVerifierResponse>(
-        msgpack_roundtrip<CircuitWriteSolidityVerifier>(cmd).execute(ctx));
+    CircuitWriteSolidityVerifier domain_cmd{ .verification_key = std::move(cmd.verification_key),
+                                             .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .solidity_code = std::move(resp.solidity_code) };
 }
 wire::ChonkCheckPrecomputedVkResponse handle_chonk_check_precomputed_vk(BBApiRequest& ctx,
                                                                         wire::ChonkCheckPrecomputedVk&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkCheckPrecomputedVkResponse>(
-        msgpack_roundtrip<ChonkCheckPrecomputedVk>(cmd).execute(ctx));
+    ChonkCheckPrecomputedVk domain_cmd{ .circuit = circuit_input_from_wire(std::move(cmd.circuit)),
+                                        .use_zk_flavor = cmd.use_zk_flavor };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .valid = resp.valid, .actual_vk = std::move(resp.actual_vk) };
 }
 wire::ChonkStatsResponse handle_chonk_stats(BBApiRequest& ctx, wire::ChonkStats&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkStatsResponse>(msgpack_roundtrip<ChonkStats>(cmd).execute(ctx));
+    ChonkStats domain_cmd{ .circuit = circuit_input_no_vk_from_wire(std::move(cmd.circuit)),
+                           .include_gates_per_opcode = cmd.include_gates_per_opcode };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .acir_opcodes = resp.acir_opcodes,
+             .circuit_size = resp.circuit_size,
+             .gates_per_opcode = std::move(resp.gates_per_opcode) };
 }
 wire::ChonkCompressProofResponse handle_chonk_compress_proof(BBApiRequest& ctx, wire::ChonkCompressProof&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkCompressProofResponse>(msgpack_roundtrip<ChonkCompressProof>(cmd).execute(ctx));
+    ChonkCompressProof domain_cmd{ .proof = chonk_proof_from_wire(std::move(cmd.proof)) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .compressed_proof = std::move(resp.compressed_proof) };
 }
 wire::ChonkDecompressProofResponse handle_chonk_decompress_proof(BBApiRequest& ctx, wire::ChonkDecompressProof&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkDecompressProofResponse>(
-        msgpack_roundtrip<ChonkDecompressProof>(cmd).execute(ctx));
+    ChonkDecompressProof domain_cmd{ .compressed_proof = std::move(cmd.compressed_proof) };
+    auto resp = std::move(domain_cmd).execute(ctx);
+    return { .proof = chonk_proof_to_wire(resp.proof) };
 }
 wire::ChonkBatchVerifierStartResponse handle_chonk_batch_verifier_start(BBApiRequest& ctx,
                                                                         wire::ChonkBatchVerifierStart&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkBatchVerifierStartResponse>(
-        msgpack_roundtrip<ChonkBatchVerifierStart>(cmd).execute(ctx));
+    ChonkBatchVerifierStart domain_cmd{ .vks = std::move(cmd.vks),
+                                        .num_cores = cmd.num_cores,
+                                        .batch_size = cmd.batch_size,
+                                        .fifo_path = std::move(cmd.fifo_path) };
+    std::move(domain_cmd).execute(ctx);
+    return {};
 }
 wire::ChonkBatchVerifierQueueResponse handle_chonk_batch_verifier_queue(BBApiRequest& ctx,
                                                                         wire::ChonkBatchVerifierQueue&& cmd)
 {
-    return msgpack_roundtrip<wire::ChonkBatchVerifierQueueResponse>(
-        msgpack_roundtrip<ChonkBatchVerifierQueue>(cmd).execute(ctx));
+    ChonkBatchVerifierQueue domain_cmd{ .request_id = cmd.request_id,
+                                        .vk_index = cmd.vk_index,
+                                        .proof_fields = fr_vec_from_wire(cmd.proof_fields) };
+    std::move(domain_cmd).execute(ctx);
+    return {};
 }
 wire::ChonkBatchVerifierStopResponse handle_chonk_batch_verifier_stop(BBApiRequest& ctx,
-                                                                      wire::ChonkBatchVerifierStop&& cmd)
+                                                                      wire::ChonkBatchVerifierStop&& /*cmd*/)
 {
-    return msgpack_roundtrip<wire::ChonkBatchVerifierStopResponse>(
-        msgpack_roundtrip<ChonkBatchVerifierStop>(cmd).execute(ctx));
+    ChonkBatchVerifierStop domain_cmd{};
+    std::move(domain_cmd).execute(ctx);
+    return {};
 }
 
 // ===========================================================================

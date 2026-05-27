@@ -3,19 +3,19 @@
  * @file bbapi_wire_convert.hpp
  * @brief Wire <-> domain conversion helpers for the bbapi handlers.
  *
- * Two conversion strategies coexist:
+ * All conversions are field-by-field: each handler in bbapi_handlers.cpp
+ * builds the domain command struct from the wire fields, calls execute(),
+ * and builds the wire response from the domain response fields.
  *
- * 1. **Field-by-field** (`fr_to_wire`/`fr_from_wire`/`grumpkin_point_to_wire`/etc.).
- *    Used by simple handlers (Poseidon2, Pedersen, Blake2s, AES, Grumpkin,
- *    Bn254 G1/G2, Secp256k1/r1, Schnorr, ECDSA, SrsInit). Explicit, fast,
- *    compile-time-safe.
+ * Wire field types (Fr / Fq / Uint256 / … — all `std::array<uint8_t, 32>`
+ * aliases) and domain field types (`bb::fr`, `bb::fq`, `uint256_t`, …)
+ * share a 32-byte msgpack `bin32` encoding, so the byte-level conversion
+ * is a `serialize_to_buffer` / `serialize_from_buffer` call.
  *
- * 2. **msgpack_roundtrip** (generic pack-then-unpack). Used by handlers
- *    whose wire/domain types are intricate nested aggregates (CircuitInput,
- *    ChonkProof, ProofSystemSettings — chonk/ultra_honk/avm/circuit
- *    commands). The wire and domain types share a SERIALIZATION_FIELDS
- *    shape so this is correct; the extra pack+unpack per call is
- *    acceptable for these non-hot-path commands.
+ * The one residual `msgpack_roundtrip` usage is inside
+ * `bn254_g2_point_{to,from}_wire`: the Fq2 nesting on g2 affine_element
+ * makes the manual form genuinely uglier, and the call site is exactly
+ * one (`Bn254G2Mul`).
  */
 #include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -24,6 +24,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 #include <array>
@@ -33,9 +34,13 @@
 namespace bb::bbapi {
 
 // ---------------------------------------------------------------------------
-// Generic msgpack roundtrip (escape hatch for intricate nested aggregates).
+// Local msgpack roundtrip — only used by bn254_g2_point conversions below,
+// where Fq2 nesting on g2 affine_element makes the manual form intricate
+// enough that a generic pack+unpack pair is the cleanest available bridge.
+// Restricted to a single call site (`Bn254G2Mul`); not exposed for general use.
 // ---------------------------------------------------------------------------
 
+namespace detail {
 template <typename Target, typename Source> inline Target msgpack_roundtrip(const Source& src)
 {
     msgpack::sbuffer buf;
@@ -45,6 +50,7 @@ template <typename Target, typename Source> inline Target msgpack_roundtrip(cons
     unpacked.get().convert(target);
     return target;
 }
+} // namespace detail
 
 // ---------------------------------------------------------------------------
 // Field element conversions. All field types (bb::fr, bb::fq, grumpkin::fr,
@@ -194,12 +200,12 @@ inline bb::g1::affine_element bn254_g1_point_from_wire(const wire::Bn254G1Point&
 
 inline wire::Bn254G2Point bn254_g2_point_to_wire(const bb::g2::affine_element& d)
 {
-    return msgpack_roundtrip<wire::Bn254G2Point>(d);
+    return detail::msgpack_roundtrip<wire::Bn254G2Point>(d);
 }
 
 inline bb::g2::affine_element bn254_g2_point_from_wire(const wire::Bn254G2Point& w)
 {
-    return msgpack_roundtrip<bb::g2::affine_element>(w);
+    return detail::msgpack_roundtrip<bb::g2::affine_element>(w);
 }
 
 inline wire::Secp256k1Point secp256k1_point_to_wire(const secp256k1::g1::affine_element& d)
@@ -220,6 +226,149 @@ inline wire::Secp256r1Point secp256r1_point_to_wire(const secp256r1::g1::affine_
 inline secp256r1::g1::affine_element secp256r1_point_from_wire(const wire::Secp256r1Point& w)
 {
     return { field_from_wire<secp256r1::fq>(w.x), field_from_wire<secp256r1::fq>(w.y) };
+}
+
+// ---------------------------------------------------------------------------
+// uint256_t ↔ Uint256 (= std::array<uint8_t, 32>).
+// Wire format is 32 bytes big-endian (matches uint256_t::msgpack_pack).
+// ---------------------------------------------------------------------------
+
+inline ::Uint256 uint256_to_wire(const bb::numeric::uint256_t& d)
+{
+    ::Uint256 r{};
+    for (std::size_t i = 0; i < 4; ++i) {
+        const uint64_t v = d.data[3 - i];
+        for (std::size_t j = 0; j < 8; ++j) {
+            r[i * 8 + j] = static_cast<uint8_t>(v >> (56 - j * 8));
+        }
+    }
+    return r;
+}
+
+inline bb::numeric::uint256_t uint256_from_wire(const ::Uint256& w)
+{
+    uint64_t parts[4]{};
+    for (std::size_t i = 0; i < 4; ++i) {
+        uint64_t v = 0;
+        for (std::size_t j = 0; j < 8; ++j) {
+            v = (v << 8) | w[i * 8 + j];
+        }
+        parts[i] = v;
+    }
+    return bb::numeric::uint256_t(parts[3], parts[2], parts[1], parts[0]);
+}
+
+inline std::vector<::Uint256> uint256_vec_to_wire(const std::vector<bb::numeric::uint256_t>& d)
+{
+    std::vector<::Uint256> r;
+    r.reserve(d.size());
+    for (const auto& x : d) {
+        r.push_back(uint256_to_wire(x));
+    }
+    return r;
+}
+
+inline std::vector<bb::numeric::uint256_t> uint256_vec_from_wire(const std::vector<::Uint256>& w)
+{
+    std::vector<bb::numeric::uint256_t> r;
+    r.reserve(w.size());
+    for (const auto& x : w) {
+        r.push_back(uint256_from_wire(x));
+    }
+    return r;
+}
+
+// ---------------------------------------------------------------------------
+// Aggregate (struct) conversions: each handler builds these by moving fields
+// across the wire ↔ domain boundary one at a time.
+// ---------------------------------------------------------------------------
+
+inline CircuitInput circuit_input_from_wire(wire::CircuitInput&& w)
+{
+    return { .name = std::move(w.name),
+             .bytecode = std::move(w.bytecode),
+             .verification_key = std::move(w.verification_key) };
+}
+
+inline wire::CircuitInput circuit_input_to_wire(CircuitInput&& d)
+{
+    return { .name = std::move(d.name),
+             .bytecode = std::move(d.bytecode),
+             .verification_key = std::move(d.verification_key) };
+}
+
+inline CircuitInputNoVK circuit_input_no_vk_from_wire(wire::CircuitInputNoVK&& w)
+{
+    return { .name = std::move(w.name), .bytecode = std::move(w.bytecode) };
+}
+
+inline wire::CircuitInputNoVK circuit_input_no_vk_to_wire(CircuitInputNoVK&& d)
+{
+    return { .name = std::move(d.name), .bytecode = std::move(d.bytecode) };
+}
+
+inline ProofSystemSettings proof_system_settings_from_wire(wire::ProofSystemSettings&& w)
+{
+    return { .ipa_accumulation = w.ipa_accumulation,
+             .oracle_hash_type = std::move(w.oracle_hash_type),
+             .disable_zk = w.disable_zk,
+             .optimized_solidity_verifier = w.optimized_solidity_verifier };
+}
+
+inline wire::ProofSystemSettings proof_system_settings_to_wire(ProofSystemSettings&& d)
+{
+    return { .ipa_accumulation = d.ipa_accumulation,
+             .oracle_hash_type = std::move(d.oracle_hash_type),
+             .disable_zk = d.disable_zk,
+             .optimized_solidity_verifier = d.optimized_solidity_verifier };
+}
+
+inline ChonkProof chonk_proof_from_wire(wire::ChonkProof&& w)
+{
+    return ChonkProof(fr_vec_from_wire(w.hiding_oink_proof),
+                      fr_vec_from_wire(w.merge_proof),
+                      fr_vec_from_wire(w.eccvm_proof),
+                      fr_vec_from_wire(w.ipa_proof),
+                      fr_vec_from_wire(w.joint_proof));
+}
+
+inline wire::ChonkProof chonk_proof_to_wire(const ChonkProof& d)
+{
+    return { .hiding_oink_proof = fr_vec_to_wire(d.hiding_oink_proof),
+             .merge_proof = fr_vec_to_wire(d.merge_proof),
+             .eccvm_proof = fr_vec_to_wire(d.eccvm_proof),
+             .ipa_proof = fr_vec_to_wire(d.ipa_proof),
+             .joint_proof = fr_vec_to_wire(d.joint_proof) };
+}
+
+inline std::vector<ChonkProof> chonk_proof_vec_from_wire(std::vector<wire::ChonkProof>&& w)
+{
+    std::vector<ChonkProof> r;
+    r.reserve(w.size());
+    for (auto& p : w) {
+        r.push_back(chonk_proof_from_wire(std::move(p)));
+    }
+    return r;
+}
+
+inline wire::CircuitComputeVkResponse circuit_compute_vk_response_to_wire(CircuitComputeVk::Response&& d)
+{
+    return { .bytes = std::move(d.bytes), .fields = uint256_vec_to_wire(d.fields), .hash = std::move(d.hash) };
+}
+
+inline wire::AvmStat avm_stat_to_wire(AvmStat&& d)
+{
+    return { .name = std::move(d.name), .value_ms = d.value_ms };
+}
+
+inline std::vector<wire::AvmStat> avm_stat_vec_to_wire(std::vector<AvmStat>&& d)
+{
+    std::vector<wire::AvmStat> r;
+    r.reserve(d.size());
+    for (auto& s : d) {
+        r.push_back(avm_stat_to_wire(std::move(s)));
+    }
+    return r;
 }
 
 } // namespace bb::bbapi
