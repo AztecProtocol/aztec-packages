@@ -82,5 +82,9 @@ describe('FactStore', () => {
     expect(await store.loadCanonicalFactSet(contractA, scopeX, ENTITY, correlation)).toHaveLength(1);
     expect(await store.loadCanonicalFactSet(contractB, scopeX, ENTITY, correlation)).toHaveLength(0);
     expect(await store.loadCanonicalFactSet(contractA, scopeY, ENTITY, correlation)).toHaveLength(0);
+
+    await store.put(contractB, scopeX, ENTITY, FACT_A, correlation, Buffer.from('b'), null);
+    expect(await store.loadCanonicalFactSet(contractB, scopeX, ENTITY, correlation)).toHaveLength(1);
+    expect(await store.loadCanonicalFactSet(contractA, scopeX, ENTITY, correlation)).toHaveLength(1); // unchanged
   });
 });

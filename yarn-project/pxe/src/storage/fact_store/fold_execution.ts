@@ -22,11 +22,13 @@ export async function foldOffchainReception(
   simulator: ContractFunctionSimulator,
   fixture: { artifact: FunctionArtifact & { contractName: string }; address: AztecAddress },
   anchorBlockHeader: BlockHeader,
+  contract: AztecAddress,
+  scope: AztecAddress,
   entityType: EntityTypeId,
   correlationKey: Buffer,
   jobId: string,
 ): Promise<ReceptionState> {
-  const facts = await factStore.loadCanonicalFactSet(entityType, correlationKey);
+  const facts = await factStore.loadCanonicalFactSet(contract, scope, entityType, correlationKey);
   const packed = packFacts(facts);
 
   const call = FunctionCall.from({

@@ -25,7 +25,7 @@ export class FactStore {
   #chain: CanonicalityCheck;
   /** dedupKey -> serialized StoredFact */
   #facts: AztecAsyncMap<string, Buffer>;
-  /** (entityType|correlationKey) -> dedupKey */
+  /** (contract|scope|entityType|correlationKey) -> dedupKey */
   #factsByEntity: AztecAsyncMultiMap<string, string>;
 
   constructor(store: AztecAsyncKVStore, chain: CanonicalityCheck) {

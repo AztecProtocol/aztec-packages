@@ -38,6 +38,8 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
   const simulator = new WASMSimulator();
   const JOB = 'fold-test';
   const correlation = Buffer.from('message-1');
+  const contract = AztecAddress.fromBigInt(9n);
+  const scope = AztecAddress.fromBigInt(1n);
 
   let factStore: FactStore;
   let chain: CanonicalChainStore;
@@ -51,6 +53,8 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
       acirSimulator,
       fixture,
       anchorBlockHeader,
+      contract,
+      scope,
       OFFCHAIN_ENTITY_TYPE_ID,
       correlation,
       JOB,
@@ -95,7 +99,7 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
   });
 
   const put = (factType: Fr, anchor: { blockNumber: number; blockHash: string } | null) =>
-    factStore.put(OFFCHAIN_ENTITY_TYPE_ID, factType, correlation, Buffer.alloc(0), anchor);
+    factStore.put(contract, scope, OFFCHAIN_ENTITY_TYPE_ID, factType, correlation, Buffer.alloc(0), anchor);
 
   it('follows the P4 reorg trace: Delivered survives, anchored facts retract and re-anchor', async () => {
     const A = Fr.random().toString();
