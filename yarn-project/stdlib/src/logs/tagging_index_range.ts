@@ -2,10 +2,7 @@ import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import {
-  type AppTaggingSecret,
-  AppTaggingSecretSchema,
-} from './app_tagging_secret.js';
+import { type AppTaggingSecret, AppTaggingSecretSchema } from './app_tagging_secret.js';
 
 /** Represents a range of tagging indexes for a given app tagging secret. */
 export type TaggingIndexRange = {

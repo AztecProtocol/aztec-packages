@@ -125,11 +125,7 @@ export class RecipientTaggingStore implements StagedStore {
     return this.#store.transactionAsync(() => this.#readHighestFinalizedIndex(jobId, secret.toString()));
   }
 
-  updateHighestFinalizedIndex(
-    secret: AppTaggingSecret,
-    index: number,
-    jobId: string,
-  ): Promise<void> {
+  updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, jobId: string): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const currentIndex = await this.#readHighestFinalizedIndex(jobId, secret.toString());
       if (currentIndex !== undefined && index < currentIndex) {

@@ -16,9 +16,9 @@ import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/con
 import { GasFees } from '@aztec/stdlib/gas';
 import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 import {
+  AppTaggingSecret,
   ContractClassLog,
   ContractClassLogFields,
-  AppTaggingSecret,
   PrivateLog,
   PublicLog,
   type TaggingIndexRange,

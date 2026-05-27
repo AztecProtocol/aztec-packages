@@ -2,10 +2,7 @@ import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import {
-  type AppTaggingSecret,
-  AppTaggingSecretSchema,
-} from './app_tagging_secret.js';
+import { type AppTaggingSecret, AppTaggingSecretSchema } from './app_tagging_secret.js';
 
 /**
  * Represents a preimage of a private log tag (see `Tag` in `pxe/src/tagging`).

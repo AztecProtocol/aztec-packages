@@ -11,11 +11,7 @@ import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, T
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import {
-  type AppTaggingSecret,
-  SiloedTag,
-  UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
-} from '../index.js';
+import { type AppTaggingSecret, SiloedTag, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
 import { syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
 
 const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();

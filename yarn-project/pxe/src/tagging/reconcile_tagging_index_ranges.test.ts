@@ -13,9 +13,7 @@ describe('reconcileTaggingIndexRangesAgainstSurvivingTags', () => {
   });
 
   /** Builds a set of surviving siloed tag values from a list of `(secret, index)` pairs. */
-  async function buildSurvivingTags(
-    pairs: Array<{ secret: AppTaggingSecret; index: number }>,
-  ): Promise<Set<string>> {
+  async function buildSurvivingTags(pairs: Array<{ secret: AppTaggingSecret; index: number }>): Promise<Set<string>> {
     const tags = await Promise.all(
       pairs.map(({ secret, index }) => SiloedTag.compute({ extendedSecret: secret, index })),
     );

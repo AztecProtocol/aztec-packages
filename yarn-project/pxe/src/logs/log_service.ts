@@ -4,12 +4,7 @@ import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import {
-  AppTaggingSecret,
-  PendingTaggedLog,
-  SiloedTag,
-  type TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, PendingTaggedLog, SiloedTag, type TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import {
@@ -158,10 +153,7 @@ export class LogService {
     );
   }
 
-  async #getSecretsForSenders(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<AppTaggingSecret[]> {
+  async #getSecretsForSenders(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
     if (!recipientCompleteAddress) {
       return [];
