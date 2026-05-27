@@ -510,6 +510,22 @@ interface SharedScratch {
   redBuf: GPUBuffer;
   isPresentBuf: GPUBuffer;
   reducePrefScratch: GPUBuffer;
+  // Streaming planner + accumulator buffers (Phase 1-4).
+  streamPlannerMeta: GPUBuffer;
+  size1BucketList: GPUBuffer;
+  denseBucketList: GPUBuffer;
+  denseCountList: GPUBuffer;
+  sortedBucketList: GPUBuffer;
+  sortedCountList: GPUBuffer;
+  radixHist: GPUBuffer;
+  cumulativeAdds: GPUBuffer;
+  wgCuts: GPUBuffer;
+  threadCuts: GPUBuffer;
+  queueBuf: GPUBuffer;
+  partialsBuf: GPUBuffer;
+  partialBucketsList: GPUBuffer;
+  accBuf: GPUBuffer;
+  streamPrefScratch: GPUBuffer;
   // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
   // sized for). Re-derived whenever bufA grows.
   planeBytes: number;
@@ -542,6 +558,11 @@ interface ScratchDims {
   redM: number;
   reducePrefBytes: number;
   bTotal: number;
+  // Streaming planner dimensions.
+  streamNumThreads: number;
+  streamS: number;
+  streamQueueEntries: number;
+  streamRadixTiles: number;
 }
 
 export class MsmV2Pool {
@@ -578,6 +599,10 @@ export class MsmV2Pool {
     redM: 0,
     reducePrefBytes: 0,
     bTotal: 0,
+    streamNumThreads: 0,
+    streamS: 0,
+    streamQueueEntries: 0,
+    streamRadixTiles: 0,
   };
   private _scratchEpoch = 0;
   private _device: GPUDevice;
@@ -628,6 +653,13 @@ export class MsmV2Pool {
       total += s.offsetsBufs[0].size + s.offsetsBufs[1].size;
       total += s.prefScratchBuf.size + s.scalarsRawBuf.size;
       total += s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
+      total += s.streamPlannerMeta.size + s.size1BucketList.size;
+      total += s.denseBucketList.size + s.denseCountList.size;
+      total += s.sortedBucketList.size + s.sortedCountList.size;
+      total += s.radixHist.size + s.cumulativeAdds.size;
+      total += s.wgCuts.size + s.threadCuts.size;
+      total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
+      total += s.accBuf.size + s.streamPrefScratch.size;
     }
     return total;
   }
@@ -780,6 +812,71 @@ export class MsmV2Pool {
       grew = true;
     }
 
+    // Streaming planner + accumulator buffers.
+    const sT = dims.streamNumThreads || 8192;
+    const sS = dims.streamS || 8;
+    const sBTotal = dims.bTotal || 1;
+    const sRadixTiles = dims.streamRadixTiles || 1;
+    const sMaxQ = dims.streamQueueEntries || 1;
+    const sQHeaderLen = 2 * sT;
+    const ibuf = (bytes: number): GPUBuffer =>
+      device.createBuffer({
+        size: Math.max(bytes, 4),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC | GPUBufferUsage.INDIRECT,
+      });
+    let streamPlannerMeta = s?.streamPlannerMeta;
+    let size1BucketList = s?.size1BucketList;
+    let denseBucketList = s?.denseBucketList;
+    let denseCountList = s?.denseCountList;
+    let sortedBucketList = s?.sortedBucketList;
+    let sortedCountList = s?.sortedCountList;
+    let radixHist = s?.radixHist;
+    let cumulativeAdds = s?.cumulativeAdds;
+    let wgCuts = s?.wgCuts;
+    let threadCuts = s?.threadCuts;
+    let queueBuf = s?.queueBuf;
+    let partialsBuf = s?.partialsBuf;
+    let partialBucketsList = s?.partialBucketsList;
+    let accBuf = s?.accBuf;
+    let streamPrefScratch = s?.streamPrefScratch;
+    if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
+      streamPlannerMeta?.destroy();
+      size1BucketList?.destroy();
+      denseBucketList?.destroy();
+      denseCountList?.destroy();
+      sortedBucketList?.destroy();
+      sortedCountList?.destroy();
+      radixHist?.destroy();
+      cumulativeAdds?.destroy();
+      wgCuts?.destroy();
+      threadCuts?.destroy();
+      queueBuf?.destroy();
+      partialsBuf?.destroy();
+      partialBucketsList?.destroy();
+      accBuf?.destroy();
+      streamPrefScratch?.destroy();
+      grow(dims.streamNumThreads > cur.streamNumThreads, 'streamNumThreads');
+      grow(dims.streamS > cur.streamS, 'streamS');
+      grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
+      grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
+      streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
+      size1BucketList = sbuf(sBTotal * 2 * 4);
+      denseBucketList = sbuf(sBTotal * 4);
+      denseCountList = sbuf(sBTotal * 4);
+      sortedBucketList = sbuf(sBTotal * 4);
+      sortedCountList = sbuf(sBTotal * 4);
+      radixHist = sbuf(sRadixTiles * 256 * 4);
+      cumulativeAdds = sbuf(sBTotal * 4);
+      wgCuts = sbuf(32 * 2 * 4);
+      threadCuts = sbuf(sT * 2 * 4);
+      queueBuf = sbuf((sQHeaderLen + sMaxQ * 3) * 4);
+      partialsBuf = soaBuf(2 * sT);
+      partialBucketsList = sbuf(sT * 3 * 4);
+      accBuf = soaBuf(sT * sS);
+      streamPrefScratch = sbuf(sT * sS * 2 * 4 * 4);
+      grew = true;
+    }
+
     // Pad-trio layout in bufA/bufB. Recompute whenever bufA's size changed.
     const planeBytes = cur.M1 * PG * 16;
     const padBytesPerPlane = 3 * PG * 16;
@@ -805,6 +902,21 @@ export class MsmV2Pool {
       redBuf: redBuf!,
       isPresentBuf: isPresentBuf!,
       reducePrefScratch: reducePrefScratch!,
+      streamPlannerMeta: streamPlannerMeta!,
+      size1BucketList: size1BucketList!,
+      denseBucketList: denseBucketList!,
+      denseCountList: denseCountList!,
+      sortedBucketList: sortedBucketList!,
+      sortedCountList: sortedCountList!,
+      radixHist: radixHist!,
+      cumulativeAdds: cumulativeAdds!,
+      wgCuts: wgCuts!,
+      threadCuts: threadCuts!,
+      queueBuf: queueBuf!,
+      partialsBuf: partialsBuf!,
+      partialBucketsList: partialBucketsList!,
+      accBuf: accBuf!,
+      streamPrefScratch: streamPrefScratch!,
       planeBytes,
       padBytesPerPlane,
       padXOffset,
