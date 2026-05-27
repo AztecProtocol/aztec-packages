@@ -28,12 +28,10 @@ const logger: Logger = createLogger('txe:worker');
 // artifact on the main thread and passes its data dir via `workerData`. The dispatcher clones
 // that LMDB into a per-worker store on first use, so this worker gets a writable copy already
 // populated.
-const dispatcherOpts: TXEDispatcherOptions = workerData?.contractStoreSourceDir
-  ? {
-      contractStoreSourceDir: workerData.contractStoreSourceDir,
-      schnorrClassId: workerData.schnorrClassId,
-    }
-  : {};
+const dispatcherOpts: TXEDispatcherOptions = {
+  contractStoreSourceDir: workerData.contractStoreSourceDir,
+  schnorrClassId: workerData.schnorrClassId,
+};
 const dispatcher = new TXEDispatcher(logger, dispatcherOpts);
 
 interface ForeignCallRequest {

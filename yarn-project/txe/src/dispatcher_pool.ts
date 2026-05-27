@@ -19,6 +19,33 @@ void Barretenberg.initSingleton({ backend: BackendType.Wasm, skipSrsInit: true, 
 void BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
 
 /**
+ * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
+ * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the SchnorrAccount artifact, returning the
+ * directory path and the SchnorrAccount class id (hex). The store handle is intentionally kept
+ * alive: closing it would trigger the ephemeral-store cleanup hook and remove the tmp
+ * directory, so any worker that has not yet cloned would find it missing.
+ */
+export async function buildSharedContractStore(): Promise<{ dataDir: string; schnorrClassId: string }> {
+  const kvStore = await openEphemeralStore('txe-shared-contracts', undefined, 2);
+  const dataDir = kvStore.dataDirectory;
+  const contractStore = new ContractStore(kvStore);
+  const provider = new LazyProtocolContractsProvider();
+  const [protocolContracts, schnorrArtifact] = await Promise.all([
+    Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
+    getSchnorrAccountContractArtifact(),
+  ]);
+  const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);
+  await Promise.all([
+    ...protocolContracts.flatMap(({ instance, artifact, contractClass }) => [
+      contractStore.addContractArtifact(artifact, contractClass),
+      contractStore.addContractInstance(instance),
+    ]),
+    contractStore.addContractArtifact(schnorrArtifact, schnorrClass),
+  ]);
+  return { dataDir, schnorrClassId: schnorrClass.id.toString() };
+}
+
+/**
  * Resolves `worker.bundle.js` whether this code is running unbundled (next to dispatcher_pool.js
  * inside `dest/`) or bundled into `dest/bin/index.js` (one directory deeper). `import.meta.url`
  * refers to whichever module the calling code actually lives in; we try both relative locations
@@ -118,7 +145,7 @@ export class TXEDispatcherPool {
 
   private async init(): Promise<void> {
     const t0 = Date.now();
-    const { dataDir, schnorrClassId } = await this.buildSharedContractStore();
+    const { dataDir, schnorrClassId } = await buildSharedContractStore();
     this.contractStoreSourceDir = dataDir;
     this.schnorrClassId = schnorrClassId;
     this.workerPath = resolveWorkerBundlePath();
@@ -157,33 +184,6 @@ export class TXEDispatcherPool {
       poolSize: this.workers.length,
     });
     return workerIdx;
-  }
-
-  /**
-   * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
-   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the SchnorrAccount artifact, returning the
-   * directory path and the SchnorrAccount class id (hex). The store handle is intentionally
-   * kept alive: closing it triggers the ephemeral-store cleanup hook which removes the tmp
-   * directory, so any worker that has not yet cloned would find it missing.
-   */
-  private async buildSharedContractStore(): Promise<{ dataDir: string; schnorrClassId: string }> {
-    const kvStore = await openEphemeralStore('txe-shared-contracts', undefined, 2);
-    const dataDir = kvStore.dataDirectory;
-    const contractStore = new ContractStore(kvStore);
-    const provider = new LazyProtocolContractsProvider();
-    const [protocolContracts, schnorrArtifact] = await Promise.all([
-      Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
-      getSchnorrAccountContractArtifact(),
-    ]);
-    const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);
-    await Promise.all([
-      ...protocolContracts.flatMap(({ instance, artifact, contractClass }) => [
-        contractStore.addContractArtifact(artifact, contractClass),
-        contractStore.addContractInstance(instance),
-      ]),
-      contractStore.addContractArtifact(schnorrArtifact, schnorrClass),
-    ]);
-    return { dataDir, schnorrClassId: schnorrClass.id.toString() };
   }
 
   /** Routes a session-dispose request to the worker that owns the session. Fire-and-forget. */

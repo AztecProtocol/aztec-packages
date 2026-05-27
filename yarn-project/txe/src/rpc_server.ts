@@ -3,7 +3,7 @@ import type { Logger } from '@aztec/foundation/log';
 
 import type { Socket } from 'node:net';
 
-import { TXEDispatcherPool } from './dispatcher_pool.js';
+import { TXEDispatcherPool, buildSharedContractStore } from './dispatcher_pool.js';
 import { TXEDispatcher, TXEDispatcherApiSchema } from './index.js';
 
 /**
@@ -25,14 +25,17 @@ type TaggedSocket = Socket & { [SESSION_SYMBOL]?: number };
  *
  * Lives in its own module so the worker bundle does not pull in the HTTP server stack.
  */
-export function createTXERpcServer(logger: Logger) {
+export async function createTXERpcServer(logger: Logger) {
   const workerCount = Number(process.env.TXE_WORKERS);
-  const dispatcher =
-    workerCount === 1
-      ? new TXEDispatcher(logger)
-      : new TXEDispatcherPool(logger, {
-          workers: Number.isFinite(workerCount) && workerCount > 1 ? workerCount : undefined,
-        });
+  let dispatcher: TXEDispatcher | TXEDispatcherPool;
+  if (workerCount === 1) {
+    const { dataDir, schnorrClassId } = await buildSharedContractStore();
+    dispatcher = new TXEDispatcher(logger, { contractStoreSourceDir: dataDir, schnorrClassId });
+  } else {
+    dispatcher = new TXEDispatcherPool(logger, {
+      workers: Number.isFinite(workerCount) && workerCount > 1 ? workerCount : undefined,
+    });
+  }
   const server = createSafeJsonRpcServer(dispatcher, TXEDispatcherApiSchema, {
     http200OnError: true,
     middlewares: [

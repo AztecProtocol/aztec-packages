@@ -32,7 +32,7 @@ async function main() {
   const logger = createLogger('txe:rpc');
   logger.info(`Setting up TXE...`);
 
-  const txeServer = createTXERpcServer(logger);
+  const txeServer = await createTXERpcServer(logger);
   const { port } = await startHttpRpcServer(txeServer, {
     host: '127.0.0.1',
     port: TXE_PORT,

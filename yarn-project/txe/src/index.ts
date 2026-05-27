@@ -1,4 +1,3 @@
-import { getSchnorrAccountContractArtifact } from '@aztec/accounts/schnorr/lazy';
 import { type NoirCompiledContract, loadContractArtifact } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
@@ -8,11 +7,10 @@ import {
 import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/foundation/log';
-import { cloneEphemeralStoreFrom, openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
+import { cloneEphemeralStoreFrom } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContractName } from '@aztec/protocol-contracts';
-import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
-import { computeArtifactHash, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { computeArtifactHash } from '@aztec/stdlib/contract';
 import type { ContractArtifactWithHash } from '@aztec/stdlib/contract';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 import { zodFor } from '@aztec/stdlib/schemas';
@@ -142,58 +140,23 @@ export class TXEDispatcher {
   }
 
   /**
-   * Initializes the contract store on first use. When `contractStoreSourceDir` is set, the
-   * pre-populated LMDB is cloned into a fresh per-instance tmpdir so this dispatcher has a
-   * writable store already containing the required protocol contracts + SchnorrAccount.
-   * Otherwise an empty tmp store is created and the required contracts are registered from
-   * scratch. Idempotent — subsequent calls are no-ops.
+   * Clones the pre-populated LMDB at `contractStoreSourceDir` into a fresh per-instance tmpdir
+   * on first use, so this dispatcher has a writable store already containing the required
+   * protocol contracts + SchnorrAccount. Idempotent — subsequent calls are no-ops.
    */
   private async warmUp(): Promise<void> {
     if (this.contractStore) {
       return;
     }
     const t0 = Date.now();
-    if (this.contractStoreSourceDir) {
-      // LMDB env on disk is `data.mdb` (data + b-tree) + `lock.mdb` (process lock table).
-      // Only data.mdb carries state; lock.mdb is rebuilt the first time an env is opened on
-      // the new path. The clone factory copies just the data file into a fresh tmpdir and
-      // opens it with NOSYNC + auto-cleanup.
-      const kvStore = await cloneEphemeralStoreFrom(
-        join(this.contractStoreSourceDir, 'data.mdb'),
-        'txe-contracts',
-        undefined,
-        2,
-      );
-      this.contractStore = new ContractStore(kvStore);
-      this.logger.debug('Cloned shared protocol-contracts store', {
-        totalMs: Date.now() - t0,
-      });
-      return;
-    }
-    const kvStore = await openEphemeralStore('txe-contracts', undefined, 1);
-    const tKv = Date.now();
+    const kvStore = await cloneEphemeralStoreFrom(
+      join(this.contractStoreSourceDir, 'data.mdb'),
+      'txe-contracts',
+      undefined,
+      2,
+    );
     this.contractStore = new ContractStore(kvStore);
-    const provider = new LazyProtocolContractsProvider();
-    const [protocolContracts, schnorrArtifact] = await Promise.all([
-      Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
-      getSchnorrAccountContractArtifact(),
-    ]);
-    const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);
-    const tResolved = Date.now();
-    await Promise.all([
-      ...protocolContracts.flatMap(({ instance, artifact, contractClass }) => [
-        this.contractStore.addContractArtifact(artifact, contractClass),
-        this.contractStore.addContractInstance(instance),
-      ]),
-      this.contractStore.addContractArtifact(schnorrArtifact, schnorrClass),
-    ]);
-    const tDone = Date.now();
-    this.logger.debug('Registered protocol contracts in fresh contract store', {
-      kvOpenMs: tKv - t0,
-      providerMs: tResolved - tKv,
-      writeMs: tDone - tResolved,
-      totalMs: tDone - t0,
-    });
+    this.logger.debug('Cloned shared protocol-contracts store', { totalMs: Date.now() - t0 });
   }
 
   private fastHashFile(path: string): Promise<string> {
