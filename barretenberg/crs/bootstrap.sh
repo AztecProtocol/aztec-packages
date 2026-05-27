@@ -98,8 +98,7 @@ function build {
     download_with_fallback "$g2" "g2.dat"
   fi
 
-  # TODO: This grumpkin CRS in S3 still has the 28 byte header on it. Remove.
-  # And if we ever need more than transcript00.dat, concatenate to single file like we did with bn254 above.
+  # The Grumpkin SRS is a 16 MiB file (2^18 affine points × 64 bytes/point, big-endian x ‖ y).
   crs_size=$((2**18))
   crs_size_bytes=$((crs_size*64))
   gg1=$crs_path/grumpkin_g1.flat.dat

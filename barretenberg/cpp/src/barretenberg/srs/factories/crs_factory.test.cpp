@@ -6,6 +6,9 @@
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
 #include "barretenberg/srs/factories/get_bn254_crs.hpp"
+#include "barretenberg/srs/factories/get_grumpkin_crs.hpp"
+#include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
+#include "barretenberg/srs/factories/grumpkin_srs_gen.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
@@ -99,6 +102,47 @@ TEST(CrsFactory, grumpkin)
     // Tiny download check to test the 'net CRS' path
     ASSERT_ANY_THROW(check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/false));
     check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/true);
+}
+
+// Gates that bootstrap.sh produced the canonical file: every chunk matches GRUMPKIN_G1_CHUNK_HASHES.
+TEST(CrsFactory, GrumpkinG1OnDiskMatchesChunkHashes)
+{
+    auto data = bb::read_file(bb::srs::bb_crs_path() / "grumpkin_g1.flat.dat", bb::srs::GRUMPKIN_G1_SIZE_BYTES);
+    ASSERT_EQ(data.size(), bb::srs::GRUMPKIN_G1_SIZE_BYTES);
+    bb::verify_grumpkin_crs_integrity(std::span<const uint8_t>(data.data(), data.size()));
+}
+
+// Gates that the generator output still matches GRUMPKIN_G1_CHUNK_HASHES (i.e. the seed-derived SRS
+// hasn't drifted). Fails if the SRS is regenerated, in which case update the chunk hashes.
+TEST(CrsFactory, GrumpkinG1GeneratorMatchesChunkHashes)
+{
+    auto points = bb::srs::generate_grumpkin_srs(bb::srs::GRUMPKIN_G1_NUM_POINTS);
+    auto bytes = to_buffer(points);
+    ASSERT_EQ(bytes.size(), bb::srs::GRUMPKIN_G1_SIZE_BYTES);
+    bb::verify_grumpkin_crs_integrity(std::span<const uint8_t>(bytes.data(), bytes.size()));
+}
+
+// Plant a one-chunk cache of `[1·G, 2·G, …]` (known pairwise discrete logs → IPA binding break).
+// The on-curve check accepts it; the chunk-hash anchor rejects it.
+TEST(CrsFactory, GrumpkinCacheTamperingRejected)
+{
+    using AffineEl = bb::curve::Grumpkin::AffineElement;
+
+    const fs::path cache_path = "barretenberg_srs_test_crs_grumpkin_tamper";
+    fs::remove_all(cache_path);
+    fs::create_directories(cache_path);
+
+    std::vector<AffineEl> tampered(bb::srs::GRUMPKIN_G1_CHUNK_SIZE_POINTS);
+    AffineEl G = AffineEl::one();
+    for (size_t i = 0; i < tampered.size(); ++i) {
+        bb::curve::Grumpkin::ScalarField scalar(i + 1);
+        tampered[i] = AffineEl(bb::curve::Grumpkin::Element(G) * scalar);
+    }
+    bb::write_file(cache_path / "grumpkin_g1.flat.dat", to_buffer(tampered));
+
+    ASSERT_ANY_THROW(bb::get_grumpkin_g1_data(cache_path, /*num_points=*/8, /*allow_download=*/false));
+
+    fs::remove_all(cache_path);
 }
 
 // TODO: Re-enable once g1_compressed.dat is deployed to S3 fallback
