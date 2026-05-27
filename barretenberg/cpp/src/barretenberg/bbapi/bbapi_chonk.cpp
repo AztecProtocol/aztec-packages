@@ -147,17 +147,12 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
-    if (std::getenv("BB_SKIP_SANITY_VERIFY") == nullptr) {
-        info("ChonkProve - verifying the generated proof as a sanity check");
-        ChonkNativeVerifier verifier(vk_and_hash);
-        verification_passed = verifier.verify(proof);
+    info("ChonkProve - verifying the generated proof as a sanity check");
+    ChonkNativeVerifier verifier(vk_and_hash);
+    verification_passed = verifier.verify(proof);
 
-        if (!verification_passed) {
-            throw_or_abort("Failed to verify the generated proof!");
-        }
-    } else {
-        info("ChonkProve - sanity verify skipped via BB_SKIP_SANITY_VERIFY");
-        verification_passed = true;
+    if (!verification_passed) {
+        throw_or_abort("Failed to verify the generated proof!");
     }
 
     response.proof = std::move(proof);
