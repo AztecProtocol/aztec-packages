@@ -6,7 +6,7 @@ import { getFinalizedL1Block } from '@aztec/ethereum/queries';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { maxBigint } from '@aztec/foundation/bigint';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { compactArray, partition, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -18,7 +18,12 @@ import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined, isErrorClass } from '@aztec/foundation/types';
 import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import { Checkpoint, type CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
+import {
+  type L1RollupConstants,
+  getEpochAtSlot,
+  getSlotAtNextL1Block,
+  getTimestampForSlot,
+} from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
@@ -76,6 +81,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       skipValidateCheckpointAttestations?: boolean;
       skipPromoteProposedCheckpointDuringL1Sync?: boolean;
       maxAllowedEthClientDriftSeconds: number;
+      orphanProposedBlockPruneGraceSeconds: number;
     },
     private readonly blobClient: BlobClientInterface,
     private readonly epochCache: EpochCache,
@@ -102,6 +108,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     skipValidateCheckpointAttestations?: boolean;
     skipPromoteProposedCheckpointDuringL1Sync?: boolean;
     maxAllowedEthClientDriftSeconds: number;
+    orphanProposedBlockPruneGraceSeconds: number;
   }) {
     this.config = newConfig;
   }
@@ -294,12 +301,89 @@ export class ArchiverL1Synchronizer implements Traceable {
       { firstUncheckpointedBlockHeader: firstUncheckpointedBlockData?.header.toInspect(), slotAtNextL1Block },
     );
 
-    const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
+    await this.removeUncheckpointedBlocksAndEmit(lastCheckpointedBlockNumber, firstUncheckpointedBlockSlot);
+  }
 
+  /**
+   * Prunes a block-only local tip that was built atop a checkpoint that was never itself proposed.
+   *
+   * Under pipelining, a proposer publishes the blocks for a checkpoint (block-only proposals) before
+   * assembling and publishing the enclosing proposed checkpoint at the end of the build slot. A node
+   * that received those blocks but never the proposed checkpoint is left with an orphan tip it must
+   * not build on. We prune it once enough wall-clock time has elapsed that the proposed checkpoint
+   * should have arrived. This runs on wall-clock time (not L1 block advancement) so it fires during
+   * quiet L1 periods, and is the liveness counterpart to the sequencer's checkSync guard.
+   *
+   * Only the first uncheckpointed block is inspected: if its checkpoint is backed by a proposed
+   * checkpoint, the tip is legitimate and left for promotion (or for the L1-sync prune to clear if it
+   * later goes stale); if not, every uncheckpointed block chains off the orphan and is pruned.
+   */
+  public async pruneOrphanProposedBlocks(): Promise<void> {
+    const [lastCheckpointedBlockNumber, lastProposedBlockNumber] = await Promise.all([
+      this.stores.blocks.getCheckpointedL2BlockNumber(),
+      this.stores.blocks.getLatestL2BlockNumber(),
+    ]);
+
+    // If there are no uncheckpointed blocks, we got nothing to do
+    if (lastProposedBlockNumber === lastCheckpointedBlockNumber) {
+      return;
+    }
+
+    const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
+    const firstUncheckpointedBlockData = await this.stores.blocks.getBlockData({
+      number: firstUncheckpointedBlockNumber,
+    });
+    if (firstUncheckpointedBlockData === undefined) {
+      return;
+    }
+
+    const blockCheckpointNumber = firstUncheckpointedBlockData.checkpointNumber;
+    const blockSlot = firstUncheckpointedBlockData.header.getSlot();
+
+    // A proposed checkpoint covering this block's checkpoint means the tip is not an orphan.
+    const proposedCheckpoint = await this.stores.blocks.getProposedCheckpointByNumber(blockCheckpointNumber);
+    if (proposedCheckpoint !== undefined) {
+      return;
+    }
+
+    // The proposed checkpoint should have landed by the start of the slot after the block's build slot
+    // (build slot = blockSlot - pipeliningOffset). Wait a grace period beyond that to tolerate propagation.
+    const pipeliningOffset = this.epochCache.pipeliningOffset();
+    const deadlineSlot = SlotNumber(Number(blockSlot) - pipeliningOffset + 1);
+    const pruneAfter =
+      getTimestampForSlot(deadlineSlot, this.l1Constants) + BigInt(this.config.orphanProposedBlockPruneGraceSeconds);
+    const now = BigInt(this.dateProvider.nowInSeconds());
+    if (now < pruneAfter) {
+      return;
+    }
+
+    this.log.warn(
+      `Pruning orphan blocks after block ${lastCheckpointedBlockNumber}: block at slot ${blockSlot} belongs to ` +
+        `checkpoint ${blockCheckpointNumber} which has no matching proposed checkpoint`,
+      {
+        firstUncheckpointedBlockHeader: firstUncheckpointedBlockData.header.toInspect(),
+        blockCheckpointNumber,
+        blockSlot,
+        pipeliningOffset,
+        deadlineSlot,
+        pruneAfter,
+        now,
+      },
+    );
+
+    await this.removeUncheckpointedBlocksAndEmit(lastCheckpointedBlockNumber, blockSlot);
+  }
+
+  /** Removes uncheckpointed blocks after the checkpointed tip and emits a prune event for any removed. */
+  private async removeUncheckpointedBlocksAndEmit(
+    lastCheckpointedBlockNumber: BlockNumber,
+    slotNumber: SlotNumber,
+  ): Promise<void> {
+    const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
     if (prunedBlocks.length > 0) {
       this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
         type: L2BlockSourceEvents.L2PruneUncheckpointed,
-        slotNumber: firstUncheckpointedBlockSlot,
+        slotNumber,
         blocks: prunedBlocks,
       });
     }

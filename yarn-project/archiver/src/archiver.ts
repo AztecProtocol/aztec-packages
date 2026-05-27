@@ -133,6 +133,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
       skipHistoricalLogsCheck?: boolean;
+      orphanProposedBlockPruneGraceSeconds: number;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -336,6 +337,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   private async sync() {
     // Process any queued blocks first, before doing L1 sync
     await this.processInboundQueue();
+    // Prune orphan proposed blocks (block-only tips with no matching proposed checkpoint) on wall-clock
+    // time. Runs after the queue is drained so freshly-arrived proposed checkpoints are seen first, and
+    // before L1 sync so it fires even when L1 has not advanced.
+    await this.synchronizer.pruneOrphanProposedBlocks();
     // Now perform L1 sync
     await this.syncFromL1();
   }

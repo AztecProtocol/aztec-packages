@@ -41,6 +41,9 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
   syncFromL1(_initialSyncComplete: boolean): Promise<void> {
     return Promise.resolve();
   }
+  pruneOrphanProposedBlocks(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 /**
@@ -89,6 +92,7 @@ export class NoopL1Archiver extends Archiver {
         maxAllowedEthClientDriftSeconds: 300,
         ethereumAllowNoDebugHosts: true, // Skip trace validation
         skipHistoricalLogsCheck: true, // Skip historical logs validation
+        orphanProposedBlockPruneGraceSeconds: 2,
       },
       blobClient,
       instrumentation,

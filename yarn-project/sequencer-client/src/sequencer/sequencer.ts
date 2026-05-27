@@ -699,6 +699,30 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    // Refuse to build a checkpoint on top of a proposed block whose enclosing checkpoint was never
+    // proposed. Under pipelining we may have received and reexecuted such a block locally — advancing
+    // our world-state tip past the checkpointed tip — while the proposing node never published the
+    // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
+    // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
+    // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    if (
+      blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
+      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
+        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+    ) {
+      this.log.warn(`Sequencer sync check failed: proposed block has no matching proposed checkpoint`, {
+        blockCheckpointNumber: blockData.checkpointNumber,
+        checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
+        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
+        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        blockNumber: blockData.header.getBlockNumber(),
+        blockSlot: blockData.header.getSlot(),
+        syncedL2Slot,
+        ...args,
+      });
+      return undefined;
+    }
+
     const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
 
     // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots

@@ -68,6 +68,14 @@ export type ArchiverSpecificConfig = {
 
   /** Skip promoting proposed checkpoints during L1 sync (for testing purposes only) */
   skipPromoteProposedCheckpointDuringL1Sync?: boolean;
+
+  /**
+   * Grace period in seconds, measured from the end of a proposed block's build slot, after which a
+   * proposed block whose enclosing checkpoint was never proposed is pruned as an orphan. Defaults
+   * from `blockDurationMs / 1000` at the node wiring layer, falling back to the timetable minimum
+   * execution time.
+   */
+  orphanProposedBlockPruneGraceSeconds?: number;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -81,6 +89,7 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverSkipHistoricalLogsCheck: z.boolean().optional(),
   skipValidateCheckpointAttestations: z.boolean().optional(),
   skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
+  orphanProposedBlockPruneGraceSeconds: schemas.Integer.optional(),
 });
 
 export type ArchiverApi = Omit<

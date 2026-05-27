@@ -78,7 +78,12 @@ describe('Archiver misc', () => {
         slashingProposerAddress: EthAddress.random(),
       },
       archiverStore,
-      { pollingIntervalMs: 1000, batchSize: 1000, maxAllowedEthClientDriftSeconds: 300 },
+      {
+        pollingIntervalMs: 1000,
+        batchSize: 1000,
+        maxAllowedEthClientDriftSeconds: 300,
+        orphanProposedBlockPruneGraceSeconds: 2,
+      },
       blobClient,
       instrumentation,
       l1Constants,
