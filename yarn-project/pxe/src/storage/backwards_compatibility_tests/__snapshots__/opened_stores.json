@@ -42,6 +42,22 @@
       "kind": "multimap"
     },
     {
+      "name": "facts",
+      "kind": "map"
+    },
+    {
+      "name": "facts_by_entity",
+      "kind": "multimap"
+    },
+    {
+      "name": "facts_entities_by_type",
+      "kind": "multimap"
+    },
+    {
+      "name": "facts_terminated",
+      "kind": "map"
+    },
+    {
       "name": "header",
       "kind": "singleton"
     },

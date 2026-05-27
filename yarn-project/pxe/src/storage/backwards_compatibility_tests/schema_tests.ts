@@ -40,6 +40,7 @@ import { AddressStore } from '../address_store/address_store.js';
 import { CanonicalChainStore } from '../canonical_chain_store/canonical_chain_store.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
+import { FactStore } from '../fact_store/fact_store.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
 import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from '../tagging_store/index.js';
@@ -144,6 +145,34 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     },
     snapshotStore: async kvStore => ({
       capsules: await snapshotMap(kvStore.openMap<string, Buffer>('capsules')),
+    }),
+  },
+
+  {
+    name: 'FactStore',
+    writeToStore: async kvStore => {
+      const chain = { isCanonical: () => Promise.resolve(true) };
+      const factStore = new FactStore(kvStore, chain);
+      const contract = AztecAddress.fromBigInt(2n);
+      const scope = AztecAddress.fromBigInt(3n);
+      const entityType = new Fr(5n);
+      const corrKey = new Fr(7n).toBuffer();
+
+      // Unanchored fact: no block position; always visible.
+      await factStore.put(contract, scope, entityType, new Fr(11n), corrKey, Buffer.from([13]), null);
+      // Anchored fact: tied to a specific block; filtered by canonicality.
+      await factStore.put(contract, scope, entityType, new Fr(17n), corrKey, Buffer.from([19]), {
+        blockNumber: 23,
+        blockHash: new Fr(29n).toString(),
+      });
+      // Terminate a separate correlation key so `facts_terminated` has a distinct entry.
+      await factStore.terminate(contract, scope, entityType, new Fr(31n).toBuffer());
+    },
+    snapshotStore: async kvStore => ({
+      facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
+      facts_by_entity: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_entity')),
+      facts_entities_by_type: await snapshotMap(kvStore.openMultiMap<string, string>('facts_entities_by_type')),
+      facts_terminated: await snapshotMap(kvStore.openMap<string, Buffer>('facts_terminated')),
     }),
   },
 
