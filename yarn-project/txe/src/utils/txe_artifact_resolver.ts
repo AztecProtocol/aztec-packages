@@ -145,7 +145,7 @@ export class TXEArtifactResolver {
     }
     const artifact: ContractArtifactWithHash = { ...artifactFromStore, artifactHash: classWithPreimage.artifactHash };
     const keys = await deriveKeys(secret);
-    const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
+    const args = [keys.publicKeys.ivpkM.x, keys.publicKeys.ivpkM.y];
     const instance = await getContractInstanceFromInstantiationParams(artifact, {
       constructorArgs: args,
       skipArgsDecoding: true,
