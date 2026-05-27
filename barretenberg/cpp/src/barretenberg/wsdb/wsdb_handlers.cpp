@@ -354,7 +354,7 @@ wire::WsdbCommitResponse handle_commit(WsdbRequest& ctx, wire::WsdbCommit&&)
     WorldStateStatusFull status;
     ctx.world_state.commit(status);
     return wire::WsdbCommitResponse{
-        .status = msgpack_roundtrip_to_wire<wire::WorldStateStatusFull>(status),
+        .status = world_state_status_full_to_wire(status),
     };
 }
 
@@ -394,7 +394,7 @@ wire::WsdbSyncBlockResponse handle_sync_block(WsdbRequest& ctx, wire::WsdbSyncBl
                                                              padded_nullifiers,
                                                              public_data_writes);
     return wire::WsdbSyncBlockResponse{
-        .status = msgpack_roundtrip_to_wire<wire::WorldStateStatusFull>(status),
+        .status = world_state_status_full_to_wire(status),
     };
 }
 
@@ -423,7 +423,7 @@ wire::WsdbFinalizeBlocksResponse handle_finalize_blocks(WsdbRequest& ctx, wire::
 {
     WorldStateStatusSummary status = ctx.world_state.set_finalized_blocks(cmd.toBlockNumber);
     return wire::WsdbFinalizeBlocksResponse{
-        .status = msgpack_roundtrip_to_wire<wire::WorldStateStatusSummary>(status),
+        .status = world_state_status_summary_to_wire(status),
     };
 }
 
@@ -431,7 +431,7 @@ wire::WsdbUnwindBlocksResponse handle_unwind_blocks(WsdbRequest& ctx, wire::Wsdb
 {
     WorldStateStatusFull status = ctx.world_state.unwind_blocks(cmd.toBlockNumber);
     return wire::WsdbUnwindBlocksResponse{
-        .status = msgpack_roundtrip_to_wire<wire::WorldStateStatusFull>(status),
+        .status = world_state_status_full_to_wire(status),
     };
 }
 
@@ -440,7 +440,7 @@ wire::WsdbRemoveHistoricalBlocksResponse handle_remove_historical_blocks(WsdbReq
 {
     WorldStateStatusFull status = ctx.world_state.remove_historical_blocks(cmd.toBlockNumber);
     return wire::WsdbRemoveHistoricalBlocksResponse{
-        .status = msgpack_roundtrip_to_wire<wire::WorldStateStatusFull>(status),
+        .status = world_state_status_full_to_wire(status),
     };
 }
 
@@ -453,7 +453,7 @@ wire::WsdbGetStatusResponse handle_get_status(WsdbRequest& ctx, wire::WsdbGetSta
     WorldStateStatusSummary status;
     ctx.world_state.get_status_summary(status);
     return wire::WsdbGetStatusResponse{
-        .status = msgpack_roundtrip_to_wire<wire::WorldStateStatusSummary>(status),
+        .status = world_state_status_summary_to_wire(status),
     };
 }
 

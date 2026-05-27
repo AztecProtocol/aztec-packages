@@ -11,15 +11,11 @@
  * aliases) and domain field types (`bb::fr`, `bb::fq`, `uint256_t`, …)
  * share a 32-byte msgpack `bin32` encoding, so the byte-level conversion
  * is a `serialize_to_buffer` / `serialize_from_buffer` call.
- *
- * The one residual `msgpack_roundtrip` usage is inside
- * `bn254_g2_point_{to,from}_wire`: the Fq2 nesting on g2 affine_element
- * makes the manual form genuinely uglier, and the call site is exactly
- * one (`Bn254G2Mul`).
  */
 #include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/ecc/curves/bn254/fq2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
@@ -32,25 +28,6 @@
 #include <vector>
 
 namespace bb::bbapi {
-
-// ---------------------------------------------------------------------------
-// Local msgpack roundtrip — only used by bn254_g2_point conversions below,
-// where Fq2 nesting on g2 affine_element makes the manual form intricate
-// enough that a generic pack+unpack pair is the cleanest available bridge.
-// Restricted to a single call site (`Bn254G2Mul`); not exposed for general use.
-// ---------------------------------------------------------------------------
-
-namespace detail {
-template <typename Target, typename Source> inline Target msgpack_roundtrip(const Source& src)
-{
-    msgpack::sbuffer buf;
-    msgpack::pack(buf, src);
-    auto unpacked = msgpack::unpack(buf.data(), buf.size());
-    Target target;
-    unpacked.get().convert(target);
-    return target;
-}
-} // namespace detail
 
 // ---------------------------------------------------------------------------
 // Field element conversions. All field types (bb::fr, bb::fq, grumpkin::fr,
@@ -198,14 +175,25 @@ inline bb::g1::affine_element bn254_g1_point_from_wire(const wire::Bn254G1Point&
     return { field_from_wire<bb::fq>(w.x), field_from_wire<bb::fq>(w.y) };
 }
 
+// Fq2 = { c0: bb::fq, c1: bb::fq }; wire field2 = std::array<std::array<uint8_t,32>, 2>.
+inline std::array<std::array<uint8_t, 32>, 2> fq2_to_wire(const bb::fq2& d)
+{
+    return { field_to_wire<bb::fq>(d.c0), field_to_wire<bb::fq>(d.c1) };
+}
+
+inline bb::fq2 fq2_from_wire(const std::array<std::array<uint8_t, 32>, 2>& w)
+{
+    return { field_from_wire<bb::fq>(w[0]), field_from_wire<bb::fq>(w[1]) };
+}
+
 inline wire::Bn254G2Point bn254_g2_point_to_wire(const bb::g2::affine_element& d)
 {
-    return detail::msgpack_roundtrip<wire::Bn254G2Point>(d);
+    return { .x = fq2_to_wire(d.x), .y = fq2_to_wire(d.y) };
 }
 
 inline bb::g2::affine_element bn254_g2_point_from_wire(const wire::Bn254G2Point& w)
 {
-    return detail::msgpack_roundtrip<bb::g2::affine_element>(w);
+    return { fq2_from_wire(w.x), fq2_from_wire(w.y) };
 }
 
 inline wire::Secp256k1Point secp256k1_point_to_wire(const secp256k1::g1::affine_element& d)
