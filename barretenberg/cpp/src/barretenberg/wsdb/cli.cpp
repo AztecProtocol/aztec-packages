@@ -3,6 +3,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
@@ -17,20 +18,11 @@ namespace bb::wsdb {
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 
-namespace {
-
-// Wire-format schema authority is barretenberg/cpp/src/barretenberg/wsdb/
-// wsdb_schema.json — that's what every language's codegen consumes. The
-// `msgpack schema` subcommand kept the old NamedUnion-derived dump as a
-// secondary introspection path; it's now redundant, so we just point at
-// the canonical source.
-std::string get_wsdb_schema_as_json()
-{
-    return "{\"note\":\"Wire format authority is "
-           "barretenberg/cpp/src/barretenberg/wsdb/wsdb_schema.json.\"}";
-}
-
-} // namespace
+// The codegen-emitted `bb::wsdb::get_wsdb_schema_as_json()` (in
+// generated/wsdb_server.hpp via wsdb_ipc_server.hpp) walks the per-service
+// NamedUnion through ipc::msgpack_schema_to_string. wsdb_schema.json remains
+// the canonical wire-format source on disk; this subcommand lets devs dump
+// the current binary's understanding for diff.
 
 int parse_and_run_wsdb(int argc, char* argv[])
 {

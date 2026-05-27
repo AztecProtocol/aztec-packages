@@ -8,8 +8,16 @@
  *   - No complex abstraction
  */
 
-import type { CompiledSchema, Type, Struct, Field } from './schema_visitor.ts';
-import { toSnakeCase, toPascalCase } from './naming.ts';
+import type { CompiledSchema, Type, Struct, Field } from "./schema_visitor.ts";
+import { toSnakeCase, toPascalCase } from "./naming.ts";
+
+// Convert a schema alias name into its Rust type name. Strips a trailing
+// `_t` (uint256_t → Uint256) and PascalCases the rest, so `fr` → `Fr`,
+// `secp256k1_fr` → `Secp256k1Fr`, `uint256_t` → `Uint256`.
+function toAliasName(name: string): string {
+  const trimmed = name.endsWith("_t") ? name.slice(0, -2) : name;
+  return toPascalCase(trimmed);
+}
 
 export interface RustCodegenOptions {
   /** Prefix for stripping from method names, e.g. 'Wsdb' makes WsdbGetTreeInfo -> get_tree_info */
@@ -29,19 +37,22 @@ export interface RustCodegenOptions {
 }
 
 export class RustCodegen {
-  private errorTypeName: string = 'ErrorResponse';
+  private errorTypeName: string = "ErrorResponse";
   private opts: Required<RustCodegenOptions>;
 
   constructor(options?: RustCodegenOptions) {
-    const prefix = options?.prefix ?? '';
-    const name = prefix || 'Barretenberg';
+    const prefix = options?.prefix ?? "";
+    const name = prefix || "Barretenberg";
     this.opts = {
       prefix,
       apiStructName: options?.apiStructName ?? `${name}Api`,
-      backendImport: options?.backendImport ?? 'super::backend::Backend',
+      backendImport: options?.backendImport ?? "super::backend::Backend",
       errorImport: options?.errorImport ?? `super::error::{IpcError, Result}`,
-      typesImport: options?.typesImport ?? `super::${toSnakeCase(prefix || 'bb')}_types::*`,
-      typesDocComment: options?.typesDocComment ?? `Generated types for ${name} IPC protocol`,
+      typesImport:
+        options?.typesImport ??
+        `super::${toSnakeCase(prefix || "bb")}_types::*`,
+      typesDocComment:
+        options?.typesDocComment ?? `Generated types for ${name} IPC protocol`,
       apiDocComment: options?.apiDocComment ?? `${name} IPC client API`,
     };
   }
@@ -49,60 +60,78 @@ export class RustCodegen {
   // Type mapping: Schema type -> Rust type
   private mapType(type: Type): string {
     switch (type.kind) {
-      case 'primitive':
+      case "primitive":
         switch (type.primitive) {
-          case 'bool': return 'bool';
-          case 'u8': return 'u8';
-          case 'u16': return 'u16';
-          case 'u32': return 'u32';
-          case 'u64': return 'u64';
-          case 'f64': return 'f64';
-          case 'string': return 'String';
-          case 'bytes': return 'Vec<u8>';
-          case 'fr': return 'Fr';  // 32-byte field element
-          case 'field2': return '[Fr; 2]';  // Extension field (Fq2)
+          case "bool":
+            return "bool";
+          case "u8":
+            return "u8";
+          case "u16":
+            return "u16";
+          case "u32":
+            return "u32";
+          case "u64":
+            return "u64";
+          case "f64":
+            return "f64";
+          case "string":
+            return "String";
+          case "bytes":
+            return "Vec<u8>";
+          case "fr":
+            return "Fr"; // legacy path (current schemas emit bin32_alias instead)
+          case "bin32_alias":
+            return type.originalName ? toAliasName(type.originalName) : "Fr";
+          case "field2":
+            return "[Fr; 2]"; // Extension field (Fq2)
         }
         break;
 
-      case 'vector':
+      case "vector":
         return `Vec<${this.mapType(type.element!)}>`;
 
-      case 'array':
+      case "array":
         const elemType = this.mapType(type.element!);
         // Large arrays become Vec for ergonomics
-        return type.size! > 32 ? `Vec<${elemType}>` : `[${elemType}; ${type.size}]`;
+        return type.size! > 32
+          ? `Vec<${elemType}>`
+          : `[${elemType}; ${type.size}]`;
 
-      case 'optional':
+      case "optional":
         return `Option<${this.mapType(type.element!)}>`;
 
-      case 'struct':
+      case "struct":
         // Convert struct names to PascalCase for Rust conventions
         return toPascalCase(type.struct!.name);
     }
 
-    return 'Unknown';
+    return "Unknown";
   }
 
   // Check if field needs serde(with = "serde_bytes")
   private needsSerdeBytes(type: Type): boolean {
-    return type.kind === 'primitive' && type.primitive === 'bytes';
+    return type.kind === "primitive" && type.primitive === "bytes";
   }
 
   // Check if field needs serde(with = "serde_vec_bytes")
   private needsSerdeVecBytes(type: Type): boolean {
-    return type.kind === 'vector' && this.needsSerdeBytes(type.element!);
+    return type.kind === "vector" && this.needsSerdeBytes(type.element!);
   }
 
   // Check if field needs serde(with = "serde_array4_bytes") - for [Vec<u8>; 4] (Poseidon2 state)
   private needsSerdeArray4Bytes(type: Type): boolean {
-    return type.kind === 'array' && type.size === 4 && this.needsSerdeBytes(type.element!);
+    return (
+      type.kind === "array" &&
+      type.size === 4 &&
+      this.needsSerdeBytes(type.element!)
+    );
   }
 
   // Generate struct field
   private generateField(field: Field): string {
     const rustName = toSnakeCase(field.name);
     const rustType = this.mapType(field.type);
-    let attrs = '';
+    let attrs = "";
 
     // Add serde rename if needed
     if (field.name !== rustName) {
@@ -124,21 +153,22 @@ export class RustCodegen {
   // Generate a struct definition
   private generateStruct(struct: Struct, isCommand: boolean): string {
     const rustName = toPascalCase(struct.name);
-    const fields = struct.fields.map(f => this.generateField(f)).join('\n');
+    const fields = struct.fields.map((f) => this.generateField(f)).join("\n");
 
     // Add serde rename if struct name changed
-    const serdeRename = struct.name !== rustName
-      ? `\n#[serde(rename = "${struct.name}")]`
-      : '';
+    const serdeRename =
+      struct.name !== rustName ? `\n#[serde(rename = "${struct.name}")]` : "";
 
     // Commands have a __typename used for NamedUnion identification, but it's handled
     // by the Command enum's custom serde, not by the struct itself.
     const typenameField = isCommand
       ? `    #[serde(rename = "__typename", skip, default)]\n    pub type_name: String,\n`
-      : '';
+      : "";
 
     // Generate constructor for commands
-    const constructor = isCommand ? this.generateConstructor(struct, rustName) : '';
+    const constructor = isCommand
+      ? this.generateConstructor(struct, rustName)
+      : "";
 
     return `/// ${struct.name}
 #[derive(Debug, Clone, Serialize, Deserialize)]${serdeRename}
@@ -149,14 +179,14 @@ ${typenameField}${fields}
 
   // Generate constructor for command structs
   private generateConstructor(struct: Struct, rustName: string): string {
-    const params = struct.fields.map(f =>
-      `${toSnakeCase(f.name)}: ${this.mapType(f.type)}`
-    ).join(', ');
+    const params = struct.fields
+      .map((f) => `${toSnakeCase(f.name)}: ${this.mapType(f.type)}`)
+      .join(", ");
 
     const fieldInits = [
       `            type_name: "${struct.name}".to_string(),`,
-      ...struct.fields.map(f => `            ${toSnakeCase(f.name)},`),
-    ].join('\n');
+      ...struct.fields.map((f) => `            ${toSnakeCase(f.name)},`),
+    ].join("\n");
 
     return `
 
@@ -171,26 +201,26 @@ ${fieldInits}
 
   // Generate Command enum
   private generateCommandEnum(schema: CompiledSchema): string {
-    const names = schema.commands.map(c => c.name);
+    const names = schema.commands.map((c) => c.name);
     const variants = names
-      .map(name => {
+      .map((name) => {
         const rustName = toPascalCase(name);
         return `    ${rustName}(${rustName}),`;
       })
-      .join('\n');
+      .join("\n");
 
     const serializeCases = names
-      .map(name => {
+      .map((name) => {
         const rustName = toPascalCase(name);
         return `            Command::${rustName}(data) => {
                 tuple.serialize_element("${name}")?;
                 tuple.serialize_element(data)?;
             }`;
       })
-      .join('\n');
+      .join("\n");
 
     const deserializeCases = names
-      .map(name => {
+      .map((name) => {
         const rustName = toPascalCase(name);
         return `                    "${name}" => {
                         let data = seq.next_element()?
@@ -198,11 +228,9 @@ ${fieldInits}
                         Ok(Command::${rustName}(data))
                     }`;
       })
-      .join('\n');
+      .join("\n");
 
-    const variantNames = names
-      .map(name => `"${name}"`)
-      .join(', ');
+    const variantNames = names.map((name) => `"${name}"`).join(", ");
 
     return `/// Command enum - wraps all possible commands
 #[derive(Debug, Clone)]
@@ -251,30 +279,32 @@ ${deserializeCases}
   // Generate Response enum
   private generateResponseEnum(schema: CompiledSchema): string {
     // Include all response types from commands plus ErrorResponse if it exists
-    const commandResponseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
-    const errorName = schema.errorTypeName || 'ErrorResponse';
+    const commandResponseTypes = Array.from(
+      new Set(schema.commands.map((c) => c.responseType)),
+    );
+    const errorName = schema.errorTypeName || "ErrorResponse";
     const responseTypes = schema.responses.has(errorName)
       ? [...commandResponseTypes, errorName]
       : commandResponseTypes;
     const variants = responseTypes
-      .map(name => {
+      .map((name) => {
         const rustName = toPascalCase(name);
         return `    ${rustName}(${rustName}),`;
       })
-      .join('\n');
+      .join("\n");
 
     const serializeCases = responseTypes
-      .map(name => {
+      .map((name) => {
         const rustName = toPascalCase(name);
         return `            Response::${rustName}(data) => {
                 tuple.serialize_element("${name}")?;
                 tuple.serialize_element(data)?;
             }`;
       })
-      .join('\n');
+      .join("\n");
 
     const deserializeCases = responseTypes
-      .map(name => {
+      .map((name) => {
         const rustName = toPascalCase(name);
         return `                    "${name}" => {
                         let data = seq.next_element()?
@@ -282,9 +312,9 @@ ${deserializeCases}
                         Ok(Response::${rustName}(data))
                     }`;
       })
-      .join('\n');
+      .join("\n");
 
-    const variantNames = responseTypes.map(name => `"${name}"`).join(', ');
+    const variantNames = responseTypes.map((name) => `"${name}"`).join(", ");
 
     return `/// Response enum - wraps all possible responses
 #[derive(Debug, Clone)]
@@ -418,53 +448,91 @@ mod serde_array4_bytes {
 
   // Generate types file
   generateTypes(schema: CompiledSchema, schemaHash?: string): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
     // Create set of top-level command struct names (only these need __typename)
-    const commandNames = new Set(schema.commands.map(c => c.name));
+    const commandNames = new Set(schema.commands.map((c) => c.name));
+
+    // Collect every distinct bin32 alias name in the schema. Each becomes a
+    // `pub type` alias to the shared `Bin32` newtype so wire fields with
+    // semantic aliases (Fr / Fq / Secp256k1Fr / …) keep their names.
+    const aliasNames = new Set<string>();
+    const collect = (type: Type): void => {
+      if (
+        type.kind === "primitive" &&
+        type.primitive === "bin32_alias" &&
+        type.originalName
+      ) {
+        aliasNames.add(toAliasName(type.originalName));
+      } else if (
+        type.kind === "vector" ||
+        type.kind === "array" ||
+        type.kind === "optional"
+      ) {
+        if (type.element) collect(type.element);
+      }
+    };
+    for (const s of schema.structs.values()) {
+      for (const f of s.fields) collect(f.type);
+    }
+    for (const s of schema.responses.values()) {
+      for (const f of s.fields) collect(f.type);
+    }
+    // Make sure `Fr` always exists (legacy path / field2 expansion uses it).
+    aliasNames.add("Fr");
+    const aliasDecls = [...aliasNames]
+      .sort()
+      .map((n) => `pub type ${n} = Bin32;`)
+      .join("\n");
 
     // Generate all structs (commands first, then responses)
     const commandStructs = Array.from(schema.structs.values())
-      .map(s => this.generateStruct(s, commandNames.has(s.name)))
-      .join('\n\n');
+      .map((s) => this.generateStruct(s, commandNames.has(s.name)))
+      .join("\n\n");
 
     const responseStructs = Array.from(schema.responses.values())
-      .map(s => this.generateStruct(s, false))
-      .join('\n\n');
+      .map((s) => this.generateStruct(s, false))
+      .join("\n\n");
 
-    const hashLine = schemaHash ? `\n/// Schema version hash for compatibility checking\npub const SCHEMA_HASH: &str = "${schemaHash}";\n` : '';
+    const hashLine = schemaHash
+      ? `\n/// Schema version hash for compatibility checking\npub const SCHEMA_HASH: &str = "${schemaHash}";\n`
+      : "";
 
     return `//! AUTOGENERATED - DO NOT EDIT
 //! ${this.opts.typesDocComment}
 
 use serde::{Deserialize, Serialize};
 ${hashLine}
-/// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated, no heap.
-/// Serializes as msgpack bin32 on the wire.
+/// 32 raw bytes encoded as msgpack bin32. Shared underlying type for every
+/// bin32 alias the schema declares (Fr / Fq / Secp256k1Fr / …) — the aliases
+/// below are zero-cost pub type declarations onto this newtype, so callers
+/// can write Fr(bytes) / Fq(bytes) and the wire encoding stays uniform.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Fr(pub [u8; 32]);
+pub struct Bin32(pub [u8; 32]);
 
-impl Fr {
+impl Bin32 {
     pub fn from_bytes(bytes: [u8; 32]) -> Self { Self(bytes) }
     pub fn to_bytes(&self) -> &[u8; 32] { &self.0 }
     pub fn as_slice(&self) -> &[u8] { &self.0 }
 }
 
-impl Serialize for Fr {
+impl Serialize for Bin32 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: serde::Serializer {
         serializer.serialize_bytes(&self.0)
     }
 }
 
-impl<'de> Deserialize<'de> for Fr {
+impl<'de> Deserialize<'de> for Bin32 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: serde::Deserializer<'de> {
         let bytes: Vec<u8> = <Vec<u8>>::deserialize(deserializer)?;
         let arr: [u8; 32] = bytes.try_into()
             .map_err(|v: Vec<u8>| serde::de::Error::invalid_length(v.len(), &"32 bytes"))?;
-        Ok(Fr(arr))
+        Ok(Bin32(arr))
     }
 }
+
+${aliasDecls}
 
 ${this.generateSerdeHelpers()}
 
@@ -480,37 +548,47 @@ ${this.generateResponseEnum(schema)}
 
   /** Strip the service prefix from a command name for the method name */
   private methodName(commandName: string): string {
-    const withoutPrefix = this.opts.prefix && commandName.startsWith(this.opts.prefix)
-      ? commandName.slice(this.opts.prefix.length)
-      : commandName;
+    const withoutPrefix =
+      this.opts.prefix && commandName.startsWith(this.opts.prefix)
+        ? commandName.slice(this.opts.prefix.length)
+        : commandName;
     return toSnakeCase(withoutPrefix);
   }
 
   // Generate API method
-  private generateApiMethod(command: {name: string, fields: Field[], responseType: string}): string {
+  private generateApiMethod(command: {
+    name: string;
+    fields: Field[];
+    responseType: string;
+  }): string {
     const methodName = this.methodName(command.name);
     const cmdRustName = toPascalCase(command.name);
     const respRustName = toPascalCase(command.responseType);
 
-    const params = command.fields.map(f => {
-      const rustType = this.mapType(f.type);
-      // Only convert simple Vec<u8> to &[u8], not nested types
-      const apiType = rustType === 'Vec<u8>' ? '&[u8]' : rustType;
-      return `${toSnakeCase(f.name)}: ${apiType}`;
-    }).join(', ');
+    const params = command.fields
+      .map((f) => {
+        const rustType = this.mapType(f.type);
+        // Only convert simple Vec<u8> to &[u8], not nested types
+        const apiType = rustType === "Vec<u8>" ? "&[u8]" : rustType;
+        return `${toSnakeCase(f.name)}: ${apiType}`;
+      })
+      .join(", ");
 
-    const paramConversions = command.fields.map(f => {
-      const name = toSnakeCase(f.name);
-      const rustType = this.mapType(f.type);
-      // Only convert slices back to Vec
-      if (rustType === 'Vec<u8>') {
-        return `${name}.to_vec()`;
-      }
-      return name;
-    }).join(', ');
+    const paramConversions = command.fields
+      .map((f) => {
+        const name = toSnakeCase(f.name);
+        const rustType = this.mapType(f.type);
+        // Only convert slices back to Vec
+        if (rustType === "Vec<u8>") {
+          return `${name}.to_vec()`;
+        }
+        return name;
+      })
+      .join(", ");
 
     // Extract error type name from the error import (e.g., 'IpcError' from 'crate::error::{IpcError, Result}')
-    const errorType = this.opts.errorImport.match(/\{(\w+),/)?.[1] ?? 'IpcError';
+    const errorType =
+      this.opts.errorImport.match(/\{(\w+),/)?.[1] ?? "IpcError";
 
     return `    /// Execute ${command.name}
     pub fn ${methodName}(&mut self, ${params}) -> Result<${respRustName}> {
@@ -529,28 +607,38 @@ ${this.generateResponseEnum(schema)}
 
   // Generate API file
   generateApi(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
-    const { apiStructName, backendImport, errorImport, typesImport, apiDocComment } = this.opts;
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
+    const {
+      apiStructName,
+      backendImport,
+      errorImport,
+      typesImport,
+      apiDocComment,
+    } = this.opts;
 
     // Find shutdown command name (may be prefixed, e.g. WsdbShutdown)
-    const shutdownCmd = schema.commands.find(c => c.name.endsWith('Shutdown'));
+    const shutdownCmd = schema.commands.find((c) =>
+      c.name.endsWith("Shutdown"),
+    );
     const shutdownName = shutdownCmd ? toPascalCase(shutdownCmd.name) : null;
 
     const apiMethods = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => this.generateApiMethod(c))
-      .join('\n\n');
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => this.generateApiMethod(c))
+      .join("\n\n");
 
-    const shutdownMethod = shutdownName ? `
+    const shutdownMethod = shutdownName
+      ? `
     /// Shutdown backend gracefully
     pub fn shutdown(&mut self) -> Result<()> {
         let cmd = Command::${shutdownName}(${shutdownName}::new());
         let _ = self.execute(cmd)?;
         self.backend.destroy()
     }
-` : '';
+`
+      : "";
 
-    const errorType = errorImport.match(/\{(\w+),/)?.[1] ?? 'IpcError';
+    const errorType = errorImport.match(/\{(\w+),/)?.[1] ?? "IpcError";
 
     return `//! AUTOGENERATED - DO NOT EDIT
 //! ${apiDocComment}
@@ -598,24 +686,24 @@ ${shutdownMethod}
 
   /** Generate a Handler trait and serve() function */
   generateServer(schema: CompiledSchema): string {
-    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
+    this.errorTypeName = schema.errorTypeName || "ErrorResponse";
     const { prefix, errorImport, typesImport } = this.opts;
-    const errorType = errorImport.match(/\{(\w+),/)?.[1] ?? 'IpcError';
+    const errorType = errorImport.match(/\{(\w+),/)?.[1] ?? "IpcError";
     const errorRespType = toPascalCase(this.errorTypeName);
 
     const traitMethods = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.methodName(c.name);
         const cmdRustName = toPascalCase(c.name);
         const respRustName = toPascalCase(c.responseType);
         return `    fn ${methodName}(&mut self, cmd: ${cmdRustName}) -> Result<${respRustName}>;`;
       })
-      .join('\n');
+      .join("\n");
 
     const dispatchArms = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.methodName(c.name);
         const cmdRustName = toPascalCase(c.name);
         const respRustName = toPascalCase(c.responseType);
@@ -626,23 +714,25 @@ ${shutdownMethod}
                 }
             }`;
       })
-      .join('\n');
+      .join("\n");
 
     // Handle shutdown arm
-    const shutdownCmd = schema.commands.find(c => c.name.endsWith('Shutdown'));
+    const shutdownCmd = schema.commands.find((c) =>
+      c.name.endsWith("Shutdown"),
+    );
     const shutdownArm = shutdownCmd
       ? `            Command::${toPascalCase(shutdownCmd.name)}(_) => {
                 return Err(${errorType}::Backend("shutdown requested".to_string()));
             }`
-      : '';
+      : "";
 
     return `//! AUTOGENERATED - DO NOT EDIT
-//! Server-side dispatch for ${prefix || 'service'} IPC protocol
+//! Server-side dispatch for ${prefix || "service"} IPC protocol
 
 use ${errorImport};
 use ${typesImport};
 
-/// Handler trait — implement this to serve ${prefix || 'service'} commands.
+/// Handler trait — implement this to serve ${prefix || "service"} commands.
 pub trait Handler {
 ${traitMethods}
 }
@@ -670,15 +760,16 @@ ${shutdownArm}
     const ctxName = `${prefix}Context`;
 
     const stubs = schema.commands
-      .filter(c => !c.name.endsWith('Shutdown'))
-      .map(c => {
+      .filter((c) => !c.name.endsWith("Shutdown"))
+      .map((c) => {
         const methodName = this.methodName(c.name);
         const cmdRustName = toPascalCase(c.name);
         const respRustName = toPascalCase(c.responseType);
         return `    fn ${methodName}(&mut self, _cmd: ${typesModule}::${cmdRustName}) -> Result<${typesModule}::${respRustName}> {
         unimplemented!("${c.name}")
     }`;
-      }).join('\n\n');
+      })
+      .join("\n\n");
 
     return `// Handler stubs — implement your service logic here.
 // This file is generated ONCE. Edit freely — it will not be overwritten.
@@ -736,7 +827,7 @@ fn main() {
   /** Generate Cargo.toml for a standalone service */
   generateBuildFile(schema: CompiledSchema): string {
     const { prefix } = this.opts;
-    const pkgName = toSnakeCase(prefix).replace(/_/g, '-');
+    const pkgName = toSnakeCase(prefix).replace(/_/g, "-");
 
     return `[package]
 name = "${pkgName}-service"

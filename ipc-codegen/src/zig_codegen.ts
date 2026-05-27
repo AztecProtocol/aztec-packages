@@ -17,6 +17,14 @@ import type {
 } from "./schema_visitor.ts";
 import { toSnakeCase, toPascalCase } from "./naming.ts";
 
+// Convert a schema alias name into its Zig type name. Strips a trailing `_t`
+// (uint256_t → Uint256) and PascalCases the rest, so `fr` → `Fr`,
+// `secp256k1_fr` → `Secp256k1Fr`, `uint256_t` → `Uint256`.
+function toAliasName(name: string): string {
+  const trimmed = name.endsWith("_t") ? name.slice(0, -2) : name;
+  return toPascalCase(trimmed);
+}
+
 export interface ZigCodegenOptions {
   /** Service prefix to strip from method names (e.g., 'Wsdb') */
   prefix?: string;
@@ -57,7 +65,9 @@ export class ZigCodegen {
           case "bytes":
             return "[]const u8";
           case "fr":
-            return "Fr"; // [32]u8
+            return "Fr"; // legacy path (current schemas emit bin32_alias)
+          case "bin32_alias":
+            return type.originalName ? toAliasName(type.originalName) : "Fr";
           case "field2":
             return "[2]Fr";
           case "enum_u32":
@@ -100,6 +110,7 @@ export class ZigCodegen {
           case "bytes":
             return `try Payload.binToPayload(${fieldExpr}, allocator)`;
           case "fr":
+          case "bin32_alias":
             return `try Payload.binToPayload(&${fieldExpr}, allocator)`;
           case "enum_u32":
             return `Payload{ .uint = @intCast(${fieldExpr}) }`;
@@ -150,6 +161,7 @@ export class ZigCodegen {
           case "bytes":
             return `${payloadExpr}.bin.value()`;
           case "fr":
+          case "bin32_alias":
             return `${payloadExpr}.bin.value()[0..32].*`;
           case "enum_u32":
             return `@intCast(try ${payloadExpr}.asUint())`;
@@ -341,6 +353,38 @@ ${variants}
       ...schema.responses.values(),
     ];
 
+    // Collect every distinct bin32 alias name in the schema. Each becomes a
+    // `pub const` alias so wire fields with semantic aliases (Fr / Fq /
+    // Secp256k1Fr / …) keep their names; all share the underlying [32]u8.
+    const aliasNames = new Set<string>();
+    const collect = (type: Type): void => {
+      if (
+        type.kind === "primitive" &&
+        type.primitive === "bin32_alias" &&
+        type.originalName
+      ) {
+        aliasNames.add(toAliasName(type.originalName));
+      } else if (
+        type.kind === "vector" ||
+        type.kind === "array" ||
+        type.kind === "optional"
+      ) {
+        if (type.element) collect(type.element);
+      }
+    };
+    for (const s of schema.structs.values()) {
+      for (const f of s.fields) collect(f.type);
+    }
+    for (const s of schema.responses.values()) {
+      for (const f of s.fields) collect(f.type);
+    }
+    // Make sure `Fr` always exists (legacy path / field2 expansion uses it).
+    aliasNames.add("Fr");
+    const aliasDecls = [...aliasNames]
+      .sort()
+      .map((n) => `pub const ${n} = [32]u8;`)
+      .join("\n");
+
     const structDefs = allStructs
       .map((s) => this.generateStruct(s))
       .join("\n\n");
@@ -360,8 +404,13 @@ const msgpack = @import("msgpack");
 const Payload = msgpack.Payload;
 const PackerIO = msgpack.PackerIO;
 ${hashLine}
-/// 32-byte field element (Fr/Fq). Fixed-size, stack-allocated.
-pub const Fr = [32]u8;
+// ---------------------------------------------------------------------------
+// Bin32 aliases (Fr / Fq / Secp256k1Fr / …). Each is a zero-cost pub const
+// alias to [32]u8; the wire encoding (msgpack bin32) is applied by the
+// fieldToPayload / fieldFromPayload helpers.
+// ---------------------------------------------------------------------------
+
+${aliasDecls}
 
 // ---------------------------------------------------------------------------
 // Type definitions

@@ -11,24 +11,24 @@ impl Fr {
     pub fn from_u64(value: u64) -> Self {
         let mut bytes = [0u8; 32];
         bytes[24..32].copy_from_slice(&value.to_be_bytes());
-        Fr(bytes)
+        Self(bytes)
     }
 
     /// Create a field element from 32 big-endian bytes.
     pub fn from_be_bytes(bytes: [u8; 32]) -> Self {
-        Fr(bytes)
+        Self(bytes)
     }
 
     /// Create a field element from 32 little-endian bytes.
     pub fn from_le_bytes(bytes: [u8; 32]) -> Self {
-        Fr(bytes)
+        Self(bytes)
     }
 
     /// Create a field element from a 32-byte buffer (no reduction).
     /// Panics if the buffer is not exactly 32 bytes long.
     pub fn from_buffer(buffer: &[u8]) -> Self {
         let bytes: [u8; 32] = buffer.try_into().expect("Buffer must be exactly 32 bytes");
-        Fr(bytes)
+        Self(bytes)
     }
 
     /// Create a field element from a byte slice, truncating or zero-padding
@@ -37,7 +37,7 @@ impl Fr {
         let mut bytes = [0u8; 32];
         let len = buffer.len().min(32);
         bytes[..len].copy_from_slice(&buffer[..len]);
-        Fr(bytes)
+        Self(bytes)
     }
 
     /// Convert to a byte buffer (as used in msgpack).

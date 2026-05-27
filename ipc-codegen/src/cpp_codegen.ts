@@ -885,6 +885,22 @@ ${commandStructs}
     const { namespace: ns, prefix } = this.opts;
     const errorTypeName = schema.errorTypeName || `${prefix}ErrorResponse`;
     const typesHeader = `${toSnakeCase(prefix)}_types.hpp`;
+    const prefixLower = toSnakeCase(prefix);
+
+    // Per-service NamedUnions + schema reflection. The codegen-emitted
+    // <Prefix>Command / <Prefix>CommandResponse aggregate every wire type
+    // so the binary can pack its own schema back out via
+    // ipc::msgpack_schema_to_string. This is the C++-canonical dev workflow:
+    // edit a wire type, rebuild, dump the schema, commit the JSON.
+    const cmdUnionMembers = schema.commands
+      .map((c) => `wire::${c.name}`)
+      .join(",\n                                   ");
+    const respUnionMembers = [
+      errorTypeName,
+      ...schema.commands.map((c) => c.responseType),
+    ]
+      .map((r) => `wire::${r}`)
+      .join(",\n                                           ");
 
     // Handler declarations — template<typename Ctx>
     const handlerDecls = schema.commands
@@ -938,6 +954,8 @@ ${commandStructs}
 
 #include "${typesHeader}"
 #include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/named_union.hpp"
+#include "ipc_runtime/schema.hpp"
 #include "ipc_runtime/serve_helper.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
 #include "msgpack_struct_map_impl.hpp"
@@ -1057,6 +1075,27 @@ void serve(const std::string& input_path, Ctx& ctx)
     server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw) {
         return handler(std::vector<uint8_t>(raw.begin(), raw.end()));
     });
+}
+
+// ---------------------------------------------------------------------------
+// Schema reflection — the binary serialises its own understanding of the wire
+// format. Edit a wire type, rebuild, dump the schema, commit the JSON.
+// ---------------------------------------------------------------------------
+
+using ${prefix}Command = ::ipc::NamedUnion<${cmdUnionMembers}>;
+using ${prefix}CommandResponse = ::ipc::NamedUnion<${respUnionMembers}>;
+
+namespace detail {
+struct ${prefix}Api {
+    ${prefix}Command commands;
+    ${prefix}CommandResponse responses;
+    SERIALIZATION_FIELDS(commands, responses);
+};
+} // namespace detail
+
+inline std::string get_${prefixLower}_schema_as_json()
+{
+    return ::ipc::msgpack_schema_to_string(detail::${prefix}Api{});
 }
 
 } // namespace ${ns}
