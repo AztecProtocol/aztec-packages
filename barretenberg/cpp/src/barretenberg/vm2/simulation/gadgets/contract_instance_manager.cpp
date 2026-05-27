@@ -69,6 +69,10 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
                      maybe_instance.has_value(),
                      "Derived address should be found if the instance was retrieved and vice versa");
 
+        BB_ASSERT_EQ(maybe_instance.value_or(ContractInstance()).current_contract_class_id,
+                     maybe_instance.value_or(ContractInstance()).original_contract_class_id,
+                     "Protocol contracts must have a matching current and original class ID");
+
         event_emitter.emit({
             .address = contract_address,
             .contract_instance = maybe_instance.value_or(ContractInstance{}),

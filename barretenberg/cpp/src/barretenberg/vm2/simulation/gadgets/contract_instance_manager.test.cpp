@@ -88,7 +88,7 @@ TEST_F(ContractInstanceManagerTest, ValidProtocolContractReturnsInstance)
     AztecAddress protocol_address = AztecAddress(1);
 
     // Create a contract instance
-    ContractInstance instance = testing::random_contract_instance();
+    ContractInstance instance = testing::random_protocol_contract_instance();
 
     // Setup mocks
     TreeStates tree_states = {};
