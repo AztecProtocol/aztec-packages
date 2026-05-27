@@ -192,12 +192,12 @@ export class TXEDispatcherPool {
   disposeSession(sessionId: number): void {
     const workerIdx = this.sessionToWorker.get(sessionId);
     if (workerIdx === undefined) {
-      return;
+      throw new Error(`disposeSession: no worker mapped for session ${sessionId}`);
     }
     this.sessionToWorker.delete(sessionId);
     const slot = this.workers[workerIdx];
     if (!slot) {
-      return;
+      throw new Error(`disposeSession: worker ${workerIdx} (session ${sessionId}) missing from pool`);
     }
     slot.sessions.delete(sessionId);
     slot.worker.postMessage({ type: 'dispose-session', sessionId });
@@ -278,10 +278,14 @@ export class TXEDispatcherPool {
   private handleResult(workerIdx: number, msg: WorkerMessage & { type: 'result' }): void {
     const pending = this.pending.get(msg.requestId);
     if (!pending) {
-      return;
+      throw new Error(`handleResult: request ${msg.requestId} (worker ${workerIdx}) not in pending map`);
     }
     this.pending.delete(msg.requestId);
-    this.workers[workerIdx]?.inFlightRequestIds.delete(msg.requestId);
+    const slot = this.workers[workerIdx];
+    if (!slot) {
+      throw new Error(`handleResult: worker ${workerIdx} (request ${msg.requestId}) missing from pool`);
+    }
+    slot.inFlightRequestIds.delete(msg.requestId);
     if (msg.ok) {
       pending.resolve(msg.value);
     } else {
@@ -293,14 +297,15 @@ export class TXEDispatcherPool {
     this.logger.error(`TXE worker ${workerIdx} crashed; sessions assigned to it will fail`, err);
     const slot = this.workers[workerIdx];
     if (!slot) {
-      return;
+      throw new Error(`handleWorkerError: worker ${workerIdx} missing from pool (orig err: ${err.message})`);
     }
     for (const requestId of slot.inFlightRequestIds) {
       const pending = this.pending.get(requestId);
-      if (pending) {
-        pending.reject(err);
-        this.pending.delete(requestId);
+      if (!pending) {
+        throw new Error(`handleWorkerError: in-flight request ${requestId} (worker ${workerIdx}) not in pending map`);
       }
+      pending.reject(err);
+      this.pending.delete(requestId);
     }
     slot.inFlightRequestIds.clear();
     for (const sessionId of slot.sessions) {

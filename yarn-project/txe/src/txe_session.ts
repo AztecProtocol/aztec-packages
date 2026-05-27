@@ -227,8 +227,7 @@ export class TXESession implements TXESessionStateHandler {
 
   /**
    * Closes the per-session `txe-session` LMDB and the `NativeWorldStateService` .
-   * Called via IPC when the dispatcher detects the originating socket has
-   * closed (end of test). Idempotent.
+   * Called via IPC when the dispatcher detects the end of a test. Idempotent.
    */
   async dispose(): Promise<void> {
     if (this.disposed) {
@@ -248,7 +247,10 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   static async init(contractStore: ContractStore) {
-    // 2 reader slots match the single libuv worker thread that drives LMDB on this worker.
+    // Size LMDB's reader slots to the libuv pool (capped to 2 in bin/index.ts via
+    // HARDWARE_CONCURRENCY): each native LMDB read needs a libuv worker thread to run, so any
+    // slot beyond the pool size would sit idle while still consuming a semaphore + reader-table
+    // entry per session.
     const store = await openEphemeralStore('txe-session', undefined, 2);
 
     const addressStore = new AddressStore(store);
