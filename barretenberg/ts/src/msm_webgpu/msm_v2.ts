@@ -1149,6 +1149,9 @@ export class MsmV2 {
   private emitFixupPipe!: GPUComputePipeline;
   private size1Pipe!: GPUComputePipeline;
   private streamAccumPipe!: GPUComputePipeline;
+  private debugAccumPipe!: GPUComputePipeline;
+  private debugAccumBind!: GPUBindGroup;
+  private debugAccumLayout!: GPUBindGroupLayout;
   private partialSumPipe!: GPUComputePipeline;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
   private classifyBind!: GPUBindGroup;
@@ -1451,6 +1454,7 @@ export class MsmV2 {
     m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     m.streamAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
+    m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
@@ -1499,7 +1503,7 @@ export class MsmV2 {
 
     // --- Streaming planner + accumulator pipelines ---
     const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    const STREAM_S = 1; // DEBUG: S=1 to isolate batched inversion
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
@@ -1535,6 +1539,9 @@ export class MsmV2 {
     m.partialSumPipe = await compile(
       sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
       `partial-sum`, m.partialSumLayout);
+    m.debugAccumPipe = await compile(
+      sm.gen_ba_stream_accum_debug_shader(INV_VARIANT),
+      `debug-accum`, m.debugAccumLayout);
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
@@ -2032,6 +2039,9 @@ export class MsmV2 {
       const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, batchSlots, B_TOTAL]));
       this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
       const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
+      // DEBUG: sequential single-thread accumulator for correctness isolation
+      const debugParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
+      this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
       this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);
     }
 
@@ -2233,8 +2243,10 @@ export class MsmV2 {
         pass.end();
       };
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
-      indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-      indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
+      // DEBUG: use single-thread sequential accumulator instead of streaming
+      dispatch(this.debugAccumPipe, this.debugAccumBind, 1, 1);
+      // indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
+      // indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
     }
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
