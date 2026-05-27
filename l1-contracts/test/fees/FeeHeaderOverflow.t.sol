@@ -142,6 +142,8 @@ contract FeeHeaderOverflowTest is DecoderBase {
     // (MAX_INITIAL_PROVING_COST_PER_MANA) blocks (1 << 63) at construction; this test models the
     // post-deploy reality that governance updates have no absolute ceiling and the value can
     // drift past 2^63 over time, so the compress() guard still has to cope.
+    // In practice, this will not happen because the deploy-time ceiling should make approaching
+    // 2^63 infeasible.
     RollupConfigInput memory config = TestConstants.getRollupConfigInput();
     // 1:1 ETH/AZTEC parity so proverCost (fee asset) = proverCostPerMana (wei)
     config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(1e12);

@@ -89,14 +89,10 @@ uint256 constant PROVING_COST_UPDATE_INTERVAL = 30 days;
 uint256 constant PROVING_COST_STEP_NUM = 3;
 uint256 constant PROVING_COST_STEP_DEN = 2;
 uint256 constant MIN_PROVING_COST_PER_MANA = 2;
-// Initial-only ceiling. The compress() limit alone (uint64 ~= 1.8e19) is a storage shape, not
-// an economic bound: a rollup deployed near uint64.max would need many years to drift back into
-// a normal operating range via the (3/2)/cooldown rate limiter. This ceiling caps the starting
-// value at ~55x the realistic operating value seen in fee_data_points.json (~1.8e8). Live
-// rollups stay free to move beyond this through governance updates, which the rate limiter
-// already gates. Tests that explicitly want to exercise oversized values can write the
-// compressed config directly via vm.store.
-uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 1e10;
+// Initial-only ceiling. Prevents a mistaken deployment from setting a value that will take a long
+// time to correct from. At the time of this writing, deployed value is 2.5e7, and it is expected
+// that proving costs will go down.
+uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 1e8;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;

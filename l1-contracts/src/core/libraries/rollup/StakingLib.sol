@@ -92,9 +92,8 @@ struct StakingStorage {
   bool isBootstrapped;
   // Outgoing slasher that finalizeSetSlasher has rotated off the active slot. Retains
   // authority to call {slash} until `legacySlasherAuthorizedUntil` so that slashing rounds
-  // which already reached quorum before the rotation can still drain to L1 after the new
-  // slasher takes over. Appended at the tail to keep the rest of the struct's storage layout
-  // unchanged for any in-flight deployments that read the namespaced slot.
+  // which already reached quorum before the rotation can still execute after the new
+  // slasher takes over.
   address legacySlasher;
   CompressedTimestamp legacySlasherAuthorizedUntil;
 }
@@ -185,8 +184,8 @@ library StakingLib {
     address oldSlasher = store.slasher;
     // Park the outgoing slasher in the legacy slot with a drain window so quorum-backed rounds
     // already accumulated on the old SlashingProposer can still execute against the rollup
-    // through the old slasher. Without this an attacker would simply call finalize early to
-    // strand pending slashing decisions. Any prior legacy auth window is overwritten -- only
+    // through the old slasher. Without this, a committee just before a queued slasher takes over
+    // gets a "free round" to do what they like. Any prior legacy auth window is overwritten -- only
     // one rotation can be in flight at a time, and the most recent rotation defines the
     // currently-relevant outgoing slasher.
     Timestamp drainUntil = Timestamp.wrap(block.timestamp + LEGACY_SLASHER_DRAIN_WINDOW);
