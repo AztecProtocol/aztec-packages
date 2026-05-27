@@ -180,7 +180,7 @@ function gas_report {
 
   FORGE_GAS_REPORT=true forge test \
     --match-contract "^RollupTest$" \
-    --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
+    --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)|(testExtraBlobs)|(testRevertInvalidCoinbase)|(testRevertInvalidTimestamp)" \
     --fuzz-seed 42 \
     --json \
     > gas_report.new.tmp
@@ -196,18 +196,27 @@ function gas_report {
   mv gas_report.new.json gas_report.json
 }
 
+export bench_hash=$(cache_content_hash \
+  "^l1-contracts/test/benchmark/.*" \
+  "^l1-contracts/scripts/bench\.py$" \
+  "^l1-contracts/foundry\.toml$" \
+  "^l1-contracts/src/core/Rollup\.sol$" \
+  "^l1-contracts/src/core/libraries/rollup/.*\.sol$" \
+  "^l1-contracts/src/core/slashing/.*\.sol$" \
+  "^l1-contracts/test/fixtures/.*" \
+  "^l1-contracts/test/builder/.*\.sol$" \
+  "^l1-contracts/test/base/DecoderBase\.sol$" \
+  "^l1-contracts/test/fees/FeeModelTestPoints\.t\.sol$" \
+  ../noir-projects/noir-protocol-circuits \
+  ../barretenberg/cpp/.rebuild_patterns)
+
 function bench_cmds {
-  echo "$hash l1-contracts/bootstrap.sh bench"
+  echo "$bench_hash l1-contracts/bootstrap.sh bench"
 }
 
 function bench {
   rm -rf bench-out && mkdir -p bench-out
-
-  # Run the gas benchmark to generate the markdown file and JSON results
   gas_benchmark
-
-  # Use Python script to generate the benchmark JSON from gas_benchmark_results.json
-  python3 scripts/generate_benchmark_json.py
 }
 
 function gas_benchmark {
@@ -216,54 +225,15 @@ function gas_benchmark {
   echo_header "l1-contracts gas benchmark"
   forge --version
 
-  # Run the new Python benchmarking script
-  echo "Running gas benchmarks..."
-  python3 scripts/gas_benchmarks.py
+  python3 scripts/bench.py
 
-  # The script generates gas_benchmark.md directly
-  # Check if it differs from the committed version
   if [ "$check" = "check" ]; then
-    if ! git diff --quiet gas_benchmark.md; then
-      git diff gas_benchmark.md
-      echo "Gas benchmark has changed. Please check the diffs above, then run './bootstrap.sh gas_benchmark' to update the gas benchmark."
+    if ! git diff --quiet gas_benchmark.md gas_benchmark_results.json; then
+      git diff gas_benchmark.md gas_benchmark_results.json
+      echo "Gas benchmark has changed. Please check the diffs above, then run './bootstrap.sh gas_benchmark' to update the committed reports."
       exit 1
     fi
   fi
-}
-
-function validator_costs {
-  forge --version
-
-  # Run test without validators
-  echo "Running test without validators..."
-  FORGE_GAS_REPORT=true forge test \
-    --match-contract "BenchmarkRollupTest" \
-    --match-test "test_no_validators" \
-    --fuzz-seed 42 \
-    --json \
-    > no_validators.json
-
-  # Run test with 100 validators
-  echo "Running test with 100 validators..."
-  FORGE_GAS_REPORT=true forge test \
-    --match-contract "BenchmarkRollupTest" \
-    --match-test "test_100_validators" \
-    --fuzz-seed 42 \
-    --json \
-    > 100_validators.json
-
-  # Run test with 100 validators and slashing
-  echo "Running test with 100 validators and slashing..."
-  FORGE_GAS_REPORT=true forge test \
-    --match-contract "BenchmarkRollupTest" \
-    --match-test "test_100_slashing_validators" \
-    --fuzz-seed 42 \
-    --json \
-    > 100_validators_slashing.json
-
-  # Use Python script to process the JSON files
-  echo "Processing gas reports with Python script..."
-  python3 scripts/process_gas_reports.py no_validators.json 100_validators.json 100_validators_slashing.json
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.

@@ -151,6 +151,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   address internal slashingProposer;
 
+  // Benchmark output state. Each test writes one JSONL file of samples to
+  // bench-out/raw_<scenario>.jsonl plus a shared bench-out/config.json.
+  string internal scenarioName;
+  uint256 internal sampleSeq;
+  uint256 internal lastSetupEpoch;
+
   modifier prepare(uint256 _validatorCount, bool _noValidators, TestSlash _slashing) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
@@ -221,24 +227,119 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.warp(l1Metadata[0].timestamp + index * SLOT_DURATION);
   }
 
-  function test_log_config() public {
-    emit log_named_uint("SLOT_DURATION", SLOT_DURATION);
-    emit log_named_uint("EPOCH_DURATION", EPOCH_DURATION);
-    emit log_named_uint("MANA_TARGET", MANA_TARGET);
-    emit log_named_uint("TARGET_COMMITTEE_SIZE", TARGET_COMMITTEE_SIZE);
-    emit log_named_uint("PROOFS_PER_EPOCH", PROOFS_PER_EPOCH);
-  }
-
   function test_no_validators() public prepare(0, true, TestSlash.NONE) {
+    _setScenario("no_validators");
     benchmark(TestSlash.NONE);
   }
 
   function test_100_validators() public prepare(100, false, TestSlash.NONE) {
+    _setScenario("validators");
     benchmark(TestSlash.NONE);
   }
 
   function test_100_slashing_validators() public prepare(100, false, TestSlash.TALLY) {
+    _setScenario("slashing");
     benchmark(TestSlash.TALLY);
+  }
+
+  /**
+   * @notice Initialise per-scenario sample state and write the shared config.
+   *         Truncates any prior samples file for this scenario so reruns are clean.
+   */
+  function _setScenario(string memory _scenario) internal {
+    scenarioName = _scenario;
+    sampleSeq = 0;
+    lastSetupEpoch = type(uint256).max;
+
+    string memory rawPath = _rawPath();
+    vm.writeFile(rawPath, "");
+
+    string memory cfgKey = "bench_config";
+    vm.serializeUint(cfgKey, "SLOT_DURATION", SLOT_DURATION);
+    vm.serializeUint(cfgKey, "EPOCH_DURATION", EPOCH_DURATION);
+    vm.serializeUint(cfgKey, "MANA_TARGET", MANA_TARGET);
+    vm.serializeUint(cfgKey, "TARGET_COMMITTEE_SIZE", TARGET_COMMITTEE_SIZE);
+    string memory cfgJson = vm.serializeUint(cfgKey, "PROOFS_PER_EPOCH", PROOFS_PER_EPOCH);
+    vm.writeFile("bench-out/config.json", cfgJson);
+  }
+
+  function _rawPath() internal view returns (string memory) {
+    return string.concat("bench-out/raw_", scenarioName, ".jsonl");
+  }
+
+  /// @dev Counts zero-bytes in a calldata-style buffer for accurate EIP-7623 accounting.
+  function _countZeroBytes(bytes memory _data) internal pure returns (uint256 zeros) {
+    uint256 len = _data.length;
+    for (uint256 i = 0; i < len; i++) {
+      if (_data[i] == 0) {
+        zeros++;
+      }
+    }
+  }
+
+  function _sampleKey() internal returns (string memory) {
+    sampleSeq++;
+    return string.concat("s_", vm.toString(sampleSeq));
+  }
+
+  function _serializeCommonFields(string memory _key, string memory _flow) internal {
+    vm.serializeString(_key, "scenario", scenarioName);
+    vm.serializeString(_key, "flow", _flow);
+    vm.serializeUint(_key, "epoch", Epoch.unwrap(rollup.getCurrentEpoch()));
+    vm.serializeUint(_key, "slot", Slot.unwrap(rollup.getCurrentSlot()));
+    vm.serializeUint(_key, "checkpointNumber", rollup.getPendingCheckpointNumber());
+  }
+
+  function _recordSetupEpoch(uint256 _executionGas, bool _isFirstCallForEpoch) internal {
+    string memory key = _sampleKey();
+    _serializeCommonFields(key, "setupEpoch");
+    vm.serializeBool(key, "isFirstCallForEpoch", _isFirstCallForEpoch);
+    string memory json = vm.serializeUint(key, "executionGas", _executionGas);
+    vm.writeLine(_rawPath(), json);
+  }
+
+  function _recordPropose(
+    string memory _flow,
+    bytes memory _calldata,
+    uint256 _executionGas,
+    uint256 _committeeSize,
+    uint256 _attestationCount,
+    uint256 _signerCount
+  ) internal {
+    string memory key = _sampleKey();
+    uint256 zeros = _countZeroBytes(_calldata);
+
+    _serializeCommonFields(key, _flow);
+    vm.serializeUint(key, "committeeSize", _committeeSize);
+    vm.serializeUint(key, "attestationCount", _attestationCount);
+    vm.serializeUint(key, "signerCount", _signerCount);
+    vm.serializeUint(key, "calldataBytes", _calldata.length);
+    vm.serializeUint(key, "zeroBytes", zeros);
+    vm.serializeUint(key, "nonZeroBytes", _calldata.length - zeros);
+    vm.serializeBool(key, "blobCheckEnforced", false);
+    string memory json = vm.serializeUint(key, "executionGas", _executionGas);
+    vm.writeLine(_rawPath(), json);
+  }
+
+  function _recordSubmitProof(
+    bytes memory _calldata,
+    uint256 _executionGas,
+    uint256 _epochSize,
+    uint256 _startCheckpoint,
+    uint256 _endCheckpoint
+  ) internal {
+    string memory key = _sampleKey();
+    uint256 zeros = _countZeroBytes(_calldata);
+
+    _serializeCommonFields(key, "submitEpochRootProof");
+    vm.serializeUint(key, "epochSize", _epochSize);
+    vm.serializeUint(key, "startCheckpoint", _startCheckpoint);
+    vm.serializeUint(key, "endCheckpoint", _endCheckpoint);
+    vm.serializeUint(key, "calldataBytes", _calldata.length);
+    vm.serializeUint(key, "zeroBytes", zeros);
+    vm.serializeUint(key, "nonZeroBytes", _calldata.length - zeros);
+    string memory json = vm.serializeUint(key, "executionGas", _executionGas);
+    vm.writeLine(_rawPath(), json);
   }
 
   /**
@@ -400,28 +501,35 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function proposeWithTallyVote(Checkpoint memory b, address proposer) internal {
-    // First propose the checkpoint
-    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
-
-    uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
-    uint256 roundSizeInEpochs = 2;
-    bytes memory voteData = createTallyVoteData(committeeSize * roundSizeInEpochs);
-    Signature memory sig = createTallyVoteSignature(proposer, voteData, rollup.getCurrentSlot());
-
     Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
-    calls[0] = Multicall3.Call3({
-      target: address(rollup),
-      callData: abi.encodeCall(
-        rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
-      ),
-      allowFailure: false
-    });
-    calls[1] = Multicall3.Call3({
-      target: address(slashingProposer),
-      callData: abi.encodeCall(SlashingProposer(slashingProposer).vote, (voteData, sig)),
-      allowFailure: false
-    });
+    uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
+
+    {
+      CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
+      bytes memory voteData = createTallyVoteData(committeeSize * 2);
+      Signature memory sig = createTallyVoteSignature(proposer, voteData, rollup.getCurrentSlot());
+
+      calls[0] = Multicall3.Call3({
+        target: address(rollup),
+        callData: abi.encodeCall(
+          rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+        ),
+        allowFailure: false
+      });
+      calls[1] = Multicall3.Call3({
+        target: address(slashingProposer),
+        callData: abi.encodeCall(SlashingProposer(slashingProposer).vote, (voteData, sig)),
+        allowFailure: false
+      });
+    }
+
+    bytes memory aggregateCalldata = abi.encodeCall(multicall.aggregate3, (calls));
+
+    uint256 gasBefore = gasleft();
     multicall.aggregate3(calls);
+    uint256 gasUsed = gasBefore - gasleft();
+
+    _recordPropose("proposeAndVote", aggregateCalldata, gasUsed, committeeSize, b.attestations.length, b.signers.length);
   }
 
   function benchmark(TestSlash _slashing) public {
@@ -442,7 +550,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // the decoded checkpoint fixture. The checkpoint cannot be proven, but it will be accepted
       // as a proposal so it is useful for testing a long range of checkpoints.
       if (rollup.getCurrentSlot() == nextSlot) {
+        uint256 currentEpochU = Epoch.unwrap(rollup.getCurrentEpoch());
+        bool isFirstSetupForEpoch = currentEpochU != lastSetupEpoch;
+        lastSetupEpoch = currentEpochU;
+
+        uint256 setupGasBefore = gasleft();
         rollup.setupEpoch();
+        uint256 setupGasUsed = setupGasBefore - gasleft();
+        _recordSetupEpoch(setupGasUsed, isFirstSetupForEpoch);
 
         Checkpoint memory b = getCheckpoint();
         address proposer = rollup.getCurrentProposer();
@@ -452,6 +567,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         // Store the attestations for the current checkpoint number
         uint256 currentCheckpointNumber = rollup.getPendingCheckpointNumber() + 1;
         checkpointAttestations[currentCheckpointNumber] = AttestationLibHelper.packAttestations(b.attestations);
+
+        uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
 
         if (_slashing == TestSlash.TALLY) {
           SlashRound slashRound = SlashingProposer(slashingProposer).getCurrentRound();
@@ -463,20 +580,29 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           } else {
             // Before slash offset, just propose normally
             CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
+            bytes memory proposeCalldata = abi.encodeCall(
+              rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+            );
+
             vm.prank(proposer);
+            uint256 gasBefore = gasleft();
             rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
+            uint256 gasUsed = gasBefore - gasleft();
+
+            _recordPropose("propose", proposeCalldata, gasUsed, committeeSize, b.attestations.length, b.signers.length);
           }
         } else {
           CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
-
-          // Emit calldata size for propose
           bytes memory proposeCalldata = abi.encodeCall(
             rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
           );
-          emit log_named_uint("propose_calldata_size", proposeCalldata.length);
 
           vm.prank(proposer);
+          uint256 gasBefore = gasleft();
           rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
+          uint256 gasUsed = gasBefore - gasleft();
+
+          _recordPropose("propose", proposeCalldata, gasUsed, committeeSize, b.attestations.length, b.signers.length);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);
@@ -528,11 +654,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             proof: ""
           });
 
-          // Emit calldata size for submitEpochRootProof
           bytes memory submitCalldata = abi.encodeCall(rollup.submitEpochRootProof, (submitArgs));
-          emit log_named_uint("submitEpochRootProof_calldata_size", submitCalldata.length);
 
+          uint256 gasBefore = gasleft();
           rollup.submitEpochRootProof(submitArgs);
+          uint256 gasUsed = gasBefore - gasleft();
+
+          _recordSubmitProof(submitCalldata, gasUsed, epochSize, start, start + epochSize - 1);
         }
       }
     }
