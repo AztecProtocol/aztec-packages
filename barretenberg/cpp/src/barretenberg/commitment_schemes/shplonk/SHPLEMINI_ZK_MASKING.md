@@ -4,125 +4,279 @@ This note proves the KZG masking lemma used to replace the full-size random
 `gemini_masking_poly` in the Gemini + Shplonk + KZG path of Shplemini by a
 sparse polynomial with only `2d` random coefficients.
 
-Let `N = 2^d` be the dyadic circuit size. Write `E_j(X)=X^j` for the monomial
-basis of `F[X]_{<N}`. Let `e` be the maximum end-index of the masked polynomial
-data. Choose the smallest even `E >= e`, `E <= N`, such that the top pair
-`(E-1,E-2)` is disjoint from every dyadic pair
-`(N/2^ell, N/2^ell-1)` for `1 <= ell < d`; equivalently, exclude
-`E=B` and `E=B+2` for every dyadic `B=N/2^ell`. Define the tail-halving support
+We first prove the statement over a rational function field. A concrete
+Fiat-Shamir transcript is obtained by specialising the indeterminates; the proof
+is valid at every specialisation outside the explicitly defined exceptional
+locus.
+
+## Setup
+
+Let
 
 $$
-S = [E-1,E-2,N/2,N/2-1,N/4,N/4-1,\ldots,2,1],
+N=2^d,
+\qquad d\ge 4,
+\qquad 2d<N.
 $$
 
-truncated to exactly `2d` entries. The prover samples
+Let $\mathbb F$ be the scalar field and write $E_j(X)=X^j$ for the monomial
+basis of $\mathbb F[X]_{<N}$. Let $e$ be the maximum end-index of the masked
+polynomial data. Choose the smallest even integer $E$ such that
 
 $$
-M(X)=\sum_{s\in S} c_s X^s
+e\le E\le N,
+\qquad
+\{E-1,E-2\}\cap\{N/2^\ell,N/2^\ell-1\}=\varnothing
+\quad(1\le \ell<d).
 $$
 
-with independent uniform coefficients `c_s`.
-
-Assume `2d < N`; when `2d >= N`, this support covers the relevant domain and
-the sparse-mask question degenerates to dense masking. Work over the rational
-function field
+Equivalently, if $B=N/2^\ell$ is dyadic, then $E\notin\{B,B+2\}$. In the
+main argument we assume
 
 $$
-K=\mathbb F(u_0,\ldots,u_{d-1},r_0,\ldots,r_{d-1},\tau).
+N/2<E\le N.
 $$
 
-The proof excludes the usual algebraic bad set: Shplonk/KZG denominator zeros,
-Fiat-Shamir challenge collisions, the rank-witness zero loci below, and the
-explicit Lagrange/factor zero loci appearing in the formulas. Over BN254 this
-bad set has negligible probability by Schwartz-Zippel.
+When $E\le N/2$, the dense polynomial space is smaller and the low-tail
+containment argument applies after deleting the unused dense columns. The
+saturated case $d=3$ is recorded separately in Appendix B.
+
+Define the tail-halving support
+
+$$
+S=[E-1,E-2,N/2,N/2-1,N/4,N/4-1,\ldots,2,1],
+$$
+
+truncated to exactly $2d$ entries. The non-exceptional choice of $E$ makes
+these entries distinct. The prover samples
+
+$$
+M(X)=\sum_{s\in S} c_sX^s,
+\qquad c_s\stackrel{\$}{\leftarrow}\mathbb F
+$$
+
+with the $c_s$ independent.
+
+Work over
+
+$$
+K=\mathbb F(u_0,\ldots,u_{d-1},r_0,\ldots,r_{d-1},\tau),
+$$
+
+where the $u_i$ are Gemini folding challenges, the $r_i$ are Gemini opening
+points, and $\tau$ is the KZG trapdoor. Shplonk batching challenges and the
+final KZG opening point are used only in the reduction from the full transcript
+to the Gemini leakage map.
+
+For this support, with
+
+$$
+A_k=\{s\in S:\lfloor s/2^k\rfloor\ge 1\},
+\qquad
+C_k=A_k\setminus A_{k+1}\quad(0\le k\le d-2),
+\qquad
+C_{d-1}=A_{d-1},
+$$
+
+the fresh-column blocks are
+
+$$
+C_0=\{1\},
+\qquad
+C_k=\{2^{k+1}-1,2^k\}\quad(1\le k\le d-2),
+\qquad
+C_{d-1}=\{E-1,E-2,N/2\}.
+$$
+
+### Exceptional locus
+
+Let $R_E$ denote the active rank witness:
+
+$$
+R_E=
+\begin{cases}
+\det B_E, & E>3N/4,\\
+\Delta_E^{\mathrm{lo}}, & N/2<E\le 3N/4.
+\end{cases}
+$$
+
+The factorisations of $\det B_E$ and $\Delta_E^{\mathrm{lo}}$ are given in
+Sections 7 and 8. The exceptional locus is the zero locus of
+
+$$
+\mathcal E_E
+=
+R_E\cdot\prod_{t=0}^{d-1}(\tau+r_t)\cdot D_{\mathrm{Shplonk/KZG}},
+$$
+
+where $D_{\mathrm{Shplonk/KZG}}$ is the product of the Shplonk and KZG
+denominators that occur in the transcript reduction: the factors $\tau-z_i$,
+$z-z_i$, $\tau-z$, and the pairwise differences needed for the batched
+opening points to be distinct.
+
+All Lagrange and affine factors needed for the rank argument already occur as
+factors of $R_E$. Thus they are part of the explicit rank-witness zero locus,
+not an additional informal bad set. After specialising to a finite field,
+Schwartz-Zippel bounds the failure probability by
+$\deg(\mathcal E_E)/|\mathbb F|$.
 
 ## Theorem
 
-For the support `S` above, outside the bad set, the sparse masking polynomial
-randomises every transcript direction that dense degree-`<E` masking can expose
-in the Gemini + Shplonk + KZG transcript.
+Let
 
-More concretely, after projecting the Shplemini transcript to its Gemini leakage
-coordinates:
+$$
+V_E=\operatorname{span}\{X^s:0\le s<E\},
+\qquad
+V_S=\operatorname{span}\{X^s:s\in S\}.
+$$
 
-- if `E > 3N/4`, the sparse Gemini block has rank `2d`;
-- if `E <= 3N/4`, the sparse Gemini block has rank `2d-1`, and the dense
-  degree-`<E` image lies in the same rank-`2d-1` hyperplane.
+For $P\in V_E$, let $P_t$ be the polynomial obtained after $t$ Gemini
+folds, and define the Gemini leakage map
 
-The Shplonk and KZG messages add no independent `M`-leakage beyond these Gemini
-coordinates, so the same masking statement holds for the full KZG transcript.
+$$
+G_E:V_E\to K^{2d},
+\qquad
+G_E(P)=
+\bigl(P_0(\tau),P_0(-r_0),\ldots,P_{d-1}(\tau),P_{d-1}(-r_{d-1})\bigr).
+$$
+
+Let $G_S=G_E|_{V_S}$. Outside the exceptional locus $\mathcal E_E=0$,
+
+$$
+\operatorname{im}G_E\subseteq\operatorname{im}G_S.
+$$
+
+More precisely:
+
+$$
+\begin{array}{ll}
+E>3N/4: & \operatorname{rank}G_S=2d,\text{ hence }\operatorname{im}G_S=K^{2d},\\[2mm]
+N/2<E\le 3N/4: & \operatorname{rank}G_S=2d-1,\text{ and }\operatorname{im}G_E\subseteq\operatorname{im}G_S.
+\end{array}
+$$
+
+The Shplonk and KZG messages are linear functions of these Gemini coordinates
+and of the sumcheck value. The sumcheck value is evaluated from the same mask
+polynomial after the Gemini coordinates are fixed. Hence the sparse mask induces
+the same distribution on every full-transcript mask direction exposed by dense
+degree-$<E$ masking.
 
 ## Proof
 
 ### 1. Reduction to the Gemini block
 
-In the algebraic group model for KZG, a commitment `[P]` is represented by the
-scalar `P(tau)`. The mask contributes the following transcript scalars:
+Let $\mathsf T_E$ be the linear map from a mask polynomial to the mask-dependent
+part of the algebraic transcript. In the algebraic group model for KZG, a
+commitment $[P]$ is represented by the scalar $P(\tau)$. For the KZG path
+considered here, the mask-dependent transcript coordinates are
 
-| scalar | source |
-|---|---|
-| `M(u)` | sumcheck output |
-| `M(tau), M_1(tau), ..., M_{d-1}(tau)` | Gemini commitments |
-| `M_0(-r_0), ..., M_{d-1}(-r_{d-1})` | Gemini fold openings |
-| `Q_M(tau)` | Shplonk commitment |
-| `W_M(tau)` | KZG witness commitment |
+$$
+M(u),\qquad
+M_t(\tau),\ M_t(-r_t)\quad(0\le t<d),\qquad
+Q_M(\tau),\qquad W_M(\tau).
+$$
 
-Shplonk forms
+Here $M_t$ is the $t$-fold Gemini fold of $M$, and $Q_M,W_M$ denote the
+mask contributions to the Shplonk quotient commitment and the KZG witness
+commitment.
+
+**Lemma 1.1 (Shplonk/KZG rows).**  After the Fiat-Shamir challenges are fixed
+and the Shplonk/KZG denominators are nonzero, the coordinates $Q_M(\tau)$ and
+$W_M(\tau)$ are $K$-linear combinations of
+
+$$
+M(u),\qquad M_t(\tau),\qquad M_t(-r_t)\qquad(0\le t<d).
+$$
+
+*Proof.* Shplonk constructs
 
 $$
 Q(X)=\sum_i \nu^i\frac{P_i(X)-v_i}{X-z_i}.
 $$
 
-Therefore `Q_M(tau)` is a linear combination of the Gemini scalars
-`M_i(tau)`, `M_i(-r_i)`, and the sumcheck scalar `M(u)`, with coefficients fixed
-by the transcript challenges. KZG then opens `Q` at `z`, so
+Taking the mask-dependent part and evaluating at $X=\tau$ gives a linear
+combination of the corresponding mask evaluations, with coefficients determined
+by $\nu,\tau,z_i$ and the nonzero denominators $\tau-z_i$. In the Gemini
+instance, those mask evaluations are exactly the displayed Gemini openings and
+the sumcheck value. The KZG witness coordinate is obtained from the KZG quotient
+for opening $Q$ at $z$; after substituting the Shplonk expression, its
+mask-dependent numerator is again a linear combination of the same coordinates,
+with additional denominators collected in $D_{\mathrm{Shplonk/KZG}}$. $\square$
+
+Thus the only possible independent mask leakage is contained in the augmented
+Gemini map
 
 $$
-W_M(\tau)=\frac{Q_M(\tau)}{\tau-z}.
+\widehat G_E(P)=\bigl(P(u),G_E(P)\bigr).
 $$
 
-Thus the Shplonk and KZG rows lie in the span of the Gemini rows. It is enough
-to prove the rank/image statement for the Gemini leakage map. After the simulator
-solves for sparse coefficients, `M(u)` is evaluated from those same coefficients,
-so the sumcheck scalar is sampled consistently with the Gemini data.
+The determinant argument below proves the image statement for $G_E$. The
+sumcheck coordinate is not prescribed independently by the simulator: once a
+sparse mask $M\in V_S$ has been chosen to realise the required Gemini leakage,
+$M(u)$ is the value of that same polynomial. Hence the full transcript is
+sampled from the pushforward of the sparse coefficient distribution under
+$\widehat G_S$, and Lemma 1.1 shows that Shplonk and KZG add no further rank
+condition beyond this augmented Gemini data.
 
-For the rank witnesses below we drop the `M(u)` row and use the `2d x |S|`
-Gemini block `B` with rows
+For the rank witnesses below we use the $2d\times |S|$ Gemini matrix $B$,
+whose rows are
 
 $$
-M_t(\tau),\ M_t(-r_t)\qquad(0\le t<d).
+M_t(\tau),\qquad M_t(-r_t)\qquad(0\le t<d),
 $$
+
+and whose columns are the monomials $E_s=X^s$ for $s\in S$.
 
 ### 2. Fold formulas and row normalisation
 
-For a monomial `E_s=X^s`, after `t` Gemini folds,
+For $s<N$, set
 
 $$
-\operatorname{fold}_t(E_s)=
-\ell_t(s)E_{q_t(s)},
-\qquad
 q_t(s)=\left\lfloor\frac{s}{2^t}\right\rfloor,
 \qquad
 \ell_t(s)=L_{s\bmod 2^t}(u_0,\ldots,u_{t-1}).
 $$
 
-So
+The Gemini fold recursion gives, for the monomial $E_s=X^s$,
 
 $$
+\operatorname{fold}_t(E_s)=\ell_t(s)E_{q_t(s)},
+\qquad
 M_t(x)(E_s)=\ell_t(s)x^{q_t(s)}.
 $$
 
-Replace each row pair `(M_t(tau), M_t(-r_t))` by
+Replace each row pair $(M_t(\tau),M_t(-r_t))$ by
 
 $$
-D_t:=M_t(\tau)-M_t(-r_t),\qquad M_t:=M_t(-r_t).
+D_t=M_t(\tau)-M_t(-r_t),
+\qquad
+M_t=M_t(-r_t).
 $$
 
-This is determinant-preserving. Define
+This row operation has determinant $1$. Define
 
 $$
-\phi_m(\tau,y)=\frac{\tau^m-y^m}{\tau-y}=\sum_{i=0}^{m-1}\tau^{m-1-i}y^i,
-\qquad \phi_0=0.
+\phi_m(\tau,y)=\frac{\tau^m-y^m}{\tau-y}
+=\sum_{i=0}^{m-1}\tau^{m-1-i}y^i,
+\qquad
+\phi_0=0.
+$$
+
+We use the following elementary identities. For $a\ge b\ge1$,
+
+$$
+\phi_a(\tau,y)\phi_{b-1}(\tau,y)-\phi_b(\tau,y)\phi_{a-1}(\tau,y)
+=-(\tau y)^{b-1}\phi_{a-b}(\tau,y).
+$$
+
+Indeed, multiply by $(\tau-y)^2$ and use $(\tau-y)\phi_m=\tau^m-y^m$; the
+mixed terms cancel and leave
+$-(\tau y)^{b-1}(\tau^{a-b}-y^{a-b})$. We also use the recursions
+
+$$
+\phi_m(\tau,y)=\tau\phi_{m-1}(\tau,y)+y^{m-1},
+\qquad
+\phi_m(\tau,y)=y\phi_{m-1}(\tau,y)+\tau^{m-1}.
 $$
 
 Then
@@ -133,106 +287,123 @@ D_t(E_s)=(\tau+r_t)D_t'(E_s),
 D_t'(E_s)=\ell_t(s)\phi_{q_t(s)}(\tau,-r_t).
 $$
 
-Also set
+After extracting the factor $\tau+r_t$ from the row $D_t$, set
 
 $$
-M_t^{\mathrm{new}}:=M_t+r_tD_t'.
+M_t^{\mathrm{new}}=M_t+r_tD_t'.
 $$
 
-By the recursion for `phi`,
+**Lemma 2.1 (normalised row values).** For every $t$ and $s$,
 
 $$
 M_t^{\mathrm{new}}(E_s)=
 \begin{cases}
-\ell_t(s), & q_t(s)=0,\\
+\ell_t(s), & q_t(s)=0,\\[1mm]
 \ell_t(s)\tau r_t\phi_{q_t(s)-1}(\tau,-r_t), & q_t(s)\ge1.
 \end{cases}
 $$
 
-All row operations above are invertible over `K` away from the explicit factors
-`tau+r_t`.
-
-### 3. Triangularisation
-
-Let
+*Proof.* If $q_t(s)=0$, then $M_t(E_s)=\ell_t(s)$ and $D_t'(E_s)=0$. If
+$q_t(s)=m\ge1$, use
 
 $$
-A_k=\{s\in S:q_k(s)\ge1\},
-\qquad
-C_k=A_k\setminus A_{k+1}\quad(0\le k\le d-2),
-\qquad
-C_{d-1}=A_{d-1}.
+\phi_m(\tau,y)=\tau\phi_{m-1}(\tau,y)+y^{m-1}
 $$
 
-For non-exceptional even `E`, these fresh blocks are
+with $y=-r_t$. Then
 
 $$
-C_0=\{1\},\qquad
-C_k=\{2^{k+1}-1,2^k\}\ (1\le k\le d-2),
-\qquad
-C_{d-1}=\{E-1,E-2,N/2\}.
+(-r_t)^m+r_t\phi_m(\tau,-r_t)
+=\tau r_t\phi_{m-1}(\tau,-r_t),
 $$
 
-The following two identities are the core of the filtration proof.
+and multiplication by $\ell_t(s)$ gives the formula. $\square$
 
-First, for `j<k` and `s in C_j`,
+All row operations in this section are invertible over $K$ away from the
+factors $\tau+r_t$, already included in $\mathcal E_E$.
+
+### 3. Reducing to Block-Triangular Form
+
+The following two identities are the filtration step.
+
+**Lemma 3.1 (old-column leakage).** If $j<k$ and $s\in C_j$, then
 
 $$
 M_k^{\mathrm{new}}(E_s)
 =\prod_{i=j+1}^{k-1}(1-u_i)\,M_{j+1}^{\mathrm{new}}(E_s).
 $$
 
-Indeed, both sides are the `q=0` case above, and the Lagrange factors differ
-only by the zero bits `j+1,...,k-1`.
+*Proof.* For $s\in C_j$, one has $q_k(s)=q_{j+1}(s)=0$. Lemma 2.1 therefore
+reduces both sides to Lagrange factors. The bits $j+1,\ldots,k-1$ of $s$
+are all zero, so the multilinear Lagrange recursion gives
 
-Second, for `k>=1` and `s in C_{k-1}`,
+$$
+\ell_k(s)=\ell_{j+1}(s)\prod_{i=j+1}^{k-1}(1-u_i).
+$$
+
+This is the desired identity. $\square$
+
+**Lemma 3.2 (adjacent block).** If $k\ge1$ and $s\in C_{k-1}$, then
 
 $$
 M_k^{\mathrm{new}}(E_s)=u_{k-1}D_{k-1}'(E_s).
 $$
 
-Here `q_{k-1}(s)=1`, `q_k(s)=0`, and the `(k-1)`-st bit of `s` is `1`.
-
-Define, for `k>=1`,
+*Proof.* For $s\in C_{k-1}$,
 
 $$
-N_k:=M_k^{\mathrm{new}}-u_{k-1}D_{k-1}'-(1-u_{k-1})M_{k-1}^{\mathrm{new}}.
+q_{k-1}(s)=1,
+\qquad
+q_k(s)=0,
+\qquad
+\operatorname{bit}_{k-1}(s)=1.
 $$
 
-This is unit-triangular in the row index. The two identities above imply that
-both `D_k'` and `N_k` vanish on `C_0 \sqcup ... \sqcup C_{k-1}`. Therefore, with
-rows ordered
+Thus $D_{k-1}'(E_s)=\ell_{k-1}(s)\phi_1(\tau,-r_{k-1})=\ell_{k-1}(s)$, while
+Lemma 2.1 gives $M_k^{\mathrm{new}}(E_s)=\ell_k(s)=u_{k-1}\ell_{k-1}(s)$.
+$\square$
+
+For $k\ge1$, define
+
+$$
+N_k=M_k^{\mathrm{new}}-u_{k-1}D_{k-1}'-(1-u_{k-1})M_{k-1}^{\mathrm{new}}.
+$$
+
+The transformation from the rows
+$(D_0',M_0^{\mathrm{new}},\ldots,D_{d-1}',M_{d-1}^{\mathrm{new}})$ to
 
 $$
 (D_0',M_0^{\mathrm{new}},D_1',N_1,\ldots,D_{d-1}',N_{d-1})
 $$
 
-and columns ordered `C_0 | C_1 | ... | C_{d-1}`, the transformed matrix is
-block-lower-triangular with diagonal blocks
+is unit-triangular in the row index. Lemmas 3.1 and 3.2 imply
+
+$$
+D_k'|_{C_0\sqcup\cdots\sqcup C_{k-1}}=0,
+\qquad
+N_k|_{C_0\sqcup\cdots\sqcup C_{k-1}}=0.
+$$
+
+Therefore, with columns ordered $C_0|C_1|\cdots|C_{d-1}$, the transformed
+matrix is block-lower-triangular. Its diagonal blocks are
 
 $$
 T_k=\begin{pmatrix}D_k'(E_s)\\ N_k(E_s)\end{pmatrix}_{s\in C_k}.
 $$
 
-The block `T_0` has size `2 x 1`, the middle blocks `T_k` for
-`1 <= k <= d-2` have size `2 x 2`, and the boundary block `T_{d-1}` has size
-`2 x 3`.
+The block $T_0$ has size $2\times1$, the middle blocks $T_k$ for
+$1\le k\le d-2$ have size $2\times2$, and the boundary block
+$T_{d-1}$ has size $2\times3$.
 
 ### 4. Middle determinants
 
-For every `1 <= k <= d-2`, put `m=k-1`. A direct `2 x 2` computation on
-`C_k={2^{k+1}-1,2^k}` gives
+For $1\le k\le d-2$, put $m=k-1$. The middle block has columns
 
 $$
-\boxed{
-\det T_k
-=
-- L_0(u_{<m})L_{2^m-1}(u_{<m})
-(\tau-r_m)A_m^+(r_m)A_m^-(\tau)
-}
+C_k=\{2^{k+1}-1,2^k\}.
 $$
 
-where
+Define
 
 $$
 A_m^+(r_m)=u_m+(1-u_m)r_m,
@@ -240,31 +411,110 @@ A_m^+(r_m)=u_m+(1-u_m)r_m,
 A_m^-(\tau)=u_m-(1-u_m)\tau.
 $$
 
-These are exactly the middle-block determinants proved in
-`SHPLEMINI_ZK_FILTRATION_PROOF.md`; they do not depend on the exact value of the
-top pair.
+**Lemma 4.1 (middle block determinant).** For every $1\le k\le d-2$,
+
+$$
+\det T_k
+=
+- L_0(u_{<m})L_{2^m-1}(u_{<m})
+(\tau-r_m)A_m^+(r_m)A_m^-(\tau).
+$$
+
+*Proof.* Let
+
+$$
+u=u_m,
+\qquad r=r_m,
+\qquad L_-=L_0(u_{<m}),
+\qquad L_+=L_{2^m-1}(u_{<m}).
+$$
+
+On the two columns of $C_k$ one has $q_k=1$. Hence
+$M_k^{\mathrm{new}}=0$ and $D_k'=\ell_k$ there, so the $D_k'$ row is
+
+$$
+\bigl(uL_+,(1-u)L_-\bigr).
+$$
+
+Since $M_k^{\mathrm{new}}=0$ on $C_k$,
+
+$$
+N_k=-uD_m'-(1-u)M_m^{\mathrm{new}}
+$$
+
+on this block. The level-$m$ quotients of the two columns $2^{k+1}-1$ and
+$2^k$ are $3$ and $2$. Using
+
+$$
+\phi_2(\tau,-r)=\tau-r,
+\qquad
+\phi_3(\tau,-r)=\tau^2-\tau r+r^2,
+$$
+
+Lemma 2.1 gives
+
+$$
+N_k(2^{k+1}-1)
+=-L_+\bigl(u(\tau^2-\tau r+r^2)+(1-u)\tau r(\tau-r)\bigr),
+$$
+
+$$
+N_k(2^k)
+=-L_-\bigl(u(\tau-r)+(1-u)\tau r\bigr).
+$$
+
+Therefore
+
+$$
+\begin{aligned}
+\det T_k
+&=L_+L_-\Bigl((1-u)\bigl(u(\tau^2-\tau r+r^2)+(1-u)\tau r(\tau-r)\bigr)\\
+&\hspace{5.5em}-u\bigl(u(\tau-r)+(1-u)\tau r\bigr)\Bigr)\\
+&=-L_+L_-(\tau-r)\bigl(u+(1-u)r\bigr)\bigl(u-(1-u)\tau\bigr).
+\end{aligned}
+$$
+
+Substituting back $m=k-1$ gives the claimed formula. The computation depends
+only on the fixed middle columns $2^{k+1}-1$ and $2^k$, not on the top pair
+$E-1,E-2$. $\square$
 
 ### 5. Boundary preparation
 
-Pivot on the entry `D_0'(E_1)=1` in `C_0`. Every other row vanishes on `C_0`, so
-this Schur step only deletes row `D_0'` and column `1`.
-
-The remaining floating row `M_0^{new}` can be eliminated from the middle blocks
-`C_1,...,C_{d-2}` using the invertible blocks `T_k`: solve on each `C_k`
+The first fresh block is $C_0=\{1\}$. Since
 
 $$
-M_0^{\mathrm{new}}|_{C_k}=\alpha_kD_k'|_{C_k}+\beta_kN_k|_{C_k},
+D_0'(E_1)=\phi_1(\tau,-r_0)=1
 $$
 
-then replace `M_0^{new}` by
-`M_0^{new}-\alpha_kD_k'-\beta_kN_k`, in increasing `k`. The triangular support
-ensures that later eliminations do not undo earlier ones. Denote the final
-floating row by `M_{0,elim}^{new}`.
+and every row except $D_0'$ vanishes on $C_0$ after triangularisation, the
+Schur complement at this pivot deletes the row $D_0'$ and the column $1$.
 
-After this step, the determinant factors as the product of the middle block
-determinants times a boundary determinant.
+The row $M_0^{\mathrm{new}}$ remains unpaired. For each middle block
+$C_k$, $1\le k\le d-2$, Lemma 4.1 and the condition $R_E\ne0$ imply that
+$T_k$ is invertible. Therefore there are unique $\alpha_k,\beta_k\in K$
+such that
 
-### 6. The rho anti-symmetry
+$$
+M_0^{\mathrm{new}}|_{C_k}
+=\alpha_kD_k'|_{C_k}+\beta_kN_k|_{C_k}.
+$$
+
+Replace $M_0^{\mathrm{new}}$ successively by
+
+$$
+M_0^{\mathrm{new}}-\alpha_kD_k'-\beta_kN_k
+\qquad(1\le k\le d-2),
+$$
+
+in increasing $k$. Since $D_k'$ and $N_k$ vanish on
+$C_0\sqcup\cdots\sqcup C_{k-1}$, later eliminations do not change earlier
+blocks. Let the resulting row be $M_{0,\mathrm{elim}}^{\mathrm{new}}$.
+
+After this operation the determinant, or the relevant reduced minor in the
+low-tail case, is the product of the middle determinants and a boundary
+determinant supported on $C_{d-1}$.
+
+### 6. The $\rho$-anti-symmetry
 
 Let
 
@@ -278,7 +528,7 @@ h=2^{d-2},
 \rho=c_+\bmod h.
 $$
 
-Since `E` is even, `rho` is odd. Define
+Since $E$ is even, $\rho$ is odd. Set
 
 $$
 W_+=L_\rho(u_{<d-2}),
@@ -286,94 +536,249 @@ W_+=L_\rho(u_{<d-2}),
 W_-=L_{\rho-1}(u_{<d-2}).
 $$
 
-Thus `W_+=u_0H` and `W_-=(1-u_0)H` for a common higher-bit factor `H`.
-For any row `R` among `D_k'`, `M_k^{new}` with `k>=1`, and among `N_k` with
-`k>=2`, the top-pair values satisfy
+Thus $W_+=u_0H$ and $W_-=(1-u_0)H$ for the common higher-bit factor
+$H$.
+
+**Lemma 6.1 (anti-symmetric vanishing).** Let $R$ be one of the rows
+$D_k'$, $M_k^{\mathrm{new}}$ with $k\ge1$, or $N_k$ with $k\ge2$. Then
 
 $$
 W_-R(c_+)-W_+R(c_-)=0.
 $$
 
-The reason is that `q_k(c_+)=q_k(c_-)`; the only difference between the two
-Lagrange factors is the bit-0 factor, which is exactly cancelled by
-`W_-` and `W_+`. The row `N_1` is the single exception because it contains the
-level-0 rows.
+*Proof.* For $k\ge1$, the two exponents $c_+$ and $c_-$ have the same
+quotient $q_k$. The only difference in their Lagrange factors below level
+$d-2$ is the bit-0 factor. Multiplication by $W_-$ and $W_+$ exchanges
+these bit-0 factors and leaves the common higher-bit factor unchanged. The rows
+$N_k$ with $k\ge2$ are linear combinations of rows to which this argument
+applies. $\square$
 
-Now set
+The row $N_1$ is exceptional because it contains level-0 rows. Define
 
 $$
 X_m=(1-u_0)\phi_m(\tau,-r_0)-u_0\phi_{m-1}(\tau,-r_0).
 $$
 
-The Casoratian identity from `SHPLEMINI_ZK_FILTRATION_PROOF.md` is
+**Lemma 6.2 (Casoratian).** For every even $E\ge4$,
 
 $$
 X_2X_{E-1}-X_3X_{E-2}
 =\tau r_0\phi_{E-4}(\tau,-r_0)A_0^+(r_0)A_0^-(\tau).
 $$
 
-It holds for every even `E>=4`; its proof is three applications of
+*Proof.* In this proof all $\phi$'s are evaluated at $(\tau,-r_0)$. Expanding
+bilinearly in $u_0$ and $1-u_0$ gives
 
 $$
-\phi_a\phi_{b-1}-\phi_b\phi_{a-1}=-(\tau y)^{b-1}\phi_{a-b}(\tau,y).
+\begin{aligned}
+X_2X_{E-1}-X_3X_{E-2}
+&=(1-u_0)^2(\phi_2\phi_{E-1}-\phi_3\phi_{E-2})\\
+&\quad+u_0(1-u_0)(\phi_3\phi_{E-3}-\phi_{E-1})\\
+&\quad+u_0^2(\phi_{E-2}-\phi_2\phi_{E-3}).
+\end{aligned}
 $$
 
-The same calculation as the dyadic boundary proof, with the
-`(1-u_0,-u_0)` functional multiplied by `H`, gives
+The identity for $\phi$ gives
 
 $$
-\boxed{
+\phi_2\phi_{E-1}-\phi_3\phi_{E-2}=-\tau^2r_0^2\phi_{E-4},
+\qquad
+\phi_{E-2}-\phi_2\phi_{E-3}=\tau r_0\phi_{E-4}.
+$$
+
+For the middle bracket, use the recursions
+$\phi_{E-1}=\tau\phi_{E-2}+r_0^{E-2}$ and
+$\phi_{E-2}=\tau\phi_{E-3}-r_0^{E-3}$, valid because $E$ is even, together with
+
+$$
+\tau r_0\phi_{E-5}-\phi_{E-3}=-\phi_2\phi_{E-4},
+$$
+
+to obtain
+
+$$
+\phi_3\phi_{E-3}-\phi_{E-1}=-\tau r_0\phi_2\phi_{E-4}.
+$$
+
+Substitution yields
+
+$$
+X_2X_{E-1}-X_3X_{E-2}
+=\tau r_0\phi_{E-4}\bigl[u_0^2-u_0(1-u_0)\phi_2-(1-u_0)^2\tau r_0\bigr].
+$$
+
+Since $\phi_2=\tau-r_0$, the bracket is
+
+$$
+\bigl(u_0+(1-u_0)r_0\bigr)\bigl(u_0-(1-u_0)\tau\bigr)
+=A_0^+(r_0)A_0^-(\tau).
+$$
+
+This proves the identity. $\square$
+
+**Lemma 6.3 (boundary functional).** For $d\ge4$,
+
+$$
 \Delta_\rho
 :=W_-M_{0,\mathrm{elim}}^{\mathrm{new}}(c_+)
 -W_+M_{0,\mathrm{elim}}^{\mathrm{new}}(c_-)
 =W_+r_0^2\tau^2
-\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}
-}
-\qquad(d\ge4).
+\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}.
 $$
 
-All higher eliminated rows vanish under the rho-anti-symmetric functional; the
-only surviving pieces are the original `M_0^{new}` row and the `N_1` correction,
-and the displayed Casoratian evaluates them.
+*Proof.* Write $W_+=u_0H$ and $W_-=(1-u_0)H$. It suffices to compute the
+normalised functional
+
+$$
+\Delta'=(1-u_0)M_{0,\mathrm{elim}}^{\mathrm{new}}(c_+)
+-u_0M_{0,\mathrm{elim}}^{\mathrm{new}}(c_-),
+$$
+
+since $\Delta_\rho=H\Delta'$ and $H u_0=W_+$.
+
+Substitute
+
+$$
+M_{0,\mathrm{elim}}^{\mathrm{new}}
+=M_0^{\mathrm{new}}-\sum_{k=1}^{d-2}(\alpha_kD_k'+\beta_kN_k).
+$$
+
+By Lemma 6.1, every eliminated row except $N_1$ vanishes under $\Delta'$. Thus
+
+$$
+\Delta'
+=\bigl[(1-u_0)M_0^{\mathrm{new}}(c_+)-u_0M_0^{\mathrm{new}}(c_-)\bigr]
+-\beta_1\bigl[(1-u_0)N_1(c_+)-u_0N_1(c_-)\bigr].
+$$
+
+Because $M_0^{\mathrm{new}}(E_s)=\tau r_0\phi_{s-1}(\tau,-r_0)$ for $s\ge1$,
+
+$$
+(1-u_0)M_0^{\mathrm{new}}(c_+)-u_0M_0^{\mathrm{new}}(c_-)=\tau r_0X_{E-2}.
+$$
+
+For $N_1=M_1^{\mathrm{new}}-u_0D_0'-(1-u_0)M_0^{\mathrm{new}}$, the
+$M_1^{\mathrm{new}}$ contribution cancels under $\Delta'$ by Lemma 6.1, leaving
+
+$$
+(1-u_0)N_1(c_+)-u_0N_1(c_-)
+=-u_0X_{E-1}-(1-u_0)\tau r_0X_{E-2}.
+$$
+
+It remains to compute $\beta_1$, the coefficient used to eliminate
+$M_0^{\mathrm{new}}$ on $C_1=\{3,2\}$. Cramer's rule against the block $T_1$
+gives
+
+$$
+\beta_1
+=\frac{D_1'(3)M_0^{\mathrm{new}}(2)-D_1'(2)M_0^{\mathrm{new}}(3)}{\det T_1}
+=\frac{u_0\tau r_0-(1-u_0)\tau r_0\phi_2}{\det T_1}.
+$$
+
+Since $u_0-(1-u_0)\phi_2=-X_2$ and Lemma 4.1 gives
+
+$$
+\det T_1=-(\tau-r_0)A_0^+(r_0)A_0^-(\tau),
+$$
+
+we have
+
+$$
+\beta_1=\frac{\tau r_0X_2}{(\tau-r_0)A_0^+(r_0)A_0^-(\tau)}.
+$$
+
+Let $D_0=(\tau-r_0)A_0^+(r_0)A_0^-(\tau)$. Combining the preceding displays and
+multiplying by $D_0$ gives
+
+$$
+\Delta'D_0
+=\tau r_0X_{E-2}D_0
++\tau r_0X_2\bigl[u_0X_{E-1}+(1-u_0)\tau r_0X_{E-2}\bigr].
+$$
+
+A direct expansion from the definitions gives
+
+$$
+D_0+(1-u_0)\tau r_0X_2=-u_0X_3.
+$$
+
+Therefore
+
+$$
+\Delta'D_0
+=u_0\tau r_0\bigl(X_2X_{E-1}-X_3X_{E-2}\bigr).
+$$
+
+By Lemma 6.2,
+
+$$
+\Delta'D_0
+=u_0\tau^2r_0^2\phi_{E-4}(\tau,-r_0)A_0^+(r_0)A_0^-(\tau).
+$$
+
+Dividing by $D_0$ and using $E-4$ even gives
+
+$$
+\Delta'=u_0r_0^2\tau^2\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}.
+$$
+
+Multiplying by $H$ yields the claimed formula because $Hu_0=W_+$. $\square$
 
 ### 7. High-tail rank
 
-Assume `E>3N/4`. The final boundary has columns `{c_+,c_-,N/2}` and rows
+Assume
 
 $$
-M_{0,\mathrm{elim}}^{\mathrm{new}},\quad D_{d-1}',\quad N_{d-1}.
+E>3N/4.
 $$
 
-A direct evaluation of the cofactors of the first row gives, up to the fixed
-column-ordering sign,
+After the eliminations of Section 5, the remaining boundary columns are
+$\{c_+,c_-,N/2\}$, and the remaining boundary rows are
+
+$$
+M_{0,\mathrm{elim}}^{\mathrm{new}},
+\qquad
+D_{d-1}',
+\qquad
+N_{d-1}.
+$$
+
+Let $U_E^{\mathrm{hi}}$ be this $3\times3$ boundary matrix.
+
+**Lemma 7.1 (high-tail boundary determinant).** Up to the fixed sign determined
+by the column ordering,
+
+$$
+\det U_E^{\mathrm{hi}}
+=
+\pm r_0^2\tau^2
+\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}
+(\tau-r_{d-2})A_{d-2}^+(r_{d-2})A_{d-2}^-(\tau)
+L_0(u_{<d-2})L_\rho(u_{<d-2}).
+$$
+
+*Proof.* Compute the cofactors of the first row of $U_E^{\mathrm{hi}}$. They
+are, up to the same fixed ordering sign,
 
 $$
 (\tau-r_{d-2})A_{d-2}^+(r_{d-2})A_{d-2}^-(\tau)
 L_0(u_{<d-2})(W_-,-W_+,0).
 $$
 
-Expanding along the first row and using the boxed formula for `Delta_rho`,
+Expanding $\det U_E^{\mathrm{hi}}$ along the first row therefore applies the
+functional $(a,b,c)\mapsto W_-a-W_+b$ to
+$M_{0,\mathrm{elim}}^{\mathrm{new}}$ on the top pair. Lemma 6.3 evaluates this
+functional as $\Delta_\rho$, giving the displayed formula. $\square$
 
-$$
-\det U_E^{\mathrm{hi}}
-=\pm r_0^2\tau^2
-\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}
-(\tau-r_{d-2})A_{d-2}^+(r_{d-2})A_{d-2}^-(\tau)
-L_0(u_{<d-2})L_\rho(u_{<d-2}).
-$$
-
-Hence
+The transformed determinant is
 
 $$
 \det \widetilde B_E
-=\left(\prod_{k=1}^{d-2}\det T_k\right)\det U_E^{\mathrm{hi}}
+=\left(\prod_{k=1}^{d-2}\det T_k\right)\det U_E^{\mathrm{hi}}.
 $$
 
-is a nonzero polynomial in `K`. Since the row changes from `B` to
-`\widetilde B` are invertible outside the explicit factors `tau+r_k`, the
-original Gemini block has rank `2d`.
-
-Equivalently, after restoring the extracted `tau+r_k` factors,
+By Lemmas 4.1 and 7.1 this is a nonzero element of $K$ outside
+$R_E=0$. Restoring the extracted row factors $\tau+r_t$,
 
 $$
 \det B_E
@@ -391,58 +796,79 @@ $$
 L_0(u_{<d-2})L_\rho(u_{<d-2}).
 $$
 
+Thus $\det B_E\ne0$ outside the exceptional locus, so
+$\operatorname{rank}G_S=2d$.
+
 ### 8. Low-tail rank and dense containment
 
-Assume `N/2 < E <= 3N/4`; the smaller endpoint where the dense polynomial space
-itself is shorter only reduces the leakage dimension.
+Assume
 
-Put `m=d-2`, `u=u_m`, `r=r_m`, and
+$$
+N/2<E\le 3N/4.
+$$
+
+Put $m=d-2$, $u=u_m$, $r=r_m$, and
 
 $$
 \lambda=-\frac{u(\tau-r)+(1-u)\tau r}{1-u}.
 $$
 
-For every monomial `s<3N/4`, the final triangularised rows satisfy
+**Lemma 8.1 (dense hyperplane).** For every monomial $E_s$ with
+$s<3N/4$, the final triangularised rows satisfy
 
 $$
-N_{d-1}(s)=\lambda D_{d-1}'(s).
+N_{d-1}(E_s)=\lambda D_{d-1}'(E_s).
 $$
 
-This is a three-case check:
+*Proof.* There are three ranges.
 
-| range of `s` | `q_m(s)` | bit `m` | `q_{d-1}(s)` | result |
-|---|---:|---:|---:|---|
-| `s<N/4` | `0` | `0` | `0` | both rows vanish |
-| `N/4 <= s<N/2` | `1` | `1` | `0` | both rows vanish |
-| `N/2 <= s<3N/4` | `2` | `0` | `1` | `N_{d-1}=lambda D_{d-1}'` |
+$$
+\begin{array}{c|c|c|c|c}
+\text{range of }s & q_m(s) & \operatorname{bit}_m(s) & q_{d-1}(s) & \text{result}\\
+\hline
+s<N/4 & 0 & 0 & 0 & \text{both rows vanish}\\
+N/4\le s<N/2 & 1 & 1 & 0 & \text{both rows vanish}\\
+N/2\le s<3N/4 & 2 & 0 & 1 & N_{d-1}=\lambda D_{d-1}'
+\end{array}
+$$
 
-Thus the dense degree-`<E` image lies in the hyperplane cut out by
-`N_{d-1}-lambda D_{d-1}'`.
+Each entry follows by substituting the listed $q$-values into Lemma 2.1 and
+the definition of $N_{d-1}$. $\square$
 
-For the sparse support, delete the redundant row `N_{d-1}` and the boundary
-column `N/2`. The remaining boundary columns are `{c_+,c_-}` with rows
-`M_{0,elim}^{new}` and `D_{d-1}'`. On these columns,
+Therefore $\operatorname{im}G_E$ lies in the hyperplane
+
+$$
+H_E=\ker\bigl(N_{d-1}-\lambda D_{d-1}'\bigr).
+$$
+
+For the sparse support, delete the redundant row $N_{d-1}$ and the boundary
+column $N/2$. The remaining boundary columns are $\{c_+,c_-\}$, and the
+remaining boundary rows are $M_{0,\mathrm{elim}}^{\mathrm{new}}$ and
+$D_{d-1}'$. On these columns,
 
 $$
 D_{d-1}'=(1-u_{d-2})(W_+,W_-).
 $$
 
-Therefore
+Hence, by Lemma 6.3,
 
 $$
 \det U_E^{\mathrm{lo}}
 =(1-u_{d-2})\Delta_\rho
 =(1-u_{d-2})L_\rho(u_{<d-2})r_0^2\tau^2
-\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}
-\qquad(d\ge4).
+\frac{\tau^{E-4}-r_0^{E-4}}{\tau^2-r_0^2}.
 $$
 
-Multiplying by the middle block determinants gives a nonzero reduced minor of
-size `(2d-1) x (2d-1)`. Hence the sparse image has rank `2d-1`. Since it lies
-in the same hyperplane as the dense image and has the full dimension of that
-hyperplane, it contains the dense degree-`<E` image.
+Multiplying by the middle block determinants gives a nonzero
+$(2d-1)\times(2d-1)$ reduced minor. Thus $\operatorname{rank}G_S=2d-1$.
+Since $G_S$ also satisfies the row relation of Lemma 8.1, its image is the
+full hyperplane $H_E$. Consequently
 
-The resulting reduced-minor formula is, up to the fixed ordering sign,
+$$
+\operatorname{im}G_E\subseteq H_E=\operatorname{im}G_S.
+$$
+
+The reduced-minor witness is, up to the fixed ordering sign,
 
 $$
 \Delta_E^{\mathrm{lo}}
@@ -461,33 +887,42 @@ $$
 \left(\prod_{k=1}^{d-3}L_0(u_{<k})L_{2^k-1}(u_{<k})\right).
 $$
 
-For the degenerate padded case `d=3`, direct symbolic computation gives the same
-statement with the saturated power `(r_0 tau)^2` removed; see Appendix B.
+For the degenerate padded case $d=3$, direct symbolic computation gives the
+same statement with the saturated power $(r_0\tau)^2$ removed; see Appendix B.
 
-### 9. Schwartz-Zippel and simulation
+### 9. Specialisation and simulation
 
-Let `r*` be the active rank witness: `det B_E` in the high-tail case and the
-fixed reduced minor in the low-tail case. The witness is a nonzero polynomial in
-`K`. After Fiat-Shamir specialisation over the concrete field, rank can drop
-only on the zero locus of `r*`, together with the explicit denominator,
-collision, and Lagrange-zero events listed at the start. Schwartz-Zippel bounds
-this probability by `deg(r*)/|F|`, negligible for the fields and values of `d`
-used in production.
+The high-tail proof gives $R_E=\det B_E\ne0$. The low-tail proof gives a
+nonzero reduced minor $R_E=\Delta_E^{\mathrm{lo}}$. Therefore, over the
+rational function field $K$, the claimed rank and image statements hold.
 
-Outside this bad set, the random coefficients on `S` induce a uniform mask over
-the sparse leakage image. In the high-tail case this image has dimension `2d`.
-In the low-tail case it has dimension `2d-1` and contains the dense degree-`<E`
-leakage image. A simulator with access to the KZG trapdoor `tau` samples a
-uniform point in the sparse image, solves the corresponding full-rank linear
-system for the sparse coefficients, and derives the Shplonk and KZG rows from
-the same Gemini data. The verifier's transcript is therefore distributed
-independently of the unmasked witness contribution except with negligible
-probability.
+After Fiat-Shamir specialisation over a concrete finite field, failure can occur
+only when $\mathcal E_E=0$. Schwartz-Zippel gives
+
+$$
+\Pr[\mathcal E_E=0]\le \frac{\deg\mathcal E_E}{|\mathbb F|}
+$$
+
+for uniformly random independent challenges; in the Fiat-Shamir setting this is
+the usual algebraic bad-event bound under the random-oracle heuristic.
+
+Outside the exceptional locus, over the concrete field, the coefficient vector
+$(c_s)_{s\in S}$ is uniform in $\mathbb F^{|S|}$, so its image under $G_S$
+is uniform on $\operatorname{im}G_S$. In the high-tail case this image is all
+of $\mathbb F^{2d}$. In the low-tail case it is the hyperplane $H_E$, which
+contains $\operatorname{im}G_E$. A simulator that knows $\tau$ may sample the
+required point in $\operatorname{im}G_S$, solve a rank-witnessed linear system
+for sparse coefficients (with one free coefficient in the low-tail case), and
+then compute all remaining transcript coordinates, including $M(u)$,
+$Q_M(\tau)$, and $W_M(\tau)$, from that same sparse polynomial. Lemma 1.1
+shows that Shplonk and KZG introduce no additional mask direction beyond these
+computed coordinates.
 
 ## Appendix A: verification hooks
 
 `SHPLEMINI_ZK_FILTRATION_VERIFY.py` contains exact symbolic and rational checks
-for the formulas used above:
+for the formulas used above. These checks are regression tests for the algebraic
+identities; the proof obligations are the lemmas stated in the main text.
 
 - `verify_high_tail_rho()` checks the high-tail determinant formula at
   `d=4`, `E=14,16`, and `d=5`, `E=28,30,32`.
@@ -499,9 +934,9 @@ for the formulas used above:
 - `verify_dense_rank_bound()` checks the final-row relation on every monomial
   at `d=3,4` and numerically verifies low-tail dense ranks.
 
-The endpoint `E=N` is proved uniformly in `SHPLEMINI_ZK_FILTRATION_PROOF.md`;
-this note ports that proof by replacing the dyadic boundary anti-symmetry with
-the rho anti-symmetry above.
+The endpoint $E=N$ is included in the same argument: then
+$ho=N-1mod 2^{d-2}=2^{d-2}-1$, so the $ho$-anti-symmetry reduces to the
+usual top-pair anti-symmetry.
 
 ## Appendix B: degenerate d=3 low-tail case
 
