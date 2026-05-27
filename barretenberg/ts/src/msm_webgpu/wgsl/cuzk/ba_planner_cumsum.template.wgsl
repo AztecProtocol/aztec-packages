@@ -33,19 +33,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     let tid = lid.x;
     let num_dense = planner_meta[1];
 
-    if (num_dense == 0u) {
-        if (tid == 0u) {
-            planner_meta[2] = 0u;
-            planner_meta[3] = 1u;
-            planner_meta[12] = 1u;
-            planner_meta[13] = 1u;
-            planner_meta[14] = 1u;
-        }
-        return;
-    }
-
-    let chunk = ceil_div(num_dense, TPB);
-    let my_start = tid * chunk;
+    // No early return — workgroupBarrier requires uniform control flow.
+    // When num_dense==0, chunk/my_start/my_end all become 0 and the
+    // loops execute zero iterations, producing the correct result.
+    let chunk = max(ceil_div(num_dense, TPB), 1u);
+    let my_start = min(tid * chunk, num_dense);
     let my_end = min(my_start + chunk, num_dense);
 
     // Phase A: sum (count - 1) across this thread's chunk.

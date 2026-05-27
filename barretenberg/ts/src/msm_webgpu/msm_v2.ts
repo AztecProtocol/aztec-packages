@@ -2102,55 +2102,12 @@ export class MsmV2 {
    * Caller has already verified `fits` (M1, maxTotalPairBlocks, maxTotalCarries,
    * levels, numBatches, MAXC all ≤ the saved caps).
    */
-  private fastPathRewrite(scalars: Uint32Array, srsOffset: number, levelPlans: LevelPlan[], levels: number): void {
+  private fastPathRewrite(scalars: Uint32Array, srsOffset: number, _levelPlans: LevelPlan[], _levels: number): void {
     const device = this.device;
-    const WGI = this.wgi;
-    const FUSED_TILE = this.fusedTileSize;
     device.queue.writeBuffer(this.scalarsRawBuf, 0, scalars as BufferSource);
     if (srsOffset !== this.preparedSrsOffset) {
       device.queue.writeBuffer(this.convActiveParamsBuf, 4, new Uint32Array([srsOffset]));
     }
-    // Per-level uniforms. We loop over `levels` (the new plan's level count
-    // ≤ cap) — extra cached levels past `this.levels` are simply skipped at
-    // run() time below via the updated this.levels.
-    for (let lv = 0; lv < levels; lv++) {
-      const plan = levelPlans[lv];
-      // plannerParams = [pairBlocksPerWindow, carriesPerWindow, WGI, wstride1].
-      // WGI is constant per instance; wstride1 was baked at slow-path setup
-      // as an upper bound and remains valid (M1 ≤ capM1 implies wstride1
-      // ≤ capWstride1). Write only the first two u32s; the rest are untouched.
-      device.queue.writeBuffer(
-        this.plannerParamsBufs[lv],
-        0,
-        new Uint32Array([plan.pairBlocksPerWindow, plan.carriesPerWindow]),
-      );
-      // carryParams = [totalCarries, M1, M1, 0]; only totalCarries changes.
-      device.queue.writeBuffer(this.carryParamsBufs[lv], 0, new Uint32Array([plan.totalCarries]));
-      // tileParams = [totalPairBlocks, M1, M1, tileBase]; only
-      // totalPairBlocks changes (tileBase is the cached tile slot's
-      // bake-in). Cached tile slots past plan.totalPairBlocks/FUSED_TILE
-      // are kept in the cache; the run loop skips them via the new
-      // `fts[t].nx = 0` set below.
-      const tileBufs = this.tileParamsBufs[lv];
-      for (let t = 0; t < tileBufs.length; t++) {
-        device.queue.writeBuffer(tileBufs[t], 0, new Uint32Array([plan.totalPairBlocks]));
-      }
-      // Update dispatch count for this level's carry pass.
-      this.levelBinds[lv].nCarry = Math.ceil(plan.totalCarries / WGI);
-      // Update each fused tile's dispatch count. Tiles past the new
-      // plan.totalPairBlocks naturally dispatch 0 workgroups; we skip them entirely
-      // in run() to save the encoder overhead.
-      const fts = this.levelBinds[lv].fusedTiles;
-      for (let t = 0; t < fts.length; t++) {
-        const tileBase = t * FUSED_TILE;
-        const tileThreads = Math.max(0, Math.min(FUSED_TILE, plan.totalPairBlocks - tileBase));
-        fts[t].nx = Math.ceil(tileThreads / WGI);
-      }
-      this.levelTotalPairBlocks[lv] = plan.totalPairBlocks;
-      this.levelTotalCarries[lv] = plan.totalCarries;
-    }
-    // run() iterates `levels` levels; the per-call value comes from this.levels.
-    this.levels = levels;
   }
 
   /**

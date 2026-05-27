@@ -1202,19 +1202,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     let tid = lid.x;
     let num_dense = planner_meta[1];
 
-    if (num_dense == 0u) {
-        if (tid == 0u) {
-            planner_meta[2] = 0u;
-            planner_meta[3] = 1u;
-            planner_meta[12] = 1u;
-            planner_meta[13] = 1u;
-            planner_meta[14] = 1u;
-        }
-        return;
-    }
-
-    let chunk = ceil_div(num_dense, TPB);
-    let my_start = tid * chunk;
+    // No early return — workgroupBarrier requires uniform control flow.
+    // When num_dense==0, chunk/my_start/my_end all become 0 and the
+    // loops execute zero iterations, producing the correct result.
+    let chunk = max(ceil_div(num_dense, TPB), 1u);
+    let my_start = min(tid * chunk, num_dense);
     let my_end = min(my_start + chunk, num_dense);
 
     // Phase A: sum (count - 1) across this thread's chunk.
@@ -1315,27 +1307,34 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
     let t_local = lid.x;
     let wg = wid.x;
+    let IDLE_ANCHOR = params.x;
+    // Read num_workgroups from planner_meta (written by cumsum). The
+    // host dispatches a static 32 workgroups; excess workgroups must
+    // NOT early-return before workgroupBarrier — instead they participate
+    // in the barrier with zero work.
     let num_workgroups = atomicLoad(&planner_meta[3]);
     let num_dense = atomicLoad(&planner_meta[1]);
-    let total_adds = atomicLoad(&planner_meta[2]);
-    let IDLE_ANCHOR = params.x;
-
-    if (wg >= num_workgroups) { return; }
+    let is_active_wg = (wg < num_workgroups);
     let global_t = wg * TPB + t_local;
-    if (global_t >= NUM_THREADS) { return; }
+    let is_active_thread = is_active_wg && (global_t < NUM_THREADS);
 
-    let my_start_b = thread_cuts[2u * global_t + 0u];
-    let my_start_off = thread_cuts[2u * global_t + 1u];
-    var my_end_b: u32 = num_dense;
+    var my_start_b: u32 = 0u;
+    var my_start_off: u32 = 0u;
+    var my_end_b: u32 = 0u;
     var my_end_off: u32 = 0u;
-    if (global_t + 1u < NUM_THREADS) {
-        my_end_b = thread_cuts[2u * (global_t + 1u) + 0u];
-        my_end_off = thread_cuts[2u * (global_t + 1u) + 1u];
+    if (is_active_thread) {
+        my_start_b = thread_cuts[2u * global_t + 0u];
+        my_start_off = thread_cuts[2u * global_t + 1u];
+        my_end_b = num_dense;
+        if (global_t + 1u < NUM_THREADS) {
+            my_end_b = thread_cuts[2u * (global_t + 1u) + 0u];
+            my_end_off = thread_cuts[2u * (global_t + 1u) + 1u];
+        }
     }
 
-    // Phase A: count pieces.
+    // Phase A: count pieces (inactive threads contribute 0).
     var real_count: u32 = 0u;
-    if (num_dense > 0u) {
+    if (is_active_thread && num_dense > 0u) {
         var b = my_start_b;
         while (b < num_dense) {
             if (b > my_end_b) { break; }
@@ -1378,13 +1377,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let q_total = wg_q_total;
     let my_slab = wg_slab_base + t_local * q_total * 3u;
 
-    // Write header.
-    queue_buf[2u * global_t + 0u] = my_slab;
-    queue_buf[2u * global_t + 1u] = q_total;
+    // Write header (active threads only).
+    if (is_active_thread) {
+        queue_buf[2u * global_t + 0u] = my_slab;
+        queue_buf[2u * global_t + 1u] = q_total;
+    }
 
     // Phase B: emit queue entries.
     var entry_idx: u32 = 0u;
-    if (num_dense > 0u) {
+    if (is_active_thread && num_dense > 0u) {
         var partial_idx: u32 = 0u;
         var b = my_start_b;
         while (b < num_dense) {
@@ -1426,8 +1427,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         }
     }
 
-    // Pad with IDLE entries.
-    while (entry_idx < q_total) {
+    // Pad with IDLE entries (active threads only).
+    while (is_active_thread && entry_idx < q_total) {
         let q_off = my_slab + entry_idx * 3u;
         queue_buf[QUEUE_HEADER_LEN + q_off + 0u] = IDLE_ANCHOR;
         queue_buf[QUEUE_HEADER_LEN + q_off + 1u] = IDLE_ANCHOR + 2u;
@@ -1557,8 +1558,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let wg_end_adds = ((wg + 1u) * total_adds) / num_workgroups;
     let wg_total = wg_end_adds - wg_start_adds;
 
-    // This thread's target within the workgroup's range.
-    let target = wg_start_adds + (((t + 1u) * wg_total) / TPB);
+    // This thread's cut_target within the workgroup's range.
+    let cut_target = wg_start_adds + (((t + 1u) * wg_total) / TPB);
 
     // Search range: this workgroup's bucket range.
     let wg_lo_bucket = wg_cuts[2u * wg + 0u];
@@ -1568,13 +1569,13 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         wg_hi_bucket = min(wg_hi_bucket, num_dense);
     }
 
-    // Binary search for the bucket containing this thread's target.
+    // Binary search for the bucket containing this thread's cut_target.
     var lo: u32 = wg_lo_bucket;
     var hi: u32 = wg_hi_bucket;
     while (lo < hi) {
         let mid = (lo + hi) / 2u;
         let cum_end = cumulative_adds[mid] + sorted_count_list[mid] - 1u;
-        if (cum_end < target) {
+        if (cum_end < cut_target) {
             lo = mid + 1u;
         } else {
             hi = mid;
@@ -1583,8 +1584,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
     let cut_bucket = min(lo, num_dense - 1u);
     var cut_offset: u32 = 0u;
-    if (target > cumulative_adds[cut_bucket]) {
-        cut_offset = target - cumulative_adds[cut_bucket];
+    if (cut_target > cumulative_adds[cut_bucket]) {
+        cut_offset = cut_target - cumulative_adds[cut_bucket];
     }
 
     let flat = wg * TPB + t;
@@ -1617,16 +1618,16 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
 
     if (w >= num_workgroups) { return; }
 
-    let target = ((w + 1u) * total_adds) / num_workgroups;
+    let cut_target = ((w + 1u) * total_adds) / num_workgroups;
 
-    // Binary search for smallest i with cumulative_adds[i] + (sorted_count_list[i] - 1) >= target,
-    // i.e. the bucket whose cumulative range contains the target.
+    // Binary search for smallest i with cumulative_adds[i] + (sorted_count_list[i] - 1) >= cut_target,
+    // i.e. the bucket whose cumulative range contains the cut_target.
     var lo: u32 = 0u;
     var hi: u32 = num_dense;
     while (lo < hi) {
         let mid = (lo + hi) / 2u;
         let cum_end = cumulative_adds[mid] + sorted_count_list[mid] - 1u;
-        if (cum_end < target) {
+        if (cum_end < cut_target) {
             lo = mid + 1u;
         } else {
             hi = mid;
@@ -1635,8 +1636,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
 
     let cut_bucket = min(lo, num_dense - 1u);
     var cut_offset: u32 = 0u;
-    if (target > cumulative_adds[cut_bucket]) {
-        cut_offset = target - cumulative_adds[cut_bucket];
+    if (cut_target > cumulative_adds[cut_bucket]) {
+        cut_offset = cut_target - cumulative_adds[cut_bucket];
     }
 
     wg_cuts[2u * w + 0u] = cut_bucket;
@@ -2102,6 +2103,11 @@ export const ba_size1 = `{{> structs }}
 {{> bigint_funcs }}
 {{> montgomery_product_funcs }}
 {{> field_funcs }}
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
 {{> field8_funcs }}
 
 // Bucket-accumulate: size-1 bucket handler.

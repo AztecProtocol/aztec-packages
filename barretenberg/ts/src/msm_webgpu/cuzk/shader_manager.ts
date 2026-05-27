@@ -759,6 +759,7 @@ ${packLines.join('\n')}
   }
 
   public gen_ba_size1_shader(): string {
+    const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_size1_shader,
@@ -767,6 +768,7 @@ ${packLines.join('\n')}
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack,
         recompile: this.recompile,
       },
       { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs, field8_funcs },

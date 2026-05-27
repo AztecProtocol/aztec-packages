@@ -20,16 +20,16 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
 
     if (w >= num_workgroups) { return; }
 
-    let target = ((w + 1u) * total_adds) / num_workgroups;
+    let cut_target = ((w + 1u) * total_adds) / num_workgroups;
 
-    // Binary search for smallest i with cumulative_adds[i] + (sorted_count_list[i] - 1) >= target,
-    // i.e. the bucket whose cumulative range contains the target.
+    // Binary search for smallest i with cumulative_adds[i] + (sorted_count_list[i] - 1) >= cut_target,
+    // i.e. the bucket whose cumulative range contains the cut_target.
     var lo: u32 = 0u;
     var hi: u32 = num_dense;
     while (lo < hi) {
         let mid = (lo + hi) / 2u;
         let cum_end = cumulative_adds[mid] + sorted_count_list[mid] - 1u;
-        if (cum_end < target) {
+        if (cum_end < cut_target) {
             lo = mid + 1u;
         } else {
             hi = mid;
@@ -38,8 +38,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
 
     let cut_bucket = min(lo, num_dense - 1u);
     var cut_offset: u32 = 0u;
-    if (target > cumulative_adds[cut_bucket]) {
-        cut_offset = target - cumulative_adds[cut_bucket];
+    if (cut_target > cumulative_adds[cut_bucket]) {
+        cut_offset = cut_target - cumulative_adds[cut_bucket];
     }
 
     wg_cuts[2u * w + 0u] = cut_bucket;

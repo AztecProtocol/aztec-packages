@@ -2,6 +2,11 @@
 {{> bigint_funcs }}
 {{> montgomery_product_funcs }}
 {{> field_funcs }}
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
 {{> field8_funcs }}
 
 // Bucket-accumulate: size-1 bucket handler.

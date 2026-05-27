@@ -42,27 +42,34 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
     let t_local = lid.x;
     let wg = wid.x;
+    let IDLE_ANCHOR = params.x;
+    // Read num_workgroups from planner_meta (written by cumsum). The
+    // host dispatches a static 32 workgroups; excess workgroups must
+    // NOT early-return before workgroupBarrier — instead they participate
+    // in the barrier with zero work.
     let num_workgroups = atomicLoad(&planner_meta[3]);
     let num_dense = atomicLoad(&planner_meta[1]);
-    let total_adds = atomicLoad(&planner_meta[2]);
-    let IDLE_ANCHOR = params.x;
-
-    if (wg >= num_workgroups) { return; }
+    let is_active_wg = (wg < num_workgroups);
     let global_t = wg * TPB + t_local;
-    if (global_t >= NUM_THREADS) { return; }
+    let is_active_thread = is_active_wg && (global_t < NUM_THREADS);
 
-    let my_start_b = thread_cuts[2u * global_t + 0u];
-    let my_start_off = thread_cuts[2u * global_t + 1u];
-    var my_end_b: u32 = num_dense;
+    var my_start_b: u32 = 0u;
+    var my_start_off: u32 = 0u;
+    var my_end_b: u32 = 0u;
     var my_end_off: u32 = 0u;
-    if (global_t + 1u < NUM_THREADS) {
-        my_end_b = thread_cuts[2u * (global_t + 1u) + 0u];
-        my_end_off = thread_cuts[2u * (global_t + 1u) + 1u];
+    if (is_active_thread) {
+        my_start_b = thread_cuts[2u * global_t + 0u];
+        my_start_off = thread_cuts[2u * global_t + 1u];
+        my_end_b = num_dense;
+        if (global_t + 1u < NUM_THREADS) {
+            my_end_b = thread_cuts[2u * (global_t + 1u) + 0u];
+            my_end_off = thread_cuts[2u * (global_t + 1u) + 1u];
+        }
     }
 
-    // Phase A: count pieces.
+    // Phase A: count pieces (inactive threads contribute 0).
     var real_count: u32 = 0u;
-    if (num_dense > 0u) {
+    if (is_active_thread && num_dense > 0u) {
         var b = my_start_b;
         while (b < num_dense) {
             if (b > my_end_b) { break; }
@@ -105,13 +112,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let q_total = wg_q_total;
     let my_slab = wg_slab_base + t_local * q_total * 3u;
 
-    // Write header.
-    queue_buf[2u * global_t + 0u] = my_slab;
-    queue_buf[2u * global_t + 1u] = q_total;
+    // Write header (active threads only).
+    if (is_active_thread) {
+        queue_buf[2u * global_t + 0u] = my_slab;
+        queue_buf[2u * global_t + 1u] = q_total;
+    }
 
     // Phase B: emit queue entries.
     var entry_idx: u32 = 0u;
-    if (num_dense > 0u) {
+    if (is_active_thread && num_dense > 0u) {
         var partial_idx: u32 = 0u;
         var b = my_start_b;
         while (b < num_dense) {
@@ -153,8 +162,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         }
     }
 
-    // Pad with IDLE entries.
-    while (entry_idx < q_total) {
+    // Pad with IDLE entries (active threads only).
+    while (is_active_thread && entry_idx < q_total) {
         let q_off = my_slab + entry_idx * 3u;
         queue_buf[QUEUE_HEADER_LEN + q_off + 0u] = IDLE_ANCHOR;
         queue_buf[QUEUE_HEADER_LEN + q_off + 1u] = IDLE_ANCHOR + 2u;

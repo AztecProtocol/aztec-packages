@@ -29,8 +29,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let wg_end_adds = ((wg + 1u) * total_adds) / num_workgroups;
     let wg_total = wg_end_adds - wg_start_adds;
 
-    // This thread's target within the workgroup's range.
-    let target = wg_start_adds + (((t + 1u) * wg_total) / TPB);
+    // This thread's cut_target within the workgroup's range.
+    let cut_target = wg_start_adds + (((t + 1u) * wg_total) / TPB);
 
     // Search range: this workgroup's bucket range.
     let wg_lo_bucket = wg_cuts[2u * wg + 0u];
@@ -40,13 +40,13 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         wg_hi_bucket = min(wg_hi_bucket, num_dense);
     }
 
-    // Binary search for the bucket containing this thread's target.
+    // Binary search for the bucket containing this thread's cut_target.
     var lo: u32 = wg_lo_bucket;
     var hi: u32 = wg_hi_bucket;
     while (lo < hi) {
         let mid = (lo + hi) / 2u;
         let cum_end = cumulative_adds[mid] + sorted_count_list[mid] - 1u;
-        if (cum_end < target) {
+        if (cum_end < cut_target) {
             lo = mid + 1u;
         } else {
             hi = mid;
@@ -55,8 +55,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
     let cut_bucket = min(lo, num_dense - 1u);
     var cut_offset: u32 = 0u;
-    if (target > cumulative_adds[cut_bucket]) {
-        cut_offset = target - cumulative_adds[cut_bucket];
+    if (cut_target > cumulative_adds[cut_bucket]) {
+        cut_offset = cut_target - cumulative_adds[cut_bucket];
     }
 
     let flat = wg * TPB + t;
