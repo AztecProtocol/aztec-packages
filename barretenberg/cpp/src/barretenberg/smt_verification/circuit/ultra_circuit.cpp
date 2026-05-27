@@ -1,4 +1,5 @@
 #include "ultra_circuit.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 
 namespace smt_circuit {
@@ -168,8 +169,11 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
     std::vector<STuple> new_table;
     bool is_xor = true;
     bool is_and = true;
+    BB_ASSERT_GT(table_idx, 0U);
+    const size_t table_offset = static_cast<size_t>(table_idx) - 1;
+    BB_ASSERT_LT(table_offset, this->lookup_tables.size());
 
-    for (auto table_entry : this->lookup_tables[table_idx]) {
+    for (auto table_entry : this->lookup_tables[table_offset]) {
         STuple tmp_entry({
             STerm(table_entry[0], this->solver, this->type),
             STerm(table_entry[1], this->solver, this->type),
