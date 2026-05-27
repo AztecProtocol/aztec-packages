@@ -2493,6 +2493,7 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 @group(0) @binding(8) var<uniform>             params:             vec4<u32>;
 // params.x = M_buckets (B_TOTAL)
 
+
 fn ld_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
     let pt = packed & L0_IDX_MASK;

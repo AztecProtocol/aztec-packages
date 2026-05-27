@@ -1503,7 +1503,7 @@ export class MsmV2 {
 
     // --- Streaming planner + accumulator pipelines ---
     const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 1; // DEBUG: S=1 to isolate batched inversion
+    const STREAM_S = 8;
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
