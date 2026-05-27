@@ -83,7 +83,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   /**
    * Opens a persistent world state at `dataDir`. Goes through `DatabaseVersionManager` so the
    * caller's rollup address is bound to the on-disk schema and incompatible versions surface
-   * loudly. The LMDB envs commit with full fsync — durability is the whole point.
+   * loudly. The LMDB envs commit with full fsync.
    */
   static async new(
     rollupAddress: EthAddress,

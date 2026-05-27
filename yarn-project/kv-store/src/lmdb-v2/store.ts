@@ -71,13 +71,6 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     this.open = true;
   }
 
-  /**
-   * @param ephemeral When true, the underlying LMDB env opens with `MDB_NOSYNC |
-   *                  MDB_NOMETASYNC` — commits return as soon as the dirty pages are queued
-   *                  in the page cache instead of waiting for fsync. The on-disk file is
-   *                  unrecoverable after a crash but stays sparse. Intended for throwaway
-   *                  scratch state; never use for a long-lived store.
-   */
   public static async new(
     dataDir: string,
     dbMapSizeKb: number = 10 * 1024 * 1024,
