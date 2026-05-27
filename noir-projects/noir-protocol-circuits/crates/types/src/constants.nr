@@ -716,9 +716,7 @@ pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
 pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 /// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
-/// Domain separator for constrained message delivery log tags. Used by [`crate::hash::compute_log_tag`] when the
-/// sender derives the tag from an app-siloed shared secret rather than the directional `(sender, recipient)`
-/// tagging secret.
+/// Domain separator for constrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__CONSTRAINED_MSG_LOG_TAG: u32 = 3715244738;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
 /// [`crate::hash::compute_log_tag`].
