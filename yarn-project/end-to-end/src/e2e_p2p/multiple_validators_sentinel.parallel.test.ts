@@ -214,11 +214,14 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     const stats = await sentinel.getValidatorsStats();
     t.logger.info(`Collected validator stats at slot ${t.monitor.l2SlotNumber}`, { stats });
 
-    // Check that all of the first node validators have attestations recorded
+    const historyForSlot = (validator: (typeof firstNodeValidators)[number]) =>
+      stats.stats[validator.toString().toLowerCase()]?.history.filter(h => h.slot === slotForSentinel) ?? [];
+
+    // Check that all of the first node validators have attestations recorded for the selected proposer slot.
     for (const validator of firstNodeValidators) {
-      const validatorStats = stats.stats[validator.toString().toLowerCase()];
-      const history = validatorStats?.history.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
+      const history = historyForSlot(validator);
       t.logger.info(`Asserting stats for online validator ${validator}`, { history });
+      expect(history).not.toBeEmpty();
       expect(
         history.filter(
           h => h.status === 'attestation-missed' || h.status === 'blocks-missed' || h.status === 'checkpoint-missed',
@@ -229,14 +232,13 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // At least one of the first node validators must have been seen as proposer
     const firstNodeBlockProposedHistory = firstNodeValidators
       .flatMap(v => stats.stats[v.toString().toLowerCase()].history)
-      .filter(h => h.slot > initialSlot && h.slot <= slotForSentinel)
+      .filter(h => h.slot === slotForSentinel)
       .filter(h => h.status === 'checkpoint-valid' || h.status === 'checkpoint-mined');
     expect(firstNodeBlockProposedHistory).not.toBeEmpty();
 
-    // And all of the proposers for the offline node must be seen as missed attestation or proposal
+    // And all of the validators for the offline node must be seen as missed attestation or proposal.
     for (const validator of offlineValidators) {
-      const validatorStats = stats.stats[validator.toString().toLowerCase()];
-      const history = validatorStats.history?.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
+      const history = historyForSlot(validator);
       t.logger.info(`Asserting stats for offline validator ${validator}`, { history });
       expect(
         history.filter(
