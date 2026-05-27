@@ -82,6 +82,9 @@
       "path": "../sequencer-client"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {

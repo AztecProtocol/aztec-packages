@@ -1,4 +1,5 @@
 import { getIdentities } from '@aztec/accounts/utils';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { TxHash } from '@aztec/aztec.js/tx';
 import {
   ETHEREUM_HOSTS,
@@ -256,6 +257,11 @@ export function injectCommands(
       parseFieldFromHexString,
     )
     .option('--universal', 'Do not mix the sender address into the deployment.')
+    .option(
+      '--deployer <address>',
+      'Explicit deployer address to mix into the instance preimage (independent of --from). Pass 0x0 to deploy a standard contract while still paying the tx fee from --from.',
+      address => AztecAddress.fromString(address),
+    )
     .addOption(createArgsOption(true, db))
     .addOption(createAccountOption('Alias or address of the account to deploy from', !db, db))
     .addOption(createAliasOption('Alias for the contract. Used for easy reference subsequent commands.', !db))
@@ -288,6 +294,7 @@ export function injectCommands(
       init,
       publicDeployment,
       universal,
+      deployer: instanceDeployer,
       from: parsedFromAddress,
       alias,
       timeout,
@@ -302,7 +309,7 @@ export function injectCommands(
     const address = await deploy(
       wallet,
       node,
-      universal ? undefined : parsedFromAddress,
+      universal && !instanceDeployer ? undefined : parsedFromAddress,
       artifactPath,
       json,
       publicKey,
@@ -319,6 +326,7 @@ export function injectCommands(
       timeout,
       debugLogger,
       log,
+      instanceDeployer ?? (universal ? AztecAddress.ZERO : undefined),
     );
     if (db && address) {
       await db.storeContract(address, artifactPath, log, alias);

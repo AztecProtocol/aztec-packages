@@ -36,6 +36,7 @@ export async function deploy(
   timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
   log: LogFn,
+  instanceDeployer?: AztecAddress,
 ) {
   const out: Record<string, any> = {};
   salt ??= Fr.random();
@@ -57,7 +58,16 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deployInteraction = contractDeployer.deploy(args, { salt, publicKeys: publicKeys ?? PublicKeys.default() });
+  const instantiation: { salt: Fr; publicKeys: PublicKeys; deployer?: AztecAddress; universalDeploy?: true } = {
+    salt,
+    publicKeys: publicKeys ?? PublicKeys.default(),
+  };
+  if (instanceDeployer?.isZero()) {
+    instantiation.universalDeploy = true;
+  } else if (instanceDeployer) {
+    instantiation.deployer = instanceDeployer;
+  }
+  const deployInteraction = contractDeployer.deploy(args, instantiation);
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
     fee: { gasSettings, paymentMethod },
