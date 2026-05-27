@@ -57,7 +57,7 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`.
+`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. PXE no longer auto-registers it; `EmbeddedWallet` registers it on creation via `registerMultiCallEntrypoint`. Other PXE consumers using `DefaultMultiCallEntrypoint` (including `DeployAccountMethod`'s `NO_FROM` self-deploy path) must register the contract themselves with `pxe.registerContract({ instance, artifact })` from `getStandardMultiCallEntrypoint()`.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
