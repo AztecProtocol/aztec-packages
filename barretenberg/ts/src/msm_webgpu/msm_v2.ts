@@ -2336,7 +2336,17 @@ export class MsmV2 {
       await qs.mapAsync(GPUMapMode.READ);
       const qa = new Uint32Array(qs.getMappedRange().slice(0));
       qs.unmap(); qs.destroy();
-      console.log(`[DBG] qHdr t0=(start=${qa[0]},cnt=${qa[1]}) t1=(${qa[2]},${qa[3]}) t2=(${qa[4]},${qa[5]}) t3=(${qa[6]},${qa[7]})`);
+      console.log(`[DBG] qHdr t0=(start=${qa[0]},cnt=${qa[1]}) t1=(${qa[2]},${qa[3]})`);
+      // Read first entries at t0's start offset
+      const q0off = qa[0];
+      const qs3 = device.createBuffer({ size: 48, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const eq3 = device.createCommandEncoder();
+      eq3.copyBufferToBuffer(qb, (16384 + q0off) * 4, qs3, 0, 48);
+      device.queue.submit([eq3.finish()]);
+      await qs3.mapAsync(GPUMapMode.READ);
+      const qa3 = new Uint32Array(qs3.getMappedRange().slice(0));
+      qs3.unmap(); qs3.destroy();
+      console.log(`[DBG] t0_entries: e0=(sc=${qa3[0]},ec=${qa3[1]},dp=0x${qa3[2].toString(16)}) e1=(${qa3[3]},${qa3[4]},0x${qa3[5].toString(16)}) e2=(${qa3[6]},${qa3[7]},0x${qa3[8].toString(16)}) e3=(${qa3[9]},${qa3[10]},0x${qa3[11].toString(16)})`);
       // Read thread_cuts for first 4 threads
       const tc = this.pool.scratch!.threadCuts;
       const ts2 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
@@ -2357,8 +2367,84 @@ export class MsmV2 {
       await cs2.mapAsync(GPUMapMode.READ);
       const ca2 = new Uint32Array(cs2.getMappedRange().slice(0));
       cs2.unmap(); cs2.destroy();
-      console.log(`[DBG] cumAdds[0..15]=${Array.from(ca2.slice(0, 16)).join(',')}`);
-      console.log(`[DBG] cumAdds[last4]=${Array.from(ca2.slice(16, 20)).join(',')}`);
+      console.log(`[DBG] cumAdds[0..7]=${Array.from(ca2.slice(0, 8)).join(',')}`);
+      // Read sorted counts to verify sort
+      const scb = this.pool.scratch!.sortedCountList;
+      const scs = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const esc = device.createCommandEncoder();
+      esc.copyBufferToBuffer(scb, 0, scs, 0, 64);
+      device.queue.submit([esc.finish()]);
+      await scs.mapAsync(GPUMapMode.READ);
+      const sca = new Uint32Array(scs.getMappedRange().slice(0));
+      scs.unmap(); scs.destroy();
+      // Read first 32 sorted counts
+      const scs2 = device.createBuffer({ size: 128, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const esc2 = device.createCommandEncoder();
+      esc2.copyBufferToBuffer(scb, 0, scs2, 0, 128);
+      device.queue.submit([esc2.finish()]);
+      await scs2.mapAsync(GPUMapMode.READ);
+      const sca2 = new Uint32Array(scs2.getMappedRange().slice(0));
+      scs2.unmap(); scs2.destroy();
+      console.log(`[DBG] sortedCounts[0..31]=${Array.from(sca2).join(',')}`);
+      // Read sorted_bucket_list to see the original bucket indices
+      const sbb = this.pool.scratch!.sortedBucketList;
+      const sb2 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const esb = device.createCommandEncoder();
+      esb.copyBufferToBuffer(sbb, 0, sb2, 0, 64);
+      device.queue.submit([esb.finish()]);
+      await sb2.mapAsync(GPUMapMode.READ);
+      const sba = new Uint32Array(sb2.getMappedRange().slice(0));
+      sb2.unmap(); sb2.destroy();
+      console.log(`[DBG] sortedBuckets[0..15]=${Array.from(sba).join(',')} (original bucket indices)`);
+      // Count how many dense_bucket_list entries have bucket_idx=108
+      const dbb = this.pool.scratch!.denseBucketList;
+      const dcb = this.pool.scratch!.denseCountList;
+      const numDense = a[1];
+      const dRd = Math.min(numDense * 4, 65536);
+      const ds2 = device.createBuffer({ size: dRd * 2, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const edb = device.createCommandEncoder();
+      edb.copyBufferToBuffer(dbb, 0, ds2, 0, dRd);
+      edb.copyBufferToBuffer(dcb, 0, ds2, dRd, dRd);
+      device.queue.submit([edb.finish()]);
+      await ds2.mapAsync(GPUMapMode.READ);
+      const dsa = new Uint32Array(ds2.getMappedRange().slice(0));
+      ds2.unmap(); ds2.destroy();
+      const halfLen = dRd / 4;
+      let found108 = -1;
+      let count64s = 0;
+      for (let i = 0; i < halfLen; i++) {
+        if (dsa[i] === 108) found108 = i;
+        if (dsa[halfLen + i] === 64) count64s++;
+      }
+      console.log(`[DBG] dense_bucket_list: bucket 108 at position ${found108}. ${count64s} entries with count=64 out of ${halfLen}`);
+      // Read bucket_sums[1] (bucket index 1, window 0, weight 1) — a simple single-value bucket
+      const bIdx = 108;
+      const br2 = this.pool.scratch!.bucketResultBuf;
+      const PG2 = 2;
+      const xOff = PG2 * bIdx * 16;
+      const yOff = (PG2 * this.bTotal + PG2 * bIdx) * 16;
+      const bs2 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const eb2 = device.createCommandEncoder();
+      eb2.copyBufferToBuffer(br2, xOff, bs2, 0, 32);
+      eb2.copyBufferToBuffer(br2, yOff, bs2, 32, 32);
+      device.queue.submit([eb2.finish()]);
+      await bs2.mapAsync(GPUMapMode.READ);
+      const ba2 = new Uint32Array(bs2.getMappedRange().slice(0));
+      bs2.unmap(); bs2.destroy();
+      const nonz = Array.from(ba2).some(v => v !== 0);
+      console.log(`[DBG] bucket[${bIdx}] x=${Array.from(ba2.slice(0,8)).map(v=>v.toString(16).padStart(8,'0')).join('')} y=${Array.from(ba2.slice(8,16)).map(v=>v.toString(16).padStart(8,'0')).join('')} nonzero=${nonz}`);
+      // Read the offset and count for this bucket from countsBufs/offsetsBufs
+      const cntBuf = this.pool.scratch!.countsBufs[0];
+      const offBuf = this.pool.scratch!.offsetsBufs[0];
+      const co2 = device.createBuffer({ size: 8, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const eco = device.createCommandEncoder();
+      eco.copyBufferToBuffer(cntBuf, bIdx * 4, co2, 0, 4);
+      eco.copyBufferToBuffer(offBuf, bIdx * 4, co2, 4, 4);
+      device.queue.submit([eco.finish()]);
+      await co2.mapAsync(GPUMapMode.READ);
+      const coa = new Uint32Array(co2.getMappedRange().slice(0));
+      co2.unmap(); co2.destroy();
+      console.log(`[DBG] bucket[${bIdx}] count=${coa[0]} offset=${coa[1]}`);
       // Read wg_cuts
       const wcb = this.pool.scratch!.wgCuts;
       const ws2 = device.createBuffer({ size: 32, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
@@ -2378,9 +2464,8 @@ export class MsmV2 {
     this.windowSums = L;
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
-    // DEBUG: check if window sums are non-zero
-    const nonzero = L.filter(p => p.x !== 0n || p.y !== 0n).length;
-    console.log(`[DBG] windowSums: ${L.length} total, ${nonzero} non-zero. First: x=${L[0]?.x?.toString(16)?.slice(0,16) ?? 'none'}...`);
+    // DEBUG: log window 0 sum for comparison
+    console.log(`[DBG] windowSums: ${L.length} total. w0=(${L[0]?.x?.toString(16)?.slice(0,8)}...,${L[0]?.y?.toString(16)?.slice(0,8)}...) w1=(${L[1]?.x?.toString(16)?.slice(0,8)}...) w31=(${L[31]?.x?.toString(16)?.slice(0,8)}...)`);
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
