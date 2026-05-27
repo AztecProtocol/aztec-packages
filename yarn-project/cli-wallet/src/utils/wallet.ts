@@ -79,10 +79,10 @@ export class CLIWallet extends BaseWallet {
   async ensureAuthRegistryPublished(from: AztecAddress): Promise<void> {
     const { instance, contractClass } = await getStandardAuthRegistry();
     if (!(await this.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
-      await (await publishContractClass(this, AuthRegistryArtifact)).send({ from }).wait();
+      await (await publishContractClass(this, AuthRegistryArtifact)).send({ from });
     }
     if (!(await this.getContractMetadata(instance.address)).isContractPublished) {
-      await publishInstance(this, instance).send({ from }).wait();
+      await publishInstance(this, instance).send({ from });
     }
   }
 
