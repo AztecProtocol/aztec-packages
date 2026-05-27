@@ -112,13 +112,12 @@ pub type CustomMessageHandler = unconstrained fn(
 /// this handler instead of [`do_sync_state`]. It receives all of the same parameters, so it can run custom logic
 /// (e.g. fetching and decrypting custom logs) before, after, or instead of calling [`do_sync_state`].
 pub type CustomSyncHandler = unconstrained fn(
-    /* contract_address */ AztecAddress,
-    /* compute_note_hash */ ComputeNoteHash,
-    /* compute_note_nullifier */ ComputeNoteNullifier,
-    /* process_custom_message */ Option<CustomMessageHandler>,
-    /* offchain_inbox_sync */ Option<OffchainInboxSync>,
-    /* scope */ AztecAddress,
-);
+/* contract_address */AztecAddress,
+/* compute_note_hash */ ComputeNoteHash,
+/* compute_note_nullifier */ ComputeNoteNullifier,
+/* process_custom_message */ Option<CustomMessageHandler>,
+/* offchain_inbox_sync */ Option<OffchainInboxSync>,
+/* scope */ AztecAddress);
 
 /// Synchronizes the contract's private state with the network.
 ///
