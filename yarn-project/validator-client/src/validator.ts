@@ -73,7 +73,6 @@ import {
 const MAX_PROPOSERS_OF_INVALID_BLOCKS = 1000;
 const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
 const MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS = 1000;
-const MAX_TRACKED_BAD_ATTESTATIONS = 10_000;
 
 // What errors from the block proposal handler result in slashing
 const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
@@ -128,10 +127,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
   private proposersOfInvalidBlocks = FifoSet.withLimit<string>(MAX_PROPOSERS_OF_INVALID_BLOCKS);
-  private slotsWithInvalidBlockProposals = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+  private slotsWithInvalidProposals = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
   private invalidCheckpointProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
-  private slotsWithProposalEquivocation = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
-  private badAttestationOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
+  private slotsWithProposalEquivocation = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
 
   /** Tracks the last checkpoint proposal we attested to, to prevent equivocation. */
   private lastAttestedProposal?: CheckpointProposalCore;
@@ -171,7 +169,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), this.log, 1000);
-
     const myAddresses = this.getValidatorAddresses();
     this.log.verbose(`Initialized validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
   }
@@ -354,6 +351,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.config;
   }
 
+  public hasProposalEquivocation(slotNumber: SlotNumber): boolean {
+    return this.slotsWithProposalEquivocation.has(slotNumber);
+  }
+
+  public hasInvalidProposals(slotNumber: SlotNumber): boolean {
+    return this.slotsWithInvalidProposals.has(slotNumber);
+  }
+
   public updateConfig(config: Partial<ValidatorClientFullConfig>) {
     this.config = { ...this.config, ...config };
     this.proposalHandler.updateConfig(config);
@@ -423,10 +428,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       // Duplicate attestation handler - triggers slashing for attestation equivocation
       this.p2pClient.registerDuplicateAttestationCallback((info: DuplicateAttestationInfo) => {
         this.handleDuplicateAttestation(info);
-      });
-
-      this.p2pClient.registerCheckpointAttestationCallback((attestation: CheckpointAttestation) => {
-        this.handleCheckpointAttestation(attestation);
       });
 
       const myAddresses = this.getValidatorAddresses();
@@ -768,6 +769,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
+    if (this.config.slashAttestInvalidCheckpointProposalPenalty > 0n) {
+      this.markInvalidProposalSlot(proposal.slotNumber);
+    }
+
     if (this.slashInvalidCheckpointProposal(proposal)) {
       this.log.warn(`Slashing proposer for invalid checkpoint proposal`, {
         ...proposalInfo,
@@ -791,7 +796,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const offenseType = OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL;
-    const offenseKey = `${proposer.toString()}:${offenseType}:${this.getSlotKey(proposal.slotNumber)}`;
+    const offenseKey = `${proposer.toString()}:${offenseType}:${proposal.slotNumber}`;
     if (!this.invalidCheckpointProposalOffenseKeys.addIfAbsent(offenseKey)) {
       return false;
     }
@@ -808,52 +813,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   private markInvalidProposalSlot(slotNumber: SlotNumber): void {
-    const slotKey = this.getSlotKey(slotNumber);
-    this.slotsWithInvalidBlockProposals.add(slotKey);
-  }
-
-  private handleCheckpointAttestation(attestation: CheckpointAttestation): void {
-    const slotNumber = attestation.slotNumber;
-    const slotKey = this.getSlotKey(slotNumber);
-    if (!this.slotsWithInvalidBlockProposals.has(slotKey) || this.slotsWithProposalEquivocation.has(slotKey)) {
-      return;
-    }
-
-    const attester = attestation.getSender();
-    if (!attester) {
-      this.log.warn(`Cannot slash checkpoint attestation with invalid signature`, {
-        slotNumber,
-        archive: attestation.archive.toString(),
-      });
-      return;
-    }
-
-    this.slashAttestedToInvalidCheckpointProposal(slotNumber, attester);
-  }
-
-  private slashAttestedToInvalidCheckpointProposal(slotNumber: SlotNumber, attester: EthAddress): void {
-    if (this.config.slashAttestInvalidCheckpointProposalPenalty <= 0n) {
-      return;
-    }
-
-    const offenseKey = `${this.getSlotKey(slotNumber)}:${attester.toString()}`;
-    if (!this.badAttestationOffenseKeys.addIfAbsent(offenseKey)) {
-      return;
-    }
-
-    this.log.warn(`Slashing attester for attesting to invalid checkpoint proposal`, {
-      attester: attester.toString(),
-      slotNumber,
-    });
-
-    this.emit(WANT_TO_SLASH_EVENT, [
-      {
-        validator: attester,
-        amount: this.config.slashAttestInvalidCheckpointProposalPenalty,
-        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
-        epochOrSlot: BigInt(slotNumber),
-      },
-    ]);
+    this.slotsWithInvalidProposals.add(slotNumber);
   }
 
   /**
@@ -862,8 +822,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    */
   private handleDuplicateProposal(info: DuplicateProposalInfo): void {
     const { slot, proposer, type } = info;
-    const slotKey = this.getSlotKey(slot);
-    this.slotsWithProposalEquivocation.add(slotKey);
+    this.slotsWithProposalEquivocation.add(slot);
 
     this.log.warn(`Triggering slash event for duplicate ${type} proposal from ${proposer.toString()} at slot ${slot}`, {
       proposer: proposer.toString(),
@@ -909,10 +868,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         epochOrSlot: BigInt(slot),
       },
     ]);
-  }
-
-  private getSlotKey(slot: SlotNumber): string {
-    return slot.toString();
   }
 
   async createBlockProposal(

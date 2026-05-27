@@ -202,7 +202,15 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
 
   async function createInvalidProposalSlashingScenario({
     badProposerConfig = {},
-  }: { badProposerConfig?: Partial<Parameters<typeof createNode>[0]> } = {}) {
+    corruptBlockProposal = true,
+    expectBadProposerOffense = true,
+    expectedBadProposerOffenseType = OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+  }: {
+    badProposerConfig?: Partial<Parameters<typeof createNode>[0]>;
+    corruptBlockProposal?: boolean;
+    expectBadProposerOffense?: boolean;
+    expectedBadProposerOffenseType?: OffenseType;
+  } = {}) {
     const { rollup } = await t.getContracts();
 
     await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
@@ -212,7 +220,9 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
       {
         ...t.ctx.aztecNodeConfig,
         dontStartSequencer: true,
-        invalidBlockProposalIndexWithinCheckpoint: BAD_BLOCK_INDEX_WITHIN_CHECKPOINT,
+        ...(corruptBlockProposal
+          ? { invalidBlockProposalIndexWithinCheckpoint: BAD_BLOCK_INDEX_WITHIN_CHECKPOINT }
+          : {}),
         ...badProposerConfig,
       },
       t.ctx.dateProvider!,
@@ -389,11 +399,18 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
     });
 
     const expectedSlashOffenses = [
-      {
-        description: 'bad proposer broadcasted invalid block proposal',
-        validator: badProposer,
-        offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-      },
+      ...(expectBadProposerOffense
+        ? [
+            {
+              description:
+                expectedBadProposerOffenseType === OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL
+                  ? 'bad proposer broadcasted invalid checkpoint proposal'
+                  : 'bad proposer broadcasted invalid block proposal',
+              validator: badProposer,
+              offenseType: expectedBadProposerOffenseType,
+            },
+          ]
+        : []),
       {
         description: 'lazy validator attested to invalid checkpoint proposal',
         validator: lazyValidator,
@@ -438,6 +455,16 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
       badCheckpointBlockHashes,
     };
   }
+
+  it('slashes a lazy attester for an invalid checkpoint proposal', async () => {
+    await createInvalidProposalSlashingScenario({
+      badProposerConfig: {
+        broadcastInvalidCheckpointProposalOnly: true,
+      },
+      corruptBlockProposal: false,
+      expectBadProposerOffense: false,
+    });
+  });
 
   it('slashes a lazy attester for an invalid checkpoint and clears it on delayed equivocation', async () => {
     const {

@@ -45,6 +45,7 @@ import {
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
+  AttestedInvalidProposalWatcher,
   BroadcastedInvalidCheckpointProposalWatcher,
   CheckpointEquivocationWatcher,
   DataWithholdingWatcher,
@@ -186,8 +187,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly proverNode: ProverNode | undefined,
     protected readonly slasherClient: SlasherClientInterface | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
-    protected readonly dataWithholdingWatcher: DataWithholdingWatcher | undefined,
-    protected readonly attestationsBlockWatcher: AttestationsBlockWatcher | undefined,
+    private readonly stopStartedWatchers: () => Promise<void>,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
@@ -737,6 +737,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
       let dataWithholdingWatcher: DataWithholdingWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
+      let attestedInvalidProposalWatcher: AttestedInvalidProposalWatcher | undefined;
       let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
       let checkpointEquivocationWatcher: CheckpointEquivocationWatcher | undefined;
 
@@ -769,6 +770,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           watchers.push(broadcastedInvalidCheckpointProposalWatcher);
         }
 
+        if (validatorClient && config.slashAttestInvalidCheckpointProposalPenalty > 0n) {
+          attestedInvalidProposalWatcher = new AttestedInvalidProposalWatcher(
+            p2pClient,
+            validatorClient,
+            archiver,
+            epochCache,
+            config,
+            { log: log.createChild('attested-invalid-proposal-watcher') },
+          );
+          watchers.push(attestedInvalidProposalWatcher);
+        }
+
         if (config.slashDuplicateProposalPenalty > 0n) {
           checkpointEquivocationWatcher = new CheckpointEquivocationWatcher(archiver, epochCache, config);
           watchers.push(checkpointEquivocationWatcher);
@@ -784,33 +797,33 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         }
       }
 
+      const watchersToStart = compactArray([
+        validatorsSentinel,
+        dataWithholdingWatcher,
+        attestationsBlockWatcher,
+        broadcastedInvalidCheckpointProposalWatcher,
+        attestedInvalidProposalWatcher,
+        checkpointEquivocationWatcher,
+      ]);
+      const startedWatchers: Watcher[] = [];
+      const stopStartedWatchers = async () => {
+        for (const watcher of startedWatchers) {
+          await tryStop(watcher);
+        }
+      };
+
       // Start p2p-related services once the archiver has completed sync
       void archiver
         .waitForInitialSync()
         .then(async () => {
-          if (validatorsSentinel) {
-            await validatorsSentinel.start();
-            started.push(validatorsSentinel);
-          }
-          if (dataWithholdingWatcher) {
-            await dataWithholdingWatcher.start();
-            started.push(dataWithholdingWatcher);
-          }
-          if (attestationsBlockWatcher) {
-            await attestationsBlockWatcher.start();
-            started.push(attestationsBlockWatcher);
-          }
-          if (broadcastedInvalidCheckpointProposalWatcher) {
-            await broadcastedInvalidCheckpointProposalWatcher.start();
-            started.push(broadcastedInvalidCheckpointProposalWatcher);
-          }
-          if (checkpointEquivocationWatcher) {
-            await checkpointEquivocationWatcher.start();
-            started.push(checkpointEquivocationWatcher);
+          for (const watcher of watchersToStart) {
+            await watcher.start();
+            startedWatchers.push(watcher);
           }
           log.info(`All p2p services started`);
         })
         .catch(err => log.error('Failed to start p2p services after archiver sync', err));
+      started.push({ stop: stopStartedWatchers });
 
       // Validator enabled, create/start relevant service
       let sequencer: SequencerClient | undefined;
@@ -976,8 +989,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         proverNode,
         slasherClient,
         validatorsSentinel,
-        dataWithholdingWatcher,
-        attestationsBlockWatcher,
+        stopStartedWatchers,
         ethereumChain.chainInfo.id,
         config.rollupVersion,
         globalVariableBuilder,
@@ -1259,9 +1271,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public async stop() {
     this.log.info(`Stopping Aztec Node`);
-    await tryStop(this.attestationsBlockWatcher);
-    await tryStop(this.validatorsSentinel);
-    await tryStop(this.dataWithholdingWatcher);
+    await this.stopStartedWatchers();
     await tryStop(this.slasherClient);
     await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
     await tryStop(this.sequencer);
