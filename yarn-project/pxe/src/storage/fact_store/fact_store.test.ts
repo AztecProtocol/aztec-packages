@@ -87,6 +87,18 @@ describe('FactStore', () => {
     expect(await store.activeEntities(contractB, scopeX, ENTITY)).toEqual([]);
   });
 
+  it('excludes terminated entities from active enumeration', async () => {
+    await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, Buffer.from('a'), null);
+    expect(await store.isTerminated(contractA, scopeX, ENTITY, correlation)).toBe(false);
+
+    await store.terminate(contractA, scopeX, ENTITY, correlation);
+
+    expect(await store.isTerminated(contractA, scopeX, ENTITY, correlation)).toBe(true);
+    expect(await store.activeEntities(contractA, scopeX, ENTITY)).toEqual([]);
+    // facts themselves are still stored (terminate is a marker, not a delete):
+    expect(await store.loadCanonicalFactSet(contractA, scopeX, ENTITY, correlation)).toHaveLength(1);
+  });
+
   it('isolates facts by (contract, scope)', async () => {
     await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, Buffer.from('a'), null);
 

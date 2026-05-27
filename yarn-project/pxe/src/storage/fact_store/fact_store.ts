@@ -29,6 +29,8 @@ export class FactStore {
   #factsByEntity: AztecAsyncMultiMap<string, string>;
   /** (contract|scope|entityType) -> correlationKey hex */
   #entitiesByType: AztecAsyncMultiMap<string, string>;
+  /** (contract|scope|entityType|correlationKey) -> marker byte */
+  #terminated: AztecAsyncMap<string, Buffer>;
 
   constructor(store: AztecAsyncKVStore, chain: CanonicalityCheck) {
     this.#store = store;
@@ -36,6 +38,7 @@ export class FactStore {
     this.#facts = store.openMap('facts');
     this.#factsByEntity = store.openMultiMap('facts_by_entity');
     this.#entitiesByType = store.openMultiMap('facts_entities_by_type');
+    this.#terminated = store.openMap('facts_terminated');
   }
 
   /** Insert a fact, scoped to a (contract, scope) pair. Idempotent: re-putting the same row key is a no-op overwrite. */
@@ -92,7 +95,30 @@ export class FactStore {
     for await (const corrHex of this.#entitiesByType.getValuesAsync(this.#typeKey(contract, scope, entityType))) {
       seen.add(corrHex);
     }
-    return [...seen].map(hex => Buffer.from(hex, 'hex'));
+    const keys = [...seen].map(hex => Buffer.from(hex, 'hex'));
+    const live = await Promise.all(keys.map(k => this.isTerminated(contract, scope, entityType, k)));
+    return keys.filter((_, i) => !live[i]);
+  }
+
+  /** Permanently mark an entity terminated. Idempotent. Facts are retained; the entity drops out of {@link activeEntities}. */
+  terminate(
+    contract: AztecAddress,
+    scope: AztecAddress,
+    entityType: EntityTypeId,
+    correlationKey: Buffer,
+  ): Promise<void> {
+    return this.#terminated.set(this.#entityKey(contract, scope, entityType, correlationKey), Buffer.from([1]));
+  }
+
+  async isTerminated(
+    contract: AztecAddress,
+    scope: AztecAddress,
+    entityType: EntityTypeId,
+    correlationKey: Buffer,
+  ): Promise<boolean> {
+    return (
+      (await this.#terminated.getAsync(this.#entityKey(contract, scope, entityType, correlationKey))) !== undefined
+    );
   }
 
   #typeKey(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId): string {
