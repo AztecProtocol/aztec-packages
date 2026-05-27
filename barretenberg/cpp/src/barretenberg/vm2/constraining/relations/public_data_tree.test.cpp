@@ -10,7 +10,10 @@
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
+#include "barretenberg/vm2/generated/relations/perms_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_tx.hpp"
 #include "barretenberg/vm2/generated/relations/public_data_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
@@ -23,6 +26,7 @@
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
 #include "barretenberg/vm2/testing/test_tree.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -60,6 +64,7 @@ using simulation::RangeCheckEvent;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 
+using tracegen::ExecutionTraceBuilder;
 using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
@@ -782,6 +787,103 @@ TEST(PublicDataTreeConstrainingTest, NegativeSetProtocolWrite)
     trace.set(C::public_data_check_protocol_write, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_PROTOCOL_WRITE_CHECK),
                               "PROTOCOL_WRITE_CHECK");
+}
+
+// A read interaction (e.g. sload -> public_data_check.sel) must hit a destination row
+// where public_data_check.write = 0. Mutating write to 1 on the matching row breaks the lookup.
+TEST(PublicDataTreeConstrainingTest, NegativeReadInteractionRequiresWriteZero)
+{
+    FF slot = 42;
+    FF address = 1;
+    FF value = 27;
+    FF root = 100;
+
+    TestTraceContainer trace({
+        // Source row: sload caller.
+        {
+            { C::execution_sel_execute_sload, 1 },
+            { C::execution_register_0_, slot },
+            { C::execution_register_1_, address },
+            { C::execution_register_2_, value },
+            { C::execution_prev_public_data_tree_root, root },
+        },
+        // Destination row: matching read row in public_data_check.
+        {
+            { C::public_data_check_sel, 1 },
+            { C::public_data_check_slot, slot },
+            { C::public_data_check_address, address },
+            { C::public_data_check_value, value },
+            { C::public_data_check_root, root },
+            { C::public_data_check_write, 0 },
+        },
+    });
+
+    check_interaction<ExecutionTraceBuilder, lookup_sload_storage_read_settings>(trace);
+
+    // Mutate the destination row to write=1 and the lookup must fail to find a match.
+    trace.set(C::public_data_check_write, 1, 1);
+
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<ExecutionTraceBuilder, lookup_sload_storage_read_settings>(trace)),
+                              "Failed.*LOOKUP_SLOAD_STORAGE_READ. Could not find tuple in destination.");
+}
+
+// A write interaction (sstore -> public_data_check.non_protocol_write, via the multi-permutation
+// keyed by public_data_check.write) must hit a destination row where public_data_check.write = 1.
+// Mutating write to 0 removes the row from the multi-permutation candidate set.
+TEST(PublicDataTreeConstrainingTest, NegativeWriteInteractionRequiresWriteOne)
+{
+    FF slot = 42;
+    FF address = 1;
+    FF value = 27;
+    FF root_before = 100;
+    FF root_after = 200;
+    FF size_before = 128;
+    FF size_after = 129;
+    FF clk = 5;
+
+    TestTraceContainer trace({
+        // Source row: sstore caller.
+        {
+            { C::execution_sel_write_public_data, 1 },
+            { C::execution_register_0_, value },
+            { C::execution_contract_address, address },
+            { C::execution_register_1_, slot },
+            { C::execution_discard, 0 },
+            { C::execution_prev_public_data_tree_root, root_before },
+            { C::execution_public_data_tree_root, root_after },
+            { C::execution_prev_public_data_tree_size, size_before },
+            { C::execution_public_data_tree_size, size_after },
+            { C::execution_clk, clk },
+        },
+        // Destination row: matching non_protocol_write row in public_data_check.
+        {
+            { C::public_data_check_sel, 1 },
+            { C::public_data_check_write, 1 },
+            { C::public_data_check_non_protocol_write, 1 },
+            { C::public_data_check_value, value },
+            { C::public_data_check_address, address },
+            { C::public_data_check_slot, slot },
+            { C::public_data_check_discard, 0 },
+            { C::public_data_check_root, root_before },
+            { C::public_data_check_write_root, root_after },
+            { C::public_data_check_tree_size_before_write, size_before },
+            { C::public_data_check_tree_size_after_write, size_after },
+            { C::public_data_check_clk, clk },
+        },
+    });
+
+    check_multipermutation_interaction<PublicDataTreeTraceBuilder,
+                                       perm_sstore_storage_write_settings,
+                                       perm_tx_balance_update_settings>(trace);
+
+    // Mutate the destination row to write=0: the multi-permutation indexes only rows where
+    // public_data_check.write = 1, so the source can no longer find its match.
+    trace.set(C::public_data_check_write, 1, 0);
+
+    EXPECT_THROW_WITH_MESSAGE((check_multipermutation_interaction<PublicDataTreeTraceBuilder,
+                                                                  perm_sstore_storage_write_settings,
+                                                                  perm_tx_balance_update_settings>(trace)),
+                              "Failed setting selectors for PERM_SSTORE_STORAGE_WRITE");
 }
 
 TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxInitialValue)

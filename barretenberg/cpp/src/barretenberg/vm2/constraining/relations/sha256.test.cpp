@@ -817,5 +817,107 @@ TEST(Sha256ConstrainingTest, InitStateTamperingIsCaughtByPropagationConstraint)
     EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_PROPAGATE_INIT_A), "PROPAGATE_INIT_A");
 }
 
+//////////////////////////////////////////
+/// Negative Tests - rounds_remaining constraints
+//////////////////////////////////////////
+
+// Verifies that ROUNDS_REM_INIT (start * (rounds_remaining - 64) = 0) catches a malicious prover
+// that tries to start the round counter at a value other than 64 on the start row.
+TEST(Sha256ConstrainingTest, RoundsRemainingInitTamperingIsCaught)
+{
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    PureGreaterThan gt;
+    PureBitwise bitwise;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    RangeCheck range_check(range_check_event_emitter);
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
+
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    MemoryAddress input_addr = 8;
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress output_addr = 25;
+
+    sha256_gadget.compression(mem, state_addr, input_addr, output_addr);
+
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+    Sha256TraceBuilder builder;
+    builder.process(sha256_event_emitter.dump_events(), trace);
+
+    // Original trace must satisfy all sha256 relations.
+    ASSERT_NO_THROW(check_relation<sha256>(trace));
+    // Row 0 is the precomputed first row latch; the sha256 start row is row 1.
+    constexpr uint32_t START_ROW = 1;
+    ASSERT_EQ(trace.get(C::sha256_start, START_ROW), FF(1)) << "Row 1 should be the sha256 start row";
+    ASSERT_EQ(trace.get(C::sha256_rounds_remaining, START_ROW), FF(64))
+        << "rounds_remaining should be 64 on the start row";
+
+    // Tamper with rounds_remaining on the start row: set it to 50 instead of 64.
+    trace.set(C::sha256_rounds_remaining, START_ROW, FF(50));
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_INIT), "ROUNDS_REM_INIT");
+}
+
+// Verifies that ROUNDS_REM_DECREMENT (perform_round * (rounds_remaining - rounds_remaining' - 1) = 0)
+// catches a malicious prover that tries to skip ahead or stall the round counter on a perform_round row.
+TEST(Sha256ConstrainingTest, RoundsRemainingDecrementTamperingIsCaught)
+{
+    MemoryStore mem;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    PureGreaterThan gt;
+    PureBitwise bitwise;
+    EventEmitter<RangeCheckEvent> range_check_event_emitter;
+    RangeCheck range_check(range_check_event_emitter);
+
+    EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
+    Sha256 sha256_gadget(execution_id_manager, bitwise, gt, range_check, sha256_event_emitter);
+
+    std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    MemoryAddress state_addr = 0;
+    for (uint32_t i = 0; i < 8; ++i) {
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
+    }
+
+    std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    MemoryAddress input_addr = 8;
+    for (uint32_t i = 0; i < 16; ++i) {
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
+    }
+    MemoryAddress output_addr = 25;
+
+    sha256_gadget.compression(mem, state_addr, input_addr, output_addr);
+
+    TestTraceContainer trace;
+    trace.set(C::precomputed_first_row, 0, 1);
+    Sha256TraceBuilder builder;
+    builder.process(sha256_event_emitter.dump_events(), trace);
+
+    // Original trace must satisfy all sha256 relations.
+    ASSERT_NO_THROW(check_relation<sha256>(trace));
+
+    // Pick a perform_round row and tamper with rounds_remaining so the row->row+1 delta is no longer 1.
+    // The decrement constraint at row TAMPER_ROW - 1 (also a perform_round row) checks
+    // (rounds_remaining[TAMPER_ROW-1] - rounds_remaining[TAMPER_ROW] - 1) = 0, which now fails.
+    constexpr uint32_t TAMPER_ROW = 5;
+    ASSERT_EQ(trace.get(C::sha256_perform_round, TAMPER_ROW), FF(1));
+    FF original = trace.get(C::sha256_rounds_remaining, TAMPER_ROW);
+    trace.set(C::sha256_rounds_remaining, TAMPER_ROW, original - FF(1));
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_DECREMENT), "ROUNDS_REM_DECREMENT");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
