@@ -1211,6 +1211,7 @@ export class MsmV2 {
   // slow path even when the data-dependent caps would have allowed a fast-
   // path uniform rewrite. -1 = no scratch yet bound.
   private boundEpoch: number = -1;
+  _useDebugAccum = false;
   private preparedFor: Uint8Array | null = null; // scalarsBuf identity cache key
   private preparedSrsOffset: number = -1; // srsOffset used by the last prepare
 
@@ -2243,10 +2244,13 @@ export class MsmV2 {
         pass.end();
       };
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
-      // DEBUG: use single-thread sequential accumulator instead of streaming
-      dispatch(this.debugAccumPipe, this.debugAccumBind, 1, 1);
-      // indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-      // indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
+      // @ts-ignore — useDebugAccum is set by the run() method for A/B comparison
+      if (this._useDebugAccum) {
+        dispatch(this.debugAccumPipe, this.debugAccumBind, 1, 1);
+      } else {
+        indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
+        indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
+      }
     }
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
@@ -2333,7 +2337,7 @@ export class MsmV2 {
       await s.mapAsync(GPUMapMode.READ);
       const a = new Uint32Array(s.getMappedRange().slice(0));
       s.unmap(); s.destroy();
-      console.log(`[DBG] size1=${a[0]} dense=${a[1]} adds=${a[2]} wg=${a[3]} split=${a[4]} slab=${a[6]} s1d=(${a[8]},${a[9]},${a[10]}) sad=(${a[12]},${a[13]},${a[14]}) psd=(${a[16]},${a[17]},${a[18]})`);
+      console.log(`[DBG] size1=${a[0]} dense=${a[1]} adds=${a[2]} wg=${a[3]} split=${a[4]} slab=${a[6]} emit_t0_real=${a[19]} s1d=(${a[8]},${a[9]},${a[10]}) sad=(${a[12]},${a[13]},${a[14]}) psd=(${a[16]},${a[17]},${a[18]})`);
       // Count non-zero u32s in bucket_sums sample
       let nzBucket = 0;
       for (let i = 20; i < a.length; i++) if (a[i] !== 0) nzBucket++;
@@ -2476,7 +2480,59 @@ export class MsmV2 {
     this.windowSums = L;
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
-    console.log(`[DBG] windowSums: ${L.length} total. w0=(${L[0]?.x?.toString(16)?.slice(0,8)}...) w1=(${L[1]?.x?.toString(16)?.slice(0,8)}...)`);
+    // A/B comparison: run debug kernel and stream_accum, compare bucket_sums
+    {
+      const brb = this.pool.scratch!.bucketResultBuf;
+      const readSz = Math.min(this.bTotal * 16, 65536);
+      // Run with debug kernel
+      this._useDebugAccum = true;
+      const encD = device.createCommandEncoder();
+      this.encodeIntoBatch(encD, this.redStaging, 0);
+      const debugStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      encD.copyBufferToBuffer(brb, 0, debugStg, 0, readSz);
+      device.queue.submit([encD.finish()]);
+      await debugStg.mapAsync(GPUMapMode.READ);
+      const debugData = new Uint32Array(debugStg.getMappedRange().slice(0));
+      debugStg.unmap(); debugStg.destroy();
+      // Run with stream accum
+      this._useDebugAccum = false;
+      const encS = device.createCommandEncoder();
+      this.encodeIntoBatch(encS, this.redStaging, 0);
+      const streamStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      encS.copyBufferToBuffer(brb, 0, streamStg, 0, readSz);
+      device.queue.submit([encS.finish()]);
+      await streamStg.mapAsync(GPUMapMode.READ);
+      const streamData = new Uint32Array(streamStg.getMappedRange().slice(0));
+      streamStg.unmap(); streamStg.destroy();
+      // Compare
+      let mismatches = 0;
+      let firstMismatch = -1;
+      for (let i = 0; i < debugData.length; i++) {
+        if (debugData[i] !== streamData[i]) {
+          mismatches++;
+          if (firstMismatch < 0) firstMismatch = i;
+        }
+      }
+      const bucketOfFirst = firstMismatch >= 0 ? Math.floor(firstMismatch / 2) : -1;
+      console.log(`[A/B] compared ${debugData.length} u32s: ${mismatches} mismatches, first at u32[${firstMismatch}] (bucket ~${bucketOfFirst})`);
+      // List first 10 mismatched bucket indices and their status
+      const mmBuckets: number[] = [];
+      for (let i = 0; i < debugData.length; i += 2) {
+        const bk = i / 2;
+        const dNz = debugData[i] !== 0 || debugData[i+1] !== 0;
+        const sNz = streamData[i] !== 0 || streamData[i+1] !== 0;
+        if (dNz !== sNz || (dNz && sNz && (debugData[i] !== streamData[i] || debugData[i+1] !== streamData[i+1]))) {
+          mmBuckets.push(bk);
+        }
+      }
+      const mmStr = mmBuckets.slice(0, 20).map(b => {
+        const di = b*2;
+        const dNz = debugData[di] !== 0;
+        const sNz = streamData[di] !== 0;
+        return `${b}(d=${dNz?'nz':'0'} s=${sNz?'nz':'0'})`;
+      }).join(' ');
+      console.log(`[A/B] mismatched buckets (first 20): ${mmStr}`);
+    }
     // Find first count-2 bucket and verify its sum
     {
       const cntBuf = this.pool.scratch!.countsBufs[0];
