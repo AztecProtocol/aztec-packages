@@ -4,7 +4,7 @@ import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_TX_LIFETIME,
-  MEGA_VK_LENGTH_IN_FIELDS,
+  MEGA_APP_VK_LENGTH_IN_FIELDS,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -82,7 +82,7 @@ describe('Private Kernel Sequencer', () => {
 
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
-      Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES),
+      Buffer.alloc(MEGA_APP_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES),
       new Map(),
       publicInputs,
       [],
