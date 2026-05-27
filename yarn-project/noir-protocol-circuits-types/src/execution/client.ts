@@ -34,11 +34,11 @@ import {
 import {
   mapFieldToNoir,
   mapNumberToNoir,
+  mapPaddedVkDataToNoir,
   mapPrivateToPublicKernelCircuitPublicInputsToNoir,
   mapPrivateToRollupKernelCircuitPublicInputsToNoir,
   mapProtocolContractsToNoir,
   mapU64ToNoir,
-  mapVkDataToNoir,
 } from '../conversion/common.js';
 import type {
   HidingKernelToPublicInputType,
@@ -304,7 +304,7 @@ export function convertHidingKernelToRollupInputsToWitnessMapWithAbi(
 ): WitnessMap {
   const mapped: HidingKernelToRollupInputType = {
     previous_kernel_public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(inputs.previousKernelPublicInputs),
-    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
+    previous_kernel_vk_data: mapPaddedVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
   };
   return abiEncode(abi, mapped);
 }
@@ -315,7 +315,7 @@ export function convertHidingKernelPublicInputsToWitnessMapWithAbi(
 ): WitnessMap {
   const mapped: HidingKernelToPublicInputType = {
     previous_kernel_public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(inputs.previousKernelPublicInputs),
-    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
+    previous_kernel_vk_data: mapPaddedVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
   };
   return abiEncode(abi, mapped);
 }
