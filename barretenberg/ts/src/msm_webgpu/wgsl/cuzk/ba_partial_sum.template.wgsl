@@ -182,7 +182,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
             }
         }
 
-        workgroupBarrier();
+        // storageBarrier: execution barrier + storage-address-space visibility.
+        // partials_buf is var<storage>; workgroupBarrier only covers
+        // var<workgroup>. Without storageBarrier, round r+1 reads stale data
+        // from round r's writes by other threads.
+        storageBarrier();
         n_active = (n_active + 1u) / 2u;
         stride *= 2u;
     }
