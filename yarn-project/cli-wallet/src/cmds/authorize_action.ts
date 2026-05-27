@@ -6,6 +6,7 @@ import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
+import { CLIWallet } from '../utils/wallet.js';
 
 export async function authorizeAction(
   wallet: Wallet,
@@ -28,6 +29,10 @@ export async function authorizeAction(
     throw new Error(
       'Cannot authorize private function. To allow a third party to call a private function, please create an authorization witness via the create-authwit command',
     );
+  }
+
+  if (wallet instanceof CLIWallet) {
+    await wallet.ensureAuthRegistryPublished(from);
   }
 
   const contract = Contract.at(contractAddress, contractArtifact, wallet);

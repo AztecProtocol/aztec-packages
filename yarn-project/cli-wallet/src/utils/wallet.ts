@@ -5,6 +5,7 @@ import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@a
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
 import { type InteractionFeeOptions, getContractClassFromArtifact, getGasLimits } from '@aztec/aztec.js/contracts';
+import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
@@ -16,6 +17,7 @@ import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
+import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
@@ -54,7 +56,34 @@ export class CLIWallet extends BaseWallet {
     const pxe = await createPXE(node, pxeConfig);
     const wallet = new CLIWallet(pxe, node, log, db);
     await wallet.initStubClasses();
+    await wallet.registerAuthRegistry();
     return wallet;
+  }
+
+  /**
+   * Registers the AuthRegistry contract instance + artifact with the fresh PXE so that subsequent
+   * public-authwit calls can be encoded and any revert messages from AuthRegistry are enriched.
+   * Since the CLI wallet spins up a new PXE on every command invocation, this must run on each
+   * wallet creation.
+   */
+  private async registerAuthRegistry(): Promise<void> {
+    const { instance, artifact } = await getStandardAuthRegistry();
+    await this.pxe.registerContract({ instance, artifact });
+  }
+
+  /**
+   * Publishes the AuthRegistry contract class and instance on-chain if not already published.
+   * Required before the first public-authwit transaction in a fresh network — post-demotion,
+   * AuthRegistry is no longer a protocol contract and must be deployed like any other contract.
+   */
+  async ensureAuthRegistryPublished(from: AztecAddress): Promise<void> {
+    const { instance, contractClass } = await getStandardAuthRegistry();
+    if (!(await this.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+      await (await publishContractClass(this, AuthRegistryArtifact)).send({ from }).wait();
+    }
+    if (!(await this.getContractMetadata(instance.address)).isContractPublished) {
+      await publishInstance(this, instance).send({ from }).wait();
+    }
   }
 
   /**
