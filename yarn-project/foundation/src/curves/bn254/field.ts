@@ -25,6 +25,7 @@ type DerivedField<T extends BaseField> = {
  */
 abstract class BaseField {
   static SIZE_IN_BYTES = 32;
+  private static readonly ZERO_BUFFER = Buffer.alloc(BaseField.SIZE_IN_BYTES);
   private readonly asBigInt: bigint;
 
   /**
@@ -67,7 +68,10 @@ abstract class BaseField {
    * Converts the bigint to a Buffer.
    */
   toBuffer(): Buffer {
-    return toBufferBE(this.asBigInt, 32);
+    if (this.asBigInt === 0n) {
+      return BaseField.ZERO_BUFFER;
+    }
+    return toBufferBE(this.asBigInt, BaseField.SIZE_IN_BYTES);
   }
 
   toString(): `0x${string}` {
