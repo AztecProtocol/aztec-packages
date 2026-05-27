@@ -390,31 +390,40 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const { l2SlotNumber: currentSlot } = await test.monitor.run();
     logger.warn(`First checkpoint mined, current slot is ${currentSlot}`);
 
-    // The bad config is applied while sequencers are already running; skip pairs where the prior pipelined
-    // target slot could snapshot that config before the intended bad slots.
+    // The bad config is applied while sequencers are already running; skip pairs where a pipelined
+    // pre-bad target slot could snapshot that config before the intended bad slots.
     let badSlot1: SlotNumber | undefined;
     let badSlot2: SlotNumber | undefined;
     let badProposers: EthAddress[] = [];
     const firstCandidateSlot = Number(currentSlot) + 3;
+    const firstUnsnapshottedTargetSlot = SlotNumber.add(currentSlot, 2);
     const maxBadSlotSearchAttempts = 20;
     for (let attempt = 0; attempt < maxBadSlotSearchAttempts && badSlot1 === undefined; attempt++) {
       const candidateSlot1 = SlotNumber(firstCandidateSlot + attempt);
       const candidateSlot2 = SlotNumber.add(candidateSlot1, 1);
-      const priorPipelinedTargetSlot = SlotNumber.add(candidateSlot1, -1);
-      const [priorProposer, p1, p2] = await Promise.all([
-        test.epochCache.getProposerAttesterAddressInSlot(priorPipelinedTargetSlot),
+      const preBadTargetSlots = range(
+        Math.max(0, Number(candidateSlot1) - Number(firstUnsnapshottedTargetSlot)),
+        Number(firstUnsnapshottedTargetSlot),
+      ).map(SlotNumber);
+      const [preBadProposers, p1, p2] = await Promise.all([
+        Promise.all(preBadTargetSlots.map(slot => test.epochCache.getProposerAttesterAddressInSlot(slot))),
         test.epochCache.getProposerAttesterAddressInSlot(candidateSlot1),
         test.epochCache.getProposerAttesterAddressInSlot(candidateSlot2),
       ]);
 
       logger.warn(`Checking bad checkpoint slots ${candidateSlot1} and ${candidateSlot2}`, {
-        priorPipelinedTargetSlot,
-        priorProposer: priorProposer?.toString(),
+        preBadTargetSlots,
+        preBadProposers: preBadProposers.map(proposer => proposer?.toString()),
         p1: p1?.toString(),
         p2: p2?.toString(),
       });
 
-      if (p1 && p2 && !priorProposer?.equals(p1) && !priorProposer?.equals(p2)) {
+      const badProposerHasUnsnapshottedPreBadSlot =
+        p1 !== undefined &&
+        p2 !== undefined &&
+        preBadProposers.some(proposer => proposer !== undefined && (proposer.equals(p1) || proposer.equals(p2)));
+
+      if (p1 && p2 && !badProposerHasUnsnapshottedPreBadSlot) {
         badSlot1 = candidateSlot1;
         badSlot2 = candidateSlot2;
         badProposers = [p1, p2];
@@ -464,7 +473,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Wait for both checkpoints to be mined
     logger.warn(`Waiting for two checkpoints to be mined on slots ${expectedFirstSlot} and ${expectedSecondSlot}`);
     const [firstCheckpoint, secondCheckpoint] = await Promise.race([
-      await Promise.all([firstCheckpointPromise.promise, secondCheckpointPromise.promise]),
+      Promise.all([firstCheckpointPromise.promise, secondCheckpointPromise.promise]),
       timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [CheckpointNumber(0), CheckpointNumber(0)]),
     ]);
 
