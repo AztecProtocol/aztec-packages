@@ -28,6 +28,7 @@ import {
   type EndToEndContext,
   type SetupOptions,
   deployAccounts,
+  ensureAuthRegistryPublished,
   publicDeployAccounts,
   setup,
   teardown,
@@ -213,6 +214,7 @@ export class FeesTest {
 
   async applyPublicDeployAccounts() {
     this.logger.info('Applying public deploy accounts setup');
+    await ensureAuthRegistryPublished(this.wallet, this.aliceAddress);
     await publicDeployAccounts(this.wallet, this.accounts);
   }
 
