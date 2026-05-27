@@ -67,23 +67,27 @@ describe('MessageContextService', () => {
     const txHash = TxHash.random();
     const noteHashes = [Fr.random(), Fr.random()];
     const firstNullifier = Fr.random();
+    const blockNumber = BlockNumber(anchorBlockNumber - 1);
+    const blockHash = BlockHash.random();
 
     aztecNode.getTxEffect.mockResolvedValueOnce({
-      l2BlockNumber: BlockNumber(anchorBlockNumber - 1),
-      l2BlockHash: BlockHash.random(),
+      l2BlockNumber: blockNumber,
+      l2BlockHash: blockHash,
       txIndexInBlock: 0,
       data: { txHash, noteHashes, nullifiers: [firstNullifier, Fr.random()] },
     } as any);
 
     const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
-    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier)]);
+    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier, blockNumber, blockHash.toFr())]);
   });
 
   it('resolves tx hashes in different situations', async () => {
     const validTxHash = TxHash.random();
     const validNoteHashes = [Fr.random()];
     const validNullifier = Fr.random();
+    const validBlockNumber = BlockNumber(anchorBlockNumber);
+    const validBlockHash = BlockHash.random();
 
     const notFoundTxHash = TxHash.random();
     const futureTxHash = TxHash.random();
@@ -91,8 +95,8 @@ describe('MessageContextService', () => {
     aztecNode.getTxEffect.mockImplementation((hash: TxHash) => {
       if (hash.equals(validTxHash)) {
         return {
-          l2BlockNumber: BlockNumber(anchorBlockNumber),
-          l2BlockHash: BlockHash.random(),
+          l2BlockNumber: validBlockNumber,
+          l2BlockHash: validBlockHash,
           txIndexInBlock: 0,
           data: { txHash: validTxHash, noteHashes: validNoteHashes, nullifiers: [validNullifier] },
         } as any;
@@ -118,7 +122,12 @@ describe('MessageContextService', () => {
       anchorBlockNumber,
     );
 
-    expect(results).toEqual([null, new MessageContext(validTxHash, validNoteHashes, validNullifier), null, null]);
+    expect(results).toEqual([
+      null,
+      new MessageContext(validTxHash, validNoteHashes, validNullifier, validBlockNumber, validBlockHash.toFr()),
+      null,
+      null,
+    ]);
 
     // Zero hash should not trigger getTxEffect
     expect(aztecNode.getTxEffect).toHaveBeenCalledTimes(3);
@@ -128,10 +137,12 @@ describe('MessageContextService', () => {
     const txEffect = TxEffect.from({
       ...(await TxEffect.random({ numNoteHashes: 1, numNullifiers: 1 })),
     });
+    const dedupBlockNumber = BlockNumber(anchorBlockNumber - 1);
+    const dedupBlockHash = BlockHash.random();
 
     aztecNode.getTxEffect.mockResolvedValue({
-      l2BlockNumber: BlockNumber(anchorBlockNumber - 1),
-      l2BlockHash: BlockHash.random(),
+      l2BlockNumber: dedupBlockNumber,
+      l2BlockHash: dedupBlockHash,
       txIndexInBlock: 0,
       data: txEffect,
     });
@@ -141,7 +152,13 @@ describe('MessageContextService', () => {
       anchorBlockNumber,
     );
 
-    const expected = new MessageContext(txEffect.txHash, txEffect.noteHashes, txEffect.nullifiers[0]);
+    const expected = new MessageContext(
+      txEffect.txHash,
+      txEffect.noteHashes,
+      txEffect.nullifiers[0],
+      dedupBlockNumber,
+      dedupBlockHash.toFr(),
+    );
     expect(results).toEqual([expected, expected, expected]);
     expect(aztecNode.getTxEffect).toHaveBeenCalledTimes(1);
   });

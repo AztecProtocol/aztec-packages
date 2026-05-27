@@ -87,6 +87,8 @@ describe('MessageContext', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
       ]
     `);
 
@@ -123,5 +125,12 @@ describe('MessageContext', () => {
     const txHash = new TxHash(new Fr(123));
     const ctx = new MessageContext(txHash, [new Fr(4n), new Fr(5n)], new Fr(6n));
     expect(ctx.toFields().length).toEqual(MessageContext.toEmptyFields().length);
+  });
+
+  it('serializes the block anchor as the final two fields', () => {
+    const ctx = new MessageContext(new TxHash(new Fr(123n)), [new Fr(4n)], new Fr(6n), 105, new Fr(0xaan));
+    const fields = ctx.toFields();
+    expect(fields[fields.length - 2]).toEqual(new Fr(105n));
+    expect(fields[fields.length - 1]).toEqual(new Fr(0xaan));
   });
 });

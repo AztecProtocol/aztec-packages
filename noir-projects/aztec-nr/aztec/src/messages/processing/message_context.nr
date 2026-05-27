@@ -10,6 +10,8 @@ pub struct MessageContext {
     pub tx_hash: Field,
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub first_nullifier_in_tx: Field,
+    pub block_number: Field,
+    pub block_hash: Field,
 }
 
 mod test {
@@ -28,6 +30,8 @@ mod test {
             tx_hash,
             unique_note_hashes_in_tx: unique_note_hashes,
             first_nullifier_in_tx: first_nullifier,
+            block_number: 0,
+            block_hash: 0,
         };
 
         // Expected output generated from TypeScript's `MessageContext.toFields()`
@@ -99,6 +103,8 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
         ];
 
         let deserialized = MessageContext::deserialize(serialized_message_context_from_typescript);
