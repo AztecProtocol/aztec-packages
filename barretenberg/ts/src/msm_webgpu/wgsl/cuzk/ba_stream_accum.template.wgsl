@@ -1,0 +1,278 @@
+{{> structs }}
+{{> bigint_funcs }}
+{{> montgomery_product_funcs }}
+{{> field_funcs }}
+{{> fr_pow_funcs }}
+{{> bigint_by_funcs }}
+{{> inverse_funcs }}
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+{{> field8_funcs }}
+
+// Streaming bucket accumulator. Each of T threads owns S pair-pointer
+// slots, pulls work items from a pre-built queue, and performs batched
+// affine addition with one field inversion per S adds.
+//
+// params.x = NUM_THREADS
+// params.y = M_acc   (= T * S, acc_buf stride)
+// params.z = M_partials (= 2 * T, partials_buf stride)
+// params.w = M_buckets  (= B_TOTAL, bucket_sums stride)
+
+const S: u32 = {{ s }}u;
+const PG: u32 = 2u;
+const QUEUE_HEADER_LEN: u32 = {{ queue_header_len }}u;
+const L0_SIGN_BIT: u32 = 0x80000000u;
+const L0_IDX_MASK: u32 = 0x7fffffffu;
+const IDLE_DEST: u32 = 0x40000000u;
+const PARTIAL_BIT: u32 = 0x80000000u;
+
+@group(0) @binding(0) var<storage, read>       queue_buf:     array<u32>;
+@group(0) @binding(1) var<storage, read>       point_x:       array<vec4<u32>>;
+@group(0) @binding(2) var<storage, read>       point_y:       array<vec4<u32>>;
+@group(0) @binding(3) var<storage, read>       l0_index:      array<u32>;
+@group(0) @binding(4) var<storage, read_write> acc_buf:       array<vec4<u32>>;
+@group(0) @binding(5) var<storage, read_write> pref_scratch:  array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read_write> bucket_sums:   array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read_write> partials_buf:  array<vec4<u32>>;
+@group(0) @binding(8) var<uniform>             params:        vec4<u32>;
+
+fn load_pt_x(cursor: u32) -> array<u32, 8> {
+    let packed = l0_index[cursor];
+    let pt = packed & L0_IDX_MASK;
+    let q0 = point_x[2u * pt];
+    let q1 = point_x[2u * pt + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn load_pt_y(cursor: u32) -> array<u32, 8> {
+    let packed = l0_index[cursor];
+    let pt = packed & L0_IDX_MASK;
+    let q0 = point_y[2u * pt];
+    let q1 = point_y[2u * pt + 1u];
+    let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if ((packed & L0_SIGN_BIT) == 0u) {
+        return y;
+    }
+    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+    return fr_sub_f8(zero, y);
+}
+
+fn load_soa_x(buf: ptr<storage, array<vec4<u32>>, read_write>, slot: u32, M: u32) -> array<u32, 8> {
+    let base = PG * slot;
+    let q0 = (*buf)[base + 0u];
+    let q1 = (*buf)[base + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn load_soa_y(buf: ptr<storage, array<vec4<u32>>, read_write>, slot: u32, M: u32) -> array<u32, 8> {
+    let base = PG * M + PG * slot;
+    let q0 = (*buf)[base + 0u];
+    let q1 = (*buf)[base + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn store_soa(buf: ptr<storage, array<vec4<u32>>, read_write>, slot: u32, M: u32,
+             x_val: array<u32, 8>, y_val: array<u32, 8>) {
+    let bx = PG * slot;
+    (*buf)[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    (*buf)[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    let by = PG * M + PG * slot;
+    (*buf)[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    (*buf)[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+}
+
+fn store_pref(slot: u32, val: array<u32, 8>) {
+    let base = 2u * slot;
+    pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn load_pref(slot: u32) -> array<u32, 8> {
+    let base = 2u * slot;
+    let q0 = pref_scratch[base + 0u];
+    let q1 = pref_scratch[base + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+@compute @workgroup_size({{ workgroup_size }})
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let t = gid.x;
+    let NUM_THREADS = params.x;
+    let M_acc = params.y;
+    let M_partials = params.z;
+    let M_buckets = params.w;
+
+    if (t >= NUM_THREADS) { return; }
+
+    let pref_base = t * S;
+
+    let q_start = queue_buf[2u * t];
+    let q_count = queue_buf[2u * t + 1u];
+
+    var cursor: array<u32, {{ s }}>;
+    var end_cursor: array<u32, {{ s }}>;
+    var is_first: array<u32, {{ s }}>;
+    var dest: array<u32, {{ s }}>;
+    var qhead: u32 = 0u;
+
+    // Pop initial S entries.
+    for (var k: u32 = 0u; k < S; k = k + 1u) {
+        if (qhead < q_count) {
+            let base = q_start + qhead * 3u;
+            cursor[k]     = queue_buf[QUEUE_HEADER_LEN + base + 0u];
+            end_cursor[k] = queue_buf[QUEUE_HEADER_LEN + base + 1u];
+            dest[k]       = queue_buf[QUEUE_HEADER_LEN + base + 2u];
+            is_first[k] = 1u;
+            qhead += 1u;
+        } else {
+            cursor[k] = 0u;
+            end_cursor[k] = 0u;
+            dest[k] = IDLE_DEST;
+            is_first[k] = 1u;
+        }
+    }
+
+    loop {
+        // Check if any slot still has work.
+        var any_active: bool = false;
+        for (var k: u32 = 0u; k < S; k = k + 1u) {
+            if (cursor[k] < end_cursor[k]) {
+                any_active = true;
+            }
+        }
+        if (!any_active) { break; }
+
+        // Forward prefix: compute dx for each slot and accumulate.
+        var acc: array<u32, 8> = get_r_f8();
+        for (var k: u32 = 0u; k < S; k = k + 1u) {
+            var p_lx: array<u32, 8>;
+            var p_rx: array<u32, 8>;
+            if (cursor[k] >= end_cursor[k]) {
+                // Slot is idle — use identity difference (R).
+                p_lx = get_r_f8();
+                p_rx = get_r_f8();
+            } else if (is_first[k] == 1u) {
+                p_lx = load_pt_x(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
+            } else {
+                p_lx = load_soa_x(&acc_buf, t * S + k, M_acc);
+                p_rx = load_pt_x(cursor[k]);
+            }
+            let dx = fr_sub_f8(p_rx, p_lx);
+            if (k == 0u) {
+                acc = dx;
+            } else {
+                acc = montgomery_product_f8(acc, dx);
+            }
+            store_pref(pref_base + k, acc);
+        }
+
+        // Single inversion.
+        var acc20 = unpack256_to_limbs(acc);
+        var inv20 = {{ inv_fn }}(acc20);
+        var inv = pack_limbs_to_256(&inv20);
+
+        // Inverse pass: derive per-slot 1/dx.
+        for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
+            let k = S - 1u - jj;
+            var inv_dx: array<u32, 8>;
+            if (k == 0u) {
+                inv_dx = inv;
+            } else {
+                let pp = load_pref(pref_base + (k - 1u));
+                inv_dx = montgomery_product_f8(inv, pp);
+                var p_lx_b: array<u32, 8>;
+                var p_rx_b: array<u32, 8>;
+                if (cursor[k] >= end_cursor[k]) {
+                    p_lx_b = get_r_f8();
+                    p_rx_b = get_r_f8();
+                } else if (is_first[k] == 1u) {
+                    p_lx_b = load_pt_x(cursor[k]);
+                    p_rx_b = load_pt_x(cursor[k] + 1u);
+                } else {
+                    p_lx_b = load_soa_x(&acc_buf, t * S + k, M_acc);
+                    p_rx_b = load_pt_x(cursor[k]);
+                }
+                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
+                inv = montgomery_product_f8(inv, dx_b);
+            }
+            store_pref(pref_base + k, inv_dx);
+        }
+
+        // Backward peel: affine add + retire / store.
+        for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
+            let k = S - 1u - jj;
+
+            if (cursor[k] >= end_cursor[k]) {
+                // Idle slot — nothing to do.
+                continue;
+            }
+
+            var p_lx: array<u32, 8>;
+            var p_ly: array<u32, 8>;
+            var p_rx: array<u32, 8>;
+            var p_ry: array<u32, 8>;
+            if (is_first[k] == 1u) {
+                p_lx = load_pt_x(cursor[k]);
+                p_ly = load_pt_y(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
+                p_ry = load_pt_y(cursor[k] + 1u);
+                cursor[k] += 2u;
+            } else {
+                p_lx = load_soa_x(&acc_buf, t * S + k, M_acc);
+                p_ly = load_soa_y(&acc_buf, t * S + k, M_acc);
+                p_rx = load_pt_x(cursor[k]);
+                p_ry = load_pt_y(cursor[k]);
+                cursor[k] += 1u;
+            }
+
+            let inv_dx = load_pref(pref_base + k);
+
+            var lambda = fr_sub_f8(p_ry, p_ly);
+            lambda = montgomery_product_f8(lambda, inv_dx);
+
+            var r_x = montgomery_product_f8(lambda, lambda);
+            let x_sum = fr_add_f8(p_lx, p_rx);
+            r_x = fr_sub_f8(r_x, x_sum);
+
+            var r_y = fr_sub_f8(p_lx, r_x);
+            r_y = montgomery_product_f8(lambda, r_y);
+            r_y = fr_sub_f8(r_y, p_ly);
+
+            if (cursor[k] >= end_cursor[k]) {
+                // Piece done — retire.
+                let dp = dest[k];
+                if ((dp & IDLE_DEST) != 0u) {
+                    // Discard.
+                } else if ((dp & PARTIAL_BIT) != 0u) {
+                    let ps = dp & 0x3FFFFFFFu;
+                    store_soa(&partials_buf, ps, M_partials, r_x, r_y);
+                } else {
+                    store_soa(&bucket_sums, dp, M_buckets, r_x, r_y);
+                }
+                // Pop next entry.
+                if (qhead < q_count) {
+                    let base = q_start + qhead * 3u;
+                    cursor[k]     = queue_buf[QUEUE_HEADER_LEN + base + 0u];
+                    end_cursor[k] = queue_buf[QUEUE_HEADER_LEN + base + 1u];
+                    dest[k]       = queue_buf[QUEUE_HEADER_LEN + base + 2u];
+                    is_first[k] = 1u;
+                    qhead += 1u;
+                } else {
+                    cursor[k] = 0u;
+                    end_cursor[k] = 0u;
+                    dest[k] = IDLE_DEST;
+                    is_first[k] = 1u;
+                }
+            } else {
+                store_soa(&acc_buf, t * S + k, M_acc, r_x, r_y);
+                is_first[k] = 0u;
+            }
+        }
+    }
+
+    {{{ recompile }}}
+}

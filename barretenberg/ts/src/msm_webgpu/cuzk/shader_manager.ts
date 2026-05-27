@@ -8,6 +8,19 @@ import {
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
   ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
   ba_planner_v2_emit as ba_planner_v2_emit_shader,
+  ba_planner_classify as ba_planner_classify_shader,
+  ba_planner_meta_fixup as ba_planner_meta_fixup_shader,
+  ba_planner_radix_count as ba_planner_radix_count_shader,
+  ba_planner_radix_scan as ba_planner_radix_scan_shader,
+  ba_planner_radix_scatter as ba_planner_radix_scatter_shader,
+  ba_planner_cumsum as ba_planner_cumsum_shader,
+  ba_planner_partition_wg as ba_planner_partition_wg_shader,
+  ba_planner_partition_thread as ba_planner_partition_thread_shader,
+  ba_planner_emit as ba_planner_emit_shader,
+  ba_planner_emit_fixup as ba_planner_emit_fixup_shader,
+  ba_size1 as ba_size1_shader,
+  ba_stream_accum as ba_stream_accum_shader,
+  ba_partial_sum as ba_partial_sum_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -845,5 +858,139 @@ ${packLines.join('\n')}
     const bigint_f32_src = mustache.render(bigint_f32_funcs, ctx);
     const mont_src = mustache.render(montgomery_product_f32_22_sos3uv3_funcs, ctx);
     return `${mulhilo_22_funcs}\n${bigint_f32_src}\n${mont_src}`;
+  }
+
+  // --- Streaming planner + accumulator generators ---
+
+  public gen_ba_planner_classify_shader(workgroup_size: number, b_total: number): string {
+    return mustache.render(ba_planner_classify_shader, { workgroup_size, b_total, recompile: this.recompile });
+  }
+
+  public gen_ba_planner_meta_fixup_shader(): string {
+    return mustache.render(ba_planner_meta_fixup_shader, { recompile: this.recompile });
+  }
+
+  public gen_ba_planner_radix_count_shader(tile_size: number): string {
+    return mustache.render(ba_planner_radix_count_shader, { tile_size, recompile: this.recompile });
+  }
+
+  public gen_ba_planner_radix_scan_shader(): string {
+    return mustache.render(ba_planner_radix_scan_shader, { recompile: this.recompile });
+  }
+
+  public gen_ba_planner_radix_scatter_shader(tile_size: number): string {
+    return mustache.render(ba_planner_radix_scatter_shader, { tile_size, recompile: this.recompile });
+  }
+
+  public gen_ba_planner_cumsum_shader(
+    num_threads: number,
+    s: number,
+    min_iters_per_wg: number,
+    max_workgroups: number,
+  ): string {
+    return mustache.render(ba_planner_cumsum_shader, {
+      num_threads, s, min_iters_per_wg, max_workgroups, recompile: this.recompile,
+    });
+  }
+
+  public gen_ba_planner_partition_wg_shader(): string {
+    return mustache.render(ba_planner_partition_wg_shader, { recompile: this.recompile });
+  }
+
+  public gen_ba_planner_partition_thread_shader(workgroup_size: number): string {
+    return mustache.render(ba_planner_partition_thread_shader, { workgroup_size, recompile: this.recompile });
+  }
+
+  public gen_ba_planner_emit_shader(
+    workgroup_size: number,
+    s: number,
+    num_threads: number,
+    idle_anchor: number,
+    queue_header_len: number,
+  ): string {
+    return mustache.render(ba_planner_emit_shader, {
+      workgroup_size, s, num_threads,
+      idle_anchor, queue_header_len,
+      num_threads_plus_1: num_threads + 1,
+      recompile: this.recompile,
+    });
+  }
+
+  public gen_ba_planner_emit_fixup_shader(num_threads: number): string {
+    return mustache.render(ba_planner_emit_fixup_shader, { num_threads, recompile: this.recompile });
+  }
+
+  public gen_ba_size1_shader(): string {
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_size1_shader,
+      {
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs, field8_funcs },
+    );
+  }
+
+  public gen_ba_stream_accum_shader(
+    workgroup_size: number,
+    s: number,
+    queue_header_len: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_stream_accum_shader,
+      {
+        workgroup_size, s, inv_fn, queue_header_len,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  public gen_ba_partial_sum_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_partial_sum_shader,
+      {
+        workgroup_size, s, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
   }
 }
