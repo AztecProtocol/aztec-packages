@@ -214,10 +214,12 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     const stats = await sentinel.getValidatorsStats();
     t.logger.info(`Collected validator stats at slot ${t.monitor.l2SlotNumber}`, { stats });
 
-    // Check that all of the first node validators have attestations recorded
+    // Check the selected slot only. Earlier slots after stopping the second node can legitimately fail quorum if a
+    // first-node validator is proposer; this test is about the sentinel recording attestations for the selected
+    // first-node proposer slot.
     for (const validator of firstNodeValidators) {
       const validatorStats = stats.stats[validator.toString().toLowerCase()];
-      const history = validatorStats?.history.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
+      const history = validatorStats?.history.filter(h => h.slot === slotForSentinel) ?? [];
       t.logger.info(`Asserting stats for online validator ${validator}`, { history });
       expect(
         history.filter(
@@ -229,7 +231,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // At least one of the first node validators must have been seen as proposer
     const firstNodeBlockProposedHistory = firstNodeValidators
       .flatMap(v => stats.stats[v.toString().toLowerCase()].history)
-      .filter(h => h.slot > initialSlot && h.slot <= slotForSentinel)
+      .filter(h => h.slot === slotForSentinel)
       .filter(h => h.status === 'checkpoint-valid' || h.status === 'checkpoint-mined');
     expect(firstNodeBlockProposedHistory).not.toBeEmpty();
 
