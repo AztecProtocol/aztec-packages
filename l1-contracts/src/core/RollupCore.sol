@@ -224,6 +224,15 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   ) Ownable(_governance) {
     StakingLib.assertValidQueueConfig(_config.stakingQueueConfig);
 
+    // queueSetSlasher schedules the replacement slasher to land at `block.timestamp +
+    // SLASHER_EXECUTION_DELAY`. If a validator's exit delay is longer, an objecting validator
+    // cannot finish withdrawal before the new slasher takes over, so the rollup cannot honor
+    // its end of the replacement opt-out window for the configured exit delay.
+    require(
+      _config.exitDelaySeconds <= StakingLib.SLASHER_EXECUTION_DELAY,
+      Errors.Staking__ExitDelayAboveSlasherDelay(_config.exitDelaySeconds, StakingLib.SLASHER_EXECUTION_DELAY)
+    );
+
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
     );

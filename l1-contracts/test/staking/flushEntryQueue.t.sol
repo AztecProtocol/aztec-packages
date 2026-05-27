@@ -104,7 +104,8 @@ contract FlushEntryQueueTest is StakingBase {
 
     _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 1, 500);
     _numValidators = bound(_numValidators, _bootstrapValidatorSetSize, _bootstrapValidatorSetSize * 2);
-    _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, _bootstrapValidatorSetSize * 2);
+    // bootstrapFlushSize must stay <= maxQueueFlushSize so assertValidQueueConfig accepts it.
+    _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, MAX_QUEUE_FLUSH_SIZE);
     uint256 effectiveFlushSize = _bootstrapFlushSize;
 
     _setupQueueConfig(_bootstrapValidatorSetSize, _bootstrapFlushSize, _normalFlushSizeMin, _normalFlushSizeQuotient);
@@ -126,7 +127,8 @@ contract FlushEntryQueueTest is StakingBase {
     // it refunds the withdrawer if the deposit fails
 
     _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 3, 1000);
-    _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, _bootstrapValidatorSetSize / 3);
+    // bootstrapFlushSize must stay <= maxQueueFlushSize so assertValidQueueConfig accepts it.
+    _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, Math.min(_bootstrapValidatorSetSize / 3, MAX_QUEUE_FLUSH_SIZE));
     uint256 effectiveFlushSize = _bootstrapFlushSize;
 
     _setupQueueConfig(_bootstrapValidatorSetSize, _bootstrapFlushSize, _normalFlushSizeMin, _normalFlushSizeQuotient);

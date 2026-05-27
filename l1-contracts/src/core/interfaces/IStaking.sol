@@ -14,6 +14,7 @@ interface IStakingCore {
   event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);
   event PendingSlasherQueued(address indexed slasher, uint256 readyAt);
   event PendingSlasherCancelled(address indexed slasher);
+  event LegacySlasherAuthorized(address indexed legacySlasher, uint256 authorizedUntil);
   event ValidatorQueued(address indexed attester, address indexed withdrawer);
   event Deposit(
     address indexed attester,
@@ -64,8 +65,10 @@ interface IStaking is IStakingCore {
   function getAttesterAtIndex(uint256 _index) external view returns (address);
   function getSlasher() external view returns (address);
   function getPendingSlasher() external view returns (address slasher, Timestamp readyAt);
+  function getLegacySlasher() external view returns (address slasher, Timestamp authorizedUntil);
   function getLocalEjectionThreshold() external view returns (uint256);
   function getSlasherExecutionDelay() external view returns (uint256);
+  function getLegacySlasherDrainWindow() external view returns (uint256);
   function getStakingAsset() external view returns (IERC20);
   function getActivationThreshold() external view returns (uint256);
   function getEjectionThreshold() external view returns (uint256);

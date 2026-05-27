@@ -157,6 +157,16 @@ library ValidatorSelectionLib {
   function setEscapeHatch(address _escapeHatch) internal {
     require(_escapeHatch != address(0), Errors.ValidatorSelection__EscapeHatchCannotBeZero());
 
+    // The registration is one-shot and ungoverned after setup, and an open escape hatch can act
+    // as an alternate proposal route (ProposeLib.propose authorizes the registered escape
+    // hatch's designated proposer during escape-hatch epochs). Pointing at a stranger contract
+    // -- including a hatch wired to a different rollup -- would create a permanent foreign
+    // proposal authority that cannot be replaced. Require the hatch to point back here.
+    address hatchRollup = IEscapeHatch(_escapeHatch).getRollup();
+    require(
+      hatchRollup == address(this), Errors.ValidatorSelection__EscapeHatchRollupMismatch(address(this), hatchRollup)
+    );
+
     ValidatorSelectionStorage storage store = getStorage();
     require(store.escapeHatchCheckpoints.length() == 0, Errors.ValidatorSelection__EscapeHatchAlreadySet());
 

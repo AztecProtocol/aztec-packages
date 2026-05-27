@@ -108,13 +108,14 @@ export class OutboxContract {
 
   public async getMessageConsumedEvents(
     l1BlockHash: Hex,
-  ): Promise<{ epoch: bigint; root: Hex; messageHash: Hex; leafId: bigint }[]> {
+  ): Promise<{ epoch: bigint; root: Hex; messageHash: Hex; leafId: bigint; numCheckpointsInEpoch: bigint }[]> {
     const events = await this.outbox.getEvents.MessageConsumed({}, { blockHash: l1BlockHash, strict: true });
     return events.map(event => ({
       epoch: event.args.epoch!,
       root: event.args.root!,
       messageHash: event.args.messageHash!,
       leafId: event.args.leafId!,
+      numCheckpointsInEpoch: event.args.numCheckpointsInEpoch!,
     }));
   }
 

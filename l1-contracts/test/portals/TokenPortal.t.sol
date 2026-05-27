@@ -224,7 +224,7 @@ contract TokenPortalTest is Test {
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId, 1);
     tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, 1, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
@@ -265,7 +265,7 @@ contract TokenPortalTest is Test {
     uint256 leafId = 2 ** siblingPath.length + leafIndex;
 
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId, 1);
     tokenPortal.withdraw(recipient, withdrawAmount, true, DEFAULT_EPOCH, 1, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens

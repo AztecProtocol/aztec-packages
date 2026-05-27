@@ -418,6 +418,7 @@ describe('e2e_p2p_add_rollup', () => {
             root: `0x${string}`;
             messageHash: `0x${string}`;
             leafId: bigint;
+            numCheckpointsInEpoch: bigint;
           };
         };
 

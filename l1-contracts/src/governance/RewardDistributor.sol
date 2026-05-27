@@ -67,6 +67,7 @@ contract RewardDistributor is IRewardDistributor {
     specificRecipientBalance[_recipient] += _amount;
     totalEarmarkedBalance += _amount;
     ASSET.safeTransferFrom(msg.sender, address(this), _amount);
+    emit Subsidized(msg.sender, _recipient, _amount);
   }
 
   /**
@@ -150,6 +151,7 @@ contract RewardDistributor is IRewardDistributor {
     // This is the standard case, so avoid SLOAD if we can
     if (_amount <= claimableAsCanonical) {
       ASSET.safeTransfer(_to, _amount);
+      emit Distributed(_from, _to, _amount, _amount, 0);
       return;
     }
 
@@ -165,5 +167,6 @@ contract RewardDistributor is IRewardDistributor {
     specificRecipientBalance[_from] -= earmarkedFundsUsed;
     totalEarmarkedBalance -= earmarkedFundsUsed;
     ASSET.safeTransfer(_to, _amount);
+    emit Distributed(_from, _to, _amount, claimableAsCanonical, earmarkedFundsUsed);
   }
 }

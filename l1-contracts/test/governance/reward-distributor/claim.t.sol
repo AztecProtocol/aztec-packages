@@ -5,6 +5,7 @@ import {RewardDistributorBase, FakeRollup} from "./Base.t.sol";
 
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 // Authorization for `claim` is `_amount <= availableTo(msg.sender)`.
 // availableTo == specificRecipientBalance for non-canonical callers, and
@@ -319,6 +320,48 @@ contract ClaimTest is RewardDistributorBase {
     // r2 must NOT see r1's earmarked. balance - totalEarmarked = 50 - 50 = 0.
     assertEq(rewardDistributor.availableTo(r2), 0);
     assertEq(rewardDistributor.availableTo(r1), r1Subsidy, "r1 retains earmarked after losing canonical");
+  }
+
+  // ---------------------------------------------------------------
+  // Distributed event splits implicit-pool draw from earmarked-pool draw
+  // ---------------------------------------------------------------
+
+  function test_canonicalUnearmarkedClaim_emitsDistributedWithZeroEarmarked() external {
+    uint256 balance = 50e18;
+    uint256 amount = 30e18;
+    token.mint(address(rewardDistributor), balance);
+
+    address recipient = makeAddr("eventRecipient");
+    vm.expectEmit(true, true, true, true, address(rewardDistributor));
+    emit IRewardDistributor.Distributed(canonical, recipient, amount, amount, 0);
+    vm.prank(canonical);
+    rewardDistributor.claim(recipient, amount);
+  }
+
+  function test_canonicalMixedClaim_emitsDistributedSplit() external {
+    uint256 unearmarked = 40e18;
+    uint256 earmarked = 10e18;
+    uint256 total = unearmarked + earmarked;
+    token.mint(address(rewardDistributor), unearmarked);
+    _subsidize(canonical, earmarked);
+
+    address recipient = makeAddr("mixedRecipient");
+    vm.expectEmit(true, true, true, true, address(rewardDistributor));
+    emit IRewardDistributor.Distributed(canonical, recipient, total, unearmarked, earmarked);
+    vm.prank(canonical);
+    rewardDistributor.claim(recipient, total);
+  }
+
+  function test_nonCanonicalClaim_emitsDistributedWithOnlyEarmarked(address _old) external {
+    vm.assume(_old != canonical && _old != address(0));
+    uint256 subsidy = 7e18;
+    _subsidize(_old, subsidy);
+
+    address recipient = makeAddr("oldEventRecipient");
+    vm.expectEmit(true, true, true, true, address(rewardDistributor));
+    emit IRewardDistributor.Distributed(_old, recipient, subsidy, 0, subsidy);
+    vm.prank(_old);
+    rewardDistributor.claim(recipient, subsidy);
   }
 
   // ---------------------------------------------------------------

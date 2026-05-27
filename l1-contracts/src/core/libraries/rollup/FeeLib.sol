@@ -89,6 +89,14 @@ uint256 constant PROVING_COST_UPDATE_INTERVAL = 30 days;
 uint256 constant PROVING_COST_STEP_NUM = 3;
 uint256 constant PROVING_COST_STEP_DEN = 2;
 uint256 constant MIN_PROVING_COST_PER_MANA = 2;
+// Initial-only ceiling. The compress() limit alone (uint64 ~= 1.8e19) is a storage shape, not
+// an economic bound: a rollup deployed near uint64.max would need many years to drift back into
+// a normal operating range via the (3/2)/cooldown rate limiter. This ceiling caps the starting
+// value at ~55x the realistic operating value seen in fee_data_points.json (~1.8e8). Live
+// rollups stay free to move beyond this through governance updates, which the rate limiter
+// already gates. Tests that explicitly want to exercise oversized values can write the
+// compressed config directly via vm.store.
+uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 1e10;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
@@ -145,6 +153,13 @@ library FeeLib {
     require(
       provingCost >= MIN_PROVING_COST_PER_MANA,
       Errors.FeeLib__ProvingCostBelowFloor(provingCost, MIN_PROVING_COST_PER_MANA)
+    );
+    // The uint64 cap inside FeeConfigLib.compress is a storage-shape bound, not an economic
+    // bound. Enforce a separate initial ceiling so a deploy cannot strand the rollup at a value
+    // that takes years to drift back to normal operating ranges via the rate-limited updater.
+    require(
+      provingCost <= MAX_INITIAL_PROVING_COST_PER_MANA,
+      Errors.FeeLib__ProvingCostAboveCeiling(provingCost, MAX_INITIAL_PROVING_COST_PER_MANA)
     );
 
     // Validate initial ETH per fee asset is within bounds

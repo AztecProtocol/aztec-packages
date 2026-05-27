@@ -16,8 +16,14 @@ uint256 constant MAX_CHECKPOINTS_PER_EPOCH = 32;
  * and will be consumed by the portal contracts.
  */
 interface IOutbox {
-  event RootAdded(Epoch indexed epoch, uint256 numCheckpointsInEpoch, bytes32 root);
-  event MessageConsumed(Epoch indexed epoch, bytes32 indexed root, bytes32 indexed messageHash, uint256 leafId);
+  event RootAdded(Epoch indexed epoch, uint256 indexed numCheckpointsInEpoch, bytes32 root);
+  event MessageConsumed(
+    Epoch indexed epoch,
+    bytes32 indexed root,
+    bytes32 indexed messageHash,
+    uint256 leafId,
+    uint256 numCheckpointsInEpoch
+  );
 
   // docs:start:outbox_insert
   /**

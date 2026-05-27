@@ -325,6 +325,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         root: `0x${string}`;
         messageHash: `0x${string}`;
         leafId: bigint;
+        numCheckpointsInEpoch: bigint;
       };
     };
     expect(topics.args.epoch).toBe(BigInt(epoch));

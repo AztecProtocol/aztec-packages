@@ -38,6 +38,36 @@ contract SetEscapeHatchOneShotTest is EscapeHatchIntegrationBase {
     rollup.setEscapeHatch(address(0));
   }
 
+  function test_revertsWhenHatchPointsAtDifferentRollup() external setup(2, 2) {
+    // An EscapeHatch bound to a foreign rollup must not be acceptable. Once installed it would
+    // become a permanent alternate proposal route the current rollup cannot reach or replace.
+    // Mock the IInstance read the EscapeHatch constructor performs so we can build a hatch
+    // pointing at a foreign address without deploying a second rollup.
+    address fakeRollup = address(0xC0FFEE);
+    vm.mockCall(
+      fakeRollup, abi.encodeWithSelector(bytes4(keccak256("getProofSubmissionEpochs()"))), abi.encode(uint256(1))
+    );
+
+    EscapeHatch foreignHatch = new EscapeHatch(
+      fakeRollup,
+      address(testERC20),
+      DEFAULT_BOND_SIZE,
+      DEFAULT_WITHDRAWAL_TAX,
+      DEFAULT_FAILED_HATCH_PUNISHMENT,
+      DEFAULT_FREQUENCY,
+      DEFAULT_ACTIVE_DURATION,
+      DEFAULT_LAG_IN_HATCHES,
+      DEFAULT_PROPOSING_EXIT_DELAY
+    );
+
+    address owner = Ownable(address(rollup)).owner();
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.ValidatorSelection__EscapeHatchRollupMismatch.selector, address(rollup), fakeRollup)
+    );
+    vm.prank(owner);
+    rollup.setEscapeHatch(address(foreignHatch));
+  }
+
   function test_succeedsOnFirstNonZeroCallAndEmitsEvent() external setup(2, 2) {
     EscapeHatch first = _newEscapeHatch();
     address owner = Ownable(address(rollup)).owner();

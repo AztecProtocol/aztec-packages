@@ -322,7 +322,13 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
       topics: l1Receipt.logs[0].topics,
     }) as {
       eventName: 'MessageConsumed';
-      args: { epoch: bigint; root: `0x${string}`; messageHash: `0x${string}`; leafId: bigint };
+      args: {
+        epoch: bigint;
+        root: `0x${string}`;
+        messageHash: `0x${string}`;
+        leafId: bigint;
+        numCheckpointsInEpoch: bigint;
+      };
     };
     expect(decoded.eventName).toBe('MessageConsumed');
     expect(decoded.args.epoch).toBe(BigInt(epoch));

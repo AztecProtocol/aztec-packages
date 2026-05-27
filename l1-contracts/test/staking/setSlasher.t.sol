@@ -15,6 +15,13 @@ contract SetSlasherTest is StakingBase {
     return staking.getSlasherExecutionDelay();
   }
 
+  /// @dev Make `_slasher` look like a real Slasher whose proposer is already initialized so
+  ///      queueSetSlasher accepts it. Tests that want to exercise the uninitialized-slasher
+  ///      guard call queueSetSlasher directly without mocking.
+  function _mockInitializedSlasher(address _slasher) internal {
+    vm.mockCall(_slasher, abi.encodeWithSignature("PROPOSER()"), abi.encode(address(0xBEEF)));
+  }
+
   function test_queueSetSlasher_whenNotOwner(address _caller) external {
     vm.assume(_caller != _owner());
     vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, _caller));
@@ -32,6 +39,7 @@ contract SetSlasherTest is StakingBase {
   function test_finalizeSetSlasher_callableByAnyone(address _caller, address _newSlasher) external {
     address oldSlasher = staking.getSlasher();
 
+    _mockInitializedSlasher(_newSlasher);
     vm.prank(_owner());
     staking.queueSetSlasher(_newSlasher);
 
@@ -48,6 +56,7 @@ contract SetSlasherTest is StakingBase {
   function test_queueSetSlasher_emitsEventAndRecordsPending(address _newSlasher) external {
     uint256 readyAt = block.timestamp + _delay();
 
+    _mockInitializedSlasher(_newSlasher);
     vm.expectEmit(true, true, true, true);
     emit IStakingCore.PendingSlasherQueued(_newSlasher, readyAt);
 
@@ -63,6 +72,8 @@ contract SetSlasherTest is StakingBase {
   function test_queueSetSlasher_overwritesExistingPending(address _first, address _second) external {
     vm.assume(_first != _second);
 
+    _mockInitializedSlasher(_first);
+    _mockInitializedSlasher(_second);
     vm.prank(_owner());
     staking.queueSetSlasher(_first);
 
@@ -80,6 +91,7 @@ contract SetSlasherTest is StakingBase {
   }
 
   function test_cancelSetSlasher_clearsPending(address _newSlasher) external {
+    _mockInitializedSlasher(_newSlasher);
     vm.prank(_owner());
     staking.queueSetSlasher(_newSlasher);
 
@@ -112,6 +124,7 @@ contract SetSlasherTest is StakingBase {
     uint256 earlyOffset = bound(_earlyOffset, 0, delay - 1);
     address owner = _owner();
 
+    _mockInitializedSlasher(_newSlasher);
     vm.prank(owner);
     staking.queueSetSlasher(_newSlasher);
     uint256 readyAt = block.timestamp + delay;
@@ -122,9 +135,41 @@ contract SetSlasherTest is StakingBase {
     staking.finalizeSetSlasher();
   }
 
+  function test_queueSetSlasher_revertsWhenProposerUnset(address _newSlasher) external {
+    // PROPOSER returns address(0) -- the uninitialized state. Queueing must reject because
+    // Slasher.initializeProposer is permissionless and an attacker could claim the proposer
+    // role during the 60-day delay.
+    address owner = _owner(); // cache before expectRevert to avoid consuming it
+    vm.mockCall(_newSlasher, abi.encodeWithSignature("PROPOSER()"), abi.encode(address(0)));
+
+    vm.prank(owner);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__SlasherProposerNotInitialized.selector, _newSlasher));
+    staking.queueSetSlasher(_newSlasher);
+  }
+
+  function test_finalizeSetSlasher_revertsIfProposerWentToZero(address _newSlasher) external {
+    // Queue with a wired proposer, then drop the proposer to zero just before finalize. The
+    // defense-in-depth guard in finalizeSetSlasher must catch this and refuse to install the
+    // replacement slasher.
+    address owner = _owner();
+    uint256 delay = _delay();
+
+    _mockInitializedSlasher(_newSlasher);
+    vm.prank(owner);
+    staking.queueSetSlasher(_newSlasher);
+
+    vm.warp(block.timestamp + delay);
+
+    vm.mockCall(_newSlasher, abi.encodeWithSignature("PROPOSER()"), abi.encode(address(0)));
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__SlasherProposerNotInitialized.selector, _newSlasher));
+    staking.finalizeSetSlasher();
+  }
+
   function test_finalizeSetSlasher_appliesAfterDelay(address _newSlasher) external {
     address oldSlasher = staking.getSlasher();
 
+    _mockInitializedSlasher(_newSlasher);
     vm.prank(_owner());
     staking.queueSetSlasher(_newSlasher);
 

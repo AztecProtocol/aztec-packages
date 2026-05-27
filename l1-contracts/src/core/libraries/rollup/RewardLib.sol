@@ -168,6 +168,13 @@ library RewardLib {
       // efficient way to do it, so this is fine.
       uint256 shares = rewardStorage.config.booster.updateAndGetShares(prover);
 
+      // The duplicate-submission guard above uses `shares == 0` as the sentinel for "not yet
+      // submitted". A booster that ever returns zero would let the same prover submit again
+      // for the same epoch length, breaking that guard. RewardBooster's constructor rejects
+      // configs that can return zero, but the booster slot is an external pointer; bounce
+      // back if a misbehaving booster ever crosses this layer.
+      require(shares > 0, Errors.RewardLib__ZeroShares(prover));
+
       $sr.shares[prover] = shares;
       $sr.summedShares += shares;
     }

@@ -61,7 +61,7 @@ contract Tmnt205Test is Test {
     uint256 leafId = leafIndex + (1 << path.length);
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, $root, message.sha256ToField(), leafId);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, $root, message.sha256ToField(), leafId, 1);
     outbox.consume(message, DEFAULT_EPOCH, 1, leafIndex, path);
 
     // It should always revert, here, either incorrect values or already used.

@@ -166,7 +166,7 @@ contract Outbox is IOutbox {
 
     epochData.nullified.set(leafId);
 
-    emit MessageConsumed(_epoch, root, messageHash, leafId);
+    emit MessageConsumed(_epoch, root, messageHash, leafId, _numCheckpointsInEpoch);
   }
 
   /**

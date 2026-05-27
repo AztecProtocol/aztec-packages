@@ -69,7 +69,7 @@ contract OutboxTest is Test {
     assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(epoch, root, leaf, leafId);
+    emit IOutbox.MessageConsumed(epoch, root, leaf, leafId, numCheckpointsInEpoch);
     outbox.consume(message, epoch, numCheckpointsInEpoch, leafIndex, path);
 
     bool statusAfterConsumption = outbox.hasMessageBeenConsumedAtEpoch(epoch, leafId);
@@ -357,7 +357,7 @@ contract OutboxTest is Test {
       uint256 leafId = 2 ** treeHeight + i;
 
       vm.expectEmit(true, true, true, true, address(outbox));
-      emit IOutbox.MessageConsumed(epoch, root, leaf, leafId);
+      emit IOutbox.MessageConsumed(epoch, root, leaf, leafId, K1);
       vm.prank(_recipients[i]);
       outbox.consume(messages[i], epoch, K1, i, path);
     }
@@ -414,6 +414,47 @@ contract OutboxTest is Test {
     assertEq(roots[MAX_CHECKPOINTS_PER_EPOCH - 1], rMax);
   }
 
+  function testMessageConsumedEventCarriesNumCheckpoints() public {
+    // Insert two distinct roots at K=1 and K=2 for the same epoch. Consume one message against
+    // each root and verify the emitted MessageConsumed carries the exact numCheckpointsInEpoch
+    // the caller proved against, so a log-only indexer can recover the AZIP-14 root slot without
+    // decoding calldata or replaying RootAdded state. The two messages live at different
+    // positions so their leaf ids are distinct (the bitmap is shared across roots in the epoch).
+    DataStructures.L2ToL1Msg memory m0 = _fakeMessage(address(this), 700);
+    DataStructures.L2ToL1Msg memory m1 = _fakeMessage(address(this), 701);
+
+    bytes32 leaf0 = m0.sha256ToField();
+    bytes32 leaf1 = m1.sha256ToField();
+
+    NaiveMerkle tree0 = new NaiveMerkle(1);
+    tree0.insertLeaf(leaf0);
+    tree0.insertLeaf(bytes32(uint256(0)));
+    bytes32 root0 = tree0.computeRoot();
+
+    NaiveMerkle tree1 = new NaiveMerkle(1);
+    tree1.insertLeaf(bytes32(uint256(0)));
+    tree1.insertLeaf(leaf1);
+    bytes32 root1 = tree1.computeRoot();
+
+    vm.startPrank(ROLLUP_CONTRACT);
+    outbox.insert(DEFAULT_EPOCH, 1, root0);
+    outbox.insert(DEFAULT_EPOCH, 2, root1);
+    vm.stopPrank();
+
+    uint256 leafId0 = (1 << 1) + 0;
+    uint256 leafId1 = (1 << 1) + 1;
+    (bytes32[] memory path0,) = tree0.computeSiblingPath(0);
+    (bytes32[] memory path1,) = tree1.computeSiblingPath(1);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root0, leaf0, leafId0, 1);
+    outbox.consume(m0, DEFAULT_EPOCH, 1, 0, path0);
+
+    vm.expectEmit(true, true, true, true, address(outbox));
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root1, leaf1, leafId1, 2);
+    outbox.consume(m1, DEFAULT_EPOCH, 2, 1, path1);
+  }
+
   function testRootAddedEventCarriesNumCheckpoints() public {
     bytes32 r1 = bytes32(uint256(0xa));
     bytes32 r2 = bytes32(uint256(0xb));
@@ -459,7 +500,7 @@ contract OutboxTest is Test {
     (bytes32[] memory path,) = epochTree.computeSiblingPath(leafIndex);
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, firstRoot, leaf, leafId);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, firstRoot, leaf, leafId, 1);
     outbox.consume(fakeMessage, DEFAULT_EPOCH, 1, leafIndex, path);
 
     assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafId));
@@ -540,7 +581,7 @@ contract OutboxTest is Test {
       m2Path[1] = leaves[0];
 
       vm.expectEmit(true, true, true, true, address(outbox));
-      emit IOutbox.MessageConsumed(DEFAULT_EPOCH, secondRoot, leaves[2], m2LeafId);
+      emit IOutbox.MessageConsumed(DEFAULT_EPOCH, secondRoot, leaves[2], m2LeafId, 2);
       outbox.consume(msgs[2], DEFAULT_EPOCH, 2, m2LeafIndex, m2Path);
     }
   }
@@ -590,7 +631,7 @@ contract OutboxTest is Test {
       bytes32[] memory path = new bytes32[](1);
       path[0] = subtreeRoot;
       vm.expectEmit(true, true, true, true, address(outbox));
-      emit IOutbox.MessageConsumed(DEFAULT_EPOCH, secondRoot, leaves[0], leafId);
+      emit IOutbox.MessageConsumed(DEFAULT_EPOCH, secondRoot, leaves[0], leafId, 2);
       outbox.consume(msgs[0], DEFAULT_EPOCH, 2, 0, path);
       assertTrue(outbox.hasMessageBeenConsumedAtEpoch(DEFAULT_EPOCH, leafId));
     }
@@ -621,7 +662,7 @@ contract OutboxTest is Test {
     assertEq(abi.encode(0), abi.encode(statusBeforeConsumption));
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root, leaf, leafId);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, root, leaf, leafId, K1);
     bytes32[] memory path = new bytes32[](0);
     outbox.consume(fakeMessage, DEFAULT_EPOCH, K1, leafIndex, path);
 

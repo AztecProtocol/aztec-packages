@@ -134,6 +134,7 @@ library Errors {
   error ValidatorSelection__InvalidLagInEpochs(uint256 lagInEpochsForValidatorSet, uint256 lagInEpochsForRandao);
   error ValidatorSelection__EscapeHatchAlreadySet();
   error ValidatorSelection__EscapeHatchCannotBeZero();
+  error ValidatorSelection__EscapeHatchRollupMismatch(address expected, address actual);
 
   // Staking
   error Staking__AlreadyQueued(address _attester);
@@ -170,6 +171,11 @@ library Errors {
   error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
   error Staking__InvalidStakingQueueConfig();
   error Staking__InvalidNormalFlushSizeQuotient();
+  error Staking__InvalidMaxQueueFlushSize();
+  error Staking__InvalidBootstrapFlushSize();
+  error Staking__BootstrapFlushSizeAboveMax(uint256 bootstrapFlushSize, uint256 maxQueueFlushSize);
+  error Staking__ExitDelayAboveSlasherDelay(uint256 exitDelaySeconds, uint256 slasherExecutionDelay);
+  error Staking__SlasherProposerNotInitialized(address slasher);
   error Staking__NoPendingSlasher();
   error Staking__SlasherNotReady(Timestamp readyAt);
 
@@ -190,6 +196,7 @@ library Errors {
   error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
   error FeeLib__InvalidInitialEthPerFeeAsset(uint256 provided, uint256 minimum, uint256 maximum);
   error FeeLib__ProvingCostBelowFloor(uint256 provided, uint256 minimum);
+  error FeeLib__ProvingCostAboveCeiling(uint256 provided, uint256 maximum);
   error FeeLib__ProvingCostCooldown(uint256 nextAllowed);
   error FeeLib__ProvingCostStepExceeded(uint256 current, uint256 requested);
 
@@ -205,8 +212,10 @@ library Errors {
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
+  error RewardBooster__InvalidConfig();
 
   error RewardLib__InvalidSequencerBps();
+  error RewardLib__ZeroShares(address prover);
 
   // SlashingProposer
   error SlashingProposer__InvalidSignature();
