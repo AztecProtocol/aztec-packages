@@ -1136,6 +1136,37 @@ export class MsmV2 {
   private convMetaPipe!: GPUComputePipeline;
   private reduceInitPipe!: GPUComputePipeline;
   private reduceLevelPipes: GPUComputePipeline[] = [];
+  // Streaming planner + accumulator pipelines
+  private classifyPipe!: GPUComputePipeline;
+  private metaFixupPipe!: GPUComputePipeline;
+  private radixCountPipe!: GPUComputePipeline;
+  private radixScanPipe!: GPUComputePipeline;
+  private radixScatterPipe!: GPUComputePipeline;
+  private cumsumPipe!: GPUComputePipeline;
+  private partitionWgPipe!: GPUComputePipeline;
+  private partitionThreadPipe!: GPUComputePipeline;
+  private streamEmitPipe!: GPUComputePipeline;
+  private emitFixupPipe!: GPUComputePipeline;
+  private size1Pipe!: GPUComputePipeline;
+  private streamAccumPipe!: GPUComputePipeline;
+  private partialSumPipe!: GPUComputePipeline;
+  // Streaming bind groups (built in prepare, rebuilt on epoch change)
+  private classifyBind!: GPUBindGroup;
+  private metaFixupBind!: GPUBindGroup;
+  private radixCountBinds!: [GPUBindGroup, GPUBindGroup, GPUBindGroup]; // ping-pong per pass
+  private radixScanBind!: GPUBindGroup;
+  private radixScatterBinds!: [GPUBindGroup, GPUBindGroup, GPUBindGroup];
+  private cumsumBind!: GPUBindGroup;
+  private partitionWgBind!: GPUBindGroup;
+  private partitionThreadBind!: GPUBindGroup;
+  private streamEmitBind!: GPUBindGroup;
+  private emitFixupBind!: GPUBindGroup;
+  private size1Bind!: GPUBindGroup;
+  private streamAccumBind!: GPUBindGroup;
+  private partialSumBind!: GPUBindGroup;
+  private streamNumThreads = 8192;
+  private streamS = 8;
+  private numRadixTiles = 1;
   // layouts (needed by prepare to build bind groups)
   private plannerALayout!: GPUBindGroupLayout;
   private plannerBLayout!: GPUBindGroupLayout;
@@ -1154,6 +1185,20 @@ export class MsmV2 {
   private convMetaLayout!: GPUBindGroupLayout;
   private reduceInitLayout!: GPUBindGroupLayout;
   private reduceLevelLayout!: GPUBindGroupLayout;
+  // Streaming layouts
+  private classifyLayout!: GPUBindGroupLayout;
+  private metaFixupLayout!: GPUBindGroupLayout;
+  private radixCountLayout!: GPUBindGroupLayout;
+  private radixScanLayout!: GPUBindGroupLayout;
+  private radixScatterLayout!: GPUBindGroupLayout;
+  private cumsumLayout!: GPUBindGroupLayout;
+  private partitionWgLayout!: GPUBindGroupLayout;
+  private partitionThreadLayout!: GPUBindGroupLayout;
+  private streamEmitLayout!: GPUBindGroupLayout;
+  private emitFixupLayout!: GPUBindGroupLayout;
+  private size1Layout!: GPUBindGroupLayout;
+  private streamAccumLayout!: GPUBindGroupLayout;
+  private partialSumLayout!: GPUBindGroupLayout;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1392,6 +1437,20 @@ export class MsmV2 {
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
+    // Streaming planner + accumulator layouts
+    m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
+    m.metaFixupLayout = lt(['storage']);
+    m.radixCountLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    m.radixScanLayout = lt(['storage', 'read-only-storage', 'uniform']);
+    m.radixScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'read-only-storage', 'uniform']);
+    m.cumsumLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    m.partitionWgLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.partitionThreadLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.streamEmitLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    m.emitFixupLayout = lt(['storage', 'storage', 'read-only-storage', 'read-only-storage']);
+    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    m.streamAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
+    m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
@@ -1465,6 +1524,45 @@ export class MsmV2 {
         m.reduceLevelLayout,
       );
     }
+
+    // --- Streaming planner + accumulator pipelines ---
+    const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
+    const STREAM_S = 8;
+    const RADIX_TILE = 2048;
+    m.streamNumThreads = STREAM_T;
+    m.streamS = STREAM_S;
+    m.numRadixTiles = Math.ceil(m.bTotal / RADIX_TILE);
+    const qHeaderLen = 2 * STREAM_T;
+    m.classifyPipe = await compile(
+      sm.gen_ba_planner_classify_shader(256, m.bTotal), `classify`, m.classifyLayout);
+    m.metaFixupPipe = await compile(
+      sm.gen_ba_planner_meta_fixup_shader(), `meta-fixup`, m.metaFixupLayout);
+    m.radixCountPipe = await compile(
+      sm.gen_ba_planner_radix_count_shader(RADIX_TILE), `radix-count`, m.radixCountLayout);
+    m.radixScanPipe = await compile(
+      sm.gen_ba_planner_radix_scan_shader(), `radix-scan`, m.radixScanLayout);
+    m.radixScatterPipe = await compile(
+      sm.gen_ba_planner_radix_scatter_shader(RADIX_TILE), `radix-scatter`, m.radixScatterLayout);
+    m.cumsumPipe = await compile(
+      sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 8, 32),
+      `cumsum`, m.cumsumLayout);
+    m.partitionWgPipe = await compile(
+      sm.gen_ba_planner_partition_wg_shader(), `partition-wg`, m.partitionWgLayout);
+    m.partitionThreadPipe = await compile(
+      sm.gen_ba_planner_partition_thread_shader(256), `partition-thread`, m.partitionThreadLayout);
+    m.streamEmitPipe = await compile(
+      sm.gen_ba_planner_emit_shader(256, STREAM_S, STREAM_T, n + 3, qHeaderLen),
+      `stream-emit`, m.streamEmitLayout);
+    m.emitFixupPipe = await compile(
+      sm.gen_ba_planner_emit_fixup_shader(STREAM_T), `emit-fixup`, m.emitFixupLayout);
+    m.size1Pipe = await compile(
+      sm.gen_ba_size1_shader(), `size1`, m.size1Layout);
+    m.streamAccumPipe = await compile(
+      sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, n + 3, INV_VARIANT),
+      `stream-accum`, m.streamAccumLayout);
+    m.partialSumPipe = await compile(
+      sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
+      `partial-sum`, m.partialSumLayout);
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
@@ -1788,6 +1886,10 @@ export class MsmV2 {
         redM: RED_M,
         reducePrefBytes: NUM_WINDOWS * REDUCE_WG * this.capMAXC * 2 * 16,
         bTotal: B_TOTAL,
+        streamNumThreads: this.streamNumThreads,
+        streamS: this.streamS,
+        streamQueueEntries: B_TOTAL + this.streamNumThreads * (2 * this.streamS - 1),
+        streamRadixTiles: this.numRadixTiles,
       },
       this.padPts,
       R,
