@@ -19,8 +19,14 @@ namespace bb::group_elements::k5_msm {
 
 // Number of points below which the K=5 dispatch overhead (gather/scatter, split-tree
 // inversion, lane packing) exceeds the per-mul savings — fall through to the scalar K=1
-// path in that regime. Shared across all three kernels so they don't drift.
-inline constexpr size_t K5_MIN_POINTS = 20;
+// path in that regime. Per-kernel because the kernels do not all break even at the same
+// size: the add kernel wins from ~20 points up (BrowserStack histogram shows 99%+ of add
+// work lands in 1024+ batches anyway), but double and batch_normalize regress on small
+// batches and only pull ahead once the per-mul saving amortizes the dispatch cost — set
+// their floor much higher.
+inline constexpr size_t K5_MIN_POINTS_ADD = 20;
+inline constexpr size_t K5_MIN_POINTS_DOUBLE = 256;
+inline constexpr size_t K5_MIN_POINTS_NORMALIZE = 256;
 
 // SIMD eligibility for the K=5 path. Currently only the BN254 base field has a
 // VectorField operator* specialization; other Fq types (e.g. Grumpkin) route through the

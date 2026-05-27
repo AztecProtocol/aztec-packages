@@ -299,7 +299,9 @@ template <typename G_> class TestElement : public testing::Test {
         if constexpr (G::has_a) {
             GTEST_SKIP() << "batch_affine_double_impl assumes a=0 affine doubling formula";
         }
-        for (size_t num_points : std::array<size_t, 6>{ 1, 19, 20, 21, 25, 29 }) {
+        // Small sizes exercise the K=1 fallback (double's K=5 floor is 256); 255 is the
+        // last K=1 size, 256 the first K=5 group-aligned size, 257/260/269 add tail cases.
+        for (size_t num_points : std::array<size_t, 8>{ 1, 20, 29, 255, 256, 257, 260, 269 }) {
             std::vector<affine_element> points(num_points);
             std::vector<affine_element> expected(num_points);
             for (size_t i = 0; i < num_points; ++i) {
@@ -367,7 +369,9 @@ template <typename G_> class TestElement : public testing::Test {
 
     static void test_batch_normalize_boundary()
     {
-        for (size_t num_points : std::array<size_t, 6>{ 19, 20, 21, 25, 29, 32 }) {
+        // batch_normalize's K=5 floor is also 256; cover K=1 small sizes plus K=5 sizes
+        // (256 group-aligned, 257/260/269 with tails).
+        for (size_t num_points : std::array<size_t, 8>{ 19, 29, 32, 255, 256, 257, 260, 269 }) {
             std::vector<element> points(num_points);
             std::vector<element> normalized(num_points);
             for (size_t i = 0; i < num_points; ++i) {

@@ -798,7 +798,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
     // K=1 path. Threshold + trait live in k5_msm_helpers.hpp.
     constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
     const size_t k5_pair_groups =
-        (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS) ? ((num_points >> 1) / 5) : size_t{ 0 };
+        (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS_ADD) ? ((num_points >> 1) / 5) : size_t{ 0 };
     const size_t k5_points = k5_pair_groups * 10;
 
     std::array<Fq, 5> acc_lanes = { Fq::one(), Fq::one(), Fq::one(), Fq::one(), Fq::one() };
@@ -979,7 +979,8 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
                                                                     Fq* scratch_space) noexcept
 {
     constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
-    const size_t k5_groups = (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS) ? (num_points / 5) : size_t{ 0 };
+    const size_t k5_groups =
+        (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS_DOUBLE) ? (num_points / 5) : size_t{ 0 };
     const size_t k5_points = k5_groups * 5;
 
     std::array<Fq, 5> acc_lanes = { Fq::one(), Fq::one(), Fq::one(), Fq::one(), Fq::one() };
@@ -1335,7 +1336,7 @@ void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_ele
     // dwarf it on the typical large-N hot path.
     bool any_infinity = false;
     if constexpr (CAN_USE_K5) {
-        if (num_elements >= k5_msm::K5_MIN_POINTS) {
+        if (num_elements >= k5_msm::K5_MIN_POINTS_NORMALIZE) {
             for (size_t i = 0; i < num_elements; ++i) {
                 if (elements[i].is_point_at_infinity()) {
                     any_infinity = true;
@@ -1344,8 +1345,9 @@ void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_ele
             }
         }
     }
-    const size_t k5_groups =
-        (CAN_USE_K5 && num_elements >= k5_msm::K5_MIN_POINTS && !any_infinity) ? (num_elements / 5) : size_t{ 0 };
+    const size_t k5_groups = (CAN_USE_K5 && num_elements >= k5_msm::K5_MIN_POINTS_NORMALIZE && !any_infinity)
+                                 ? (num_elements / 5)
+                                 : size_t{ 0 };
     const size_t k5_points = k5_groups * 5;
 
     std::vector<Fq> temporaries;
