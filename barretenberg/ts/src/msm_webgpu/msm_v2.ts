@@ -2418,7 +2418,7 @@ export class MsmV2 {
       }
       console.log(`[DBG] dense_bucket_list: bucket 108 at position ${found108}. ${count64s} entries with count=64 out of ${halfLen}`);
       // Read bucket_sums[1] (bucket index 1, window 0, weight 1) — a simple single-value bucket
-      const bIdx = 108;
+      const bIdx = 20;
       const br2 = this.pool.scratch!.bucketResultBuf;
       const PG2 = 2;
       const xOff = PG2 * bIdx * 16;
@@ -2464,8 +2464,129 @@ export class MsmV2 {
     this.windowSums = L;
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
-    // DEBUG: log window 0 sum for comparison
-    console.log(`[DBG] windowSums: ${L.length} total. w0=(${L[0]?.x?.toString(16)?.slice(0,8)}...,${L[0]?.y?.toString(16)?.slice(0,8)}...) w1=(${L[1]?.x?.toString(16)?.slice(0,8)}...) w31=(${L[31]?.x?.toString(16)?.slice(0,8)}...)`);
+    console.log(`[DBG] windowSums: ${L.length} total. w0=(${L[0]?.x?.toString(16)?.slice(0,8)}...) w1=(${L[1]?.x?.toString(16)?.slice(0,8)}...)`);
+    // Find first count-2 bucket and verify its sum
+    {
+      const cntBuf = this.pool.scratch!.countsBufs[0];
+      const offBuf = this.pool.scratch!.offsetsBufs[0];
+      const l0b = this.pool.scratch!.l0IdxBuf;
+      const pxb = this.pointXBuf;
+      const pyb = this.pointYBuf;
+      const brb = this.pool.scratch!.bucketResultBuf;
+      // Read first 1024 counts to find a count-2 bucket
+      const cs = device.createBuffer({ size: 4096, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const ec = device.createCommandEncoder();
+      ec.copyBufferToBuffer(cntBuf, 0, cs, 0, 4096);
+      device.queue.submit([ec.finish()]);
+      await cs.mapAsync(GPUMapMode.READ);
+      const ca = new Uint32Array(cs.getMappedRange().slice(0));
+      cs.unmap(); cs.destroy();
+      let b2 = -1;
+      for (let i = 1; i < 1024; i++) { if (ca[i] === 2) { b2 = i; break; } }
+      if (b2 >= 0) {
+        // Read offset, l0_index[offset] and l0_index[offset+1], SRS points, bucket_sum
+        const rs = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+        const er = device.createCommandEncoder();
+        er.copyBufferToBuffer(offBuf, b2 * 4, rs, 0, 4);
+        device.queue.submit([er.finish()]);
+        await rs.mapAsync(GPUMapMode.READ);
+        const off = new Uint32Array(rs.getMappedRange().slice(0))[0];
+        rs.unmap(); rs.destroy();
+        // Read l0[off] and l0[off+1]
+        const rs2 = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+        const er2 = device.createCommandEncoder();
+        er2.copyBufferToBuffer(l0b, off * 4, rs2, 0, 8);
+        const xOff2 = 2 * b2 * 16;
+        const yOff2 = (2 * this.bTotal + 2 * b2) * 16;
+        er2.copyBufferToBuffer(brb, xOff2, rs2, 8, 32);
+        er2.copyBufferToBuffer(brb, yOff2, rs2, 40, 32);
+        device.queue.submit([er2.finish()]);
+        await rs2.mapAsync(GPUMapMode.READ);
+        const d2 = new Uint32Array(rs2.getMappedRange().slice(0));
+        rs2.unmap(); rs2.destroy();
+        const l0_0 = d2[0], l0_1 = d2[1];
+        const pt0 = l0_0 & 0x7FFFFFFF, sign0 = (l0_0 >> 31) !== 0;
+        const pt1 = l0_1 & 0x7FFFFFFF, sign1 = (l0_1 >> 31) !== 0;
+        const bsX = Array.from(d2.slice(2, 10)).map(v=>v.toString(16).padStart(8,'0')).join('');
+        const bsY = Array.from(d2.slice(10, 18)).map(v=>v.toString(16).padStart(8,'0')).join('');
+        // Read SRS points for both
+        const rs3 = device.createBuffer({ size: 128, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+        const er3 = device.createCommandEncoder();
+        er3.copyBufferToBuffer(pxb, pt0 * 32, rs3, 0, 32);
+        er3.copyBufferToBuffer(pyb, pt0 * 32, rs3, 32, 32);
+        er3.copyBufferToBuffer(pxb, pt1 * 32, rs3, 64, 32);
+        er3.copyBufferToBuffer(pyb, pt1 * 32, rs3, 96, 32);
+        device.queue.submit([er3.finish()]);
+        await rs3.mapAsync(GPUMapMode.READ);
+        const d3 = new Uint32Array(rs3.getMappedRange().slice(0));
+        rs3.unmap(); rs3.destroy();
+        const p0x = Array.from(d3.slice(0,8)).map(v=>v.toString(16).padStart(8,'0')).join('');
+        const p0y = Array.from(d3.slice(8,16)).map(v=>v.toString(16).padStart(8,'0')).join('');
+        const p1x = Array.from(d3.slice(16,24)).map(v=>v.toString(16).padStart(8,'0')).join('');
+        const p1y = Array.from(d3.slice(24,32)).map(v=>v.toString(16).padStart(8,'0')).join('');
+        console.log(`[COUNT2] bucket=${b2} offset=${off} pt0=${pt0}(s${sign0?1:0}) pt1=${pt1}(s${sign1?1:0})`);
+        console.log(`[COUNT2] P0.x=${p0x}`);
+        console.log(`[COUNT2] P0.y=${p0y}`);
+        console.log(`[COUNT2] P1.x=${p1x}`);
+        console.log(`[COUNT2] P1.y=${p1y}`);
+        console.log(`[COUNT2] bs.x=${bsX}`);
+        console.log(`[COUNT2] bs.y=${bsY}`);
+        console.log(`[COUNT2] nonzero=${bsX!=='0'.repeat(64)}`);
+      } else { console.log('[COUNT2] no count-2 bucket found in first 1024'); }
+    }
+    // DEFINITIVE TEST: verify size-1 bucket's SRS point matches bucket_sums output
+    {
+      const s1b = this.pool.scratch!.size1BucketList;
+      const l0b = this.pool.scratch!.l0IdxBuf;
+      const pxb = this.pointXBuf;
+      const brb = this.pool.scratch!.bucketResultBuf;
+      const stg = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const e = device.createCommandEncoder();
+      e.copyBufferToBuffer(s1b, 0, stg, 0, 8);  // [0..1]: bucket_idx, l0_slot
+      device.queue.submit([e.finish()]);
+      await stg.mapAsync(GPUMapMode.READ);
+      const d = new Uint32Array(stg.getMappedRange().slice(0));
+      stg.unmap();
+      const bucketIdx = d[0], l0Slot = d[1];
+      // Read l0_index at l0_slot
+      const stg2 = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const e2 = device.createCommandEncoder();
+      e2.copyBufferToBuffer(l0b, l0Slot * 4, stg2, 0, 4);  // l0_index[l0Slot]
+      const ptIdxExpected = l0Slot; // we'll read it
+      // Read SRS point_x for whatever point index l0 gives us
+      // Read bucket_sums for this bucket
+      const xOff = 2 * bucketIdx * 16;
+      const yOff = (2 * this.bTotal + 2 * bucketIdx) * 16;
+      e2.copyBufferToBuffer(brb, xOff, stg2, 4, 32);  // bucket_sum x
+      e2.copyBufferToBuffer(brb, yOff, stg2, 36, 32); // bucket_sum y
+      device.queue.submit([e2.finish()]);
+      await stg2.mapAsync(GPUMapMode.READ);
+      const d2 = new Uint32Array(stg2.getMappedRange().slice(0));
+      stg2.unmap(); stg2.destroy(); stg.destroy();
+      const l0val = d2[0];
+      const ptIdx = l0val & 0x7FFFFFFF;
+      const sign = (l0val & 0x80000000) !== 0;
+      const bsumX = Array.from(d2.slice(1, 9)).map(v => v.toString(16).padStart(8, '0')).join('');
+      const bsumY = Array.from(d2.slice(9, 17)).map(v => v.toString(16).padStart(8, '0')).join('');
+      // Read SRS point_x and point_y for ptIdx
+      const stg3 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const e3 = device.createCommandEncoder();
+      e3.copyBufferToBuffer(pxb, ptIdx * 32, stg3, 0, 32);
+      e3.copyBufferToBuffer(this.pointYBuf, ptIdx * 32, stg3, 32, 32);
+      device.queue.submit([e3.finish()]);
+      await stg3.mapAsync(GPUMapMode.READ);
+      const d3 = new Uint32Array(stg3.getMappedRange().slice(0));
+      stg3.unmap(); stg3.destroy();
+      const srsX = Array.from(d3.slice(0, 8)).map(v => v.toString(16).padStart(8, '0')).join('');
+      const srsY = Array.from(d3.slice(8, 16)).map(v => v.toString(16).padStart(8, '0')).join('');
+      const match = bsumX === srsX && (sign ? bsumY !== srsY : bsumY === srsY);
+      console.log(`[VERIFY] size1 bucket=${bucketIdx} l0slot=${l0Slot} ptIdx=${ptIdx} sign=${sign}`);
+      console.log(`[VERIFY] srsX =${srsX}`);
+      console.log(`[VERIFY] bsumX=${bsumX}`);
+      console.log(`[VERIFY] srsY =${srsY}`);
+      console.log(`[VERIFY] bsumY=${bsumY}`);
+      console.log(`[VERIFY] x_match=${bsumX===srsX} y_match=${!sign ? bsumY===srsY : 'sign-negated'}`);
+    }
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
