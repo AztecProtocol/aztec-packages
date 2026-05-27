@@ -2008,6 +2008,61 @@ export class MsmV2 {
       return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
     });
     this.redBuf = redBuf;
+
+    // --- Streaming planner + accumulator bind groups ---
+    {
+      const sp = scratch.streamPlannerMeta;
+      const s1 = scratch.size1BucketList;
+      const db = scratch.denseBucketList;
+      const dc = scratch.denseCountList;
+      const sb = scratch.sortedBucketList;
+      const sc = scratch.sortedCountList;
+      const rh = scratch.radixHist;
+      const ca = scratch.cumulativeAdds;
+      const wc = scratch.wgCuts;
+      const tc = scratch.threadCuts;
+      const qb = scratch.queueBuf;
+      const pb = scratch.partialsBuf;
+      const pbl = scratch.partialBucketsList;
+      const ab = scratch.accBuf;
+      const sps = scratch.streamPrefScratch;
+      const classifyParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
+      this.classifyBind = mkBind(this.classifyLayout, [countsBufs[0], offsetsBufs[0], s1, db, dc, sp, classifyParams]);
+      this.metaFixupBind = mkBind(this.metaFixupLayout, [sp]);
+      const radixParams = [
+        ubuf(new Uint32Array([0, 0, 0, 0])),
+        ubuf(new Uint32Array([1, 0, 0, 0])),
+        ubuf(new Uint32Array([2, 0, 0, 0])),
+      ];
+      this.radixCountBinds = [
+        mkBind(this.radixCountLayout, [dc, rh, sp, radixParams[0]]),
+        mkBind(this.radixCountLayout, [sc, rh, sp, radixParams[1]]),
+        mkBind(this.radixCountLayout, [dc, rh, sp, radixParams[2]]),
+      ];
+      const scanParams = ubuf(new Uint32Array([this.numRadixTiles, 0, 0, 0]));
+      this.radixScanBind = mkBind(this.radixScanLayout, [rh, sp, scanParams]);
+      this.radixScatterBinds = [
+        mkBind(this.radixScatterLayout, [db, dc, rh, sb, sc, sp, radixParams[0]]),
+        mkBind(this.radixScatterLayout, [sb, sc, rh, db, dc, sp, radixParams[1]]),
+        mkBind(this.radixScatterLayout, [db, dc, rh, sb, sc, sp, radixParams[2]]),
+      ];
+      const cumsumParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      this.cumsumBind = mkBind(this.cumsumLayout, [sc, ca, sp, cumsumParams]);
+      const pwgParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      this.partitionWgBind = mkBind(this.partitionWgLayout, [sc, ca, sp, wc, pwgParams]);
+      const ptParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      this.partitionThreadBind = mkBind(this.partitionThreadLayout, [sc, ca, wc, sp, tc, ptParams]);
+      const emitParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      this.streamEmitBind = mkBind(this.streamEmitLayout, [sb, sc, offsetsBufs[0], tc, qb, sp, emitParams]);
+      this.emitFixupBind = mkBind(this.emitFixupLayout, [sp, pbl, tc, sb]);
+      const size1Params = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
+      this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, size1Params]);
+      const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, 2 * this.streamNumThreads, B_TOTAL]));
+      this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
+      const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
+      this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);
+    }
+
     this.redStaging = device.createBuffer({
       size: NUM_WINDOWS * 64,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
@@ -2337,19 +2392,41 @@ export class MsmV2 {
       dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw);
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
       dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1);
-      for (let lv = 0; lv < this.levels; lv++) {
-        const lb = this.levelBinds[lv];
-        const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
-        const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
-        const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
-        dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1);
-        dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows);
-        for (const tile of lb.fusedTiles) {
-          if (tile.nx > 0) dispatch(fp, tile.bind, tile.nx, 1);
-        }
-        dispatch(cp, lb.carryBind, lb.nCarry, 1);
-        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1);
+      // Streaming planner pipeline (replaces the multi-level pair-tree loop).
+      const spMeta = this.pool.scratch!.streamPlannerMeta;
+      enc.clearBuffer(spMeta);
+      dispatch(this.classifyPipe, this.classifyBind, Math.ceil(this.bTotal / 256), 1);
+      dispatch(this.metaFixupPipe, this.metaFixupBind, 1, 1);
+      for (let rpass = 0; rpass < 3; rpass++) {
+        dispatch(this.radixCountPipe, this.radixCountBinds[rpass], this.numRadixTiles, 1);
+        dispatch(this.radixScanPipe, this.radixScanBind, 1, 1);
+        dispatch(this.radixScatterPipe, this.radixScatterBinds[rpass], this.numRadixTiles, 1);
       }
+      dispatch(this.cumsumPipe, this.cumsumBind, 1, 1);
+      dispatch(this.partitionWgPipe, this.partitionWgBind, 1, 1);
+      dispatch(this.partitionThreadPipe, this.partitionThreadBind, 32, 1);
+      dispatch(this.streamEmitPipe, this.streamEmitBind, 32, 1);
+      dispatch(this.emitFixupPipe, this.emitFixupBind, 1, 1);
+      // Indirect-dispatched accumulation kernels.
+      const indirectDispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, buf: GPUBuffer, off: number): void => {
+        const desc: GPUComputePassDescriptor = {};
+        if (profEnabled) {
+          desc.timestampWrites = {
+            querySet: this.querySet!,
+            beginningOfPassWriteIndex: 2 * passIdx,
+            endOfPassWriteIndex: 2 * passIdx + 1,
+          };
+          passIdx++;
+        }
+        const pass = enc.beginComputePass(desc);
+        pass.setPipeline(pipe);
+        pass.setBindGroup(0, bind);
+        pass.dispatchWorkgroupsIndirect(buf, off);
+        pass.end();
+      };
+      indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
+      indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
+      indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
     }
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
