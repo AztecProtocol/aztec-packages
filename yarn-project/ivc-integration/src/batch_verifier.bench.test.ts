@@ -8,6 +8,7 @@ import { BatchChonkVerifier } from '@aztec/bb-prover';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
+import { Decoder } from 'msgpackr';
 import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
@@ -30,6 +31,7 @@ const CHONK_INPUTS_STATE_DIR = resolve(REPO_ROOT, '.cache/chonk-inputs');
 jest.setTimeout(1_200_000); // 20 min — proving is slow
 
 type BenchEntry = { name: string; value: number; unit: string };
+type PinnedIvcStep = { vk: Uint8Array };
 
 /** Split a binary proof file into 32-byte field element buffers. */
 function proofToFields(proofBuf: Buffer): Uint8Array[] {
@@ -52,6 +54,14 @@ async function ensurePinnedInputs(): Promise<void> {
 
   logger.info(`Downloading pinned Chonk inputs ${expectedHash}...`);
   await execFileAsync(CHONK_INPUTS_SCRIPT, ['download'], { cwd: REPO_ROOT, timeout: 180_000 });
+}
+
+function readFinalPrecomputedVk(ivcInputsPath: string): Uint8Array {
+  const steps = new Decoder({ useRecords: false }).unpack(readFileSync(ivcInputsPath)) as PinnedIvcStep[];
+  if (steps.length === 0) {
+    throw new Error(`No execution steps in ${ivcInputsPath}`);
+  }
+  return new Uint8Array(steps[steps.length - 1].vk);
 }
 
 describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
@@ -81,11 +91,9 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
     // Prove the flow
     logger.info(`Proving flow: ${flow}...`);
     const proveStart = performance.now();
-    await execFileAsync(
-      BB_PATH,
-      ['prove', '--scheme', 'chonk', '--ivc_inputs_path', ivcInputsPath, '-o', proofDir, '--write_vk'],
-      { timeout: 600_000 },
-    );
+    await execFileAsync(BB_PATH, ['prove', '--scheme', 'chonk', '--ivc_inputs_path', ivcInputsPath, '-o', proofDir], {
+      timeout: 600_000,
+    });
     const proveMs = performance.now() - proveStart;
     logger.info(`Proof generated in ${Math.ceil(proveMs)}ms`);
 
@@ -94,8 +102,8 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
     validProofFields = proofToFields(proofBuf);
     invalidProofFields = corruptProofFields(validProofFields);
 
-    // Use the VK produced for the pinned flow's final hiding-kernel circuit.
-    vk = await readFile(resolve(proofDir, 'vk'));
+    // Use the VK that was pinned with the selected flow's final hiding-kernel circuit.
+    vk = readFinalPrecomputedVk(ivcInputsPath);
 
     logger.info(`Proof: ${proofBuf.length} bytes, ${validProofFields.length} fields`);
   });
