@@ -7,85 +7,10 @@ set -euo pipefail
 
 ENV_FILE="$1"
 
-log_info() { echo "[setup_gcp_secrets] $*" >&2; }
-log_err() { echo "[setup_gcp_secrets] ERROR: $*" >&2; }
-
 if [[ ! -f "$ENV_FILE" ]]; then
-    log_err "Environment file not found: $ENV_FILE"
+    echo "Environment file not found: $ENV_FILE" >&2
     exit 1
 fi
-
-if ! command -v gcloud &>/dev/null; then
-    log_err "gcloud not found on PATH"
-    exit 1
-fi
-
-if ! command -v jq &>/dev/null; then
-    log_err "jq not found on PATH (needed to inspect credentials)"
-    exit 1
-fi
-
-function diagnose_gcloud_auth {
-    log_info "CI=${CI:-0} GCP_PROJECT_ID=${GCP_PROJECT_ID:-<unset>} CLUSTER=${CLUSTER:-<unset>}"
-
-    if [[ -z "${GCP_PROJECT_ID:-}" ]]; then
-        log_err "GCP_PROJECT_ID is not set; gcloud secret access requires --project"
-        return 1
-    fi
-
-    if [[ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
-        log_info "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}"
-        if [[ ! -f "${GOOGLE_APPLICATION_CREDENTIALS}" ]]; then
-            log_err "Credentials file does not exist: ${GOOGLE_APPLICATION_CREDENTIALS}"
-            return 1
-        fi
-        local cred_type cred_email cred_project
-        cred_type=$(jq -r '.type // "unknown"' "${GOOGLE_APPLICATION_CREDENTIALS}")
-        cred_email=$(jq -r '.client_email // .client_id // "n/a"' "${GOOGLE_APPLICATION_CREDENTIALS}")
-        cred_project=$(jq -r '.project_id // "n/a"' "${GOOGLE_APPLICATION_CREDENTIALS}")
-        log_info "Credential file type=${cred_type} identity=${cred_email} file_project_id=${cred_project}"
-        if [[ "$cred_project" != "n/a" && "$cred_project" != "$GCP_PROJECT_ID" ]]; then
-            log_info "Note: file project_id (${cred_project}) differs from GCP_PROJECT_ID (${GCP_PROJECT_ID})"
-        fi
-    else
-        log_info "GOOGLE_APPLICATION_CREDENTIALS is not set"
-    fi
-
-    log_info "Active gcloud accounts:"
-    gcloud auth list 2>&1 | sed 's/^/[setup_gcp_secrets]   /' >&2 || true
-
-    if [[ "${CI:-0}" == "1" && -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" && -f "${GOOGLE_APPLICATION_CREDENTIALS}" ]]; then
-        log_info "CI=1: activating service account from GOOGLE_APPLICATION_CREDENTIALS"
-        if ! gcloud auth activate-service-account --key-file="${GOOGLE_APPLICATION_CREDENTIALS}" 2>&1 | sed 's/^/[setup_gcp_secrets]   /' >&2; then
-            log_err "gcloud auth activate-service-account failed"
-            return 1
-        fi
-        gcloud config set project "$GCP_PROJECT_ID" >/dev/null
-    fi
-
-    local token_err
-    token_err=$(mktemp)
-    if ! gcloud auth print-access-token >/dev/null 2>"$token_err"; then
-        log_err "Could not obtain a valid access token (expired or missing credentials?)"
-        sed 's/^/[setup_gcp_secrets]   /' "$token_err" >&2
-        rm -f "$token_err"
-        return 1
-    fi
-    rm -f "$token_err"
-    log_info "Access token obtained successfully for project ${GCP_PROJECT_ID}"
-
-    local describe_err
-    describe_err=$(mktemp)
-    if ! gcloud secrets describe otel-collector-url --project="$GCP_PROJECT_ID" >/dev/null 2>"$describe_err"; then
-        log_info "Preflight: cannot describe secret otel-collector-url (may still fail on access):"
-        sed 's/^/[setup_gcp_secrets]   /' "$describe_err" >&2
-    else
-        log_info "Preflight: secret otel-collector-url exists in project ${GCP_PROJECT_ID}"
-    fi
-    rm -f "$describe_err"
-}
-
-diagnose_gcloud_auth || exit 1
 
 # Read the network name from the env file
 NETWORK=${NETWORK:-}
@@ -107,20 +32,11 @@ trap "rm -rf '$SECRETS_TMP_DIR'" EXIT
 get_secret() {
     local secret_name="$1"
     local temp_file="$SECRETS_TMP_DIR/${secret_name}.secret"
-    local gcloud_err
-    gcloud_err=$(mktemp)
 
-    if ! gcloud secrets versions access latest \
-        --secret="$secret_name" \
-        --project="$GCP_PROJECT_ID" \
-        --out-file="$temp_file" 2>"$gcloud_err"; then
-        log_err "Failed to read secret: ${secret_name} (project=${GCP_PROJECT_ID})"
-        log_err "gcloud secrets versions access stderr:"
-        sed 's/^/[setup_gcp_secrets]   /' "$gcloud_err" >&2
-        rm -f "$gcloud_err"
+    gcloud secrets versions access latest --secret="$secret_name" --project="$GCP_PROJECT_ID" --out-file="$temp_file" 2>/dev/null || {
+        echo "Failed to read secret: $secret_name" >&2
         exit 1
-    fi
-    rm -f "$gcloud_err"
+    }
 
     echo "$temp_file"
 }
