@@ -296,7 +296,9 @@ jobs:
           gh workflow run claudebox.yml \
             -f prompt="$PROMPT" \
             -f link="${LINK:-$RUN_URL}" \
-            -f target_ref="${{ steps.checkout-ref.outputs.ref }}" || true
+            -f target_ref="${{ steps.checkout-ref.outputs.ref }}" \
+            -f slack_channel="$CHANNEL_ID" \
+            -f slack_thread_ts="$TS" || true
 
   update-irm:
     needs: deploy-network
