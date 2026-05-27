@@ -60,7 +60,7 @@ await pxe.registerContract({ instance, artifact });
 
 For browser bundles, import from `@aztec/standard-contracts/auth-registry/lazy` instead.
 
-Deploy `AuthRegistry` once per fresh rollup: `aztec-wallet deploy auth_registry_contract@AuthRegistry --salt 1 --deployer 0x0 -f <fee-paying-account>`.
+Deploy `AuthRegistry` once per fresh rollup: `aztec-wallet deploy auth_registry_contract@AuthRegistry --salt 1 --universal -f <fee-paying-account>`.
 
 ### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
 
