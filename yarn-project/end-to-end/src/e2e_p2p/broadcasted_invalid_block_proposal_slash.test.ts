@@ -1,4 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -13,7 +14,7 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
 
 const TEST_TIMEOUT = 1_000_000;
 
@@ -114,10 +115,14 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
 
     t.logger.warn('Creating nodes');
 
-    // Create first node that broadcasts invalid proposals
+    // Create first node that broadcasts invalid proposals. Keep its sequencer stopped until
+    // every node has joined the P2P mesh; otherwise (under proposer pipelining) the invalid
+    // proposer can publish its sole bad block to slot N before the honest nodes are connected,
+    // and they will reject the proposal as "invalid slot number" instead of slashing it.
     const invalidProposerConfig = {
       ...t.ctx.aztecNodeConfig,
       broadcastInvalidBlockProposal: true,
+      dontStartSequencer: true,
     };
     const invalidProposerNodes = await createNodes(
       invalidProposerConfig,
@@ -134,9 +139,9 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     const invalidProposerAddress = invalidProposerNodes[0].getSequencer()!.validatorAddresses![0];
     t.logger.warn(`Invalid proposer address: ${invalidProposerAddress.toString()}`);
 
-    // Create remaining honest nodes
+    // Create remaining honest nodes, also with sequencers stopped, for the same reason.
     const honestNodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      { ...t.ctx.aztecNodeConfig, dontStartSequencer: true },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
@@ -149,42 +154,39 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
 
     nodes = [...invalidProposerNodes, ...honestNodes];
 
-    // Wait for P2P mesh to be fully formed before proceeding
+    // Wait for P2P mesh to be fully formed before starting sequencers
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
     await awaitCommitteeExists({ rollup, logger: t.logger });
 
-    const startSlot = await rollup.getSlotNumber();
-    const proposerEarliestSlot = startSlot + 1;
+    // Find an epoch where the invalid proposer is selected, stopping one epoch before so
+    // we have time to start sequencers before the target epoch arrives.
+    const epochCache = (honestNodes[0] as TestAztecNodeService).epochCache;
+    const { targetEpoch } = await advanceToEpochBeforeProposer({
+      epochCache,
+      cheatCodes: t.ctx.cheatCodes.rollup,
+      targetProposer: invalidProposerAddress,
+      logger: t.logger,
+    });
 
-    // Wait until the bad proposer has had a slot
-    await retryUntil(
-      async () => {
-        const currentSlot = await rollup.getSlotNumber();
-        return currentSlot >= proposerEarliestSlot;
-      },
-      'Wait for next slot...',
-      TEST_TIMEOUT / 1000,
-      ETHEREUM_SLOT_DURATION,
-    );
+    // Start all sequencers while still one epoch before the target
+    t.logger.warn('Starting all sequencers');
+    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
 
-    await retryUntil(
-      async () => {
-        const currentProposer = await rollup.getCurrentProposer();
-        if (!currentProposer.equals(invalidProposerAddress)) {
-          t.logger.info(
-            `Current proposer: ${currentProposer}, waiting for malicious proposer ${invalidProposerAddress} to get a slot...`,
-          );
-          return false;
-        }
-        return true;
-      },
-      'Wait for malicious proposer slot...',
-      TEST_TIMEOUT / 1000,
-      ETHEREUM_SLOT_DURATION,
-    );
+    // Now warp to one slot before the target epoch — sequencers are already running.
+    // Under proposer pipelining, the invalid proposer begins building for the first slot
+    // of the target epoch one slot earlier; warping to the start of the epoch would force
+    // the bad proposal to serialize past the slot boundary, after which honest receivers
+    // reject it as late.
+    t.logger.warn(`Advancing to one slot before target epoch ${targetEpoch}`);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
 
-    const offenses = await awaitOffenseDetected({
+    // Wait for offense to be detected. Under proposer pipelining, the invalid block proposal is
+    // broadcast at the slot boundary while a receiver's wall clock may have already advanced
+    // past the build slot — when that happens, the honest node rejects the gossip with "invalid
+    // slot number" before slashing logic runs. Collect offenses from every node so we catch
+    // whichever node managed to process the proposal while still in the build slot.
+    await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
       logger: t.logger,
       nodeAdmin: nodes[1], // Use honest node to check for offenses
@@ -193,10 +195,23 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
       timeoutSeconds: AZTEC_SLOT_DURATION * 16,
     });
 
-    // Check offense is correct
-    expect(offenses).toHaveLength(1);
-    expect(offenses[0].offenseType).toEqual(OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL);
-    expect(offenses[0].validator.toString()).toEqual(t.validators[0].attester.toString());
+    const invalidBlockOffenses = await retryUntil(
+      async () => {
+        const allOffenses = (await Promise.all(nodes.map(n => n.getSlashOffenses('all')))).flat();
+        const filtered = allOffenses.filter(o => o.offenseType === OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL);
+        if (filtered.length > 0) {
+          return filtered;
+        }
+      },
+      'broadcasted invalid block proposal offense',
+      AZTEC_SLOT_DURATION * 4,
+    );
+
+    t.logger.warn(`Collected broadcasted invalid block proposal offenses`, { invalidBlockOffenses });
+    expect(invalidBlockOffenses.length).toBeGreaterThan(0);
+    for (const offense of invalidBlockOffenses) {
+      expect(offense.validator.toString()).toEqual(invalidProposerAddress.toString());
+    }
 
     // Check slash is recorded on chain
     const slashPromise = promiseWithResolvers<{ amount: bigint; attester: EthAddress }>();

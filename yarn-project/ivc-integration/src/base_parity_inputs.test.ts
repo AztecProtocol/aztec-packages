@@ -1,6 +1,6 @@
 /**
  * Generates base parity circuit inputs (bytecode + witness) for UltraHonk benchmarks.
- * Only runs when BASE_PARITY_BENCH_DIR env var is set (during build_bench).
+ * Only runs when BASE_PARITY_BENCH_DIR env var is set by the UltraHonk benchmark input generator.
  *
  * Run with: BASE_PARITY_BENCH_DIR=./bench-out yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
  */

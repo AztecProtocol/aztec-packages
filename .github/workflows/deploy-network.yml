@@ -38,10 +38,15 @@ on:
         description: "Source tag that triggered this deploy"
         required: false
         type: string
+      notify_on_failure:
+        description: "Whether this workflow should send its own failure notification"
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)"
+        description: "Network to deploy (e.g., staging-public, testnet, next-net)"
         required: true
         type: choice
         options:
@@ -74,6 +79,11 @@ on:
         description: "Source tag that triggered this deploy"
         required: false
         type: string
+      notify_on_failure:
+        description: "Whether this workflow should send its own failure notification"
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.aztec_docker_image || inputs.semver }}-${{ github.ref || github.ref_name }}
@@ -242,7 +252,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        if: failure() && inputs.notify_on_failure
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -284,7 +294,9 @@ jobs:
           gh workflow run claudebox.yml \
             -f prompt="$PROMPT" \
             -f link="${LINK:-$RUN_URL}" \
-            -f target_ref="${{ steps.checkout-ref.outputs.ref }}" || true
+            -f target_ref="${{ steps.checkout-ref.outputs.ref }}" \
+            -f slack_channel="$CHANNEL_ID" \
+            -f slack_thread_ts="$TS" || true
 
   update-irm:
     needs: deploy-network

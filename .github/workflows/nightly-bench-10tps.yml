@@ -5,8 +5,12 @@ on:
     - cron: "30 6 * * *"
   workflow_dispatch:
     inputs:
+      docker_image:
+        description: "Full Docker image (e.g., aztecprotocol/aztec:my-tag). Takes precedence over nightly_tag."
+        required: false
+        type: string
       nightly_tag:
-        description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Leave empty to auto-detect."
+        description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Ignored if docker_image is set. Leave empty to auto-detect."
         required: false
         type: string
 
@@ -15,29 +19,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  benchmark:
+  select-image:
     runs-on: ubuntu-latest
+    outputs:
+      docker_image: ${{ steps.docker-image.outputs.docker_image }}
+      image_label: ${{ steps.docker-image.outputs.image_label }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: next
 
-      - name: Determine nightly tag
-        id: nightly-tag
+      - name: Determine docker image
+        id: docker-image
         run: |
-          if [[ -n "${{ inputs.nightly_tag }}" ]]; then
+          if [[ -n "${{ inputs.docker_image }}" ]]; then
+            docker_image="${{ inputs.docker_image }}"
+            image_label="${{ inputs.docker_image }}"
+          elif [[ -n "${{ inputs.nightly_tag }}" ]]; then
             nightly_tag="${{ inputs.nightly_tag }}"
+            docker_image="aztecprotocol/aztec:${nightly_tag}"
+            image_label="${nightly_tag}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
             nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
+            docker_image="aztecprotocol/aztec:${nightly_tag}"
+            image_label="${nightly_tag}"
           fi
-          echo "nightly_tag=$nightly_tag" >> $GITHUB_OUTPUT
-          echo "Using nightly tag: $nightly_tag"
+          echo "docker_image=$docker_image" >> "$GITHUB_OUTPUT"
+          echo "image_label=$image_label" >> "$GITHUB_OUTPUT"
+          echo "Using docker image: $docker_image"
 
       - name: Check if Docker image exists
         run: |
-          DOCKER_IMAGE="aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          DOCKER_IMAGE="${{ steps.docker-image.outputs.docker_image }}"
           echo "Checking if Docker image exists: $DOCKER_IMAGE"
           if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
             echo "Docker image exists: $DOCKER_IMAGE"
@@ -46,7 +61,56 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy and run 10 TPS benchmark
+  deploy-bench-10tps-network:
+    needs: select-image
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: bench-10tps
+      namespace: bench-10tps
+      aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
+      ref: next
+      notify_on_failure: false
+    secrets: inherit
+
+  wait-for-first-l2-block:
+    needs: deploy-bench-10tps-network
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: next
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Wait for first L2 block
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          cd spartan
+          ./bootstrap.sh wait_for_l2_block bench-10tps
+
+  benchmark:
+    needs:
+      - select-image
+      - wait-for-first-l2-block
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: next
+
+      - name: Run 10 TPS benchmark
         timeout-minutes: 240
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -59,11 +123,25 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
+          SKIP_NETWORK_DEPLOY: "1"
         run: |
-          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "aztecprotocol/aztec:${{ steps.nightly-tag.outputs.nightly_tag }}"
+          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "${{ needs.select-image.outputs.docker_image }}"
+
+  cleanup:
+    if: always()
+    needs:
+      - select-image
+      - deploy-bench-10tps-network
+      - wait-for-first-l2-block
+      - benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: next
 
       - name: Cleanup network resources
-        if: always()
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -74,15 +152,29 @@ jobs:
           NO_SPOT: 1
         run: ./.github/ci3.sh network-teardown bench-10tps bench-10tps
 
+  notify-failure:
+    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' }}
+    needs:
+      - select-image
+      - deploy-bench-10tps-network
+      - wait-for-first-l2-block
+      - benchmark
+      - cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: next
+
       - name: Notify Slack on failure
-        if: failure() && github.event_name != 'workflow_dispatch'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.nightly-tag.outputs.nightly_tag }}"
+          IMAGE="${{ needs.select-image.outputs.image_label || 'unknown' }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly 10 TPS benchmark FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly 10 TPS benchmark failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            "Nightly 10 TPS benchmark FAILED (image ${IMAGE}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly 10 TPS benchmark failed (image ${IMAGE}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
             --link "$RUN_URL"

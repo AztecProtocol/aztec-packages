@@ -7,7 +7,8 @@ Project-level Claude Code configuration for aztec-packages. This file documents 
 1. Universal content lives at repository root: `CLAUDE.md`, `.claude/agents/`, `.claude/scripts/`, and the root `settings.json` hooks.
 2. Subdirectory `.claude/` directories hold only component-specific skills, permission allowlists, and settings. Content is not merged upward.
 3. A subdirectory that has its own `.claude/` must symlink `agents/` to the repository root's `.claude/agents/`. Claude Code's ancestor walk stops at the nearest `.claude/` and does not merge ancestors, so subdirectories otherwise shadow the root agents. Subdirectories without their own `.claude/` inherit the root automatically. `skills/` is intentionally *not* symlinked — skills are scoped to their subdir (root skills are repo-wide workflows; `yarn-project/.claude/skills/` are TS-specific; etc.).
-4. Prefer XML-tagged sections inside `CLAUDE.md` for prose guidance. A `.claude/rules/` directory is only warranted when a rule needs YAML frontmatter (e.g. path-scoped `paths:` metadata) that `CLAUDE.md` cannot express. `.claude/rules/` without frontmatter does not auto-load when Claude Code is started from a subdirectory, so plain rules files are strictly worse than inlining into `CLAUDE.md`.
+4. Tracked `.codex` symlinks point at the nearest `.claude/` directory. Keep `.claude/` canonical and do not duplicate agent or skill indexes in `AGENTS.md`.
+5. Prefer XML-tagged sections inside `CLAUDE.md` for prose guidance. A `.claude/rules/` directory is only warranted when a rule needs YAML frontmatter (e.g. path-scoped `paths:` metadata) that `CLAUDE.md` cannot express. `.claude/rules/` without frontmatter does not auto-load when Claude Code is started from a subdirectory, so plain rules files are strictly worse than inlining into `CLAUDE.md`.
 
 ## Tests
 

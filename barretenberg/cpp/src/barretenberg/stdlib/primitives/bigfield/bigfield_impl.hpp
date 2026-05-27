@@ -518,7 +518,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     }
 
     /**
-     * Plookup bigfield subtractoin
+     * Plookup bigfield subtraction
      *
      * We have a special addition gate we can toggle, that will compute: (w_1 + w_4 - w_4_omega + q_arith = 0)
      * This is in addition to the regular addition gate

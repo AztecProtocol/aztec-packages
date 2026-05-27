@@ -517,6 +517,7 @@ export class EpochsTestContext {
       'proposer-rollup-check-failed',
       'checkpoint-error',
       'checkpoint-publish-failed',
+      'header-validation-failed',
       'pipelined-checkpoint-discarded',
       ...additionalFailEventKeys,
     ];
@@ -548,6 +549,13 @@ export class EpochsTestContext {
       });
       failEventsKeys.forEach(eventName => {
         sequencer.getSequencer().on(eventName, (args: Parameters<SequencerEvents[typeof eventName]>[0]) => {
+          // Skip benign block-build-failed events where the builder rejected the block because it
+          // could not collect enough valid txs. This is the same "not enough txs" case as
+          // block-tx-count-check-failed (which is already excluded above), just detected after we
+          // started processing txs rather than before.
+          if (eventName === 'block-build-failed' && (args as { reason?: string }).reason === 'Insufficient valid txs') {
+            return;
+          }
           const evt = makeEvent(i, eventName, args);
           failEvents.push(evt);
           this.logger.error(`Failed event ${eventName} from sequencer ${sequencerIndex}`, undefined, evt);

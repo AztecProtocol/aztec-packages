@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
+import { BatchCall, NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx, TxExecutionResult } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -10,6 +10,8 @@ import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
+import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
@@ -17,17 +19,25 @@ import type { CircuitName } from '@aztec/stdlib/stats';
 import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 
 import TOML from '@iarna/toml';
-import '@jest/globals';
+import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
 
-// Set a very long 15 minute timeout.
-const TIMEOUT = 900_000;
+const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
+
+// Real proving can take 10+ min per epoch; under pipelined 12s slots a multi-epoch test
+// can exceed 30 min. Keep 15 min for fake proofs, 45 min for real.
+const TIMEOUT = REAL_PROOFS ? 45 * 60 * 1000 : 15 * 60 * 1000;
+
+// Apply the same budget to module-level hooks (beforeAll/afterAll/afterEach) so the
+// pipelined setup chain (account deploys + token deploy + mint + epoch advance +
+// prover-node startup) doesn't time out.
+jest.setTimeout(TIMEOUT);
 
 describe('full_prover', () => {
-  const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
@@ -42,7 +52,7 @@ describe('full_prover', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
 
     ({ provenAsset, accounts, tokenSim, logger, cheatCodes, provenWallet, aztecNode } = t);
     [sender, recipient] = accounts;
@@ -60,7 +70,7 @@ describe('full_prover', () => {
       address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
       client: t.l1Contracts.l1Client,
     });
-  }, 120_000);
+  }, TIMEOUT);
 
   afterAll(async () => {
     await t.teardown();
@@ -182,6 +192,34 @@ describe('full_prover', () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
+    // Deploy Parent + Child and prove three private chains to regenerate
+    // `private-kernel-inner{,-2,-3}/Prover.toml`. The Token transfers below pack into init_2 /
+    // init_3 and never invoke plain `inner` / `inner_2` / `inner_3`. The planner is N=3 greedy,
+    // so we exercise it with three transactions:
+    //   - 4 apps (entrypoint → parent.private_nested_static_call → parent.private_call →
+    //     child.private_get_value) → init_3 + inner
+    //   - 5 apps (BatchCall: nested chain + one extra leaf call) → init_3 + inner_2
+    //   - 6 apps (BatchCall: nested chain + two extra leaf calls) → init_3 + inner_3
+    // `proveInteraction` alone is enough to capture `pushTestData('private-kernel-inner{,-2,-3}',
+    // ...)`; no need to land the txs.
+    logger.info(`Deploying Parent + Child contracts to exercise inner kernels`);
+    const { contract: childContract } = await ChildContract.deploy(provenWallet).send({ from: sender });
+    const { contract: parentContract } = await ParentContract.deploy(provenWallet).send({ from: sender });
+    // Seed a note in child so the static private_get_value reads below have something to return.
+    await childContract.methods.private_set_value(42n, sender).send({ from: sender });
+    const getValueSelector = await childContract.methods.private_get_value.selector();
+    const nestedChain = () =>
+      parentContract.methods.private_nested_static_call(childContract.address, getValueSelector, [42n, sender]);
+    const extraLeaf = () => childContract.methods.private_get_value(42n, sender);
+    logger.info(`Proving 4-app nested-call tx to populate private-kernel-inner test data`);
+    await proveInteraction(provenWallet, nestedChain(), { from: sender });
+    logger.info(`Proving 5-app batched tx to populate private-kernel-inner-2 test data`);
+    await proveInteraction(provenWallet, new BatchCall(provenWallet, [nestedChain(), extraLeaf()]), { from: sender });
+    logger.info(`Proving 6-app batched tx to populate private-kernel-inner-3 test data`);
+    await proveInteraction(provenWallet, new BatchCall(provenWallet, [nestedChain(), extraLeaf(), extraLeaf()]), {
+      from: sender,
+    });
+
     // Create the two transactions
     const { result: privateBalance } = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
     const privateSendAmount = privateBalance / 20n;
@@ -250,7 +288,11 @@ describe('full_prover', () => {
     (
       [
         'private-kernel-init',
+        'private-kernel-init-2',
+        'private-kernel-init-3',
         'private-kernel-inner',
+        'private-kernel-inner-2',
+        'private-kernel-inner-3',
         'private-kernel-reset',
         'private-kernel-reset-tail',
         'private-kernel-reset-tail-to-public',

@@ -1,10 +1,15 @@
 #pragma once
 
 #include "barretenberg/serialize/msgpack_impl.hpp"
+#include <functional>
 #include <memory>
 #include <napi.h>
 #include <thread>
 #include <utility>
+
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 
 namespace bb::nodejs {
 
@@ -109,10 +114,17 @@ class ThreadedAsyncOperation : public std::enable_shared_from_this<ThreadedAsync
     }
 
   private:
+    // AVM simulation call chains are deep. Non-main threads get a 512 KB default stack on
+    // macOS versus 8 MB on Linux, so a default std::thread overflows its stack-guard page and
+    // aborts with SIGBUS on macOS arm64. The libuv pool that AsyncOperation runs on sizes its
+    // threads from RLIMIT_STACK, which is why that path never hit this. Pin a generous stack so
+    // the worker has the same headroom on every platform.
+    static constexpr size_t WORKER_STACK_SIZE = 32UL * 1024 * 1024;
+
     void Queue()
     {
         auto self = shared_from_this();
-        std::thread([self]() {
+        launch_detached_with_large_stack([self]() {
             try {
                 self->_fn(self->_result);
                 self->_success = true;
@@ -138,7 +150,43 @@ class ThreadedAsyncOperation : public std::enable_shared_from_this<ThreadedAsync
                 }
                 self->_completion_tsfn.Release();
             });
-        }).detach();
+        });
+    }
+
+    // Launch `work` on a detached OS thread with an explicitly large stack (see WORKER_STACK_SIZE).
+    // std::thread cannot set a stack size, so use pthreads where available and fall back to a
+    // default-stack std::thread only if pthread creation is unavailable or fails.
+    static void launch_detached_with_large_stack(std::function<void()> work)
+    {
+#ifndef _WIN32
+        pthread_attr_t attr;
+        if (pthread_attr_init(&attr) == 0) {
+            pthread_attr_setstacksize(&attr, WORKER_STACK_SIZE);
+            pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+            auto* heap_work = new std::function<void()>(std::move(work));
+            pthread_t tid;
+            int rc = pthread_create(
+                &tid,
+                &attr,
+                [](void* arg) -> void* {
+                    std::unique_ptr<std::function<void()>> fn(static_cast<std::function<void()>*>(arg));
+                    (*fn)();
+                    return nullptr;
+                },
+                heap_work);
+            pthread_attr_destroy(&attr);
+
+            if (rc == 0) {
+                return;
+            }
+
+            // pthread_create failed; reclaim the work and fall back to a default std::thread.
+            std::unique_ptr<std::function<void()>> reclaimed(heap_work);
+            work = std::move(*reclaimed);
+        }
+#endif
+        std::thread(std::move(work)).detach();
     }
 
     async_fn _fn;

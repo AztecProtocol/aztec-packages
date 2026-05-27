@@ -21,14 +21,14 @@ import { strict as assert } from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicContractsDB } from '../public_db_sources.js';
-import type { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import type { PublicTxSimulatorInterface } from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let merkleTree: MockProxy<MerkleTreeWriteOperations>;
   let contractsDB: PublicContractsDB;
-  let publicTxSimulator: MockProxy<PublicTxSimulator>;
+  let publicTxSimulator: MockProxy<Required<PublicTxSimulatorInterface>>;
 
   let mockedEnqueuedCallsResult: PublicTxResult;
 
@@ -78,7 +78,7 @@ describe('public_processor', () => {
   beforeEach(() => {
     merkleTree = mock<MerkleTreeWriteOperations>();
     contractsDB = new PublicContractsDB(mock<ContractDataSource>());
-    publicTxSimulator = mock();
+    publicTxSimulator = mock<Required<PublicTxSimulatorInterface>>();
 
     const stateReference = StateReference.empty();
     mockedEnqueuedCallsResult = PublicTxResult.empty();
@@ -136,7 +136,7 @@ describe('public_processor', () => {
     it('runs a tx with reverted enqueued public calls', async function () {
       const tx = await mockTxWithPublicCalls();
 
-      mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
+      mockedEnqueuedCallsResult.revertCode = RevertCode.REVERTED;
 
       const [processed, failed] = await processor.process([tx]);
 
@@ -237,6 +237,32 @@ describe('public_processor', () => {
 
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
+    });
+
+    it('aborts in-flight tx processing and cancels the simulator', async function () {
+      const tx = await mockTxWithPublicCalls();
+      const controller = new AbortController();
+
+      let finishSimulation!: () => void;
+      const simulationFinished = new Promise<void>(resolve => {
+        finishSimulation = resolve;
+      });
+
+      publicTxSimulator.simulate.mockImplementation(async () => {
+        controller.abort();
+        await simulationFinished;
+        return mockedEnqueuedCallsResult;
+      });
+      publicTxSimulator.cancel.mockImplementation(() => {
+        finishSimulation();
+        return Promise.resolve();
+      });
+
+      const [processed, failed] = await processor.process([tx], { signal: controller.signal });
+
+      expect(processed).toEqual([]);
+      expect(failed).toEqual([]);
+      expect(publicTxSimulator.cancel).toHaveBeenCalled();
     });
 
     // Flakey timing test that's totally dependent on system load/architecture etc.
