@@ -63,6 +63,30 @@ variable "reth_storage" {
   default     = "4Ti"
 }
 
+variable "reth_cpu_request" {
+  description = "Reth CPU requests"
+  type        = string
+  default     = "2"
+}
+
+variable "reth_cpu_limit" {
+  description = "Reth CPU limit"
+  type        = string
+  default     = "4"
+}
+
+variable "reth_memory_request" {
+  description = "Reth RAM requests"
+  type        = string
+  default     = "16Gi"
+}
+
+variable "reth_memory_limit" {
+  description = "Reth RAM limit"
+  type        = string
+  default     = "32Gi"
+}
+
 variable "lighthouse_image" {
   description = "Lighthouse Docker image"
   type        = string
@@ -79,4 +103,28 @@ variable "lighthouse_storage" {
   description = "Lighthouse Helm chart version"
   type        = string
   default     = "1Ti"
+}
+
+variable "lighthouse_cpu_request" {
+  description = "Lighthouse CPU requests"
+  type        = string
+  default     = "2"
+}
+
+variable "lighthouse_cpu_limit" {
+  description = "Lighthouse CPU limit"
+  type        = string
+  default     = "4"
+}
+
+variable "lighthouse_memory_request" {
+  description = "Lighthouse RAM requests"
+  type        = string
+  default     = "16Gi"
+}
+
+variable "lighthouse_memory_limit" {
+  description = "Lighthouse RAM limit"
+  type        = string
+  default     = "32Gi"
 }
