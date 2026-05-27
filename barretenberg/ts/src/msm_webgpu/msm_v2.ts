@@ -1149,9 +1149,6 @@ export class MsmV2 {
   private emitFixupPipe!: GPUComputePipeline;
   private size1Pipe!: GPUComputePipeline;
   private streamAccumPipe!: GPUComputePipeline;
-  private debugAccumPipe!: GPUComputePipeline;
-  private debugAccumBind!: GPUBindGroup;
-  private debugAccumLayout!: GPUBindGroupLayout;
   private partialSumPipe!: GPUComputePipeline;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
   private classifyBind!: GPUBindGroup;
@@ -1211,7 +1208,6 @@ export class MsmV2 {
   // slow path even when the data-dependent caps would have allowed a fast-
   // path uniform rewrite. -1 = no scratch yet bound.
   private boundEpoch: number = -1;
-  _useDebugAccum = false;
   private preparedFor: Uint8Array | null = null; // scalarsBuf identity cache key
   private preparedSrsOffset: number = -1; // srsOffset used by the last prepare
 
@@ -1231,16 +1227,6 @@ export class MsmV2 {
   // Pair-block tile size (derived from capTotalPairBlocks); persists so run()
   // can skip dispatching tiles past the current plan's totalPairBlocks.
   private fusedTileSize: number = 0;
-  // Per-level uniform buffers, kept alive across prepares. Indexed by level.
-  // `tileParamsBufs[lv]` is the parallel array of per-tile uniforms.
-  private plannerParamsBufs: GPUBuffer[] = [];
-  private carryParamsBufs: GPUBuffer[] = [];
-  private tileParamsBufs: GPUBuffer[][] = [];
-  // Per-level pair-block / carry totals (= batchWindows × per-window count),
-  // updated on every prepare; consumed by run() for dispatch counts (saves a
-  // re-walk of the LevelBind tile array).
-  private levelTotalPairBlocks: number[] = [];
-  private levelTotalCarries: number[] = [];
   private numBatches = 1;
   private batchWindows = 0;
   private levels = 0;
@@ -1455,8 +1441,6 @@ export class MsmV2 {
     m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     m.streamAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
-    m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
-
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1540,10 +1524,6 @@ export class MsmV2 {
     m.partialSumPipe = await compile(
       sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
       `partial-sum`, m.partialSumLayout);
-    m.debugAccumPipe = await compile(
-      sm.gen_ba_stream_accum_debug_shader(INV_VARIANT),
-      `debug-accum`, m.debugAccumLayout);
-
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -1785,11 +1765,6 @@ export class MsmV2 {
     for (const b of this.prepBuffers) b.destroy();
     this.prepBuffers = [];
     this.levelBinds = [];
-    this.plannerParamsBufs = [];
-    this.carryParamsBufs = [];
-    this.tileParamsBufs = [];
-    this.levelTotalPairBlocks = [];
-    this.levelTotalCarries = [];
     this.levels = levels;
     this.numBatches = numBatches;
     this.batchWindows = batchWindows;
@@ -2040,9 +2015,6 @@ export class MsmV2 {
       const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, batchSlots, B_TOTAL]));
       this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
       const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
-      // DEBUG: sequential single-thread accumulator for correctness isolation
-      const debugParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
       this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);
     }
 
@@ -2244,10 +2216,8 @@ export class MsmV2 {
         pass.end();
       };
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
-      // Use parallel debug accumulator (one inversion per add, 256 threads)
-      dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
-      // indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-      // indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
+      indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
+      indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
     }
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
@@ -2320,172 +2290,6 @@ export class MsmV2 {
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
     }
     device.queue.submit([enc.finish()]);
-    await device.queue.onSubmittedWorkDone();
-    // DEBUG: readback planner meta + bucket sums sample
-    {
-      const m = this.pool.scratch!.streamPlannerMeta;
-      const br = this.pool.scratch!.bucketResultBuf;
-      const readSz = Math.min(65536, br.size);
-      const s = device.createBuffer({ size: Math.ceil((80 + readSz) / 4) * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const e2 = device.createCommandEncoder();
-      e2.copyBufferToBuffer(m, 0, s, 0, 80);
-      e2.copyBufferToBuffer(br, 0, s, 80, readSz);
-      device.queue.submit([e2.finish()]);
-      await s.mapAsync(GPUMapMode.READ);
-      const a = new Uint32Array(s.getMappedRange().slice(0));
-      s.unmap(); s.destroy();
-      console.log(`[DBG] size1=${a[0]} dense=${a[1]} adds=${a[2]} wg=${a[3]} split=${a[4]} slab=${a[6]} emit_t0_real=${a[19]} s1d=(${a[8]},${a[9]},${a[10]}) sad=(${a[12]},${a[13]},${a[14]}) psd=(${a[16]},${a[17]},${a[18]})`);
-      // Count non-zero u32s in bucket_sums sample
-      let nzBucket = 0;
-      for (let i = 20; i < a.length; i++) if (a[i] !== 0) nzBucket++;
-      console.log(`[DBG] bucketResult first ${(a.length-20)*4}B: ${nzBucket} non-zero u32s out of ${a.length-20}`);
-      // Read queue header + first entries
-      const qb = this.pool.scratch!.queueBuf;
-      const qs = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eq = device.createCommandEncoder();
-      eq.copyBufferToBuffer(qb, 0, qs, 0, 32);  // first 8 header entries (threads 0-3)
-      eq.copyBufferToBuffer(qb, 16384 * 4, qs, 32, 48);  // first 4 queue entries at HEADER_LEN
-      device.queue.submit([eq.finish()]);
-      await qs.mapAsync(GPUMapMode.READ);
-      const qa = new Uint32Array(qs.getMappedRange().slice(0));
-      qs.unmap(); qs.destroy();
-      console.log(`[DBG] qHdr t0=(start=${qa[0]},cnt=${qa[1]}) t1=(${qa[2]},${qa[3]})`);
-      // Read first entries at t0's start offset
-      const q0off = qa[0];
-      const qs3 = device.createBuffer({ size: 48, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eq3 = device.createCommandEncoder();
-      eq3.copyBufferToBuffer(qb, (16384 + q0off) * 4, qs3, 0, 48);
-      device.queue.submit([eq3.finish()]);
-      await qs3.mapAsync(GPUMapMode.READ);
-      const qa3 = new Uint32Array(qs3.getMappedRange().slice(0));
-      qs3.unmap(); qs3.destroy();
-      console.log(`[DBG] t0_entries: e0=(sc=${qa3[0]},ec=${qa3[1]},dp=0x${qa3[2].toString(16)}) e1=(${qa3[3]},${qa3[4]},0x${qa3[5].toString(16)}) e2=(${qa3[6]},${qa3[7]},0x${qa3[8].toString(16)}) e3=(${qa3[9]},${qa3[10]},0x${qa3[11].toString(16)})`);
-      // Read thread_cuts for first 4 threads
-      const tc = this.pool.scratch!.threadCuts;
-      const ts2 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const et = device.createCommandEncoder();
-      et.copyBufferToBuffer(tc, 0, ts2, 0, 64);
-      device.queue.submit([et.finish()]);
-      await ts2.mapAsync(GPUMapMode.READ);
-      const ta = new Uint32Array(ts2.getMappedRange().slice(0));
-      ts2.unmap(); ts2.destroy();
-      console.log(`[DBG] threadCuts t0=(b=${ta[0]},off=${ta[1]}) t1=(${ta[2]},${ta[3]}) t2=(${ta[4]},${ta[5]}) t3=(${ta[6]},${ta[7]}) t4=(${ta[8]},${ta[9]}) t5=(${ta[10]},${ta[11]}) t6=(${ta[12]},${ta[13]}) t7=(${ta[14]},${ta[15]})`);
-      // Read cumulative_adds first 16 entries + last 4
-      const cab = this.pool.scratch!.cumulativeAdds;
-      const cs2 = device.createBuffer({ size: 128, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const ec2 = device.createCommandEncoder();
-      ec2.copyBufferToBuffer(cab, 0, cs2, 0, 64);
-      ec2.copyBufferToBuffer(cab, Math.max(0, (a[1] - 4)) * 4, cs2, 64, 16);
-      device.queue.submit([ec2.finish()]);
-      await cs2.mapAsync(GPUMapMode.READ);
-      const ca2 = new Uint32Array(cs2.getMappedRange().slice(0));
-      cs2.unmap(); cs2.destroy();
-      console.log(`[DBG] cumAdds[0..7]=${Array.from(ca2.slice(0, 8)).join(',')}`);
-      // Read sorted counts to verify sort
-      const scb = this.pool.scratch!.sortedCountList;
-      const scs = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const esc = device.createCommandEncoder();
-      esc.copyBufferToBuffer(scb, 0, scs, 0, 64);
-      device.queue.submit([esc.finish()]);
-      await scs.mapAsync(GPUMapMode.READ);
-      const sca = new Uint32Array(scs.getMappedRange().slice(0));
-      scs.unmap(); scs.destroy();
-      // Read first 32 sorted counts
-      const scs2 = device.createBuffer({ size: 128, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const esc2 = device.createCommandEncoder();
-      esc2.copyBufferToBuffer(scb, 0, scs2, 0, 128);
-      device.queue.submit([esc2.finish()]);
-      await scs2.mapAsync(GPUMapMode.READ);
-      const sca2 = new Uint32Array(scs2.getMappedRange().slice(0));
-      scs2.unmap(); scs2.destroy();
-      console.log(`[DBG] sortedCounts[0..31]=${Array.from(sca2).join(',')}`);
-      // Read sorted_bucket_list to see the original bucket indices
-      const sbb = this.pool.scratch!.sortedBucketList;
-      const sb2 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const esb = device.createCommandEncoder();
-      esb.copyBufferToBuffer(sbb, 0, sb2, 0, 64);
-      device.queue.submit([esb.finish()]);
-      await sb2.mapAsync(GPUMapMode.READ);
-      const sba = new Uint32Array(sb2.getMappedRange().slice(0));
-      sb2.unmap(); sb2.destroy();
-      console.log(`[DBG] sortedBuckets[0..15]=${Array.from(sba).join(',')} (original bucket indices)`);
-      // Check for duplicates in sorted_bucket_list (first num_dense entries)
-      const numDense2 = a[1];
-      const sbRdSz = Math.min(numDense2 * 4, 65536);
-      const sbFull = device.createBuffer({ size: sbRdSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const esbf = device.createCommandEncoder();
-      esbf.copyBufferToBuffer(sbb, 0, sbFull, 0, sbRdSz);
-      device.queue.submit([esbf.finish()]);
-      await sbFull.mapAsync(GPUMapMode.READ);
-      const sbArr = new Uint32Array(sbFull.getMappedRange().slice(0));
-      sbFull.unmap(); sbFull.destroy();
-      const seen = new Set<number>();
-      let dupes = 0;
-      for (let i = 0; i < Math.min(numDense2, sbArr.length); i++) {
-        if (seen.has(sbArr[i])) dupes++;
-        seen.add(sbArr[i]);
-      }
-      console.log(`[DBG] sortedBucketList: ${Math.min(numDense2, sbArr.length)} entries, ${dupes} duplicates, ${seen.size} unique`);
-      // Count how many dense_bucket_list entries have bucket_idx=108
-      const dbb = this.pool.scratch!.denseBucketList;
-      const dcb = this.pool.scratch!.denseCountList;
-      const numDense = a[1];
-      const dRd = Math.min(numDense * 4, 65536);
-      const ds2 = device.createBuffer({ size: dRd * 2, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const edb = device.createCommandEncoder();
-      edb.copyBufferToBuffer(dbb, 0, ds2, 0, dRd);
-      edb.copyBufferToBuffer(dcb, 0, ds2, dRd, dRd);
-      device.queue.submit([edb.finish()]);
-      await ds2.mapAsync(GPUMapMode.READ);
-      const dsa = new Uint32Array(ds2.getMappedRange().slice(0));
-      ds2.unmap(); ds2.destroy();
-      const halfLen = dRd / 4;
-      let found108 = -1;
-      let count64s = 0;
-      for (let i = 0; i < halfLen; i++) {
-        if (dsa[i] === 108) found108 = i;
-        if (dsa[halfLen + i] === 64) count64s++;
-      }
-      console.log(`[DBG] dense_bucket_list: bucket 108 at position ${found108}. ${count64s} entries with count=64 out of ${halfLen}`);
-      // Read bucket_sums[1] (bucket index 1, window 0, weight 1) — a simple single-value bucket
-      const bIdx = 20;
-      const br2 = this.pool.scratch!.bucketResultBuf;
-      const PG2 = 2;
-      const xOff = PG2 * bIdx * 16;
-      const yOff = (PG2 * this.bTotal + PG2 * bIdx) * 16;
-      const bs2 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eb2 = device.createCommandEncoder();
-      eb2.copyBufferToBuffer(br2, xOff, bs2, 0, 32);
-      eb2.copyBufferToBuffer(br2, yOff, bs2, 32, 32);
-      device.queue.submit([eb2.finish()]);
-      await bs2.mapAsync(GPUMapMode.READ);
-      const ba2 = new Uint32Array(bs2.getMappedRange().slice(0));
-      bs2.unmap(); bs2.destroy();
-      const nonz = Array.from(ba2).some(v => v !== 0);
-      console.log(`[DBG] bucket[${bIdx}] x=${Array.from(ba2.slice(0,8)).map(v=>v.toString(16).padStart(8,'0')).join('')} y=${Array.from(ba2.slice(8,16)).map(v=>v.toString(16).padStart(8,'0')).join('')} nonzero=${nonz}`);
-      // Read the offset and count for this bucket from countsBufs/offsetsBufs
-      const cntBuf = this.pool.scratch!.countsBufs[0];
-      const offBuf = this.pool.scratch!.offsetsBufs[0];
-      const co2 = device.createBuffer({ size: 8, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eco = device.createCommandEncoder();
-      eco.copyBufferToBuffer(cntBuf, bIdx * 4, co2, 0, 4);
-      eco.copyBufferToBuffer(offBuf, bIdx * 4, co2, 4, 4);
-      device.queue.submit([eco.finish()]);
-      await co2.mapAsync(GPUMapMode.READ);
-      const coa = new Uint32Array(co2.getMappedRange().slice(0));
-      co2.unmap(); co2.destroy();
-      console.log(`[DBG] bucket[${bIdx}] count=${coa[0]} offset=${coa[1]}`);
-      // Read wg_cuts
-      const wcb = this.pool.scratch!.wgCuts;
-      const ws2 = device.createBuffer({ size: 32, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const ew = device.createCommandEncoder();
-      ew.copyBufferToBuffer(wcb, 0, ws2, 0, 32);
-      device.queue.submit([ew.finish()]);
-      await ws2.mapAsync(GPUMapMode.READ);
-      const wa = new Uint32Array(ws2.getMappedRange().slice(0));
-      ws2.unmap(); ws2.destroy();
-      console.log(`[DBG] wgCuts[0]=(b=${wa[0]},off=${wa[1]}) [1]=(${wa[2]},${wa[3]}) [2]=(${wa[4]},${wa[5]}) [3]=(${wa[6]},${wa[7]})`);
-    }
     await this.redStaging.mapAsync(GPUMapMode.READ);
 
     const stagingBytes = new Uint8Array(this.redStaging.getMappedRange());
@@ -2494,182 +2298,6 @@ export class MsmV2 {
     this.windowSums = L;
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
-    // A/B comparison: run debug kernel and stream_accum, compare bucket_sums
-    {
-      const brb = this.pool.scratch!.bucketResultBuf;
-      const readSz = Math.min(this.bTotal * 16, 65536);
-      // Run with debug kernel
-      this._useDebugAccum = true;
-      const encD = device.createCommandEncoder();
-      this.encodeIntoBatch(encD, this.redStaging, 0);
-      const debugStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      encD.copyBufferToBuffer(brb, 0, debugStg, 0, readSz);
-      device.queue.submit([encD.finish()]);
-      await debugStg.mapAsync(GPUMapMode.READ);
-      const debugData = new Uint32Array(debugStg.getMappedRange().slice(0));
-      debugStg.unmap(); debugStg.destroy();
-      // Run with stream accum
-      this._useDebugAccum = false;
-      const encS = device.createCommandEncoder();
-      this.encodeIntoBatch(encS, this.redStaging, 0);
-      const streamStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      encS.copyBufferToBuffer(brb, 0, streamStg, 0, readSz);
-      device.queue.submit([encS.finish()]);
-      await streamStg.mapAsync(GPUMapMode.READ);
-      const streamData = new Uint32Array(streamStg.getMappedRange().slice(0));
-      streamStg.unmap(); streamStg.destroy();
-      // Compare
-      let mismatches = 0;
-      let firstMismatch = -1;
-      for (let i = 0; i < debugData.length; i++) {
-        if (debugData[i] !== streamData[i]) {
-          mismatches++;
-          if (firstMismatch < 0) firstMismatch = i;
-        }
-      }
-      const bucketOfFirst = firstMismatch >= 0 ? Math.floor(firstMismatch / 2) : -1;
-      console.log(`[A/B] compared ${debugData.length} u32s: ${mismatches} mismatches, first at u32[${firstMismatch}] (bucket ~${bucketOfFirst})`);
-      // List first 10 mismatched bucket indices and their status
-      // Each bucket x-coord = PG * 4 = 8 u32. Compare per-bucket.
-      const PGU = 8; // u32 per bucket x-coord (PG=2, 4 u32 per vec4)
-      const numBuckets = Math.floor(debugData.length / PGU);
-      const mmBuckets: number[] = [];
-      for (let bk = 0; bk < numBuckets; bk++) {
-        let match = true;
-        for (let j = 0; j < PGU; j++) {
-          if (debugData[bk * PGU + j] !== streamData[bk * PGU + j]) { match = false; break; }
-        }
-        if (!match) mmBuckets.push(bk);
-      }
-      const mmStr = mmBuckets.slice(0, 30).map(b => {
-        const dNz = debugData[b * PGU] !== 0;
-        const sNz = streamData[b * PGU] !== 0;
-        return `${b}(d=${dNz?'nz':'0'} s=${sNz?'nz':'0'})`;
-      }).join(' ');
-      console.log(`[A/B] ${mmBuckets.length} mismatched buckets out of ${numBuckets}. First 30: ${mmStr}`);
-    }
-    // Find first count-2 bucket and verify its sum
-    {
-      const cntBuf = this.pool.scratch!.countsBufs[0];
-      const offBuf = this.pool.scratch!.offsetsBufs[0];
-      const l0b = this.pool.scratch!.l0IdxBuf;
-      const pxb = this.pointXBuf;
-      const pyb = this.pointYBuf;
-      const brb = this.pool.scratch!.bucketResultBuf;
-      // Read first 1024 counts to find a count-2 bucket
-      const cs = device.createBuffer({ size: 4096, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const ec = device.createCommandEncoder();
-      ec.copyBufferToBuffer(cntBuf, 0, cs, 0, 4096);
-      device.queue.submit([ec.finish()]);
-      await cs.mapAsync(GPUMapMode.READ);
-      const ca = new Uint32Array(cs.getMappedRange().slice(0));
-      cs.unmap(); cs.destroy();
-      let b2 = -1;
-      for (let i = 1; i < 1024; i++) { if (ca[i] === 2) { b2 = i; break; } }
-      if (b2 >= 0) {
-        // Read offset, l0_index[offset] and l0_index[offset+1], SRS points, bucket_sum
-        const rs = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-        const er = device.createCommandEncoder();
-        er.copyBufferToBuffer(offBuf, b2 * 4, rs, 0, 4);
-        device.queue.submit([er.finish()]);
-        await rs.mapAsync(GPUMapMode.READ);
-        const off = new Uint32Array(rs.getMappedRange().slice(0))[0];
-        rs.unmap(); rs.destroy();
-        // Read l0[off] and l0[off+1]
-        const rs2 = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-        const er2 = device.createCommandEncoder();
-        er2.copyBufferToBuffer(l0b, off * 4, rs2, 0, 8);
-        const xOff2 = 2 * b2 * 16;
-        const yOff2 = (2 * this.bTotal + 2 * b2) * 16;
-        er2.copyBufferToBuffer(brb, xOff2, rs2, 8, 32);
-        er2.copyBufferToBuffer(brb, yOff2, rs2, 40, 32);
-        device.queue.submit([er2.finish()]);
-        await rs2.mapAsync(GPUMapMode.READ);
-        const d2 = new Uint32Array(rs2.getMappedRange().slice(0));
-        rs2.unmap(); rs2.destroy();
-        const l0_0 = d2[0], l0_1 = d2[1];
-        const pt0 = l0_0 & 0x7FFFFFFF, sign0 = (l0_0 >> 31) !== 0;
-        const pt1 = l0_1 & 0x7FFFFFFF, sign1 = (l0_1 >> 31) !== 0;
-        const bsX = Array.from(d2.slice(2, 10)).map(v=>v.toString(16).padStart(8,'0')).join('');
-        const bsY = Array.from(d2.slice(10, 18)).map(v=>v.toString(16).padStart(8,'0')).join('');
-        // Read SRS points for both
-        const rs3 = device.createBuffer({ size: 128, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-        const er3 = device.createCommandEncoder();
-        er3.copyBufferToBuffer(pxb, pt0 * 32, rs3, 0, 32);
-        er3.copyBufferToBuffer(pyb, pt0 * 32, rs3, 32, 32);
-        er3.copyBufferToBuffer(pxb, pt1 * 32, rs3, 64, 32);
-        er3.copyBufferToBuffer(pyb, pt1 * 32, rs3, 96, 32);
-        device.queue.submit([er3.finish()]);
-        await rs3.mapAsync(GPUMapMode.READ);
-        const d3 = new Uint32Array(rs3.getMappedRange().slice(0));
-        rs3.unmap(); rs3.destroy();
-        const p0x = Array.from(d3.slice(0,8)).map(v=>v.toString(16).padStart(8,'0')).join('');
-        const p0y = Array.from(d3.slice(8,16)).map(v=>v.toString(16).padStart(8,'0')).join('');
-        const p1x = Array.from(d3.slice(16,24)).map(v=>v.toString(16).padStart(8,'0')).join('');
-        const p1y = Array.from(d3.slice(24,32)).map(v=>v.toString(16).padStart(8,'0')).join('');
-        console.log(`[COUNT2] bucket=${b2} offset=${off} pt0=${pt0}(s${sign0?1:0}) pt1=${pt1}(s${sign1?1:0})`);
-        console.log(`[COUNT2] P0.x=${p0x}`);
-        console.log(`[COUNT2] P0.y=${p0y}`);
-        console.log(`[COUNT2] P1.x=${p1x}`);
-        console.log(`[COUNT2] P1.y=${p1y}`);
-        console.log(`[COUNT2] bs.x=${bsX}`);
-        console.log(`[COUNT2] bs.y=${bsY}`);
-        console.log(`[COUNT2] nonzero=${bsX!=='0'.repeat(64)}`);
-      } else { console.log('[COUNT2] no count-2 bucket found in first 1024'); }
-    }
-    // DEFINITIVE TEST: verify size-1 bucket's SRS point matches bucket_sums output
-    {
-      const s1b = this.pool.scratch!.size1BucketList;
-      const l0b = this.pool.scratch!.l0IdxBuf;
-      const pxb = this.pointXBuf;
-      const brb = this.pool.scratch!.bucketResultBuf;
-      const stg = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const e = device.createCommandEncoder();
-      e.copyBufferToBuffer(s1b, 0, stg, 0, 8);  // [0..1]: bucket_idx, l0_slot
-      device.queue.submit([e.finish()]);
-      await stg.mapAsync(GPUMapMode.READ);
-      const d = new Uint32Array(stg.getMappedRange().slice(0));
-      stg.unmap();
-      const bucketIdx = d[0], l0Slot = d[1];
-      // Read l0_index at l0_slot
-      const stg2 = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const e2 = device.createCommandEncoder();
-      e2.copyBufferToBuffer(l0b, l0Slot * 4, stg2, 0, 4);  // l0_index[l0Slot]
-      const ptIdxExpected = l0Slot; // we'll read it
-      // Read SRS point_x for whatever point index l0 gives us
-      // Read bucket_sums for this bucket
-      const xOff = 2 * bucketIdx * 16;
-      const yOff = (2 * this.bTotal + 2 * bucketIdx) * 16;
-      e2.copyBufferToBuffer(brb, xOff, stg2, 4, 32);  // bucket_sum x
-      e2.copyBufferToBuffer(brb, yOff, stg2, 36, 32); // bucket_sum y
-      device.queue.submit([e2.finish()]);
-      await stg2.mapAsync(GPUMapMode.READ);
-      const d2 = new Uint32Array(stg2.getMappedRange().slice(0));
-      stg2.unmap(); stg2.destroy(); stg.destroy();
-      const l0val = d2[0];
-      const ptIdx = l0val & 0x7FFFFFFF;
-      const sign = (l0val & 0x80000000) !== 0;
-      const bsumX = Array.from(d2.slice(1, 9)).map(v => v.toString(16).padStart(8, '0')).join('');
-      const bsumY = Array.from(d2.slice(9, 17)).map(v => v.toString(16).padStart(8, '0')).join('');
-      // Read SRS point_x and point_y for ptIdx
-      const stg3 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const e3 = device.createCommandEncoder();
-      e3.copyBufferToBuffer(pxb, ptIdx * 32, stg3, 0, 32);
-      e3.copyBufferToBuffer(this.pointYBuf, ptIdx * 32, stg3, 32, 32);
-      device.queue.submit([e3.finish()]);
-      await stg3.mapAsync(GPUMapMode.READ);
-      const d3 = new Uint32Array(stg3.getMappedRange().slice(0));
-      stg3.unmap(); stg3.destroy();
-      const srsX = Array.from(d3.slice(0, 8)).map(v => v.toString(16).padStart(8, '0')).join('');
-      const srsY = Array.from(d3.slice(8, 16)).map(v => v.toString(16).padStart(8, '0')).join('');
-      const match = bsumX === srsX && (sign ? bsumY !== srsY : bsumY === srsY);
-      console.log(`[VERIFY] size1 bucket=${bucketIdx} l0slot=${l0Slot} ptIdx=${ptIdx} sign=${sign}`);
-      console.log(`[VERIFY] srsX =${srsX}`);
-      console.log(`[VERIFY] bsumX=${bsumX}`);
-      console.log(`[VERIFY] srsY =${srsY}`);
-      console.log(`[VERIFY] bsumY=${bsumY}`);
-      console.log(`[VERIFY] x_match=${bsumX===srsX} y_match=${!sign ? bsumY===srsY : 'sign-negated'}`);
-    }
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new

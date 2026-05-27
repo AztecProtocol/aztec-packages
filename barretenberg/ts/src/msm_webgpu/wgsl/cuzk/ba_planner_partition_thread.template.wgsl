@@ -30,7 +30,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let wg_end_adds = ((wg + 1u) * total_adds) / num_workgroups;
     let wg_total = wg_end_adds - wg_start_adds;
 
-    let cut_target = wg_start_adds + (((t + 1u) * wg_total) / TPB);
+    let cut_target = wg_start_adds + ((t * wg_total) / TPB);
 
     var wg_lo_bucket: u32 = 0u;
     if (wg > 0u) {

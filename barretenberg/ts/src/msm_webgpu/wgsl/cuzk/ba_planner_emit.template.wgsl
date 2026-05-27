@@ -87,10 +87,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     }
 
     per_thread_count[t_local] = real_count;
-    // DEBUG: write thread 0's real_count to planner_meta[19] for readback
-    if (global_t == 0u && is_active_thread) {
-        atomicStore(&planner_meta[19], real_count);
-    }
     workgroupBarrier();
 
     // Hillis-Steele inclusive scan.

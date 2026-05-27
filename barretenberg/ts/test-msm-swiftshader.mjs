@@ -2,6 +2,7 @@ import { chromium } from 'playwright-core';
 
 const browser = await chromium.launch({
   headless: true,
+  executablePath: process.env.CHROMIUM_PATH || undefined,
   args: [
     '--enable-unsafe-webgpu',
     '--enable-features=Vulkan,UseSkiaRenderer',
