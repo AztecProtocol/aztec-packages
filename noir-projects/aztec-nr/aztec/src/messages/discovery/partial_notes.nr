@@ -108,10 +108,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
             // searching for this tagged log when performing message discovery in the future until we either find it or
             // the entry is somehow removed from the array.
         } else {
-            assert(
-                num_logs == 1,
-                f"Expected at most 1 completion log per partial note, got {num_logs}",
-            );
+            assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
 
             aztecnr_debug_log_format!("Completion log found for partial note with tag {}")([
                 pending_partial_note.note_completion_log_tag,
