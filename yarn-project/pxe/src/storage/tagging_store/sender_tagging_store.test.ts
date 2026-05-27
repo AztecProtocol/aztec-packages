@@ -1,9 +1,8 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
-import type { AppTaggingSecret, TaggingIndexRange } from '@aztec/stdlib/logs';
-import { ExtendedDirectionalAppTaggingSecret, PrivateLog, SiloedTag, siloedTagFor } from '@aztec/stdlib/logs';
-import { randomConstrainedAppTaggingSecret, randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
+import { AppTaggingSecret, PrivateLog, SiloedTag, type TaggingIndexRange, siloedTagFor } from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret, randomConstrainedAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
@@ -16,13 +15,13 @@ function range(secret: AppTaggingSecret, lowest: number, highest?: number): Tagg
 
 describe('SenderTaggingStore', () => {
   let taggingStore: SenderTaggingStore;
-  let secret1: ExtendedDirectionalAppTaggingSecret;
-  let secret2: ExtendedDirectionalAppTaggingSecret;
+  let secret1: AppTaggingSecret;
+  let secret2: AppTaggingSecret;
 
   beforeEach(async () => {
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
-    secret1 = await randomExtendedDirectionalAppTaggingSecret();
-    secret2 = await randomExtendedDirectionalAppTaggingSecret();
+    secret1 = await randomAppTaggingSecret();
+    secret2 = await randomAppTaggingSecret();
   });
 
   describe('storePendingIndexes', () => {
@@ -613,8 +612,7 @@ describe('SenderTaggingStore', () => {
 
       await taggingStore.storePendingIndexes([range(constrainedSecret, 3, 5)], txHash, 'test');
 
-      // The onchain tag must be derived via siloedTagFor (which uses the constrained log domain separator), not via
-      // SiloedTag.compute (which would use the unconstrained domain separator).
+      // The onchain tag must be derived with the constrained log domain separator.
       const survivingTag = await siloedTagFor(constrainedSecret, 4);
       const txEffect = makeTxEffect(txHash, [survivingTag]);
 
@@ -638,7 +636,7 @@ describe('SenderTaggingStore', () => {
       // this via the public construction path keeps the test independent of how the production code derives Frs.
       // Emit a tag using the *unconstrained* domain separator for the same Fr/index combination. This should NOT match.
       const wrongDomSepTag = await SiloedTag.compute({
-        extendedSecret: new ExtendedDirectionalAppTaggingSecret(constrainedSecret.secret, constrainedSecret.app),
+        extendedSecret: new AppTaggingSecret(constrainedSecret.secret, constrainedSecret.app),
         index: 1,
       });
       const txEffect = makeTxEffect(txHash, [wrongDomSepTag]);

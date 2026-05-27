@@ -14,13 +14,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import {
-  type AppTaggingSecret,
-  ConstrainedAppTaggingSecret,
+  AppTaggingSecret,
+  AppTaggingSecretKind,
   type ContractClassLog,
-  ExtendedDirectionalAppTaggingSecret,
+  Tag,
   type TaggingIndexRange,
 } from '@aztec/stdlib/logs';
-import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   CallContext,
@@ -217,11 +216,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
-      this.contractAddress,
-      sender,
-      recipient,
-    );
+    const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
 
     if (!extendedSecret) {
       // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
@@ -252,7 +247,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns The next index to use for this secret.
    */
   public async getNextConstrainedIndex(appSiloedSecret: Fr): Promise<number> {
-    const secret = new ConstrainedAppTaggingSecret(appSiloedSecret, this.contractAddress);
+    const secret = new AppTaggingSecret(appSiloedSecret, this.contractAddress, AppTaggingSecretKind.CONSTRAINED);
     const index = await this.#reserveNextIndexForSecret(secret);
     this.logger.debug(
       `Incrementing tagging index for constrained-delivery secret in contract ${this.contractAddress} to ${index}`,
@@ -267,20 +262,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return index;
   }
 
-  async #calculateExtendedDirectionalAppTaggingSecret(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ) {
+  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return ExtendedDirectionalAppTaggingSecret.compute(
-      senderCompleteAddress,
-      senderIvsk,
-      recipient,
-      contractAddress,
-      recipient,
-    );
+    return AppTaggingSecret.compute(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
   }
 
   async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
