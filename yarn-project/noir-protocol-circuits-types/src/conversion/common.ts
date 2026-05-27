@@ -531,31 +531,9 @@ export function mapVerificationKeyToNoir<N extends number>(
   };
 }
 
-export function mapPaddedVerificationKeyToNoir<N extends number>(
-  key: VerificationKeyAsFields,
-  length: N,
-): VerificationKeyNoir<N> {
-  if (key.key.length > length) {
-    throw new Error(`Expected at most ${length} fields, got ${key.key.length}`);
-  }
-  const paddedKey = [...key.key, ...Array.from({ length: length - key.key.length }, () => Fr.ZERO)];
-  return {
-    key: paddedKey.map(mapFieldToNoir) as FixedLengthArray<NoirField, N>,
-    hash: mapFieldToNoir(key.hash),
-  };
-}
-
 export function mapVkDataToNoir<N extends number>(vkData: VkData, length: N): VkDataNoir<N> {
   return {
     vk: mapVerificationKeyToNoir<N>(vkData.vk.keyAsFields, length),
-    leaf_index: mapFieldToNoir(new Fr(vkData.leafIndex)),
-    sibling_path: mapTuple(vkData.siblingPath, mapFieldToNoir),
-  };
-}
-
-export function mapPaddedVkDataToNoir<N extends number>(vkData: VkData, length: N): VkDataNoir<N> {
-  return {
-    vk: mapPaddedVerificationKeyToNoir<N>(vkData.vk.keyAsFields, length),
     leaf_index: mapFieldToNoir(new Fr(vkData.leafIndex)),
     sibling_path: mapTuple(vkData.siblingPath, mapFieldToNoir),
   };

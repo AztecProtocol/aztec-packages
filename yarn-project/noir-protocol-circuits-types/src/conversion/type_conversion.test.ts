@@ -1,4 +1,3 @@
-import { MEGA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -6,7 +5,6 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { FunctionData } from '@aztec/stdlib/tx';
-import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { mapFunctionDataFromNoir, mapFunctionDataToNoir } from './client.js';
 import {
@@ -20,7 +18,6 @@ import {
   mapFieldToNoir,
   mapFunctionSelectorFromNoir,
   mapFunctionSelectorToNoir,
-  mapPaddedVerificationKeyToNoir,
   mapPointFromNoir,
   mapPointToNoir,
 } from './common.js';
@@ -63,33 +60,6 @@ describe('Noir<>stdlib type conversion test suite', () => {
     it('should map block header', () => {
       const header = makeBlockHeader(35);
       expect(mapBlockHeaderFromNoir(mapBlockHeaderToNoir(header))).toEqual(header);
-    });
-
-    it('pads slim Chonk verification keys to the Noir Mega VK width', () => {
-      const appVkLength = 147;
-      const vk = new VerificationKeyAsFields(
-        Array.from({ length: appVkLength }, (_, i) => new Fr(i + 1)),
-        new Fr(999),
-      );
-
-      const noirVk = mapPaddedVerificationKeyToNoir(vk, MEGA_VK_LENGTH_IN_FIELDS);
-
-      expect(noirVk.key).toHaveLength(MEGA_VK_LENGTH_IN_FIELDS);
-      expect(noirVk.key[appVkLength - 1]).toEqual(mapFieldToNoir(new Fr(appVkLength)));
-      expect(noirVk.key[appVkLength]).toEqual(mapFieldToNoir(Fr.ZERO));
-      expect(noirVk.key[MEGA_VK_LENGTH_IN_FIELDS - 1]).toEqual(mapFieldToNoir(Fr.ZERO));
-      expect(noirVk.hash).toEqual(mapFieldToNoir(vk.hash));
-    });
-
-    it('rejects verification keys larger than the padded target width', () => {
-      const vk = new VerificationKeyAsFields(
-        Array.from({ length: MEGA_VK_LENGTH_IN_FIELDS + 1 }, (_, i) => new Fr(i + 1)),
-        new Fr(999),
-      );
-
-      expect(() => mapPaddedVerificationKeyToNoir(vk, MEGA_VK_LENGTH_IN_FIELDS)).toThrow(
-        `Expected at most ${MEGA_VK_LENGTH_IN_FIELDS} fields, got ${MEGA_VK_LENGTH_IN_FIELDS + 1}`,
-      );
     });
   });
 });
