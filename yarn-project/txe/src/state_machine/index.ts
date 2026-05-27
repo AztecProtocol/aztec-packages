@@ -125,10 +125,16 @@ export class TXEStateMachine {
     // Wipe contract sync cache when anchor block changes (mirrors BlockSynchronizer behavior)
     this.contractSyncService.wipe();
 
+    // Record the block's canonical hash so `isCanonical` works (mirrors BlockSynchronizer). The hash string must match
+    // the one the archiver records as `IndexedTxEffect.l2BlockHash`, which PXE surfaces as `MessageContext.block_hash`
+    // (see MessageContextService). The archiver uses `await block.hash()`, so we source the same value here.
+    const blockHash = (await block.hash()).toString();
+
     await Promise.all([
       this.synchronizer.handleL2Block(block),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
       this.canonicalChainStore.setHeader(block.header),
+      this.canonicalChainStore.set(block.number, blockHash),
     ]);
   }
 }

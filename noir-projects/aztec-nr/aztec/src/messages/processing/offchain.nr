@@ -594,4 +594,40 @@ mod test {
             assert_eq(active_count(address, scope), 1);
         });
     }
+
+    #[test]
+    unconstrained fn resolved_msg_is_processed_once_then_idempotent() {
+        let (env, scope) = setup();
+        // In TXE, tx hashes equal Fr(blockNumber), so Fr(1) resolves to the tx effect from block 1.
+        let known_tx_hash: Field = 1;
+        let anchor_ts = advance_by(env, 10);
+
+        env.utility_context(|context| {
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(scope, Option::some(known_tx_hash), anchor_ts));
+            receive(context.this_address(), msgs);
+        });
+
+        let _now = advance_by(env, 100);
+
+        // First sync: the context resolves, the message is handed off, and a canonical `Processed` fact is recorded.
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let result = sync_inbox(address, scope);
+
+            assert_eq(result.len(), 1);
+            assert_eq(active_count(address, scope), 1);
+        });
+
+        // Second sync: the entity now folds to PROCESSED (its `Processed` fact is anchored at a canonical block), so it
+        // is skipped rather than re-handed-off. The entity remains active (not expired), available for reprocessing
+        // only if a reorg rewinds its anchor.
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let result = sync_inbox(address, scope);
+
+            assert_eq(result.len(), 0);
+            assert_eq(active_count(address, scope), 1);
+        });
+    }
 }
