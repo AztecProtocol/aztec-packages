@@ -4,21 +4,14 @@ import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import { createTXERpcServer } from '../rpc_server.js';
 
-// Cap the native world-state thread pool *before* any import touches @aztec/world-state.
-// `MAX_WORLD_STATE_THREADS` (yarn-project/world-state/src/native/native_world_state_instance.ts)
-// reads HARDWARE_CONCURRENCY at module load and defaults to 16; with N workers in the pool
-// each one would otherwise spin up 16 libuv threads, which is wasteful for TXE's small
-// per-test workload. Workers inherit `process.env`, so setting it here is enough.
+// Cap the native world-state thread pool before any import touches @aztec/world-state.
+// `MAX_WORLD_STATE_THREADS` reads HARDWARE_CONCURRENCY at module load and defaults to 16; the
+// pool's worker threads inherit `process.env`, so setting the cap here covers every worker.
 //
-// CAVEAT: HARDWARE_CONCURRENCY is read by every consumer in the process — bb prove/verify,
-// LMDB reader pool, world-state native thread pool — not just TXE-internal callers. The
-// 2-thread cap is safe today because TXE never proves or verifies and its world-state work
-// is tree updates (light).
+// CAVEAT: HARDWARE_CONCURRENCY is process-global — bb prove/verify, the LMDB reader pool, and
+// the world-state native thread pool all read it. Safe at 2 today because TXE never proves or
+// verifies and only performs light tree updates; raise it if that ever changes.
 process.env.HARDWARE_CONCURRENCY ??= '2';
-
-// TXE's state machine uses `NativeWorldStateService.ephemeral()` — auto-managed tmpdir +
-// `MDB_NOSYNC | MDB_NOMETASYNC` on the underlying LMDB envs. Persistent node code paths
-// (`createStore`, `openVersionedStoreAt`, `NativeWorldStateService.new`) keep full fsync.
 
 /**
  * Create and start a new TXE HTTP Server

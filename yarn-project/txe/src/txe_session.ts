@@ -197,10 +197,6 @@ export class TXESession implements TXESessionStateHandler {
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
-  /**
-   * Set to `true` by `dispose()` so any in-flight `processFunction()` call can fail fast instead
-   * of operating on a half-closed world state / store.
-   */
   private disposed = false;
 
   constructor(
@@ -230,15 +226,9 @@ export class TXESession implements TXESessionStateHandler {
   ) {}
 
   /**
-   * Releases everything this session owns — the per-session `txe-session` LMDB, the
-   * `NativeWorldStateService` (5 LMDB envs + native thread pool), and any references the
-   * dispatcher keeps. Safe to call multiple times; subsequent calls are no-ops.
-   *
-   * Wired up by the socket-close detector in `rpc_server.ts`: when nargo finishes a test, its
-   * `RPCForeignCallExecutor` drops its `HttpClient`, the underlying TCP connection closes, and
-   * the dispatcher routes a `dispose` message to this session's worker. Without this the
-   * `sessions` Map in `index.ts` accumulates dead `NativeWorldStateService`s for the whole TXE
-   * process lifetime, which is the root cause of the growing per-session `syncMs`.
+   * Closes the per-session `txe-session` LMDB and the `NativeWorldStateService` .
+   * Called via IPC when the dispatcher detects the originating socket has
+   * closed (end of test). Idempotent.
    */
   async dispose(): Promise<void> {
     if (this.disposed) {
@@ -258,13 +248,8 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   static async init(contractStore: ContractStore) {
-    const profileLog = createLogger('txe:profile');
-    const t0 = Date.now();
-    // 2 reader slots are plenty for a single-threaded worker — the default 16 allocates 16 mutex
-    // slots in LMDB's C side that this session never uses, multiplied by every worker × every
-    // session.
+    // 2 reader slots match the single libuv worker thread that drives LMDB on this worker.
     const store = await openEphemeralStore('txe-session', undefined, 2);
-    const tStore = Date.now();
 
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
@@ -276,7 +261,6 @@ export class TXESession implements TXESessionStateHandler {
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
-    // Create job coordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       capsuleStore,
@@ -288,14 +272,11 @@ export class TXESession implements TXESessionStateHandler {
 
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);
-    const tArchiver = Date.now();
     const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
-    const tStateMachine = Date.now();
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
     const chainId = new Fr(await stateMachine.node.getChainId());
-    const tNodeReads = Date.now();
 
     const initialJobId = jobCoordinator.beginJob();
 
@@ -318,18 +299,7 @@ export class TXESession implements TXESessionStateHandler {
       chainId,
       new Map(),
     );
-    const tBeforeAdvance = Date.now();
     await topLevelOracleHandler.advanceBlocksBy(1);
-    const tDone = Date.now();
-    profileLog.info('TXESession.init timing', {
-      sessionStoreMs: tStore - t0,
-      preStateMachineMs: tArchiver - tStore,
-      stateMachineMs: tStateMachine - tArchiver,
-      nodeVersionAndChainIdMs: tNodeReads - tStateMachine,
-      buildTopLevelMs: tBeforeAdvance - tNodeReads,
-      advanceBlocksMs: tDone - tBeforeAdvance,
-      totalMs: tDone - t0,
-    });
 
     return new TXESession(
       logger,

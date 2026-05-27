@@ -16,42 +16,30 @@ const SESSION_SYMBOL = Symbol('txeSessionId');
 type TaggedSocket = Socket & { [SESSION_SYMBOL]?: number };
 
 /**
- * Creates an RPC server that forwards calls to the TXE.
+ * Creates the TXE RPC server. With `TXE_WORKERS=1` oracle calls run on the main thread (no
+ * worker_threads, no IPC overhead). With any other value oracle calls are
+ * routed to a pool of worker threads sized to that value, sticky by `session_id`.
  *
- * By default, oracle calls are dispatched to a pool of worker threads — one TXESession per worker,
- * sticky by `session_id`. Set `TXE_WORKERS=0` to fall back to running everything on the main
- * thread (the legacy behavior).
+ * Each incoming TCP socket is tagged with the `session_id` of the first oracle call it carries —
+ * nargo uses one HTTP client per test, so the socket-to-session mapping is 1:1. When the socket
+ * closes (end of test), the dispatcher disposes the session and frees its world state + LMDB.
  *
- * The middleware tags each incoming TCP socket with the `session_id` of the first oracle call it
- * carries (nargo opens a fresh `HttpClient` per test, so the mapping is 1:1). When the socket
- * closes — which happens as soon as nargo's `RPCForeignCallExecutor` is dropped at end-of-test —
- * we fire `dispatcher.disposeSession()` and the worker tears down the session's
- * `NativeWorldStateService` + per-session LMDB. Without this, the `sessions` Map in `index.ts`
- * accumulates dead sessions for the lifetime of the TXE process, which makes per-session
- * `syncMs` (native world-state init) grow unboundedly under load.
- *
- * This entry point lives in its own module so that the worker bundle does not pull in the HTTP
- * server stack (koa-router, raw-body, iconv-lite, mime-db, ...) just because it imports
- * `TXEDispatcher` from `index.ts`. Only the main-thread `bin/index.ts` imports this file.
- *
- * @param logger - Logger to output to
- * @returns A TXE RPC server.
+ * Lives in its own module so the worker bundle does not pull in the HTTP server stack.
  */
 export function createTXERpcServer(logger: Logger) {
   const workerCount = Number(process.env.TXE_WORKERS);
   const dispatcher =
-    workerCount === 0
+    workerCount === 1
       ? new TXEDispatcher(logger)
       : new TXEDispatcherPool(logger, {
-          workers: Number.isFinite(workerCount) && workerCount > 0 ? workerCount : undefined,
+          workers: Number.isFinite(workerCount) && workerCount > 1 ? workerCount : undefined,
         });
   const server = createSafeJsonRpcServer(dispatcher, TXEDispatcherApiSchema, {
     http200OnError: true,
     middlewares: [
       async (ctx, next) => {
-        // `extraMiddlewares` are installed BEFORE the koa-bodyparser in
-        // `createSafeJsonRpcServer`, so `ctx.request.body` is empty here. Let the rest of the
-        // pipeline run first, then read the parsed body to tag the socket.
+        // The body parser runs further down the chain, so `ctx.request.body` is populated only
+        // after `next()` resolves.
         await next();
         const socket = ctx.req.socket as TaggedSocket;
         if (socket[SESSION_SYMBOL] !== undefined) {
@@ -65,17 +53,14 @@ export function createTXERpcServer(logger: Logger) {
         if (sessionId === undefined) {
           return;
         }
-        // jsonrpsee opens one HttpClient (and so one TCP connection) per test, sends every
-        // oracle call for that test on it, then drops the client when the test finishes —
-        // closing the socket. The 1:1 mapping was confirmed empirically in /tmp/socket-spy.mjs:
-        // 60 tests → 60 unique sockets → 60 unique session_ids → 60 close events.
         socket[SESSION_SYMBOL] = sessionId;
-        logger.info(`Socket ${socket.remoteAddress}:${socket.remotePort} tagged with session=${sessionId}`);
+        logger.debug(`Tagged socket with session`, {
+          sessionId,
+          remoteAddress: socket.remoteAddress,
+          remotePort: socket.remotePort,
+        });
         socket.once('close', () => {
-          // Pool variant is fire-and-forget (void); standalone variant returns a Promise we
-          // intentionally don't await — the socket is already gone, nobody is waiting on the
-          // cleanup result.
-          logger.info(`Disposing session ${sessionId} on socket close`);
+          logger.debug(`Disposing session on socket close`, { sessionId });
           void dispatcher.disposeSession(sessionId);
         });
       },
@@ -84,6 +69,9 @@ export function createTXERpcServer(logger: Logger) {
   return server;
 }
 
+// Extracts `session_id` from a JSON-RPC `params` array. Always a `number` because session_id
+// comes off `JSON.parse`, which never produces BigInt; values above MAX_SAFE_INTEGER lose
+// precision but still work as a Map key.
 function extractSessionId(params: unknown): number | undefined {
   if (!Array.isArray(params) || params.length === 0) {
     return undefined;

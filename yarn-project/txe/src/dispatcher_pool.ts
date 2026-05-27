@@ -38,8 +38,6 @@ interface SerializedError {
 type WorkerMessage =
   | { type: 'result'; requestId: number; ok: true; value: ForeignCallResult }
   | { type: 'result'; requestId: number; ok: false; error: SerializedError }
-  | { type: 'spawned' }
-  | { type: 'ready'; warmMs?: number; error?: SerializedError }
   | {
       type: 'memstat';
       sessions: number;
@@ -54,15 +52,6 @@ interface WorkerSlot {
   worker: Worker;
   sessions: Set<number>;
   inFlightRequestIds: Set<number>;
-  ready: Promise<void>;
-  resolveReady: () => void;
-  rejectReady: (err: Error) => void;
-  /** Set to true once the 'ready' message has been received (success or failure). */
-  warmed: boolean;
-  /** Wall-clock at which `new Worker()` was invoked, used to attribute startup cost. */
-  spawnStart: number;
-  /** Wall-clock at which the worker posted 'spawned' (i.e. its module graph finished loading). */
-  spawnedAt?: number;
 }
 
 interface PendingRequest {
@@ -91,18 +80,16 @@ export interface TXEDispatcherPoolOptions {
 }
 
 /**
- * Main-thread router that owns a pool of TXE worker threads. Each worker thread runs its own
+ * Main-thread router that owns a pool of TXE worker threads. Each worker runs its own
  * {@link TXEDispatcher} and handles foreign-call requests for the sessions assigned to it.
  *
- * Routing is sticky by `session_id`: the first request for a new session is sent to the worker
- * with the fewest currently-assigned sessions; subsequent requests for that session always go to
- * the same worker. This keeps each session's state — TXESession, native world state, KV stores —
- * single-threaded within a worker, while different sessions can execute truly in parallel.
+ * Routing is sticky by `session_id`: new sessions go to a freshly spawned worker (up to
+ * `maxWorkers`) or, once the cap is reached, to the existing worker with the fewest sessions.
+ * Each session's state — TXESession, native world state, KV stores — stays single-threaded
+ * within its worker; different sessions run in parallel across workers.
  *
- * Protocol-contracts cache: the main thread opens a single LMDB store, registers the 6 canonical
- * protocol contracts, and passes the directory to each worker via `workerData`. Workers then
- * open the same LMDB env as a second handle and skip the registration step. This avoids each
- * worker re-running `loadContractArtifact` + the LMDB writes for the same 6 contracts.
+ * The main thread builds a shared protocol-contracts LMDB once and passes its path via
+ * `workerData`. Workers clone the data file on demand instead of re-registering the contracts.
  */
 export class TXEDispatcherPool {
   private readonly workers: WorkerSlot[] = [];
@@ -123,24 +110,20 @@ export class TXEDispatcherPool {
     this.readyPromise = this.init();
   }
 
-  /**
-   * Resolves once the shared protocol-contracts store is built — workers themselves are spawned
-   * lazily on first session arrival, so this completes well before the pool is fully populated.
-   */
+  /** Resolves once the shared protocol-contracts store is built. Workers spawn lazily on demand. */
   public ready(): Promise<void> {
     return this.readyPromise;
   }
 
   private async init(): Promise<void> {
     const t0 = Date.now();
-    // Build the shared protocol-contracts LMDB up front. Workers clone the resulting data.mdb
-    // instead of re-running the artifact load + LMDB writes, so this has to exist before the
-    // first worker is spawned (regardless of how many we ultimately spawn).
+    // Build the shared protocol-contracts LMDB up front so workers can clone the resulting
+    // data.mdb on demand instead of registering the contracts themselves.
     const { dataDir, schnorrClassId } = await this.buildSharedContractStore();
     this.contractStoreSourceDir = dataDir;
     this.schnorrClassId = schnorrClassId;
     this.workerPath = resolveWorkerBundlePath();
-    this.logger.info(`TXE dispatcher pool ready (lazy spawn, cap=${this.maxWorkers})`, {
+    this.logger.debug(`TXE dispatcher pool ready (lazy spawn, cap=${this.maxWorkers})`, {
       contractStoreSourceDir: dataDir,
       schnorrClassId,
       ms: Date.now() - t0,
@@ -148,30 +131,19 @@ export class TXEDispatcherPool {
   }
 
   /**
-   * Spawns a fresh worker and posts the 'warm' message. Caller must have awaited `init()` so the
-   * shared contract store is in place. Returns the index of the new worker in `this.workers`.
+   * Spawns a fresh worker and returns its index in `this.workers`. Caller must have awaited
+   * `init()` so the shared contract store path is set. Messages posted before the worker has
+   * finished loading are queued by Node's worker_threads transport.
    */
   private spawnWorker(): number {
     const workerIdx = this.workers.length;
-    const spawnStart = Date.now();
     const w = new Worker(this.workerPath!, {
       workerData: { contractStoreSourceDir: this.contractStoreSourceDir, schnorrClassId: this.schnorrClassId },
-    });
-    let resolveReady!: () => void;
-    let rejectReady!: (err: Error) => void;
-    const ready = new Promise<void>((resolve, reject) => {
-      resolveReady = resolve;
-      rejectReady = reject;
     });
     const slot: WorkerSlot = {
       worker: w,
       sessions: new Set(),
       inFlightRequestIds: new Set(),
-      ready,
-      resolveReady,
-      rejectReady,
-      warmed: false,
-      spawnStart,
     };
     this.workers.push(slot);
     w.on('message', (msg: WorkerMessage) => this.handleMessage(workerIdx, msg));
@@ -181,7 +153,6 @@ export class TXEDispatcherPool {
         this.handleWorkerError(workerIdx, new Error(`Worker ${workerIdx} exited with code ${code}`));
       }
     });
-    w.postMessage({ type: 'warm' });
     this.logger.debug(`Spawning TXE worker ${workerIdx} on demand`, {
       cap: this.maxWorkers,
       poolSize: this.workers.length,
@@ -190,15 +161,11 @@ export class TXEDispatcherPool {
   }
 
   /**
-   * Opens a fresh LMDB at a tmp dir and writes the required protocol contracts (see
-   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}) along with the SchnorrAccount artifact. Workers
-   * clone the resulting `data.mdb` and look the SchnorrAccount artifact up by class id,
-   * skipping the per-worker `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`
-   * work entirely.
-   *
-   * Returns the directory path and the SchnorrAccount class id (hex). The store is
-   * intentionally not closed here: keeping the writer handle alive avoids LMDB removing the
-   * tmp directory mid-flight (see `openEphemeralStore`'s cleanup hook).
+   * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
+   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the SchnorrAccount artifact, returning the
+   * directory path and the SchnorrAccount class id (hex). The store handle is intentionally
+   * kept alive: closing it triggers the ephemeral-store cleanup hook which removes the tmp
+   * directory, so any worker that has not yet cloned would find it missing.
    */
   private async buildSharedContractStore(): Promise<{ dataDir: string; schnorrClassId: string }> {
     const kvStore = await openEphemeralStore('txe-shared-contracts', undefined, 2);
@@ -220,11 +187,7 @@ export class TXEDispatcherPool {
     return { dataDir, schnorrClassId: schnorrClass.id.toString() };
   }
 
-  /**
-   * Routes a session-dispose request to the worker that owns the session. Fire-and-forget; we
-   * don't await the worker's cleanup (LMDB close + native world state close can take 10s of ms
-   * each and there's no value in blocking the caller).
-   */
+  /** Routes a session-dispose request to the worker that owns the session. Fire-and-forget. */
   disposeSession(sessionId: number): void {
     const workerIdx = this.sessionToWorker.get(sessionId);
     if (workerIdx === undefined) {
@@ -253,8 +216,6 @@ export class TXEDispatcherPool {
     }
 
     const slot = this.workers[workerIdx];
-    await slot.ready;
-
     const requestId = this.nextRequestId++;
     return new Promise<ForeignCallResult>((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject, workerIdx: workerIdx! });
@@ -299,14 +260,8 @@ export class TXEDispatcherPool {
       case 'result':
         this.handleResult(workerIdx, msg);
         return;
-      case 'spawned':
-        this.handleSpawned(workerIdx);
-        return;
-      case 'ready':
-        this.handleReady(workerIdx, msg);
-        return;
       case 'memstat':
-        this.logger.info(`worker ${workerIdx} memstat`, {
+        this.logger.debug(`worker ${workerIdx} memstat`, {
           worker: workerIdx,
           sessions: msg.sessions,
           rssMiB: Math.round(msg.rss / 1024 / 1024),
@@ -333,43 +288,11 @@ export class TXEDispatcherPool {
     }
   }
 
-  private handleSpawned(workerIdx: number): void {
-    const slot = this.workers[workerIdx];
-    if (!slot || slot.spawnedAt !== undefined) {
-      return;
-    }
-    slot.spawnedAt = Date.now();
-    this.logger.debug(`Worker ${workerIdx} spawned`, { spawnMs: slot.spawnedAt - slot.spawnStart });
-  }
-
-  private handleReady(workerIdx: number, msg: WorkerMessage & { type: 'ready' }): void {
-    const slot = this.workers[workerIdx];
-    if (!slot || slot.warmed) {
-      return;
-    }
-    slot.warmed = true;
-    if (msg.error) {
-      slot.rejectReady(deserializeError(msg.error));
-    } else {
-      const spawnMs = slot.spawnedAt !== undefined ? slot.spawnedAt - slot.spawnStart : undefined;
-      this.logger.debug(`Worker ${workerIdx} ready`, {
-        spawnMs,
-        warmMs: msg.warmMs,
-        totalMs: Date.now() - slot.spawnStart,
-      });
-      slot.resolveReady();
-    }
-  }
-
   private handleWorkerError(workerIdx: number, err: Error): void {
     this.logger.error(`TXE worker ${workerIdx} crashed; sessions assigned to it will fail`, err);
     const slot = this.workers[workerIdx];
     if (!slot) {
       return;
-    }
-    if (!slot.warmed) {
-      slot.warmed = true;
-      slot.rejectReady(err);
     }
     for (const requestId of slot.inFlightRequestIds) {
       const pending = this.pending.get(requestId);

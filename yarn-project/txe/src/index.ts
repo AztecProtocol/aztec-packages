@@ -40,11 +40,8 @@ import {
   toSingle,
 } from './utils/encoding.js';
 
-// Protocol contracts TXE actually requires registered in its contract store. The full set
-// `protocolContractNames` includes six contracts; TXE token-suite tests only ever look up
-// AuthRegistry (for authwit validation). Loading the others spends ~200 KiB of artifact
-// reads + 4 LMDB writes per session warm-up. Add a contract here if a test ever fails
-// with a "contract not found" lookup against a 0x000…00X address.
+// Protocol contracts TXE registers in its contract store. Only AuthRegistry is needed for the
+// current test suites; add a contract here if a lookup against a `0x000…00X` address fails.
 export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = ['AuthRegistry'];
 
 const sessions = new Map<number, TXESession>();
@@ -66,14 +63,10 @@ const TXEArtifactsCacheInFlight = new Map<
 >();
 
 /**
- * Maps a compiled-artifact file hash to its loaded + hashed {@link ContractArtifactWithHash}.
- *
- * `TXEArtifactsCache` keys include constructor args / publicKeys / salt / deployer, so deploying
- * the same contract from many tests (e.g. Token with different owner addresses) produces a fresh
- * key per deploy and misses the cache. The artifact + artifact hash, however, only depend on the
- * compiled bytecode (`fileHash`). Caching that result here lets the 60-token-test workload
- * compute `loadContractArtifact` + `computeArtifactHash` once per (worker, contract) instead of
- * once per (worker, deploy).
+ * Cache of loaded + hashed {@link ContractArtifactWithHash}, keyed by compiled-artifact file hash.
+ * The artifact and its hash depend only on the compiled bytecode, so this cache is shared across
+ * every deploy of the same contract (whereas `TXEArtifactsCache`, keyed by constructor args /
+ * publicKeys / salt / deployer, misses per-deploy).
  */
 const TXEArtifactByFileHashCache = new Map<string, ContractArtifactWithHash>();
 const TXEArtifactByFileHashInFlight = new Map<string, Promise<ContractArtifactWithHash>>();
@@ -128,19 +121,16 @@ export const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
 
 export interface TXEDispatcherOptions {
   /**
-   * Path to an LMDB directory that already holds the required protocol contracts (see
-   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}) and the SchnorrAccount artifact. When set,
-   * `warmUp()` skips the artifact load + registration step and instead **clones** the source
-   * directory into a fresh per-worker LMDB. The pool's main thread builds the source once;
-   * workers clone the data.mdb file which is much cheaper than re-running the lazy
-   * provider + LMDB writes in every worker.
+   * Path to an LMDB directory holding the required protocol contracts (see
+   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}) and the SchnorrAccount artifact. When set, the
+   * dispatcher clones this directory into a fresh tmpdir on first use instead of registering
+   * the contracts itself.
    */
   contractStoreSourceDir?: string;
   /**
-   * Class id (hex) of the SchnorrAccount artifact pre-registered in the shared LMDB. When
-   * set, `#processAddAccountInputs` looks the artifact up from the (cloned) contract store
-   * instead of re-running `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`
-   * per session.
+   * Class id (hex) of the SchnorrAccount artifact pre-registered in the shared LMDB. When set,
+   * `#processAddAccountInputs` looks the artifact up from the cloned store instead of
+   * recomputing it via `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`.
    */
   schnorrClassId?: string;
 }
@@ -159,16 +149,13 @@ export class TXEDispatcher {
   }
 
   /**
-   * Initializes the contract store. When `contractStoreSourceDir` is set (the pool path),
-   * the pre-populated LMDB is copied to a fresh per-worker tmpdir so the worker has a
-   * writable store that already contains the required protocol contracts + SchnorrAccount.
-   *
-   * Otherwise (standalone TXE / unit tests) we create an empty tmp store and register the
-   * required contracts from scratch.
-   *
-   * Safe to invoke more than once; subsequent calls are no-ops.
+   * Initializes the contract store on first use. When `contractStoreSourceDir` is set, the
+   * pre-populated LMDB is cloned into a fresh per-instance tmpdir so this dispatcher has a
+   * writable store already containing the required protocol contracts + SchnorrAccount.
+   * Otherwise an empty tmp store is created and the required contracts are registered from
+   * scratch. Idempotent — subsequent calls are no-ops.
    */
-  async warmUp(): Promise<void> {
+  private async warmUp(): Promise<void> {
     if (this.contractStore) {
       return;
     }
@@ -185,7 +172,7 @@ export class TXEDispatcher {
         2,
       );
       this.contractStore = new ContractStore(kvStore);
-      this.logger.info('Cloned shared protocol-contracts store', {
+      this.logger.debug('Cloned shared protocol-contracts store', {
         totalMs: Date.now() - t0,
       });
       return;
@@ -208,7 +195,7 @@ export class TXEDispatcher {
       this.contractStore.addContractArtifact(schnorrArtifact, schnorrClass),
     ]);
     const tDone = Date.now();
-    this.logger.info('Registered protocol contracts in fresh contract store', {
+    this.logger.debug('Registered protocol contracts in fresh contract store', {
       kvOpenMs: tKv - t0,
       providerMs: tResolved - tKv,
       writeMs: tDone - tResolved,
@@ -419,10 +406,6 @@ export function activeSessionCount(): number {
 export const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
   // eslint-disable-next-line camelcase
   resolve_foreign_call: z.function({ input: z.tuple([TXEForeignCallInputSchema]), output: ForeignCallResultSchema }),
-  // warmUp is part of the public class because workers call it directly to eagerly load the
-  // contract store; the schema entry is required for `ApiSchemaFor` but is not exposed in any
-  // way that nargo would invoke.
-  warmUp: z.function({ input: z.tuple([]), output: z.void() }),
-  // disposeSession is called via worker IPC, never via RPC.
+  // disposeSession is invoked over IPC from the worker, not via RPC; required by ApiSchemaFor.
   disposeSession: z.function({ input: z.tuple([z.number().nonnegative()]), output: z.void() }),
 };

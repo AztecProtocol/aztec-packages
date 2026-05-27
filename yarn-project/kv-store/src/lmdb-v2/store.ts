@@ -41,9 +41,9 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     private dataDir: string,
     mapSize: number,
     maxReaders: number,
-    ephemeral: boolean,
     private log: Logger,
     private cleanup?: () => Promise<void>,
+    ephemeral: boolean = false,
   ) {
     this.log.info(`Starting data store with maxReaders ${maxReaders}`);
     this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders, ephemeral));
@@ -80,7 +80,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     ephemeral: boolean = false,
   ) {
     const log = createLogger('kv-store:lmdb-v2', bindings);
-    const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, ephemeral, log, cleanup);
+    const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, log, cleanup, ephemeral);
     await db.start();
     return db;
   }

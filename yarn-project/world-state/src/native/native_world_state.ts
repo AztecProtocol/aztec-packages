@@ -155,13 +155,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   /**
-   * Opens a fully-ephemeral world state.X The directory is created
-   * in `os.tmpdir()`, the LMDB envs open with `MDB_NOSYNC | MDB_NOMETASYNC` so commits never
-   * block on fsync, and the directory is removed on dispose. A crash mid-write leaves the env
-   * unrecoverable.
+   * Opens a fully-ephemeral world state. The directory is created in `os.tmpdir()`, the LMDB
+   * envs open with `MDB_NOSYNC | MDB_NOMETASYNC` so commits never block on fsync, and the
+   * directory is removed on dispose. A crash mid-write leaves the env unrecoverable.
    *
-   * Use this for unit tests  isolated runs. Use {@link tmp} when you need
-   * fsync semantics in a tmp dir, and {@link new} for a real persistent store.
+   * For unit tests and other isolated runs. Use {@link tmp} when you need fsync semantics in a
+   * tmp dir, and {@link new} for a persistent store. Skips {@link DatabaseVersionManager} —
+   * there is no on-disk schema to bind to and no rollup address is taken.
    */
   static async ephemeral(
     genesis: GenesisData = EMPTY_GENESIS_DATA,
