@@ -132,6 +132,10 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x0000000000000000000000000000000000000000000000000000000000000002")), // precomputed_is_deployer
             Commitment(
+                uint256_t("0x210bedcbb97a2e72905c082dd087be36c29c67e85b47de07b639e28a7dd78c76"),
+                uint256_t(
+                    "0x18d1e431b83aa3ab2f6904bbbc452fee3472c01c0ceaf6d2fe6e37c4ff79e265")), // precomputed_is_immutables_hash
+            Commitment(
                 uint256_t("0x020ad6e43ccd48a6a39e43897cc85187bd364919be8a3b82d4809715cfe489db"),
                 uint256_t(
                     "0x21a79ebae2ea3d92b49c521407d2600ac061146f2c188c6c6a33c598179e4543")), // precomputed_is_init_hash
