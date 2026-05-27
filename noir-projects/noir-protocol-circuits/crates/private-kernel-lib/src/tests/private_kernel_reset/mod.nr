@@ -276,20 +276,24 @@ impl TestBuilder {
         private_logs.map(|n| silo_private_log(n))
     }
 
-    /// No siloing.
+    /// No siloing. Routes through `execute` (inner reset).
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        self
-            .execute_with_amounts::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, 0, 0, 0>()
+        let inputs = self.to_private_inputs();
+        inputs
+            .execute::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, 0, 0, 0>()
     }
 
+    /// With siloing. Routes through `execute_as_terminal` (the terminal reset+tail path), since
+    /// `execute` asserts the siloing amounts are zero.
     pub fn execute_with_siloing(self) -> PrivateKernelCircuitPublicInputs {
-        self
-            .execute_with_amounts::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT>()
+        let inputs = self.to_private_inputs();
+        inputs
+            .execute_as_terminal::<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN, NOTE_HASH_SILOING_AMOUNT, NULLIFIER_SILOING_AMOUNT, PRIVATE_LOG_SILOING_AMOUNT>()
     }
 
-    pub fn execute_with_amounts<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
+    fn to_private_inputs(
         self,
-    ) -> PrivateKernelCircuitPublicInputs {
+    ) -> PrivateKernelResetCircuitPrivateInputs<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN, NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN> {
         let hints = PrivateKernelResetHints {
             note_hash_read_request_hints: self.note_hash_read_request_hints.to_hints(),
             nullifier_read_request_hints: self.nullifier_read_request_hints.to_hints(),
@@ -305,7 +309,6 @@ impl TestBuilder {
             self.padded_side_effects,
             hints,
         )
-            .execute::<NoteHashPendingReadAmount, NoteHashSettledReadAmount, NullifierPendingReadAmount, NullifierSettledReadAmount, KeyValidationAmount, TransientDataSquashingAmount, NoteHashSiloingAmount, NullifierSiloingAmount, PrivateLogSiloingAmount>()
     }
 
     pub fn failed(self) {
