@@ -7,6 +7,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { withHexPrefix, withoutHexPrefix } from '@aztec/foundation/string';
 import {
   ARRAY,
   AZTEC_ADDRESS,
@@ -364,16 +365,14 @@ export async function callTxeHandler<K extends keyof typeof TXE_ORACLE_REGISTRY>
 }): Promise<ForeignCallResult> {
   const entry = TXE_ORACLE_REGISTRY[oracle] as OracleRegistryEntry;
   // TXE foreign calls use bare hex strings, but Fr.fromString requires a 0x prefix to parse as hex.
-  const prefixHex = (s: string) => (s.startsWith('0x') ? s : `0x${s}`);
-  const stripPrefix = (s: string) => (s.startsWith('0x') ? s.slice(2) : s);
   const normalized: InputSlot[] = inputs.map(v =>
-    Array.isArray(v) ? (v as string[]).map(prefixHex) : [prefixHex(v as string)],
+    Array.isArray(v) ? (v as string[]).map(withHexPrefix) : [withHexPrefix(v as string)],
   );
   const named = entry.deserializeParams(normalized);
   const positional = named.map((p: { value: unknown }) => p.value);
   const result = await handler(positional as any);
   const outputSlots = entry.serializeReturn(result);
   return {
-    values: outputSlots.map(slot => (Array.isArray(slot) ? slot.map(stripPrefix) : stripPrefix(slot))),
+    values: outputSlots.map(slot => (Array.isArray(slot) ? slot.map(withoutHexPrefix) : withoutHexPrefix(slot))),
   };
 }
