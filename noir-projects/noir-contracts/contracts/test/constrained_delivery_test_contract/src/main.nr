@@ -1,4 +1,4 @@
-//! Thin wrapper around the `calculate_secret_and_index` helper for TXE tests.
+//! Thin wrappers around the constrained-delivery helpers for TXE tests.
 use aztec::macros::aztec;
 
 mod test;
@@ -7,7 +7,12 @@ mod test;
 pub contract ConstrainedDeliveryTest {
     use aztec::{
         macros::functions::external,
-        messages::delivery::constrained_delivery::calculate_secret_and_index,
+        messages::delivery::{
+            constrained_delivery::{calculate_secret_and_index, compute_constrained_log_tag},
+            ConstrainedDelivery,
+            do_private_message_delivery,
+            MessageDelivery,
+        },
         oracle::notes::get_next_constrained_tagging_index,
         protocol::address::AztecAddress,
     };
@@ -33,5 +38,30 @@ pub contract ConstrainedDeliveryTest {
         // Safety: test-only observation of the index the PXE hands out next for this secret.
         let second_index = unsafe { get_next_constrained_tagging_index(secret) };
         (secret, first_index, second_index)
+    }
+
+    /// Delivers a constrained message to `recipient`: resolves `(secret, index)`, emits the chain nullifier, and
+    /// emits the encrypted log under the constrained tag. Routes through `do_private_message_delivery` with
+    /// `MessageDelivery::onchain_constrained()` and the opt-in constrained-delivery info.
+    #[external("private")]
+    fn emit(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+        let payload: [Field; 3] = [1, 2, 3];
+        do_private_message_delivery(
+            self.context,
+            || payload,
+            Option::none(),
+            recipient,
+            MessageDelivery::onchain_constrained(),
+            Option::some(ConstrainedDelivery { registry, sender }),
+        );
+    }
+
+    /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the chain nullifier. This
+    /// advances the PXE's per-secret index (the recipient discovers the log by tag) while deliberately leaving the
+    /// nullifier chain broken, which drives the negative `index > 0` test.
+    #[external("private")]
+    fn emit_constrained_log_without_nullifier(secret: Field, index: u32) {
+        let log_tag = compute_constrained_log_tag(secret, index);
+        self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array([secret]));
     }
 }

@@ -84,6 +84,7 @@ where
             Option::some(self.new_note.note_hash_counter),
             recipient,
             delivery_mode,
+            Option::none(),
         );
     }
 

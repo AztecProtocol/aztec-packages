@@ -163,6 +163,7 @@ contract CustomMessage {
             Option::none(),
             recipient,
             MessageDelivery::onchain_unconstrained(),
+            Option::none(),
         );
 
         // Part 1: randomness (message_id) and remaining event fields
@@ -177,6 +178,7 @@ contract CustomMessage {
             Option::none(),
             recipient,
             MessageDelivery::onchain_unconstrained(),
+            Option::none(),
         );
     }
 }

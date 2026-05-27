@@ -7,8 +7,8 @@ use crate::oracle::{call_utility_function::call_utility_function, notes::get_nex
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
+    constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__CONSTRAINED_MSG_NULLIFIER},
+    hash::{compute_log_tag, poseidon2_hash, poseidon2_hash_with_separator},
     traits::{Deserialize, ToField},
 };
 
@@ -32,7 +32,8 @@ use crate::protocol::{
 ///      note.
 ///    - `index > 0`: asserts the prior nullifier
 ///      `poseidon2_hash_with_separator([sender, recipient, secret, index - 1], DOM_SEP__CONSTRAINED_MSG_NULLIFIER)`
-///      exists via [`compute_nullifier_existence_request`](crate::nullifier::utils::compute_nullifier_existence_request).
+///      exists via
+/// [`compute_nullifier_existence_request`](crate::nullifier::utils::compute_nullifier_existence_request).
 ///      The chain transitively constrains back to the index-0 `validate_handshake`. The caller is expected
 ///      to emit the matching nullifier alongside each constrained send so subsequent calls can prove the
 ///      chain.
@@ -47,9 +48,7 @@ pub fn calculate_secret_and_index(
     // Safety: the returned `Option<Field>` is untrusted and is constrained below before being returned to the
     // caller, either by performing a new handshake or by constraining the prior handshake's existence.
     let maybe_secret: Option<Field> = unsafe {
-        let selector = comptime {
-            FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field),(Field))")
-        };
+        let selector = comptime { FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field),(Field))") };
         let returns = call_utility_function(
             registry,
             selector,
@@ -86,23 +85,51 @@ pub fn calculate_secret_and_index(
         let index = unsafe { get_next_constrained_tagging_index(secret) };
 
         if index == 0 {
-            let selector = comptime {
-                FunctionSelector::from_signature("validate_handshake((Field),(Field),Field)")
-            };
-            let _ = context.call_private_function(
-                registry,
-                selector,
-                [sender.to_field(), recipient.to_field(), secret],
-            );
+            let selector = comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),Field)") };
+            let _ =
+                context.call_private_function(registry, selector, [sender.to_field(), recipient.to_field(), secret]);
         } else {
             let prev_nullifier = poseidon2_hash_with_separator(
                 [sender.to_field(), recipient.to_field(), secret, (index - 1) as Field],
                 DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
             );
-            // TODO(F-670): exercise the index > 0 path end-to-end once send_constrained_msg emits nullifiers.
             context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
         }
 
         (secret, index)
     }
+}
+
+/// Computes the constrained-delivery discovery log tag for an `(app_siloed_secret, index)` pair.
+///
+/// Collapses the secret and index into a single raw tag and domain-separates it with
+/// `DOM_SEP__CONSTRAINED_MSG_LOG_TAG`. This mirrors the recipient-side derivation in the PXE (`siloedTagFor`): the
+/// recipient recomputes the same tag to discover the message, and the protocol silos the emitted log's first field by
+/// the emitting contract address, completing the match.
+pub fn compute_constrained_log_tag(app_siloed_secret: Field, index: u32) -> Field {
+    compute_log_tag(poseidon2_hash([app_siloed_secret, index as Field]), DOM_SEP__CONSTRAINED_MSG_LOG_TAG)
+}
+
+/// Emits the per-send chain nullifier for a constrained message and returns its discovery log tag.
+///
+/// Used by [`crate::messages::delivery::do_private_message_delivery`] on the constrained-delivery path. It wraps
+/// [`calculate_secret_and_index`] to resolve the `(app_siloed_secret, index)` pair, then:
+/// 1. Emits the chain nullifier. A subsequent send at `index + 1` proves this nullifier exists, transitively constraining
+///    the chain back to the `index == 0` handshake validation in [`calculate_secret_and_index`].
+/// 2. Returns the log tag. The recipient recomputes the same tag from the handshake secret to discover the message.
+pub(crate) fn emit_nullifier_and_compute_constrained_tag(
+    context: &mut PrivateContext,
+    registry: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> Field {
+    let (secret, index) = calculate_secret_and_index(context, registry, sender, recipient);
+
+    let nullifier = poseidon2_hash_with_separator(
+        [sender.to_field(), recipient.to_field(), secret, index as Field],
+        DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
+    );
+    context.push_nullifier_unsafe(nullifier);
+
+    compute_constrained_log_tag(secret, index)
 }

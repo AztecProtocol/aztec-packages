@@ -1,13 +1,9 @@
-//! Tests for `calculate_secret_and_index`.
+//! Tests for the constrained-delivery sender helpers.
 //!
-//! TODO(F-670): Coverage here is limited to the bootstrap branch and the `Some(secret)` branch with `index == 0` (which
-//! constrains via `HandshakeRegistry::validate_handshake`). The `index > 0` branch of the helper is reachable
-//! only after the per-secret index has been advanced in the PXE, which requires a tx to land a private log
-//! tagged with `compute_log_tag(poseidon2_hash([secret, index]), DOM_SEP__CONSTRAINED_MSG_LOG_TAG)` AND emit
-//! the chained constrained-message nullifier. Both are produced by the forthcoming `emit_constrained_message`
-//! helper, so positive and negative `index > 0` tests live with that helper. Add
-//! `advances_index_above_zero_when_prior_message_was_emitted` and
-//! `fails_at_index_above_zero_without_prior_nullifier` alongside `emit_constrained_message`.
+//! `calculate_and_return` exercises `calculate_secret_and_index` directly; `emit` exercises the full delivery path
+//! (`do_private_message_delivery` with `ONCHAIN_CONSTRAINED`), which emits the chain nullifier and a
+//! constrained-tagged log. The `index > 0` branch of `calculate_secret_and_index` is reachable only once a
+//! constrained log has advanced the PXE's per-secret index, so the two `index > 0` tests land such a log first.
 use crate::ConstrainedDeliveryTest;
 
 use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::{CallPrivateOptions, TestEnvironment}};
@@ -137,4 +133,57 @@ unconstrained fn distinct_pairs_have_independent_indexes() {
     assert_eq(index_a, 0);
     assert_eq(index_b, 0);
     assert(secret_a != secret_b, "different recipients should yield distinct siloed secrets");
+}
+
+// After a constrained `emit` lands a tagged log and the chain nullifier in a block, the per-secret index advances in
+// the PXE. The next resolution takes the `index > 0` branch, which proves the prior (now settled) nullifier exists
+// via `compute_nullifier_existence_request`, and returns index 1.
+#[test]
+unconstrained fn advances_index_above_zero_when_prior_message_was_emitted() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    // tx1: bootstraps the handshake (index 0), emits the chain nullifier and the constrained log.
+    env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.emit(registry_address, sender, recipient),
+    );
+
+    // tx2: the emitted log advanced the per-secret index, so resolution returns index 1 and proves the now-settled
+    // predecessor nullifier.
+    let (_secret, index) = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.calculate_and_return(registry_address, sender, recipient),
+    );
+
+    assert_eq(index, 1);
+}
+
+// Without a prior chain nullifier the `index > 0` branch cannot prove its predecessor. We advance the per-secret
+// index by landing a constrained-tagged log at index 0 without the nullifier, then a resolution at an index above 0
+// fails because a preceding nullifier is neither pending nor settled.
+#[test(should_fail_with = "reading an unknown nullifier")]
+unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+    let registry = HandshakeRegistry::at(registry_address);
+
+    // Establish a handshake so resolution takes the `Some(secret)` branch. This emits no constrained nullifier.
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret = env.execute_utility(registry.get_app_siloed_secret(sender, recipient, test_address)).expect(
+        f"handshake should be siloed for the test contract",
+    );
+
+    // Advance the per-secret index above 0 by landing a constrained-tagged log at index 0, deliberately skipping the
+    // chain nullifier.
+    env.call_private(sender, test_contract.emit_constrained_log_without_nullifier(secret, 0));
+
+    // Resolution now takes the `index > 0` branch and fails: the predecessor nullifier was never emitted.
+    let _ = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.calculate_and_return(registry_address, sender, recipient),
+    );
 }
