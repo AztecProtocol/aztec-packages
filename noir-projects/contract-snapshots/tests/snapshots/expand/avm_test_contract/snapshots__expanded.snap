@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -4631,9 +4630,7 @@ pub contract AvmTest {
 
     pub unconstrained fn public_dispatch(selector: Field) {
         if selector == 2230419055_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__set_storage_single(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
@@ -4642,24 +4639,17 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 1067389427_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__read_assert_storage_single(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 1932358992_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             let return_value: [Field; 1] = __aztec_nr_internals__set_read_storage_single(arg0).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 1745164739_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             __aztec_nr_internals__set_storage_list(arg0, arg1);
             aztec::oracle::avm::avm_return([].as_slice());
         };
@@ -4691,10 +4681,7 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 2858633377_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 1] = __aztec_nr_internals__add_args_return(arg0, arg1).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -4764,10 +4751,7 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 2484465428_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 3] = __aztec_nr_internals__pedersen_commit(arg0, arg1).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -4785,16 +4769,12 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 1975931334_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             let return_value: [Field; 10 * 1] = __aztec_nr_internals__to_le_bytes(arg0).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 2961959597_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             let return_value: [Field; 16 * 1] = __aztec_nr_internals__to_le_bits(arg0).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -4826,10 +4806,7 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 290442984_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 1] = __aztec_nr_internals__assert_same(arg0, arg1).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -4943,44 +4920,32 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 1524332459_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__new_note_hash(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 3648851082_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__new_nullifier(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 2323221248_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u32 as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: u32 = <u32 as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: u32 = __aztec_nr_internals__unpack_arguments_2();
             __aztec_nr_internals__n_storage_writes(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 1938641640_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u32 as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: u32 = <u32 as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: u32 = __aztec_nr_internals__unpack_arguments_2();
             __aztec_nr_internals__n_new_note_hashes(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 592684400_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u32 as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: u32 = <u32 as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: u32 = __aztec_nr_internals__unpack_arguments_2();
             __aztec_nr_internals__n_new_nullifiers(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 3921925917_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u32 as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: u32 = <u32 as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: u32 = __aztec_nr_internals__unpack_arguments_2();
             __aztec_nr_internals__n_new_l2_to_l1_msgs(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
@@ -4993,45 +4958,32 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 2907114368_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u32 as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: u32 = <u32 as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: u32 = __aztec_nr_internals__unpack_arguments_2();
             __aztec_nr_internals__n_new_public_logs(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 2051407563_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             let return_value: [Field; 1] = __aztec_nr_internals__nullifier_exists(arg0).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 2810255355_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__assert_nullifier_exists(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 2367487025_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__emit_nullifier_and_check(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 2417179850_Field {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let arg0: Field = __aztec_nr_internals__unpack_arguments_0();
             __aztec_nr_internals__nullifier_collision(arg0);
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 3972971575_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 1] = __aztec_nr_internals__l1_to_l2_msg_exists(arg0, arg1).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -5062,10 +5014,7 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
         if selector == 94115833_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 1] = __aztec_nr_internals__nested_call_to_add(arg0, arg1).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -5077,10 +5026,7 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 1362946309_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 1] = __aztec_nr_internals__nested_static_call_to_add(arg0, arg1).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -5105,10 +5051,7 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return([].as_slice());
         };
         if selector == 1563037608_Field {
-            let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
-            let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
-            let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
-            let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+            let (arg0, arg1): (Field, Field) = __aztec_nr_internals__unpack_arguments_1();
             let return_value: [Field; 1] = __aztec_nr_internals__nested_call_to_assert_same(arg0, arg1).serialize();
             aztec::oracle::avm::avm_return(return_value.as_vector());
         };
@@ -5152,6 +5095,34 @@ pub contract AvmTest {
             aztec::oracle::avm::avm_return([].as_slice());
         };
         panic(f"Unknown selector {selector}")
+    }
+
+    #[inline_never]
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__unpack_arguments_0() -> Field {
+        let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N);
+        let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
+        let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+        arg0
+    }
+
+    #[inline_never]
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__unpack_arguments_1() -> (Field, Field) {
+        let input_calldata: [Field; 2] = aztec::oracle::avm::calldata_copy(1_u32, <Field as Serialize>::N + <Field as Serialize>::N);
+        let mut reader: aztec::protocol::utils::reader::Reader<2> = aztec::protocol::utils::reader::Reader::<2>::new(input_calldata);
+        let arg0: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+        let arg1: Field = <Field as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+        (arg0, arg1)
+    }
+
+    #[inline_never]
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__unpack_arguments_2() -> u32 {
+        let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u32 as Serialize>::N);
+        let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
+        let arg0: u32 = <u32 as aztec::protocol::traits::Deserialize>::stream_deserialize(&mut reader);
+        arg0
     }
 
     pub struct add_args_return_parameters {
