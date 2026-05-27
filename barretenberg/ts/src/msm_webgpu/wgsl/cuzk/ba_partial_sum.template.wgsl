@@ -96,9 +96,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let n_partials = last_thread - first_thread;
     if (n_partials == 0u) { return; }
 
-    // Pairwise tree reduction with stride doubling. Each round halves
-    // the active element count. Threads cooperatively process S pairs
-    // each with batched inversion. workgroupBarrier between rounds.
     let TPB = {{ workgroup_size }}u;
     var n_active = n_partials;
     var stride: u32 = 1u;
@@ -109,9 +106,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         if (my_start < n_pairs) {
             let my_end = min(my_start + S, n_pairs);
             let batch_size = my_end - my_start;
-            let pref_off = tid * S;
+            let pref_off = sb_idx * TPB * S + tid * S;
 
-            // Forward prefix: dx for each pair.
             var acc: array<u32, 8> = get_r_f8();
             for (var k: u32 = 0u; k < batch_size; k = k + 1u) {
                 let pair_idx = my_start + k;
@@ -126,12 +122,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                 store_pref_ps(pref_off + k, acc);
             }
 
-            // Single inversion.
             var acc20 = unpack256_to_limbs(acc);
             var inv20 = {{ inv_fn }}(acc20);
             var inv_val = pack_limbs_to_256(&inv20);
 
-            // Inverse pass.
             for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
                 let k = batch_size - 1u - jj;
                 var inv_dx: array<u32, 8>;
@@ -153,7 +147,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                 store_pref_ps(pref_off + k, inv_dx);
             }
 
-            // Backward peel: affine add, write result to left slot.
             for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
                 let k = batch_size - 1u - jj;
                 let pair_idx = my_start + k;
@@ -182,16 +175,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
             }
         }
 
-        // storageBarrier: execution barrier + storage-address-space visibility.
-        // partials_buf is var<storage>; workgroupBarrier only covers
-        // var<workgroup>. Without storageBarrier, round r+1 reads stale data
-        // from round r's writes by other threads.
         storageBarrier();
         n_active = (n_active + 1u) / 2u;
         stride *= 2u;
     }
 
-    // Thread 0 writes the final result to bucket_sums.
     if (tid == 0u) {
         let final_slot = get_partial_slot(first_thread, 0u);
         let sum_x = load_partial_x(final_slot, M_partials);

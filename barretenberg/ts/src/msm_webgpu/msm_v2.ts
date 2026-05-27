@@ -873,7 +873,10 @@ export class MsmV2Pool {
       partialsBuf = soaBuf(2 * sT);
       partialBucketsList = sbuf(sT * 3 * 4);
       accBuf = soaBuf(sT * sS);
-      streamPrefScratch = sbuf(sT * sS * 2 * 4 * 4);
+      const saSlots = sT * sS;
+      const maxSplitWgs = Math.min(sT, 256);
+      const psSlots = maxSplitWgs * 256 * sS;
+      streamPrefScratch = sbuf(Math.max(psSlots, saSlots) * 2 * 4 * 4);
       grew = true;
     }
 
@@ -1150,6 +1153,9 @@ export class MsmV2 {
   private size1Pipe!: GPUComputePipeline;
   private streamAccumPipe!: GPUComputePipeline;
   private partialSumPipe!: GPUComputePipeline;
+  private debugAccumPipe!: GPUComputePipeline;
+  private debugAccumBind!: GPUBindGroup;
+  private debugAccumLayout!: GPUBindGroupLayout;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
   private classifyBind!: GPUBindGroup;
   private metaFixupBind!: GPUBindGroup;
@@ -1437,10 +1443,11 @@ export class MsmV2 {
     m.partitionWgLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.partitionThreadLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.streamEmitLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
-    m.emitFixupLayout = lt(['storage', 'storage', 'read-only-storage', 'read-only-storage']);
+    m.emitFixupLayout = lt(['storage', 'storage', 'read-only-storage', 'read-only-storage', 'read-only-storage']);
     m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     m.streamAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
+    m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1524,6 +1531,9 @@ export class MsmV2 {
     m.partialSumPipe = await compile(
       sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
       `partial-sum`, m.partialSumLayout);
+    m.debugAccumPipe = await compile(
+      sm.gen_ba_stream_accum_debug_shader(INV_VARIANT),
+      `debug-accum`, m.debugAccumLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2009,13 +2019,15 @@ export class MsmV2 {
       this.partitionThreadBind = mkBind(this.partitionThreadLayout, [sc, ca, wc, sp, tc, ptParams]);
       const emitParams = ubuf(new Uint32Array([batchSlots, 0, 0, 0]));
       this.streamEmitBind = mkBind(this.streamEmitLayout, [sb, sc, offsetsBufs[0], tc, qb, sp, emitParams]);
-      this.emitFixupBind = mkBind(this.emitFixupLayout, [sp, pbl, tc, sb]);
+      this.emitFixupBind = mkBind(this.emitFixupLayout, [sp, pbl, tc, sb, sc]);
       const size1Params = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
       this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, size1Params]);
       const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, batchSlots, B_TOTAL]));
       this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
       const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
       this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);
+      const debugParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
+      this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
     }
 
     this.redStaging = device.createBuffer({
@@ -2171,6 +2183,7 @@ export class MsmV2 {
     enc.clearBuffer(this.bufB, 0, this.padXOffset);
     enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
     enc.clearBuffer(this.bucketResultBuf);
+    enc.clearBuffer(this.pool.scratch!.partialsBuf);
 
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
@@ -2217,7 +2230,8 @@ export class MsmV2 {
       };
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
       indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-      indirectDispatch(this.partialSumPipe, this.partialSumBind, spMeta, 16 * 4);
+      dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
+      dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
     }
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
@@ -2299,6 +2313,150 @@ export class MsmV2 {
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
+
+    if (false as boolean) {
+      const qb = this.pool.scratch!.queueBuf;
+      const headerBytes = Math.min(2 * this.streamNumThreads * 4, 1024);
+      const qStg = device.createBuffer({ size: headerBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const eq = device.createCommandEncoder();
+      eq.copyBufferToBuffer(qb, 0, qStg, 0, headerBytes);
+      device.queue.submit([eq.finish()]);
+      await qStg.mapAsync(GPUMapMode.READ);
+      const qHdr = new Uint32Array(qStg.getMappedRange().slice(0));
+      qStg.unmap(); qStg.destroy();
+      let totalEntries = 0;
+      let threadsWithWork = 0;
+      for (let t = 0; t < Math.min(this.streamNumThreads, headerBytes / 8); t++) {
+        const qs = qHdr[2 * t], qc = qHdr[2 * t + 1];
+        totalEntries += qc;
+        if (qc > 0) threadsWithWork++;
+      }
+      const numT = Math.min(this.streamNumThreads, headerBytes / 8);
+      console.log(`[QUEUE] ${numT} threads: ${threadsWithWork} with work, total entries=${totalEntries}`);
+      // Show first 10 threads with entries
+      // Read queue entries for thread 0
+      const QUEUE_HEADER_LEN = 2 * this.streamNumThreads;
+      const t0_start = qHdr[0];
+      const t0_count = qHdr[1];
+      const entryBytes = t0_count * 3 * 4;
+      const entryOff = (QUEUE_HEADER_LEN + t0_start) * 4;
+      const eStg = device.createBuffer({ size: entryBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const ee = device.createCommandEncoder();
+      ee.copyBufferToBuffer(qb, entryOff, eStg, 0, entryBytes);
+      device.queue.submit([ee.finish()]);
+      await eStg.mapAsync(GPUMapMode.READ);
+      const entries = new Uint32Array(eStg.getMappedRange().slice(0));
+      eStg.unmap(); eStg.destroy();
+      let realEntries = 0, idleEntries = 0, partialEntries = 0;
+      for (let i = 0; i < t0_count; i++) {
+        const sc = entries[i * 3], ec = entries[i * 3 + 1], dp = entries[i * 3 + 2];
+        const isIdle = (dp & 0x40000000) !== 0;
+        const isPartial = (dp & 0x80000000) !== 0;
+        if (isIdle) idleEntries++;
+        else if (isPartial) partialEntries++;
+        else realEntries++;
+      }
+      console.log(`[T0 QUEUE] ${t0_count} entries: ${realEntries} real, ${partialEntries} partial, ${idleEntries} idle`);
+      // Read ALL queue data in one batch to count real entries
+      const totalQBytes = Math.min(qb.size, 4 * 1024 * 1024);
+      const qDataStg = device.createBuffer({ size: totalQBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const eqd = device.createCommandEncoder();
+      eqd.copyBufferToBuffer(qb, 0, qDataStg, 0, totalQBytes);
+      device.queue.submit([eqd.finish()]);
+      await qDataStg.mapAsync(GPUMapMode.READ);
+      const allQ = new Uint32Array(qDataStg.getMappedRange().slice(0));
+      qDataStg.unmap(); qDataStg.destroy();
+      let totalReal2 = 0, totalPartial2 = 0, totalIdle2 = 0;
+      for (let t = 0; t < 256; t++) {
+        const qs = allQ[2 * t], qc = allQ[2 * t + 1];
+        for (let i = 0; i < qc; i++) {
+          const dp = allQ[QUEUE_HEADER_LEN + qs + i * 3 + 2];
+          if (dp === undefined) break;
+          if ((dp & 0x40000000) !== 0) totalIdle2++;
+          else if ((dp & 0x80000000) !== 0) totalPartial2++;
+          else totalReal2++;
+        }
+      }
+      console.log(`[ALL Q] real=${totalReal2} partial=${totalPartial2} idle=${totalIdle2} expected≈3407`);
+      // Readback thread_cuts for first 5 threads
+      const tcBuf = this.pool.scratch!.threadCuts;
+      const tcBytes = 5 * 2 * 4;
+      const tcStg = device.createBuffer({ size: tcBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const etc = device.createCommandEncoder();
+      etc.copyBufferToBuffer(tcBuf, 0, tcStg, 0, tcBytes);
+      device.queue.submit([etc.finish()]);
+      await tcStg.mapAsync(GPUMapMode.READ);
+      const tc = new Uint32Array(tcStg.getMappedRange().slice(0));
+      tcStg.unmap(); tcStg.destroy();
+      for (let t = 0; t < 5; t++) {
+        console.log(`  thread_cuts[${t}]: bucket=${tc[2*t]} offset=${tc[2*t+1]}`);
+      }
+      // Show first 5 real entries
+      let rShown = 0;
+      for (let i = 0; i < t0_count && rShown < 5; i++) {
+        const sc = entries[i * 3], ec = entries[i * 3 + 1], dp = entries[i * 3 + 2];
+        if ((dp & 0x40000000) === 0 && (dp & 0x80000000) === 0) {
+          console.log(`  entry ${i}: cursor=[${sc},${ec}) bucket=${dp} adds=${ec - sc - 1}`);
+          rShown++;
+        }
+      }
+    }
+    {
+      const sp = this.pool.scratch!.streamPlannerMeta;
+      const metaStg = device.createBuffer({ size: 80, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const em = device.createCommandEncoder();
+      em.copyBufferToBuffer(sp, 0, metaStg, 0, 80);
+      device.queue.submit([em.finish()]);
+      await metaStg.mapAsync(GPUMapMode.READ);
+      const meta = new Uint32Array(metaStg.getMappedRange().slice(0));
+      metaStg.unmap(); metaStg.destroy();
+      console.log(`[META] size1=${meta[0]} dense=${meta[1]} total_adds=${meta[2]} nwg=${meta[3]} split=${meta[4]} slab_used=${meta[6]}`);
+    }
+    // A/B: read streaming bucket_sums, clear, re-run debug accum, compare
+    {
+      const brb = this.pool.scratch!.bucketResultBuf;
+      const readSz = Math.min(this.bTotal * 2 * 16, 131072);
+      // 1) Read streaming result
+      const streamStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const e1 = device.createCommandEncoder();
+      e1.copyBufferToBuffer(brb, 0, streamStg, 0, readSz);
+      device.queue.submit([e1.finish()]);
+      await streamStg.mapAsync(GPUMapMode.READ);
+      const streamData = new Uint32Array(streamStg.getMappedRange().slice(0));
+      streamStg.unmap(); streamStg.destroy();
+      // 2) Clear bucket_sums and dispatch debug accumulator (planner state still valid)
+      const e2 = device.createCommandEncoder();
+      e2.clearBuffer(brb);
+      { const p = e2.beginComputePass(); p.setPipeline(this.debugAccumPipe); p.setBindGroup(0, this.debugAccumBind); p.dispatchWorkgroups(Math.ceil(this.bTotal / 256), 1); p.end(); }
+      // Also re-run size1 since clearing brb wiped those too
+      { const p = e2.beginComputePass(); p.setPipeline(this.size1Pipe); p.setBindGroup(0, this.size1Bind); p.dispatchWorkgroupsIndirect(this.pool.scratch!.streamPlannerMeta, 8 * 4); p.end(); }
+      const debugStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      e2.copyBufferToBuffer(brb, 0, debugStg, 0, readSz);
+      device.queue.submit([e2.finish()]);
+      await debugStg.mapAsync(GPUMapMode.READ);
+      const debugData = new Uint32Array(debugStg.getMappedRange().slice(0));
+      debugStg.unmap(); debugStg.destroy();
+      // 3) Compare
+      const PGU = 8;
+      const numB = Math.floor(Math.min(streamData.length, debugData.length) / PGU);
+      const mmBuckets: number[] = [];
+      for (let b = 0; b < numB; b++) {
+        let match = true;
+        for (let j = 0; j < PGU; j++) { if (streamData[b * PGU + j] !== debugData[b * PGU + j]) { match = false; break; } }
+        if (!match) mmBuckets.push(b);
+      }
+      console.log(`[A/B] ${numB} x-buckets: ${mmBuckets.length} mismatches`);
+      if (mmBuckets.length > 0 && mmBuckets.length <= 30) {
+        for (const b of mmBuckets) {
+          const s0 = streamData[b * PGU]; const d0 = debugData[b * PGU];
+          console.log(`  bucket ${b}: stream[0]=${s0} debug[0]=${d0} ${s0 === 0 ? 'STREAM_ZERO' : ''} ${d0 === 0 ? 'DEBUG_ZERO' : ''}`);
+        }
+      } else if (mmBuckets.length > 30) {
+        console.log(`  first 10: ${mmBuckets.slice(0, 10).join(', ')}`);
+        console.log(`  stream_zero: ${mmBuckets.filter(b => streamData[b * PGU] === 0).length}`);
+        console.log(`  debug_zero: ${mmBuckets.filter(b => debugData[b * PGU] === 0).length}`);
+      }
+    }
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
     // encodeIntoBatch path doesn't capture category labels (the dev page's

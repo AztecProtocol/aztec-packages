@@ -1013,9 +1013,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let n_partials = last_thread - first_thread;
     if (n_partials == 0u) { return; }
 
-    // Pairwise tree reduction with stride doubling. Each round halves
-    // the active element count. Threads cooperatively process S pairs
-    // each with batched inversion. workgroupBarrier between rounds.
     let TPB = {{ workgroup_size }}u;
     var n_active = n_partials;
     var stride: u32 = 1u;
@@ -1026,9 +1023,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         if (my_start < n_pairs) {
             let my_end = min(my_start + S, n_pairs);
             let batch_size = my_end - my_start;
-            let pref_off = tid * S;
+            let pref_off = sb_idx * TPB * S + tid * S;
 
-            // Forward prefix: dx for each pair.
             var acc: array<u32, 8> = get_r_f8();
             for (var k: u32 = 0u; k < batch_size; k = k + 1u) {
                 let pair_idx = my_start + k;
@@ -1043,12 +1039,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                 store_pref_ps(pref_off + k, acc);
             }
 
-            // Single inversion.
             var acc20 = unpack256_to_limbs(acc);
             var inv20 = {{ inv_fn }}(acc20);
             var inv_val = pack_limbs_to_256(&inv20);
 
-            // Inverse pass.
             for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
                 let k = batch_size - 1u - jj;
                 var inv_dx: array<u32, 8>;
@@ -1070,7 +1064,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                 store_pref_ps(pref_off + k, inv_dx);
             }
 
-            // Backward peel: affine add, write result to left slot.
             for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
                 let k = batch_size - 1u - jj;
                 let pair_idx = my_start + k;
@@ -1099,16 +1092,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
             }
         }
 
-        // storageBarrier: execution barrier + storage-address-space visibility.
-        // partials_buf is var<storage>; workgroupBarrier only covers
-        // var<workgroup>. Without storageBarrier, round r+1 reads stale data
-        // from round r's writes by other threads.
         storageBarrier();
         n_active = (n_active + 1u) / 2u;
         stride *= 2u;
     }
 
-    // Thread 0 writes the final result to bucket_sums.
     if (tid == 0u) {
         let final_slot = get_partial_slot(first_thread, 0u);
         let sum_x = load_partial_x(final_slot, M_partials);
@@ -1399,7 +1387,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
             if (ps < pe) {
                 let bucket_idx = sorted_bucket_list[b];
-                let start_cursor = offsets[bucket_idx] + ps;
+                let is_continuation_piece = (ps > 0u);
+                let start_cursor = offsets[bucket_idx] + ps + select(0u, 1u, is_continuation_piece);
                 let end_cursor = offsets[bucket_idx] + pe + 1u;
 
                 let is_continuation = (ps > 0u);
@@ -1457,6 +1446,7 @@ const NUM_THREADS: u32 = {{ num_threads }}u;
 @group(0) @binding(1) var<storage, read_write> partial_buckets_list: array<u32>;
 @group(0) @binding(2) var<storage, read>       thread_cuts:          array<u32>;
 @group(0) @binding(3) var<storage, read>       sorted_bucket_list:   array<u32>;
+@group(0) @binding(4) var<storage, read>       sorted_count_list:    array<u32>;
 
 @compute @workgroup_size(1)
 fn main() {
@@ -1470,10 +1460,21 @@ fn main() {
             let bucket_sorted = thread_cuts[2u * t];
             let cut_offset = thread_cuts[2u * t + 1u];
 
-            if (cut_offset > 0u && bucket_sorted < num_dense) {
+            let adds = select(0u, sorted_count_list[bucket_sorted] - 1u, bucket_sorted < num_dense);
+            if (cut_offset > 0u && bucket_sorted < num_dense && cut_offset < adds) {
                 if (!in_split) {
                     in_split = true;
                     split_first = t - 1u;
+                } else {
+                    let prev_bucket = thread_cuts[2u * (t - 1u)];
+                    if (bucket_sorted != prev_bucket) {
+                        let bucket_idx = sorted_bucket_list[thread_cuts[2u * split_first + 2u]];
+                        partial_buckets_list[3u * sb_count + 0u] = bucket_idx;
+                        partial_buckets_list[3u * sb_count + 1u] = split_first;
+                        partial_buckets_list[3u * sb_count + 2u] = t;
+                        sb_count += 1u;
+                        split_first = t - 1u;
+                    }
                 }
             } else {
                 if (in_split) {
@@ -2311,15 +2312,32 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var qhead: u32 = 0u;
 
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        if (qhead < q_count) {
+        var found = false;
+        while (!found && qhead < q_count) {
             let base = q_start + qhead * 3u;
-            cursor[k]     = queue_buf[QUEUE_HEADER_LEN + base + 0u];
-            end_cursor[k] = queue_buf[QUEUE_HEADER_LEN + base + 1u];
-            dest[k]       = queue_buf[QUEUE_HEADER_LEN + base + 2u];
-            is_first[k] = 1u;
-            slot_done[k] = 0u;
+            let sc = queue_buf[QUEUE_HEADER_LEN + base + 0u];
+            let ec = queue_buf[QUEUE_HEADER_LEN + base + 1u];
+            let dp = queue_buf[QUEUE_HEADER_LEN + base + 2u];
             qhead += 1u;
-        } else {
+            if (ec - sc == 1u && (dp & IDLE_DEST) == 0u) {
+                let px = load_pt_x(sc);
+                let py = load_pt_y(sc);
+                if ((dp & PARTIAL_BIT) != 0u) {
+                    let ps = dp & 0x3FFFFFFFu;
+                    store_partial(ps, M_partials, px, py);
+                } else {
+                    store_bucket_sum(dp, M_buckets, px, py);
+                }
+            } else {
+                cursor[k] = sc;
+                end_cursor[k] = ec;
+                dest[k] = dp;
+                is_first[k] = 1u;
+                slot_done[k] = 0u;
+                found = true;
+            }
+        }
+        if (!found) {
             cursor[k] = IDLE_ANCHOR;
             end_cursor[k] = IDLE_ANCHOR + 2u;
             dest[k] = IDLE_DEST;
@@ -2439,14 +2457,31 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 } else {
                     store_bucket_sum(dp, M_buckets, r_x, r_y);
                 }
-                if (qhead < q_count) {
-                    let base = q_start + qhead * 3u;
-                    cursor[k]     = queue_buf[QUEUE_HEADER_LEN + base + 0u];
-                    end_cursor[k] = queue_buf[QUEUE_HEADER_LEN + base + 1u];
-                    dest[k]       = queue_buf[QUEUE_HEADER_LEN + base + 2u];
-                    is_first[k] = 1u;
+                var refilled = false;
+                while (!refilled && qhead < q_count) {
+                    let base2 = q_start + qhead * 3u;
+                    let sc2 = queue_buf[QUEUE_HEADER_LEN + base2 + 0u];
+                    let ec2 = queue_buf[QUEUE_HEADER_LEN + base2 + 1u];
+                    let dp2 = queue_buf[QUEUE_HEADER_LEN + base2 + 2u];
                     qhead += 1u;
-                } else {
+                    if (ec2 - sc2 == 1u && (dp2 & IDLE_DEST) == 0u) {
+                        let px2 = load_pt_x(sc2);
+                        let py2 = load_pt_y(sc2);
+                        if ((dp2 & PARTIAL_BIT) != 0u) {
+                            let ps2 = dp2 & 0x3FFFFFFFu;
+                            store_partial(ps2, M_partials, px2, py2);
+                        } else {
+                            store_bucket_sum(dp2, M_buckets, px2, py2);
+                        }
+                    } else {
+                        cursor[k] = sc2;
+                        end_cursor[k] = ec2;
+                        dest[k] = dp2;
+                        is_first[k] = 1u;
+                        refilled = true;
+                    }
+                }
+                if (!refilled) {
                     slot_done[k] = 1u;
                 }
             } else {

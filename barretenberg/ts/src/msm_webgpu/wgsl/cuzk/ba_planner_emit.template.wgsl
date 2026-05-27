@@ -134,7 +134,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
             if (ps < pe) {
                 let bucket_idx = sorted_bucket_list[b];
-                let start_cursor = offsets[bucket_idx] + ps;
+                let is_continuation_piece = (ps > 0u);
+                let start_cursor = offsets[bucket_idx] + ps + select(0u, 1u, is_continuation_piece);
                 let end_cursor = offsets[bucket_idx] + pe + 1u;
 
                 let is_continuation = (ps > 0u);

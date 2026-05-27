@@ -141,15 +141,32 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var qhead: u32 = 0u;
 
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        if (qhead < q_count) {
+        var found = false;
+        while (!found && qhead < q_count) {
             let base = q_start + qhead * 3u;
-            cursor[k]     = queue_buf[QUEUE_HEADER_LEN + base + 0u];
-            end_cursor[k] = queue_buf[QUEUE_HEADER_LEN + base + 1u];
-            dest[k]       = queue_buf[QUEUE_HEADER_LEN + base + 2u];
-            is_first[k] = 1u;
-            slot_done[k] = 0u;
+            let sc = queue_buf[QUEUE_HEADER_LEN + base + 0u];
+            let ec = queue_buf[QUEUE_HEADER_LEN + base + 1u];
+            let dp = queue_buf[QUEUE_HEADER_LEN + base + 2u];
             qhead += 1u;
-        } else {
+            if (ec - sc == 1u && (dp & IDLE_DEST) == 0u) {
+                let px = load_pt_x(sc);
+                let py = load_pt_y(sc);
+                if ((dp & PARTIAL_BIT) != 0u) {
+                    let ps = dp & 0x3FFFFFFFu;
+                    store_partial(ps, M_partials, px, py);
+                } else {
+                    store_bucket_sum(dp, M_buckets, px, py);
+                }
+            } else {
+                cursor[k] = sc;
+                end_cursor[k] = ec;
+                dest[k] = dp;
+                is_first[k] = 1u;
+                slot_done[k] = 0u;
+                found = true;
+            }
+        }
+        if (!found) {
             cursor[k] = IDLE_ANCHOR;
             end_cursor[k] = IDLE_ANCHOR + 2u;
             dest[k] = IDLE_DEST;
@@ -269,14 +286,31 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 } else {
                     store_bucket_sum(dp, M_buckets, r_x, r_y);
                 }
-                if (qhead < q_count) {
-                    let base = q_start + qhead * 3u;
-                    cursor[k]     = queue_buf[QUEUE_HEADER_LEN + base + 0u];
-                    end_cursor[k] = queue_buf[QUEUE_HEADER_LEN + base + 1u];
-                    dest[k]       = queue_buf[QUEUE_HEADER_LEN + base + 2u];
-                    is_first[k] = 1u;
+                var refilled = false;
+                while (!refilled && qhead < q_count) {
+                    let base2 = q_start + qhead * 3u;
+                    let sc2 = queue_buf[QUEUE_HEADER_LEN + base2 + 0u];
+                    let ec2 = queue_buf[QUEUE_HEADER_LEN + base2 + 1u];
+                    let dp2 = queue_buf[QUEUE_HEADER_LEN + base2 + 2u];
                     qhead += 1u;
-                } else {
+                    if (ec2 - sc2 == 1u && (dp2 & IDLE_DEST) == 0u) {
+                        let px2 = load_pt_x(sc2);
+                        let py2 = load_pt_y(sc2);
+                        if ((dp2 & PARTIAL_BIT) != 0u) {
+                            let ps2 = dp2 & 0x3FFFFFFFu;
+                            store_partial(ps2, M_partials, px2, py2);
+                        } else {
+                            store_bucket_sum(dp2, M_buckets, px2, py2);
+                        }
+                    } else {
+                        cursor[k] = sc2;
+                        end_cursor[k] = ec2;
+                        dest[k] = dp2;
+                        is_first[k] = 1u;
+                        refilled = true;
+                    }
+                }
+                if (!refilled) {
                     slot_done[k] = 1u;
                 }
             } else {

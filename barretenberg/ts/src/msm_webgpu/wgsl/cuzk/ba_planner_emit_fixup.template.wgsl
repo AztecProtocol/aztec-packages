@@ -15,6 +15,7 @@ const NUM_THREADS: u32 = {{ num_threads }}u;
 @group(0) @binding(1) var<storage, read_write> partial_buckets_list: array<u32>;
 @group(0) @binding(2) var<storage, read>       thread_cuts:          array<u32>;
 @group(0) @binding(3) var<storage, read>       sorted_bucket_list:   array<u32>;
+@group(0) @binding(4) var<storage, read>       sorted_count_list:    array<u32>;
 
 @compute @workgroup_size(1)
 fn main() {
@@ -28,10 +29,21 @@ fn main() {
             let bucket_sorted = thread_cuts[2u * t];
             let cut_offset = thread_cuts[2u * t + 1u];
 
-            if (cut_offset > 0u && bucket_sorted < num_dense) {
+            let adds = select(0u, sorted_count_list[bucket_sorted] - 1u, bucket_sorted < num_dense);
+            if (cut_offset > 0u && bucket_sorted < num_dense && cut_offset < adds) {
                 if (!in_split) {
                     in_split = true;
                     split_first = t - 1u;
+                } else {
+                    let prev_bucket = thread_cuts[2u * (t - 1u)];
+                    if (bucket_sorted != prev_bucket) {
+                        let bucket_idx = sorted_bucket_list[thread_cuts[2u * split_first + 2u]];
+                        partial_buckets_list[3u * sb_count + 0u] = bucket_idx;
+                        partial_buckets_list[3u * sb_count + 1u] = split_first;
+                        partial_buckets_list[3u * sb_count + 2u] = t;
+                        sb_count += 1u;
+                        split_first = t - 1u;
+                    }
                 }
             } else {
                 if (in_split) {
