@@ -240,8 +240,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Returns the next sender-side index for a constrained-delivery app-siloed shared secret.
    *
    * Unlike the unconstrained variant, the simulator does not own the secret: it was supplied by the calling contract
-   * (which retrieved it from an onchain handshake registry). The simulator only acts as a per-secret index counter. The caller
-   * computes the onchain tag itself.
+   * (which retrieved it from an onchain handshake registry). The simulator only acts as a per-secret index counter.
+   * The caller computes the onchain tag itself.
    *
    * @param appSiloedSecret - The app-siloed shared secret retrieved from the handshake registry by the caller.
    * @returns The next index to use for this secret.
