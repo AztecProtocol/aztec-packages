@@ -140,7 +140,14 @@ const KEY_VALIDATION_REQUEST: TypeMapping<KeyValidationRequest> = {
 
 const CONTRACT_INSTANCE: TypeMapping<ContractInstance> = {
   serialization: {
-    fn: v => [v.salt, v.deployer.toField(), v.currentContractClassId, v.initializationHash, ...v.publicKeys.toFields()],
+    fn: v => [
+      v.salt,
+      v.deployer.toField(),
+      v.currentContractClassId,
+      v.initializationHash,
+      v.immutablesHash,
+      ...v.publicKeys.toFields(),
+    ],
   },
 };
 
