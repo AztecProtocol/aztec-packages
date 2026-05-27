@@ -179,7 +179,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    */
   public getSenderForTags(): Promise<Option<AztecAddress>> {
     const sender = this.currentSenderForTags ?? this.defaultSenderForTags;
-    return Promise.resolve(sender ? Option.some(sender) : Option.empty(AztecAddress.ZERO));
+    return Promise.resolve(sender ? Option.some(sender) : Option.none(AztecAddress.ZERO));
   }
 
   /**

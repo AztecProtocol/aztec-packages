@@ -30,7 +30,6 @@ import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/tre
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
-import { FixedArray } from '../noir-structs/fixed_array.js';
 import { Option } from '../noir-structs/option.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import type { NoteData } from './interfaces.js';
@@ -39,28 +38,46 @@ import { packAsHintedNote } from './note_packing_utils.js';
 
 const FIELD: TypeMapping<Fr> = {
   serialization: { fn: v => [v] },
-  deserialization: { fn: ([reader]) => reader.readField() },
+  deserialization: { fn: ([reader]) => reader.readField(), slots: 1 },
 };
 
 const BOOL: TypeMapping<boolean> = {
   serialization: { fn: v => [new Fr(v ? 1n : 0n)] },
-  deserialization: { fn: ([reader]) => !reader.readField().isZero() },
+  deserialization: { fn: ([reader]) => !reader.readField().isZero(), slots: 1 },
 };
 
-const U32: TypeMapping<number> = {
+export const U32: TypeMapping<number> = {
   serialization: { fn: v => [new Fr(v)] },
-  deserialization: { fn: ([reader]) => reader.readField().toNumber() },
+  deserialization: {
+    fn: ([reader]) => {
+      const value = reader.readField().toBigInt();
+      if (value > 0xffffffffn) {
+        throw new Error(`U32 overflow: value ${value} exceeds u32 max (${0xffffffffn})`);
+      }
+      return Number(value);
+    },
+    slots: 1,
+  },
 };
 
 const BLOCK_NUMBER: TypeMapping<BlockNumber> = {
   serialization: { fn: v => [new Fr(v)] },
-  deserialization: { fn: ([reader]) => BlockNumber(reader.readField().toNumber()) },
+  deserialization: { fn: ([reader]) => BlockNumber(reader.readField().toNumber()), slots: 1 },
 };
 
 /** A u8 byte: serializes to a single Fr; deserializes from a single Fr to a number in [0, 255]. */
-const BYTE: TypeMapping<number> = {
+export const BYTE: TypeMapping<number> = {
   serialization: { fn: byte => [new Fr(byte)] },
-  deserialization: { fn: ([reader]) => reader.readField().toNumber() },
+  deserialization: {
+    fn: ([reader]) => {
+      const value = reader.readField().toBigInt();
+      if (value > 0xffn) {
+        throw new Error(`BYTE overflow: value ${value} exceeds u8 max (255)`);
+      }
+      return Number(value);
+    },
+    slots: 1,
+  },
 };
 
 /** Reads every field in the slot as a UTF-8 character code. */
@@ -74,58 +91,50 @@ const STR: TypeMapping<string> = {
       }
       return chars.join('');
     },
+    slots: 1,
   },
-};
-
-/**
- * Consumes a slot but produces undefined.
- *
- * Some Noir oracle signatures include redundant size-hint params (e.g. `_ignoredFieldsSize`) that the TS
- * side doesn't need because the ACVM slot already encodes the array length. IGNORED reads and discards them.
- */
-const IGNORED: TypeMapping<undefined> = {
-  deserialization: { fn: () => undefined },
 };
 
 const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()) },
+  deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()), slots: 1 },
 };
 
 const BLOCK_HASH: TypeMapping<BlockHash> = {
   serialization: { fn: v => [new Fr(v.toBuffer())] },
-  deserialization: { fn: ([reader]) => new BlockHash(reader.readField()) },
+  deserialization: { fn: ([reader]) => new BlockHash(reader.readField()), slots: 1 },
 };
 
 const FUNCTION_SELECTOR: TypeMapping<FunctionSelector> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => FunctionSelector.fromField(reader.readField()) },
+  deserialization: { fn: ([reader]) => FunctionSelector.fromField(reader.readField()), slots: 1 },
 };
 
 const NOTE_SELECTOR: TypeMapping<NoteSelector> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => NoteSelector.fromField(reader.readField()) },
+  deserialization: { fn: ([reader]) => NoteSelector.fromField(reader.readField()), slots: 1 },
 };
 
 const TX_HASH: TypeMapping<TxHash> = {
   serialization: { fn: v => [v.hash] },
-  deserialization: { fn: ([reader]) => TxHash.fromField(reader.readField()) },
+  deserialization: { fn: ([reader]) => TxHash.fromField(reader.readField()), slots: 1 },
 };
 
 const TAG: TypeMapping<Tag> = {
   serialization: { fn: v => [v.value] },
-  deserialization: { fn: ([reader]) => new Tag(reader.readField()) },
+  deserialization: { fn: ([reader]) => new Tag(reader.readField()), slots: 1 },
 };
 
 const BLOCK_HEADER: TypeMapping<BlockHeader> = {
   serialization: { fn: v => v.toFields() },
-  deserialization: { fn: ([reader]) => BlockHeader.fromFields(reader.readFieldArray(BLOCK_HEADER_LENGTH)) },
+  deserialization: { fn: ([reader]) => BlockHeader.fromFields(reader.readFieldArray(BLOCK_HEADER_LENGTH)), slots: 1 },
 };
 
 const KEY_VALIDATION_REQUEST: TypeMapping<KeyValidationRequest> = {
   serialization: { fn: v => v.toFields() },
   deserialization: {
     fn: ([reader]) => KeyValidationRequest.fromFields(reader.readFieldArray(KEY_VALIDATION_REQUEST_LENGTH)),
+    slots: 1,
   },
 };
 
@@ -252,7 +261,7 @@ const ORACLE_REGISTRY = {
     params: [
       { name: 'level', type: U32 },
       { name: 'message', type: STR },
-      { name: '_ignoredFieldsSize', type: IGNORED },
+      { name: 'fieldsSize', type: U32 },
       { name: 'fields', type: ARRAY(FIELD) },
     ],
   }),
@@ -417,7 +426,7 @@ const ORACLE_REGISTRY = {
       { name: 'tSize', type: U32 },
       { name: 'scope', type: AZTEC_ADDRESS },
     ],
-    returnType: OPTION(FIXED_ARRAY(FIELD)),
+    returnType: OPTION(ARRAY(FIELD)),
   }),
 
   aztec_utl_deleteCapsule: makeEntry({
@@ -644,7 +653,7 @@ type OutputSlot = ACVMField | ACVMField[];
  * Describes how to serialize and/or deserialize a single typed value to/from ACVM wire format.
  * Either side is optional — output-only types omit `deserialization`, input-only types omit `serialization`.
  */
-interface TypeMapping<T = any> {
+export interface TypeMapping<T = any> {
   serialization?: {
     /** Convert a typed value to ACVM output slot(s). */
     fn: (value: T) => (Fr | Fr[])[];
@@ -653,15 +662,14 @@ interface TypeMapping<T = any> {
     /** Read a typed value from one FieldReader per consumed slot. */
     fn: (readers: FieldReader[]) => T;
     /**
-     * Number of InputSlot this type reads from (default 1). `deserialization.fn` receives one
-     * FieldReader per slot in `readers`.
+     * Number of InputSlots this type reads from. `deserialization.fn` receives one FieldReader per slot in `readers`.
      *
      * Examples:
-     * - `FIELD`, `U32`, `AZTEC_ADDRESS` — single slot         → `slots` omitted (default 1)
+     * - `FIELD`, `U32`, `AZTEC_ADDRESS` — single slot         → `slots: 1`
      * - `OPTION(T)` — discriminant + inner slots              → `slots: T.slots + 1`
      * - `CONTRACT_CLASS_LOG_INPUT` — [addr], [fields], [len]  → `slots: 3`
      */
-    slots?: number;
+    slots: number;
   };
 }
 
@@ -698,7 +706,7 @@ function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = vo
           throw new Error(`Param '${param.name}' has no deserialization defined`);
         }
         // Collect the slots for this param and wrap each in a FieldReader.
-        const slotCount = param.type.deserialization.slots ?? 1;
+        const slotCount = param.type.deserialization.slots;
         const readers = inputs
           .slice(offset, offset + slotCount)
           .map(slot => new FieldReader(slot.map(hex => Fr.fromString(hex))));
@@ -708,7 +716,7 @@ function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = vo
       }) as unknown as InferDeserializedParams<TParams>;
     },
     serializeReturn(result: TReturnValue): OutputSlot[] {
-      if (!returnType?.serialization) {
+      if (returnType?.serialization === undefined) {
         return [];
       }
       return returnType.serialization
@@ -741,6 +749,7 @@ function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
             }
             return result;
           },
+          slots: 1,
         }
       : undefined,
   };
@@ -790,31 +799,8 @@ function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
 }
 
 /**
- * Serializes a `FixedArray<T>` value to 1 output slot, zero-padded to the value's `size` (so the wire format
- * matches `[T; N]` for any N declared at the call site).
- *
- * @example Serializing `FixedArray.from({ data: [Fr(1), Fr(2)], size: 4 })` with `FIXED_ARRAY(FIELD)`:
- * ```
- * slot 0: [Fr(1), Fr(2), Fr(0), Fr(0)]   // data padded to size
- * ```
- */
-function FIXED_ARRAY<T>(element: TypeMapping<T>): TypeMapping<FixedArray<T>> {
-  return {
-    serialization: {
-      fn: arr => [
-        padArrayEnd(
-          arr.data.flatMap(item => element.serialization!.fn(item).flat() as Fr[]),
-          Fr.ZERO,
-          arr.size,
-        ),
-      ],
-    },
-  };
-}
-
-/**
  * Wraps an inner TypeMapping in Noir-style `Option<T>`. Adds a discriminant slot and uses the handler-provided
- * `Option.empty(shape)` template to produce a correctly-sized zero-filled output for the None case.
+ * `Option.none(shape)` template to produce a correctly-sized zero-filled output for the None case.
  *
  * @example Serializing `Option.some(AztecAddress.fromField(Fr(42)))` with `OPTION(AZTEC_ADDRESS)`:
  * ```
@@ -836,13 +822,13 @@ function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
             if (opt.isSome()) {
               return [Fr.ONE, ...inner.serialization!.fn(opt.value)];
             }
-            if (opt.emptyTemplate === undefined) {
+            if (opt.template === undefined) {
               throw new Error(
                 'Cannot serialize Option.empty() without an emptyTemplate — provide one via Option.empty(emptyTemplate)',
               );
             }
             const zeroSlots = inner
-              .serialization!.fn(opt.emptyTemplate)
+              .serialization!.fn(opt.template)
               .map(s => (Array.isArray(s) ? Array(s.length).fill(Fr.ZERO) : Fr.ZERO));
             return [Fr.ZERO, ...zeroSlots];
           },
@@ -852,11 +838,11 @@ function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
       ? {
           fn: readers => {
             if (readers[0].readField().isZero()) {
-              return Option.empty<T>();
+              return Option.none<T>(undefined as unknown as T);
             }
             return Option.some(inner.deserialization!.fn(readers.slice(1)));
           },
-          slots: (inner.deserialization.slots ?? 1) + 1,
+          slots: inner.deserialization.slots + 1,
         }
       : undefined,
   };
@@ -873,6 +859,7 @@ function BUFFER(bitSize: number): TypeMapping<Buffer> {
         const fields = reader.readFieldArray(reader.remainingFields()).map(f => f.toString());
         return fromUintArray(fields, bitSize);
       },
+      slots: 1,
     },
   };
 }

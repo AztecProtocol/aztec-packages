@@ -511,7 +511,7 @@ export class RPCTranslator {
     // Parse Option<AztecAddress>: ownerIsSome is 0 for None, 1 for Some
     const owner = fromSingle(foreignOwnerIsSome).toBool()
       ? Option.some(AztecAddress.fromField(fromSingle(foreignOwnerValue)))
-      : Option.empty(AztecAddress.ZERO);
+      : Option.none(AztecAddress.ZERO);
     const storageSlot = fromSingle(foreignStorageSlot);
     const numSelects = fromSingle(foreignNumSelects).toNumber();
     const selectByIndexes = fromArray(foreignSelectByIndexes).map(fr => fr.toNumber());
@@ -674,7 +674,7 @@ export class RPCTranslator {
       // emit the 5-field PublicKeys shape + partial_address explicitly
       // rather than going through `publicKeys.toFields()` (which is the struct-flattened 6-field
       // wire for oracle returns that decode via struct shape).
-      const { publicKeys, partialAddress } = result;
+      const { publicKeys, partialAddress } = result.value;
       return toForeignCallResult([
         toSingle(new Fr(1)),
         toArray([
@@ -896,7 +896,7 @@ export class RPCTranslator {
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (opt.isSome()) {
       // Data was found so we set `some` to 1 and return it along with `value`.
-      return toForeignCallResult([toSingle(new Fr(1)), toArray(Array.from(opt.value.data))]);
+      return toForeignCallResult([toSingle(new Fr(1)), toArray(Array.from(opt.value))]);
     } else {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
       return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(tSize).fill(new Fr(0)))]);

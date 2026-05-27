@@ -1,20 +1,19 @@
 import type { ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { MembershipWitness } from '@aztec/foundation/trees';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { ContractClassLog, Tag } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
-import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+import type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { BoundedVec } from '../noir-structs/bounded_vec.js';
-import type { FixedArray } from '../noir-structs/fixed_array.js';
 import type { Option } from '../noir-structs/option.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -129,12 +128,7 @@ export interface IUtilityExecutionOracle {
   getMessageContextsByTxHash(requestArrayBaseSlot: Fr): Promise<Fr>;
   getTxEffect(txHash: TxHash): Promise<Option<TxEffect>>;
   setCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope: AztecAddress): void;
-  getCapsule(
-    contractAddress: AztecAddress,
-    key: Fr,
-    tSize: number,
-    scope: AztecAddress,
-  ): Promise<Option<FixedArray<Fr>>>;
+  getCapsule(contractAddress: AztecAddress, key: Fr, tSize: number, scope: AztecAddress): Promise<Option<Fr[]>>;
   deleteCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): void;
   copyCapsule(
     contractAddress: AztecAddress,

@@ -54,7 +54,6 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import { FixedArray } from '../noir-structs/fixed_array.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
@@ -243,7 +242,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
       this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
     );
-    return witness ? Option.some(witness) : Option.empty(MembershipWitness.empty(ARCHIVE_HEIGHT));
+    return witness ? Option.some(witness) : Option.none(MembershipWitness.empty(ARCHIVE_HEIGHT));
   }
 
   /**
@@ -335,7 +334,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<Option<{ publicKeys: PublicKeys; partialAddress: PartialAddress }>> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
-      return Option.empty({ publicKeys: PublicKeys.default(), partialAddress: Fr.ZERO });
+      return Option.none({ publicKeys: PublicKeys.default(), partialAddress: Fr.ZERO });
     }
     return Option.some({ publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress });
   }
@@ -654,7 +653,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const txEffect = await this.aztecNode.getTxEffect(txHash);
     if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.empty(TxEffect.empty());
+      return Option.none(TxEffect.empty());
     }
 
     return Option.some(txEffect.data);
@@ -673,15 +672,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     slot: Fr,
     tSize: number,
     scope: AztecAddress,
-  ): Promise<Option<FixedArray<Fr>>> {
+  ): Promise<Option<Fr[]>> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
-    return values
-      ? Option.some(FixedArray.from({ data: values, size: tSize }))
-      : Option.empty(FixedArray.empty({ size: tSize }));
+    return values ? Option.some(values) : Option.none(new Array(tSize).fill(Fr.ZERO));
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
@@ -729,7 +726,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
-      return Option.empty(BoundedVec.empty<number>({ maxLength: capacity }));
+      return Option.none(BoundedVec.empty<number>({ maxLength: capacity }));
     }
   }
 

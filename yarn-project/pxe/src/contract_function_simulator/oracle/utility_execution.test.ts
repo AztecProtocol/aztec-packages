@@ -388,13 +388,13 @@ describe('Utility Execution test suite', () => {
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
 
         const globalResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
-        expect(globalResult.value!.data).toEqual(transientGlobal);
+        expect(globalResult.value!).toEqual(transientGlobal);
 
         const globalAgain = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
-        expect(globalAgain.value!.data).toEqual(transientGlobal);
+        expect(globalAgain.value!).toEqual(transientGlobal);
 
         const scopedResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, scope);
-        expect(scopedResult.value!.data).toEqual(transientScoped);
+        expect(scopedResult.value!).toEqual(transientScoped);
       });
     });
 
