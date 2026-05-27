@@ -40,9 +40,18 @@ jobs:
       - name: Run Aztec CLI acceptance test
         run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh
 
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: acceptance-test-diagnostics-${{ matrix.os }}
+          path: ${{ runner.temp }}/aztec-cli-acceptance-test-*/**
+          if-no-files-found: warn
+          retention-days: 7
+
   notify:
     needs: release-acceptance
-    if: always() && github.event_name != 'workflow_dispatch'
+    if: (success() || failure()) && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}

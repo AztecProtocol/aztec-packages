@@ -1,5 +1,6 @@
 use crate::oracle::ephemeral;
 use crate::protocol::traits::{Deserialize, Serialize};
+use crate::protocol::utils::{reader::Reader, writer::Writer};
 
 /// A dynamically sized array that exists only during a single contract call frame.
 ///
@@ -98,6 +99,34 @@ impl<T> EphemeralArray<T> {
             i -= 1;
             f(i, self.get(i));
         }
+    }
+}
+
+/// Serializes an `EphemeralArray` as its slot identifier, allowing oracle function signatures to use
+/// `EphemeralArray<T>` instead of opaque `Field` slots.
+impl<T> Serialize for EphemeralArray<T> {
+    let N: u32 = 1;
+
+    fn serialize(self) -> [Field; Self::N] {
+        [self.slot]
+    }
+
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.slot);
+    }
+}
+
+/// Deserializes a single Field into an `EphemeralArray` handle, treating the field value as the slot identifier.
+/// This is the inverse of [`Serialize`].
+impl<T> Deserialize for EphemeralArray<T> {
+    let N: u32 = 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        Self { slot: fields[0] }
+    }
+
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Self { slot: reader.read() }
     }
 }
 

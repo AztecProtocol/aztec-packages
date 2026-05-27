@@ -1941,10 +1941,10 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
             };
 
             if (idx < block.size() - 1) {
-                tmp_w.push_back(block.w_l()[idx + 1]);
-                tmp_w.push_back(block.w_r()[idx + 1]);
-                tmp_w.push_back(block.w_o()[idx + 1]);
-                tmp_w.push_back(block.w_4()[idx + 1]);
+                tmp_w.push_back(this->real_variable_index[block.w_l()[idx + 1]]);
+                tmp_w.push_back(this->real_variable_index[block.w_r()[idx + 1]]);
+                tmp_w.push_back(this->real_variable_index[block.w_o()[idx + 1]]);
+                tmp_w.push_back(this->real_variable_index[block.w_4()[idx + 1]]);
             } else {
                 tmp_w.push_back(0);
                 tmp_w.push_back(0);
@@ -1962,7 +1962,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     cir.real_variable_index = this->real_variable_index;
 
     for (const auto& table : this->lookup_tables) {
-        const FF table_index(table.table_index);
         info("Table no: ", table.table_index);
         std::vector<std::vector<FF>> tmp_table;
         for (size_t i = 0; i < table.size(); ++i) {

@@ -43,6 +43,7 @@ function test_cmds {
   for test in **/*.test.js; do
     # Skip benchmarks here.
     [[ "$test" =~ \.bench\.test\.js$ ]] && continue
+    [[ "$test" == "bbapi/chonk_pinned_inputs.test.js" ]] && continue
 
     local prefix=$hash
     # Extra resource.
@@ -51,6 +52,7 @@ function test_cmds {
     fi
     echo "$prefix barretenberg/ts/scripts/run_test.sh $test"
   done
+  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js"
 }
 
 function bench_cmds {

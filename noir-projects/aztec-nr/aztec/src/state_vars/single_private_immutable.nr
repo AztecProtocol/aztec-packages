@@ -12,9 +12,7 @@ use crate::{
 };
 
 use crate::protocol::{
-    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
-    traits::{Hash, Packable},
+    constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Packable,
 };
 
 mod test;
@@ -87,8 +85,7 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
     /// that need to check if a SinglePrivateImmutable has been initialized.
     fn get_initialization_nullifier(self) -> Field {
         let contract_address = self.context.this_address();
-        let contract_npk_m = get_public_keys(contract_address).npk_m;
-        let contract_npk_m_hash = contract_npk_m.hash();
+        let contract_npk_m_hash = get_public_keys(contract_address).npk_m_hash;
         let secret = self.context.request_nhk_app(contract_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
@@ -103,7 +100,7 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
         Note: NoteType + NoteHash + Packable,
     {
         let nullifier = self.get_initialization_nullifier();
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
 
         // The note owner is set to the contract's address. Strictly speaking, specifying a note owner is not required
         // here, as this note is never intended to be nullified. However, we must provide an owner because Aztec.nr
@@ -152,8 +149,7 @@ where
     /// Computes the nullifier that will be created when this SinglePrivateImmutable is first initialized.
     unconstrained fn get_initialization_nullifier(self) -> Field {
         let contract_address = self.context.this_address();
-        let contract_npk_m = get_public_keys(contract_address).npk_m;
-        let contract_npk_m_hash = contract_npk_m.hash();
+        let contract_npk_m_hash = get_public_keys(contract_address).npk_m_hash;
         let secret = get_nhk_app(contract_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }

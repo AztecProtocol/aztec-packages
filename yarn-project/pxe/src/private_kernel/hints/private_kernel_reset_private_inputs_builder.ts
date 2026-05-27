@@ -69,7 +69,7 @@ async function getMasterSecretKeysAndKeyTypeDomainSeparators(
   const numRequestsToProcess = Math.min(keyValidationRequests.claimedLength, numRequestsToVerify);
   const keysHints = await Promise.all(
     keyValidationRequests.array.slice(0, numRequestsToProcess).map(async ({ request }) => {
-      const secretKeys = await oracle.getMasterSecretKey(request.request.pkM);
+      const secretKeys = await oracle.getMasterSecretKey(request.request.pkMHash);
       return new KeyValidationHint(secretKeys);
     }),
   );

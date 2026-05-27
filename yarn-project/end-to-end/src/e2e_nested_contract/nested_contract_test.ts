@@ -7,6 +7,7 @@ import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
 import {
   type EndToEndContext,
+  type SetupOptions,
   deployAccounts,
   publicDeployAccounts,
   setup,
@@ -50,9 +51,10 @@ export class NestedContractTest {
     await publicDeployAccounts(this.wallet, [this.defaultAccountAddress]);
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh subsystems');
     this.context = await setup(0, {
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
     });

@@ -300,12 +300,12 @@ describe('syncSenderTaggingIndexes', () => {
       );
     });
 
-    // Mock getTxReceipt to return FINALIZED with APP_LOGIC_REVERTED
+    // Mock getTxReceipt to return FINALIZED with REVERTED
     aztecNode.getTxReceipt.mockResolvedValue(
       new TxReceipt(
         revertedTxHash,
         TxStatus.FINALIZED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
+        TxExecutionResult.REVERTED,
         undefined,
         undefined,
         undefined,
@@ -315,7 +315,7 @@ describe('syncSenderTaggingIndexes', () => {
 
     // Mock getTxEffect to return a TxEffect where only the tag at index 4 survived (non-revertible phase)
     const txEffect = new TxEffect(
-      RevertCode.APP_LOGIC_REVERTED,
+      RevertCode.REVERTED,
       revertedTxHash,
       Fr.ZERO,
       [Fr.random()], // noteHashes

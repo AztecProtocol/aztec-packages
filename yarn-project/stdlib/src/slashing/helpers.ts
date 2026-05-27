@@ -48,12 +48,12 @@ export function getPenaltyForOffense(
   offense: OffenseType,
   config: Pick<
     SlasherConfig,
-    | 'slashAttestDescendantOfInvalidPenalty'
+    | 'slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty'
     | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashBroadcastedInvalidCheckpointProposalPenalty'
     | 'slashDuplicateProposalPenalty'
     | 'slashDuplicateAttestationPenalty'
     | 'slashAttestInvalidCheckpointProposalPenalty'
-    | 'slashPrunePenalty'
     | 'slashDataWithholdingPenalty'
     | 'slashUnknownPenalty'
     | 'slashInactivityPenalty'
@@ -61,8 +61,6 @@ export function getPenaltyForOffense(
   >,
 ) {
   switch (offense) {
-    case OffenseType.VALID_EPOCH_PRUNED:
-      return config.slashPrunePenalty;
     case OffenseType.DATA_WITHHOLDING:
       return config.slashDataWithholdingPenalty;
     case OffenseType.INACTIVITY:
@@ -70,10 +68,12 @@ export function getPenaltyForOffense(
     case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
     case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
       return config.slashProposeInvalidAttestationsPenalty;
-    case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
-      return config.slashAttestDescendantOfInvalidPenalty;
+    case OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS:
+      return config.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty;
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
       return config.slashBroadcastedInvalidBlockPenalty;
+    case OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL:
+      return config.slashBroadcastedInvalidCheckpointProposalPenalty;
     case OffenseType.DUPLICATE_PROPOSAL:
       return config.slashDuplicateProposalPenalty;
     case OffenseType.DUPLICATE_ATTESTATION:
@@ -92,8 +92,10 @@ export function getPenaltyForOffense(
 /** Returns whether the `epochOrSlot` field for an offense references an epoch or a slot */
 export function getTimeUnitForOffense(offense: OffenseType): 'epoch' | 'slot' {
   switch (offense) {
-    case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
+    case OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS:
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
+    case OffenseType.DATA_WITHHOLDING:
+    case OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL:
     case OffenseType.DUPLICATE_PROPOSAL:
     case OffenseType.DUPLICATE_ATTESTATION:
     case OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL:
@@ -101,9 +103,7 @@ export function getTimeUnitForOffense(offense: OffenseType): 'epoch' | 'slot' {
     case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
       return 'slot';
     case OffenseType.INACTIVITY:
-    case OffenseType.DATA_WITHHOLDING:
     case OffenseType.UNKNOWN:
-    case OffenseType.VALID_EPOCH_PRUNED:
       return 'epoch';
     default: {
       const _exhaustiveCheck: never = offense;

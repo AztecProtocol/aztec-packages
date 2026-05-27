@@ -25,6 +25,7 @@ pub contract ContractInstanceRegistry {
         salt: Field,
         contract_class_id: ContractClassId,
         initialization_hash: Field,
+        immutables_hash: Field,
         public_keys: PublicKeys,
         universal_deploy: bool,
     ) {}

@@ -188,10 +188,8 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>>& get_wire_opcode_
           { OperandType::INDIRECT16,
             OperandType::UINT16,     // lhs.x
             OperandType::UINT16,     // lhs.y
-            OperandType::UINT16,     // lhs.is_infinite
             OperandType::UINT16,     // rhs.x
             OperandType::UINT16,     // rhs.y
-            OperandType::UINT16,     // rhs.is_infinite
             OperandType::UINT16 } }, // dst_offset
         // Gadget - Conversion
         { WireOpCode::TORADIXBE,

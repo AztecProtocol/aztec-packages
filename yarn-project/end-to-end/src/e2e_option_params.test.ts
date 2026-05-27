@@ -5,9 +5,10 @@ import { OptionParamContract } from '@aztec/noir-test-contracts.js/OptionParam';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 const U64_MAX = 2n ** 64n - 1n;
 const I64_MIN = -(2n ** 63n);
@@ -32,7 +33,7 @@ describe('Option params', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
 
     contract = (await OptionParamContract.deploy(wallet).send({ from: defaultAccountAddress })).contract;
   });

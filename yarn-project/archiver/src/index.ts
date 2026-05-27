@@ -4,6 +4,7 @@ export * from './archiver.js';
 export * from './modules/data_source_base.js';
 export * from './modules/data_store_updater.js';
 export * from './config.js';
+export * from './errors.js';
 
 export { type L1PublishedData } from './structs/published.js';
 export {

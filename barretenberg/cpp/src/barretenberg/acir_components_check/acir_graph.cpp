@@ -257,9 +257,8 @@ void AcirGraph::process_acir_circuit(const Acir::Circuit& circuit)
                                },
                                [&](const Acir::Opcode::MemoryOp& memory_op) {
                                    auto& witnesses = block_witnesses[memory_op.block_id.value];
-                                   collect_expression_witnesses(witnesses, memory_op.op.operation);
-                                   collect_expression_witnesses(witnesses, memory_op.op.index);
-                                   collect_expression_witnesses(witnesses, memory_op.op.value);
+                                   witnesses.push_back(memory_op.op.index.value);
+                                   witnesses.push_back(memory_op.op.value.value);
                                },
                                [&](const Acir::Opcode::BrilligCall&) {},
                                [&](const Acir::Opcode::Call&) {} },

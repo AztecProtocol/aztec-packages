@@ -64,6 +64,14 @@ export interface SequencerConfig {
   skipInvalidateBlockAsProposer?: boolean;
   /** Broadcast invalid block proposals with corrupted state (for testing only) */
   broadcastInvalidBlockProposal?: boolean;
+  /** Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only) */
+  invalidBlockProposalIndexWithinCheckpoint?: number;
+  /**
+   * Broadcast invalid checkpoint proposals (with corrupted archive) while keeping the underlying
+   * block proposals valid (for testing only). When unset, the checkpoint follows
+   * `broadcastInvalidBlockProposal`.
+   */
+  broadcastInvalidCheckpointProposalOnly?: boolean;
   /** Inject a fake attestation (for testing only) */
   injectFakeAttestation?: boolean;
   /** Inject a malleable attestation with a high-s value (for testing only) */
@@ -121,6 +129,8 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
     secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
+    invalidBlockProposalIndexWithinCheckpoint: z.number().int().nonnegative().optional(),
+    broadcastInvalidCheckpointProposalOnly: z.boolean().optional(),
     injectFakeAttestation: z.boolean().optional(),
     injectHighSValueAttestation: z.boolean().optional(),
     injectUnrecoverableSignatureAttestation: z.boolean().optional(),
@@ -149,6 +159,7 @@ type SequencerConfigOptionalKeys =
   | 'fakeThrowAfterProcessingTxCount'
   | 'l1PublishingTime'
   | 'txPublicSetupAllowListExtend'
+  | 'invalidBlockProposalIndexWithinCheckpoint'
   | 'minValidTxsPerBlock'
   | 'minBlocksForCheckpoint'
   | 'maxTxsPerBlock'
