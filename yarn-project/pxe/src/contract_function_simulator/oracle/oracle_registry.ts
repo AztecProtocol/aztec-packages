@@ -100,16 +100,6 @@ export const STR: TypeMapping<string> = {
   },
 };
 
-/**
- * Consumes a slot but produces undefined.
- *
- * Some Noir oracle signatures include redundant size-hint params (e.g. `_ignoredFieldsSize`) that the TS
- * side doesn't need because the ACVM slot already encodes the array length. IGNORED reads and discards them.
- */
-export const IGNORED: TypeMapping<undefined> = {
-  deserialization: { fn: () => undefined, slots: 1 },
-};
-
 export const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
   serialization: { fn: v => [v.toField()] },
   deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()), slots: 1 },

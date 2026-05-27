@@ -9,7 +9,6 @@ export {
   BIGINT,
   BYTE,
   STR,
-  IGNORED,
   AZTEC_ADDRESS,
   FUNCTION_SELECTOR,
   ARRAY,
