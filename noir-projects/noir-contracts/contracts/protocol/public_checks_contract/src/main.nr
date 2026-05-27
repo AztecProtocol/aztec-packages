@@ -1,5 +1,4 @@
 mod test;
-pub mod utils;
 
 use aztec::macros::aztec;
 
@@ -15,6 +14,7 @@ pub contract PublicChecks {
     // docs:start:check_timestamp
     /// Asserts that the current timestamp satisfies the `operation` with respect
     /// to the `value.
+    /// NOTE: signature is hardcoded in `aztec-nr/aztec/src/public_checks.nr`; keep in sync.
     #[external("public")]
     #[view]
     fn check_timestamp(operation: u8, value: u64) {
@@ -26,6 +26,7 @@ pub contract PublicChecks {
 
     /// Asserts that the current block number satisfies the `operation` with respect
     /// to the `value.
+    /// NOTE: signature is hardcoded in `aztec-nr/aztec/src/public_checks.nr`; keep in sync.
     #[external("public")]
     #[view]
     fn check_block_number(operation: u8, value: u32) {
