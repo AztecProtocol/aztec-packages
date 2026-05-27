@@ -104,20 +104,32 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     }
   });
 
-  it('collects attestations for all validators on a node', async () => {
-    // Ensure all nodes see each other, especially the sentinel, before starting slot counting
-    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
-
-    // Wait until validator nodes have advanced past their first proposed slot so that the
-    // pipelining warm-up period (where some attestations may be missed) is behind us.
+  const waitForPostWarmupCheckpoint = async (action: string): Promise<void> => {
     await t.monitor.run();
     const warmupSlot = Number(t.monitor.l2SlotNumber) + 1;
-    t.logger.info(`Waiting for warmup slot ${warmupSlot} before establishing initial slot`);
+    t.logger.info(`Waiting for warmup slot ${warmupSlot} before ${action}`);
     await retryUntil(
       async () => (await t.monitor.run()).l2SlotNumber >= warmupSlot,
       'warmup slot',
       AZTEC_SLOT_DURATION * 3,
     );
+
+    const warmupCheckpoint = t.monitor.checkpointNumber;
+    t.logger.info(`Waiting for checkpoint after warmup before ${action}`, { warmupCheckpoint });
+    await retryUntil(
+      async () => (await t.monitor.run()).checkpointNumber > warmupCheckpoint,
+      'post-warmup checkpoint',
+      AZTEC_SLOT_DURATION * (SLOT_COUNT + 1) * 3,
+    );
+  };
+
+  it('collects attestations for all validators on a node', async () => {
+    // Ensure all nodes see each other, especially the sentinel, before starting slot counting
+    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
+
+    // Wait until validator nodes have advanced past their first proposed slot and landed a checkpoint so that the
+    // pipelining warm-up period (where some attestations may be missed) is behind us.
+    await waitForPostWarmupCheckpoint('establishing initial slot');
 
     const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
 
@@ -155,6 +167,8 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   it('collects attestations for validators in proposer node when block is not published', async () => {
     // Ensure all nodes see each other, especially the sentinel
     await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
+
+    await waitForPostWarmupCheckpoint('stopping a validator node and establishing initial slot');
 
     // Stop the second node, this means the first node won't be able to propose since won't achieve quorum
     await tryStop(nodes[1]);
