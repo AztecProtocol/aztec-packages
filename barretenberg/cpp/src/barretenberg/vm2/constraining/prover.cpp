@@ -266,10 +266,10 @@ void AvmProver::execute_pcs_rounds()
     // [WIRES_TO_BE_SHIFTED_END_IDX, end]
     size_t max_idx_left_side = index_of_max_end_index(unshifted_polys.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX));
     size_t max_idx_right_side = index_of_max_end_index(unshifted_polys.subspan(WIRES_TO_BE_SHIFTED_END_IDX));
-    size_t max_idx_unshifted =
-        unshifted_polys[max_idx_left_side].end_index() > unshifted_polys[max_idx_right_side].end_index()
-            ? max_idx_left_side
-            : max_idx_right_side + WIRES_TO_BE_SHIFTED_END_IDX;
+    size_t max_idx_unshifted = unshifted_polys[max_idx_left_side].end_index() >
+                                       unshifted_polys[max_idx_right_side + WIRES_TO_BE_SHIFTED_END_IDX].end_index()
+                                   ? max_idx_left_side
+                                   : max_idx_right_side + WIRES_TO_BE_SHIFTED_END_IDX;
 
     // Assign the batched unshifted polynomial according to whether the largest poly was among the to be shifted polys
     // or not
