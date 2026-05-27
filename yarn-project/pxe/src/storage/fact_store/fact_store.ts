@@ -27,12 +27,15 @@ export class FactStore {
   #facts: AztecAsyncMap<string, Buffer>;
   /** (contract|scope|entityType|correlationKey) -> dedupKey */
   #factsByEntity: AztecAsyncMultiMap<string, string>;
+  /** (contract|scope|entityType) -> correlationKey hex */
+  #entitiesByType: AztecAsyncMultiMap<string, string>;
 
   constructor(store: AztecAsyncKVStore, chain: CanonicalityCheck) {
     this.#store = store;
     this.#chain = chain;
     this.#facts = store.openMap('facts');
     this.#factsByEntity = store.openMultiMap('facts_by_entity');
+    this.#entitiesByType = store.openMultiMap('facts_entities_by_type');
   }
 
   /** Insert a fact, scoped to a (contract, scope) pair. Idempotent: re-putting the same row key is a no-op overwrite. */
@@ -50,6 +53,7 @@ export class FactStore {
     return this.#store.transactionAsync(async () => {
       await this.#facts.set(dedupKey, this.#serialize(factType, payload, anchor));
       await this.#factsByEntity.set(entityKey, dedupKey);
+      await this.#entitiesByType.set(this.#typeKey(contract, scope, entityType), correlationKey.toString('hex'));
     });
   }
 
@@ -80,6 +84,19 @@ export class FactStore {
     const anchored = facts.filter((f): f is Anchored<StoredFact> => f.anchor !== null);
     const canonical = await filterCanonical(this.#chain, anchored);
     return [...unanchored, ...canonical];
+  }
+
+  /** Correlation keys of all entities of `entityType` for `(contract, scope)` that have at least one fact. */
+  async activeEntities(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId): Promise<Buffer[]> {
+    const seen = new Set<string>();
+    for await (const corrHex of this.#entitiesByType.getValuesAsync(this.#typeKey(contract, scope, entityType))) {
+      seen.add(corrHex);
+    }
+    return [...seen].map(hex => Buffer.from(hex, 'hex'));
+  }
+
+  #typeKey(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId): string {
+    return `${contract.toString()}:${scope.toString()}:${entityType.toString()}`;
   }
 
   #entityKey(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId, correlationKey: Buffer): string {

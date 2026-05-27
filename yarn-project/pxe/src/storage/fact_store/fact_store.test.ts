@@ -76,6 +76,17 @@ describe('FactStore', () => {
     expect(facts[0].anchor).toEqual({ blockNumber: 105, blockHash: '0xbb' });
   });
 
+  it('enumerates active entities for (contract, scope, entityType), deduped', async () => {
+    const corr2 = Buffer.from('correlation-key-2');
+    await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, Buffer.from('a'), null);
+    await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, Buffer.from('a2'), null); // same entity, 2nd fact
+    await store.put(contractA, scopeX, ENTITY, FACT_A, corr2, Buffer.from('b'), null);
+
+    const active = await store.activeEntities(contractA, scopeX, ENTITY);
+    expect(active.map(b => b.toString('hex')).sort()).toEqual([correlation, corr2].map(b => b.toString('hex')).sort());
+    expect(await store.activeEntities(contractB, scopeX, ENTITY)).toEqual([]);
+  });
+
   it('isolates facts by (contract, scope)', async () => {
     await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, Buffer.from('a'), null);
 
