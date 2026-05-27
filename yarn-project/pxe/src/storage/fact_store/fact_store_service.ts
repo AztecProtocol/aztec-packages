@@ -1,4 +1,3 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { Anchor } from '../foundation/anchor.js';
@@ -11,7 +10,7 @@ export class FactStoreService {
     private readonly allowedScopes: AztecAddress[],
   ) {}
 
-  async recordFact(
+  recordFact(
     contract: AztecAddress,
     scope: AztecAddress,
     entityType: EntityTypeId,
@@ -24,7 +23,7 @@ export class FactStoreService {
     return this.factStore.put(contract, scope, entityType, factType, correlationKey, payload, anchor);
   }
 
-  async loadCanonicalFactSet(
+  loadCanonicalFactSet(
     contract: AztecAddress,
     scope: AztecAddress,
     entityType: EntityTypeId,
@@ -34,12 +33,12 @@ export class FactStoreService {
     return this.factStore.loadCanonicalFactSet(contract, scope, entityType, correlationKey);
   }
 
-  async activeEntities(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId): Promise<Buffer[]> {
+  activeEntities(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId): Promise<Buffer[]> {
     assertAllowedScope(scope, this.allowedScopes);
     return this.factStore.activeEntities(contract, scope, entityType);
   }
 
-  async terminateEntity(
+  terminateEntity(
     contract: AztecAddress,
     scope: AztecAddress,
     entityType: EntityTypeId,

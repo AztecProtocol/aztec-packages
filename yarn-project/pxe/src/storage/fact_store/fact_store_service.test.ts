@@ -12,7 +12,7 @@ describe('FactStoreService', () => {
 
   it('rejects a disallowed scope', async () => {
     const svc = new FactStoreService(new FactStore(await openTmpStore('fss'), chain), [allowed]);
-    await expect(
+    expect(() =>
       svc.recordFact(
         contract,
         AztecAddress.fromBigInt(2n),
@@ -22,7 +22,7 @@ describe('FactStoreService', () => {
         Buffer.alloc(0),
         null,
       ),
-    ).rejects.toThrow(/not in the allowed scopes/);
+    ).toThrow(/not in the allowed scopes/);
   });
 
   it('allows the zero scope and an allowed scope', async () => {
