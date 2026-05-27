@@ -36,11 +36,7 @@ export class TXEStateMachine {
     contractStore: ContractStore,
     noteStore: NoteStore,
   ) {
-    const profileLog = createLogger('txe:profile');
-    const t0 = Date.now();
     const synchronizer = await TXESynchronizer.create();
-    const tSync = Date.now();
-    profileLog.info('TXEStateMachine.create timing', { syncMs: tSync - t0 });
     const aztecNodeConfig = {} as AztecNodeConfig;
 
     const log = createLogger('txe_node');
@@ -70,8 +66,6 @@ export class TXEStateMachine {
       log,
     );
 
-    const tNode = Date.now();
-
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
@@ -80,14 +74,6 @@ export class TXEStateMachine {
     );
 
     const messageContextService = new MessageContextService(node);
-
-    const tDone = Date.now();
-    profileLog.info('TXEStateMachine.create done', {
-      syncMs: tSync - t0,
-      nodeMs: tNode - tSync,
-      restMs: tDone - tNode,
-      totalMs: tDone - t0,
-    });
 
     return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, messageContextService);
   }

@@ -75,7 +75,7 @@ function deserializeError(payload: SerializedError | undefined): Error {
 }
 
 export interface TXEDispatcherPoolOptions {
-  /** Number of worker threads. Defaults to `min(cpus().length, 16)`. */
+  /** Number of worker threads */
   workers?: number;
 }
 
@@ -106,6 +106,7 @@ export class TXEDispatcherPool {
     private readonly logger: Logger,
     opts: TXEDispatcherPoolOptions = {},
   ) {
+    // TXE still doesn't scale well beyond 16 workers due to contention
     this.maxWorkers = Math.max(1, opts.workers ?? Math.min(cpus().length, 16));
     this.readyPromise = this.init();
   }

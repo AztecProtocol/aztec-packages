@@ -1,20 +1,7 @@
-// Lightweight stand-in for `@noble/curves/secp256k1` inside the TXE bundle. The real module
-// precomputes secp256k1 group and field tables at import (~50–80 ms per worker), and stdlib's
-// p2p / block-proposal / committee-attestation types statically import `Signature` from
-// `@aztec/foundation/eth-signature` — which uses `secp256k1` for verify/recover/sign. TXE only
-// uses `Signature` as a type for instanceof / Zod / serialization; it never verifies an L1
-// signature, so the math surface can throw on call without affecting any test.
+import { throwTrap } from '@aztec/foundation/error';
 
 const SECP_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 const SECP_FIELD_ORDER = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2fn;
-
-function throwingOp(name: string): never {
-  throw new Error(
-    `TXE stub: tried to call secp256k1 op '${name}'. TXE has stubbed @noble/curves/secp256k1 ` +
-      `because no test path verifies L1 signatures. If this fires, either remove the stub from ` +
-      `esbuild.config.mjs or check why TXE is reaching this code path.`,
-  );
-}
 
 const fieldStub = (byteSize: number, order: bigint) => ({
   BYTES: byteSize,
@@ -22,41 +9,41 @@ const fieldStub = (byteSize: number, order: bigint) => ({
   MASK: (1n << BigInt(byteSize * 8)) - 1n,
   ZERO: 0n,
   ONE: 1n,
-  add: () => throwingOp('add'),
-  sub: () => throwingOp('sub'),
-  mul: () => throwingOp('mul'),
-  div: () => throwingOp('div'),
-  neg: () => throwingOp('neg'),
-  sqr: () => throwingOp('sqr'),
-  sqrt: () => throwingOp('sqrt'),
-  pow: () => throwingOp('pow'),
-  inv: () => throwingOp('inv'),
-  eql: () => throwingOp('eql'),
-  isValid: () => throwingOp('isValid'),
-  is0: () => throwingOp('is0'),
-  create: () => throwingOp('create'),
-  fromBytes: () => throwingOp('fromBytes'),
-  toBytes: () => throwingOp('toBytes'),
+  add: () => throwTrap('secp256k1.add'),
+  sub: () => throwTrap('secp256k1.sub'),
+  mul: () => throwTrap('secp256k1.mul'),
+  div: () => throwTrap('secp256k1.div'),
+  neg: () => throwTrap('secp256k1.neg'),
+  sqr: () => throwTrap('secp256k1.sqr'),
+  sqrt: () => throwTrap('secp256k1.sqrt'),
+  pow: () => throwTrap('secp256k1.pow'),
+  inv: () => throwTrap('secp256k1.inv'),
+  eql: () => throwTrap('secp256k1.eql'),
+  isValid: () => throwTrap('secp256k1.isValid'),
+  is0: () => throwTrap('secp256k1.is0'),
+  create: () => throwTrap('secp256k1.create'),
+  fromBytes: () => throwTrap('secp256k1.fromBytes'),
+  toBytes: () => throwTrap('secp256k1.toBytes'),
 });
 
 export const secp256k1 = {
   CURVE: { n: SECP_ORDER, p: SECP_FIELD_ORDER, Gx: 0n, Gy: 0n },
   fields: { Fp: fieldStub(32, SECP_FIELD_ORDER), Fr: fieldStub(32, SECP_ORDER) },
   ProjectivePoint: {
-    ZERO: { x: 0n, y: 0n, z: 0n, equals: () => throwingOp('equals') },
+    ZERO: { x: 0n, y: 0n, z: 0n, equals: () => throwTrap('secp256k1.equals') },
     BASE: { x: 0n, y: 0n, z: 0n },
-    fromHex: () => throwingOp('fromHex'),
-    fromAffine: () => throwingOp('fromAffine'),
-    fromPrivateKey: () => throwingOp('fromPrivateKey'),
+    fromHex: () => throwTrap('secp256k1.fromHex'),
+    fromAffine: () => throwTrap('secp256k1.fromAffine'),
+    fromPrivateKey: () => throwTrap('secp256k1.fromPrivateKey'),
   },
-  Signature: { fromCompact: () => throwingOp('Signature.fromCompact') },
+  Signature: { fromCompact: () => throwTrap('secp256k1.Signature.fromCompact') },
   utils: {
-    randomPrivateKey: () => throwingOp('randomPrivateKey'),
-    isValidPrivateKey: () => throwingOp('isValidPrivateKey'),
-    normPrivateKeyToScalar: () => throwingOp('normPrivateKeyToScalar'),
+    randomPrivateKey: () => throwTrap('secp256k1.randomPrivateKey'),
+    isValidPrivateKey: () => throwTrap('secp256k1.isValidPrivateKey'),
+    normPrivateKeyToScalar: () => throwTrap('secp256k1.normPrivateKeyToScalar'),
   },
-  getPublicKey: () => throwingOp('getPublicKey'),
-  sign: () => throwingOp('sign'),
-  verify: () => throwingOp('verify'),
-  getSharedSecret: () => throwingOp('getSharedSecret'),
+  getPublicKey: () => throwTrap('secp256k1.getPublicKey'),
+  sign: () => throwTrap('secp256k1.sign'),
+  verify: () => throwTrap('secp256k1.verify'),
+  getSharedSecret: () => throwTrap('secp256k1.getSharedSecret'),
 };
