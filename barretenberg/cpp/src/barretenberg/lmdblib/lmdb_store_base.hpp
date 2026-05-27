@@ -11,7 +11,8 @@ class LMDBStoreBase {
     using ReadTransaction = LMDBReadTransaction;
     using WriteTransaction = LMDBWriteTransaction;
     using DBCreationTransaction = LMDBDatabaseCreationTransaction;
-    LMDBStoreBase(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs);
+    LMDBStoreBase(
+        std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs, bool ephemeral = false);
     LMDBStoreBase(const LMDBStoreBase& other) = delete;
     LMDBStoreBase& operator=(const LMDBStoreBase& other) = delete;
     LMDBStoreBase(LMDBStoreBase&& other) noexcept = default;

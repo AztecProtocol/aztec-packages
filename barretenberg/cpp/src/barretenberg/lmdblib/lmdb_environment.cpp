@@ -8,10 +8,8 @@
 
 namespace bb::lmdblib {
 
-LMDBEnvironment::LMDBEnvironment(const std::string& directory,
-                                 uint64_t mapSizeKB,
-                                 uint32_t maxNumDBs,
-                                 uint32_t maxNumReaders)
+LMDBEnvironment::LMDBEnvironment(
+    const std::string& directory, uint64_t mapSizeKB, uint32_t maxNumDBs, uint32_t maxNumReaders, bool ephemeral)
     : _id(0)
     , _directory(directory)
     , _readGuard(maxNumReaders)
@@ -21,6 +19,9 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
     uint64_t kb = 1024;
     uint64_t totalMapSize = kb * mapSizeKB;
     uint32_t flags = MDB_NOTLS;
+    if (ephemeral) {
+        flags |= MDB_NOSYNC | MDB_NOMETASYNC;
+    }
     try {
         call_lmdb_func("mdb_env_set_mapsize", mdb_env_set_mapsize, _mdbEnv, static_cast<size_t>(totalMapSize));
         call_lmdb_func("mdb_env_set_maxdbs", mdb_env_set_maxdbs, _mdbEnv, static_cast<MDB_dbi>(maxNumDBs));

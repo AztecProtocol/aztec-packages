@@ -36,12 +36,11 @@ if (!parentPort) {
 const port = parentPort;
 const logger: Logger = createLogger('txe:worker');
 
-// The pool builds a template LMDB containing the 6 canonical protocol contracts + the
-// SchnorrAccount artifact on the main thread and passes its path via `workerData`. The
-// dispatcher clones the LMDB into a fresh per-worker store so this worker gets a writable copy
-// already populated with all of them, without re-running artifact load / hash / write per
-// worker. The SchnorrAccount class id is passed alongside so the worker can look up the
-// pre-registered artifact when adding an account, instead of re-loading the 260 KiB JSON.
+// The pool builds a template LMDB containing AuthRegistry + the SchnorrAccount artifact on
+// the main thread and passes its data dir via `workerData`. The dispatcher clones the LMDB
+// into a fresh per-worker store so this worker gets a writable copy already populated,
+// without re-running artifact load / hash / write per worker. At w128 this saves ~5s of
+// warm wall clock vs. each worker registering on its own — see TXEDispatcher.warmUp().
 const dispatcherOpts: TXEDispatcherOptions = workerData?.contractStoreSourceDir
   ? {
       contractStoreSourceDir: workerData.contractStoreSourceDir,

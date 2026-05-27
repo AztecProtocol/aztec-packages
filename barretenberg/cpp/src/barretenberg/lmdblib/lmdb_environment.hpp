@@ -25,8 +25,19 @@ class LMDBEnvironment {
      * @param mapSizeKb The maximum size of the database, can be increased from a previously used value
      * @param maxNumDbs The maximum number of databases that can be created withn this environment
      * @param maxNumReaders The maximum number of concurrent read transactions permitted.
+     * @param ephemeral When true, opens the env with `MDB_NOSYNC | MDB_NOMETASYNC`. Commits
+     *                  return as soon as the dirty pages are queued; the kernel flushes them
+     *                  lazily and never blocks the commit. Files stay sparse (we deliberately
+     *                  avoid `MDB_WRITEMAP`, which would eagerly allocate the full map size
+     *                  on disk). Intended for short-lived ephemeral world states (e.g. TXE
+     *                  test sessions) that discard the directory on close; never use for a
+     *                  real node — a crash mid-write yields an unrecoverable env.
      */
-    LMDBEnvironment(const std::string& directory, uint64_t mapSizeKb, uint32_t maxNumDBs, uint32_t maxNumReaders);
+    LMDBEnvironment(const std::string& directory,
+                    uint64_t mapSizeKb,
+                    uint32_t maxNumDBs,
+                    uint32_t maxNumReaders,
+                    bool ephemeral = false);
     LMDBEnvironment(const LMDBEnvironment& other) = delete;
     LMDBEnvironment(LMDBEnvironment&& other) = delete;
     LMDBEnvironment& operator=(const LMDBEnvironment& other) = delete;

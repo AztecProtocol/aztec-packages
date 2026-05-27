@@ -84,7 +84,7 @@ export async function openTmpStore(
 
   // For temporary stores, we don't need to worry about versioning
   // as they are ephemeral and get cleaned up after use
-  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, bindings);
+  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, bindings, ephemeral);
 }
 
 export async function openStoreAt(

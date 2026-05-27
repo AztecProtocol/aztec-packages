@@ -41,11 +41,12 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     private dataDir: string,
     mapSize: number,
     maxReaders: number,
+    ephemeral: boolean,
     private log: Logger,
     private cleanup?: () => Promise<void>,
   ) {
     this.log.info(`Starting data store with maxReaders ${maxReaders}`);
-    this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders));
+    this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders, ephemeral));
     // leave one reader to always be available for regular, atomic, reads
     this.availableCursors = new Semaphore(maxReaders - 1);
   }
@@ -70,15 +71,23 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     this.open = true;
   }
 
+  /**
+   * @param ephemeral When true, the underlying LMDB env opens with `MDB_NOSYNC |
+   *                  MDB_NOMETASYNC` — commits return as soon as the dirty pages are queued
+   *                  in the page cache instead of waiting for fsync. The on-disk file is
+   *                  unrecoverable after a crash but stays sparse. Intended for throwaway
+   *                  scratch state; never use for a long-lived store.
+   */
   public static async new(
     dataDir: string,
     dbMapSizeKb: number = 10 * 1024 * 1024,
     maxReaders: number = 16,
     cleanup?: () => Promise<void>,
     bindings?: LoggerBindings,
+    ephemeral: boolean = false,
   ) {
     const log = createLogger('kv-store:lmdb-v2', bindings);
-    const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, log, cleanup);
+    const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, ephemeral, log, cleanup);
     await db.start();
     return db;
   }

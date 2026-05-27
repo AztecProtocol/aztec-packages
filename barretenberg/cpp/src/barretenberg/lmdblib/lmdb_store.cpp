@@ -14,8 +14,8 @@
 #include <stdexcept>
 
 namespace bb::lmdblib {
-LMDBStore::LMDBStore(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs)
-    : LMDBStoreBase(std::move(directory), mapSizeKb, maxNumReaders, maxDbs)
+LMDBStore::LMDBStore(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs, bool ephemeral)
+    : LMDBStoreBase(std::move(directory), mapSizeKb, maxNumReaders, maxDbs, ephemeral)
 {}
 
 void LMDBStore::open_database(const std::string& name, bool duplicateKeysPermitted)

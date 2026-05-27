@@ -93,6 +93,10 @@ const entryPoints = {
   'bin/index': 'src/bin/index.ts',
   // src/worker.ts → dest/worker.bundle.js (the file the pool spawns).
   'worker.bundle': 'src/worker.ts',
+  // src/rpc_server.ts → dest/server.bundle.js (the entry the parent `@aztec/aztec`
+  // CLI imports via `@aztec/txe/server`). Bundled so the published tarball can ship
+  // only the bundle outputs and not the tsc-emitted unbundled tree.
+  'server.bundle': 'src/rpc_server.ts',
 };
 
 const start = Date.now();
@@ -240,6 +244,97 @@ const result = await build({
         build.onResolve({ filter: /protocol-contracts\/(dest|src)\/provider\/bundle\.(js|ts)$/ }, () => ({
           path: stubPath,
         }));
+      },
+    },
+    // Redirect `@aztec/archiver` to a minimal stub that re-exports only the three symbols
+    // TXE actually uses (`ArchiverDataSourceBase`, `ArchiverDataStoreUpdater`,
+    // `createArchiverDataStores`). The package's barrel re-exports 18 modules without
+    // `sideEffects: false`, so the eager bundle otherwise pulls in `archiver.js`, `factory.js`
+    // (drags `l1_synchronizer.js`), `store/block_store.js`, `store/log_store.js`, and the
+    // l1 retrieval code — together ~150 KiB that the TXE worker never executes.
+    {
+      name: 'aztec-archiver-stub',
+      setup(build) {
+        const stubPath = new URL('./src/stubs/archiver_stub.ts', import.meta.url).pathname;
+        build.onResolve({ filter: /^@aztec\/archiver$/ }, () => ({ path: stubPath }));
+      },
+    },
+    // Redirect `@aztec/bb-prover/test` to a stub that re-exports only `TestCircuitVerifier`.
+    // The barrel also exports `TestCircuitProver`, which transitively pulls in the prover-
+    // server stack (`bb-prover/server/bb_prover.js`, ~24 KiB) — TXE never proves, so we drop
+    // the prover entirely.
+    {
+      name: 'bb-prover-test-stub',
+      setup(build) {
+        const stubPath = new URL('./src/stubs/bb_prover_test_stub.ts', import.meta.url).pathname;
+        build.onResolve({ filter: /^@aztec\/bb-prover\/test$/ }, () => ({ path: stubPath }));
+      },
+    },
+    // Stub `aztec-node/dest/sentinel/factory.js` + `sentinel.js`. The validator-set "sentinel"
+    // subsystem is constructed and started inside `AztecNodeService.start()`, a code path TXE
+    // never invokes (TXE constructs the node directly via `new AztecNodeService(...)` with
+    // sentinel = undefined). Throwing trap stubs satisfy the imports without bundling the
+    // sentinel + its KV store. The `instrumentation.js` shim handles `node_metrics.js`'s
+    // sibling chain that the sentinel's metric registration would otherwise drag in.
+    // Stub `aztec-node/aztec-node/node_metrics.js` — TXE constructs `AztecNodeService` so
+    // this class is instantiated, but the metric record-paths inside it are never reached
+    // by the TXE foreign-call flow. Real `NodeMetrics` triggers a static import of
+    // `@aztec/telemetry-client/metrics` (~66 KiB) to read `Metrics.NODE_*` constants; the
+    // no-op stub drops that without affecting any reachable code path.
+    {
+      name: 'aztec-node-node-metrics-stub',
+      setup(build) {
+        const stubPath = new URL('./src/stubs/aztec_node_node_metrics_stub.ts', import.meta.url).pathname;
+        build.onResolve({ filter: /^\.\/node_metrics\.(js|ts)$/ }, args => {
+          if (!args.importer.includes('/aztec-node/')) return null;
+          return { path: stubPath };
+        });
+      },
+    },
+    {
+      name: 'aztec-node-sentinel-stub',
+      setup(build) {
+        const factoryStub = new URL('./src/stubs/aztec_node_sentinel_factory_stub.ts', import.meta.url).pathname;
+        const sentinelStub = new URL('./src/stubs/aztec_node_sentinel_stub.ts', import.meta.url).pathname;
+        // `aztec-node/server.js` uses relative imports (`../sentinel/factory.js`,
+        // `../sentinel/sentinel.js`) which esbuild presents to `onResolve` as the original
+        // specifier — we match the tail and gate by the importer being inside aztec-node so
+        // we don't accidentally hijack same-named files in another package.
+        build.onResolve({ filter: /^\.\.\/sentinel\/factory\.(js|ts)$/ }, args => {
+          if (!args.importer.includes('/aztec-node/')) return null;
+          return { path: factoryStub };
+        });
+        build.onResolve({ filter: /^\.\.\/sentinel\/sentinel\.(js|ts)$/ }, args => {
+          if (!args.importer.includes('/aztec-node/')) return null;
+          return { path: sentinelStub };
+        });
+      },
+    },
+    // Redirect the `@aztec/world-state` package barrel (the bare specifier) to a throw-stub.
+    // `aztec-node/server.js` is the only consumer in the TXE bundle and only uses
+    // `createWorldState` + `createWorldStateSynchronizer` inside `AztecNodeService.start()`,
+    // a code path TXE never invokes. Stubbing the barrel drops ~22 KiB of
+    // `server_world_state_synchronizer.js` + factory + `world-state-db/*` from the eager
+    // chunk. TXE's own imports use the `/native` subpath, which is left untouched.
+    {
+      name: 'world-state-stub',
+      setup(build) {
+        const stubPath = new URL('./src/stubs/world_state_stub.ts', import.meta.url).pathname;
+        build.onResolve({ filter: /^@aztec\/world-state$/ }, () => ({ path: stubPath }));
+      },
+    },
+    // Redirect the `@aztec/bb-prover` package barrel itself to a throw-stub bundle. Only
+    // `AztecNodeService`'s server.js statically references three verifier classes from the
+    // barrel, and TXE never reaches the code paths that instantiate them — so we provide
+    // identifier-only classes that throw on construction. This drops the entire
+    // `./prover`, `./verifier`, `./bb`, `./honk`, and `./verification_key` re-exports
+    // (`test_circuit_prover.js` 19 KiB, `bb_prover.js` 24 KiB, plus VK data) from the
+    // eager startup chunk.
+    {
+      name: 'bb-prover-stub',
+      setup(build) {
+        const stubPath = new URL('./src/stubs/bb_prover_stub.ts', import.meta.url).pathname;
+        build.onResolve({ filter: /^@aztec\/bb-prover$/ }, () => ({ path: stubPath }));
       },
     },
     // Redirect `@noble/curves/secp256k1` to a stub. The real module precomputes the secp256k1

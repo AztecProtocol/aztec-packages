@@ -9,10 +9,10 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/foundation/log';
 import { openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { protocolContractNames } from '@aztec/protocol-contracts';
+import type { ProtocolContractName } from '@aztec/protocol-contracts';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
-import { computeArtifactHash } from '@aztec/stdlib/contract';
+import { computeArtifactHash, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { ContractArtifactWithHash } from '@aztec/stdlib/contract';
 import type { ApiSchemaFor } from '@aztec/stdlib/schemas';
 import { zodFor } from '@aztec/stdlib/schemas';
@@ -40,6 +40,13 @@ import {
   fromSingle,
   toSingle,
 } from './utils/encoding.js';
+
+// Protocol contracts TXE actually requires registered in its contract store. The full set
+// `protocolContractNames` includes six contracts; TXE token-suite tests only ever look up
+// AuthRegistry (for authwit validation). Loading the others spends ~200 KiB of artifact
+// reads + 4 LMDB writes per session warm-up. Add a contract here if a test ever fails
+// with a "contract not found" lookup against a 0x000…00X address.
+export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = ['AuthRegistry'];
 
 const sessions = new Map<number, TXESession>();
 
@@ -122,19 +129,19 @@ export const TXEForeignCallInputSchema = zodFor<TXEForeignCallInput>()(
 
 export interface TXEDispatcherOptions {
   /**
-   * Path to an LMDB directory that already holds the 6 canonical protocol contracts. When set,
+   * Path to an LMDB directory that already holds the required protocol contracts (see
+   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}) and the SchnorrAccount artifact. When set,
    * `warmUp()` skips the artifact load + registration step and instead **clones** the source
-   * directory into a fresh per-worker LMDB. Workers then read and write that local copy, so
-   * there is no cross-worker LMDB write contention (which kills concurrency when sharing a
-   * single env), but they also never re-run `LazyProtocolContractsProvider` /
-   * `loadContractArtifact` / `computeArtifactHash` for the 6 protocol contracts — the pool's
-   * main thread does that work once.
+   * directory into a fresh per-worker LMDB. The pool's main thread builds the source once;
+   * workers clone the data.mdb file which is much cheaper than re-running the lazy
+   * provider + LMDB writes in every worker.
    */
   contractStoreSourceDir?: string;
   /**
-   * Class id (hex) of the SchnorrAccount artifact pre-registered in the shared LMDB. When set,
-   * `#processAddAccountInputs` looks the artifact up from the (cloned) contract store instead
-   * of calling `getSchnorrAccountContractArtifact()` + `computeArtifactHash()` per session.
+   * Class id (hex) of the SchnorrAccount artifact pre-registered in the shared LMDB. When
+   * set, `#processAddAccountInputs` looks the artifact up from the (cloned) contract store
+   * instead of re-running `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`
+   * per session.
    */
   schnorrClassId?: string;
 }
@@ -155,11 +162,10 @@ export class TXEDispatcher {
   /**
    * Initializes the contract store. When `contractStoreSourceDir` is set (the pool path),
    * the pre-populated LMDB is copied to a fresh per-worker tmpdir so the worker has a
-   * writable store that already contains all 6 protocol contracts.
+   * writable store that already contains the required protocol contracts + SchnorrAccount.
    *
-   * Otherwise we create an empty tmp store and register the 6 protocol contracts — the slower
-   * path used when TXEDispatcher is instantiated stand-alone (e.g. by tests or the no-pool TXE
-   * entry).
+   * Otherwise (standalone TXE / unit tests) we create an empty tmp store and register the
+   * required contracts from scratch.
    *
    * Safe to invoke more than once; subsequent calls are no-ops.
    */
@@ -169,10 +175,10 @@ export class TXEDispatcher {
     }
     const t0 = Date.now();
     if (this.contractStoreSourceDir) {
-      // LMDB env on disk is `data.mdb` (data + b-tree) + `lock.mdb` (process lock table). Only
-      // data.mdb carries state; lock.mdb is rebuilt the first time an env is opened on the new
-      // path. Copying just the data file gives this worker a writable LMDB pre-populated with
-      // every protocol-contract entry the pool's main thread wrote into the source.
+      // LMDB env on disk is `data.mdb` (data + b-tree) + `lock.mdb` (process lock table).
+      // Only data.mdb carries state; lock.mdb is rebuilt the first time an env is opened on
+      // the new path. Copying just the data file gives this worker a writable LMDB
+      // pre-populated with every entry the pool's main thread wrote into the source.
       const cloneDir = await mkdtemp(join(tmpdir(), 'txe-contracts-'));
       await copyFile(join(this.contractStoreSourceDir, 'data.mdb'), join(cloneDir, 'data.mdb'));
       const tClone = Date.now();
@@ -189,14 +195,19 @@ export class TXEDispatcher {
     const tKv = Date.now();
     this.contractStore = new ContractStore(kvStore);
     const provider = new LazyProtocolContractsProvider();
-    const resolved = await Promise.all(protocolContractNames.map(name => provider.getProtocolContractArtifact(name)));
+    const [protocolContracts, schnorrArtifact] = await Promise.all([
+      Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
+      getSchnorrAccountContractArtifact(),
+    ]);
+    const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);
     const tResolved = Date.now();
-    await Promise.all(
-      resolved.flatMap(({ instance, artifact, contractClass }) => [
+    await Promise.all([
+      ...protocolContracts.flatMap(({ instance, artifact, contractClass }) => [
         this.contractStore.addContractArtifact(artifact, contractClass),
         this.contractStore.addContractInstance(instance),
       ]),
-    );
+      this.contractStore.addContractArtifact(schnorrArtifact, schnorrClass),
+    ]);
     const tDone = Date.now();
     this.logger.info('Registered protocol contracts in fresh contract store', {
       kvOpenMs: tKv - t0,
@@ -333,8 +344,7 @@ export class TXEDispatcher {
             }
             computedArtifact = { ...artifactFromStore, artifactHash: classWithPreimage.artifactHash };
           } else {
-            // Standalone path (TXE_WORKERS=0, unit tests): no pool, no shared store — load and
-            // hash the artifact ourselves via the lazy entrypoint.
+            // Standalone path (no pool, no shared store): load + hash via the lazy entrypoint.
             const schnorrArtifact = await getSchnorrAccountContractArtifact();
             computedArtifact = { ...schnorrArtifact, artifactHash: await computeArtifactHash(schnorrArtifact) };
           }

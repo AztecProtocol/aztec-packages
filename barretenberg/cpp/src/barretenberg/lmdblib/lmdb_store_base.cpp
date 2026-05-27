@@ -1,9 +1,10 @@
 #include "barretenberg/lmdblib/lmdb_store_base.hpp"
 
 namespace bb::lmdblib {
-LMDBStoreBase::LMDBStoreBase(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs)
+LMDBStoreBase::LMDBStoreBase(
+    std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs, bool ephemeral)
     : _dbDirectory(std::move(directory))
-    , _environment((std::make_shared<LMDBEnvironment>(_dbDirectory, mapSizeKb, maxDbs, maxNumReaders)))
+    , _environment(std::make_shared<LMDBEnvironment>(_dbDirectory, mapSizeKb, maxDbs, maxNumReaders, ephemeral))
 {}
 LMDBStoreBase::~LMDBStoreBase() = default;
 LMDBStoreBase::ReadTransaction::Ptr LMDBStoreBase::create_read_transaction() const

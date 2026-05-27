@@ -35,7 +35,8 @@ class LMDBStore : public LMDBStoreBase {
         std::string name;
     };
 
-    LMDBStore(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs);
+    LMDBStore(
+        std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs, bool ephemeral = false);
     LMDBStore(const LMDBStore& other) = delete;
     LMDBStore(LMDBStore&& other) = delete;
     LMDBStore& operator=(const LMDBStore& other) = delete;

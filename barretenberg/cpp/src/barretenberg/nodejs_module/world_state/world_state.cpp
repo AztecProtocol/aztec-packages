@@ -169,6 +169,18 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         thread_pool_size = info[thread_pool_size_index].As<Napi::Number>().Uint32Value();
     }
 
+    // `ephemeral` opens each underlying LMDB env with `MDB_NOSYNC | MDB_NOMETASYNC` —
+    // commits never block on fsync, files stay sparse, and a crash mid-write yields an
+    // unrecoverable env. Intended for throwaway scratch state (TXE test sessions).
+    bool ephemeral = false;
+    size_t ephemeral_index = 8;
+    if (info.Length() > ephemeral_index) {
+        if (!info[ephemeral_index].IsBoolean()) {
+            throw Napi::TypeError::New(env, "Ephemeral flag must be a boolean");
+        }
+        ephemeral = info[ephemeral_index].As<Napi::Boolean>().Value();
+    }
+
     _ws = std::make_unique<WorldState>(thread_pool_size,
                                        data_dir,
                                        map_size,
@@ -176,7 +188,8 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
                                        tree_prefill,
                                        prefilled_public_data,
                                        initial_header_generator_point,
-                                       genesis_timestamp);
+                                       genesis_timestamp,
+                                       ephemeral);
 
     _dispatcher.register_target(
         WorldStateMessageType::GET_TREE_INFO,

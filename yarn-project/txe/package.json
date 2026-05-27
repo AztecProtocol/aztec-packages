@@ -3,8 +3,10 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./server": "./dest/rpc_server.js"
+    "./server": {
+      "types": "./dest/rpc_server.d.ts",
+      "import": "./dest/server.bundle.js"
+    }
   },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
@@ -97,11 +99,16 @@
     "typescript": "^5.3.3"
   },
   "files": [
+    "dest/bin/index.js",
+    "dest/worker.bundle.js",
+    "dest/server.bundle.js",
+    "dest/chunk-*.js",
+    "dest/*-*.js",
+    "dest/rpc_server.d.ts",
     "dest",
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts",
   "engines": {
     "node": ">=20.10"
   }

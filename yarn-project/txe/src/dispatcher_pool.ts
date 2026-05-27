@@ -2,7 +2,6 @@ import { getSchnorrAccountContractArtifact } from '@aztec/accounts/schnorr/lazy'
 import { BackendType, Barretenberg, BarretenbergSync } from '@aztec/bb.js';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { protocolContractNames } from '@aztec/protocol-contracts';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -12,6 +11,7 @@ import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
+import { TXE_REQUIRED_PROTOCOL_CONTRACTS } from './index.js';
 import type { TXEForeignCallInput } from './index.js';
 import type { ForeignCallResult } from './utils/encoding.js';
 
@@ -117,11 +117,17 @@ export class TXEDispatcherPool {
 
   private async start(n: number): Promise<void> {
     const poolStart = Date.now();
-    // Build the shared protocol-contracts LMDB BEFORE spawning workers, so each worker can open
-    // it as a reader instead of duplicating the artifact load + LMDB writes 8 times.
+    // Build the shared protocol-contracts LMDB on main BEFORE spawning workers, so each
+    // worker can clone the data.mdb instead of re-running the artifact load + LMDB writes.
+    // Empirically saves ~5s of warm wall-clock at w128 vs. each worker registering on its
+    // own (per-worker registration is ~100ms but the contention across 128 parallel workers
+    // multiplies that out).
     const { dataDir: contractStoreSourceDir, schnorrClassId } = await this.buildSharedContractStore();
-    const setupMs = Date.now() - poolStart;
-    this.logger.info(`Built shared protocol-contracts store`, { contractStoreSourceDir, schnorrClassId, ms: setupMs });
+    this.logger.info(`Built shared protocol-contracts store`, {
+      contractStoreSourceDir,
+      schnorrClassId,
+      ms: Date.now() - poolStart,
+    });
 
     const workerPath = resolveWorkerBundlePath();
     for (let i = 0; i < n; i++) {
@@ -164,14 +170,15 @@ export class TXEDispatcherPool {
   }
 
   /**
-   * Opens a fresh LMDB at a tmp dir and writes the 6 canonical protocol contracts AND the
-   * SchnorrAccount artifact into it. Workers clone the resulting `data.mdb` and look the
-   * SchnorrAccount artifact up by class id, skipping the per-worker
-   * `getSchnorrAccountContractArtifact` + `computeArtifactHash` work entirely.
+   * Opens a fresh LMDB at a tmp dir and writes the required protocol contracts (see
+   * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}) along with the SchnorrAccount artifact. Workers
+   * clone the resulting `data.mdb` and look the SchnorrAccount artifact up by class id,
+   * skipping the per-worker `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`
+   * work entirely.
    *
-   * Returns the directory path and the SchnorrAccount class id (hex). The store is intentionally
-   * not closed here: keeping the writer handle alive avoids LMDB removing the tmp directory
-   * mid-flight (see `openTmpStore`'s cleanup hook).
+   * Returns the directory path and the SchnorrAccount class id (hex). The store is
+   * intentionally not closed here: keeping the writer handle alive avoids LMDB removing the
+   * tmp directory mid-flight (see `openTmpStore`'s cleanup hook).
    */
   private async buildSharedContractStore(): Promise<{ dataDir: string; schnorrClassId: string }> {
     const kvStore = await openTmpStore('txe-shared-contracts', true, undefined, 2);
@@ -179,7 +186,7 @@ export class TXEDispatcherPool {
     const contractStore = new ContractStore(kvStore);
     const provider = new LazyProtocolContractsProvider();
     const [protocolContracts, schnorrArtifact] = await Promise.all([
-      Promise.all(protocolContractNames.map(name => provider.getProtocolContractArtifact(name))),
+      Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
       getSchnorrAccountContractArtifact(),
     ]);
     const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);

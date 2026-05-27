@@ -1,9 +1,4 @@
 #!/usr/bin/env -S node --no-warnings
-// Cap the native world-state thread pool *before* any import touches @aztec/world-state.
-// `MAX_WORLD_STATE_THREADS` (yarn-project/world-state/src/native/native_world_state_instance.ts)
-// reads HARDWARE_CONCURRENCY at module load and defaults to 16; with N workers in the pool
-// each one would otherwise spin up 16 libuv threads, which is wasteful for TXE's small
-// per-test workload. Workers inherit `process.env`, so setting it here is enough.
 import { createLogger } from '@aztec/aztec.js/log';
 import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 
@@ -15,6 +10,10 @@ import { createTXERpcServer } from '../rpc_server.js';
 // each one would otherwise spin up 16 libuv threads, which is wasteful for TXE's small
 // per-test workload. Workers inherit `process.env`, so setting it here is enough.
 process.env.HARDWARE_CONCURRENCY ??= '2';
+
+// TXE's state machine uses `NativeWorldStateService.ephemeral()` — auto-managed tmpdir +
+// `MDB_NOSYNC | MDB_NOMETASYNC` on the underlying LMDB envs. Persistent node code paths
+// (`createStore`, `openVersionedStoreAt`, `NativeWorldStateService.new`) keep full fsync.
 
 /**
  * Create and start a new TXE HTTP Server

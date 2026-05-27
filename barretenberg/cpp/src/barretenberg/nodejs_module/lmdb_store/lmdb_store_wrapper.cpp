@@ -56,7 +56,21 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
         }
     }
 
-    _store = std::make_unique<lmdblib::LMDBStore>(data_dir, map_size, max_readers, 2);
+    // `ephemeral` opens the LMDB env with `MDB_NOSYNC | MDB_NOMETASYNC`, so commits return
+    // without waiting for fsync. The on-disk file is unrecoverable after a crash but stays
+    // sparse on every byte LMDB doesn't touch; the trade-off is appropriate for tmp stores
+    // that get cleaned up on close (see `openTmpStore`).
+    size_t ephemeral_index = 3;
+    bool ephemeral = false;
+    if (info.Length() > ephemeral_index) {
+        if (info[ephemeral_index].IsBoolean()) {
+            ephemeral = info[ephemeral_index].As<Napi::Boolean>().Value();
+        } else if (!info[ephemeral_index].IsUndefined()) {
+            throw Napi::TypeError::New(env, "The ephemeral flag must be a boolean");
+        }
+    }
+
+    _store = std::make_unique<lmdblib::LMDBStore>(data_dir, map_size, max_readers, 2, ephemeral);
 
     _msg_processor.register_handler(LMDBStoreMessageType::OPEN_DATABASE, this, &LMDBStoreWrapper::open_database);
 
