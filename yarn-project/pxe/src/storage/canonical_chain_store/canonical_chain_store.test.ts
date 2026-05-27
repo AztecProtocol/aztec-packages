@@ -52,6 +52,28 @@ describe('canonical chain map', () => {
     await expect(chain.tipHeight()).resolves.toEqual(105);
   });
 
+  it('setMany records multiple hashes at once', async () => {
+    await chain.setMany([
+      { blockNumber: 103, blockHash: '0xa' },
+      { blockNumber: 104, blockHash: '0xb' },
+      { blockNumber: 105, blockHash: '0xc' },
+    ]);
+    await expect(chain.hashAt(103)).resolves.toEqual('0xa');
+    await expect(chain.hashAt(104)).resolves.toEqual('0xb');
+    await expect(chain.hashAt(105)).resolves.toEqual('0xc');
+  });
+
+  it('setMany writes through to KV (survives a reload)', async () => {
+    await chain.setMany([
+      { blockNumber: 103, blockHash: '0xa' },
+      { blockNumber: 104, blockHash: '0xb' },
+    ]);
+    const reopened = new CanonicalChainStore(store);
+    await reopened.load();
+    await expect(reopened.hashAt(103)).resolves.toEqual('0xa');
+    await expect(reopened.hashAt(104)).resolves.toEqual('0xb');
+  });
+
   it('load() repopulates the in-memory map from KV', async () => {
     await chain.set(105, '0xaaa');
     const reopened = new CanonicalChainStore(store);

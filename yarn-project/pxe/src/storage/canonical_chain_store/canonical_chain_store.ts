@@ -57,6 +57,19 @@ export class CanonicalChainStore {
     await this.#canonicalHashes.set(blockNumber, blockHash);
   }
 
+  /**
+   * Record the canonical hash at several heights in one call. Like {@link set}, each entry is
+   * written through to both the in-memory map and KV.
+   *
+   * Inherits the no-`transactionAsync` constraint documented on {@link setHeader}: this runs during
+   * reorg handling alongside other stores, and `transactionAsync` is not reentrant on IndexedDB.
+   */
+  async setMany(anchors: Anchor[]): Promise<void> {
+    for (const { blockNumber, blockHash } of anchors) {
+      await this.set(blockNumber, blockHash);
+    }
+  }
+
   /** The canonical hash at a height, or undefined if no entry. */
   hashAt(blockNumber: number): Promise<string | undefined> {
     return Promise.resolve(this.#mem.get(blockNumber));
