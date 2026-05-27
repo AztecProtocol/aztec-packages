@@ -19,6 +19,10 @@ on:
         description: 'Git ref the session should work against (e.g., origin/merge-train/barretenberg)'
         required: false
         type: string
+      group:
+        description: 'Cloxy group name'
+        required: false
+        type: string
       slack_channel:
         description: 'Slack channel ID to thread status into (set by the kickoff script)'
         required: false
@@ -127,6 +131,7 @@ jobs:
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
+          CLAUDEBOX_GROUP: ${{ inputs.group || '' }}
           SLACK_CHANNEL: ${{ inputs.slack_channel || '' }}
           SLACK_THREAD_TS: ${{ inputs.slack_thread_ts || '' }}
         run: |
@@ -143,9 +148,11 @@ jobs:
             --arg repo "$REPO" \
             --arg run_url "$RUN_URL" \
             --arg link "$CLAUDEBOX_LINK" \
+            --arg group "$CLAUDEBOX_GROUP" \
             --arg slack_channel "$SLACK_CHANNEL" \
             --arg slack_thread_ts "$SLACK_THREAD_TS" \
             '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, slack_channel: $slack_channel, slack_thread_ts: $slack_thread_ts}
+             + (if $group != "" then {group: $group} else {} end)
              + (if $comment_id != "" then {comment_id: ($comment_id | tonumber)} else {} end)
              + (if $run_comment_id != "" then {run_comment_id: ($run_comment_id | tonumber)} else {} end)')
 

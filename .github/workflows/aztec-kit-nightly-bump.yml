@@ -1,0 +1,51 @@
+name: Aztec Kit Nightly Bump
+on:
+  workflow_run:
+    workflows: ["Deploy Next Net"]
+    types: [completed]
+
+jobs:
+  bump:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for next-net readiness
+        run: |
+          URL="https://next-net.aztec.network:8080"
+          for i in $(seq 1 20); do
+            if curl -fsSL --max-time 10 -o /dev/null "$URL" 2>/dev/null; then
+              echo "next-net is responding"
+              sleep 30
+              exit 0
+            fi
+            echo "Attempt $i: next-net not ready, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::next-net not ready within 5 minutes"
+          exit 1
+
+      - name: Trigger nightly bump
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          DEPLOY_RUN="${{ github.event.workflow_run.html_url }}"
+
+          "$GITHUB_WORKSPACE/ci3/slack_notify_with_claudebox_kickoff" \
+            "C07R3GTKJ49" \
+            ":rocket: Nightly v5 deploy to next-net succeeded (<${DEPLOY_RUN}|deploy run>). Driving the aztec-kit bump." \
+            "Deploy-next-net succeeded (run: ${DEPLOY_RUN}). Bump aztec-labs-eng/aztec-kit:
+
+          1. Clone aztec-labs-eng/aztec-kit, branch cb/nightly-bump-\$(date -u +%Y%m%d).
+          2. Export L1 key: test -f \"\$L1_FUNDER_KEY_FILE\" && export L1_FUNDER_KEY=\"\$(cat \"\$L1_FUNDER_KEY_FILE\")\". Stop if missing.
+          3. Bump: SHELL=/bin/bash CI=1 node scripts/update.js. Commit as chore(nightly): bump @aztec/* to <version>.
+          4. yarn workspace @aztec-kit/e2e exec playwright install chromium && yarn format && yarn build && yarn test. Amend format changes into bump commit. If bcrypto fails: (cd \"\$HOME/.aztec/versions/<ver>\" && npm rebuild bcrypto --foreground-scripts).
+          5. (Failure only) Read migration_notes.md from AztecProtocol/aztec-packages next. Fix and commit separately as fix(migration): adapt to <version>.
+          6. yarn setup:nextnet to deploy contracts. SponsoredFPC is NOT deployed by scripts — ignore it.
+          7. Open PR against main with label claudebox. Include deploy run link, version, contract addresses. Never include L1_FUNDER_KEY.
+          8. Return PR URL as final response.
+
+          Use create_pr/update_pr MCP tools with repo=aztec-labs-eng/aztec-kit. Call session_status between steps." \
+            --group "aztec-kit-nightly"

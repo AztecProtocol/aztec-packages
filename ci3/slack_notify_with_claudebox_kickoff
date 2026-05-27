@@ -2,7 +2,7 @@
 set -eu
 # Post a Slack notification and dispatch ClaudeBox to investigate.
 #
-# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>] [--target-ref <ref>]
+# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>] [--target-ref <ref>] [--group <name>]
 #
 # Requires: SLACK_BOT_TOKEN
 # Optional: CLAUDEBOX_REPO (default: AztecProtocol/aztec-packages)
@@ -21,10 +21,12 @@ shift 3
 
 link=""
 target_ref=""
+group=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --link) link="$2"; shift 2 ;;
     --target-ref) target_ref="$2"; shift 2 ;;
+    --group) group="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -53,6 +55,9 @@ fi
 extra_args=()
 if [[ -n "$target_ref" ]]; then
   extra_args+=(-f "target_ref=$target_ref")
+fi
+if [[ -n "$group" ]]; then
+  extra_args+=(-f "group=$group")
 fi
 if [[ -n "${CHANNEL_ID:-}" ]]; then
   extra_args+=(-f "slack_channel=$CHANNEL_ID")
