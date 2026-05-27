@@ -19,15 +19,28 @@ export class RustCodegen {
     switch (type.kind) {
       case 'primitive':
         switch (type.primitive) {
-          case 'bool': return 'bool';
-          case 'u8': return 'u8';
-          case 'u16': return 'u16';
-          case 'u32': return 'u32';
-          case 'u64': return 'u64';
-          case 'f64': return 'f64';
-          case 'string': return 'String';
-          case 'bytes': return 'Vec<u8>';
-          case 'field2': return '[Vec<u8>; 2]';  // Extension field (Fq2) - pair of 32-byte field elements
+          case 'bool':
+            return 'bool';
+          case 'u8':
+            return 'u8';
+          case 'u16':
+            return 'u16';
+          case 'u32':
+            return 'u32';
+          case 'u64':
+            return 'u64';
+          case 'f64':
+            return 'f64';
+          case 'string':
+            return 'String';
+          case 'bytes':
+            return 'Vec<u8>';
+          case 'field2':
+            return '[Vec<u8>; 2]'; // Extension field (Fq2) - pair of 32-byte field elements
+          case 'enum_u32':
+            return 'u32'; // C++ enum serialized as uint32
+          case 'map_u32_pair':
+            return 'std::collections::HashMap<u32, (Vec<u8>, u64)>';
         }
         break;
 
@@ -101,9 +114,7 @@ export class RustCodegen {
     const fields = struct.fields.map(f => this.generateField(f)).join('\n');
 
     // Add serde rename if struct name changed
-    const serdeRename = struct.name !== rustName
-      ? `\n#[serde(rename = "${struct.name}")]`
-      : '';
+    const serdeRename = struct.name !== rustName ? `\n#[serde(rename = "${struct.name}")]` : '';
 
     // Commands need __typename field for struct identification, but skip it during serialization
     const typenameField = isCommand
@@ -122,9 +133,7 @@ ${typenameField}${fields}
 
   // Generate constructor for command structs
   private generateConstructor(struct: Struct, rustName: string): string {
-    const params = struct.fields.map(f =>
-      `${toSnakeCase(f.name)}: ${this.mapType(f.type)}`
-    ).join(', ');
+    const params = struct.fields.map(f => `${toSnakeCase(f.name)}: ${this.mapType(f.type)}`).join(', ');
 
     const fieldInits = [
       `            type_name: "${struct.name}".to_string(),`,
@@ -173,9 +182,7 @@ ${fieldInits}
       })
       .join('\n');
 
-    const variantNames = names
-      .map(name => `"${name}"`)
-      .join(', ');
+    const variantNames = names.map(name => `"${name}"`).join(', ');
 
     return `/// Command enum - wraps all possible commands
 #[derive(Debug, Clone)]
@@ -226,9 +233,7 @@ ${deserializeCases}
     // Include all response types from commands plus ErrorResponse if it exists
     const commandResponseTypes = Array.from(new Set(schema.commands.map(c => c.responseType)));
     const errorName = schema.errorTypeName || 'ErrorResponse';
-    const responseTypes = schema.responses.has(errorName)
-      ? [...commandResponseTypes, errorName]
-      : commandResponseTypes;
+    const responseTypes = schema.responses.has(errorName) ? [...commandResponseTypes, errorName] : commandResponseTypes;
     const variants = responseTypes
       .map(name => {
         const rustName = toPascalCase(name);
@@ -460,27 +465,31 @@ ${this.generateResponseEnum(schema)}
   }
 
   // Generate API method
-  private generateApiMethod(command: {name: string, fields: Field[], responseType: string}): string {
+  private generateApiMethod(command: { name: string; fields: Field[]; responseType: string }): string {
     const methodName = toSnakeCase(command.name);
     const cmdRustName = toPascalCase(command.name);
     const respRustName = toPascalCase(command.responseType);
 
-    const params = command.fields.map(f => {
-      const rustType = this.mapType(f.type);
-      // Only convert simple Vec<u8> to &[u8], not nested types
-      const apiType = rustType === 'Vec<u8>' ? '&[u8]' : rustType;
-      return `${toSnakeCase(f.name)}: ${apiType}`;
-    }).join(', ');
+    const params = command.fields
+      .map(f => {
+        const rustType = this.mapType(f.type);
+        // Only convert simple Vec<u8> to &[u8], not nested types
+        const apiType = rustType === 'Vec<u8>' ? '&[u8]' : rustType;
+        return `${toSnakeCase(f.name)}: ${apiType}`;
+      })
+      .join(', ');
 
-    const paramConversions = command.fields.map(f => {
-      const name = toSnakeCase(f.name);
-      const rustType = this.mapType(f.type);
-      // Only convert slices back to Vec
-      if (rustType === 'Vec<u8>') {
-        return `${name}.to_vec()`;
-      }
-      return name;
-    }).join(', ');
+    const paramConversions = command.fields
+      .map(f => {
+        const name = toSnakeCase(f.name);
+        const rustType = this.mapType(f.type);
+        // Only convert slices back to Vec
+        if (rustType === 'Vec<u8>') {
+          return `${name}.to_vec()`;
+        }
+        return name;
+      })
+      .join(', ');
 
     return `    /// Execute ${command.name} command
     pub fn ${methodName}(&mut self, ${params}) -> Result<${respRustName}> {
