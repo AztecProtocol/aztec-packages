@@ -264,6 +264,12 @@ variable "PROVER_REPLICAS" {
   default     = 4
 }
 
+variable "PROVER_ENABLED" {
+  description = "Whether to deploy the prover stack"
+  type        = bool
+  default     = true
+}
+
 variable "PROVER_TEST_DELAY_TYPE" {
   description = "The type of test delay to introduce in the prover (fixed, realistic)"
   type        = string

@@ -317,7 +317,7 @@ locals {
       wait                 = true
     } : null
 
-    prover = {
+    prover = var.PROVER_ENABLED ? {
       name  = "${var.RELEASE_PREFIX}-prover"
       chart = "aztec-prover-stack"
       values = [
@@ -410,7 +410,7 @@ locals {
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
       wait                 = var.WAIT_FOR_PROVER_DEPLOY
-    }
+    } : null
 
     rpc = {
       name  = "${var.RELEASE_PREFIX}-rpc"
