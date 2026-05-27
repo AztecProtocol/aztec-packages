@@ -35,7 +35,7 @@ contract CustomSyncState {
     fn constructor(owner: AztecAddress, value: Field) {
         let note = FieldNote { value };
         self.storage.value.at(owner).initialize(note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 

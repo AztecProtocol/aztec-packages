@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `MessageDelivery` API syntax change
+
+`MessageDelivery` variants are now accessed via constructor functions instead of dot notation:
+
+```diff
+- MessageDelivery.OFFCHAIN
++ MessageDelivery::offchain()
+
+- MessageDelivery.ONCHAIN_UNCONSTRAINED
++ MessageDelivery::onchain_unconstrained()
+
+- MessageDelivery.ONCHAIN_CONSTRAINED
++ MessageDelivery::onchain_constrained()
+```
+
 ### [Aztec.js] `AccountManager.create` takes an options bag
 
 `AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:
