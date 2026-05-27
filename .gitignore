@@ -36,3 +36,6 @@ __pycache__
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees
+
+# M8 study output (regenerable via m8_static_plan_study.ts)
+barretenberg/ts/src/msm_webgpu/integration/m8_static_plan_study.json

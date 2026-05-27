@@ -125,6 +125,13 @@ const gpuKnobs: MsmConfig = (() => {
     // hypothesis — compare per-pass `fused` between this and the default
     // (GPU-histogram) path.
     useHostHistogram: q.get('hostHist') === '1',
+    // `?staticPlan=1`: bake the per-(level, window) schedule at
+    // MsmV2.create() time from (n, c, S) alone and skip the level-0
+    // histogram + per-level walk + readback in every prepare(). M8 win is
+    // the 5–7 ms `prep_booth_decode + prep_level_plan` host wall at n=2²⁰.
+    // See integration/m8_static_plan_findings.md for the empirical
+    // justification + bounds derivation.
+    useStaticPlan: q.get('staticPlan') === '1',
   };
 })();
 
@@ -492,6 +499,42 @@ function referenceMsm(points: { x: bigint; y: bigint }[], scalars: bigint[]): { 
   const aff = result.toAffine();
   log('info', `[noble] done in ${(performance.now() - t0).toFixed(0)} ms`);
   return aff;
+}
+
+// Noble reference for the GPU's per-window weighted sums L_w = Σ_i d_iw · P_i,
+// where d_iw is the signed-Booth digit of scalar i at window w. The GPU emits
+// these (decoded by `decodeWindowSumsFromBytes`); comparing per-window
+// localises a cross-check failure to a specific stage. If only the top window
+// diverges → top-window/lookback edge case; if all windows diverge →
+// decompose/transpose; if a contiguous suffix diverges → reduction tail.
+function referenceWindowSums(
+  points: { x: bigint; y: bigint }[],
+  scalars: bigint[],
+  c: number,
+): { x: bigint; y: bigint }[] {
+  const numWindows = Math.ceil(254 / c);
+  const proj = points.map(p => bn254.G1.ProjectivePoint.fromAffine(p));
+  const out: { x: bigint; y: bigint }[] = [];
+  for (let w = 0; w < numWindows; w++) {
+    let sum = bn254.G1.ProjectivePoint.ZERO;
+    for (let i = 0; i < scalars.length; i++) {
+      const lo = w * c;
+      const winBits = Number((scalars[i] >> BigInt(lo)) & ((1n << BigInt(c)) - 1n));
+      const lookback = w === 0 ? 0 : Number((scalars[i] >> BigInt(lo - 1)) & 1n);
+      const raw = (winBits << 1) | lookback;
+      const neg = (raw >>> c) & 1;
+      const valMask = (1 << c) - 1;
+      const encode = (raw + 1) >>> 1;
+      const negMask = neg ? 0xffffffff : 0;
+      const bucket = (((encode - neg) >>> 0) ^ negMask) & valMask;
+      if (bucket === 0) continue;
+      const term = neg ? proj[i].negate().multiply(BigInt(bucket)) : proj[i].multiply(BigInt(bucket));
+      sum = sum.add(term);
+    }
+    const aff = sum.equals(bn254.G1.ProjectivePoint.ZERO) ? { x: 0n, y: 0n } : sum.toAffine();
+    out.push({ x: aff.x, y: aff.y });
+  }
+  return out;
 }
 
 function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): boolean {
@@ -1224,7 +1267,28 @@ $run.addEventListener('click', async () => {
     if (cross) {
       log('ok', `[cross-check] WebGPU and WASM MT agree`);
     } else {
-      log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, mt=${mt.xy.x}`);
+      // Full-hex dump on mismatch so we can tell whether it's an
+      // identity-result edge case (both zero), a Montgomery/encoding
+      // skew, or a real correctness disagreement. The previous
+      // truncated-decimal log was too lossy to act on.
+      log('err', `[cross-check] disagreement at log₂(n)=${logN}:`);
+      log('err', `  gpu.x = 0x${gpu.xy.x.toString(16).padStart(64, '0')}`);
+      log('err', `  gpu.y = 0x${gpu.xy.y.toString(16).padStart(64, '0')}`);
+      log('err', `  mt.x  = 0x${mt.xy.x.toString(16).padStart(64, '0')}`);
+      log('err', `  mt.y  = 0x${mt.xy.y.toString(16).padStart(64, '0')}`);
+      // Surface the per-window sums too — if `gpu` is identity (0, 0)
+      // but `mt` isn't, the bug is in `hostWindowCombine` (likely an
+      // identity-input Jacobian doubling), not in the GPU pipeline.
+      const winSums = (gpu.xy as unknown as { windowSums?: { x: bigint; y: bigint }[] }).windowSums;
+      if (Array.isArray(winSums)) {
+        log('err', `  gpu windowSums (${winSums.length}):`);
+        for (let w = 0; w < winSums.length; w++) {
+          const wx = winSums[w].x.toString(16).slice(0, 16);
+          const wy = winSums[w].y.toString(16).slice(0, 16);
+          const tag = winSums[w].x === 0n && winSums[w].y === 0n ? ' [IDENTITY]' : '';
+          log('err', `    w=${w}: x=0x${wx}… y=0x${wy}…${tag}`);
+        }
+      }
     }
     if (checkNoble && inputs.points && inputs.scalars) {
       const noble = referenceMsm(inputs.points, inputs.scalars);
@@ -1303,7 +1367,12 @@ $runSweep.addEventListener('click', async () => {
   try {
     for (const row of rows) {
       throwIfAborted();
-      const checkNoble = nobleEnabled && row.logN === NOBLE_REFERENCE_LOGN;
+      // Force a noble cross-check at small n (where it's cheap, <200 ms)
+      // so the sweep can tell which side disagrees if WebGPU and WASM
+      // diverge. Noble is the gold reference; the dev page's
+      // `nobleEnabled` checkbox controls whether we additionally check at
+      // NOBLE_REFERENCE_LOGN where noble takes ~10 s.
+      const checkNoble = (nobleEnabled && row.logN === NOBLE_REFERENCE_LOGN) || row.logN <= 12;
       log('info', '');
       log('info', `[sweep] === log₂(n) = ${row.logN} (n = ${(1 << row.logN).toLocaleString()}) ===`);
 
@@ -1360,8 +1429,58 @@ $runSweep.addEventListener('click', async () => {
           if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
           if (!row.crossOk) {
             log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
-            log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
-            log('err', `         mt.x =${mt.xy.x.toString(16)}`);
+            log('err', `         gpu.x = 0x${gpu.xy.x.toString(16).padStart(64, '0')}`);
+            log('err', `         gpu.y = 0x${gpu.xy.y.toString(16).padStart(64, '0')}`);
+            log('err', `         mt.x  = 0x${mt.xy.x.toString(16).padStart(64, '0')}`);
+            log('err', `         mt.y  = 0x${mt.xy.y.toString(16).padStart(64, '0')}`);
+            if (noble !== null) {
+              // Triangulate: which side does noble (the gold CPU reference)
+              // agree with? Whoever disagrees is the buggy one.
+              const noble_eq_gpu = pointsEqual(noble, gpu.xy);
+              const noble_eq_mt = pointsEqual(noble, mt.xy);
+              log('err', `         noble.x = 0x${noble.x.toString(16).padStart(64, '0')}`);
+              log('err', `         noble.y = 0x${noble.y.toString(16).padStart(64, '0')}`);
+              if (noble_eq_gpu && !noble_eq_mt) log('err', `         → WASM is wrong (noble agrees with GPU)`);
+              else if (noble_eq_mt && !noble_eq_gpu) log('err', `         → WebGPU is wrong (noble agrees with WASM)`);
+              else if (!noble_eq_gpu && !noble_eq_mt)
+                log('err', `         → BOTH are wrong (noble disagrees with both)`);
+            }
+            const winSums = (gpu.xy as unknown as { windowSums?: { x: bigint; y: bigint }[]; c?: number }).windowSums;
+            const gpuC = (gpu.xy as unknown as { c?: number }).c;
+            if (Array.isArray(winSums)) {
+              const identityCount = winSums.filter(w => w.x === 0n && w.y === 0n).length;
+              log('err', `         gpu windowSums: ${winSums.length} entries, ${identityCount} identity`);
+              // Per-window triangulation: compare the GPU's window sums to a
+              // noble reference. Pinpoints which window(s) the GPU computes
+              // wrong, which localises the bug to a pipeline stage.
+              if (inputs.points && inputs.scalars && gpuC !== undefined) {
+                const ref = referenceWindowSums(inputs.points, inputs.scalars, gpuC);
+                const bad: number[] = [];
+                for (let w = 0; w < Math.min(ref.length, winSums.length); w++) {
+                  if (!pointsEqual(ref[w], winSums[w])) bad.push(w);
+                }
+                if (bad.length === 0) {
+                  log(
+                    'err',
+                    `         per-window: all GPU window sums MATCH noble → bug is in hostWindowCombine, not the GPU pipeline`,
+                  );
+                } else {
+                  log(
+                    'err',
+                    `         per-window: ${bad.length}/${ref.length} GPU window sums WRONG → bug is in the GPU pipeline`,
+                  );
+                  log(
+                    'err',
+                    `         wrong windows: [${bad.join(', ')}]${bad.length === 1 && bad[0] === ref.length - 1 ? ' (TOP window only → lookback/edge case)' : ''}`,
+                  );
+                  const w0 = bad[0];
+                  log(
+                    'err',
+                    `         e.g. w=${w0}: gpu=(0x${winSums[w0].x.toString(16).slice(0, 12)}…) ref=(0x${ref[w0].x.toString(16).slice(0, 12)}…)`,
+                  );
+                }
+              }
+            }
           }
         }
         renderSweepTable(rows);
@@ -1685,6 +1804,12 @@ log('info', `  crossOriginIsolated: ${COI_ACTIVE ? 'yes' : 'no — WASM paths di
 log('info', `  hardwareConcurrency: ${navigator.hardwareConcurrency ?? '?'}`);
 log('info', `  user-agent: ${navigator.userAgent}`);
 log('info', `  SharedArrayBuffer: ${typeof SharedArrayBuffer !== 'undefined' ? 'yes' : 'NO'}`);
+// Surface the URL-driven MsmConfig so it's clear at a glance whether the
+// page is on the default GPU level_plan path or a non-default A/B knob.
+const activeKnobs = Object.entries(gpuKnobs)
+  .filter(([, v]) => v !== undefined && v !== false)
+  .map(([k, v]) => `${k}=${v}`);
+log('info', `  MsmConfig knobs (from URL): ${activeKnobs.length === 0 ? '<defaults>' : activeKnobs.join(', ')}`);
 logMemSnapshot('page-load');
 
 if (COI_REQUESTED && !COI_ACTIVE) {

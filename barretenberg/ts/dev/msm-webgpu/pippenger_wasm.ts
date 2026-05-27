@@ -17,10 +17,10 @@
 // bypasses the hook delegation, so we measure the in-tree Pippenger rather than
 // recursing back into the (uninstalled) WebGPU bridge.
 
-import { createMainWorker } from "../../src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/index.js";
-import { fetchModuleAndThreads } from "../../src/barretenberg_wasm/index.js";
-import { getRemoteBarretenbergWasm } from "../../src/barretenberg_wasm/helpers/browser/index.js";
-import type { BarretenbergWasmMainWorker } from "../../src/barretenberg_wasm/barretenberg_wasm_main/index.js";
+import { createMainWorker } from '../../src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/index.js';
+import { fetchModuleAndThreads } from '../../src/barretenberg_wasm/index.js';
+import { getRemoteBarretenbergWasm } from '../../src/barretenberg_wasm/helpers/browser/index.js';
+import type { BarretenbergWasmMainWorker } from '../../src/barretenberg_wasm/barretenberg_wasm_main/index.js';
 
 // bb.js's main bb worker doesn't currently install the WebGPU bridge
 // stubs on its own; the default `main.worker.ts` we ship hands the
@@ -44,7 +44,7 @@ export interface WasmPippengerHandle {
   destroy(): Promise<void>;
 }
 
-const WASM_PATH = "/dev/msm-webgpu/barretenberg.wasm.gz";
+const WASM_PATH = '/dev/msm-webgpu/barretenberg.wasm.gz';
 
 /**
  * Boot a bb.js-style worker hosting the threaded barretenberg WASM. The
@@ -78,11 +78,11 @@ function withTimeout<T>(label: string, ms: number, p: Promise<T>): Promise<T> {
       );
     }, ms);
     p.then(
-      (value) => {
+      value => {
         clearTimeout(handle);
         resolve(value);
       },
-      (err) => {
+      err => {
         clearTimeout(handle);
         reject(err);
       },
@@ -104,16 +104,16 @@ export async function createWasmPippenger(
   );
   // Surface worker-thread errors in the page log. By default these only
   // appear in DevTools console, which is easy to miss.
-  worker.addEventListener("error", (e: ErrorEvent) => {
+  worker.addEventListener('error', (e: ErrorEvent) => {
     log(`MAIN-WORKER error: ${e.message} (${e.filename}:${e.lineno})`);
   });
-  worker.addEventListener("messageerror", (e) => {
+  worker.addEventListener('messageerror', e => {
     log(`MAIN-WORKER messageerror: ${String(e)}`);
   });
   const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
   log(`fetchModuleAndThreads: ${requestedThreads} threads requested, fetching wasm`);
   const { module, threads } = await withTimeout(
-    "fetchModuleAndThreads (WASM download + compile)",
+    'fetchModuleAndThreads (WASM download + compile)',
     30_000,
     fetchModuleAndThreads(requestedThreads, WASM_PATH, log),
   );
@@ -123,25 +123,16 @@ export async function createWasmPippenger(
       `(${(((memory?.maxPages ?? 65536) * 64) / 1024).toFixed(0)} MiB)`,
   );
   await withTimeout(
-    "wasm.init (pthread sub-worker spawn + WASM instantiation)",
+    'wasm.init (pthread sub-worker spawn + WASM instantiation)',
     30_000,
-    wasm.init(
-      module,
-      threads,
-      undefined,
-      memory?.initialPages,
-      memory?.maxPages,
-    ),
+    wasm.init(module, threads, undefined, memory?.initialPages, memory?.maxPages),
   );
   log(`wasm.init: complete`);
 
   // Decode + upload the points/scalars into WASM-side vectors. UNTIMED:
   // bb_native_pippenger_bn254_load builds the AffineElement / ScalarField
   // vectors, which is input-structure population — not Pippenger compute.
-  async function loadMsm(
-    pointsBuf: Uint8Array,
-    scalarsBuf: Uint8Array,
-  ): Promise<void> {
+  async function loadMsm(pointsBuf: Uint8Array, scalarsBuf: Uint8Array): Promise<void> {
     if (pointsBuf.length % 64 !== 0) {
       throw new Error(`pointsBuf length ${pointsBuf.length} not a multiple of 64`);
     }
@@ -150,22 +141,20 @@ export async function createWasmPippenger(
     }
     const n = pointsBuf.length / 64;
     if (scalarsBuf.length / 32 !== n) {
-      throw new Error(
-        `point/scalar count mismatch: points=${n}, scalars=${scalarsBuf.length / 32}`,
-      );
+      throw new Error(`point/scalar count mismatch: points=${n}, scalars=${scalarsBuf.length / 32}`);
     }
 
-    const pointsPtr = await wasm.call("bbmalloc", pointsBuf.length);
-    const scalarsPtr = await wasm.call("bbmalloc", scalarsBuf.length);
+    const pointsPtr = await wasm.call('bbmalloc', pointsBuf.length);
+    const scalarsPtr = await wasm.call('bbmalloc', scalarsBuf.length);
     try {
       await wasm.writeMemory(pointsPtr, pointsBuf);
       await wasm.writeMemory(scalarsPtr, scalarsBuf);
-      await wasm.call("bb_native_pippenger_bn254_load", pointsPtr, scalarsPtr, n);
+      await wasm.call('bb_native_pippenger_bn254_load', pointsPtr, scalarsPtr, n);
     } finally {
       // The load call copied the bytes into WASM-side vectors; the raw
       // upload buffers can return to the heap right away.
-      await wasm.call("bbfree", pointsPtr);
-      await wasm.call("bbfree", scalarsPtr);
+      await wasm.call('bbfree', pointsPtr);
+      await wasm.call('bbfree', scalarsPtr);
     }
   }
 
@@ -173,12 +162,20 @@ export async function createWasmPippenger(
   // This is the call the dev page times — pure Pippenger compute, no input
   // population.
   async function runMsm(numThreads: number): Promise<Uint8Array> {
-    const resultPtr = await wasm.call("bbmalloc", 64);
+    const resultPtr = await wasm.call('bbmalloc', 64);
     try {
-      await wasm.call("bb_native_pippenger_bn254_run", numThreads, resultPtr);
+      // Pre-zero the result buffer. `bb_native_pippenger_bn254_run` only
+      // writes the 64-byte (x || y) result when the MSM output is NOT the
+      // point at infinity (see scalar_multiplication/webgpu_msm_hook.cpp:413);
+      // for the identity case it leaves `bbmalloc`'d memory uninitialised,
+      // which then disagrees with the GPU's hostWindowCombine identity
+      // sentinel of (0, 0). Pre-zeroing here makes both paths return the
+      // same (0, 0) bytes on identity output.
+      await wasm.writeMemory(resultPtr, new Uint8Array(64));
+      await wasm.call('bb_native_pippenger_bn254_run', numThreads, resultPtr);
       return await wasm.getMemorySlice(resultPtr, resultPtr + 64);
     } finally {
-      await wasm.call("bbfree", resultPtr);
+      await wasm.call('bbfree', resultPtr);
     }
   }
 

@@ -32,6 +32,11 @@ const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per wind
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
+// Hard cap on pair-tree depth — bounds the per-level loops in the dynamic
+// walk and `computeStaticPlan`'s fallback. The recurrence `s_{k+1} ≤
+// ⌈s_k/2⌉` converges in ≈ log₂(n) levels; 64 is comfortably above the
+// worst case at n=2²⁰.
+const LEVEL_PLAN_MAX_LEVELS = 64;
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
 // `reduceWg` are instead chosen per problem size — by pickC / pickS /
@@ -86,6 +91,19 @@ export interface MsmConfig {
    *  per-level walk, fits-check, fast/slow path) is identical. Default
    *  `false` (use GPU histogram). */
   useHostHistogram?: boolean;
+  /** Use a closed-form static schedule baked at `MsmV2.create()` time
+   *  instead of computing one per `prepare()`. When `true`, `prepare()`
+   *  skips the `bucket_histogram` dispatch and the stats-buffer `mapAsync`
+   *  round-trip — eliminating the ~5–7 ms host wall those add at n=2²⁰.
+   *  The actual per-bucket counts still flow through the existing
+   *  `csr2v2_meta` → `countsBufs[0]` path at run time; only the *sizing*
+   *  numbers (`pairBlocksPerWindow`, `carriesPerWindow`, `wstride1`) are
+   *  precomputed. See [integration/m8_static_plan_findings.md] for the
+   *  empirical justification (per-cell variation across 100 random-scalar
+   *  runs is well below the safety margin used by `computeStaticPlan`).
+   *  Default `false`; the dynamic path (GPU histogram + host level walk)
+   *  remains the validated fallback. */
+  useStaticPlan?: boolean;
 }
 
 /** One timestamped GPU compute pass within a `run()`. `label` is the stage
@@ -290,6 +308,129 @@ function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindow
   return initCounts;
 }
 
+/**
+ * Build a per-(n, c, S) static plan — a closed-form upper bound on
+ * (pairBlocksPerWindow, carriesPerWindow) per level and on the global
+ * `wstride1`, derived directly from the per-window count recurrence.
+ *
+ * Recurrence properties used (one walk step, per bucket):
+ *   - input cnt → output nc = floor(cnt/2) + (cnt > 1 ? cnt&1 : 0)
+ *   - sum-of-nc ≤ ⌈ sum-of-cnt / 2 ⌉  (carry-up from at most one odd sum)
+ *
+ * Each scalar contributes exactly one Booth digit to one bucket of each
+ * window, so the per-window initial count sum equals `n`. Iterating the
+ * recurrence:
+ *
+ *   sum_cnt[level=k] ≤ ⌈n / 2^k⌉ + k          (per-level rounding error)
+ *   pairs[level=k]   ≤ ⌈n / 2^(k+1)⌉ + 1      (floor sums to ≤ half the input)
+ *   carries[level=k] ≤ min(activeBuckets, ⌈n / 2^(k+1)⌉)
+ *                                              (one carry per odd-count bucket)
+ *   strideCnt[level=k] = pairs + carries ≤ ⌈n / 2^k⌉ + activeBuckets + k
+ *
+ * Where `activeBuckets = min(2^(c-1), n)` — the carry term saturates when
+ * the active range is smaller than the average sum/2.
+ *
+ * Empirical validation. Across 100 random-scalar runs at n ∈ {2¹², 2¹⁶,
+ * 2²⁰}, the per-(level, window) triples sit within ≤ 1 % of their mean
+ * and `max == p99` across the sample — well inside the analytic bound
+ * above. See [integration/m8_static_plan_findings.md] for the numbers.
+ *
+ * Depth must match the dynamic host walk's INPUT-based termination
+ * (`if (!anyActive) break`), which includes the final retirement/finalize
+ * level. The dropped f2cc GPU walk broke on output `strideCnt === 0` — one
+ * level early — dropping the last finalize and producing wrong results;
+ * the EMPIRICAL_DEPTHS table below is the input-based count so the static
+ * plan dispatches exactly what the correct dynamic walk does.
+ */
+function computeStaticPlan(n: number, c: number, S: number): { levelPlans: LevelPlan[]; wstride1: number } {
+  const activeBuckets = Math.min(2 ** (c - 1), Math.max(1, n));
+  // Depth = the number of pair-tree levels the dynamic host walk
+  // (`prepare()`, c918 behavior) dispatches: it loops until a level whose
+  // INPUT counts are all zero (`if (!anyActive) break` AFTER pushing). The
+  // last included level is the "retirement" level — its input is the
+  // previous level's cnt=1 singletons, which it FINALIZES (emits to the
+  // result). Skipping it drops those points. This is exactly the bug in
+  // the dropped f2cc GPU walk, whose readback loop broke one level early
+  // on `totalStride === 0` (output-based). The static plan MUST match the
+  // host walk's input-based count, so the values below are the empirical
+  // `levelsActive` (input-based) depths — one MORE than f2cc's
+  // output-based count. Measured at 100 random-scalar runs per canonical
+  // (n, pickC(n)); stddev = 0 (deterministic given logN, c). See
+  // integration/m8_static_plan_findings.md.
+  //
+  // Adversarial inputs (all scalars equal → one bucket holds all n) would
+  // need depth = log2(n) + 2. Not in scope: SRS-backed callers pass real
+  // protocol scalars and the C++ hook gates on `!handle_edge_cases`.
+  const logN = Math.round(Math.log2(Math.max(2, n)));
+  // Input-based depth = `levelsActive`, the count the c918 host walk
+  // dispatches (1000-run max). Most sizes are deterministic (min==max over
+  // 1000 runs); n=2¹⁰ (6–7) and n=2¹⁹ (7–8) fluctuate because their low
+  // mean-per-bucket gives a heavier Poisson tail, so they carry +1 over
+  // the observed max to cover an unseen deeper run (under-provisioning
+  // depth would drop the finalize level → wrong result).
+  const EMPIRICAL_DEPTHS: Record<number, number> = {
+    10: 8,
+    11: 7,
+    12: 8,
+    13: 9,
+    14: 10,
+    15: 13,
+    16: 11,
+    17: 12,
+    18: 7,
+    19: 9,
+    20: 8,
+  };
+  const empiricalDepth = EMPIRICAL_DEPTHS[logN];
+  // The measured depth is the exact count the dynamic walk dispatches, so
+  // no extra safety is added for known sizes. Unmeasured sizes fall back
+  // to the analytic worst-case bound `⌈log2(n)⌉ + 2` (covers the
+  // retirement level); measure + add a row before relying on the static
+  // plan for a new logN.
+  const depthBound = Math.min(
+    LEVEL_PLAN_MAX_LEVELS,
+    empiricalDepth !== undefined ? empiricalDepth : Math.max(2, Math.ceil(Math.log2(Math.max(2, n))) + 2),
+  );
+  // pairsBound: per-window upper bound on `pairs[lvl=k] = Σ_b
+  // floor(cnt_b/2)`. The naive `⌈n/2^(k+1)⌉` term is occasionally exceeded
+  // (the recurrence accumulates carry-up from odd-count buckets), so we
+  // add `pairsAdditive` sized to cover the empirical max-per-(level,
+  // window) overshoot above that term. The 100-run study peaked at:
+  //   n=2¹²: +14   (activeBuckets=128,   ⌈3·√128⌉  = 34)
+  //   n=2¹⁶: +40   (activeBuckets=4096,  ⌈3·√4096⌉ = 192)
+  //   n=2²⁰: +70   (activeBuckets=16384, ⌈3·√16384⌉= 384)
+  // `3·√activeBuckets` fits the observed √-scaling with ~5× margin; the
+  // floor of 16 covers tiny n. No multiplicative SAFETY on top — an extra
+  // 5 % would re-introduce ~10 ms of `fused` regression at n=2²⁰ (×17
+  // batches makes per-block overhead load-bearing).
+  //
+  // carries: the strict analytic bound is `min(activeBuckets,
+  // ⌈n/2^(k+1)⌉)`, but empirically carries top out around `activeBuckets
+  // × 0.55` (≈ half the buckets are odd-count + Poisson tail). The loose
+  // bound would 2× over-provision the carries staging buffer and the
+  // carry-copy dispatch; `0.55·activeBuckets + 4√activeBuckets` covers
+  // every measured run with margin.
+  //
+  // wstride1 = max strideCnt — drives `M1 = batchWindows × wstride1 + 3`.
+  // At numBatches=17 (n=2²⁰) every extra entry costs 17 × 128 bytes of
+  // per-MSM `clearBuffer`, so it gets the same tight carries cap.
+  const pairsAdditive = Math.max(16, Math.ceil(3 * Math.sqrt(activeBuckets)));
+  const carriesCap = Math.ceil(activeBuckets * 0.55) + Math.ceil(4 * Math.sqrt(activeBuckets));
+  const levelPlans: LevelPlan[] = [];
+  let wstride1 = 1;
+  for (let lv = 0; lv < depthBound; lv++) {
+    const div = Math.pow(2, lv + 1);
+    const pairsBound = Math.ceil(n / div) + pairsAdditive;
+    const carriesBound = Math.min(carriesCap, Math.ceil(n / div));
+    const strideCntBound = pairsBound + carriesBound;
+    const pairBlocksPerWindow = Math.max(1, Math.ceil(pairsBound / S));
+    const carriesPerWindow = Math.max(1, carriesBound);
+    levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
+    if (strideCntBound > wstride1) wstride1 = strideCntBound;
+  }
+  return { levelPlans, wstride1 };
+}
+
 interface LevelPlan {
   // pair_blocks_per_window: the per-window count of "pair_blocks" the fused
   // affine-add kernel runs. One pair_block = S pairs sharing one batched
@@ -394,6 +535,11 @@ function hostWindowCombine(L: Pt[], c: number): Pt {
     Z = fsub(fsub(fmul(zH, zH), Z1Z1), HH);
     X = X3;
   }
+  // Jacobian (X, Y, 0) = point at infinity. The bridge path encodes
+  // infinity as the affine `(0, 0)` sentinel (see webgpu_msm_marshalling.hpp);
+  // mirror that here so the dev page doesn't blow up on the rare random
+  // scalar set whose MSM result is identity.
+  if (Z === 0n) return { x: 0n, y: 0n };
   const zInv = modInverse(Z, FP);
   const zInv2 = fmul(zInv, zInv);
   return { x: fmul(X, zInv2), y: fmul(Y, fmul(zInv2, zInv)) };
@@ -1307,6 +1453,14 @@ export class MsmV2 {
   private histogramQuerySet: GPUQuerySet | null = null;
   private histogramTsResolveBuf: GPUBuffer | null = null;
   private histogramTsStagingBuf: GPUBuffer | null = null;
+  // M8 static plan. When true, `prepare()` skips the bucket-histogram
+  // dispatch + readback and uses these cached upper bounds instead of
+  // walking the level tree on the host. Computed once in create() from
+  // (n, c, S) alone — see computeStaticPlan and
+  // integration/m8_static_plan_findings.md.
+  private useStaticPlan = false;
+  private staticLevelPlans: LevelPlan[] | null = null;
+  private staticWstride1: number = 0;
   private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
@@ -1402,6 +1556,7 @@ export class MsmV2 {
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.useHostHistogram = config?.useHostHistogram ?? false;
+    m.useStaticPlan = config?.useStaticPlan ?? false;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1413,6 +1568,11 @@ export class MsmV2 {
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
+    if (m.useStaticPlan) {
+      const { levelPlans, wstride1 } = computeStaticPlan(n, m.c, S);
+      m.staticLevelPlans = levelPlans;
+      m.staticWstride1 = wstride1;
+    }
     m.redM = m.numWindows * m.stride;
     const misc = compute_misc_params(FP, 13);
     m.R = misc.r;
@@ -1738,83 +1898,107 @@ export class MsmV2 {
     // touches ~34 MB and likely evicts SLC) is the cause of the per-pass
     // GPU regression observed when the GPU path is enabled.
     const tBooth0 = performance.now();
-    let initCounts: Uint32Array;
-    if (this.useHostHistogram) {
-      // No GPU work in this block — write `lastBucketHistogramGpuMs = 0`
-      // and let the rest of the pipeline run as normal.
-      this.lastBucketHistogramGpuMs = 0;
-      initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
-    } else {
-      // Rebuild the histogram bind group when scalarsRawBuf's identity changes —
-      // ensureScalarsRawBuf bumped scratchEpoch in that case, which is the
-      // same signal the run-time bind groups consult.
-      if (this.histogramBind === null || this.histogramBindScalarsBuf !== scalarsRawBuf) {
-        this.histogramBind = device.createBindGroup({
-          layout: this.histogramLayout,
-          entries: [
-            { binding: 0, resource: { buffer: scalarsRawBuf } },
-            { binding: 1, resource: { buffer: this.histogramBuf } },
-            { binding: 2, resource: { buffer: this.histogramParamsBuf } },
-          ],
-        });
-        this.histogramBindScalarsBuf = scalarsRawBuf;
-      }
-      {
-        const enc = device.createCommandEncoder();
-        enc.clearBuffer(this.histogramBuf);
-        const passDesc: GPUComputePassDescriptor = {};
-        if (this.profile && this.histogramQuerySet) {
-          passDesc.timestampWrites = {
-            querySet: this.histogramQuerySet,
-            beginningOfPassWriteIndex: 0,
-            endOfPassWriteIndex: 1,
-          };
-        }
-        const pass = enc.beginComputePass(passDesc);
-        pass.setPipeline(this.histogramPipe);
-        pass.setBindGroup(0, this.histogramBind);
-        pass.dispatchWorkgroups(Math.ceil(n / this.wgi), NUM_WINDOWS, 1);
-        pass.end();
-        enc.copyBufferToBuffer(this.histogramBuf, 0, this.histogramStagingBuf, 0, B_TOTAL * 4);
-        if (this.profile && this.histogramQuerySet && this.histogramTsResolveBuf && this.histogramTsStagingBuf) {
-          enc.resolveQuerySet(this.histogramQuerySet, 0, 2, this.histogramTsResolveBuf, 0);
-          enc.copyBufferToBuffer(this.histogramTsResolveBuf, 0, this.histogramTsStagingBuf, 0, 16);
-        }
-        device.queue.submit([enc.finish()]);
-        // Map the histogram counts and the timestamp staging in parallel.
-        // Counts is 2 MB; timestamps are 16 bytes — they resolve effectively
-        // together, so no extra round-trip cost.
-        if (this.profile && this.histogramTsStagingBuf) {
-          await Promise.all([
-            this.histogramStagingBuf.mapAsync(GPUMapMode.READ),
-            this.histogramTsStagingBuf.mapAsync(GPUMapMode.READ),
-          ]);
-          const tsBytes = this.histogramTsStagingBuf.getMappedRange();
-          const ts = new BigUint64Array(tsBytes.slice(0));
-          this.histogramTsStagingBuf.unmap();
-          this.lastBucketHistogramGpuMs = Number(ts[1] - ts[0]) / 1e6;
-        } else {
-          await this.histogramStagingBuf.mapAsync(GPUMapMode.READ);
-          this.lastBucketHistogramGpuMs = 0;
-        }
-      }
-      if (this.histogramHost === null || this.histogramHost.length !== B_TOTAL) {
-        this.histogramHost = new Uint32Array(B_TOTAL);
-      }
-      this.histogramHost.set(new Uint32Array(this.histogramStagingBuf.getMappedRange()));
-      this.histogramStagingBuf.unmap();
-      initCounts = this.histogramHost;
-    }
-    this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
+    let levelPlans: LevelPlan[];
+    let wstride1: number;
 
-    // Ping-pong two pre-allocated count buffers and fold the wstride1
-    // computation into the same walk. Avoids ~18 × ~333 KB allocations per
-    // prepare (>5 ms of GC churn for n=88_899) and removes the second pass
-    // over `levelCounts` that wstride1 used to do.
-    const tLevelPlan0 = performance.now();
-    const levelPlans: LevelPlan[] = [];
-    let wstride1 = 1;
-    {
+    if (this.useStaticPlan && this.staticLevelPlans !== null) {
+      // Static path: skip the level-0 histogram + the per-level bucket
+      // walk entirely. The cached plan was computed in create() from
+      // (n, c, S) alone; the actual per-bucket counts come from
+      // `csr2v2_meta` → `countsBufs[0]` at run time, same as the dynamic
+      // path. See computeStaticPlan() and
+      // integration/m8_static_plan_findings.md for the safety argument.
+      //
+      // Cloning is required because the downstream pipeline mutates
+      // `totalPairBlocks` / `totalCarries` on each prepare and the slow
+      // path further scales `pairBlocksPerWindow` / `carriesPerWindow`
+      // by OVERSIZE_FACTOR. The cached plan must remain pristine for
+      // future prepares.
+      levelPlans = this.staticLevelPlans.map(p => ({ ...p }));
+      wstride1 = this.staticWstride1;
+      this.lastBucketHistogramGpuMs = 0;
+      this.lastPrepBoothDecodeMs = 0;
+      this.lastPrepLevelPlanMs = 0;
+    } else {
+      // Dynamic plan: level-0 histogram (host or GPU) → initCounts, then
+      // the inline per-level bucket walk on the host. This is the c918
+      // behavior; the GPU per-level walk (commit f2cc) was dropped for
+      // producing wrong stats (off-by-one in its output-strideCnt break
+      // skipped the final finalize level).
+      let initCounts: Uint32Array;
+      if (this.useHostHistogram) {
+        this.lastBucketHistogramGpuMs = 0;
+        initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+      } else {
+        // Rebuild the histogram bind group when scalarsRawBuf's identity changes —
+        // ensureScalarsRawBuf bumped scratchEpoch in that case, which is the
+        // same signal the run-time bind groups consult.
+        if (this.histogramBind === null || this.histogramBindScalarsBuf !== scalarsRawBuf) {
+          this.histogramBind = device.createBindGroup({
+            layout: this.histogramLayout,
+            entries: [
+              { binding: 0, resource: { buffer: scalarsRawBuf } },
+              { binding: 1, resource: { buffer: this.histogramBuf } },
+              { binding: 2, resource: { buffer: this.histogramParamsBuf } },
+            ],
+          });
+          this.histogramBindScalarsBuf = scalarsRawBuf;
+        }
+        {
+          const enc = device.createCommandEncoder();
+          enc.clearBuffer(this.histogramBuf);
+          const passDesc: GPUComputePassDescriptor = {};
+          if (this.profile && this.histogramQuerySet) {
+            passDesc.timestampWrites = {
+              querySet: this.histogramQuerySet,
+              beginningOfPassWriteIndex: 0,
+              endOfPassWriteIndex: 1,
+            };
+          }
+          const pass = enc.beginComputePass(passDesc);
+          pass.setPipeline(this.histogramPipe);
+          pass.setBindGroup(0, this.histogramBind);
+          pass.dispatchWorkgroups(Math.ceil(n / this.wgi), NUM_WINDOWS, 1);
+          pass.end();
+          enc.copyBufferToBuffer(this.histogramBuf, 0, this.histogramStagingBuf, 0, B_TOTAL * 4);
+          if (this.profile && this.histogramQuerySet && this.histogramTsResolveBuf && this.histogramTsStagingBuf) {
+            enc.resolveQuerySet(this.histogramQuerySet, 0, 2, this.histogramTsResolveBuf, 0);
+            enc.copyBufferToBuffer(this.histogramTsResolveBuf, 0, this.histogramTsStagingBuf, 0, 16);
+          }
+          device.queue.submit([enc.finish()]);
+          // Map the histogram counts and the timestamp staging in parallel.
+          // Counts is 2 MB; timestamps are 16 bytes — they resolve effectively
+          // together, so no extra round-trip cost.
+          if (this.profile && this.histogramTsStagingBuf) {
+            await Promise.all([
+              this.histogramStagingBuf.mapAsync(GPUMapMode.READ),
+              this.histogramTsStagingBuf.mapAsync(GPUMapMode.READ),
+            ]);
+            const tsBytes = this.histogramTsStagingBuf.getMappedRange();
+            const ts = new BigUint64Array(tsBytes.slice(0));
+            this.histogramTsStagingBuf.unmap();
+            this.lastBucketHistogramGpuMs = Number(ts[1] - ts[0]) / 1e6;
+          } else {
+            await this.histogramStagingBuf.mapAsync(GPUMapMode.READ);
+            this.lastBucketHistogramGpuMs = 0;
+          }
+        }
+        if (this.histogramHost === null || this.histogramHost.length !== B_TOTAL) {
+          this.histogramHost = new Uint32Array(B_TOTAL);
+        }
+        this.histogramHost.set(new Uint32Array(this.histogramStagingBuf.getMappedRange()));
+        this.histogramStagingBuf.unmap();
+        initCounts = this.histogramHost;
+      }
+      this.lastPrepBoothDecodeMs = performance.now() - tBooth0;
+
+      // Ping-pong two pre-allocated count buffers and fold the wstride1
+      // computation into the same walk. Avoids ~18 × ~333 KB allocations per
+      // prepare (>5 ms of GC churn for n=88_899) and removes the second pass
+      // over `levelCounts` that wstride1 used to do.
+      const tLevelPlan0 = performance.now();
+      levelPlans = [];
+      wstride1 = 1;
       // Two scratch arrays, indexed by inIdx = lv & 1. Level 0 reads
       // initCounts directly; subsequent levels write into and read from
       // the ping-pong slots.
@@ -1866,9 +2050,9 @@ export class MsmV2 {
         levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
         swap();
       }
+      this.lastPrepLevelPlanMs = performance.now() - tLevelPlan0;
     }
     const levels = levelPlans.length;
-    this.lastPrepLevelPlanMs = performance.now() - tLevelPlan0;
 
     // --- Lever G: budget-driven window-batch count.
     const maxPairBlocksPerWindow = Math.max(1, ...levelPlans.map(p => p.pairBlocksPerWindow));
