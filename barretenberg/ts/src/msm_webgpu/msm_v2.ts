@@ -98,11 +98,22 @@ export interface MsmConfig {
    *  The actual per-bucket counts still flow through the existing
    *  `csr2v2_meta` → `countsBufs[0]` path at run time; only the *sizing*
    *  numbers (`pairBlocksPerWindow`, `carriesPerWindow`, `wstride1`) are
-   *  precomputed. See [integration/m8_static_plan_findings.md] for the
-   *  empirical justification (per-cell variation across 100 random-scalar
-   *  runs is well below the safety margin used by `computeStaticPlan`).
-   *  Default `false`; the dynamic path (GPU histogram + host level walk)
-   *  remains the validated fallback. */
+   *  precomputed.
+   *
+   *  ASSUMPTION — VALID ONLY FOR ~UNIFORM-RANDOM SCALARS. `computeStaticPlan`
+   *  predicts the per-level bounds from the n=count and `c`; the prediction
+   *  is an empirical upper bound calibrated against reduced-mod-r random
+   *  scalars (the dev page / benchmarking inputs), NOT a proof. Structured
+   *  or adversarial scalars (many equal/zero/repeated digits) can pile a
+   *  single bucket far past the predicted depth/pairs/carries and silently
+   *  corrupt the result — over-provisioning is safe, under-provisioning is
+   *  not, and this path has no runtime overflow check. The dynamic path
+   *  (GPU histogram + host level walk) reads the real histogram and is exact
+   *  for ANY distribution; it remains the default and the only path safe for
+   *  production proving. Keep this `false` outside validated random-scalar
+   *  benchmarking. See [integration/m8_static_plan_findings.md].
+   *
+   *  Default `false`. */
   useStaticPlan?: boolean;
 }
 
@@ -318,29 +329,23 @@ function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindow
  *   - sum-of-nc ≤ ⌈ sum-of-cnt / 2 ⌉  (carry-up from at most one odd sum)
  *
  * Each scalar contributes exactly one Booth digit to one bucket of each
- * window, so the per-window initial count sum equals `n`. Iterating the
- * recurrence:
+ * window, so the per-window initial count sum equals `n`. The uniform part
+ * of each level's bound follows from iterating the recurrence
+ * (pairs[k] ≈ ⌈n/2^(k+1)⌉), but two corrections are critical and were missed
+ * by an earlier version fit to uniform-byte scalar sampling:
  *
- *   sum_cnt[level=k] ≤ ⌈n / 2^k⌉ + k          (per-level rounding error)
- *   pairs[level=k]   ≤ ⌈n / 2^(k+1)⌉ + 1      (floor sums to ≤ half the input)
- *   carries[level=k] ≤ min(activeBuckets, ⌈n / 2^(k+1)⌉)
- *                                              (one carry per odd-count bucket)
- *   strideCnt[level=k] = pairs + carries ≤ ⌈n / 2^k⌉ + activeBuckets + k
+ *   1. The TOP partial window (fewer than c bits) is denser and drains
+ *      slower, so its pairs/carries poke above the uniform curve at deep
+ *      levels (the "knee"). This only appears under reduced-mod-r scalars
+ *      (real callers); the additives below cover it.
+ *   2. Depth is set by that same top window — see the depth derivation in
+ *      the body.
  *
- * Where `activeBuckets = min(2^(c-1), n)` — the carry term saturates when
- * the active range is smaller than the average sum/2.
- *
- * Empirical validation. Across 100 random-scalar runs at n ∈ {2¹², 2¹⁶,
- * 2²⁰}, the per-(level, window) triples sit within ≤ 1 % of their mean
- * and `max == p99` across the sample — well inside the analytic bound
- * above. See [integration/m8_static_plan_findings.md] for the numbers.
- *
- * Depth must match the dynamic host walk's INPUT-based termination
- * (`if (!anyActive) break`), which includes the final retirement/finalize
- * level. The dropped f2cc GPU walk broke on output `strideCnt === 0` — one
- * level early — dropping the last finalize and producing wrong results;
- * the EMPIRICAL_DEPTHS table below is the input-based count so the static
- * plan dispatches exactly what the correct dynamic walk does.
+ * All bounds are UPPER bounds with margin: over-provisioning is
+ * correctness-safe (extra fused blocks / carry slots / pair-tree levels are
+ * no-ops), so the only failure mode is under-provisioning. Validated against
+ * the MOD_R sampler in integration/m8_static_plan_study.ts; numbers in
+ * m8_static_plan_findings.md.
  */
 function computeStaticPlan(n: number, c: number, S: number): { levelPlans: LevelPlan[]; wstride1: number } {
   const activeBuckets = Math.min(2 ** (c - 1), Math.max(1, n));
@@ -361,66 +366,69 @@ function computeStaticPlan(n: number, c: number, S: number): { levelPlans: Level
   // Adversarial inputs (all scalars equal → one bucket holds all n) would
   // need depth = log2(n) + 2. Not in scope: SRS-backed callers pass real
   // protocol scalars and the C++ hook gates on `!handle_edge_cases`.
-  const logN = Math.round(Math.log2(Math.max(2, n)));
-  // Input-based depth = `levelsActive`, the count the c918 host walk
-  // dispatches (1000-run max). Most sizes are deterministic (min==max over
-  // 1000 runs); n=2¹⁰ (6–7) and n=2¹⁹ (7–8) fluctuate because their low
-  // mean-per-bucket gives a heavier Poisson tail, so they carry +1 over
-  // the observed max to cover an unseen deeper run (under-provisioning
-  // depth would drop the finalize level → wrong result).
-  const EMPIRICAL_DEPTHS: Record<number, number> = {
-    10: 8,
-    11: 7,
-    12: 8,
-    13: 9,
-    14: 10,
-    15: 13,
-    16: 11,
-    17: 12,
-    18: 7,
-    19: 9,
-    20: 8,
-  };
-  const empiricalDepth = EMPIRICAL_DEPTHS[logN];
-  // The measured depth is the exact count the dynamic walk dispatches, so
-  // no extra safety is added for known sizes. Unmeasured sizes fall back
-  // to the analytic worst-case bound `⌈log2(n)⌉ + 2` (covers the
-  // retirement level); measure + add a row before relying on the static
-  // plan for a new logN.
-  const depthBound = Math.min(
-    LEVEL_PLAN_MAX_LEVELS,
-    empiricalDepth !== undefined ? empiricalDepth : Math.max(2, Math.ceil(Math.log2(Math.max(2, n))) + 2),
-  );
-  // pairsBound: per-window upper bound on `pairs[lvl=k] = Σ_b
-  // floor(cnt_b/2)`. The naive `⌈n/2^(k+1)⌉` term is occasionally exceeded
-  // (the recurrence accumulates carry-up from odd-count buckets), so we
-  // add `pairsAdditive` sized to cover the empirical max-per-(level,
-  // window) overshoot above that term. The 100-run study peaked at:
-  //   n=2¹²: +14   (activeBuckets=128,   ⌈3·√128⌉  = 34)
-  //   n=2¹⁶: +40   (activeBuckets=4096,  ⌈3·√4096⌉ = 192)
-  //   n=2²⁰: +70   (activeBuckets=16384, ⌈3·√16384⌉= 384)
-  // `3·√activeBuckets` fits the observed √-scaling with ~5× margin; the
-  // floor of 16 covers tiny n. No multiplicative SAFETY on top — an extra
-  // 5 % would re-introduce ~10 ms of `fused` regression at n=2²⁰ (×17
-  // batches makes per-block overhead load-bearing).
+  // Depth is set by the deepest bucket, which lives in the TOP partial
+  // window: it covers `254 mod c` bits — fewer than a full window — so it has
+  // the fewest buckets (`2^(topBits-1)` after signed-Booth folding) and hence
+  // the highest mean occupancy `topMean = n / 2^(topBits-1)`. A bucket of
+  // count C drains to zero in ⌈log2(C)⌉(+1 for the finalize level), and the
+  // top window's max bucket sits ~1 doubling above its mean across the
+  // observed runs, so:
   //
-  // carries: the strict analytic bound is `min(activeBuckets,
-  // ⌈n/2^(k+1)⌉)`, but empirically carries top out around `activeBuckets
-  // × 0.55` (≈ half the buckets are odd-count + Poisson tail). The loose
-  // bound would 2× over-provision the carries staging buffer and the
-  // carry-copy dispatch; `0.55·activeBuckets + 4√activeBuckets` covers
-  // every measured run with margin.
+  //     depth = ⌈log2(topMean)⌉ + 2
+  //
+  // The +2 absorbs the max-over-mean tail and the finalize level. Verified
+  // against MOD_R (reduced-mod-r) sampling, 300 runs per size — covers every
+  // observed max with 0–1 levels of margin (exact on the c=15 sizes whose
+  // top window is wide/low-occupancy, +1 elsewhere):
+  //   n=2¹⁰..2¹⁴ (c=8):  7  9  9 10 11   (max 7 8 8 9 10)
+  //   n=2¹⁵ (c=10): 14    n=2¹⁶/2¹⁷ (c=13): 12 13   (max 13, 11 12)
+  //   n=2¹⁸/2¹⁹/2²⁰ (c=15): 7 8 9         (max 7 8 9)
+  // maxBucket would have to DOUBLE (many σ past the Poisson tail) to add a
+  // level, so this is robust without a per-size table. The earlier
+  // hand-measured EMPIRICAL_DEPTHS table was fit to uniform-byte sampling and
+  // under-counted n=2¹¹ (7 vs 8) and n=2²⁰ (8 vs 9) — see
+  // m8_static_plan_study.ts (MOD_R) / m8_static_plan_findings.md.
+  const numWindows = Math.ceil(NUMBITS / c);
+  const topBits = NUMBITS - c * (numWindows - 1);
+  const topMean = Math.max(2, n / 2 ** Math.max(0, topBits - 1));
+  const depthBound = Math.min(LEVEL_PLAN_MAX_LEVELS, Math.max(2, Math.ceil(Math.log2(topMean)) + 2));
+  // pairsBound: per-window upper bound on `pairs[lvl=k] = Σ_b
+  // floor(cnt_b/2)`. At level 0 this is bounded strictly by n/2 (Σ cnt = n
+  // per window ⇒ Σ floor(cnt/2) ≤ n/2), so only a small rounding margin is
+  // needed. Deeper levels accumulate a *top-partial-window* bump: the top
+  // window covers `254 mod c` bits — fewer than c — so its buckets are
+  // denser and drain slower than the uniform `⌈n/2^(k+1)⌉` curve, leaving a
+  // residual that pokes above it at the "knee" (the level where most buckets
+  // collapse to count 1–3). For spread-out top windows (c=15: 14-bit top
+  // window, ~8192 buckets) the residual peaks near 0.25·activeBuckets:
+  //   n=2¹⁸ lvl4: +2336   n=2¹⁹ lvl5: +3496   n=2²⁰ lvl6: +4078  (≈0.25·aB)
+  // `activeBuckets/3` covers it with ~30 % margin; the 3·√activeBuckets floor
+  // covers small n where the residual is sub-linear (c≤13: long, *thin* top
+  // tail — the residual there is only tens of pairs).
+  //
+  // This bump is INVISIBLE under uniform-byte scalar sampling — it only
+  // appears when scalars are reduced mod r (the dev page / real callers),
+  // which reshapes the top window. The earlier `3·√activeBuckets`-only bound
+  // was fit to uniform sampling and under-provisioned c=15 by ~20–30 %,
+  // corrupting the n=2¹⁸⁻²⁰ result. See integration/m8_static_plan_study.ts
+  // (MOD_R sampler) and m8_static_plan_findings.md.
+  //
+  // carries (odd-count buckets, cnt≥3) hover near 0.5·activeBuckets, then
+  // spike at the knee to ~0.68·activeBuckets (n=2²⁰ lvl5: 11067 / 16384).
+  // 0.8·activeBuckets covers the spike; `min(…, ⌈n/div⌉)` keeps deep levels
+  // tight. (Over-provisioning any bound is correctness-safe — extra fused
+  // blocks / carry slots are no-ops — so these are upper bounds with margin;
+  // tightening for c≤13 chonk perf is a follow-up that needs GPU timings.)
   //
   // wstride1 = max strideCnt — drives `M1 = batchWindows × wstride1 + 3`.
-  // At numBatches=17 (n=2²⁰) every extra entry costs 17 × 128 bytes of
-  // per-MSM `clearBuffer`, so it gets the same tight carries cap.
-  const pairsAdditive = Math.max(16, Math.ceil(3 * Math.sqrt(activeBuckets)));
-  const carriesCap = Math.ceil(activeBuckets * 0.55) + Math.ceil(4 * Math.sqrt(activeBuckets));
+  const pairsAdditiveL0 = Math.max(16, Math.ceil(3 * Math.sqrt(activeBuckets)));
+  const pairsAdditiveDeep = Math.max(pairsAdditiveL0, Math.ceil(activeBuckets / 3));
+  const carriesCap = Math.ceil(activeBuckets * 0.8);
   const levelPlans: LevelPlan[] = [];
   let wstride1 = 1;
   for (let lv = 0; lv < depthBound; lv++) {
     const div = Math.pow(2, lv + 1);
-    const pairsBound = Math.ceil(n / div) + pairsAdditive;
+    const pairsBound = Math.ceil(n / div) + (lv === 0 ? pairsAdditiveL0 : pairsAdditiveDeep);
     const carriesBound = Math.min(carriesCap, Math.ceil(n / div));
     const strideCntBound = pairsBound + carriesBound;
     const pairBlocksPerWindow = Math.max(1, Math.ceil(pairsBound / S));

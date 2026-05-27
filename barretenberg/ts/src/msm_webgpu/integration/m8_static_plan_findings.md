@@ -405,22 +405,68 @@ same level count as the known-correct c918 walk. So `useStaticPlan` should
 be correct on hardware — pending the browser cross-check at n=2²⁰ and the
 chonk e2e VK-match (still the open validation items below).
 
-### Current state of the formulas
+## Update (2026-05-27, second) — wrong sampler found; top-window root cause
+
+The browser cross-check (user hardware) failed `?staticPlan=1` at
+log₂(n) ∈ {18, 19, 20} — and ONLY those — while the dynamic path passed
+everywhere. All three are the `c=15` sizes. Root cause:
+
+**The study harness sampled scalars uniform over [0, 2²⁵⁴), but the dev
+page and every real caller reduce mod r (≈ 0.756 · 2²⁵⁴).** Reduction
+reshapes the histogram only in the TOP partial window (`254 mod c` bits) —
+but that window is exactly what governs both the pair-tree depth and the
+per-level "knee". Under the wrong sampler the plan looked safe; under
+mod-r sampling (`MOD_R=1`, now the harness default) it under-provisions
+`c=15`:
+
+| n | bound that failed (uniform → mod-r) |
+|---|---|
+| 2¹⁸ | pairs lvl4: 1072 blocks vs **1316** needed |
+| 2¹⁹ | pairs lvl5: 1072 vs **1461** |
+| 2²⁰ | pairs lvl6: 1072 vs **1535**; carries lvl5: 9523 vs **11067**; depth 8 vs **9** |
+
+Why `c=15` only: its top window is wide (14 bits, ~8192 buckets) so it
+holds a *thick* slow-draining population — the residual above `n/2^(k+1)`
+peaks near `0.25·activeBuckets`, and carries spike to `0.68·activeBuckets`.
+`c≤13` top windows are narrow (≤7 bits) → a long but *thin* tail whose
+residual is only tens of pairs, comfortably inside the old additive (so
+those sizes passed all along).
+
+### Fixes (validated: all 11 sizes PASS under MOD_R, 120–400 runs)
 
 ```
-depth(logN)      = EMPIRICAL_DEPTHS lookup (input-based) | fallback ⌈log2 n⌉+2
-pairsBound[k]    = ⌈n / 2^(k+1)⌉ + max(16, ⌈3·√activeBuckets⌉)
-carriesBound[k]  = min(⌈0.55·activeBuckets⌉ + ⌈4·√activeBuckets⌉, ⌈n/2^(k+1)⌉)
+numWindows       = ⌈254 / c⌉
+topBits          = 254 − c·(numWindows − 1)
+topMean          = n / 2^(topBits − 1)
+depth            = ⌈log2(topMean)⌉ + 2          (analytic; replaced the table)
+pairsBound[0]    = ⌈n/2⌉ + max(16, ⌈3·√aB⌉)      (lvl0 pairs ≤ n/2 strictly)
+pairsBound[k>0]  = ⌈n/2^(k+1)⌉ + max(16, ⌈3·√aB⌉, ⌈aB/3⌉)   (top-window knee)
+carriesBound[k]  = min(⌈0.8·aB⌉, ⌈n/2^(k+1)⌉)    (was 0.55·aB)
 wstride1         = max over k of (pairsBound[k] + carriesBound[k])
 ```
-No multiplicative SAFETY (it re-introduced ~10 ms `fused` regression at
-n=2²⁰); the additive `pairsAdditive` is the safety. The slow-path
-`OVERSIZE_FACTOR = 1.3` still applies to buffer sizes on top.
+where `aB = activeBuckets`. The depth formula is derived from the
+top-window drain (a bucket of count C drains in ⌈log2 C⌉ + finalize; the
++2 absorbs the max-over-mean tail). It covers every measured max with 0–1
+levels of margin and is robust — maxBucket would have to *double* (many σ)
+to add a level — so it needs no per-size table. The earlier hand-measured
+`EMPIRICAL_DEPTHS` was itself wrong under mod-r (n=2¹¹: 7 vs 8, n=2²⁰: 8 vs
+9). `OVERSIZE_FACTOR = 1.3` still applies to buffer sizes on the slow path.
+
+### Correctness is empirical, not guaranteed (decision: keep, document)
+
+These are upper bounds calibrated to **uniform-random (mod-r) scalars**, not
+proofs. Over-provisioning is correctness-safe; under-provisioning corrupts
+silently (no runtime overflow check on this path). Structured/adversarial
+scalars (many equal/zero/repeated digits) can pile one bucket far past the
+predicted depth/pairs/carries. The dynamic path reads the real histogram and
+is exact for any distribution. Therefore `useStaticPlan` stays **default-off
+and scoped to validated random-scalar benchmarking** — not production
+proving. (Options considered: runtime overflow-detect + dynamic fallback;
+provable worst-case bounds `depth=log2 n+2`, `carries≤aB`; validating on the
+real chonk scalar distribution. Deferred — see MsmConfig.useStaticPlan doc.)
 
 ### Still open (needs hardware)
 
-- Browser cross-check with `?staticPlan=1` at log₂(n) ∈ {10, 16, 20},
-  multiple random seeds — must match WASM + noble.
-- Confirm `?staticPlan=1` also makes the **dynamic-path** n=2¹⁰ failure
-  moot (static bypasses the histogram/walk, so it should).
-- Chonk e2e VK-match with `useStaticPlan` plumbed through the bridge.
+- Browser re-check with `?staticPlan=1` at log₂(n) ∈ {18, 19, 20} (the
+  previously-failing sizes), multiple seeds — must match WASM + noble.
+- e2e/per-phase static-vs-dynamic comparison into STATUS.md.

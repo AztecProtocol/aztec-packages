@@ -16,13 +16,15 @@
 //   - human tables on stdout
 //   - JSON dump at integration/m8_static_plan_study.json (raw stats per cell)
 //
-// Sampler: 32 random bytes per scalar, top 2 bits cleared so every scalar
-// is < 2^254. The BN254 scalar field order r ≈ 0.756 · 2^254, so this is a
-// superset of canonical Fr. The Booth recoder operates bit-wise and is
-// blind to canonicality; the histogram distribution differs from Fr-uniform
-// only in the very top window where ~24% of values would have been
-// rejected. That tail is captured in the per-window stats below — readers
-// can see it directly and judge.
+// Sampler (default): rejection-sample uniform over [0, r) — identical to the
+// dev page's randomFr() and all real callers. CRITICAL: an earlier version
+// sampled uniform over [0, 2^254) (32 random bytes, top 2 bits cleared) and
+// did NOT reduce mod r. Since r ≈ 0.756 · 2^254, that over-samples the high
+// end of the TOP partial window, which is exactly the window that sets both
+// pair-tree depth and the per-level "knee" thickness. The uniform sampler
+// under-counted depth (n=2¹¹: 7 vs 8, n=2²⁰: 8 vs 9) and the pairs/carries
+// bounds, yielding a static plan that corrupted n=2¹⁸⁻²⁰ in-browser. Set
+// MOD_R=0 to reproduce that legacy distribution for comparison.
 
 import { randomFillSync } from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -172,10 +174,30 @@ function rawLevelWalk(
 
 // 32-byte little-endian scalars with top 2 bits cleared — see file header.
 // Reuses one buffer per call to avoid GC churn at n=2^20.
+// Rejection-sample uniform over [0, r) to match the dev page's `randomFr()`
+// (main.ts) and all real callers. This is REQUIRED for representative
+// numbers: reducing mod r reshapes the TOP partial window, which both
+// deepens the pair tree (c=15: +1 level at n=2²⁰) and thickens the per-level
+// pairs/carries "knee". The original uniform-byte sampler (MOD_R=0) hid both
+// and produced a static plan that corrupted n=2¹⁸⁻²⁰. Set MOD_R=0 only to
+// reproduce that legacy under-counting for comparison.
+const FR_ORDER = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+const MOD_R = process.env.MOD_R !== '0';
+function scalarLE(buf: Uint8Array, off: number): bigint {
+  let v = 0n;
+  for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(buf[off + i]);
+  return v;
+}
 function fillRandomScalars(buf: Uint8Array, n: number): void {
   randomFillSync(buf, 0, n * 32);
   for (let i = 0; i < n; i++) {
     buf[i * 32 + 31] &= 0x3f;
+    if (MOD_R) {
+      while (scalarLE(buf, i * 32) >= FR_ORDER) {
+        randomFillSync(buf, i * 32, 32);
+        buf[i * 32 + 31] &= 0x3f;
+      }
+    }
   }
 }
 
@@ -249,37 +271,23 @@ function computeStaticPlanLocal(
   S: number,
 ): { perLevel: { pairBlocksPerWindow: number; carriesPerWindow: number }[]; wstride1: number } {
   const activeBuckets = Math.min(2 ** (c - 1), Math.max(1, n));
-  // Mirror EMPIRICAL_DEPTHS from msm_v2.ts:computeStaticPlan — keep in sync.
-  // Input-based (levelsActive) depths: the number of levels the c918 host
-  // walk dispatches (`if (!anyActive) break`), including the final
-  // retirement/finalize level. The static plan must match this (NOT the
-  // output-based count, which drops the finalize level — the f2cc bug).
-  const logN = Math.round(Math.log2(Math.max(2, n)));
-  const EMPIRICAL_DEPTHS: Record<number, number> = {
-    10: 8,
-    11: 7,
-    12: 8,
-    13: 9,
-    14: 10,
-    15: 13,
-    16: 11,
-    17: 12,
-    18: 7,
-    19: 9,
-    20: 8,
-  };
-  const empiricalDepth = EMPIRICAL_DEPTHS[logN];
-  const depthBound = Math.min(
-    LEVEL_PLAN_MAX_LEVELS,
-    empiricalDepth !== undefined ? empiricalDepth : Math.max(2, Math.ceil(Math.log2(Math.max(2, n))) + 2),
-  );
-  const pairsAdditive = Math.max(16, Math.ceil(3 * Math.sqrt(activeBuckets)));
-  const carriesCap = Math.ceil(activeBuckets * 0.55) + Math.ceil(4 * Math.sqrt(activeBuckets));
+  // Depth = ⌈log2(topMean)⌉ + 2, set by the top partial window's occupancy.
+  // Keep in sync with msm_v2.ts:computeStaticPlan (see derivation there).
+  const numWindows = Math.ceil(NUMBITS / c);
+  const topBits = NUMBITS - c * (numWindows - 1);
+  const topMean = Math.max(2, n / 2 ** Math.max(0, topBits - 1));
+  const depthBound = Math.min(LEVEL_PLAN_MAX_LEVELS, Math.max(2, Math.ceil(Math.log2(topMean)) + 2));
+  // Level-0 pairs ≤ n/2 strictly (rounding margin only); deeper levels carry
+  // the top-window knee bump (~0.25·activeBuckets) → activeBuckets/3.
+  // Carries spike to ~0.68·activeBuckets at the knee → 0.8·activeBuckets cap.
+  const pairsAdditiveL0 = Math.max(16, Math.ceil(3 * Math.sqrt(activeBuckets)));
+  const pairsAdditiveDeep = Math.max(pairsAdditiveL0, Math.ceil(activeBuckets / 3));
+  const carriesCap = Math.ceil(activeBuckets * 0.8);
   const perLevel: { pairBlocksPerWindow: number; carriesPerWindow: number }[] = [];
   let wstride1 = 1;
   for (let lv = 0; lv < depthBound; lv++) {
     const div = Math.pow(2, lv + 1);
-    const pairsBound = Math.ceil(n / div) + pairsAdditive;
+    const pairsBound = Math.ceil(n / div) + (lv === 0 ? pairsAdditiveL0 : pairsAdditiveDeep);
     const carriesBound = Math.min(carriesCap, Math.ceil(n / div));
     const strideCntBound = pairsBound + carriesBound;
     const pairBlocksPerWindow = Math.max(1, Math.ceil(pairsBound / S));

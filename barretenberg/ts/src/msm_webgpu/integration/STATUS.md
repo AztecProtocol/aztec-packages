@@ -1,6 +1,8 @@
 # Status — WebGPU MSM Integration
 
-*Last refreshed: 2026-05-26. Branch: local working tree on `sb/integrate-wgpu-msm`.*
+*Last refreshed: 2026-05-28 (added "M8 static plan" section; per-label
+block-list still current). Branch: local working tree on
+`sb/integrate-wgpu-msm`.*
 
 ---
 
@@ -269,10 +271,11 @@ M8 in [ROADMAP.md](ROADMAP.md)):
    32 MB scalar read (unavoidable). Modest gain, contained change.
 2. *Eliminate the histogram pass entirely* by reviving the static
    upper-bound plan (per-level pair/carry/stride from the recurrence
-   `s_{k+1} ≤ floor(2/3·s_k)`). First attempt threw "value is not
-   invertible" at n=2²⁰ — root cause was never isolated. If revived,
-   eliminates both the histogram dispatch AND the prepare-time
-   `mapAsync`. Largest win.
+   `s_{k+1} ≤ floor(2/3·s_k)`). **Implemented behind `?staticPlan=1` /
+   `useStaticPlan` — see "M8 static plan" below.** Eliminates both the
+   histogram dispatch AND the prepare-time `mapAsync` + host level-walk;
+   the earlier "value is not invertible" crash was the dropped f2cc GPU
+   walk plus a wrong-sampler sizing bug, both fixed.
 3. *Cache warm-up dispatch* after the histogram readback — a tiny
    compute pass that reads the first ~16 MB of `point_x`/`point_y` to
    repopulate SLC before `fused` submits. Hacky and device-tunable;
@@ -282,3 +285,63 @@ M8 in [ROADMAP.md](ROADMAP.md)):
 routes `prepare()` through the host `buildInitCounts` loop instead of
 the GPU histogram dispatch. Use it to re-measure the cache effect after
 any change to the bucket-histogram kernel or the surrounding scheduling.
+
+## M8 static plan — `?staticPlan=1` / `useStaticPlan` (2026-05-27)
+
+Bakes the per-level `(pairBlocksPerWindow, carriesPerWindow, wstride1)`
+schedule at `MsmV2.create()` from a closed form over `(n, c, S)`, so
+`prepare()` skips the `bucket_histogram` dispatch, its `mapAsync`
+readback, AND the host per-level walk. Actual per-bucket counts still flow
+`csr2v2_meta → countsBufs[0]` at run time; only the *sizing* is predicted.
+Default OFF. See [computeStaticPlan in msm_v2.ts](../msm_v2.ts) and
+[m8_static_plan_findings.md](m8_static_plan_findings.md).
+
+**Correctness (M4 Pro, Chromium, dev-page Sweep, fresh crypto-random
+scalars per run).** Cross-checks WASM-MT + noble PASS at every size
+log₂(n) ∈ {10..20}, including the three that the first cut corrupted
+(18/19/20, all `c=15`). Root cause: the precursor study sampled scalars
+uniform over [0, 2²⁵⁴) but real callers reduce mod r, which reshapes the
+top partial window — the window that sets pair-tree depth and the
+per-level "knee". The fix replaced the hand-measured depth table with an
+analytic top-window bound and widened the pairs/carries additives; host
+validation (mod-r sampler, 120–400 runs/size) covers every observed cell.
+
+**Per-MSM timing, static vs default (GPU-histogram), median of 40 reps:**
+
+| log₂(n) | phase | default | static | Δ |
+|---|---|---:|---:|---:|
+| 16 | host_prepare | 2.82 ms | 0.09 ms | **−2.73** |
+|    | ↳ prep_booth_decode + prep_level_plan | 2.74 ms | 0 ms | −2.74 |
+|    | fused | 10.4 ms | 12.8 ms | +2.4 |
+|    | e2e | 22.5 ms | 22.3 ms | **−0.2** |
+| 20 | host_prepare | 24.0 ms | 12.4 ms | **−11.6** |
+|    | ↳ prep_booth_decode + prep_level_plan | 11.6 ms | 0 ms | −11.6 |
+|    | ↳ scalar_upload_wall (unavoidable writeBuffer) | 12.3 ms | 12.3 ms | 0 |
+|    | fused | 151.2 ms | 163.3 ms | +12.1 |
+|    | gpu_other (wall − profiled Σ) | 2.52 ms | 7.25 ms | +4.7 |
+|    | e2e | 219.9 ms | 224.0 ms | **+4.1** |
+
+**Read of the trade.** M8 hit its target: the prepare-time histogram +
+host walk (`prep_booth_decode + prep_level_plan`) drop to **0** at every
+size — the GPU→host readback wall is gone. But the *correctness-first*
+sizing over-provisions the GPU side: deep pair-tree levels dispatch far
+more (empty, no-op) fused blocks than the dynamic plan, and the wider
+carries cap inflates per-level carry clears (×17 batches at n=2²⁰). That
+shows up as `fused +12 ms` / `gpu_other +4.7 ms`, which currently exceeds
+the `host_prepare` saving → **single-MSM e2e is roughly break-even (n=2¹⁶)
+to a small loss (+4 ms at n=2²⁰)**. Static is default-off, so the product
+default path is unchanged; this makes a previously-*broken* opt-in path
+correct.
+
+**Why the over-provision is hard to remove fully.** The closed form sizes
+each level from `⌈n/2^(k+1)⌉ + knee-additive`. Past the "knee" (where most
+buckets collapse to count 1) the real per-level pairs *crater* to ~0, but
+the closed form can't see the crater without the histogram it's avoiding,
+so the deepest 2–3 dispatched levels are sized for ~`n/2^(k+1)` pairs they
+don't have. Tightening that tail (a tapered additive, or a cheap
+top-window-only tail bound) is the path to a net e2e win and is the
+obvious follow-up — it needs on-device timing to confirm, so it's left
+for a GPU session. The bound is empirical (calibrated to ~uniform mod-r
+scalars), not a proof; structured/adversarial scalars can still
+under-provision it silently, so static must stay scoped to validated
+random-scalar benchmarking, not production proving.
