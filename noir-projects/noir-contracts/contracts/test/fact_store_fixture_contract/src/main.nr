@@ -10,13 +10,10 @@ pub contract FactStoreFixture {
     global MAX_PAYLOAD: u32 = 8;
 
     // Fact type ids. 0 is reserved for empty array slots and never matches a real fact.
-    global TX_CONFIRMED_ID: Field = 1;
-    global DISCOVERED_ID: Field = 2;
-    global FINALIZED_ID: Field = 3;
-    global EXPIRED_ID: Field = 4;
-    // DELIVERED_ID = 5 is the birth fact; this fold does not inspect it.
+    // RECEIVED_ID = 1 is the birth fact; this fold does not inspect it directly.
+    global PROCESSED_ID: Field = 2;
 
-    // ReceptionState codes: AWAITING_TX=0, EXPIRED=1, CONFIRMED=2, DISCOVERED=3, FINALIZED=4.
+    // ReceptionState codes: RECEIVED=0, PROCESSED=1.
 
     #[derive(Deserialize, Serialize)]
     pub struct PackedFact {
@@ -26,35 +23,16 @@ pub contract FactStoreFixture {
     }
 
     // Pure fold: state is a function only of which facts are present in the canonical set.
+    // PROCESSED iff any canonical fact is `Processed`, else RECEIVED.
     #[external("utility")]
     unconstrained fn offchain_reception_fold(facts: [PackedFact; MAX_FACTS]) -> pub Field {
-        let mut found_finalized = false;
-        let mut found_tx_confirmed = false;
-        let mut found_discovered = false;
-        let mut found_expired = false;
+        let mut found_processed = false;
         for i in 0..MAX_FACTS {
-            if facts[i].fact_type_id == FINALIZED_ID {
-                found_finalized = true;
-            }
-            if facts[i].fact_type_id == TX_CONFIRMED_ID {
-                found_tx_confirmed = true;
-            }
-            if facts[i].fact_type_id == DISCOVERED_ID {
-                found_discovered = true;
-            }
-            if facts[i].fact_type_id == EXPIRED_ID {
-                found_expired = true;
+            if facts[i].fact_type_id == PROCESSED_ID {
+                found_processed = true;
             }
         }
-        if found_finalized {
-            4
-        } else if found_tx_confirmed {
-            if found_discovered {
-                3
-            } else {
-                2
-            }
-        } else if found_expired {
+        if found_processed {
             1
         } else {
             0

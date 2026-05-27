@@ -25,14 +25,7 @@ import type { SenderAddressBookStore } from '../tagging_store/sender_address_boo
 import type { SenderTaggingStore } from '../tagging_store/sender_tagging_store.js';
 import { FactStore } from './fact_store.js';
 import { foldOffchainReception } from './fold_execution.js';
-import {
-  FACT_DELIVERED,
-  FACT_DISCOVERED,
-  FACT_EXPIRED,
-  FACT_FINALIZED,
-  FACT_TX_CONFIRMED,
-  OFFCHAIN_ENTITY_TYPE_ID,
-} from './offchain_reception_fixture.js';
+import { FACT_PROCESSED, FACT_RECEIVED, OFFCHAIN_ENTITY_TYPE_ID } from './offchain_reception_fixture.js';
 
 describe('offchain reception fold (real simulator, real reorg)', () => {
   const simulator = new WASMSimulator();
@@ -102,43 +95,35 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
   const put = (factType: Fr, anchor: { blockNumber: number; blockHash: string } | null) =>
     factStore.put(contract, scope, OFFCHAIN_ENTITY_TYPE_ID, factType, correlation, Buffer.alloc(0), anchor);
 
-  it('follows the P4 reorg trace: Delivered survives, anchored facts retract and re-anchor', async () => {
-    const A = Fr.random().toString();
-    const B = Fr.random().toString();
+  it('retracts Processed on reorg and re-processes once the tx is re-mined', async () => {
+    const A = '0xaa';
+    const B = '0xbb';
 
-    // 1. Delivered only (unanchored birth fact).
-    await put(FACT_DELIVERED, null);
-    expect(await fold()).toBe('AWAITING_TX');
+    // 1. Received only (unanchored birth fact): the message has arrived but is not yet processed.
+    await put(FACT_RECEIVED, null);
+    expect(await fold()).toBe('RECEIVED');
 
-    // 2. Tx mined at (105, A): TxConfirmed + Discovered, both anchored.
+    // 2. The tx is found at (105, A): sync_inbox hands the message off and records a canonical
+    //    Processed fact anchored there. Folding it advances the entity to PROCESSED, and it stays
+    //    PROCESSED while the anchor remains canonical (idempotent re-syncs do not re-process).
     await chain.setMany([
       { blockNumber: 104, blockHash: Fr.random().toString() },
       { blockNumber: 105, blockHash: A },
     ]);
-    await put(FACT_TX_CONFIRMED, { blockNumber: 105, blockHash: A });
-    await put(FACT_DISCOVERED, { blockNumber: 105, blockHash: A });
-    expect(await fold()).toBe('DISCOVERED');
+    await put(FACT_PROCESSED, { blockNumber: 105, blockHash: A });
+    expect(await fold()).toBe('PROCESSED');
+    expect(await fold()).toBe('PROCESSED');
 
-    // 3. Reorg orphans block 105. Anchored facts retract; Delivered survives.
+    // 3. A reorg orphans block 105. The Processed@(105,A) row is still stored but no longer
+    //    canonical, so loadCanonicalFactSet filters it out: the fold retracts to RECEIVED and the
+    //    message is eligible for re-processing.
     await chain.clearAbove(104);
-    expect(await fold()).toBe('AWAITING_TX');
+    expect(await fold()).toBe('RECEIVED');
 
-    // 4. Tx re-included at (107, B). CONFIRMED, not DISCOVERED: the Discovered@(105,A) row is
-    //    still stored but non-canonical, so loadCanonicalFactSet filters it out.
+    // 4. The tx is re-mined at (107, B): a fresh Processed fact anchored there makes the entity
+    //    PROCESSED again. The orphaned Processed@(105,A) row stays non-canonical and irrelevant.
     await chain.set(107, B);
-    await put(FACT_TX_CONFIRMED, { blockNumber: 107, blockHash: B });
-    expect(await fold()).toBe('CONFIRMED');
-  }, 60_000);
-
-  it('returns EXPIRED for a delivered-but-never-confirmed message', async () => {
-    await put(FACT_DELIVERED, null);
-    await put(FACT_EXPIRED, null);
-    expect(await fold()).toBe('EXPIRED');
-  }, 60_000);
-
-  it('returns FINALIZED once the terminal fact is present', async () => {
-    await put(FACT_DELIVERED, null);
-    await put(FACT_FINALIZED, null);
-    expect(await fold()).toBe('FINALIZED');
+    await put(FACT_PROCESSED, { blockNumber: 107, blockHash: B });
+    expect(await fold()).toBe('PROCESSED');
   }, 60_000);
 });

@@ -7,20 +7,14 @@ export const MAX_FACTS = 8;
 export const MAX_PAYLOAD = 8;
 
 export const OFFCHAIN_ENTITY_TYPE_ID = new Fr(1n);
-export const FACT_TX_CONFIRMED = new Fr(1n);
-export const FACT_DISCOVERED = new Fr(2n);
-export const FACT_FINALIZED = new Fr(3n);
-export const FACT_EXPIRED = new Fr(4n);
-export const FACT_DELIVERED = new Fr(5n);
+export const FACT_RECEIVED = new Fr(1n);
+export const FACT_PROCESSED = new Fr(2n);
 
-export type ReceptionState = 'AWAITING_TX' | 'EXPIRED' | 'CONFIRMED' | 'DISCOVERED' | 'FINALIZED';
+export type ReceptionState = 'RECEIVED' | 'PROCESSED';
 
 const STATE_BY_CODE: Record<number, ReceptionState> = {
-  0: 'AWAITING_TX',
-  1: 'EXPIRED',
-  2: 'CONFIRMED',
-  3: 'DISCOVERED',
-  4: 'FINALIZED',
+  0: 'RECEIVED',
+  1: 'PROCESSED',
 };
 
 export function receptionStateFromCode(code: number): ReceptionState {
