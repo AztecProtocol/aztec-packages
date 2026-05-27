@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { PublicKeys } from '@aztec/stdlib/keys';
@@ -35,10 +36,11 @@ export function makeStandardContract(name: StandardContractName, artifact: Contr
   };
 
   const instance = {
-    version: 1 as const,
+    version: 2 as const,
     currentContractClassId: classId,
     originalContractClassId: classId,
     initializationHash,
+    immutablesHash: Fr.ZERO,
     publicKeys: PublicKeys.default(),
     salt,
     deployer: AztecAddress.ZERO,

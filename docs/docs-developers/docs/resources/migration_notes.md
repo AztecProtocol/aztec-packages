@@ -49,6 +49,17 @@ Aztec is in active development. Each version may introduce breaking changes that
 + use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 ```
 
+PXE no longer auto-registers `AuthRegistry` on startup. If your wallet needs it, register it explicitly (as the `EmbeddedWallet` entrypoints do):
+
+```ts
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+
+const { instance, artifact } = await getStandardAuthRegistry();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/auth-registry/lazy` instead.
+
 ### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
 
 The `privately_check_timestamp`, `privately_check_block_number`, and related caller helpers previously in `noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr` are now in `aztec-nr/aztec/src/public_checks.nr`. Consumer contracts should update their imports:
