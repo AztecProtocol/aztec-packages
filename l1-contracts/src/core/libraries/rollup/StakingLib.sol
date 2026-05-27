@@ -9,9 +9,9 @@ import {
   StakingQueueConfigLib
 } from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE, AttesterConfig, IGSECore} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
@@ -695,6 +695,13 @@ library StakingLib {
     );
   }
 
+  function getStorage() internal pure returns (StakingStorage storage storageStruct) {
+    bytes32 position = STAKING_SLOT;
+    assembly {
+      storageStruct.slot := position
+    }
+  }
+
   /// @notice Whether `_caller` can call {slash}.
   /// @dev The active slasher always qualifies. The legacy slasher qualifies only while its
   ///      drain window is still open, so quorum-backed rounds queued before a rotation can
@@ -708,13 +715,6 @@ library StakingLib {
       return false;
     }
     return Timestamp.wrap(block.timestamp) <= _store.legacySlasherAuthorizedUntil.decompress();
-  }
-
-  function getStorage() internal pure returns (StakingStorage storage storageStruct) {
-    bytes32 position = STAKING_SLOT;
-    assembly {
-      storageStruct.slot := position
-    }
   }
 
   function _calculateAvailableFlushes()
