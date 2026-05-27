@@ -49,8 +49,13 @@ export function toBufferLE(num: bigint, width: number): Buffer {
  * @returns A big-endian buffer representation of num.
  */
 export function toBufferBE(num: bigint, width: number): Buffer {
-  if (num < BigInt(0)) {
+  if (num < 0n) {
     throw new Error(`Cannot convert negative bigint ${num.toString()} to buffer with toBufferBE.`);
+  }
+  // The values serialized in the hot paths are overwhelmingly zero (field elements are mostly
+  // zero-padding in protocol structs), and the hex round-trip is wasteful for them.
+  if (num === 0n) {
+    return Buffer.alloc(width);
   }
   const hex = num.toString(16);
   const buffer = Buffer.from(hex.padStart(width * 2, '0').slice(0, width * 2), 'hex');
