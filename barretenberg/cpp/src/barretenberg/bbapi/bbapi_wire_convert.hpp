@@ -14,7 +14,6 @@
  */
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
@@ -340,11 +339,6 @@ inline std::vector<ChonkProof> chonk_proof_vec_from_wire(std::vector<wire::Chonk
         r.push_back(chonk_proof_from_wire(std::move(p)));
     }
     return r;
-}
-
-inline wire::CircuitComputeVkResponse circuit_compute_vk_response_to_wire(CircuitComputeVk::Response&& d)
-{
-    return { .bytes = std::move(d.bytes), .fields = uint256_vec_to_wire(d.fields), .hash = std::move(d.hash) };
 }
 
 } // namespace bb::bbapi

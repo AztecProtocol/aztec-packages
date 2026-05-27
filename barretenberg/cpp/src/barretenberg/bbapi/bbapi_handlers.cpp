@@ -15,7 +15,6 @@
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/bbapi_wire_convert.hpp"
 #include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
 #include "barretenberg/common/assert.hpp"
@@ -86,43 +85,7 @@ wire::AvmCheckCircuitResponse handle_avm_check_circuit(BBApiRequest& /*ctx*/, wi
 // Circuit + Chonk + UltraHonk
 // ===========================================================================
 
-wire::CircuitProveResponse handle_circuit_prove(BBApiRequest& ctx, wire::CircuitProve&& cmd)
-{
-    CircuitProve domain_cmd{ .circuit = circuit_input_from_wire(std::move(cmd.circuit)),
-                             .witness = std::move(cmd.witness),
-                             .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .public_inputs = uint256_vec_to_wire(resp.public_inputs),
-             .proof = uint256_vec_to_wire(resp.proof),
-             .vk = circuit_compute_vk_response_to_wire(std::move(resp.vk)) };
-}
-wire::CircuitComputeVkResponse handle_circuit_compute_vk(BBApiRequest& ctx, wire::CircuitComputeVk&& cmd)
-{
-    CircuitComputeVk domain_cmd{ .circuit = circuit_input_no_vk_from_wire(std::move(cmd.circuit)),
-                                 .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return circuit_compute_vk_response_to_wire(std::move(resp));
-}
-wire::CircuitInfoResponse handle_circuit_stats(BBApiRequest& ctx, wire::CircuitStats&& cmd)
-{
-    CircuitStats domain_cmd{ .circuit = circuit_input_from_wire(std::move(cmd.circuit)),
-                             .include_gates_per_opcode = cmd.include_gates_per_opcode,
-                             .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .num_gates = resp.num_gates,
-             .num_gates_dyadic = resp.num_gates_dyadic,
-             .num_acir_opcodes = resp.num_acir_opcodes,
-             .gates_per_opcode = std::move(resp.gates_per_opcode) };
-}
-wire::CircuitVerifyResponse handle_circuit_verify(BBApiRequest& ctx, wire::CircuitVerify&& cmd)
-{
-    CircuitVerify domain_cmd{ .verification_key = std::move(cmd.verification_key),
-                              .public_inputs = uint256_vec_from_wire(cmd.public_inputs),
-                              .proof = uint256_vec_from_wire(cmd.proof),
-                              .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .verified = resp.verified };
-}
+// UltraHonk handlers live in bbapi_ultra_honk.cpp.
 wire::ChonkComputeVkResponse handle_chonk_compute_vk(BBApiRequest& ctx, wire::ChonkComputeVk&& cmd)
 {
     ChonkComputeVk domain_cmd{ .circuit = circuit_input_no_vk_from_wire(std::move(cmd.circuit)),
@@ -173,26 +136,6 @@ wire::ChonkBatchVerifyResponse handle_chonk_batch_verify(BBApiRequest& ctx, wire
                                  .vks = std::move(cmd.vks) };
     auto resp = std::move(domain_cmd).execute(ctx);
     return { .valid = resp.valid };
-}
-wire::VkAsFieldsResponse handle_vk_as_fields(BBApiRequest& ctx, wire::VkAsFields&& cmd)
-{
-    VkAsFields domain_cmd{ .verification_key = std::move(cmd.verification_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .fields = fr_vec_to_wire(resp.fields) };
-}
-wire::MegaVkAsFieldsResponse handle_mega_vk_as_fields(BBApiRequest& ctx, wire::MegaVkAsFields&& cmd)
-{
-    MegaVkAsFields domain_cmd{ .verification_key = std::move(cmd.verification_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .fields = fr_vec_to_wire(resp.fields) };
-}
-wire::CircuitWriteSolidityVerifierResponse handle_circuit_write_solidity_verifier(
-    BBApiRequest& ctx, wire::CircuitWriteSolidityVerifier&& cmd)
-{
-    CircuitWriteSolidityVerifier domain_cmd{ .verification_key = std::move(cmd.verification_key),
-                                             .settings = proof_system_settings_from_wire(std::move(cmd.settings)) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .solidity_code = std::move(resp.solidity_code) };
 }
 wire::ChonkCheckPrecomputedVkResponse handle_chonk_check_precomputed_vk(BBApiRequest& ctx,
                                                                         wire::ChonkCheckPrecomputedVk&& cmd)

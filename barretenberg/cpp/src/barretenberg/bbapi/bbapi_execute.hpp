@@ -2,17 +2,12 @@
 
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <vector>
 
 namespace bb::bbapi {
 
-using Command = NamedUnion<CircuitProve,
-                           CircuitComputeVk,
-                           CircuitStats,
-                           CircuitVerify,
-                           ChonkComputeVk,
+using Command = NamedUnion<ChonkComputeVk,
                            ChonkStart,
                            ChonkLoad,
                            ChonkAccumulate,
@@ -20,9 +15,6 @@ using Command = NamedUnion<CircuitProve,
                            ChonkVerify,
                            ChonkVerifyFromFields,
                            ChonkBatchVerify,
-                           VkAsFields,
-                           MegaVkAsFields,
-                           CircuitWriteSolidityVerifier,
                            ChonkCheckPrecomputedVk,
                            ChonkStats,
                            ChonkCompressProof,
@@ -33,10 +25,6 @@ using Command = NamedUnion<CircuitProve,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
-                                   CircuitProve::Response,
-                                   CircuitComputeVk::Response,
-                                   CircuitStats::Response,
-                                   CircuitVerify::Response,
                                    ChonkComputeVk::Response,
                                    ChonkStart::Response,
                                    ChonkLoad::Response,
@@ -45,9 +33,6 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    ChonkVerify::Response,
                                    ChonkVerifyFromFields::Response,
                                    ChonkBatchVerify::Response,
-                                   VkAsFields::Response,
-                                   MegaVkAsFields::Response,
-                                   CircuitWriteSolidityVerifier::Response,
                                    ChonkCheckPrecomputedVk::Response,
                                    ChonkStats::Response,
                                    ChonkCompressProof::Response,

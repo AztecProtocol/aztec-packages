@@ -24,7 +24,6 @@
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bb/curve_constants.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
-#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
 #include "barretenberg/common/assert.hpp"

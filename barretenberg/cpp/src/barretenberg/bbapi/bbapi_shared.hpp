@@ -283,7 +283,7 @@ template <typename VK> std::vector<uint256_t> vk_to_uint256_fields(const VK& vk)
  *
  * @throws If oracle_hash_type is not poseidon2
  */
-inline void validate_rollup_settings(const ProofSystemSettings& settings)
+template <typename Settings> inline void validate_rollup_settings(const Settings& settings)
 {
     if (!settings.ipa_accumulation) {
         return; // Not a rollup circuit, no validation needed
@@ -314,7 +314,13 @@ inline void validate_rollup_settings(const ProofSystemSettings& settings)
  * @return The result of calling operation.template operator()<Flavor, IO>()
  *
  */
-template <typename Operation> auto dispatch_by_settings(const ProofSystemSettings& settings, Operation&& operation)
+// Accepts any settings object exposing the same field names as the schema
+// `ProofSystemSettings` (the domain one in this file and the codegen wire one
+// in generated/bb_types.hpp are field-compatible). Templating on the settings
+// type lets handlers pass `wire::ProofSystemSettings` directly without an
+// extra wire→domain conversion at the boundary.
+template <typename Settings, typename Operation>
+auto dispatch_by_settings(const Settings& settings, Operation&& operation)
 {
     // Rollup circuits: UltraFlavor with RollupIO (includes IPA accumulation for ECCVM)
     if (settings.ipa_accumulation) {
