@@ -1,11 +1,7 @@
 #pragma once
 
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/bbapi/bbapi_ecc.hpp"
-#include "barretenberg/bbapi/bbapi_ecdsa.hpp"
-#include "barretenberg/bbapi/bbapi_schnorr.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/bbapi/bbapi_srs.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <vector>
@@ -31,36 +27,9 @@ using Command = NamedUnion<CircuitProve,
                            ChonkStats,
                            ChonkCompressProof,
                            ChonkDecompressProof,
-                           GrumpkinMul,
-                           GrumpkinAdd,
-                           GrumpkinBatchMul,
-                           GrumpkinGetRandomFr,
-                           GrumpkinReduce512,
-                           Secp256k1Mul,
-                           Secp256k1GetRandomFr,
-                           Secp256k1Reduce512,
-                           Bn254FrSqrt,
-                           Bn254FqSqrt,
-                           Bn254G1Mul,
-                           Bn254G2Mul,
-                           Bn254G1IsOnCurve,
-                           Bn254G1FromCompressed,
-                           SchnorrComputePublicKey,
-                           SchnorrConstructSignature,
-                           SchnorrVerifySignature,
-                           EcdsaSecp256k1ComputePublicKey,
-                           EcdsaSecp256r1ComputePublicKey,
-                           EcdsaSecp256k1ConstructSignature,
-                           EcdsaSecp256r1ConstructSignature,
-                           EcdsaSecp256k1RecoverPublicKey,
-                           EcdsaSecp256r1RecoverPublicKey,
-                           EcdsaSecp256k1VerifySignature,
-                           EcdsaSecp256r1VerifySignature,
-                           SrsInitSrs,
                            ChonkBatchVerifierStart,
                            ChonkBatchVerifierQueue,
                            ChonkBatchVerifierStop,
-                           SrsInitGrumpkinSrs,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
@@ -83,36 +52,9 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    ChonkStats::Response,
                                    ChonkCompressProof::Response,
                                    ChonkDecompressProof::Response,
-                                   GrumpkinMul::Response,
-                                   GrumpkinAdd::Response,
-                                   GrumpkinBatchMul::Response,
-                                   GrumpkinGetRandomFr::Response,
-                                   GrumpkinReduce512::Response,
-                                   Secp256k1Mul::Response,
-                                   Secp256k1GetRandomFr::Response,
-                                   Secp256k1Reduce512::Response,
-                                   Bn254FrSqrt::Response,
-                                   Bn254FqSqrt::Response,
-                                   Bn254G1Mul::Response,
-                                   Bn254G2Mul::Response,
-                                   Bn254G1IsOnCurve::Response,
-                                   Bn254G1FromCompressed::Response,
-                                   SchnorrComputePublicKey::Response,
-                                   SchnorrConstructSignature::Response,
-                                   SchnorrVerifySignature::Response,
-                                   EcdsaSecp256k1ComputePublicKey::Response,
-                                   EcdsaSecp256r1ComputePublicKey::Response,
-                                   EcdsaSecp256k1ConstructSignature::Response,
-                                   EcdsaSecp256r1ConstructSignature::Response,
-                                   EcdsaSecp256k1RecoverPublicKey::Response,
-                                   EcdsaSecp256r1RecoverPublicKey::Response,
-                                   EcdsaSecp256k1VerifySignature::Response,
-                                   EcdsaSecp256r1VerifySignature::Response,
-                                   SrsInitSrs::Response,
                                    ChonkBatchVerifierStart::Response,
                                    ChonkBatchVerifierQueue::Response,
                                    ChonkBatchVerifierStop::Response,
-                                   SrsInitGrumpkinSrs::Response,
                                    Shutdown::Response>;
 
 /**

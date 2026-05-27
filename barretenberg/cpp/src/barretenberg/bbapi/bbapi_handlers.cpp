@@ -14,20 +14,26 @@
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/bbapi/bbapi_ecc.hpp"
-#include "barretenberg/bbapi/bbapi_ecdsa.hpp"
-#include "barretenberg/bbapi/bbapi_schnorr.hpp"
-#include "barretenberg/bbapi/bbapi_srs.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/bbapi_wire_convert.hpp"
 #include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
+#include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/crypto/schnorr/schnorr.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/srs/factories/bn254_crs_data.hpp"
+#include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::bbapi {
@@ -315,231 +321,342 @@ wire::AesDecryptResponse handle_aes_decrypt(BBApiRequest& /*ctx*/, wire::AesDecr
 }
 
 // ===========================================================================
-// Grumpkin curve (explicit field-by-field).
+// Grumpkin curve
 // ===========================================================================
 
-wire::GrumpkinMulResponse handle_grumpkin_mul(BBApiRequest& ctx, wire::GrumpkinMul&& cmd)
+wire::GrumpkinMulResponse handle_grumpkin_mul(BBApiRequest& request, wire::GrumpkinMul&& cmd)
 {
-    GrumpkinMul domain_cmd{ .point = grumpkin_point_from_wire(cmd.point),
-                            .scalar = field_from_wire<grumpkin::fr>(cmd.scalar) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .point = grumpkin_point_to_wire(resp.point) };
+    auto point = grumpkin_point_from_wire(cmd.point);
+    auto scalar = field_from_wire<grumpkin::fr>(cmd.scalar);
+    if (!point.on_curve()) {
+        BBAPI_ERROR(request, "Input point must be on the curve");
+    }
+    return { .point = grumpkin_point_to_wire(point * scalar) };
 }
-wire::GrumpkinAddResponse handle_grumpkin_add(BBApiRequest& ctx, wire::GrumpkinAdd&& cmd)
+wire::GrumpkinAddResponse handle_grumpkin_add(BBApiRequest& request, wire::GrumpkinAdd&& cmd)
 {
-    GrumpkinAdd domain_cmd{ .point_a = grumpkin_point_from_wire(cmd.point_a),
-                            .point_b = grumpkin_point_from_wire(cmd.point_b) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .point = grumpkin_point_to_wire(resp.point) };
+    auto a = grumpkin_point_from_wire(cmd.point_a);
+    auto b = grumpkin_point_from_wire(cmd.point_b);
+    if (!a.on_curve()) {
+        BBAPI_ERROR(request, "Input point_a must be on the curve");
+    }
+    if (!b.on_curve()) {
+        BBAPI_ERROR(request, "Input point_b must be on the curve");
+    }
+    return { .point = grumpkin_point_to_wire(a + b) };
 }
-wire::GrumpkinBatchMulResponse handle_grumpkin_batch_mul(BBApiRequest& ctx, wire::GrumpkinBatchMul&& cmd)
+wire::GrumpkinBatchMulResponse handle_grumpkin_batch_mul(BBApiRequest& request, wire::GrumpkinBatchMul&& cmd)
 {
-    GrumpkinBatchMul domain_cmd{ .points = grumpkin_point_vec_from_wire(cmd.points),
-                                 .scalar = field_from_wire<grumpkin::fr>(cmd.scalar) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .points = grumpkin_point_vec_to_wire(resp.points) };
+    auto points = grumpkin_point_vec_from_wire(cmd.points);
+    auto scalar = field_from_wire<grumpkin::fr>(cmd.scalar);
+    for (const auto& p : points) {
+        if (!p.on_curve()) {
+            BBAPI_ERROR(request, "Input point must be on the curve");
+        }
+    }
+    auto output = grumpkin::g1::element::batch_mul_with_endomorphism(points, scalar);
+    return { .points = grumpkin_point_vec_to_wire(output) };
 }
-wire::GrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BBApiRequest& ctx, wire::GrumpkinGetRandomFr&& cmd)
+wire::GrumpkinGetRandomFrResponse handle_grumpkin_get_random_fr(BBApiRequest& /*ctx*/,
+                                                                wire::GrumpkinGetRandomFr&& /*cmd*/)
 {
-    GrumpkinGetRandomFr domain_cmd{ .dummy = cmd.dummy };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .value = fr_to_wire(resp.value) };
+    return { .value = fr_to_wire(bb::fr::random_element()) };
 }
-wire::GrumpkinReduce512Response handle_grumpkin_reduce512(BBApiRequest& ctx, wire::GrumpkinReduce512&& cmd)
+wire::GrumpkinReduce512Response handle_grumpkin_reduce512(BBApiRequest& /*ctx*/, wire::GrumpkinReduce512&& cmd)
 {
-    GrumpkinReduce512 domain_cmd{ .input = cmd.input };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .value = fr_to_wire(resp.value) };
-}
-
-// ===========================================================================
-// Secp256k1 curve (explicit field-by-field).
-// ===========================================================================
-
-wire::Secp256k1MulResponse handle_secp256k1_mul(BBApiRequest& ctx, wire::Secp256k1Mul&& cmd)
-{
-    Secp256k1Mul domain_cmd{ .point = secp256k1_point_from_wire(cmd.point),
-                             .scalar = field_from_wire<secp256k1::fr>(cmd.scalar) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .point = secp256k1_point_to_wire(resp.point) };
-}
-wire::Secp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BBApiRequest& ctx, wire::Secp256k1GetRandomFr&& cmd)
-{
-    Secp256k1GetRandomFr domain_cmd{ .dummy = cmd.dummy };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .value = field_to_wire<secp256k1::fr>(resp.value) };
-}
-wire::Secp256k1Reduce512Response handle_secp256k1_reduce512(BBApiRequest& ctx, wire::Secp256k1Reduce512&& cmd)
-{
-    Secp256k1Reduce512 domain_cmd{ .input = cmd.input };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .value = field_to_wire<secp256k1::fr>(resp.value) };
+    auto bigint_input = from_buffer<uint512_t>(cmd.input.data());
+    uint512_t barretenberg_modulus(bb::fr::modulus);
+    uint512_t target_output = bigint_input % barretenberg_modulus;
+    return { .value = fr_to_wire(bb::fr(target_output.lo)) };
 }
 
 // ===========================================================================
-// Bn254 curve (explicit field-by-field).
+// Secp256k1 curve
 // ===========================================================================
 
-wire::Bn254FrSqrtResponse handle_bn254_fr_sqrt(BBApiRequest& ctx, wire::Bn254FrSqrt&& cmd)
+wire::Secp256k1MulResponse handle_secp256k1_mul(BBApiRequest& request, wire::Secp256k1Mul&& cmd)
 {
-    Bn254FrSqrt domain_cmd{ .input = fr_from_wire(cmd.input) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .is_square_root = resp.is_square_root, .value = fr_to_wire(resp.value) };
+    auto point = secp256k1_point_from_wire(cmd.point);
+    auto scalar = field_from_wire<secp256k1::fr>(cmd.scalar);
+    if (!point.on_curve()) {
+        BBAPI_ERROR(request, "Input point must be on the curve");
+    }
+    return { .point = secp256k1_point_to_wire(point * scalar) };
 }
-wire::Bn254FqSqrtResponse handle_bn254_fq_sqrt(BBApiRequest& ctx, wire::Bn254FqSqrt&& cmd)
+wire::Secp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BBApiRequest& /*ctx*/,
+                                                                  wire::Secp256k1GetRandomFr&& /*cmd*/)
 {
-    Bn254FqSqrt domain_cmd{ .input = field_from_wire<bb::fq>(cmd.input) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .is_square_root = resp.is_square_root, .value = field_to_wire<bb::fq>(resp.value) };
+    return { .value = field_to_wire<secp256k1::fr>(secp256k1::fr::random_element()) };
 }
-wire::Bn254G1MulResponse handle_bn254_g1_mul(BBApiRequest& ctx, wire::Bn254G1Mul&& cmd)
+wire::Secp256k1Reduce512Response handle_secp256k1_reduce512(BBApiRequest& /*ctx*/, wire::Secp256k1Reduce512&& cmd)
 {
-    Bn254G1Mul domain_cmd{ .point = bn254_g1_point_from_wire(cmd.point), .scalar = fr_from_wire(cmd.scalar) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .point = bn254_g1_point_to_wire(resp.point) };
+    auto bigint_input = from_buffer<uint512_t>(cmd.input.data());
+    uint512_t secp256k1_modulus(secp256k1::fr::modulus);
+    uint512_t target_output = bigint_input % secp256k1_modulus;
+    return { .value = field_to_wire<secp256k1::fr>(secp256k1::fr(target_output.lo)) };
 }
-wire::Bn254G2MulResponse handle_bn254_g2_mul(BBApiRequest& ctx, wire::Bn254G2Mul&& cmd)
+
+// ===========================================================================
+// Bn254 curve
+// ===========================================================================
+
+wire::Bn254FrSqrtResponse handle_bn254_fr_sqrt(BBApiRequest& /*ctx*/, wire::Bn254FrSqrt&& cmd)
 {
-    Bn254G2Mul domain_cmd{ .point = bn254_g2_point_from_wire(cmd.point), .scalar = fr_from_wire(cmd.scalar) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .point = bn254_g2_point_to_wire(resp.point) };
+    auto [is_sqr, root] = fr_from_wire(cmd.input).sqrt();
+    return { .is_square_root = is_sqr, .value = fr_to_wire(root) };
 }
-wire::Bn254G1IsOnCurveResponse handle_bn254_g1_is_on_curve(BBApiRequest& ctx, wire::Bn254G1IsOnCurve&& cmd)
+wire::Bn254FqSqrtResponse handle_bn254_fq_sqrt(BBApiRequest& /*ctx*/, wire::Bn254FqSqrt&& cmd)
 {
-    Bn254G1IsOnCurve domain_cmd{ .point = bn254_g1_point_from_wire(cmd.point) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .is_on_curve = resp.is_on_curve };
+    auto [is_sqr, root] = field_from_wire<bb::fq>(cmd.input).sqrt();
+    return { .is_square_root = is_sqr, .value = field_to_wire<bb::fq>(root) };
 }
-wire::Bn254G1FromCompressedResponse handle_bn254_g1_from_compressed(BBApiRequest& ctx,
+wire::Bn254G1MulResponse handle_bn254_g1_mul(BBApiRequest& request, wire::Bn254G1Mul&& cmd)
+{
+    auto point = bn254_g1_point_from_wire(cmd.point);
+    auto scalar = fr_from_wire(cmd.scalar);
+    if (!point.on_curve()) {
+        BBAPI_ERROR(request, "Input point must be on the curve");
+    }
+    auto result = point * scalar;
+    if (!result.on_curve()) {
+        BBAPI_ERROR(request, "Output point must be on the curve");
+    }
+    return { .point = bn254_g1_point_to_wire(result) };
+}
+wire::Bn254G2MulResponse handle_bn254_g2_mul(BBApiRequest& request, wire::Bn254G2Mul&& cmd)
+{
+    auto point = bn254_g2_point_from_wire(cmd.point);
+    auto scalar = fr_from_wire(cmd.scalar);
+    if (!point.on_curve()) {
+        BBAPI_ERROR(request, "Input point must be on the curve");
+    }
+    // BN254 G2 has cofactor h2 ≈ 2^254. An on-curve point may lie in a cofactor subgroup of order
+    // dividing h2 rather than the prime-order subgroup; we do not want to allow such points
+    // as inputs to bbapi.
+    if (!point.is_in_prime_subgroup()) {
+        BBAPI_ERROR(request, "Input point must lie in the prime-order subgroup");
+    }
+    auto result = point * scalar;
+    if (!result.on_curve()) {
+        BBAPI_ERROR(request, "Output point must be on the curve");
+    }
+    return { .point = bn254_g2_point_to_wire(result) };
+}
+wire::Bn254G1IsOnCurveResponse handle_bn254_g1_is_on_curve(BBApiRequest& /*ctx*/, wire::Bn254G1IsOnCurve&& cmd)
+{
+    return { .is_on_curve = bn254_g1_point_from_wire(cmd.point).on_curve() };
+}
+wire::Bn254G1FromCompressedResponse handle_bn254_g1_from_compressed(BBApiRequest& request,
                                                                     wire::Bn254G1FromCompressed&& cmd)
 {
-    Bn254G1FromCompressed domain_cmd{ .compressed = fr_unwrap(cmd.compressed) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .point = bn254_g1_point_to_wire(resp.point) };
+    uint256_t compressed_value = from_buffer<uint256_t>(cmd.compressed.data());
+    auto point = bb::g1::affine_element::from_compressed(compressed_value);
+    if (!point.on_curve()) {
+        BBAPI_ERROR(request, "Decompressed point is not on the curve");
+    }
+    return { .point = bn254_g1_point_to_wire(point) };
 }
 
 // ===========================================================================
-// Schnorr (explicit field-by-field).
+// Schnorr
 // ===========================================================================
 
-wire::SchnorrComputePublicKeyResponse handle_schnorr_compute_public_key(BBApiRequest& ctx,
+wire::SchnorrComputePublicKeyResponse handle_schnorr_compute_public_key(BBApiRequest& /*ctx*/,
                                                                         wire::SchnorrComputePublicKey&& cmd)
 {
-    SchnorrComputePublicKey domain_cmd{ .private_key = field_from_wire<grumpkin::fr>(cmd.private_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .public_key = grumpkin_point_to_wire(resp.public_key) };
+    auto private_key = field_from_wire<grumpkin::fr>(cmd.private_key);
+    return { .public_key = grumpkin_point_to_wire(grumpkin::g1::one * private_key) };
 }
-wire::SchnorrConstructSignatureResponse handle_schnorr_construct_signature(BBApiRequest& ctx,
+wire::SchnorrConstructSignatureResponse handle_schnorr_construct_signature(BBApiRequest& /*ctx*/,
                                                                            wire::SchnorrConstructSignature&& cmd)
 {
-    SchnorrConstructSignature domain_cmd{ .message = std::move(cmd.message),
-                                          .private_key = field_from_wire<grumpkin::fr>(cmd.private_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .s = fr_wrap(resp.s), .e = fr_wrap(resp.e) };
+    auto private_key = field_from_wire<grumpkin::fr>(cmd.private_key);
+    grumpkin::g1::affine_element pub_key = grumpkin::g1::one * private_key;
+    crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> key_pair = { private_key, pub_key };
+
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    auto sig = crypto::schnorr_construct_signature<crypto::Blake2sHasher, grumpkin::fq>(message_str, key_pair);
+    crypto::secure_erase_bytes(&key_pair.private_key, sizeof(key_pair.private_key));
+
+    return { .s = sig.s, .e = sig.e };
 }
-wire::SchnorrVerifySignatureResponse handle_schnorr_verify_signature(BBApiRequest& ctx,
+wire::SchnorrVerifySignatureResponse handle_schnorr_verify_signature(BBApiRequest& /*ctx*/,
                                                                      wire::SchnorrVerifySignature&& cmd)
 {
-    SchnorrVerifySignature domain_cmd{ .message = std::move(cmd.message),
-                                       .public_key = grumpkin_point_from_wire(cmd.public_key),
-                                       .s = fr_unwrap(cmd.s),
-                                       .e = fr_unwrap(cmd.e) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .verified = resp.verified };
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    crypto::schnorr_signature sig = { cmd.s, cmd.e };
+    auto public_key = grumpkin_point_from_wire(cmd.public_key);
+
+    bool result = crypto::schnorr_verify_signature<crypto::Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
+        message_str, public_key, sig);
+    return { .verified = result };
 }
 
 // ===========================================================================
-// ECDSA (explicit field-by-field).
+// ECDSA
 // ===========================================================================
 
 wire::EcdsaSecp256k1ComputePublicKeyResponse handle_ecdsa_secp256k1_compute_public_key(
-    BBApiRequest& ctx, wire::EcdsaSecp256k1ComputePublicKey&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256k1ComputePublicKey&& cmd)
 {
-    EcdsaSecp256k1ComputePublicKey domain_cmd{ .private_key = field_from_wire<secp256k1::fr>(cmd.private_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .public_key = secp256k1_point_to_wire(resp.public_key) };
+    auto private_key = field_from_wire<secp256k1::fr>(cmd.private_key);
+    return { .public_key = secp256k1_point_to_wire(secp256k1::g1::one * private_key) };
 }
 wire::EcdsaSecp256r1ComputePublicKeyResponse handle_ecdsa_secp256r1_compute_public_key(
-    BBApiRequest& ctx, wire::EcdsaSecp256r1ComputePublicKey&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256r1ComputePublicKey&& cmd)
 {
-    EcdsaSecp256r1ComputePublicKey domain_cmd{ .private_key = field_from_wire<secp256r1::fr>(cmd.private_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .public_key = secp256r1_point_to_wire(resp.public_key) };
+    auto private_key = field_from_wire<secp256r1::fr>(cmd.private_key);
+    return { .public_key = secp256r1_point_to_wire(secp256r1::g1::one * private_key) };
 }
 wire::EcdsaSecp256k1ConstructSignatureResponse handle_ecdsa_secp256k1_construct_signature(
-    BBApiRequest& ctx, wire::EcdsaSecp256k1ConstructSignature&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256k1ConstructSignature&& cmd)
 {
-    EcdsaSecp256k1ConstructSignature domain_cmd{ .message = std::move(cmd.message),
-                                                 .private_key = field_from_wire<secp256k1::fr>(cmd.private_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .r = fr_wrap(resp.r), .s = fr_wrap(resp.s), .v = resp.v };
+    auto private_key = field_from_wire<secp256k1::fr>(cmd.private_key);
+    auto pub_key = secp256k1::g1::one * private_key;
+    crypto::ecdsa_key_pair<secp256k1::fr, secp256k1::g1> key_pair = { private_key, pub_key };
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    auto sig = crypto::ecdsa_construct_signature<crypto::Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
+        message_str, key_pair);
+    return { .r = sig.r, .s = sig.s, .v = sig.v };
 }
 wire::EcdsaSecp256r1ConstructSignatureResponse handle_ecdsa_secp256r1_construct_signature(
-    BBApiRequest& ctx, wire::EcdsaSecp256r1ConstructSignature&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256r1ConstructSignature&& cmd)
 {
-    EcdsaSecp256r1ConstructSignature domain_cmd{ .message = std::move(cmd.message),
-                                                 .private_key = field_from_wire<secp256r1::fr>(cmd.private_key) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .r = fr_wrap(resp.r), .s = fr_wrap(resp.s), .v = resp.v };
+    auto private_key = field_from_wire<secp256r1::fr>(cmd.private_key);
+    auto pub_key = secp256r1::g1::one * private_key;
+    crypto::ecdsa_key_pair<secp256r1::fr, secp256r1::g1> key_pair = { private_key, pub_key };
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    auto sig = crypto::ecdsa_construct_signature<crypto::Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        message_str, key_pair);
+    return { .r = sig.r, .s = sig.s, .v = sig.v };
 }
 wire::EcdsaSecp256k1RecoverPublicKeyResponse handle_ecdsa_secp256k1_recover_public_key(
-    BBApiRequest& ctx, wire::EcdsaSecp256k1RecoverPublicKey&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256k1RecoverPublicKey&& cmd)
 {
-    EcdsaSecp256k1RecoverPublicKey domain_cmd{
-        .message = std::move(cmd.message), .r = fr_unwrap(cmd.r), .s = fr_unwrap(cmd.s), .v = cmd.v
-    };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .public_key = secp256k1_point_to_wire(resp.public_key) };
+    crypto::ecdsa_signature sig = { cmd.r, cmd.s, cmd.v };
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    auto pubkey = crypto::ecdsa_recover_public_key<crypto::Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
+        message_str, sig);
+    return { .public_key = secp256k1_point_to_wire(pubkey) };
 }
 wire::EcdsaSecp256r1RecoverPublicKeyResponse handle_ecdsa_secp256r1_recover_public_key(
-    BBApiRequest& ctx, wire::EcdsaSecp256r1RecoverPublicKey&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256r1RecoverPublicKey&& cmd)
 {
-    EcdsaSecp256r1RecoverPublicKey domain_cmd{
-        .message = std::move(cmd.message), .r = fr_unwrap(cmd.r), .s = fr_unwrap(cmd.s), .v = cmd.v
-    };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .public_key = secp256r1_point_to_wire(resp.public_key) };
+    crypto::ecdsa_signature sig = { cmd.r, cmd.s, cmd.v };
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    auto pubkey = crypto::ecdsa_recover_public_key<crypto::Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        message_str, sig);
+    return { .public_key = secp256r1_point_to_wire(pubkey) };
 }
 wire::EcdsaSecp256k1VerifySignatureResponse handle_ecdsa_secp256k1_verify_signature(
-    BBApiRequest& ctx, wire::EcdsaSecp256k1VerifySignature&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256k1VerifySignature&& cmd)
 {
-    EcdsaSecp256k1VerifySignature domain_cmd{ .message = std::move(cmd.message),
-                                              .public_key = secp256k1_point_from_wire(cmd.public_key),
-                                              .r = fr_unwrap(cmd.r),
-                                              .s = fr_unwrap(cmd.s),
-                                              .v = cmd.v };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .verified = resp.verified };
+    crypto::ecdsa_signature sig = { cmd.r, cmd.s, cmd.v };
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    auto pubkey = secp256k1_point_from_wire(cmd.public_key);
+    bool verified = crypto::ecdsa_verify_signature<crypto::Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
+        message_str, pubkey, sig);
+    return { .verified = verified };
 }
 wire::EcdsaSecp256r1VerifySignatureResponse handle_ecdsa_secp256r1_verify_signature(
-    BBApiRequest& ctx, wire::EcdsaSecp256r1VerifySignature&& cmd)
+    BBApiRequest& /*ctx*/, wire::EcdsaSecp256r1VerifySignature&& cmd)
 {
-    EcdsaSecp256r1VerifySignature domain_cmd{ .message = std::move(cmd.message),
-                                              .public_key = secp256r1_point_from_wire(cmd.public_key),
-                                              .r = fr_unwrap(cmd.r),
-                                              .s = fr_unwrap(cmd.s),
-                                              .v = cmd.v };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .verified = resp.verified };
+    crypto::ecdsa_signature sig = { cmd.r, cmd.s, cmd.v };
+    std::string message_str(reinterpret_cast<const char*>(cmd.message.data()), cmd.message.size());
+    auto pubkey = secp256r1_point_from_wire(cmd.public_key);
+    bool verified = crypto::ecdsa_verify_signature<crypto::Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(
+        message_str, pubkey, sig);
+    return { .verified = verified };
 }
 
 // ===========================================================================
-// SRS init (explicit field-by-field — fields are byte vectors).
+// SRS init
 // ===========================================================================
 
-wire::SrsInitSrsResponse handle_srs_init_srs(BBApiRequest& ctx, wire::SrsInitSrs&& cmd)
+wire::SrsInitSrsResponse handle_srs_init_srs(BBApiRequest& /*ctx*/, wire::SrsInitSrs&& cmd)
 {
-    SrsInitSrs domain_cmd{ .points_buf = std::move(cmd.points_buf),
-                           .num_points = cmd.num_points,
-                           .g2_point = std::move(cmd.g2_point) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .points_buf = std::move(resp.points_buf) };
+    constexpr size_t COMPRESSED_POINT_SIZE = 32;
+    constexpr size_t UNCOMPRESSED_POINT_SIZE = sizeof(g1::affine_element); // 64
+
+    auto& points_buf = cmd.points_buf;
+    auto num_points = cmd.num_points;
+    size_t bytes_per_point = num_points > 0 ? points_buf.size() / num_points : 0;
+    std::vector<g1::affine_element> g1_points(num_points);
+    std::vector<uint8_t> uncompressed_out;
+
+    if (bytes_per_point == UNCOMPRESSED_POINT_SIZE) {
+        parallel_for([&](ThreadChunk chunk) {
+            for (auto i : chunk.range(static_cast<size_t>(num_points))) {
+                g1_points[i] = from_buffer<g1::affine_element>(points_buf.data(), i * UNCOMPRESSED_POINT_SIZE);
+            }
+        });
+    } else if (bytes_per_point == COMPRESSED_POINT_SIZE) {
+        if (points_buf.size() == 0 || points_buf.size() % bb::srs::SRS_CHUNK_SIZE_BYTES != 0) {
+            throw_or_abort("SrsInitSrs: compressed points_buf size " + std::to_string(points_buf.size()) +
+                           " must be a positive multiple of " + std::to_string(bb::srs::SRS_CHUNK_SIZE_BYTES));
+        }
+        size_t num_full_chunks = points_buf.size() / bb::srs::SRS_CHUNK_SIZE_BYTES;
+        size_t chunks_to_verify = std::min(num_full_chunks, static_cast<size_t>(bb::srs::SRS_NUM_FULL_CHUNKS));
+        for (size_t i = 0; i < chunks_to_verify; ++i) {
+            auto chunk = std::span<const uint8_t>(points_buf.data() + i * bb::srs::SRS_CHUNK_SIZE_BYTES,
+                                                  bb::srs::SRS_CHUNK_SIZE_BYTES);
+            auto hash = bb::crypto::sha256(chunk);
+            if (hash != bb::srs::BN254_G1_CHUNK_HASHES[i]) {
+                throw_or_abort("SrsInitSrs: g1 compressed chunk " + std::to_string(i) + " SHA-256 mismatch");
+            }
+        }
+        parallel_for([&](ThreadChunk chunk) {
+            for (auto i : chunk.range(static_cast<size_t>(num_points))) {
+                uint256_t c = from_buffer<uint256_t>(points_buf.data(), i * COMPRESSED_POINT_SIZE);
+                g1_points[i] = g1::affine_element::from_compressed(c);
+            }
+        });
+        uncompressed_out.resize(static_cast<size_t>(num_points) * UNCOMPRESSED_POINT_SIZE);
+        parallel_for([&](ThreadChunk chunk) {
+            for (auto i : chunk.range(static_cast<size_t>(num_points))) {
+                auto buf = to_buffer(g1_points[i]);
+                std::copy(buf.begin(), buf.end(), &uncompressed_out[i * UNCOMPRESSED_POINT_SIZE]);
+            }
+        });
+    } else {
+        throw_or_abort("SrsInitSrs: invalid points_buf size. Expected 32 or 64 bytes per point, got " +
+                       std::to_string(bytes_per_point));
+    }
+
+    if (num_points >= 1 && g1_points[0] != bb::srs::BN254_G1_FIRST_ELEMENT) {
+        throw_or_abort("SrsInitSrs: g1_points[0] is not the canonical BN254 generator");
+    }
+    if (num_points >= 2 && g1_points[1] != bb::srs::get_bn254_g1_second_element()) {
+        throw_or_abort("SrsInitSrs: g1_points[1] does not match the canonical trusted-setup tau·G");
+    }
+
+    auto g2_hash = bb::crypto::sha256(std::span<const uint8_t>(cmd.g2_point.data(), cmd.g2_point.size()));
+    if (g2_hash != bb::srs::BN254_G2_ELEMENT_SHA256) {
+        throw_or_abort("SrsInitSrs: g2_point bytes do not match the canonical Aztec [x]_2 SHA-256");
+    }
+    auto g2_point_elem = from_buffer<g2::affine_element>(cmd.g2_point.data());
+    if (!g2_point_elem.is_in_prime_subgroup()) {
+        throw_or_abort("SrsInitSrs: g2_point is not in the BN254 G2 prime-order subgroup");
+    }
+
+    bb::srs::init_bn254_mem_crs_factory(g1_points, g2_point_elem);
+    return { .points_buf = std::move(uncompressed_out) };
 }
-wire::SrsInitGrumpkinSrsResponse handle_srs_init_grumpkin_srs(BBApiRequest& ctx, wire::SrsInitGrumpkinSrs&& cmd)
+wire::SrsInitGrumpkinSrsResponse handle_srs_init_grumpkin_srs(BBApiRequest& /*ctx*/, wire::SrsInitGrumpkinSrs&& cmd)
 {
-    SrsInitGrumpkinSrs domain_cmd{ .points_buf = std::move(cmd.points_buf), .num_points = cmd.num_points };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .dummy = resp.dummy };
+    const size_t required_size = static_cast<size_t>(cmd.num_points) * sizeof(curve::Grumpkin::AffineElement);
+    if (cmd.points_buf.size() < required_size) {
+        throw_or_abort("SrsInitGrumpkinSrs: points_buf too small (" + std::to_string(cmd.points_buf.size()) +
+                       " bytes) for num_points=" + std::to_string(cmd.num_points) + " (need " +
+                       std::to_string(required_size) + ")");
+    }
+    std::vector<curve::Grumpkin::AffineElement> points(cmd.num_points);
+    for (uint32_t i = 0; i < cmd.num_points; ++i) {
+        points[i] = from_buffer<curve::Grumpkin::AffineElement>(cmd.points_buf.data(),
+                                                                i * sizeof(curve::Grumpkin::AffineElement));
+    }
+    bb::srs::init_grumpkin_mem_crs_factory(points);
+    return {};
 }
 
 } // namespace bb::bbapi
