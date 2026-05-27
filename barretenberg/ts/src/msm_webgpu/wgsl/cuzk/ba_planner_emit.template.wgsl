@@ -15,7 +15,6 @@
 const TPB: u32 = {{ workgroup_size }}u;
 const S: u32 = {{ s }}u;
 const NUM_THREADS: u32 = {{ num_threads }}u;
-const IDLE_ANCHOR: u32 = {{ idle_anchor }}u;
 const IDLE_DEST: u32 = 0x40000000u;
 const PARTIAL_BIT: u32 = 0x80000000u;
 const QUEUE_HEADER_LEN: u32 = {{ queue_header_len }}u;
@@ -45,6 +44,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let wg = wid.x;
     let num_workgroups = atomicLoad(&planner_meta[3]);
     let num_dense = atomicLoad(&planner_meta[1]);
+    let total_adds = atomicLoad(&planner_meta[2]);
+    let IDLE_ANCHOR = params.x;
 
     if (wg >= num_workgroups) { return; }
     let global_t = wg * TPB + t_local;

@@ -1551,14 +1551,14 @@ export class MsmV2 {
     m.partitionThreadPipe = await compile(
       sm.gen_ba_planner_partition_thread_shader(256), `partition-thread`, m.partitionThreadLayout);
     m.streamEmitPipe = await compile(
-      sm.gen_ba_planner_emit_shader(256, STREAM_S, STREAM_T, n + 3, qHeaderLen),
+      sm.gen_ba_planner_emit_shader(256, STREAM_S, STREAM_T, qHeaderLen),
       `stream-emit`, m.streamEmitLayout);
     m.emitFixupPipe = await compile(
       sm.gen_ba_planner_emit_fixup_shader(STREAM_T), `emit-fixup`, m.emitFixupLayout);
     m.size1Pipe = await compile(
       sm.gen_ba_size1_shader(), `size1`, m.size1Layout);
     m.streamAccumPipe = await compile(
-      sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, n + 3, INV_VARIANT),
+      sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, INV_VARIANT),
       `stream-accum`, m.streamAccumLayout);
     m.partialSumPipe = await compile(
       sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
@@ -2052,12 +2052,12 @@ export class MsmV2 {
       this.partitionWgBind = mkBind(this.partitionWgLayout, [sc, ca, sp, wc, pwgParams]);
       const ptParams = ubuf(new Uint32Array([0, 0, 0, 0]));
       this.partitionThreadBind = mkBind(this.partitionThreadLayout, [sc, ca, wc, sp, tc, ptParams]);
-      const emitParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      const emitParams = ubuf(new Uint32Array([batchSlots, 0, 0, 0]));
       this.streamEmitBind = mkBind(this.streamEmitLayout, [sb, sc, offsetsBufs[0], tc, qb, sp, emitParams]);
       this.emitFixupBind = mkBind(this.emitFixupLayout, [sp, pbl, tc, sb]);
       const size1Params = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
       this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, size1Params]);
-      const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, 2 * this.streamNumThreads, B_TOTAL]));
+      const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, batchSlots, B_TOTAL]));
       this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
       const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
       this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);

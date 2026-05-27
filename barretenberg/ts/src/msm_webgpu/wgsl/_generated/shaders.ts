@@ -1714,7 +1714,6 @@ export const ba_planner_emit = `// Bucket-accumulate planner stage 1.6: queue em
 const TPB: u32 = {{ workgroup_size }}u;
 const S: u32 = {{ s }}u;
 const NUM_THREADS: u32 = {{ num_threads }}u;
-const IDLE_ANCHOR: u32 = {{ idle_anchor }}u;
 const IDLE_DEST: u32 = 0x40000000u;
 const PARTIAL_BIT: u32 = 0x80000000u;
 const QUEUE_HEADER_LEN: u32 = {{ queue_header_len }}u;
@@ -1744,6 +1743,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let wg = wid.x;
     let num_workgroups = atomicLoad(&planner_meta[3]);
     let num_dense = atomicLoad(&planner_meta[1]);
+    let total_adds = atomicLoad(&planner_meta[2]);
+    let IDLE_ANCHOR = params.x;
 
     if (wg >= num_workgroups) { return; }
     let global_t = wg * TPB + t_local;
@@ -2845,13 +2846,12 @@ export const ba_stream_accum = `{{> structs }}
 //
 // params.x = NUM_THREADS
 // params.y = M_acc   (= T * S, acc_buf stride)
-// params.z = M_partials (= 2 * T, partials_buf stride)
+// params.z = IDLE_ANCHOR (= batchSlots, index into l0_index for the pad-trio)
 // params.w = M_buckets  (= B_TOTAL, bucket_sums stride)
 
 const S: u32 = {{ s }}u;
 const PG: u32 = 2u;
 const QUEUE_HEADER_LEN: u32 = {{ queue_header_len }}u;
-const IDLE_ANCHOR: u32 = {{ idle_anchor }}u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const IDLE_DEST: u32 = 0x40000000u;
@@ -2930,8 +2930,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let t = gid.x;
     let NUM_THREADS = params.x;
     let M_acc = params.y;
-    let M_partials = params.z;
+    let IDLE_ANCHOR = params.z;
     let M_buckets = params.w;
+    let M_partials = 2u * NUM_THREADS;
 
     if (t >= NUM_THREADS) { return; }
 
