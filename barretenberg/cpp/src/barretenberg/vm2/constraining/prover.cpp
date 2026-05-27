@@ -294,8 +294,9 @@ void AvmProver::execute_pcs_rounds()
     add_scaled_batched(batched_unshifted,
                        unshifted_polys.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
                        unshifted_challenges.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
-                       max_idx_unshifted > WIRES_TO_BE_SHIFTED_END_IDX ? max_idx_unshifted - WIRES_TO_BE_SHIFTED_END_IDX
-                                                                       : unshifted_polys.size());
+                       max_idx_unshifted >= WIRES_TO_BE_SHIFTED_END_IDX
+                           ? max_idx_unshifted - WIRES_TO_BE_SHIFTED_END_IDX
+                           : unshifted_polys.size());
 
     const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
 
