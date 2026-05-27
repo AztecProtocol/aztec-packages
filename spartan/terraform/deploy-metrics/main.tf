@@ -181,7 +181,6 @@ resource "helm_release" "aztec-gke-cluster" {
               data = [
                 { secretKey = "SLACK_WEBHOOK_URL", remoteRef = { key = var.SLACK_WEBHOOK_SECRET_NAME } },
                 { secretKey = "SLACK_WEBHOOK_STAGING_PUBLIC_URL", remoteRef = { key = var.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME } },
-                { secretKey = "SLACK_WEBHOOK_STAGING_IGNITION_URL", remoteRef = { key = var.SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME } },
                 { secretKey = "SLACK_WEBHOOK_NEXT_SCENARIO_URL", remoteRef = { key = var.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME } },
                 { secretKey = "SLACK_WEBHOOK_NEXT_NET_URL", remoteRef = { key = var.SLACK_WEBHOOK_NEXT_NET_SECRET_NAME } },
                 { secretKey = "SLACK_WEBHOOK_DEVNET_URL", remoteRef = { key = var.SLACK_WEBHOOK_DEVNET_SECRET_NAME } },

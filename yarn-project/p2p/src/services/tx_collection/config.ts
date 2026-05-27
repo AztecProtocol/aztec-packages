@@ -14,7 +14,7 @@ export type TxCollectionConfig = {
   txCollectionNodeRpcMaxBatchSize: number;
   /** A comma-separated list of file store URLs (s3://, gs://, file://, http://) for tx collection */
   txCollectionFileStoreUrls: string[];
-  /** Delay in ms before file store collection starts after fast collection is triggered */
+  /** Delay in ms from reqresp start before file store collection begins */
   txCollectionFileStoreFastDelayMs: number;
   /** Number of concurrent workers for fast file store collection */
   txCollectionFileStoreFastWorkerCount: number;
@@ -68,7 +68,7 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
   },
   txCollectionFileStoreFastDelayMs: {
     env: 'TX_COLLECTION_FILE_STORE_FAST_DELAY_MS',
-    description: 'Delay before file store collection starts after fast collection',
+    description: 'Delay in ms from reqresp start before file store collection begins',
     ...numberConfigHelper(2_000),
   },
   txCollectionFileStoreFastWorkerCount: {

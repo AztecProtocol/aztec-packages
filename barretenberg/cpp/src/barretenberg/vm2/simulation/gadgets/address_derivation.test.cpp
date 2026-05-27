@@ -40,9 +40,11 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
 
     ContractInstance instance = testing::random_contract_instance();
     AztecAddress derived_address = compute_contract_address(instance);
-    std::vector<FF> salted_init_hash_inputs = {
-        DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer
-    };
+    std::vector<FF> salted_init_hash_inputs = { DOM_SEP__SALTED_INITIALIZATION_HASH,
+                                                instance.salt,
+                                                instance.initialization_hash,
+                                                instance.deployer,
+                                                instance.immutables_hash };
     FF salted_init_hash = poseidon2::hash(salted_init_hash_inputs);
 
     std::vector<FF> partial_address_inputs = { DOM_SEP__PARTIAL_ADDRESS,
@@ -52,7 +54,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
 
-    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address };
+    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address };
     FF preaddress = poseidon2::hash(preaddress_inputs);
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
@@ -93,9 +95,11 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     ContractInstance instance = testing::random_contract_instance();
     AztecAddress derived_address = compute_contract_address(instance);
 
-    std::vector<FF> salted_init_hash_inputs = {
-        DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer
-    };
+    std::vector<FF> salted_init_hash_inputs = { DOM_SEP__SALTED_INITIALIZATION_HASH,
+                                                instance.salt,
+                                                instance.initialization_hash,
+                                                instance.deployer,
+                                                instance.immutables_hash };
     FF salted_init_hash = poseidon2::hash(salted_init_hash_inputs);
 
     std::vector<FF> partial_address_inputs = { DOM_SEP__PARTIAL_ADDRESS,
@@ -105,7 +109,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
 
-    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address };
+    std::vector<FF> preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address };
     FF preaddress = poseidon2::hash(preaddress_inputs);
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
@@ -120,10 +124,10 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     EXPECT_THROW(address_derivation.assert_derivation(derived_address + 1, instance), std::runtime_error);
 
     // Should fail on mutated instance for unseen address.
-    instance.public_keys.nullifier_key = AffinePoint::one();
+    instance.public_keys.nullifier_key_hash = FF(0xdeadbeef);
 
     public_keys_hash = hash_public_keys(instance.public_keys);
-    preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address };
+    preaddress_inputs = { DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address };
     preaddress = poseidon2::hash(preaddress_inputs);
     preaddress_public_key = g1 * Fq(preaddress);
     address_point = preaddress_public_key + instance.public_keys.incoming_viewing_key;

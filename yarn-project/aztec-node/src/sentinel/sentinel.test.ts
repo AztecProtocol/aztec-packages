@@ -12,11 +12,15 @@ import {
   L2Block,
   type L2BlockSource,
   type L2BlockStream,
-  type L2BlockStreamEvent,
   getAttestationInfoFromPublishedCheckpoint,
 } from '@aztec/stdlib/block';
-import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  Checkpoint,
+  CheckpointReexecutionTracker,
+  L1PublishedData,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
+import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -41,6 +45,7 @@ describe('sentinel', () => {
   let archiver: MockProxy<L2BlockSource>;
   let p2p: MockProxy<P2PClient>;
   let blockStream: MockProxy<L2BlockStream>;
+  let reexecutionTracker: CheckpointReexecutionTracker;
 
   let kvStore: AztecLMDBStoreV2;
   let store: SentinelStore;
@@ -55,6 +60,7 @@ describe('sentinel', () => {
     slashInactivityPenalty: 100n,
     slashInactivityTargetPercentage: 0.8,
     slashInactivityConsecutiveEpochThreshold: 1,
+    sentinelEpochEndBufferSlots: 2,
     l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
     rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
   };
@@ -65,9 +71,10 @@ describe('sentinel', () => {
     archiver.getGenesisBlockHash.mockReturnValue(GENESIS_BLOCK_HEADER_HASH);
     p2p = mock<P2PClient>();
     blockStream = mock<L2BlockStream>();
+    reexecutionTracker = new CheckpointReexecutionTracker();
 
     kvStore = await openTmpStore('sentinel-test');
-    store = new SentinelStore(kvStore, { historyLength: 10, historicProvenPerformanceLength: 5 });
+    store = new SentinelStore(kvStore, { historyLength: 10, historicEpochPerformanceLength: 5 });
 
     slot = SlotNumber(10);
     epoch = EpochNumber(0);
@@ -94,11 +101,37 @@ describe('sentinel', () => {
     epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
-    sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
+    sentinel = new TestSentinel(epochCache, archiver, p2p, store, reexecutionTracker, config, blockStream);
   });
 
   afterEach(async () => {
     await kvStore.close();
+  });
+
+  describe('init', () => {
+    beforeEach(() => {
+      archiver.getBlockNumber.mockResolvedValue(BlockNumber(0));
+    });
+
+    it('floors initialSlot at the archiver synced L2 slot when available', async () => {
+      const syncedSlot = SlotNumber(7);
+      epochCache.getSlotNow.mockReturnValue(SlotNumber(20));
+      archiver.getSyncedL2SlotNumber.mockResolvedValue(syncedSlot);
+
+      await sentinel.callProductionInit();
+
+      expect(sentinel.getInitialSlot()).toEqual(syncedSlot);
+    });
+
+    it('falls back to the wallclock slot when the archiver is not yet synced', async () => {
+      const wallclockSlot = SlotNumber(20);
+      epochCache.getSlotNow.mockReturnValue(wallclockSlot);
+      archiver.getSyncedL2SlotNumber.mockResolvedValue(undefined);
+
+      await sentinel.callProductionInit();
+
+      expect(sentinel.getInitialSlot()).toEqual(wallclockSlot);
+    });
   });
 
   describe('getSlotActivity', () => {
@@ -130,7 +163,7 @@ describe('sentinel', () => {
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations);
     });
 
-    it('flags checkpoint as mined', async () => {
+    it('flags checkpoint as mined when L1 has it (case 6)', async () => {
       // Create a checkpoint with a block at the target slot and emit chain-checkpointed event
       const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
       await emitCheckpointEvent(checkpoint);
@@ -139,24 +172,47 @@ describe('sentinel', () => {
       expect(activity[proposer.toString()]).toEqual('checkpoint-mined');
     });
 
-    it('flags checkpoint as proposed when it is not mined but there are attestations', async () => {
-      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations);
+    it('flags checkpoint as valid when tracker outcome is valid (case 5)', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'valid', CheckpointNumber(1));
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
-      expect(activity[proposer.toString()]).toEqual('checkpoint-proposed');
+      expect(activity[proposer.toString()]).toEqual('checkpoint-valid');
     });
 
-    it('flags as blocks-missed when there are no attestations and no block proposals', async () => {
+    it('flags checkpoint as invalid when tracker outcome is invalid (case 4)', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'invalid', CheckpointNumber(1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-invalid');
+    });
+
+    it('flags checkpoint as unvalidated when tracker outcome is unvalidated (case 3)', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'unvalidated');
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-unvalidated');
+    });
+
+    it('flags as blocks-missed when there is no tracker outcome and no block proposals (case 1)', async () => {
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
       p2p.hasBlockProposalsForSlot.mockResolvedValue(false);
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('blocks-missed');
     });
 
-    it('flags as checkpoint-missed when there are no attestations but block proposals exist', async () => {
+    it('flags as checkpoint-missed when block proposals exist but no checkpoint proposal (case 2)', async () => {
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
       p2p.hasBlockProposalsForSlot.mockResolvedValue(true);
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[proposer.toString()]).toEqual('checkpoint-missed');
+    });
+
+    it('prefers L1-mined over tracker outcome', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'invalid', CheckpointNumber(1));
+      const checkpoint = await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, slotNumber: slot });
+      await emitCheckpointEvent(checkpoint);
+
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-mined');
     });
 
     it('identifies attestors from p2p and archiver', async () => {
@@ -255,16 +311,18 @@ describe('sentinel', () => {
       expect(activity[committee[3].toString()]).toEqual('attestation-missed');
     });
 
-    it('identifies missed attestors if block is proposed', async () => {
+    it('identifies missed attestors when checkpoint proposal was re-executed valid', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'valid', CheckpointNumber(1));
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
 
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-valid');
       expect(activity[committee[1].toString()]).toEqual('attestation-sent');
       expect(activity[committee[2].toString()]).toEqual('attestation-sent');
       expect(activity[committee[3].toString()]).toEqual('attestation-missed');
     });
 
-    it('does not tag attestors as missed if there was no block and no attestations', async () => {
+    it('does not tag attestors as missed if there was no block and no attestations (case 1)', async () => {
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
       p2p.hasBlockProposalsForSlot.mockResolvedValue(false);
 
@@ -275,7 +333,7 @@ describe('sentinel', () => {
       expect(activity[committee[3].toString()]).not.toBeDefined();
     });
 
-    it('does not tag attestors as missed if blocks were proposed but checkpoint was missed', async () => {
+    it('does not tag attestors as missed if blocks were proposed but checkpoint was missed (case 2)', async () => {
       p2p.getCheckpointAttestationsForSlot.mockResolvedValue([]);
       p2p.hasBlockProposalsForSlot.mockResolvedValue(true);
 
@@ -284,6 +342,25 @@ describe('sentinel', () => {
       expect(activity[committee[1].toString()]).not.toBeDefined();
       expect(activity[committee[2].toString()]).not.toBeDefined();
       expect(activity[committee[3].toString()]).not.toBeDefined();
+    });
+
+    it('does not tag attestors as missed when checkpoint is unvalidated (case 3)', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'unvalidated');
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
+
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-unvalidated');
+      // committee[1..3] should not be tagged as missed even though they didn't all attest
+      expect(activity[committee[3].toString()]).not.toBe('attestation-missed');
+    });
+
+    it('does not tag attestors as missed when checkpoint is invalid (case 4)', async () => {
+      reexecutionTracker.recordOutcome(slot, block.archive.root, 'invalid', CheckpointNumber(1));
+      p2p.getCheckpointAttestationsForSlot.mockResolvedValue(attestations.slice(0, -1));
+
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+      expect(activity[proposer.toString()]).toEqual('checkpoint-invalid');
+      expect(activity[committee[3].toString()]).not.toBe('attestation-missed');
     });
   });
 
@@ -297,7 +374,7 @@ describe('sentinel', () => {
     it('computes stats correctly', () => {
       const stats = sentinel.computeStatsForValidator(validator, [
         { slot: SlotNumber(1), status: 'checkpoint-mined' },
-        { slot: SlotNumber(2), status: 'checkpoint-proposed' },
+        { slot: SlotNumber(2), status: 'checkpoint-valid' },
         { slot: SlotNumber(3), status: 'checkpoint-missed' },
         { slot: SlotNumber(4), status: 'blocks-missed' },
         { slot: SlotNumber(5), status: 'attestation-sent' },
@@ -314,6 +391,18 @@ describe('sentinel', () => {
       expect(stats.missedAttestations.currentStreak).toEqual(1);
       expect(stats.missedAttestations.rate).toEqual(0.5);
       expect(stats.lastAttestation?.slot).toEqual(SlotNumber(5));
+    });
+
+    it('counts checkpoint-invalid and checkpoint-unvalidated as missed proposals', () => {
+      const stats = sentinel.computeStatsForValidator(validator, [
+        { slot: SlotNumber(1), status: 'checkpoint-mined' },
+        { slot: SlotNumber(2), status: 'checkpoint-invalid' },
+        { slot: SlotNumber(3), status: 'checkpoint-unvalidated' },
+        { slot: SlotNumber(4), status: 'checkpoint-missed' },
+        { slot: SlotNumber(5), status: 'blocks-missed' },
+      ]);
+      expect(stats.missedProposals.count).toEqual(4);
+      expect(stats.missedProposals.total).toEqual(5);
     });
 
     it('resets streaks correctly', () => {
@@ -414,7 +503,7 @@ describe('sentinel', () => {
         ];
 
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockProvenPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockProvenPerformance);
         jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
           totalSlots: 2,
@@ -433,7 +522,7 @@ describe('sentinel', () => {
             missedAttestations: { count: 0, currentStreak: 0, rate: 0, total: 0 },
             history: mockHistory,
           },
-          allTimeProvenPerformance: mockProvenPerformance,
+          allTimeEpochPerformance: mockProvenPerformance,
           lastProcessedSlot: sentinel.getLastProcessedSlot(),
           initialSlot: sentinel.getInitialSlot(),
           slotWindow: 10,
@@ -443,7 +532,7 @@ describe('sentinel', () => {
       it('should call computeStatsForValidator with correct parameters', async () => {
         const mockHistory: ValidatorStatusHistory = [{ slot: SlotNumber(5), status: 'checkpoint-mined' }];
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue([]);
         const computeStatsSpy = jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
           totalSlots: 1,
@@ -460,7 +549,7 @@ describe('sentinel', () => {
       it('should use default slot range when not provided', async () => {
         const mockHistory: ValidatorStatusHistory = [{ slot: SlotNumber(5), status: 'checkpoint-mined' }];
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue([]);
         const computeStatsSpy = jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
           totalSlots: 1,
@@ -482,7 +571,7 @@ describe('sentinel', () => {
       it('should not produce negative slot numbers when historyLength exceeds lastProcessedSlot', async () => {
         const mockHistory: ValidatorStatusHistory = [{ slot: SlotNumber(2), status: 'checkpoint-mined' }];
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue([]);
         jest.spyOn(store, 'getHistoryLength').mockReturnValue(1000); // Large history length
 
         // Set lastProcessedSlot to a small value
@@ -515,8 +604,8 @@ describe('sentinel', () => {
         ];
 
         jest.spyOn(store, 'getHistory').mockResolvedValue(mockHistory);
-        const getProvenPerformanceSpy = jest
-          .spyOn(store, 'getProvenPerformance')
+        const getEpochPerformanceSpy = jest
+          .spyOn(store, 'getEpochPerformance')
           .mockResolvedValue(mockProvenPerformance);
         jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
@@ -528,8 +617,8 @@ describe('sentinel', () => {
 
         const result = await sentinel.getValidatorStats(validator);
 
-        expect(getProvenPerformanceSpy).toHaveBeenCalledWith(validator);
-        expect(result?.allTimeProvenPerformance).toEqual(mockProvenPerformance);
+        expect(getEpochPerformanceSpy).toHaveBeenCalledWith(validator);
+        expect(result?.allTimeEpochPerformance).toEqual(mockProvenPerformance);
       });
     });
 
@@ -587,31 +676,13 @@ describe('sentinel', () => {
     });
   });
 
-  describe('handleChainProven', () => {
+  describe('handleEpochEnd', () => {
     it('calls inactivity watcher with performance data', async () => {
-      const blockNumber = BlockNumber(15);
-      const blockHash = '0xblockhash';
-      const mockBlock = await L2Block.random(blockNumber);
-      const slot = mockBlock.header.getSlot();
-      const epochNumber = getEpochAtSlot(slot, l1Constants);
+      const epochNumber = EpochNumber(2);
       const validator1 = EthAddress.random();
       const validator2 = EthAddress.random();
       const validator3 = EthAddress.random();
       const [fromSlot, toSlot] = getSlotRangeForEpoch(epochNumber, l1Constants);
-
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: epochNumber,
-        slot,
-        ts,
-        nowMs: ts * 1000n,
-      });
-      epochCache.getSlotNow.mockReturnValue(slot);
-      epochCache.getTargetSlot.mockReturnValue(slot);
-      epochCache.getEpochNow.mockReturnValue(epochNumber);
-      epochCache.getTargetEpoch.mockReturnValue(epochNumber);
-      archiver.getBlockData.mockResolvedValue({ header: mockBlock.header } as any);
-      archiver.getL1Constants.mockResolvedValue(l1Constants);
-      epochCache.getL1Constants.mockReturnValue(l1Constants);
 
       epochCache.getCommittee.mockResolvedValue({
         committee: [validator1, validator2, validator3],
@@ -648,14 +719,14 @@ describe('sentinel', () => {
             history: [],
           },
         },
-        lastProcessedSlot: slot,
+        lastProcessedSlot: SlotNumber(toSlot),
         initialSlot: SlotNumber(0),
         slotWindow: 15,
       };
       const computeStatsSpy = jest.spyOn(sentinel, 'computeStats').mockResolvedValue(statsResult);
       const emitSpy = jest.spyOn(sentinel, 'emit');
 
-      await sentinel.handleChainProven({ type: 'chain-proven', block: { number: blockNumber, hash: blockHash } });
+      await sentinel.handleEpochEnd(epochNumber);
 
       expect(computeStatsSpy).toHaveBeenCalledWith({
         fromSlot,
@@ -723,15 +794,9 @@ describe('sentinel', () => {
       expect(sentinel.getLastProcessedSlot()).toEqual(slot);
     });
 
-    it('handleChainProven skips proven performance when escape hatch is open', async () => {
-      const blockNumber = BlockNumber(15);
-      const blockHash = '0xblockhash';
-      const mockBlock = await L2Block.random(blockNumber);
-      const blockSlot = mockBlock.header.getSlot();
-      const epochNumber = getEpochAtSlot(blockSlot, l1Constants);
+    it('handleEpochEnd skips epoch performance when escape hatch is open', async () => {
+      const epochNumber = EpochNumber(2);
       const validator1 = EthAddress.random();
-
-      archiver.getBlockData.mockResolvedValue({ header: mockBlock.header } as any);
 
       epochCache.getCommittee.mockResolvedValue({
         committee: [validator1],
@@ -741,12 +806,12 @@ describe('sentinel', () => {
       });
 
       const emitSpy = jest.spyOn(sentinel, 'emit');
-      const updateProvenSpy = jest.spyOn(store, 'updateProvenPerformance');
+      const updateEpochSpy = jest.spyOn(store, 'updateEpochPerformance');
 
-      await sentinel.handleChainProven({ type: 'chain-proven', block: { number: blockNumber, hash: blockHash } });
+      await sentinel.handleEpochEnd(epochNumber);
 
       // Should have stored empty performance (no offenses during escape hatch)
-      expect(updateProvenSpy).toHaveBeenCalledWith(epochNumber, {});
+      expect(updateEpochSpy).toHaveBeenCalledWith(epochNumber, {});
       // Should NOT have emitted any slash events
       expect(emitSpy).not.toHaveBeenCalled();
     });
@@ -771,7 +836,7 @@ describe('sentinel', () => {
           { epoch: EpochNumber(2), missed: 5, total: 10 }, // 50% missed (active)
         ];
 
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockPerformance);
 
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
 
@@ -787,7 +852,7 @@ describe('sentinel', () => {
           { epoch: EpochNumber(2), missed: 5, total: 10 }, // 50% missed (active)
         ];
 
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockPerformance);
 
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
 
@@ -801,7 +866,7 @@ describe('sentinel', () => {
           { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
         ];
 
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockPerformance);
 
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
 
@@ -814,7 +879,7 @@ describe('sentinel', () => {
           { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
         ];
 
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockPerformance);
 
         // We are checking at epoch 4, so no past epochs
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(4), 2);
@@ -830,7 +895,7 @@ describe('sentinel', () => {
           { epoch: EpochNumber(2), missed: 8, total: 10 }, // 80% missed (inactive)
         ];
 
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockPerformance);
 
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
 
@@ -838,7 +903,7 @@ describe('sentinel', () => {
       });
 
       it('should work with threshold of 0 used when there are no past epochs to inspect', async () => {
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([]);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue([]);
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 0);
         expect(result).toBe(true);
       });
@@ -852,7 +917,7 @@ describe('sentinel', () => {
           { epoch: EpochNumber(2), missed: 5, total: 10 }, // 50% missed (active)
         ];
 
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockPerformance);
 
         // Query on epoch 5, so we only consider past ones and don't get to threshold
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(5), 3);
@@ -867,7 +932,7 @@ describe('sentinel', () => {
           { epoch: EpochNumber(3), missed: 8, total: 10 }, // 80% missed (inactive)
         ];
 
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue(mockPerformance);
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue(mockPerformance);
 
         const result = await sentinel.checkPastInactivity(validator1, EpochNumber(6), 3);
 
@@ -876,13 +941,13 @@ describe('sentinel', () => {
       });
     });
 
-    describe('handleProvenPerformance with consecutive epochs', () => {
+    describe('handleEpochPerformance with consecutive epochs', () => {
       it('should slash validators only after consecutive epoch failures', async () => {
         // Update config to require 2 consecutive epochs
         sentinel.updateConfig({ slashInactivityConsecutiveEpochThreshold: 2 });
 
         // Mock performance data for two validators
-        jest.spyOn(store, 'getProvenPerformance').mockImplementation(validator => {
+        jest.spyOn(store, 'getEpochPerformance').mockImplementation(validator => {
           if (validator.equals(validator1)) {
             // Validator1: inactive for 2+ consecutive epochs - should be slashed
             return Promise.resolve([
@@ -908,7 +973,7 @@ describe('sentinel', () => {
           [validator2.toString()]: { missed: 8, total: 10 }, // 80% missed
         };
 
-        await sentinel.handleProvenPerformance(EpochNumber(5), currentEpochPerformance);
+        await sentinel.handleEpochPerformance(EpochNumber(5), currentEpochPerformance);
 
         // Should only slash validator1 (2 consecutive epochs), not validator2 (1 epoch)
         expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
@@ -926,7 +991,7 @@ describe('sentinel', () => {
         sentinel.updateConfig({ slashInactivityConsecutiveEpochThreshold: 3 });
 
         // Mock performance data: validators only inactive for 2 epochs
-        jest.spyOn(store, 'getProvenPerformance').mockResolvedValue([
+        jest.spyOn(store, 'getEpochPerformance').mockResolvedValue([
           { epoch: EpochNumber(5), missed: 8, total: 10 }, // 80% missed (inactive)
           { epoch: EpochNumber(4), missed: 9, total: 10 }, // 90% missed (inactive)
           { epoch: EpochNumber(3), missed: 5, total: 10 }, // 50% missed (active)
@@ -938,7 +1003,7 @@ describe('sentinel', () => {
           [validator1.toString()]: { missed: 8, total: 10 }, // 80% missed
         };
 
-        await sentinel.handleProvenPerformance(EpochNumber(5), currentEpochPerformance);
+        await sentinel.handleEpochPerformance(EpochNumber(5), currentEpochPerformance);
 
         // Should not emit any slash events
         expect(emitSpy).not.toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, expect.anything());
@@ -953,15 +1018,21 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
+    reexecutionTracker: CheckpointReexecutionTracker,
     config: SentinelRuntimeConfig,
     protected override blockStream: L2BlockStream,
   ) {
-    super(epochCache, archiver, p2p, store, config);
+    super(epochCache, archiver, p2p, store, reexecutionTracker, config);
   }
 
   public override init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
     return Promise.resolve();
+  }
+
+  /** Invokes the production Sentinel.init() so tests can assert its initialSlot logic. */
+  public callProductionInit() {
+    return super.init();
   }
 
   public override getSlotActivity(slot: SlotNumber, epoch: EpochNumber, proposer: EthAddress, committee: EthAddress[]) {
@@ -977,16 +1048,16 @@ class TestSentinel extends Sentinel {
     return super.computeStatsForValidator(address, history, fromSlot, toSlot);
   }
 
-  public override handleChainProven(event: L2BlockStreamEvent) {
-    return super.handleChainProven(event);
+  public override handleEpochEnd(epoch: EpochNumber) {
+    return super.handleEpochEnd(epoch);
   }
 
   public override computeStats(opts: { fromSlot?: SlotNumber; toSlot?: SlotNumber }) {
     return super.computeStats(opts);
   }
 
-  public override handleProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
-    return super.handleProvenPerformance(epoch, performance);
+  public override handleEpochPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
+    return super.handleEpochPerformance(epoch, performance);
   }
 
   public override getValidatorStats(validatorAddress: EthAddress, fromSlot?: SlotNumber, toSlot?: SlotNumber) {

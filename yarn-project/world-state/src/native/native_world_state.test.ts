@@ -14,6 +14,7 @@ import { timesAsync } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { sleep } from '@aztec/foundation/sleep';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { L2Block } from '@aztec/stdlib/block';
@@ -936,6 +937,36 @@ describe('NativeWorldState', () => {
           await expect(blockForks[i].getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
         }
       }
+    });
+
+    // Regression test for A-1055: a delayed-close fork that the C++ side has already destroyed (via
+    // remove_forks_for_block on an unwind or historical prune) must dispose silently rather than logging a
+    // warning, and its JS-side per-fork queue entry must be cleaned up.
+    it('does not fail when a delayed-close fork is destroyed by a reorg before its close fires', async () => {
+      const baseFork = await ws.fork();
+      for (let i = 0; i < 3; i++) {
+        const { block, messages } = await mockBlock(BlockNumber(i + 1), 1, baseFork);
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+      await baseFork.close();
+
+      const closeDelayMs = 1000;
+      const delayedFork = await ws.fork(undefined, { closeDelayMs });
+      const forkId = (delayedFork as any).revision.forkId;
+      const warnSpy = jest.spyOn((delayedFork as any).log, 'warn');
+
+      await (delayedFork as any)[Symbol.asyncDispose]();
+
+      await ws.unwindBlocks(BlockNumber.fromBigInt(2n));
+      await expect(delayedFork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
+
+      await sleep(closeDelayMs * 3);
+      const closePromise = (delayedFork as any).closePromise;
+      expect(closePromise).toBeDefined();
+      await closePromise;
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect((ws as any).instance.queues.has(forkId)).toBe(false);
     });
   });
 

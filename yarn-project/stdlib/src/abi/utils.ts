@@ -59,10 +59,10 @@ export function isPublicKeysStruct(abiType: AbiType) {
     abiType.kind === 'struct' &&
     abiType.path === 'aztec::protocol_types::public_keys::PublicKeys' &&
     abiType.fields.length === 4 &&
-    abiType.fields[0].name === 'npk_m' &&
+    abiType.fields[0].name === 'npk_m_hash' &&
     abiType.fields[1].name === 'ivpk_m' &&
-    abiType.fields[2].name === 'ovpk_m' &&
-    abiType.fields[3].name === 'tpk_m'
+    abiType.fields[2].name === 'ovpk_m_hash' &&
+    abiType.fields[3].name === 'tpk_m_hash'
   );
 }
 

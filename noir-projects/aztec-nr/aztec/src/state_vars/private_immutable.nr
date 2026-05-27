@@ -12,10 +12,8 @@ use crate::{
 };
 
 use crate::protocol::{
-    address::AztecAddress,
-    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
-    traits::{Hash, Packable},
+    address::AztecAddress, constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::Packable,
 };
 
 mod test;
@@ -82,8 +80,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     /// that need to check if a PrivateImmutable has been initialized.
     ///
     fn get_initialization_nullifier(self) -> Field {
-        let owner_npk_m = get_public_keys(self.owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m_hash;
         let secret = self.context.request_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }
@@ -137,8 +134,7 @@ where
 {
     /// Computes the nullifier that will be created when this PrivateImmutable is first initialized.
     unconstrained fn get_initialization_nullifier(self) -> Field {
-        let owner_npk_m = get_public_keys(self.owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m_hash;
         let secret = get_nhk_app(owner_npk_m_hash);
         self.compute_initialization_nullifier(secret)
     }

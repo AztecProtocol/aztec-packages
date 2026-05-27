@@ -314,7 +314,9 @@ describe('e2e_epochs/epochs_mbps', () => {
       0.1,
     );
 
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    // Mirror the sibling MBPS tests: we may lose one sub-slot to pipelined overhead, so accept >= 2
+    // blocks per checkpoint rather than the legacy 3-block expectation.
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(2, logger);
 
     // Verify L2→L1 messages are in the blocks
     const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });

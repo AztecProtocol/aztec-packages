@@ -554,8 +554,8 @@
       {
         "current": {
           "selected": false,
-          "text": "staging-ignition",
-          "value": "staging-ignition"
+          "text": "staging-public",
+          "value": "staging-public"
         },
         "datasource": {
           "type": "prometheus",

@@ -9,6 +9,17 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `AccountManager.create` takes an options bag
+
+`AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:
+
+```diff
+- AccountManager.create(wallet, secret, accountContract, salt)
++ AccountManager.create(wallet, secret, accountContract, { salt })
+```
+
+`immutablesHash` lets callers commit a non-zero immutables hash on the resulting `ContractInstance` (folded into the salted initialization hash, so it affects the derived address). `deployer` overrides the deployer address recorded on the instance (defaults to `AztecAddress.ZERO`). The same `immutablesHash` field is now also threaded through `DeployMethod` / `DeployAccountMethod` so the address derived at deploy time matches the one on `accountManager.getInstance()`.
+
 ### [Aztec.nr] Defining a custom `sync_state` function now requires `AztecConfig`
 
 Contracts that previously overrode the default `sync_state` by defining their own function with that name will now get a compile error. Use `AztecConfig::custom_sync_state()` instead.
@@ -78,6 +89,82 @@ If you need to customize source or block range, construct the struct manually wi
 ```
 
 `source` controls which RPCs are queried: `LogSource.PRIVATE`, `LogSource.PUBLIC`, or `LogSource.PUBLIC_AND_PRIVATE`. `from_block` and `to_block` define a half-open `[from, to)` block range filter. Both are `Option<Field>` and default to `Option::none()` (no filtering).
+
+### [Protocol] Public-key hashes replace points in `PublicKeys`
+
+Ships together with immutables hash changes (shown below).
+
+Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries the four master public keys as elliptic curve points. Three of them (`npk_m`, `ovpk_m`, `tpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
+
+**This is a hard fork:** every contract address and account address derived from a non-default `PublicKeys` changes.
+
+**Contract author migration.** Read the master nullifier hash directly off `PublicKeys` instead of computing it from a point:
+
+```diff
+- let owner_npk_m = get_public_keys(owner).npk_m;
+- let secret = context.request_nhk_app(owner_npk_m.hash());
++ let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
++ let secret = context.request_nhk_app(owner_npk_m_hash);
+```
+
+The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_hash` and `.tpk_m_hash` respectively. Code that needed those keys as points will not compile; the points are no longer accessible to contract code.
+
+**Custom account contracts.** Wallets that ship their own Noir account contracts must recompile. Macro-generated calldata extraction and the `request_nsk_app` / `request_ovsk_app` paths use the hash form natively.
+
+**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr)`. `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
+
+**Wallet UI.** Any panel that displayed `masterNullifierPublicKey`, `masterOutgoingViewingPublicKey`, or `masterTaggingPublicKey` as Grumpkin points will no longer compile against the new `PublicKeys` class. The points themselves are no longer in `ContractInstancePublished` and cannot be recovered from the onchain record. Switch to displaying the hashes (`npkMHash`, `ovpkMHash`, `tpkMHash`) or drop the display.
+
+**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over four single-key digests, not four raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
+
+**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 13 fields:
+
+```text
+[ MAGIC, address, version, salt, class_id, init_hash,
+  immutables_hash,
+  npk_m_hash,
+  ivpk_m.x, ivpk_m.y,
+  ovpk_m_hash,
+  tpk_m_hash,
+  deployer ]
+```
+
+`version` is `2`. v1 events should be rejected.
+
+**Security note (PXE side).** The kernel circuit no longer checks that `npk_m`, `ovpk_m`, `tpk_m` are on-curve or non-infinity (those points are no longer in the witness). The PXE / key store relies on `deriveKeys`'s by-construction guarantee that derived points are on-curve and non-infinity. Account-creation flows that bypass `deriveKeys` (e.g. importing pre-derived public keys from an external source) must validate this themselves, or risk producing unspendable notes.
+
+### [Contracts] `ContractInstance` gains `immutablesHash`, address derivation changes
+
+`ContractInstance` now has a new `immutablesHash: Fr` field that commits to a contract's immutable storage values. The field is folded into the salted initialization hash, so contract addresses are impacted:
+
+```
+salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash])
+```
+
+**You may need to act if:**
+
+- You hardcode contract addresses computed from instance fields outside the SDK. Recompute them under the new derivation.
+- You parse the `ContractInstancePublished` private log directly. The event payload has an extra field, with `immutables_hash` inserted between `initialization_hash` and the public-keys block:
+
+  ```
+  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(5), deployer]
+  ```
+
+- You call `ContractInstanceRegistry.publish_for_public_execution` directly. The function now takes 6 arguments instead of 5, with `immutables_hash` inserted between `initialization_hash` and `public_keys`:
+
+  ```diff
+  - publish_for_public_execution(salt, contract_class_id, initialization_hash,                  public_keys, universal_deploy)
+  + publish_for_public_execution(salt, contract_class_id, initialization_hash, immutables_hash, public_keys, universal_deploy)
+  ```
+
+- You call the `GetContractInstance` AVM opcode directly or use the per-member helpers in `aztec-nr`. A new enum value `ContractInstanceMember::IMMUTABLES_HASH = 3` selects `immutables_hash`. Use the wrapper helper from `aztec::oracle::get_contract_instance`:
+
+  ```rust
+  use aztec::oracle::get_contract_instance::get_contract_instance_immutables_hash_avm;
+  let immutables_hash: Option<Field> = get_contract_instance_immutables_hash_avm(address);
+  ```
+
+The `aztec.js` `publishInstance` helper handles this automatically.
 
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` now take `BoundedVec`
 
@@ -172,7 +259,7 @@ The `Schnorr` TypeScript API in `@aztec/foundation/crypto/schnorr` keeps the sam
 + env.call_public_incognito(SampleContract::at(addr).some_function());
 ```
 
-If you need to call a public function *with* a sender, use `call_public` instead.
+If you need to call a public function _with_ a sender, use `call_public` instead.
 
 ### [Aztec.nr] TXE `view_public_incognito` is deprecated
 
@@ -325,7 +412,13 @@ If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/cur
 ```typescript
 const result = await contract.methods.read_balance(account).simulate({
   overrides: {
-    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+    publicStorage: [
+      {
+        contract: contract.address,
+        slot: BALANCE_SLOT,
+        value: new Fr(1_000_000n),
+      },
+    ],
   },
 });
 ```
@@ -342,7 +435,7 @@ Direct callers of the `SimulationOverrides` constructor must switch from a posit
 `overrides.contracts` swaps contract instances in the simulator's contract DB — useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete onchain upgrade flow, use the `fastForwardContractUpdate` helper which returns a `SimulationOverrides` covering both registry storage rewrites and the upgraded instance entry:
 
 ```typescript
-import { fastForwardContractUpdate } from '@aztec/aztec.js';
+import { fastForwardContractUpdate } from "@aztec/aztec.js";
 
 const overrides = await fastForwardContractUpdate({
   instanceAddress: contract.address,
@@ -469,8 +562,8 @@ If you want the latest L1-confirmed checkpoint regardless of proposed state, swi
 
 ```ts
 // Throws BadRequestError when a proposed entry exists at the resolved number:
-await node.getCheckpoint('proposed', { includeAttestations: true });
-await node.getCheckpoint('proposed', { includeL1PublishInfo: true });
+await node.getCheckpoint("proposed", { includeAttestations: true });
+await node.getCheckpoint("proposed", { includeL1PublishInfo: true });
 
 // And when a by-number / by-slot lookup falls back to a proposed entry:
 await node.getCheckpoint({ number: N }, { includeAttestations: true });

@@ -13,6 +13,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       maxTxsPerBlock?: number;
       maxBlocksPerCheckpoint?: number;
       p2pPropagationTime?: number;
+      skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
     },
   ) {

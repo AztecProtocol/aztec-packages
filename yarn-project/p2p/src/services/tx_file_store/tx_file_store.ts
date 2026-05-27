@@ -1,3 +1,4 @@
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -10,6 +11,8 @@ import type { TxPoolV2 } from '../../mem_pools/index.js';
 import type { TxFileStoreConfig } from './config.js';
 import { TxFileStoreInstrumentation } from './instrumentation.js';
 
+const MAX_RECENT_UPLOADS = 1000;
+
 /**
  * Uploads validated transactions to a file store as a fallback retrieval mechanism.
  * Listens to TxPool txs-added events and uploads txs asynchronously with bounded concurrency.
@@ -21,9 +24,7 @@ export class TxFileStore {
   private readonly handleTxsAdded: (args: { txs: Tx[]; source?: string }) => void;
 
   /** Recently uploaded tx hashes for deduplication. */
-  private recentUploads: Set<string> = new Set();
-  private recentUploadsOrder: string[] = [];
-  private readonly maxRecentUploads = 1000;
+  private recentUploads = FifoSet.withLimit<string>(MAX_RECENT_UPLOADS);
 
   private constructor(
     private readonly fileStore: FileStore,
@@ -127,24 +128,11 @@ export class TxFileStore {
     const path = `${this.basePath}/txs/${txHash}.bin`;
     const timer = new Timer();
 
-    if (this.recentUploads.has(txHash)) {
+    if (!this.recentUploads.addIfAbsent(txHash)) {
       return;
     }
 
     try {
-      this.recentUploads.add(txHash);
-      this.recentUploadsOrder.push(txHash);
-
-      if (this.recentUploadsOrder.length > this.maxRecentUploads) {
-        // delete old entries in recentUploads
-        for (const txHashToRemove of this.recentUploadsOrder.splice(
-          0,
-          this.recentUploadsOrder.length - this.maxRecentUploads,
-        )) {
-          this.recentUploads.delete(txHashToRemove);
-        }
-      }
-
       await retry(
         () => this.fileStore.save(path, tx.toBuffer(), { compress: true }),
         `Uploading tx ${txHash}`,
