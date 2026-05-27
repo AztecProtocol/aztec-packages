@@ -13,36 +13,6 @@
 
 namespace acir_format {
 
-namespace {
-
-template <typename Builder>
-void populate_padded_vk_fields(Builder& builder,
-                               std::span<const uint32_t> witness_indices,
-                               const std::vector<bb::fr>& vk_fields)
-{
-    BB_ASSERT_GTE(witness_indices.size(),
-                  vk_fields.size(),
-                  "process_hn_recursion_constraints: ACIR VK witness vector is smaller than the Chonk VK");
-
-    for (size_t idx = 0; idx < vk_fields.size(); ++idx) {
-        builder.set_variable(witness_indices[idx], vk_fields[idx]);
-    }
-    for (size_t idx = vk_fields.size(); idx < witness_indices.size(); ++idx) {
-        builder.set_variable(witness_indices[idx], bb::fr::zero());
-    }
-}
-
-template <typename StdlibVK> std::span<const uint32_t> vk_witness_prefix(const std::vector<uint32_t>& witness_indices)
-{
-    static constexpr size_t expected_size = StdlibVK::NativeVerificationKey::calc_num_data_types();
-    BB_ASSERT_GTE(witness_indices.size(),
-                  expected_size,
-                  "process_hn_recursion_constraints: ACIR VK witness vector is smaller than the recursive VK type");
-    return std::span<const uint32_t>(witness_indices.data(), expected_size);
-}
-
-} // namespace
-
 template <>
 HonkRecursionConstraintsOutput<MegaCircuitBuilder> create_recursion_constraints(
     MegaCircuitBuilder& builder,
@@ -216,7 +186,8 @@ void process_hn_recursion_constraints(
         // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
         if (builder.is_write_vk_mode()) {
             for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
-                populate_padded_vk_fields(builder, constraint.key, queue_entry.vk_to_field_elements());
+                auto key_fields = fields_from_witnesses(builder, constraint.key);
+                populate_fields(builder, key_fields, queue_entry.vk_to_field_elements());
                 builder.set_variable(constraint.key_hash, queue_entry.vk_hash());
             }
         }
@@ -226,13 +197,12 @@ void process_hn_recursion_constraints(
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->verification_queue)) {
             auto hash = StdlibFF::from_witness_index(&builder, constraint.key_hash);
             if (queue_entry.is_kernel()) {
-                auto vk = std::make_shared<KernelStdlibVK>(
-                    KernelStdlibVK::from_witness_indices(builder, vk_witness_prefix<KernelStdlibVK>(constraint.key)));
-                stdlib_vk_and_hashs.emplace_back(std::make_shared<KernelStdlibVKAndHash>(vk, hash));
+                stdlib_vk_and_hashs.emplace_back(std::make_shared<KernelStdlibVKAndHash>(
+                    std::make_shared<KernelStdlibVK>(KernelStdlibVK::from_witness_indices(builder, constraint.key)),
+                    hash));
             } else {
-                auto vk = std::make_shared<AppStdlibVK>(
-                    AppStdlibVK::from_witness_indices(builder, vk_witness_prefix<AppStdlibVK>(constraint.key)));
-                stdlib_vk_and_hashs.emplace_back(std::make_shared<AppStdlibVKAndHash>(vk, hash));
+                stdlib_vk_and_hashs.emplace_back(std::make_shared<AppStdlibVKAndHash>(
+                    std::make_shared<AppStdlibVK>(AppStdlibVK::from_witness_indices(builder, constraint.key)), hash));
             }
         }
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
