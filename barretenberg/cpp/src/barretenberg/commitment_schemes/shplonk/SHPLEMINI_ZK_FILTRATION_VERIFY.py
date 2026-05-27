@@ -1,5 +1,5 @@
 """
-Symbolic and numerical verification for SHPLEMINI_ZK_FILTRATION_PROOF.md.
+Symbolic and numerical verification for SHPLEMINI_ZK_MASKING.md.
 
 Verifies, at d = 3 (symbolic) and d = 4 (symbolic block structure + numerical det):
 
@@ -54,7 +54,7 @@ def adapted_rows(d, S, tau, rs, us):
     """Rows (D_0', M_0^new, D_1', M_1^new, ..., D_{d-1}', M_{d-1}^new).
 
     D_k' = D_k / (tau + r_k) = ell_k * phi_{q_k}(tau, -r_k).
-    M_k^new = M_k + r_k * D_k'  (Step B from SHPLEMINI_ZK_FILTRATION_PROOF.md §0).
+    M_k^new = M_k + r_k * D_k'  (row normalisation from SHPLEMINI_ZK_MASKING.md §2).
     """
     rows, labels = [], []
     for t in range(d):

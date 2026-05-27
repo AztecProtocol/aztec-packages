@@ -88,6 +88,20 @@ C_k=\{2^{k+1}-1,2^k\}\quad(1\le k\le d-2),
 C_{d-1}=\{E-1,E-2,N/2\}.
 $$
 
+Indeed, the dyadic pair \(\{2^{k+1}-1,2^k\}\) is exactly the part of the fixed
+halving tail with
+
+$$
+2^k\le s<2^{k+1},
+$$
+
+so it lies in \(A_k\setminus A_{k+1}\). The column \(1\) is the unique support
+point with \(1\le s<2\), giving \(C_0\). Since \(E>N/2\), the top pair
+\(E-1,E-2\) lies in \(A_{d-1}\); the non-exceptional condition
+\(E\notin\{B,B+2\}\) for dyadic \(B\) ensures it is disjoint from every dyadic
+halving pair. Finally \(N/2\in A_{d-1}\), while \(N/2-1\notin A_{d-1}\), so the
+only columns surviving to level \(d-1\) are \(E-1,E-2,N/2\).
+
 ### Exceptional locus
 
 Let $R_E$ denote the active rank witness:
@@ -486,7 +500,7 @@ $$
 D_0'(E_1)=\phi_1(\tau,-r_0)=1
 $$
 
-and every row except $D_0'$ vanishes on $C_0$ after triangularisation, the
+and every row except $D_0'$ vanishes on $C_0$ after the block-triangular reduction, the
 Schur complement at this pivot deletes the row $D_0'$ and the column $1$.
 
 The row $M_0^{\mathrm{new}}$ remains unpaired. For each middle block
@@ -546,12 +560,35 @@ $$
 W_-R(c_+)-W_+R(c_-)=0.
 $$
 
-*Proof.* For $k\ge1$, the two exponents $c_+$ and $c_-$ have the same
-quotient $q_k$. The only difference in their Lagrange factors below level
-$d-2$ is the bit-0 factor. Multiplication by $W_-$ and $W_+$ exchanges
-these bit-0 factors and leaves the common higher-bit factor unchanged. The rows
-$N_k$ with $k\ge2$ are linear combinations of rows to which this argument
-applies. $\square$
+*Proof.* Fix $k\ge1$. Since $c_+$ and $c_-$ are consecutive integers with
+$c_+$ odd, their binary expansions differ only in bit $0$ below level $k$.
+Therefore
+
+$$
+q_k(c_+)=q_k(c_-),
+$$
+
+and there is a polynomial factor $Y_k$ independent of the bit-0 choice such that
+
+$$
+D_k'(c_+)=u_0H_kY_k,
+\qquad
+D_k'(c_-)=(1-u_0)H_kY_k,
+$$
+
+where $H_k$ contains the common bits $1,\ldots,k-1$. The same factorisation
+holds for $M_k^{\mathrm{new}}$, because its value is also
+$\ell_k(s)$ times a function only of $q_k(s)$. Multiplying by
+$W_-=(1-u_0)H$ and $W_+=u_0H$ gives equal products.
+
+For $N_k$ with $k\ge2$, use
+
+$$
+N_k=M_k^{\mathrm{new}}-u_{k-1}D_{k-1}'-(1-u_{k-1})M_{k-1}^{\mathrm{new}}.
+$$
+
+Each row on the right has the same anti-symmetry property just proved, so their
+linear combination does too. $\square$
 
 The row $N_1$ is exceptional because it contains level-0 rows. Define
 
@@ -757,8 +794,62 @@ $$
 L_0(u_{<d-2})L_\rho(u_{<d-2}).
 $$
 
-*Proof.* Compute the cofactors of the first row of $U_E^{\mathrm{hi}}$. They
-are, up to the same fixed ordering sign,
+*Proof.* Write
+
+$$
+u=u_{d-2},
+\qquad r=r_{d-2},
+\qquad L_0=L_0(u_{<d-2}).
+$$
+
+On the boundary columns $c_+,c_-,N/2$, the row $D_{d-1}'$ is
+
+$$
+\bigl(uW_+,\ uW_-,\ (1-u)L_0\bigr),
+$$
+
+because $q_{d-1}=1$ on all three columns. The row $N_{d-1}$ is obtained from
+
+$$
+N_{d-1}=M_{d-1}^{\mathrm{new}}-uD_{d-2}'-(1-u)M_{d-2}^{\mathrm{new}},
+$$
+
+and $M_{d-1}^{\mathrm{new}}=0$ on these columns. For the top pair,
+$q_{d-2}=3$; for $N/2$, $q_{d-2}=2$. Thus
+
+$$
+N_{d-1}|_{\{c_+,c_-,N/2\}}
+=\bigl(W_+Y,\ W_-Y,\ L_0Z\bigr),
+$$
+
+where
+
+$$
+Y=-u\phi_3(\tau,-r)-(1-u)\tau r\phi_2(\tau,-r),
+\qquad
+Z=-u\phi_2(\tau,-r)-(1-u)\tau r.
+$$
+
+The cofactor of the $N/2$ entry in the first row is zero, since the two top-pair
+columns of the lower $2\times3$ block are proportional to $(W_+,W_-)$. The
+other two cofactors are
+
+$$
+\begin{aligned}
+C_+&=uW_-L_0Z-(1-u)L_0W_-Y,\\
+C_-&=(1-u)L_0W_+Y-uW_+L_0Z.
+\end{aligned}
+$$
+
+Using $\phi_2(\tau,-r)=\tau-r$ and
+$\phi_3(\tau,-r)=\tau^2-\tau r+r^2$, the common bracket satisfies
+
+$$
+u Z-(1-u)Y
+=-(\tau-r)\bigl(u+(1-u)r\bigr)\bigl(u-(1-u)\tau\bigr).
+$$
+
+Hence the signed cofactor vector is, up to the fixed column-ordering sign,
 
 $$
 (\tau-r_{d-2})A_{d-2}^+(r_{d-2})A_{d-2}^-(\tau)
@@ -861,8 +952,11 @@ $$
 
 Multiplying by the middle block determinants gives a nonzero
 $(2d-1)\times(2d-1)$ reduced minor. Thus $\operatorname{rank}G_S=2d-1$.
-Since $G_S$ also satisfies the row relation of Lemma 8.1, its image is the
-full hyperplane $H_E$. Consequently
+The functional $N_{d-1}-\lambda D_{d-1}'$ is nonzero as a functional on the
+transformed row-coordinate space, since the coefficient of the row
+$N_{d-1}$ is $1$. Hence $H_E$ has dimension $2d-1$. Since $G_S$ also satisfies
+the row relation of Lemma 8.1, its $(2d-1)$-dimensional image is the full
+hyperplane $H_E$. Consequently
 
 $$
 \operatorname{im}G_E\subseteq H_E=\operatorname{im}G_S.
@@ -935,7 +1029,9 @@ identities; the proof obligations are the lemmas stated in the main text.
   at `d=3,4` and numerically verifies low-tail dense ranks.
 
 The endpoint $E=N$ is included in the same argument: then
-$ho=N-1mod 2^{d-2}=2^{d-2}-1$, so the $ho$-anti-symmetry reduces to the
+$
+ho=N-1mod 2^{d-2}=2^{d-2}-1$, so the $
+ho$-anti-symmetry reduces to the
 usual top-pair anti-symmetry.
 
 ## Appendix B: degenerate d=3 low-tail case
