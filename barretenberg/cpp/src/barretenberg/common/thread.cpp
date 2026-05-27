@@ -1,19 +1,13 @@
 #include "thread.hpp"
-#include "bb_bench.hpp"
 #include "log.hpp"
 #include "throw_or_abort.hpp"
-#include <atomic>
 #include <barretenberg/env/hardware_concurrency.hpp>
-#include <chrono>
 #include <cstdlib>
-#include <functional>
 #include <string>
 
 #ifndef NO_MULTITHREADING
 #include <thread>
-#endif
 
-#ifndef NO_MULTITHREADING
 namespace {
 uint32_t& get_num_cores_ref()
 {
@@ -46,216 +40,73 @@ size_t get_num_cpus()
 }
 } // namespace bb
 
-#ifndef NO_MULTITHREADING
-
-// Fix for https://github.com/AztecProtocol/aztec-packages/issues/19769
-// Zig's Mach-O linker (https://codeberg.org/ziglang/zig/issues/31461) misaligns
-// __thread_bss TLS template offsets when __thread_data is also present (from Rust
-// static libraries), causing x86_64-macos segfaults on any thread_local requiring
-// 16-byte alignment. Adding an alignas(16) initialized thread_local forces
-// __thread_data alignment to 16, ensuring __thread_bss starts at a correctly
-// aligned TLS template offset.
-// NOLINTBEGIN
-alignas(16) thread_local char bb_thread_tls_alignment_pad[16] __attribute__((used)) = { 1 };
-// NOLINTEND
-
-namespace bb::detail {
-
-// THREAD_LOCAL_MAYBE: thread_local on native, plain static on wasm. WASM thread_local
-// for non-trivial types has bad init/teardown semantics inside wasi-threads workers,
-// so the pool is process-wide there — wasm only has one master thread dispatching
-// parallel_for at any time.
-#ifdef __wasm__
-#define BB_TLS
-#else
-#define BB_TLS thread_local
-#endif
-
 /**
- * @brief Generation-counter thread pool backing bb::parallel_for.
+ * There's a lot to talk about here. To bring threading to WASM, parallel_for was written to replace the OpenMP loops
+ * we had scattered throughout our code. It provides a clean abstraction for the work division strategy we use (we
+ * used OMP's`"#pragma omp parallel for` everywhere).
  *
- * Lock-free hot path: start_tasks() bumps generation_ (release); workers
- * acquire-load generation_, then each iteration claim is a single fetch_add
- * on iteration_. Cross-call safety is via workers_done_gen_: every worker
- * bumps it after finishing the current generation, and start_tasks() waits
- * for it to reach num_workers_ before returning, guaranteeing no worker is
- * still inside do_iterations() when the next generation is published.
+ * The first implementation was `parallel_for_spawning`. You can read a description of each implementation in the
+ * relevant source file, but parallel_for_spawning is the simplest approach imaginable.
+ * Once WASM was working, I checked its performance in native code by running it against the polynomials benchmarks.
+ * In doing so, OMP outperformed it significantly (at least for FFT algorithms). This set me on a course to try
+ * and understand why and to provide a suitable alternative. Ultimately I found solutions that compared to OMP with
+ * "moody" and "atomic_pool" solutions, although they were not *quite* as fast as OMP. However interestingly, when it
+ * comes to actual "real world" testing (with proof construction), rather than raw benchmarking, most of the solutions
+ * performed about the same, with OMP *actually slightly worse*. So maybe all this effort was a bit redundant.
+ * Remember to always do real world testing...
  *
- * Idle wait is yield-spin then 100 us sleep_for fallback on native. Browser WASM
- * keeps yielding because std::this_thread::sleep_for lowers to WASI poll_oneoff,
- * which is intentionally stubbed out in this build. Neither path lowers to
- * i32.atomic.wait, so the V8 wasi-threads lost-wakeup race that affects
- * condition_variable-based pools does not apply here.
+ * My theory as to why OMP performs so much better in benchmarks is because it runs the tests in a very tight loop,
+ * and OMP seems well designed to handle this. It actually looks like OMP consumes more cpu time in htop, and this
+ * maybe due to aggressive spin-locking and may explain why it performs well in these scenarios.
  *
- * This is the same design as the round-parallel MSM's local pool — the MSM
- * dispatches parallel_for hundreds of times per proof, and per-call overhead
- * (mutex/condvar) was the dominant cost on heterogeneous P/E hosts and on
- * WASM. The pool below is the single backbone for every bb::parallel_for
- * caller in the codebase.
+ * My theory as to why spawning seems to counter-intuitively perform so well, is that spawning a new thread may actually
+ * be cheaper than waking a sleeping thread. Or joining is somehow very efficient. Or it's because there's very low
+ * other overhead. Or libc++ STL does some magic. Ok, that's not much of a theory...
+ *
+ * Ultimately though the takeaway is as follows:
+ * - OMP maybe preferable when running benchmarks if you want to check for that kind of "optimal linear scaling".
+ *   Although, if we want to get rid of OMP altogether, "atomic_pool" is a simple solution that seems to compare.
+ * - The simplest "spawning" is probably best used everywhere else, and frees us from needing OMP to build the lib.
+ *
+ * UPDATE!: So although spawning is simple and fast, due to unstable pthreads in wasi-sdk that causes hangs when
+ * joining threads, we use "atomic_pool" by default. We may just wish to revert to spawning once it stablises.
+ *
+ * UPDATE!: Interestingly "atomic_pool" performs worse than "mutex_pool" for some e.g. proving key construction.
+ * Haven't done deeper analysis. Defaulting to mutex_pool.
  */
-class ParallelForPool {
-  public:
-    explicit ParallelForPool(size_t num_threads);
-    ParallelForPool(const ParallelForPool&) = delete;
-    ParallelForPool(ParallelForPool&&) = delete;
-    ParallelForPool& operator=(const ParallelForPool&) = delete;
-    ParallelForPool& operator=(ParallelForPool&&) = delete;
-    ~ParallelForPool();
-
-    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
-    {
-        bench_parent_.store(bb::detail::GlobalBenchStatsContainer::parent, std::memory_order_relaxed);
-        // Safe to write task_/counters here without synchronisation: the prior
-        // start_tasks() waited for every worker to bump workers_done_gen_, so no
-        // worker is currently reading task_ or iteration_.
-        task_ = func;
-        iteration_.store(0, std::memory_order_relaxed);
-        num_iterations_.store(num_iterations, std::memory_order_relaxed);
-        workers_done_gen_.store(0, std::memory_order_relaxed);
-        // Release publishes task_ + counters to workers acquire-loading generation_.
-        generation_.fetch_add(1, std::memory_order_release);
-
-        do_iterations();
-
-        idle_wait_until([this] { return workers_done_gen_.load(std::memory_order_acquire) == num_workers_; });
-        std::atomic_thread_fence(std::memory_order_acquire);
-    }
-
-  private:
-    std::vector<std::thread> workers_;
-    std::function<void(size_t)> task_;
-    size_t num_workers_;
-
-    alignas(64) std::atomic<size_t> num_iterations_{ 0 };
-    alignas(64) std::atomic<size_t> iteration_{ 0 };
-    alignas(64) std::atomic<size_t> generation_{ 0 };
-    alignas(64) std::atomic<size_t> workers_done_gen_{ 0 };
-    alignas(64) std::atomic<bb::detail::TimeStatsEntry*> bench_parent_{ nullptr };
-    std::atomic<bool> stop_{ false };
-
-    void worker_loop();
-
-    BB_NO_PROFILE void do_iterations()
-    {
-        const size_t total = num_iterations_.load(std::memory_order_relaxed);
-        size_t i = 0;
-        while ((i = iteration_.fetch_add(1, std::memory_order_relaxed)) < total) {
-            task_(i);
-        }
-    }
-
-    template <typename Pred> static void idle_wait_until(Pred pred)
-    {
-        for (int s = 0; s < 1024; ++s) {
-            if (pred()) {
-                return;
-            }
-            std::this_thread::yield();
-        }
-        while (!pred()) {
-#ifdef __wasm__
-            std::this_thread::yield();
-#else
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
-#endif
-        }
-    }
-};
-
-ParallelForPool::ParallelForPool(size_t num_threads)
-    : num_workers_(num_threads)
-{
-    workers_.reserve(num_threads);
-    for (size_t i = 0; i < num_threads; ++i) {
-        workers_.emplace_back([this] { worker_loop(); });
-    }
-}
-
-ParallelForPool::~ParallelForPool()
-{
-    stop_.store(true, std::memory_order_release);
-    for (auto& w : workers_) {
-        w.join();
-    }
-}
-
-void ParallelForPool::worker_loop()
-{
-    size_t my_gen = 0;
-    int idle_spins = 0;
-    while (!stop_.load(std::memory_order_acquire)) {
-        const size_t cur_gen = generation_.load(std::memory_order_acquire);
-        if (cur_gen != my_gen) {
-            my_gen = cur_gen;
-            idle_spins = 0;
-            // Inherit master's BB_BENCH_NAME parent so any BB_BENCH_NAME hit inside
-            // `task_` attributes to the master's bench stack rather than nullptr.
-            bb::detail::GlobalBenchStatsContainer::parent = bench_parent_.load(std::memory_order_relaxed);
-            do_iterations();
-            workers_done_gen_.fetch_add(1, std::memory_order_release);
-        } else if (idle_spins < 1024) {
-            ++idle_spins;
-            std::this_thread::yield();
-        } else {
-#ifdef __wasm__
-            std::this_thread::yield();
-#else
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
-#endif
-        }
-    }
-}
-
-inline ParallelForPool& shared_pool()
-{
-    // Pool sized to (get_num_cpus() - 1) workers; the master doubles as the last
-    // worker so total active threads = get_num_cpus().
-    static BB_TLS ParallelForPool pool(get_num_cpus() == 0 ? 0 : get_num_cpus() - 1);
-    return pool;
-}
-
-// Nested parallel_for guard. The pool is single-master-safe only — a worker calling
-// parallel_for again would race on its master's pool state. We fall back to serial
-// in nested calls, matching the behaviour of the prior parallel_for_mutex_pool.
-BB_TLS bool nested_parallel_for = false;
-
-// Pool backend selector. Default is the generation-counter pool; set the env var
-// BB_PARALLEL_POOL=mutex to fall back to the legacy std::mutex/condition_variable pool
-// (defined in parallel_for_mutex_pool.cpp). Read once at first dispatch so the choice is
-// fixed for the process — toggling without a rebuild lets the same binary be A/B-benched
-// across devices (e.g. browserstack) where the generation pool's idle-wait / oversubscription
-// behaviour was observed to differ. Values other than "mutex" select the generation pool.
-enum class PoolStrategy : uint8_t { Generation, Mutex, Atomic };
-inline PoolStrategy pool_strategy()
-{
-    static const PoolStrategy strategy = [] {
-        const char* env = std::getenv("BB_PARALLEL_POOL");
-        if (env == nullptr) {
-            return PoolStrategy::Generation;
-        }
-        const std::string val(env);
-        if (val == "mutex") {
-            return PoolStrategy::Mutex;
-        }
-        if (val == "atomic") {
-            return PoolStrategy::Atomic;
-        }
-        return PoolStrategy::Generation;
-    }();
-    return strategy;
-}
-
-} // namespace bb::detail
-
-#endif // NO_MULTITHREADING
 
 namespace bb {
+// 64 core aws r5.
+// pippenger run: pippenger_bench/1048576
+// coset_fft run: coset_fft_bench_parallel/4194304
+// proof run: 2m gate ultraplonk. average of 5.
 
-// Legacy std::mutex/condition_variable pool — defined in parallel_for_mutex_pool.cpp,
-// selected at runtime via BB_PARALLEL_POOL=mutex. It handles its own nested-call guard
-// and serial fallback, so dispatch to it directly.
-void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func);
+// pippenger: 179ms
+// coset_fft: 54776us
+// proof: 11.33s
+void parallel_for_omp(size_t num_iterations, const std::function<void(size_t)>& func);
+
+// pippenger: 163ms
+// coset_fft: 59993us
+// proof: 11.11s
+void parallel_for_moody(size_t num_iterations, const std::function<void(size_t)>& func);
+
+// pippenger: 154ms
+// coset_fft: 92997us
+// proof: 10.84s
+void parallel_for_spawning(size_t num_iterations, const std::function<void(size_t)>& func);
+
+// pippenger: 178ms
+// coset_fft: 70207us
+// proof: 11.55s
+void parallel_for_queued(size_t num_iterations, const std::function<void(size_t)>& func);
+
+// pippenger: 152ms
+// coset_fft: 56658us
+// proof: 11.28s
 void parallel_for_atomic_pool(size_t num_iterations, const std::function<void(size_t)>& func);
+
+void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func);
 
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
@@ -264,31 +115,15 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
         func(i);
     }
 #else
-    if (num_iterations == 0) {
-        return;
-    }
-    if (detail::pool_strategy() == detail::PoolStrategy::Mutex) {
-        parallel_for_mutex_pool(num_iterations, func);
-        return;
-    }
-    if (detail::pool_strategy() == detail::PoolStrategy::Atomic) {
-        parallel_for_atomic_pool(num_iterations, func);
-        return;
-    }
-    // Honour callers that gate nested parallelism via set_parallel_for_concurrency(1)
-    // (e.g. the chonk batch verifier setting this on each outer worker thread). Fall
-    // back to a serial loop on the calling thread instead of dispatching to the pool —
-    // the pool's generation-counter dispatch is single-master-safe only, so concurrent
-    // dispatches from sibling outer threads would race on its state.
-    if (get_num_cpus() <= 1 || detail::nested_parallel_for) {
-        for (size_t i = 0; i < num_iterations; ++i) {
-            func(i);
-        }
-        return;
-    }
-    detail::nested_parallel_for = true;
-    detail::shared_pool().start_tasks(num_iterations, func);
-    detail::nested_parallel_for = false;
+#ifdef OMP_MULTITHREADING
+    parallel_for_omp(num_iterations, func);
+#else
+    // parallel_for_spawning(num_iterations, func);
+    // parallel_for_moody(num_iterations, func);
+    // parallel_for_atomic_pool(num_iterations, func);
+    parallel_for_mutex_pool(num_iterations, func);
+    // parallel_for_queued(num_iterations, func);
+#endif
 #endif
 }
 
