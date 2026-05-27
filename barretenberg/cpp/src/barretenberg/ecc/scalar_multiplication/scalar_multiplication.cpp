@@ -31,6 +31,16 @@ namespace bb::scalar_multiplication {
 
 size_t window_bits_tuning_oversub_factor(size_t n_input)
 {
+    // Ablation override: BB_MSM_OVERSUB=<n> forces the oversubscription factor to a
+    // constant, read once. The default factor was co-tuned with the generation thread
+    // pool; this lets the value be A/B-benched per-pool / per-device without a rebuild.
+    static const size_t override_factor = [] {
+        const char* env = std::getenv("BB_MSM_OVERSUB");
+        return (env != nullptr) ? static_cast<size_t>(std::stoul(env)) : size_t{ 0 };
+    }();
+    if (override_factor != 0) {
+        return override_factor;
+    }
 #ifdef __wasm__
     if (n_input <= (size_t{ 1 } << 11)) {
         return 1;
