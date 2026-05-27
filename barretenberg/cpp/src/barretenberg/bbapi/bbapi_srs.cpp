@@ -12,6 +12,8 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/srs/factories/bn254_crs_data.hpp"
 #include "barretenberg/srs/factories/bn254_g1_chunk_hashes.hpp"
+#include "barretenberg/srs/factories/get_grumpkin_crs.hpp"
+#include "barretenberg/srs/factories/grumpkin_crs_data.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <span>
 
@@ -113,6 +115,11 @@ SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest&
         throw_or_abort("SrsInitGrumpkinSrs: points_buf too small (" + std::to_string(points_buf.size()) +
                        " bytes) for num_points=" + std::to_string(num_points) + " (need " +
                        std::to_string(required_size) + ")");
+    }
+
+    // Anchor whole chunks of the WASM-ingress buffer (bb.js fetches 2^16 points = one chunk).
+    if (points_buf.size() >= bb::srs::GRUMPKIN_G1_CHUNK_SIZE_BYTES) {
+        verify_grumpkin_crs_integrity(std::span<const uint8_t>(points_buf.data(), points_buf.size()));
     }
 
     // Parse Grumpkin affine elements from buffer
