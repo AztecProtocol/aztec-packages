@@ -290,6 +290,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       instance.deployer.toField(),
       instance.currentContractClassId,
       instance.initializationHash,
+      instance.immutablesHash,
       ...instance.publicKeys.toFields(),
     ];
   }
