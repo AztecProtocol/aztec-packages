@@ -24,21 +24,19 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 
     if (wg >= num_workgroups) { return; }
 
-    // This workgroup's range in cumulative_adds space.
+    // wg_cuts[2*w] is the END cut for workgroup w (where its work ends).
+    // Start of wg 0 is bucket 0; start of wg w>0 is wg_cuts[2*(w-1)].
     let wg_start_adds = (wg * total_adds) / num_workgroups;
     let wg_end_adds = ((wg + 1u) * total_adds) / num_workgroups;
     let wg_total = wg_end_adds - wg_start_adds;
 
-    // This thread's cut_target within the workgroup's range.
     let cut_target = wg_start_adds + (((t + 1u) * wg_total) / TPB);
 
-    // Search range: this workgroup's bucket range.
-    let wg_lo_bucket = wg_cuts[2u * wg + 0u];
-    var wg_hi_bucket: u32 = num_dense;
-    if (wg + 1u < num_workgroups) {
-        wg_hi_bucket = wg_cuts[2u * (wg + 1u) + 0u] + 1u;
-        wg_hi_bucket = min(wg_hi_bucket, num_dense);
+    var wg_lo_bucket: u32 = 0u;
+    if (wg > 0u) {
+        wg_lo_bucket = wg_cuts[2u * (wg - 1u) + 0u];
     }
+    let wg_hi_bucket = min(wg_cuts[2u * wg + 0u] + 1u, num_dense);
 
     // Binary search for the bucket containing this thread's cut_target.
     var lo: u32 = wg_lo_bucket;

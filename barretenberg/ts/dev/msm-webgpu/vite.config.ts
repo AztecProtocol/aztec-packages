@@ -200,7 +200,7 @@ export default defineConfig({
     ],
   },
   server: {
-    open: "/dev/msm-webgpu/index.html",
+    open: false,
     // Allow the trycloudflare.com tunnel host (and the BrowserStack-side
     // host header) through Vite's default Host header guard. We don't
     // hard-disable the guard ("allowedHosts: true") because that opens

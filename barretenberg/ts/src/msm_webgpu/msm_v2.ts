@@ -2307,6 +2307,69 @@ export class MsmV2 {
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
     }
     device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    // DEBUG: readback planner meta + bucket sums sample
+    {
+      const m = this.pool.scratch!.streamPlannerMeta;
+      const br = this.pool.scratch!.bucketResultBuf;
+      const readSz = Math.min(65536, br.size);
+      const s = device.createBuffer({ size: Math.ceil((80 + readSz) / 4) * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const e2 = device.createCommandEncoder();
+      e2.copyBufferToBuffer(m, 0, s, 0, 80);
+      e2.copyBufferToBuffer(br, 0, s, 80, readSz);
+      device.queue.submit([e2.finish()]);
+      await s.mapAsync(GPUMapMode.READ);
+      const a = new Uint32Array(s.getMappedRange().slice(0));
+      s.unmap(); s.destroy();
+      console.log(`[DBG] size1=${a[0]} dense=${a[1]} adds=${a[2]} wg=${a[3]} split=${a[4]} slab=${a[6]} s1d=(${a[8]},${a[9]},${a[10]}) sad=(${a[12]},${a[13]},${a[14]}) psd=(${a[16]},${a[17]},${a[18]})`);
+      // Count non-zero u32s in bucket_sums sample
+      let nzBucket = 0;
+      for (let i = 20; i < a.length; i++) if (a[i] !== 0) nzBucket++;
+      console.log(`[DBG] bucketResult first ${(a.length-20)*4}B: ${nzBucket} non-zero u32s out of ${a.length-20}`);
+      // Read queue header + first entries
+      const qb = this.pool.scratch!.queueBuf;
+      const qs = device.createBuffer({ size: 256, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const eq = device.createCommandEncoder();
+      eq.copyBufferToBuffer(qb, 0, qs, 0, 32);  // first 8 header entries (threads 0-3)
+      eq.copyBufferToBuffer(qb, 16384 * 4, qs, 32, 48);  // first 4 queue entries at HEADER_LEN
+      device.queue.submit([eq.finish()]);
+      await qs.mapAsync(GPUMapMode.READ);
+      const qa = new Uint32Array(qs.getMappedRange().slice(0));
+      qs.unmap(); qs.destroy();
+      console.log(`[DBG] qHdr t0=(start=${qa[0]},cnt=${qa[1]}) t1=(${qa[2]},${qa[3]}) t2=(${qa[4]},${qa[5]}) t3=(${qa[6]},${qa[7]})`);
+      // Read thread_cuts for first 4 threads
+      const tc = this.pool.scratch!.threadCuts;
+      const ts2 = device.createBuffer({ size: 64, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const et = device.createCommandEncoder();
+      et.copyBufferToBuffer(tc, 0, ts2, 0, 64);
+      device.queue.submit([et.finish()]);
+      await ts2.mapAsync(GPUMapMode.READ);
+      const ta = new Uint32Array(ts2.getMappedRange().slice(0));
+      ts2.unmap(); ts2.destroy();
+      console.log(`[DBG] threadCuts t0=(b=${ta[0]},off=${ta[1]}) t1=(${ta[2]},${ta[3]}) t2=(${ta[4]},${ta[5]}) t3=(${ta[6]},${ta[7]}) t4=(${ta[8]},${ta[9]}) t5=(${ta[10]},${ta[11]}) t6=(${ta[12]},${ta[13]}) t7=(${ta[14]},${ta[15]})`);
+      // Read cumulative_adds first 16 entries + last 4
+      const cab = this.pool.scratch!.cumulativeAdds;
+      const cs2 = device.createBuffer({ size: 128, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const ec2 = device.createCommandEncoder();
+      ec2.copyBufferToBuffer(cab, 0, cs2, 0, 64);
+      ec2.copyBufferToBuffer(cab, Math.max(0, (a[1] - 4)) * 4, cs2, 64, 16);
+      device.queue.submit([ec2.finish()]);
+      await cs2.mapAsync(GPUMapMode.READ);
+      const ca2 = new Uint32Array(cs2.getMappedRange().slice(0));
+      cs2.unmap(); cs2.destroy();
+      console.log(`[DBG] cumAdds[0..15]=${Array.from(ca2.slice(0, 16)).join(',')}`);
+      console.log(`[DBG] cumAdds[last4]=${Array.from(ca2.slice(16, 20)).join(',')}`);
+      // Read wg_cuts
+      const wcb = this.pool.scratch!.wgCuts;
+      const ws2 = device.createBuffer({ size: 32, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const ew = device.createCommandEncoder();
+      ew.copyBufferToBuffer(wcb, 0, ws2, 0, 32);
+      device.queue.submit([ew.finish()]);
+      await ws2.mapAsync(GPUMapMode.READ);
+      const wa = new Uint32Array(ws2.getMappedRange().slice(0));
+      ws2.unmap(); ws2.destroy();
+      console.log(`[DBG] wgCuts[0]=(b=${wa[0]},off=${wa[1]}) [1]=(${wa[2]},${wa[3]}) [2]=(${wa[4]},${wa[5]}) [3]=(${wa[6]},${wa[7]})`);
+    }
     await this.redStaging.mapAsync(GPUMapMode.READ);
 
     const stagingBytes = new Uint8Array(this.redStaging.getMappedRange());
@@ -2315,6 +2378,9 @@ export class MsmV2 {
     this.windowSums = L;
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
+    // DEBUG: check if window sums are non-zero
+    const nonzero = L.filter(p => p.x !== 0n || p.y !== 0n).length;
+    console.log(`[DBG] windowSums: ${L.length} total, ${nonzero} non-zero. First: x=${L[0]?.x?.toString(16)?.slice(0,16) ?? 'none'}...`);
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new

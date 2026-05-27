@@ -60,28 +60,45 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
     return fr_sub_f8(zero, y);
 }
 
-fn load_soa_x(buf: ptr<storage, array<vec4<u32>>, read_write>, slot: u32, M: u32) -> array<u32, 8> {
+fn load_acc_x(slot: u32, M: u32) -> array<u32, 8> {
     let base = PG * slot;
-    let q0 = (*buf)[base + 0u];
-    let q1 = (*buf)[base + 1u];
+    let q0 = acc_buf[base + 0u];
+    let q1 = acc_buf[base + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn load_soa_y(buf: ptr<storage, array<vec4<u32>>, read_write>, slot: u32, M: u32) -> array<u32, 8> {
+fn load_acc_y(slot: u32, M: u32) -> array<u32, 8> {
     let base = PG * M + PG * slot;
-    let q0 = (*buf)[base + 0u];
-    let q1 = (*buf)[base + 1u];
+    let q0 = acc_buf[base + 0u];
+    let q1 = acc_buf[base + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn store_soa(buf: ptr<storage, array<vec4<u32>>, read_write>, slot: u32, M: u32,
-             x_val: array<u32, 8>, y_val: array<u32, 8>) {
+fn store_acc(slot: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let bx = PG * slot;
-    (*buf)[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
-    (*buf)[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    acc_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    acc_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
     let by = PG * M + PG * slot;
-    (*buf)[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
-    (*buf)[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+    acc_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    acc_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+}
+
+fn store_bucket_sum(slot: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+    let bx = PG * slot;
+    bucket_sums[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    bucket_sums[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    let by = PG * M + PG * slot;
+    bucket_sums[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    bucket_sums[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+}
+
+fn store_partial(slot: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+    let bx = PG * slot;
+    partials_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    partials_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    let by = PG * M + PG * slot;
+    partials_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    partials_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 }
 
 fn store_pref(slot: u32, val: array<u32, 8>) {
@@ -162,7 +179,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 p_lx = load_pt_x(cursor[k]);
                 p_rx = load_pt_x(cursor[k] + 1u);
             } else {
-                p_lx = load_soa_x(&acc_buf, t * S + k, M_acc);
+                p_lx = load_acc_x(t * S + k, M_acc);
                 p_rx = load_pt_x(cursor[k]);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
@@ -196,7 +213,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     p_lx_b = load_pt_x(cursor[k]);
                     p_rx_b = load_pt_x(cursor[k] + 1u);
                 } else {
-                    p_lx_b = load_soa_x(&acc_buf, t * S + k, M_acc);
+                    p_lx_b = load_acc_x(t * S + k, M_acc);
                     p_rx_b = load_pt_x(cursor[k]);
                 }
                 let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
@@ -222,8 +239,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 p_ry = load_pt_y(cursor[k] + 1u);
                 cursor[k] += 2u;
             } else {
-                p_lx = load_soa_x(&acc_buf, t * S + k, M_acc);
-                p_ly = load_soa_y(&acc_buf, t * S + k, M_acc);
+                p_lx = load_acc_x(t * S + k, M_acc);
+                p_ly = load_acc_y(t * S + k, M_acc);
                 p_rx = load_pt_x(cursor[k]);
                 p_ry = load_pt_y(cursor[k]);
                 cursor[k] += 1u;
@@ -248,9 +265,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     // IDLE — discard.
                 } else if ((dp & PARTIAL_BIT) != 0u) {
                     let ps = dp & 0x3FFFFFFFu;
-                    store_soa(&partials_buf, ps, M_partials, r_x, r_y);
+                    store_partial(ps, M_partials, r_x, r_y);
                 } else {
-                    store_soa(&bucket_sums, dp, M_buckets, r_x, r_y);
+                    store_bucket_sum(dp, M_buckets, r_x, r_y);
                 }
                 if (qhead < q_count) {
                     let base = q_start + qhead * 3u;
@@ -263,7 +280,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     slot_done[k] = 1u;
                 }
             } else {
-                store_soa(&acc_buf, t * S + k, M_acc, r_x, r_y);
+                store_acc(t * S + k, M_acc, r_x, r_y);
                 is_first[k] = 0u;
             }
         }
