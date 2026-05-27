@@ -12,7 +12,6 @@
  * share a 32-byte msgpack `bin32` encoding, so the byte-level conversion
  * is a `serialize_to_buffer` / `serialize_from_buffer` call.
  */
-#include "barretenberg/bbapi/bbapi_avm.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -346,21 +345,6 @@ inline std::vector<ChonkProof> chonk_proof_vec_from_wire(std::vector<wire::Chonk
 inline wire::CircuitComputeVkResponse circuit_compute_vk_response_to_wire(CircuitComputeVk::Response&& d)
 {
     return { .bytes = std::move(d.bytes), .fields = uint256_vec_to_wire(d.fields), .hash = std::move(d.hash) };
-}
-
-inline wire::AvmStat avm_stat_to_wire(AvmStat&& d)
-{
-    return { .name = std::move(d.name), .value_ms = d.value_ms };
-}
-
-inline std::vector<wire::AvmStat> avm_stat_vec_to_wire(std::vector<AvmStat>&& d)
-{
-    std::vector<wire::AvmStat> r;
-    r.reserve(d.size());
-    for (auto& s : d) {
-        r.push_back(avm_stat_to_wire(std::move(s)));
-    }
-    return r;
 }
 
 } // namespace bb::bbapi

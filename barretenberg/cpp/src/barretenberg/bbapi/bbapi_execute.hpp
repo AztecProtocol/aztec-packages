@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/bbapi/bbapi_avm.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
@@ -14,10 +13,7 @@
 
 namespace bb::bbapi {
 
-using Command = NamedUnion<AvmProve,
-                           AvmVerify,
-                           AvmCheckCircuit,
-                           CircuitProve,
+using Command = NamedUnion<CircuitProve,
                            CircuitComputeVk,
                            CircuitStats,
                            CircuitVerify,
@@ -78,9 +74,6 @@ using Command = NamedUnion<AvmProve,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
-                                   AvmProve::Response,
-                                   AvmVerify::Response,
-                                   AvmCheckCircuit::Response,
                                    CircuitProve::Response,
                                    CircuitComputeVk::Response,
                                    CircuitStats::Response,

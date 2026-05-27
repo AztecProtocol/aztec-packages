@@ -12,7 +12,7 @@
  * `bbapi_wire_convert.hpp`.
  */
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
-#include "barretenberg/bbapi/bbapi_avm.hpp"
+#include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
@@ -22,30 +22,52 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/bbapi_wire_convert.hpp"
 #include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::bbapi {
+
+namespace {
+
+// Reset the AVM per-stage timings registry so the snapshot we return reflects only this call.
+void reset_avm_stats()
+{
+    ::bb::avm2::Stats::get().reset();
+}
+
+// Take a snapshot of the AVM per-stage timings registry as wire-typed stats entries.
+std::vector<wire::AvmStat> snapshot_avm_stats_wire()
+{
+    auto snapshot = ::bb::avm2::Stats::get().snapshot();
+    std::vector<wire::AvmStat> result;
+    result.reserve(snapshot.size());
+    for (auto& [name, value] : snapshot) {
+        result.push_back(wire::AvmStat{ .name = std::move(name), .value_ms = value });
+    }
+    return result;
+}
+
+} // namespace
 
 // ===========================================================================
 // AVM
 // ===========================================================================
 
-wire::AvmProveResponse handle_avm_prove(BBApiRequest& ctx, wire::AvmProve&& cmd)
+wire::AvmProveResponse handle_avm_prove(BBApiRequest& /*ctx*/, wire::AvmProve&& cmd)
 {
-    AvmProve domain_cmd{ .inputs = std::move(cmd.inputs) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .proof = fr_vec_to_wire(resp.proof), .stats = avm_stat_vec_to_wire(std::move(resp.stats)) };
+    reset_avm_stats();
+    auto result = avm_prove_from_bytes(std::move(cmd.inputs));
+    return { .proof = fr_vec_to_wire(result.proof), .stats = snapshot_avm_stats_wire() };
 }
-wire::AvmVerifyResponse handle_avm_verify(BBApiRequest& ctx, wire::AvmVerify&& cmd)
+wire::AvmVerifyResponse handle_avm_verify(BBApiRequest& /*ctx*/, wire::AvmVerify&& cmd)
 {
-    AvmVerify domain_cmd{ .proof = fr_vec_from_wire(cmd.proof), .public_inputs = std::move(cmd.public_inputs) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .verified = resp.verified };
+    bool verified = avm_verify_from_bytes(fr_vec_from_wire(cmd.proof), std::move(cmd.public_inputs));
+    return { .verified = verified };
 }
-wire::AvmCheckCircuitResponse handle_avm_check_circuit(BBApiRequest& ctx, wire::AvmCheckCircuit&& cmd)
+wire::AvmCheckCircuitResponse handle_avm_check_circuit(BBApiRequest& /*ctx*/, wire::AvmCheckCircuit&& cmd)
 {
-    AvmCheckCircuit domain_cmd{ .inputs = std::move(cmd.inputs) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .passed = resp.passed, .stats = avm_stat_vec_to_wire(std::move(resp.stats)) };
+    reset_avm_stats();
+    bool passed = avm_check_circuit_from_bytes(std::move(cmd.inputs));
+    return { .passed = passed, .stats = snapshot_avm_stats_wire() };
 }
 
 // ===========================================================================
