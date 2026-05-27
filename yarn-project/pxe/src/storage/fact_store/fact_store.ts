@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { Anchor, Anchored } from '../foundation/anchor.js';
 import { type CanonicalityCheck, filterCanonical } from '../foundation/anchored_read.js';
@@ -34,25 +35,32 @@ export class FactStore {
     this.#factsByEntity = store.openMultiMap('facts_by_entity');
   }
 
-  /** Insert a fact. Idempotent: re-putting the same row key is a no-op overwrite. */
+  /** Insert a fact, scoped to a (contract, scope) pair. Idempotent: re-putting the same row key is a no-op overwrite. */
   put(
+    contract: AztecAddress,
+    scope: AztecAddress,
     entityType: EntityTypeId,
     factType: FactTypeId,
     correlationKey: Buffer,
     payload: Buffer,
     anchor: Anchor | null,
   ): Promise<void> {
-    const dedupKey = this.#dedupKey(entityType, factType, correlationKey, payload, anchor);
-    const entityKey = this.#entityKey(entityType, correlationKey);
+    const dedupKey = this.#dedupKey(contract, scope, entityType, factType, correlationKey, payload, anchor);
+    const entityKey = this.#entityKey(contract, scope, entityType, correlationKey);
     return this.#store.transactionAsync(async () => {
       await this.#facts.set(dedupKey, this.#serialize(factType, payload, anchor));
       await this.#factsByEntity.set(entityKey, dedupKey);
     });
   }
 
-  /** All facts for one entity that are currently canonical (anchored facts filtered, unanchored kept). */
-  async loadCanonicalFactSet(entityType: EntityTypeId, correlationKey: Buffer): Promise<StoredFact[]> {
-    const entityKey = this.#entityKey(entityType, correlationKey);
+  /** All facts for one (contract, scope, entity) that are currently canonical (anchored facts filtered, unanchored kept). */
+  async loadCanonicalFactSet(
+    contract: AztecAddress,
+    scope: AztecAddress,
+    entityType: EntityTypeId,
+    correlationKey: Buffer,
+  ): Promise<StoredFact[]> {
+    const entityKey = this.#entityKey(contract, scope, entityType, correlationKey);
 
     const facts = await this.#store.transactionAsync(async () => {
       const seen = new Set<string>();
@@ -74,21 +82,23 @@ export class FactStore {
     return [...unanchored, ...canonical];
   }
 
-  #entityKey(entityType: EntityTypeId, correlationKey: Buffer): string {
-    return `${entityType.toString()}:${correlationKey.toString('hex')}`;
+  #entityKey(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId, correlationKey: Buffer): string {
+    return `${contract.toString()}:${scope.toString()}:${entityType.toString()}:${correlationKey.toString('hex')}`;
   }
 
   // Keys on the raw payload bytes rather than a payloadHash: correct dedup with no crypto
   // dependency, since payloads are small here. The anchor is part of the key, so the same payload
   // re-mined on a competing fork (different blockHash) yields a distinct row.
   #dedupKey(
+    contract: AztecAddress,
+    scope: AztecAddress,
     entityType: EntityTypeId,
     factType: FactTypeId,
     correlationKey: Buffer,
     payload: Buffer,
     anchor: Anchor | null,
   ): string {
-    const base = `${entityType.toString()}:${correlationKey.toString('hex')}:${factType.toString()}:${payload.toString('hex')}`;
+    const base = `${this.#entityKey(contract, scope, entityType, correlationKey)}:${factType.toString()}:${payload.toString('hex')}`;
     return anchor ? `${base}:${anchor.blockNumber}:${anchor.blockHash}` : base;
   }
 
