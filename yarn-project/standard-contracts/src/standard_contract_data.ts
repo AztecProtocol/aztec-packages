@@ -12,11 +12,11 @@ export const StandardContractSalt: Record<StandardContractName, Fr> = {
 };
 
 export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
-  AuthRegistry: AztecAddress.fromString('0x035d1c1496ae03e8a2eee7d1b47168faeba4a1555cbc4446352c5ddf953a35b9'),
+  AuthRegistry: AztecAddress.fromString('0x10ee94aaade35b40c82ec78d87269e55c39aa874ce585866ae43207da8c09c0e'),
 };
 
 export const StandardContractClassId: Record<StandardContractName, Fr> = {
-  AuthRegistry: Fr.fromString('0x1bf882a1928c8e72e1e8e0e9595c721d5f5bae6466c24b39da40df04effdb1d7'),
+  AuthRegistry: Fr.fromString('0x0b6e0ba624cc558a1447f643c138caedcb8a5ba994574afd1d945f599b4c9acb'),
 };
 
 export const StandardContractClassIdPreimage: Record<
@@ -24,8 +24,8 @@ export const StandardContractClassIdPreimage: Record<
   { artifactHash: Fr; privateFunctionsRoot: Fr; publicBytecodeCommitment: Fr }
 > = {
   AuthRegistry: {
-    artifactHash: Fr.fromString('0x303b31588973316c7544d070c05d148e628eed5a9fcd15c060f6251ea66e55fd'),
-    privateFunctionsRoot: Fr.fromString('0x06e0363cea8d971d0c2988a13fc88774092b2858adc5ee0876ed2f9ad05e2f63'),
+    artifactHash: Fr.fromString('0x1f1565cb54fbfd7f5e162ae86b9315fbdf04069f8edfff454fa3a9bf5e64fa73'),
+    privateFunctionsRoot: Fr.fromString('0x17b584350f4c3ccafd8f688729afb9feab8976114fb40012e9dee65022c072a4'),
     publicBytecodeCommitment: Fr.fromString('0x2545f39893766508ce37bb5cea5e4dcab04c6f7f79f3089b1c076876e9d268b2'),
   },
 };
@@ -43,7 +43,7 @@ export const StandardContractPrivateFunctions: Record<
       selector: FunctionSelector.fromField(
         Fr.fromString('0x0000000000000000000000000000000000000000000000000000000079a3d418'),
       ),
-      vkHash: Fr.fromString('0x0e6dcc7becc25a6ee2e1322f2cc0ff6b59abff1bce27ca9906c079103e3d2c36'),
+      vkHash: Fr.fromString('0x06a5c1b3a636c954a90be43cb56a4bdd9dc8aec764151a012e0018753694ff54'),
     },
   ],
 };
