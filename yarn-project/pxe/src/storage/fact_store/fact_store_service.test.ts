@@ -28,7 +28,10 @@ describe('FactStoreService', () => {
   it('allows the zero scope and an allowed scope', async () => {
     const svc = new FactStoreService(new FactStore(await openTmpStore('fss2'), chain), [allowed]);
     await svc.recordFact(contract, allowed, new Fr(1n), new Fr(5n), Buffer.from('c'), Buffer.alloc(0), null);
-    const active = await svc.activeEntities(contract, allowed, new Fr(1n));
-    expect(active).toHaveLength(1);
+    expect(await svc.activeEntities(contract, allowed, new Fr(1n))).toHaveLength(1);
+
+    // The zero scope bypasses the guard.
+    await svc.recordFact(contract, AztecAddress.ZERO, new Fr(1n), new Fr(5n), Buffer.from('z'), Buffer.alloc(0), null);
+    expect(await svc.activeEntities(contract, AztecAddress.ZERO, new Fr(1n))).toHaveLength(1);
   });
 });
