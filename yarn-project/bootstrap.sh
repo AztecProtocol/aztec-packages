@@ -143,7 +143,7 @@ function compile_all {
 
   get_projects | compile_project
 
-  cd txe && yarn bundle
+  cd txe && yarn build
   cd ..
 
   # Run oracle version checks after compilation
