@@ -13,7 +13,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
+import { type ContractClassLog, AppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
@@ -204,7 +204,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns An app tag to be used in a log.
    */
   public async getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
+    const extendedSecret = await this.#calculateAppTaggingSecret(
       this.contractAddress,
       sender,
       recipient,
@@ -229,14 +229,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return Tag.compute({ extendedSecret, index });
   }
 
-  async #calculateExtendedDirectionalAppTaggingSecret(
+  async #calculateAppTaggingSecret(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
   ) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return ExtendedDirectionalAppTaggingSecret.compute(
+    return AppTaggingSecret.compute(
       senderCompleteAddress,
       senderIvsk,
       recipient,
@@ -245,7 +245,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     );
   }
 
-  async #getIndexToUseForSecret(secret: ExtendedDirectionalAppTaggingSecret): Promise<number> {
+  async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
     // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
     const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
 

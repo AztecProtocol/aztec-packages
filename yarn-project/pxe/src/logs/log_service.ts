@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
-  ExtendedDirectionalAppTaggingSecret,
+  AppTaggingSecret,
   PendingTaggedLog,
   SiloedTag,
   type TxScopedL2Log,
@@ -161,7 +161,7 @@ export class LogService {
   async #getSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<ExtendedDirectionalAppTaggingSecret[]> {
+  ): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
     if (!recipientCompleteAddress) {
       return [];
@@ -179,7 +179,7 @@ export class LogService {
 
     return Promise.all(
       deduplicatedSenders.map(async sender => {
-        const secret = await ExtendedDirectionalAppTaggingSecret.compute(
+        const secret = await AppTaggingSecret.compute(
           recipientCompleteAddress,
           recipientIvsk,
           sender,
