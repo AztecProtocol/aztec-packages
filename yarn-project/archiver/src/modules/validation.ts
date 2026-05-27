@@ -19,7 +19,7 @@ export type { ValidateCheckpointResult };
  * Returns info for each attestation, preserving array indices.
  */
 export function getAttestationInfoFromPublishedCheckpoint(
-  { checkpoint, attestations }: PublishedCheckpoint,
+  { checkpoint, attestations }: Pick<PublishedCheckpoint, 'checkpoint' | 'attestations'>,
   signatureContext: CoordinationSignatureContext,
 ): AttestationInfo[] {
   const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
@@ -31,7 +31,7 @@ export function getAttestationInfoFromPublishedCheckpoint(
  * Returns true if the attestations are valid and sufficient, false otherwise.
  */
 export async function validateCheckpointAttestations(
-  publishedCheckpoint: PublishedCheckpoint,
+  publishedCheckpoint: Pick<PublishedCheckpoint, 'checkpoint' | 'attestations'>,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
   signatureContext: CoordinationSignatureContext,

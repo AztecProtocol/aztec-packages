@@ -1004,6 +1004,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
   }
 
+  /**
+   * Signs an attestations-and-signers payload bypassing HA slashing protection (for testing only).
+   * Used by the malicious-republish path to sign a throwaway self-only set alongside the slot's
+   * real attestation set, which the protected path would otherwise reject as a double-sign.
+   */
+  async signAttestationsAndSignersWithoutProtection(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature> {
+    return await this.validationService.signAttestationsAndSignersWithoutProtection(attestationsAndSigners, proposer);
+  }
+
   async collectOwnAttestations(
     proposal: CheckpointProposal,
     checkpointNumber: CheckpointNumber,

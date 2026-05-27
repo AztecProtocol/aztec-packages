@@ -1,3 +1,4 @@
+import { validateCheckpointAttestations } from '@aztec/archiver';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
@@ -66,7 +67,11 @@ import { CheckpointBuilder, type FullNodeCheckpointsBuilder, type ValidatorClien
 import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type {
+  InvalidateCheckpointRequest,
+  SendRequestsResult,
+  SequencerPublisher,
+} from '../publisher/sequencer-publisher.js';
 import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
@@ -93,6 +98,8 @@ type CheckpointProposalResult = {
   attestations: CommitteeAttestationsAndSigners;
   attestationsSignature: Signature;
 };
+
+type SignedAttestations = Omit<CheckpointProposalResult, 'checkpoint'>;
 
 /**
  * Handles the execution of a checkpoint proposal after the initial preparation phase.
@@ -254,24 +261,32 @@ export class CheckpointProposalJob implements Traceable {
 
       // Wait for the previous checkpoint to land on L1 before submitting, so we can check it
       // matches the proposed checkpoint we used as parent, and has valid attestations.
-      if (signedAttestations && (await this.waitForValidParentCheckpointOnL1())) {
-        await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations });
-      }
+      const canSubmitCheckpoint = signedAttestations ? await this.waitForValidParentCheckpointOnL1() : false;
 
-      // If we failed to collect attestations, at least check if we need to issue an invalidation
-      if (!signedAttestations && (await this.waitForSyncedL2SlotNumber(this.slotNow))) {
-        const validationStatus = await this.l2BlockSource.getPendingChainValidationStatus();
-        if (!validationStatus.valid) {
-          this.log.warn(
-            `Checkpoint ${validationStatus.checkpoint.checkpointNumber} has invalid attestations, enqueuing invalidation in spite of attestation collection failure`,
-            { checkpoint: validationStatus.checkpoint, reason: validationStatus.reason },
-          );
-          await this.enqueueInvalidation(validationStatus);
+      let l1Response: SendRequestsResult | undefined;
+      if (signedAttestations && canSubmitCheckpoint && this.config.testRepublishInvalidCheckpoint) {
+        // Test-only: publish self-only (invalid) attestations, then invalidate and republish the valid set.
+        l1Response = await this.republishOwnCheckpointWithValidAttestations(broadcast, signedAttestations);
+      } else {
+        if (signedAttestations && canSubmitCheckpoint) {
+          await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations });
         }
-      }
 
-      // Send whatever was enqueued: votes + (propose | invalidation | nothing).
-      const l1Response = await this.publisher.sendRequestsAt(this.targetSlot);
+        // If we failed to collect attestations, at least check if we need to issue an invalidation
+        if (!signedAttestations && (await this.waitForSyncedL2SlotNumber(this.slotNow))) {
+          const validationStatus = await this.l2BlockSource.getPendingChainValidationStatus();
+          if (!validationStatus.valid) {
+            this.log.warn(
+              `Checkpoint ${validationStatus.checkpoint.checkpointNumber} has invalid attestations, enqueuing invalidation in spite of attestation collection failure`,
+              { checkpoint: validationStatus.checkpoint, reason: validationStatus.reason },
+            );
+            await this.enqueueInvalidation(validationStatus);
+          }
+        }
+
+        // Send whatever was enqueued: votes + (propose | invalidation | nothing).
+        l1Response = await this.publisher.sendRequestsAt(this.targetSlot);
+      }
       const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
       if (proposedAction) {
         this.logCheckpointEvent('published', `Checkpoint published for slot ${this.targetSlot}`, {
@@ -350,6 +365,98 @@ export class CheckpointProposalJob implements Traceable {
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
     });
+  }
+
+  /**
+   * Builds an attestation set carrying only the proposer's own signature, derived from the already
+   * collected valid set so we don't re-attest (which would hit slashing protection and drop the
+   * proposer's own attestation). Keeps the proposer's signature in place and demotes every other
+   * committee member to address-only, yielding fewer than quorum signatures (insufficient → invalid).
+   */
+  private async getSelfOnlySignedAttestations(validAttestations: SignedAttestations): Promise<SignedAttestations> {
+    const signer = this.proposer ?? this.publisher.getSenderAddress();
+    const selfOnlyAttestations = validAttestations.attestations.attestations.map(a =>
+      a.address.equals(signer) ? a : CommitteeAttestation.fromAddress(a.address),
+    );
+    const attestations = new CommitteeAttestationsAndSigners(selfOnlyAttestations, this.getSignatureContext());
+
+    // Sign without HA slashing protection: the slot's protected attestations-and-signers signature
+    // is already taken by the valid set we collected, and the protected path would reject a second,
+    // differing payload for the same slot. This self-only set is a throwaway for the invalid publish.
+    const attestationsSignature = await this.validatorClient.signAttestationsAndSignersWithoutProtection(
+      attestations,
+      signer,
+    );
+    return { attestations, attestationsSignature };
+  }
+
+  /**
+   * Test-only: reproduces a malicious proposer that publishes an invalid checkpoint and then
+   * self-corrects within the same slot. Publishes the checkpoint carrying only the proposer's own
+   * attestation (below quorum → invalid), then bundles an invalidation of that checkpoint together
+   * with a republish carrying the full valid attestation set into a single L1 multicall. Returns the
+   * L1 response of the last send attempted, or undefined if it was interrupted.
+   */
+  private async republishOwnCheckpointWithValidAttestations(
+    broadcast: CheckpointProposalBroadcast,
+    validAttestations: SignedAttestations,
+  ): Promise<SendRequestsResult | undefined> {
+    const { checkpoint } = broadcast;
+    const submissionSlotStart = Number(getTimestampForSlot(this.targetSlot, this.l1Constants));
+    const txTimeoutAt = new Date((submissionSlotStart + this.l1Constants.slotDuration) * 1000);
+    const logCtx = { slot: this.targetSlot, checkpointNumber: this.checkpointNumber };
+
+    // Publish the checkpoint with only our own attestation, so it lands on L1 below quorum (invalid).
+    const { attestations, attestationsSignature } = await this.getSelfOnlySignedAttestations(validAttestations);
+    this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.targetSlot);
+    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, { txTimeoutAt });
+    this.log.warn(
+      `Publishing checkpoint ${this.checkpointNumber} with self-only attestations before republishing`,
+      logCtx,
+    );
+    const firstResponse = await this.publisher.sendRequestsAt(this.targetSlot);
+    if (!firstResponse?.successfulActions.includes('propose')) {
+      this.log.warn(`Self-only checkpoint publish did not land, aborting republish`, {
+        ...logCtx,
+        successfulActions: firstResponse?.successfulActions,
+        failedActions: firstResponse?.failedActions,
+      });
+      return firstResponse;
+    }
+
+    // Validate the self-only set we just posted directly, instead of waiting for the archiver to sync
+    // and flag the checkpoint invalid. The archiver only resolves that at the slot boundary, which is
+    // too late to invalidate and republish within the same slot.
+    const validationStatus = await validateCheckpointAttestations(
+      { checkpoint, attestations: attestations.attestations },
+      this.epochCache,
+      this.l1Constants,
+      this.getSignatureContext(),
+      this.log,
+    );
+    if (validationStatus.valid) {
+      this.log.warn(`Self-only checkpoint ${this.checkpointNumber} unexpectedly validated, skipping republish`, logCtx);
+      return firstResponse;
+    }
+
+    // Invalidate our own checkpoint and republish it with the valid attestation set, bundled in one L1 tx.
+    const invalidateRequest = await this.publisher.simulateInvalidateCheckpoint(validationStatus);
+    if (!invalidateRequest) {
+      this.log.warn(`Invalidation simulation returned undefined, skipping republish`, logCtx);
+      return firstResponse;
+    }
+    this.publisher.enqueueInvalidateCheckpoint(invalidateRequest, { txTimeoutAt });
+    await this.publisher.enqueueProposeCheckpoint(
+      checkpoint,
+      validAttestations.attestations,
+      validAttestations.attestationsSignature,
+      { txTimeoutAt },
+    );
+    this.log.warn(`Invalidating and republishing checkpoint ${this.checkpointNumber} with valid attestations`, {
+      ...logCtx,
+      reason: validationStatus.reason,
+    });
+    return this.publisher.sendRequests(this.targetSlot);
   }
 
   /**

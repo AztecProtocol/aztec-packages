@@ -53,6 +53,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   let testContract: TestContract;
   let from: AztecAddress;
 
+  // L1/L2 slot timing. Defaults to ~4 L1 blocks per slot; a nested describe overrides this to widen
+  // the ratio for the malicious-republish test, which has to fit two L1 sends inside a single slot.
+  let ethereumSlotDuration = 8;
+  let aztecSlotDuration = 32;
+
   beforeEach(async () => {
     validators = times(VALIDATOR_COUNT, i => {
       const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
@@ -63,10 +68,10 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
     // Uses multiple-blocks-per-slot timing configuration.
     test = await EpochsTestContext.setup({
-      ethereumSlotDuration: 8,
-      aztecSlotDuration: 32,
+      ethereumSlotDuration,
+      aztecSlotDuration,
       blockDurationMs: 6000,
-      l1PublishingTime: 8,
+      l1PublishingTime: ethereumSlotDuration,
       enforceTimeTable: true,
       numberOfAccounts: 0,
       initialValidators: validators,
@@ -130,6 +135,32 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     ]);
   }
 
+  type CheckpointProposedEvent = Awaited<ReturnType<RollupContract['getCheckpointProposedEvents']>>[number];
+
+  async function getCheckpointAttestationCount(
+    event: CheckpointProposedEvent,
+    checkpointNumber: CheckpointNumber,
+  ): Promise<number> {
+    const calldataRetriever = new CalldataRetriever(
+      l1Client as unknown as ViemPublicClient,
+      l1Client as unknown as ViemPublicDebugClient,
+      VALIDATOR_COUNT,
+      undefined,
+      createLogger('e2e:epochs_invalidate_block:calldata'),
+      EthAddress.fromString(rollupContract.address),
+    );
+    const { attestations } = await calldataRetriever.getCheckpointFromRollupTx(
+      event.l1TransactionHash,
+      event.args.versionedBlobHashes,
+      checkpointNumber,
+      {
+        attestationsHash: event.args.attestationsHash.toString(),
+        payloadDigest: event.args.payloadDigest.toString(),
+      },
+    );
+    return attestations.filter(a => !a.signature.isEmpty()).length;
+  }
+
   /**
    * Asserts that the given checkpoint, as posted on L1, has fewer valid attestations than quorum.
    * Useful to catch config-timing races where malicious config does not take effect before the proposer
@@ -140,24 +171,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     const event = proposedEvents.find(e => e.args.checkpointNumber === checkpointNumber);
     expect(event).toBeDefined();
 
-    const calldataRetriever = new CalldataRetriever(
-      l1Client as unknown as ViemPublicClient,
-      l1Client as unknown as ViemPublicDebugClient,
-      VALIDATOR_COUNT,
-      undefined,
-      createLogger('e2e:epochs_invalidate_block:calldata'),
-      EthAddress.fromString(rollupContract.address),
-    );
-    const { attestations } = await calldataRetriever.getCheckpointFromRollupTx(
-      event!.l1TransactionHash,
-      event!.args.versionedBlobHashes,
-      checkpointNumber,
-      {
-        attestationsHash: event!.args.attestationsHash.toString(),
-        payloadDigest: event!.args.payloadDigest.toString(),
-      },
-    );
-    const validCount = attestations.filter(a => !a.signature.isEmpty()).length;
+    const validCount = await getCheckpointAttestationCount(event!, checkpointNumber);
     const quorum = computeQuorum(VALIDATOR_COUNT);
     logger.warn(`Checkpoint ${checkpointNumber} has ${validCount}/${VALIDATOR_COUNT} attestations (quorum=${quorum})`);
     expect(validCount).toBeLessThan(quorum);
@@ -813,6 +827,138 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     await runInvalidationTest({
       attackConfig: { shuffleAttestationOrdering: true },
       disableConfig: { shuffleAttestationOrdering: false },
+    });
+  });
+
+  describe('malicious proposer self-corrects an invalid checkpoint via multicall', () => {
+    beforeAll(() => {
+      // Wider L2 slot (12 L1 blocks per slot) so the proposer can fit two L1 sends in a single slot:
+      // the self-only (invalid) publish, then the invalidation + valid republish.
+      ethereumSlotDuration = 4;
+      aztecSlotDuration = 48;
+    });
+
+    afterAll(() => {
+      ethereumSlotDuration = 8;
+      aztecSlotDuration = 32;
+    });
+
+    // A malicious proposer collects all attestations for a valid checkpoint, but instead of publishing
+    // it directly: posts the checkpoint to L1 with only its own (insufficient) attestation, invalidates
+    // its own checkpoint, and re-posts it with the valid attestations. We verify the chain still makes
+    // progress and that the insufficient-attestations offense is still recorded against the proposer.
+    it('republishes its own checkpoint with valid attestations after an invalid publish', async () => {
+      const sequencers = nodes.map(node => node.getSequencer()!);
+      sequencers.forEach(s =>
+        s.updateConfig({
+          secondsBeforeInvalidatingBlockAsNonCommitteeMember: Number.MAX_SAFE_INTEGER,
+          minTxsPerBlock: 0,
+        }),
+      );
+      await Promise.all(sequencers.map(s => s.start()));
+
+      const initialCheckpointNumber = (await nodes[0].getChainTips()).checkpointed.checkpoint.number;
+      await test.waitUntilCheckpointNumber(
+        CheckpointNumber(initialCheckpointNumber + 1),
+        test.L2_SLOT_DURATION_IN_S * 4,
+      );
+
+      await test.monitor.waitUntilNextL2Slot();
+      const { l2SlotNumber: currentSlot } = await test.monitor.run();
+      const badSlot = SlotNumber.add(currentSlot, 3);
+      const proposer = await test.epochCache.getProposerAttesterAddressInSlot(badSlot);
+      if (!proposer) {
+        throw new Error(`Could not resolve proposer for slot ${badSlot}`);
+      }
+
+      const proposerNodeIndex = nodes.findIndex(node =>
+        node.getSequencer()!.validatorAddresses!.some(address => address.equals(proposer)),
+      );
+      if (proposerNodeIndex === -1) {
+        throw new Error(`Could not find node for proposer ${proposer}`);
+      }
+      const observerIndex = (proposerNodeIndex + 1) % nodes.length;
+
+      await nodes[proposerNodeIndex].setConfig({
+        testRepublishInvalidCheckpoint: true,
+        skipInvalidateBlockAsProposer: true,
+        minTxsPerBlock: 0,
+      });
+
+      const fromL1Block = await l1Client.getBlockNumber();
+      const invalidationPromise = awaitCheckpointInvalidationEvent();
+      const badCheckpointPromise = promiseWithResolvers<CheckpointNumber>();
+      test.monitor.on('checkpoint', ({ checkpointNumber, l2SlotNumber }) => {
+        if (l2SlotNumber === badSlot) {
+          badCheckpointPromise.resolve(checkpointNumber);
+        }
+      });
+
+      await timesAsync(4, i => testContract.methods.emit_nullifier(BigInt(i + 1)).send({ from, wait: NO_WAIT }));
+
+      const badCheckpointNumber = await executeTimeout(
+        () => badCheckpointPromise.promise,
+        test.L2_SLOT_DURATION_IN_S * 8 * 1000,
+        `Waiting for checkpoint at slot ${badSlot}`,
+      );
+      await assertCheckpointInsufficientAttestations(badCheckpointNumber);
+
+      const { checkpointNumber: invalidatedCheckpointNumber, event: invalidationEvent } = await invalidationPromise;
+      expect(invalidatedCheckpointNumber).toEqual(badCheckpointNumber);
+
+      // The proposer publishes the checkpoint twice: once with self-only (invalid) attestations and
+      // again with the valid set, with its own invalidation bundled in between.
+      const proposedForBadCheckpoint = await retryUntil(
+        async () => {
+          const proposed = (
+            await rollupContract.getCheckpointProposedEvents(fromL1Block, await l1Client.getBlockNumber())
+          ).filter(e => e.args.checkpointNumber === badCheckpointNumber);
+          return proposed.length >= 2 ? proposed : undefined;
+        },
+        'two CheckpointProposed events for the bad checkpoint',
+        test.L2_SLOT_DURATION_IN_S * 4,
+        0.5,
+      );
+
+      const firstProposal = proposedForBadCheckpoint[0];
+      const lastProposal = proposedForBadCheckpoint[proposedForBadCheckpoint.length - 1];
+      // All proposals are for the same checkpoint archive, and the invalidation lands between them.
+      expect(new Set(proposedForBadCheckpoint.map(e => e.args.archive.toString())).size).toBe(1);
+      expect(invalidationEvent.blockNumber!).toBeGreaterThanOrEqual(firstProposal.l1BlockNumber);
+      expect(lastProposal.l1BlockNumber).toBeGreaterThanOrEqual(invalidationEvent.blockNumber!);
+      // The final, republished checkpoint carries a full quorum of valid attestations.
+      expect(await getCheckpointAttestationCount(lastProposal, badCheckpointNumber)).toBeGreaterThanOrEqual(
+        computeQuorum(VALIDATOR_COUNT),
+      );
+
+      await nodes[proposerNodeIndex].setConfig({
+        testRepublishInvalidCheckpoint: false,
+        skipInvalidateBlockAsProposer: false,
+      });
+
+      await retryUntil(
+        async () => {
+          const checkpoints = (await Promise.all(nodes.map(node => node.getChainTips()))).map(
+            tips => tips.checkpointed.checkpoint.number,
+          );
+          logger.info(`Node checkpointed tips: ${checkpoints.join(', ')}`);
+          return checkpoints.every(checkpoint => checkpoint > badCheckpointNumber);
+        },
+        'all nodes advance past the republished checkpoint',
+        test.L2_SLOT_DURATION_IN_S * 8,
+        0.5,
+      );
+
+      const offenses = await nodes[observerIndex].getSlashOffenses('all');
+      const insufficient = offenses.find(
+        offense =>
+          offense.offenseType === OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS &&
+          offense.epochOrSlot === BigInt(badSlot),
+      );
+      expect(insufficient).toBeDefined();
+      expect(insufficient!.validator.equals(proposer)).toBeTrue();
+
+      logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
     });
   });
 });
