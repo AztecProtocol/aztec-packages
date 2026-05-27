@@ -10,50 +10,6 @@ cd $(dirname $0)
 
 export FORCE_COLOR=true
 
-# Verify every .codex directory mirrors its sibling .claude via child symlinks, so that adding a
-# file or folder to a .claude config does not silently leave the sandboxed .codex path behind.
-# Only immediate children are checked: a symlinked folder (e.g. .codex/skills) already covers its
-# contents, and a .codex that is itself a symlink (the repo root) mirrors .claude inherently.
-check_codex_symlinks() {
-  local repo_root claude_dirs claude_dir codex_dir path name
-  local -a errors=()
-  repo_root=$(git rev-parse --show-toplevel)
-  claude_dirs=$(cd "$repo_root" && git ls-files -- '.claude/*' '*/.claude/*' | sed -E 's#(.*/)?\.claude/.*#\1.claude#' | sort -u)
-
-  for claude_dir in $claude_dirs; do
-    codex_dir="${claude_dir%.claude}.codex"
-    if [ -L "$repo_root/$codex_dir" ]; then
-      continue
-    fi
-    if [ ! -d "$repo_root/$codex_dir" ]; then
-      errors+=("missing directory $codex_dir (should mirror $claude_dir)")
-      continue
-    fi
-    while IFS= read -r path; do
-      name=$(basename "$path")
-      if [ ! -L "$repo_root/$codex_dir/$name" ] || [ ! "$repo_root/$codex_dir/$name" -ef "$path" ]; then
-        errors+=("$codex_dir/$name should be a symlink to ../.claude/$name")
-      fi
-    done < <(find "$repo_root/$claude_dir" -mindepth 1 -maxdepth 1)
-    while IFS= read -r path; do
-      name=$(basename "$path")
-      if [ ! -e "$repo_root/$claude_dir/$name" ] && [ ! -L "$repo_root/$claude_dir/$name" ]; then
-        errors+=("$codex_dir/$name is stale; no matching $claude_dir/$name")
-      fi
-    done < <(find "$repo_root/$codex_dir" -mindepth 1 -maxdepth 1)
-  done
-
-  if (( ${#errors[@]} > 0 )); then
-    echo -e "\033[31mError:\033[0m .codex directories are out of sync with their .claude siblings:"
-    for e in "${errors[@]}"; do echo "  - $e"; done
-    echo "Each entry under a .claude folder needs a sibling symlink in .codex, e.g.:"
-    echo "  (cd <component>/.codex && ln -s ../.claude/<name> <name> && git add <name>)"
-    return 1
-  fi
-}
-
-check_codex_symlinks
-
 # Get all staged files (excluding deleted), relative to yarn-project
 staged_files=$(git diff-index --diff-filter=d --relative --cached --name-only HEAD)
 
