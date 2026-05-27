@@ -1,4 +1,4 @@
-import { type Anchored } from './anchor.js';
+import type { Anchored } from './anchor.js';
 import { filterCanonical } from './anchored_read.js';
 
 describe('filterCanonical', () => {

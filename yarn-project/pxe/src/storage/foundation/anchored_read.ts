@@ -1,4 +1,4 @@
-import { type Anchor, type Anchored } from './anchor.js';
+import type { Anchor, Anchored } from './anchor.js';
 
 /** The capability filterCanonical needs: the canonicality predicate. */
 export type CanonicalityCheck = {

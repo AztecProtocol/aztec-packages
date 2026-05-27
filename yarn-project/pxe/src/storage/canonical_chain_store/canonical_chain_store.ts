@@ -1,7 +1,7 @@
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-import { type Anchor } from '../foundation/anchor.js';
+import type { Anchor } from '../foundation/anchor.js';
 
 /** The slice of the node interface CanonicalChainStore needs to rebuild its map. */
 export type CanonicalChainSource = {
