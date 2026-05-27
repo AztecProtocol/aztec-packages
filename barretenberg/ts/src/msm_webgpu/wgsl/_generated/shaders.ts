@@ -1438,6 +1438,14 @@ fn load_pref_ps(slot: u32) -> array<u32, 8> {
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
+// Maps a logical partial index to its slot in partials_buf.
+// Index 0 = the start-of-split piece (slot 2*ft+1).
+// Index i>0 = continuation pieces (slot 2*(ft+i)).
+fn get_partial_slot(first_thread: u32, i: u32) -> u32 {
+    if (i == 0u) { return 2u * first_thread + 1u; }
+    return 2u * (first_thread + i);
+}
+
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
@@ -1452,100 +1460,112 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let bucket_idx = partial_buckets_list[3u * sb_idx + 0u];
     let first_thread = partial_buckets_list[3u * sb_idx + 1u];
     let last_thread = partial_buckets_list[3u * sb_idx + 2u];
-    let n_threads = last_thread - first_thread;
-
-    // Build slot list: first_thread → slot 2*first_thread+1,
-    // subsequent threads → slot 2*t.
-    // n_partials = n_threads (one partial per thread in the range).
-    let n_partials = n_threads;
-
-    // Sequential reduction by thread 0 using batched inversion.
-    if (tid != 0u) { return; }
+    let n_partials = last_thread - first_thread;
     if (n_partials == 0u) { return; }
 
-    // Load first partial as the accumulator.
-    let slot0 = 2u * first_thread + 1u;
-    var sum_x = load_partial_x(slot0, M_partials);
-    var sum_y = load_partial_y(slot0, M_partials);
+    // Pairwise tree reduction with stride doubling. Each round halves
+    // the active element count. Threads cooperatively process S pairs
+    // each with batched inversion. workgroupBarrier between rounds.
+    let TPB = {{ workgroup_size }}u;
+    var n_active = n_partials;
+    var stride: u32 = 1u;
 
-    // Add remaining partials in batches of S.
-    var i: u32 = 1u;
-    while (i < n_partials) {
-        let batch_end = min(i + S, n_partials);
-        let batch_size = batch_end - i;
+    while (n_active > 1u) {
+        let n_pairs = n_active / 2u;
+        let my_start = tid * S;
+        if (my_start < n_pairs) {
+            let my_end = min(my_start + S, n_pairs);
+            let batch_size = my_end - my_start;
+            let pref_off = tid * S;
 
-        // Forward prefix.
-        var acc: array<u32, 8> = get_r_f8();
-        for (var k: u32 = 0u; k < batch_size; k = k + 1u) {
-            let thread_idx = first_thread + i + k;
-            let slot = 2u * thread_idx;
-            let p_rx = load_partial_x(slot, M_partials);
-            let dx = fr_sub_f8(p_rx, sum_x);
-            if (k == 0u) {
-                acc = dx;
-            } else {
-                acc = montgomery_product_f8(acc, dx);
+            // Forward prefix: dx for each pair.
+            var acc: array<u32, 8> = get_r_f8();
+            for (var k: u32 = 0u; k < batch_size; k = k + 1u) {
+                let pair_idx = my_start + k;
+                let left_logical = pair_idx * 2u * stride;
+                let right_logical = left_logical + stride;
+                let left_slot = get_partial_slot(first_thread, left_logical);
+                let right_slot = get_partial_slot(first_thread, right_logical);
+                let p_lx = load_partial_x(left_slot, M_partials);
+                let p_rx = load_partial_x(right_slot, M_partials);
+                let dx = fr_sub_f8(p_rx, p_lx);
+                if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
+                store_pref_ps(pref_off + k, acc);
             }
-            store_pref_ps(k, acc);
-        }
 
-        // Single inversion.
-        var acc20 = unpack256_to_limbs(acc);
-        var inv20 = {{ inv_fn }}(acc20);
-        var inv_val = pack_limbs_to_256(&inv20);
+            // Single inversion.
+            var acc20 = unpack256_to_limbs(acc);
+            var inv20 = {{ inv_fn }}(acc20);
+            var inv_val = pack_limbs_to_256(&inv20);
 
-        // Inverse pass.
-        for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
-            let k = batch_size - 1u - jj;
-            var inv_dx: array<u32, 8>;
-            if (k == 0u) {
-                inv_dx = inv_val;
-            } else {
-                let pp = load_pref_ps(k - 1u);
-                inv_dx = montgomery_product_f8(inv_val, pp);
-                let thread_idx = first_thread + i + k;
-                let slot = 2u * thread_idx;
-                let p_rx = load_partial_x(slot, M_partials);
-                let dx_b = fr_sub_f8(p_rx, sum_x);
-                inv_val = montgomery_product_f8(inv_val, dx_b);
+            // Inverse pass.
+            for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
+                let k = batch_size - 1u - jj;
+                var inv_dx: array<u32, 8>;
+                if (k == 0u) {
+                    inv_dx = inv_val;
+                } else {
+                    let pp = load_pref_ps(pref_off + k - 1u);
+                    inv_dx = montgomery_product_f8(inv_val, pp);
+                    let pair_idx = my_start + k;
+                    let left_logical = pair_idx * 2u * stride;
+                    let right_logical = left_logical + stride;
+                    let left_slot = get_partial_slot(first_thread, left_logical);
+                    let right_slot = get_partial_slot(first_thread, right_logical);
+                    let p_lx_b = load_partial_x(left_slot, M_partials);
+                    let p_rx_b = load_partial_x(right_slot, M_partials);
+                    let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
+                    inv_val = montgomery_product_f8(inv_val, dx_b);
+                }
+                store_pref_ps(pref_off + k, inv_dx);
             }
-            store_pref_ps(k, inv_dx);
+
+            // Backward peel: affine add, write result to left slot.
+            for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
+                let k = batch_size - 1u - jj;
+                let pair_idx = my_start + k;
+                let left_logical = pair_idx * 2u * stride;
+                let right_logical = left_logical + stride;
+                let left_slot = get_partial_slot(first_thread, left_logical);
+                let right_slot = get_partial_slot(first_thread, right_logical);
+                let inv_dx = load_pref_ps(pref_off + k);
+                let p_lx = load_partial_x(left_slot, M_partials);
+                let p_ly = load_partial_y(left_slot, M_partials);
+                let p_rx = load_partial_x(right_slot, M_partials);
+                let p_ry = load_partial_y(right_slot, M_partials);
+
+                var lambda = fr_sub_f8(p_ry, p_ly);
+                lambda = montgomery_product_f8(lambda, inv_dx);
+
+                var r_x = montgomery_product_f8(lambda, lambda);
+                let x_sum_val = fr_add_f8(p_lx, p_rx);
+                r_x = fr_sub_f8(r_x, x_sum_val);
+
+                var r_y = fr_sub_f8(p_lx, r_x);
+                r_y = montgomery_product_f8(lambda, r_y);
+                r_y = fr_sub_f8(r_y, p_ly);
+
+                store_partial(left_slot, M_partials, r_x, r_y);
+            }
         }
 
-        // Backward peel: add each partial to sum.
-        for (var jj: u32 = 0u; jj < batch_size; jj = jj + 1u) {
-            let k = batch_size - 1u - jj;
-            let thread_idx = first_thread + i + k;
-            let slot = 2u * thread_idx;
-            let inv_dx = load_pref_ps(k);
-            let p_rx = load_partial_x(slot, M_partials);
-            let p_ry = load_partial_y(slot, M_partials);
-
-            var lambda = fr_sub_f8(p_ry, sum_y);
-            lambda = montgomery_product_f8(lambda, inv_dx);
-
-            var r_x = montgomery_product_f8(lambda, lambda);
-            let x_sum_val = fr_add_f8(sum_x, p_rx);
-            r_x = fr_sub_f8(r_x, x_sum_val);
-
-            var r_y = fr_sub_f8(sum_x, r_x);
-            r_y = montgomery_product_f8(lambda, r_y);
-            r_y = fr_sub_f8(r_y, sum_y);
-
-            sum_x = r_x;
-            sum_y = r_y;
-        }
-
-        i = batch_end;
+        workgroupBarrier();
+        n_active = (n_active + 1u) / 2u;
+        stride *= 2u;
     }
 
-    // Write final sum to bucket_sums.
-    let bx = PG * bucket_idx;
-    bucket_sums[bx + 0u] = vec4<u32>(sum_x[0], sum_x[1], sum_x[2], sum_x[3]);
-    bucket_sums[bx + 1u] = vec4<u32>(sum_x[4], sum_x[5], sum_x[6], sum_x[7]);
-    let by = PG * M_buckets + PG * bucket_idx;
-    bucket_sums[by + 0u] = vec4<u32>(sum_y[0], sum_y[1], sum_y[2], sum_y[3]);
-    bucket_sums[by + 1u] = vec4<u32>(sum_y[4], sum_y[5], sum_y[6], sum_y[7]);
+    // Thread 0 writes the final result to bucket_sums.
+    if (tid == 0u) {
+        let final_slot = get_partial_slot(first_thread, 0u);
+        let sum_x = load_partial_x(final_slot, M_partials);
+        let sum_y = load_partial_y(final_slot, M_partials);
+        let bx = PG * bucket_idx;
+        bucket_sums[bx + 0u] = vec4<u32>(sum_x[0], sum_x[1], sum_x[2], sum_x[3]);
+        bucket_sums[bx + 1u] = vec4<u32>(sum_x[4], sum_x[5], sum_x[6], sum_x[7]);
+        let by = PG * M_buckets + PG * bucket_idx;
+        bucket_sums[by + 0u] = vec4<u32>(sum_y[0], sum_y[1], sum_y[2], sum_y[3]);
+        bucket_sums[by + 1u] = vec4<u32>(sum_y[4], sum_y[5], sum_y[6], sum_y[7]);
+    }
 
     {{{ recompile }}}
 }
