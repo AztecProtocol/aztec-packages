@@ -904,7 +904,7 @@ export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAdd
     await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
   }
   if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
-    await (await publishInstance(wallet, instance)).send({ from });
+    await publishInstance(wallet, instance).send({ from });
   }
 }
 
