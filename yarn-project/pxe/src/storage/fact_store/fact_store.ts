@@ -1,3 +1,4 @@
+import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
@@ -129,9 +130,10 @@ export class FactStore {
     return `${contract.toString()}:${scope.toString()}:${entityType.toString()}:${correlationKey.toString('hex')}`;
   }
 
-  // Keys on the raw payload bytes rather than a payloadHash: correct dedup with no crypto
-  // dependency, since payloads are small here. The anchor is part of the key, so the same payload
-  // re-mined on a competing fork (different blockHash) yields a distinct row.
+  // The payload is hashed rather than inlined: a fact payload can be large (an offchain `Received` fact packs 20
+  // fields = 640 bytes), and this key is stored as a DUPSORT value in the entity index, where it is bounded by LMDB's
+  // max key size. sha256 keeps the key fixed-size while preserving byte-exact dedup. The anchor is part of the key, so
+  // the same payload re-mined on a competing fork (different blockHash) yields a distinct row.
   #dedupKey(
     contract: AztecAddress,
     scope: AztecAddress,
@@ -141,7 +143,8 @@ export class FactStore {
     payload: Buffer,
     anchor: Anchor | null,
   ): string {
-    const base = `${this.#entityKey(contract, scope, entityType, correlationKey)}:${factType.toString()}:${payload.toString('hex')}`;
+    const payloadHash = sha256(payload).toString('hex');
+    const base = `${this.#entityKey(contract, scope, entityType, correlationKey)}:${factType.toString()}:${payloadHash}`;
     return anchor ? `${base}:${anchor.blockNumber}:${anchor.blockHash}` : base;
   }
 

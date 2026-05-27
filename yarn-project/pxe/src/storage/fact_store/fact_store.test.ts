@@ -47,6 +47,19 @@ describe('FactStore', () => {
     expect(facts).toHaveLength(1);
   });
 
+  it('stores and reads back a large payload (e.g. an offchain Received fact)', async () => {
+    // An offchain `Received` fact packs 20 fields (640 bytes), whose hex inlined into the dedup key would exceed the
+    // LMDB DUPSORT value-size limit. The dedup key must stay bounded regardless of payload size.
+    const largePayload = Buffer.concat(Array.from({ length: 20 }, () => new Fr(0x1234n).toBuffer()));
+    await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, largePayload, null);
+    await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, largePayload, null);
+
+    const facts = await store.loadCanonicalFactSet(contractA, scopeX, ENTITY, correlation);
+
+    expect(facts).toHaveLength(1);
+    expect(facts[0].payload).toEqual(largePayload);
+  });
+
   it('hides an anchored fact whose block is not canonical, shows it when it is', async () => {
     const anchor = { blockNumber: 105, blockHash: '0xaa' };
     await store.put(contractA, scopeX, ENTITY, FACT_A, correlation, Buffer.alloc(0), anchor);
