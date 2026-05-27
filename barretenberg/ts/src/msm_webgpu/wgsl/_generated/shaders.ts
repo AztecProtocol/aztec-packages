@@ -996,6 +996,8 @@ fn get_partial_slot(first_thread: u32, i: u32) -> u32 {
     return 2u * (first_thread + i);
 }
 
+var<workgroup> wg_valid: u32;
+
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
@@ -1012,6 +1014,35 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let last_thread = partial_buckets_list[3u * sb_idx + 2u];
     let n_partials = last_thread - first_thread;
     if (n_partials == 0u) { return; }
+    if (n_partials == 1u) {
+        if (tid == 0u) {
+            let s0 = get_partial_slot(first_thread, 0u);
+            let sx = load_partial_x(s0, M_partials);
+            let sy = load_partial_y(s0, M_partials);
+            let bx = PG * bucket_idx;
+            bucket_sums[bx] = vec4<u32>(sx[0], sx[1], sx[2], sx[3]);
+            bucket_sums[bx + 1u] = vec4<u32>(sx[4], sx[5], sx[6], sx[7]);
+            let by = PG * M_buckets + PG * bucket_idx;
+            bucket_sums[by] = vec4<u32>(sy[0], sy[1], sy[2], sy[3]);
+            bucket_sums[by + 1u] = vec4<u32>(sy[4], sy[5], sy[6], sy[7]);
+        }
+        return;
+    }
+
+    if (tid == 0u) {
+        wg_valid = 1u;
+        for (var i: u32 = 0u; i < n_partials; i = i + 1u) {
+            let s = get_partial_slot(first_thread, i);
+            let px = load_partial_x(s, M_partials);
+            if (px[0] == 0u && px[1] == 0u && px[2] == 0u && px[3] == 0u &&
+                px[4] == 0u && px[5] == 0u && px[6] == 0u && px[7] == 0u) {
+                wg_valid = 0u;
+                break;
+            }
+        }
+    }
+    workgroupBarrier();
+    let valid = wg_valid;
 
     let TPB = {{ workgroup_size }}u;
     var n_active = n_partials;
@@ -1020,7 +1051,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     while (n_active > 1u) {
         let n_pairs = n_active / 2u;
         let my_start = tid * S;
-        if (my_start < n_pairs) {
+        if (valid == 1u && my_start < n_pairs) {
             let my_end = min(my_start + S, n_pairs);
             let batch_size = my_end - my_start;
             let pref_off = sb_idx * TPB * S + tid * S;
@@ -1097,7 +1128,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         stride *= 2u;
     }
 
-    if (tid == 0u) {
+    if (tid == 0u && valid == 1u) {
         let final_slot = get_partial_slot(first_thread, 0u);
         let sum_x = load_partial_x(final_slot, M_partials);
         let sum_y = load_partial_y(final_slot, M_partials);
@@ -1461,20 +1492,22 @@ fn main() {
             let cut_offset = thread_cuts[2u * t + 1u];
 
             let adds = select(0u, sorted_count_list[bucket_sorted] - 1u, bucket_sorted < num_dense);
+            let prev_off = thread_cuts[2u * (t - 1u) + 1u];
+            let prev_bkt = thread_cuts[2u * (t - 1u)];
+            let is_dup = (bucket_sorted == prev_bkt && cut_offset == prev_off);
+            if (is_dup) { continue; }
+
             if (cut_offset > 0u && bucket_sorted < num_dense && cut_offset < adds) {
                 if (!in_split) {
                     in_split = true;
                     split_first = t - 1u;
-                } else {
-                    let prev_bucket = thread_cuts[2u * (t - 1u)];
-                    if (bucket_sorted != prev_bucket) {
-                        let bucket_idx = sorted_bucket_list[thread_cuts[2u * split_first + 2u]];
-                        partial_buckets_list[3u * sb_count + 0u] = bucket_idx;
-                        partial_buckets_list[3u * sb_count + 1u] = split_first;
-                        partial_buckets_list[3u * sb_count + 2u] = t;
-                        sb_count += 1u;
-                        split_first = t - 1u;
-                    }
+                } else if (bucket_sorted != prev_bkt) {
+                    let bucket_idx = sorted_bucket_list[thread_cuts[2u * split_first + 2u]];
+                    partial_buckets_list[3u * sb_count + 0u] = bucket_idx;
+                    partial_buckets_list[3u * sb_count + 1u] = split_first;
+                    partial_buckets_list[3u * sb_count + 2u] = t;
+                    sb_count += 1u;
+                    split_first = t - 1u;
                 }
             } else {
                 if (in_split) {
