@@ -75,7 +75,7 @@ unconstrained fn check_nullifier_exists_nonexistent() {
 unconstrained fn check_nullifier_exists_settled() {
     let env = TestEnvironment::new();
 
-    env.private_context(|context| { context.push_nullifier(1); });
+    env.private_context(|context| { context.push_nullifier_unsafe(1); });
 
     env.utility_context(|_| { assert(check_nullifier_exists(1)); });
 }

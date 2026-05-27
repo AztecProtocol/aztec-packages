@@ -89,7 +89,7 @@ fn incorrect_address_preimage() {
     let mut builder = TestBuilder::new_with_regular_contract();
 
     builder.private_call.public_keys.ivpk_m.inner =
-        derive_public_key(EmbeddedCurveScalar::from_field(69)).into();
+        derive_public_key(EmbeddedCurveScalar::from_field(69));
 
     builder.execute_and_fail();
 }

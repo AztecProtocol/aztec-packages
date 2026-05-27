@@ -165,7 +165,7 @@ pub contract SideEffect {
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("private")]

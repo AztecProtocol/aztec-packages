@@ -8,7 +8,6 @@ import {
 } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
@@ -16,7 +15,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type PublicKey, hashPublicKey } from './public_key.js';
+import { PublicKey, hashPublicKey } from './public_key.js';
 
 /**
  * A non-owner's view of an account's master public keys.
@@ -61,7 +60,7 @@ export class PublicKeys {
     }
     return new PublicKeys(
       Fr.fromPlainObject(obj.npkMHash),
-      Point.fromPlainObject(obj.ivpkM),
+      PublicKey.fromPlainObject(obj.ivpkM),
       Fr.fromPlainObject(obj.ovpkMHash),
       Fr.fromPlainObject(obj.tpkMHash),
     );
@@ -73,8 +72,7 @@ export class PublicKeys {
     }
     // Mirror Noir's `PublicKeys::hash`: hash the four single-key digests under
     // DOM_SEP__PUBLIC_KEYS_HASH. `ivpk_m` must be reduced to its single-key digest first
-    // (Poseidon2 over [x, y]); passing the Point directly would inadvertently include
-    // `is_infinite` and produce a different value.
+    // (Poseidon2 over [x, y]); passing the Point directly would omit the DOM_SEP__SINGLE_PUBLIC_KEY_HASH
     const ivpkMHash = await hashPublicKey(this.ivpkM);
     return poseidon2HashWithSeparator(
       [this.npkMHash, ivpkMHash, this.ovpkMHash, this.tpkMHash],
@@ -87,26 +85,26 @@ export class PublicKeys {
   }
 
   static default(): PublicKeys {
-    // Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y, false })` for npk/ovpk/tpk.
+    // Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y })` for npk/ovpk/tpk.
     // Sourced from constants.gen.ts (originally defined in
     // noir-protocol-circuits/crates/types/src/constants.nr); a self-test in public_keys.nr
     // (`default_hashes_match_default_points`) catches drift between the *_HASH constants and
     // the underlying X/Y points.
     return new PublicKeys(
       new Fr(DEFAULT_NPK_M_HASH),
-      new Point(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
+      new PublicKey(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y)),
       new Fr(DEFAULT_OVPK_M_HASH),
       new Fr(DEFAULT_TPK_M_HASH),
     );
   }
 
   static async random(): Promise<PublicKeys> {
-    const npkM = await Point.random();
-    const ovpkM = await Point.random();
-    const tpkM = await Point.random();
+    const npkM = await PublicKey.random();
+    const ovpkM = await PublicKey.random();
+    const tpkM = await PublicKey.random();
     return new PublicKeys(
       await hashPublicKey(npkM),
-      await Point.random(),
+      await PublicKey.random(),
       await hashPublicKey(ovpkM),
       await hashPublicKey(tpkM),
     );
@@ -121,6 +119,12 @@ export class PublicKeys {
     );
   }
 
+  /**
+   * Converts the PublicKeys instance into a Buffer.
+   * This method should be used when encoding the address for storage, transmission or serialization purposes.
+   *
+   * @returns A Buffer representation of the PublicKeys instance.
+   */
   toBuffer(): Buffer {
     return serializeToBuffer([this.npkMHash, this.ivpkM, this.ovpkMHash, this.tpkMHash]);
   }
@@ -128,7 +132,7 @@ export class PublicKeys {
   static fromBuffer(buffer: Buffer | BufferReader): PublicKeys {
     const reader = BufferReader.asReader(buffer);
     const npkMHash = Fr.fromBuffer(reader);
-    const ivpkM = reader.readObject(Point);
+    const ivpkM = reader.readObject(PublicKey);
     const ovpkMHash = Fr.fromBuffer(reader);
     const tpkMHash = Fr.fromBuffer(reader);
     return new PublicKeys(npkMHash, ivpkM, ovpkMHash, tpkMHash);
@@ -148,27 +152,10 @@ export class PublicKeys {
 
   /**
    * Wire-format fields matching Noir's struct flattening of `PublicKeys`:
-   * `[npk_m_hash, ivpk_m.x, ivpk_m.y, ivpk_m.is_infinite, ovpk_m_hash, tpk_m_hash]` (6 fields).
-   *
-   * The `is_infinite` slot is `0` for `ivpkM` produced by `deriveKeys` (fixed-base scalar
-   * multiplication on Grumpkin cannot reach infinity for a non-zero scalar, and Poseidon-derived
-   * scalars are non-zero with cryptographically negligible exception). External flows that
-   * import pre-derived keys are responsible for maintaining this invariant (see the AZIP-8
-   * migration note "Security note (PXE side)"). The slot stays on the wire because the Noir
-   * struct's `Point` still carries the flag. AZIP-8's "drop `is_infinite`" goal applies to the
-   * address-derivation hash (via `hash_public_key`, computed elsewhere), not to the
-   * contract-call args wire.
-   * TODO(F-553): drop the `is_infinite` slot once `Point` no longer carries the flag.
+   * `[npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash]` (5 fields).
    */
   toFields(): Fr[] {
-    return [
-      this.npkMHash,
-      this.ivpkM.x,
-      this.ivpkM.y,
-      new Fr(this.ivpkM.isInfinite ? 1 : 0),
-      this.ovpkMHash,
-      this.tpkMHash,
-    ];
+    return [this.npkMHash, this.ivpkM.x, this.ivpkM.y, this.ovpkMHash, this.tpkMHash];
   }
 
   // Used in foundation/src/abi/encoder. Probably non-optimal but the encoder needs a refactor.
@@ -178,13 +165,7 @@ export class PublicKeys {
 
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {
     const reader = FieldReader.asReader(fields);
-    const npkMHash = reader.readField();
-    const ivpkMX = reader.readField();
-    const ivpkMY = reader.readField();
-    const ivpkMIsInfinite = reader.readBoolean();
-    const ovpkMHash = reader.readField();
-    const tpkMHash = reader.readField();
-    return new PublicKeys(npkMHash, new Point(ivpkMX, ivpkMY, ivpkMIsInfinite), ovpkMHash, tpkMHash);
+    return new PublicKeys(reader.readField(), reader.readObject(PublicKey), reader.readField(), reader.readField());
   }
 
   toString() {

@@ -31,13 +31,13 @@ export class InitialCheckpointNumberNotSequentialError extends Error {
 
 export class CheckpointNumberNotSequentialError extends Error {
   constructor(
-    newCheckpointNumber: CheckpointNumber,
-    previous: CheckpointNumber | undefined,
+    public readonly newCheckpointNumber: CheckpointNumber,
+    public readonly previousCheckpointNumber: CheckpointNumber | undefined,
     source?: 'proposed' | 'confirmed',
   ) {
     const qualifier = source ? `${source} ` : '';
     super(
-      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${qualifier}checkpoint number is ${previous ?? 'undefined'}`,
+      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${qualifier}checkpoint number is ${previousCheckpointNumber ?? 'undefined'}`,
     );
     this.name = 'CheckpointNumberNotSequentialError';
   }

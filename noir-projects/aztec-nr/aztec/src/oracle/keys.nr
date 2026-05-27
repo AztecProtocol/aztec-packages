@@ -1,4 +1,8 @@
-use crate::protocol::{address::{AztecAddress, PartialAddress}, point::Point, public_keys::{IvpkM, PublicKeys}};
+use crate::protocol::{
+    address::{AztecAddress, PartialAddress},
+    point::EmbeddedCurvePoint,
+    public_keys::{IvpkM, PublicKeys},
+};
 
 // TODO(F-498): review naming consistency
 pub unconstrained fn get_public_keys_and_partial_address(address: AztecAddress) -> (PublicKeys, PartialAddress) {
@@ -20,7 +24,7 @@ pub unconstrained fn try_get_public_keys_and_partial_address(
     get_public_keys_and_partial_address_oracle(address).map(|result: [Field; 6]| {
         let keys = PublicKeys {
             npk_m_hash: result[0],
-            ivpk_m: IvpkM { inner: Point { x: result[1], y: result[2], is_infinite: false } },
+            ivpk_m: IvpkM { inner: EmbeddedCurvePoint { x: result[1], y: result[2] } },
             ovpk_m_hash: result[3],
             tpk_m_hash: result[4],
         };

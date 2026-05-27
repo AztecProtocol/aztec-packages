@@ -366,16 +366,17 @@ impl PrivateContext {
     /// The raw `nullifier` is not what is inserted into the Aztec state tree: it will be first siloed by contract
     /// address via [`crate::protocol::hash::compute_siloed_nullifier`] in order to prevent accidental or malicious
     /// interference of nullifiers from different contracts.
-    pub fn push_nullifier(&mut self, nullifier: Field) {
+    pub fn push_nullifier_unsafe(&mut self, nullifier: Field) {
         notify_created_nullifier(nullifier);
         self.nullifiers.push(Nullifier { value: nullifier, note_hash: 0 }.count(self.next_counter()));
     }
 
     /// Creates a new [nullifier](crate::nullifier) associated with a note.
     ///
-    /// This is a variant of [`PrivateContext::push_nullifier`] that is used for note nullifiers, i.e. nullifiers that
-    /// correspond to a note. If a note and its nullifier are created in the same transaction, then the private kernels
-    /// will 'squash' these values, deleting them both as if they never existed and reducing transaction fees.
+    /// This is a variant of [`PrivateContext::push_nullifier_unsafe`] that is used for note nullifiers, i.e.
+    /// nullifiers that correspond to a note. If a note and its nullifier are created in the same transaction, then
+    /// the private kernels will 'squash' these values, deleting them both as if they never existed and reducing
+    /// transaction fees.
     ///
     /// The `nullification_note_hash` must be the result of calling
     /// [`crate::note::utils::compute_confirmed_note_hash_for_nullification`] for pending notes, and `0` for settled
@@ -386,10 +387,10 @@ impl PrivateContext {
     /// This is a low-level function that must be used with great care to avoid subtle corruption of contract state.
     /// Instead of calling this function, consider using the higher-level [`crate::note::lifecycle::destroy_note`].
     ///
-    /// The precautions listed for [`PrivateContext::push_nullifier`] apply here as well, and callers should
+    /// The precautions listed for [`PrivateContext::push_nullifier_unsafe`] apply here as well, and callers should
     /// additionally ensure `nullification_note_hash` corresponds to a note emitted by this contract, with its hash
     /// computed in the same transaction execution phase as the call to this function. Finally, only this function
-    /// should be used for note nullifiers, never [`PrivateContext::push_nullifier`].
+    /// should be used for note nullifiers, never [`PrivateContext::push_nullifier_unsafe`].
     ///
     /// Failure to do these things can result in unprovable contexts, accidental deletion of notes, or double-spend
     /// attacks.
@@ -861,7 +862,7 @@ impl PrivateContext {
         );
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_nullifier(nullifier)
+        self.push_nullifier_unsafe(nullifier)
     }
 
     /// Emits a private log (an array of Fields) that will be published to an Ethereum blob.

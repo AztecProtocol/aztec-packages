@@ -148,7 +148,7 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     await warpToSlotBeforeTargetProposer(targetAddress);
     // nodes[0] is the malicious node; honest observers are nodes[1..].
     const honestObservers = nodes.slice(1);
-    const faultSlot = await findObservedStatusSlot(honestObservers[0], targetAddress, 'checkpoint-unvalidated');
+    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-unvalidated');
     await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-unvalidated');
     // The malicious node self-records `checkpoint-valid` for that slot using the locally computed
     // archive (broadcastInvalidBlockProposal only corrupts the broadcast archive, not the
@@ -164,7 +164,7 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     const targetAddress = await spawnMaliciousAndHonestNodes({ broadcastInvalidCheckpointProposalOnly: true });
     await warpToSlotBeforeTargetProposer(targetAddress);
     const honestObservers = nodes.slice(1);
-    const faultSlot = await findObservedStatusSlot(honestObservers[0], targetAddress, 'checkpoint-invalid');
+    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-invalid');
     await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-invalid');
     // Malicious self-records `checkpoint-valid` for that slot — proposers always consider their
     // own freshly-built proposal valid from their local-state perspective.
@@ -305,25 +305,37 @@ describe('e2e_p2p_sentinel_status_slash', () => {
   }
 
   /**
-   * Polls `observerNode` until it records `expectedStatus` for `targetAddress` at some slot, and
-   * returns that slot. The slot at which the malicious node closes its checkpoint (and so the fault
+   * Finds the earliest slot at which EVERY honest observer has recorded `expectedStatus` for
+   * `targetAddress`. The slot at which the malicious node closes its checkpoint (and so the fault
    * is recorded) is not necessarily the block-proposer slot we warp to, so we discover it rather
-   * than assuming it. Times out — and therefore fails the test — if the fault is never recorded,
-   * so a genuine failure to detect the malicious proposal is still caught.
+   * than assuming it. Requiring cross-observer agreement avoids picking a slot that only one
+   * observer saw (e.g. one peer happened to be synced to the malicious proposer's gossip earlier
+   * than the others), which would then time out the downstream per-observer assertion. Times out
+   * — and therefore fails the test — if no common fault slot is ever recorded, so a genuine
+   * failure to detect the malicious proposal is still caught.
    */
   async function findObservedStatusSlot(
-    observerNode: AztecNodeService,
+    observerNodes: AztecNodeService[],
     targetAddress: EthAddress,
     expectedStatus: ValidatorStatusInSlot,
   ): Promise<SlotNumber> {
     const slot = await retryUntil(
       async () => {
-        const stats = await observerNode.getValidatorsStats();
-        const validator = stats.stats[targetAddress.toString()];
-        const entry = validator?.history.find(h => h.status === expectedStatus);
-        return entry?.slot !== undefined ? SlotNumber(Number(entry.slot)) : undefined;
+        const slotSets = await Promise.all(
+          observerNodes.map(async observerNode => {
+            const stats = await observerNode.getValidatorsStats();
+            const history = stats.stats[targetAddress.toString()]?.history ?? [];
+            return new Set(history.filter(h => h.status === expectedStatus).map(h => Number(h.slot)));
+          }),
+        );
+        if (slotSets.some(s => s.size === 0)) {
+          return undefined;
+        }
+        const [first, ...rest] = slotSets;
+        const common = [...first].filter(s => rest.every(other => other.has(s))).sort((a, b) => a - b);
+        return common.length > 0 ? SlotNumber(common[0]) : undefined;
       },
-      `observed ${expectedStatus} for ${targetAddress}`,
+      `cross-observer ${expectedStatus} for ${targetAddress}`,
       AZTEC_SLOT_DURATION * 15,
     );
     return slot;
