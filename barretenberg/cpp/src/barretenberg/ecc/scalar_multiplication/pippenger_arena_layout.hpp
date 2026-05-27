@@ -73,15 +73,16 @@ template <typename Curve> struct ChunkOutput {
 
 // Pick the optimal window size `c`. Native uses a cost model
 // `rounds * (n + 15 * buckets)`; WASM uses a closed-form `target_load` formula.
-[[nodiscard]] inline uint32_t choose_window_bits(
-    size_t num_points, size_t num_bits, size_t n_input, size_t num_logical_threads, bool use_rebalance) noexcept
+[[nodiscard]] inline uint32_t choose_window_bits(size_t num_points,
+                                                 size_t num_bits,
+                                                 size_t n_input,
+                                                 size_t num_logical_threads) noexcept
 {
     constexpr uint32_t MAX_C = 20;
     uint32_t best = 2;
 
 #ifdef __wasm__
     static_cast<void>(num_bits);
-    static_cast<void>(use_rebalance);
     const size_t target_load = (n_input > 4096) ? (num_logical_threads * 2 / 3) : (num_logical_threads / 3);
     if (target_load == 0 || num_points <= target_load) {
         best = 2;
@@ -98,7 +99,6 @@ template <typename Curve> struct ChunkOutput {
 #else
     static_cast<void>(n_input);
     static_cast<void>(num_logical_threads);
-    static_cast<void>(use_rebalance);
     uint64_t best_cost = static_cast<uint64_t>(-1);
     for (uint32_t window_bits = 2; window_bits < MAX_C; ++window_bits) {
         const uint64_t rounds = (num_bits + 2 + window_bits - 1) / window_bits;
@@ -116,32 +116,26 @@ template <typename Curve> struct ChunkOutput {
     return best;
 }
 
-// Build a uniform window schedule for the given bit budget and chosen `c`.
-inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t window_bits_unsplit) noexcept
+// Build a uniform window schedule for the given bit budget and chosen `c`. Every window
+// is `window_bits` wide except the final one, which takes the remaining bits. The +2 on
+// the bit budget accommodates the carry-less top bit of the Constantine recoder.
+inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t window_bits) noexcept
 {
     VariableWindowSchedule sched{};
 
-    auto fill_windows = [&](size_t bits_to_cover, size_t window_bits_default, size_t out_offset) -> size_t {
-        size_t bits_remaining = bits_to_cover;
-        size_t w = out_offset;
-        size_t bit_offset = (w == 0) ? 0 : sched.bit_base[w - 1] + sched.window_bits_per_window[w - 1];
-        while (bits_remaining > 0) {
-            const size_t window_bits_w = std::min<size_t>(window_bits_default, bits_remaining);
-            sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
-            sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
-            sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
-            bit_offset += window_bits_w;
-            bits_remaining -= window_bits_w;
-            ++w;
-            if (w >= VAR_WINDOW_MAX_WINDOWS) {
-                break;
-            }
-        }
-        return w - out_offset;
-    };
-
-    const size_t total_bits = num_bits + 2;
-    sched.num_windows = fill_windows(total_bits, window_bits_unsplit, /*out_offset=*/0);
+    size_t bits_remaining = num_bits + 2;
+    size_t bit_offset = 0;
+    size_t w = 0;
+    while (bits_remaining > 0 && w < VAR_WINDOW_MAX_WINDOWS) {
+        const size_t window_bits_w = std::min<size_t>(window_bits, bits_remaining);
+        sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
+        sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
+        sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
+        bit_offset += window_bits_w;
+        bits_remaining -= window_bits_w;
+        ++w;
+    }
+    sched.num_windows = w;
     return sched;
 }
 

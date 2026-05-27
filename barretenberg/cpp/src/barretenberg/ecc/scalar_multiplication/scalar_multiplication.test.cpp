@@ -54,8 +54,7 @@ bool pippenger_bn254_arena_layout_fits_for_test(size_t n_input,
                                        : effective_num_bits_for_test;
     const size_t num_logical_threads_for_c =
         bb::get_num_cpus() * scalar_multiplication::window_bits_tuning_oversub_factor(n_input);
-    const size_t window_bits =
-        rpd::choose_window_bits(n, actual_num_bits, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+    const size_t window_bits = rpd::choose_window_bits(n, actual_num_bits, n_input, num_logical_threads_for_c);
     const auto sched = rpd::build_var_window_schedule(actual_num_bits, window_bits);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 

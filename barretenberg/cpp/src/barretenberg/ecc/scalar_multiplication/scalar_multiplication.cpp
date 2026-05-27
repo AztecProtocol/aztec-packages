@@ -1833,8 +1833,8 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
 
     // window-bits selection uses the ideal per-window oversubscription factor (not the dispatch lmul).
     const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
-    const size_t window_bits = round_parallel_detail::choose_window_bits(
-        n, NUM_BITS, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+    const size_t window_bits =
+        round_parallel_detail::choose_window_bits(n, NUM_BITS, n_input, num_logical_threads_for_c);
     const size_t num_windows = (NUM_BITS + 2 + window_bits - 1) / window_bits;
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
@@ -1912,8 +1912,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
                                                                     round_parallel_detail::DEDUP_MAX_CLUSTERS))
                                             : size_t{ 0 };
     auto arena_bytes_for_window_layout = [&](size_t bit_budget) {
-        const size_t wb = round_parallel_detail::choose_window_bits(
-            n, bit_budget, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+        const size_t wb = round_parallel_detail::choose_window_bits(n, bit_budget, n_input, num_logical_threads_for_c);
         const auto layout_sched = round_parallel_detail::build_var_window_schedule(bit_budget, wb);
         size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
         for (size_t w = 0; w < layout_sched.num_windows; ++w) {
@@ -2182,8 +2181,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     if (effective_num_bits == 0 || effective_num_bits > NUM_BITS) {
         effective_num_bits = NUM_BITS;
     }
-    const size_t window_bits = round_parallel_detail::choose_window_bits(
-        n, effective_num_bits, n_input, num_logical_threads_for_c, /*use_rebalance=*/true);
+    const size_t window_bits =
+        round_parallel_detail::choose_window_bits(n, effective_num_bits, n_input, num_logical_threads_for_c);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
     // Schedule-based dedup state. The two arrays are allocated from the per-MSM arena
