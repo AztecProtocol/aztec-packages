@@ -219,11 +219,43 @@ inline ParallelForPool& shared_pool()
 // in nested calls, matching the behaviour of the prior parallel_for_mutex_pool.
 BB_TLS bool nested_parallel_for = false;
 
+// Pool backend selector. Default is the generation-counter pool; set the env var
+// BB_PARALLEL_POOL=mutex to fall back to the legacy std::mutex/condition_variable pool
+// (defined in parallel_for_mutex_pool.cpp). Read once at first dispatch so the choice is
+// fixed for the process — toggling without a rebuild lets the same binary be A/B-benched
+// across devices (e.g. browserstack) where the generation pool's idle-wait / oversubscription
+// behaviour was observed to differ. Values other than "mutex" select the generation pool.
+enum class PoolStrategy : uint8_t { Generation, Mutex, Atomic };
+inline PoolStrategy pool_strategy()
+{
+    static const PoolStrategy strategy = [] {
+        const char* env = std::getenv("BB_PARALLEL_POOL");
+        if (env == nullptr) {
+            return PoolStrategy::Generation;
+        }
+        const std::string val(env);
+        if (val == "mutex") {
+            return PoolStrategy::Mutex;
+        }
+        if (val == "atomic") {
+            return PoolStrategy::Atomic;
+        }
+        return PoolStrategy::Generation;
+    }();
+    return strategy;
+}
+
 } // namespace bb::detail
 
 #endif // NO_MULTITHREADING
 
 namespace bb {
+
+// Legacy std::mutex/condition_variable pool — defined in parallel_for_mutex_pool.cpp,
+// selected at runtime via BB_PARALLEL_POOL=mutex. It handles its own nested-call guard
+// and serial fallback, so dispatch to it directly.
+void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(size_t)>& func);
+void parallel_for_atomic_pool(size_t num_iterations, const std::function<void(size_t)>& func);
 
 void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func)
 {
@@ -233,6 +265,14 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
     }
 #else
     if (num_iterations == 0) {
+        return;
+    }
+    if (detail::pool_strategy() == detail::PoolStrategy::Mutex) {
+        parallel_for_mutex_pool(num_iterations, func);
+        return;
+    }
+    if (detail::pool_strategy() == detail::PoolStrategy::Atomic) {
+        parallel_for_atomic_pool(num_iterations, func);
         return;
     }
     // Honour callers that gate nested parallelism via set_parallel_for_concurrency(1)

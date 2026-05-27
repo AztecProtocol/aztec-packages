@@ -15,6 +15,10 @@
 
 #include "barretenberg/common/google_bb_bench.hpp"
 
+#include <cstdint>
+#include <limits>
+#include <vector>
+
 using namespace benchmark;
 
 using Curve = bb::curve::BN254;
@@ -262,6 +266,87 @@ BENCHMARK_DEFINE_F(PippengerBench, BatchMSM_1656)(benchmark::State& state)
     bb::set_parallel_for_concurrency(original_concurrency);
 }
 
+// ===================== Sparsity-profile single MSM =====================
+//
+// Single-MSM pippenger_round_parallel across dyadic sizes 2^15..2^19 under two scalar
+// distributions, to A/B the thread-pool backend (new generation-counter pool vs the
+// merge-train pool) at the workload shapes that stress the round-parallel scaffolding
+// and the dedup pre-pass.
+//
+//   Dense80   — 80% uniformly-random nonzero scalars, 20% zero. Exercises the main
+//               bucket-accumulation pipeline with light sparsity. dedup_hint=false.
+//   DupHeavy  — 50% unique random, 25% all equal to one random scalar A, 5% all equal
+//               to another random scalar B, 20% zero. Heavy duplication drives the
+//               Phase A dedup pre-pass (the most thread-intensive stage), so this is
+//               the case most sensitive to pool dispatch / oversubscription behavior.
+//               dedup_hint=true.
+//
+// Scalars are drawn from the fixture's deterministic debug RNG so the A/B runs on the
+// two pool backends see identical inputs.
+namespace {
+enum class SparsityProfile : uint8_t { Dense80 = 0, DupHeavy = 1 };
+
+[[nodiscard]] double uniform01(bb::numeric::RNG& engine) noexcept
+{
+    return static_cast<double>(engine.get_random_uint32()) / static_cast<double>(std::numeric_limits<uint32_t>::max());
+}
+
+std::vector<Fr> build_sparsity_scalars(SparsityProfile profile, size_t n, bb::numeric::RNG& engine)
+{
+    std::vector<Fr> out(n);
+    if (profile == SparsityProfile::Dense80) {
+        for (size_t i = 0; i < n; ++i) {
+            out[i] = (uniform01(engine) < 0.20) ? Fr::zero() : Fr::random_element(&engine);
+        }
+    } else {
+        const Fr dup_a = Fr::random_element(&engine);
+        const Fr dup_b = Fr::random_element(&engine);
+        for (size_t i = 0; i < n; ++i) {
+            const double r = uniform01(engine);
+            if (r < 0.20) {
+                out[i] = Fr::zero(); // 20% zero
+            } else if (r < 0.45) {
+                out[i] = dup_a; // 25% duplicate of A
+            } else if (r < 0.50) {
+                out[i] = dup_b; // 5% duplicate of B
+            } else {
+                out[i] = Fr::random_element(&engine); // 50% unique random
+            }
+        }
+    }
+    return out;
+}
+} // namespace
+
+BENCHMARK_DEFINE_F(PippengerBench, PippengerSparsity)(benchmark::State& state)
+{
+    const auto profile = static_cast<SparsityProfile>(state.range(0));
+    const size_t num_points = static_cast<size_t>(state.range(1));
+    const bool dedup_hint = (profile == SparsityProfile::DupHeavy);
+    state.SetLabel(profile == SparsityProfile::Dense80 ? "Dense80" : "DupHeavy");
+
+    // Build the scalar set from a fresh RNG re-seeded deterministically per (profile, size)
+    // rather than from the shared advancing engine. Two reasons:
+    //   1. Every benchmark repetition (--benchmark_repetitions) reuses the SAME scalars, so the
+    //      measured variance reflects pool/scheduler noise only, not input variation.
+    //   2. The input is independent of benchmark execution order, so a filtered subset or a
+    //      pool-toggled A/B run sees byte-identical scalars — the comparison is properly paired.
+    // The scalar build is outside the timed `for (auto _ : state)` loop regardless, so RNG cost
+    // never enters the measurement.
+    const std::uint_fast64_t case_seed =
+        0xC0FFEEULL + (static_cast<std::uint_fast64_t>(profile) << 32) + static_cast<std::uint_fast64_t>(num_points);
+    bb::numeric::RNG& case_engine = bb::numeric::get_debug_randomness(/*reset=*/true, /*seed=*/case_seed);
+
+    std::vector<Fr> msm_scalars = build_sparsity_scalars(profile, num_points, case_engine);
+    std::span<const G1> points = srs->get_monomial_points().subspan(0, num_points);
+    bb::PolynomialSpan<const Fr> poly_scalars(0, std::span<const Fr>(msm_scalars.data(), num_points));
+
+    for (auto _ : state) {
+        GOOGLE_BB_BENCH_REPORTER(state);
+        (void)bb::scalar_multiplication::pippenger_round_parallel<Curve>(poly_scalars, points, dedup_hint);
+    }
+}
+
 // ===================== Registration =====================
 
 // Single MSM: 2^14 to 2^20
@@ -269,6 +354,11 @@ BENCHMARK_REGISTER_F(PippengerBench, PippengerUnsafe)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(4)
     ->Range(1 << 14, 1 << 20);
+
+// Sparsity-profile single MSM: {profile (0=Dense80, 1=DupHeavy), size}, sizes 2^15..2^19.
+BENCHMARK_REGISTER_F(PippengerBench, PippengerSparsity)
+    ->Unit(benchmark::kMillisecond)
+    ->ArgsProduct({ { 0, 1 }, { 1 << 15, 1 << 16, 1 << 17, 1 << 18, 1 << 19 } });
 
 // Batch MSM: {num_polynomials, polynomial_size}
 // AVM-like: 32 polys of size 2^21 (one batch from ~2618 wire polys committed in batches of 32)
