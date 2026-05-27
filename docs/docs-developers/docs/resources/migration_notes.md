@@ -42,7 +42,25 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
-`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `4`. The aztec-nr constant has moved and been renamed (`CANONICAL_PUBLIC_CHECKS_ADDRESS` is now `STANDARD_PUBLIC_CHECKS_ADDRESS` under `crate::standard_addresses`).
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
++ use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
+```
+
+If your contract uses `privately_check_timestamp` or `privately_check_block_number`, you must deploy `PublicChecks` on your network and register it with PXE:
+
+```ts
+import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+
+const { instance, artifact } = await getStandardPublicChecks();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/public-checks/lazy` instead.
+
+Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_contract@PublicChecks --salt 1 --deployer 0x0 -f <fee-paying-account>`.
 
 ### [Aztec.nr] `auth_registry` demoted from protocol contract
 
