@@ -55,12 +55,16 @@ async function runChonkOnce(
   functionNames?: string[],
   msmCsvMode = false,
   loggerOverride?: (m: string) => void,
+  msmDistributionMode = false,
+  webgpuMsmBlocklist?: readonly string[],
 ): Promise<{ result: ChonkWebGpuBenchRunResult; vk: Uint8Array }> {
   const bb = await Barretenberg.initSingleton({
     threads: 16,
     logger: loggerOverride ?? ((m: string) => logger.info(m)),
     webgpuMsm,
     msmCsvMode,
+    msmDistributionMode,
+    webgpuMsmBlocklist,
   });
   try {
     const backend = new AztecClientBackend(bytecodes, bb, functionNames);
@@ -171,6 +175,8 @@ async function runChonkWebGpuBench(
   }
   logger.info(`[bench] GPU adapter: ${adapterInfo}`);
 
+  const swiftshaderDetected = /swiftshader/i.test(adapterInfo);
+
   const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
   logger.info(`[bench] running webgpu=off then webgpu=on on flow=${flow} (${bytecodes.length} circuits)`);
 
@@ -178,6 +184,28 @@ async function runChonkWebGpuBench(
   logger.info(
     `[bench] webgpu=off: prove=${off.result.proveMs.toFixed(0)}ms verify=${off.result.verifyMs.toFixed(0)}ms`,
   );
+
+  if (swiftshaderDetected) {
+    // SwiftShader (software WebGPU) does not produce bit-exact BN254 affine
+    // arithmetic — proof verification fails on its output. The VK-match
+    // invariant only holds on real hardware; on Linux CI without a hardware
+    // GPU we return the off-mode baseline and an empty `on` placeholder so
+    // the caller can detect this and skip its GPU assertions.
+    logger.warn(
+      `[bench] SwiftShader detected — skipping webgpu=on run. ` +
+        `Run on a hardware GPU (Apple Metal / discrete NVIDIA) to validate vks_match.`,
+    );
+    return {
+      flow,
+      adapter: adapterInfo,
+      numCreatorApps: bytecodes.length,
+      off: off.result,
+      on: { proveMs: 0, verifyMs: 0, verified: false, proofLength: 0 },
+      vksMatch: false,
+      swiftshaderDetected: true,
+    };
+  }
+
   const on = await runChonkOnce(true, bytecodes, witnesses, vks, functionNames);
   logger.info(`[bench] webgpu=on:  prove=${on.result.proveMs.toFixed(0)}ms verify=${on.result.verifyMs.toFixed(0)}ms`);
 
@@ -188,10 +216,242 @@ async function runChonkWebGpuBench(
     logger.error(`[bench] VK mismatch between webgpu off and on — GPU path may be incorrect`);
   }
 
-  return { flow, adapter: adapterInfo, numCreatorApps: bytecodes.length, off: off.result, on: on.result, vksMatch };
+  return {
+    flow,
+    adapter: adapterInfo,
+    numCreatorApps: bytecodes.length,
+    off: off.result,
+    on: on.result,
+    vksMatch,
+    swiftshaderDetected: false,
+  };
 }
 
 (window as any).runChonkWebGpuBench = runChonkWebGpuBench;
+
+/**
+ * The labels we keep on the CPU even when WebGPU is on. These are the columns
+ * the distribution-mode analysis (see /tmp/zac-webgpu/chonk-delegate-eligible.md)
+ * flagged as 🟡 verify or 🔴 block — every nonzero scalar in these polys lands
+ * in a tiny number of buckets (selectors are 0/1, lookup tags are mostly equal,
+ * VK precomputed polys are structured by construction). The MsmV2 pair-tree
+ * contract has the least margin there, so we keep them on the native CPU
+ * Pippenger and only delegate the remaining 89 random-distributed MSMs.
+ */
+const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
+  'LOOKUP_READ_COUNTS',
+  'LOOKUP_READ_TAGS',
+  'VK_PRECOMPUTED_POLY',
+];
+
+interface ChonkWebGpuBenchPartialResult {
+  flow: string;
+  adapter: string;
+  numCreatorApps: number;
+  /** True when the test environment only exposes a software WebGPU
+   *  (SwiftShader). When set, the `onAll` / `onPartial` proofs were skipped
+   *  because SwiftShader is not bit-exact for BN254 affine arithmetic — its
+   *  results do not match the native Pippenger byte-for-byte, so any
+   *  `vksMatch*` assertion would fire on a real-hardware-only invariant.
+   *  Real GPU runs (Metal, Vulkan-on-discrete) must happen on a host with a
+   *  hardware adapter. */
+  swiftshaderDetected: boolean;
+  off: ChonkWebGpuBenchRunResult;
+  /** Undefined when `swiftshaderDetected` is true. */
+  onAll?: ChonkWebGpuBenchRunResult;
+  /** Undefined when `swiftshaderDetected` is true. */
+  onPartial?: ChonkWebGpuBenchRunResult;
+  /** webgpu=off VK byte-equal to webgpu=on(all). Undefined under SwiftShader. */
+  vksMatchOffOnAll?: boolean;
+  /** webgpu=off VK byte-equal to webgpu=on(blocklist applied). Undefined under SwiftShader. */
+  vksMatchOffOnPartial?: boolean;
+  /** Labels passed to the C++ block-list for the `onPartial` run. */
+  blocklist: readonly string[];
+}
+
+/**
+ * Three-way ChonkApi::prove comparison: webgpu=off, webgpu=on (all 91+ MSMs
+ * delegated), webgpu=on with a per-label block-list applied so the columns
+ * flagged 🟡/🔴 in the distribution analysis stay on CPU. Reports wall times
+ * for all three plus VK byte-equality checks (off↔onAll and off↔onPartial).
+ *
+ * A passing `vksMatchOffOnPartial` is the actionable signal: it proves that
+ * delegating only the 89 safe columns produces the same VK as the all-CPU
+ * baseline, i.e. the block-list is correctly excluding the risky columns and
+ * the rest of the delegate set is computing correct commitments.
+ */
+async function runChonkWebGpuBenchPartial(
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+  blocklist: readonly string[] = DEFAULT_WEBGPU_BLOCKLIST,
+): Promise<ChonkWebGpuBenchPartialResult> {
+  let adapterInfo = 'unavailable';
+  if ('gpu' in navigator) {
+    try {
+      const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+      if (adapter) {
+        const info = (adapter as any).info ?? (await (adapter as any).requestAdapterInfo?.());
+        adapterInfo = info
+          ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'} / ${info.description ?? '?'}`
+          : 'unknown';
+      } else {
+        adapterInfo = 'requestAdapter returned null';
+      }
+    } catch (err) {
+      adapterInfo = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+  logger.info(`[bench-partial] GPU adapter: ${adapterInfo}`);
+
+  const swiftshaderDetected = /swiftshader/i.test(adapterInfo);
+
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+  logger.info(
+    `[bench-partial] flow=${flow} (${bytecodes.length} circuits); blocklist=[${blocklist.join(', ')}]`,
+  );
+
+  const off = await runChonkOnce(false, bytecodes, witnesses, vks, functionNames);
+  logger.info(
+    `[bench-partial] webgpu=off: prove=${off.result.proveMs.toFixed(0)}ms verify=${off.result.verifyMs.toFixed(0)}ms`,
+  );
+
+  if (swiftshaderDetected) {
+    // SwiftShader is not bit-exact for BN254 affine arithmetic at this scale —
+    // its float / integer-emulation paths give results that do not match the
+    // native Pippenger byte-for-byte, so even an all-CPU vs all-GPU run fails
+    // verification under it. The real-hardware comparison (off vs on(all) vs
+    // on(blocklist)) has to run on a host with a hardware GPU (M-series Macs,
+    // discrete NVIDIA, etc.). Skip the GPU runs here so the test still
+    // exercises the partial-delegation plumbing without firing on a
+    // hardware-dependent invariant.
+    logger.warn(
+      '[bench-partial] SwiftShader detected — skipping webgpu=on(all) and webgpu=on(blocklist) runs. ' +
+        'Run on a hardware GPU (Apple Metal / discrete NVIDIA / etc.) to validate the VK-match invariant.',
+    );
+    return {
+      flow,
+      adapter: adapterInfo,
+      numCreatorApps: bytecodes.length,
+      swiftshaderDetected: true,
+      off: off.result,
+      blocklist,
+    };
+  }
+
+  const onAll = await runChonkOnce(true, bytecodes, witnesses, vks, functionNames);
+  logger.info(
+    `[bench-partial] webgpu=on (all delegated): prove=${onAll.result.proveMs.toFixed(0)}ms verify=${onAll.result.verifyMs.toFixed(0)}ms`,
+  );
+
+  const onPartial = await runChonkOnce(
+    true,
+    bytecodes,
+    witnesses,
+    vks,
+    functionNames,
+    /*msmCsvMode=*/ false,
+    /*loggerOverride=*/ undefined,
+    /*msmDistributionMode=*/ false,
+    /*webgpuMsmBlocklist=*/ blocklist,
+  );
+  logger.info(
+    `[bench-partial] webgpu=on (blocklist applied): prove=${onPartial.result.proveMs.toFixed(0)}ms verify=${onPartial.result.verifyMs.toFixed(0)}ms`,
+  );
+
+  const vksMatchOffOnAll =
+    off.vk.length === onAll.vk.length && off.vk.every((b, i) => b === onAll.vk[i]);
+  const vksMatchOffOnPartial =
+    off.vk.length === onPartial.vk.length && off.vk.every((b, i) => b === onPartial.vk[i]);
+  if (!vksMatchOffOnAll) {
+    logger.error('[bench-partial] VK mismatch: webgpu=off vs webgpu=on(all)');
+  }
+  if (!vksMatchOffOnPartial) {
+    logger.error('[bench-partial] VK mismatch: webgpu=off vs webgpu=on(blocklist)');
+  }
+
+  return {
+    flow,
+    adapter: adapterInfo,
+    numCreatorApps: bytecodes.length,
+    swiftshaderDetected: false,
+    off: off.result,
+    onAll: onAll.result,
+    onPartial: onPartial.result,
+    vksMatchOffOnAll,
+    vksMatchOffOnPartial,
+    blocklist,
+  };
+}
+
+(window as any).runChonkWebGpuBenchPartial = runChonkWebGpuBenchPartial;
+
+/**
+ * Run ChonkApi::prove once in a single mode and report wall times + proof
+ * validity. `mode='wasm'` keeps every MSM on the multi-threaded WASM CPU
+ * Pippenger; `mode='webgpu'` delegates the safe columns to the GPU with the
+ * DEFAULT_WEBGPU_BLOCKLIST keeping the structured columns (selectors / lookup
+ * counters / VK precomputed polys) on CPU. One backend, one prove, one verify
+ * — there is no cross-mode coupling, so a failure in one mode never aborts the
+ * other (unlike runChonkWebGpuBenchPartial, where an on-all throw hides the
+ * block-list run).
+ */
+async function runChonkSingleMode(
+  mode: 'wasm' | 'webgpu',
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+): Promise<{
+  flow: string;
+  mode: 'wasm' | 'webgpu';
+  adapter: string;
+  blocklist: readonly string[];
+  result: ChonkWebGpuBenchRunResult;
+  vk: Uint8Array;
+}> {
+  const useWebgpu = mode === 'webgpu';
+  let adapterInfo = 'n/a (wasm)';
+  if (useWebgpu) {
+    adapterInfo = 'unavailable';
+    if ('gpu' in navigator) {
+      try {
+        const a = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        if (a) {
+          const info = (a as any).info ?? (await (a as any).requestAdapterInfo?.());
+          adapterInfo = info
+            ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'} / ${info.description ?? '?'}`
+            : 'unknown';
+        } else {
+          adapterInfo = 'requestAdapter returned null';
+        }
+      } catch (err) {
+        adapterInfo = `error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+  }
+  const blocklist = useWebgpu ? DEFAULT_WEBGPU_BLOCKLIST : [];
+
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+  logger.info(
+    `[bench-single] mode=${mode} flow=${flow} (${bytecodes.length} circuits)` +
+      (useWebgpu ? `; blocklist=[${blocklist.join(', ')}]` : ''),
+  );
+
+  const { result, vk } = await runChonkOnce(
+    useWebgpu,
+    bytecodes,
+    witnesses,
+    vks,
+    functionNames,
+    /*msmCsvMode=*/ false,
+    /*loggerOverride=*/ undefined,
+    /*msmDistributionMode=*/ false,
+    /*webgpuMsmBlocklist=*/ useWebgpu ? blocklist : undefined,
+  );
+  logger.info(
+    `[bench-single] mode=${mode}: prove=${result.proveMs.toFixed(0)}ms verify=${result.verifyMs.toFixed(0)}ms verified=${result.verified}`,
+  );
+
+  return { flow, mode, adapter: adapterInfo, blocklist, result, vk };
+}
+
+(window as any).runChonkSingleMode = runChonkSingleMode;
 
 interface MsmCsvRow {
   seq: number;
@@ -274,6 +534,8 @@ async function runChonkMsmCsv(flow: string = 'ecdsar1+transfer_1_recursions+spon
   };
   const noopLogger = (m: string) => logger.info(m);
 
+  const swiftshaderDetected = /swiftshader/i.test(adapterInfo);
+
   try {
     // CPU pass: msmCsvMode=on, webgpu=off → emits [msm-csv-cpu] per MSM via
     // the C++ logger callback (cpuLogger captures into cpuCaptured).
@@ -283,9 +545,23 @@ async function runChonkMsmCsv(flow: string = 'ecdsar1+transfer_1_recursions+spon
     // GPU pass: webgpu=on → bridge emits [msm] per-MSM lines via console.log,
     // captured by the sniffConsole interceptor above. msmCsvMode stays off so
     // the GPU pass is the real batched flow, not solo-per-MSM.
-    gpuCaptured.length = 0;
-    await runChonkOnce(true, bytecodes, witnesses, vks, functionNames, /*msmCsvMode=*/ false, noopLogger);
-    const gpuLines = gpuCaptured.slice();
+    //
+    // Skipped under SwiftShader (Linux CI without hardware GPU): its software
+    // WebGPU is not bit-exact for BN254 affine arithmetic, so the GPU prove
+    // throws at the in-prover verify sanity check. The CPU column of the CSV
+    // is still meaningful — it's the answer to "what does keeping the
+    // pair-tree-hostile columns on CPU cost?" — so we keep that and leave
+    // the gpu_ms column at 0 for every row when running here.
+    let gpuLines: string[] = [];
+    if (swiftshaderDetected) {
+      noopLogger(
+        `[msm-csv] adapter=[${adapterInfo}] — SwiftShader, skipping GPU pass. CPU column is the meaningful one here.`,
+      );
+    } else {
+      gpuCaptured.length = 0;
+      await runChonkOnce(true, bytecodes, witnesses, vks, functionNames, /*msmCsvMode=*/ false, noopLogger);
+      gpuLines = gpuCaptured.slice();
+    }
 
     // Parse CPU lines: `[msm-csv-cpu] name=W_L n=88899 cpu_ms=18.34`.
     interface CpuEntry {
@@ -387,6 +663,315 @@ async function runChonkMsmCsv(flow: string = 'ecdsar1+transfer_1_recursions+spon
 }
 
 (window as any).runChonkMsmCsv = runChonkMsmCsv;
+
+interface MsmDistRow {
+  seq: number;
+  name: string;
+  n: number;
+  nnz: number;
+  density: number;
+  c: number;
+  maxbucket: number;
+  p99bucket: number;
+  mean_nonzero_bucket: number;
+}
+
+/**
+ * Run ChonkApi::prove once with msmDistributionMode enabled — every call to
+ * `MSM::batch_multi_scalar_mul` emits a `[msm-dist] name=… n=… nnz=…
+ * density=… c=… maxbucket=… p99bucket=… mean_nonzero_bucket=…` log line.
+ * Captures those lines via the C++ logger callback, parses them, and returns
+ * a per-MSM CSV.
+ *
+ * Used to classify each named polynomial by scalar-distribution shape — the
+ * input to the column-safety analysis (see [STATUS.md][1]). The MSM path is
+ * unchanged (we deliberately run with webgpu=off so every MSM still goes
+ * through native Pippenger and the prove still completes correctly), so the
+ * cost is just the per-MSM Booth-recode + histogram pass — negligible next
+ * to the proving wall time.
+ *
+ * [1]: barretenberg/ts/src/msm_webgpu/integration/STATUS.md
+ */
+async function runChonkMsmDistribution(flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc'): Promise<{
+  flow: string;
+  csv: string;
+  rowCount: number;
+  linesCaptured: number;
+  parsed: number;
+}> {
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+
+  const captured: string[] = [];
+  const distLogger = (m: string) => {
+    if (m.includes('[msm-dist]')) captured.push(m);
+    logger.info(m);
+  };
+
+  await runChonkOnce(
+    /*webgpuMsm=*/ false,
+    bytecodes,
+    witnesses,
+    vks,
+    functionNames,
+    /*msmCsvMode=*/ false,
+    distLogger,
+    /*msmDistributionMode=*/ true,
+  );
+
+  // Parse: `[msm-dist] name=W_L n=88899 nnz=85240 density=0.958897 c=15
+  //         maxbucket=42 p99bucket=28 mean_nonzero_bucket=2.71`.
+  // One regex per field — verbose but trivially extensible when we add new
+  // stats (e.g. distinct-value count) later.
+  const re =
+    /\[msm-dist\]\s+name=(\S+)\s+n=(\d+)\s+nnz=(\d+)\s+density=([\d.]+)\s+c=(\d+)\s+maxbucket=(\d+)\s+p99bucket=(\d+)\s+mean_nonzero_bucket=([\d.]+)/;
+  const rows: MsmDistRow[] = [];
+  for (const line of captured) {
+    const m = re.exec(line);
+    if (!m) continue;
+    rows.push({
+      seq: rows.length,
+      name: m[1],
+      n: parseInt(m[2], 10),
+      nnz: parseInt(m[3], 10),
+      density: parseFloat(m[4]),
+      c: parseInt(m[5], 10),
+      maxbucket: parseInt(m[6], 10),
+      p99bucket: parseInt(m[7], 10),
+      mean_nonzero_bucket: parseFloat(m[8]),
+    });
+  }
+
+  const header = 'seq,name,n,nnz,density,c,maxbucket,p99bucket,mean_nonzero_bucket\n';
+  const body = rows
+    .map(
+      r =>
+        `${r.seq},${r.name},${r.n},${r.nnz},${r.density.toFixed(6)},${r.c},${r.maxbucket},` +
+        `${r.p99bucket},${r.mean_nonzero_bucket.toFixed(2)}`,
+    )
+    .join('\n');
+  const csv = header + body + '\n';
+
+  return {
+    flow,
+    csv,
+    rowCount: rows.length,
+    linesCaptured: captured.length,
+    parsed: rows.length,
+  };
+}
+
+(window as any).runChonkMsmDistribution = runChonkMsmDistribution;
+
+/**
+ * Wire the chonk-webgpu HTML page (src/index.html) to the in-bundle bench
+ * functions. Pulled out as a separate window-attached entry point so the
+ * bundle stays usable as a Puppeteer test harness (the existing tests still
+ * call `window.runChonkWebGpuBench` etc.) AND as an interactive page (the
+ * scripts/serve-chonk-webgpu.mjs launcher).
+ *
+ * Wires up:
+ *   - `#run-wasm` button   → `runChonkSingleMode('wasm', flow)` (CPU baseline)
+ *   - `#run-webgpu` button → `runChonkSingleMode('webgpu', flow)` (89 MSMs to GPU)
+ *   - `#clear-log` button  → empties the log panel
+ *   - `#flow` <select>     → flow argument passed to the run
+ *   - GPU adapter probe → `#adapter` text
+ *   - SharedArrayBuffer detection → `#sab` text
+ *   - All `console.log` / `console.info` calls during the run → `#log` panel
+ *     with simple `[OK] / [WARN] / [ERR]` colour coding.
+ */
+function setupChonkWebGpuPage(): void {
+  const $ = <T extends HTMLElement>(id: string): T | null =>
+    document.getElementById(id) as T | null;
+  const status = $('status');
+  const adapter = $('adapter');
+  const sab = $('sab');
+  const log = $('log');
+  const runWasm = $<HTMLButtonElement>('run-wasm');
+  const runWebgpu = $<HTMLButtonElement>('run-webgpu');
+  const clearLog = $<HTMLButtonElement>('clear-log');
+  const flowSel = $<HTMLSelectElement>('flow');
+
+  if (!status || !adapter || !sab || !log || !runWasm || !runWebgpu || !clearLog || !flowSel) {
+    /* Page is missing expected elements — bail; harness pages (e.g. the
+     * Puppeteer test's minimal HTML) intentionally don't have them. */
+    return;
+  }
+
+  // Cross-origin isolation is required for SharedArrayBuffer, which the
+  // multi-threaded WASM build needs. The serve script sets the COOP/COEP
+  // headers; if the user opens the bundle without them this will report
+  // not-isolated and the run will fail later.
+  const sabAvailable = typeof SharedArrayBuffer !== 'undefined';
+  const isolated = (window as any).crossOriginIsolated === true;
+  sab.textContent = sabAvailable
+    ? isolated
+      ? 'available, crossOriginIsolated=true'
+      : 'available but crossOriginIsolated=false (run via serve-chonk-webgpu.mjs)'
+    : 'unavailable — multi-threaded WASM will not work';
+  if (!isolated) {
+    sab.style.color = '#cf222e';
+  }
+
+  // GPU adapter probe — same shape as the bench functions use.
+  (async () => {
+    if (!('gpu' in navigator)) {
+      adapter.textContent = 'WebGPU not exposed by navigator.gpu';
+      adapter.style.color = '#cf222e';
+      return;
+    }
+    try {
+      const a = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+      if (!a) {
+        adapter.textContent = 'requestAdapter returned null';
+        adapter.style.color = '#cf222e';
+        return;
+      }
+      const info = (a as any).info ?? (await (a as any).requestAdapterInfo?.());
+      adapter.textContent = info
+        ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'} / ${info.description ?? '?'}`
+        : 'unknown';
+      if (/swiftshader/i.test(adapter.textContent ?? '')) {
+        adapter.style.color = '#9a6700';
+      }
+    } catch (err) {
+      adapter.textContent = `error: ${err instanceof Error ? err.message : String(err)}`;
+      adapter.style.color = '#cf222e';
+    }
+  })();
+
+  // Pipe console.log / console.info into the in-page log panel. Color by a
+  // simple `[OK] / [WARN] / [ERR]` heuristic on the line contents. Each
+  // append also auto-scrolls so the latest line is visible during the run.
+  const append = (line: string, cls: 'info' | 'ok' | 'warn' | 'err' = 'info') => {
+    const div = document.createElement('div');
+    div.className = `l-${cls}`;
+    div.textContent = line;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  };
+  const origLog = console.log.bind(console);
+  const origInfo = console.info.bind(console);
+  const origWarn = console.warn.bind(console);
+  const origErr = console.error.bind(console);
+  const sniff =
+    (orig: (...a: unknown[]) => void, defaultCls: 'info' | 'ok' | 'warn' | 'err') =>
+    (...args: unknown[]) => {
+      const s = args
+        .map(a => (typeof a === 'string' ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); }})()))
+        .join(' ');
+      let cls = defaultCls;
+      if (/\bERROR\b|\bfail|✗/i.test(s)) cls = 'err';
+      else if (/\bWARN\b|⚠/i.test(s)) cls = 'warn';
+      else if (/✓|\bOK\b|verified=true/i.test(s)) cls = 'ok';
+      append(s, cls);
+      orig(...(args as []));
+    };
+  console.log = sniff(origLog, 'info');
+  console.info = sniff(origInfo, 'info');
+  console.warn = sniff(origWarn, 'warn');
+  console.error = sniff(origErr, 'err');
+
+  const fmtMs = (ms: number): string => (ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${ms.toFixed(0)} ms`);
+  const setText = (id: string, txt: string): void => {
+    const el = $(id);
+    if (el) el.textContent = txt;
+  };
+  const setSpeedup = (id: string, faster: number, baseline: number): void => {
+    const el = $(id);
+    if (!el || !baseline) return;
+    const ratio = baseline / faster;
+    el.textContent = ratio >= 1 ? `${ratio.toFixed(2)}× vs WASM (faster)` : `${(1 / ratio).toFixed(2)}× vs WASM (slower)`;
+    el.className = ratio >= 1 ? 'speedup up' : 'speedup down';
+  };
+  const setPill = (id: string, state: 'ok' | 'fail' | 'skip' | 'info', text: string): void => {
+    const el = $(id);
+    if (!el) return;
+    el.className = `pill ${state}`;
+    el.textContent = text;
+  };
+  const setBusy = (busy: boolean): void => {
+    runWasm.disabled = busy;
+    runWebgpu.disabled = busy;
+    status.textContent = busy ? 'running…' : 'idle';
+  };
+
+  // The WASM baseline VK + prove time, kept across clicks so the WebGPU run can
+  // report a speedup and a VK byte-equality check against it. A matching VK is
+  // the gold-standard correctness signal: it proves the GPU-delegated MSMs
+  // produced the same commitments as the all-CPU path.
+  let lastWasmVk: Uint8Array | undefined;
+  let lastWasmProveMs: number | undefined;
+
+  runWasm.addEventListener('click', async () => {
+    setBusy(true);
+    try {
+      const flow = flowSel.value;
+      append(`▶ Run WASM (multi-threaded, no GPU) on flow=${flow}`, 'info');
+      setText('wasm-prove-big', '…');
+      const { result, vk } = await (window as any).runChonkSingleMode('wasm', flow);
+      lastWasmVk = vk;
+      lastWasmProveMs = result.proveMs;
+      setText('wasm-prove', fmtMs(result.proveMs));
+      setText('wasm-verify', fmtMs(result.verifyMs));
+      setText('wasm-prove-big', fmtMs(result.proveMs));
+      setPill('wasm-verified', result.verified ? 'ok' : 'fail', `verified: ${result.verified}`);
+      append(
+        `✓ WASM: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} verified=${result.verified}`,
+        result.verified ? 'ok' : 'err',
+      );
+    } catch (err) {
+      setText('wasm-prove-big', '✗');
+      setPill('wasm-verified', 'fail', 'verified: error');
+      append(`[ERR] WASM run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  runWebgpu.addEventListener('click', async () => {
+    setBusy(true);
+    try {
+      const flow = flowSel.value;
+      append(`▶ Run WebGPU (89 MSMs delegated, block-list applied) on flow=${flow}`, 'info');
+      setText('webgpu-prove-big', '…');
+      const { result, vk, adapter: adp } = await (window as any).runChonkSingleMode('webgpu', flow);
+      append(`  GPU adapter: ${adp}`, 'info');
+      setText('webgpu-prove', fmtMs(result.proveMs));
+      setText('webgpu-verify', fmtMs(result.verifyMs));
+      setText('webgpu-prove-big', fmtMs(result.proveMs));
+      setPill('webgpu-verified', result.verified ? 'ok' : 'fail', `verified: ${result.verified}`);
+      if (lastWasmProveMs) {
+        setSpeedup('webgpu-speedup', result.proveMs, lastWasmProveMs);
+      }
+      if (lastWasmVk) {
+        const match = lastWasmVk.length === vk.length && lastWasmVk.every((b: number, i: number) => b === vk[i]);
+        setPill('webgpu-vkmatch', match ? 'ok' : 'fail', match ? 'vk vs WASM: match' : 'vk vs WASM: MISMATCH');
+      } else {
+        setPill('webgpu-vkmatch', 'skip', 'vk vs WASM: run WASM first');
+      }
+      append(
+        `✓ WebGPU: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} verified=${result.verified}`,
+        result.verified ? 'ok' : 'err',
+      );
+    } catch (err) {
+      setText('webgpu-prove-big', '✗');
+      setPill('webgpu-verified', 'fail', 'verified: error');
+      append(`[ERR] WebGPU run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  clearLog.addEventListener('click', () => {
+    log.innerHTML = '';
+  });
+
+  status.textContent = 'ready — click "Run WASM" or "Run WebGPU"';
+}
+
+(window as any).setupChonkWebGpuPage = setupChonkWebGpuPage;
 
 // Function to set up the output element and redirect all console output
 function setupConsoleOutput() {

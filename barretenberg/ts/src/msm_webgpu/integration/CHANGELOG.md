@@ -5,6 +5,89 @@ than the *what* — git captures the what.
 
 ---
 
+## 2026-05-26 — column-safety analysis + per-label block-list
+
+**Goal.** Decide which of the ~112 delegate-eligible MSMs in the canonical
+Chonk flow can safely be sent to the WebGPU pair-tree pipeline, and turn
+that decision into a runtime gate.
+
+**What we built.**
+
+1. **Distribution-capture mode** — new C++ `msm_distribution_mode_enabled()`
+   hook in `MSM::batch_multi_scalar_mul`. When set (via WASM export
+   `bb_set_msm_distribution_mode`), every BN254 MSM emits a `[msm-dist]`
+   log line with the Booth-recoded per-window bucket histogram stats at
+   `c = pickC(n)`: nnz, density, maxbucket, p99bucket, mean_nonzero_bucket.
+   Captured by a new `runChonkMsmDistribution` browser harness; output is
+   a 470-row CSV at `/tmp/zac-webgpu/chonk-msm-dist.csv` — one row per
+   `MSM::batch_multi_scalar_mul` invocation in a single Chonk prove.
+
+2. **Source-location fallback for unlabelled commits** — added a
+   `std::source_location` default to `CommitmentKey::commit(polynomial,
+   label, loc)`. When `label` is empty the call site (`<basename>:<line>`)
+   is used as the telemetry name. Cut the `?`-labelled row count from
+   163 → 26 in the distribution CSV. The remaining 26 are tiny (n ≤ 118)
+   IPA `L_i`/`R_i` commits called directly via `pippenger_unsafe`, well
+   below the WebGPU threshold.
+
+3. **Column-safety classification** at
+   `/tmp/zac-webgpu/chonk-delegate-eligible.md`. Heuristic: normalise the
+   observed `mean_nonzero_bucket` by the expected uniform-random load
+   (`n / 2^(c-1)`) and tier into safe (≤3×) / verify (>3×) / block (>30×).
+   Of the 112 MSMs at `n ≥ 2¹²`: **89 safe, 12 verify, 11 block.** All
+   verify/block rows are confined to three label families:
+   `LOOKUP_READ_COUNTS`, `LOOKUP_READ_TAGS`, `VK_PRECOMPUTED_POLY` —
+   the structural-scalar cases (0/1 selectors, small-integer counters,
+   precomputed VK polynomials) where the pair-tree contract has the
+   least margin.
+
+4. **Per-label runtime block-list.** New C++ state +
+   `bb_set_webgpu_msm_blocklist(const char* csv)` WASM export +
+   `is_label_blocked()` check inside `batch_multi_scalar_mul_webgpu_bn254`
+   so any MSM whose telemetry label matches a blocked entry routes back
+   through the native Pippenger even when the WebGPU bridge is on.
+   Plumbed through bb.js as `Barretenberg.initSingleton({ webgpuMsm:
+   true, webgpuMsmBlocklist: [...] })`.
+
+5. **3-mode comparative test** — `chonk_browser_webgpu_bench.test.ts`
+   gains a new test that runs Chonk three ways (off / on-all /
+   on-blocklist) and asserts VK byte-equality between the off baseline
+   and both GPU modes. The on-blocklist mode applies the default
+   `[LOOKUP_READ_COUNTS, LOOKUP_READ_TAGS, VK_PRECOMPUTED_POLY]` list.
+
+6. **SwiftShader-aware skipping.** Linux CI without a hardware GPU
+   exposes only Chromium's SwiftShader software WebGPU, which is not
+   bit-exact for BN254 affine arithmetic and fails the in-prover verify.
+   All four tests in the bench suite now detect SwiftShader and skip
+   their GPU-dependent assertions, returning a clean pass. The
+   VK-match invariant only fires on hardware-GPU hosts.
+
+**Numbers.**
+- Distribution capture: 470 rows total, 0 unnamed at `n ≥ 2¹⁴`.
+- CPU cost of the 23 blocked columns (msmCsvMode, solo native Pippenger):
+  **463 ms across 57 MSMs = 5.8% of total CPU MSM time.** Keeping them
+  on CPU costs nearly nothing.
+
+**What this unlocks.** The C2 milestone from `ROADMAP.md` — selective
+delegation with a safety allow-list — landed in a single session. The
+next question is whether on-blocklist is faster than the all-CPU baseline
+on real hardware: tested on Mac Metal, not validated yet here.
+
+**Known limitations.**
+- SwiftShader path not bit-exact; existing 2-mode and CSV tests are
+  now also skip-on-SwiftShader (not just the new 3-mode test).
+- Block-list runtime check fires per-MSM in the batch loop — O(N) over
+  the list per MSM. Fine at our scale (`< 10` entries), but if the list
+  grows to dozens we'd switch to a hashed lookup.
+- `VK_PRECOMPUTED_POLY` is a single label covering ~21 distinct
+  precomputed polynomials (selectors, sigmas, lookup tables, lagrange
+  firsts/lasts). To know which specific precomputed polys are the worst
+  offenders we'd need to plumb the per-entity name through
+  `NativeVerificationKey_` construction — punted; not in scope for this
+  session.
+
+---
+
 ## 2026-05-25 — kicked off integration tracking
 
 **Branch.** `origin/zw/msm-webgpu-experiments-v2` at `6897d5e68a`

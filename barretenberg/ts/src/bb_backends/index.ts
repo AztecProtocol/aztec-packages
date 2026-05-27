@@ -85,4 +85,28 @@ export type BackendOptions = {
    * removes the cross-MSM thread-balancing in batch MSMs.
    */
   msmCsvMode?: boolean;
+
+  /**
+   * @description Per-MSM scalar-distribution capture mode. When true, every
+   * call to `MSM::batch_multi_scalar_mul` emits a `[msm-dist] name=<entity>
+   * n=<size> nnz=<count> density=<f> c=<pickC(n)> maxbucket=<n> p99bucket=<n>
+   * mean_nonzero_bucket=<f>` log line per MSM. Purely additive: leaves the
+   * MSM execution path unchanged. Used to classify columns by sparsity /
+   * bucket-collision pressure when deciding which polynomials are safe to
+   * delegate to the WebGPU pair-tree pipeline. Off by default.
+   */
+  msmDistributionMode?: boolean;
+
+  /**
+   * @description Per-label block-list of MSMs that must stay on the native CPU
+   * Pippenger even when `webgpuMsm` is true. The label is the entity name
+   * passed down to `MSM::batch_multi_scalar_mul` via `batch_commit(..., labels)`
+   * — e.g. `LOOKUP_READ_TAGS`, `VK_PRECOMPUTED_POLY`. Used to exclude
+   * pair-tree-hostile columns (selectors / single-value counters whose
+   * scalar distribution concentrates every entry into a single bucket) from
+   * GPU delegation; see the distribution analysis at
+   * `/tmp/zac-webgpu/chonk-delegate-eligible.md`. Empty/undefined means no
+   * blocking. Ignored when `webgpuMsm` is false.
+   */
+  webgpuMsmBlocklist?: readonly string[];
 };

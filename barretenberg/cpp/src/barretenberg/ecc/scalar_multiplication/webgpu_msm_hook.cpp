@@ -2,10 +2,16 @@
 
 #ifdef BBERG_WEBGPU_MSM_HOOK
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <cstdint>
+#include <iomanip>
+#include <sstream>
+#include <vector>
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/wasm_export.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
@@ -52,6 +58,87 @@ std::atomic<bool> g_webgpu_msm_enabled{ false };
 // (much slower) but makes per-MSM CPU timing well-defined.
 std::atomic<bool> g_msm_csv_mode{ false };
 
+// Distribution-capture mode. See msm_distribution_mode_enabled() for details.
+std::atomic<bool> g_msm_distribution_mode{ false };
+
+// Per-label block-list: any MSM whose telemetry label matches one of these
+// strings is kept on the native Pippenger even when `webgpu_msm_runtime_enabled()`
+// is true. WASM runs single-threaded (`NO_MULTITHREADING`) so a plain vector
+// behind no lock is sufficient; the setter only fires from JS init.
+std::vector<std::string> g_webgpu_msm_blocklist;
+
+// Pippenger window-bit width per n. Mirrors barretenberg/ts/src/msm_webgpu/
+// msm_v2.ts:pickC — the table is the bench-msm-v2 sweep optimum on Apple
+// Metal. We compute distribution stats at the same `c` the GPU pipeline
+// would use so the per-bucket counts reported are exactly the level-0
+// counts the pair tree would see if this MSM were delegated.
+constexpr uint32_t pick_c_for_distribution(uint32_t n) noexcept
+{
+    // Round-up logN so n=2^k − 1 maps to k (matches Math.round(Math.log2(n))
+    // for sizes the table covers). pickC defaults to 13 outside the table.
+    uint32_t logN = 0;
+    while ((static_cast<uint64_t>(1) << logN) < n) {
+        ++logN;
+    }
+    // pickC table from msm_v2.ts:501-520:
+    //   7-8 → 4, 9 → 5, 10-14 → 8, 15 → 10, 16-17 → 13, 18-20 → 15.
+    switch (logN) {
+    case 7:
+    case 8:
+        return 4;
+    case 9:
+        return 5;
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+        return 8;
+    case 15:
+        return 10;
+    case 16:
+    case 17:
+        return 13;
+    case 18:
+    case 19:
+    case 20:
+        return 15;
+    default:
+        return 13;
+    }
+}
+
+// Read `c` bits at bit-position `lo` of the 256-bit canonical scalar `u`,
+// plus the lookback bit at `lo-1` (zero for w==0). Returns the c+1 raw bits
+// packed as `(winBits << 1) | lookback`. Equivalent to msm_v2.ts:
+// boothDigit's input-extraction step, operating on the 4×u64 limb form so
+// each window costs ~5 ALU ops instead of a 256-bit shift.
+inline uint32_t read_window_raw(const numeric::uint256_t& u, uint32_t w, uint32_t c) noexcept
+{
+    const uint32_t lo = w * c;
+    const uint32_t word_idx = lo / 64;
+    const uint32_t word_shift = lo % 64;
+    const uint64_t w0 = (word_idx < 4) ? u.data[word_idx] : 0;
+    const uint64_t w1 = (word_idx + 1 < 4) ? u.data[word_idx + 1] : 0;
+    // c ≤ 15 so the c-bit window spans at most two u64 words. We always
+    // OR-in w1's low bits shifted up by (64 - word_shift); when the window
+    // fits entirely inside w0 (word_shift + c ≤ 64), `mask` clears those
+    // high bits so w1 doesn't contribute. The branchless form keeps the GPU
+    // booth recoder and this host mirror lockstep-comparable.
+    uint64_t bits = (w0 >> word_shift);
+    if (word_shift != 0) {
+        bits |= (w1 << (64u - word_shift));
+    }
+    const uint32_t winBits = static_cast<uint32_t>(bits) & ((1u << c) - 1u);
+    uint32_t lookback = 0;
+    if (w > 0) {
+        const uint32_t lb = lo - 1;
+        const uint64_t wl = (lb / 64 < 4) ? u.data[lb / 64] : 0;
+        lookback = static_cast<uint32_t>((wl >> (lb % 64)) & 1u);
+    }
+    return (winBits << 1) | lookback;
+}
+
 // Marshal + ship the first `count` points of g_full_srs_base. Replaces
 // any previously-uploaded pool on the JS side (bb_publish_srs_bn254
 // destroys the prior MsmV2Pool and rebuilds from the new bytes). Updates
@@ -61,8 +148,7 @@ void publish_srs_prefix(uint32_t count) noexcept
     using webgpu_marshalling::marshal_points;
     const auto* base_bytes = g_full_srs_base.load(std::memory_order_relaxed);
     const auto* base_pts = reinterpret_cast<const curve::BN254::AffineElement*>(base_bytes);
-    std::vector<uint8_t> srs_bytes =
-        marshal_points(std::span<const curve::BN254::AffineElement>(base_pts, count));
+    std::vector<uint8_t> srs_bytes = marshal_points(std::span<const curve::BN254::AffineElement>(base_pts, count));
     bb_publish_srs_bn254(srs_bytes.data(), count);
     g_published_srs_base.store(base_bytes, std::memory_order_relaxed);
     g_published_srs_count.store(count, std::memory_order_relaxed);
@@ -83,6 +169,164 @@ bool msm_csv_mode_enabled() noexcept
 void set_msm_csv_mode(bool on) noexcept
 {
     g_msm_csv_mode.store(on, std::memory_order_relaxed);
+}
+
+bool msm_distribution_mode_enabled() noexcept
+{
+    return g_msm_distribution_mode.load(std::memory_order_relaxed);
+}
+
+void set_msm_distribution_mode(bool on) noexcept
+{
+    g_msm_distribution_mode.store(on, std::memory_order_relaxed);
+}
+
+bool is_label_blocked(std::string_view label) noexcept
+{
+    if (g_webgpu_msm_blocklist.empty() || label.empty()) {
+        return false;
+    }
+    for (const auto& blocked : g_webgpu_msm_blocklist) {
+        if (label == blocked) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void set_webgpu_msm_blocklist(std::string_view labels_csv) noexcept
+{
+    g_webgpu_msm_blocklist.clear();
+    if (labels_csv.empty()) {
+        return;
+    }
+    std::size_t pos = 0;
+    while (pos < labels_csv.size()) {
+        const std::size_t comma = labels_csv.find(',', pos);
+        const std::size_t end = (comma == std::string_view::npos) ? labels_csv.size() : comma;
+        // Trim leading/trailing whitespace.
+        std::size_t lo = pos;
+        std::size_t hi = end;
+        while (lo < hi && (labels_csv[lo] == ' ' || labels_csv[lo] == '\t')) {
+            ++lo;
+        }
+        while (hi > lo && (labels_csv[hi - 1] == ' ' || labels_csv[hi - 1] == '\t')) {
+            --hi;
+        }
+        if (hi > lo) {
+            g_webgpu_msm_blocklist.emplace_back(labels_csv.substr(lo, hi - lo));
+        }
+        if (comma == std::string_view::npos) {
+            break;
+        }
+        pos = comma + 1;
+    }
+}
+
+void emit_msm_distribution(std::span<std::span<curve::BN254::ScalarField>> scalars,
+                           std::span<const std::string> labels) noexcept
+{
+    const size_t batch_size = scalars.size();
+    for (size_t i = 0; i < batch_size; ++i) {
+        const size_t n = scalars[i].size();
+        if (n == 0) {
+            continue;
+        }
+        const uint32_t c = pick_c_for_distribution(static_cast<uint32_t>(n));
+        // BN254 scalar field is 254 bits. Top window may straddle bit 254 by
+        // a few padding bits; those read as zero — Booth-recoded to bucket 0
+        // (the zero-digit slot), which is skipped downstream.
+        constexpr uint32_t SCALAR_BITS = 254;
+        const uint32_t num_windows = (SCALAR_BITS + c - 1) / c;
+        const uint32_t BW = 1u << (c - 1); // signed-Booth bucket index range
+
+        // Per-window per-bucket count grid. Indexed as counts[w * BW + bucket].
+        std::vector<uint32_t> counts(static_cast<size_t>(num_windows) * BW, 0u);
+        size_t nnz = 0;
+
+        for (size_t k = 0; k < n; ++k) {
+            const auto u = static_cast<numeric::uint256_t>(scalars[i][k]);
+            if (u != 0) {
+                ++nnz;
+            }
+            for (uint32_t w = 0; w < num_windows; ++w) {
+                const uint32_t raw = read_window_raw(u, w, c);
+                const uint32_t neg = (raw >> c) & 1u;
+                const uint32_t negMask = neg ? 0xffffffffu : 0u;
+                const uint32_t valMask = (1u << c) - 1u;
+                const uint32_t encode = (raw + 1) >> 1;
+                const uint32_t bucket = ((encode - neg) ^ negMask) & valMask;
+                // `bucket` is in [0, 2^(c-1)]; the +1 case is the high boundary
+                // (the maximum positive digit). The encoding folds bucket 2^c
+                // back into bucket 2^(c-1) via the sign bit — so all values
+                // here fit into BW = 2^(c-1) + 1 slots. Cap defensively to BW
+                // (the count grid uses BW slots; rare overflow lands in slot 0
+                // which is the skipped zero-digit slot anyway).
+                counts[w * BW + (bucket < BW ? bucket : 0u)]++;
+            }
+        }
+
+        // Aggregate over nonzero buckets EXCLUDING bucket 0 (the zero-digit
+        // slot — the pair tree skips it because adding "the zero digit times
+        // P" contributes nothing). The pair-tree collision pressure scales
+        // with the heaviest *real* bucket, so that's what we report.
+        uint32_t maxbucket = 0;
+        std::vector<uint32_t> nonzero_counts;
+        nonzero_counts.reserve(static_cast<size_t>(num_windows) * (BW - 1));
+        uint64_t sum_nonzero = 0;
+        for (uint32_t w = 0; w < num_windows; ++w) {
+            for (uint32_t b = 1; b < BW; ++b) {
+                const uint32_t cnt = counts[w * BW + b];
+                if (cnt > 0) {
+                    nonzero_counts.push_back(cnt);
+                    sum_nonzero += cnt;
+                    if (cnt > maxbucket) {
+                        maxbucket = cnt;
+                    }
+                }
+            }
+        }
+
+        uint32_t p99bucket = 0;
+        double mean_nonzero = 0.0;
+        if (!nonzero_counts.empty()) {
+            // p99 over the population of *nonzero* buckets only. nth_element
+            // is O(N) on average; with at most num_windows × BW ≈ 17 × 8192 =
+            // 140k entries this is sub-millisecond per MSM.
+            const size_t p99idx = static_cast<size_t>(static_cast<double>(nonzero_counts.size()) * 0.99);
+            const size_t clamped = p99idx < nonzero_counts.size() ? p99idx : nonzero_counts.size() - 1;
+            std::nth_element(nonzero_counts.begin(),
+                             nonzero_counts.begin() + static_cast<std::ptrdiff_t>(clamped),
+                             nonzero_counts.end());
+            p99bucket = nonzero_counts[clamped];
+            mean_nonzero = static_cast<double>(sum_nonzero) / static_cast<double>(nonzero_counts.size());
+        }
+
+        const double density = n > 0 ? static_cast<double>(nnz) / static_cast<double>(n) : 0.0;
+        const std::string lbl = (labels.size() == batch_size) ? labels[i] : std::string("?");
+
+        std::ostringstream odensity;
+        odensity << std::fixed << std::setprecision(6) << density;
+        std::ostringstream omean;
+        omean << std::fixed << std::setprecision(2) << mean_nonzero;
+
+        info("[msm-dist] name=",
+             lbl,
+             " n=",
+             n,
+             " nnz=",
+             nnz,
+             " density=",
+             odensity.str(),
+             " c=",
+             c,
+             " maxbucket=",
+             maxbucket,
+             " p99bucket=",
+             p99bucket,
+             " mean_nonzero_bucket=",
+             omean.str());
+    }
 }
 
 // Helper that lives at the namespace scope so the WASM_EXPORT setter below
@@ -193,7 +437,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
     results.resize(batch_size, curve::BN254::AffineElement::infinity());
 
     struct BatchItem {
-        size_t result_index;     // index into `results`
+        size_t result_index; // index into `results`
         uint32_t n;
         uint32_t srs_offset;
         uint32_t scalars_byte_off; // offset into the contiguous scalars region
@@ -206,6 +450,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
 
     for (size_t i = 0; i < batch_size; ++i) {
         const size_t n = scalars[i].size();
+        const std::string lbl = (have_labels && !labels[i].empty()) ? labels[i] : std::string("?");
         if (n == 0) {
             results[i] = curve::BN254::AffineElement::infinity();
             continue;
@@ -214,6 +459,18 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
             std::array<std::span<const curve::BN254::AffineElement>, 1> p{ points[i].subspan(0, n) };
             std::array<std::span<curve::BN254::ScalarField>, 1> s{ scalars[i] };
             results[i] = MSM<curve::BN254>::batch_multi_scalar_mul_native(p, s, false)[0];
+            info("[msm-route] name=", lbl, " n=", n, " route=cpu reason=below-threshold");
+            continue;
+        }
+        // Per-label block-list: kept on CPU because the pair-tree contract has
+        // the least margin for these columns (selectors / 0-1 counters whose
+        // scalars concentrate every entry into a single bucket). See
+        // /tmp/zac-webgpu/chonk-delegate-eligible.md for the empirical case.
+        if (have_labels && is_label_blocked(labels[i])) {
+            std::array<std::span<const curve::BN254::AffineElement>, 1> p{ points[i].subspan(0, n) };
+            std::array<std::span<curve::BN254::ScalarField>, 1> s{ scalars[i] };
+            results[i] = MSM<curve::BN254>::batch_multi_scalar_mul_native(p, s, false)[0];
+            info("[msm-route] name=", lbl, " n=", n, " route=cpu reason=blocked");
             continue;
         }
         // SRS-prefix detection (range check, byte-aligned).
@@ -233,6 +490,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
             const uint32_t c = meta & 0xffffu;
             BB_ASSERT(num_windows <= MAX_WINDOWS, "webgpu MSM: num_windows exceeds the 64-window result buffer");
             results[i] = combine_windows(result_bytes, num_windows, c);
+            info("[msm-route] name=", lbl, " n=", n, " route=gpu reason=off-srs-solo");
             continue;
         }
         const uint32_t srs_offset = static_cast<uint32_t>(static_cast<std::size_t>(pts - srs_base) / POINT_BYTES);
@@ -244,6 +502,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
         total_scalars_bytes += n * 32;
         total_results_bytes += MAX_WINDOWS * 64; // over-allocate; per-MSM
                                                  // num_windows lives in meta
+        info("[msm-route] name=", lbl, " n=", n, " route=gpu reason=srs-prefix-batch");
     }
 
     if (!batch_items.empty()) {
@@ -281,9 +540,8 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
                 const std::string& lbl = labels[it.result_index];
                 const std::size_t lbl_len = std::min<std::size_t>(255, lbl.size());
                 labels_packed.push_back(static_cast<uint8_t>(lbl_len));
-                labels_packed.insert(labels_packed.end(),
-                                     lbl.begin(),
-                                     lbl.begin() + static_cast<std::string::difference_type>(lbl_len));
+                labels_packed.insert(
+                    labels_packed.end(), lbl.begin(), lbl.begin() + static_cast<std::string::difference_type>(lbl_len));
             }
         }
         bb_external_batch_msm_bn254(static_cast<uint32_t>(batch_items.size()),
@@ -325,6 +583,35 @@ WASM_EXPORT void bb_set_webgpu_msm_enabled(uint8_t on)
 WASM_EXPORT void bb_set_msm_csv_mode(uint8_t on)
 {
     bb::scalar_multiplication::set_msm_csv_mode(on != 0);
+}
+
+// Per-MSM scalar-distribution mode. When set, every `MSM::batch_multi_scalar_mul`
+// call emits a `[msm-dist] name=X n=Y nnz=Z density=D c=C maxbucket=M
+// p99bucket=P mean_nonzero_bucket=Mn` log line per MSM — used to classify
+// columns by scalar sparsity / bucket-collision pressure before deciding
+// which polynomials are safe to delegate to the WebGPU pair-tree pipeline.
+// Purely additive: leaves the actual MSM execution path unchanged (results
+// are computed normally; this only adds a log line per MSM). Off by default.
+WASM_EXPORT void bb_set_msm_distribution_mode(uint8_t on)
+{
+    bb::scalar_multiplication::set_msm_distribution_mode(on != 0);
+}
+
+// Per-label block-list of MSMs that must stay on the native CPU Pippenger even
+// when WebGPU is on. `labels_csv` is a comma-separated list of label names
+// (matched exactly against the per-MSM telemetry name). Passing an empty
+// string clears the block-list. Default: empty (no blocking).
+//
+// Layout: `labels_csv` is a null-terminated ASCII C-string in WASM heap memory,
+// e.g. "LOOKUP_READ_TAGS,LOOKUP_READ_COUNTS,VK_PRECOMPUTED_POLY". The JS side
+// allocates the string in the WASM heap and passes the pointer.
+WASM_EXPORT void bb_set_webgpu_msm_blocklist(const char* labels_csv)
+{
+    if (labels_csv == nullptr) {
+        bb::scalar_multiplication::set_webgpu_msm_blocklist({});
+        return;
+    }
+    bb::scalar_multiplication::set_webgpu_msm_blocklist(std::string_view{ labels_csv });
 }
 
 // ---------------------------------------------------------------------------

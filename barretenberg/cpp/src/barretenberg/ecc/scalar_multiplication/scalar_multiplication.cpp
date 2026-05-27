@@ -6,11 +6,11 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 #include <chrono>
 #include <iomanip>
 #include <sstream>
-#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
-#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
 #include "./process_buckets.hpp"
 #include "./scalar_multiplication.hpp"
@@ -508,6 +508,16 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     BB_BENCH_NAME("MSM::batch_multi_scalar_mul");
     BB_ASSERT_EQ(points.size(), scalars.size());
 #ifdef BBERG_WEBGPU_MSM_HOOK
+    // Distribution-capture mode: emit per-MSM Booth-recoded bucket histogram
+    // stats so columns can be classified by scalar sparsity before deciding
+    // whether they're safe to delegate to the WebGPU pair-tree pipeline.
+    // Purely additive — does NOT return; the MSM continues on whichever path
+    // (CSV / WebGPU / native) the flags below select. Off by default.
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        if (msm_distribution_mode_enabled()) {
+            emit_msm_distribution(scalars, labels);
+        }
+    }
     // CSV-measurement mode: time every MSM individually on CPU (multi-
     // threaded Pippenger, but one MSM at a time so the timing is per-MSM
     // attributable, not interleaved across threads via work units). Emits
@@ -524,8 +534,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                 const auto t0 = std::chrono::steady_clock::now();
                 auto r = batch_multi_scalar_mul_native(p, s, handle_edge_cases);
                 const auto t1 = std::chrono::steady_clock::now();
-                const double cpu_ms =
-                    std::chrono::duration<double, std::milli>(t1 - t0).count();
+                const double cpu_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
                 const std::string lbl = (labels.size() == batch_size) ? labels[i] : std::string("?");
                 // 4 decimal places — enough to distinguish microsecond-level
                 // MSMs from each other. Default operator<<(double) rounds to

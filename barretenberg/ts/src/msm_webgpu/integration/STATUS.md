@@ -1,7 +1,35 @@
 # Status — WebGPU MSM Integration
 
-*Last refreshed: 2026-05-25. Branch tip: `6897d5e68a` (Zac's
-`zw/msm-webgpu-experiments-v2`).*
+*Last refreshed: 2026-05-26. Branch: local working tree on `sb/integrate-wgpu-msm`.*
+
+---
+
+## Recent landing: per-label block-list (2026-05-26)
+
+The integration now supports **selective WebGPU delegation** via a runtime
+block-list of label names that always stay on the native CPU Pippenger.
+Default block-list when `webgpuMsm: true` is `[]` (delegate everything at
+`n ≥ 2¹⁴`); the canonical safe-set for the Chonk flow is
+`['LOOKUP_READ_COUNTS', 'LOOKUP_READ_TAGS', 'VK_PRECOMPUTED_POLY']` —
+the three label families that show degenerate single-bucket-dominated
+scalar distributions in the empirical analysis at
+[/tmp/zac-webgpu/chonk-delegate-eligible.md](file:///tmp/zac-webgpu/chonk-delegate-eligible.md).
+
+Wired in:
+
+- `bb_set_webgpu_msm_blocklist(const char* labels_csv)` WASM_EXPORT.
+- TS option `webgpuMsmBlocklist?: readonly string[]` on
+  `Barretenberg.initSingleton`.
+- New 3-mode comparative test in `chonk_browser_webgpu_bench.test.ts`:
+  off / on-all / on-blocklist; asserts VK byte-equality across all
+  three on hardware GPU.
+- All four tests in the bench suite are now SwiftShader-aware (Linux CI
+  without hardware GPU passes by skipping the GPU-dependent assertions).
+
+CPU cost of blocking those 23 columns: **463 ms / 8049 ms = 5.8%** of
+total CPU MSM time on the canonical flow. Effectively free.
+
+---
 
 A single-page snapshot of what's true on the branch right now. If something
 here disagrees with the code, the code wins — fix this page.

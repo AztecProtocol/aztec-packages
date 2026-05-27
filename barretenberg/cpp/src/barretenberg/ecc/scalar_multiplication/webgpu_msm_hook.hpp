@@ -50,6 +50,47 @@ bool webgpu_msm_runtime_enabled() noexcept;
 // via `bb_set_msm_csv_mode(uint8_t)`.
 bool msm_csv_mode_enabled() noexcept;
 
+// Distribution-capture mode. When set, every call to `MSM::batch_multi_scalar_mul`
+// emits a `[msm-dist]` log line per MSM summarising the scalar distribution:
+// nnz / density / Booth-recoded bucket histogram stats at `c = pick_c(n)`. Used
+// to classify columns by sparsity / bucket-collision pressure before deciding
+// which polynomials are safe to delegate to the WebGPU pair-tree pipeline
+// (which has no point-at-infinity / dx==0 handling — see msm_v2.ts:20-23).
+// Purely additive: does not change the MSM result, only logs. Toggled at
+// runtime from JS via `bb_set_msm_distribution_mode(uint8_t)`. Off by default.
+bool msm_distribution_mode_enabled() noexcept;
+
+// Runtime block-list of polynomial labels that should never be delegated to the
+// WebGPU bridge even when `webgpu_msm_runtime_enabled() == true`. Used to keep
+// known-pair-tree-hostile columns on the native CPU Pippenger — e.g. selectors
+// (`VK_PRECOMPUTED_POLY`) and small-integer counters (`LOOKUP_READ_TAGS`,
+// `LOOKUP_READ_COUNTS`) where the scalar distribution concentrates entries
+// into a single bucket and the pair-tree contract has the least margin. See
+// the distribution-mode CSV at `/tmp/zac-webgpu/chonk-delegate-eligible.md`
+// for the empirical case for each blocked label.
+//
+// `is_label_blocked` is queried per-MSM inside `batch_multi_scalar_mul_webgpu_bn254`
+// after the size threshold check; a `true` return routes that MSM through the
+// inline native Pippenger instead of the GPU batch. Default empty (no labels
+// blocked).
+bool is_label_blocked(std::string_view label) noexcept;
+
+// Set the block-list from a comma-separated label list. Empty string clears it.
+// The labels are matched exactly against the per-MSM telemetry name passed
+// down from `commit_and_send_to_verifier(..., labels)`.
+void set_webgpu_msm_blocklist(std::string_view labels_csv) noexcept;
+
+// Emit one `[msm-dist] name=… n=… nnz=… density=… c=… maxbucket=… p99bucket=…
+// mean_nonzero_bucket=…` line per MSM in `scalars`. `labels` is optional;
+// each entry that lacks a matching label logs `name=?`. Computes the level-0
+// Booth-recoded per-window bucket histogram across all c-bit windows of every
+// scalar (host mirror of msm_v2.ts:buildInitCounts) and aggregates over the
+// nonzero buckets (excluding bucket 0, the zero-digit slot which the pair
+// tree skips). Single-threaded; ~70 ms total at the canonical Chonk flow's
+// ~91 MSMs.
+void emit_msm_distribution(std::span<std::span<curve::BN254::ScalarField>> scalars,
+                           std::span<const std::string> labels) noexcept;
+
 // Per-MSM delegation predicate — runtime gate AND size at or above the
 // configured threshold. Each MSM in a batch decides independently.
 inline bool webgpu_msm_should_delegate(std::size_t n) noexcept

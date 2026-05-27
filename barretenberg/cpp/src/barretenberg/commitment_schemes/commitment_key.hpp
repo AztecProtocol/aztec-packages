@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <source_location>
 #include <string_view>
 
 namespace bb {
@@ -79,7 +80,8 @@ template <class Curve> class CommitmentKey {
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
     Commitment commit(PolynomialSpan<const Fr> polynomial,
-                      [[maybe_unused]] std::string_view label = "") const
+                      [[maybe_unused]] std::string_view label = "",
+                      [[maybe_unused]] std::source_location loc = std::source_location::current()) const
     {
         BB_BENCH_NAME("CommitmentKey::commit");
         std::span<const Commitment> point_table = get_monomial_points();
@@ -91,18 +93,24 @@ template <class Curve> class CommitmentKey {
                                   get_monomial_size()));
         }
 #ifdef BBERG_WEBGPU_MSM_HOOK
-        // CSV-measurement mode OR WebGPU-on: route this solo commit through
-        // `batch_multi_scalar_mul` as a size-1 batch. That single code path
-        // handles both
+        // CSV / WebGPU / distribution mode: route this solo commit through
+        // `batch_multi_scalar_mul` as a size-1 batch so the label flows down
+        // to per-MSM telemetry.
         //   - csv_mode: solo commit logs [msm-csv-cpu] with the label
         //   - webgpu enabled: solo commit can be delegated to the GPU bridge
         //     (subject to WEBGPU_MSM_THRESHOLD) so big single commits like
-        //     `gemini_masking_poly` (n=131_072) actually use the GPU.
-        // Production path (both off) keeps the bare pippenger_unsafe to avoid
-        // the size-1-batch overhead.
+        //     `gemini_masking_poly` (n=131_072) actually use the GPU
+        //   - distribution mode: [msm-dist] line names the column it came
+        //     from, falling back to "<file>:<line>" when the caller didn't
+        //     pass a `label` so the unlabelled commit() sites in the prover
+        //     (KZG quotient, IPA self-commit, sumcheck round univariates,
+        //     masking-tail adjustments, etc.) are still distinguishable in
+        //     the CSV.
+        // Production path (all three off) keeps the bare pippenger_unsafe to
+        // avoid the size-1-batch overhead.
         if constexpr (std::is_same_v<Curve, curve::BN254>) {
-            if (scalar_multiplication::msm_csv_mode_enabled() ||
-                scalar_multiplication::webgpu_msm_runtime_enabled()) {
+            if (scalar_multiplication::msm_csv_mode_enabled() || scalar_multiplication::webgpu_msm_runtime_enabled() ||
+                scalar_multiplication::msm_distribution_mode_enabled()) {
                 // batch_multi_scalar_mul needs writable scalar spans (the native
                 // path temporarily modifies them and restores). Cast away const
                 // — pippenger_unsafe also receives a `PolynomialSpan<const Fr>`
@@ -113,7 +121,22 @@ template <class Curve> class CommitmentKey {
                 std::span<const Commitment> points = point_table.subspan(polynomial.start_index);
                 std::array<std::span<const Commitment>, 1> p{ points };
                 std::array<std::span<Fr>, 1> s{ scalars_writable };
-                const std::string lbl_str{ label.empty() ? std::string_view{ "?" } : label };
+                std::string lbl_str;
+                if (!label.empty()) {
+                    lbl_str.assign(label.data(), label.size());
+                } else {
+                    // Derive a stable identifier from the call site so the
+                    // distribution-mode CSV pinpoints unlabelled commit()
+                    // callers (kzg.hpp, ipa.hpp, sumcheck.hpp, etc.).
+                    const char* path = loc.file_name();
+                    const char* base = path;
+                    for (const char* p2 = path; *p2 != '\0'; ++p2) {
+                        if (*p2 == '/') {
+                            base = p2 + 1;
+                        }
+                    }
+                    lbl_str = std::string{ base } + ":" + std::to_string(loc.line());
+                }
                 std::array<std::string, 1> lbls{ lbl_str };
                 return scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(p, s, false, lbls)[0];
             }

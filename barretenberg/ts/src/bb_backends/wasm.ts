@@ -6,6 +6,33 @@ import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js
 import { proxy } from 'comlink';
 
 /**
+ * Marshal a per-label blocklist into the WASM heap as a null-terminated CSV
+ * string and call `bb_set_webgpu_msm_blocklist`. Used to keep specific named
+ * MSMs (e.g. `LOOKUP_READ_TAGS`, `VK_PRECOMPUTED_POLY`) on the native CPU
+ * Pippenger even when the WebGPU bridge is enabled — see the column-safety
+ * analysis at `/tmp/zac-webgpu/chonk-delegate-eligible.md`.
+ *
+ * Labels must not contain commas (the C++ side splits on `,`). The buffer is
+ * intentionally leaked: it's a one-shot init-time string, freeing it after
+ * the setter copies it into a `std::vector<std::string>` would just add
+ * complexity. Total size ≤ a few hundred bytes.
+ */
+async function applyBlocklist(
+  wasm: { call(name: string, ...args: any[]): Promise<any> | any; writeMemory(offset: number, arr: Uint8Array): any },
+  labels: readonly string[],
+): Promise<void> {
+  const csv = labels.join(',');
+  const bytes = new TextEncoder().encode(csv);
+  const buf = new Uint8Array(bytes.length + 1);
+  buf.set(bytes, 0);
+  // Trailing null already 0-initialised; explicit for clarity.
+  buf[bytes.length] = 0;
+  const ptr = await wasm.call('bbmalloc', buf.length);
+  await wasm.writeMemory(ptr, buf);
+  await wasm.call('bb_set_webgpu_msm_blocklist', ptr);
+}
+
+/**
  * Synchronous WASM backend that wraps BarretenbergWasmMain.
  * Encapsulates all WASM initialization and memory management.
  */
@@ -70,6 +97,8 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       unref?: boolean;
       webgpuMsm?: boolean;
       msmCsvMode?: boolean;
+      msmDistributionMode?: boolean;
+      webgpuMsmBlocklist?: readonly string[];
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
     // Default to worker mode for browser safety
@@ -107,9 +136,15 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       if (webgpuBridge) {
         await wasm.publishWebGpuMemory();
         await wasm.call('bb_set_webgpu_msm_enabled', 1);
+        if (options.webgpuMsmBlocklist && options.webgpuMsmBlocklist.length > 0) {
+          await applyBlocklist(wasm, options.webgpuMsmBlocklist);
+        }
       }
       if (options.msmCsvMode) {
         await wasm.call('bb_set_msm_csv_mode', 1);
+      }
+      if (options.msmDistributionMode) {
+        await wasm.call('bb_set_msm_distribution_mode', 1);
       }
 
       if (options.unref) {
@@ -126,6 +161,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum, options.unref);
       if (options.msmCsvMode) {
         await wasm.call('bb_set_msm_csv_mode', 1);
+      }
+      if (options.msmDistributionMode) {
+        await wasm.call('bb_set_msm_distribution_mode', 1);
       }
       return new BarretenbergWasmAsyncBackend(wasm);
     }

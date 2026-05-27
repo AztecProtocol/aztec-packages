@@ -1,9 +1,257 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>My Test bb.js App</title>
+    <meta charset="UTF-8" />
+    <title>Chonk e2e — WASM-MT vs WebGPU MSM (block-list applied)</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        max-width: 1100px;
+        margin: 24px auto;
+        padding: 0 16px;
+        color: #1f2328;
+        background: #f6f8fa;
+      }
+      h1 { font-size: 22px; margin-bottom: 4px; }
+      .subtitle {
+        color: #57606a;
+        font-size: 14px;
+        margin-bottom: 24px;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+        padding: 16px 20px;
+        margin-bottom: 16px;
+      }
+      .panel h2 {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #57606a;
+        margin: 0 0 12px;
+      }
+      .ctrl { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      label { font-size: 13px; color: #57606a; }
+      select, input[type=text] {
+        font: inherit;
+        padding: 6px 8px;
+        border: 1px solid #d0d7de;
+        border-radius: 4px;
+        background: #fff;
+      }
+      button {
+        font: inherit;
+        font-weight: 500;
+        padding: 8px 16px;
+        border: 1px solid rgba(31, 35, 40, 0.15);
+        border-radius: 6px;
+        cursor: pointer;
+        background: linear-gradient(180deg, #f6f8fa 0%, #ebecf0 100%);
+        color: #1f2328;
+      }
+      button.primary {
+        background: #1f883d;
+        border-color: rgba(31, 35, 40, 0.15);
+        color: #fff;
+      }
+      button.primary:hover:not(:disabled) { background: #1a7f37; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .status {
+        font-size: 13px;
+        color: #57606a;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .results {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .result-card {
+        border: 1px solid #d0d7de;
+        border-radius: 6px;
+        padding: 12px 14px;
+        background: #fff;
+      }
+      .result-card h3 {
+        font-size: 12px;
+        margin: 0 0 8px;
+        color: #57606a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .metric {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 2px 0;
+      }
+      .metric .v { font-family: ui-monospace, monospace; color: #1f2328; }
+      .metric .k { color: #57606a; }
+      .big {
+        font-size: 26px;
+        font-weight: 600;
+        margin: 6px 0;
+        font-family: ui-monospace, monospace;
+      }
+      .speedup {
+        font-size: 12px;
+        color: #57606a;
+        margin-top: 4px;
+      }
+      .speedup.up { color: #1f883d; }
+      .speedup.down { color: #cf222e; }
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-right: 4px;
+      }
+      .pill.ok { background: #dafbe1; color: #1a7f37; }
+      .pill.fail { background: #ffebe9; color: #cf222e; }
+      .pill.skip { background: #fff8c5; color: #9a6700; }
+      .pill.info { background: #ddf4ff; color: #0969da; }
+      .blocklist {
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+        color: #57606a;
+        background: #f6f8fa;
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-right: 4px;
+      }
+      #log {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+        background: #0d1117;
+        color: #c9d1d9;
+        padding: 12px 14px;
+        border-radius: 6px;
+        max-height: 360px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #log .l-info { color: #c9d1d9; }
+      #log .l-ok   { color: #56d364; }
+      #log .l-warn { color: #d29922; }
+      #log .l-err  { color: #f85149; }
+      .footer {
+        font-size: 12px;
+        color: #57606a;
+        margin-top: 12px;
+        line-height: 1.5;
+      }
+      .footer code {
+        background: #f6f8fa;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-family: ui-monospace, monospace;
+      }
+    </style>
   </head>
   <body>
+    <h1>Chonk e2e — WASM-MT vs WebGPU MSM</h1>
+    <div class="subtitle">
+      <code>ChonkApi::prove</code> on the canonical
+      <code>ecdsar1+transfer_1_recursions+sponsored_fpc</code> flow, two ways:
+      <strong>WASM</strong> runs every MSM on the multi-threaded CPU Pippenger;
+      <strong>WebGPU</strong> delegates the 89 random-distributed MSMs to the
+      GPU and keeps the structured columns (the block-list) on CPU. Run each
+      independently; the WebGPU card also cross-checks its VK against the last
+      WASM run.
+    </div>
+
+    <div class="panel">
+      <h2>Run</h2>
+      <div class="ctrl">
+        <label>flow</label>
+        <select id="flow">
+          <option value="ecdsar1+transfer_1_recursions+sponsored_fpc" selected>
+            ecdsar1+transfer_1_recursions+sponsored_fpc
+          </option>
+        </select>
+        <button id="run-wasm" class="primary">Run WASM</button>
+        <button id="run-webgpu" class="primary">Run WebGPU</button>
+        <button id="clear-log">Clear log</button>
+        <span id="status" class="status">idle</span>
+      </div>
+      <div class="ctrl" style="margin-top: 10px;">
+        <label>block-list:</label>
+        <span class="blocklist">LOOKUP_READ_COUNTS</span>
+        <span class="blocklist">LOOKUP_READ_TAGS</span>
+        <span class="blocklist">VK_PRECOMPUTED_POLY</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Environment</h2>
+      <div class="metric"><span class="k">GPU adapter</span><span class="v" id="adapter">probing…</span></div>
+      <div class="metric"><span class="k">Threads (WASM)</span><span class="v" id="threads">16</span></div>
+      <div class="metric"><span class="k">SharedArrayBuffer (COOP/COEP)</span><span class="v" id="sab">checking…</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>Results</h2>
+      <div class="results">
+        <div class="result-card">
+          <h3>WASM (multi-threaded, no GPU)</h3>
+          <div class="metric"><span class="k">prove</span><span class="v" id="wasm-prove">—</span></div>
+          <div class="metric"><span class="k">verify</span><span class="v" id="wasm-verify">—</span></div>
+          <div class="big" id="wasm-prove-big">—</div>
+          <div style="margin-top: 6px;">
+            <span class="pill" id="wasm-verified">verified: —</span>
+          </div>
+        </div>
+        <div class="result-card">
+          <h3>WebGPU (89 MSMs delegated)</h3>
+          <div class="metric"><span class="k">prove</span><span class="v" id="webgpu-prove">—</span></div>
+          <div class="metric"><span class="k">verify</span><span class="v" id="webgpu-verify">—</span></div>
+          <div class="big" id="webgpu-prove-big">—</div>
+          <div class="speedup" id="webgpu-speedup"></div>
+          <div style="margin-top: 6px;">
+            <span class="pill" id="webgpu-verified">verified: —</span>
+            <span class="pill" id="webgpu-vkmatch">vk vs WASM: —</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+
+    <div class="footer">
+      The block-list excludes <code>LOOKUP_READ_TAGS</code>,
+      <code>LOOKUP_READ_COUNTS</code>, and <code>VK_PRECOMPUTED_POLY</code>
+      from GPU delegation. These columns concentrate every nonzero scalar into
+      a single bucket (selectors are 0/1, lookup tags repeat the same value),
+      which the MsmV2 pair-tree's <em>"scalars must be random"</em> contract
+      does not guarantee. Empirically they cost ~5.8% of total CPU MSM time —
+      keeping them on CPU is essentially free. See
+      <code>/tmp/zac-webgpu/chonk-delegate-eligible.md</code> for the
+      per-column safety analysis.
+    </div>
+
     <script src="index.js"></script>
+    <script>
+      // The bundle attaches `runChonkWebGpuBenchPartial`, `runChonkWebGpuBench`,
+      // and `setupChonkWebGpuPage` on window. The setup call wires the buttons
+      // to those bench functions, populates the environment info, and pipes
+      // browser console output into the log panel.
+      window.addEventListener('DOMContentLoaded', () => {
+        if (typeof window.setupChonkWebGpuPage === 'function') {
+          window.setupChonkWebGpuPage();
+        } else {
+          document.getElementById('status').textContent =
+            'bundle did not expose setupChonkWebGpuPage — was webpack rebuilt?';
+        }
+      });
+    </script>
   </body>
 </html>

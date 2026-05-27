@@ -23,6 +23,8 @@ export async function createAsyncBackend(
         useWorker,
         webgpuMsm: options.webgpuMsm,
         msmCsvMode: options.msmCsvMode,
+        msmDistributionMode: options.msmDistributionMode,
+        webgpuMsmBlocklist: options.webgpuMsmBlocklist,
       });
       return new Barretenberg(wasm, options);
     }
