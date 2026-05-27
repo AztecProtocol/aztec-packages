@@ -43,7 +43,10 @@ if(NOT(FUZZING) AND NOT(WASM))
     target_link_libraries(bbapi_objects PUBLIC ipc_runtime)
 endif()
 
-# bbapi_tests needs vm2_stub to resolve dsl's AVM recursion constraint references
+# bbapi_tests needs vm2_stub to resolve dsl's AVM recursion constraint references,
+# and ipc_runtime for the codegen-emitted server header that c_bind_exception.test.cpp
+# and bbapi.test.cpp use to drive the dispatcher.
 if(NOT WASM AND NOT FUZZING)
-    target_link_libraries(bbapi_tests PRIVATE vm2_stub)
+    target_link_libraries(bbapi_test_objects PRIVATE ipc_runtime)
+    target_link_libraries(bbapi_tests PRIVATE vm2_stub ipc_runtime)
 endif()

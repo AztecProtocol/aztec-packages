@@ -1,5 +1,7 @@
 #include "barretenberg/api/api_msgpack.hpp"
-#include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/bbapi/bbapi_handlers.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
@@ -9,9 +11,6 @@
 #include <vector>
 
 #if !defined(__wasm__) && !defined(_WIN32)
-#include "barretenberg/bbapi/bbapi_handlers.hpp"
-#include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
 #include "ipc_runtime/ipc_server.hpp"
 #include "ipc_runtime/signal_handlers.hpp"
 #endif
@@ -23,79 +22,56 @@ int process_msgpack_commands(std::istream& input_stream)
     // Redirect std::cout to stderr to prevent accidental writes to stdout
     auto* original_cout_buf = std::cout.rdbuf();
     std::cout.rdbuf(std::cerr.rdbuf());
-
-    // Create an ostream that writes directly to stdout
     std::ostream stdout_stream(original_cout_buf);
 
-    // Process length-encoded msgpack buffers
+    // Dispatcher is the codegen-emitted handler that owns the
+    // command-name → handle_<method> table and runs the per-call
+    // serialize / deserialize / exception → ErrorResponse plumbing.
+    // BBApiRequest lives across calls so IVC state (loaded circuit,
+    // accumulator, etc.) persists between Chonk* invocations.
+    bb::bbapi::BBApiRequest request;
+    auto handler = bb::bbapi::make_bb_handler(request);
+
     while (!input_stream.eof()) {
-        // Read 4-byte length prefix in little-endian format
         uint32_t length = 0;
         input_stream.read(reinterpret_cast<char*>(&length), sizeof(length));
-
         if (input_stream.gcount() != sizeof(length)) {
-            // End of stream or incomplete length
-            break;
+            break; // EOF or incomplete length
         }
 
-        // Read the msgpack buffer
         std::vector<uint8_t> buffer(length);
         input_stream.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(length));
-
         if (input_stream.gcount() != static_cast<std::streamsize>(length)) {
             std::cerr << "Error: Incomplete msgpack buffer read" << '\n';
-            // Restore original cout buffer before returning
             std::cout.rdbuf(original_cout_buf);
             return 1;
         }
 
-        // Deserialize the msgpack buffer
-        // The buffer should contain a tuple of arguments (array) matching the bbapi function signature.
-        // Since bbapi(Command) takes one argument, we expect a 1-element array containing the Command.
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-        auto obj = unpacked.get();
-
-        // First, expect an array (the tuple of arguments)
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
-            throw_or_abort("Expected an array of size 1 (tuple of arguments) for bbapi command deserialization");
+#ifndef BB_NO_EXCEPTIONS
+        std::vector<uint8_t> response;
+        try {
+            response = handler(buffer);
+        } catch (const ::ipc::ShutdownRequested& shutdown) {
+            // Write the shutdown response (already framed by the handler) and exit.
+            const auto& resp = shutdown.response();
+            uint32_t resp_length = static_cast<uint32_t>(resp.size());
+            stdout_stream.write(reinterpret_cast<const char*>(&resp_length), sizeof(resp_length));
+            stdout_stream.write(reinterpret_cast<const char*>(resp.data()), static_cast<std::streamsize>(resp.size()));
+            stdout_stream.flush();
+            std::cout.rdbuf(original_cout_buf);
+            return 0;
         }
+#else
+        std::vector<uint8_t> response = handler(buffer);
+#endif
 
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        auto& tuple_arr = obj.via.array;
-        auto& command_obj = tuple_arr.ptr[0];
-
-        // Now access the Command itself, which should be an array of size 2 [command-name, payload]
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
-            throw_or_abort("Expected Command to be an array of size 2 [command-name, payload]");
-        }
-
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
-        auto& command_arr = command_obj.via.array;
-        if (command_arr.ptr[0].type != msgpack::type::STR) {
-            throw_or_abort("Expected first element of Command to be a string (type name)");
-        }
-
-        // Convert to Command (which is a NamedUnion)
-        bb::bbapi::Command command;
-        command_obj.convert(command);
-
-        // Execute the command
-        auto response = bbapi::bbapi(std::move(command));
-
-        // Serialize the response
-        msgpack::sbuffer response_buffer;
-        msgpack::pack(response_buffer, response);
-
-        // Write length-encoded response directly to stdout
-        uint32_t response_length = static_cast<uint32_t>(response_buffer.size());
+        uint32_t response_length = static_cast<uint32_t>(response.size());
         stdout_stream.write(reinterpret_cast<const char*>(&response_length), sizeof(response_length));
-        stdout_stream.write(response_buffer.data(), static_cast<std::streamsize>(response_buffer.size()));
+        stdout_stream.write(reinterpret_cast<const char*>(response.data()),
+                            static_cast<std::streamsize>(response.size()));
         stdout_stream.flush();
     }
 
-    // Restore original cout buffer
     std::cout.rdbuf(original_cout_buf);
     return 0;
 }

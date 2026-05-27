@@ -12,6 +12,10 @@
  * share a 32-byte msgpack `bin32` encoding, so the byte-level conversion
  * is a `serialize_to_buffer` / `serialize_from_buffer` call.
  */
+#include "barretenberg/bbapi/bbapi_avm.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"

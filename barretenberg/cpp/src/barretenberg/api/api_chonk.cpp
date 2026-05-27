@@ -2,7 +2,10 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/json_output.hpp"
 #include "barretenberg/api/log.hpp"
-#include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/bbapi/bbapi_handlers.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/bbapi_wire_convert.hpp"
+#include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
@@ -33,16 +36,21 @@ namespace { // anonymous namespace
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
+    bbapi::BBApiRequest request;
     auto response =
-        bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .use_zk_flavor = flags.use_zk_flavor }
-            .execute();
+        bbapi::handle_chonk_compute_vk(request,
+                                       bbapi::wire::ChonkComputeVk{
+                                           .circuit = bbapi::wire::CircuitInputNoVK{ .bytecode = std::move(bytecode) },
+                                           .use_zk_flavor = flags.use_zk_flavor,
+                                       });
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
         write_bytes_to_stdout(response.bytes);
     } else if (flags.output_format == "json") {
-        // Note: Chonk VK doesn't have a hash, so we pass an empty string
-        std::string json_content = VkJson::build(response.fields, "", flags.scheme);
+        // Note: Chonk VK doesn't have a hash, so we pass an empty string.
+        auto fields = bbapi::fr_vec_from_wire(response.fields);
+        std::string json_content = VkJson::build(fields, "", flags.scheme);
         write_file(output_path / "vk.json", std::vector<uint8_t>(json_content.begin(), json_content.end()));
         info("VK (JSON) saved to ", output_path / "vk.json");
     } else {
@@ -60,21 +68,25 @@ void ChonkAPI::prove(const Flags& flags,
     request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
+    bbapi::handle_chonk_start(request,
+                              bbapi::wire::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) });
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (size_t i = 0; i < raw_steps.size(); ++i) {
         const auto& step = raw_steps[i];
-        bbapi::ChonkLoad{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
-        }
-            .execute(request);
+        bbapi::handle_chonk_load(request,
+                                 bbapi::wire::ChonkLoad{ .circuit = bbapi::wire::CircuitInput{
+                                                             .name = step.function_name,
+                                                             .bytecode = step.bytecode,
+                                                             .verification_key = step.vk,
+                                                         } });
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
         info("Chonk: accumulating " + step.function_name);
-        bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
+        bbapi::handle_chonk_accumulate(request, bbapi::wire::ChonkAccumulate{ .witness = step.witness });
     }
 
-    auto proof = bbapi::ChonkProve{}.execute(request).proof;
+    auto wire_proof = bbapi::handle_chonk_prove(request, bbapi::wire::ChonkProve{}).proof;
+    auto proof = bbapi::chonk_proof_from_wire(std::move(wire_proof));
 
     const bool output_to_stdout = output_dir == "-";
 
@@ -117,7 +129,9 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 
     auto vk_buffer = read_vk_file(vk_path);
 
-    auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
+    bbapi::BBApiRequest request;
+    auto response = bbapi::handle_chonk_verify(
+        request, bbapi::wire::ChonkVerify{ .proof = bbapi::chonk_proof_to_wire(proof), .vk = std::move(vk_buffer) });
     return response.valid;
 }
 
@@ -147,7 +161,14 @@ bool ChonkAPI::batch_verify([[maybe_unused]] const Flags& flags, const std::file
 
     info("ChonkAPI::batch_verify - found ", proofs.size(), " proof/vk pairs in ", proofs_dir.string());
 
-    auto response = bbapi::ChonkBatchVerify{ .proofs = std::move(proofs), .vks = std::move(vks) }.execute();
+    std::vector<bbapi::wire::ChonkProof> wire_proofs;
+    wire_proofs.reserve(proofs.size());
+    for (const auto& p : proofs) {
+        wire_proofs.push_back(bbapi::chonk_proof_to_wire(p));
+    }
+    bbapi::BBApiRequest request;
+    auto response = bbapi::handle_chonk_batch_verify(
+        request, bbapi::wire::ChonkBatchVerify{ .proofs = std::move(wire_proofs), .vks = std::move(vks) });
     return response.valid;
 }
 
@@ -221,12 +242,14 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
             return false;
         }
         const bool use_zk_flavor = (i == raw_steps.size() - 1);
-        auto response =
-            bbapi::ChonkCheckPrecomputedVk{
-                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+        auto response = bbapi::handle_chonk_check_precomputed_vk(
+            request,
+            bbapi::wire::ChonkCheckPrecomputedVk{
+                .circuit = bbapi::wire::CircuitInput{ .name = step.function_name,
+                                                      .bytecode = step.bytecode,
+                                                      .verification_key = step.vk },
                 .use_zk_flavor = use_zk_flavor,
-            }
-                .execute();
+            });
 
         if (!response.valid) {
             info("VK mismatch detected for function ", step.function_name);
@@ -271,9 +294,12 @@ void chonk_gate_count(const std::string& bytecode_path, bool include_gates_per_o
     bbapi::BBApiRequest request;
 
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ChonkStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
-                                       .include_gates_per_opcode = include_gates_per_opcode }
-                        .execute(request);
+    auto response = bbapi::handle_chonk_stats(
+        request,
+        bbapi::wire::ChonkStats{
+            .circuit = bbapi::wire::CircuitInputNoVK{ .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+            .include_gates_per_opcode = include_gates_per_opcode,
+        });
 
     // Build the circuit report. It always has one function, corresponding to the ACIR constraint systems.
     // NOTE: can be reconsidered
