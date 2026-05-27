@@ -86,6 +86,7 @@ locals {
           }
           extraArgs = [
             "--chain=${var.chain}",
+            # "--storage.v2=true",
           ]
 
           persistence = {
@@ -93,6 +94,33 @@ locals {
             size             = var.reth_storage
             storageClassName = "premium-rwo"
           }
+
+          # disabled because sepolia db has already been migrated, mainnet has not been migrated yet
+          #initContainers = [
+          #  {
+          #    name            = "migrate-storage-v2"
+          #    image           = var.reth_image
+          #    imagePullPolicy = "Always"
+          #    command = [
+          #      "sh",
+          #      "-ac",
+          #      <<-EOT
+          #      if [ ! -f /data/db/database.version ]; then
+          #        echo "No existing Reth database found, skipping storage v2 migration."
+          #        exit 0
+          #      fi
+
+          #      reth db --datadir=/data --chain=${var.chain} migrate-v2
+          #      EOT
+          #    ]
+          #    volumeMounts = [
+          #      {
+          #        name      = "storage"
+          #        mountPath = "/data"
+          #      }
+          #    ]
+          #  }
+          #]
         })
       ]
     }
