@@ -78,6 +78,7 @@ import { AddressStore } from './storage/address_store/address_store.js';
 import { CanonicalChainStore } from './storage/canonical_chain_store/canonical_chain_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
+import { FactStore } from './storage/fact_store/fact_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
 import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
@@ -174,6 +175,7 @@ export class PXE {
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private canonicalChainStore: CanonicalChainStore,
     private senderTaggingStore: SenderTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
@@ -241,6 +243,7 @@ export class PXE {
       senderAddressBookStore,
       recipientTaggingStore,
       capsuleStore,
+      factStore,
       keyStore,
       l2TipsStore,
     } = openPxeStores(store, initialBlockHash);
@@ -288,6 +291,7 @@ export class PXE {
       contractStore,
       noteStore,
       capsuleStore,
+      factStore,
       canonicalChainStore,
       senderTaggingStore,
       senderAddressBookStore,
@@ -337,6 +341,7 @@ export class PXE {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
+      factStore: this.factStore,
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,

@@ -42,6 +42,7 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { FactStoreService } from '../../storage/fact_store/fact_store_service.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -72,6 +73,7 @@ export type UtilityExecutionOracleArgs = {
   recipientTaggingStore: RecipientTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
   capsuleService: CapsuleService;
+  factStoreService: FactStoreService;
   privateEventStore: PrivateEventStore;
   messageContextService: MessageContextService;
   contractSyncService: ContractSyncService;
@@ -112,6 +114,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly recipientTaggingStore: RecipientTaggingStore;
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleService: CapsuleService;
+  protected readonly factStoreService: FactStoreService;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly messageContextService: MessageContextService;
   protected readonly contractSyncService: ContractSyncService;
@@ -136,6 +139,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.recipientTaggingStore = args.recipientTaggingStore;
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleService = args.capsuleService;
+    this.factStoreService = args.factStoreService;
     this.privateEventStore = args.privateEventStore;
     this.messageContextService = args.messageContextService;
     this.contractSyncService = args.contractSyncService;
@@ -812,26 +816,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnDb(contractAddress);
     this.capsuleService.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
   public getCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnDb(contractAddress);
     return this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnDb(contractAddress);
     this.capsuleService.deleteCapsule(contractAddress, slot, this.jobId, scope);
   }
 
@@ -842,11 +837,72 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     numEntries: number,
     scope: AztecAddress,
   ): Promise<void> {
+    this.#assertOwnDb(contractAddress);
+    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
+  }
+
+  /**
+   * Guards access to this oracle's PXE DB: only the executing contract may read or write its own storage.
+   * Shared by the capsule and fact-store handlers.
+   */
+  #assertOwnDb(contractAddress: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
+  }
+
+  public recordFact(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityType: Fr,
+    factType: Fr,
+    correlationKey: Fr,
+    payload: Fr[],
+    anchor: { blockNumber: number; blockHash: Fr } | null,
+  ): Promise<void> {
+    this.#assertOwnDb(contractAddress);
+    return this.factStoreService.recordFact(
+      contractAddress,
+      scope,
+      entityType,
+      factType,
+      correlationKey.toBuffer(),
+      Buffer.concat(payload.map(f => f.toBuffer())),
+      anchor ? { blockNumber: anchor.blockNumber, blockHash: anchor.blockHash.toString() } : null,
+    );
+  }
+
+  public async activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityType: Fr): Promise<Fr[]> {
+    this.#assertOwnDb(contractAddress);
+    const keys = await this.factStoreService.activeEntities(contractAddress, scope, entityType);
+    return keys.map(k => Fr.fromBuffer(k));
+  }
+
+  public async loadCanonicalFacts(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityType: Fr,
+    correlationKey: Fr,
+  ): Promise<{ factType: Fr; payload: Fr[] }[]> {
+    this.#assertOwnDb(contractAddress);
+    const facts = await this.factStoreService.loadCanonicalFactSet(
+      contractAddress,
+      scope,
+      entityType,
+      correlationKey.toBuffer(),
+    );
+    return facts.map(f => ({ factType: f.factType, payload: bufferToFields(f.payload) }));
+  }
+
+  public terminateEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityType: Fr,
+    correlationKey: Fr,
+  ): Promise<void> {
+    this.#assertOwnDb(contractAddress);
+    return this.factStoreService.terminateEntity(contractAddress, scope, entityType, correlationKey.toBuffer());
   }
 
   /**
@@ -981,6 +1037,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: this.capsuleService,
+      factStoreService: this.factStoreService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
@@ -1055,4 +1112,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
     return response;
   }
+}
+
+/** Splits a buffer of concatenated 32-byte field representations back into `Fr`s. */
+function bufferToFields(buf: Buffer): Fr[] {
+  const fields: Fr[] = [];
+  for (let offset = 0; offset < buf.length; offset += Fr.SIZE_IN_BYTES) {
+    fields.push(Fr.fromBuffer(buf.subarray(offset, offset + Fr.SIZE_IN_BYTES)));
+  }
+  return fields;
 }

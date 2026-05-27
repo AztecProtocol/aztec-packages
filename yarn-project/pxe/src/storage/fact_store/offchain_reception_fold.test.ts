@@ -64,6 +64,10 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
     const contractStore = mock<ContractStore>();
     anchorBlockHeader = BlockHeader.random();
 
+    chain = new CanonicalChainStore(await openTmpStore('fold-cc'));
+    await chain.load();
+    factStore = new FactStore(await openTmpStore('fold-facts'), chain);
+
     acirSimulator = new ContractFunctionSimulator({
       contractStore,
       noteStore: mock<NoteStore>(),
@@ -75,6 +79,7 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
       recipientTaggingStore: mock<RecipientTaggingStore>(),
       senderAddressBookStore: mock<SenderAddressBookStore>(),
       capsuleStore: mock<CapsuleStore>(),
+      factStore,
       privateEventStore: mock<PrivateEventStore>(),
       simulator,
       contractSyncService: mock<ContractSyncService>(),
@@ -92,10 +97,6 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
     });
 
     fixture = { artifact: foldArtifact, address: await AztecAddress.random() };
-
-    chain = new CanonicalChainStore(await openTmpStore('fold-cc'));
-    await chain.load();
-    factStore = new FactStore(await openTmpStore('fold-facts'), chain);
   });
 
   const put = (factType: Fr, anchor: { blockNumber: number; blockHash: string } | null) =>

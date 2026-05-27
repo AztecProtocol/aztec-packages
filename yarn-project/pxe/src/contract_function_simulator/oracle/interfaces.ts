@@ -151,6 +151,28 @@ export interface IUtilityExecutionOracle {
     messageContextResponsesArrayBaseSlot: Fr,
     scope: AztecAddress,
   ): Promise<void>;
+  recordFact(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityType: Fr,
+    factType: Fr,
+    correlationKey: Fr,
+    payload: Fr[],
+    anchor: { blockNumber: number; blockHash: Fr } | null,
+  ): Promise<void>;
+  activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityType: Fr): Promise<Fr[]>;
+  loadCanonicalFacts(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityType: Fr,
+    correlationKey: Fr,
+  ): Promise<{ factType: Fr; payload: Fr[] }[]>;
+  terminateEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityType: Fr,
+    correlationKey: Fr,
+  ): Promise<void>;
   setCapsule(contractAddress: AztecAddress, key: Fr, capsule: Fr[], scope: AztecAddress): void;
   getCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): Promise<Fr[] | null>;
   deleteCapsule(contractAddress: AztecAddress, key: Fr, scope: AztecAddress): void;
