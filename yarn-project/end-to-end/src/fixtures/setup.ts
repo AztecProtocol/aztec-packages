@@ -895,8 +895,10 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 
 /**
  * Registers the auth_registry contract class and publishes its standard instance if not already
- * present. Required before exercising the public authwit path, which relies on the AVM's
- * deployment-nullifier check.
+ * present, and registers the artifact with PXE. Publishing is required before exercising the public
+ * authwit path (which relies on the AVM's deployment-nullifier check); the PXE-side registration is
+ * required so revert messages from AuthRegistry calls can be enriched (otherwise assertion strings
+ * surface as generic "Assertion failed:" and tests that match on the real message fail).
  */
 export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAddress) {
   const { instance, contractClass } = await getStandardAuthRegistry();
@@ -906,6 +908,7 @@ export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAdd
   if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
     await publishInstance(wallet, instance).send({ from });
   }
+  await wallet.registerContract(instance, AuthRegistryArtifact);
 }
 
 /**
