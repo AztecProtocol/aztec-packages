@@ -24,6 +24,7 @@
 const S: u32 = {{ s }}u;
 const PG: u32 = 2u;
 const QUEUE_HEADER_LEN: u32 = {{ queue_header_len }}u;
+const IDLE_ANCHOR: u32 = {{ idle_anchor }}u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const IDLE_DEST: u32 = 0x40000000u;
@@ -116,9 +117,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var end_cursor: array<u32, {{ s }}>;
     var is_first: array<u32, {{ s }}>;
     var dest: array<u32, {{ s }}>;
+    // Tracks slots that have exhausted the queue. Done slots participate in
+    // the batched inversion (using IDLE anchor points for non-zero dx) but
+    // their affine-add results are discarded.
+    var slot_done: array<u32, {{ s }}>;
     var qhead: u32 = 0u;
 
-    // Pop initial S entries.
     for (var k: u32 = 0u; k < S; k = k + 1u) {
         if (qhead < q_count) {
             let base = q_start + qhead * 3u;
@@ -126,34 +130,34 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             end_cursor[k] = queue_buf[QUEUE_HEADER_LEN + base + 1u];
             dest[k]       = queue_buf[QUEUE_HEADER_LEN + base + 2u];
             is_first[k] = 1u;
+            slot_done[k] = 0u;
             qhead += 1u;
         } else {
-            cursor[k] = 0u;
-            end_cursor[k] = 0u;
+            cursor[k] = IDLE_ANCHOR;
+            end_cursor[k] = IDLE_ANCHOR + 2u;
             dest[k] = IDLE_DEST;
             is_first[k] = 1u;
+            slot_done[k] = 1u;
         }
     }
 
     loop {
-        // Check if any slot still has work.
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
-            if (cursor[k] < end_cursor[k]) {
-                any_active = true;
-            }
+            if (slot_done[k] == 0u) { any_active = true; }
         }
         if (!any_active) { break; }
 
-        // Forward prefix: compute dx for each slot and accumulate.
+        // Forward prefix: compute dx for each slot. Done slots use IDLE
+        // anchor points (guaranteed distinct x-coords on BN254 SRS) to
+        // keep the prefix product non-zero.
         var acc: array<u32, 8> = get_r_f8();
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
-            if (cursor[k] >= end_cursor[k]) {
-                // Slot is idle — use identity difference (R).
-                p_lx = get_r_f8();
-                p_rx = get_r_f8();
+            if (slot_done[k] == 1u) {
+                p_lx = load_pt_x(IDLE_ANCHOR);
+                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
             } else if (is_first[k] == 1u) {
                 p_lx = load_pt_x(cursor[k]);
                 p_rx = load_pt_x(cursor[k] + 1u);
@@ -170,7 +174,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             store_pref(pref_base + k, acc);
         }
 
-        // Single inversion.
         var acc20 = unpack256_to_limbs(acc);
         var inv20 = {{ inv_fn }}(acc20);
         var inv = pack_limbs_to_256(&inv20);
@@ -186,9 +189,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 inv_dx = montgomery_product_f8(inv, pp);
                 var p_lx_b: array<u32, 8>;
                 var p_rx_b: array<u32, 8>;
-                if (cursor[k] >= end_cursor[k]) {
-                    p_lx_b = get_r_f8();
-                    p_rx_b = get_r_f8();
+                if (slot_done[k] == 1u) {
+                    p_lx_b = load_pt_x(IDLE_ANCHOR);
+                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
                 } else if (is_first[k] == 1u) {
                     p_lx_b = load_pt_x(cursor[k]);
                     p_rx_b = load_pt_x(cursor[k] + 1u);
@@ -206,10 +209,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
             let k = S - 1u - jj;
 
-            if (cursor[k] >= end_cursor[k]) {
-                // Idle slot — nothing to do.
-                continue;
-            }
+            if (slot_done[k] == 1u) { continue; }
 
             var p_lx: array<u32, 8>;
             var p_ly: array<u32, 8>;
@@ -243,17 +243,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             r_y = fr_sub_f8(r_y, p_ly);
 
             if (cursor[k] >= end_cursor[k]) {
-                // Piece done — retire.
                 let dp = dest[k];
                 if ((dp & IDLE_DEST) != 0u) {
-                    // Discard.
+                    // IDLE — discard.
                 } else if ((dp & PARTIAL_BIT) != 0u) {
                     let ps = dp & 0x3FFFFFFFu;
                     store_soa(&partials_buf, ps, M_partials, r_x, r_y);
                 } else {
                     store_soa(&bucket_sums, dp, M_buckets, r_x, r_y);
                 }
-                // Pop next entry.
                 if (qhead < q_count) {
                     let base = q_start + qhead * 3u;
                     cursor[k]     = queue_buf[QUEUE_HEADER_LEN + base + 0u];
@@ -262,10 +260,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     is_first[k] = 1u;
                     qhead += 1u;
                 } else {
-                    cursor[k] = 0u;
-                    end_cursor[k] = 0u;
-                    dest[k] = IDLE_DEST;
-                    is_first[k] = 1u;
+                    slot_done[k] = 1u;
                 }
             } else {
                 store_soa(&acc_buf, t * S + k, M_acc, r_x, r_y);

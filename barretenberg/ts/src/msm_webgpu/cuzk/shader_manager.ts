@@ -939,6 +939,7 @@ ${packLines.join('\n')}
     workgroup_size: number,
     s: number,
     queue_header_len: number,
+    idle_anchor: number,
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
@@ -948,7 +949,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_stream_accum_shader,
       {
-        workgroup_size, s, inv_fn, queue_header_len,
+        workgroup_size, s, inv_fn, queue_header_len, idle_anchor,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
