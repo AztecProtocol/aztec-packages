@@ -275,7 +275,11 @@ export class PrivateKernelExecutionProver {
     if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
         const gateCountTimer = new Timer();
-        const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
+        const gateCount = await this.proofCreator.computeGateCountForCircuit(
+          entry.bytecode,
+          entry.functionName,
+          entry.kind,
+        );
         entry.gateCount = gateCount;
         entry.timings.gateCount = gateCountTimer.ms();
       }

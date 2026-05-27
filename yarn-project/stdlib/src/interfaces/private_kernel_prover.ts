@@ -202,7 +202,12 @@ export interface PrivateKernelProver {
    * Compute the gate count for a given circuit.
    * @param bytecode - The circuit bytecode in gzipped bincode format
    * @param circuitName - The name of the circuit
+   * @param circuitKind - The circuit kind expected by the Chonk backend
    * @returns A Promise resolving to the gate count
    */
-  computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number>;
+  computeGateCountForCircuit(
+    bytecode: Buffer,
+    circuitName: string,
+    circuitKind: PrivateExecutionStep['kind'],
+  ): Promise<number>;
 }
