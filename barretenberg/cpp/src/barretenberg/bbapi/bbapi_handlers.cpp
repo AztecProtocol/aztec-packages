@@ -14,7 +14,6 @@
 #include "barretenberg/bbapi/bbapi_handlers.hpp"
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
 #include "barretenberg/bbapi/bbapi_ecdsa.hpp"
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
@@ -22,6 +21,13 @@
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/bbapi_wire_convert.hpp"
 #include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/crypto/aes128/aes128.hpp"
+#include "barretenberg/crypto/blake2s/blake2s.hpp"
+#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::bbapi {
@@ -239,64 +245,73 @@ wire::ChonkBatchVerifierStopResponse handle_chonk_batch_verifier_stop(BBApiReque
 }
 
 // ===========================================================================
-// Hashing primitives (explicit field-by-field).
+// Hashing primitives
 // ===========================================================================
 
-wire::Poseidon2HashResponse handle_poseidon2_hash(BBApiRequest& ctx, wire::Poseidon2Hash&& cmd)
+wire::Poseidon2HashResponse handle_poseidon2_hash(BBApiRequest& /*ctx*/, wire::Poseidon2Hash&& cmd)
 {
-    Poseidon2Hash domain_cmd{ .inputs = fr_vec_from_wire(cmd.inputs) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .hash = fr_to_wire(resp.hash) };
+    auto inputs = fr_vec_from_wire(cmd.inputs);
+    auto hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs);
+    return { .hash = fr_to_wire(hash) };
 }
-wire::Poseidon2PermutationResponse handle_poseidon2_permutation(BBApiRequest& ctx, wire::Poseidon2Permutation&& cmd)
+wire::Poseidon2PermutationResponse handle_poseidon2_permutation(BBApiRequest& /*ctx*/, wire::Poseidon2Permutation&& cmd)
 {
-    Poseidon2Permutation domain_cmd{ .inputs = fr_array_from_wire<4>(cmd.inputs) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .outputs = fr_array_to_wire<4>(resp.outputs) };
+    using Permutation = crypto::Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams>;
+    auto inputs = fr_array_from_wire<4>(cmd.inputs);
+    auto outputs = Permutation::permutation(inputs);
+    return { .outputs = fr_array_to_wire<4>(outputs) };
 }
-wire::PedersenCommitResponse handle_pedersen_commit(BBApiRequest& ctx, wire::PedersenCommit&& cmd)
+wire::PedersenCommitResponse handle_pedersen_commit(BBApiRequest& /*ctx*/, wire::PedersenCommit&& cmd)
 {
-    PedersenCommit domain_cmd{ .inputs = fr_vec_from_wire(cmd.inputs), .hash_index = cmd.hash_index };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .point = grumpkin_point_to_wire(resp.point) };
+    crypto::GeneratorContext<curve::Grumpkin> gctx;
+    gctx.offset = static_cast<size_t>(cmd.hash_index);
+    auto inputs = fr_vec_from_wire(cmd.inputs);
+    auto point = crypto::pedersen_commitment::commit_native(inputs, gctx);
+    return { .point = grumpkin_point_to_wire(point) };
 }
-wire::PedersenHashResponse handle_pedersen_hash(BBApiRequest& ctx, wire::PedersenHash&& cmd)
+wire::PedersenHashResponse handle_pedersen_hash(BBApiRequest& /*ctx*/, wire::PedersenHash&& cmd)
 {
-    PedersenHash domain_cmd{ .inputs = fr_vec_from_wire(cmd.inputs), .hash_index = cmd.hash_index };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .hash = fr_to_wire(resp.hash) };
+    crypto::GeneratorContext<curve::Grumpkin> gctx;
+    gctx.offset = static_cast<size_t>(cmd.hash_index);
+    auto inputs = fr_vec_from_wire(cmd.inputs);
+    auto hash = crypto::pedersen_hash::hash(inputs, gctx);
+    return { .hash = fr_to_wire(hash) };
 }
-wire::PedersenHashBufferResponse handle_pedersen_hash_buffer(BBApiRequest& ctx, wire::PedersenHashBuffer&& cmd)
+wire::PedersenHashBufferResponse handle_pedersen_hash_buffer(BBApiRequest& /*ctx*/, wire::PedersenHashBuffer&& cmd)
 {
-    PedersenHashBuffer domain_cmd{ .input = std::move(cmd.input), .hash_index = cmd.hash_index };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .hash = fr_to_wire(resp.hash) };
+    crypto::GeneratorContext<curve::Grumpkin> gctx;
+    gctx.offset = static_cast<size_t>(cmd.hash_index);
+    auto hash = crypto::pedersen_hash::hash_buffer(cmd.input, gctx);
+    return { .hash = fr_to_wire(hash) };
 }
-wire::Blake2sResponse handle_blake2s(BBApiRequest& ctx, wire::Blake2s&& cmd)
+wire::Blake2sResponse handle_blake2s(BBApiRequest& /*ctx*/, wire::Blake2s&& cmd)
 {
-    Blake2s domain_cmd{ .data = std::move(cmd.data) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .hash = fr_wrap(resp.hash) };
+    return { .hash = crypto::blake2s(cmd.data) };
 }
-wire::Blake2sToFieldResponse handle_blake2s_to_field(BBApiRequest& ctx, wire::Blake2sToField&& cmd)
+wire::Blake2sToFieldResponse handle_blake2s_to_field(BBApiRequest& /*ctx*/, wire::Blake2sToField&& cmd)
 {
-    Blake2sToField domain_cmd{ .data = std::move(cmd.data) };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .field = fr_to_wire(resp.field) };
+    auto hash_result = crypto::blake2s(cmd.data);
+    return { .field = fr_to_wire(fr::serialize_from_buffer(hash_result.data())) };
 }
-wire::AesEncryptResponse handle_aes_encrypt(BBApiRequest& ctx, wire::AesEncrypt&& cmd)
+wire::AesEncryptResponse handle_aes_encrypt(BBApiRequest& /*ctx*/, wire::AesEncrypt&& cmd)
 {
-    AesEncrypt domain_cmd{ .plaintext = std::move(cmd.plaintext), .iv = cmd.iv, .key = cmd.key, .length = cmd.length };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .ciphertext = std::move(resp.ciphertext) };
+    BB_ASSERT(cmd.length == cmd.plaintext.size(), "AesEncrypt: length must equal plaintext.size()");
+    BB_ASSERT(cmd.length % 16 == 0, "AesEncrypt: length must be a multiple of 16");
+
+    std::vector<uint8_t> result = std::move(cmd.plaintext);
+    result.resize(cmd.length);
+    crypto::aes128_encrypt_buffer_cbc(result.data(), cmd.iv.data(), cmd.key.data(), cmd.length);
+    return { .ciphertext = std::move(result) };
 }
-wire::AesDecryptResponse handle_aes_decrypt(BBApiRequest& ctx, wire::AesDecrypt&& cmd)
+wire::AesDecryptResponse handle_aes_decrypt(BBApiRequest& /*ctx*/, wire::AesDecrypt&& cmd)
 {
-    AesDecrypt domain_cmd{
-        .ciphertext = std::move(cmd.ciphertext), .iv = cmd.iv, .key = cmd.key, .length = cmd.length
-    };
-    auto resp = std::move(domain_cmd).execute(ctx);
-    return { .plaintext = std::move(resp.plaintext) };
+    BB_ASSERT(cmd.length == cmd.ciphertext.size(), "AesDecrypt: length must equal ciphertext.size()");
+    BB_ASSERT(cmd.length % 16 == 0, "AesDecrypt: length must be a multiple of 16");
+
+    std::vector<uint8_t> result = std::move(cmd.ciphertext);
+    result.resize(cmd.length);
+    crypto::aes128_decrypt_buffer_cbc(result.data(), cmd.iv.data(), cmd.key.data(), cmd.length);
+    return { .plaintext = std::move(result) };
 }
 
 // ===========================================================================

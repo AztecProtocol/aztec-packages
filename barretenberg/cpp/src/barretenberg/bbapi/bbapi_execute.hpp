@@ -1,7 +1,6 @@
 #pragma once
 
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
 #include "barretenberg/bbapi/bbapi_ecdsa.hpp"
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
@@ -32,15 +31,6 @@ using Command = NamedUnion<CircuitProve,
                            ChonkStats,
                            ChonkCompressProof,
                            ChonkDecompressProof,
-                           Poseidon2Hash,
-                           Poseidon2Permutation,
-                           PedersenCommit,
-                           PedersenHash,
-                           PedersenHashBuffer,
-                           Blake2s,
-                           Blake2sToField,
-                           AesEncrypt,
-                           AesDecrypt,
                            GrumpkinMul,
                            GrumpkinAdd,
                            GrumpkinBatchMul,
@@ -93,15 +83,6 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    ChonkStats::Response,
                                    ChonkCompressProof::Response,
                                    ChonkDecompressProof::Response,
-                                   Poseidon2Hash::Response,
-                                   Poseidon2Permutation::Response,
-                                   PedersenCommit::Response,
-                                   PedersenHash::Response,
-                                   PedersenHashBuffer::Response,
-                                   Blake2s::Response,
-                                   Blake2sToField::Response,
-                                   AesEncrypt::Response,
-                                   AesDecrypt::Response,
                                    GrumpkinMul::Response,
                                    GrumpkinAdd::Response,
                                    GrumpkinBatchMul::Response,
