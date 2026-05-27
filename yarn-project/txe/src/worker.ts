@@ -6,7 +6,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 // Importing `./index.js` (which transitively imports `./msgpackr_fr_extension.js`) registers
 // the msgpackr Fr extension for the bundled `Fr` class identity. Must happen before any
 // `sendMessage` call. See msgpackr_fr_extension.ts for why.
-import { TXEDispatcher, type TXEDispatcherOptions, type TXEForeignCallInput } from './index.js';
+import { TXEDispatcher, type TXEDispatcherOptions, type TXEForeignCallInput, activeSessionCount } from './index.js';
 
 // Seed the bb.js singletons with WASM before the first runtime crypto call. `initSingleton`
 // resolves to whichever backend the *first* call requests; subsequent calls (e.g. the implicit
@@ -83,6 +83,24 @@ function serializeError(err: unknown): SerializedError {
 // between `new Worker()` and receiving this message to attribute V8 isolate startup + import
 // graph compilation, which is otherwise opaque.
 port.postMessage({ type: 'spawned' });
+
+// Periodic memstat for diagnostic builds — set TXE_WORKER_MEMSTAT=1 to enable. Posts JS-heap
+// breakdown + active-session count back to the dispatcher so we can attribute RSS growth
+// between V8 heap (would show in heapUsed) and native (LMDB / world-state / WASM).
+if (process.env.TXE_WORKER_MEMSTAT === '1') {
+  setInterval(() => {
+    const m = process.memoryUsage();
+    port.postMessage({
+      type: 'memstat',
+      sessions: activeSessionCount(),
+      rss: m.rss,
+      heapTotal: m.heapTotal,
+      heapUsed: m.heapUsed,
+      external: m.external,
+      arrayBuffers: m.arrayBuffers,
+    });
+  }, 2000).unref();
+}
 
 port.on('message', (msg: IncomingMessage) => {
   switch (msg.type) {

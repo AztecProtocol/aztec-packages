@@ -9,6 +9,11 @@ import { createTXERpcServer } from '../rpc_server.js';
 // reads HARDWARE_CONCURRENCY at module load and defaults to 16; with N workers in the pool
 // each one would otherwise spin up 16 libuv threads, which is wasteful for TXE's small
 // per-test workload. Workers inherit `process.env`, so setting it here is enough.
+//
+// CAVEAT: HARDWARE_CONCURRENCY is read by every consumer in the process — bb prove/verify,
+// LMDB reader pool, world-state native thread pool — not just TXE-internal callers. The
+// 2-thread cap is safe today because TXE never proves or verifies and its world-state work
+// is tree updates (light).
 process.env.HARDWARE_CONCURRENCY ??= '2';
 
 // TXE's state machine uses `NativeWorldStateService.ephemeral()` — auto-managed tmpdir +

@@ -39,7 +39,16 @@ type WorkerMessage =
   | { type: 'result'; requestId: number; ok: true; value: ForeignCallResult }
   | { type: 'result'; requestId: number; ok: false; error: SerializedError }
   | { type: 'spawned' }
-  | { type: 'ready'; warmMs?: number; error?: SerializedError };
+  | { type: 'ready'; warmMs?: number; error?: SerializedError }
+  | {
+      type: 'memstat';
+      sessions: number;
+      rss: number;
+      heapTotal: number;
+      heapUsed: number;
+      external: number;
+      arrayBuffers: number;
+    };
 
 interface WorkerSlot {
   worker: Worker;
@@ -295,6 +304,17 @@ export class TXEDispatcherPool {
         return;
       case 'ready':
         this.handleReady(workerIdx, msg);
+        return;
+      case 'memstat':
+        this.logger.info(`worker ${workerIdx} memstat`, {
+          worker: workerIdx,
+          sessions: msg.sessions,
+          rssMiB: Math.round(msg.rss / 1024 / 1024),
+          heapTotalMiB: Math.round(msg.heapTotal / 1024 / 1024),
+          heapUsedMiB: Math.round(msg.heapUsed / 1024 / 1024),
+          externalMiB: Math.round(msg.external / 1024 / 1024),
+          arrayBuffersMiB: Math.round(msg.arrayBuffers / 1024 / 1024),
+        });
         return;
     }
   }

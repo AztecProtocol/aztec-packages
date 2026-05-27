@@ -411,6 +411,11 @@ export class TXEDispatcher {
   }
 }
 
+/** Diagnostic-only: number of sessions currently held by this worker. */
+export function activeSessionCount(): number {
+  return sessions.size;
+}
+
 export const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
   // eslint-disable-next-line camelcase
   resolve_foreign_call: z.function({ input: z.tuple([TXEForeignCallInputSchema]), output: ForeignCallResultSchema }),
@@ -421,7 +426,3 @@ export const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
   // disposeSession is called via worker IPC, never via RPC.
   disposeSession: z.function({ input: z.tuple([z.number().nonnegative()]), output: z.void() }),
 };
-// `createTXERpcServer` deliberately lives in `./rpc_server.ts` and is exposed under the
-// `@aztec/txe/server` subpath. Re-exporting it from this barrel would pull `createSafeJsonRpcServer`
-// → koa, raw-body, iconv-lite, mime-db (~1 MiB) into the worker bundle, since `worker.ts` imports
-// `TXEDispatcher` from here.
