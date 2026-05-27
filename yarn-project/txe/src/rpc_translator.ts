@@ -1,9 +1,10 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
-import { callTxeHandler } from './txe_oracle_registry.js';
+import { callTxeHandler } from './oracle/txe_oracle_registry.js';
 import type { TXESessionStateHandler } from './txe_session.js';
 import {
   type ForeignCallArgs,

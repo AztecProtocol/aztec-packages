@@ -37,8 +37,8 @@ import {
   MAX_OFFCHAIN_EFFECT_LEN,
   MAX_PRIVATE_EVENTS_PER_TXE_QUERY,
   MAX_PRIVATE_EVENT_LEN,
-} from './constants.js';
-import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
+} from '../constants.js';
+import type { ForeignCallArgs, ForeignCallResult } from '../util/encoding.js';
 
 const GAS_SETTINGS: TypeMapping<GasSettings> = {
   serialization: { fn: v => v.toFields() },
@@ -124,7 +124,7 @@ const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ member: Fr; exists: boolean }> = {
 
 const EVENT_SELECTOR: TypeMapping<EventSelector> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()) },
+  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()), slots: 1 },
 };
 
 const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {

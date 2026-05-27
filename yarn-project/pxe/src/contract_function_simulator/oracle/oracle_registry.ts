@@ -82,7 +82,7 @@ export const BYTE: TypeMapping<number> = {
 
 export const BIGINT: TypeMapping<bigint> = {
   serialization: { fn: v => [new Fr(v)] },
-  deserialization: { fn: ([reader]) => reader.readField().toBigInt() },
+  deserialization: { fn: ([reader]) => reader.readField().toBigInt(), slots: 1 },
 };
 
 /** Reads every field in the slot as a UTF-8 character code. */
@@ -107,7 +107,7 @@ export const STR: TypeMapping<string> = {
  * side doesn't need because the ACVM slot already encodes the array length. IGNORED reads and discards them.
  */
 export const IGNORED: TypeMapping<undefined> = {
-  deserialization: { fn: () => undefined },
+  deserialization: { fn: () => undefined, slots: 1 },
 };
 
 export const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
