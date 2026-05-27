@@ -19,7 +19,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { type NoirCompiledContract } from '@aztec/stdlib/noir';
+import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
 import { promises as fs } from 'fs';
 import path from 'path';
