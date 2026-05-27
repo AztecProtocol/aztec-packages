@@ -63,7 +63,7 @@ export class AppTaggingSecret {
   }
 
   toString(): string {
-    // Keep the legacy two-part unconstrained key so existing tagging-store entries remain addressable.
+    // Keep the existing two-part unconstrained key so stored tagging entries remain addressable.
     if (this.kind === AppTaggingSecretKind.UNCONSTRAINED) {
       return `${this.secret.toString()}:${this.app.toString()}`;
     }
@@ -127,7 +127,6 @@ export const AppTaggingSecretSchema = z
 function appTaggingSecretKindFromString(kind: string): AppTaggingSecretKind {
   switch (kind) {
     case AppTaggingSecretKind.CONSTRAINED:
-    case 'c':
       return AppTaggingSecretKind.CONSTRAINED;
     case AppTaggingSecretKind.UNCONSTRAINED:
       return AppTaggingSecretKind.UNCONSTRAINED;

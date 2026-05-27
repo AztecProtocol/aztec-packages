@@ -97,12 +97,20 @@ describe('AppTaggingSecret', () => {
       expect(parsed.toString()).toBe(original.toString());
     });
 
-    it('parses legacy constrained c-prefixed secrets', async () => {
+    it('parses kind-prefixed constrained secrets', async () => {
       const original = await randomConstrainedAppTaggingSecret();
-      const parsed = AppTaggingSecret.fromString(`c:${original.secret.toString()}:${original.app.toString()}`);
+      const parsed = AppTaggingSecret.fromString(original.toString());
 
       expect(parsed.kind).toBe(AppTaggingSecretKind.CONSTRAINED);
       expect(parsed.toString()).toBe(original.toString());
+    });
+
+    it('rejects unknown kind prefixes', async () => {
+      const original = await randomAppTaggingSecret();
+
+      expect(() =>
+        AppTaggingSecret.fromString(`invalid:${original.secret.toString()}:${original.app.toString()}`),
+      ).toThrow(/Invalid AppTaggingSecret kind/);
     });
   });
 
