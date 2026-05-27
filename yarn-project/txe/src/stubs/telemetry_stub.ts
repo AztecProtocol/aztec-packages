@@ -14,7 +14,6 @@ export * from '../../../telemetry-client/dest/wrappers/l2_block_stream.js';
 type MetricDefinition = { name: string; description: string; valueType: ValueType };
 
 export class LmdbMetrics {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(..._args: unknown[]) {}
   recordDBMetrics(): void {}
   start(): void {}

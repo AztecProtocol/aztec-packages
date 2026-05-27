@@ -4,7 +4,6 @@ import type { Logger } from '@aztec/foundation/log';
 import type { Socket } from 'node:net';
 
 import { TXEDispatcherPool } from './dispatcher_pool.js';
-// eslint-disable-next-line import-x/no-cycle
 import { TXEDispatcher, TXEDispatcherApiSchema } from './index.js';
 
 /**

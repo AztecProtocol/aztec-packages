@@ -33,6 +33,7 @@ const projectivePointStub = {
   ZERO: { x: 0n, y: 0n, z: 0n, equals: (_other: unknown) => throwTrap('bls12_381.equals') },
 };
 
+// eslint-disable-next-line camelcase
 export const bls12_381 = {
   fields: {
     Fr: makeFieldStub(32, BLS12_FR_ORDER),

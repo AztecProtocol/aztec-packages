@@ -118,8 +118,6 @@ export class TXEDispatcherPool {
 
   private async init(): Promise<void> {
     const t0 = Date.now();
-    // Build the shared protocol-contracts LMDB up front so workers can clone the resulting
-    // data.mdb on demand instead of registering the contracts themselves.
     const { dataDir, schnorrClassId } = await this.buildSharedContractStore();
     this.contractStoreSourceDir = dataDir;
     this.schnorrClassId = schnorrClassId;

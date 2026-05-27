@@ -46,54 +46,47 @@ export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = ['AuthReg
 
 const sessions = new Map<number, TXESession>();
 
-/*
- * TXE typically has to load the same contract artifacts over and over again for multiple tests,
- * so we cache them here to avoid loading from disk repeatedly.
- *
- * The in-flight map coalesces concurrent requests for the same cache key so that
- * computeArtifactHash (very expensive) is only run once even under parallelism.
+/**
+ * Cache + in-flight map pair. Lookup hits the cache, then awaits an in-flight `compute()` if one
+ * exists, otherwise starts one and stores it. Guarantees `compute()` runs at most once per `key`
+ * across concurrent callers, which matters because `computeArtifactHash` is expensive.
  */
-const TXEArtifactsCache = new Map<
+class AsyncCache<K, V> {
+  private readonly cache = new Map<K, V>();
+  private readonly inFlight = new Map<K, Promise<V>>();
+
+  getOrCompute(key: K, compute: () => Promise<V>): Promise<V> {
+    const cached = this.cache.get(key);
+    if (cached !== undefined) {
+      return Promise.resolve(cached);
+    }
+    let pending = this.inFlight.get(key);
+    if (!pending) {
+      pending = (async () => {
+        try {
+          const value = await compute();
+          this.cache.set(key, value);
+          return value;
+        } finally {
+          this.inFlight.delete(key);
+        }
+      })();
+      this.inFlight.set(key, pending);
+    }
+    return pending;
+  }
+}
+
+// Full deploys (artifact + computed instance), keyed by the full deploy context (contract +
+// constructor args + publicKeys + salt + deployer). Hits on repeated identical deploys.
+const TXEDeploymentsCache = new AsyncCache<
   string,
   { artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }
 >();
-const TXEArtifactsCacheInFlight = new Map<
-  string,
-  Promise<{ artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }>
->();
 
-/**
- * Cache of loaded + hashed {@link ContractArtifactWithHash}, keyed by compiled-artifact file hash.
- * The artifact and its hash depend only on the compiled bytecode, so this cache is shared across
- * every deploy of the same contract (whereas `TXEArtifactsCache`, keyed by constructor args /
- * publicKeys / salt / deployer, misses per-deploy).
- */
-const TXEArtifactByFileHashCache = new Map<string, ContractArtifactWithHash>();
-const TXEArtifactByFileHashInFlight = new Map<string, Promise<ContractArtifactWithHash>>();
-
-function getOrLoadArtifactByFileHash(fileHash: string, artifactPath: string): Promise<ContractArtifactWithHash> {
-  const cached = TXEArtifactByFileHashCache.get(fileHash);
-  if (cached) {
-    return Promise.resolve(cached);
-  }
-  const inFlight = TXEArtifactByFileHashInFlight.get(fileHash);
-  if (inFlight) {
-    return inFlight;
-  }
-  const promise = (async () => {
-    const artifactJSON = JSON.parse(await readFile(artifactPath, 'utf-8')) as NoirCompiledContract;
-    const artifactWithoutHash = loadContractArtifact(artifactJSON);
-    const result: ContractArtifactWithHash = {
-      ...artifactWithoutHash,
-      artifactHash: await computeArtifactHash(artifactWithoutHash),
-    };
-    TXEArtifactByFileHashCache.set(fileHash, result);
-    TXEArtifactByFileHashInFlight.delete(fileHash);
-    return result;
-  })();
-  TXEArtifactByFileHashInFlight.set(fileHash, promise);
-  return promise;
-}
+// Loaded + hashed contract artifact, keyed by compiled-bytecode hash. Hits across deploys of the
+// same contract when constructor args / salt / deployer differ.
+const TXEArtifactsCache = new AsyncCache<string, ContractArtifactWithHash>();
 
 export type TXEForeignCallInput = {
   session_id: number;
@@ -126,26 +119,26 @@ export interface TXEDispatcherOptions {
    * dispatcher clones this directory into a fresh tmpdir on first use instead of registering
    * the contracts itself.
    */
-  contractStoreSourceDir?: string;
+  contractStoreSourceDir: string;
   /**
    * Class id (hex) of the SchnorrAccount artifact pre-registered in the shared LMDB. When set,
    * `#processAddAccountInputs` looks the artifact up from the cloned store instead of
    * recomputing it via `getSchnorrAccountContractArtifact()` + `computeArtifactHash()`.
    */
-  schnorrClassId?: string;
+  schnorrClassId: string;
 }
 
 export class TXEDispatcher {
   private contractStore!: ContractStore;
-  private readonly contractStoreSourceDir: string | undefined;
-  private readonly schnorrClassId: Fr | undefined;
+  private readonly contractStoreSourceDir: string;
+  private readonly schnorrClassId: Fr;
 
   constructor(
     private logger: Logger,
-    opts: TXEDispatcherOptions = {},
+    opts: TXEDispatcherOptions,
   ) {
     this.contractStoreSourceDir = opts.contractStoreSourceDir;
-    this.schnorrClassId = opts.schnorrClassId ? Fr.fromString(opts.schnorrClassId) : undefined;
+    this.schnorrClassId = Fr.fromString(opts.schnorrClassId);
   }
 
   /**
@@ -261,40 +254,29 @@ export class TXEDispatcher {
       .map(arg => arg.toString())
       .join('-')}-${publicKeysHash}-${salt}-${deployer}-${fileHash}`;
 
-    let instance;
-    let artifact: ContractArtifactWithHash;
-
-    if (TXEArtifactsCache.has(cacheKey)) {
-      this.logger.debug(`Using cached artifact for ${cacheKey}`);
-      ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
-    } else {
-      if (!TXEArtifactsCacheInFlight.has(cacheKey)) {
-        this.logger.debug(`Loading compiled artifact ${artifactPath}`);
-        const compute = async () => {
-          // Artifact load + hash depends only on the compiled bytecode (`fileHash`), so any
-          // subsequent deploy of the same contract within this worker — regardless of
-          // constructor args / deployer / salt — reuses the same `ContractArtifactWithHash`.
-          const computedArtifact = await getOrLoadArtifactByFileHash(fileHash, artifactPath);
-          this.logger.debug(
-            `Deploy ${computedArtifact.name} with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
-          );
-          const computedInstance = await getContractInstanceFromInstantiationParams(computedArtifact, {
-            constructorArgs: decodedArgs,
-            skipArgsDecoding: true,
-            salt,
-            publicKeys,
-            constructorArtifact: initializer ? initializer : undefined,
-            deployer,
-          });
-          const result = { artifact: computedArtifact, instance: computedInstance };
-          TXEArtifactsCache.set(cacheKey, result);
-          TXEArtifactsCacheInFlight.delete(cacheKey);
-          return result;
-        };
-        TXEArtifactsCacheInFlight.set(cacheKey, compute());
-      }
-      ({ artifact, instance } = await TXEArtifactsCacheInFlight.get(cacheKey)!);
-    }
+    const { artifact, instance } = await TXEDeploymentsCache.getOrCompute(cacheKey, async () => {
+      this.logger.debug(`Loading compiled artifact ${artifactPath}`);
+      // Inner cache: artifact load + hash depends only on the compiled bytecode (`fileHash`), so
+      // subsequent deploys of the same contract — regardless of constructor args / deployer /
+      // salt — reuse the same `ContractArtifactWithHash`.
+      const computedArtifact = await TXEArtifactsCache.getOrCompute(fileHash, async () => {
+        const artifactJSON = JSON.parse(await readFile(artifactPath, 'utf-8')) as NoirCompiledContract;
+        const artifactWithoutHash = loadContractArtifact(artifactJSON);
+        return { ...artifactWithoutHash, artifactHash: await computeArtifactHash(artifactWithoutHash) };
+      });
+      this.logger.debug(
+        `Deploy ${computedArtifact.name} with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
+      );
+      const computedInstance = await getContractInstanceFromInstantiationParams(computedArtifact, {
+        constructorArgs: decodedArgs,
+        skipArgsDecoding: true,
+        salt,
+        publicKeys,
+        constructorArtifact: initializer ? initializer : undefined,
+        deployer,
+      });
+      return { artifact: computedArtifact, instance: computedInstance };
+    });
 
     inputs.splice(0, 1, artifact, instance, toSingle(secret));
   }
@@ -304,55 +286,29 @@ export class TXEDispatcher {
 
     const cacheKey = `SchnorrAccountContract-${secret}`;
 
-    let artifact: ContractArtifactWithHash;
-    let instance;
-
-    if (TXEArtifactsCache.has(cacheKey)) {
-      this.logger.debug(`Using cached artifact for ${cacheKey}`);
-      ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
-    } else {
-      if (!TXEArtifactsCacheInFlight.has(cacheKey)) {
-        const compute = async () => {
-          // Prefer the pool-cached artifact in the (cloned) contract store: the main thread
-          // registered SchnorrAccount once with its computed class, so we get back both the
-          // full artifact and its precomputed `artifactHash` without re-running
-          // `loadContractArtifact` or `computeArtifactHash` on this worker.
-          let computedArtifact: ContractArtifactWithHash;
-          if (this.schnorrClassId) {
-            const [artifactFromStore, classWithPreimage] = await Promise.all([
-              this.contractStore.getContractArtifact(this.schnorrClassId),
-              this.contractStore.getContractClassWithPreimage(this.schnorrClassId),
-            ]);
-            if (!artifactFromStore || !classWithPreimage) {
-              throw new Error(
-                `SchnorrAccount not found in shared contract store at class id ${this.schnorrClassId.toString()}`,
-              );
-            }
-            computedArtifact = { ...artifactFromStore, artifactHash: classWithPreimage.artifactHash };
-          } else {
-            // Standalone path (no pool, no shared store): load + hash via the lazy entrypoint.
-            const schnorrArtifact = await getSchnorrAccountContractArtifact();
-            computedArtifact = { ...schnorrArtifact, artifactHash: await computeArtifactHash(schnorrArtifact) };
-          }
-          const keys = await deriveKeys(secret);
-          const args = [keys.publicKeys.ivpkM.x, keys.publicKeys.ivpkM.y];
-          const computedInstance = await getContractInstanceFromInstantiationParams(computedArtifact, {
-            constructorArgs: args,
-            skipArgsDecoding: true,
-            salt: Fr.ONE,
-            publicKeys: keys.publicKeys,
-            constructorArtifact: 'constructor',
-            deployer: AztecAddress.ZERO,
-          });
-          const result = { artifact: computedArtifact, instance: computedInstance };
-          TXEArtifactsCache.set(cacheKey, result);
-          TXEArtifactsCacheInFlight.delete(cacheKey);
-          return result;
-        };
-        TXEArtifactsCacheInFlight.set(cacheKey, compute());
+    const { artifact, instance } = await TXEDeploymentsCache.getOrCompute(cacheKey, async () => {
+      const [artifactFromStore, classWithPreimage] = await Promise.all([
+        this.contractStore.getContractArtifact(this.schnorrClassId),
+        this.contractStore.getContractClassWithPreimage(this.schnorrClassId),
+      ]);
+      if (!artifactFromStore || !classWithPreimage) {
+        throw new Error(
+          `SchnorrAccount not found in shared contract store at class id ${this.schnorrClassId.toString()}`,
+        );
       }
-      ({ artifact, instance } = await TXEArtifactsCacheInFlight.get(cacheKey)!);
-    }
+      const computedArtifact = { ...artifactFromStore, artifactHash: classWithPreimage.artifactHash };
+      const keys = await deriveKeys(secret);
+      const args = [keys.publicKeys.ivpkM.x, keys.publicKeys.ivpkM.y];
+      const computedInstance = await getContractInstanceFromInstantiationParams(computedArtifact, {
+        constructorArgs: args,
+        skipArgsDecoding: true,
+        salt: Fr.ONE,
+        publicKeys: keys.publicKeys,
+        constructorArtifact: 'constructor',
+        deployer: AztecAddress.ZERO,
+      });
+      return { artifact: computedArtifact, instance: computedInstance };
+    });
 
     inputs.splice(0, 0, artifact, instance);
   }
