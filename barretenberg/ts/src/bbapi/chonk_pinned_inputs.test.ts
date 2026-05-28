@@ -25,7 +25,7 @@ function ensurePinnedInputsRoot(): string {
   }
 
   const repoRoot = findRepoRoot();
-  return join(repoRoot, 'yarn-project/end-to-end/example-app-ivc-inputs-out');
+  return join(repoRoot, 'barretenberg/cpp/example-app-ivc-inputs-out');
 }
 
 function discoverFlows(root: string): string[] {

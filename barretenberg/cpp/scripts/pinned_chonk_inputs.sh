@@ -74,8 +74,18 @@ function make_pinned_chonk_state_tmpdir {
   mktemp -d "$PINNED_CHONK_STATE_DIR/${prefix}.XXXXXXXX"
 }
 
-# Canonical extraction directory used by downstream Chonk scripts.
+# Canonical extraction directory for the downloaded pinned inputs. Owned by the
+# barretenberg build (populated once by barretenberg/cpp/bootstrap.sh) and read
+# by every Chonk consumer. Kept under barretenberg/cpp so yarn-project/e2e jobs
+# sharing the checkout never clean it.
 function pinned_chonk_inputs_dir {
+  echo "$(git rev-parse --show-toplevel)/barretenberg/cpp/example-app-ivc-inputs-out"
+}
+
+# Output directory for live input capture during a refresh (chonk_inputs.sh
+# update / ci-refresh-chonk). Distinct from the read path: capture is produced
+# by the yarn-project/end-to-end stack and only consumed by the upload step.
+function chonk_capture_dir {
   echo "$(git rev-parse --show-toplevel)/yarn-project/end-to-end/example-app-ivc-inputs-out"
 }
 
@@ -106,76 +116,32 @@ function write_pinned_chonk_inputs_marker {
   printf '%s\n' "$pinned_chonk_inputs_hash" > "$dest/$PINNED_CHONK_MARKER_FILE"
 }
 
-# Content-addressed store holding one extracted tree per pinned hash. Lives
-# under the gitignored cache so it is never part of the working tree and is
-# never cleaned by capture/bench jobs.
-function pinned_chonk_inputs_store_dir {
-  echo "$PINNED_CHONK_STATE_DIR/store/$pinned_chonk_inputs_hash"
-}
-
-# Atomically point $dest at $target with a single symlink rename, so readers
-# following $dest never observe a missing or half-populated tree. Tolerates
-# $dest currently being a real directory (e.g. a prior in-place download or a
-# capture run) by replacing it; in steady state $dest is already a symlink and
-# the swap is a single atomic rename with no window.
-function publish_pinned_chonk_inputs_symlink {
-  local dest=${1:?dest required}
-  local target=${2:?target required}
-  if [[ -L "$dest" && "$(readlink "$dest")" == "$target" ]]; then
-    return 0
-  fi
-  mkdir -p "$(dirname "$dest")"
-  local link_tmp="${dest}.link.$$"
-  rm -rf "$link_tmp"
-  ln -s "$target" "$link_tmp"
-  if [[ -d "$dest" && ! -L "$dest" ]]; then
-    rm -rf "$dest"
-  fi
-  mv -T "$link_tmp" "$dest"
-}
-
-# Ensures the pinned tarball is extracted once into the content-addressed store,
-# then publishes it at $dest via an atomic symlink. The store tree for a hash is
-# never mutated in place once present, so concurrent downloads and readers cannot
-# race each other into an ENOENT.
+# Downloads and extracts the pinned tarball into $dest. Wipes $dest first.
 # Fails noisily on download or extract errors.
 function download_pinned_chonk_inputs {
   local dest=${1:?dest dir required}
-  local real_dir
-  real_dir="$(pinned_chonk_inputs_store_dir)"
-
-  if [[ ! -f "$real_dir/$PINNED_CHONK_MARKER_FILE" ]] || ! check_chonk_inputs_shape "$real_dir" >/dev/null 2>&1; then
-    local url state_dir tarball tmp_dir
-    url=$(pinned_chonk_inputs_url)
-    echo_stderr "Downloading pinned chonk inputs ${pinned_chonk_inputs_hash} from ${url}"
-    mkdir -p "$(dirname "$real_dir")"
-    state_dir="$(make_pinned_chonk_state_tmpdir download)"
-    tarball="$state_dir/bb-chonk-inputs-${pinned_chonk_inputs_hash}.tar.gz"
-    if ! curl -sSf "$url" -o "$tarball"; then
-      echo_stderr "ERROR: failed to download pinned chonk inputs from $url"
-      echo_stderr "pinned_chonk_inputs_hash='${pinned_chonk_inputs_hash}' may be stale."
-      echo_stderr "Add the ci-refresh-chonk label to the PR, or put --ci-refresh-chonk in the head commit message, to regenerate."
-      rm -rf "$state_dir"
-      return 1
-    fi
-    tmp_dir="$(dirname "$real_dir")/.tmp.$$.${pinned_chonk_inputs_hash}"
-    rm -rf "$tmp_dir"
-    mkdir -p "$tmp_dir"
-    if ! tar -xzf "$tarball" -C "$tmp_dir"; then
-      echo_stderr "ERROR: failed to extract pinned chonk inputs tarball"
-      rm -rf "$state_dir" "$tmp_dir"
-      return 1
-    fi
-    write_pinned_chonk_inputs_marker "$tmp_dir"
-    # Publish atomically: mv -T onto a not-yet-existing target is a single
-    # rename. If another job extracted the same hash first, keep theirs.
-    if ! mv -T "$tmp_dir" "$real_dir" 2>/dev/null; then
-      rm -rf "$tmp_dir"
-    fi
+  local url
+  url=$(pinned_chonk_inputs_url)
+  echo_stderr "Downloading pinned chonk inputs ${pinned_chonk_inputs_hash} from ${url}"
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  local state_dir tarball
+  state_dir="$(make_pinned_chonk_state_tmpdir download)"
+  tarball="$state_dir/bb-chonk-inputs-${pinned_chonk_inputs_hash}.tar.gz"
+  if ! curl -sSf "$url" -o "$tarball"; then
+    echo_stderr "ERROR: failed to download pinned chonk inputs from $url"
+    echo_stderr "pinned_chonk_inputs_hash='${pinned_chonk_inputs_hash}' may be stale."
+    echo_stderr "Add the ci-refresh-chonk label to the PR, or put --ci-refresh-chonk in the head commit message, to regenerate."
     rm -rf "$state_dir"
+    return 1
   fi
-
-  publish_pinned_chonk_inputs_symlink "$dest" "$real_dir"
+  if ! tar -xzf "$tarball" -C "$dest"; then
+    echo_stderr "ERROR: failed to extract pinned chonk inputs tarball"
+    rm -rf "$state_dir"
+    return 1
+  fi
+  write_pinned_chonk_inputs_marker "$dest"
+  rm -rf "$state_dir"
 }
 
 function check_chonk_inputs_shape {
@@ -328,7 +294,7 @@ function upload_and_pin_chonk_inputs {
   rm -rf "$state_dir"
 }
 
-export -f pinned_chonk_inputs_url pinned_chonk_inputs_s3_uri pinned_chonk_inputs_dir \
+export -f pinned_chonk_inputs_url pinned_chonk_inputs_s3_uri pinned_chonk_inputs_dir chonk_capture_dir \
           make_pinned_chonk_state_tmpdir list_chonk_input_flow_dirs \
           list_pinned_chonk_input_flows pinned_chonk_input_flow_dir \
           write_pinned_chonk_inputs_marker \
@@ -336,6 +302,5 @@ export -f pinned_chonk_inputs_url pinned_chonk_inputs_s3_uri pinned_chonk_inputs
           assert_chonk_inputs_object_exists check_chonk_inputs_shape \
           is_pinned_chonk_hash read_pinned_chonk_inputs_hash update_pinned_chonk_inputs_hash \
           download_pinned_chonk_inputs check_pinned_chonk_inputs \
-          pinned_chonk_inputs_store_dir publish_pinned_chonk_inputs_symlink \
           ensure_pinned_chonk_inputs \
           upload_and_pin_chonk_inputs

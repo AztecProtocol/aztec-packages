@@ -49,7 +49,7 @@ function cmd_download {
 function capture_inputs {
   if [[ -n "${CHONK_INPUTS_CAPTURE_FROM:-}" ]]; then
     local inputs_dir
-    inputs_dir="$(pinned_chonk_inputs_dir)"
+    inputs_dir="$(chonk_capture_dir)"
     echo "Using pre-captured Chonk inputs from ${CHONK_INPUTS_CAPTURE_FROM}"
     rm -rf "$inputs_dir"
     mkdir -p "$inputs_dir"
@@ -143,7 +143,7 @@ function cmd_check {
 function cmd_update {
   capture_inputs
   local new_hash
-  new_hash="$(upload_and_pin_chonk_inputs "$(pinned_chonk_inputs_dir)" | tail -1)"
+  new_hash="$(upload_and_pin_chonk_inputs "$(chonk_capture_dir)" | tail -1)"
   echo "Pinned Chonk inputs refreshed to ${new_hash}."
 }
 

@@ -21,7 +21,7 @@ const execFileAsync = promisify(execFile);
 const logger = createLogger('ivc-integration:bench:batch-verifier');
 
 const REPO_ROOT = resolve('../..');
-const INPUTS_DIR = resolve('../end-to-end/example-app-ivc-inputs-out');
+const INPUTS_DIR = resolve(REPO_ROOT, 'barretenberg/cpp/example-app-ivc-inputs-out');
 const BB_PATH = process.env.BB_BINARY_PATH ?? resolve('../../barretenberg/cpp/build/bin/bb');
 const CHONK_INPUTS_SCRIPT = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk_inputs.sh');
 const CHONK_INPUTS_HASH_FILE = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk-inputs.hash');
