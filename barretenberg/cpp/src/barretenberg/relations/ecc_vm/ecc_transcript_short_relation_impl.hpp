@@ -19,8 +19,18 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
                                                       const Parameters& /*unused*/,
                                                       const FF& scaling_factor)
 {
-    using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+    // "Core" accumulator type — used by LAMBDA_RELATION / ACC_X/Y_UPDATE / ACC_EMPTY_UPDATE, which share several
+    // promoted intermediates (result_is_lhs/rhs/inf, opcode_is_zero).
+    using Accumulator = typename std::tuple_element_t<Base::LAMBDA_RELATION, ContainerOverSubrelations>;
     using View = ECCVMShortMonomialView<Accumulator>;
+
+    // Per-subrelation accumulator types for tightened partial lengths.
+    using Acc7 = typename std::tuple_element_t<Base::ON_CURVE_CHECK, ContainerOverSubrelations>;
+    using Acc6 = typename std::tuple_element_t<Base::EQ_X_DIFF, ContainerOverSubrelations>;
+    using Acc5 = typename std::tuple_element_t<Base::PC_UPDATE, ContainerOverSubrelations>;
+    using Acc4 = typename std::tuple_element_t<Base::MSM_TRANSITION, ContainerOverSubrelations>;
+    using Acc3 = typename std::tuple_element_t<Base::Z1_ZERO_CHECK, ContainerOverSubrelations>;
+    using Acc2 = typename std::tuple_element_t<Base::OPCODE_WELL_FORMED, ContainerOverSubrelations>;
 
     static const auto offset_generator_coords = [&]() {
         static constexpr auto offset_generator_base = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
@@ -75,121 +85,108 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
     const auto is_not_infinity = -transcript_Pinfinity + FF(1);
     const auto is_not_hiding_row = -lagrange_second + FF(1);
 
-    // Z1/Z2 zero checks: degree 2.
-    std::get<Base::Z1_ZERO_CHECK>(accumulator) += Accumulator(z1 * (z1_zero * scaling_factor));
-    std::get<Base::Z2_ZERO_CHECK>(accumulator) += Accumulator(z2 * (z2_zero * scaling_factor));
+    // Z1/Z2 zero checks: deg 2, length 3.
+    std::get<Base::Z1_ZERO_CHECK>(accumulator) += Acc3(z1 * (z1_zero * scaling_factor));
+    std::get<Base::Z2_ZERO_CHECK>(accumulator) += Acc3(z2 * (z2_zero * scaling_factor));
 
-    // Opcode well-formed: degree 1.
+    // Opcode well-formed: deg 1, length 2.
     auto tmp = q_add + q_add;
     tmp += q_mul;
     tmp += tmp;
     tmp += q_eq;
     tmp += tmp;
     tmp += q_reset_accumulator;
-    std::get<Base::OPCODE_WELL_FORMED>(accumulator) += Accumulator((tmp - op) * scaling_factor);
+    std::get<Base::OPCODE_WELL_FORMED>(accumulator) += Acc2((tmp - op) * scaling_factor);
 
-    // PC update: is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor (degree 4).
+    // PC update: deg 4, length 5.
     const auto pc_delta_short = pc - pc_shift;                   // length 2
     const auto z1_active = -z1_zero + FF(1);                     // length 2
     const auto z2_active = -z2_zero + FF(1);                     // length 2
     const auto z_active_sum = z1_active + z2_active;             // length 2
     const auto num_muls_in_row = z_active_sum * is_not_infinity; // length 3
     {
-        // is_not_first_row * pc_delta - is_not_first_row * q_mul * num_muls_in_row
-        const auto first_term = Accumulator((is_not_first_row * pc_delta_short) * scaling_factor);
-        const auto second_term = Accumulator(is_not_first_row * q_mul) * Accumulator(num_muls_in_row * scaling_factor);
+        const auto first_term = Acc5((is_not_first_row * pc_delta_short) * scaling_factor);
+        const auto second_term = Acc5(is_not_first_row * q_mul) * Acc5(num_muls_in_row * scaling_factor);
         std::get<Base::PC_UPDATE>(accumulator) += first_term - second_term;
     }
 
-    // MSM transition checks.
+    // MSM_COUNT_ZERO_AT_TRANSITION: deg 6, length 7.
     const auto msm_transition_check = q_mul * (-q_mul_shift + FF(1)); // length 3
-    // msm_count_total has degree 2; compute via Accumulator promotion below where it interacts.
     {
-        // msm_count_zero_at_transition_check =
-        //   msm_count_zero_at_transition * msm_count_total +
-        //   (msm_count_total * msm_count_at_transition_inverse - 1) * (1 - msm_count_zero_at_transition)
-        // multiplied by msm_transition_check then scaling_factor (degree 6).
-        const auto msm_count_total_acc = Accumulator(msm_count) + Accumulator(num_muls_in_row); // degree 2 promoted
-        const auto check_a = Accumulator(msm_count_zero_at_transition) * msm_count_total_acc;   // degree 3
-        const auto inv_term =
-            msm_count_total_acc * Accumulator(msm_count_at_transition_inverse) - Accumulator(FF(1)); // degree 3
-        const auto inactive = Accumulator(-msm_count_zero_at_transition + FF(1));                    // degree 1
-        const auto zero_check = check_a + inv_term * inactive;                                       // degree 4
+        const auto msm_count_total_acc7 = Acc7(msm_count) + Acc7(num_muls_in_row);
+        const auto check_a = Acc7(msm_count_zero_at_transition) * msm_count_total_acc7;
+        const auto inv_term = msm_count_total_acc7 * Acc7(msm_count_at_transition_inverse) - Acc7(FF(1));
+        const auto inactive = Acc7(-msm_count_zero_at_transition + FF(1));
+        const auto zero_check = check_a + inv_term * inactive;
         std::get<Base::MSM_COUNT_ZERO_AT_TRANSITION>(accumulator) +=
-            Accumulator(msm_transition_check * scaling_factor) * zero_check;
+            Acc7(msm_transition_check * scaling_factor) * zero_check;
     }
 
-    // MSM_TRANSITION: degree 3.
+    // MSM_TRANSITION: deg 3, length 4.
     {
-        const auto not_zero_at_transition = Accumulator(-msm_count_zero_at_transition + FF(1));
-        const auto outer = Accumulator(msm_transition) - Accumulator(msm_transition_check) * not_zero_at_transition;
+        const auto not_zero_at_transition = Acc4(-msm_count_zero_at_transition + FF(1));
+        const auto outer = Acc4(msm_transition) - Acc4(msm_transition_check) * not_zero_at_transition;
         std::get<Base::MSM_TRANSITION>(accumulator) += outer * scaling_factor;
     }
 
-    // MSM_COUNT_ZERO_WHEN_NOT_MUL: (1 - q_mul) * msm_count * scaling (degree 2).
-    std::get<Base::MSM_COUNT_ZERO_WHEN_NOT_MUL>(accumulator) +=
-        Accumulator(((-q_mul + FF(1)) * msm_count) * scaling_factor);
+    // MSM_COUNT_ZERO_WHEN_NOT_MUL: deg 2, length 3.
+    std::get<Base::MSM_COUNT_ZERO_WHEN_NOT_MUL>(accumulator) += Acc3(((-q_mul + FF(1)) * msm_count) * scaling_factor);
 
-    // MSM_COUNT_INCREMENT_ACROSS_ROWS:
-    //   is_not_first_row * (1 - msm_transition) * (msm_count_delta - q_mul * num_muls_in_row) * scaling (degree 5).
-    const auto msm_count_delta = msm_count_shift - msm_count; // length 2
+    // MSM_COUNT_INCREMENT_ACROSS_ROWS: deg 5, length 6.
+    const auto msm_count_delta = msm_count_shift - msm_count;
     {
         const auto outer_short = is_not_first_row * (-msm_transition + FF(1)); // length 3
-        const auto inner = Accumulator(msm_count_delta * scaling_factor) -
-                           Accumulator(q_mul) * Accumulator(num_muls_in_row * scaling_factor);
-        std::get<Base::MSM_COUNT_INCREMENT_ACROSS_ROWS>(accumulator) += Accumulator(outer_short) * inner;
+        const auto inner =
+            Acc6(msm_count_delta * scaling_factor) - Acc6(q_mul) * Acc6(num_muls_in_row * scaling_factor);
+        std::get<Base::MSM_COUNT_INCREMENT_ACROSS_ROWS>(accumulator) += Acc6(outer_short) * inner;
     }
 
-    // OPCODE_EXCLUSION: degree 2.
+    // OPCODE_EXCLUSION: deg 2, length 3.
     {
-        // q_mul * (q_add + q_eq + q_reset) + q_add * (q_mul + q_eq + q_reset).
         const auto mul_other = q_add + q_eq + q_reset_accumulator;
         const auto add_other = q_mul + q_eq + q_reset_accumulator;
         const auto sum = q_mul * mul_other + q_add * add_other; // length 3
-        std::get<Base::OPCODE_EXCLUSION>(accumulator) += Accumulator(sum * scaling_factor);
+        std::get<Base::OPCODE_EXCLUSION>(accumulator) += Acc3(sum * scaling_factor);
     }
 
-    // EQ checks: both produce degree-5 products.
+    // EQ checks: deg 5, length 6.
     const auto both_infinity_short = transcript_Pinfinity * is_accumulator_empty; // length 3
     const auto not_pinf = -transcript_Pinfinity + FF(1);                          // length 2
     const auto not_acc_empty = -is_accumulator_empty + FF(1);                     // length 2
     const auto both_not_infinity_short = not_pinf * not_acc_empty;                // length 3
-    // Note: keep the length-3 term on the LHS of +/- so its degree-2 coefficient is preserved.
     const auto infinity_exclusion_short =
         ((-both_infinity_short) - both_infinity_short) + (transcript_Pinfinity + is_accumulator_empty); // length 3
     const auto q_eq_hiding_short = q_eq * is_not_hiding_row;                                            // length 3
     {
         const auto eq_x_diff = transcript_Px - transcript_accumulator_x; // length 2
-        const auto inner_x =
-            Accumulator(eq_x_diff) * Accumulator(both_not_infinity_short) + Accumulator(infinity_exclusion_short);
-        std::get<Base::EQ_X_DIFF>(accumulator) += Accumulator(q_eq_hiding_short * scaling_factor) * inner_x;
+        const auto inner_x = Acc6(eq_x_diff) * Acc6(both_not_infinity_short) + Acc6(infinity_exclusion_short);
+        std::get<Base::EQ_X_DIFF>(accumulator) += Acc6(q_eq_hiding_short * scaling_factor) * inner_x;
     }
     {
         const auto eq_y_diff = transcript_Py - transcript_accumulator_y;
-        const auto inner_y =
-            Accumulator(eq_y_diff) * Accumulator(both_not_infinity_short) + Accumulator(infinity_exclusion_short);
-        std::get<Base::EQ_Y_DIFF>(accumulator) += Accumulator(q_eq_hiding_short * scaling_factor) * inner_y;
+        const auto inner_y = Acc6(eq_y_diff) * Acc6(both_not_infinity_short) + Acc6(infinity_exclusion_short);
+        std::get<Base::EQ_Y_DIFF>(accumulator) += Acc6(q_eq_hiding_short * scaling_factor) * inner_y;
     }
 
-    // Boundary conditions.
+    // Boundary conditions: deg 2, length 3.
     std::get<Base::BOUNDARY_ACCUMULATOR_EMPTY>(accumulator) +=
-        Accumulator((lagrange_third * (-is_accumulator_empty + FF(1))) * scaling_factor);
+        Acc3((lagrange_third * (-is_accumulator_empty + FF(1))) * scaling_factor);
     std::get<Base::BOUNDARY_MSM_COUNT_AND_PC>(accumulator) +=
-        Accumulator((lagrange_third * msm_count + lagrange_last * pc) * scaling_factor);
+        Acc3((lagrange_third * msm_count + lagrange_last * pc) * scaling_factor);
 
-    // ON_CURVE_CHECK: validate_on_curve * (Py^2 - Px^3 - b) * is_not_infinity * is_not_hiding * scaling (degree 6).
+    // ON_CURVE_CHECK: deg 6, length 7.
     {
         const auto validate_on_curve = q_add + q_mul + q_eq; // length 2
         const auto py_sq = transcript_Py.sqr();              // length 3
         const auto px_sq = transcript_Px.sqr();              // length 3
-        const auto on_curve_check = Accumulator(py_sq) - Accumulator(px_sq) * Accumulator(transcript_Px) -
-                                    Accumulator(Base::get_curve_b());  // degree 3
-        const auto gating_short = is_not_infinity * is_not_hiding_row; // length 3
-        const auto outer = Accumulator(validate_on_curve) * Accumulator(gating_short * scaling_factor);
+        const auto on_curve_check =
+            Acc7(py_sq) - Acc7(px_sq) * Acc7(transcript_Px) - Acc7(Base::get_curve_b()); // deg 3
+        const auto gating_short = is_not_infinity * is_not_hiding_row;                   // length 3
+        const auto outer = Acc7(validate_on_curve) * Acc7(gating_short * scaling_factor);
         std::get<Base::ON_CURVE_CHECK>(accumulator) += outer * on_curve_check;
     }
 
-    // Lambda relation and accumulator updates (degree 6-7).
+    // Lambda relation / accumulator updates / offset generator / ADD_X/Y_EQUAL / ACC_EMPTY: shared block.
     {
         const auto is_double_short = transcript_add_x_equal * transcript_add_y_equal; // length 3
         const auto is_add_short = -transcript_add_x_equal + FF(1);                    // length 2
@@ -206,13 +203,15 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
         const auto rhs_infinity_short = is_accumulator_empty;                        // length 2
         const auto neg_lhs_inf_plus_one_short = -lhs_infinity_short + FF(1);         // length 3
         const auto neg_rhs_inf_plus_one_short = -rhs_infinity_short + FF(1);         // length 2
+
+        // These intermediates are shared across LAMBDA / ACC_X/Y / ACC_EMPTY (all length 8).
         const auto result_is_lhs = Accumulator(rhs_infinity_short) * Accumulator(neg_lhs_inf_plus_one_short);
         const auto result_is_rhs = Accumulator(neg_rhs_inf_plus_one_short) * Accumulator(lhs_infinity_short);
         const auto result_infinity_from_inputs = Accumulator(lhs_infinity_short) * Accumulator(rhs_infinity_short);
         const auto result_infinity_from_op_short =
             transcript_add_x_equal * (-transcript_add_y_equal + FF(1)); // length 3
         const auto result_is_infinity_short =
-            result_infinity_from_inputs + Accumulator(result_infinity_from_op_short); // degree 2
+            result_infinity_from_inputs + Accumulator(result_infinity_from_op_short); // deg 2
         const auto any_add_is_active_short = q_add + msm_transition;                  // length 2
 
         Accumulator transcript_lambda_relation(0);
@@ -221,28 +220,24 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
             Accumulator transcript_msm_lambda_relation(0);
             const auto msm_x = transcript_msm_x;
             const auto msm_y = transcript_msm_y;
-            // Addition.
             {
-                const auto lambda_den = rhs_x - msm_x;                                              // length 2
-                const auto lambda_num = rhs_y - msm_y;                                              // length 2
-                const auto lambda_rel = Accumulator(lambda * lambda_den) - Accumulator(lambda_num); // degree 2
-                transcript_msm_lambda_relation += lambda_rel * Accumulator(is_add_short);           // degree 3
+                const auto lambda_den = rhs_x - msm_x;
+                const auto lambda_num = rhs_y - msm_y;
+                const auto lambda_rel = Accumulator(lambda * lambda_den) - Accumulator(lambda_num);
+                transcript_msm_lambda_relation += lambda_rel * Accumulator(is_add_short);
             }
-            // Doubling.
             {
-                const auto lambda_den = msm_y + msm_y;             // length 2
-                const auto lambda_num_short = msm_x.sqr() * FF(3); // length 3
+                const auto lambda_den = msm_y + msm_y;
+                const auto lambda_num_short = msm_x.sqr() * FF(3);
                 const auto lambda_rel = Accumulator(lambda * lambda_den) - Accumulator(lambda_num_short);
                 transcript_msm_lambda_relation += lambda_rel * Accumulator(is_double_short);
             }
-            const auto valid_short = (-transcript_msm_infinity + FF(1)) * (-is_accumulator_empty + FF(1)); // length 3
+            const auto valid_short = (-transcript_msm_infinity + FF(1)) * (-is_accumulator_empty + FF(1));
             transcript_msm_lambda_relation *= Accumulator(valid_short);
-            // Lambda-relation-invalid case.
             {
-                // length-3 term on LHS preserves its degree-2 coefficient under +.
                 const auto invalid_short =
-                    result_infinity_from_op_short + (transcript_msm_infinity + is_accumulator_empty); // length 3
-                transcript_msm_lambda_relation += Accumulator(lambda) * Accumulator(invalid_short);   // degree 4
+                    result_infinity_from_op_short + (transcript_msm_infinity + is_accumulator_empty);
+                transcript_msm_lambda_relation += Accumulator(lambda) * Accumulator(invalid_short);
             }
             transcript_lambda_relation = transcript_msm_lambda_relation * Accumulator(msm_transition);
         }
@@ -266,7 +261,6 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
             const auto valid_short = (-transcript_Pinfinity + FF(1)) * (-is_accumulator_empty + FF(1));
             transcript_add_lambda_relation *= Accumulator(valid_short);
             {
-                // length-3 term on LHS preserves its degree-2 coefficient under +.
                 const auto invalid_short =
                     result_infinity_from_op_short + (transcript_Pinfinity + is_accumulator_empty);
                 transcript_add_lambda_relation += Accumulator(lambda) * Accumulator(invalid_short);
@@ -275,25 +269,24 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
             std::get<Base::LAMBDA_RELATION>(accumulator) += transcript_lambda_relation * scaling_factor;
         }
 
-        // Accumulator x/y updates.
+        // ACCUMULATOR_X/Y_UPDATE — length 8.
         const auto propagate_transcript_accumulator_short =
-            q_mul * (-msm_transition + FF(1)) + q_eq * (-q_reset_accumulator + FF(1));              // length 3
-        const auto opcode_is_zero_short_part_a = is_not_first_row * (-q_add + FF(1));               // length 3
-        const auto opcode_is_zero_short_part_b = (-q_mul + FF(1)) * (-q_reset_accumulator + FF(1)); // length 3
-        const auto opcode_is_zero_short_part_c = -q_eq + FF(1);                                     // length 2
-        // opcode_is_zero is degree 5; build via Accumulator promotion since we exceed length-3 limits.
+            q_mul * (-msm_transition + FF(1)) + q_eq * (-q_reset_accumulator + FF(1)); // length 3
+        const auto opcode_is_zero_short_part_a = is_not_first_row * (-q_add + FF(1));
+        const auto opcode_is_zero_short_part_b = (-q_mul + FF(1)) * (-q_reset_accumulator + FF(1));
+        const auto opcode_is_zero_short_part_c = -q_eq + FF(1);
         const auto opcode_is_zero = Accumulator(opcode_is_zero_short_part_a) *
                                     Accumulator(opcode_is_zero_short_part_b) *
-                                    Accumulator(opcode_is_zero_short_part_c); // degree 5
+                                    Accumulator(opcode_is_zero_short_part_c); // deg 5
         {
-            const auto lambda_sqr = Accumulator(lambda.sqr()); // degree 2
+            const auto lambda_sqr = Accumulator(lambda.sqr());
             const auto lhs_x_acc = Accumulator(lhs_x_short);
             const auto lhs_y_acc = Accumulator(lhs_y_short);
             const auto rhs_x_acc = Accumulator(rhs_x);
             const auto rhs_y_acc = Accumulator(rhs_y);
-            auto x3 = lambda_sqr - lhs_x_acc - rhs_x_acc;                 // degree 2
-            auto y3 = Accumulator(lambda) * (lhs_x_acc - x3) - lhs_y_acc; // degree 3
-            x3 += result_is_lhs * (rhs_x_acc + lhs_x_acc + lhs_x_acc);    // degree 4
+            auto x3 = lambda_sqr - lhs_x_acc - rhs_x_acc;
+            auto y3 = Accumulator(lambda) * (lhs_x_acc - x3) - lhs_y_acc;
+            x3 += result_is_lhs * (rhs_x_acc + lhs_x_acc + lhs_x_acc);
             x3 += result_is_rhs * (lhs_x_acc + rhs_x_acc + rhs_x_acc);
             x3 += result_is_infinity_short * (lhs_x_acc + rhs_x_acc);
             y3 += result_is_lhs * (lhs_y_acc + lhs_y_acc);
@@ -309,12 +302,11 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
                                         Accumulator(out_x * q_reset_accumulator) + Accumulator(out_x) * opcode_is_zero;
             auto add_point_y_relation = (y3 - Accumulator(out_y)) * any_add_is_active_acc + propagate_acc_y +
                                         Accumulator(out_y * q_reset_accumulator) + Accumulator(out_y) * opcode_is_zero;
-
             std::get<Base::ACCUMULATOR_X_UPDATE>(accumulator) += add_point_x_relation * scaling_factor;
             std::get<Base::ACCUMULATOR_Y_UPDATE>(accumulator) += add_point_y_relation * scaling_factor;
         }
 
-        // Offset generator subtraction
+        // Offset generator subtraction — length 6 / 4 / 5.
         {
             const auto offset = offset_generator_coords();
             const auto x1 = offset[0];
@@ -323,36 +315,36 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
             const auto y2 = View(in.transcript_msm_y);
             const auto x3 = View(in.transcript_msm_intermediate_x);
             const auto y3 = View(in.transcript_msm_intermediate_y);
-            const auto x2_minus_x1 = x2 - x1;               // length 2
-            const auto y2_minus_y1 = y2 - y1;               // length 2
-            const auto x3_plus_x2_plus_x1 = (x3 + x2) + x1; // length 2
-            const auto x_term = Accumulator(x3_plus_x2_plus_x1) * Accumulator(x2_minus_x1.sqr()) -
-                                Accumulator(y2_minus_y1.sqr()); // degree 3
-            const auto y_term =
-                Accumulator((-x3 + x1) * y2_minus_y1) - Accumulator(x2_minus_x1 * (y3 + y1)); // degree 2
-            const auto not_msm_inf_short = -transcript_msm_infinity + FF(1);                  // length 2
-            const auto subtract_x =
-                x_term * Accumulator(not_msm_inf_short) + Accumulator(transcript_msm_infinity * x3); // degree 4
-            const auto subtract_y =
-                y_term * Accumulator(not_msm_inf_short) + Accumulator(transcript_msm_infinity * y3); // degree 3
-            std::get<Base::OFFSET_GENERATOR_X>(accumulator) +=
-                Accumulator(msm_transition * scaling_factor) * subtract_x;
-            std::get<Base::OFFSET_GENERATOR_Y>(accumulator) +=
-                Accumulator(msm_transition * scaling_factor) * subtract_y;
+            const auto x2_minus_x1 = x2 - x1;
+            const auto y2_minus_y1 = y2 - y1;
+            const auto x3_plus_x2_plus_x1 = (x3 + x2) + x1;
 
-            const auto x_diff = x2 - x1; // length 2
-            const auto y_sum = y2 + y1;  // length 2
+            // OFFSET_GENERATOR_X/Y are deg 5, length 6.
+            const auto x_term_acc6 =
+                Acc6(x3_plus_x2_plus_x1) * Acc6(x2_minus_x1.sqr()) - Acc6(y2_minus_y1.sqr());        // deg 3
+            const auto y_term_acc6 = Acc6((-x3 + x1) * y2_minus_y1) - Acc6(x2_minus_x1 * (y3 + y1)); // deg 2
+            const auto not_msm_inf_short = -transcript_msm_infinity + FF(1);                         // length 2
+            const auto subtract_x_acc6 = x_term_acc6 * Acc6(not_msm_inf_short) + Acc6(transcript_msm_infinity * x3);
+            const auto subtract_y_acc6 = y_term_acc6 * Acc6(not_msm_inf_short) + Acc6(transcript_msm_infinity * y3);
+            std::get<Base::OFFSET_GENERATOR_X>(accumulator) += Acc6(msm_transition * scaling_factor) * subtract_x_acc6;
+            std::get<Base::OFFSET_GENERATOR_Y>(accumulator) += Acc6(msm_transition * scaling_factor) * subtract_y_acc6;
+
+            // MSM_INFINITY_X_DIFF / Y_SUM: deg 3, length 4.
+            const auto x_diff = x2 - x1;
+            const auto y_sum = y2 + y1;
             std::get<Base::MSM_INFINITY_X_DIFF>(accumulator) +=
-                Accumulator((msm_transition * transcript_msm_infinity) * scaling_factor) * Accumulator(x_diff);
+                Acc4((msm_transition * transcript_msm_infinity) * scaling_factor) * Acc4(x_diff);
             std::get<Base::MSM_INFINITY_Y_SUM>(accumulator) +=
-                Accumulator((msm_transition * transcript_msm_infinity) * scaling_factor) * Accumulator(y_sum);
+                Acc4((msm_transition * transcript_msm_infinity) * scaling_factor) * Acc4(y_sum);
+
+            // MSM_INFINITY_INVERSE: deg 4, length 5.
             const auto transcript_msm_x_inverse = View(in.transcript_msm_x_inverse);
-            const auto inverse_inner = Accumulator(x_diff * transcript_msm_x_inverse) - Accumulator(FF(1)); // degree 2
+            const auto inverse_inner = Acc5(x_diff * transcript_msm_x_inverse) - Acc5(FF(1));
             std::get<Base::MSM_INFINITY_INVERSE>(accumulator) +=
-                Accumulator(msm_transition * scaling_factor) * Accumulator(not_msm_inf_short) * inverse_inner;
+                Acc5(msm_transition * scaling_factor) * Acc5(not_msm_inf_short) * inverse_inner;
         }
 
-        // Accumulator empty update (degree 6).
+        // ACCUMULATOR_EMPTY_UPDATE — length 8 (shares opcode_is_zero, result_is_infinity_short).
         {
             const auto accumulator_infinity_preserve =
                 Accumulator(propagate_transcript_accumulator_short) *
@@ -371,45 +363,41 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
             std::get<Base::ACCUMULATOR_EMPTY_UPDATE>(accumulator) += accumulator_infinity_relation * scaling_factor;
         }
 
-        // ADD_X_EQUAL / ADD_Y_EQUAL checks.
+        // ADD_X_EQUAL / ADD_Y_EQUAL: deg 5, length 6.
         {
-            const auto x_diff = Accumulator(lhs_x_short) - Accumulator(rhs_x); // degree 2
-            const auto x_product = Accumulator(transcript_Px_inverse * (-transcript_add_x_equal + FF(1))) +
-                                   Accumulator(transcript_add_x_equal); // degree 2
-            const auto x_constant = transcript_add_x_equal - FF(1);     // length 2
-            const auto x_relation =
-                (x_diff * x_product + Accumulator(x_constant)) * Accumulator(any_add_is_active_short);
+            const auto x_diff = Acc6(lhs_x_short - rhs_x); // deg 2
+            const auto x_product =
+                Acc6(transcript_Px_inverse * (-transcript_add_x_equal + FF(1))) + Acc6(transcript_add_x_equal); // deg 2
+            const auto x_constant = transcript_add_x_equal - FF(1);
+            const auto x_relation = (x_diff * x_product + Acc6(x_constant)) * Acc6(any_add_is_active_short);
             std::get<Base::ADD_X_EQUAL_CHECK>(accumulator) += x_relation * scaling_factor;
         }
         {
-            const auto y_diff = Accumulator(lhs_y_short) - Accumulator(rhs_y);
-            const auto y_product = Accumulator(transcript_Py_inverse * (-transcript_add_y_equal + FF(1))) +
-                                   Accumulator(transcript_add_y_equal);
+            const auto y_diff = Acc6(lhs_y_short - rhs_y);
+            const auto y_product =
+                Acc6(transcript_Py_inverse * (-transcript_add_y_equal + FF(1))) + Acc6(transcript_add_y_equal);
             const auto y_constant = transcript_add_y_equal - FF(1);
-            const auto y_relation =
-                (y_diff * y_product + Accumulator(y_constant)) * Accumulator(any_add_is_active_short);
+            const auto y_relation = (y_diff * y_product + Acc6(y_constant)) * Acc6(any_add_is_active_short);
             std::get<Base::ADD_Y_EQUAL_CHECK>(accumulator) += y_relation * scaling_factor;
         }
     }
 
-    // Hiding row constraints.
-    std::get<Base::HIDING_ROW_EQ>(accumulator) += Accumulator((lagrange_second * (-q_eq + FF(1))) * scaling_factor);
+    // Hiding row constraints: deg 2, length 3.
+    std::get<Base::HIDING_ROW_EQ>(accumulator) += Acc3((lagrange_second * (-q_eq + FF(1))) * scaling_factor);
     std::get<Base::HIDING_ROW_RESET>(accumulator) +=
-        Accumulator((lagrange_second * (-q_reset_accumulator + FF(1))) * scaling_factor);
+        Acc3((lagrange_second * (-q_reset_accumulator + FF(1))) * scaling_factor);
 
-    // Infinity-flag consistency.
-    std::get<Base::INFINITY_BASE_PX>(accumulator) +=
-        Accumulator((transcript_Pinfinity * transcript_Px) * scaling_factor);
-    std::get<Base::INFINITY_BASE_PY>(accumulator) +=
-        Accumulator((transcript_Pinfinity * transcript_Py) * scaling_factor);
+    // Infinity-flag consistency: deg 2, length 3.
+    std::get<Base::INFINITY_BASE_PX>(accumulator) += Acc3((transcript_Pinfinity * transcript_Px) * scaling_factor);
+    std::get<Base::INFINITY_BASE_PY>(accumulator) += Acc3((transcript_Pinfinity * transcript_Py) * scaling_factor);
     std::get<Base::INFINITY_ACC_X>(accumulator) +=
-        Accumulator((is_accumulator_empty * transcript_accumulator_x) * scaling_factor);
+        Acc3((is_accumulator_empty * transcript_accumulator_x) * scaling_factor);
     std::get<Base::INFINITY_ACC_Y>(accumulator) +=
-        Accumulator((is_accumulator_empty * transcript_accumulator_y) * scaling_factor);
+        Acc3((is_accumulator_empty * transcript_accumulator_y) * scaling_factor);
 
-    // ACCUMULATOR_NOT_EMPTY_INIT.
+    // ACCUMULATOR_NOT_EMPTY_INIT: deg 2, length 3.
     std::get<Base::ACCUMULATOR_NOT_EMPTY_INIT>(accumulator) +=
-        Accumulator((lagrange_first * transcript_accumulator_not_empty) * scaling_factor);
+        Acc3((lagrange_first * transcript_accumulator_not_empty) * scaling_factor);
 }
 
 } // namespace bb

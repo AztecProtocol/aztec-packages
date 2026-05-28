@@ -17,8 +17,12 @@ void ECCVMWnafShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accum
                                                 const Parameters& /*unused*/,
                                                 const FF& scaling_factor)
 {
-    using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+    // Universal "deepest" accumulator type used by the deg-4 subrelations (RANGE_S* and FIRST_SLICE_POSITIVE).
+    // Smaller subrelations construct their own narrower Accumulator (Acc4 / Acc3) via tuple_element_t<INDEX, ...>.
+    using Accumulator = typename std::tuple_element_t<Base::RANGE_S1HI, ContainerOverSubrelations>;
     using View = ECCVMShortMonomialView<Accumulator>;
+    using Acc4 = typename std::tuple_element_t<Base::SCALAR_SUM_CHECK, ContainerOverSubrelations>;
+    using Acc3 = typename std::tuple_element_t<Base::INACTIVE_SLICE_W0, ContainerOverSubrelations>;
 
     const auto lagrange_first = View(in.lagrange_first);
     const auto scalar_sum = View(in.precompute_scalar_sum);
@@ -37,8 +41,7 @@ void ECCVMWnafShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accum
         View(in.precompute_s3hi), View(in.precompute_s3lo), View(in.precompute_s4hi), View(in.precompute_s4lo),
     };
 
-    // Range checks: ((s-1)^2 - 1) * ((s-2)^2 - 1) * scaling_factor.
-    // Each ((s-k)^2 - 1) is a degree-2 short polynomial (length 3 in coefficient basis); the final product is degree 4.
+    // Range checks ((s-1)^2 - 1) * ((s-2)^2 - 1) * scaling_factor — degree 4, length 5.
     const auto range_check_scaled = [scaling_factor](const View& s, auto& acc) {
         const auto s_minus_1 = s - FF(1);
         const auto s_minus_2 = s - FF(2);
@@ -55,7 +58,6 @@ void ECCVMWnafShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accum
     range_check_scaled(slices[6], std::get<Base::RANGE_S4HI>(accumulator));
     range_check_scaled(slices[7], std::get<Base::RANGE_S4LO>(accumulator));
 
-    // Convert (hi, lo) 2-bit pair to wNAF digit `2(4*hi + lo) - 15`. Stays length 2.
     const auto convert_to_wnaf = [](const View& hi, const View& lo) {
         auto t = hi + hi;
         t += t;
@@ -68,8 +70,7 @@ void ECCVMWnafShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accum
     const auto scaled_transition_is_zero_short = -scaled_transition_short + scaling_factor;
     const auto scaled_transition_plus_lagrange_first_short = scaled_transition_short + scaled_lagrange_first_short;
 
-    // FIRST_SLICE_POSITIVE: (scaled_transition + scaled_lagrange_first) * precompute_select_shift * s1hi_shift_msb_set
-    // where s1hi_shift_msb_set = (s1hi_shift - 2) * (s1hi_shift - 3). Degree 4 total.
+    // FIRST_SLICE_POSITIVE: deg 4, length 5.
     {
         const auto s1hi_shift = View(in.precompute_s1hi_shift);
         const auto s1hi_shift_msb_set = (s1hi_shift - FF(2)) * (s1hi_shift - FF(3));                     // length 3
@@ -78,8 +79,7 @@ void ECCVMWnafShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accum
             Accumulator(first_factor) * Accumulator(s1hi_shift_msb_set);
     }
 
-    // Compute wNAF digits (each length 2) and the row's scalar contribution
-    //   row_slice = 2^12 * w0 + 2^8 * w1 + 2^4 * w2 + w3.
+    // wNAF digits and row_slice (length 2, shared with INACTIVE_SLICE_W*).
     const auto w0 = convert_to_wnaf(slices[0], slices[1]);
     const auto w1 = convert_to_wnaf(slices[2], slices[3]);
     const auto w2 = convert_to_wnaf(slices[4], slices[5]);
@@ -102,78 +102,64 @@ void ECCVMWnafShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accum
     row_slice += row_slice;
     row_slice += w3;
 
-    // SCALAR_SUM_CHECK: precompute_select * (scalar_sum_shift - scalar_sum * 2^16 - row_slice) *
-    // scaling*(1-q_transition)
+    // SCALAR_SUM_CHECK: deg 3, length 4.
     {
         const auto sum_delta = scalar_sum * FF(1ULL << 16) + row_slice;
-        const auto check_sum = scalar_sum_shift - sum_delta;                     // length 2 (linear combination)
+        const auto check_sum = scalar_sum_shift - sum_delta;                     // length 2
         const auto factor = precompute_select * scaled_transition_is_zero_short; // length 3
-        std::get<Base::SCALAR_SUM_CHECK>(accumulator) += Accumulator(factor) * Accumulator(check_sum);
+        std::get<Base::SCALAR_SUM_CHECK>(accumulator) += Acc4(factor) * Acc4(check_sum);
     }
 
-    // PRECOMPUTE_SELECT_SHAPE: (lagrange_first - 1) * scaling * precompute_select_shift * (precompute_select - 1)
+    // PRECOMPUTE_SELECT_SHAPE: deg 3, length 4.
     {
         const auto scaled_lagrange_first_minus_one_short = scaled_lagrange_first_short - scaling_factor; // length 2
         const auto precompute_select_check = precompute_select_shift * (precompute_select - FF(1));      // length 3
         std::get<Base::PRECOMPUTE_SELECT_SHAPE>(accumulator) +=
-            Accumulator(scaled_lagrange_first_minus_one_short) * Accumulator(precompute_select_check);
+            Acc4(scaled_lagrange_first_minus_one_short) * Acc4(precompute_select_check);
     }
 
-    // ROUND_CHECK: precompute_select * (scaled_transition * (2*round - round_shift - 6) + scaling*(round_shift - round
-    // - 1))
+    // ROUND_CHECK: deg 3, length 4.
     {
-        const auto round_check = round_shift - round - FF(1); // length 2
-        // scaled_transition * (round - round_check - 7) + scaling * round_check
-        //   = (round - round_check - 7) * scaled_transition + round_check * scaling
+        const auto round_check = round_shift - round - FF(1);     // length 2
         const auto term_a = round - round_check - FF(7);          // length 2
         const auto term_a_mul = term_a * scaled_transition_short; // length 3
         const auto term_b = round_check * scaling_factor;         // length 2
         const auto inner = term_a_mul + term_b;                   // length 3
-        std::get<Base::ROUND_CHECK>(accumulator) += Accumulator(precompute_select) * Accumulator(inner);
+        std::get<Base::ROUND_CHECK>(accumulator) += Acc4(precompute_select) * Acc4(inner);
     }
 
-    // ROUND_SHIFT_ZERO: (precompute_select * scaled_transition + scaled_lagrange_first) * round_shift
+    // ROUND_SHIFT_ZERO / SCALAR_SUM_SHIFT_ZERO: deg 3, length 4.
     const auto precompute_select_transition_plus_lagrange_first_short =
         precompute_select * scaled_transition_short + scaled_lagrange_first_short; // length 3
-    {
-        std::get<Base::ROUND_SHIFT_ZERO>(accumulator) +=
-            Accumulator(precompute_select_transition_plus_lagrange_first_short) * Accumulator(round_shift);
-    }
+    std::get<Base::ROUND_SHIFT_ZERO>(accumulator) +=
+        Acc4(precompute_select_transition_plus_lagrange_first_short) * Acc4(round_shift);
+    std::get<Base::SCALAR_SUM_SHIFT_ZERO>(accumulator) +=
+        Acc4(precompute_select_transition_plus_lagrange_first_short) * Acc4(scalar_sum_shift);
 
-    // SCALAR_SUM_SHIFT_ZERO: same outer factor as above, multiplied by scalar_sum_shift.
-    {
-        std::get<Base::SCALAR_SUM_SHIFT_ZERO>(accumulator) +=
-            Accumulator(precompute_select_transition_plus_lagrange_first_short) * Accumulator(scalar_sum_shift);
-    }
-
-    // PC_CHECK: precompute_select * (scaled_transition * (-2*pc_delta - 1) + pc_delta * scaling)
+    // PC_CHECK: deg 3, length 4.
     {
         const auto pc_delta = pc_shift - pc;                                           // length 2
         const auto inner_a = (-pc_delta - pc_delta - FF(1)) * scaled_transition_short; // length 3
         const auto inner_b = pc_delta * scaling_factor;                                // length 2
         const auto inner = inner_a + inner_b;                                          // length 3
-        std::get<Base::PC_CHECK>(accumulator) += Accumulator(precompute_select) * Accumulator(inner);
+        std::get<Base::PC_CHECK>(accumulator) += Acc4(precompute_select) * Acc4(inner);
     }
 
-    // SKEW_RANGE: precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling
+    // SKEW_RANGE: deg 3, length 4.
     {
         const auto skew_quadratic = precompute_skew * (precompute_skew - FF(7)); // length 3
-        std::get<Base::SKEW_RANGE>(accumulator) +=
-            Accumulator(precompute_select * scaling_factor) * Accumulator(skew_quadratic);
+        std::get<Base::SKEW_RANGE>(accumulator) += Acc4(precompute_select * scaling_factor) * Acc4(skew_quadratic);
     }
 
-    // Inactive-row enforcement: (1 - precompute_select) * scaling * (slice + 15) and similar.
+    // Inactive-row enforcement: deg 2, length 3.
     const auto precompute_select_zero_short = -precompute_select * scaling_factor + scaling_factor; // length 2
-    {
-        const auto factor = Accumulator(precompute_select_zero_short);
-        std::get<Base::INACTIVE_SLICE_W0>(accumulator) += factor * Accumulator(w0 + FF(15));
-        std::get<Base::INACTIVE_SLICE_W1>(accumulator) += factor * Accumulator(w1 + FF(15));
-        std::get<Base::INACTIVE_SLICE_W2>(accumulator) += factor * Accumulator(w2 + FF(15));
-        std::get<Base::INACTIVE_SLICE_W3>(accumulator) += factor * Accumulator(w3 + FF(15));
-        std::get<Base::INACTIVE_ROUND>(accumulator) += factor * Accumulator(round);
-        std::get<Base::INACTIVE_PC>(accumulator) += factor * Accumulator(pc);
-        std::get<Base::INACTIVE_POINT_TRANSITION>(accumulator) += factor * Accumulator(q_transition);
-    }
+    std::get<Base::INACTIVE_SLICE_W0>(accumulator) += Acc3(precompute_select_zero_short * (w0 + FF(15)));
+    std::get<Base::INACTIVE_SLICE_W1>(accumulator) += Acc3(precompute_select_zero_short * (w1 + FF(15)));
+    std::get<Base::INACTIVE_SLICE_W2>(accumulator) += Acc3(precompute_select_zero_short * (w2 + FF(15)));
+    std::get<Base::INACTIVE_SLICE_W3>(accumulator) += Acc3(precompute_select_zero_short * (w3 + FF(15)));
+    std::get<Base::INACTIVE_ROUND>(accumulator) += Acc3(precompute_select_zero_short * round);
+    std::get<Base::INACTIVE_PC>(accumulator) += Acc3(precompute_select_zero_short * pc);
+    std::get<Base::INACTIVE_POINT_TRANSITION>(accumulator) += Acc3(precompute_select_zero_short * q_transition);
 }
 
 } // namespace bb
