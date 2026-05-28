@@ -50,6 +50,7 @@ import {
   Tx,
   TxHash,
   TxReceipt,
+  TxStatus,
   type TxValidationResult,
   TxValidationResultSchema,
   indexedTxSchema,
@@ -86,6 +87,13 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 export type GetTxByHashOptions = {
   includeProof?: boolean;
 };
+
+export type TxEffectOrPending =
+  | {
+      status: TxStatus.PROPOSED | TxStatus.CHECKPOINTED | TxStatus.PROVEN | TxStatus.FINALIZED;
+      txEffect: IndexedTxEffect;
+    }
+  | { status: TxStatus.PENDING; tx: Tx };
 
 /**
  * The aztec node.
@@ -411,6 +419,13 @@ export interface AztecNode {
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
+   * Gets mined tx effects or a pending tx, depending on where the tx is known.
+   * @param txHash - The hash of the tx.
+   * @returns Mined tx effects, a pending tx without its proof, or undefined if not found.
+   */
+  getTxEffectOrPending(txHash: TxHash): Promise<TxEffectOrPending | undefined>;
+
+  /**
    * Method to retrieve pending txs.
    * @returns The pending txs.
    */
@@ -513,6 +528,14 @@ const MAX_SIGNATURE_LEN = 10000;
 const GetTxByHashOptionsSchema = z.object({
   includeProof: z.boolean().optional(),
 });
+
+const TxEffectOrPendingSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal(TxStatus.PROPOSED), txEffect: indexedTxSchema() }),
+  z.object({ status: z.literal(TxStatus.CHECKPOINTED), txEffect: indexedTxSchema() }),
+  z.object({ status: z.literal(TxStatus.PROVEN), txEffect: indexedTxSchema() }),
+  z.object({ status: z.literal(TxStatus.FINALIZED), txEffect: indexedTxSchema() }),
+  z.object({ status: z.literal(TxStatus.PENDING), tx: Tx.schema }),
+]);
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
@@ -653,6 +676,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema }),
 
   getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
+
+  getTxEffectOrPending: z.function({
+    input: z.tuple([TxHash.schema]),
+    output: TxEffectOrPendingSchema.optional(),
+  }),
 
   getPendingTxs: z.function({
     input: z.tuple([

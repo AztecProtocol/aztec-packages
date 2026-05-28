@@ -45,12 +45,12 @@ import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
+import { TxReceipt, TxStatus } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
-import { type AztecNode, AztecNodeApiSchema, type GetTxByHashOptions } from './aztec-node.js';
+import { type AztecNode, AztecNodeApiSchema, type GetTxByHashOptions, type TxEffectOrPending } from './aztec-node.js';
 import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
 import type { ChainTip, ChainTips } from './chain_tips.js';
 import type { CheckpointParameter } from './checkpoint_parameter.js';
@@ -319,6 +319,23 @@ describe('AztecNodeApiSchema', () => {
     expect(response!.data).toBeInstanceOf(TxEffect);
   });
 
+  it('getTxEffectOrPending', async () => {
+    handler.txEffectOrPendingStatus = TxStatus.CHECKPOINTED;
+    const minedResponse = await context.client.getTxEffectOrPending(TxHash.random());
+    expect(minedResponse).toEqual({
+      status: TxStatus.CHECKPOINTED,
+      txEffect: expect.objectContaining({ data: expect.any(TxEffect) }),
+    });
+
+    handler.txEffectOrPendingStatus = TxStatus.PENDING;
+    const pendingResponse = await context.client.getTxEffectOrPending(TxHash.random());
+    expect(pendingResponse).toEqual({ status: TxStatus.PENDING, tx: expect.any(Tx) });
+    if (pendingResponse?.status !== TxStatus.PENDING) {
+      throw new Error('Expected pending best-effort tx response');
+    }
+    expect(pendingResponse.tx.chonkProof.isEmpty()).toBe(true);
+  });
+
   it('getPendingTxs', async () => {
     const response = await context.client.getPendingTxs();
     expect(response).toEqual([expect.any(Tx)]);
@@ -528,6 +545,7 @@ class MockAztecNode implements AztecNode {
   public validatorStats: ValidatorsStats | undefined;
   public singleValidatorStats: SingleValidatorStats | undefined;
   public lastReferenceBlock: BlockParameter | undefined;
+  public txEffectOrPendingStatus: TxEffectOrPending['status'] = TxStatus.PROPOSED;
 
   constructor(private artifact: ContractArtifact) {}
 
@@ -785,6 +803,15 @@ class MockAztecNode implements AztecNode {
   }
   async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
+    return this.randomIndexedTxEffect();
+  }
+  async getTxEffectOrPending(txHash: TxHash): Promise<TxEffectOrPending | undefined> {
+    expect(txHash).toBeInstanceOf(TxHash);
+    return this.txEffectOrPendingStatus === TxStatus.PENDING
+      ? { status: TxStatus.PENDING, tx: this.stripProof(Tx.random({ randomProof: true })) }
+      : { status: this.txEffectOrPendingStatus, txEffect: await this.randomIndexedTxEffect() };
+  }
+  private async randomIndexedTxEffect(): Promise<IndexedTxEffect> {
     return {
       l2BlockNumber: BlockNumber(1),
       l2BlockHash: new BlockHash(new Fr(0x12)),
@@ -792,6 +819,7 @@ class MockAztecNode implements AztecNode {
       txIndexInBlock: randomInt(10),
     };
   }
+
   getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve([Tx.random()]);
   }

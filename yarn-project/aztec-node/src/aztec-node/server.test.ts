@@ -59,6 +59,8 @@ import {
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
   TxEffect,
+  TxReceipt,
+  TxStatus,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -232,6 +234,36 @@ describe('aztec node', () => {
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
     );
+  });
+
+  describe('getTxEffectOrPending', () => {
+    it('returns mined tx effects when available', async () => {
+      const txHash = Tx.random().getTxHash();
+      const txEffect = {
+        l2BlockNumber: BlockNumber(1),
+        l2BlockHash: BlockHash.random(),
+        data: await TxEffect.random(),
+        txIndexInBlock: 0,
+      };
+      l2BlockSource.getSettledTxReceipt.mockResolvedValue(
+        new TxReceipt(txHash, TxStatus.CHECKPOINTED, undefined, undefined),
+      );
+      l2BlockSource.getTxEffect.mockResolvedValue(txEffect);
+
+      await expect(node.getTxEffectOrPending(txHash)).resolves.toEqual({ status: TxStatus.CHECKPOINTED, txEffect });
+    });
+
+    it('returns a pending tx without its proof when tx effects are not available', async () => {
+      const tx = Tx.random();
+      p2p.getTxStatus.mockResolvedValue('pending');
+      l2BlockSource.getSettledTxReceipt.mockResolvedValue(undefined);
+      p2p.getTxByHashFromPool.mockResolvedValue(tx);
+
+      const result = await node.getTxEffectOrPending(tx.getTxHash());
+
+      expect(result?.status).toBe(TxStatus.PENDING);
+      expect(result?.status === TxStatus.PENDING && result.tx.chonkProof.isEmpty()).toBe(true);
+    });
   });
 
   describe('tx validation', () => {

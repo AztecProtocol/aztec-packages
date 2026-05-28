@@ -98,6 +98,7 @@ import type {
   GetContractClassLogsResponse,
   GetPublicLogsResponse,
   GetTxByHashOptions,
+  TxEffectOrPending,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -1254,6 +1255,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.blockSource.getTxEffect(txHash);
+  }
+
+  public async getTxEffectOrPending(txHash: TxHash): Promise<TxEffectOrPending | undefined> {
+    const receipt = await this.getTxReceipt(txHash);
+    const status = receipt.status;
+    if (
+      status === TxStatus.PROPOSED ||
+      status === TxStatus.CHECKPOINTED ||
+      status === TxStatus.PROVEN ||
+      status === TxStatus.FINALIZED
+    ) {
+      const txEffect = await this.getTxEffect(txHash);
+      return txEffect ? { status, txEffect } : undefined;
+    }
+
+    if (status !== TxStatus.PENDING) {
+      return undefined;
+    }
+
+    const tx = await this.getTxByHash(txHash, { includeProof: false });
+    return tx ? { status: TxStatus.PENDING, tx } : undefined;
   }
 
   /**
