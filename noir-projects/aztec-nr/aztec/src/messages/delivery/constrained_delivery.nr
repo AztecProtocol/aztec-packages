@@ -52,6 +52,7 @@ pub fn calculate_secret_and_index(
         let returns = call_utility_function(
             registry,
             selector,
+            // TODO(F-671): Replace explicit caller argument once utility context exposes msg_sender().
             [sender.to_field(), recipient.to_field(), caller.to_field()],
         );
         Deserialize::deserialize(returns)

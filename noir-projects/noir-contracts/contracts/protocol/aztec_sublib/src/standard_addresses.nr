@@ -2,5 +2,5 @@
 use protocol_types::{address::AztecAddress, traits::FromField};
 
 pub global STANDARD_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x10ee94aaade35b40c82ec78d87269e55c39aa874ce585866ae43207da8c09c0e,
+    0x1c3bd1fbffc1a52385ed3e4bf6103bd94433b8045777902789da35bee35e4c75,
 );
