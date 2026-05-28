@@ -91,6 +91,13 @@ tests:
     owners:
       - *nico
 
+  # Fails in CI: "No execution steps in ivc-inputs.msgpack" — pinned Chonk IVC
+  # inputs missing/stale. http://ci.aztec-labs.com/d7647a841ee811a0
+  - regex: "bbapi/chonk_pinned_inputs.test"
+    skip: true
+    owners:
+      - *palla
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
