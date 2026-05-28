@@ -491,6 +491,7 @@ locals {
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.BLOB_FILE_STORE_UPLOAD_URL"         = var.BLOB_FILE_STORE_UPLOAD_URL
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
@@ -585,43 +586,6 @@ locals {
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       // this Helm app will have lots of replicas, if we wait for all to come online we'll surely time out.
       wait = false
-    } : null
-
-    # Blob sink: uploads blobs to filestore as it syncs
-    blob_sink = var.BLOB_FILE_STORE_UPLOAD_URL != null ? {
-      name  = "${var.RELEASE_PREFIX}-blob-sink"
-      chart = "aztec-node"
-      values = [
-        "common.yaml",
-        "blob-sink.yaml",
-        "blob-sink-resources-${var.BLOB_SINK_RESOURCE_PROFILE}.yaml"
-      ]
-      inline_values = [yamlencode({
-        service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
-        }
-      })]
-      custom_settings = {
-        "nodeType"                                   = "blob-sink"
-        "service.p2p.nodePortEnabled"                = var.P2P_NODEPORT_ENABLED
-        "node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
-        "node.env.BLOB_FILE_STORE_UPLOAD_URL"        = var.BLOB_FILE_STORE_UPLOAD_URL
-        "node.env.AWS_ACCESS_KEY_ID"                 = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY"             = var.R2_SECRET_ACCESS_KEY
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION" = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"     = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"          = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_GOSSIPSUB_D"                   = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                 = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
-        "node.env.P2P_MAX_PENDING_TX_COUNT"          = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"       = var.WS_NUM_HISTORIC_CHECKPOINTS
-        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"    = var.SEQ_ENABLE_PROPOSER_PIPELINING
-      }
-      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
-      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
-      wait                 = true
     } : null
 
     # Optional: transfer bots
