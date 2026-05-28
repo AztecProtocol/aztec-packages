@@ -7,7 +7,6 @@ import { makeProtocolContract } from '../make_protocol_contract.js';
 import { MultiCallEntrypointArtifact } from '../multi-call-entrypoint/index.js';
 import type { ProtocolContract } from '../protocol_contract.js';
 import type { ProtocolContractName } from '../protocol_contract_data.js';
-import { PublicChecksArtifact } from '../public-checks/index.js';
 import type { ProtocolContractsProvider } from './protocol_contracts_provider.js';
 
 export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArtifact> = {
@@ -15,7 +14,6 @@ export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArti
   ContractClassRegistry: ContractClassRegistryArtifact,
   MultiCallEntrypoint: MultiCallEntrypointArtifact,
   FeeJuice: FeeJuiceArtifact,
-  PublicChecks: PublicChecksArtifact,
 };
 
 export class BundledProtocolContractsProvider implements ProtocolContractsProvider {
