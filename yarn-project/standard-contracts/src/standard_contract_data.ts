@@ -12,11 +12,11 @@ export const StandardContractSalt: Record<StandardContractName, Fr> = {
 };
 
 export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
-  AuthRegistry: AztecAddress.fromString('0x3058c0af90f8b5d62ab04d9ffeb6f4b346712e5b6d4fc26245dad9b8971d0c86'),
+  AuthRegistry: AztecAddress.fromString('0x1c3bd1fbffc1a52385ed3e4bf6103bd94433b8045777902789da35bee35e4c75'),
 };
 
 export const StandardContractClassId: Record<StandardContractName, Fr> = {
-  AuthRegistry: Fr.fromString('0x17c82d834c6bbee8438b7dbb86997e9637cdc773295414e39eb5f4e05ae1d812'),
+  AuthRegistry: Fr.fromString('0x2a2197818ebc248f6933c0364e50de7b4dcee6a4e53cfadcebae98d77ec0ca4a'),
 };
 
 export const StandardContractClassIdPreimage: Record<
@@ -24,7 +24,7 @@ export const StandardContractClassIdPreimage: Record<
   { artifactHash: Fr; privateFunctionsRoot: Fr; publicBytecodeCommitment: Fr }
 > = {
   AuthRegistry: {
-    artifactHash: Fr.fromString('0x02db1ae26a7ba3548db183ae5d9753b64515bf4755454da0ab3931fea1982f91'),
+    artifactHash: Fr.fromString('0x1bf78e923b58f3e083093a39ccfc37576b9089c439797365cc7fe3b73a000dbc'),
     privateFunctionsRoot: Fr.fromString('0x17b584350f4c3ccafd8f688729afb9feab8976114fb40012e9dee65022c072a4'),
     publicBytecodeCommitment: Fr.fromString('0x2545f39893766508ce37bb5cea5e4dcab04c6f7f79f3089b1c076876e9d268b2'),
   },
