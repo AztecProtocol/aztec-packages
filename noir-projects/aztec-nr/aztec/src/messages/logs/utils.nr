@@ -31,6 +31,14 @@ mod test {
     use super::compute_discovery_tag;
     use std::test::OracleMock;
 
+    #[test(should_fail_with = "Sender for tags is not set")]
+    unconstrained fn no_tag_sender() {
+        let recipient = AztecAddress::from_field(2);
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::<AztecAddress>::none());
+        let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(42);
+        let _ = compute_discovery_tag(recipient, Option::none());
+    }
+
     #[test]
     unconstrained fn returns_oracle_tag() {
         let sender = AztecAddress::from_field(1);
@@ -39,14 +47,6 @@ mod test {
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
         let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(expected_tag);
         assert_eq(compute_discovery_tag(recipient, Option::none()), expected_tag);
-    }
-
-    #[test(should_fail_with = "Sender for tags is not set")]
-    unconstrained fn panics_when_wallet_provides_no_sender() {
-        let recipient = AztecAddress::from_field(2);
-        let _ = OracleMock::mock("aztec_prv_getSenderForTags")
-            .returns(Option::<AztecAddress>::none());
-        let _ = compute_discovery_tag(recipient, Option::none());
     }
 
     #[test]
