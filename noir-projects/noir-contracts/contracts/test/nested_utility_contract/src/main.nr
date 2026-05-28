@@ -40,7 +40,7 @@ pub contract NestedUtility {
     fn set_pow_args(x: Field, n: Field) {
         let owner = self.msg_sender();
         self.storage.pow_args.at(owner).initialize_or_replace(|_| PowNote { x, n }).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 

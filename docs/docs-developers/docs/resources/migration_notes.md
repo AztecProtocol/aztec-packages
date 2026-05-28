@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `MessageDelivery` API syntax change
+
+`MessageDelivery` variants are now accessed via constructor functions instead of dot notation:
+
+```diff
+- MessageDelivery.OFFCHAIN
++ MessageDelivery::offchain()
+
+- MessageDelivery.ONCHAIN_UNCONSTRAINED
++ MessageDelivery::onchain_unconstrained()
+
+- MessageDelivery.ONCHAIN_CONSTRAINED
++ MessageDelivery::onchain_constrained()
+```
+
 ### [Aztec.js] `ExtendedDirectionalAppTaggingSecret` renamed to `AppTaggingSecret`
 
 `ExtendedDirectionalAppTaggingSecret` has been renamed to `AppTaggingSecret`.
@@ -24,7 +39,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 ```
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
-
 ### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
 
 The `privately_check_timestamp`, `privately_check_block_number`, and related caller helpers previously in `noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr` are now in `aztec-nr/aztec/src/public_checks.nr`. Consumer contracts should update their imports:
