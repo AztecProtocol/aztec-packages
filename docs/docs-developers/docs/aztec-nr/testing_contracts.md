@@ -44,6 +44,20 @@ aztec test
 Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the test environment oracle resolver provided by the `aztec` CLI.
 :::
 
+## Keep tests in the test crate
+
+`aztec new` and `aztec init` scaffold a workspace with two crates: a contract crate and a separate test crate. For `aztec new my_project`, these are `my_project_contract` and `my_project_test`. Keep all `#[test]` functions in the test crate, not in the contract crate.
+
+If tests end up inside a contract crate, `aztec compile` emits a warning:
+
+```text
+WARNING: Found tests in contract crate(s):
+  my_project_contract::test_something
+Tests should be in a dedicated test crate, not in the contract crate.
+```
+
+The reason is **unnecessary recompilation**: a contract's compiled artifact depends on everything in its crate, so a test-only edit forces the contract to recompile even though its logic has not changed. Keeping tests in the separate test crate lets `aztec test` skip contract recompilation when only test code changed.
+
 ## Basic test structure
 
 `aztec new my_project` scaffolds a workspace with two crates: a `contract` crate that holds the contract code, and a separate `test` crate that holds your `#[test]` functions:
