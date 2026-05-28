@@ -50,6 +50,7 @@ class MegaFlavor;
 class MegaZKFlavor;
 class MegaAvmFlavor;
 class TranslatorFlavor;
+class TranslatorShortMonomialFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
 class MultilinearBatchingRecursiveFlavor;

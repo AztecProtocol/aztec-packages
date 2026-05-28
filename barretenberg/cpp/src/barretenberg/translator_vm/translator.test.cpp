@@ -272,6 +272,7 @@ class TranslatorTests : public ::testing::Test {
         auto proving_key = std::make_shared<TranslatorShortMonomialProvingKey>(circuit_builder);
         TranslatorShortMonomialProver prover{ proving_key, prover_transcript };
         auto proof = prover.construct_proof();
+        EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
 
         std::array<TranslatorFlavor::Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
         op_queue_commitments[0] =

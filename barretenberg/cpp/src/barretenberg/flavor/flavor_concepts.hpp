@@ -5,6 +5,8 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <string>
 namespace bb {
+class TranslatorShortMonomialFlavor;
+
 // clang-format off
 
 #ifdef STARKNET_GARAGA_FLAVORS
@@ -32,7 +34,8 @@ concept HasDataBus = IsMegaFlavor<T>;
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
 // be reflected via Translator relations.
-template <typename T> concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T>
+concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorShortMonomialFlavor, TranslatorRecursiveFlavor>;
 template <typename T> concept UseRowDisablingPolynomial = !IsTranslatorFlavor<T>;
 
 
