@@ -166,6 +166,8 @@ describe('Archiver Sync', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      epochCache,
+      dateProvider,
     );
   });
 

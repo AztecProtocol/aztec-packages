@@ -17,6 +17,7 @@ import {
   type BlockHash,
   L2Block,
   type L2BlockSink,
+  L2BlockSourceEvents,
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
@@ -110,9 +111,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param dataStores - Archiver substores for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
-   * @param dateProvider - Provider for current date/time.
    * @param instrumentation - Instrumentation for metrics and tracing.
    * @param l1Constants - L1 rollup constants.
+   * @param synchronizer - L1 synchronizer that handles fetching checkpoints and messages from L1.
+   * @param events - Event emitter shared with the synchronizer.
+   * @param initialHeader - Genesis block header.
+   * @param initialBlockHash - Precomputed hash of the genesis block header.
+   * @param l2TipsCache - In-memory cache for L2 chain tips.
+   * @param epochCache - Cache used to compute the proposer pipelining offset.
+   * @param dateProvider - Provider for current date/time, used for wall-clock orphan-block pruning.
    * @param log - A logger.
    */
   constructor(
@@ -146,6 +153,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
+    private readonly epochCache: EpochCache,
+    private readonly dateProvider: DateProvider,
     private readonly log: Logger = createLogger('archiver'),
   ) {
     super(dataStores, l1Constants, initialHeader, initialBlockHash, l1Constants.genesisArchiveRoot);
@@ -340,9 +349,86 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     // Prune orphan proposed blocks (block-only tips with no matching proposed checkpoint) on wall-clock
     // time. Runs after the queue is drained so freshly-arrived proposed checkpoints are seen first, and
     // before L1 sync so it fires even when L1 has not advanced.
-    await this.synchronizer.pruneOrphanProposedBlocks();
+    await this.pruneOrphanProposedBlocks();
     // Now perform L1 sync
     await this.syncFromL1();
+  }
+
+  /**
+   * Prunes a block-only local tip that was built atop a checkpoint that was never itself proposed.
+   *
+   * Under pipelining, a proposer publishes the blocks for a checkpoint (block-only proposals) before
+   * assembling and publishing the enclosing proposed checkpoint at the end of the build slot. A node
+   * that received those blocks but never the proposed checkpoint is left with an orphan tip it must
+   * not build on. We prune it once enough wall-clock time has elapsed that the proposed checkpoint
+   * should have arrived. This runs on wall-clock time (not L1 block advancement) so it fires during
+   * quiet L1 periods, and is the liveness counterpart to the sequencer's checkSync guard.
+   *
+   * Only the first uncheckpointed block is inspected: if its checkpoint is backed by a proposed
+   * checkpoint, the tip is legitimate and left for promotion (or for the L1-sync prune to clear if it
+   * later goes stale); if not, every uncheckpointed block chains off the orphan and is pruned.
+   */
+  private async pruneOrphanProposedBlocks(): Promise<void> {
+    const [lastCheckpointedBlockNumber, lastProposedBlockNumber] = await Promise.all([
+      this.stores.blocks.getCheckpointedL2BlockNumber(),
+      this.stores.blocks.getLatestL2BlockNumber(),
+    ]);
+
+    // If there are no uncheckpointed blocks, we got nothing to do
+    if (lastProposedBlockNumber === lastCheckpointedBlockNumber) {
+      return;
+    }
+
+    const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
+    const firstUncheckpointedBlockData = await this.stores.blocks.getBlockData({
+      number: firstUncheckpointedBlockNumber,
+    });
+    if (firstUncheckpointedBlockData === undefined) {
+      return;
+    }
+
+    const blockCheckpointNumber = firstUncheckpointedBlockData.checkpointNumber;
+    const blockSlot = firstUncheckpointedBlockData.header.getSlot();
+
+    // A proposed checkpoint covering this block's checkpoint means the tip is not an orphan.
+    const proposedCheckpoint = await this.stores.blocks.getProposedCheckpointByNumber(blockCheckpointNumber);
+    if (proposedCheckpoint !== undefined) {
+      return;
+    }
+
+    // The proposed checkpoint should have landed by the start of the slot after the block's build slot
+    // (build slot = blockSlot - pipeliningOffset). Wait a grace period beyond that to tolerate propagation.
+    const pipeliningOffset = this.epochCache.pipeliningOffset();
+    const deadlineSlot = SlotNumber(Number(blockSlot) - pipeliningOffset + 1);
+    const pruneAfter =
+      getTimestampForSlot(deadlineSlot, this.l1Constants) + BigInt(this.config.orphanProposedBlockPruneGraceSeconds);
+    const now = BigInt(this.dateProvider.nowInSeconds());
+    if (now < pruneAfter) {
+      return;
+    }
+
+    this.log.warn(
+      `Pruning orphan blocks after block ${lastCheckpointedBlockNumber}: block at slot ${blockSlot} belongs to ` +
+        `checkpoint ${blockCheckpointNumber} which has no matching proposed checkpoint`,
+      {
+        firstUncheckpointedBlockHeader: firstUncheckpointedBlockData.header.toInspect(),
+        blockCheckpointNumber,
+        blockSlot,
+        pipeliningOffset,
+        deadlineSlot,
+        pruneAfter,
+        now,
+      },
+    );
+
+    const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
+    if (prunedBlocks.length > 0) {
+      this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+        type: L2BlockSourceEvents.L2PruneUncheckpointed,
+        slotNumber: blockSlot,
+        blocks: prunedBlocks,
+      });
+    }
   }
 
   private async syncFromL1() {

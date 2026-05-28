@@ -1,10 +1,12 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
+import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { FunctionsOf } from '@aztec/foundation/types';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -41,9 +43,6 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
   syncFromL1(_initialSyncComplete: boolean): Promise<void> {
     return Promise.resolve();
   }
-  pruneOrphanProposedBlocks(): Promise<void> {
-    return Promise.resolve();
-  }
 }
 
 /**
@@ -72,6 +71,8 @@ export class NoopL1Archiver extends Archiver {
 
     const events = new EventEmitter() as ArchiverEmitter;
     const synchronizer = new NoopL1Synchronizer(instrumentation.tracer);
+    const epochCache = mock<EpochCache>();
+    epochCache.pipeliningOffset.mockReturnValue(0);
 
     super(
       publicClient,
@@ -102,6 +103,8 @@ export class NoopL1Archiver extends Archiver {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      epochCache,
+      new DateProvider(),
     );
   }
 
