@@ -97,6 +97,7 @@ import type {
   CheckpointResponse,
   GetContractClassLogsResponse,
   GetPublicLogsResponse,
+  GetTxByHashOptions,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -111,6 +112,7 @@ import {
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { Offense } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -1300,8 +1302,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @param txHash - The transaction hash to return.
    * @returns - The tx if it exists.
    */
-  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  public async getTxByHash(txHash: TxHash, options: GetTxByHashOptions = {}): Promise<Tx | undefined> {
+    const tx = await this.p2pClient!.getTxByHashFromPool(txHash);
+    return options.includeProof === false && tx ? this.stripProof(tx) : tx;
   }
 
   /**
@@ -1309,8 +1312,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @param txHash - The transaction hash to return.
    * @returns - The txs if it exists.
    */
-  public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
+  public async getTxsByHash(txHashes: TxHash[], options: GetTxByHashOptions = {}): Promise<Tx[]> {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash, options))));
+  }
+
+  private stripProof(tx: Tx): Tx {
+    return new Tx(tx.txHash, tx.data, ChonkProof.empty(), tx.contractClassLogFields, tx.publicFunctionCalldata);
   }
 
   public async findLeavesIndexes(

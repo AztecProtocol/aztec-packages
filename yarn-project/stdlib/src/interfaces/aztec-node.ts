@@ -83,6 +83,10 @@ import {
 } from './get_logs_response.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
+export type GetTxByHashOptions = {
+  includeProof?: boolean;
+};
+
 /**
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
@@ -423,14 +427,14 @@ export interface AztecNode {
    * @param txHash - The transaction hash to return.
    * @returns The pending tx if it exists.
    */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined>;
 
   /**
    * Method to retrieve multiple pending txs.
    * @param txHash - The transaction hashes to return.
    * @returns The pending txs if exist.
    */
-  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
+  getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -505,6 +509,10 @@ export interface AztecNode {
 
 const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
 const MAX_SIGNATURE_LEN = 10000;
+
+const GetTxByHashOptionsSchema = z.object({
+  includeProof: z.boolean().optional(),
+});
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
@@ -656,10 +664,13 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPendingTxCount: z.function({ input: z.tuple([]), output: z.number() }),
 
-  getTxByHash: z.function({ input: z.tuple([TxHash.schema]), output: Tx.schema.optional() }),
+  getTxByHash: z.function({
+    input: z.tuple([TxHash.schema, optional(GetTxByHashOptionsSchema)]),
+    output: Tx.schema.optional(),
+  }),
 
   getTxsByHash: z.function({
-    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)]),
+    input: z.tuple([z.array(TxHash.schema).max(MAX_RPC_TXS_LEN), optional(GetTxByHashOptionsSchema)]),
     output: z.array(Tx.schema),
   }),
 
