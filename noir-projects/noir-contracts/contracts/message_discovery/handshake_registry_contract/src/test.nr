@@ -3,7 +3,7 @@ use crate::HandshakeRegistry;
 use aztec::{
     protocol::{
         address::AztecAddress,
-        constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+        constants::{DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, PRIVATE_LOG_SIZE_IN_FIELDS},
         hash::{compute_log_tag, compute_siloed_private_log_first_field},
         traits::{FromField, ToField},
     },
@@ -66,9 +66,9 @@ unconstrained fn handshake_to_invalid_recipient_panics() {
 }
 
 // The handshake tag depends only on the recipient, so multiple senders posting to
-// the same recipient land under log tag.
+// the same recipient land under the same log tag.
 #[test]
-unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads() {
+unconstrained fn two_senders_to_same_recipient_share_tag() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -86,22 +86,18 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     );
     let expected_siloed_tag = compute_siloed_private_log_first_field(registry_address, raw_tag);
 
-    // Each announcement log carries [siloed tag, eph_pk.x] = 2 fields.
-    assert_eq(logs_first.get(1).len(), 2);
-    assert_eq(logs_second.get(1).len(), 2);
+    // The handshake announcement log (index 1) is encrypted and uniformly sized.
+    assert_eq(logs_first.get(1).len(), PRIVATE_LOG_SIZE_IN_FIELDS);
+    assert_eq(logs_second.get(1).len(), PRIVATE_LOG_SIZE_IN_FIELDS);
     assert_eq(logs_first.get(1).get(0), expected_siloed_tag);
     assert_eq(logs_second.get(1).get(0), expected_siloed_tag);
 
-    let eph_pk_x_0 = logs_first.get(1).get(1);
-    let eph_pk_x_1 = logs_second.get(1).get(1);
-    assert(eph_pk_x_0 != 0, "eph_pk.x should be non-zero");
-    assert(eph_pk_x_1 != 0, "eph_pk.x should be non-zero");
-    assert(eph_pk_x_0 != eph_pk_x_1, "ephemeral keys should differ in handshakes from different senders");
+    // Different ephemeral keys produce different ciphertexts even under the same tag.
+    assert(logs_first.get(1).get(1) != logs_second.get(1).get(1), "ciphertexts should differ across senders");
 }
 
 // Re-handshaking for the same `(sender, recipient)` replaces the prior current handshake and produces
-// distinct `S` (hence distinct app-siloed secrets when siloed against the same caller). Each call emits a
-// distinct ephemeral key in its log.
+// distinct `S` (hence distinct app-siloed secrets when siloed against the same caller).
 #[test]
 unconstrained fn rehandshake_replaces_previous_secret_and_returns_latest() {
     let (env, registry_address, sender, _, recipient) = setup();
@@ -120,13 +116,15 @@ unconstrained fn rehandshake_replaces_previous_secret_and_returns_latest() {
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
     );
     let expected_siloed_tag = compute_siloed_private_log_first_field(registry_address, raw_tag);
+
+    // Both handshake announcement logs are encrypted, uniformly sized, and share the same tag.
+    assert_eq(logs_first.get(1).len(), PRIVATE_LOG_SIZE_IN_FIELDS);
+    assert_eq(logs_second.get(1).len(), PRIVATE_LOG_SIZE_IN_FIELDS);
     assert_eq(logs_first.get(1).get(0), expected_siloed_tag);
     assert_eq(logs_second.get(1).get(0), expected_siloed_tag);
 
-    assert(
-        logs_first.get(1).get(1) != logs_second.get(1).get(1),
-        "ephemeral keys should differ across repeated handshakes",
-    );
+    // Different ephemeral keys produce different ciphertexts even under the same tag.
+    assert(logs_first.get(1).get(1) != logs_second.get(1).get(1), "ciphertexts should differ across handshakes");
 
     // Same caller and same `(sender, recipient)`, but two distinct raw `S` produce two distinct silos
     assert(secret_first != secret_second, "successive handshakes should produce distinct app-siloed secrets");
