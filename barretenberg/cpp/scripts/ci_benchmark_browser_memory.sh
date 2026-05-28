@@ -9,7 +9,7 @@ cd "$own_dir/.."
 
 if [[ $# -eq 0 ]]; then
   ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)"
-  flow_folder="../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
+  flow_folder="$(pinned_chonk_inputs_dir)/ecdsar1+transfer_0_recursions+sponsored_fpc"
 else
   flow_folder=$1
 fi
