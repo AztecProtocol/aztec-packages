@@ -4,7 +4,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { PrivateLog } from '@aztec/stdlib/logs';
+import { AppTaggingSecretKind, PrivateLog } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
@@ -32,7 +32,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   async function setUp() {
-    secret = await randomAppTaggingSecret();
+    secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
 
     aztecNode = mock<AztecNode>();
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));

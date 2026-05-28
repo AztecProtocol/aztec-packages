@@ -1725,12 +1725,7 @@ export function makeL2Tips(
   };
 }
 
-export async function randomAppTaggingSecret(): Promise<AppTaggingSecret> {
+export async function randomAppTaggingSecret(kind: AppTaggingSecretKind): Promise<AppTaggingSecret> {
   const resolvedApp = await AztecAddress.random();
-  return new AppTaggingSecret(Fr.random(), resolvedApp);
-}
-
-export async function randomConstrainedAppTaggingSecret(): Promise<AppTaggingSecret> {
-  const resolvedApp = await AztecAddress.random();
-  return new AppTaggingSecret(Fr.random(), resolvedApp, AppTaggingSecretKind.CONSTRAINED);
+  return new AppTaggingSecret(Fr.random(), resolvedApp, kind);
 }

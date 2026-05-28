@@ -3,7 +3,7 @@ import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { computeLogTag, computeSiloedPrivateLogFirstField } from '../hash/hash.js';
-import { randomAppTaggingSecret, randomConstrainedAppTaggingSecret } from '../tests/factories.js';
+import { randomAppTaggingSecret } from '../tests/factories.js';
 import { AppTaggingSecret } from './app_tagging_secret.js';
 import { AppTaggingSecretKind } from './app_tagging_secret_kind.js';
 import { SiloedTag } from './siloed_tag.js';
@@ -12,19 +12,19 @@ import { TaggingIndexRangeSchema } from './tagging_index_range.js';
 describe('AppTaggingSecret', () => {
   describe('kind discriminator', () => {
     it('defaults to unconstrained', async () => {
-      const secret = await randomAppTaggingSecret();
+      const secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
       expect(secret.kind).toBe(AppTaggingSecretKind.UNCONSTRAINED);
     });
 
     it('supports constrained secrets', async () => {
-      const secret = await randomConstrainedAppTaggingSecret();
+      const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       expect(secret.kind).toBe(AppTaggingSecretKind.CONSTRAINED);
     });
   });
 
   describe('TaggingIndexRangeSchema', () => {
     it('preserves constrained secret kind when parsing a TaggingIndexRange', async () => {
-      const original = await randomConstrainedAppTaggingSecret();
+      const original = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
       const parsed = TaggingIndexRangeSchema.parse({
         extendedSecret: {
@@ -41,7 +41,7 @@ describe('AppTaggingSecret', () => {
     });
 
     it('defaults missing secret kind to unconstrained when parsing a TaggingIndexRange', async () => {
-      const original = await randomAppTaggingSecret();
+      const original = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
 
       const parsed = TaggingIndexRangeSchema.parse({
         extendedSecret: {
@@ -59,7 +59,7 @@ describe('AppTaggingSecret', () => {
 
   describe('fromString', () => {
     it('round-trips an unconstrained secret', async () => {
-      const original = await randomAppTaggingSecret();
+      const original = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
       const parsed = AppTaggingSecret.fromString(original.toString());
 
       expect(parsed).toBeInstanceOf(AppTaggingSecret);
@@ -68,7 +68,7 @@ describe('AppTaggingSecret', () => {
     });
 
     it('round-trips a constrained secret', async () => {
-      const original = await randomConstrainedAppTaggingSecret();
+      const original = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       const parsed = AppTaggingSecret.fromString(original.toString());
 
       expect(parsed).toBeInstanceOf(AppTaggingSecret);
@@ -77,7 +77,7 @@ describe('AppTaggingSecret', () => {
     });
 
     it('parses kind-prefixed unconstrained secrets', async () => {
-      const original = await randomAppTaggingSecret();
+      const original = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
       const parsed = AppTaggingSecret.fromString(
         `${AppTaggingSecretKind.UNCONSTRAINED}:${original.secret.toString()}:${original.app.toString()}`,
       );
@@ -87,7 +87,7 @@ describe('AppTaggingSecret', () => {
     });
 
     it('parses kind-prefixed constrained secrets', async () => {
-      const original = await randomConstrainedAppTaggingSecret();
+      const original = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       const parsed = AppTaggingSecret.fromString(original.toString());
 
       expect(parsed.kind).toBe(AppTaggingSecretKind.CONSTRAINED);
@@ -95,7 +95,7 @@ describe('AppTaggingSecret', () => {
     });
 
     it('rejects unknown kind prefixes', async () => {
-      const original = await randomAppTaggingSecret();
+      const original = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
 
       expect(() =>
         AppTaggingSecret.fromString(`invalid:${original.secret.toString()}:${original.app.toString()}`),
@@ -105,7 +105,7 @@ describe('AppTaggingSecret', () => {
 
   describe('SiloedTag.compute', () => {
     it('matches the manual constrained-tag formula for a constrained secret', async () => {
-      const secret = await randomConstrainedAppTaggingSecret();
+      const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       const index = 7;
 
       const computed = await SiloedTag.compute({ extendedSecret: secret, index });
@@ -118,7 +118,7 @@ describe('AppTaggingSecret', () => {
     });
 
     it('matches the unconstrained-tag formula for an unconstrained secret', async () => {
-      const secret = await randomAppTaggingSecret();
+      const secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
       const index = 7;
 
       const computed = await SiloedTag.compute({ extendedSecret: secret, index });
@@ -131,7 +131,7 @@ describe('AppTaggingSecret', () => {
     });
 
     it('produces different tags for the two flavors even when the underlying Fr matches', async () => {
-      const constrained = await randomConstrainedAppTaggingSecret();
+      const constrained = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       const unconstrained = new AppTaggingSecret(constrained.secret, constrained.app);
 
       const unconstrainedTag = await SiloedTag.compute({ extendedSecret: unconstrained, index: 0 });

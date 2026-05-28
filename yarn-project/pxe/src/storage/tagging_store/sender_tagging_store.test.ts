@@ -1,8 +1,14 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
-import { AppTaggingSecret, PrivateLog, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
-import { randomAppTaggingSecret, randomConstrainedAppTaggingSecret } from '@aztec/stdlib/testing';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  PrivateLog,
+  SiloedTag,
+  type TaggingIndexRange,
+} from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
@@ -20,8 +26,8 @@ describe('SenderTaggingStore', () => {
 
   beforeEach(async () => {
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
-    secret1 = await randomAppTaggingSecret();
-    secret2 = await randomAppTaggingSecret();
+    secret1 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
+    secret2 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
   });
 
   describe('storePendingIndexes', () => {
@@ -607,7 +613,7 @@ describe('SenderTaggingStore', () => {
     });
 
     it('recomputes siloed tags via the constrained domain separator for constrained-delivery secrets', async () => {
-      const constrainedSecret = await randomConstrainedAppTaggingSecret();
+      const constrainedSecret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
       const txHash = TxHash.random();
 
       await taggingStore.storePendingIndexes([range(constrainedSecret, 3, 5)], txHash, 'test');
@@ -627,7 +633,7 @@ describe('SenderTaggingStore', () => {
     // finalizer must not treat it as a surviving constrained-tag. The onchain emission would have used the
     // constrained domain separator, so the values are different.
     it('does not cross-match a tag computed under the wrong domain separator', async () => {
-      const constrainedSecret = await randomConstrainedAppTaggingSecret();
+      const constrainedSecret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
       const txHash = TxHash.random();
       await taggingStore.storePendingIndexes([range(constrainedSecret, 0, 2)], txHash, 'test');

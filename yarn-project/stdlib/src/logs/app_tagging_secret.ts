@@ -59,7 +59,7 @@ export class AppTaggingSecret {
   }
 
   toString(): string {
-    // Keep the existing two-part unconstrained key so stored tagging entries remain addressable.
+    // Preserve the legacy unconstrained key format so existing sender tagging store entries remain addressable.
     if (this.kind === AppTaggingSecretKind.UNCONSTRAINED) {
       return `${this.secret.toString()}:${this.app.toString()}`;
     }
@@ -69,6 +69,7 @@ export class AppTaggingSecret {
   static fromString(str: string): AppTaggingSecret {
     const parts = str.split(':');
     if (parts.length === 2) {
+      // Two-part keys were written before constrained tagging existed and are therefore unconstrained.
       const [secretStr, appStr] = parts;
       return new AppTaggingSecret(Fr.fromString(secretStr), AztecAddress.fromString(appStr));
     }
