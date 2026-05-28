@@ -1,4 +1,3 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
@@ -12,6 +11,8 @@ import { TxHash } from '@aztec/stdlib/tx/tx-hash';
 import { type Command, CommanderError, InvalidArgumentError, Option } from 'commander';
 import { lookup } from 'dns/promises';
 import { rename, writeFile } from 'fs/promises';
+
+export { LogCursor };
 
 /**
  * If we can successfully resolve 'host.docker.internal', then we are running in a container, and we should treat
@@ -228,35 +229,16 @@ export function parseOptionalAztecAddress(address: string): AztecAddress | undef
 }
 
 /**
- * Parses an optional `<blockNumber>-<txHash>-<logIndexWithinTx>` triple into a {@link LogCursor}, used as the
- * `--after-log` argument of `get-logs` to resume pagination strictly after a previously-seen log.
- *
- * @param value - The CLI string to parse, or empty/undefined to skip.
- * @returns The parsed {@link LogCursor}, or undefined if `value` is missing or empty.
+ * Parses an optional `<blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx>` triple into a {@link LogCursor},
+ * used as the `--after-log` argument of `get-logs` to resume pagination strictly after a previously-seen log.
+ * Thin wrapper over {@link LogCursor.parseOptional} that surfaces parse errors as commander's
+ * {@link InvalidArgumentError}.
  */
 export function parseOptionalLogCursor(value: string): LogCursor | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const parts = value.split('-');
-  if (parts.length !== 3) {
-    throw new InvalidArgumentError(
-      `Invalid log cursor "${value}". Expected <blockNumber>-<txHash>-<logIndexWithinTx>.`,
-    );
-  }
-  const [blockNumberStr, txHashStr, logIndexStr] = parts;
-  const blockNumber = Number(blockNumberStr);
-  const logIndexWithinTx = Number(logIndexStr);
-  if (!Number.isInteger(blockNumber) || blockNumber < 1) {
-    throw new InvalidArgumentError(`Invalid log cursor block number: ${blockNumberStr}`);
-  }
-  if (!Number.isInteger(logIndexWithinTx) || logIndexWithinTx < 0) {
-    throw new InvalidArgumentError(`Invalid log cursor log index: ${logIndexStr}`);
-  }
   try {
-    return new LogCursor(BlockNumber(blockNumber), TxHash.fromString(txHashStr), logIndexWithinTx);
-  } catch {
-    throw new InvalidArgumentError(`Invalid log cursor tx hash: ${txHashStr}`);
+    return LogCursor.parseOptional(value);
+  } catch (err) {
+    throw new InvalidArgumentError(err instanceof Error ? err.message : String(err));
   }
 }
 

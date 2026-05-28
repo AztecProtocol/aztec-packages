@@ -58,4 +58,10 @@ describe('LogResult', () => {
     const b = LogResult.from({ ...a, noteHashes: [], nullifiers: [] });
     expect(a.equals(b)).toBe(false);
   });
+
+  it('equals distinguishes different txIndexWithinBlock values', () => {
+    const a = LogResult.random(false);
+    const b = LogResult.from({ ...a, txIndexWithinBlock: a.txIndexWithinBlock + 1 });
+    expect(a.equals(b)).toBe(false);
+  });
 });

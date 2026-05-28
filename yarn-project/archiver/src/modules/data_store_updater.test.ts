@@ -5,7 +5,7 @@ import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-reg
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
-import { ContractClassLog, PrivateLog, Tag } from '@aztec/stdlib/logs';
+import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import '@aztec/stdlib/testing/jest';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -279,26 +279,15 @@ describe('ArchiverDataStoreUpdater', () => {
   });
 
   describe('logs handling', () => {
-    // Helper: every public log's `fields[0]` is the tag. We query each unique (contract, tag) pair to
-    // recover the indexed logs without depending on the removed `getPublicLogs(LogFilter)` API.
+    /**
+     * Counts how many indexed public logs at `block.number` come from `block`'s txs. Compares the indexed
+     * logs' `txHash` against the block's tx-effect hashes, so an orphan write from a different block at
+     * the same number (e.g. after a slot conflict swap) doesn't get counted.
+     */
     async function countIndexedPublicLogs(block: L2Block): Promise<number> {
-      const seen = new Set<string>();
-      let total = 0;
-      for (const tx of block.body.txEffects) {
-        for (const log of tx.publicLogs) {
-          const key = `${log.contractAddress.toString()}|${log.fields[0].toString()}`;
-          if (seen.has(key)) {
-            continue;
-          }
-          seen.add(key);
-          const res = await store.logs.getPublicLogsByTags({
-            contractAddress: log.contractAddress,
-            tags: [new Tag(log.fields[0])],
-          });
-          total += res[0].length;
-        }
-      }
-      return total;
+      const expectedTxHashes = new Set(block.body.txEffects.map(tx => tx.txHash.toString()));
+      const indexed = await store.logs.getAllPublicLogsForBlock(block.number);
+      return indexed.filter(log => expectedTxHashes.has(log.txHash.toString())).length;
     }
 
     it('does not duplicate logs when checkpoint contains same block as provisional', async () => {

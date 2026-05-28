@@ -1650,6 +1650,7 @@ export function randomPrivateLogResult(opts?: {
   blockNumber?: number;
   blockHash?: BlockHash;
   blockTimestamp?: bigint;
+  txIndexWithinBlock?: number;
   logIndexWithinTx?: number;
   noteHashes?: Fr[];
   nullifiers?: Fr[];
@@ -1663,6 +1664,7 @@ export function randomPrivateLogResult(opts?: {
     opts?.blockHash ?? BlockHash.random(),
     opts?.blockTimestamp ?? 1n,
     opts?.txHash ?? TxHash.random(),
+    opts?.txIndexWithinBlock ?? 0,
     opts?.logIndexWithinTx ?? 0,
     includeEffects ? (opts?.noteHashes ?? [Fr.random(), Fr.random()]) : undefined,
     includeEffects ? (opts?.nullifiers ?? [Fr.random()]) : undefined,
@@ -1675,6 +1677,7 @@ export async function randomPublicLogResult(opts?: {
   blockNumber?: number;
   blockHash?: BlockHash;
   blockTimestamp?: bigint;
+  txIndexWithinBlock?: number;
   logIndexWithinTx?: number;
   noteHashes?: Fr[];
   nullifiers?: Fr[];
@@ -1688,6 +1691,7 @@ export async function randomPublicLogResult(opts?: {
     opts?.blockHash ?? BlockHash.random(),
     opts?.blockTimestamp ?? 1n,
     opts?.txHash ?? TxHash.random(),
+    opts?.txIndexWithinBlock ?? 0,
     opts?.logIndexWithinTx ?? 0,
     includeEffects ? (opts?.noteHashes ?? [Fr.random(), Fr.random()]) : undefined,
     includeEffects ? (opts?.nullifiers ?? [Fr.random()]) : undefined,

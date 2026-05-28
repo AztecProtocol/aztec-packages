@@ -59,7 +59,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
     .option(
       '-al --after-log <cursor>',
-      'Log cursor of the form <blockNumber>-<txHash>-<logIndexWithinTx> to resume pagination after.',
+      'Log cursor of the form <blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx> to resume pagination after.',
       parseOptionalLogCursor,
     )
     .addOption(nodeOption)

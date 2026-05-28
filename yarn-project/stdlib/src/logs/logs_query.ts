@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { BlockHash } from '../block/block_hash.js';
+import { MAX_LOGS_PER_TAG } from '../interfaces/api_limit.js';
 import { type ZodFor, schemas, zodFor } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { LogCursor } from './log_cursor.js';
@@ -38,6 +39,12 @@ export type LogsQueryBase = {
   referenceBlock?: BlockHash;
   /** When set, each log also carries `noteHashes` and all `nullifiers` for note-nonce discovery. */
   includeEffects?: boolean;
+  /**
+   * Maximum number of logs returned per tag. Capped at {@link MAX_LOGS_PER_TAG} (rejected if higher).
+   * Defaults to {@link MAX_LOGS_PER_TAG} when unset. Mainly useful for tests that need to force
+   * pagination at a small page size.
+   */
+  limitPerTag?: number;
 };
 
 /**
@@ -76,6 +83,12 @@ const logsQueryBaseShape = {
   txHash: TxHash.schema.optional(),
   referenceBlock: BlockHash.schema.optional(),
   includeEffects: z.boolean().optional(),
+  limitPerTag: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_LOGS_PER_TAG, { message: `limitPerTag must be <= ${MAX_LOGS_PER_TAG}` })
+    .optional(),
 };
 
 /**

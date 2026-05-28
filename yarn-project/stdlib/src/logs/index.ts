@@ -9,6 +9,7 @@ export * from './pending_tagged_log.js';
 export * from './log_result.js';
 export * from './log_cursor.js';
 export * from './logs_query.js';
+export * from './query_all_logs_by_tags.js';
 export * from './shared_secret_derivation.js';
 export * from './message_context.js';
 export * from './debug_log.js';

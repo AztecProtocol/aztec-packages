@@ -233,7 +233,9 @@ describe('LogStore', () => {
       expect(
         firstP2.blockNumber > lastP1.blockNumber ||
           (firstP2.blockNumber === lastP1.blockNumber &&
-            (!firstP2.txHash.equals(lastP1.txHash) || firstP2.logIndexWithinTx > lastP1.logIndexWithinTx)),
+            (firstP2.txIndexWithinBlock > lastP1.txIndexWithinBlock ||
+              (firstP2.txIndexWithinBlock === lastP1.txIndexWithinBlock &&
+                firstP2.logIndexWithinTx > lastP1.logIndexWithinTx))),
       ).toBe(true);
     });
 

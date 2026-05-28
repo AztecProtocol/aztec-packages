@@ -165,7 +165,7 @@ type LogResult = {
 +               [--tx-hash <tx>] [--from-block <n>] [--to-block <n>] [--after-log <cursor>]
 ```
 
-`--after-log` now takes a `LogCursor` of the form `<blockNumber>-<txHash>-<logIndexWithinTx>` (formerly a `LogId`).
+`--after-log` now takes a `LogCursor` of the form `<blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx>` (formerly a `LogId`).
 
 **Mutual exclusion**: setting both `txHash` and `fromBlock`/`toBlock` is rejected (a `txHash` already pins a block). `txHash` + `afterLog` is allowed and paginates within the tx's logs for a tag.
 

@@ -288,26 +288,9 @@ export class LogStore {
     return this.db.transactionAsync(() => this.#runQuery(query, query.contractAddress.toBuffer()));
   }
 
-  static #validateQuery(query: {
-    txHash?: TxHash;
-    fromBlock?: unknown;
-    toBlock?: unknown;
-    tags?: ReadonlyArray<TagQuery<Tag | SiloedTag>>;
-  }): void {
+  static #validateQuery(query: { txHash?: TxHash; fromBlock?: unknown; toBlock?: unknown }): void {
     if (query.txHash !== undefined && (query.fromBlock !== undefined || query.toBlock !== undefined)) {
       throw new Error('`txHash` is mutually exclusive with `fromBlock`/`toBlock`');
-    }
-    // `txHash` + `afterLog` is allowed only when the cursor refers to the same tx — otherwise the cursor
-    // start would sit before the tx range and the scan would leak logs from intervening txs of the same
-    // tag. Cursors come from previously-returned logs, so callers paginating within a tx will satisfy
-    // this naturally; the check rejects the mismatched-cursor edge case loudly.
-    if (query.txHash !== undefined && query.tags !== undefined) {
-      for (const entry of query.tags) {
-        const afterLog = typeof entry === 'object' && 'afterLog' in entry ? entry.afterLog : undefined;
-        if (afterLog !== undefined && !afterLog.txHash.equals(query.txHash)) {
-          throw new Error('`afterLog.txHash` must equal `query.txHash` when both are set');
-        }
-      }
     }
   }
 
@@ -369,17 +352,21 @@ export class LogStore {
 
       let start: Buffer;
       if (afterLog) {
-        // Cursor wins as the start; `fromBlock` is ignored (fine if the cursor sits below it).
-        const [cursorBlock, cursorTxIdx] = await this.#resolveCursor(afterLog);
-        start = LogStore.#inc(LogStore.#encodeKey(prefix, cursorBlock, cursorTxIdx, afterLog.logIndexWithinTx));
+        // Cursor wins as the start; `fromBlock` is ignored (fine if the cursor sits below it). The cursor
+        // carries `(blockNumber, txIndexWithinBlock, logIndexWithinTx)`, which slot directly into the
+        // composite key — no tx-hash lookup needed.
+        start = LogStore.#inc(
+          LogStore.#encodeKey(prefix, afterLog.blockNumber, afterLog.txIndexWithinBlock, afterLog.logIndexWithinTx),
+        );
       } else if (txLocation) {
         start = LogStore.#encodeKey(prefix, txLocation[0], txLocation[1], 0);
       } else {
         start = LogStore.#encodeKey(prefix, fromBlock, 0, 0);
       }
 
+      const limit = query.limitPerTag ?? MAX_LOGS_PER_TAG;
       const out: LogResult[] = [];
-      for await (const [rawKey, rawVal] of primaryMap.entriesAsync({ start, end, limit: MAX_LOGS_PER_TAG })) {
+      for await (const [rawKey, rawVal] of primaryMap.entriesAsync({ start, end, limit })) {
         const tail = LogStore.#decodeKeyTail(rawKey);
         const value = LogStore.#decodeValue(rawVal);
         out.push(
@@ -389,6 +376,7 @@ export class LogStore {
             value.blockHash,
             value.blockTimestamp,
             value.txHash,
+            tail.txIndexWithinBlock,
             tail.logIndexWithinTx,
           ),
         );
@@ -418,6 +406,7 @@ export class LogStore {
               log.blockHash,
               log.blockTimestamp,
               log.txHash,
+              log.txIndexWithinBlock,
               log.logIndexWithinTx,
               noteHashes,
               nullifiers,
@@ -431,19 +420,52 @@ export class LogStore {
   }
 
   /**
-   * Resolves a cursor's `txHash` to its `(blockNumber, txIndexWithinBlock)` via the block store. Throws
-   * if the cursor's tx isn't found — the cursor came from a previously-returned log, so a missing tx
-   * indicates a reorg under the client; they should re-sync from a fresh `referenceBlock`. Falling back
-   * to `(cursor.blockNumber, 0)` would silently re-yield earlier logs in that block.
+   * Reads back every private log indexed for the given block via the per-block secondary index. Order
+   * matches the canonical composite-key order (`tag`, `blockNumber`, `txIndexWithinBlock`,
+   * `logIndexWithinTx`). Used by the data-store-updater test suite to verify the indexed-vs-block-body
+   * counts without depending on the removed `getPublicLogs(LogFilter)` API.
    */
-  async #resolveCursor(cursor: LogCursor): Promise<[number, number]> {
-    const loc = await this.blockStore.getTxLocation(cursor.txHash);
-    if (!loc) {
-      throw new Error(
-        `Cursor tx ${cursor.txHash.toString()} not found — likely a reorg invalidated the cursor; client should re-sync.`,
+  getAllPrivateLogsForBlock(blockNumber: number): Promise<LogResult[]> {
+    return this.db.transactionAsync(() =>
+      this.#readBlockLogs(this.#privateKeysByBlock, this.#privateLogs, blockNumber),
+    );
+  }
+
+  /** {@inheritDoc LogStore.getAllPrivateLogsForBlock} */
+  getAllPublicLogsForBlock(blockNumber: number): Promise<LogResult[]> {
+    return this.db.transactionAsync(() => this.#readBlockLogs(this.#publicKeysByBlock, this.#publicLogs, blockNumber));
+  }
+
+  async #readBlockLogs(
+    keysByBlock: AztecAsyncMap<number, Buffer[]>,
+    primaryMap: AztecAsyncBinaryMap,
+    blockNumber: number,
+  ): Promise<LogResult[]> {
+    const keys = await keysByBlock.getAsync(blockNumber);
+    if (!keys || keys.length === 0) {
+      return [];
+    }
+    const results: LogResult[] = [];
+    for (const key of keys) {
+      const raw = await primaryMap.getAsync(key);
+      if (!raw) {
+        continue;
+      }
+      const tail = LogStore.#decodeKeyTail(key);
+      const value = LogStore.#decodeValue(raw);
+      results.push(
+        new LogResult(
+          value.logData,
+          tail.blockNumber,
+          value.blockHash,
+          value.blockTimestamp,
+          value.txHash,
+          tail.txIndexWithinBlock,
+          tail.logIndexWithinTx,
+        ),
       );
     }
-    return loc;
+    return results;
   }
 }
 

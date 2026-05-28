@@ -21,7 +21,8 @@ import type { UInt64 } from '../types/shared.js';
  * A single log returned from {@link L2LogsSource.getPrivateLogsByTags} or {@link L2LogsSource.getPublicLogsByTags}.
  *
  * `logData` is the raw field-element payload, with the tag in field 0 (consumers slice it off).
- * `blockNumber`, `blockHash`, `blockTimestamp`, `txHash`, and `logIndexWithinTx` are always present.
+ * `blockNumber`, `blockHash`, `blockTimestamp`, `txHash`, `txIndexWithinBlock`, and `logIndexWithinTx`
+ * are always present.
  * `noteHashes` and `nullifiers` are populated only when the query opts in via `includeEffects` — they are
  * fetched on demand from the block store and carry **all** nullifiers in the tx, not just the first.
  */
@@ -37,6 +38,8 @@ export class LogResult {
     public readonly blockTimestamp: UInt64,
     /** The hash of the tx this log was emitted in. */
     public readonly txHash: TxHash,
+    /** The 0-based index of this log's tx within its block. */
+    public readonly txIndexWithinBlock: number,
     /** The 0-based index of this log within its tx (across both private and public logs for the tx). */
     public readonly logIndexWithinTx: number,
     /** All note hashes from the tx effect — populated only when `includeEffects` is set. */
@@ -53,6 +56,7 @@ export class LogResult {
         blockHash: BlockHash.schema,
         blockTimestamp: schemas.UInt64,
         txHash: TxHash.schema,
+        txIndexWithinBlock: schemas.Integer,
         logIndexWithinTx: schemas.Integer,
         noteHashes: z.array(foundationSchemas.Fr).optional(),
         nullifiers: z.array(foundationSchemas.Fr).optional(),
@@ -67,6 +71,7 @@ export class LogResult {
       fields.blockHash,
       fields.blockTimestamp,
       fields.txHash,
+      fields.txIndexWithinBlock,
       fields.logIndexWithinTx,
       fields.noteHashes,
       fields.nullifiers,
@@ -75,7 +80,9 @@ export class LogResult {
 
   /**
    * Serializes the log to a buffer. The optional effect fields are prefixed with a presence byte so the
-   * round-trip distinguishes "absent" from "empty array".
+   * round-trip distinguishes "absent" from "empty array". `txIndexWithinBlock` is included here so the
+   * `LogResult` codec is self-contained; the archiver does not use this codec on the store path (it
+   * derives `txIndexWithinBlock` from the composite key) but the RPC layer relies on it.
    */
   toBuffer(): Buffer {
     const parts: Buffer[] = [
@@ -84,6 +91,7 @@ export class LogResult {
       this.blockHash.toBuffer(),
       bigintToUInt64BE(this.blockTimestamp),
       this.txHash.toBuffer(),
+      numToUInt32BE(this.txIndexWithinBlock),
       numToUInt32BE(this.logIndexWithinTx),
       Buffer.from([this.noteHashes !== undefined ? 1 : 0]),
     ];
@@ -104,6 +112,7 @@ export class LogResult {
     const blockHash = reader.readObject(BlockHash);
     const blockTimestamp = reader.readUInt64();
     const txHash = reader.readObject(TxHash);
+    const txIndexWithinBlock = reader.readNumber();
     const logIndexWithinTx = reader.readNumber();
     const noteHashes = reader.readBoolean() ? reader.readVector(Fr) : undefined;
     const nullifiers = reader.readBoolean() ? reader.readVector(Fr) : undefined;
@@ -113,6 +122,7 @@ export class LogResult {
       blockHash,
       blockTimestamp,
       txHash,
+      txIndexWithinBlock,
       logIndexWithinTx,
       noteHashes,
       nullifiers,
@@ -127,6 +137,7 @@ export class LogResult {
       BigInt(Math.floor(Date.now() / 1000)),
       TxHash.random(),
       Math.floor(Math.random() * 100),
+      Math.floor(Math.random() * 100),
       includeEffects ? times(3, Fr.random) : undefined,
       includeEffects ? times(3, Fr.random) : undefined,
     );
@@ -138,6 +149,7 @@ export class LogResult {
       this.blockHash.equals(other.blockHash) &&
       this.blockTimestamp === other.blockTimestamp &&
       this.txHash.equals(other.txHash) &&
+      this.txIndexWithinBlock === other.txIndexWithinBlock &&
       this.logIndexWithinTx === other.logIndexWithinTx &&
       this.logData.length === other.logData.length &&
       this.logData.every((f, i) => f.equals(other.logData[i])) &&
@@ -150,7 +162,7 @@ export class LogResult {
   toHumanReadable(): string {
     const head =
       `block ${this.blockNumber} (${this.blockHash.toString()}) ` +
-      `tx ${this.txHash.toString()} logIndex ${this.logIndexWithinTx} ` +
+      `tx ${this.txHash.toString()} txIndex ${this.txIndexWithinBlock} logIndex ${this.logIndexWithinTx} ` +
       `ts ${this.blockTimestamp}`;
     const data = `data [${this.logData.map(f => f.toString()).join(', ')}]`;
     const parts = [head, data];
