@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
-import { LogCursor, type LogResult, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import { LogCursor, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import '@aztec/stdlib/testing/jest';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
@@ -15,7 +15,6 @@ import {
   type MockCheckpointWithLogsOptions,
   makeCheckpointWithLogs,
   makePrivateLogTag,
-  makePublicLogTag,
   makePublishedCheckpoint,
   makeStateForBlock,
 } from '../test/mock_structs.js';
@@ -448,12 +447,5 @@ describe('LogStore', () => {
         }),
       ).toThrow(/mutually exclusive/i);
     });
-  });
-
-  // Touch some imports to keep them flagged-as-used for the lint pass.
-  it('utility', () => {
-    expect(typeof makePublicLogTag).toBe('function');
-    const _result: LogResult[] = [];
-    void _result;
   });
 });

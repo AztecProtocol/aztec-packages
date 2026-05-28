@@ -72,10 +72,6 @@ export class LogStore {
     this.#publicKeysByBlock = db.openMap('archiver_public_log_keys_by_block');
   }
 
-  // -----------------------------------------------------------------------------------------------
-  // Key codec — keep this section narrow; everything else depends on these helpers.
-  // -----------------------------------------------------------------------------------------------
-
   /**
    * Encodes a composite primary key as fixed-width big-endian raw bytes. `prefix` is the leading byte
    * slice (`tag` for private; `contractAddress ++ tag` for public). All three trailing fields are u32
@@ -83,7 +79,7 @@ export class LogStore {
    * logIndexWithinTx)` order.
    */
   static #encodeKey(prefix: Buffer, blockNumber: number, txIndex: number, logIndex: number): Buffer {
-    const tail = Buffer.allocUnsafe(TAIL_LEN);
+    const tail = Buffer.alloc(TAIL_LEN);
     tail.writeUInt32BE(blockNumber, 0);
     tail.writeUInt32BE(txIndex, BLOCK_LEN);
     tail.writeUInt32BE(logIndex, BLOCK_LEN + TXIDX_LEN);
@@ -139,10 +135,6 @@ export class LogStore {
     return LogStore.#inc(LogStore.#encodeKey(prefix, txBlk, txIdx, MAX_U32));
   }
 
-  // -----------------------------------------------------------------------------------------------
-  // Value codec
-  // -----------------------------------------------------------------------------------------------
-
   static #encodeValue(value: StoredLogValue): Buffer {
     const head = Buffer.allocUnsafe(32 + 32 + 8 + 4);
     value.txHash.toBuffer().copy(head, 0);
@@ -171,10 +163,6 @@ export class LogStore {
     }
     return { txHash, blockHash, blockTimestamp, logData };
   }
-
-  // -----------------------------------------------------------------------------------------------
-  // Writes
-  // -----------------------------------------------------------------------------------------------
 
   /**
    * Indexes every emitted private and public log from the given blocks. Wraps the write in a single
@@ -287,10 +275,6 @@ export class LogStore {
       return true;
     });
   }
-
-  // -----------------------------------------------------------------------------------------------
-  // Reads
-  // -----------------------------------------------------------------------------------------------
 
   /** Returns one inner array per element of `query.tags`, in input order. */
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {

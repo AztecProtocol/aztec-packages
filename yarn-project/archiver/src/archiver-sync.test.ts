@@ -229,8 +229,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toEqual(msgs3);
       await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
-      // Verify private logs are surfaced through the block body. Public and contract-class logs are
-      // no longer queryable via the old getPublicLogs / getContractClassLogs RPCs (removed in v7).
+      // Verify private logs are surfaced through the block body.
       for (const checkpoint of [cp1, cp2, cp3]) {
         for (const block of checkpoint.blocks) {
           const blockNumber = block.number;
@@ -972,9 +971,6 @@ describe('Archiver Sync', () => {
       const txHash = cp2.blocks[0].body.txEffects[0].txHash;
       expect(await archiver.getTxEffect(txHash)).toBeUndefined();
       expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
-
-      // Note: getPublicLogs / getContractClassLogs were removed in v7. Block-level removal is verified
-      // above via getCheckpoints / getTxEffect.
     }, 10_000);
 
     it('handles updated messages due to L1 reorg', async () => {

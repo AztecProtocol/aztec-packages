@@ -169,8 +169,6 @@ type LogResult = {
 
 **Mutual exclusion**: setting both `txHash` and `fromBlock`/`toBlock` is rejected (a `txHash` already pins a block). `txHash` + `afterLog` is allowed and paginates within the tx's logs for a tag.
 
-See [`LOG_API_REDESIGN.md`](https://github.com/AztecProtocol/aztec-packages/blob/master/LOG_API_REDESIGN.md) for the full API reference.
-
 **Impact**: Any consumer of `getPublicLogs(LogFilter)`, `getContractClassLogs`, the old tag-based methods, `PublicEventFilter` without a `contractAddress`, or `EventFilterBase.afterLog: LogId` must be updated. The CLI rejects calls missing `--contract-address` or `--tag`.
 
 ### [Aztec.js] `AccountManager.create` takes an options bag
