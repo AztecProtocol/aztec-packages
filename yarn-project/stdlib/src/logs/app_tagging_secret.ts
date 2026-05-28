@@ -16,7 +16,7 @@ const AppTaggingSecretKindSchema = z.union([
 ]);
 
 /**
- * Sender-side application tagging secret used for log tagging.
+ * Application tagging secret used for log tagging.
  *
  * It bundles a tagging secret with the app contract address. Unconstrained secrets are derived by the simulator from
  * `(sender, recipient, app)` via ECDH. Constrained secrets are supplied to the simulator by the caller as an
