@@ -98,6 +98,17 @@ export type BackendOptions = {
   msmDistributionMode?: boolean;
 
   /**
+   * @description Per-MSM trace mode. When true, every production
+   * `MSM::batch_multi_scalar_mul` dispatch emits a `[msm-span] t0_us=<f>
+   * t1_us=<f> count=<n> n=<n> labels=<csv>` log line with prove-relative
+   * timestamps — a wall-clock timeline of the WASM MSM phase that the
+   * chonk-webgpu page renders as a Perfetto trace (the WASM counterpart to the
+   * WebGPU bridge trace). Purely additive (one log line per batch call). Off by
+   * default; enable for a single traced run.
+   */
+  msmTraceMode?: boolean;
+
+  /**
    * @description Per-label block-list of MSMs that must stay on the native CPU
    * Pippenger even when `webgpuMsm` is true. The label is the entity name
    * passed down to `MSM::batch_multi_scalar_mul` via `batch_commit(..., labels)`

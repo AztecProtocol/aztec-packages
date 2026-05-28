@@ -27,6 +27,11 @@ interface ChonkWebGpuBenchRunResult {
   verified: boolean;
   /** Length of the resulting proof bytes. */
   proofLength: number;
+  /** Cumulative wall-clock ms spent in BN254 MSMs during prove (from the C++
+   *  accumulator via bb.emitMsmPhase → [msm-phase-total]). 0 if the build lacks
+   *  the instrumentation export. GPU bridge round-trips when WebGPU is on;
+   *  native Pippenger when off. */
+  msmPhaseMs: number;
 }
 
 interface ChonkWebGpuBenchResult {
@@ -57,13 +62,27 @@ async function runChonkOnce(
   loggerOverride?: (m: string) => void,
   msmDistributionMode = false,
   webgpuMsmBlocklist?: readonly string[],
+  msmTraceMode = false,
 ): Promise<{ result: ChonkWebGpuBenchRunResult; vk: Uint8Array }> {
+  // Capture the [msm-phase-total] line that bb.emitMsmPhase() makes the C++
+  // accumulator log, so we can report the exact cumulative MSM-phase wall time
+  // for this run. Wrap whatever base logger the caller wants.
+  let msmPhaseMs = 0;
+  const baseLog = loggerOverride ?? ((m: string) => logger.info(m));
+  const capturingLog = (m: string): void => {
+    const mt = /\[msm-phase-total\]\s+ms=([\d.]+)/.exec(m);
+    if (mt) {
+      msmPhaseMs = parseFloat(mt[1]);
+    }
+    baseLog(m);
+  };
   const bb = await Barretenberg.initSingleton({
     threads: 16,
-    logger: loggerOverride ?? ((m: string) => logger.info(m)),
+    logger: capturingLog,
     webgpuMsm,
     msmCsvMode,
     msmDistributionMode,
+    msmTraceMode,
     webgpuMsmBlocklist,
   });
   try {
@@ -72,12 +91,18 @@ async function runChonkOnce(
     const { proof, vk } = await backend.prove(witnessStack, vks);
     const proveMs = performance.now() - t0;
 
+    // Emit the cumulative MSM-phase wall time accrued during prove (the fresh
+    // WASM instance starts the accumulator at 0). Emitted before verify so it
+    // reflects the prove only; the [msm-phase-total] line arrives via the logger
+    // proxy and is read into the result below (after verify, so it has landed).
+    await bb.emitMsmPhase();
+
     const t1 = performance.now();
     const verified = await backend.verify(proof, vk);
     const verifyMs = performance.now() - t1;
 
     return {
-      result: { proveMs, verifyMs, verified, proofLength: proof.length },
+      result: { proveMs, verifyMs, verified, proofLength: proof.length, msmPhaseMs },
       vk,
     };
   } finally {
@@ -238,11 +263,7 @@ async function runChonkWebGpuBench(
  * contract has the least margin there, so we keep them on the native CPU
  * Pippenger and only delegate the remaining 89 random-distributed MSMs.
  */
-const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
-  'LOOKUP_READ_COUNTS',
-  'LOOKUP_READ_TAGS',
-  'VK_PRECOMPUTED_POLY',
-];
+const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = ['LOOKUP_READ_COUNTS', 'LOOKUP_READ_TAGS', 'VK_PRECOMPUTED_POLY'];
 
 interface ChonkWebGpuBenchPartialResult {
   flow: string;
@@ -305,9 +326,7 @@ async function runChonkWebGpuBenchPartial(
   const swiftshaderDetected = /swiftshader/i.test(adapterInfo);
 
   const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
-  logger.info(
-    `[bench-partial] flow=${flow} (${bytecodes.length} circuits); blocklist=[${blocklist.join(', ')}]`,
-  );
+  logger.info(`[bench-partial] flow=${flow} (${bytecodes.length} circuits); blocklist=[${blocklist.join(', ')}]`);
 
   const off = await runChonkOnce(false, bytecodes, witnesses, vks, functionNames);
   logger.info(
@@ -357,10 +376,8 @@ async function runChonkWebGpuBenchPartial(
     `[bench-partial] webgpu=on (blocklist applied): prove=${onPartial.result.proveMs.toFixed(0)}ms verify=${onPartial.result.verifyMs.toFixed(0)}ms`,
   );
 
-  const vksMatchOffOnAll =
-    off.vk.length === onAll.vk.length && off.vk.every((b, i) => b === onAll.vk[i]);
-  const vksMatchOffOnPartial =
-    off.vk.length === onPartial.vk.length && off.vk.every((b, i) => b === onPartial.vk[i]);
+  const vksMatchOffOnAll = off.vk.length === onAll.vk.length && off.vk.every((b, i) => b === onAll.vk[i]);
+  const vksMatchOffOnPartial = off.vk.length === onPartial.vk.length && off.vk.every((b, i) => b === onPartial.vk[i]);
   if (!vksMatchOffOnAll) {
     logger.error('[bench-partial] VK mismatch: webgpu=off vs webgpu=on(all)');
   }
@@ -394,9 +411,79 @@ async function runChonkWebGpuBenchPartial(
  * other (unlike runChonkWebGpuBenchPartial, where an on-all throw hides the
  * block-list run).
  */
+/**
+ * GPU MSM-phase decomposition, aggregated from the bridge's per-batch telemetry
+ * across the whole prove. Two bridge paths log differently:
+ *  - Mixed-N batches ([batch-1enc]): host prepare/encode/submit+wait plus
+ *    gpu_sum = the ACTUAL GPU compute from on-device timestamp queries.
+ *  - Same-N batches ([batch-Nenc] + per-MSM [msm] kind=same-n): host encode/
+ *    mapAsync and per-MSM prepare; the GPU figure here is gpu_wait (queue-
+ *    serialized wall time) — an UPPER BOUND on compute, not isolated like
+ *    the mixed path's timestamp gpu_sum.
+ * msmPhaseMs is the ground-truth total MSM-phase wall time (C++ accumulator).
+ */
+interface GpuPhaseBreakdown {
+  msmPhaseMs: number;
+  mixedBatches: number;
+  mixedPrepareMs: number;
+  mixedEncodeMs: number;
+  mixedSubmitWaitMs: number;
+  mixedGpuComputeMs: number;
+  sameNBatches: number;
+  sameNEncodeMs: number;
+  sameNMapAsyncMs: number;
+  sameNPrepareMs: number;
+  sameNGpuWaitMs: number;
+}
+
+function aggregateGpuPhase(lines: string[], msmPhaseMs: number): GpuPhaseBreakdown {
+  const b: GpuPhaseBreakdown = {
+    msmPhaseMs,
+    mixedBatches: 0,
+    mixedPrepareMs: 0,
+    mixedEncodeMs: 0,
+    mixedSubmitWaitMs: 0,
+    mixedGpuComputeMs: 0,
+    sameNBatches: 0,
+    sameNEncodeMs: 0,
+    sameNMapAsyncMs: 0,
+    sameNPrepareMs: 0,
+    sameNGpuWaitMs: 0,
+  };
+  const re1 =
+    /\[batch-1enc\]\s+count=\d+\s+prepare=([\d.]+)ms\s+encode=([\d.]+)ms\s+submit\+wait=([\d.]+)ms\s+gpu_sum=([\d.]+)ms/;
+  const reN = /\[batch-Nenc\]\s+count=\d+\s+maxSameN=\d+\s+encode=([\d.]+)ms\s+mapAsync=([\d.]+)ms/;
+  const reMsmSameN = /\[msm\]\s+name=\S+\s+n=\d+\s+kind=same-n\s+prepare=([\d.]+)ms\s+gpu_wait=([\d.]+)ms/;
+  for (const l of lines) {
+    let m = re1.exec(l);
+    if (m) {
+      b.mixedBatches++;
+      b.mixedPrepareMs += parseFloat(m[1]);
+      b.mixedEncodeMs += parseFloat(m[2]);
+      b.mixedSubmitWaitMs += parseFloat(m[3]);
+      b.mixedGpuComputeMs += parseFloat(m[4]);
+      continue;
+    }
+    m = reN.exec(l);
+    if (m) {
+      b.sameNBatches++;
+      b.sameNEncodeMs += parseFloat(m[1]);
+      b.sameNMapAsyncMs += parseFloat(m[2]);
+      continue;
+    }
+    m = reMsmSameN.exec(l);
+    if (m) {
+      b.sameNPrepareMs += parseFloat(m[1]);
+      b.sameNGpuWaitMs += parseFloat(m[2]);
+    }
+  }
+  return b;
+}
+
 async function runChonkSingleMode(
   mode: 'wasm' | 'webgpu',
   flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+  trace = false,
 ): Promise<{
   flow: string;
   mode: 'wasm' | 'webgpu';
@@ -404,6 +491,9 @@ async function runChonkSingleMode(
   blocklist: readonly string[];
   result: ChonkWebGpuBenchRunResult;
   vk: Uint8Array;
+  gpuPhase?: GpuPhaseBreakdown;
+  /** WASM MSM-phase Perfetto trace JSON, set when `trace` and `mode==='wasm'`. */
+  traceJson?: string;
 }> {
   const useWebgpu = mode === 'webgpu';
   let adapterInfo = 'n/a (wasm)';
@@ -433,22 +523,142 @@ async function runChonkSingleMode(
       (useWebgpu ? `; blocklist=[${blocklist.join(', ')}]` : ''),
   );
 
-  const { result, vk } = await runChonkOnce(
-    useWebgpu,
-    bytecodes,
-    witnesses,
-    vks,
-    functionNames,
-    /*msmCsvMode=*/ false,
-    /*loggerOverride=*/ undefined,
-    /*msmDistributionMode=*/ false,
-    /*webgpuMsmBlocklist=*/ useWebgpu ? blocklist : undefined,
-  );
+  // For the GPU run, sniff the bridge's per-batch telemetry ([batch-1enc] /
+  // [batch-Nenc] / [msm] kind=same-n) off console.log so we can decompose the
+  // GPU MSM phase into prepare vs actual GPU compute. The bridge runs on the
+  // main thread and logs via console directly (the [msm-phase-total] total
+  // comes separately through the WASM logger inside runChonkOnce).
+  const bridgeLines: string[] = [];
+  const origLog = console.log.bind(console);
+  const origInfo = console.info.bind(console);
+  if (useWebgpu) {
+    const sniff =
+      (orig: (...a: unknown[]) => void) =>
+      (...args: unknown[]) => {
+        const s = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ');
+        if (s.includes('[batch-1enc]') || s.includes('[batch-Nenc]') || s.includes('[msm]')) {
+          bridgeLines.push(s);
+        }
+        orig(...(args as []));
+      };
+    console.log = sniff(origLog);
+    console.info = sniff(origInfo);
+  }
+
+  // For the WASM run with tracing on, capture the C++ `[msm-span]` lines (a
+  // prove-relative MSM-phase timeline) via the WASM logger. They arrive through
+  // runChonkOnce's logger proxy, not console, so a logger override is the
+  // reliable capture point (mirrors runChonkMsmCsv's [msm-csv-cpu] capture).
+  const wasmTrace = !useWebgpu && trace;
+  const spanLines: string[] = [];
+  const loggerOverride = wasmTrace
+    ? (m: string) => {
+        if (m.includes('[msm-span]')) spanLines.push(m);
+        logger.info(m);
+      }
+    : undefined;
+
+  let result: ChonkWebGpuBenchRunResult;
+  let vk: Uint8Array;
+  try {
+    const out = await runChonkOnce(
+      useWebgpu,
+      bytecodes,
+      witnesses,
+      vks,
+      functionNames,
+      /*msmCsvMode=*/ false,
+      /*loggerOverride=*/ loggerOverride,
+      /*msmDistributionMode=*/ false,
+      /*webgpuMsmBlocklist=*/ useWebgpu ? blocklist : undefined,
+      /*msmTraceMode=*/ wasmTrace,
+    );
+    result = out.result;
+    vk = out.vk;
+  } finally {
+    if (useWebgpu) {
+      console.log = origLog;
+      console.info = origInfo;
+    }
+  }
   logger.info(
-    `[bench-single] mode=${mode}: prove=${result.proveMs.toFixed(0)}ms verify=${result.verifyMs.toFixed(0)}ms verified=${result.verified}`,
+    `[bench-single] mode=${mode}: prove=${result.proveMs.toFixed(0)}ms verify=${result.verifyMs.toFixed(0)}ms verified=${result.verified} msmPhase=${result.msmPhaseMs.toFixed(0)}ms`,
   );
 
-  return { flow, mode, adapter: adapterInfo, blocklist, result, vk };
+  const gpuPhase = useWebgpu ? aggregateGpuPhase(bridgeLines, result.msmPhaseMs) : undefined;
+  const traceJson = wasmTrace ? buildWasmMsmTrace(spanLines) : undefined;
+  return { flow, mode, adapter: adapterInfo, blocklist, result, vk, gpuPhase, traceJson };
+}
+
+interface TraceSpan {
+  name: string;
+  startMs: number;
+  endMs: number;
+  args?: Record<string, string | number>;
+}
+
+/**
+ * Build a Chrome "Trace Event Format" JSON (one thread row per track) for
+ * ui.perfetto.dev.
+ *
+ * Deliberately a LOCAL copy rather than `import { buildPerfettoTraceTracks } from
+ * '@aztec/bb.js'`: importing it pulls bb.js's `perfetto_trace` module into this
+ * page's synchronous entry bundle, where it is *also* statically imported by the
+ * WebGPU bridge in bb.js's dynamically-imported (async) msm_webgpu chunk. webpack
+ * then reorganizes that shared module across chunks, which reshuffled the
+ * msm_webgpu chunk and silently broke the WebGPU MSM (wrong commitments → proof
+ * verification failure). Keeping the builder local leaves the bb.js bundle
+ * structure untouched. The bridge keeps its own copy via bb.js's perfetto_trace.
+ */
+function buildPerfettoTraceTracks(tracks: { name: string; spans: TraceSpan[] }[], processName: string): string {
+  const all = tracks.flatMap(t => t.spans);
+  const t0 = all.length ? Math.min(...all.map(s => s.startMs)) : 0;
+  const usPerMs = 1000;
+  const events: Array<Record<string, unknown>> = [
+    { ph: 'M', name: 'process_name', pid: 1, tid: 0, args: { name: processName } },
+  ];
+  let tid = 0;
+  for (const track of tracks) {
+    if (track.spans.length === 0) continue;
+    tid += 1;
+    events.push({ ph: 'M', name: 'thread_name', pid: 1, tid, args: { name: track.name } });
+    for (const s of track.spans) {
+      events.push({
+        ph: 'X',
+        name: s.name,
+        pid: 1,
+        tid,
+        ts: (s.startMs - t0) * usPerMs,
+        dur: Math.max(0, s.endMs - s.startMs) * usPerMs,
+        args: s.args,
+      });
+    }
+  }
+  return JSON.stringify({ traceEvents: events, displayTimeUnit: 'ns' });
+}
+
+/** Parse the C++ `[msm-span] t0_us=… t1_us=… count=… n=… labels=…` lines from a
+ *  traced WASM prove into a single-track Perfetto trace (CPU-only; no GPU on the
+ *  WASM path). Each span sits at its true prove-relative wall position, so the
+ *  trace is directly comparable to the WebGPU bridge trace's batch grouping. */
+const MSM_SPAN_RE = /\[msm-span\]\s+t0_us=([\d.]+)\s+t1_us=([\d.]+)\s+count=(\d+)\s+n=(\d+)\s+labels=(.*)$/;
+function buildWasmMsmTrace(lines: string[]): string | undefined {
+  const spans: TraceSpan[] = [];
+  for (const line of lines) {
+    const m = MSM_SPAN_RE.exec(line);
+    if (!m) continue;
+    const count = parseInt(m[3], 10);
+    const n = parseInt(m[4], 10);
+    const labels = m[5].trim();
+    spans.push({
+      name: labels ? (count > 1 ? `[${count}] ${labels}` : labels) : `batch[${count}] n=${n}`,
+      startMs: parseFloat(m[1]) / 1000,
+      endMs: parseFloat(m[2]) / 1000,
+      args: { count, n },
+    });
+  }
+  if (spans.length === 0) return undefined;
+  return buildPerfettoTraceTracks([{ name: 'WASM MSM (CPU, MT Pippenger)', spans }], 'Chonk MSM (WASM)');
 }
 
 (window as any).runChonkSingleMode = runChonkSingleMode;
@@ -559,7 +769,22 @@ async function runChonkMsmCsv(flow: string = 'ecdsar1+transfer_1_recursions+spon
       );
     } else {
       gpuCaptured.length = 0;
-      await runChonkOnce(true, bytecodes, witnesses, vks, functionNames, /*msmCsvMode=*/ false, noopLogger);
+      // Apply the DEFAULT_WEBGPU_BLOCKLIST so the GPU pass delegates exactly the
+      // 89 columns the production config delegates (the structured columns stay
+      // on CPU and show up as cpu-only rows). This also matches the only Metal-
+      // verified config, so the GPU prove completes instead of risking a verify
+      // throw on an unvetted all-delegated run.
+      await runChonkOnce(
+        true,
+        bytecodes,
+        witnesses,
+        vks,
+        functionNames,
+        /*msmCsvMode=*/ false,
+        noopLogger,
+        /*msmDistributionMode=*/ false,
+        /*webgpuMsmBlocklist=*/ DEFAULT_WEBGPU_BLOCKLIST,
+      );
       gpuLines = gpuCaptured.slice();
     }
 
@@ -780,18 +1005,22 @@ async function runChonkMsmDistribution(flow: string = 'ecdsar1+transfer_1_recurs
  *     with simple `[OK] / [WARN] / [ERR]` colour coding.
  */
 function setupChonkWebGpuPage(): void {
-  const $ = <T extends HTMLElement>(id: string): T | null =>
-    document.getElementById(id) as T | null;
+  const $ = <T extends HTMLElement>(id: string): T | null => document.getElementById(id) as T | null;
   const status = $('status');
   const adapter = $('adapter');
   const sab = $('sab');
   const log = $('log');
   const runWasm = $<HTMLButtonElement>('run-wasm');
   const runWebgpu = $<HTMLButtonElement>('run-webgpu');
+  const runMsmCsv = $<HTMLButtonElement>('run-msmcsv');
   const clearLog = $<HTMLButtonElement>('clear-log');
   const flowSel = $<HTMLSelectElement>('flow');
+  // Optional — absent on the minimal Puppeteer harness pages, so it's looked up
+  // outside the mandatory-elements guard below. When checked, the WebGPU run
+  // captures an aligned CPU+GPU Perfetto trace from the bridge and POSTs it.
+  const traceWebgpu = $<HTMLInputElement>('trace-webgpu');
 
-  if (!status || !adapter || !sab || !log || !runWasm || !runWebgpu || !clearLog || !flowSel) {
+  if (!status || !adapter || !sab || !log || !runWasm || !runWebgpu || !runMsmCsv || !clearLog || !flowSel) {
     /* Page is missing expected elements — bail; harness pages (e.g. the
      * Puppeteer test's minimal HTML) intentionally don't have them. */
     return;
@@ -857,7 +1086,17 @@ function setupChonkWebGpuPage(): void {
     (orig: (...a: unknown[]) => void, defaultCls: 'info' | 'ok' | 'warn' | 'err') =>
     (...args: unknown[]) => {
       const s = args
-        .map(a => (typeof a === 'string' ? a : (() => { try { return JSON.stringify(a); } catch { return String(a); }})()))
+        .map(a =>
+          typeof a === 'string'
+            ? a
+            : (() => {
+                try {
+                  return JSON.stringify(a);
+                } catch {
+                  return String(a);
+                }
+              })(),
+        )
         .join(' ');
       let cls = defaultCls;
       if (/\bERROR\b|\bfail|✗/i.test(s)) cls = 'err';
@@ -880,7 +1119,8 @@ function setupChonkWebGpuPage(): void {
     const el = $(id);
     if (!el || !baseline) return;
     const ratio = baseline / faster;
-    el.textContent = ratio >= 1 ? `${ratio.toFixed(2)}× vs WASM (faster)` : `${(1 / ratio).toFixed(2)}× vs WASM (slower)`;
+    el.textContent =
+      ratio >= 1 ? `${ratio.toFixed(2)}× vs WASM (faster)` : `${(1 / ratio).toFixed(2)}× vs WASM (slower)`;
     el.className = ratio >= 1 ? 'speedup up' : 'speedup down';
   };
   const setPill = (id: string, state: 'ok' | 'fail' | 'skip' | 'info', text: string): void => {
@@ -892,7 +1132,30 @@ function setupChonkWebGpuPage(): void {
   const setBusy = (busy: boolean): void => {
     runWasm.disabled = busy;
     runWebgpu.disabled = busy;
+    runMsmCsv.disabled = busy;
     status.textContent = busy ? 'running…' : 'idle';
+  };
+
+  // POST a built Perfetto trace JSON to the server sink under `filename`
+  // (?name=…). The WASM and WebGPU runs use distinct filenames so neither
+  // clobbers the other on disk.
+  const postTrace = async (json: string, filename: string, spanNote: string): Promise<void> => {
+    try {
+      const r = await fetch(`/msm-trace?name=${encodeURIComponent(filename)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: json,
+      });
+      const j = await r.json().catch(() => ({}));
+      append(
+        r.ok
+          ? `✓ Perfetto trace saved → ${j.path ?? filename} (${spanNote}). Open it at ui.perfetto.dev (Open trace file).`
+          : `[WARN] trace POST status ${r.status}`,
+        r.ok ? 'ok' : 'warn',
+      );
+    } catch (e) {
+      append(`[WARN] trace POST failed: ${e instanceof Error ? e.message : String(e)}`, 'warn');
+    }
   };
 
   // The WASM baseline VK + prove time, kept across clicks so the WebGPU run can
@@ -901,24 +1164,44 @@ function setupChonkWebGpuPage(): void {
   // produced the same commitments as the all-CPU path.
   let lastWasmVk: Uint8Array | undefined;
   let lastWasmProveMs: number | undefined;
+  let lastWasmMsmPhaseMs: number | undefined;
 
   runWasm.addEventListener('click', async () => {
     setBusy(true);
     try {
       const flow = flowSel.value;
+      const wantTrace = !!traceWebgpu?.checked;
       append(`▶ Run WASM (multi-threaded, no GPU) on flow=${flow}`, 'info');
+      if (wantTrace) {
+        append(
+          '  ⏺ Perfetto trace capture ON — emits a prove-relative [msm-span] per MSM batch (negligible cost).',
+          'info',
+        );
+      }
       setText('wasm-prove-big', '…');
-      const { result, vk } = await (window as any).runChonkSingleMode('wasm', flow);
+      const { result, vk, traceJson } = await (window as any).runChonkSingleMode('wasm', flow, wantTrace);
       lastWasmVk = vk;
       lastWasmProveMs = result.proveMs;
+      lastWasmMsmPhaseMs = result.msmPhaseMs;
       setText('wasm-prove', fmtMs(result.proveMs));
       setText('wasm-verify', fmtMs(result.verifyMs));
       setText('wasm-prove-big', fmtMs(result.proveMs));
       setPill('wasm-verified', result.verified ? 'ok' : 'fail', `verified: ${result.verified}`);
       append(
-        `✓ WASM: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} verified=${result.verified}`,
+        `✓ WASM: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} ` +
+          `MSM-phase=${fmtMs(result.msmPhaseMs)} verified=${result.verified}`,
         result.verified ? 'ok' : 'err',
       );
+      if (wantTrace) {
+        if (traceJson) {
+          await postTrace(traceJson, 'chonk-trace-wasm.json', 'WASM MSM timeline');
+        } else {
+          append(
+            '[WARN] no WASM trace captured — no [msm-span] lines (is the WASM built with the trace export?).',
+            'warn',
+          );
+        }
+      }
     } catch (err) {
       setText('wasm-prove-big', '✗');
       setPill('wasm-verified', 'fail', 'verified: error');
@@ -935,7 +1218,23 @@ function setupChonkWebGpuPage(): void {
       const flow = flowSel.value;
       append(`▶ Run WebGPU (89 MSMs delegated, block-list applied) on flow=${flow}`, 'info');
       setText('webgpu-prove-big', '…');
-      const { result, vk, adapter: adp } = await (window as any).runChonkSingleMode('webgpu', flow);
+      const win = window as any;
+      const wantTrace = !!traceWebgpu?.checked;
+      if (wantTrace) {
+        win.__bridge_trace_reset?.();
+        win.__bridge_trace_on = true;
+        append(
+          '  ⏺ Perfetto trace capture ON — adds per-batch GPU timestamp readback, so this run\'s prove time is slightly inflated.',
+          'info',
+        );
+      }
+      let runOut: any;
+      try {
+        runOut = await win.runChonkSingleMode('webgpu', flow);
+      } finally {
+        if (wantTrace) win.__bridge_trace_on = false;
+      }
+      const { result, vk, adapter: adp, gpuPhase } = runOut;
       append(`  GPU adapter: ${adp}`, 'info');
       setText('webgpu-prove', fmtMs(result.proveMs));
       setText('webgpu-verify', fmtMs(result.verifyMs));
@@ -951,9 +1250,62 @@ function setupChonkWebGpuPage(): void {
         setPill('webgpu-vkmatch', 'skip', 'vk vs WASM: run WASM first');
       }
       append(
-        `✓ WebGPU: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} verified=${result.verified}`,
+        `✓ WebGPU: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} ` +
+          `MSM-phase=${fmtMs(result.msmPhaseMs)} verified=${result.verified}`,
         result.verified ? 'ok' : 'err',
       );
+      if (lastWasmMsmPhaseMs) {
+        append(
+          `  MSM phase: WASM=${fmtMs(lastWasmMsmPhaseMs)} vs GPU=${fmtMs(result.msmPhaseMs)} ` +
+            `(GPU saves ${fmtMs(lastWasmMsmPhaseMs - result.msmPhaseMs)})`,
+          'ok',
+        );
+      }
+      if (gpuPhase) {
+        const g = gpuPhase;
+        append(
+          `  GPU phase breakdown — prepare: mixed=${g.mixedPrepareMs.toFixed(0)}ms + same-n=${g.sameNPrepareMs.toFixed(0)}ms | ` +
+            `GPU compute(mixed,timestamp)=${g.mixedGpuComputeMs.toFixed(0)}ms | ` +
+            `same-n gpu_wait=${g.sameNGpuWaitMs.toFixed(0)}ms (wall, upper bound) | ` +
+            `encode=${(g.mixedEncodeMs + g.sameNEncodeMs).toFixed(0)}ms submit/map=${(g.mixedSubmitWaitMs + g.sameNMapAsyncMs).toFixed(0)}ms`,
+          'info',
+        );
+        // POST the structured breakdown to the box for report generation.
+        try {
+          const r = await fetch('/msm-phase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              flow,
+              adapter: adp,
+              proveMs: result.proveMs,
+              gpuPhase: g,
+              wasmMsmPhaseMs: lastWasmMsmPhaseMs ?? null,
+            }),
+          });
+          const j = await r.json().catch(() => ({}));
+          append(
+            r.ok ? `✓ phase breakdown saved → ${j.path ?? '/msm-phase'}` : `[WARN] phase POST status ${r.status}`,
+            r.ok ? 'ok' : 'warn',
+          );
+        } catch (e) {
+          append(`[WARN] phase POST failed: ${e instanceof Error ? e.message : String(e)}`, 'warn');
+          console.log(JSON.stringify(g));
+        }
+      }
+      if (wantTrace) {
+        const json: string | undefined = win.__bridge_trace_build?.();
+        const counts = win.__bridge_trace_counts?.() as { cpu: number; gpu: number } | undefined;
+        if (json && counts && counts.cpu + counts.gpu > 0) {
+          await postTrace(json, 'chonk-trace-webgpu.json', `${counts.cpu} cpu + ${counts.gpu} gpu spans`);
+        } else {
+          append(
+            '[WARN] no trace captured — the WebGPU bridge module did not record any spans ' +
+              '(was WebGPU actually delegating MSMs?).',
+            'warn',
+          );
+        }
+      }
     } catch (err) {
       setText('webgpu-prove-big', '✗');
       setPill('webgpu-verified', 'fail', 'verified: error');
@@ -964,11 +1316,47 @@ function setupChonkWebGpuPage(): void {
     }
   });
 
+  runMsmCsv.addEventListener('click', async () => {
+    setBusy(true);
+    try {
+      const flow = flowSel.value;
+      append(`▶ Per-MSM CPU-vs-GPU measurement on flow=${flow} (CPU-solo + GPU-batched, ~2 proves)`, 'info');
+      const res = await (window as any).runChonkMsmCsv(flow);
+      append(
+        `  rows=${res.rowCount} delegated(gpu)=${res.gpuOnly} cpu-only=${res.cpuOnly} adapter=${res.adapter}`,
+        'info',
+      );
+      // POST the CSV back to the server so it lands on the box for report
+      // generation (avoids copy-pasting hundreds of rows).
+      try {
+        const r = await fetch('/msm-csv', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: res.csv });
+        const j = await r.json().catch(() => ({}));
+        append(
+          r.ok
+            ? `✓ CSV saved on server: ${j.bytes ?? '?'} bytes → ${j.path ?? '/msm-csv'}`
+            : `[WARN] server did not save CSV (status ${r.status})`,
+          r.ok ? 'ok' : 'warn',
+        );
+      } catch (e) {
+        append(
+          `[WARN] POST /msm-csv failed: ${e instanceof Error ? e.message : String(e)} — full CSV dumped to console`,
+          'warn',
+        );
+        console.log(res.csv);
+      }
+    } catch (err) {
+      append(`[ERR] per-MSM CSV run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  });
+
   clearLog.addEventListener('click', () => {
     log.innerHTML = '';
   });
 
-  status.textContent = 'ready — click "Run WASM" or "Run WebGPU"';
+  status.textContent = 'ready — Run WASM / Run WebGPU / Per-MSM CPU vs GPU';
 }
 
 (window as any).setupChonkWebGpuPage = setupChonkWebGpuPage;

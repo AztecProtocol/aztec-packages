@@ -550,10 +550,32 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     // WebGPU hook: when built with BBERG_WEBGPU_MSM_HOOK and the runtime
     // flag is on (set from JS via bb_set_webgpu_msm_enabled), the BN254
     // SRS-safe path routes through the bb.js bridge.
+    // Time the production BN254 MSM dispatch so the page can read the exact
+    // cumulative MSM-phase wall time per run (GPU bridge call blocks on the full
+    // GPU round-trip; native is the multi-threaded Pippenger). Measurement modes
+    // (csv / distribution) returned above and are deliberately not counted.
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
-        if (!handle_edge_cases && webgpu_msm_runtime_enabled()) {
-            return batch_multi_scalar_mul_webgpu_bn254(points, scalars, labels);
+        const auto t0 = std::chrono::steady_clock::now();
+        auto result = (!handle_edge_cases && webgpu_msm_runtime_enabled())
+                          ? batch_multi_scalar_mul_webgpu_bn254(points, scalars, labels)
+                          : batch_multi_scalar_mul_native(points, scalars, handle_edge_cases);
+        const auto t1 = std::chrono::steady_clock::now();
+        msm_phase_add_ns(static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count()));
+        // Trace mode: emit a prove-relative `[msm-span]` for this dispatch so the
+        // page can render the WASM MSM phase as an aligned Perfetto timeline (the
+        // counterpart to the WebGPU bridge trace).
+        if (msm_trace_mode_enabled()) {
+            const uint64_t t0_abs = static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(t0.time_since_epoch()).count());
+            const uint64_t t1_abs = static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(t1.time_since_epoch()).count());
+            size_t n_total = 0;
+            for (const auto& s : scalars) {
+                n_total += s.size();
+            }
+            emit_msm_span(t0_abs, t1_abs, points.size(), n_total, labels);
         }
+        return result;
     }
 #endif
     return batch_multi_scalar_mul_native(points, scalars, handle_edge_cases);

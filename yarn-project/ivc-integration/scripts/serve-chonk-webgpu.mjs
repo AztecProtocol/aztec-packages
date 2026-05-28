@@ -23,9 +23,8 @@
 // hardware WebGPU available. Apple Safari has no WebGPU shipped yet (as
 // of 2026-05); use Chrome with `chrome://flags/#enable-unsafe-webgpu`
 // enabled on macOS.
-
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -95,6 +94,102 @@ const server = createServer((req, res) => {
   res.on('finish', () => {
     process.stdout.write(`  ${res.statusCode} ${req.method} ${url}  (${Date.now() - reqStart} ms)\n`);
   });
+
+  // GPU MSM phase-breakdown sink: the page POSTs the aggregated prepare-vs-GPU-
+  // compute breakdown (JSON) here. Written to /tmp/zac-webgpu/chonk-msm-phase.json.
+  if (req.method === 'POST' && url.split('?')[0] === '/msm-phase') {
+    let body = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 4 * 1024 * 1024) {
+        res.writeHead(413);
+        res.end('payload too large');
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        const outDir = '/tmp/zac-webgpu';
+        mkdirSync(outDir, { recursive: true });
+        const outFile = join(outDir, 'chonk-msm-phase.json');
+        writeFileSync(outFile, body);
+        process.stdout.write(`  saved GPU phase breakdown: ${body.length} bytes → ${outFile}\n`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, bytes: body.length, path: outFile }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(String(e));
+      }
+    });
+    return;
+  }
+
+  // Per-MSM CSV sink: the page POSTs the runChonkMsmCsv output here so it
+  // lands on this host for report generation (avoids copy-pasting hundreds of
+  // rows). Written to /tmp/zac-webgpu/chonk-msm-metal.csv.
+  if (req.method === 'POST' && url.split('?')[0] === '/msm-csv') {
+    let body = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 16 * 1024 * 1024) {
+        res.writeHead(413);
+        res.end('payload too large');
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        const outDir = '/tmp/zac-webgpu';
+        mkdirSync(outDir, { recursive: true });
+        const outFile = join(outDir, 'chonk-msm-metal.csv');
+        writeFileSync(outFile, body);
+        process.stdout.write(`  saved per-MSM CSV: ${body.length} bytes → ${outFile}\n`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, bytes: body.length, path: outFile }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(String(e));
+      }
+    });
+    return;
+  }
+
+  // Perfetto trace sink: the page POSTs the aligned CPU+GPU Chrome Trace Event
+  // JSON (built from the WebGPU bridge's per-batch spans) here. Written to
+  // /tmp/zac-webgpu/chonk-trace.json — open it directly in ui.perfetto.dev.
+  if (req.method === 'POST' && url.split('?')[0] === '/msm-trace') {
+    let body = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 128 * 1024 * 1024) {
+        res.writeHead(413);
+        res.end('payload too large');
+        req.destroy();
+      }
+    });
+    // Optional ?name=<file>.json picks the output filename so the WASM and
+    // WebGPU traces don't clobber each other. Sanitised to a bare basename.
+    const nameParam = new URL(url, 'http://localhost').searchParams.get('name');
+    const safeName = nameParam && /^[\w.-]+\.json$/.test(nameParam) ? nameParam : 'chonk-trace.json';
+    req.on('end', () => {
+      try {
+        const outDir = '/tmp/zac-webgpu';
+        mkdirSync(outDir, { recursive: true });
+        const outFile = join(outDir, safeName);
+        writeFileSync(outFile, body);
+        process.stdout.write(`  saved Perfetto trace: ${body.length} bytes → ${outFile}\n`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, bytes: body.length, path: outFile }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(String(e));
+      }
+    });
+    return;
+  }
 
   // Root → index.html.
   if (url === '/' || url === '/index.html') {

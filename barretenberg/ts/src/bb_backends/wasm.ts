@@ -98,6 +98,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       webgpuMsm?: boolean;
       msmCsvMode?: boolean;
       msmDistributionMode?: boolean;
+      msmTraceMode?: boolean;
       webgpuMsmBlocklist?: readonly string[];
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
@@ -146,6 +147,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       if (options.msmDistributionMode) {
         await wasm.call('bb_set_msm_distribution_mode', 1);
       }
+      if (options.msmTraceMode) {
+        await wasm.call('bb_set_msm_trace_mode', 1);
+      }
 
       if (options.unref) {
         worker.unref();
@@ -165,12 +169,24 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       if (options.msmDistributionMode) {
         await wasm.call('bb_set_msm_distribution_mode', 1);
       }
+      if (options.msmTraceMode) {
+        await wasm.call('bb_set_msm_trace_mode', 1);
+      }
       return new BarretenbergWasmAsyncBackend(wasm);
     }
   }
 
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     return this.wasm.cbindCall('bbapi', inputBuffer);
+  }
+
+  /**
+   * Invoke a no-argument WASM export by name (e.g. the MSM-phase instrumentation
+   * `bb_emit_msm_phase`, which logs a `[msm-phase-total] ms=…` line via the C++
+   * logger). Used by measurement harnesses; not part of the proving API.
+   */
+  async callRawExport(name: string): Promise<void> {
+    await this.wasm.call(name);
   }
 
   async destroy(): Promise<void> {

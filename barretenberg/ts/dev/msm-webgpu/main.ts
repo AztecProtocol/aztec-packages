@@ -27,6 +27,7 @@ import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { MsmV2, MsmV2Pool, type MsmConfig, type ProfileBreakdown } from '../../src/msm_webgpu/msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
+import { buildPerfettoTrace, downloadTrace, type TraceInput, type TraceSpan } from './perfetto.js';
 import { makeResultsClient } from './results_post.js';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
@@ -46,6 +47,7 @@ const $runSweep = document.getElementById('run-sweep') as HTMLButtonElement;
 const $runProfile = document.getElementById('run-profile') as HTMLButtonElement;
 const $profilePerBatch = document.getElementById('profile-per-batch') as HTMLInputElement;
 const $runSanity = document.getElementById('run-sanity') as HTMLButtonElement;
+const $runTrace = document.getElementById('run-trace') as HTMLButtonElement;
 const $stop = document.getElementById('stop') as HTMLButtonElement;
 const $logn = document.getElementById('logn') as HTMLInputElement;
 const $nDisplay = document.getElementById('n-display') as HTMLSpanElement;
@@ -247,6 +249,7 @@ function setBusy(busy: boolean, text = ''): void {
   const ready = srsBuf !== null;
   $runSanity.disabled = busy || !ready;
   $runProfile.disabled = busy || !ready;
+  $runTrace.disabled = busy || !ready;
   // Sweep / Run / Run × 5 exercise the WASM paths in addition to WebGPU
   // — disable them when COI is off (the threaded WASM can't load without
   // SharedArrayBuffer). The user can still hit Quick Sanity Check / Profile
@@ -578,7 +581,11 @@ async function runWebGpuOnce(
   // scalars in a way that defeats the cache: bind a slice with a new
   // identity, then re-prepare.
   if (profile) {
-    const reidentified = new Uint8Array(inputs.scalarsBuf.buffer, inputs.scalarsBuf.byteOffset, inputs.scalarsBuf.byteLength);
+    const reidentified = new Uint8Array(
+      inputs.scalarsBuf.buffer,
+      inputs.scalarsBuf.byteOffset,
+      inputs.scalarsBuf.byteLength,
+    );
     // Force a non-cached prepare so host_prepare reflects the real cost
     // (typically the fast-path uniform rewrite + scalar upload).
     await msm.prepare(reidentified);
@@ -808,10 +815,7 @@ interface ProfileColumn {
   wall: number;
 }
 
-function buildColumns(
-  entries: { logN: number; captures: ProfileCapture[] }[],
-  expand: boolean,
-): ProfileColumn[] {
+function buildColumns(entries: { logN: number; captures: ProfileCapture[] }[], expand: boolean): ProfileColumn[] {
   return entries.map(({ logN, captures }) => {
     const stagesMap = aggregatePerKey(captures, expand ? l => l : stripBatch);
     const host = aggregateHost(captures);
@@ -895,15 +899,12 @@ function renderProfileTable(
 
   const headCells = cols
     .map(({ logN, host, profileReps }, i) => {
-      const nb = host
-        ? `numBatches=${host.numBatches}, batchWindows=${host.batchWindows}`
-        : 'no data yet';
+      const nb = host ? `numBatches=${host.numBatches}, batchWindows=${host.batchWindows}` : 'no data yet';
       const prog = progress?.[i];
       let tag = '';
       if (prog) {
         if (prog.done === 0) tag = ' <span class="samples">(pending)</span>';
-        else if (prog.done < prog.target)
-          tag = ` <span class="samples">(${prog.done}/${prog.target}…)</span>`;
+        else if (prog.done < prog.target) tag = ` <span class="samples">(${prog.done}/${prog.target}…)</span>`;
         else tag = ` <span class="samples">(${prog.target} reps)</span>`;
       } else if (profileReps === 0) {
         tag = ' <span class="samples">(no data)</span>';
@@ -964,7 +965,11 @@ function renderProfileTable(
     key,
     denom,
     indent,
-  }: { key: keyof MedianedHost; denom: 'wall' | 'e2e'; indent?: 0 | 1 | 2 }): string => {
+  }: {
+    key: keyof MedianedHost;
+    denom: 'wall' | 'e2e';
+    indent?: 0 | 1 | 2;
+  }): string => {
     const cells = cols
       .map(({ host, wall }) => {
         if (!host) return `<td>—</td>`;
@@ -1058,15 +1063,16 @@ function renderProfileTable(
       return v === undefined ? ['', ''] : csvNumFor(v, wall);
     };
     const csvBody = [
-      ...orderedLabels.map(label =>
-        [label, ...cols.flatMap(c => csvCellFor(c.stagesMap, label, c.wall))].join(','),
-      ),
+      ...orderedLabels.map(label => [label, ...cols.flatMap(c => csvCellFor(c.stagesMap, label, c.wall))].join(',')),
       ['profiled_sum', ...cols.flatMap(c => csvNumFor(c.profiledSum, c.wall))].join(','),
       ['gpu_other', ...cols.flatMap(c => csvNumFor(c.gpuOther, c.wall))].join(','),
       ['wall', ...cols.flatMap(c => csvNumFor(c.wall, c.wall))].join(','),
-      ['e2e', ...cols.flatMap(c =>
-        c.host ? csvNumFor(c.host.host_prepare + c.wall, c.host.host_prepare + c.wall) : ['', ''],
-      )].join(','),
+      [
+        'e2e',
+        ...cols.flatMap(c =>
+          c.host ? csvNumFor(c.host.host_prepare + c.wall, c.host.host_prepare + c.wall) : ['', ''],
+        ),
+      ].join(','),
       ...hostPhases.map(({ key, denom }) =>
         [
           key,
@@ -1125,8 +1131,7 @@ function renderSweepTable(rows: SweepRow[]): void {
   // at larger n. Followed by a per-pass GPU/CPU breakdown built from
   // the `profile_capture` out-params collected on every WebGPU rep.
   const refRow = rows.find(r => r.logN === NOBLE_REFERENCE_LOGN);
-  $results.innerHTML =
-    renderConsistencyTable(refRow) + renderPerfTable(rows);
+  $results.innerHTML = renderConsistencyTable(refRow) + renderPerfTable(rows);
   $results.classList.add('visible');
 }
 
@@ -1442,6 +1447,93 @@ $runProfile.addEventListener('click', async () => {
  * before retrying — the macOS Metal driver has been observed to hold
  * a wedged state across page reloads.
  */
+// Capture one MsmV2 run as an aligned CPU+GPU timeline. Host phases come from
+// `performance.now()` markers around prepare/encode/submit/decode; the GPU pass
+// timestamps come from `timestamp-query` (profile mode). The two clocks are
+// joined by anchoring the first GPU pass's begin to the submit instant — the
+// scheduling latency between `queue.submit()` and the GPU actually starting is
+// the only unmodeled gap (sub-ms in practice).
+async function traceOneMsm(inputs: TestInputs): Promise<TraceInput> {
+  const msm = await ensureWebGpuWarmed(inputs, true); // profile=true → timestamp-query enrolled
+  if (!msm.profileEnabled) {
+    throw new Error(
+      "trace needs profile mode but this device lacks 'timestamp-query' — enable it via " +
+        'chrome://flags/#enable-unsafe-webgpu (or --enable-dawn-features=allow_unsafe_apis).',
+    );
+  }
+  const device = gpuDevice!;
+  // Warm prepare + run once so the traced window pays no JIT / first-touch cost.
+  await msm.prepare(inputs.scalarsBuf);
+  await msm.run();
+
+  // Defeat prepare()'s identity cache so the traced prepare does real work.
+  const reident = new Uint8Array(inputs.scalarsBuf.buffer, inputs.scalarsBuf.byteOffset, inputs.scalarsBuf.byteLength);
+  const tPrep0 = performance.now();
+  await msm.prepare(reident);
+  const tPrep1 = performance.now();
+
+  const staging = device.createBuffer({
+    size: msm.windowSumsByteLength,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+  });
+  const tEnc0 = performance.now();
+  const enc = device.createCommandEncoder();
+  msm.encodeIntoBatch(enc, staging, 0);
+  const cb = enc.finish();
+  const tEnc1 = performance.now(); // ≈ the submit instant
+  device.queue.submit([cb]);
+  await staging.mapAsync(GPUMapMode.READ);
+  const tMapped = performance.now();
+  staging.unmap();
+  const tDecode = performance.now();
+
+  // Per-pass GPU timestamps for THIS submit (rebased so pass 0 begins at 0 ns).
+  const passes = await msm.readProfilePassTimeline();
+  staging.destroy();
+  if (passes.length === 0) {
+    log('warn', '[trace] no GPU pass timestamps captured — the GPU track will be empty');
+  }
+
+  const cpu: TraceSpan[] = [
+    { name: 'prepare', startMs: tPrep0, endMs: tPrep1 },
+    { name: 'encode', startMs: tEnc0, endMs: tEnc1 },
+    { name: 'submit+wait', startMs: tEnc1, endMs: tMapped },
+    { name: 'decode', startMs: tMapped, endMs: tDecode },
+  ];
+  // Anchor the GPU clock onto the CPU clock: pass 0's begin (0 ns) = submit.
+  const gpu: TraceSpan[] = passes.map(p => ({
+    name: p.label,
+    startMs: tEnc1 + p.beginNs / 1e6,
+    endMs: tEnc1 + p.endNs / 1e6,
+    args: { gpu_us: Math.round((p.endNs - p.beginNs) / 1000) },
+  }));
+  return { cpu, gpu };
+}
+
+// Trace → Perfetto: capture one aligned CPU+GPU run and download a trace-event
+// JSON. Open it at https://ui.perfetto.dev. WebGPU-only; no WASM/COI needed.
+$runTrace.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  abortRequested = false;
+  setBusy(true, 'tracing…');
+  try {
+    const logN = readLogN();
+    const inputs = await generateInputs(logN, false);
+    log('info', `[trace] capturing aligned CPU+GPU trace at n=${inputs.n.toLocaleString()}…`);
+    const trace = await traceOneMsm(inputs);
+    const json = buildPerfettoTrace(trace);
+    const fname = `msmv2-trace-n${inputs.n}-${Date.now()}.json`;
+    downloadTrace(json, fname);
+    log('ok', `[trace] downloaded ${fname} — open it at https://ui.perfetto.dev → "Open trace file".`);
+    log('info', `[trace] CPU spans=${trace.cpu.length}, GPU passes=${trace.gpu.length} (one process, two tracks).`);
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[trace] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+  } finally {
+    setBusy(false);
+  }
+});
+
 const $probeGpu = document.getElementById('probe-gpu') as HTMLButtonElement;
 $probeGpu?.addEventListener('click', async () => {
   $log.innerHTML = '';
@@ -1793,9 +1885,14 @@ function hideProgress(): void {
         debug_dump: dump ?? null,
         tree_dump: treeDump ?? null,
       };
-      const state = (debugSmvp || debugTreeOut)
-        ? ((dump !== undefined || treeDump !== undefined) ? 'done' : 'error')
-        : (crossOk && errLines.length === 0 ? 'done' : 'error');
+      const state =
+        debugSmvp || debugTreeOut
+          ? dump !== undefined || treeDump !== undefined
+            ? 'done'
+            : 'error'
+          : crossOk && errLines.length === 0
+            ? 'done'
+            : 'error';
       await client.postResults({
         state,
         params,

@@ -98,6 +98,26 @@ export interface PassSample {
   ms: number;
 }
 
+/** Per-pass GPU timestamps (nanoseconds) for aligned timeline tracing.
+ *  `beginNs`/`endNs` are relative to the first pass's begin in the same `run()`,
+ *  so they share one GPU clock and a caller can anchor `beginNs = 0` to the CPU
+ *  submit time to place GPU work on the host timeline. */
+export interface PassTiming {
+  label: string;
+  beginNs: number;
+  endNs: number;
+}
+
+/** A run's per-pass timeline plus the raw GPU-clock begin of its first pass.
+ *  `passes[*].beginNs/endNs` are relative to `epochNs`, so two runs that were
+ *  submitted into the same command buffer (sharing the device GPU clock) can be
+ *  laid out on a common timeline by offsetting each by `epochNs - minEpochNs`. */
+export interface RawPassTimeline {
+  /** Raw GPU timestamp (device clock, ns) of the first pass's begin. */
+  epochNs: bigint;
+  passes: PassTiming[];
+}
+
 /** Host-side wall-clock breakdown of one `run()`, plus the matching `prepare()`
  *  that immediately preceded it. */
 export interface HostPhases {
@@ -269,7 +289,6 @@ function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindow
   }
   return initCounts;
 }
-
 
 interface LevelPlan {
   // pair_blocks_per_window: the per-window count of "pair_blocks" the fused
@@ -1044,9 +1063,7 @@ export class MsmV2Pool {
     });
 
     const tsAvailable = wantProfile && device.features.has('timestamp-query');
-    const querySet: GPUQuerySet | null = tsAvailable
-      ? device.createQuerySet({ type: 'timestamp', count: 2 })
-      : null;
+    const querySet: GPUQuerySet | null = tsAvailable ? device.createQuerySet({ type: 'timestamp', count: 2 }) : null;
     const tsResolveBuf: GPUBuffer | null = tsAvailable
       ? device.createBuffer({ size: 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC })
       : null;
@@ -1569,11 +1586,7 @@ export class MsmV2 {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     // params = (n, num_windows, c, scalar_words). Fixed for this instance.
-    device.queue.writeBuffer(
-      m.histogramParamsBuf,
-      0,
-      new Uint32Array([n, m.numWindows, m.c, 8]),
-    );
+    device.queue.writeBuffer(m.histogramParamsBuf, 0, new Uint32Array([n, m.numWindows, m.c, 8]));
     // Profile mode: a dedicated 2-slot timestamp-query for the prepare-time
     // histogram pass so we can split `prep_booth_decode` into "GPU dispatch
     // wall" vs "host mapAsync wait + readback".
@@ -2597,6 +2610,53 @@ export class MsmV2 {
       out[p] = { label: labels[p], ms: Number(ts[2 * p + 1] - ts[2 * p]) / 1e6 };
     }
     return out;
+  }
+
+  /**
+   * Like {@link readProfilePassSamples}, but returns each pass's raw GPU
+   * begin/end timestamps (nanoseconds, rebased to the run's first begin) rather
+   * than just the duration — the input to aligned CPU+GPU tracing. The caller
+   * anchors `beginNs = 0` to the CPU submit time. Same staging-buffer contract:
+   * the encoder must be submitted and drained before calling.
+   */
+  async readProfilePassTimeline(): Promise<PassTiming[]> {
+    const raw = await this.readProfilePassTimelineRaw();
+    return raw ? raw.passes : [];
+  }
+
+  /**
+   * Like {@link readProfilePassTimeline}, but also returns the raw GPU-clock
+   * begin of the first pass (`epochNs`). When several MSMs are encoded into one
+   * command buffer they share the device GPU clock, so a caller can place them
+   * on a common timeline by offsetting each MSM's passes by
+   * `epochNs - min(epochNs)` across the batch. Returns `null` when there is no
+   * profile data. Same staging-buffer contract: the encoder must be submitted
+   * and drained before calling.
+   */
+  async readProfilePassTimelineRaw(): Promise<RawPassTimeline | null> {
+    if (!this.profile || !this.tsStagingBuf) return null;
+    try {
+      await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
+    } catch {
+      return null;
+    }
+    const ts = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
+    this.tsStagingBuf.unmap();
+    const labels = this.passLabels;
+    if (labels.length === 0) return null;
+    // Passes execute in submission order within one command buffer, so ts[0]
+    // (first pass begin) is the earliest timestamp; rebasing keeps the values
+    // small enough to be exact as Number.
+    const t0 = ts[0];
+    const passes: PassTiming[] = new Array(labels.length);
+    for (let p = 0; p < labels.length; p++) {
+      passes[p] = {
+        label: labels[p],
+        beginNs: Number(ts[2 * p] - t0),
+        endNs: Number(ts[2 * p + 1] - t0),
+      };
+    }
+    return { epochNs: t0, passes };
   }
 
   /**

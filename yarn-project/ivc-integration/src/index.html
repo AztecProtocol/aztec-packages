@@ -177,6 +177,10 @@
         </select>
         <button id="run-wasm" class="primary">Run WASM</button>
         <button id="run-webgpu" class="primary">Run WebGPU</button>
+        <label title="Capture a Perfetto trace of the next prove and POST it to /tmp/zac-webgpu/. Run WebGPU → chonk-trace-webgpu.json (aligned CPU+GPU; adds per-batch GPU readback, so that run's prove time is slightly inflated). Run WASM → chonk-trace-wasm.json (prove-relative MSM timeline; negligible cost). Open either at ui.perfetto.dev.">
+          <input id="trace-webgpu" type="checkbox" /> Perfetto trace
+        </label>
+        <button id="run-msmcsv">Per-MSM CPU vs GPU</button>
         <button id="clear-log">Clear log</button>
         <span id="status" class="status">idle</span>
       </div>

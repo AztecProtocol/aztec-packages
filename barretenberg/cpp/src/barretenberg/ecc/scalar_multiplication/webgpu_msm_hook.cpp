@@ -61,6 +61,23 @@ std::atomic<bool> g_msm_csv_mode{ false };
 // Distribution-capture mode. See msm_distribution_mode_enabled() for details.
 std::atomic<bool> g_msm_distribution_mode{ false };
 
+// Trace mode. See msm_trace_mode_enabled() for details.
+std::atomic<bool> g_msm_trace_mode{ false };
+
+// Absolute steady_clock ns of the first `[msm-span]` of the current run, used to
+// rebase span timestamps into a prove-relative timeline. 0 means "not yet
+// anchored"; the first emit_msm_span CAS-sets it. Re-armed to 0 by
+// reset_msm_phase so a reused instance re-anchors at its next run's first MSM.
+std::atomic<uint64_t> g_msm_trace_epoch_ns{ 0 };
+
+// Cumulative wall-clock nanoseconds spent in the production MSM dispatch for
+// BN254 (the GPU bridge call — which blocks on the full GPU round-trip — or the
+// native multi-threaded Pippenger). Accumulated per call in
+// MSM::batch_multi_scalar_mul; read back via bb_emit_msm_phase (emits a
+// `[msm-phase-total]` log line) so the page can report the exact cumulative
+// MSM-phase wall time for a WASM run vs a WebGPU run. Reset per run.
+std::atomic<uint64_t> g_msm_phase_ns{ 0 };
+
 // Per-label block-list: any MSM whose telemetry label matches one of these
 // strings is kept on the native Pippenger even when `webgpu_msm_runtime_enabled()`
 // is true. WASM runs single-threaded (`NO_MULTITHREADING`) so a plain vector
@@ -171,6 +188,50 @@ void set_msm_csv_mode(bool on) noexcept
     g_msm_csv_mode.store(on, std::memory_order_relaxed);
 }
 
+bool msm_trace_mode_enabled() noexcept
+{
+    return g_msm_trace_mode.load(std::memory_order_relaxed);
+}
+
+void set_msm_trace_mode(bool on) noexcept
+{
+    g_msm_trace_mode.store(on, std::memory_order_relaxed);
+}
+
+void emit_msm_span(
+    uint64_t t0_abs_ns, uint64_t t1_abs_ns, size_t count, size_t n_total, std::span<const std::string> labels) noexcept
+{
+    // Lazily anchor the run's timeline to the first span's start. compare_exchange
+    // keeps this correct even if dispatches ever come from more than one thread.
+    uint64_t epoch = g_msm_trace_epoch_ns.load(std::memory_order_relaxed);
+    if (epoch == 0) {
+        uint64_t expected = 0;
+        if (g_msm_trace_epoch_ns.compare_exchange_strong(expected, t0_abs_ns, std::memory_order_relaxed)) {
+            epoch = t0_abs_ns;
+        } else {
+            epoch = expected;
+        }
+    }
+    const double t0_us = static_cast<double>(t0_abs_ns - epoch) / 1.0e3;
+    const double t1_us = static_cast<double>(t1_abs_ns - epoch) / 1.0e3;
+    // Join the batch's labels, bounded so a large batch can't produce a huge line.
+    std::string joined;
+    for (size_t i = 0; i < labels.size(); ++i) {
+        if (i != 0) {
+            joined += ',';
+        }
+        if (joined.size() > 240) {
+            joined += "...";
+            break;
+        }
+        joined += labels[i];
+    }
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << "t0_us=" << t0_us << " t1_us=" << t1_us << " count=" << count
+        << " n=" << n_total << " labels=" << joined;
+    info("[msm-span] ", oss.str());
+}
+
 bool msm_distribution_mode_enabled() noexcept
 {
     return g_msm_distribution_mode.load(std::memory_order_relaxed);
@@ -179,6 +240,22 @@ bool msm_distribution_mode_enabled() noexcept
 void set_msm_distribution_mode(bool on) noexcept
 {
     g_msm_distribution_mode.store(on, std::memory_order_relaxed);
+}
+
+void msm_phase_add_ns(uint64_t ns) noexcept
+{
+    g_msm_phase_ns.fetch_add(ns, std::memory_order_relaxed);
+}
+
+uint64_t msm_phase_ns() noexcept
+{
+    return g_msm_phase_ns.load(std::memory_order_relaxed);
+}
+
+void reset_msm_phase() noexcept
+{
+    g_msm_phase_ns.store(0, std::memory_order_relaxed);
+    g_msm_trace_epoch_ns.store(0, std::memory_order_relaxed);
 }
 
 bool is_label_blocked(std::string_view label) noexcept
@@ -597,6 +674,15 @@ WASM_EXPORT void bb_set_msm_distribution_mode(uint8_t on)
     bb::scalar_multiplication::set_msm_distribution_mode(on != 0);
 }
 
+// Per-MSM trace mode. When set, every production `MSM::batch_multi_scalar_mul`
+// dispatch emits a `[msm-span] t0_us=… t1_us=… count=… n=… labels=…` line — a
+// prove-relative wall-clock timeline of the WASM MSM phase that the chonk-webgpu
+// page turns into a Perfetto trace. Off by default; enable for one traced run.
+WASM_EXPORT void bb_set_msm_trace_mode(uint8_t on)
+{
+    bb::scalar_multiplication::set_msm_trace_mode(on != 0);
+}
+
 // Per-label block-list of MSMs that must stay on the native CPU Pippenger even
 // when WebGPU is on. `labels_csv` is a comma-separated list of label names
 // (matched exactly against the per-MSM telemetry name). Passing an empty
@@ -612,6 +698,24 @@ WASM_EXPORT void bb_set_webgpu_msm_blocklist(const char* labels_csv)
         return;
     }
     bb::scalar_multiplication::set_webgpu_msm_blocklist(std::string_view{ labels_csv });
+}
+
+// Cumulative MSM-phase wall-clock accounting. Reset before a prove, then call
+// bb_emit_msm_phase after it: the latter logs `[msm-phase-total] ms=<ms>`, which
+// JS captures via the logger callback. This is the exact cumulative time spent
+// in BN254 MSMs for the run (GPU bridge round-trips when WebGPU is on, native
+// Pippenger when off) — the apples-to-apples WASM-vs-GPU MSM-phase number.
+WASM_EXPORT void bb_reset_msm_phase()
+{
+    bb::scalar_multiplication::reset_msm_phase();
+}
+
+WASM_EXPORT void bb_emit_msm_phase()
+{
+    const uint64_t ns = bb::scalar_multiplication::msm_phase_ns();
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(3) << (static_cast<double>(ns) / 1.0e6);
+    info("[msm-phase-total] ms=", oss.str());
 }
 
 // ---------------------------------------------------------------------------

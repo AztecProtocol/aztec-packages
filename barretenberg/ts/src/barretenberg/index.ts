@@ -36,6 +36,21 @@ export class Barretenberg extends AsyncApi {
   }
 
   /**
+   * Emit the cumulative BN254 MSM-phase wall time accumulated since the WASM
+   * instance started — logs a `[msm-phase-total] ms=…` line via the C++ logger
+   * so a measurement harness can read the exact MSM-phase total for this run
+   * (GPU bridge round-trips when WebGPU is on, native Pippenger when off).
+   * No-op on backends without the instrumentation export (native, or a WASM
+   * build without the WebGPU hook).
+   */
+  async emitMsmPhase(): Promise<void> {
+    const backend = this.backend as unknown as { callRawExport?: (name: string) => Promise<void> };
+    if (typeof backend.callRawExport === 'function') {
+      await backend.callRawExport('bb_emit_msm_phase');
+    }
+  }
+
+  /**
    * Constructs an instance of Barretenberg.
    *
    * If options.backend is set: uses that specific backend (throws if unavailable)
@@ -49,7 +64,10 @@ export class Barretenberg extends AsyncApi {
     if (options.backend) {
       // Explicit backend required - no fallback
       const backend = await createAsyncBackend(options.backend, options, logger);
-      if (!options.skipSrsInit && (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)) {
+      if (
+        !options.skipSrsInit &&
+        (options.backend === BackendType.Wasm || options.backend === BackendType.WasmWorker)
+      ) {
         await backend.initSRSChonk();
       }
       return backend;
@@ -99,7 +117,11 @@ export class Barretenberg extends AsyncApi {
     // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
     // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
     // Use `self` instead of `window` so this check also works inside Web Workers.
-    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
+    if (
+      typeof self !== 'undefined' &&
+      typeof self.navigator !== 'undefined' &&
+      /iPad|iPhone/.test(self.navigator.userAgent)
+    ) {
       return 2 ** 18;
     }
     return 2 ** 20;

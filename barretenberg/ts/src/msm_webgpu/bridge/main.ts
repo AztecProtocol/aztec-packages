@@ -1,4 +1,5 @@
 import { MsmV2, MsmV2Pool } from '../msm_v2.js';
+import { buildPerfettoTrace, type TraceSpan } from '../perfetto_trace.js';
 import { get_device } from '../cuzk/gpu.js';
 import {
   ERR_GENERIC,
@@ -33,6 +34,36 @@ const MSM_LRU_CAP = 16;
 // range constraints) so 10 keeps every same-N batch on the single-encoder
 // path. Each extra slot ≈ 25 MB GPU memory at n=131k.
 const MAX_SAME_N_SLOTS = 10;
+
+// Aligned CPU+GPU Perfetto trace accumulation across a whole proof. Off by
+// default. The chonk-webgpu page flips `globalThis.__bridge_trace_on = true`
+// around a WebGPU prove (a plain global flag, read per-MSM, so it works
+// regardless of whether this module has loaded yet — same pattern as
+// `__bridge_phase_trace`), then calls `globalThis.__bridge_trace_build()` to
+// get the Perfetto JSON once proving is done. Every span carries absolute
+// `performance.now()` start/end, so all batches across the proof lay out on one
+// shared CPU timeline; each batch's GPU passes are anchored to its own submit
+// instant on that same clock.
+const bridgeTrace: { cpu: TraceSpan[]; gpu: TraceSpan[] } = { cpu: [], gpu: [] };
+function bridgeTraceOn(): boolean {
+  return (globalThis as any).__bridge_trace_on === true;
+}
+function traceCpu(name: string, startMs: number, endMs: number, args?: Record<string, string | number>): void {
+  bridgeTrace.cpu.push({ name, startMs, endMs, args });
+}
+function traceGpu(name: string, startMs: number, endMs: number, args?: Record<string, string | number>): void {
+  bridgeTrace.gpu.push({ name, startMs, endMs, args });
+}
+(globalThis as any).__bridge_trace_reset = (): void => {
+  bridgeTrace.cpu = [];
+  bridgeTrace.gpu = [];
+};
+(globalThis as any).__bridge_trace_build = (): string =>
+  buildPerfettoTrace({ cpu: bridgeTrace.cpu, gpu: bridgeTrace.gpu }, 'Chonk MSM (WebGPU)');
+(globalThis as any).__bridge_trace_counts = (): { cpu: number; gpu: number } => ({
+  cpu: bridgeTrace.cpu.length,
+  gpu: bridgeTrace.gpu.length,
+});
 
 /**
  * Main-thread host for the WebGPU MSM bridge. Owns one `GPUDevice`, one shared
@@ -389,6 +420,23 @@ export class WebGpuMsmHost {
         `[bridge-msm] n=${n} kind=${hitKind} srsOff=${srsOffset} get=${(tGetEnd - tGet).toFixed(1)}ms ` +
           `prepare=${(tPrepEnd - tPrep).toFixed(1)}ms run=${(tRunEnd - tPrepEnd).toFixed(1)}ms`,
       );
+      if (bridgeTraceOn()) {
+        traceCpu(`get n=${n}`, tGet, tGetEnd, { n, kind: hitKind });
+        traceCpu(`prepare n=${n}`, tPrep, tPrepEnd, { n });
+        traceCpu(`run n=${n}`, tPrepEnd, tRunEnd, { n });
+        // run() submits right after prepare returns, so anchor the GPU passes
+        // to tPrepEnd. run() already drained + read the timestamps; re-reading
+        // the staging buffer yields the same per-pass timeline.
+        const raw = await msm.readProfilePassTimelineRaw();
+        if (raw) {
+          for (const p of raw.passes) {
+            traceGpu(`${p.label} (solo n=${n})`, tPrepEnd + p.beginNs / 1e6, tPrepEnd + p.endNs / 1e6, {
+              n,
+              gpu_us: Math.round((p.endNs - p.beginNs) / 1000),
+            });
+          }
+        }
+      }
     } catch (e) {
       // A cached instance's prepared buffers may be torn — drop it so the next
       // request rebuilds. A one-off is torn down in `finally` regardless.
@@ -561,7 +609,9 @@ export class WebGpuMsmHost {
         }
         const msm = await this.getOrCreateMsm(n);
         const scalarsBytes = new Uint8Array(this.wasmMemory.buffer, scalarsBase + scalarsOff, n * SCALAR_BYTES);
+        const tP0 = bridgeTraceOn() ? performance.now() : 0;
         await msm.prepare(scalarsBytes, srsOffset);
+        if (bridgeTraceOn()) traceCpu(`prepare ${labels[i]}`, tP0, performance.now(), { n, idx: i });
         msms[i] = msm;
         resultOffs[i] = resultOff;
         // 4-byte align so the next MSM's u32 writes from the GPU are aligned.
@@ -595,6 +645,7 @@ export class WebGpuMsmHost {
         metaOut[i * 2 + 0] = windows.length;
         metaOut[i * 2 + 1] = msm.c;
       }
+      const tDecodeEnd = performance.now();
       sharedStaging.destroy();
       const gpuMsPerMsm = await Promise.all(msms.map(m => m.readProfileGpuMs()));
       let summed = 0;
@@ -613,6 +664,41 @@ export class WebGpuMsmHost {
           `gpu_sum=${summed.toFixed(2)}ms ` +
           `mem=${this.statsBytesSummary(msms)}`,
       );
+      if (bridgeTraceOn()) {
+        traceCpu(`encode ×${batchCount}`, tPrepSum1, tEncoded, { count: batchCount });
+        traceCpu('submit+wait', tEncoded, tMapped, { count: batchCount });
+        traceCpu(`decode ×${batchCount}`, tMapped, tDecodeEnd, { count: batchCount });
+        // All MSMs were submitted into one command buffer, so their per-pass
+        // timestamps share the device GPU clock. Rebase every MSM onto the
+        // batch's earliest pass begin (minEpoch) and anchor that to the submit
+        // instant (tEncoded) — the passes then lay out in true GPU execution
+        // order (MSM 0's passes, then MSM 1's, …) reflecting serial execution
+        // within the single submit.
+        const raws = await Promise.all(msms.map(m => m.readProfilePassTimelineRaw()));
+        let minEpoch: bigint | null = null;
+        for (const r of raws) {
+          if (r && (minEpoch === null || r.epochNs < minEpoch)) minEpoch = r.epochNs;
+        }
+        if (minEpoch !== null) {
+          for (let i = 0; i < batchCount; i++) {
+            const r = raws[i];
+            if (!r) continue;
+            const offMs = Number(r.epochNs - minEpoch) / 1e6;
+            for (const p of r.passes) {
+              traceGpu(
+                `${p.label} · ${labels[i]}`,
+                tEncoded + offMs + p.beginNs / 1e6,
+                tEncoded + offMs + p.endNs / 1e6,
+                {
+                  n: descs[i * 5 + 0],
+                  idx: i,
+                  gpu_us: Math.round((p.endNs - p.beginNs) / 1000),
+                },
+              );
+            }
+          }
+        }
+      }
       return;
     }
 
@@ -634,6 +720,11 @@ export class WebGpuMsmHost {
     // Indexed by batch position i so the post-batch sort can recover commit
     // order regardless of which .then() callback the JS runtime fired first.
     const phaseLog: (PhaseSample & { batchIdx: number })[] = [];
+    // Absolute submit / drain instants (performance.now()) per MSM, captured
+    // only when tracing, for the serial GPU-burst reconstruction below.
+    const traceOn = bridgeTraceOn();
+    const traceSubmitAbs: number[] = traceOn ? new Array(batchCount) : [];
+    const traceDrainAbs: number[] = traceOn ? new Array(batchCount) : [];
     for (let i = 0; i < batchCount; i++) {
       const n = descs[i * 5 + 0];
       const srsOffset = descs[i * 5 + 1];
@@ -649,6 +740,7 @@ export class WebGpuMsmHost {
       const tPrep0 = performance.now();
       await msm.prepare(scalarsBytes, srsOffset);
       const tPrep1 = performance.now();
+      if (traceOn) traceCpu(`prepare ${labels[i]}`, tPrep0, tPrep1, { n, idx: i });
       const windowSumBytes = msm.windowSumsByteLength;
       const staging = device.createBuffer({
         size: windowSumBytes,
@@ -659,11 +751,16 @@ export class WebGpuMsmHost {
       const tSub0 = performance.now();
       device.queue.submit([enc.finish()]);
       const tSub1 = performance.now();
+      if (traceOn) {
+        traceSubmitAbs[i] = tSub1;
+        traceCpu(`submit ${labels[i]}`, tSub0, tSub1, { n, idx: i });
+      }
       const tGpu0 = performance.now();
       const label = labels[i];
       const batchIdx = i;
       const mapPromise: Promise<void> = device.queue.onSubmittedWorkDone().then(() => {
         const tGpu1 = performance.now();
+        if (traceOn) traceDrainAbs[batchIdx] = tGpu1;
         const mp = staging.mapAsync(GPUMapMode.READ);
         return mp.then(() => {
           const tMap1 = performance.now();
@@ -720,6 +817,27 @@ export class WebGpuMsmHost {
         );
       }
     }
+    if (traceOn) {
+      traceCpu(`await drain ×${batchCount}`, tEncoded, tMapped, { count: batchCount, maxSameN: maxNCount });
+      // The GPU is one FIFO queue: same-N submits drain serially. Reconstruct
+      // each MSM's GPU burst as [end of the previous burst (but not before this
+      // MSM's own submit), this submit's drain instant]. submit/drain are
+      // absolute performance.now() values, so the bars land on the shared
+      // timeline. The per-pass detail isn't available here (the shared instance's
+      // timestamp staging is clobbered by the next submit before it's read), so
+      // these are coarse per-MSM bars — which is exactly what visualizes the
+      // same-N serialization.
+      let prevEnd = traceSubmitAbs[0] ?? tEncoded;
+      for (let i = 0; i < batchCount; i++) {
+        const submit = traceSubmitAbs[i];
+        const drain = traceDrainAbs[i];
+        if (submit === undefined || drain === undefined) continue;
+        const start = Math.max(submit, prevEnd);
+        traceGpu(`msm ${labels[i]}`, start, drain, { n: descs[i * 5 + 0], idx: i, kind: 'same-n' });
+        prevEnd = drain;
+      }
+    }
+    const tDecode0 = performance.now();
     const metaOut = new Uint32Array(this.wasmMemory.buffer, metaBase, batchCount * 2);
     for (let i = 0; i < batchCount; i++) {
       const p = pendings[i];
@@ -735,6 +853,7 @@ export class WebGpuMsmHost {
       metaOut[i * 2 + 1] = p.msm.c;
       p.staging.destroy();
     }
+    if (traceOn) traceCpu(`decode ×${batchCount}`, tDecode0, performance.now(), { count: batchCount });
   }
 }
 

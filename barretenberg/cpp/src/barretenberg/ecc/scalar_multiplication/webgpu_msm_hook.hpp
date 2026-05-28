@@ -50,6 +50,15 @@ bool webgpu_msm_runtime_enabled() noexcept;
 // via `bb_set_msm_csv_mode(uint8_t)`.
 bool msm_csv_mode_enabled() noexcept;
 
+// Trace mode. When set, every production `MSM::batch_multi_scalar_mul` dispatch
+// emits a `[msm-span] t0_us=… t1_us=… count=… n=… labels=…` log line whose
+// timestamps are relative to the first span of the run — a prove-relative
+// wall-clock timeline of the MSM phase, the WASM counterpart to the WebGPU
+// bridge's aligned Perfetto trace. Purely additive (one log line per batch
+// call). Toggled at runtime from JS via `bb_set_msm_trace_mode(uint8_t)`.
+bool msm_trace_mode_enabled() noexcept;
+void set_msm_trace_mode(bool on) noexcept;
+
 // Distribution-capture mode. When set, every call to `MSM::batch_multi_scalar_mul`
 // emits a `[msm-dist]` log line per MSM summarising the scalar distribution:
 // nnz / density / Booth-recoded bucket histogram stats at `c = pick_c(n)`. Used
@@ -59,6 +68,12 @@ bool msm_csv_mode_enabled() noexcept;
 // Purely additive: does not change the MSM result, only logs. Toggled at
 // runtime from JS via `bb_set_msm_distribution_mode(uint8_t)`. Off by default.
 bool msm_distribution_mode_enabled() noexcept;
+
+// Add `ns` to the cumulative BN254 MSM-phase wall-clock accumulator. Called once
+// per MSM::batch_multi_scalar_mul dispatch (production path). Read back via the
+// bb_emit_msm_phase WASM export (logs `[msm-phase-total] ms=…`). Lets the page
+// report the exact cumulative MSM-phase time for a WASM run vs a WebGPU run.
+void msm_phase_add_ns(uint64_t ns) noexcept;
 
 // Runtime block-list of polynomial labels that should never be delegated to the
 // WebGPU bridge even when `webgpu_msm_runtime_enabled() == true`. Used to keep
@@ -90,6 +105,15 @@ void set_webgpu_msm_blocklist(std::string_view labels_csv) noexcept;
 // ~91 MSMs.
 void emit_msm_distribution(std::span<std::span<curve::BN254::ScalarField>> scalars,
                            std::span<const std::string> labels) noexcept;
+
+// Emit one `[msm-span]` line for a single `batch_multi_scalar_mul` dispatch.
+// `t0_abs_ns`/`t1_abs_ns` are absolute `steady_clock` nanoseconds bracketing the
+// call; they are rebased to the first span of the run (lazily anchored) so the
+// emitted `t0_us`/`t1_us` form a prove-relative timeline. `count` is the number
+// of MSMs in the batch, `n_total` the summed point count, `labels` their
+// telemetry names (joined, bounded). Only called when `msm_trace_mode_enabled()`.
+void emit_msm_span(
+    uint64_t t0_abs_ns, uint64_t t1_abs_ns, size_t count, size_t n_total, std::span<const std::string> labels) noexcept;
 
 // Per-MSM delegation predicate — runtime gate AND size at or above the
 // configured threshold. Each MSM in a batch decides independently.
