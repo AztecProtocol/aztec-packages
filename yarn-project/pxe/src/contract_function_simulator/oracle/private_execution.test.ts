@@ -758,7 +758,6 @@ describe('Private Execution test suite', () => {
 
       expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
     });
-
   });
 
   describe('consuming messages', () => {
