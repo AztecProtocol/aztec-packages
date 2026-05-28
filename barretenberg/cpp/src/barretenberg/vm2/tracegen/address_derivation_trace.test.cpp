@@ -60,6 +60,9 @@ TEST(AddressDerivationTraceGenTest, TraceGeneration)
                 ROW_FIELD_EQ(address_derivation_outgoing_viewing_key_hash,
                              instance.public_keys.outgoing_viewing_key_hash),
                 ROW_FIELD_EQ(address_derivation_tagging_key_hash, instance.public_keys.tagging_key_hash),
+                ROW_FIELD_EQ(address_derivation_message_signing_key_hash,
+                             instance.public_keys.message_signing_key_hash),
+                ROW_FIELD_EQ(address_derivation_fallback_key_hash, instance.public_keys.fallback_key_hash),
                 ROW_FIELD_EQ(address_derivation_salted_init_hash, FF(12)),
                 ROW_FIELD_EQ(address_derivation_partial_address, FF(23)),
                 ROW_FIELD_EQ(address_derivation_incoming_viewing_key_hash, FF(56)),
@@ -76,8 +79,10 @@ TEST(AddressDerivationTraceGenTest, TraceGeneration)
                 ROW_FIELD_EQ(address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V2),
                 ROW_FIELD_EQ(address_derivation_g1_x, EmbeddedCurvePoint::one().x()),
                 ROW_FIELD_EQ(address_derivation_g1_y, EmbeddedCurvePoint::one().y()),
+                ROW_FIELD_EQ(address_derivation_const_two, 2),
                 ROW_FIELD_EQ(address_derivation_const_three, 3),
-                ROW_FIELD_EQ(address_derivation_const_five, 5))));
+                ROW_FIELD_EQ(address_derivation_const_five, 5),
+                ROW_FIELD_EQ(address_derivation_const_seven, 7))));
 }
 
 } // namespace

@@ -45,6 +45,12 @@ describe('CompleteAddress', () => {
     const tpkM = Point.fromString(
       '0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a7622f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a',
     );
+    const mspkM = Point.fromString(
+      '0x1bd6cb13e0bc8c6e0c1a8b2c5d7f9e0a4b6c8d0e2f4a6c8e0a2c4e6f8a0b2c4d0a032ec7b21c2bdb35f8a13e594764e39ee786c4b275eef3f0435bf6ab2b9822',
+    );
+    const fbpkM = Point.fromString(
+      '0x2c8e0a2c4e6f8b0d2f4a6c8e0a2c4e6f8b0d2f4a6c8e0a2c4e6f8b0d2f4a6c902ef338da3a77e65f90b6d48ac686fc9ff3a95de0c39e0426fc443377425e6634',
+    );
 
     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
 
@@ -53,6 +59,8 @@ describe('CompleteAddress', () => {
       ivpkM,
       await hashPublicKey(ovpkM),
       await hashPublicKey(tpkM),
+      await hashPublicKey(mspkM),
+      await hashPublicKey(fbpkM),
     );
 
     // Compute the expected address from the public keys and partial address

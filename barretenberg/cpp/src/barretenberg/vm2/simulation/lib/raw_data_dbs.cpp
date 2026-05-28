@@ -120,6 +120,8 @@ std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const
                 .incoming_viewing_key = contract_instance_hint.public_keys.ivpk_m,
                 .outgoing_viewing_key_hash = contract_instance_hint.public_keys.ovpk_m_hash,
                 .tagging_key_hash = contract_instance_hint.public_keys.tpk_m_hash,
+                .message_signing_key_hash = contract_instance_hint.public_keys.mspk_m_hash,
+                .fallback_key_hash = contract_instance_hint.public_keys.fbpk_m_hash,
             },
     });
 }
