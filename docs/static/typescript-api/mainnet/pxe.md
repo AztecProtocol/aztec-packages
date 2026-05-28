@@ -281,10 +281,10 @@ new RecipientTaggingStore(store: AztecAsyncKVStore)
 **Methods**
 - `commit(jobId: string) => Promise<void>` - Writes all job-specific in-memory data to persistent storage.
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
-- `getHighestAgedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>`
-- `getHighestFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>`
-- `updateHighestAgedIndex(secret: ExtendedDirectionalAppTaggingSecret, index: number, jobId: string) => Promise<void>`
-- `updateHighestFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, index: number, jobId: string) => Promise<void>`
+- `getHighestAgedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>`
+- `getHighestFinalizedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>`
+- `updateHighestAgedIndex(secret: AppTaggingSecret, index: number, jobId: string) => Promise<void>`
+- `updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, jobId: string) => Promise<void>`
 
 ### SenderAddressBookStore
 
@@ -319,9 +319,9 @@ new SenderTaggingStore(store: AztecAsyncKVStore)
 - `dropPendingIndexes(txHashes: TxHash[], jobId: string) => Promise<void>` - Drops all pending indexes corresponding to the given transaction hashes.
 - `finalizePendingIndexes(txHashes: TxHash[], jobId: string) => Promise<void>` - Updates pending indexes corresponding to the given transaction hashes to be finalized and prunes any lower pending indexes.
 - `finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string) => Promise<void>` - Handles finalization of pending indexes for a transaction whose execution was partially reverted. Recomputes the siloed tags for each pending index of the given tx and checks which ones appear in the TxEffect's private logs (i.e., which ones made it onchain). Those that survived are finalized; those that didn't are dropped.
-- `getLastFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last (highest) finalized index for a given secret.
-- `getLastUsedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last used index for a given directional app tagging secret, considering both finalized and pending indexes.
-- `getTxHashesOfPendingIndexes(secret: ExtendedDirectionalAppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant information for the caller of this function.
+- `getLastFinalizedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last (highest) finalized index for a given secret.
+- `getLastUsedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last used index for a given directional app tagging secret, considering both finalized and pending indexes.
+- `getTxHashesOfPendingIndexes(secret: AppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant information for the caller of this function.
 - `storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending index ranges.
 
 ## Interfaces
@@ -548,4 +548,4 @@ This package references types from other Aztec packages:
 - `AztecAsyncKVStore`, `DataStoreConfig`
 
 **@aztec/stdlib**
-- `AztecAddress`, `AztecNode`, `BlockHeader`, `Capsule`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DebugLog`, `EventSelector`, `ExtendedDirectionalAppTaggingSecret`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `IndexedTxEffect`, `Note`, `NoteDao`, `NoteStatus`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`
+- `AppTaggingSecret`, `AztecAddress`, `AztecNode`, `BlockHeader`, `Capsule`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DebugLog`, `EventSelector`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `IndexedTxEffect`, `Note`, `NoteDao`, `NoteStatus`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`

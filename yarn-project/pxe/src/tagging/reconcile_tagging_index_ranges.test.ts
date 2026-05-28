@@ -1,21 +1,19 @@
-import { type ExtendedDirectionalAppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
-import { randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
+import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 
 import { reconcileTaggingIndexRangesAgainstSurvivingTags } from './reconcile_tagging_index_ranges.js';
 
 describe('reconcileTaggingIndexRangesAgainstSurvivingTags', () => {
-  let secret1: ExtendedDirectionalAppTaggingSecret;
-  let secret2: ExtendedDirectionalAppTaggingSecret;
+  let secret1: AppTaggingSecret;
+  let secret2: AppTaggingSecret;
 
   beforeAll(async () => {
-    secret1 = await randomExtendedDirectionalAppTaggingSecret();
-    secret2 = await randomExtendedDirectionalAppTaggingSecret();
+    secret1 = await randomAppTaggingSecret();
+    secret2 = await randomAppTaggingSecret();
   });
 
   /** Builds a set of surviving siloed tag values from a list of `(secret, index)` pairs. */
-  async function buildSurvivingTags(
-    pairs: Array<{ secret: ExtendedDirectionalAppTaggingSecret; index: number }>,
-  ): Promise<Set<string>> {
+  async function buildSurvivingTags(pairs: Array<{ secret: AppTaggingSecret; index: number }>): Promise<Set<string>> {
     const tags = await Promise.all(
       pairs.map(({ secret, index }) => SiloedTag.compute({ extendedSecret: secret, index })),
     );
