@@ -124,7 +124,7 @@ import {
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
 import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
-import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
+import { AppTaggingSecret } from '../logs/app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
@@ -1724,10 +1724,10 @@ export function makeL2Tips(
   };
 }
 
-export async function randomExtendedDirectionalAppTaggingSecret(): Promise<ExtendedDirectionalAppTaggingSecret> {
+export async function randomAppTaggingSecret(): Promise<AppTaggingSecret> {
   const resolvedApp = await AztecAddress.random();
   // Using the fromString method like this is messy as it leaks the underlying serialization format but I don't want to
   // expose the type's constructor just for tests since in prod the secret is always constructed via compute. Also this
-  // method is tested in extended_directional_app_tagging_secret.test.ts hence all should be fine.
-  return ExtendedDirectionalAppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
+  // method is tested in app_tagging_secret.test.ts hence all should be fine.
+  return AppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
 }
