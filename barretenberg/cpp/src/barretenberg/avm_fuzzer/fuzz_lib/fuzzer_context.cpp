@@ -44,6 +44,8 @@ ContractInstance create_default_instance(const ContractClassId& class_id)
                 .incoming_viewing_key = affine_one,
                 .outgoing_viewing_key_hash = 0,
                 .tagging_key_hash = 0,
+                .message_signing_key_hash = 0,
+                .fallback_key_hash = 0,
             },
     };
 }

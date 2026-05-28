@@ -233,13 +233,15 @@ export async function addNewContractInstanceToTx(
   contractInstance: ContractInstanceWithAddress,
   skipNullifierInsertion = false,
 ) {
-  // Only ivpk_m is broadcast as a point (x, y); the other three keys are hashes.
+  // Only ivpk_m is broadcast as a point (x, y); the other five keys are hashes.
   const publicKeysAsFields = [
     contractInstance.publicKeys.npkMHash,
     contractInstance.publicKeys.ivpkM.x,
     contractInstance.publicKeys.ivpkM.y,
     contractInstance.publicKeys.ovpkMHash,
     contractInstance.publicKeys.tpkMHash,
+    contractInstance.publicKeys.mspkMHash,
+    contractInstance.publicKeys.fbpkMHash,
   ];
   const logFields = [
     CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG,

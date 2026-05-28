@@ -12,9 +12,11 @@ describe('🔑', () => {
       new PublicKey(new Fr(3n), new Fr(4n)),
       new Fr(22n),
       new Fr(33n),
+      new Fr(44n),
+      new Fr(55n),
     ).hash();
     expect(publicKeysHash.toString()).toMatchInlineSnapshot(
-      `"0x0b8c7b67576d3ac859a7fab578b2b2e305c67eba9e133b0fa46af8d19a50b8fc"`,
+      `"0x1e57c605207e2b607720b8e3023f69f5af25683277db5ff3b99f7948213c7878"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -52,15 +54,23 @@ describe('🔑', () => {
     const tpkM = PublicKey.fromString(
       '0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a7622f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a',
     );
+    const mspkM = PublicKey.fromString(
+      '0x1bd6cb13e0bc8c6e0c1a8b2c5d7f9e0a4b6c8d0e2f4a6c8e0a2c4e6f8a0b2c4d0a032ec7b21c2bdb35f8a13e594764e39ee786c4b275eef3f0435bf6ab2b9822',
+    );
+    const fbpkM = PublicKey.fromString(
+      '0x2c8e0a2c4e6f8b0d2f4a6c8e0a2c4e6f8b0d2f4a6c8e0a2c4e6f8b0d2f4a6c902ef338da3a77e65f90b6d48ac686fc9ff3a95de0c39e0426fc443377425e6634',
+    );
     const publicKeys = new PublicKeys(
       await hashPublicKey(npkM),
       ivpkM,
       await hashPublicKey(ovpkM),
       await hashPublicKey(tpkM),
+      await hashPublicKey(mspkM),
+      await hashPublicKey(fbpkM),
     );
     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
     const address = (await computeAddress(publicKeys, partialAddress)).toString();
-    expect(address).toMatchInlineSnapshot(`"0x05f9c48c02e4dbd18d7e165f999c3b8426abb1911476f48e68deef42475d6145"`);
+    expect(address).toMatchInlineSnapshot(`"0x303ffc8bd456d132463b1fc3a633aeb718a7883c268f3956c05e6fe09b5a5424"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
