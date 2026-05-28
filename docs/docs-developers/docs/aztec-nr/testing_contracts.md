@@ -96,7 +96,7 @@ If you'll add arguments to your contract's constructor you pass them directly to
 let initializer = MyContract::interface().constructor(param1, param2);
 ```
 
-Since Aztec contracts can be initialized both in private and public or they can be interacted with without any kind of initialization there are 3 options on the deployer:
+Since Aztec contracts can be initialized both in private and public or they can be interacted with without any kind of initialization (see [Contract creation](../foundational-topics/contract_creation.md) for how Aztec's deployment model differs from Ethereum's) there are 3 options on the deployer:
 
 ```rust
 let contract_address = deployer.with_private_initializer(owner, initializer);
