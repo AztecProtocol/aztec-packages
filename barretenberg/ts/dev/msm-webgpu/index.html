@@ -135,6 +135,8 @@
       <button id="run-trace">Trace → Perfetto (WebGPU only)</button>
       <label><input id="profile-per-batch" type="checkbox" /> per-batch breakdown</label>
       <button id="run-sweep">Sweep 2^10…2^20</button>
+      <button id="run-batch" title="Batched same-N MSM via BatchMsmV2 (WebGPU only). For each B in {3, 10}, runs the batch path and a B-solo MsmV2 baseline, cross-checks every per-slot result, and reports the speedup.">Batch MSM (B=3, 10)</button>
+      <button id="run-batch-sweep" title="Sweeps log₂(n) ∈ {15, 16, 17, 18} × B ∈ {3, 10} for the batch MSM, reporting WebGPU-batch / WebGPU-solo-serial / WASM-MT serial times at each size. Use this after the single-size Batch MSM button to see how the batch-vs-WASM speedup scales with n.">Batch sweep 2^15…2^18</button>
       <button id="stop" disabled>Stop</button>
       <button id="toggle-coi">Enable WASM (reload with COI)</button>
       <span id="status"></span>

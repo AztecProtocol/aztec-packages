@@ -12,6 +12,13 @@
 // flat NUM_WINDOWS × BW u32 array that MsmV2.prepare reads back and uses
 // to plan the per-level pair/carry/stride counts.
 //
+// Tier 2 batch mode: when WINDOWS_PER_MSM < NUM_WINDOWS, the shader treats
+// gid.y as a *virtual* window index spanning B*W effective windows. Each
+// effective window y_eff decomposes into (b = y_eff / WINDOWS_PER_MSM, w =
+// y_eff mod WINDOWS_PER_MSM), and reads scalar `b * input_size + p` for
+// thread (p, y_eff). For B=1 (WINDOWS_PER_MSM == NUM_WINDOWS), b is always
+// 0 and the formula collapses to the original single-MSM behaviour.
+//
 // Why we need this:
 //   The host had been doing the same recode in JS — `n × num_windows`
 //   iterations of integer math. At n=2^20 that is 17M iterations and
@@ -26,6 +33,10 @@
 // this a non-issue.
 
 const BW: u32 = {{ buckets_per_window }}u;
+// Number of Pippenger windows per individual MSM. For single-MSM (B=1) use
+// this equals the total dispatch's num_windows; for batch mode (B>1) it is
+// the per-MSM W and total dispatch num_windows = B * WINDOWS_PER_MSM.
+const WINDOWS_PER_MSM: u32 = {{ windows_per_msm }}u;
 
 @group(0) @binding(0) var<storage, read>           scalars: array<u32>;
 @group(0) @binding(1) var<storage, read_write>     counts:  array<atomic<u32>>;
@@ -62,19 +73,26 @@ fn read_bits(s: u32, scalar_words: u32, bit_off: u32, count: u32) -> u32 {
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let p = gid.x;
-    let w = gid.y;
+    let y_eff = gid.y;
     let input_size = params.x;
     let num_windows = params.y;
-    if (p >= input_size || w >= num_windows) {
+    if (p >= input_size || y_eff >= num_windows) {
         return;
     }
     let c = params.z;
     let scalar_words = params.w;
 
-    let win_bits = read_bits(p, scalar_words, w * c, c);
+    // Tier-2 virtual-window split: y_eff = b * WINDOWS_PER_MSM + w.
+    // For B=1 (WINDOWS_PER_MSM == num_windows), b is always 0 and w = y_eff —
+    // identical to the single-MSM behaviour.
+    let b = y_eff / WINDOWS_PER_MSM;
+    let w = y_eff % WINDOWS_PER_MSM;
+    let scalar_idx = b * input_size + p;
+
+    let win_bits = read_bits(scalar_idx, scalar_words, w * c, c);
     var lookback: u32 = 0u;
     if (w > 0u) {
-        lookback = read_bits(p, scalar_words, w * c - 1u, 1u);
+        lookback = read_bits(scalar_idx, scalar_words, w * c - 1u, 1u);
     }
     let raw = (win_bits << 1u) | lookback;
 
@@ -86,7 +104,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let encode = (raw + 1u) >> 1u;
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
-    atomicAdd(&counts[w * BW + bucket], 1u);
+    atomicAdd(&counts[y_eff * BW + bucket], 1u);
 
     {{{ recompile }}}
 }

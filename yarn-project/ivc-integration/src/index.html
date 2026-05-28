@@ -66,7 +66,7 @@
       }
       .results {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 12px;
       }
       .result-card {
@@ -155,14 +155,17 @@
     </style>
   </head>
   <body>
-    <h1>Chonk e2e — WASM-MT vs WebGPU MSM</h1>
+    <h1>Chonk e2e — WASM-MT vs WebGPU MSM (solo + batch)</h1>
     <div class="subtitle">
       <code>ChonkApi::prove</code> on the canonical
-      <code>ecdsar1+transfer_1_recursions+sponsored_fpc</code> flow, two ways:
+      <code>ecdsar1+transfer_1_recursions+sponsored_fpc</code> flow, three ways:
       <strong>WASM</strong> runs every MSM on the multi-threaded CPU Pippenger;
-      <strong>WebGPU</strong> delegates the 89 random-distributed MSMs to the
-      GPU and keeps the structured columns (the block-list) on CPU. Run each
-      independently; the WebGPU card also cross-checks its VK against the last
+      <strong>WebGPU (solo)</strong> delegates the 89 random-distributed MSMs
+      to the GPU one at a time (current default); <strong>WebGPU (batch)</strong>
+      is the same as solo except same-N batches with B&nbsp;≥&nbsp;4 at
+      n&nbsp;≤&nbsp;2<sup>17</sup> route through the Tier&nbsp;2
+      <code>BatchMsmV2</code> virtualised B·W-window dispatch. Run each
+      independently; both WebGPU cards cross-check their VK against the last
       WASM run.
     </div>
 
@@ -177,6 +180,7 @@
         </select>
         <button id="run-wasm" class="primary">Run WASM</button>
         <button id="run-webgpu" class="primary">Run WebGPU</button>
+        <button id="run-webgpu-batch" class="primary">Run WebGPU (batch)</button>
         <label title="Capture a Perfetto trace of the next prove and POST it to /tmp/zac-webgpu/. Run WebGPU → chonk-trace-webgpu.json (aligned CPU+GPU; adds per-batch GPU readback, so that run's prove time is slightly inflated). Run WASM → chonk-trace-wasm.json (prove-relative MSM timeline; negligible cost). Open either at ui.perfetto.dev.">
           <input id="trace-webgpu" type="checkbox" /> Perfetto trace
         </label>
@@ -212,7 +216,7 @@
           </div>
         </div>
         <div class="result-card">
-          <h3>WebGPU (89 MSMs delegated)</h3>
+          <h3>WebGPU solo (89 MSMs, per-MSM submit)</h3>
           <div class="metric"><span class="k">prove</span><span class="v" id="webgpu-prove">—</span></div>
           <div class="metric"><span class="k">verify</span><span class="v" id="webgpu-verify">—</span></div>
           <div class="big" id="webgpu-prove-big">—</div>
@@ -220,6 +224,18 @@
           <div style="margin-top: 6px;">
             <span class="pill" id="webgpu-verified">verified: —</span>
             <span class="pill" id="webgpu-vkmatch">vk vs WASM: —</span>
+          </div>
+        </div>
+        <div class="result-card">
+          <h3>WebGPU batch (same-N B≥4 → BatchMsmV2)</h3>
+          <div class="metric"><span class="k">prove</span><span class="v" id="webgpu-batch-prove">—</span></div>
+          <div class="metric"><span class="k">verify</span><span class="v" id="webgpu-batch-verify">—</span></div>
+          <div class="big" id="webgpu-batch-prove-big">—</div>
+          <div class="speedup" id="webgpu-batch-speedup"></div>
+          <div class="speedup" id="webgpu-batch-vs-solo"></div>
+          <div style="margin-top: 6px;">
+            <span class="pill" id="webgpu-batch-verified">verified: —</span>
+            <span class="pill" id="webgpu-batch-vkmatch">vk vs WASM: —</span>
           </div>
         </div>
       </div>

@@ -852,4 +852,98 @@ WASM_EXPORT void bb_native_pippenger_bn254_run(uint32_t num_threads, uint8_t* re
     }
 }
 
+// ---------------------------------------------------------------------------
+// True-batch native Pippenger harness exports.
+//
+// The single-MSM `bb_native_pippenger_bn254_run` wraps `batch_multi_scalar_mul_native`
+// with batch_size = 1. The Chonk W_L/W_R/W_O and translator range-constraint
+// batches go through that same `batch_multi_scalar_mul_native` but with B
+// MSMs in one call — the native implementation distributes work across all
+// B × n point/scalar pairs in a single `parallel_for`, amortizing the
+// per-MSM Pippenger setup over the whole batch. Calling _run B times in a
+// row serializes those setups, so the WebGPU dev page was comparing the
+// wrong WASM path. These _batch_* exports take ONE shared n-point vector
+// plus B scalar vectors and call `batch_multi_scalar_mul_native` with B
+// spans, which is the apples-to-apples target for `BatchMsmV2`.
+namespace {
+std::vector<bb::curve::BN254::AffineElement> g_bench_batch_points;
+// Flat B × n scalars buffer; sliced into B spans at run() time.
+std::vector<bb::curve::BN254::ScalarField> g_bench_batch_scalars;
+uint32_t g_bench_batch_size = 0;
+uint32_t g_bench_batch_n = 0;
+} // namespace
+
+// Load one shared n-point vector plus a flat B × n scalar vector. The C++
+// side does not duplicate the points span — all B MSMs reference the same
+// in-memory vector, so memory cost is O(n) for points + O(B·n) for scalars
+// independent of how many distinct MSMs share that point set.
+//
+// Layout of `scalars_concat`: B × n × 32 LE bytes, slot 0 first.
+WASM_EXPORT void bb_native_pippenger_bn254_batch_load(const uint8_t* points,
+                                                      uint32_t n,
+                                                      const uint8_t* scalars_concat,
+                                                      uint32_t batch_size)
+{
+    using Curve = bb::curve::BN254;
+    namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
+
+    g_bench_batch_points = std::vector<Curve::AffineElement>{};
+    g_bench_batch_scalars = std::vector<Curve::ScalarField>{};
+    g_bench_batch_points.resize(n);
+    g_bench_batch_scalars.resize(static_cast<size_t>(n) * batch_size);
+    g_bench_batch_n = n;
+    g_bench_batch_size = batch_size;
+    for (uint32_t i = 0; i < n; ++i) {
+        g_bench_batch_points[i] = marshalling::read_affine_le(&points[i * 64]);
+    }
+    const size_t total_scalars = static_cast<size_t>(n) * batch_size;
+    for (size_t i = 0; i < total_scalars; ++i) {
+        g_bench_batch_scalars[i] = Curve::ScalarField(marshalling::read_uint256_le(&scalars_concat[i * 32]));
+    }
+}
+
+// Run `batch_multi_scalar_mul_native` with B spans pointing at slices of the
+// shared scalar buffer. Writes B × 64 LE result bytes (slot 0 first).
+WASM_EXPORT void bb_native_pippenger_bn254_batch_run(uint32_t num_threads, uint8_t* results_out)
+{
+    using Curve = bb::curve::BN254;
+    using MSM = bb::scalar_multiplication::MSM<Curve>;
+    namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
+
+    const uint32_t B = g_bench_batch_size;
+    const uint32_t n = g_bench_batch_n;
+    std::memset(results_out, 0, static_cast<size_t>(B) * 64);
+    if (B == 0 || n == 0 || g_bench_batch_scalars.empty()) {
+        return;
+    }
+
+    const size_t saved_concurrency = bb::get_num_cpus();
+    if (num_threads != 0) {
+        bb::set_parallel_for_concurrency(num_threads);
+    }
+
+    // Build B point spans (all identical, pointing at the shared g_bench_batch_points)
+    // and B scalar spans (each a non-overlapping slice of g_bench_batch_scalars).
+    std::vector<std::span<const Curve::AffineElement>> points_batch(B);
+    std::vector<std::span<Curve::ScalarField>> scalars_batch(B);
+    const std::span<const Curve::AffineElement> shared_points(g_bench_batch_points);
+    for (uint32_t b = 0; b < B; ++b) {
+        points_batch[b] = shared_points;
+        scalars_batch[b] = std::span<Curve::ScalarField>(g_bench_batch_scalars.data() + static_cast<size_t>(b) * n, n);
+    }
+    const std::vector<Curve::AffineElement> affs =
+        MSM::batch_multi_scalar_mul_native(points_batch, scalars_batch, false);
+
+    if (num_threads != 0) {
+        bb::set_parallel_for_concurrency(saved_concurrency);
+    }
+
+    for (uint32_t b = 0; b < B; ++b) {
+        if (!affs[b].is_point_at_infinity()) {
+            marshalling::write_uint256_le(&results_out[b * 64], static_cast<bb::numeric::uint256_t>(affs[b].x));
+            marshalling::write_uint256_le(&results_out[b * 64 + 32], static_cast<bb::numeric::uint256_t>(affs[b].y));
+        }
+    }
+}
+
 #endif // BBERG_WEBGPU_MSM_HOOK

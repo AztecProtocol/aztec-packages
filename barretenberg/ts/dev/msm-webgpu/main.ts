@@ -25,6 +25,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { MsmV2, MsmV2Pool, type MsmConfig, type ProfileBreakdown } from '../../src/msm_webgpu/msm_v2.js';
+import { BatchMsmV2 } from '../../src/msm_webgpu/batch_msm.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { buildPerfettoTrace, downloadTrace, type TraceInput, type TraceSpan } from './perfetto.js';
@@ -48,6 +49,8 @@ const $runProfile = document.getElementById('run-profile') as HTMLButtonElement;
 const $profilePerBatch = document.getElementById('profile-per-batch') as HTMLInputElement;
 const $runSanity = document.getElementById('run-sanity') as HTMLButtonElement;
 const $runTrace = document.getElementById('run-trace') as HTMLButtonElement;
+const $runBatch = document.getElementById('run-batch') as HTMLButtonElement;
+const $runBatchSweep = document.getElementById('run-batch-sweep') as HTMLButtonElement;
 const $stop = document.getElementById('stop') as HTMLButtonElement;
 const $logn = document.getElementById('logn') as HTMLInputElement;
 const $nDisplay = document.getElementById('n-display') as HTMLSpanElement;
@@ -250,6 +253,10 @@ function setBusy(busy: boolean, text = ''): void {
   $runSanity.disabled = busy || !ready;
   $runProfile.disabled = busy || !ready;
   $runTrace.disabled = busy || !ready;
+  // Batch MSM is WebGPU-only — does not need WASM / cross-origin isolation.
+  // Enabled whenever the SRS is loaded and nothing else is running.
+  $runBatch.disabled = busy || !ready;
+  $runBatchSweep.disabled = busy || !ready;
   // Sweep / Run / Run × 5 exercise the WASM paths in addition to WebGPU
   // — disable them when COI is off (the threaded WASM can't load without
   // SharedArrayBuffer). The user can still hit Quick Sanity Check / Profile
@@ -1672,6 +1679,414 @@ $runSanity.addEventListener('click', async () => {
       state: 'error',
       error: err instanceof Error ? err.message : String(err),
     };
+  } finally {
+    setBusy(false);
+  }
+});
+
+// --- Batch MSM (WebGPU-only) ------------------------------------------------
+//
+// Exercises BatchMsmV2 — the same-N batched MSM path designed for the Chonk
+// W_L/W_R/W_O (B=3) and translator range-constraint poly (B=10) batches.
+//
+// For each B in {3, 10}:
+//   1. Generate B independent random scalar buffers (n × 32 LE Fr).
+//   2. Build a BatchMsmV2 (one SRS upload + Montgomery convert shared across
+//      slots; per-slot scratch).
+//   3. Time `prepareAll + runAll`.
+//   4. Build a single solo MsmV2 (same n, same pool) and time B serial
+//      prepare+run runs as the baseline.
+//   5. Cross-check every per-slot result against its solo counterpart.
+//   6. Report wall ms / GPU ms / speedup.
+//
+// See barretenberg/ts/src/msm_webgpu/BATCH_MSM_DESIGN.md for the algorithm.
+async function runBatchOnce(
+  logN: number,
+  B: number,
+): Promise<{
+  wallBatchMs: number;
+  gpuBatchMs: number;
+  wallSoloMs: number;
+  gpuSoloMs: number;
+  perSlot: { batch: { x: bigint; y: bigint }; solo: { x: bigint; y: bigint }; matched: boolean }[];
+  /** WASM baseline (null when COI is off or the baseline threw). */
+  wasmRunOnlyMs: number | null;
+  wasmWallMs: number | null;
+  wasmAllMatch: boolean | null;
+}> {
+  if (!('gpu' in navigator)) throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
+  if (srsBuf === null) throw new Error('SRS not loaded yet');
+  const n = 1 << logN;
+  if (gpuDevice === null) {
+    log('info', '[batch] acquiring GPUDevice');
+    gpuDevice = await get_device();
+  }
+
+  // Tear down any cached solo MsmV2 / pool — the BatchMsmV2 owns its own
+  // pool (master pool inside the batch), and we want a clean slate so the
+  // pool/cache state from a prior Run / Sweep doesn't bleed into the batch
+  // measurement. The cached state is rebuilt lazily on the next Run.
+  if (msmV2 !== null) {
+    msmV2.destroy();
+    msmV2 = null;
+    msmV2Pool?.destroy();
+    msmV2Pool = null;
+    msmV2LogN = null;
+  }
+
+  // Generate B independent random scalar buffers — the W_L/W_R/W_O case is
+  // 3 different witness polys committed against the same SRS prefix; the
+  // translator range-constraint case is 10 different polys. Each is a
+  // fresh random Fr vector.
+  log('info', `[batch] generating ${B} random scalar buffers (n=${n.toLocaleString()} each)`);
+  const tGen0 = performance.now();
+  // Helper: B fresh random scalar buffers. Used twice (warm-up + timed) so
+  // both passes get distinct Uint8Array identities — `MsmV2.prepare()` keys
+  // its no-op cache on the scalar buffer reference, and re-using one buffer
+  // across passes makes the second prepare a silent no-op that leaves the
+  // first pass's plan in place.
+  const genScalars = (): Uint8Array[] => {
+    const out: Uint8Array[] = new Array(B);
+    for (let b = 0; b < B; b++) {
+      const buf = new Uint8Array(n * 32);
+      for (let i = 0; i < n; i++) buf.set(biToLe32(randomFr(), `[batch ${b}].scalar[${i}]`), i * 32);
+      out[b] = buf;
+    }
+    return out;
+  };
+  log('info', `[batch] inputs generated in ${(performance.now() - tGen0).toFixed(0)} ms`);
+
+  const pointsBuf = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, n * 64);
+
+  // --- Batched path -------------------------------------------------------
+  log('info', `[batch] building BatchMsmV2 (B=${B}, n=${n.toLocaleString()})…`);
+  const tBuild0 = performance.now();
+  const batch = await BatchMsmV2.create(gpuDevice, pointsBuf, n, B);
+  log('info', `[batch] build done in ${(performance.now() - tBuild0).toFixed(0)} ms`);
+  // Sanity check: every slot must point at the master pool's SRS buffers
+  // (poolX/Y) but its own pool object — anything else means the wiring of
+  // `fromSharedSrs` regressed and slots are inadvertently sharing scratch.
+  {
+    const poolXId = (batch.pool.poolX as unknown as { __id?: number }).__id ?? Math.random();
+    void poolXId;
+    log(
+      'info',
+      `[batch] slot wiring check: c=${batch.instances[0].c}, ` +
+        `numWindows=${batch.instances[0].numWindows}, ` +
+        `winSumsBytes=${batch.instances[0].windowSumsByteLength}`,
+    );
+  }
+
+  // Warm pass on throwaway scalars: first prepare+run pays driver lazy-init
+  // costs we don't want in the steady-state measurement. The warm scalars'
+  // buffer identities are NEVER used again — the timed pass below allocates
+  // brand-new buffers so each slot's `MsmV2.preparedFor` identity cache
+  // misses and re-runs prepare with the real timed scalars.
+  log('info', `[batch] warm-up pass…`);
+  await batch.prepareAll(genScalars());
+  await batch.runAll();
+
+  // Timed scalars: fresh Uint8Array identities so prepare() doesn't no-op.
+  // These are the inputs both the batched and solo paths run against so the
+  // cross-check is apples-to-apples.
+  const scalarsList = genScalars();
+
+  log('info', `[batch] timed batch run…`);
+  const tBatchPrep0 = performance.now();
+  await batch.prepareAll(scalarsList);
+  const tBatchPrepEnd = performance.now();
+  const batchOut = await batch.runAll();
+  const tBatchEnd = performance.now();
+  const wallBatchMs = tBatchEnd - tBatchPrep0;
+  log(
+    'info',
+    `[batch] B=${B} prepareAll=${(tBatchPrepEnd - tBatchPrep0).toFixed(1)}ms ` +
+      `runAll wall=${batchOut.wallMs.toFixed(1)}ms gpu=${batchOut.gpuMs.toFixed(1)}ms ` +
+      `total=${wallBatchMs.toFixed(1)}ms`,
+  );
+
+  // --- Solo baseline path -------------------------------------------------
+  log('info', `[batch] solo baseline: ${B} sequential MsmV2.prepare + run on one instance…`);
+  // The batch already owns a pool; reuse it for the solo baseline so we
+  // don't pay an extra SRS upload + Montgomery-convert in the baseline path.
+  const soloMsm = await MsmV2.create(gpuDevice, n, batch.pool, { warmupRuns: 0, combineOnHost: true });
+  // Warm-up so the solo baseline's first run is steady-state too.
+  await soloMsm.prepare(scalarsList[0]);
+  await soloMsm.run();
+
+  const soloResults: { x: bigint; y: bigint }[] = new Array(B);
+  const tSolo0 = performance.now();
+  let gpuSoloMs = 0;
+  for (let b = 0; b < B; b++) {
+    // Force a fresh slice so prepare()'s identity-cache doesn't no-op
+    // (the warm-up's scalarsList[0] is the same object we'd hand it now).
+    const reidentified = new Uint8Array(scalarsList[b].buffer, scalarsList[b].byteOffset, scalarsList[b].byteLength);
+    await soloMsm.prepare(reidentified);
+    const tRun0 = performance.now();
+    const r = await soloMsm.run();
+    gpuSoloMs += performance.now() - tRun0;
+    soloResults[b] = { x: r.x, y: r.y };
+  }
+  const wallSoloMs = performance.now() - tSolo0;
+  log('info', `[batch] solo baseline total wall=${wallSoloMs.toFixed(1)}ms (gpu-only=${gpuSoloMs.toFixed(1)}ms)`);
+
+  // --- Cross-check --------------------------------------------------------
+  const perSlot = batchOut.results.map((batchResult, b) => ({
+    batch: batchResult,
+    solo: soloResults[b],
+    matched: batchResult.x === soloResults[b].x && batchResult.y === soloResults[b].y,
+  }));
+  const allMatch = perSlot.every(s => s.matched);
+  if (allMatch) {
+    log('ok', `[batch] correctness OK — all ${B} batched results match solo MSMs`);
+  } else {
+    for (let b = 0; b < B; b++) {
+      if (!perSlot[b].matched) {
+        log(
+          'err',
+          `[batch] MISMATCH slot ${b}: batch.x=${perSlot[b].batch.x.toString(16).slice(0, 16)}… vs ` +
+            `solo.x=${perSlot[b].solo.x.toString(16).slice(0, 16)}…`,
+        );
+      }
+    }
+  }
+
+  // --- WASM batch baseline (true `batch_multi_scalar_mul_native` call) ---
+  //
+  // Calls the new `bb_native_pippenger_bn254_batch_{load,run}` exports
+  // which wrap `MSM::batch_multi_scalar_mul_native` with a vector of B
+  // spans. This is the native code path that the production Chonk wires
+  // (W_L/W_R/W_O, translator range constraints) actually go through —
+  // unlike B serial single-MSM `_run` calls, which serialize per-MSM
+  // Pippenger setup that the batch path can overlap across the whole
+  // batch via one `parallel_for`.
+  //
+  // We log two numbers:
+  //   wasmRunOnlyMs: the timed _batch_run window (Pippenger compute only,
+  //     matches the existing `Run` button's measurement convention).
+  //   wasmWallMs:    end-to-end including _batch_load (heap upload + native
+  //     vector decode) — honest wall vs the WebGPU `wallBatchMs` which
+  //     includes upload + plan.
+  let wasmRunOnlyMs: number | null = null;
+  let wasmWallMs: number | null = null;
+  let wasmAllMatch: boolean | null = null;
+  if (WASM_AVAILABLE) {
+    try {
+      log('info', `[batch] WASM baseline: batch_multi_scalar_mul_native with B=${B} spans (true batch)…`);
+      const handle = await ensureWasmBooted();
+      const threads = handle.threads;
+      const tWasmWall0 = performance.now();
+      await handle.loadBatchMsm(pointsBuf, scalarsList);
+      const tWasmRun0 = performance.now();
+      const out = await handle.runBatchMsm(threads);
+      wasmRunOnlyMs = performance.now() - tWasmRun0;
+      wasmWallMs = performance.now() - tWasmWall0;
+      const wasmResults: { x: bigint; y: bigint }[] = new Array(B);
+      for (let b = 0; b < B; b++) wasmResults[b] = parseAffineLE(out.subarray(b * 64, b * 64 + 64));
+      wasmAllMatch = wasmResults.every((r, b) => r.x === perSlot[b].batch.x && r.y === perSlot[b].batch.y);
+      if (wasmAllMatch) {
+        log('ok', `[batch] WASM↔batch correctness OK (${B} results match)`);
+      } else {
+        for (let b = 0; b < B; b++) {
+          if (wasmResults[b].x !== perSlot[b].batch.x || wasmResults[b].y !== perSlot[b].batch.y) {
+            log(
+              'err',
+              `[batch] WASM↔batch MISMATCH slot ${b}: wasm.x=${wasmResults[b].x.toString(16).slice(0, 16)}… ` +
+                `vs batch.x=${perSlot[b].batch.x.toString(16).slice(0, 16)}…`,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      log('warn', `[batch] WASM baseline skipped: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  } else {
+    log(
+      'info',
+      `[batch] WASM baseline skipped — page is not cross-origin isolated. ` +
+        `Click 'Enable WASM (reload with COI)' to compare against the WASM Pippenger.`,
+    );
+  }
+
+  soloMsm.destroy();
+  batch.destroy();
+  // The batch teardown freed the pool that solo was bound to, so null out
+  // the module caches so the next Run rebuilds from scratch.
+  msmV2 = null;
+  msmV2Pool = null;
+  msmV2LogN = null;
+
+  return {
+    wallBatchMs,
+    gpuBatchMs: batchOut.gpuMs,
+    wallSoloMs,
+    gpuSoloMs,
+    perSlot,
+    wasmRunOnlyMs,
+    wasmWallMs,
+    wasmAllMatch,
+  };
+}
+
+$runBatch.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  abortRequested = false;
+  setBusy(true, 'batch MSM…');
+  try {
+    // Bump this version string whenever the batch path changes — printed at
+    // the top of every Batch MSM run so you can confirm at a glance which
+    // code revision is actually executing in the browser. (Vite usually
+    // hot-reloads, but cached service-worker bundles have bitten us.)
+    log(
+      'info',
+      `[batch] rev 9: Tier 2 production path — GPU histogram (correctness now Node-tested), ` +
+        `planner NUM_WINDOWS=B·W, pool-owned carryOffBuf`,
+    );
+    const logN = readLogN();
+    log('info', `[batch] log₂(n) = ${logN} (n = ${(1 << logN).toLocaleString()})`);
+    log('info', `[batch] target batches: B=3 (W_L/W_R/W_O), B=10 (translator range constraints)`);
+
+    for (const B of [3, 10]) {
+      throwIfAborted();
+      log('info', '');
+      log('info', `--- Batch B=${B} ---`);
+      const r = await runBatchOnce(logN, B);
+      const speedup = r.wallSoloMs / r.wallBatchMs;
+      const gpuSpeedup = r.gpuSoloMs / r.gpuBatchMs;
+      const verdict = r.perSlot.every(s => s.matched) ? 'PASS' : 'FAIL';
+      log(
+        'ok',
+        `[batch] B=${B} verdict=${verdict} ` +
+          `wall: batch=${r.wallBatchMs.toFixed(1)}ms solo=${r.wallSoloMs.toFixed(1)}ms ` +
+          `speedup=${speedup.toFixed(2)}× ` +
+          `(gpu-only: ${r.gpuBatchMs.toFixed(1)}ms vs ${r.gpuSoloMs.toFixed(1)}ms, ${gpuSpeedup.toFixed(2)}×)`,
+      );
+      if (r.wasmRunOnlyMs !== null && r.wasmWallMs !== null) {
+        // The "vs WASM" ratios use the WebGPU batch path's wall time as the
+        // numerator we want to *beat*; > 1.0× means batch is faster than
+        // WASM. `run-only` is the Pippenger-compute portion of the WASM
+        // wall (matching the existing `Run` button convention); `wall` is
+        // the whole serial sequence of B load+run calls.
+        const wasmRunSpeedup = r.wasmRunOnlyMs / r.wallBatchMs;
+        const wasmWallSpeedup = r.wasmWallMs / r.wallBatchMs;
+        const correctness = r.wasmAllMatch === false ? ' [MISMATCH!]' : '';
+        log(
+          'ok',
+          `[batch] B=${B} vs WASM-MT(${MT_THREADS_DEFAULT}t) serial: ` +
+            `wasm-run-only=${r.wasmRunOnlyMs.toFixed(1)}ms (${wasmRunSpeedup.toFixed(2)}×), ` +
+            `wasm-wall=${r.wasmWallMs.toFixed(1)}ms (${wasmWallSpeedup.toFixed(2)}×)${correctness}`,
+        );
+      }
+    }
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[batch] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
+  } finally {
+    setBusy(false);
+  }
+});
+
+$runBatchSweep.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  abortRequested = false;
+  setBusy(true, 'batch sweep…');
+  try {
+    log('info', `[batch-sweep] rev 3 — sweeping log₂(n) ∈ {15, 16, 17, 18} × B ∈ {3, 10}`);
+    log(
+      'info',
+      `[batch-sweep] this covers the translator range-constraint poly sizes (≈2^15..2^17) ` +
+        `and the W_L/W_R/W_O witness column sizes (≈2^17, sometimes 2^18). One measurement per ` +
+        `(logN, B); first run at each (logN, B) eats a warm-up pass internally.`,
+    );
+
+    interface Row {
+      logN: number;
+      B: number;
+      wallBatchMs: number;
+      gpuBatchMs: number;
+      wallSoloMs: number;
+      gpuSoloMs: number;
+      wasmRunOnlyMs: number | null;
+      wasmWallMs: number | null;
+      verdict: 'PASS' | 'FAIL';
+    }
+    const rows: Row[] = [];
+
+    const LOGNS = [15, 16, 17, 18] as const;
+    const BS = [3, 10] as const;
+    let stepIdx = 0;
+    const stepTotal = LOGNS.length * BS.length;
+    for (const B of BS) {
+      for (const logN of LOGNS) {
+        throwIfAborted();
+        stepIdx++;
+        log('info', '');
+        log('info', `--- step ${stepIdx}/${stepTotal}: log₂(n)=${logN}, B=${B} ---`);
+        const r = await runBatchOnce(logN, B);
+        const verdict: 'PASS' | 'FAIL' = r.perSlot.every(s => s.matched) ? 'PASS' : 'FAIL';
+        rows.push({
+          logN,
+          B,
+          wallBatchMs: r.wallBatchMs,
+          gpuBatchMs: r.gpuBatchMs,
+          wallSoloMs: r.wallSoloMs,
+          gpuSoloMs: r.gpuSoloMs,
+          wasmRunOnlyMs: r.wasmRunOnlyMs,
+          wasmWallMs: r.wasmWallMs,
+          verdict,
+        });
+        log(
+          'info',
+          `[batch-sweep] (logN=${logN}, B=${B}) verdict=${verdict} batch=${r.wallBatchMs.toFixed(0)}ms ` +
+            `solo=${r.wallSoloMs.toFixed(0)}ms ` +
+            (r.wasmWallMs !== null
+              ? `wasm-wall=${r.wasmWallMs.toFixed(0)}ms wasm-run=${r.wasmRunOnlyMs?.toFixed(0)}ms`
+              : `wasm=skipped`),
+        );
+        // Yield between steps so the renderer can paint the log + a Stop click
+        // can land. Without this the 8 runs feel like a frozen tab.
+        await yieldToBrowser(16);
+      }
+    }
+
+    // --- Summary table ---------------------------------------------------
+    log('info', '');
+    log('info', `--- Batch sweep summary (all wall times in ms) ---`);
+    const hdr = `  B  logN |   batch   solo    wasm-run    wasm-wall | batch/solo  batch/wasm-run  batch/wasm-wall | verdict`;
+    log('info', hdr);
+    log(
+      'info',
+      `  ---  ----   -------  ------   ---------   ---------   ----------  --------------  --------------   -------`,
+    );
+    for (const r of rows) {
+      const ratioSolo = r.wallSoloMs / r.wallBatchMs;
+      const ratioWasmRun = r.wasmRunOnlyMs !== null ? r.wasmRunOnlyMs / r.wallBatchMs : null;
+      const ratioWasmWall = r.wasmWallMs !== null ? r.wasmWallMs / r.wallBatchMs : null;
+      const w = (v: number, n = 8) => v.toFixed(0).padStart(n);
+      const ratio = (v: number | null, n = 9) => (v === null ? '       —'.padStart(n) : `${v.toFixed(2)}×`.padStart(n));
+      log(
+        'info',
+        `  ${String(r.B).padStart(2)}  ${String(r.logN).padStart(2)}   |  ${w(r.wallBatchMs)}  ${w(r.wallSoloMs)}   ${
+          r.wasmRunOnlyMs !== null ? w(r.wasmRunOnlyMs) : '      —'
+        }     ${r.wasmWallMs !== null ? w(r.wasmWallMs) : '      —'} | ${ratio(ratioSolo)}      ${ratio(
+          ratioWasmRun,
+        )}        ${ratio(ratioWasmWall)} | ${r.verdict}`,
+      );
+    }
+    log('info', '');
+    log(
+      'ok',
+      `[batch-sweep] done. Ratios > 1.0× mean batch is faster. The "batch/wasm-wall" ` +
+        `column is the headline: it's the apples-to-apples comparison vs the existing WASM ` +
+        `Pippenger path (load + run × B).`,
+    );
+
+    // Stash on window for any external harness or e2e script that wants to
+    // pull the table without scraping the log.
+    (window as unknown as { __batchSweep?: unknown }).__batchSweep = rows;
+  } catch (err) {
+    log(abortRequested ? 'warn' : 'err', `[batch-sweep] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }
