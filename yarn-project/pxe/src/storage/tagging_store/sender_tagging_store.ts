@@ -1,9 +1,5 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import {
-  AppTaggingSecret,
-  SiloedTag,
-  type TaggingIndexRange,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
