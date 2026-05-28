@@ -53,6 +53,12 @@ const SLASHING_UNIT = BigInt(1e18);
 const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
 const SLASHING_QUORUM = 3;
 const SLASHING_ROUND_SIZE_IN_EPOCHS = 2;
+const PROPOSER_FAULT_STATUSES = [
+  'blocks-missed',
+  'checkpoint-missed',
+  'checkpoint-invalid',
+  'checkpoint-unvalidated',
+] satisfies ValidatorStatusInSlot[];
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-status-slash-'));
 
@@ -148,13 +154,19 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     await warpToSlotBeforeTargetProposer(targetAddress);
     // nodes[0] is the malicious node; honest observers are nodes[1..].
     const honestObservers = nodes.slice(1);
-    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-unvalidated');
-    await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-unvalidated');
+    const { observers: observersWithFault, slot: faultSlot } = await findObservedStatusSlot(
+      honestObservers,
+      targetAddress,
+      'checkpoint-unvalidated',
+      SLASHING_QUORUM,
+    );
+    await assertAllObserversSentinelStatus(observersWithFault, targetAddress, faultSlot, 'checkpoint-unvalidated');
+    await assertAllObserversRecordedProposerFault(honestObservers, targetAddress, faultSlot);
     // The malicious node self-records `checkpoint-valid` for that slot using the locally computed
     // archive (broadcastInvalidBlockProposal only corrupts the broadcast archive, not the
     // proposer's local state).
     await assertAllObserversSentinelStatus([nodes[0]], targetAddress, faultSlot, 'checkpoint-valid');
-    await assertInactivityOffenseFor(targetAddress, nodes[1]);
+    await assertInactivityOffenseFor(targetAddress, observersWithFault[0]);
   });
 
   it('slashes the proposer with INACTIVITY when checkpoint validation records invalid', async () => {
@@ -164,12 +176,18 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     const targetAddress = await spawnMaliciousAndHonestNodes({ broadcastInvalidCheckpointProposalOnly: true });
     await warpToSlotBeforeTargetProposer(targetAddress);
     const honestObservers = nodes.slice(1);
-    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-invalid');
-    await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-invalid');
+    const { observers: observersWithFault, slot: faultSlot } = await findObservedStatusSlot(
+      honestObservers,
+      targetAddress,
+      'checkpoint-invalid',
+      SLASHING_QUORUM,
+    );
+    await assertAllObserversSentinelStatus(observersWithFault, targetAddress, faultSlot, 'checkpoint-invalid');
+    await assertAllObserversRecordedProposerFault(honestObservers, targetAddress, faultSlot);
     // Malicious self-records `checkpoint-valid` for that slot — proposers always consider their
     // own freshly-built proposal valid from their local-state perspective.
     await assertAllObserversSentinelStatus([nodes[0]], targetAddress, faultSlot, 'checkpoint-valid');
-    await assertInactivityOffenseFor(targetAddress, nodes[1]);
+    await assertInactivityOffenseFor(targetAddress, observersWithFault[0]);
   });
 
   it('slashes an attestor that gets stopped after the network is running', async () => {
@@ -305,40 +323,47 @@ describe('e2e_p2p_sentinel_status_slash', () => {
   }
 
   /**
-   * Finds the earliest slot at which EVERY honest observer has recorded `expectedStatus` for
+   * Finds the earliest slot at which enough honest observers have recorded `expectedStatus` for
    * `targetAddress`. The slot at which the malicious node closes its checkpoint (and so the fault
    * is recorded) is not necessarily the block-proposer slot we warp to, so we discover it rather
-   * than assuming it. Requiring cross-observer agreement avoids picking a slot that only one
-   * observer saw (e.g. one peer happened to be synced to the malicious proposer's gossip earlier
-   * than the others), which would then time out the downstream per-observer assertion. Times out
-   * — and therefore fails the test — if no common fault slot is ever recorded, so a genuine
-   * failure to detect the malicious proposal is still caught.
+   * than assuming it. Requiring observer quorum avoids picking a slot that only one observer saw
+   * while not requiring every peer to receive the same non-canonical gossip event. Times out — and
+   * therefore fails the test — if no quorum fault slot is ever recorded, so a genuine failure to
+   * detect the malicious proposal is still caught.
    */
   async function findObservedStatusSlot(
     observerNodes: AztecNodeService[],
     targetAddress: EthAddress,
     expectedStatus: ValidatorStatusInSlot,
-  ): Promise<SlotNumber> {
-    const slot = await retryUntil(
+    minObservers: number,
+  ): Promise<{ observers: AztecNodeService[]; slot: SlotNumber }> {
+    const observedSlot = await retryUntil(
       async () => {
-        const slotSets = await Promise.all(
+        const observerSlotSets = await Promise.all(
           observerNodes.map(async observerNode => {
             const stats = await observerNode.getValidatorsStats();
             const history = stats.stats[targetAddress.toString()]?.history ?? [];
-            return new Set(history.filter(h => h.status === expectedStatus).map(h => Number(h.slot)));
+            return {
+              observerNode,
+              slots: new Set(history.filter(h => h.status === expectedStatus).map(h => Number(h.slot))),
+            };
           }),
         );
-        if (slotSets.some(s => s.size === 0)) {
-          return undefined;
+        const candidateSlots = [...new Set(observerSlotSets.flatMap(({ slots }) => [...slots]))].sort((a, b) => a - b);
+        for (const candidateSlot of candidateSlots) {
+          const observers = observerSlotSets
+            .filter(({ slots }) => slots.has(candidateSlot))
+            .map(({ observerNode }) => observerNode);
+          if (observers.length >= minObservers) {
+            return { observers, slot: SlotNumber(candidateSlot) };
+          }
         }
-        const [first, ...rest] = slotSets;
-        const common = [...first].filter(s => rest.every(other => other.has(s))).sort((a, b) => a - b);
-        return common.length > 0 ? SlotNumber(common[0]) : undefined;
+        return undefined;
       },
-      `cross-observer ${expectedStatus} for ${targetAddress}`,
+      `${minObservers}/${observerNodes.length} observer quorum ${expectedStatus} for ${targetAddress}`,
       AZTEC_SLOT_DURATION * 15,
     );
-    return slot;
+    return observedSlot;
   }
 
   /**
@@ -366,6 +391,34 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     }
     t.logger.warn(
       `All ${observerNodes.length} observers recorded ${expectedStatus} for ${targetAddress} at slot ${slot}`,
+    );
+  }
+
+  /**
+   * Polls every honest observer until it records a proposer-fault status for the target slot.
+   * This allows exact checkpoint taxonomy to vary with gossip timing while still failing if an
+   * honest observer accepts the malicious proposal as valid or mined.
+   */
+  async function assertAllObserversRecordedProposerFault(
+    observerNodes: AztecNodeService[],
+    targetAddress: EthAddress,
+    slot: SlotNumber,
+  ): Promise<void> {
+    for (const observerNode of observerNodes) {
+      const status = await retryUntil(
+        async () => {
+          const stats = await observerNode.getValidatorsStats();
+          const validator = stats.stats[targetAddress.toString()];
+          const entry = validator?.history.find(h => Number(h.slot) === Number(slot));
+          return entry?.status;
+        },
+        `proposer-fault status for ${targetAddress} at slot ${slot}`,
+        AZTEC_SLOT_DURATION * 10,
+      );
+      expect(PROPOSER_FAULT_STATUSES).toContain(status);
+    }
+    t.logger.warn(
+      `All ${observerNodes.length} observers recorded a proposer fault for ${targetAddress} at slot ${slot}`,
     );
   }
 
