@@ -37,8 +37,13 @@ import {
 } from '../contract/index.js';
 import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
-import { SiloedTag, Tag, TxScopedL2Log } from '../logs/index.js';
-import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
+import { LogResult } from '../logs/log_result.js';
+import {
+  type PrivateLogsQuery,
+  PrivateLogsQuerySchema,
+  type PublicLogsQuery,
+  PublicLogsQuerySchema,
+} from '../logs/logs_query.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -75,12 +80,6 @@ import {
   type CheckpointResponse,
   CheckpointResponseSchema,
 } from './checkpoint_response.js';
-import {
-  type GetContractClassLogsResponse,
-  GetContractClassLogsResponseSchema,
-  type GetPublicLogsResponse,
-  GetPublicLogsResponseSchema,
-} from './get_logs_response.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
@@ -335,52 +334,18 @@ export interface AztecNode {
   registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
 
   /**
-   * Gets public logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
+   * Gets private logs matching the given tags. Returns one inner array per element of `query.tags`, in
+   * input order. An empty inner array means no logs matched that tag. Set `query.includeEffects` to also
+   * receive the tx's note hashes and nullifiers.
    */
-  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
+  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]>;
 
   /**
-   * Gets contract class logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
+   * Gets public logs matching the given tags for the given contract. Returns one inner array per element
+   * of `query.tags`, in input order. An empty inner array means no logs matched that tag. Set
+   * `query.includeEffects` to also receive the tx's note hashes and nullifiers.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
-
-  /**
-   * Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
-   * array implies no logs match that tag.
-   * @param tags - The tags to search for.
-   * @param page - The page number (0-indexed) for pagination.
-   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
-   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-   * undefined behavior in the client's code.
-   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-   * for a tag, the caller should fetch the next page to check for more logs.
-   */
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]>;
-
-  /**
-   * Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
-   * logs is returned. An empty array implies no logs match that tag.
-   * @param contractAddress - The contract address to search logs for.
-   * @param tags - The tags to search for.
-   * @param page - The page number (0-indexed) for pagination.
-   * @param referenceBlock - Optional block hash used to ensure the block still exists before logs are retrieved.
-   * This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-   * If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-   * undefined behavior in the client's code.
-   * @returns An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-   * for a tag, the caller should fetch the next page to check for more logs.
-   */
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]>;
+  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -617,27 +582,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     output: z.void(),
   }),
 
-  getPublicLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetPublicLogsResponseSchema }),
-
-  getContractClassLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetContractClassLogsResponseSchema }),
-
   getPrivateLogsByTags: z.function({
-    input: z.tuple([
-      z.array(SiloedTag.schema).max(MAX_RPC_LEN),
-      optional(z.number().gte(0)),
-      optional(BlockHash.schema),
-    ]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+    input: z.tuple([PrivateLogsQuerySchema]),
+    output: z.array(z.array(LogResult.schema)),
   }),
 
-  getPublicLogsByTagsFromContract: z.function({
-    input: z.tuple([
-      schemas.AztecAddress,
-      z.array(Tag.schema).max(MAX_RPC_LEN),
-      optional(z.number().gte(0)),
-      optional(BlockHash.schema),
-    ]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+  getPublicLogsByTags: z.function({
+    input: z.tuple([PublicLogsQuerySchema]),
+    output: z.array(z.array(LogResult.schema)),
   }),
 
   sendTx: z.function({ input: z.tuple([Tx.schema]), output: z.void() }),

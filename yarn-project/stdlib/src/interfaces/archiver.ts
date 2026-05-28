@@ -23,16 +23,13 @@ import {
   ContractInstanceWithAddressSchema,
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
-import { LogFilterSchema } from '../logs/log_filter.js';
-import { SiloedTag } from '../logs/siloed_tag.js';
-import { Tag } from '../logs/tag.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { LogResult } from '../logs/log_result.js';
+import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
-import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from './get_logs_response.js';
 import type { L2LogsSource } from './l2_logs_source.js';
 
 /**
@@ -114,20 +111,13 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   isEpochComplete: z.function({ input: z.tuple([EpochNumberSchema]), output: z.boolean() }),
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
   getPrivateLogsByTags: z.function({
-    input: z.tuple([z.array(SiloedTag.schema), optional(z.number().gte(0)), optional(BlockNumberSchema)]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+    input: z.tuple([PrivateLogsQuerySchema]),
+    output: z.array(z.array(LogResult.schema)),
   }),
-  getPublicLogsByTagsFromContract: z.function({
-    input: z.tuple([
-      schemas.AztecAddress,
-      z.array(Tag.schema),
-      optional(z.number().gte(0)),
-      optional(BlockNumberSchema),
-    ]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+  getPublicLogsByTags: z.function({
+    input: z.tuple([PublicLogsQuerySchema]),
+    output: z.array(z.array(LogResult.schema)),
   }),
-  getPublicLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetPublicLogsResponseSchema }),
-  getContractClassLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetContractClassLogsResponseSchema }),
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
   getBytecodeCommitment: z.function({ input: z.tuple([schemas.Fr]), output: schemas.Fr }),
   getContract: z.function({
