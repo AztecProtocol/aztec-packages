@@ -1518,7 +1518,7 @@ export class MsmV2 {
     m.radixScatterPipe = await compile(
       sm.gen_ba_planner_radix_scatter_shader(RADIX_TILE), `radix-scatter`, m.radixScatterLayout);
     m.cumsumPipe = await compile(
-      sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 8, 32),
+      sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, 32),
       `cumsum`, m.cumsumLayout);
     m.partitionWgPipe = await compile(
       sm.gen_ba_planner_partition_wg_shader(), `partition-wg`, m.partitionWgLayout);

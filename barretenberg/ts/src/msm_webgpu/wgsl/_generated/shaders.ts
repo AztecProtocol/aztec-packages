@@ -1333,6 +1333,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     // in the barrier with zero work.
     let num_workgroups = atomicLoad(&planner_meta[3]);
     let num_dense = atomicLoad(&planner_meta[1]);
+    let num_active_threads = num_workgroups * TPB;
     let is_active_wg = (wg < num_workgroups);
     let global_t = wg * TPB + t_local;
     let is_active_thread = is_active_wg && (global_t < NUM_THREADS);
@@ -1344,8 +1345,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     if (is_active_thread) {
         my_start_b = thread_cuts[2u * global_t + 0u];
         my_start_off = thread_cuts[2u * global_t + 1u];
+        // partition_thread writes thread_cuts only for global_t in [0,
+        // num_active_threads). The last active thread's "successor" is
+        // out of the partitioned range, so it scans to num_dense.
         my_end_b = num_dense;
-        if (global_t + 1u < NUM_THREADS) {
+        if (global_t + 1u < num_active_threads) {
             my_end_b = thread_cuts[2u * (global_t + 1u) + 0u];
             my_end_off = thread_cuts[2u * (global_t + 1u) + 1u];
         }
@@ -1482,12 +1486,14 @@ const NUM_THREADS: u32 = {{ num_threads }}u;
 @compute @workgroup_size(1)
 fn main() {
     let num_dense = planner_meta[1];
+    let num_workgroups = planner_meta[3];
+    let num_active_threads = num_workgroups * 256u;
     var sb_count: u32 = 0u;
     var in_split: bool = false;
     var split_first: u32 = 0u;
 
     if (num_dense > 0u) {
-        for (var t: u32 = 1u; t < NUM_THREADS; t = t + 1u) {
+        for (var t: u32 = 1u; t < num_active_threads; t = t + 1u) {
             let bucket_sorted = thread_cuts[2u * t];
             let cut_offset = thread_cuts[2u * t + 1u];
 
@@ -1524,7 +1530,7 @@ fn main() {
             let bucket_idx = sorted_bucket_list[thread_cuts[2u * split_first + 2u]];
             partial_buckets_list[3u * sb_count + 0u] = bucket_idx;
             partial_buckets_list[3u * sb_count + 1u] = split_first;
-            partial_buckets_list[3u * sb_count + 2u] = NUM_THREADS;
+            partial_buckets_list[3u * sb_count + 2u] = num_active_threads;
             sb_count += 1u;
         }
     }

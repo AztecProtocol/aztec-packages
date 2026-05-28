@@ -49,6 +49,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     // in the barrier with zero work.
     let num_workgroups = atomicLoad(&planner_meta[3]);
     let num_dense = atomicLoad(&planner_meta[1]);
+    let num_active_threads = num_workgroups * TPB;
     let is_active_wg = (wg < num_workgroups);
     let global_t = wg * TPB + t_local;
     let is_active_thread = is_active_wg && (global_t < NUM_THREADS);
@@ -60,8 +61,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     if (is_active_thread) {
         my_start_b = thread_cuts[2u * global_t + 0u];
         my_start_off = thread_cuts[2u * global_t + 1u];
+        // partition_thread writes thread_cuts only for global_t in [0,
+        // num_active_threads). The last active thread's "successor" is
+        // out of the partitioned range, so it scans to num_dense.
         my_end_b = num_dense;
-        if (global_t + 1u < NUM_THREADS) {
+        if (global_t + 1u < num_active_threads) {
             my_end_b = thread_cuts[2u * (global_t + 1u) + 0u];
             my_end_off = thread_cuts[2u * (global_t + 1u) + 1u];
         }

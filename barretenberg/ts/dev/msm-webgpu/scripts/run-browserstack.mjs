@@ -59,6 +59,9 @@ const { values: argv } = parseArgs({
     "tunnel-url": { type: "string" },
     "skip-tunnel": { type: "boolean", default: false },
     "list-targets": { type: "boolean", default: false },
+    autorun: { type: "string", default: "msm-cross-check" },
+    "emit-body-only": { type: "boolean", default: false },
+    "external-worker-id-file": { type: "string" },
     help: { type: "boolean", default: false },
   },
   allowPositionals: false,
@@ -77,7 +80,7 @@ Usage:
 
 Options:
   --target T              BrowserStack preset (default: macos). --list-targets to list.
-  --page P                Dev page (only `index` is defined). Default: index.
+  --page P                Dev page (only \`index\` is defined). Default: index.
   --n LOGN                ?logn for index.html (log2 of the MSM size). Default: 16.
   --reps R                ?reps query param for the bench page. Default: 3.
   --total N               ?total query param (TOTAL_PAIRS). Optional.
@@ -407,12 +410,13 @@ async function main() {
       : await waitForTunnelUrl(cloudflaredProc);
 
   // Build the index.html autorun URL: ?coi=1 gives the cross-origin
-  // isolation the threaded WASM needs, ?autorun=msm-cross-check runs the
-  // GPU-vs-WASM cross-check on load and POSTs the result, ?logn the size.
+  // isolation the threaded WASM needs; --autorun selects msm-cross-check
+  // (default) or msm-bench (timed reps with per-phase GPU breakdown).
   const qp = new URLSearchParams();
   qp.set("coi", "1");
-  qp.set("autorun", "msm-cross-check");
+  qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
+  if (argv.reps) qp.set("reps", String(argv.reps));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
@@ -431,7 +435,38 @@ async function main() {
     timeoutSec: bsTimeout,
   });
   err(`BS worker body: ${JSON.stringify(body)}`);
-  const created = await createWorker(body);
+  if (argv["emit-body-only"]) {
+    writeFileSync("/tmp/msm-webgpu-bs-body.json", JSON.stringify(body));
+    err(`wrote BS body to /tmp/msm-webgpu-bs-body.json`);
+  }
+  let created;
+  if (argv["emit-body-only"]) {
+    // External orchestrator (Claude via MCP) dispatches the BS worker
+    // and writes the returned worker_id to --external-worker-id-file.
+    const idFile = argv["external-worker-id-file"];
+    if (!idFile) {
+      throw new Error(`--emit-body-only requires --external-worker-id-file`);
+    }
+    err(`waiting for external worker_id at ${idFile} (up to 300s)`);
+    const idDeadline = Date.now() + 300_000;
+    while (Date.now() < idDeadline) {
+      if (existsSync(idFile)) {
+        const txt = readFileSync(idFile, "utf8").trim();
+        if (txt.length > 0) {
+          try {
+            created = JSON.parse(txt);
+          } catch {
+            created = { id: txt, browser_url: "(external)" };
+          }
+          break;
+        }
+      }
+      await sleep(1_000);
+    }
+    if (!created) throw new Error(`external worker_id never appeared at ${idFile}`);
+  } else {
+    created = await createWorker(body);
+  }
   workerId = created.id;
   err(`BS worker started: id=${workerId} browser_url=${created.browser_url}`);
 
