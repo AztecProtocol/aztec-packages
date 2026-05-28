@@ -8,7 +8,7 @@ pub contract EcdsaKAccount {
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
-        messages::{logs::sender_for_tags::SenderForTags, message_delivery::MessageDelivery},
+        messages::message_delivery::MessageDelivery,
         oracle::auth_witness::get_auth_witness_as_bytes,
         state_vars::SinglePrivateImmutable,
     };
@@ -27,7 +27,7 @@ pub contract EcdsaKAccount {
         let pub_key_note = EcdsaPublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
         self.storage.signing_public_key.initialize(pub_key_note).deliver(
-            MessageDelivery::onchain_constrained_with_sender(SenderForTags::explicit(self.address)),
+            MessageDelivery::onchain_constrained().with_sender(self.address),
         );
     }
 

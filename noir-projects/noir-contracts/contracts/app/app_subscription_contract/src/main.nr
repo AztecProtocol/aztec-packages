@@ -46,7 +46,7 @@ pub contract AppSubscription {
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
         macros::{functions::{allow_phase_change, external, initializer}, storage::storage},
-        messages::{logs::sender_for_tags::SenderForTags, message_delivery::MessageDelivery},
+        messages::message_delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
@@ -86,7 +86,7 @@ pub contract AppSubscription {
                     remaining_txs: note.remaining_txs - 1,
                 }
             })
-            .deliver(MessageDelivery::onchain_constrained_with_sender(SenderForTags::explicit(user_address)));
+            .deliver(MessageDelivery::onchain_constrained().with_sender(user_address));
 
         self.context.set_as_fee_payer();
 

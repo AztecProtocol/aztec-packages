@@ -23,7 +23,7 @@ pub contract HandshakeRegistry {
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
-        messages::{logs::sender_for_tags::SenderForTags, message_delivery::MessageDelivery},
+        messages::message_delivery::MessageDelivery,
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
             traits::ToField,
@@ -70,7 +70,7 @@ pub contract HandshakeRegistry {
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
         // discoverable via normal PXE sync.
         self.storage.handshakes.at(recipient).at(sender).initialize_or_replace(|_| note).deliver(
-            MessageDelivery::onchain_unconstrained_with_sender(SenderForTags::explicit(sender)),
+            MessageDelivery::onchain_unconstrained().with_sender(sender),
         );
 
         let log_tag = compute_log_tag(

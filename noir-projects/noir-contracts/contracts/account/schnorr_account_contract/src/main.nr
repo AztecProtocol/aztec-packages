@@ -15,7 +15,7 @@ pub contract SchnorrAccount {
         context::PrivateContext,
         hash::compute_siloed_nullifier,
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
-        messages::{logs::sender_for_tags::SenderForTags, message_delivery::MessageDelivery},
+        messages::message_delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
@@ -38,7 +38,7 @@ pub contract SchnorrAccount {
         let pub_key_note = PublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
         self.storage.signing_public_key.initialize(pub_key_note).deliver(
-            MessageDelivery::onchain_constrained_with_sender(SenderForTags::explicit(self.address)),
+            MessageDelivery::onchain_constrained().with_sender(self.address),
         );
     }
 

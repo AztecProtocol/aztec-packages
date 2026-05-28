@@ -2,7 +2,7 @@ use crate::{
     context::PrivateContext,
     messages::{
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
-        logs::{sender_for_tags::SenderForTags, utils::compute_discovery_tag},
+        logs::utils::compute_discovery_tag,
         offchain_messages::deliver_offchain_message,
     },
     utils::remove_constraints::remove_constraints_if,
@@ -24,7 +24,7 @@ use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_M
 /// use [`MessageDelivery::onchain_constrained`].
 pub struct MessageDelivery {
     variant: u8,
-    sender_for_tags: SenderForTags,
+    sender_override: Option<AztecAddress>,
 }
 
 global OFFCHAIN: u8 = 1;
@@ -79,7 +79,7 @@ impl MessageDelivery {
     /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
     /// keys in order to obtain the plaintext.
     pub fn offchain() -> Self {
-        Self { variant: OFFCHAIN, sender_for_tags: SenderForTags::tx_default() }
+        Self { variant: OFFCHAIN, sender_override: Option::none() }
     }
 
     /// Delivers the message on-chain, but with no guarantees on the content.
@@ -130,14 +130,8 @@ impl MessageDelivery {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub fn onchain_unconstrained() -> Self {
-        Self { variant: ONCHAIN_UNCONSTRAINED, sender_for_tags: SenderForTags::tx_default() }
-    }
-
-    /// Same as [`onchain_unconstrained`](MessageDelivery::onchain_unconstrained), but with a custom
-    /// [`SenderForTags`] override for discovery tag derivation.
-    pub fn onchain_unconstrained_with_sender(sender_for_tags: SenderForTags) -> Self {
-        Self { variant: ONCHAIN_UNCONSTRAINED, sender_for_tags }
+    pub fn onchain_unconstrained() -> OnchainDelivery {
+        OnchainDelivery { variant: ONCHAIN_UNCONSTRAINED, sender_override: Option::none() }
     }
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
@@ -189,14 +183,8 @@ impl MessageDelivery {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub fn onchain_constrained() -> Self {
-        Self { variant: ONCHAIN_CONSTRAINED, sender_for_tags: SenderForTags::tx_default() }
-    }
-
-    /// Same as [`onchain_constrained`](MessageDelivery::onchain_constrained), but with a custom
-    /// [`SenderForTags`] override for discovery tag derivation.
-    pub fn onchain_constrained_with_sender(sender_for_tags: SenderForTags) -> Self {
-        Self { variant: ONCHAIN_CONSTRAINED, sender_for_tags }
+    pub fn onchain_constrained() -> OnchainDelivery {
+        OnchainDelivery { variant: ONCHAIN_CONSTRAINED, sender_override: Option::none() }
     }
 }
 
@@ -211,30 +199,36 @@ impl MessageDelivery {
 /// emitted in the current transaction. This is typically only used for note messages: since the note will not actually
 /// be created, there is no point in delivering the message.
 ///
-/// `delivery_mode` must be a [`MessageDelivery`] value.
+/// `delivery_mode` must be a value that implements [`MessageDeliveryBuilder`], such as [`MessageDelivery`] or
+/// [`OnchainDelivery`].
 ///
 /// ## Privacy
 ///
 /// The emitted log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message ciphertexts
 /// also have the same length. This prevents accidental privacy leakage via the log length.
-pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
+pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32, D>(
     context: &mut PrivateContext,
     encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
     maybe_note_hash_counter: Option<u32>,
     recipient: AztecAddress,
-    delivery_mode: MessageDelivery,
-) {
-    // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when
-    // unconstrained usage is requested. If `delivery_mode` were a runtime value the compiler would be unable to
+    delivery_mode: D,
+)
+where
+    D: MessageDeliveryBuilder,
+{
+    let delivery = delivery_mode.build_message_delivery();
+
+    // This function relies on `delivery` being a constant in order to reduce circuit constraints when
+    // unconstrained usage is requested. If `delivery` were a runtime value the compiler would be unable to
     // perform dead-code elimination.
-    assert_constant(delivery_mode.variant);
-    assert_constant(delivery_mode.sender_for_tags.variant);
+    assert_constant(delivery.variant);
+    assert_constant(delivery.sender_override.is_some());
 
     // The following maps out the 3 dimensions across which we configure message delivery.
-    let constrained_encryption = delivery_mode.variant == ONCHAIN_CONSTRAINED;
-    let deliver_as_offchain_message = delivery_mode.variant == OFFCHAIN;
+    let constrained_encryption = delivery.variant == ONCHAIN_CONSTRAINED;
+    let deliver_as_offchain_message = delivery.variant == OFFCHAIN;
     // TODO(#14565): Add constrained tagging
-    let _constrained_tagging = delivery_mode.variant == ONCHAIN_CONSTRAINED;
+    let _constrained_tagging = delivery.variant == ONCHAIN_CONSTRAINED;
 
     let contract_address = context.this_address();
 
@@ -249,7 +243,7 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         // TODO(#14565): constrained tagging is not yet implemented. Both modes currently use the unconstrained
         // domain separator because the discovery tag always comes from an oracle. Once constrained tagging lands,
         // this should branch on `constrained_tagging` to select the appropriate separator.
-        let discovery_tag = compute_discovery_tag(recipient, delivery_mode.sender_for_tags);
+        let discovery_tag = compute_discovery_tag(recipient, delivery.sender_override);
         let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
 
         // We forbid this value not being constant to avoid predicating the context calls below, which might result in
@@ -266,5 +260,73 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         } else {
             context.emit_private_log_unsafe(log_tag, log);
         }
+    }
+}
+
+/// A type that can be converted into a [`MessageDelivery`] value for use by
+/// [`do_private_message_delivery`].
+pub trait MessageDeliveryBuilder {
+    fn build_message_delivery(self) -> MessageDelivery;
+}
+
+/// Builder for on-chain delivery modes. Returned by [`MessageDelivery::onchain_unconstrained`] and
+/// [`MessageDelivery::onchain_constrained`].
+///
+/// Unlike [`MessageDelivery`] (which is returned by [`MessageDelivery::offchain`]), this type exposes
+/// [`with_sender`](OnchainDelivery::with_sender), which overrides the sender address used for discovery tag
+/// derivation.
+pub struct OnchainDelivery {
+    variant: u8,
+    sender_override: Option<AztecAddress>,
+}
+
+/// [`MessageDelivery::offchain`] returns this type directly, so it must satisfy the
+/// [`MessageDeliveryBuilder`] bound required by [`do_private_message_delivery`].
+impl MessageDeliveryBuilder for MessageDelivery {
+    fn build_message_delivery(self) -> MessageDelivery {
+        self
+    }
+}
+
+impl OnchainDelivery {
+    /// Overrides the sender address used for discovery tag derivation.
+    ///
+    /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
+    /// is derived from a shared secret between a "sender" and the recipient. By default this sender is the
+    /// wallet-supplied address (typically the account contract that initiated the transaction). Account contracts
+    /// should override it with their own address so that recipients can discover the notes by registering that
+    /// address as a known sender.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// MessageDelivery::onchain_constrained().with_sender(self.address)
+    /// ```
+    pub fn with_sender(self, sender: AztecAddress) -> Self {
+        Self { variant: self.variant, sender_override: Option::some(sender) }
+    }
+}
+
+impl MessageDeliveryBuilder for OnchainDelivery {
+    fn build_message_delivery(self) -> MessageDelivery {
+        MessageDelivery { variant: self.variant, sender_override: self.sender_override }
+    }
+}
+
+mod test {
+    use super::{
+        MessageDelivery, MessageDeliveryBuilder, OFFCHAIN, ONCHAIN_CONSTRAINED,
+        ONCHAIN_UNCONSTRAINED,
+    };
+
+    #[test]
+    fn constructors_produce_distinct_variants() {
+        let offchain = MessageDelivery::offchain().build_message_delivery();
+        let onchain_unc = MessageDelivery::onchain_unconstrained().build_message_delivery();
+        let onchain_con = MessageDelivery::onchain_constrained().build_message_delivery();
+
+        assert(offchain.variant == OFFCHAIN);
+        assert(onchain_unc.variant == ONCHAIN_UNCONSTRAINED);
+        assert(onchain_con.variant == ONCHAIN_CONSTRAINED);
     }
 }
