@@ -2245,9 +2245,13 @@ export class MsmV2 {
         pass.dispatchWorkgroupsIndirect(buf, off);
         pass.end();
       };
+      setPhase('size1');
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
+      setPhase('stream_accum');
       indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
+      setPhase('partial_sum');
       dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
+      setPhase('debug_accum');
       dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
     }
     setPhase('reduce');
@@ -2482,7 +2486,7 @@ export class MsmV2 {
     // — use the dev sweep page directly for that). Wall time still works.
     let profile: ProfileBreakdown | null = null;
     if (this.profile && this.tsStagingBuf) {
-      const phaseNs: Record<string, bigint> = { preprocess: 0n, planner: 0n, accumulate: 0n, reduce: 0n, misc: 0n };
+      const phaseNs: Record<string, bigint> = {};
       let totalNs = 0n;
       try {
         await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
@@ -2497,12 +2501,8 @@ export class MsmV2 {
       } catch {
         // mapAsync raced (already-mapped from a prior run); skip this sample.
       }
-      const phaseMs = {
-        preprocess: Number(phaseNs.preprocess) / 1e6,
-        planner: Number(phaseNs.planner) / 1e6,
-        accumulate: Number(phaseNs.accumulate) / 1e6,
-        reduce: Number(phaseNs.reduce) / 1e6,
-      };
+      const phaseMs: Record<string, number> = {};
+      for (const key of Object.keys(phaseNs)) phaseMs[key] = Number(phaseNs[key]) / 1e6;
       if (typeof window !== 'undefined') {
         (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs = phaseMs;
       }

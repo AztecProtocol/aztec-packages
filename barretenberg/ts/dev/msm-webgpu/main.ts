@@ -1454,27 +1454,24 @@ function hideProgress(): void {
         const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
         samples.push({ wallMs, gpuMs, phases });
-        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ` +
-          `pre=${(phases.preprocess ?? 0).toFixed(1)} plan=${(phases.planner ?? 0).toFixed(1)} ` +
-          `accum=${(phases.accumulate ?? 0).toFixed(1)} fin=${(phases.finalize ?? 0).toFixed(1)} red=${(phases.reduce ?? 0).toFixed(1)}`);
+        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
       }
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
       const avgWall = avg(samples.map(s => s.wallMs));
       const avgGpu = avg(samples.map(s => s.gpuMs));
-      const avgPre = avg(samples.map(s => s.phases.preprocess ?? 0));
-      const avgPlan = avg(samples.map(s => s.phases.planner ?? 0));
-      const avgAccum = avg(samples.map(s => s.phases.accumulate ?? 0));
-      const avgFin = avg(samples.map(s => s.phases.finalize ?? 0));
-      const avgRed = avg(samples.map(s => s.phases.reduce ?? 0));
+      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const avgPhases: Record<string, number> = {};
+      for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
+      const avgPhaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
-        `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ` +
-        `pre=${avgPre.toFixed(1)} plan=${avgPlan.toFixed(1)} accum=${avgAccum.toFixed(1)} fin=${avgFin.toFixed(1)} red=${avgRed.toFixed(1)}`);
+        `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
         state: 'done',
         params: { logN: autorunLogN, reps, page: 'msm-bench' },
-        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, preprocess: avgPre, planner: avgPlan, accumulate: avgAccum, finalize: avgFin, reduce: avgRed } },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases } },
         error: null,
         log: allLines.slice(-100),
         userAgent: navigator.userAgent,
