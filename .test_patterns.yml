@@ -349,6 +349,15 @@ tests:
     owners:
       - *adam
 
+  # http://ci.aztec-labs.com/93754bdf832ef9bd
+  # P2P receipt race in the compose CLI-wallet flow: the account deployment tx
+  # can be reported as dropped after the 5s grace window before inclusion is
+  # visible to the queried node.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose ../cli-wallet/test/flows/public_authwit_transfer.sh"
+    error_regex: "Transaction .* was dropped\\. Reason: Tx dropped by P2P node"
+    owners:
+      - *palla
+
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
