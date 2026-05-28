@@ -119,6 +119,13 @@ describe('PXE', () => {
     await pxe.registerAccount(randomSecretKey, randomPartialAddress);
   });
 
+  it('does not add a keystore account to the sender address book when registered as a sender', async () => {
+    const { address } = await pxe.registerAccount(Fr.random(), Fr.random());
+    await pxe.registerSender(address);
+    const senders = await pxe.getSenders();
+    expect(senders.map(s => s.toString())).not.toContain(address.toString());
+  });
+
   it('successfully adds a contract', async () => {
     const contracts = await Promise.all([randomDeployedContract(), randomDeployedContract()]);
     for (const contract of contracts) {

@@ -14,13 +14,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import {
-  type AppTaggingSecret,
-  ConstrainedAppTaggingSecret,
+  AppTaggingSecret,
+  AppTaggingSecretKind,
   type ContractClassLog,
-  ExtendedDirectionalAppTaggingSecret,
+  Tag,
   type TaggingIndexRange,
 } from '@aztec/stdlib/logs';
-import { Tag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   CallContext,
@@ -36,6 +35,8 @@ import { syncSenderTaggingIndexes } from '../../tagging/index.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
+import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import { Option } from '../noir-structs/option.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction } from './private_execution.js';
@@ -181,8 +182,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    *
    * Returns `currentSenderForTags` if set (via `setSenderForTags`), otherwise `defaultSenderForTags`.
    */
-  public getSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.resolve(this.currentSenderForTags ?? this.defaultSenderForTags);
+  public getSenderForTags(): Promise<Option<AztecAddress>> {
+    const sender = this.currentSenderForTags ?? this.defaultSenderForTags;
+    return Promise.resolve(sender ? Option.some(sender) : Option.none(AztecAddress.ZERO));
   }
 
   /**
@@ -206,19 +208,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   /**
    * Returns the next app tag for a given sender and recipient pair (unconstrained delivery).
    *
-   * The simulator owns the directional tagging secret (derived via ECDH from `(sender, recipient, contract)`), so it
-   * computes the full siloed tag here and hands the opaque value back to the caller.
+   * The simulator computes the directional tagging secret (derived via ECDH from `(sender, recipient, contract)`),
+   * as well as the full siloed tag, and hands the opaque value back to the caller.
    *
    * @param sender - The address sending the log
    * @param recipient - The address receiving the log
    * @returns An app tag to be used in a log.
    */
   public async getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
-      this.contractAddress,
-      sender,
-      recipient,
-    );
+    const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
 
     if (!extendedSecret) {
       // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
@@ -241,15 +239,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   /**
    * Returns the next sender-side index for a constrained-delivery app-siloed shared secret.
    *
-   * Unlike the unconstrained variant, the simulator does not own the secret: it was supplied by the calling contract
-   * (which retrieved it from an onchain handshake registry). The simulator only acts as a per-secret index counter. The caller
-   * computes the onchain tag itself.
+   * Unlike the unconstrained variant, the simulator does not compute the secret: it was supplied by the calling contract
+   * (which retrieved it from an onchain handshake registry). The simulator only acts as a per-secret index counter.
+   * The caller computes the onchain tag itself.
    *
    * @param appSiloedSecret - The app-siloed shared secret retrieved from the handshake registry by the caller.
    * @returns The next index to use for this secret.
    */
-  public async getNextConstrainedIndex(appSiloedSecret: Fr): Promise<number> {
-    const secret = new ConstrainedAppTaggingSecret(appSiloedSecret, this.contractAddress);
+  public async getNextConstrainedTaggingIndex(appSiloedSecret: Fr): Promise<number> {
+    const secret = new AppTaggingSecret(appSiloedSecret, this.contractAddress, AppTaggingSecretKind.CONSTRAINED);
     const index = await this.#reserveNextIndexForSecret(secret);
     this.logger.debug(
       `Incrementing tagging index for constrained-delivery secret in contract ${this.contractAddress} to ${index}`,
@@ -264,14 +262,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     return index;
   }
 
-  async #calculateExtendedDirectionalAppTaggingSecret(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ) {
+  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return ExtendedDirectionalAppTaggingSecret.compute(
+    return AppTaggingSecret.computeUnconstrained(
       senderCompleteAddress,
       senderIvsk,
       recipient,
@@ -366,7 +360,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @returns Array of note data.
    */
   public override async getNotes(
-    owner: AztecAddress | undefined,
+    owner: Option<AztecAddress>,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -381,16 +375,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     limit: number,
     offset: number,
     status: NoteStatus,
-  ): Promise<NoteData[]> {
+    maxNotes: number,
+    packedHintedNoteLength: number,
+  ): Promise<BoundedVec<NoteData>> {
     // Nullified pending notes are already removed from the list.
-    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner, storageSlot);
+    const pendingNotes = this.noteCache.getNotes(this.callContext.contractAddress, owner.value, storageSlot);
 
     const pendingNullifiers = this.noteCache.getNullifiers(this.callContext.contractAddress);
 
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
     const dbNotes = await noteService.getNotes(
       this.callContext.contractAddress,
-      owner,
+      owner.value,
       storageSlot,
       status,
       this.scopes,
@@ -417,7 +413,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         .join(', ')}`,
     );
 
-    return notes;
+    return BoundedVec.from({ data: notes, maxLength: maxNotes, elementSize: packedHintedNoteLength });
   }
 
   /**

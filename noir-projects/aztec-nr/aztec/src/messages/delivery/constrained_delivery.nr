@@ -2,7 +2,7 @@
 
 use crate::context::PrivateContext;
 use crate::nullifier::utils::compute_nullifier_existence_request;
-use crate::oracle::{call_utility_function::call_utility_function, notes::get_next_constrained_index};
+use crate::oracle::{call_utility_function::call_utility_function, notes::get_next_constrained_tagging_index};
 
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
@@ -24,7 +24,7 @@ use crate::protocol::{
 /// 2. On `None`, calls `HandshakeRegistry::non_interactive_handshake(sender, recipient)` to bootstrap and
 ///    returns `(secret, 0)`. The constrained return value of the private call is the source of truth for the
 ///    secret.
-/// 3. On `Some(secret)`, reads the per-secret index hint via [`get_next_constrained_index`] (also untrusted),
+/// 3. On `Some(secret)`, reads the per-secret index hint via [`get_next_constrained_tagging_index`] (also untrusted),
 ///    then constrains:
 ///    - `index == 0`: calls `HandshakeRegistry::validate_handshake` to bind the secret to the registry's
 ///      current note. `PrivateMutable::get_note` inside `validate_handshake` nullifies the current handshake
@@ -75,7 +75,7 @@ pub fn calculate_secret_and_index(
         // the `Some` branch. Without this, a later constrained message under the same secret restarts at index 0
         // and collides on `(secret, 0)`.
         // Safety: this only advances a PXE-side counter; the returned index is constrained to 0 below.
-        let index = unsafe { get_next_constrained_index(secret) };
+        let index = unsafe { get_next_constrained_tagging_index(secret) };
         assert(index == 0, "freshly bootstrapped secret must start at index 0");
         (secret, 0)
     } else {
@@ -83,7 +83,7 @@ pub fn calculate_secret_and_index(
 
         // Safety: the index is untrusted; the anchor branches below ensure the returned `(secret, index)` pair
         // is bound to a real registry handshake before it leaves the helper.
-        let index = unsafe { get_next_constrained_index(secret) };
+        let index = unsafe { get_next_constrained_tagging_index(secret) };
 
         if index == 0 {
             let selector = comptime {

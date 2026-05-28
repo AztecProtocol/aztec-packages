@@ -1,18 +1,18 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
-import { randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
+import { type AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 
 import { RecipientTaggingStore } from './recipient_tagging_store.js';
 
 describe('RecipientTaggingStore', () => {
   let taggingStore: RecipientTaggingStore;
-  let secret1: ExtendedDirectionalAppTaggingSecret;
-  let secret2: ExtendedDirectionalAppTaggingSecret;
+  let secret1: AppTaggingSecret;
+  let secret2: AppTaggingSecret;
 
   beforeEach(async () => {
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
-    secret1 = await randomExtendedDirectionalAppTaggingSecret();
-    secret2 = await randomExtendedDirectionalAppTaggingSecret();
+    secret1 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
+    secret2 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
   });
 
   describe('staged writes', () => {

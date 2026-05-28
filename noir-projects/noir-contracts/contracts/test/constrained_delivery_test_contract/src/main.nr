@@ -8,7 +8,7 @@ pub contract ConstrainedDeliveryTest {
     use aztec::{
         macros::functions::external,
         messages::delivery::constrained_delivery::calculate_secret_and_index,
-        oracle::notes::get_next_constrained_index,
+        oracle::notes::get_next_constrained_tagging_index,
         protocol::address::AztecAddress,
     };
 
@@ -31,7 +31,7 @@ pub contract ConstrainedDeliveryTest {
     ) -> (Field, u32, u32) {
         let (secret, first_index) = calculate_secret_and_index(self.context, registry, sender, recipient);
         // Safety: test-only observation of the index the PXE hands out next for this secret.
-        let second_index = unsafe { get_next_constrained_index(secret) };
+        let second_index = unsafe { get_next_constrained_tagging_index(secret) };
         (secret, first_index, second_index)
     }
 }

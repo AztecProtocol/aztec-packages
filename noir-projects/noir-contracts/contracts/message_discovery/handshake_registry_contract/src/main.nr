@@ -74,7 +74,7 @@ pub contract HandshakeRegistry {
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
         // discoverable via normal PXE sync.
         self.storage.handshakes.at(recipient).at(sender).initialize_or_replace(|_| note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         let log_tag = compute_log_tag(
@@ -107,7 +107,7 @@ pub contract HandshakeRegistry {
 
         // `PrivateMutable::get_note` proves the current note by nullifying and recreating it. Deliver the
         // replacement to the sender so later validation calls can prove the same current handshake again.
-        replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        replacement_note_message.deliver(MessageDelivery::onchain_unconstrained());
     }
 
     /// Returns the app-siloed shared secret for an existing handshake.

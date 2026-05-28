@@ -1,10 +1,5 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import {
-  type AppTaggingSecret,
-  type TaggingIndexRange,
-  appTaggingSecretFromString,
-  siloedTagFor,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
@@ -454,11 +449,11 @@ export class SenderTaggingStore implements StagedStore {
       const pendingEntry = matchingEntries[0];
 
       // Expand each matching entry's range and recompute siloed tags for each index.
-      const appTaggingSecret = appTaggingSecretFromString(secret);
+      const appTaggingSecret = AppTaggingSecret.fromString(secret);
       let highestSurvivingIndex: number | undefined;
 
       for (let index = pendingEntry.lowestIndex; index <= pendingEntry.highestIndex; index++) {
-        const siloedTag = await siloedTagFor(appTaggingSecret, index);
+        const siloedTag = await SiloedTag.compute({ extendedSecret: appTaggingSecret, index });
         if (onChainTags.has(siloedTag.value.toString())) {
           highestSurvivingIndex = highestSurvivingIndex !== undefined ? Math.max(highestSurvivingIndex, index) : index;
         }

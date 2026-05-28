@@ -1,8 +1,6 @@
-import { type AppTaggingSecret, type TaggingIndexRange, appTaggingSecretFromString } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 
-/**
- * A map that stores the tagging index range for a given sender-side `AppTaggingSecret`.
- */
+/** A map that stores the tagging index range for a given app tagging secret. */
 export class ExecutionTaggingIndexCache {
   private taggingIndexMap: Map<string, { lowestIndex: number; highestIndex: number }> = new Map();
 
@@ -27,7 +25,7 @@ export class ExecutionTaggingIndexCache {
    */
   public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
     return Array.from(this.taggingIndexMap.entries()).map(([secret, { lowestIndex, highestIndex }]) => ({
-      extendedSecret: appTaggingSecretFromString(secret),
+      extendedSecret: AppTaggingSecret.fromString(secret),
       lowestIndex,
       highestIndex,
     }));

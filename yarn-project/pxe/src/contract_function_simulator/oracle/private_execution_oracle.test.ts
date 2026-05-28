@@ -52,13 +52,15 @@ describe('PrivateExecutionOracle', () => {
       const wallet = await AztecAddress.random();
       const oracle = makeOracle({ senderForTags: wallet });
 
-      expect(await oracle.getSenderForTags()).toEqual(wallet);
+      const result = await oracle.getSenderForTags();
+      expect(result.value).toEqual(wallet);
     });
 
-    it('returns undefined when no default was provided', async () => {
+    it('returns none when no default was provided', async () => {
       const oracle = makeOracle();
 
-      expect(await oracle.getSenderForTags()).toBeUndefined();
+      const result = await oracle.getSenderForTags();
+      expect(result.isNone()).toBe(true);
     });
 
     it('setSenderForTags overrides the value visible from this call', async () => {
@@ -68,7 +70,8 @@ describe('PrivateExecutionOracle', () => {
 
       await oracle.setSenderForTags(override);
 
-      expect(await oracle.getSenderForTags()).toEqual(override);
+      const result = await oracle.getSenderForTags();
+      expect(result.value).toEqual(override);
     });
 
     it('setSenderForTags works when no default was provided', async () => {
@@ -77,7 +80,8 @@ describe('PrivateExecutionOracle', () => {
 
       await oracle.setSenderForTags(override);
 
-      expect(await oracle.getSenderForTags()).toEqual(override);
+      const result = await oracle.getSenderForTags();
+      expect(result.value).toEqual(override);
     });
   });
 

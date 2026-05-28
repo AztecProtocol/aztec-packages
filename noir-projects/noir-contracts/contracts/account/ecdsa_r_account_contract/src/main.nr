@@ -34,7 +34,7 @@ pub contract EcdsaRAccount {
         unsafe { set_sender_for_tags(self.address) };
         // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
         // contract.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained());
     }
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file

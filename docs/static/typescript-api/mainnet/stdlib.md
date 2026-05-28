@@ -646,13 +646,13 @@ new ExtendedContractClassLog(id: LogId, log: ContractClassLog)
 - `toBuffer() => Buffer` - Serializes log to a buffer.
 - `toString() => string` - Serializes log to a string.
 
-### ExtendedDirectionalAppTaggingSecret
+### AppTaggingSecret
 
-Extended directional application tagging secret used for log tagging. "Extended" because it bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
+Application tagging secret used for log tagging. It bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. The derived secret is directional because it is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
 
 **Constructor**
 ```typescript
-new ExtendedDirectionalAppTaggingSecret(secret: Fr, app: AztecAddress)
+new AppTaggingSecret(secret: Fr, app: AztecAddress)
 ```
 
 **Properties**
@@ -660,8 +660,8 @@ new ExtendedDirectionalAppTaggingSecret(secret: Fr, app: AztecAddress)
 - `readonly secret: Fr`
 
 **Methods**
-- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<ExtendedDirectionalAppTaggingSecret | undefined>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret. Returns undefined if `externalAddress` is an invalid address.
-- `static fromString(str: string) => ExtendedDirectionalAppTaggingSecret`
+- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret | undefined>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret. Returns undefined if `externalAddress` is an invalid address.
+- `static fromString(str: string) => AppTaggingSecret`
 - `toString() => string`
 
 ### ExtendedPublicLog
@@ -4110,7 +4110,7 @@ type TX_ERROR_SIZE_ABOVE_LIMIT = "Transaction size above size limit"
 ```typescript
 type TaggingIndexRange = unknown
 ```
-Represents a range of tagging indexes for a given extended directional app tagging secret. Used to track the lowest and highest indexes used in a transaction for a given (sender, recipient, app/contract) tuple.
+Represents a range of tagging indexes for a given app tagging secret.
 
 ### TxValidationResult
 ```typescript

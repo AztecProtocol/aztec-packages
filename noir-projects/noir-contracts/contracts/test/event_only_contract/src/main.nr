@@ -14,6 +14,6 @@ contract EventOnly {
     #[external("private")]
     fn emit_event_for_msg_sender(value: Field) {
         let sender = self.msg_sender();
-        self.emit(TestEvent { value }).deliver_to(sender, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(TestEvent { value }).deliver_to(sender, MessageDelivery::onchain_unconstrained());
     }
 }

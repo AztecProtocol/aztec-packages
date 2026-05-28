@@ -194,19 +194,19 @@ unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recip
 ///
 /// Unlike [`get_next_app_tag_as_sender`], which derives the full tag from a `(sender, recipient)` pair that only the
 /// simulator knows the directional secret for, the constrained-delivery flow has the app contract holding the
-/// app-siloed shared secret directly. The app computes the tag itself as
-/// `compute_log_tag(poseidon2_hash([app_siloed_secret, index]), DOM_SEP__CONSTRAINED_MSG_LOG_TAG)`, so the simulator
-/// only needs to hand out a fresh per-secret index.
+/// app-siloed shared secret directly. The app computes the tag itself but it can't tell what the next index should be,
+/// so the simulator is the one that needs to hand out a fresh per-secret index. However, the constrained caller
+/// must still check that the returned index is valid.
 ///
 /// As with the unconstrained variant, the simulator persists the index increment only if the tagged log is found in
 /// an actual block - a reverting transaction can otherwise cause the sender to accidentally skip indices and later
 /// produce notes that are not found by the recipient.
-pub unconstrained fn get_next_constrained_index(app_siloed_secret: Field) -> u32 {
-    get_next_constrained_index_oracle(app_siloed_secret)
+pub unconstrained fn get_next_constrained_tagging_index(app_siloed_secret: Field) -> u32 {
+    get_next_constrained_tagging_index_oracle(app_siloed_secret)
 }
 
-#[oracle(aztec_prv_getNextConstrainedIndex)]
-unconstrained fn get_next_constrained_index_oracle(_app_siloed_secret: Field) -> u32 {}
+#[oracle(aztec_prv_getNextConstrainedTaggingIndex)]
+unconstrained fn get_next_constrained_tagging_index_oracle(_app_siloed_secret: Field) -> u32 {}
 
 /// Gets the sender for tags.
 ///

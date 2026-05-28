@@ -38,7 +38,6 @@ export interface LoggerArgs {
 export function generateL1Account() {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
-  account.address;
   return {
     privateKey,
     address: account.address,

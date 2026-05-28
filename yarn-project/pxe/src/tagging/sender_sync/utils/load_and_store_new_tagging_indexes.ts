@@ -1,6 +1,6 @@
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type AppTaggingSecret, type SiloedTag, siloedTagFor } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
@@ -10,8 +10,7 @@ import { getAllPrivateLogsByTags } from '../../get_all_logs_by_tags.js';
  * Loads tagging indexes from the Aztec node and stores them in the tagging data provider.
  * @remarks This function is one of two places by which a pending index can get to the tagging data provider. The other
  * place is when a tx is being sent from this PXE.
- * @param extendedSecret - The sender-side tagging key. Either an `ExtendedDirectionalAppTaggingSecret` for the
- * unconstrained flow or a `ConstrainedAppTaggingSecret` wrapping an app-siloed shared secret for the constrained flow.
+ * @param extendedSecret - The app tagging secret whose indexes are being synced.
  * @param start - The starting index (inclusive) of the window to process.
  * @param end - The ending index (exclusive) of the window to process.
  * @param aztecNode - The Aztec node instance to query for logs.
@@ -31,7 +30,7 @@ export async function loadAndStoreNewTaggingIndexes(
 ) {
   // We compute the tags for the current window of indexes
   const siloedTagsForWindow = await Promise.all(
-    Array.from({ length: end - start }, (_, i) => siloedTagFor(extendedSecret, start + i)),
+    Array.from({ length: end - start }, (_, i) => SiloedTag.compute({ extendedSecret, index: start + i })),
   );
 
   const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);

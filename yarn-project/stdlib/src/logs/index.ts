@@ -1,5 +1,3 @@
-export * from './extended_directional_app_tagging_secret.js';
-export * from './constrained_app_tagging_secret.js';
 export * from './app_tagging_secret_kind.js';
 export * from './app_tagging_secret.js';
 export * from './pre_tag.js';

@@ -1,4 +1,4 @@
-import { type AppTaggingSecret, type TaggingIndexRange, siloedTagFor } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 
 /**
  * Reconciles tagging index ranges recorded by the PXE during private execution against the set of siloed tags whose
@@ -77,7 +77,7 @@ async function findFirstSurvivingIndex(
   survivingTags: Set<string>,
 ): Promise<number | undefined> {
   for (let index = start; index <= end; index++) {
-    const tag = await siloedTagFor(secret, index);
+    const tag = await SiloedTag.compute({ extendedSecret: secret, index });
     if (survivingTags.has(tag.value.toString())) {
       return index;
     }
@@ -93,7 +93,7 @@ async function findLastSurvivingIndex(
   survivingTags: Set<string>,
 ): Promise<number | undefined> {
   for (let index = end; index >= start; index--) {
-    const tag = await siloedTagFor(secret, index);
+    const tag = await SiloedTag.compute({ extendedSecret: secret, index });
     if (survivingTags.has(tag.value.toString())) {
       return index;
     }
