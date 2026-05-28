@@ -18,7 +18,7 @@ export class EventValidationRequest {
     public txHash: TxHash,
   ) {}
 
-  static fromFields(fields: Fr[], maxEventSerializedLen: number): EventValidationRequest {
+  static fromFields(fields: Fr[]): EventValidationRequest {
     const reader = FieldReader.asReader(fields);
 
     const contractAddress = AztecAddress.fromField(reader.readField());
@@ -26,6 +26,7 @@ export class EventValidationRequest {
 
     const randomness = reader.readField();
 
+    const maxEventSerializedLen = reader.readField().toNumber();
     const eventStorage = reader.readFieldArray(maxEventSerializedLen);
     const eventLen = reader.readField().toNumber();
     const serializedEvent = eventStorage.slice(0, eventLen);

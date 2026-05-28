@@ -826,21 +826,15 @@ export class RPCTranslator {
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignMaxNotePackedLen: ForeignCallSingle,
-    foreignMaxEventSerializedLen: ForeignCallSingle,
     foreignScope: ForeignCallSingle,
   ) {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
-    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
-    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
-      maxNotePackedLen,
-      maxEventSerializedLen,
       scope,
     );
 
