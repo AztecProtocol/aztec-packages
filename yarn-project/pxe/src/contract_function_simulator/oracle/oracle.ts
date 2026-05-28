@@ -492,6 +492,15 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_prv_getNextConstrainedTaggingIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_getNextConstrainedTaggingIndex',
+      inputs,
+      handler: ([appSiloedSecret]) => this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_getPendingTaggedLogs(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
       oracle: 'aztec_utl_getPendingTaggedLogs',
