@@ -9,8 +9,8 @@ namespace smt_circuit {
 enum class TableType : int32_t { XOR, AND, UNKNOWN };
 struct BlockType {
     static const size_t PUB = 0;
-    static const size_t ARITHMETIC = 1;
-    static const size_t LOOKUP = 2;
+    static const size_t LOOKUP = 1;
+    static const size_t ARITHMETIC = 2;
     static const size_t DELTA_RANGE = 3;
     static const size_t ELLIPTIC = 4;
     static const size_t MEMORY = 5;
