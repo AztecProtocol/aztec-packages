@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm/eccvm_short_monomial_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -19,25 +20,25 @@ namespace bb {
 
 // We won't compile this class with Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
-class ECCVMProver {
+template <typename Flavor_ = ECCVMFlavor> class ECCVMProver_ {
   public:
-    using Flavor = ECCVMFlavor;
-    using FF = Flavor::FF;
-    using BF = Flavor::BF;
-    using Commitment = Flavor::Commitment;
-    using CommitmentKey = Flavor::CommitmentKey;
-    using ProvingKey = Flavor::ProvingKey;
-    using Polynomial = Flavor::Polynomial;
-    using CommitmentLabels = Flavor::CommitmentLabels;
-    using Transcript = Flavor::Transcript;
+    using Flavor = Flavor_;
+    using FF = typename Flavor::FF;
+    using BF = typename Flavor::BF;
+    using Commitment = typename Flavor::Commitment;
+    using CommitmentKey = typename Flavor::CommitmentKey;
+    using ProvingKey = typename Flavor::ProvingKey;
+    using Polynomial = typename Flavor::Polynomial;
+    using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF>;
-    using CircuitBuilder = Flavor::CircuitBuilder;
+    using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
-    using OpeningClaim = ProverOpeningClaim<Flavor::Curve>;
+    using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
     using Proof = HonkProof;
 
-    explicit ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript);
+    explicit ECCVMProver_(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript);
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
@@ -57,7 +58,7 @@ class ECCVMProver {
 
     // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
-    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
+    static constexpr size_t NUM_OPENING_CLAIMS = Flavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim, NUM_OPENING_CLAIMS> opening_claims;
 
     TranslationEvaluations translation_evaluations;
@@ -76,5 +77,8 @@ class ECCVMProver {
 
     SumcheckOutput<Flavor> sumcheck_output;
 };
+
+using ECCVMProver = ECCVMProver_<ECCVMFlavor>;
+using ECCVMShortMonomialProver = ECCVMProver_<ECCVMShortMonomialFlavor>;
 
 } // namespace bb

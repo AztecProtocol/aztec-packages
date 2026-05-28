@@ -237,6 +237,31 @@ TEST_F(ECCVMTests, PointAtInfinity)
 
     ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
 }
+
+TEST_F(ECCVMTests, ShortMonomialProverVerifies)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMShortMonomialProver prover(builder, prover_transcript);
+    auto [proof, opening_claim] = prover.construct_proof();
+
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
+
+    auto ipa_transcript = std::make_shared<Transcript>();
+    PCS::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript, proof);
+    auto eccvm_result = verifier.reduce_to_ipa_opening();
+
+    auto ipa_verifier_transcript = std::make_shared<Transcript>(ipa_transcript->export_proof());
+    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, eccvm_result.ipa_claim, ipa_verifier_transcript);
+
+    ASSERT_TRUE(ipa_verified && eccvm_result.reduction_succeeded);
+}
+
 TEST_F(ECCVMTests, ScalarEdgeCase)
 {
     using Curve = curve::BN254;
