@@ -26,12 +26,13 @@ The archiver runs a periodic sync loop with two phases:
 
 ```
 sync()
-├── processQueuedBlocks()       # Handle blocks pushed via addBlock()
+├── processQueuedBlocks()         # Handle blocks pushed via addBlock()
+├── pruneOrphanProposedBlocks()   # Wall-clock prune of orphan block-only tips
 └── syncFromL1()
-    ├── handleL1ToL2Messages()  # Sync messages from Inbox contract
-    ├── handleCheckpoints()     # Sync checkpoints from Rollup contract
+    ├── handleL1ToL2Messages()    # Sync messages from Inbox contract
+    ├── handleCheckpoints()       # Sync checkpoints from Rollup contract
     ├── pruneUncheckpointedBlocks()  # Prune provisional blocks from expired slots
-    ├── handleEpochPrune()      # Proactive unwind before proof window expires
+    ├── handleEpochPrune()        # Proactive unwind before proof window expires
     └── checkForNewCheckpointsBeforeL1SyncPoint()  # Handle L1 reorg edge case
 ```
 
@@ -100,8 +101,9 @@ Queued blocks are processed at the start of each sync iteration. This allows the
 Blocks added via `addBlock()` are considered "provisional" until they appear in an L1 checkpoint. These provisional blocks may need to be reconciled when:
 - **Checkpoint mismatch**: A checkpoint lands on L1 with different blocks than stored locally (e.g., a different proposer won the slot)
 - **Slot expiration**: An L2 slot ends without any checkpoint being mined on L1
+- **Orphan proposed block**: Under proposer pipelining, a proposer can broadcast a block-only proposal but never the matching `CheckpointProposal` (e.g. it crashes before assembling the checkpoint). The provisional block then has no proposed checkpoint backing it.
 
-When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Both cases emit `L2PruneUncheckpointed`.
+When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Independently, `pruneOrphanProposedBlocks()` runs on wall-clock time (so it fires during quiet L1 periods) and removes a block-only tip once its build slot ended without a matching proposed checkpoint, plus a grace window configured via `orphanProposedBlockPruneGraceSeconds`. All three cases emit `L2PruneUncheckpointed`.
 
 ### Querying Block Data
 
