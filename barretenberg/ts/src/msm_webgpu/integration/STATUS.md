@@ -345,3 +345,25 @@ for a GPU session. The bound is empirical (calibrated to ~uniform mod-r
 scalars), not a proof; structured/adversarial scalars can still
 under-provision it silently, so static must stay scoped to validated
 random-scalar benchmarking, not production proving.
+
+**Chonk e2e empirically confirms the caveat (2026-05-28).** Wired
+`useStaticPlan` through bb.js (new `BackendOptions.webgpuMsmStaticPlan`,
+forwarded into the bridge + every `MsmV2.create` call site) and the
+chonk page (`?staticPlan=1` URL param). On
+`ecdsar1+transfer_1_recursions+sponsored_fpc`:
+
+| Configuration | Result |
+|---|---|
+| WASM only | proof verifies |
+| WebGPU dynamic | proof verifies |
+| WebGPU + `?staticPlan=1` | **proof fails to verify** |
+
+The static bound under-provisions some MSM along the chonk flow on its
+real (non-uniform) scalar distribution — wrong window sum → invalid
+commitment → verify fails. For chonk to ever opt into static, one of
+the following needs to land first: (a) GPU-side runtime overflow flag +
+dynamic fallback on trip, (b) widen the WebGPU blocklist using
+`msmDistributionMode` data to cover any MSM whose distribution might
+trip the bound, or (c) distribution-aware bounds. See
+[m8_static_plan_findings.md](m8_static_plan_findings.md) "Update
+(2026-05-28, second)" for the path forward.

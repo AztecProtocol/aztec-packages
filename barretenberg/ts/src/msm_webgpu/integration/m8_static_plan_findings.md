@@ -505,3 +505,42 @@ Across 17 batches that's ~10 k fewer no-op fused blocks per MSM at the
 deepest two levels. Carries cap −6 % at every level. **Needs GPU
 timing** to confirm the `fused` Δ recovery — left for the next session.
 Host validation: all 11 sizes still PASS under MOD_R (120 runs/size).
+
+## Update (2026-05-28, second) — chonk e2e empirically breaks static
+
+Ran the chonk e2e proving page (`yarn-project/ivc-integration`,
+`ecdsar1+transfer_1_recursions+sponsored_fpc` flow) with the bridge
+wired to `useStaticPlan` via `webgpuMsmStaticPlan` and `?staticPlan=1`:
+
+| Configuration | Result |
+|---|---|
+| WASM only (webgpuMsm off) | proof verifies |
+| WebGPU dynamic (no `?staticPlan=1`) | proof verifies |
+| WebGPU + static (`?staticPlan=1`) | **proof fails to verify** |
+
+This is the documented failure mode — the static bound is calibrated to
+~uniform reduced-mod-r scalars; chonk's protocol scalars are
+distinctly non-uniform (the per-label block-list section of STATUS.md
+catalogues the most-skewed columns — `LOOKUP_READ_COUNTS`,
+`LOOKUP_READ_TAGS`, `VK_PRECOMPUTED_POLY` — but the non-blocklisted
+MSMs are clearly skewed enough to trip a tightly-fit empirical bound
+too). Some MSM along the way ran into pairs/carries/depth past the
+predicted upper bound, wrote out of the planner-laid range, and emitted
+a wrong window sum → invalid commitment → verification fails.
+
+**Status:** static stays default-off and scoped to validated
+random-scalar benchmarking (the dev page). For chonk to ever use static,
+one of the following needs to land:
+
+1. **Runtime overflow-detect with dynamic fallback.** GPU planner sets
+   a 1-word flag if it tried to write past the static bound; host
+   checks async, re-runs the offending MSM on the dynamic path if
+   tripped. Restores a hard correctness guarantee at the cost of a
+   small per-MSM check.
+2. **Wider blocklist** of MSMs that stay on the native Pippenger for
+   any chonk run that opts into static, derived from a per-MSM
+   scalar-distribution analysis (msmDistributionMode mode is already
+   in tree).
+3. **Distribution-aware bounds.** Profile real chonk scalars per MSM
+   label, widen the bounds where needed, keep the tight bounds for
+   uniform-random cases.
