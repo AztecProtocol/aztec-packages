@@ -2,13 +2,7 @@ import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types'
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas as foundationSchemas } from '@aztec/foundation/schemas';
-import {
-  BufferReader,
-  bigintToUInt64BE,
-  numToUInt32BE,
-  serializeArrayOfBufferableToVector,
-} from '@aztec/foundation/serialize';
-import type { FieldsOf } from '@aztec/foundation/types';
+import type { IfFlag, Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -17,171 +11,94 @@ import { schemas } from '../schemas/schemas.js';
 import { TxHash } from '../tx/tx_hash.js';
 import type { UInt64 } from '../types/shared.js';
 
+/** Options for narrowing the shape of a {@link LogResult}. */
+export type LogIncludeOptions = {
+  /** When set, the log carries `noteHashes` + all `nullifiers` from its tx effect. Off by default. */
+  includeEffects?: boolean;
+};
+
+export const LogIncludeOptionsSchema: z.ZodType<LogIncludeOptions> = z.object({
+  includeEffects: z.boolean().optional(),
+});
+
+/** Required metadata always present on a {@link LogResult}. */
+export type LogResultBase = {
+  /** The data contents of the log, with the tag as the first field. */
+  logData: Fr[];
+  /** The block this log was emitted in. */
+  blockNumber: BlockNumber;
+  /** The hash of the block this log was emitted in. */
+  blockHash: BlockHash;
+  /** The timestamp of the block this log was emitted in. */
+  blockTimestamp: UInt64;
+  /** The hash of the tx this log was emitted in. */
+  txHash: TxHash;
+  /** The 0-based index of this log's tx within its block. */
+  txIndexWithinBlock: number;
+  /** The 0-based index of this log within its tx (across both private and public logs for the tx). */
+  logIndexWithinTx: number;
+};
+
 /**
  * A single log returned from {@link L2LogsSource.getPrivateLogsByTags} or {@link L2LogsSource.getPublicLogsByTags}.
  *
+ * Generic over the include-options so that flagged fields become required when the caller passes a
+ * literal `true`. The default type argument ({@link LogIncludeOptions}) yields the widest shape
+ * (all include-fields optional) — this is what the JSON-RPC wire layer validates against.
+ *
  * `logData` is the raw field-element payload, with the tag in field 0 (consumers slice it off).
- * `blockNumber`, `blockHash`, `blockTimestamp`, `txHash`, `txIndexWithinBlock`, and `logIndexWithinTx`
- * are always present.
- * `noteHashes` and `nullifiers` are populated only when the query opts in via `includeEffects` — they are
- * fetched on demand from the block store and carry **all** nullifiers in the tx, not just the first.
+ *
+ * @example
+ * const l: LogResult<{ includeEffects: true }> = (await node.getPrivateLogsByTags({ tags, includeEffects: true }))[0][0];
+ * l.nullifiers; // required, not optional
  */
-export class LogResult {
-  constructor(
-    /** The data contents of the log, with the tag as the first field. */
-    public readonly logData: Fr[],
-    /** The block this log was emitted in. */
-    public readonly blockNumber: BlockNumber,
-    /** The hash of the block this log was emitted in. */
-    public readonly blockHash: BlockHash,
-    /** The timestamp of the block this log was emitted in. */
-    public readonly blockTimestamp: UInt64,
-    /** The hash of the tx this log was emitted in. */
-    public readonly txHash: TxHash,
-    /** The 0-based index of this log's tx within its block. */
-    public readonly txIndexWithinBlock: number,
-    /** The 0-based index of this log within its tx (across both private and public logs for the tx). */
-    public readonly logIndexWithinTx: number,
-    /** All note hashes from the tx effect — populated only when `includeEffects` is set. */
-    public readonly noteHashes?: Fr[],
-    /** All nullifiers from the tx effect (not just the first) — populated only when `includeEffects` is set. */
-    public readonly nullifiers?: Fr[],
-  ) {}
+export type LogResult<Opts extends LogIncludeOptions = LogIncludeOptions> = Prettify<
+  LogResultBase & IfFlag<LogIncludeOptions, Opts, 'includeEffects', { noteHashes: Fr[]; nullifiers: Fr[] }>
+>;
 
-  static get schema() {
-    return z
-      .object({
-        logData: z.array(foundationSchemas.Fr),
-        blockNumber: BlockNumberSchema,
-        blockHash: BlockHash.schema,
-        blockTimestamp: schemas.UInt64,
-        txHash: TxHash.schema,
-        txIndexWithinBlock: schemas.Integer,
-        logIndexWithinTx: schemas.Integer,
-        noteHashes: z.array(foundationSchemas.Fr).optional(),
-        nullifiers: z.array(foundationSchemas.Fr).optional(),
-      })
-      .transform(LogResult.from);
-  }
+/** Zod schema for the widest {@link LogResult} shape (all include-gated fields optional). */
+export const LogResultSchema: z.ZodType<LogResult> = z.object({
+  logData: z.array(foundationSchemas.Fr),
+  blockNumber: BlockNumberSchema,
+  blockHash: BlockHash.schema,
+  blockTimestamp: schemas.UInt64,
+  txHash: TxHash.schema,
+  txIndexWithinBlock: schemas.Integer,
+  logIndexWithinTx: schemas.Integer,
+  noteHashes: z.array(foundationSchemas.Fr).optional(),
+  nullifiers: z.array(foundationSchemas.Fr).optional(),
+});
 
-  static from(fields: FieldsOf<LogResult>) {
-    return new LogResult(
-      fields.logData,
-      fields.blockNumber,
-      fields.blockHash,
-      fields.blockTimestamp,
-      fields.txHash,
-      fields.txIndexWithinBlock,
-      fields.logIndexWithinTx,
-      fields.noteHashes,
-      fields.nullifiers,
-    );
+/** Builds a random {@link LogResult} for tests. `includeEffects` populates `noteHashes` + `nullifiers`. */
+export function randomLogResult(includeEffects = false): LogResult {
+  const base: LogResultBase = {
+    logData: times(3, Fr.random),
+    blockNumber: BlockNumber(Math.floor(Math.random() * 100000) + 1),
+    blockHash: BlockHash.random(),
+    blockTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+    txHash: TxHash.random(),
+    txIndexWithinBlock: Math.floor(Math.random() * 100),
+    logIndexWithinTx: Math.floor(Math.random() * 100),
+  };
+  if (includeEffects) {
+    return { ...base, noteHashes: times(3, Fr.random), nullifiers: times(3, Fr.random) };
   }
+  return base;
+}
 
-  /**
-   * Serializes the log to a buffer. The optional effect fields are prefixed with a presence byte so the
-   * round-trip distinguishes "absent" from "empty array". `txIndexWithinBlock` is included here so the
-   * `LogResult` codec is self-contained; the archiver does not use this codec on the store path (it
-   * derives `txIndexWithinBlock` from the composite key) but the RPC layer relies on it.
-   */
-  toBuffer(): Buffer {
-    const parts: Buffer[] = [
-      serializeArrayOfBufferableToVector(this.logData),
-      numToUInt32BE(this.blockNumber),
-      this.blockHash.toBuffer(),
-      bigintToUInt64BE(this.blockTimestamp),
-      this.txHash.toBuffer(),
-      numToUInt32BE(this.txIndexWithinBlock),
-      numToUInt32BE(this.logIndexWithinTx),
-      Buffer.from([this.noteHashes !== undefined ? 1 : 0]),
-    ];
-    if (this.noteHashes !== undefined) {
-      parts.push(serializeArrayOfBufferableToVector(this.noteHashes));
-    }
-    parts.push(Buffer.from([this.nullifiers !== undefined ? 1 : 0]));
-    if (this.nullifiers !== undefined) {
-      parts.push(serializeArrayOfBufferableToVector(this.nullifiers));
-    }
-    return Buffer.concat(parts);
+/** Human-readable single-line representation, primarily for the CLI `get-logs` command. */
+export function logResultToHumanReadable(log: LogResult): string {
+  const head =
+    `block ${log.blockNumber} (${log.blockHash.toString()}) ` +
+    `tx ${log.txHash.toString()} txIndex ${log.txIndexWithinBlock} logIndex ${log.logIndexWithinTx} ` +
+    `ts ${log.blockTimestamp}`;
+  const data = `data [${log.logData.map(f => f.toString()).join(', ')}]`;
+  const parts = [head, data];
+  if (log.noteHashes !== undefined) {
+    parts.push(`noteHashes [${log.noteHashes.map(f => f.toString()).join(', ')}]`);
   }
-
-  static fromBuffer(buffer: Buffer | BufferReader): LogResult {
-    const reader = BufferReader.asReader(buffer);
-    const logData = reader.readVector(Fr);
-    const blockNumber = BlockNumber(reader.readNumber());
-    const blockHash = reader.readObject(BlockHash);
-    const blockTimestamp = reader.readUInt64();
-    const txHash = reader.readObject(TxHash);
-    const txIndexWithinBlock = reader.readNumber();
-    const logIndexWithinTx = reader.readNumber();
-    const noteHashes = reader.readBoolean() ? reader.readVector(Fr) : undefined;
-    const nullifiers = reader.readBoolean() ? reader.readVector(Fr) : undefined;
-    return new LogResult(
-      logData,
-      blockNumber,
-      blockHash,
-      blockTimestamp,
-      txHash,
-      txIndexWithinBlock,
-      logIndexWithinTx,
-      noteHashes,
-      nullifiers,
-    );
+  if (log.nullifiers !== undefined) {
+    parts.push(`nullifiers [${log.nullifiers.map(f => f.toString()).join(', ')}]`);
   }
-
-  static random(includeEffects = false): LogResult {
-    return new LogResult(
-      times(3, Fr.random),
-      BlockNumber(Math.floor(Math.random() * 100000) + 1),
-      BlockHash.random(),
-      BigInt(Math.floor(Date.now() / 1000)),
-      TxHash.random(),
-      Math.floor(Math.random() * 100),
-      Math.floor(Math.random() * 100),
-      includeEffects ? times(3, Fr.random) : undefined,
-      includeEffects ? times(3, Fr.random) : undefined,
-    );
-  }
-
-  equals(other: LogResult): boolean {
-    return (
-      this.blockNumber === other.blockNumber &&
-      this.blockHash.equals(other.blockHash) &&
-      this.blockTimestamp === other.blockTimestamp &&
-      this.txHash.equals(other.txHash) &&
-      this.txIndexWithinBlock === other.txIndexWithinBlock &&
-      this.logIndexWithinTx === other.logIndexWithinTx &&
-      this.logData.length === other.logData.length &&
-      this.logData.every((f, i) => f.equals(other.logData[i])) &&
-      LogResult.#optionalFieldsEqual(this.noteHashes, other.noteHashes) &&
-      LogResult.#optionalFieldsEqual(this.nullifiers, other.nullifiers)
-    );
-  }
-
-  /** Human-readable single-line representation, primarily for the CLI `get-logs` command. */
-  toHumanReadable(): string {
-    const head =
-      `block ${this.blockNumber} (${this.blockHash.toString()}) ` +
-      `tx ${this.txHash.toString()} txIndex ${this.txIndexWithinBlock} logIndex ${this.logIndexWithinTx} ` +
-      `ts ${this.blockTimestamp}`;
-    const data = `data [${this.logData.map(f => f.toString()).join(', ')}]`;
-    const parts = [head, data];
-    if (this.noteHashes !== undefined) {
-      parts.push(`noteHashes [${this.noteHashes.map(f => f.toString()).join(', ')}]`);
-    }
-    if (this.nullifiers !== undefined) {
-      parts.push(`nullifiers [${this.nullifiers.map(f => f.toString()).join(', ')}]`);
-    }
-    return parts.join(' | ');
-  }
-
-  static #optionalFieldsEqual(a: Fr[] | undefined, b: Fr[] | undefined): boolean {
-    if (a === undefined && b === undefined) {
-      return true;
-    }
-    if (a === undefined || b === undefined) {
-      return false;
-    }
-    return a.length === b.length && a.every((f, i) => f.equals(b[i]));
-  }
+  return parts.join(' | ');
 }

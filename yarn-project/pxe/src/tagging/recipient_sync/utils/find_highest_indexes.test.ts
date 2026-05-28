@@ -1,6 +1,6 @@
 import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { LogResult } from '@aztec/stdlib/logs';
+import { type LogResult, randomLogResult } from '@aztec/stdlib/logs';
 
 import { findHighestIndexes } from './find_highest_indexes.js';
 
@@ -8,8 +8,7 @@ describe('findHighestIndexes', () => {
   const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
   function makeLog(blockNumber: number, blockTimestamp: bigint): LogResult {
-    const random = LogResult.random(/* includeEffects */ true);
-    return LogResult.from({ ...random, blockNumber: BlockNumber(blockNumber), blockTimestamp });
+    return { ...randomLogResult(/* includeEffects */ true), blockNumber: BlockNumber(blockNumber), blockTimestamp };
   }
 
   it('returns undefined for highestAgedIndex when no logs are at least 24 hours old', () => {

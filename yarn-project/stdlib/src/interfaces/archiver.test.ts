@@ -32,7 +32,7 @@ import {
 } from '../contract/index.js';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { LogResult } from '../logs/log_result.js';
+import { type LogResult, randomLogResult } from '../logs/log_result.js';
 import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
@@ -162,13 +162,17 @@ describe('ArchiverApiSchema', () => {
 
   it('getPrivateLogsByTags', async () => {
     const result = await context.client.getPrivateLogsByTags({ tags: [SiloedTag.random()] });
-    expect(result).toEqual([[expect.any(LogResult)]]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(1);
+    expect(result[0][0].txHash).toBeDefined();
   });
 
   it('getPublicLogsByTags', async () => {
     const contractAddress = await AztecAddress.random();
     const result = await context.client.getPublicLogsByTags({ contractAddress, tags: [Tag.random()] });
-    expect(result).toEqual([[expect.any(LogResult)]]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(1);
+    expect(result[0][0].txHash).toBeDefined();
   });
 
   it('getContractClass', async () => {
@@ -485,12 +489,12 @@ class MockArchiver implements ArchiverApi {
   }
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
     expect(Array.isArray(query.tags)).toBe(true);
-    return Promise.resolve([query.tags.map(() => LogResult.random())]);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
     expect(query.contractAddress).toBeInstanceOf(AztecAddress);
     expect(Array.isArray(query.tags)).toBe(true);
-    return Promise.resolve([query.tags.map(() => LogResult.random())]);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);

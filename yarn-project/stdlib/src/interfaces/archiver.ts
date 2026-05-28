@@ -23,7 +23,7 @@ import {
   ContractInstanceWithAddressSchema,
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
-import { LogResult } from '../logs/log_result.js';
+import { LogResultSchema } from '../logs/log_result.js';
 import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { optional, schemas } from '../schemas/schemas.js';
@@ -108,11 +108,11 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
   getPrivateLogsByTags: z.function({
     input: z.tuple([PrivateLogsQuerySchema]),
-    output: z.array(z.array(LogResult.schema)),
+    output: z.array(z.array(LogResultSchema)),
   }),
   getPublicLogsByTags: z.function({
     input: z.tuple([PublicLogsQuerySchema]),
-    output: z.array(z.array(LogResult.schema)),
+    output: z.array(z.array(LogResultSchema)),
   }),
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
   getBytecodeCommitment: z.function({ input: z.tuple([schemas.Fr]), output: schemas.Fr }),

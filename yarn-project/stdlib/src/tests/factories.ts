@@ -128,7 +128,7 @@ import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/in
 import { AppTaggingSecret } from '../logs/app_tagging_secret.js';
 import { AppTaggingSecretKind } from '../logs/app_tagging_secret_kind.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
-import { LogResult } from '../logs/log_result.js';
+import type { LogResult } from '../logs/log_result.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -1658,17 +1658,23 @@ export function randomPrivateLogResult(opts?: {
 }): LogResult {
   const log = PrivateLog.random(opts?.tag);
   const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
-  return new LogResult(
-    log.getEmittedFields(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockHash ?? BlockHash.random(),
-    opts?.blockTimestamp ?? 1n,
-    opts?.txHash ?? TxHash.random(),
-    opts?.txIndexWithinBlock ?? 0,
-    opts?.logIndexWithinTx ?? 0,
-    includeEffects ? (opts?.noteHashes ?? [Fr.random(), Fr.random()]) : undefined,
-    includeEffects ? (opts?.nullifiers ?? [Fr.random()]) : undefined,
-  );
+  const base: LogResult = {
+    logData: log.getEmittedFields(),
+    blockNumber: BlockNumber(opts?.blockNumber ?? 1),
+    blockHash: opts?.blockHash ?? BlockHash.random(),
+    blockTimestamp: opts?.blockTimestamp ?? 1n,
+    txHash: opts?.txHash ?? TxHash.random(),
+    txIndexWithinBlock: opts?.txIndexWithinBlock ?? 0,
+    logIndexWithinTx: opts?.logIndexWithinTx ?? 0,
+  };
+  if (includeEffects) {
+    return {
+      ...base,
+      noteHashes: opts?.noteHashes ?? [Fr.random(), Fr.random()],
+      nullifiers: opts?.nullifiers ?? [Fr.random()],
+    };
+  }
+  return base;
 }
 
 /** Creates a random {@link LogResult} with public-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */
@@ -1685,17 +1691,23 @@ export async function randomPublicLogResult(opts?: {
 }): Promise<LogResult> {
   const log = await PublicLog.random();
   const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
-  return new LogResult(
-    log.getEmittedFields(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockHash ?? BlockHash.random(),
-    opts?.blockTimestamp ?? 1n,
-    opts?.txHash ?? TxHash.random(),
-    opts?.txIndexWithinBlock ?? 0,
-    opts?.logIndexWithinTx ?? 0,
-    includeEffects ? (opts?.noteHashes ?? [Fr.random(), Fr.random()]) : undefined,
-    includeEffects ? (opts?.nullifiers ?? [Fr.random()]) : undefined,
-  );
+  const base: LogResult = {
+    logData: log.getEmittedFields(),
+    blockNumber: BlockNumber(opts?.blockNumber ?? 1),
+    blockHash: opts?.blockHash ?? BlockHash.random(),
+    blockTimestamp: opts?.blockTimestamp ?? 1n,
+    txHash: opts?.txHash ?? TxHash.random(),
+    txIndexWithinBlock: opts?.txIndexWithinBlock ?? 0,
+    logIndexWithinTx: opts?.logIndexWithinTx ?? 0,
+  };
+  if (includeEffects) {
+    return {
+      ...base,
+      noteHashes: opts?.noteHashes ?? [Fr.random(), Fr.random()],
+      nullifiers: opts?.nullifiers ?? [Fr.random()],
+    };
+  }
+  return base;
 }
 
 /**

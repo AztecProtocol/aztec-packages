@@ -5,8 +5,15 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { BlockHash, type L2Block } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
-import { LogResult } from '@aztec/stdlib/logs';
-import type { LogCursor, PrivateLogsQuery, PublicLogsQuery, SiloedTag, Tag, TagQuery } from '@aztec/stdlib/logs';
+import type {
+  LogCursor,
+  LogResult,
+  PrivateLogsQuery,
+  PublicLogsQuery,
+  SiloedTag,
+  Tag,
+  TagQuery,
+} from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { BlockStore } from './block_store.js';
@@ -374,17 +381,15 @@ export class LogStore {
       for await (const [rawKey, rawVal] of primaryMap.entriesAsync({ start, end, limit })) {
         const tail = LogStore.#decodeKeyTail(rawKey);
         const value = LogStore.#decodeValue(rawVal);
-        out.push(
-          new LogResult(
-            value.logData,
-            tail.blockNumber,
-            value.blockHash,
-            value.blockTimestamp,
-            value.txHash,
-            tail.txIndexWithinBlock,
-            tail.logIndexWithinTx,
-          ),
-        );
+        out.push({
+          logData: value.logData,
+          blockNumber: tail.blockNumber,
+          blockHash: value.blockHash,
+          blockTimestamp: value.blockTimestamp,
+          txHash: value.txHash,
+          txIndexWithinBlock: tail.txIndexWithinBlock,
+          logIndexWithinTx: tail.logIndexWithinTx,
+        });
       }
       perTagResults.push(out);
     }
@@ -405,17 +410,7 @@ export class LogStore {
         for (let i = 0; i < perTagResults.length; i++) {
           perTagResults[i] = perTagResults[i].map(log => {
             const [noteHashes, nullifiers] = byTxHash.get(log.txHash.toString()) ?? [[], []];
-            return new LogResult(
-              log.logData,
-              log.blockNumber,
-              log.blockHash,
-              log.blockTimestamp,
-              log.txHash,
-              log.txIndexWithinBlock,
-              log.logIndexWithinTx,
-              noteHashes,
-              nullifiers,
-            );
+            return { ...log, noteHashes, nullifiers };
           });
         }
       }
@@ -458,17 +453,15 @@ export class LogStore {
       }
       const tail = LogStore.#decodeKeyTail(key);
       const value = LogStore.#decodeValue(raw);
-      results.push(
-        new LogResult(
-          value.logData,
-          tail.blockNumber,
-          value.blockHash,
-          value.blockTimestamp,
-          value.txHash,
-          tail.txIndexWithinBlock,
-          tail.logIndexWithinTx,
-        ),
-      );
+      results.push({
+        logData: value.logData,
+        blockNumber: tail.blockNumber,
+        blockHash: value.blockHash,
+        blockTimestamp: value.blockTimestamp,
+        txHash: value.txHash,
+        txIndexWithinBlock: tail.txIndexWithinBlock,
+        logIndexWithinTx: tail.logIndexWithinTx,
+      });
     }
     return results;
   }

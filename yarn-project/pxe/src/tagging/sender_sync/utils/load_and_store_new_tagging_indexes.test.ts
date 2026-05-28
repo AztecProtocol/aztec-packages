@@ -4,10 +4,10 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   type AppTaggingSecret,
   AppTaggingSecretKind,
-  LogResult,
   type PrivateLogsQuery,
   SiloedTag,
   type TagQuery,
+  randomLogResult,
 } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -29,8 +29,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
   }
 
   function makeLog(txHash: TxHash, _tag: Fr) {
-    const random = LogResult.random();
-    return LogResult.from({ ...random, txHash });
+    return { ...randomLogResult(), txHash };
   }
 
   /**

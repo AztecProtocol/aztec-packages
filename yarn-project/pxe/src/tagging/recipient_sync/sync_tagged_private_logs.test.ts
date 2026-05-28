@@ -6,10 +6,10 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   type AppTaggingSecret,
   AppTaggingSecretKind,
-  LogResult,
   type PrivateLogsQuery,
   SiloedTag,
   type TagQuery,
+  randomLogResult,
 } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -33,8 +33,7 @@ describe('syncTaggedPrivateLogs', () => {
   }
 
   function makeLog(blockNumber: number, blockTimestamp: bigint, _tag: Fr) {
-    const random = LogResult.random(/* includeEffects */ true);
-    return LogResult.from({ ...random, blockNumber: BlockNumber(blockNumber), blockTimestamp });
+    return { ...randomLogResult(/* includeEffects */ true), blockNumber: BlockNumber(blockNumber), blockTimestamp };
   }
 
   /**

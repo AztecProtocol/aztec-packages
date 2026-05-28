@@ -28,7 +28,7 @@ import {
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { LogResult } from '../logs/log_result.js';
+import { type LogResult, randomLogResult } from '../logs/log_result.js';
 import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
@@ -266,13 +266,17 @@ describe('AztecNodeApiSchema', () => {
 
   it('getPrivateLogsByTags', async () => {
     const response = await context.client.getPrivateLogsByTags({ tags: [SiloedTag.random()] });
-    expect(response).toEqual([[expect.any(LogResult)]]);
+    expect(response).toHaveLength(1);
+    expect(response[0]).toHaveLength(1);
+    expect(response[0][0].txHash).toBeDefined();
   });
 
   it('getPublicLogsByTags', async () => {
     const contractAddress = await AztecAddress.random();
     const response = await context.client.getPublicLogsByTags({ contractAddress, tags: [Tag.random()] });
-    expect(response).toEqual([[expect.any(LogResult)]]);
+    expect(response).toHaveLength(1);
+    expect(response[0]).toHaveLength(1);
+    expect(response[0][0].txHash).toBeDefined();
   });
 
   it('sendTx', async () => {
@@ -703,12 +707,12 @@ class MockAztecNode implements AztecNode {
   }
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
     expect(Array.isArray(query.tags)).toBe(true);
-    return Promise.resolve([query.tags.map(() => LogResult.random())]);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
     expect(query.contractAddress).toBeInstanceOf(AztecAddress);
     expect(Array.isArray(query.tags)).toBe(true);
-    return Promise.resolve([query.tags.map(() => LogResult.random())]);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

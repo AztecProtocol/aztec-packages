@@ -37,7 +37,7 @@ import {
 } from '../contract/index.js';
 import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
-import { LogResult } from '../logs/log_result.js';
+import { type LogResult, LogResultSchema } from '../logs/log_result.js';
 import {
   type PrivateLogsQuery,
   PrivateLogsQuerySchema,
@@ -337,6 +337,11 @@ export interface AztecNode {
    * Gets private logs matching the given tags. Returns one inner array per element of `query.tags`, in
    * input order. An empty inner array means no logs matched that tag. Set `query.includeEffects` to also
    * receive the tx's note hashes and nullifiers.
+   *
+   * The return type is the widest {@link LogResult} shape — `noteHashes`/`nullifiers` are typed as
+   * optional even when `includeEffects: true` is set. JSON-RPC validation can't preserve a stricter
+   * narrowing across the wire. Callers that want a narrowed type at the call site should use the typed
+   * helpers in `pxe/src/tagging/get_all_logs_by_tags.ts`.
    */
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]>;
 
@@ -344,6 +349,8 @@ export interface AztecNode {
    * Gets public logs matching the given tags for the given contract. Returns one inner array per element
    * of `query.tags`, in input order. An empty inner array means no logs matched that tag. Set
    * `query.includeEffects` to also receive the tx's note hashes and nullifiers.
+   *
+   * The return type is the widest {@link LogResult} shape — see {@link getPrivateLogsByTags}.
    */
   getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]>;
 
@@ -584,12 +591,12 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPrivateLogsByTags: z.function({
     input: z.tuple([PrivateLogsQuerySchema]),
-    output: z.array(z.array(LogResult.schema)),
+    output: z.array(z.array(LogResultSchema)),
   }),
 
   getPublicLogsByTags: z.function({
     input: z.tuple([PublicLogsQuerySchema]),
-    output: z.array(z.array(LogResult.schema)),
+    output: z.array(z.array(LogResultSchema)),
   }),
 
   sendTx: z.function({ input: z.tuple([Tx.schema]), output: z.void() }),

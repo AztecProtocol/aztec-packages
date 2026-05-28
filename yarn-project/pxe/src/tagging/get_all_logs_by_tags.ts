@@ -4,6 +4,7 @@ import type { BlockHash } from '@aztec/stdlib/block';
 import { MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
+  type LogIncludeOptions,
   type LogResult,
   type SiloedTag,
   type Tag,
@@ -29,10 +30,10 @@ export type GetAllLogsByTagsOptions = {
  * Splits tags into chunks of MAX_RPC_LEN, paginates each chunk via the stdlib per-tag cursor helper,
  * then stitches the results back into a single array preserving the original tag order.
  */
-async function getAllPagesInBatches<T extends Tag | SiloedTag>(
+async function getAllPagesInBatches<T extends Tag | SiloedTag, Opts extends LogIncludeOptions>(
   tags: T[],
-  fetchAllPagesForBatch: (batch: T[]) => Promise<LogResult[][]>,
-): Promise<LogResult[][]> {
+  fetchAllPagesForBatch: (batch: T[]) => Promise<LogResult<Opts>[][]>,
+): Promise<LogResult<Opts>[][]> {
   if (tags.length === 0) {
     return [];
   }
@@ -59,20 +60,22 @@ async function getAllPagesInBatches<T extends Tag | SiloedTag>(
  * @param options - Optional `fromBlock`/`toBlock` range and `includeEffects` opt-in.
  * @returns An array of log arrays, one per tag, containing all logs across all pages.
  */
-export function getAllPrivateLogsByTags(
+export function getAllPrivateLogsByTags<Opts extends GetAllLogsByTagsOptions = GetAllLogsByTagsOptions>(
   aztecNode: AztecNode,
   tags: SiloedTag[],
   anchorBlockHash: BlockHash,
-  options: GetAllLogsByTagsOptions = {},
-): Promise<LogResult[][]> {
-  return getAllPagesInBatches(tags, batch =>
-    queryAllPrivateLogsByTags(aztecNode, {
-      tags: batch,
-      referenceBlock: anchorBlockHash,
-      fromBlock: options.fromBlock,
-      toBlock: options.toBlock,
-      includeEffects: options.includeEffects ?? false,
-    }),
+  options: Opts = {} as Opts,
+): Promise<LogResult<Opts>[][]> {
+  return getAllPagesInBatches<SiloedTag, Opts>(
+    tags,
+    batch =>
+      queryAllPrivateLogsByTags(aztecNode, {
+        tags: batch,
+        referenceBlock: anchorBlockHash,
+        fromBlock: options.fromBlock,
+        toBlock: options.toBlock,
+        includeEffects: options.includeEffects ?? false,
+      }) as Promise<LogResult<Opts>[][]>,
   );
 }
 
@@ -87,21 +90,23 @@ export function getAllPrivateLogsByTags(
  * @param options - Optional `fromBlock`/`toBlock` range and `includeEffects` opt-in.
  * @returns An array of log arrays, one per tag, containing all logs across all pages.
  */
-export function getAllPublicLogsByTagsFromContract(
+export function getAllPublicLogsByTagsFromContract<Opts extends GetAllLogsByTagsOptions = GetAllLogsByTagsOptions>(
   aztecNode: AztecNode,
   contractAddress: AztecAddress,
   tags: Tag[],
   anchorBlockHash: BlockHash,
-  options: GetAllLogsByTagsOptions = {},
-): Promise<LogResult[][]> {
-  return getAllPagesInBatches(tags, batch =>
-    queryAllPublicLogsByTags(aztecNode, {
-      contractAddress,
-      tags: batch,
-      referenceBlock: anchorBlockHash,
-      fromBlock: options.fromBlock,
-      toBlock: options.toBlock,
-      includeEffects: options.includeEffects ?? false,
-    }),
+  options: Opts = {} as Opts,
+): Promise<LogResult<Opts>[][]> {
+  return getAllPagesInBatches<Tag, Opts>(
+    tags,
+    batch =>
+      queryAllPublicLogsByTags(aztecNode, {
+        contractAddress,
+        tags: batch,
+        referenceBlock: anchorBlockHash,
+        fromBlock: options.fromBlock,
+        toBlock: options.toBlock,
+        includeEffects: options.includeEffects ?? false,
+      }) as Promise<LogResult<Opts>[][]>,
   );
 }

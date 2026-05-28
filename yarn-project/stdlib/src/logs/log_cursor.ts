@@ -4,7 +4,7 @@ import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import { z } from 'zod';
 
 import { schemas } from '../schemas/schemas.js';
-import type { LogResult } from './log_result.js';
+import type { LogResultBase } from './log_result.js';
 
 /**
  * Cursor identifying a position in a tag's ordered log stream. Used as `afterLog` on `TagQuery` to resume
@@ -39,7 +39,7 @@ export class LogCursor {
   }
 
   /** Builds a cursor that points at the given log. Pagination resumes strictly after this position. */
-  static fromLog(log: LogResult): LogCursor {
+  static fromLog(log: Pick<LogResultBase, 'blockNumber' | 'txIndexWithinBlock' | 'logIndexWithinTx'>): LogCursor {
     return new LogCursor(log.blockNumber, log.txIndexWithinBlock, log.logIndexWithinTx);
   }
 

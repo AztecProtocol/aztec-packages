@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { LogCursor, LogResult, type PrivateLogsQuery, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import { LogCursor, type LogResult, type PrivateLogsQuery, SiloedTag, Tag, randomLogResult } from '@aztec/stdlib/logs';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -16,8 +16,7 @@ const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 /** Builds a log with a stable blockNumber/logIndexWithinTx so we can assert cursor wiring. */
 function makeLog({ blockNumber = 1, logIndexWithinTx = 0 }: { blockNumber?: number; logIndexWithinTx?: number } = {}) {
-  const random = LogResult.random();
-  return LogResult.from({ ...random, blockNumber: BlockNumber(blockNumber), logIndexWithinTx });
+  return { ...randomLogResult(), blockNumber: BlockNumber(blockNumber), logIndexWithinTx };
 }
 
 /** Convenience: build a same-length array of cloned logs that share a cursor target (the last one). */

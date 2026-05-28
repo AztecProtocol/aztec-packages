@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { LogCursor } from './log_cursor.js';
-import { LogResult } from './log_result.js';
+import { randomLogResult } from './log_result.js';
 
 describe('LogCursor', () => {
   it('round-trips through toBuffer/fromBuffer', () => {
@@ -18,7 +18,7 @@ describe('LogCursor', () => {
   });
 
   it('fromLog reads the cursor fields from a log', () => {
-    const log = LogResult.random();
+    const log = randomLogResult();
     const cursor = LogCursor.fromLog(log);
     expect(cursor.blockNumber).toBe(log.blockNumber);
     expect(cursor.txIndexWithinBlock).toBe(log.txIndexWithinBlock);

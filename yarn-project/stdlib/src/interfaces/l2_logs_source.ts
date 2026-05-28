@@ -5,6 +5,11 @@ import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 
 /**
  * Interface of classes allowing for the retrieval of logs.
+ *
+ * The return type is always the widest {@link LogResult} shape (noteHashes/nullifiers optional). To
+ * narrow at the call site after passing `includeEffects: true`, use the typed wrapper functions in
+ * `pxe/src/tagging/get_all_logs_by_tags.ts` (or cast — the wire payload is the widest shape, so a
+ * stricter generic on this interface would not survive the JSON-RPC boundary anyway).
  */
 export interface L2LogsSource {
   /**

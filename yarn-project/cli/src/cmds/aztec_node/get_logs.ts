@@ -5,7 +5,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
-import { LogCursor, type PublicLogsQuery, type Tag } from '@aztec/stdlib/logs';
+import { LogCursor, type PublicLogsQuery, type Tag, logResultToHumanReadable } from '@aztec/stdlib/logs';
 
 /** Options for the `get-logs` CLI command. */
 export type GetLogsOptions = {
@@ -75,7 +75,7 @@ export async function getLogs(options: GetLogsOptions): Promise<void> {
       if (!follow && afterLog === undefined) {
         log('Logs found: \n');
       }
-      logsForTag.forEach(r => log(r.toHumanReadable()));
+      logsForTag.forEach(r => log(logResultToHumanReadable(r)));
       afterLog = LogCursor.fromLog(logsForTag[logsForTag.length - 1]);
     }
     return logsForTag.length === MAX_LOGS_PER_TAG;
