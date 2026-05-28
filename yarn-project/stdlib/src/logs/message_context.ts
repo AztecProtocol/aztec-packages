@@ -2,7 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
-import type { TxHash } from '../tx/tx_hash.js';
+import { TxHash } from '../tx/tx_hash.js';
 
 /**
  * Additional information needed to process a message.
@@ -36,6 +36,10 @@ export class MessageContext {
       first_nullifier_in_tx: this.firstNullifierInTx,
     };
     /* eslint-enable camelcase */
+  }
+
+  static empty(): MessageContext {
+    return new MessageContext(TxHash.zero(), [], Fr.ZERO);
   }
 
   static toEmptyFields(): Fr[] {

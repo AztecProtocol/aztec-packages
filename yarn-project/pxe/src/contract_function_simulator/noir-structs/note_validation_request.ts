@@ -20,7 +20,7 @@ export class NoteValidationRequest {
     public txHash: TxHash,
   ) {}
 
-  static fromFields(fields: Fr[]): NoteValidationRequest {
+  static fromFields(fields: Fr[] | FieldReader): NoteValidationRequest {
     const reader = FieldReader.asReader(fields);
 
     const contractAddress = AztecAddress.fromField(reader.readField());
@@ -40,7 +40,7 @@ export class NoteValidationRequest {
 
     if (reader.remainingFields() !== 0) {
       throw new Error(
-        `Error converting array of fields to NoteValidationRequest: expected ${reader.cursor} fields but received ${fields.length} (maxNotePackedLen=${maxNotePackedLen}).`,
+        `Error converting array of fields to NoteValidationRequest: expected ${reader.cursor} fields but received ${reader.cursor + reader.remainingFields()} (maxNotePackedLen=${maxNotePackedLen}).`,
       );
     }
 
