@@ -1552,6 +1552,7 @@ function hideProgress(): void {
       const dump = (window as unknown as { __msm_debug_dump?: number[] }).__msm_debug_dump;
       const treeDump = (window as unknown as { __msm_debug_tree_dump?: unknown }).__msm_debug_tree_dump;
       const params = { logN: autorunLogN, tree, page: 'msm-autorun' };
+      const abDiag = (window as unknown as { __abDiag?: unknown }).__abDiag ?? null;
       const results = {
         cross_ok: crossOk,
         cross_err: crossErr ?? null,
@@ -1559,6 +1560,7 @@ function hideProgress(): void {
         err_count: errLines.length,
         debug_dump: dump ?? null,
         tree_dump: treeDump ?? null,
+        ab_diag: abDiag,
       };
       const state = (debugSmvp || debugTreeOut)
         ? ((dump !== undefined || treeDump !== undefined) ? 'done' : 'error')

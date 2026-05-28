@@ -2064,7 +2064,7 @@ export class MsmV2 {
     if (this.profile) {
       let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
-        passes += 7 + 16 + 4;
+        passes += 7 + 16 + 3;
       }
       passes += 1 + this.reducePasses.length;
       this.passCount = passes;
@@ -2251,8 +2251,9 @@ export class MsmV2 {
       indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
       setPhase('partial_sum');
       dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
-      setPhase('debug_accum');
-      dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
+      // debug_accum disabled in hot path while we hunt the residual
+      // whole-bucket bug. The A/B diagnostic below re-runs it for
+      // per-bucket mismatch detection.
     }
     setPhase('reduce');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
@@ -2336,7 +2337,7 @@ export class MsmV2 {
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
-    if (false as boolean) {
+    if (true as boolean) {
       const qb = this.pool.scratch!.queueBuf;
       const headerBytes = Math.min(2 * this.streamNumThreads * 4, 1024);
       const qStg = device.createBuffer({ size: headerBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
@@ -2467,16 +2468,18 @@ export class MsmV2 {
         for (let j = 0; j < PGU; j++) { if (streamData[b * PGU + j] !== debugData[b * PGU + j]) { match = false; break; } }
         if (!match) mmBuckets.push(b);
       }
-      console.log(`[A/B] ${numB} x-buckets: ${mmBuckets.length} mismatches`);
-      if (mmBuckets.length > 0 && mmBuckets.length <= 30) {
-        for (const b of mmBuckets) {
-          const s0 = streamData[b * PGU]; const d0 = debugData[b * PGU];
-          console.log(`  bucket ${b}: stream[0]=${s0} debug[0]=${d0} ${s0 === 0 ? 'STREAM_ZERO' : ''} ${d0 === 0 ? 'DEBUG_ZERO' : ''}`);
-        }
-      } else if (mmBuckets.length > 30) {
-        console.log(`  first 10: ${mmBuckets.slice(0, 10).join(', ')}`);
-        console.log(`  stream_zero: ${mmBuckets.filter(b => streamData[b * PGU] === 0).length}`);
-        console.log(`  debug_zero: ${mmBuckets.filter(b => debugData[b * PGU] === 0).length}`);
+      const streamZero = mmBuckets.filter(b => streamData[b * PGU] === 0).length;
+      const debugZero = mmBuckets.filter(b => debugData[b * PGU] === 0).length;
+      const sample = mmBuckets.slice(0, 20).map(b => ({
+        b,
+        s0: streamData[b * PGU],
+        d0: debugData[b * PGU],
+        sz: streamData[b * PGU] === 0,
+      }));
+      const diag = { numB, mm: mmBuckets.length, streamZero, debugZero, firstMm: mmBuckets.slice(0, 30), sample };
+      console.log(`[A/B] ${numB} x-buckets: ${mmBuckets.length} mismatches streamZero=${streamZero} debugZero=${debugZero}`);
+      if (typeof window !== 'undefined') {
+        (window as unknown as { __abDiag?: typeof diag }).__abDiag = diag;
       }
     }
 

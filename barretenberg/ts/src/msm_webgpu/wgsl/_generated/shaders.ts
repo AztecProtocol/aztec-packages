@@ -996,7 +996,10 @@ fn get_partial_slot(first_thread: u32, i: u32) -> u32 {
     return 2u * (first_thread + i);
 }
 
-var<workgroup> wg_valid: u32;
+fn ps_is_zero(x: array<u32, 8>) -> bool {
+    return x[0] == 0u && x[1] == 0u && x[2] == 0u && x[3] == 0u &&
+           x[4] == 0u && x[5] == 0u && x[6] == 0u && x[7] == 0u;
+}
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(local_invocation_id) lid: vec3<u32>,
@@ -1029,21 +1032,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         return;
     }
 
-    if (tid == 0u) {
-        wg_valid = 1u;
-        for (var i: u32 = 0u; i < n_partials; i = i + 1u) {
-            let s = get_partial_slot(first_thread, i);
-            let px = load_partial_x(s, M_partials);
-            if (px[0] == 0u && px[1] == 0u && px[2] == 0u && px[3] == 0u &&
-                px[4] == 0u && px[5] == 0u && px[6] == 0u && px[7] == 0u) {
-                wg_valid = 0u;
-                break;
-            }
-        }
-    }
-    workgroupBarrier();
-    let valid = wg_valid;
-
     let TPB = {{ workgroup_size }}u;
     var n_active = n_partials;
     var stride: u32 = 1u;
@@ -1051,11 +1039,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     while (n_active > 1u) {
         let n_pairs = n_active / 2u;
         let my_start = tid * S;
-        if (valid == 1u && my_start < n_pairs) {
+        if (my_start < n_pairs) {
             let my_end = min(my_start + S, n_pairs);
             let batch_size = my_end - my_start;
             let pref_off = sb_idx * TPB * S + tid * S;
 
+            // Forward prefix: dx per pair, substituting Mont R (identity)
+            // when either operand slot is zero (empty contribution from a
+            // skipped thread). R contributes nothing to the running product
+            // so batched inversion still yields 1/dx for real pairs.
             var acc: array<u32, 8> = get_r_f8();
             for (var k: u32 = 0u; k < batch_size; k = k + 1u) {
                 let pair_idx = my_start + k;
@@ -1065,7 +1057,14 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                 let right_slot = get_partial_slot(first_thread, right_logical);
                 let p_lx = load_partial_x(left_slot, M_partials);
                 let p_rx = load_partial_x(right_slot, M_partials);
-                let dx = fr_sub_f8(p_rx, p_lx);
+                let lz = ps_is_zero(p_lx);
+                let rz = ps_is_zero(p_rx);
+                var dx: array<u32, 8>;
+                if (lz || rz) {
+                    dx = get_r_f8();
+                } else {
+                    dx = fr_sub_f8(p_rx, p_lx);
+                }
                 if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
                 store_pref_ps(pref_off + k, acc);
             }
@@ -1089,7 +1088,14 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                     let right_slot = get_partial_slot(first_thread, right_logical);
                     let p_lx_b = load_partial_x(left_slot, M_partials);
                     let p_rx_b = load_partial_x(right_slot, M_partials);
-                    let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
+                    let lz_b = ps_is_zero(p_lx_b);
+                    let rz_b = ps_is_zero(p_rx_b);
+                    var dx_b: array<u32, 8>;
+                    if (lz_b || rz_b) {
+                        dx_b = get_r_f8();
+                    } else {
+                        dx_b = fr_sub_f8(p_rx_b, p_lx_b);
+                    }
                     inv_val = montgomery_product_f8(inv_val, dx_b);
                 }
                 store_pref_ps(pref_off + k, inv_dx);
@@ -1107,19 +1113,32 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
                 let p_ly = load_partial_y(left_slot, M_partials);
                 let p_rx = load_partial_x(right_slot, M_partials);
                 let p_ry = load_partial_y(right_slot, M_partials);
+                let lz = ps_is_zero(p_lx);
+                let rz = ps_is_zero(p_rx);
 
-                var lambda = fr_sub_f8(p_ry, p_ly);
-                lambda = montgomery_product_f8(lambda, inv_dx);
+                if (lz && rz) {
+                    // both empty: result stays zero in left_slot.
+                } else if (lz) {
+                    // left empty: copy right into left_slot.
+                    store_partial(left_slot, M_partials, p_rx, p_ry);
+                } else if (rz) {
+                    // right empty: left already has the correct value;
+                    // no write needed (and avoiding the write keeps the
+                    // affine path branch-uniform within the wavefront).
+                } else {
+                    var lambda = fr_sub_f8(p_ry, p_ly);
+                    lambda = montgomery_product_f8(lambda, inv_dx);
 
-                var r_x = montgomery_product_f8(lambda, lambda);
-                let x_sum_val = fr_add_f8(p_lx, p_rx);
-                r_x = fr_sub_f8(r_x, x_sum_val);
+                    var r_x = montgomery_product_f8(lambda, lambda);
+                    let x_sum_val = fr_add_f8(p_lx, p_rx);
+                    r_x = fr_sub_f8(r_x, x_sum_val);
 
-                var r_y = fr_sub_f8(p_lx, r_x);
-                r_y = montgomery_product_f8(lambda, r_y);
-                r_y = fr_sub_f8(r_y, p_ly);
+                    var r_y = fr_sub_f8(p_lx, r_x);
+                    r_y = montgomery_product_f8(lambda, r_y);
+                    r_y = fr_sub_f8(r_y, p_ly);
 
-                store_partial(left_slot, M_partials, r_x, r_y);
+                    store_partial(left_slot, M_partials, r_x, r_y);
+                }
             }
         }
 
@@ -1128,16 +1147,24 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         stride *= 2u;
     }
 
-    if (tid == 0u && valid == 1u) {
+    if (tid == 0u) {
         let final_slot = get_partial_slot(first_thread, 0u);
         let sum_x = load_partial_x(final_slot, M_partials);
         let sum_y = load_partial_y(final_slot, M_partials);
-        let bx = PG * bucket_idx;
-        bucket_sums[bx + 0u] = vec4<u32>(sum_x[0], sum_x[1], sum_x[2], sum_x[3]);
-        bucket_sums[bx + 1u] = vec4<u32>(sum_x[4], sum_x[5], sum_x[6], sum_x[7]);
-        let by = PG * M_buckets + PG * bucket_idx;
-        bucket_sums[by + 0u] = vec4<u32>(sum_y[0], sum_y[1], sum_y[2], sum_y[3]);
-        bucket_sums[by + 1u] = vec4<u32>(sum_y[4], sum_y[5], sum_y[6], sum_y[7]);
+        // Only write if the reduced result is non-zero. Zero indicates the
+        // split's first-thread slot was never populated by stream_accum
+        // (a detection mismatch in emit_fixup); in that case any existing
+        // bucket_sums value (e.g. a whole-piece write from an empty-range
+        // thread that happened to land on this bucket) is more correct
+        // than overwriting with zero.
+        if (!ps_is_zero(sum_x)) {
+            let bx = PG * bucket_idx;
+            bucket_sums[bx + 0u] = vec4<u32>(sum_x[0], sum_x[1], sum_x[2], sum_x[3]);
+            bucket_sums[bx + 1u] = vec4<u32>(sum_x[4], sum_x[5], sum_x[6], sum_x[7]);
+            let by = PG * M_buckets + PG * bucket_idx;
+            bucket_sums[by + 0u] = vec4<u32>(sum_y[0], sum_y[1], sum_y[2], sum_y[3]);
+            bucket_sums[by + 1u] = vec4<u32>(sum_y[4], sum_y[5], sum_y[6], sum_y[7]);
+        }
     }
 
     {{{ recompile }}}
