@@ -141,6 +141,35 @@ TEST_F(AluConstrainingTest, NegativeAluWrongOpId)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_DISPATCH_OPERATION), "DISPATCH_OPERATION");
 }
 
+// Two operation selectors active on the same row must violate the mutual exclusion of the operations.
+TEST_F(AluConstrainingTest, NegativeAluTwoOperationsActive)
+{
+    auto trace = TestTraceContainer({
+        {
+            { C::alu_sel, 1 },
+            { C::alu_sel_op_div, 1 },
+            { C::alu_sel_op_not, 1 },
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_EXACTLY_ONE_OPERATION_ACTIVE),
+                              "EXACTLY_ONE_OPERATION_ACTIVE");
+}
+
+// On an inactive row (sel == 0), no operation selector may be toggled.
+TEST_F(AluConstrainingTest, NegativeAluOperationActiveOnInactiveRow)
+{
+    auto trace = TestTraceContainer({
+        {
+            { C::alu_sel, 0 },
+            { C::alu_sel_op_add, 1 },
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_EXACTLY_ONE_OPERATION_ACTIVE),
+                              "EXACTLY_ONE_OPERATION_ACTIVE");
+}
+
 // ADD TESTS
 
 const std::vector<MemoryValue> TEST_VALUES_ADD_OUT = {
