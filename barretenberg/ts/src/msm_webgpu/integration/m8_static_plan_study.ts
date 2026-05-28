@@ -278,17 +278,21 @@ function computeStaticPlanLocal(
   const topMean = Math.max(2, n / 2 ** Math.max(0, topBits - 1));
   const depthBound = Math.min(LEVEL_PLAN_MAX_LEVELS, Math.max(2, Math.ceil(Math.log2(topMean)) + 2));
   // Level-0 pairs ≤ n/2 strictly (rounding margin only); deeper levels carry
-  // the top-window knee bump (~0.25·activeBuckets) → activeBuckets/3.
-  // Carries spike to ~0.68·activeBuckets at the knee → 0.8·activeBuckets cap.
+  // the top-window knee bump (~0.25·activeBuckets) → activeBuckets/3, BUT
+  // also clamped by ⌈n/2^(k+1)⌉ itself so the post-knee tail doesn't carry
+  // an unnecessary aB/3 additive. Carries cap 0.75·aB (knee spike 0.68).
+  // Keep in sync with msm_v2.ts:computeStaticPlan.
   const pairsAdditiveL0 = Math.max(16, Math.ceil(3 * Math.sqrt(activeBuckets)));
-  const pairsAdditiveDeep = Math.max(pairsAdditiveL0, Math.ceil(activeBuckets / 3));
-  const carriesCap = Math.ceil(activeBuckets * 0.8);
+  const pairsAdditiveDeepCap = Math.max(pairsAdditiveL0, Math.ceil(activeBuckets / 3));
+  const carriesCap = Math.ceil(activeBuckets * 0.75);
   const perLevel: { pairBlocksPerWindow: number; carriesPerWindow: number }[] = [];
   let wstride1 = 1;
   for (let lv = 0; lv < depthBound; lv++) {
     const div = Math.pow(2, lv + 1);
-    const pairsBound = Math.ceil(n / div) + (lv === 0 ? pairsAdditiveL0 : pairsAdditiveDeep);
-    const carriesBound = Math.min(carriesCap, Math.ceil(n / div));
+    const halfTerm = Math.ceil(n / div);
+    const additive = lv === 0 ? pairsAdditiveL0 : Math.max(pairsAdditiveL0, Math.min(pairsAdditiveDeepCap, halfTerm));
+    const pairsBound = halfTerm + additive;
+    const carriesBound = Math.min(carriesCap, halfTerm);
     const strideCntBound = pairsBound + carriesBound;
     const pairBlocksPerWindow = Math.max(1, Math.ceil(pairsBound / S));
     const carriesPerWindow = Math.max(1, carriesBound);

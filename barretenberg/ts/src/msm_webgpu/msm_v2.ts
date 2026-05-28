@@ -415,21 +415,33 @@ function computeStaticPlan(n: number, c: number, S: number): { levelPlans: Level
   //
   // carries (odd-count buckets, cnt≥3) hover near 0.5·activeBuckets, then
   // spike at the knee to ~0.68·activeBuckets (n=2²⁰ lvl5: 11067 / 16384).
-  // 0.8·activeBuckets covers the spike; `min(…, ⌈n/div⌉)` keeps deep levels
-  // tight. (Over-provisioning any bound is correctness-safe — extra fused
-  // blocks / carry slots are no-ops — so these are upper bounds with margin;
-  // tightening for c≤13 chonk perf is a follow-up that needs GPU timings.)
+  // 0.75·activeBuckets covers the spike with 11 % margin (decay CV ≈ 0.008,
+  // max ≈ p99); `min(…, ⌈n/div⌉)` keeps deep levels tight. Over-provisioning
+  // any bound is correctness-safe — extra fused blocks / carry slots are
+  // no-ops — so these are upper bounds with margin.
+  //
+  // Deep-level pairs are additionally CLAMPED by `⌈n/2^(k+1)⌉` itself: past
+  // the knee the closed-form term drops below `activeBuckets/3` and the
+  // top-window bump is gone, so the safe bound there is `2·⌈n/2^(k+1)⌉`,
+  // not `⌈n/2^(k+1)⌉ + aB/3`. This halves the post-knee fused dispatch
+  // (lv7/8 at n=2²⁰ went from ~1700 blocks each to ~1024) — the previous
+  // bound dispatched empty blocks proportional to `aB/3` per post-knee
+  // level × NUM_WINDOWS × NUM_BATCHES, which was the bulk of the
+  // correctness-fix `fused` regression. (Pre-knee `n/2^(k+1)` >> `aB/3` so
+  // the clamp is a no-op there; the knee level itself stays at `aB/3`.)
   //
   // wstride1 = max strideCnt — drives `M1 = batchWindows × wstride1 + 3`.
   const pairsAdditiveL0 = Math.max(16, Math.ceil(3 * Math.sqrt(activeBuckets)));
-  const pairsAdditiveDeep = Math.max(pairsAdditiveL0, Math.ceil(activeBuckets / 3));
-  const carriesCap = Math.ceil(activeBuckets * 0.8);
+  const pairsAdditiveDeepCap = Math.max(pairsAdditiveL0, Math.ceil(activeBuckets / 3));
+  const carriesCap = Math.ceil(activeBuckets * 0.75);
   const levelPlans: LevelPlan[] = [];
   let wstride1 = 1;
   for (let lv = 0; lv < depthBound; lv++) {
     const div = Math.pow(2, lv + 1);
-    const pairsBound = Math.ceil(n / div) + (lv === 0 ? pairsAdditiveL0 : pairsAdditiveDeep);
-    const carriesBound = Math.min(carriesCap, Math.ceil(n / div));
+    const halfTerm = Math.ceil(n / div);
+    const additive = lv === 0 ? pairsAdditiveL0 : Math.max(pairsAdditiveL0, Math.min(pairsAdditiveDeepCap, halfTerm));
+    const pairsBound = halfTerm + additive;
+    const carriesBound = Math.min(carriesCap, halfTerm);
     const strideCntBound = pairsBound + carriesBound;
     const pairBlocksPerWindow = Math.max(1, Math.ceil(pairsBound / S));
     const carriesPerWindow = Math.max(1, carriesBound);

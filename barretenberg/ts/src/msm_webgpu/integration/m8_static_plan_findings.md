@@ -470,3 +470,38 @@ real chonk scalar distribution. Deferred — see MsmConfig.useStaticPlan doc.)
 - Browser re-check with `?staticPlan=1` at log₂(n) ∈ {18, 19, 20} (the
   previously-failing sizes), multiple seeds — must match WASM + noble.
 - e2e/per-phase static-vs-dynamic comparison into STATUS.md.
+
+## Update (2026-05-28) — tighten post-knee tail to recover M8 perf
+
+The first correctness pass put `useStaticPlan` at e2e wash (n=2²⁰: +4 ms),
+because the conservative deep-level bounds dispatch many empty fused
+blocks past the knee. STATUS.md flagged it; this update tightens two
+constants while staying within the same proof.
+
+```
+pairsAdditiveDeep[k]  = min( ⌈aB/3⌉, ⌈n/2^(k+1)⌉ )    (was: ⌈aB/3⌉)
+carriesCap            = ⌈0.75·aB⌉                      (was: ⌈0.80·aB⌉)
+```
+
+Why both stay safe:
+- The deep additive only matters past the knee, where the top-window
+  bump is *gone* and real pairs[k] ≤ ⌈n/2^(k+1)⌉ — so capping the
+  additive at `⌈n/2^(k+1)⌉` gives bound `2·⌈n/2^(k+1)⌉` (100 % margin
+  on real). At and before the knee, `⌈n/2^(k+1)⌉ ≥ aB/3` so the cap is
+  a no-op and the original `aB/3` knee margin is preserved.
+- Carries spike at the knee at 0.675·aB (n=2²⁰ lvl5: 11067/16384). 0.75
+  keeps 11 % margin, decay CV ≈ 0.008 / max ≈ p99 — comfortable.
+
+Effect at n=2²⁰ (analytic, blocks per window):
+
+| level | pairs blocks: old → new |
+|---|---|
+| 0..5 (pre-knee) | unchanged |
+| 6 (knee) | 1707 (unchanged — additive still aB/3) |
+| 7 | 1195 → **1024** (−14 %) |
+| 8 | 939 → **512** (−45 %) |
+
+Across 17 batches that's ~10 k fewer no-op fused blocks per MSM at the
+deepest two levels. Carries cap −6 % at every level. **Needs GPU
+timing** to confirm the `fused` Δ recovery — left for the next session.
+Host validation: all 11 sizes still PASS under MOD_R (120 runs/size).
