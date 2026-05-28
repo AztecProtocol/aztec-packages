@@ -55,6 +55,28 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
 
+### [Aztec.nr] `public_checks` demoted from protocol contract
+
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
++ use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
+```
+
+If your contract uses `privately_check_timestamp` or `privately_check_block_number`, you must deploy `PublicChecks` on your network and register it with PXE:
+
+```ts
+import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+
+const { instance, artifact } = await getStandardPublicChecks();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/public-checks/lazy` instead.
+
+Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_contract@PublicChecks --salt 1 --universal -f <fee-paying-account>`.
+
 ### [Aztec.nr] `auth_registry` demoted from protocol contract
 
 `auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`. The aztec-nr constant has moved and been renamed:
