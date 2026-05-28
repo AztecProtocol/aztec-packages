@@ -396,8 +396,6 @@ const ORACLE_REGISTRY = {
     params: [
       { name: 'noteValidationRequestsArrayBaseSlot', type: FIELD },
       { name: 'eventValidationRequestsArrayBaseSlot', type: FIELD },
-      { name: 'maxNotePackedLen', type: U32 },
-      { name: 'maxEventSerializedLen', type: U32 },
       { name: 'scope', type: AZTEC_ADDRESS },
     ],
   }),

@@ -505,18 +505,10 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
       inputs,
-      handler: ([
-        noteValidationRequestsArrayBaseSlot,
-        eventValidationRequestsArrayBaseSlot,
-        maxNotePackedLen,
-        maxEventSerializedLen,
-        scope,
-      ]) =>
+      handler: ([noteValidationRequestsArrayBaseSlot, eventValidationRequestsArrayBaseSlot, scope]) =>
         this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
           noteValidationRequestsArrayBaseSlot,
           eventValidationRequestsArrayBaseSlot,
-          maxNotePackedLen,
-          maxEventSerializedLen,
           scope,
         ),
     });

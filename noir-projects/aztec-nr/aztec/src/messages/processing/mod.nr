@@ -84,7 +84,7 @@ pub unconstrained fn enqueue_note_for_validation(
     tx_hash: Field,
 ) {
     EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        NoteValidationRequest {
+        NoteValidationRequest::new(
             contract_address,
             owner,
             storage_slot,
@@ -94,7 +94,7 @@ pub unconstrained fn enqueue_note_for_validation(
             note_hash,
             nullifier,
             tx_hash,
-        },
+        ),
     )
 }
 
@@ -119,14 +119,14 @@ pub unconstrained fn enqueue_event_for_validation(
     tx_hash: Field,
 ) {
     EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        EventValidationRequest {
+        EventValidationRequest::new(
             contract_address,
             event_type_id,
             randomness,
             serialized_event,
             event_commitment,
             tx_hash,
-        },
+        ),
     )
 }
 
@@ -139,8 +139,6 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
     message_processing::validate_and_store_enqueued_notes_and_events(
         EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT),
         EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT),
-        MAX_NOTE_PACKED_LEN as Field,
-        MAX_EVENT_SERIALIZED_LEN as Field,
         scope,
     );
 

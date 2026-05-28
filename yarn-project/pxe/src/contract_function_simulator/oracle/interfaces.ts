@@ -120,8 +120,6 @@ export interface IUtilityExecutionOracle {
   validateAndStoreEnqueuedNotesAndEvents(
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
-    maxNotePackedLen: number,
-    maxEventSerializedLen: number,
     scope: AztecAddress,
   ): Promise<void>;
   getLogsByTag(requestArrayBaseSlot: Fr): Promise<Fr>;

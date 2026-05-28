@@ -571,17 +571,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async validateAndStoreEnqueuedNotesAndEvents(
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
-    maxNotePackedLen: number,
-    maxEventSerializedLen: number,
     scope: AztecAddress,
   ) {
     const noteValidationRequests = this.ephemeralArrayService
       .readArrayAt(noteValidationRequestsArrayBaseSlot)
-      .map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
+      .map(fields => NoteValidationRequest.fromFields(fields));
 
     const eventValidationRequests = this.ephemeralArrayService
       .readArrayAt(eventValidationRequestsArrayBaseSlot)
-      .map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
+      .map(fields => EventValidationRequest.fromFields(fields));
 
     await this.#processValidationRequests(noteValidationRequests, eventValidationRequests, scope);
   }
