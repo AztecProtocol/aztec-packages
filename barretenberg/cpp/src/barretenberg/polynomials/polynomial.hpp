@@ -102,6 +102,80 @@ template <typename Fr> struct PolynomialSpan {
  *
  * @tparam Fr the finite field type.
  */
+// Hidden-friend binary-operator wall stamped on both vector proxy types
+// (VectorWriteProxyT and ContiguousVectorWriteProxyT) so kernels written as
+//   p[ctx] = p[ctx] + other[ctx] * scalar;
+// resolve every operand combination (proxy×proxy, proxy×Value+reversed,
+// proxy×Scalar+reversed) through ADL on the proxy types. Defined as a
+// macro because there is no shared base — the two proxies materialise the
+// `Value` differently (gather vs. linear-memory ctor) and live in distinct
+// scopes inside the Polynomial template.
+//
+// Marked [[gnu::always_inline]] on every line: under -Oz V8/TurboFan leaves
+// unmarked proxy ops as standalone WASM functions, defeating the linear-
+// memory / gather primitives and adding ~0.7ms per 65k-field pass.
+#define BB_VECTOR_PROXY_BINARY_OPS(Proxy, Value, Scalar)                                                               \
+    [[gnu::always_inline]] friend Value operator+(const Proxy& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) + Value(b);                                                                                    \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Proxy& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) - Value(b);                                                                                    \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Proxy& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) * Value(b);                                                                                    \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Proxy& a, const Value& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) + b;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Value& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return a + Value(b);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Proxy& a, const Value& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) - b;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Value& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return a - Value(b);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Proxy& a, const Value& b) noexcept                             \
+    {                                                                                                                  \
+        return Value(a) * b;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Value& a, const Proxy& b) noexcept                             \
+    {                                                                                                                  \
+        return a * Value(b);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Proxy& a, const Scalar& s) noexcept                            \
+    {                                                                                                                  \
+        return Value(a) + s;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator+(const Scalar& s, const Proxy& a) noexcept                            \
+    {                                                                                                                  \
+        return s + Value(a);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Proxy& a, const Scalar& s) noexcept                            \
+    {                                                                                                                  \
+        return Value(a) - s;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator-(const Scalar& s, const Proxy& a) noexcept                            \
+    {                                                                                                                  \
+        return s - Value(a);                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Proxy& a, const Scalar& s) noexcept                            \
+    {                                                                                                                  \
+        return Value(a) * s;                                                                                           \
+    }                                                                                                                  \
+    [[gnu::always_inline]] friend Value operator*(const Scalar& s, const Proxy& a) noexcept                            \
+    {                                                                                                                  \
+        return s * Value(a);                                                                                           \
+    }
+
 template <typename Fr> class Polynomial {
   public:
     using FF = Fr;
@@ -381,93 +455,25 @@ template <typename Fr> class Polynomial {
         friend Fr operator*(const ScalarWriteProxy& a, const Fr& b) noexcept { return Fr(a) * b; }
         friend Fr operator*(const Fr& a, const ScalarWriteProxy& b) noexcept { return a * Fr(b); }
     };
+    // Write-proxy for VectorIndex<5> on a mutable Polynomial. Sparse / gather
+    // counterpart to ContiguousVectorWriteProxyT — assignment routes through
+    // `VectorField::scatter` (per-lane scalar stores at random indices), and
+    // the implicit conversion through `VectorField::gather`. Same inline
+    // discipline as the contiguous proxy (see comment above the macro).
     template <typename Params_> struct VectorWriteProxyT {
         Polynomial* self;
         std::array<size_t, 5> idx;
-        VectorWriteProxyT& operator=(const VectorField<Params_>& v)
+        [[gnu::always_inline]] VectorWriteProxyT& operator=(const VectorField<Params_>& v)
         {
             v.scatter(self->data() - self->start_index(), idx);
             return *this;
         }
-        operator VectorField<Params_>() const
+        [[gnu::always_inline]] operator VectorField<Params_>() const
         {
             return VectorField<Params_>::gather(self->data() - self->start_index(), idx);
         }
 
-        // Hidden-friend binary operators that take the proxy directly.
-        //
-        // VectorField's member operators are not candidates when the LHS is
-        // a proxy (member ops do not admit UDC on the implicit object
-        // parameter). Defining free-function operators that accept the
-        // proxy types explicitly gives overload resolution a candidate
-        // reachable via ADL from proxy arguments. Each forwards by
-        // materialising the proxy(ies) into VectorField(s) and delegating
-        // to the existing VectorField operator(s).
-        //
-        // Parameter types include the proxy itself, so these signatures do
-        // not collide with the same-named friends declared inside
-        // VectorField (which accept VectorField×VectorField or
-        // VectorField×Field).
-        friend VectorField<Params_> operator+(const VectorWriteProxyT& a, const VectorWriteProxyT& b) noexcept
-        {
-            return VectorField<Params_>(a) + VectorField<Params_>(b);
-        }
-        friend VectorField<Params_> operator-(const VectorWriteProxyT& a, const VectorWriteProxyT& b) noexcept
-        {
-            return VectorField<Params_>(a) - VectorField<Params_>(b);
-        }
-        friend VectorField<Params_> operator*(const VectorWriteProxyT& a, const VectorWriteProxyT& b) noexcept
-        {
-            return VectorField<Params_>(a) * VectorField<Params_>(b);
-        }
-        friend VectorField<Params_> operator+(const VectorWriteProxyT& a, const VectorField<Params_>& b) noexcept
-        {
-            return VectorField<Params_>(a) + b;
-        }
-        friend VectorField<Params_> operator+(const VectorField<Params_>& a, const VectorWriteProxyT& b) noexcept
-        {
-            return a + VectorField<Params_>(b);
-        }
-        friend VectorField<Params_> operator-(const VectorWriteProxyT& a, const VectorField<Params_>& b) noexcept
-        {
-            return VectorField<Params_>(a) - b;
-        }
-        friend VectorField<Params_> operator-(const VectorField<Params_>& a, const VectorWriteProxyT& b) noexcept
-        {
-            return a - VectorField<Params_>(b);
-        }
-        friend VectorField<Params_> operator*(const VectorWriteProxyT& a, const VectorField<Params_>& b) noexcept
-        {
-            return VectorField<Params_>(a) * b;
-        }
-        friend VectorField<Params_> operator*(const VectorField<Params_>& a, const VectorWriteProxyT& b) noexcept
-        {
-            return a * VectorField<Params_>(b);
-        }
-        friend VectorField<Params_> operator+(const VectorWriteProxyT& a, const Fr& s) noexcept
-        {
-            return VectorField<Params_>(a) + s;
-        }
-        friend VectorField<Params_> operator+(const Fr& s, const VectorWriteProxyT& a) noexcept
-        {
-            return s + VectorField<Params_>(a);
-        }
-        friend VectorField<Params_> operator-(const VectorWriteProxyT& a, const Fr& s) noexcept
-        {
-            return VectorField<Params_>(a) - s;
-        }
-        friend VectorField<Params_> operator-(const Fr& s, const VectorWriteProxyT& a) noexcept
-        {
-            return s - VectorField<Params_>(a);
-        }
-        friend VectorField<Params_> operator*(const VectorWriteProxyT& a, const Fr& s) noexcept
-        {
-            return VectorField<Params_>(a) * s;
-        }
-        friend VectorField<Params_> operator*(const Fr& s, const VectorWriteProxyT& a) noexcept
-        {
-            return s * VectorField<Params_>(a);
-        }
+        BB_VECTOR_PROXY_BINARY_OPS(VectorWriteProxyT, VectorField<Params_>, Fr)
     };
 
     // Write-proxy for ContiguousVectorIndex<5> on a mutable Polynomial.
@@ -476,11 +482,6 @@ template <typename Fr> class Polynomial {
     // without the per-lane scalar stores `scatter` does. Also implicitly
     // converts to VectorField via the linear-memory ctor so a kernel can
     // read and write through the same token.
-    //
-    // All operations are [[gnu::always_inline]] so -Oz builds still inline
-    // the proxy into the bulk kernel. Without this, -Oz leaves the proxy
-    // ops as standalone calls, defeating the linear-memory primitives and
-    // adding ~0.7ms per 65k-field pass.
     template <typename Params_> struct ContiguousVectorWriteProxyT {
         Polynomial* self;
         size_t base;
@@ -494,86 +495,7 @@ template <typename Fr> class Polynomial {
             return VectorField<Params_>(self->data() - self->start_index() + base);
         }
 
-        // Hidden-friend binary operators that take the proxy directly.
-        // Mirror VectorWriteProxyT so kernels written against mutable
-        // Polynomials using `self[ctx] = self[ctx] + other[ctx] * scalar;`
-        // resolve the RHS through these forwarders when either operand is
-        // a proxy.
-        [[gnu::always_inline]] friend VectorField<Params_> operator+(const ContiguousVectorWriteProxyT& a,
-                                                                     const ContiguousVectorWriteProxyT& b) noexcept
-        {
-            return VectorField<Params_>(a) + VectorField<Params_>(b);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator-(const ContiguousVectorWriteProxyT& a,
-                                                                     const ContiguousVectorWriteProxyT& b) noexcept
-        {
-            return VectorField<Params_>(a) - VectorField<Params_>(b);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator*(const ContiguousVectorWriteProxyT& a,
-                                                                     const ContiguousVectorWriteProxyT& b) noexcept
-        {
-            return VectorField<Params_>(a) * VectorField<Params_>(b);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator+(const ContiguousVectorWriteProxyT& a,
-                                                                     const VectorField<Params_>& b) noexcept
-        {
-            return VectorField<Params_>(a) + b;
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator+(const VectorField<Params_>& a,
-                                                                     const ContiguousVectorWriteProxyT& b) noexcept
-        {
-            return a + VectorField<Params_>(b);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator-(const ContiguousVectorWriteProxyT& a,
-                                                                     const VectorField<Params_>& b) noexcept
-        {
-            return VectorField<Params_>(a) - b;
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator-(const VectorField<Params_>& a,
-                                                                     const ContiguousVectorWriteProxyT& b) noexcept
-        {
-            return a - VectorField<Params_>(b);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator*(const ContiguousVectorWriteProxyT& a,
-                                                                     const VectorField<Params_>& b) noexcept
-        {
-            return VectorField<Params_>(a) * b;
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator*(const VectorField<Params_>& a,
-                                                                     const ContiguousVectorWriteProxyT& b) noexcept
-        {
-            return a * VectorField<Params_>(b);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator+(const ContiguousVectorWriteProxyT& a,
-                                                                     const Fr& s) noexcept
-        {
-            return VectorField<Params_>(a) + s;
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator+(const Fr& s,
-                                                                     const ContiguousVectorWriteProxyT& a) noexcept
-        {
-            return s + VectorField<Params_>(a);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator-(const ContiguousVectorWriteProxyT& a,
-                                                                     const Fr& s) noexcept
-        {
-            return VectorField<Params_>(a) - s;
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator-(const Fr& s,
-                                                                     const ContiguousVectorWriteProxyT& a) noexcept
-        {
-            return s - VectorField<Params_>(a);
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator*(const ContiguousVectorWriteProxyT& a,
-                                                                     const Fr& s) noexcept
-        {
-            return VectorField<Params_>(a) * s;
-        }
-        [[gnu::always_inline]] friend VectorField<Params_> operator*(const Fr& s,
-                                                                     const ContiguousVectorWriteProxyT& a) noexcept
-        {
-            return s * VectorField<Params_>(a);
-        }
+        BB_VECTOR_PROXY_BINARY_OPS(ContiguousVectorWriteProxyT, VectorField<Params_>, Fr)
     };
 
     // Scalar read via token: delegates to the size_t overload.

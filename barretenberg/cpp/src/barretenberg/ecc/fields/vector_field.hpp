@@ -46,6 +46,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
@@ -98,6 +99,21 @@ template <class Params> inline constexpr std::array<uint64_t, 9> compute_tnm_was
     }
     return tnm;
 }
+
+// Marker trait: specialized to true for each Params whose VectorField has a
+// SIMD operator* body (an explicit specialization defined in
+// vector_field_wasm.cpp). vectorized_for / vectorized_for_if read this to
+// decide whether to take the bulk path. Add a new specialization (below)
+// when adding the corresponding operator* body so the gate and the body
+// stay in lockstep.
+template <class Params> struct has_simd_mont_mul : std::false_type {};
+template <class Params> inline constexpr bool has_simd_mont_mul_v = has_simd_mont_mul<Params>::value;
+
+// Per-Params specializations. Forward-declared rather than #include'd so
+// vector_field.hpp stays Params-agnostic at the type level; the trait body
+// has no member access, only `: std::true_type`.
+class Bn254FrParams;
+template <> struct has_simd_mont_mul<Bn254FrParams> : std::true_type {};
 
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;

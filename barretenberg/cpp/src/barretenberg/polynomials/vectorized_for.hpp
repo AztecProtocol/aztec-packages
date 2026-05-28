@@ -1,21 +1,20 @@
 #pragma once
 
+#include "barretenberg/ecc/fields/vector_field.hpp"
+
 #include <array>
 #include <cstddef>
 #include <type_traits>
 
 namespace bb {
 
-// Forward decl — matches the one in vector_field.hpp. Used by
-// `simd_supported_v` below to gate the SIMD bulk path of vectorized_for.
-class Bn254FrParams;
-
-// Compile-time trait: does VectorField<Fr::Params>::operator* exist on this
-// target? Today only Bn254FrParams has a SIMD Mont-mul body, so any other Fr
-// (e.g. bb::fq = field<Bn254FqParams>, used by ECCVM/Translator polynomials)
-// must take the scalar path even under WASM SIMD, otherwise vectorized_for's
-// bulk emit would instantiate an undefined operator*.
-template <typename Fr> inline constexpr bool simd_supported_v = std::is_same_v<typename Fr::Params, Bn254FrParams>;
+// Compile-time trait: does VectorField<Fr::Params> have a SIMD operator*
+// body on this target? Delegates to `has_simd_mont_mul_v`, which is
+// specialized in vector_field.hpp next to each operator* declaration.
+// Adding a new Params with a SIMD body widens this trait automatically —
+// no edits needed here. Fr's without a body (e.g. stdlib::field_t today)
+// take the scalar path even under WASM SIMD.
+template <typename Fr> inline constexpr bool simd_supported_v = has_simd_mont_mul_v<typename Fr::Params>;
 
 // Number of field elements per ContiguousVectorIndex<N> / VectorIndex<N>
 // token, equal to VectorField's q1s1 lane count (4 SIMD lanes + 1 scalar
