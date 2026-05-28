@@ -63,7 +63,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
                                          "): " + column_values_to_string(src_values, PermutationSettings::SRC_COLUMNS));
             }
             // Get one of the available rows for the tuple.
-            // TODO: This could be done in parallel, with only a lock on the row vector.
+            // Potential optimization: This could be done in parallel, with only a lock on the row vector.
             auto& possible_dst_rows = index_it->second;
             uint32_t dst_row = possible_dst_rows.back();
             trace.set(PermutationSettings::DST_SELECTOR, dst_row, 1);

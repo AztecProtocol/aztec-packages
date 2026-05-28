@@ -8,7 +8,7 @@
 namespace bb::avm2::tracegen {
 
 /**
- * Lookup trace builder used for lookups that lookup into tuples which are indexed by idx,
+ * Lookup trace builder used for lookups that look up into tuples which are indexed by idx,
  * i.e., whose first tuple element is idx column.
  * For instance, with a tuple of size 1 we have the basic 8 or 16 bit range checks.
  * Example: `sel { dyn_diff } in precomputed.sel_range_16 {precomputed.idx };`
