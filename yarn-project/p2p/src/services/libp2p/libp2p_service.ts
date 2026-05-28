@@ -75,6 +75,7 @@ import {
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
+import { TxValidationCache } from '../../msg_validators/tx_validator/tx_validation_cache.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
@@ -202,6 +203,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private blockMinFeesProvider: BlockMinFeesProvider,
     telemetry: TelemetryClient,
     logger: Logger = createLogger('p2p:libp2p_service'),
+    private txValidationCache?: TxValidationCache,
   ) {
     super(telemetry, 'LibP2PService');
     this.telemetry = telemetry;
@@ -302,6 +304,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry: TelemetryClient;
       logger: Logger;
       packageVersion: string;
+      txValidationCache?: TxValidationCache;
     },
   ) {
     const {
@@ -315,6 +318,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       logger,
       packageVersion,
+      txValidationCache,
     } = deps;
     const { p2pPort, maxPeerCount, listenAddress } = config;
     const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
@@ -522,6 +526,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       blockMinFeesProvider,
       telemetry,
       logger,
+      txValidationCache,
     );
   }
 
@@ -1608,6 +1613,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         l1ChainId: this.config.l1ChainId,
         rollupVersion: this.config.rollupVersion,
         proofVerifier: this.proofVerifier,
+        txValidationCache: this.txValidationCache,
       },
       peerScoring: this.peerManager,
       validateRequestedBlockTxsConsistency: this.validateRequestedBlockTxsConsistency.bind(this),
@@ -1619,6 +1625,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.proofVerifier,
       { l1ChainId: this.config.l1ChainId, rollupVersion: this.config.rollupVersion },
       this.logger.getBindings(),
+      this.txValidationCache,
     );
 
     const results = await Promise.all(
