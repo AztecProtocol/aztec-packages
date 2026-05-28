@@ -3,10 +3,22 @@
 #   ./bootstrap.sh install_deps
 #
 # Usage: ./bootstrap.sh [cmd]"
-#   ./bootstrap.sh: Max parallelism. Only use on serious hardware.
+#   ./bootstrap.sh: Max-parallelism baseline build (= make fast). Only use on serious hardware.
 #   ./bootstrap.sh gentle: Less parallelism. Gentler on hardware. Slow.
+#   ./bootstrap.sh build [target]: Run toolchain/dep checks then `make <target>` (default: fast).
+#                                  Preferred for incremental rebuilds — the Makefile knows the
+#                                  dependency graph between components, so e.g.
+#                                  `./bootstrap.sh build yarn-project` will rebuild bb, noir, and
+#                                  l1-contracts first if any of them changed.
 #   ./bootstrap.sh check: Check required toolchains and versions are installed.
 #   ./bootstrap.sh clean: Force a complete clean of the repo. Erases untracked files, be careful!
+#
+# Component-level bootstrap.sh scripts (e.g. yarn-project/bootstrap.sh, barretenberg/ts/bootstrap.sh)
+# are NOT standalone builds. They assume every upstream component is already built and current,
+# and do not re-enter the dependency graph. Run this root script (or `make fast`) once for the
+# baseline build; after that, prefer `./bootstrap.sh build <target>` or `make <target>` from the
+# root over invoking component scripts directly, otherwise downstream components will silently
+# link/bind against stale upstream artifacts.
 
 ### TOOLCHAIN INSTALLATIONS ############################################################################################
 # Expected toolchain versions.

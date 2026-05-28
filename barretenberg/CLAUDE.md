@@ -33,8 +33,7 @@ git push -f  # Force push after rebase (only when necessary)
 
 Barretenberg issues are tracked at `AztecProtocol/barretenberg` (separate repo), not `AztecProtocol/aztec-packages`. PRs go to `AztecProtocol/aztec-packages` but should reference issues from `AztecProtocol/barretenberg`.
 
-Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
-Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstrap.sh
+Run the top-level `./bootstrap.sh` (or `make fast`) first to baseline the repo — component-level bootstrap scripts (e.g. `barretenberg/bootstrap.sh`, `barretenberg/ts/bootstrap.sh`) assume all upstream components are already built and will not rebuild dependencies for you. Once that baseline exists, component bootstrap scripts can be invoked by relative path (e.g. `../barretenberg/bootstrap.sh`) to rebuild just that component; for changes that span multiple components, prefer `./bootstrap.sh build <target>` / `make <target>` from the repo root so the Makefile picks up everything that needs rebuilding.
 
 ## CI labels for PRs
 
