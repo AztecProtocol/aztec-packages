@@ -4,8 +4,9 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { computeLogTag, computeSiloedPrivateLogFirstField } from '../hash/hash.js';
 import { randomAppTaggingSecret, randomConstrainedAppTaggingSecret } from '../tests/factories.js';
-import { AppTaggingSecret, messageLogTagDomainSeparatorFor, siloedTagFor } from './app_tagging_secret.js';
+import { AppTaggingSecret } from './app_tagging_secret.js';
 import { AppTaggingSecretKind } from './app_tagging_secret_kind.js';
+import { SiloedTag } from './siloed_tag.js';
 import { TaggingIndexRangeSchema } from './tagging_index_range.js';
 
 describe('AppTaggingSecret', () => {
@@ -18,18 +19,6 @@ describe('AppTaggingSecret', () => {
     it('supports constrained secrets', async () => {
       const secret = await randomConstrainedAppTaggingSecret();
       expect(secret.kind).toBe(AppTaggingSecretKind.CONSTRAINED);
-    });
-  });
-
-  describe('messageLogTagDomainSeparatorFor', () => {
-    it('returns CONSTRAINED_MSG_LOG_TAG for constrained secrets', async () => {
-      const secret = await randomConstrainedAppTaggingSecret();
-      expect(messageLogTagDomainSeparatorFor(secret)).toBe(DomainSeparator.CONSTRAINED_MSG_LOG_TAG);
-    });
-
-    it('returns UNCONSTRAINED_MSG_LOG_TAG for unconstrained secrets', async () => {
-      const secret = await randomAppTaggingSecret();
-      expect(messageLogTagDomainSeparatorFor(secret)).toBe(DomainSeparator.UNCONSTRAINED_MSG_LOG_TAG);
     });
   });
 
@@ -114,12 +103,12 @@ describe('AppTaggingSecret', () => {
     });
   });
 
-  describe('siloedTagFor', () => {
+  describe('SiloedTag.compute', () => {
     it('matches the manual constrained-tag formula for a constrained secret', async () => {
       const secret = await randomConstrainedAppTaggingSecret();
       const index = 7;
 
-      const computed = await siloedTagFor(secret, index);
+      const computed = await SiloedTag.compute({ extendedSecret: secret, index });
 
       const expectedInner = await poseidon2Hash([secret.secret, new Fr(index)]);
       const expectedLogTag = await computeLogTag(expectedInner, DomainSeparator.CONSTRAINED_MSG_LOG_TAG);
@@ -132,7 +121,7 @@ describe('AppTaggingSecret', () => {
       const secret = await randomAppTaggingSecret();
       const index = 7;
 
-      const computed = await siloedTagFor(secret, index);
+      const computed = await SiloedTag.compute({ extendedSecret: secret, index });
 
       const expectedInner = await poseidon2Hash([secret.secret, new Fr(index)]);
       const expectedLogTag = await computeLogTag(expectedInner, DomainSeparator.UNCONSTRAINED_MSG_LOG_TAG);
@@ -145,8 +134,8 @@ describe('AppTaggingSecret', () => {
       const constrained = await randomConstrainedAppTaggingSecret();
       const unconstrained = new AppTaggingSecret(constrained.secret, constrained.app);
 
-      const unconstrainedTag = await siloedTagFor(unconstrained, 0);
-      const constrainedTag = await siloedTagFor(constrained, 0);
+      const unconstrainedTag = await SiloedTag.compute({ extendedSecret: unconstrained, index: 0 });
+      const constrainedTag = await SiloedTag.compute({ extendedSecret: constrained, index: 0 });
 
       expect(unconstrainedTag.value.toString()).not.toEqual(constrainedTag.value.toString());
     });

@@ -1,6 +1,6 @@
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type AppTaggingSecret, type SiloedTag, siloedTagFor } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { SenderTaggingStore } from '../../../storage/tagging_store/sender_tagging_store.js';
@@ -30,7 +30,7 @@ export async function loadAndStoreNewTaggingIndexes(
 ) {
   // We compute the tags for the current window of indexes
   const siloedTagsForWindow = await Promise.all(
-    Array.from({ length: end - start }, (_, i) => siloedTagFor(extendedSecret, start + i)),
+    Array.from({ length: end - start }, (_, i) => SiloedTag.compute({ extendedSecret, index: start + i })),
   );
 
   const txsForTags = await getTxsContainingTags(siloedTagsForWindow, aztecNode, anchorBlockHash);

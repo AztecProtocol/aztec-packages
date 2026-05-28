@@ -1,8 +1,8 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import {
   AppTaggingSecret,
+  SiloedTag,
   type TaggingIndexRange,
-  siloedTagFor,
 } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
@@ -457,7 +457,7 @@ export class SenderTaggingStore implements StagedStore {
       let highestSurvivingIndex: number | undefined;
 
       for (let index = pendingEntry.lowestIndex; index <= pendingEntry.highestIndex; index++) {
-        const siloedTag = await siloedTagFor(appTaggingSecret, index);
+        const siloedTag = await SiloedTag.compute({ extendedSecret: appTaggingSecret, index });
         if (onChainTags.has(siloedTag.value.toString())) {
           highestSurvivingIndex = highestSurvivingIndex !== undefined ? Math.max(highestSurvivingIndex, index) : index;
         }

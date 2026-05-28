@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
-import { AppTaggingSecret, PrivateLog, SiloedTag, type TaggingIndexRange, siloedTagFor } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, PrivateLog, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret, randomConstrainedAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
@@ -613,7 +613,7 @@ describe('SenderTaggingStore', () => {
       await taggingStore.storePendingIndexes([range(constrainedSecret, 3, 5)], txHash, 'test');
 
       // The onchain tag must be derived with the constrained log domain separator.
-      const survivingTag = await siloedTagFor(constrainedSecret, 4);
+      const survivingTag = await SiloedTag.compute({ extendedSecret: constrainedSecret, index: 4 });
       const txEffect = makeTxEffect(txHash, [survivingTag]);
 
       await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(txEffect, 'test');

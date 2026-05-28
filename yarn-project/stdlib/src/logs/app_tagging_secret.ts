@@ -1,4 +1,3 @@
-import { DomainSeparator } from '@aztec/constants';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { type Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -8,11 +7,8 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { CompleteAddress } from '../contract/complete_address.js';
-import { computeLogTag } from '../hash/hash.js';
 import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
 import { AppTaggingSecretKind } from './app_tagging_secret_kind.js';
-import { SiloedTag } from './siloed_tag.js';
-import { Tag } from './tag.js';
 
 const AppTaggingSecretKindSchema = z.union([
   z.literal(AppTaggingSecretKind.UNCONSTRAINED),
@@ -93,27 +89,6 @@ export class AppTaggingSecret {
  */
 export function appTaggingSecretFromString(str: string): AppTaggingSecret {
   return AppTaggingSecret.fromString(str);
-}
-
-/**
- * Returns the domain separator used by `compute_log_tag` for the given secret's delivery mode.
- */
-export function messageLogTagDomainSeparatorFor(secret: AppTaggingSecret): DomainSeparator {
-  switch (secret.kind) {
-    case AppTaggingSecretKind.CONSTRAINED:
-      return DomainSeparator.CONSTRAINED_MSG_LOG_TAG;
-    case AppTaggingSecretKind.UNCONSTRAINED:
-      return DomainSeparator.UNCONSTRAINED_MSG_LOG_TAG;
-  }
-}
-
-/**
- * Computes the onchain siloed first-field for a given `(secret, index)` pair.
- */
-export async function siloedTagFor(secret: AppTaggingSecret, index: number): Promise<SiloedTag> {
-  const rawTag = await poseidon2Hash([secret.secret, new Fr(index)]);
-  const logTag = await computeLogTag(rawTag, messageLogTagDomainSeparatorFor(secret));
-  return SiloedTag.computeFromTagAndApp(new Tag(logTag), secret.app);
 }
 
 export const AppTaggingSecretSchema = z
