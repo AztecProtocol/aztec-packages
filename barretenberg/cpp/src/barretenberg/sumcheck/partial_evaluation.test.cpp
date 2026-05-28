@@ -305,6 +305,8 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     f2.template copy_vector<FF>({ v000[2], v100[2], v010[2], v110[2], v001[2], v101[2], v011[2], v111[2] });
 
     typename Flavor::ProverPolynomials full_polynomials;
+    // Assign the first three ProverPolynomials in layout order (Ultra's EntityId layout starts
+    // q_m, q_l, q_r) so that `get_all()[0..2]` lines up with f0/f1/f2.
     full_polynomials.q_m() = f0;
     full_polynomials.q_l() = f1;
     full_polynomials.q_r() = f2;
