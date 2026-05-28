@@ -7,6 +7,8 @@
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_bools_short_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_set_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_short_relation_adapter.hpp"
 
 namespace bb {

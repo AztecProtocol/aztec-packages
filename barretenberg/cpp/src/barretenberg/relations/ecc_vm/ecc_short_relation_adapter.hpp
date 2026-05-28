@@ -7,11 +7,9 @@
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_bools_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation_impl.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_set_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation_impl.hpp"
 
@@ -92,10 +90,7 @@ using ECCVMPointTableShortRelation = Relation<ECCVMShortRelationAdapterImpl<ECCV
 template <typename FF>
 using ECCVMWnafShortRelation = Relation<ECCVMShortRelationAdapterImpl<ECCVMWnafRelationImpl, FF>>;
 template <typename FF> using ECCVMMSMShortRelation = Relation<ECCVMShortRelationAdapterImpl<ECCVMMSMRelationImpl, FF>>;
-template <typename FF> using ECCVMSetShortRelation = Relation<ECCVMShortRelationAdapterImpl<ECCVMSetRelationImpl, FF>>;
 template <typename FF>
 using ECCVMLookupShortRelation = Relation<ECCVMShortRelationAdapterImpl<ECCVMLookupRelationImpl, FF>>;
-template <typename FF>
-using ECCVMBoolsShortRelation = Relation<ECCVMShortRelationAdapterImpl<ECCVMBoolsRelationImpl, FF>>;
 
 } // namespace bb
