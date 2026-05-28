@@ -649,9 +649,13 @@ export class WebGpuMsmHost {
       sharedStaging.destroy();
       const gpuMsPerMsm = await Promise.all(msms.map(m => m.readProfileGpuMs()));
       let summed = 0;
+      let uploadSum = 0;
+      let histogramSum = 0;
       for (let i = 0; i < batchCount; i++) {
         const gpuMs = gpuMsPerMsm[i] ?? 0;
         summed += gpuMs;
+        uploadSum += msms[i].scalarUploadMs;
+        histogramSum += msms[i].bucketHistogramGpuMs;
         console.log(
           `[msm] name=${labels[i]} n=${descs[i * 5 + 0]} kind=mixed ` +
             `gpu=${gpuMs.toFixed(2)}ms (batch-1enc, idx=${i})`,
@@ -664,6 +668,18 @@ export class WebGpuMsmHost {
           `gpu_sum=${summed.toFixed(2)}ms ` +
           `mem=${this.statsBytesSummary(msms)}`,
       );
+      {
+        const wall = tDecodeEnd - tBatch0;
+        const gpuCompute = summed + histogramSum;
+        const overhead = wall - Math.max(uploadSum, gpuCompute);
+        console.log(
+          `[batch-stat] kind=mixed count=${batchCount} ` +
+            `wall=${wall.toFixed(1)}ms host_sync=${uploadSum.toFixed(2)}ms ` +
+            `gpu_compute=${gpuCompute.toFixed(2)}ms ` +
+            `(main=${summed.toFixed(2)}ms hist=${histogramSum.toFixed(2)}ms) ` +
+            `overhead=${overhead.toFixed(1)}ms`,
+        );
+      }
       if (bridgeTraceOn()) {
         traceCpu(`encode ×${batchCount}`, tPrepSum1, tEncoded, { count: batchCount });
         traceCpu('submit+wait', tEncoded, tMapped, { count: batchCount });
@@ -797,6 +813,23 @@ export class WebGpuMsmHost {
     let maxGpuWait = 0;
     for (const p of phaseLog) maxGpuWait = Math.max(maxGpuWait, p.gpuMs);
     const gpuAvg = maxGpuWait / phaseLog.length;
+    // True per-MSM main-pass compute, timestamp-measured. Same-N MSMs share an
+    // MsmV2 instance — each prepare() overwrites the prior timestamp staging,
+    // so only the LAST submit's per-pass timing survives. We collect it anyway
+    // to anchor `gpu_compute` against an actual GPU measurement on the last
+    // MSM in the batch; the sum-across-MSMs uses gpu_avg (=maxGpuWait / N) as
+    // the per-MSM share, which matches the serial GPU execution model.
+    const lastMsmGpuMs = (await pendings[batchCount - 1].msm.readProfileGpuMs()) ?? 0;
+    let uploadSum = 0;
+    let histogramSum = 0;
+    for (const p of pendings) {
+      uploadSum += p.msm.scalarUploadMs;
+      histogramSum += p.msm.bucketHistogramGpuMs;
+    }
+    // Per-MSM main-pass compute share: total batch GPU wait / N ≈ per-MSM run.
+    // This is an estimate — true compute is only readable for the last MSM.
+    const perMsmMainEst = gpuAvg;
+    const mainComputeSum = perMsmMainEst * batchCount;
     for (const p of phaseLog) {
       console.log(
         `[msm] name=${p.label} n=${p.n} kind=same-n ` +
@@ -853,7 +886,20 @@ export class WebGpuMsmHost {
       metaOut[i * 2 + 1] = p.msm.c;
       p.staging.destroy();
     }
-    if (traceOn) traceCpu(`decode ×${batchCount}`, tDecode0, performance.now(), { count: batchCount });
+    const tDecodeEnd = performance.now();
+    if (traceOn) traceCpu(`decode ×${batchCount}`, tDecode0, tDecodeEnd, { count: batchCount });
+    {
+      const wall = tDecodeEnd - tBatch0;
+      const gpuCompute = mainComputeSum + histogramSum;
+      const overhead = wall - Math.max(uploadSum, gpuCompute);
+      console.log(
+        `[batch-stat] kind=same-n count=${batchCount} maxSameN=${maxNCount} ` +
+          `wall=${wall.toFixed(1)}ms host_sync=${uploadSum.toFixed(2)}ms ` +
+          `gpu_compute=${gpuCompute.toFixed(2)}ms ` +
+          `(main≈${mainComputeSum.toFixed(2)}ms hist=${histogramSum.toFixed(2)}ms last_msm_main=${lastMsmGpuMs.toFixed(2)}ms) ` +
+          `overhead=${overhead.toFixed(1)}ms`,
+      );
+    }
   }
 }
 

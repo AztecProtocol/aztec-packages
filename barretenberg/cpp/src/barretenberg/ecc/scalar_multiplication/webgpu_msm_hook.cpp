@@ -78,11 +78,17 @@ std::atomic<uint64_t> g_msm_trace_epoch_ns{ 0 };
 // MSM-phase wall time for a WASM run vs a WebGPU run. Reset per run.
 std::atomic<uint64_t> g_msm_phase_ns{ 0 };
 
-// Per-label block-list: any MSM whose telemetry label matches one of these
-// strings is kept on the native Pippenger even when `webgpu_msm_runtime_enabled()`
-// is true. WASM runs single-threaded (`NO_MULTITHREADING`) so a plain vector
-// behind no lock is sufficient; the setter only fires from JS init.
-std::vector<std::string> g_webgpu_msm_blocklist;
+// Per-(label, n) block-list: any MSM whose telemetry label matches one of
+// these entries is kept on the native Pippenger even when
+// `webgpu_msm_runtime_enabled()` is true. An entry with `n == 0` matches that
+// label at any size; `n != 0` matches only that exact size. WASM runs
+// single-threaded (`NO_MULTITHREADING`) so a plain vector behind no lock is
+// sufficient; the setter only fires from JS init.
+struct BlocklistEntry {
+    std::string label;
+    std::size_t n; // 0 → wildcard (any n)
+};
+std::vector<BlocklistEntry> g_webgpu_msm_blocklist;
 
 // Pippenger window-bit width per n. Mirrors barretenberg/ts/src/msm_webgpu/
 // msm_v2.ts:pickC — the table is the bench-msm-v2 sweep optimum on Apple
@@ -258,13 +264,18 @@ void reset_msm_phase() noexcept
     g_msm_trace_epoch_ns.store(0, std::memory_order_relaxed);
 }
 
-bool is_label_blocked(std::string_view label) noexcept
+bool is_label_blocked(std::string_view label, std::size_t n) noexcept
 {
     if (g_webgpu_msm_blocklist.empty() || label.empty()) {
         return false;
     }
-    for (const auto& blocked : g_webgpu_msm_blocklist) {
-        if (label == blocked) {
+    for (const auto& entry : g_webgpu_msm_blocklist) {
+        if (label != entry.label) {
+            continue;
+        }
+        // Wildcard entry (n == 0) blocks every size; otherwise require an
+        // exact size match.
+        if (entry.n == 0 || entry.n == n) {
             return true;
         }
     }
@@ -291,7 +302,39 @@ void set_webgpu_msm_blocklist(std::string_view labels_csv) noexcept
             --hi;
         }
         if (hi > lo) {
-            g_webgpu_msm_blocklist.emplace_back(labels_csv.substr(lo, hi - lo));
+            // Split on '@' to peel off an optional size suffix. "LABEL" → n=0
+            // (wildcard); "LABEL@123456" → n=123456 (exact-size match only).
+            const std::string_view entry = labels_csv.substr(lo, hi - lo);
+            const std::size_t at = entry.find('@');
+            std::string label;
+            std::size_t n = 0;
+            if (at == std::string_view::npos) {
+                label.assign(entry);
+            } else {
+                label.assign(entry.substr(0, at));
+                const std::string_view nsv = entry.substr(at + 1);
+                std::size_t parsed = 0;
+                bool any = false;
+                for (char ch : nsv) {
+                    if (ch < '0' || ch > '9') {
+                        // Malformed size suffix — drop the entry rather than
+                        // silently wildcarding it, which could mask a typo.
+                        any = false;
+                        break;
+                    }
+                    parsed = parsed * 10u + static_cast<std::size_t>(ch - '0');
+                    any = true;
+                }
+                if (!any) {
+                    if (comma == std::string_view::npos) {
+                        break;
+                    }
+                    pos = comma + 1;
+                    continue;
+                }
+                n = parsed;
+            }
+            g_webgpu_msm_blocklist.push_back({ std::move(label), n });
         }
         if (comma == std::string_view::npos) {
             break;
@@ -539,11 +582,13 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
             info("[msm-route] name=", lbl, " n=", n, " route=cpu reason=below-threshold");
             continue;
         }
-        // Per-label block-list: kept on CPU because the pair-tree contract has
-        // the least margin for these columns (selectors / 0-1 counters whose
-        // scalars concentrate every entry into a single bucket). See
-        // /tmp/zac-webgpu/chonk-delegate-eligible.md for the empirical case.
-        if (have_labels && is_label_blocked(labels[i])) {
+        // Per-(label, n) block-list: kept on CPU either because the pair-tree
+        // contract has the least margin for that column (selectors / 0-1
+        // counters where every scalar lands in one bucket — see
+        // /tmp/zac-webgpu/chonk-delegate-eligible.md) or because the GPU is a
+        // wash against the batched WASM Pippenger at that specific size (see
+        // /tmp/zac-webgpu/chonk-msm-cpu-vs-gpu-report.md).
+        if (have_labels && is_label_blocked(labels[i], n)) {
             std::array<std::span<const curve::BN254::AffineElement>, 1> p{ points[i].subspan(0, n) };
             std::array<std::span<curve::BN254::ScalarField>, 1> s{ scalars[i] };
             results[i] = MSM<curve::BN254>::batch_multi_scalar_mul_native(p, s, false)[0];

@@ -1329,6 +1329,17 @@ export class MsmV2 {
   private lastPrepareKind: 'fast' | 'slow' = 'slow';
   private lastScalarUploadMs = 0;
   private lastScalarUploadBytes = 0;
+  /** Synchronous `writeBuffer` time for scalar upload during the most recent
+   *  `prepare()`. Read by the bridge to attribute host-critical-path cost
+   *  per MSM in a batch. */
+  get scalarUploadMs(): number {
+    return this.lastScalarUploadMs;
+  }
+  /** Timestamp-measured GPU time for the most recent prepare()'s level-0
+   *  bucket-histogram dispatch (ms). 0 when profile is off. */
+  get bucketHistogramGpuMs(): number {
+    return this.lastBucketHistogramGpuMs;
+  }
   // Residual host_prepare time that isn't accounted for by scalar_upload_wall,
   // prep_booth_decode, or prep_level_plan — i.e. fits-check + ensureScratch +
   // bind-group creation (slow path) or per-level uniform writes (fast path).

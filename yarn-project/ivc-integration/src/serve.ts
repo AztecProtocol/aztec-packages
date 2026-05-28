@@ -255,15 +255,64 @@ async function runChonkWebGpuBench(
 (window as any).runChonkWebGpuBench = runChonkWebGpuBench;
 
 /**
- * The labels we keep on the CPU even when WebGPU is on. These are the columns
- * the distribution-mode analysis (see /tmp/zac-webgpu/chonk-delegate-eligible.md)
- * flagged as 🟡 verify or 🔴 block — every nonzero scalar in these polys lands
- * in a tiny number of buckets (selectors are 0/1, lookup tags are mostly equal,
- * VK precomputed polys are structured by construction). The MsmV2 pair-tree
- * contract has the least margin there, so we keep them on the native CPU
- * Pippenger and only delegate the remaining 89 random-distributed MSMs.
+ * The (label[, size]) pairs we keep on the CPU even when WebGPU is on. Two
+ * groups, matched against the per-MSM telemetry name passed down from
+ * `commit_and_send_to_verifier`:
+ *
+ *   1. Wildcard-label entries ("LABEL") — block at any n. These are the
+ *      columns the distribution-mode analysis (see
+ *      /tmp/zac-webgpu/chonk-delegate-eligible.md) flagged as 🟡 verify or
+ *      🔴 block: every nonzero scalar lands in a tiny number of buckets
+ *      (selectors are 0/1, lookup tags are mostly equal, VK precomputed
+ *      polys are structured by construction). The MsmV2 pair-tree contract
+ *      has the least margin there.
+ *
+ *   2. (label, n) entries ("LABEL@N") — block only at that exact size. These
+ *      are pairs where the GPU is empirically a wash (≤1.5× per-MSM speedup
+ *      against cpu_solo, which already overstates batched CPU). See
+ *      /tmp/zac-webgpu/chonk-msm-cpu-vs-gpu-report.md. The win at other sizes
+ *      of the same label is real, so we can't blanket-block the label.
  */
-const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = ['LOOKUP_READ_COUNTS', 'LOOKUP_READ_TAGS', 'VK_PRECOMPUTED_POLY'];
+const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
+  // Pair-tree-hostile distributions (block all sizes).
+  'LOOKUP_READ_COUNTS',
+  'LOOKUP_READ_TAGS',
+  'VK_PRECOMPUTED_POLY',
+  // (label, n) pairs where the GPU is a wash on Apple Metal (per-MSM
+  // cpu_solo/gpu ≤ 1.5×, so production batched CPU is at parity or faster).
+  // All of these are same-N triplets (W_L/W_R/W_O at a given size) or W_4
+  // mixed-batch entries on the smaller transfer/ECDSA-r1 circuits. Z_PERM
+  // and LOOKUP_INVERSES are intentionally NOT here: they're mixed-batch so
+  // they don't pay the same-N `prepare` serialization tax, and they still
+  // show a 1.3–1.4× per-MSM speedup that's worth keeping.
+  'W_L@20406',
+  'W_R@20406',
+  'W_O@20406',
+  'W_L@38778',
+  'W_R@38778',
+  'W_O@38778',
+  'W_L@88899',
+  'W_R@88899',
+  'W_O@88899',
+  'W_4@30240',
+  'W_4@33050',
+  // Translator range-constraint same-n batch at n=131071. The per-MSM CSV
+  // ratios look great (3-7x cpu_solo/gpu), but production batched WASM
+  // does the whole 10-way group in ~121 ms while the GPU spends ~396 ms
+  // serial `prepare` for ~37 ms of compute — a net ~310 ms loss vs CPU.
+  // CSV cpu_solo overstates batched CPU because it runs each MSM alone on
+  // a fresh 16-thread Pippenger, missing the bucket-setup amortization.
+  'CONCATENATED_RANGE_CONSTRAINTS_0@131071',
+  'CONCATENATED_RANGE_CONSTRAINTS_1@131071',
+  'CONCATENATED_RANGE_CONSTRAINTS_2@131071',
+  'CONCATENATED_RANGE_CONSTRAINTS_3@131071',
+  'CONCATENATED_NON_RANGE@131071',
+  'ORDERED_RANGE_CONSTRAINTS_0@131071',
+  'ORDERED_RANGE_CONSTRAINTS_1@131071',
+  'ORDERED_RANGE_CONSTRAINTS_2@131071',
+  'ORDERED_RANGE_CONSTRAINTS_3@131071',
+  'ORDERED_RANGE_CONSTRAINTS_4@131071',
+];
 
 interface ChonkWebGpuBenchPartialResult {
   flow: string;
@@ -551,9 +600,16 @@ async function runChonkSingleMode(
   // reliable capture point (mirrors runChonkMsmCsv's [msm-csv-cpu] capture).
   const wasmTrace = !useWebgpu && trace;
   const spanLines: string[] = [];
-  const loggerOverride = wasmTrace
+  // For the WASM run, also capture `[msm-csv-cpu]` lines so we can print a
+  // per-MSM CPU table at the end for the same MSMs the WebGPU button would
+  // delegate. msmCsvMode runs every MSM solo on native Pippenger (no batched
+  // amortisation) and is therefore slower than the production batched path —
+  // the printed `[bench-single]` line for mode='wasm' notes this explicitly.
+  const wasmCsvLines: string[] = [];
+  const loggerOverride = !useWebgpu
     ? (m: string) => {
-        if (m.includes('[msm-span]')) spanLines.push(m);
+        if (wasmTrace && m.includes('[msm-span]')) spanLines.push(m);
+        if (m.includes('[msm-csv-cpu]')) wasmCsvLines.push(m);
         logger.info(m);
       }
     : undefined;
@@ -567,7 +623,7 @@ async function runChonkSingleMode(
       witnesses,
       vks,
       functionNames,
-      /*msmCsvMode=*/ false,
+      /*msmCsvMode=*/ !useWebgpu,
       /*loggerOverride=*/ loggerOverride,
       /*msmDistributionMode=*/ false,
       /*webgpuMsmBlocklist=*/ useWebgpu ? blocklist : undefined,
@@ -581,13 +637,91 @@ async function runChonkSingleMode(
       console.info = origInfo;
     }
   }
-  logger.info(
-    `[bench-single] mode=${mode}: prove=${result.proveMs.toFixed(0)}ms verify=${result.verifyMs.toFixed(0)}ms verified=${result.verified} msmPhase=${result.msmPhaseMs.toFixed(0)}ms`,
-  );
+  if (useWebgpu) {
+    logger.info(
+      `[bench-single] mode=${mode}: prove=${result.proveMs.toFixed(0)}ms verify=${result.verifyMs.toFixed(0)}ms verified=${result.verified} msmPhase=${result.msmPhaseMs.toFixed(0)}ms`,
+    );
+  } else {
+    // Make it loud that the WASM MSM phase here is the csv-mode (solo-per-MSM)
+    // accumulator — overstates the production batched WASM Pippenger.
+    logger.info(
+      `[bench-single] mode=${mode} (csv mode — every MSM solo): prove=${result.proveMs.toFixed(0)}ms verify=${result.verifyMs.toFixed(0)}ms verified=${result.verified} msmPhase=${result.msmPhaseMs.toFixed(0)}ms`,
+    );
+    emitWasmPerMsmTable(wasmCsvLines, DEFAULT_WEBGPU_BLOCKLIST);
+  }
 
   const gpuPhase = useWebgpu ? aggregateGpuPhase(bridgeLines, result.msmPhaseMs) : undefined;
   const traceJson = wasmTrace ? buildWasmMsmTrace(spanLines) : undefined;
   return { flow, mode, adapter: adapterInfo, blocklist, result, vk, gpuPhase, traceJson };
+}
+
+/**
+ * Mirror of `webgpu_msm_should_delegate` + `is_label_blocked` in the C++ hook
+ * (barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/webgpu_msm_hook.{hpp,cpp}).
+ * Returns true iff the MSM at this `(label, n)` would be delegated to the
+ * WebGPU bridge under the given blocklist. Threshold matches the C++ default
+ * of `WEBGPU_MSM_THRESHOLD = 1 << 14`.
+ */
+const WEBGPU_MSM_THRESHOLD = 1 << 14;
+function isWebgpuEligible(label: string, n: number, blocklist: readonly string[]): boolean {
+  if (n < WEBGPU_MSM_THRESHOLD) return false;
+  for (const entry of blocklist) {
+    const at = entry.indexOf('@');
+    if (at === -1) {
+      if (label === entry) return false;
+    } else {
+      const lbl = entry.slice(0, at);
+      const nStr = entry.slice(at + 1);
+      const blockedN = Number(nStr);
+      if (!Number.isFinite(blockedN)) continue;
+      if (label === lbl && n === blockedN) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Parse the `[msm-csv-cpu]` lines captured during a WASM csv-mode prove and
+ * print a per-MSM table for the MSMs that the WebGPU run *would* delegate
+ * under the current blocklist (i.e. n ≥ threshold and not blocked). Sorted by
+ * sequence so the user can correlate with the bridge's `[msm]` lines from a
+ * separate WebGPU click. The `cpu_ms` column is csv-mode (solo) and overstates
+ * the batched-WASM cost — a fair comparison still needs the GPU side run
+ * separately, but the per-MSM ranking is a useful directional signal.
+ */
+function emitWasmPerMsmTable(lines: readonly string[], blocklist: readonly string[]): void {
+  const re = /\[msm-csv-cpu\]\s+name=(\S+)\s+n=(\d+)\s+cpu_ms=([\d.]+)/;
+  interface Row {
+    seq: number;
+    name: string;
+    n: number;
+    cpuMs: number;
+  }
+  const rows: Row[] = [];
+  let seq = 0;
+  for (const m of lines) {
+    const match = re.exec(m);
+    if (!match) continue;
+    rows.push({ seq: seq++, name: match[1], n: Number(match[2]), cpuMs: Number(match[3]) });
+  }
+  const selected = rows.filter(r => isWebgpuEligible(r.name, r.n, blocklist));
+  const totalMs = selected.reduce((s, r) => s + r.cpuMs, 0);
+  // Emit via `console.log` directly so the page's console sniffer (installed
+  // by setupChonkWebGpuPage at first click) captures these into the visible
+  // log window. The foundation `createLogger` is a Pino wrapper that may
+  // bind to the original `console.log` at module-init time — before the
+  // sniffer replaces it — so `logger.info()` would only land in DevTools.
+  console.log(
+    `[wasm-per-msm] ${selected.length} MSMs would be delegated under the current blocklist ` +
+      `(n ≥ ${WEBGPU_MSM_THRESHOLD}, label not in blocklist); cpu_solo_sum = ${totalMs.toFixed(0)} ms`,
+  );
+  // Padding chosen so the table lines up reasonably for the longest expected
+  // names (CONCATENATED_RANGE_CONSTRAINTS_0 = 32 chars).
+  for (const r of selected) {
+    console.log(
+      `  seq=${String(r.seq).padStart(3)}  name=${r.name.padEnd(34)}  n=${String(r.n).padStart(7)}  cpu_ms=${r.cpuMs.toFixed(2)}`,
+    );
+  }
 }
 
 interface TraceSpan {

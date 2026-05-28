@@ -534,6 +534,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                 const auto t0 = std::chrono::steady_clock::now();
                 auto r = batch_multi_scalar_mul_native(p, s, handle_edge_cases);
                 const auto t1 = std::chrono::steady_clock::now();
+                const auto delta_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
                 const double cpu_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
                 const std::string lbl = (labels.size() == batch_size) ? labels[i] : std::string("?");
                 // 4 decimal places — enough to distinguish microsecond-level
@@ -542,6 +543,12 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                 std::ostringstream oss;
                 oss << std::fixed << std::setprecision(4) << cpu_ms;
                 info("[msm-csv-cpu] name=", lbl, " n=", scalars[i].size(), " cpu_ms=", oss.str());
+                // Accumulate into the MSM-phase counter so the page still gets
+                // a non-zero `[msm-phase-total]` reading in csv mode. The csv
+                // path runs each MSM solo (no batched amortisation), so this
+                // total overestimates the production batched WASM phase — the
+                // page is expected to label it accordingly.
+                msm_phase_add_ns(static_cast<uint64_t>(delta_ns));
                 results.push_back(r[0]);
             }
             return results;

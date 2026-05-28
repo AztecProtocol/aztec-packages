@@ -75,24 +75,30 @@ bool msm_distribution_mode_enabled() noexcept;
 // report the exact cumulative MSM-phase time for a WASM run vs a WebGPU run.
 void msm_phase_add_ns(uint64_t ns) noexcept;
 
-// Runtime block-list of polynomial labels that should never be delegated to the
-// WebGPU bridge even when `webgpu_msm_runtime_enabled() == true`. Used to keep
-// known-pair-tree-hostile columns on the native CPU Pippenger — e.g. selectors
-// (`VK_PRECOMPUTED_POLY`) and small-integer counters (`LOOKUP_READ_TAGS`,
-// `LOOKUP_READ_COUNTS`) where the scalar distribution concentrates entries
-// into a single bucket and the pair-tree contract has the least margin. See
-// the distribution-mode CSV at `/tmp/zac-webgpu/chonk-delegate-eligible.md`
-// for the empirical case for each blocked label.
+// Runtime block-list of polynomial (label, size) pairs that should never be
+// delegated to the WebGPU bridge even when `webgpu_msm_runtime_enabled() == true`.
+// Used for two distinct reasons:
+//   1. Pair-tree-hostile distributions — selectors (`VK_PRECOMPUTED_POLY`) and
+//      small-integer counters (`LOOKUP_READ_TAGS`, `LOOKUP_READ_COUNTS`) where
+//      every scalar lands in one bucket and the GPU pair tree has no margin.
+//   2. Empirical no-win (label, n) pairs — same-label MSMs are great at one
+//      size and a wash at another (e.g. W_L is 4.3x at n=43314 but 1.24x at
+//      n=88899, where the WASM Pippenger is already saturating threads). For
+//      those the GPU spends real `prepare` time for no gain. See
+//      `/tmp/zac-webgpu/chonk-msm-cpu-vs-gpu-report.md`.
 //
-// `is_label_blocked` is queried per-MSM inside `batch_multi_scalar_mul_webgpu_bn254`
-// after the size threshold check; a `true` return routes that MSM through the
-// inline native Pippenger instead of the GPU batch. Default empty (no labels
-// blocked).
-bool is_label_blocked(std::string_view label) noexcept;
+// Each entry is either "LABEL" (block at any size) or "LABEL@N" (block only
+// when `n == N`). `is_label_blocked(label, n)` is queried per-MSM inside
+// `batch_multi_scalar_mul_webgpu_bn254` after the size threshold check; a
+// `true` return routes that MSM through the inline native Pippenger instead
+// of the GPU batch. Default empty (no labels blocked).
+bool is_label_blocked(std::string_view label, std::size_t n) noexcept;
 
-// Set the block-list from a comma-separated label list. Empty string clears it.
-// The labels are matched exactly against the per-MSM telemetry name passed
-// down from `commit_and_send_to_verifier(..., labels)`.
+// Set the block-list from a comma-separated list of entries. Each entry is
+// either "LABEL" (block every size of that label) or "LABEL@N" (block only
+// `n == N` of that label). Empty string clears the list. Labels must not
+// contain `,` or `@`; matching is exact against the per-MSM telemetry name
+// passed down from `commit_and_send_to_verifier(..., labels)`.
 void set_webgpu_msm_blocklist(std::string_view labels_csv) noexcept;
 
 // Emit one `[msm-dist] name=… n=… nnz=… density=… c=… maxbucket=… p99bucket=…
