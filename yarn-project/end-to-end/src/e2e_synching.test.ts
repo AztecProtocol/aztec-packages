@@ -633,7 +633,7 @@ describe('e2e_synching', () => {
           );
           for (let i = 0; i < contracts.length; i++) {
             expect(contractInstances[i]).not.toBeUndefined();
-            expect(contractClassIds.includes(contractInstances[i].currentContractClassId)).toBeTrue;
+            expect(contractClassIds.some(id => id.equals(contractInstances[i].currentContractClassId))).toBeTrue;
           }
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
@@ -649,8 +649,8 @@ describe('e2e_synching', () => {
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
-          expect(contractClassIdsAfter.includes(contractInstances[0].currentContractClassId)).toBeTrue;
-          expect(contractClassIdsAfter.includes(contractInstances[1].currentContractClassId)).toBeFalse;
+          expect(contractClassIdsAfter.some(id => id.equals(contractInstances[0].currentContractClassId))).toBeTrue;
+          expect(contractClassIdsAfter.some(id => id.equals(contractInstances[1].currentContractClassId))).toBeFalse;
           expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
           expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
           expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
