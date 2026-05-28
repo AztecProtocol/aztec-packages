@@ -101,7 +101,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
         // We emit an initialization nullifier to indicate that the struct is initialized. This also prevents the value
         // from being initialized again as a nullifier can be included only once.
         let nullifier = self.get_initialization_nullifier();
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
 
         create_note(self.context, self.owner, self.storage_slot, note)
     }

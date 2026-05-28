@@ -2,6 +2,7 @@ export * from './config.js';
 export * from './watchers/data_withholding_watcher.js';
 export * from './watchers/attestations_block_watcher.js';
 export * from './watchers/broadcasted_invalid_checkpoint_proposal_watcher.js';
+export * from './watchers/checkpoint_equivocation_watcher.js';
 export * from './slasher_client.js';
 export * from './slash_offenses_collector.js';
 export * from './slasher_client_interface.js';

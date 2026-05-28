@@ -251,13 +251,16 @@ case "$cmd" in
   network-bench)
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
+    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench"
     export INSTANCE_POSTFIX="n-bench"
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench $*"
     ;;
   network-proving-bench)
     # Args: <scenario> <namespace> [docker_image]
@@ -271,20 +274,25 @@ case "$cmd" in
     ;;
   network-block-capacity-bench)
     # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs block capacity benchmarks.
+    # Deploys network and runs block capacity benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-block-capacity-bench" CPUS=16
     export INSTANCE_POSTFIX="n-block-cap-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-block-capacity-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-block-capacity-bench $*"
     ;;
   network-bench-10tps)
     # Args: <scenario> <namespace> [docker_image]
     # Deploys the bench-10tps network and runs the 10-min 10 TPS benchmark.
+    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench-10tps" CPUS=16
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
     export INSTANCE_POSTFIX="n-bench-10tps"
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench-10tps $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench-10tps $*"
     ;;
   network-teardown)
     # Args: <scenario> <namespace>

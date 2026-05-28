@@ -67,8 +67,8 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 - Measured per epoch by the Sentinel for validators on the committee during that epoch.
 - Evaluated at the end of each epoch (plus a small buffer) without waiting for the epoch to be proven on L1, so inactive validators can be slashed regardless of prover availability.
 - Block re-execution is used to attribute fault between proposers and attestors based on what actually happened in each slot, rather than using attestation count as a proxy.
-- A validator is considered inactive for an epoch if their failure ratio meets or exceeds `SLASH_INACTIVITY_TARGET_PERCENTAGE` (default 0.8, meaning 80% or more duties missed).
-- Requires consecutive committee participation with inactivity: must be inactive for N consecutive epochs where they were on the committee (configured via `SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD`, default 2). Epochs where the validator was not on the committee are not counted, so a validator inactive in epochs 1, 3, and 5 meets the threshold for 3 consecutive inactive epochs even though epochs 2 and 4 are skipped.
+- A validator is considered inactive for an epoch if their failure ratio meets or exceeds `SLASH_INACTIVITY_TARGET_PERCENTAGE`.
+- Requires consecutive committee participation with inactivity: must be inactive for N consecutive epochs where they were on the committee (configured via `SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD`). Epochs where the validator was not on the committee are not counted, so a validator inactive in epochs 1, 3, and 5 meets the threshold for 3 consecutive inactive epochs even though epochs 2 and 4 are skipped.
 
 **Proposed penalty**: 1% of stake
 

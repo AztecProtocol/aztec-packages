@@ -40,7 +40,7 @@ describe('aztec-address', () => {
     it("reconstructs an address's point", async () => {
       const address = await AztecAddress.random();
       const point = await address.toAddressPoint();
-      expect(point.isOnGrumpkin()).toEqual(true);
+      expect(point.isOnCurve()).toEqual(true);
     });
 
     it('throws for an invalid address', async () => {

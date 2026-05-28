@@ -61,8 +61,8 @@ agent:
       HARDWARE_CONCURRENCY: "16"
     resources:
       requests:
-        cpu: "4"
-        memory: "16Gi"
+        cpu: "7.5"
+        memory: "28Gi"
       limits:
         cpu: "16"
         memory: "64Gi"
