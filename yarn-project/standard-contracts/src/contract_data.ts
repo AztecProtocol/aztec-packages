@@ -25,25 +25,25 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 /** Root of the noir-contracts package relative to `yarn-project/standard-contracts`. */
-export const noirContractsRoot = '../../noir-projects/noir-contracts';
+export const NOIR_CONTRACTS_ROOT = '../../noir-projects/noir-contracts';
 /** Directory holding the freshly-compiled Noir artifacts the generator reads from. */
-export const srcArtifactsPath = path.join(noirContractsRoot, './target');
+export const NOIR_ARTIFACTS_SRC_PATH = path.join(NOIR_CONTRACTS_ROOT, './target');
 /** Output directory inside this package where the trimmed artifacts get copied. */
-export const destArtifactsDir = './artifacts';
+export const STANDARD_ARTIFACTS_DEST_DIR = './artifacts';
 /** Path of the generated TS data file (addresses, class IDs, etc.). */
-export const outputFilePath = './src/standard_contract_data.ts';
+export const STANDARD_CONTRACT_DATA_OUTPUT_PATH = './src/standard_contract_data.ts';
 // Both consumers (aztec-nr's `aztec` crate and noir-contracts' `aztec_sublib`) need an identical
 // twin of the generated addresses module. `aztec_sublib` cannot depend on `aztec`, so we stamp the
 // same file into both locations rather than introducing a shared crate.
-export const noirAddressesPaths = [
+export const NOIR_STANDARD_ADDRESSES_PATHS = [
   '../../noir-projects/aztec-nr/aztec/src/standard_addresses.nr',
   '../../noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/standard_addresses.nr',
 ];
 
 /** The deployment salt baked into every standard contract instance. */
-export const salt = new Fr(1);
-/** Every standard contract is deployed by the zero address. */
-export const deployer = AztecAddress.zero();
+export const STANDARD_CONTRACT_SALT = new Fr(1);
+/** Every standard contract is deployed by the zero address (universal deploy). */
+export const STANDARD_CONTRACT_DEPLOYER = AztecAddress.zero();
 
 /**
  * Single source of truth for which contracts are "standard" (non-protocol, but with deterministic
@@ -78,7 +78,7 @@ export type ContractData = {
  * friendlier "run the build first" message.
  */
 export async function loadArtifact(srcName: string): Promise<NoirCompiledContract> {
-  const src = path.join(srcArtifactsPath, `${srcName}.json`);
+  const src = path.join(NOIR_ARTIFACTS_SRC_PATH, `${srcName}.json`);
   return JSON.parse(await fs.readFile(src, 'utf8')) as NoirCompiledContract;
 }
 
@@ -102,8 +102,8 @@ export async function computeContractData(artifact: NoirCompiledContract): Promi
     initializationHash,
     immutablesHash: Fr.ZERO,
     publicKeys: PublicKeys.default(),
-    salt,
-    deployer,
+    salt: STANDARD_CONTRACT_SALT,
+    deployer: STANDARD_CONTRACT_DEPLOYER,
   };
   const address = await computeContractAddressFromInstance(instance);
   return {

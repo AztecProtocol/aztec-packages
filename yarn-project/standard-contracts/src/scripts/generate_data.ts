@@ -16,10 +16,10 @@ import path from 'path';
 
 import {
   type ContractData,
+  NOIR_ARTIFACTS_SRC_PATH,
+  STANDARD_ARTIFACTS_DEST_DIR,
   computeContractData,
-  destArtifactsDir,
   loadArtifact,
-  srcArtifactsPath,
   standardContracts,
 } from '../contract_data.js';
 import { renderAllTargets, writeIfChanged } from '../drift.js';
@@ -28,9 +28,9 @@ const log = createConsoleLogger('autogenerate');
 
 async function clearDestDir() {
   try {
-    await fs.access(destArtifactsDir);
+    await fs.access(STANDARD_ARTIFACTS_DEST_DIR);
     // If the directory exists, remove it recursively.
-    await fs.rm(destArtifactsDir, { recursive: true, force: true, maxRetries: 3 });
+    await fs.rm(STANDARD_ARTIFACTS_DEST_DIR, { recursive: true, force: true, maxRetries: 3 });
   } catch (err: any) {
     if (err.code === 'ENOENT') {
       // If the directory does not exist, do nothing.
@@ -38,13 +38,13 @@ async function clearDestDir() {
       log(`Error removing dest directory: ${err}`);
     }
   }
-  await fs.mkdir(destArtifactsDir, { recursive: true });
+  await fs.mkdir(STANDARD_ARTIFACTS_DEST_DIR, { recursive: true });
 }
 
 async function copyArtifact(srcName: string, destName: string) {
   const artifact = await loadArtifact(srcName);
-  const src = path.join(srcArtifactsPath, `${srcName}.json`);
-  const dest = path.join(destArtifactsDir, `${destName}.json`);
+  const src = path.join(NOIR_ARTIFACTS_SRC_PATH, `${srcName}.json`);
+  const dest = path.join(STANDARD_ARTIFACTS_DEST_DIR, `${destName}.json`);
   await fs.copyFile(src, dest);
   return artifact;
 }
@@ -55,7 +55,7 @@ async function generateDeclarationFile(destName: string) {
     const circuit: NoirCompiledContract;
     export = circuit;
   `;
-  await fs.writeFile(path.join(destArtifactsDir, `${destName}.d.json.ts`), content);
+  await fs.writeFile(path.join(STANDARD_ARTIFACTS_DEST_DIR, `${destName}.d.json.ts`), content);
 }
 
 async function main() {

@@ -10,9 +10,9 @@ import path from 'path';
 
 import {
   type ContractData,
+  NOIR_ARTIFACTS_SRC_PATH,
   computeContractData,
   loadArtifact,
-  srcArtifactsPath,
   standardContracts,
 } from './contract_data.js';
 import { readIfExists, renderAllTargets } from './drift.js';
@@ -26,7 +26,7 @@ import {
 
 async function artifactExists(srcName: string): Promise<boolean> {
   try {
-    await fs.access(path.join(srcArtifactsPath, `${srcName}.json`));
+    await fs.access(path.join(NOIR_ARTIFACTS_SRC_PATH, `${srcName}.json`));
     return true;
   } catch {
     return false;
@@ -48,7 +48,7 @@ describe('standard_contract_data drift', () => {
       it(`${name}: derived address and class data match committed values`, async () => {
         if (!(await artifactExists(src))) {
           throw new Error(
-            `Artifact \`${src}.json\` not found under ${srcArtifactsPath}. ` +
+            `Artifact \`${src}.json\` not found under ${NOIR_ARTIFACTS_SRC_PATH}. ` +
               `Run \`./bootstrap.sh\` from the repo root to build noir-contracts first.`,
           );
         }
@@ -96,7 +96,7 @@ describe('standard_contract_data drift', () => {
     beforeAll(async () => {
       if (!(await allArtifactsExist())) {
         throw new Error(
-          `One or more standard-contract artifacts are missing under ${srcArtifactsPath}. ` +
+          `One or more standard-contract artifacts are missing under ${NOIR_ARTIFACTS_SRC_PATH}. ` +
             `Run \`./bootstrap.sh\` from the repo root to build noir-contracts first.`,
         );
       }

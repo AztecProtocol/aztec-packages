@@ -8,7 +8,13 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import * as prettier from 'prettier';
 
-import { type ContractData, noirAddressesPaths, outputFilePath, salt, standardContracts } from './contract_data.js';
+import {
+  type ContractData,
+  NOIR_STANDARD_ADDRESSES_PATHS,
+  STANDARD_CONTRACT_DATA_OUTPUT_PATH,
+  STANDARD_CONTRACT_SALT,
+  standardContracts,
+} from './contract_data.js';
 
 function generateNames(names: string[]) {
   return `
@@ -23,7 +29,7 @@ function generateNames(names: string[]) {
 function generateSalts(names: string[]) {
   return `
     export const StandardContractSalt: Record<StandardContractName, Fr> = {
-      ${names.map(name => `${name}: new Fr(${salt.toNumber()})`).join(',\n')}
+      ${names.map(name => `${name}: new Fr(${STANDARD_CONTRACT_SALT.toNumber()})`).join(',\n')}
     };
   `;
 }
@@ -151,14 +157,14 @@ export type RenderedTarget = { path: string; content: string };
  * comparison against this single function.
  */
 export async function renderAllTargets(names: string[], contractData: ContractData[]): Promise<RenderedTarget[]> {
-  const tsContent = await formatTs(outputFilePath, renderOutputFile(names, contractData));
+  const tsContent = await formatTs(STANDARD_CONTRACT_DATA_OUTPUT_PATH, renderOutputFile(names, contractData));
   const noirRows = standardContracts
     .map((c, i) => ({ nrConst: c.nrConst, address: contractData[i].address }))
     .filter((row): row is { nrConst: string; address: AztecAddress } => row.nrConst !== null);
   const noirContent = renderNoirAddresses(noirRows);
   return [
-    { path: outputFilePath, content: tsContent },
-    ...noirAddressesPaths.map(p => ({ path: p, content: noirContent })),
+    { path: STANDARD_CONTRACT_DATA_OUTPUT_PATH, content: tsContent },
+    ...NOIR_STANDARD_ADDRESSES_PATHS.map(p => ({ path: p, content: noirContent })),
   ];
 }
 

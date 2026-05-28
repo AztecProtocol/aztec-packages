@@ -178,9 +178,15 @@ export class FeesTest {
 
   public async applyBaseSetup() {
     await this.applyInitialAccounts();
+    await this.applyEnsureAuthRegistryPublished();
     await this.applyPublicDeployAccounts();
     await this.applySetupFeeJuice();
     await this.applyDeployBananaToken();
+  }
+
+  async applyEnsureAuthRegistryPublished() {
+    this.logger.info('Ensuring AuthRegistry published');
+    await ensureAuthRegistryPublished(this.wallet, this.aliceAddress);
   }
 
   async applyInitialAccounts() {
@@ -214,7 +220,6 @@ export class FeesTest {
 
   async applyPublicDeployAccounts() {
     this.logger.info('Applying public deploy accounts setup');
-    await ensureAuthRegistryPublished(this.wallet, this.aliceAddress);
     await publicDeployAccounts(this.wallet, this.accounts);
   }
 
