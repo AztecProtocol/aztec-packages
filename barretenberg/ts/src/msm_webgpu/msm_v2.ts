@@ -323,6 +323,7 @@ function hostWindowCombine(L: Pt[], c: number): Pt {
     Z = fsub(fsub(fmul(zH, zH), Z1Z1), HH);
     X = X3;
   }
+  if (Z === 0n) return { x: 0n, y: 0n };
   const zInv = modInverse(Z, FP);
   const zInv2 = fmul(zInv, zInv);
   return { x: fmul(X, zInv2), y: fmul(Y, fmul(zInv2, zInv)) };
@@ -1705,7 +1706,7 @@ export class MsmV2 {
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
     let numBatches = 1;
-    while (numBatches < NUM_WINDOWS && (estimateMem(numBatches) > MEM_BUDGET || !wgFits(numBatches))) numBatches++;
+    while (numBatches < NUM_WINDOWS && !wgFits(numBatches)) numBatches++;
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
