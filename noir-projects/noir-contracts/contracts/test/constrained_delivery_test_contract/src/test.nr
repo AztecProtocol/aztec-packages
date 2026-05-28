@@ -67,6 +67,26 @@ unconstrained fn handshake_returns_fresh_secret_at_index_zero() {
     assert_eq(second_index, 0);
 }
 
+// Bootstrap must seed the per-secret index counter, so a second message emitted under the freshly
+// bootstrapped handshake within the same tx advances to index 1 instead of resetting to 0 (which would
+// collide on `(secret, 0)`). This mirrors the `Some(secret)` branch, which seeds the counter via the same
+// oracle call.
+#[test]
+unconstrained fn bootstrap_seeds_index_counter_for_same_tx_reuse() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    let (secret, first_index, second_index) = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.resolve_then_next_index(registry_address, sender, recipient),
+    );
+
+    assert(secret != 0, "bootstrap should return a non-zero secret");
+    assert_eq(first_index, 0);
+    assert_eq(second_index, 1);
+}
+
 // Existing-handshake path: when a handshake already exists, the helper takes the `Some(secret)` branch and
 // (at index 0) calls `validate_handshake`, which completes here because the secret matches the stored note.
 #[test]

@@ -70,6 +70,13 @@ pub fn calculate_secret_and_index(
         let secret: Field = context
             .call_private_function(registry, selector, [sender.to_field(), recipient.to_field()])
             .get_preimage();
+
+        // Reserve index 0 for the freshly bootstrapped secret so the PXE seeds its per-secret counter, mirroring
+        // the `Some` branch. Without this, a later constrained message under the same secret restarts at index 0
+        // and collides on `(secret, 0)`.
+        // Safety: this only advances a PXE-side counter; the returned index is constrained to 0 below.
+        let index = unsafe { get_next_constrained_index(secret) };
+        assert(index == 0, "freshly bootstrapped secret must start at index 0");
         (secret, 0)
     } else {
         let secret = maybe_secret.unwrap_unchecked();
