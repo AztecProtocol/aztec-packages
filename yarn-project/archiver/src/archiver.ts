@@ -5,7 +5,7 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { merge } from '@aztec/foundation/collection';
+import { merge, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -346,12 +346,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   private async sync() {
     // Process any queued blocks first, before doing L1 sync
     await this.processInboundQueue();
-    // Prune orphan proposed blocks (block-only tips with no matching proposed checkpoint) on wall-clock
-    // time. Runs after the queue is drained so freshly-arrived proposed checkpoints are seen first, and
-    // before L1 sync so it fires even when L1 has not advanced.
-    await this.pruneOrphanProposedBlocks();
     // Now perform L1 sync
     await this.syncFromL1();
+    // Prune proposed blocks with no corresponding proposed checkpoint by the end of their build slot.
+    await this.pruneOrphanProposedBlocks();
   }
 
   /**
@@ -364,71 +362,87 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * should have arrived. This runs on wall-clock time (not L1 block advancement) so it fires during
    * quiet L1 periods, and is the liveness counterpart to the sequencer's checkSync guard.
    *
-   * Only the first uncheckpointed block is inspected: if its checkpoint is backed by a proposed
-   * checkpoint, the tip is legitimate and left for promotion (or for the L1-sync prune to clear if it
-   * later goes stale); if not, every uncheckpointed block chains off the orphan and is pruned.
+   * The uncheckpointed suffix is scanned in order. Blocks covered by proposed checkpoints are left in
+   * place; the first block not covered by a proposed checkpoint starts the orphan suffix to prune.
    */
   private async pruneOrphanProposedBlocks(): Promise<void> {
-    const [lastCheckpointedBlockNumber, lastProposedBlockNumber] = await Promise.all([
-      this.stores.blocks.getCheckpointedL2BlockNumber(),
-      this.stores.blocks.getLatestL2BlockNumber(),
-    ]);
-
-    // If there are no uncheckpointed blocks, we got nothing to do
-    if (lastProposedBlockNumber === lastCheckpointedBlockNumber) {
-      return;
-    }
-
-    const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
-    const firstUncheckpointedBlockData = await this.stores.blocks.getBlockData({
-      number: firstUncheckpointedBlockNumber,
-    });
-    if (firstUncheckpointedBlockData === undefined) {
-      return;
-    }
-
-    const blockCheckpointNumber = firstUncheckpointedBlockData.checkpointNumber;
-    const blockSlot = firstUncheckpointedBlockData.header.getSlot();
-
-    // A proposed checkpoint covering this block's checkpoint means the tip is not an orphan.
-    const proposedCheckpoint = await this.stores.blocks.getProposedCheckpointByNumber(blockCheckpointNumber);
-    if (proposedCheckpoint !== undefined) {
-      return;
-    }
-
-    // The proposed checkpoint should have landed by the start of the slot after the block's build slot
-    // (build slot = blockSlot - pipeliningOffset). Wait a grace period beyond that to tolerate propagation.
-    const pipeliningOffset = this.epochCache.pipeliningOffset();
-    const deadlineSlot = SlotNumber(Number(blockSlot) - pipeliningOffset + 1);
-    const pruneAfter =
-      getTimestampForSlot(deadlineSlot, this.l1Constants) + BigInt(this.config.orphanProposedBlockPruneGraceSeconds);
+    const tips = await this.getL2Tips();
     const now = BigInt(this.dateProvider.nowInSeconds());
-    if (now < pruneAfter) {
+    const pipeliningOffset = this.epochCache.pipeliningOffset();
+
+    // This only applies under pipelining
+    if (pipeliningOffset === 0) {
+      this.log.trace(`Pipelining offset is 0, skipping orphan proposed block pruning`);
       return;
     }
 
-    this.log.warn(
-      `Pruning orphan blocks after block ${lastCheckpointedBlockNumber}: block at slot ${blockSlot} belongs to ` +
-        `checkpoint ${blockCheckpointNumber} which has no matching proposed checkpoint`,
-      {
-        firstUncheckpointedBlockHeader: firstUncheckpointedBlockData.header.toInspect(),
-        blockCheckpointNumber,
-        blockSlot,
-        pipeliningOffset,
-        deadlineSlot,
-        pruneAfter,
-        now,
-      },
-    );
-
-    const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
-    if (prunedBlocks.length > 0) {
-      this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
-        type: L2BlockSourceEvents.L2PruneUncheckpointed,
-        slotNumber: blockSlot,
-        blocks: prunedBlocks,
-      });
+    // The proposed tip is a proposed-checkpointed block, so there are no orphan proposed blocks to prune
+    if (tips.proposedCheckpoint.block.number === tips.proposed.number) {
+      this.log.trace(
+        `No orphan proposed blocks to prune: proposed tip ${tips.proposed.number} is checkpointed`,
+        pick(tips, 'proposed', 'proposedCheckpoint'),
+      );
+      return;
     }
+
+    // Load the blocks that are candidates for pruning (ie blocks without a proposed checkpoint covering them)
+    const blocksWithoutProposedCheckpoint = await this.stores.blocks.getBlocksData({
+      from: BlockNumber(tips.proposedCheckpoint.block.number + 1),
+      limit: tips.proposed.number - tips.proposedCheckpoint.block.number,
+    });
+
+    // Iterate through them in order, the first one with a slot that should have received a proposed checkpoint
+    // is the first orphan block, and all blocks after it are also orphaned and should be pruned.
+    let lastSlotChecked = undefined;
+    for (const blockData of blocksWithoutProposedCheckpoint) {
+      // No need to recheck if this block had the same slot as the previous one.
+      const blockSlot = blockData.header.getSlot();
+      const blockNumber = blockData.header.getBlockNumber();
+      if (lastSlotChecked !== undefined && blockSlot === lastSlotChecked) {
+        continue;
+      }
+      lastSlotChecked = blockSlot;
+
+      // The proposed checkpoint should have landed by the start of the slot after the block's build slot
+      // (build slot = blockSlot - pipeliningOffset). Wait a grace period beyond that to tolerate propagation.
+      const expectedCheckpointedBySlot = SlotNumber(Number(blockSlot) - pipeliningOffset + 1);
+      const expectedCheckpointedByTime =
+        getTimestampForSlot(expectedCheckpointedBySlot, this.l1Constants) +
+        BigInt(this.config.orphanProposedBlockPruneGraceSeconds);
+
+      // If it's not checkpointed by the expected time, prune it along with all blocks after it.
+      if (now >= expectedCheckpointedByTime) {
+        const pruneAfterBlockNumber = BlockNumber(blockNumber - 1);
+        this.log.warn(
+          `Pruning orphan blocks after block ${pruneAfterBlockNumber}: block at slot ${blockSlot} belongs to ` +
+            `checkpoint ${blockData.checkpointNumber} which has no matching proposed checkpoint`,
+          {
+            firstUncheckpointedBlockHeader: blockData.header.toInspect(),
+            blockCheckpointNumber: blockData.checkpointNumber,
+            blockNumber,
+            blockSlot,
+            pipeliningOffset,
+            expectedCheckpointedBySlot,
+            expectedCheckpointedByTime,
+            now,
+          },
+        );
+
+        const prunedBlocks = await this.updater.removeBlocksWithoutProposedCheckpointAfter(pruneAfterBlockNumber);
+        if (prunedBlocks.length > 0) {
+          this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+            type: L2BlockSourceEvents.L2PruneUncheckpointed,
+            slotNumber: blockSlot,
+            blocks: prunedBlocks,
+          });
+        }
+        return;
+      }
+    }
+
+    this.log.trace('No orphan proposed blocks to prune: all uncheckpointed blocks are still within the grace period', {
+      blocksWithoutProposedCheckpoint: blocksWithoutProposedCheckpoint.map(b => b.header.toInspect()),
+    });
   }
 
   private async syncFromL1() {

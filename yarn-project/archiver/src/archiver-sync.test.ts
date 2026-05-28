@@ -20,6 +20,7 @@ import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -2172,6 +2173,7 @@ describe('Archiver Sync', () => {
 
     // Wall-clock time (seconds) at which the orphan tip becomes prunable: start(orphanSlot) + grace.
     const pruneDeadline = () => now + Number(orphanSlot) * l1Constants.slotDuration + graceSeconds;
+    const pruneDeadlineForSlot = (slot: SlotNumber) => now + Number(slot) * l1Constants.slotDuration + graceSeconds;
 
     // Syncs checkpoint 1 (slot 0), then writes uncheckpointed blocks for slot 1 (checkpoint 2) straight
     // into the store as a block-only tip with no matching proposed checkpoint. L1 is held at slot 1 so
@@ -2195,7 +2197,7 @@ describe('Archiver Sync', () => {
         slotNumber: orphanSlot,
       });
       for (const block of provisionalBlocks) {
-        await archiverStore.blocks.addProposedBlock(block, { force: true });
+        await archiver.addBlock(block);
       }
 
       // Hold L1 at slot 1 so the slot has not ended from L1's perspective.
@@ -2267,6 +2269,38 @@ describe('Archiver Sync', () => {
       expect(pruneSpy).not.toHaveBeenCalled();
       expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
       expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeDefined();
+    }, 15_000);
+
+    it('prunes only the orphan suffix after a covered pending checkpoint', async () => {
+      const { lastBlockInCp1, provisionalBlocks: checkpointTwoBlocks } = await setupOrphanTip();
+
+      await archiver.addProposedCheckpoint(makeProposedCheckpoint(lastBlockInCp1, checkpointTwoBlocks.length));
+
+      const orphanSuffixSlot = SlotNumber(orphanSlot + 1);
+      const { checkpoint: orphanSuffixCheckpoint } = await mockCheckpointAndMessages(CheckpointNumber(3), {
+        startBlockNumber: BlockNumber(checkpointTwoBlocks.at(-1)!.number + 1),
+        numBlocks: 1,
+        previousArchive: checkpointTwoBlocks.at(-1)!.archive,
+        slotNumber: orphanSuffixSlot,
+      });
+      const orphanSuffixBlocks = orphanSuffixCheckpoint.blocks;
+      for (const block of orphanSuffixBlocks) {
+        await archiver.addBlock(block);
+      }
+
+      dateProvider.setTime((pruneDeadlineForSlot(orphanSuffixSlot) + 1) * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2PruneUncheckpointed,
+          slotNumber: orphanSuffixSlot,
+          blocks: expect.arrayContaining(orphanSuffixBlocks.map(b => expect.objectContaining({ number: b.number }))),
+        }),
+      );
+      expect(await archiver.getBlockNumber()).toEqual(checkpointTwoBlocks.at(-1)!.number);
+      expect(await archiverStore.blocks.getProposedCheckpointByNumber(CheckpointNumber(2))).toBeDefined();
+      expect(await archiverStore.blocks.getProposedCheckpointByNumber(CheckpointNumber(3))).toBeUndefined();
     }, 15_000);
   });
 });

@@ -262,12 +262,36 @@ export class ArchiverDataStoreUpdater {
         );
       }
 
-      const result = await this.removeBlocksAfter(blockNumber);
+      const prunedBlocks = await this.removeBlocksAfter(blockNumber);
+      await this.evictProposedCheckpointsForPrunedBlocks(prunedBlocks);
 
-      // Clear all pending proposed checkpoints since their blocks have been pruned
-      await this.stores.blocks.deleteProposedCheckpoints();
+      return prunedBlocks;
+    });
+    await this.l2TipsCache?.refresh();
+    return result;
+  }
 
-      return result;
+  /**
+   * Removes all blocks without a proposed checkpoint strictly after the specified block number and cleans up associated contract data.
+   * This handles removal of provisionally added blocks along with their contract classes/instances.
+   * Verifies that each block being removed is not part of a stored checkpoint (proposed or not).
+   * This differs from `removeUncheckpointedBlocksAfter` in that it also checks proposed checkpoints.
+   *
+   * @param blockNumber - Remove all blocks with number greater than this.
+   * @returns The removed blocks.
+   * @throws Error if any block to be removed is checkpointed.
+   */
+  public async removeBlocksWithoutProposedCheckpointAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
+    const result = await this.stores.db.transactionAsync(async () => {
+      // Verify we're only removing uncheckpointed blocks
+      const lastCheckpointedBlockNumber = await this.stores.blocks.getProposedCheckpointL2BlockNumber();
+      if (blockNumber < lastCheckpointedBlockNumber) {
+        throw new Error(
+          `Cannot remove blocks after ${blockNumber} because proposed checkpointed blocks exist up to ${lastCheckpointedBlockNumber}`,
+        );
+      }
+
+      return await this.removeBlocksAfter(blockNumber);
     });
     await this.l2TipsCache?.refresh();
     return result;
