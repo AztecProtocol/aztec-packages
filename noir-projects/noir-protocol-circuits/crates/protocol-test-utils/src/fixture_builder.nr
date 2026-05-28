@@ -59,9 +59,9 @@ use types::{
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_TX_LIFETIME, MAX_U32_VALUE,
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
-        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        MEGA_APP_VK_LENGTH_IN_FIELDS, MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_CALL_REQUEST_LENGTH,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
+        SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -81,7 +81,10 @@ use types::{
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
     point::Point,
-    proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
+    proof::{
+        verification_key::{MegaAppVerificationKey, MegaKernelVerificationKey, VerificationKey},
+        vk_data::VkData,
+    },
     public_keys::PublicKeys,
     side_effect::{Counted, Ordered, Scoped},
     storage::map::derive_storage_slot_in_map,
@@ -160,7 +163,12 @@ pub struct FixtureBuilder {
     pub prover_id: Field,
 
     // Proof.
-    pub vk: MegaVerificationKey,
+    // FixtureBuilder is shared across app-circuit and kernel-circuit fixtures, which carry
+    // distinct slim Mega VK shapes (147 vs 139 fields). We keep both so a single fixture can be
+    // turned into either `to_private_call_data` (app) or `to_private_kernel_data` (kernel)
+    // without re-typing.
+    pub vk: MegaAppVerificationKey,
+    pub vk_kernel: MegaKernelVerificationKey,
     pub vk_index: u32,
     pub vk_path: [Field; VK_TREE_HEIGHT],
     pub vk_tree_root: Field,
@@ -239,11 +247,15 @@ impl FixtureBuilder {
     }
 
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
-        let vk_data = get_vk_data(vk_index);
+        // Same vk_index/path applies to both fixtures; only the VK shape differs (147 vs 139).
+        // `get_vk_data` is generic in `VkLen`, so an explicit turbofish picks the right shape.
+        let vk_data_app: VkData<MEGA_APP_VK_LENGTH_IN_FIELDS> = get_vk_data(vk_index);
+        let vk_data_kernel: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS> = get_vk_data(vk_index);
 
         self.vk_index = vk_index;
-        self.vk = vk_data.vk;
-        self.vk_path = vk_data.sibling_path;
+        self.vk = vk_data_app.vk;
+        self.vk_kernel = vk_data_kernel.vk;
+        self.vk_path = vk_data_app.sibling_path;
 
         *self
     }
@@ -298,7 +310,7 @@ impl FixtureBuilder {
     pub fn use_function(
         &mut self,
         function_data: ContractFunction,
-        vk: [Field; MEGA_VK_LENGTH_IN_FIELDS],
+        vk: [Field; MEGA_APP_VK_LENGTH_IN_FIELDS],
     ) -> Self {
         self.function_data = function_data.data;
         self.function_leaf_membership_witness = function_data.membership_witness;
@@ -626,7 +638,11 @@ impl FixtureBuilder {
         let public_inputs = self.to_private_kernel_circuit_public_inputs();
         PrivateKernelData {
             public_inputs,
-            vk_data: VkData { vk: self.vk, leaf_index: self.vk_index, sibling_path: self.vk_path },
+            vk_data: VkData {
+                vk: self.vk_kernel,
+                leaf_index: self.vk_index,
+                sibling_path: self.vk_path,
+            },
         }
     }
 

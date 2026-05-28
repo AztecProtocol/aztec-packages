@@ -1,7 +1,7 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_BLOCK_END,
+        MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_BLOCK_END,
         PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX, PRIVATE_KERNEL_RESET_TAIL_VK_INDEX,
         PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
     },
@@ -11,7 +11,7 @@ use crate::{
 
 pub struct PrivateKernelData {
     pub public_inputs: PrivateKernelCircuitPublicInputs,
-    pub vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelData {
@@ -81,7 +81,7 @@ impl PrivateKernelData {
 }
 
 pub struct PrivateKernelDataWithoutPublicInputs {
-    pub vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelDataWithoutPublicInputs {

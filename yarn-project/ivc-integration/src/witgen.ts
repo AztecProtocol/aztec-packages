@@ -2,7 +2,8 @@ import { CircuitKind } from '@aztec/bb.js';
 import {
   AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   AVM_V2_PROOF_LENGTH_IN_FIELDS,
-  MEGA_VK_LENGTH_IN_FIELDS,
+  MEGA_APP_VK_LENGTH_IN_FIELDS,
+  MEGA_KERNEL_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -96,14 +97,13 @@ export {
 
 const log = createLogger('aztec:ivc-test');
 
-export async function getVkAsFields({
-  keyAsFields,
-}: {
-  keyAsFields: string[];
-}): Promise<VerificationKey<typeof MEGA_VK_LENGTH_IN_FIELDS>> {
+export async function getVkAsFields<N extends number>(
+  { keyAsFields }: { keyAsFields: string[] },
+  length: N,
+): Promise<VerificationKey<N>> {
   const key = keyAsFields.map(f => Fr.fromString(f));
   const vk = await VerificationKeyAsFields.fromKey(key);
-  return mapVerificationKeyToNoir(vk, MEGA_VK_LENGTH_IN_FIELDS);
+  return mapVerificationKeyToNoir(vk, length);
 }
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
@@ -281,7 +281,7 @@ export async function generateTestingIVCStack(
     const result = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appResult.publicInputs,
       tx,
-      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }),
+      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }, MEGA_APP_VK_LENGTH_IN_FIELDS),
     });
     pushCircuit(
       result.witness,
@@ -298,9 +298,9 @@ export async function generateTestingIVCStack(
   const createInner = async (appResult: WitnessGenResult<AppPublicInputs>, appVkAsFields: string[]) => {
     const result = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: previousKernel.publicInputs,
-      kernel_vk: await getVkAsFields(previousKernel),
+      kernel_vk: await getVkAsFields(previousKernel, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
       app_inputs: appResult.publicInputs,
-      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }),
+      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }, MEGA_APP_VK_LENGTH_IN_FIELDS),
     });
     pushCircuit(
       result.witness,
@@ -317,7 +317,7 @@ export async function generateTestingIVCStack(
   const createReset = async (commitmentToReset: string[]) => {
     const result = await witnessGenMockPrivateKernelResetCircuit({
       prev_kernel_public_inputs: previousKernel.publicInputs,
-      kernel_vk: await getVkAsFields(previousKernel),
+      kernel_vk: await getVkAsFields(previousKernel, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
       commitment_read_hints: padArrayEnd(
         commitmentToReset.map(r => commitments.findIndex(c => c === r)!.toString(16)),
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
@@ -368,7 +368,7 @@ export async function generateTestingIVCStack(
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: previousKernel!.publicInputs,
-    kernel_vk: await getVkAsFields(previousKernel!),
+    kernel_vk: await getVkAsFields(previousKernel!, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   });
   pushCircuit(
     tailWitnessGenResult.witness,
@@ -379,7 +379,7 @@ export async function generateTestingIVCStack(
 
   const hidingWitnessGenResult = await witnessGenMockHidingCircuit({
     prev_kernel_public_inputs: tailWitnessGenResult.publicInputs,
-    kernel_vk: await getVkAsFields(MockPrivateKernelTailVk),
+    kernel_vk: await getVkAsFields(MockPrivateKernelTailVk, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   });
   pushCircuit(
     hidingWitnessGenResult.witness,
@@ -424,12 +424,11 @@ export function mapVerificationKeyToNoir<N extends number>(
   key: FixedLengthArray<string, N>;
   hash: string;
 } {
-  if (vk.key.length > len) {
-    throw new Error(`Expected at most ${len} fields, got ${vk.key.length}`);
+  if (len !== vk.key.length) {
+    throw new Error(`Verification key length ${len} does not match expected length ${vk.key.length}`);
   }
-  const paddedKey = padArrayEnd(vk.key, Fr.ZERO, len);
   return {
-    key: paddedKey.map(field => field.toString()) as FixedLengthArray<string, N>,
+    key: vk.key.map(field => field.toString()) as FixedLengthArray<string, N>,
     hash: vk.hash.toString(),
   };
 }
