@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "barretenberg/ecc/groups/booth_recode.hpp"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -34,85 +36,20 @@
 
 namespace bb::scalar_multiplication::round_parallel_detail {
 
-/**
- * @brief Per-window precomputed slice parameters for the carry-less signed-Booth window
- *        recoding (after Constantine `signedWindowEncoding` / `getSignedFullWindowAt`,
- *        `constantine/math/arithmetic/bigints.nim`). Computed once per window by the
- *        caller; the per-scalar hot path is then fixed bit-twiddling with no per-iteration
- *        slice address arithmetic.
- *        Carry-less because every non-bottom window's c+1-bit read shares its boundary bit
- *        with the previous window — the bit a non-overlapping recoder would carry.
- *
- * `slice_localised_to_one_u64`: true iff every bit of the c+1-bit window lives inside a
- * single uint64 limb. Most windows on typical 254-bit scalars with c in [12, 19]
- * (lookback bits at non-boundary positions) hit this and take the fast path: one load,
- * one shift, one mask. The slow path is the boundary-straddling case + the synthetic-
- * lookback bottom window.
- */
-struct ConstantineSliceParams {
-    uint32_t lo_mask;
-    uint32_t hi_mask;
-    uint32_t lo_limb;
-    uint32_t hi_limb; // == lo_limb + 1, except clamped to last valid limb at the top window
-    uint32_t lo_off;
-    uint32_t lo_bits;
-    bool slice_localised_to_one_u64;
-};
+// Bring the shared signed-Booth slice primitive (from ecc/groups/booth_recode.hpp) into
+// this namespace so the MSM-specific readers below can call it unqualified. The same
+// primitive is also used by the GLV-endo straus path in element_impl.hpp; only the
+// MSM-specific u32-indexed variant and perf-tuned packed-digit readers stay local.
+using bb::ecc::booth::BoothSliceParams;
+using bb::ecc::booth::compute_booth_slice_params;
 
-/**
- * @brief Compute the Constantine slice params for a window starting at absolute bit position
- *        `bit_offset` (= Σ_{k<w} window_bits_k under variable-window, or w·window_bits under
- *        uniform-window). The slice is `[bit_offset - 1, bit_offset + window_bits)`; the bit at
- *        bit_offset - 1 is the shared boundary bit. The bottom window (bit_offset == 0) is
- *        encoded specially so the same recoding algebra applies.
- */
-[[nodiscard]] inline ConstantineSliceParams compute_constantine_slice_params(size_t bit_offset,
-                                                                             size_t window_bits,
-                                                                             size_t num_uint64_limbs) noexcept
+// Backward-compat aliases for the MSM-local names; the canonical definitions live in
+// ecc/groups/booth_recode.hpp and are pulled in by the using-declarations above.
+using ConstantineSliceParams = BoothSliceParams;
+[[nodiscard]] [[gnu::always_inline]] inline ConstantineSliceParams compute_constantine_slice_params(
+    size_t bit_offset, size_t window_bits, size_t num_uint64_limbs) noexcept
 {
-    constexpr size_t LIMB_BITS = 64;
-    ConstantineSliceParams sp;
-    if (bit_offset == 0) {
-        // Bottom window: the boundary bit below the LSB is a synthetic 0. Encode this by
-        // reading "limb -1" as a zero-masked load (lo_mask = 0), then reading window_bits
-        // bits from limb 0 into the hi side and shifting them left by 1. This puts the
-        // window_bits-bit window at bits 1..window_bits with bit 0 = 0, matching the inner-
-        // loop body used by every other window. Not localised — the synthetic-lookback
-        // assembly only works in the slow path.
-        sp.lo_limb = 0; // safe in-range, but masked to 0
-        sp.hi_limb = 0; // = scalar limb 0
-        sp.lo_off = LIMB_BITS - 1;
-        sp.lo_bits = 1; // shifts hi_part left by 1, planting the window_bits-bit window at bits 1..window_bits
-        sp.lo_mask = 0; // lo_part contributes nothing
-        sp.hi_mask = (uint32_t{ 1 } << window_bits) - 1;
-        sp.slice_localised_to_one_u64 = false;
-    } else {
-        const size_t lookback_bit = bit_offset - 1;
-        const size_t bits_to_read = window_bits + 1;
-        sp.lo_limb = static_cast<uint32_t>(lookback_bit / LIMB_BITS);
-        sp.lo_off = static_cast<uint32_t>(lookback_bit & (LIMB_BITS - 1));
-        sp.lo_bits = static_cast<uint32_t>(LIMB_BITS - sp.lo_off < bits_to_read ? LIMB_BITS - sp.lo_off : bits_to_read);
-        const uint32_t hi_bits = static_cast<uint32_t>(bits_to_read) - sp.lo_bits;
-        // window_bits+1 ≤ 32 for our windows ⇒ lo_bits ≤ 32 ⇒ mask fits in uint32.
-        sp.lo_mask = (uint32_t{ 1 } << sp.lo_bits) - 1;
-        // If the natural hi-limb read would land past the end of the scalar's storage,
-        // clamp `hi_limb` to a safe in-range index and mask its contribution to zero. The
-        // top window's hi_bits worth of bits are conceptually zero (scalar < 2^num_bits ≤
-        // num_windows·window_bits). Re-reading lo_limb under a zero mask keeps the slow
-        // path's two unconditional limb loads branch-free.
-        if (static_cast<size_t>(sp.lo_limb) + 1 >= num_uint64_limbs) {
-            sp.hi_limb = sp.lo_limb;
-            sp.hi_mask = 0;
-        } else {
-            sp.hi_limb = sp.lo_limb + 1;
-            sp.hi_mask = (uint32_t{ 1 } << hi_bits) - 1;
-        }
-        // Fast path: the full (window_bits+1)-bit window lives inside `lo_limb`. hi_bits == 0
-        // captures both the in-limb case (window doesn't straddle a 64-bit boundary) and the
-        // clamped top-window case (above) where hi_mask was forced to 0.
-        sp.slice_localised_to_one_u64 = (hi_bits == 0);
-    }
-    return sp;
+    return compute_booth_slice_params(bit_offset, window_bits, num_uint64_limbs);
 }
 
 /**
