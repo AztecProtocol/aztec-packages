@@ -53,6 +53,39 @@ describe('syncSenderTaggingIndexes', () => {
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
   });
 
+  it('updates the highest finalized index for a constrained secret', async () => {
+    await setUp();
+    // Override unconstrained secret from `setUp`
+    secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
+
+    const finalizedIndex = 3;
+    const finalizedTag = await computeSiloedTagForIndex(finalizedIndex);
+    const finalizedTxHash = TxHash.random();
+
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => (tag.equals(finalizedTag) ? [makeLog(finalizedTxHash, finalizedTag.value)] : [])),
+      );
+    });
+
+    aztecNode.getTxReceipt.mockResolvedValue(
+      new TxReceipt(
+        finalizedTxHash,
+        TxStatus.FINALIZED,
+        TxExecutionResult.SUCCESS,
+        undefined,
+        undefined,
+        undefined,
+        BlockNumber(14),
+      ),
+    );
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(finalizedIndex);
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(finalizedIndex);
+  });
+
   // These tests need to be run together in sequence.
   describe('sequential tests', () => {
     const finalizedIndexStep1 = 3;
