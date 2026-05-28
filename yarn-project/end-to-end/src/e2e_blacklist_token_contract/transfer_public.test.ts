@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/aztec.js/fields';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
@@ -9,7 +9,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.setup({ ...PIPELINING_SETUP_OPTS });
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
     await t.applyMint();
     // Have to destructure again to ensure we have latest refs.

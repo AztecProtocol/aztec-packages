@@ -5,7 +5,6 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxHash } from '@aztec/aztec.js/tx';
 import type { CheatCodes } from '@aztec/aztec/testing';
-import { retryUntil } from '@aztec/foundation/retry';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
@@ -77,20 +76,13 @@ export class BlacklistTokenContractTest {
   }
 
   async crossTimestampOfChange() {
-    let targetTimestamp = 0n;
-
-    await this.context.aztecNodeAdmin.pauseSequencer();
-    try {
-      await this.waitForProposedChainToSettle();
-      await this.markCheckpointedChainAsProven();
-
-      targetTimestamp =
-        BigInt(await this.cheatCodes.eth.lastBlockTimestamp()) + BigInt(BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
-      await this.cheatCodes.eth.warp(targetTimestamp, { resetBlockInterval: true });
-    } finally {
-      await this.context.aztecNodeAdmin.resumeSequencer();
-    }
-    await this.waitForCheckpointedTimestamp(targetTimestamp);
+    // Under AUTOMINE_E2E_OPTS, the 86400s warp crosses many epochs without any proofs being
+    // submitted. Mark current pending checkpoints as proven first so the rollup contract's
+    // pruning window doesn't reset the chain tip to genesis (which would make the warp's
+    // own empty-checkpoint propose fail with Rollup__InvalidArchive). See the AutomineSequencer
+    // README "Epoch proving caveat" and the equivalent pattern in lending_simulator.progressSlots.
+    await this.cheatCodes.rollup.markAsProven();
+    await this.cheatCodes.warpL2TimeAtLeastBy(this.aztecNode, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
   }
 
   /**
@@ -163,15 +155,11 @@ export class BlacklistTokenContractTest {
 
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh context');
-    this.context = await setup(
-      0,
-      {
-        ...opts,
-        fundSponsoredFPC: true,
-        skipAccountDeployment: true,
-      },
-      { syncChainTip: 'checkpointed' },
-    );
+    this.context = await setup(0, {
+      ...opts,
+      fundSponsoredFPC: true,
+      skipAccountDeployment: true,
+    });
     await this.applyBaseSetup();
   }
 
@@ -251,40 +239,5 @@ export class BlacklistTokenContractTest {
     const { result: totalSupply } = await asset.methods.total_supply().simulate({ from: this.adminAddress });
     this.logger.verbose(`Total supply: ${totalSupply}`);
     expect(totalSupply).toEqual(tokenSim.totalSupply);
-  }
-
-  private async markCheckpointedChainAsProven() {
-    const targetBlock = await this.aztecNode.getBlockNumber('checkpointed');
-    await this.cheatCodes.rollup.markAsProven();
-    await retryUntil(
-      async () => (await this.aztecNode.getBlockNumber('proven')) >= targetBlock,
-      'blacklist token proven checkpoint sync',
-      120,
-      1,
-    );
-  }
-
-  private async waitForProposedChainToSettle() {
-    await retryUntil(
-      async () => {
-        const tips = await this.aztecNode.getChainTips();
-        return tips.proposed.number <= tips.checkpointed.block.number;
-      },
-      'blacklist token proposed chain settlement',
-      120,
-      1,
-    );
-  }
-
-  private async waitForCheckpointedTimestamp(targetTimestamp: bigint) {
-    await retryUntil(
-      async () => {
-        const block = await this.aztecNode.getBlock('checkpointed');
-        return block && block.header.globalVariables.timestamp >= targetTimestamp;
-      },
-      `blacklist token checkpointed timestamp ${targetTimestamp}`,
-      120,
-      1,
-    );
   }
 }

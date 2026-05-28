@@ -1,13 +1,13 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest, Role } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
   beforeAll(async () => {
-    await t.setup({ ...PIPELINING_SETUP_OPTS });
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
   });
 
   afterAll(async () => {
