@@ -28,40 +28,6 @@ gcp_auth
 # Second pass: source environment with GCP secret processing
 source_network_env "$env_file"
 
-resolve_keda_prometheus_address() {
-  if [[ "${PROVER_ENABLED:-true}" != "true" || "${PROVER_AGENT_KEDA_ENABLED:-false}" != "true" ]]; then
-    return
-  fi
-
-  if [[ -n "${PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS:-}" ]]; then
-    echo "Using configured PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS=$PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS"
-    return
-  fi
-
-  if [[ "${CLUSTER:-}" == kind* ]]; then
-    return
-  fi
-
-  telemetry_dir="$spartan/terraform/deploy-telemetry"
-  echo "Resolving KEDA Prometheus server address from deploy-telemetry Terraform output..."
-  terraform -chdir="$telemetry_dir" init -reconfigure >/dev/null
-
-  local prometheus_url
-  if ! prometheus_url=$(terraform -chdir="$telemetry_dir" output -raw prometheus_internal_url 2>/dev/null); then
-    echo "PROVER_AGENT_KEDA_ENABLED=true requires deploy-telemetry to expose prometheus_internal_url, or set PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS explicitly" >&2
-    exit 1
-  fi
-
-  if [[ -z "$prometheus_url" ]]; then
-    echo "deploy-telemetry prometheus_internal_url output is empty" >&2
-    exit 1
-  fi
-
-  export PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS="$prometheus_url"
-  echo "Using KEDA Prometheus server address from deploy-telemetry: $PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS"
-}
-
-resolve_keda_prometheus_address
 
 # Optional: provision per-network IP + managed cert (+ DNS record in the delegated
 # rpc.aztec-labs.com zone) via the network-frontend terraform module. The module's
