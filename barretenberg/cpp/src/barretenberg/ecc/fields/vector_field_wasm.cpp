@@ -1,14 +1,16 @@
-// This file is auto-generated from vector_field.hpp's operator* WASM SIMD body.
-// It is compiled as a separate TU for the WASM build only, so that LLVM's
-// backend sees operator* as a standalone function (not inlined into the bench
-// loop / caller), giving it the same register allocation scope the gist's
-// hand-written WAT function gets. Inlining across ~2400 lines of carefully
-// ordered ops lets LLVM's instruction scheduler re-coalesce locals and
-// recreate the stream-reorder problem we solved with asm barriers.
+// Explicit out-of-line specialization of `VectorField<Bn254FrParams>::operator*`
+// for the WASM build. Compiled as a separate TU so LLVM emits it as a standalone
+// function (not inlined into callers), giving it the same register-allocation
+// scope the gist's hand-written WAT function gets — inlining across ~2400 lines
+// of carefully ordered ops lets LLVM's instruction scheduler re-coalesce locals
+// and recreate the stream-reorder problem the asm barriers solve.
 //
-// The body below is verbatim from `VectorField<Bn254FrParams>::operator*`
-// in vector_field.hpp; only the template/inline attributes are stripped and
-// it's specialized for Bn254FrParams.
+// The body below is the same kernel structure as a primary-template
+// `VectorField<Params>::operator*` instantiation would produce, except (a) it
+// is hand-maintained here as the canonical source (no generator script), and
+// (b) the explicit specialization on `Bn254FrParams` lets it stay isolated
+// from the primary template. Subsequent PRs may add specializations for other
+// Params (e.g. `Bn254FqParams`) using the same pattern.
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/fields/vector_field.hpp"
