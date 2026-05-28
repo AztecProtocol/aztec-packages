@@ -70,8 +70,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 - A validator is considered inactive for an epoch if their failure ratio meets or exceeds `SLASH_INACTIVITY_TARGET_PERCENTAGE`.
 - Requires consecutive committee participation with inactivity: must be inactive for N consecutive epochs where they were on the committee (configured via `SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD`). Epochs where the validator was not on the committee are not counted, so a validator inactive in epochs 1, 3, and 5 meets the threshold for 3 consecutive inactive epochs even though epochs 2 and 4 are skipped.
 
-**Proposed penalty**: 1% of stake
-
 **Note**: Requires the Sentinel to be enabled (`SENTINEL_ENABLED=true`).
 
 ### 2. Data withholding
@@ -83,8 +81,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 - If any are missing, the validators who attested to the checkpoint are flagged.
 - The check runs regardless of whether the epoch is eventually proven. Slashing still applies if the data was withheld, to prevent committees from striking side deals with specific provers by releasing data only to them.
 
-**Proposed penalty**: 0% (disabled for initial deployment)
-
 **Responsibility**: Validators who attested to the checkpoint.
 
 ### 3. Broadcasted invalid block proposal
@@ -93,8 +89,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 
 **Detection criteria**: Detected by validators during proposal validation, for example when a transaction in the proposal fails validation or the proposed block header is structurally invalid.
 
-**Proposed penalty**: 1% of stake
-
 **Responsibility**: The proposer who broadcast the invalid block.
 
 ### 4. Broadcasted invalid checkpoint proposal
@@ -102,8 +96,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 **What it is**: A proposer broadcast an invalid checkpoint proposal over the P2P network. This includes the AZIP-7 "submitting a block proposal after the checkpoint" case, because a later block signed by the same proposer in the same slot makes the prior checkpoint retroactively invalid.
 
 **Detection criteria**: Detected when the checkpoint terminates before a higher-index block proposal signed by the same proposer in the same slot, when the signed header does not match deterministic validator recomputation, or when the fee asset price modifier is malformed.
-
-**Proposed penalty**: 1% of stake
 
 **Responsibility**: The proposer who broadcast the invalid checkpoint.
 
@@ -115,8 +107,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 - Block published to L1 has fewer than 2/3 + 1 attestations from the committee.
 - Your node detects this through L1 block validation.
 
-**Proposed penalty**: 1% of stake
-
 **Responsibility**: The proposer who published the block.
 
 ### 6. Proposed incorrect attestations
@@ -126,8 +116,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 **Detection criteria**:
 - Block contains attestations with invalid ECDSA signatures.
 - Block contains signatures from addresses not in the committee.
-
-**Proposed penalty**: 1% of stake
 
 **Responsibility**: The proposer who published the block.
 
@@ -139,8 +127,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 - Your node has previously identified a checkpoint as having invalid or insufficient attestations.
 - A later proposer publishes a descendant checkpoint to L1 on top of it.
 
-**Proposed penalty**: 1% of stake
-
 **Responsibility**: The proposer of the descendant checkpoint. Under pipelining, the next proposer may have started building optimistically before the prior checkpoint's signatures were submitted to L1, so only the proposer who actually publishes the descendant checkpoint to L1 is slashed.
 
 ### 8. Attested to invalid checkpoint proposal
@@ -151,8 +137,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 - Your node detected an invalid block proposal for the slot via re-execution.
 - A committee member subsequently attested to a checkpoint covering that slot.
 
-**Proposed penalty**: 1% of stake
-
 **Responsibility**: Committee members who attested in the invalid proposal slot.
 
 ### 9. Duplicate proposal
@@ -160,8 +144,6 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 **What it is**: A proposer broadcast multiple block or checkpoint proposals for the same position with different content (equivocation).
 
 **Detection criteria**: Detected at the P2P layer by the AttestationPool, which tracks proposals by position (slot plus `indexWithinCheckpoint` for blocks, or slot for checkpoints). A second proposal for the same position with a different archive flags the duplicate.
-
-**Proposed penalty**: 1% of stake
 
 **Responsibility**: The proposer who broadcast the duplicate proposal.
 
@@ -171,92 +153,11 @@ Your sequencer automatically detects and votes to slash the following offenses. 
 
 **Detection criteria**: Detected at the P2P layer when conflicting attestations are observed from the same signer for the same slot.
 
-**Proposed penalty**: 1% of stake
-
 **Responsibility**: The attestor.
 
 ## Configuring Your Sequencer for Slashing
 
-The slashing module runs automatically when your sequencer is enabled. You can configure its behavior using environment variables or the node's admin API. Remember to enable the Sentinel if you want to detect inactivity offenses.
-
-### Environment Variables
-
-Your sequencer comes pre-configured with default slashing settings. You can optionally override these defaults by setting environment variables before starting your node.
-
-**Default configuration:**
-
-```bash
-# Grace period - offenses during the first N slots are not slashed
-SLASH_GRACE_PERIOD_L2_SLOTS=128  # Default: first round is grace period
-
-# Inactivity detection (requires SENTINEL_ENABLED=true)
-SLASH_INACTIVITY_TARGET_PERCENTAGE=0.8  # Slash if miss ratio >= 80%
-SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD=2  # Must be inactive in 2+ consecutive epochs where they were on the committee
-SLASH_INACTIVITY_PENALTY=2000000000000000000000  # 2000 tokens (1%)
-
-# Sentinel configuration (required for inactivity detection)
-SENTINEL_ENABLED=true  # Must be true to detect inactivity offenses
-SENTINEL_HISTORY_LENGTH_IN_EPOCHS=100  # Track 100 epochs of history
-
-# Data withholding (disabled by default)
-SLASH_DATA_WITHHOLDING_PENALTY=0  # Set to >0 to enable
-SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS=3  # Full L2 slots to wait after a checkpoint's slot before declaring its txs missing
-
-# Invalid proposals
-SLASH_INVALID_BLOCK_PENALTY=2000000000000000000000  # 2000 tokens
-SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY=2000000000000000000000  # 2000 tokens
-SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY=2000000000000000000000  # 2000 tokens (covers insufficient and incorrect attestations)
-SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY=2000000000000000000000  # 2000 tokens
-
-# Attestor offenses
-SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY=2000000000000000000000  # 2000 tokens
-
-# Equivocation
-SLASH_DUPLICATE_PROPOSAL_PENALTY=2000000000000000000000  # 2000 tokens
-SLASH_DUPLICATE_ATTESTATION_PENALTY=2000000000000000000000  # 2000 tokens
-
-# Offense expiration
-SLASH_OFFENSE_EXPIRATION_ROUNDS=4  # Offenses older than 4 rounds are dropped
-
-# Execution behavior
-SLASH_EXECUTE_ROUNDS_LOOK_BACK=4  # Check 4 rounds back for executable slashing rounds
-```
-
-### Runtime Configuration via API
-
-You can update slashing configuration while your node is running using the `nodeAdmin_setConfig` method:
-
-**CLI Method**:
-
-```bash
-curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "jsonrpc":"2.0",
-    "method":"nodeAdmin_setConfig",
-    "params":[{
-      "slashInactivityPenalty":"2000000000000000000000",
-      "slashInactivityTargetPercentage":0.9
-    }],
-    "id":1
-  }'
-```
-
-**Docker Method**:
-
-```bash
-docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "jsonrpc":"2.0",
-    "method":"nodeAdmin_setConfig",
-    "params":[{
-      "slashInactivityPenalty":"2000000000000000000000",
-      "slashInactivityTargetPercentage":0.9
-    }],
-    "id":1
-  }'
-```
+The slashing module runs automatically when your sequencer is enabled.
 
 ### Excluding Validators from Slashing
 
@@ -302,11 +203,9 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   }'
 ```
 
-Look for fields starting with `slash` in the response to verify your settings.
+## Automatic Slashing
 
-## How Automatic Slashing Works
-
-Once configured, your sequencer handles slashing automatically:
+Your sequencer handles slashing automatically:
 
 ### 1. Continuous Offense Detection
 
