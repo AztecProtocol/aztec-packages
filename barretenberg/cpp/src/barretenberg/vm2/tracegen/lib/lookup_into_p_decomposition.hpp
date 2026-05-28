@@ -14,10 +14,10 @@ template <typename LookupSettings> class LookupIntoPDecomposition : public Index
     using TupleType = typename IndexedLookupTraceBuilder<LookupSettings>::TupleType;
     uint32_t find_in_dst(const TupleType& tup) const override
     {
-        static const std::array<uint32_t, 257> cumulative_p_limb_index = []() {
-            std::array<uint32_t, 257> sums;
+        static const std::array<uint32_t, NUM_RADIXES> cumulative_p_limb_index = []() {
+            std::array<uint32_t, NUM_RADIXES> sums;
             sums[0] = 0;
-            for (size_t i = 1; i < 257; ++i) {
+            for (size_t i = 1; i < NUM_RADIXES; ++i) {
                 sums[i] = sums[i - 1] + static_cast<uint32_t>(get_p_limbs_per_radix_size(i - 1));
             }
             return sums;
