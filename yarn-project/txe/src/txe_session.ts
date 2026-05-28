@@ -34,6 +34,8 @@ import {
   resolveAssertionMessageFromError,
   toACVMWitness,
 } from '@aztec/simulator/client';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -274,6 +276,14 @@ export class TXESession implements TXESessionStateHandler {
       new Map(),
     );
     await topLevelOracleHandler.advanceBlocksBy(1);
+
+    // Standard contracts (auth registry, public checks) were previously protocol contracts and thus implicitly
+    // deployed. Since their demotion they are ordinary deterministic-address contracts that must be published in each
+    // environment. Aztec.nr hardcodes their canonical addresses (e.g. public authwit calls the auth registry), so we
+    // deploy them here to keep them available to every test without explicit setup.
+    for (const { artifact, instance } of [await getStandardAuthRegistry(), await getStandardPublicChecks()]) {
+      await topLevelOracleHandler.deploy(artifact, instance, Fr.ZERO);
+    }
 
     return new TXESession(
       logger,
