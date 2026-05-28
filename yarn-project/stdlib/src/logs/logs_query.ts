@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { BlockHash } from '../block/block_hash.js';
-import { MAX_LOGS_PER_TAG } from '../interfaces/api_limit.js';
+import { MAX_LOGS_PER_TAG, MAX_RPC_LEN } from '../interfaces/api_limit.js';
 import { type ZodFor, schemas, zodFor } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { LogCursor } from './log_cursor.js';
@@ -52,7 +52,7 @@ export type LogsQueryBase = {
  * in input order.
  */
 export type PrivateLogsQuery = LogsQueryBase & {
-  /** Tags to query. Required and non-empty. */
+  /** Tags to query. Between 1 and {@link MAX_RPC_LEN} entries (inclusive). */
   tags: TagQuery<SiloedTag>[];
 };
 
@@ -63,7 +63,7 @@ export type PrivateLogsQuery = LogsQueryBase & {
 export type PublicLogsQuery = LogsQueryBase & {
   /** Contract address that emitted the logs. Required for public queries. */
   contractAddress: AztecAddress;
-  /** Tags to query. Required and non-empty. */
+  /** Tags to query. Between 1 and {@link MAX_RPC_LEN} entries (inclusive). */
   tags: TagQuery<Tag>[];
 };
 
@@ -116,7 +116,10 @@ export const PrivateLogsQuerySchema: ZodFor<PrivateLogsQuery> = refineTxHashAndR
   zodFor<PrivateLogsQuery>()(
     z.object({
       ...logsQueryBaseShape,
-      tags: z.array(tagQuerySchema(SiloedTag.schema)).min(1),
+      tags: z
+        .array(tagQuerySchema(SiloedTag.schema))
+        .min(1)
+        .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` }),
     }),
   ),
 );
@@ -126,7 +129,10 @@ export const PublicLogsQuerySchema: ZodFor<PublicLogsQuery> = refineTxHashAndRan
     z.object({
       ...logsQueryBaseShape,
       contractAddress: schemas.AztecAddress,
-      tags: z.array(tagQuerySchema(Tag.schema)).min(1),
+      tags: z
+        .array(tagQuerySchema(Tag.schema))
+        .min(1)
+        .max(MAX_RPC_LEN, { message: `tags must have at most ${MAX_RPC_LEN} entries` }),
     }),
   ),
 );
