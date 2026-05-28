@@ -104,13 +104,14 @@ describe('getAllPrivateLogsByTags', () => {
     expect(aztecNode.getPrivateLogsByTags).not.toHaveBeenCalled();
   });
 
-  it('forwards options (fromBlock/toBlock/includeEffects) to the node', async () => {
+  it('forwards options (fromBlock/toBlock/includeEffects/limitPerTag) to the node', async () => {
     aztecNode.getPrivateLogsByTags.mockResolvedValue(tags.map(() => []));
 
     await getAllPrivateLogsByTags(aztecNode, tags, MOCK_ANCHOR_BLOCK_HASH, {
       fromBlock: BlockNumber(5),
       toBlock: BlockNumber(10),
       includeEffects: true,
+      limitPerTag: 3,
     });
 
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledWith({
@@ -119,6 +120,7 @@ describe('getAllPrivateLogsByTags', () => {
       fromBlock: BlockNumber(5),
       toBlock: BlockNumber(10),
       includeEffects: true,
+      limitPerTag: 3,
     });
   });
 

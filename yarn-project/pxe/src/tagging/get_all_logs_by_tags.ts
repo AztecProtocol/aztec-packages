@@ -12,7 +12,7 @@ import {
   queryAllPublicLogsByTags,
 } from '@aztec/stdlib/logs';
 
-/** Optional block-range and effects opt-in shared by both wrappers. */
+/** Optional block-range, effects opt-in, and pagination cap shared by both wrappers. */
 export type GetAllLogsByTagsOptions = {
   /** Lower block bound, inclusive. */
   fromBlock?: BlockNumber;
@@ -24,6 +24,12 @@ export type GetAllLogsByTagsOptions = {
    * / `LogRetrievalResponse` from note data.
    */
   includeEffects?: boolean;
+  /**
+   * Maximum number of logs returned per tag per round-trip. Capped at `MAX_LOGS_PER_TAG` on the node
+   * (rejected if higher). Defaults to `MAX_LOGS_PER_TAG`. Mainly useful for tests that need to force
+   * pagination at a small page size.
+   */
+  limitPerTag?: number;
 };
 
 /**
@@ -75,6 +81,7 @@ export function getAllPrivateLogsByTags<Opts extends GetAllLogsByTagsOptions = G
         fromBlock: options.fromBlock,
         toBlock: options.toBlock,
         includeEffects: options.includeEffects ?? false,
+        limitPerTag: options.limitPerTag,
       }) as Promise<LogResult<Opts>[][]>,
   );
 }
@@ -107,6 +114,7 @@ export function getAllPublicLogsByTagsFromContract<Opts extends GetAllLogsByTags
         fromBlock: options.fromBlock,
         toBlock: options.toBlock,
         includeEffects: options.includeEffects ?? false,
+        limitPerTag: options.limitPerTag,
       }) as Promise<LogResult<Opts>[][]>,
   );
 }
