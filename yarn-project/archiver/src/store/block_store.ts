@@ -1152,7 +1152,11 @@ export class BlockStore {
     if (!txEffect) {
       return undefined;
     }
-    const { l2BlockNumber, txIndexInBlock } = deserializeIndexedTxEffect(txEffect);
+    // Read only the IndexedTxEffect header (`blockHash(32) + l2BlockNumber(4) + txIndexInBlock(4)`); the
+    // large tail (the full TxEffect with logs etc.) is irrelevant here.
+    const view = Buffer.from(txEffect.buffer, txEffect.byteOffset, txEffect.byteLength);
+    const l2BlockNumber = view.readUInt32BE(32);
+    const txIndexInBlock = view.readUInt32BE(36);
     return [l2BlockNumber, txIndexInBlock];
   }
 

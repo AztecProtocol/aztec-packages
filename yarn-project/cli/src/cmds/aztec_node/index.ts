@@ -64,12 +64,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .addOption(nodeOption)
     .option('--follow', 'If set, will keep polling for new logs until interrupted.')
-    .action(
-      async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, tag, aztecNodeRpcUrl: nodeUrl, follow }) => {
-        const { getLogs } = await import('./get_logs.js');
-        await getLogs({ txHash, fromBlock, toBlock, afterLog, contractAddress, tag, nodeUrl, follow, log });
-      },
-    );
+    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, tag, nodeUrl, follow }) => {
+      const { getLogs } = await import('./get_logs.js');
+      await getLogs({ txHash, fromBlock, toBlock, afterLog, contractAddress, tag, nodeUrl, follow, log });
+    });
 
   program
     .command('block-number')
