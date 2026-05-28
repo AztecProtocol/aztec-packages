@@ -4,6 +4,7 @@ import {
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
   ba_stream_accum_debug as ba_stream_accum_debug_shader,
+  ba_recompute_split as ba_recompute_split_shader,
   ba_planner_classify as ba_planner_classify_shader,
   ba_planner_meta_fixup as ba_planner_meta_fixup_shader,
   ba_planner_radix_count as ba_planner_radix_count_shader,
@@ -842,6 +843,30 @@ ${packLines.join('\n')}
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_accum_debug_shader,
+      {
+        inv_fn, p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  public gen_ba_recompute_split_shader(variant: 'loop' | 'pk' = 'pk'): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_recompute_split_shader,
       {
         inv_fn, p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,

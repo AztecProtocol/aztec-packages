@@ -1157,6 +1157,9 @@ export class MsmV2 {
   private debugAccumPipe!: GPUComputePipeline;
   private debugAccumBind!: GPUBindGroup;
   private debugAccumLayout!: GPUBindGroupLayout;
+  private splitRecomputePipe!: GPUComputePipeline;
+  private splitRecomputeBind!: GPUBindGroup;
+  private splitRecomputeLayout!: GPUBindGroupLayout;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
   private classifyBind!: GPUBindGroup;
   private metaFixupBind!: GPUBindGroup;
@@ -1450,6 +1453,7 @@ export class MsmV2 {
     m.streamAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
     m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    m.splitRecomputeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1536,6 +1540,9 @@ export class MsmV2 {
     m.debugAccumPipe = await compile(
       sm.gen_ba_stream_accum_debug_shader(INV_VARIANT),
       `debug-accum`, m.debugAccumLayout);
+    m.splitRecomputePipe = await compile(
+      sm.gen_ba_recompute_split_shader(INV_VARIANT),
+      `split-recompute`, m.splitRecomputeLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2030,6 +2037,8 @@ export class MsmV2 {
       this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);
       const debugParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
       this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
+      const splitParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, 0, 0]));
+      this.splitRecomputeBind = mkBind(this.splitRecomputeLayout, [pbl, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, splitParams]);
     }
 
     this.redStaging = device.createBuffer({

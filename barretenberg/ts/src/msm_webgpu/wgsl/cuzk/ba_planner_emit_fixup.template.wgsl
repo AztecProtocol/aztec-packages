@@ -71,6 +71,10 @@ fn main() {
     planner_meta[16] = max(sb_count, 1u);
     planner_meta[17] = 1u;
     planner_meta[18] = 1u;
+    // split-recompute dispatch args: ceil(sb_count / 256) workgroups (1 thread per split)
+    planner_meta[20] = max((sb_count + 255u) / 256u, 1u);
+    planner_meta[21] = 1u;
+    planner_meta[22] = 1u;
 
     {{{ recompile }}}
 }
