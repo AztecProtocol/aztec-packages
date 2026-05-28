@@ -8,8 +8,10 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/ecc/groups/element.hpp"
+#include "barretenberg/ecc/fields/vector_field.hpp"
+#include "barretenberg/ecc/groups/k5_msm_helpers.hpp"
 #include "element.hpp"
+#include <array>
 #include <cstdint>
 
 // NOLINTBEGIN(readability-implicit-bool-conversion, cppcoreguidelines-avoid-c-arrays)
@@ -776,6 +778,11 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
  *          generic batch_affine_add_impl is called with lhs_base == rhs_base (the compiler cannot prove that writes
  *          to `output` don't alias reads from `lhs`, forcing unnecessary reloads).
  *
+ *          Under WASM SIMD with the BN254 base field, runs a 5-wide q1s1 forward+backward pass (5 lane
+ *          accumulators interleaving 5 independent batch-inversion chains via VectorField<Bn254FqParams>),
+ *          plus a scalar K=1 tail for points not covered by a full 10-point group. Below K5_MIN_POINTS or
+ *          on non-WASM targets, degenerates to the original single-accumulator path.
+ *
  * @param points     Interleaved array: [lhs0, rhs0, lhs1, rhs1, ...]. Results written to top half.
  * @param num_points Total number of points (must be even). Number of pairs = num_points / 2.
  * @param scratch_space Temporary storage for batch inversion, size >= num_points / 2.
@@ -785,13 +792,66 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
                                                                         const size_t num_points,
                                                                         Fq* scratch_space) noexcept
 {
-    Fq batch_inversion_accumulator = Fq::one();
+    // K=5 dispatch: only when WASM SIMD is wired AND the base field has a VectorField
+    // operator* specialization. Below K5_MIN_POINTS the per-group setup (gather/scatter,
+    // batch-inversion split tree) outweighs the per-mul savings, so we keep the original
+    // K=1 path. Threshold + trait live in k5_msm_helpers.hpp.
+    constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
+    const size_t k5_pair_groups =
+        (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS_ADD) ? ((num_points >> 1) / 5) : size_t{ 0 };
+    const size_t k5_points = k5_pair_groups * 10;
 
-    // Forward pass: accumulate (x2 - x1) products for batch inversion
-    for (size_t i = 0; i < num_points; i += 2) {
-        scratch_space[i >> 1] = points[i].x + points[i + 1].x; // x1 + x2 (saved for later)
-        points[i + 1].x -= points[i].x;                        // x2 - x1
-        points[i + 1].y -= points[i].y;                        // y2 - y1
+    Fq batch_inversion_accumulator = Fq::one();
+    // Populated by K=5 forward (from the packed acc_lanes_vec at loop exit) and consumed
+    // by the K=5 backward prefix-product tree. Left uninitialized when CAN_USE_K5 is
+    // false — the backward K=5 block is gated by the same constexpr predicate.
+    std::array<Fq, 5> acc_lanes;
+
+    // ---------------------------------------------------------------------
+    // K=5 forward pass. Per group of 10 points, two 5-wide muls:
+    //   y_lane *= acc_lane    (5-wide)
+    //   acc_lane *= x_lane    (5-wide)
+    // Each lane k threads its own independent batch-inversion chain through the groups.
+    //
+    // `acc_lanes_vec` stays in packed (VFq) form across iterations — round-tripping
+    // through AoS each group costs two transposes per iter (one to write, one to
+    // re-read), and BrowserStack-ARM measurement showed the hoist is a real win.
+    // Collapse to a single scalar Fq via one final to_array() + 4 muls once the loop exits.
+    // ---------------------------------------------------------------------
+    if constexpr (CAN_USE_K5) {
+        using VFq = VectorField<Bn254FqParams>;
+        VFq acc_lanes_vec = VFq::broadcast(Fq::one());
+        std::array<Fq, 5> y_buf; // (y2 - y1) per lane in current group
+        std::array<Fq, 5> x_buf; // (x2 - x1) per lane in current group
+        for (size_t g = 0; g < k5_pair_groups; ++g) {
+            const size_t i = g * 10;
+            for (size_t k = 0; k < 5; ++k) {
+                const size_t pi = i + (2 * k);
+                scratch_space[pi >> 1] = points[pi].x + points[pi + 1].x; // x1 + x2 (saved for backward)
+                points[pi + 1].x -= points[pi].x;                         // x2 - x1
+                points[pi + 1].y -= points[pi].y;                         // y2 - y1
+                y_buf[k] = points[pi + 1].y;
+                x_buf[k] = points[pi + 1].x;
+            }
+            std::array<Fq, 5> y_out = (VFq(y_buf) * acc_lanes_vec).to_array();
+            for (size_t k = 0; k < 5; ++k) {
+                points[i + (2 * k) + 1].y = y_out[k];
+            }
+            acc_lanes_vec = acc_lanes_vec * VFq(x_buf);
+        }
+        acc_lanes = acc_lanes_vec.to_array();
+        batch_inversion_accumulator = acc_lanes[0] * acc_lanes[1] * acc_lanes[2] * acc_lanes[3] * acc_lanes[4];
+    }
+
+    // ---------------------------------------------------------------------
+    // K=1 forward tail. When k5_points == 0 (CAN_USE_K5 false or batch too
+    // small), batch_inversion_accumulator stays at Fq::one() and this runs
+    // from i=0, recovering the original K=1 path exactly.
+    // ---------------------------------------------------------------------
+    for (size_t i = k5_points; i < num_points; i += 2) {
+        scratch_space[i >> 1] = points[i].x + points[i + 1].x;
+        points[i + 1].x -= points[i].x;
+        points[i + 1].y -= points[i].y;
         points[i + 1].y *= batch_inversion_accumulator;
         batch_inversion_accumulator *= points[i + 1].x;
     }
@@ -801,8 +861,13 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
     }
     batch_inversion_accumulator = batch_inversion_accumulator.invert();
 
-    // Backward pass: complete inversions and compute additions
-    for (size_t i = num_points - 2; i < num_points; i -= 2) {
+    // ---------------------------------------------------------------------
+    // K=1 backward tail. Walks down from num_points to k5_points, unwinding
+    // the tail's contribution to batch_inversion_accumulator. After this
+    // loop completes, batch_inversion_accumulator = 1 / (prod of acc_lanes).
+    // ---------------------------------------------------------------------
+    for (size_t i = num_points; i > k5_points;) {
+        i -= 2;
         // lambda = (y2 - y1) / (x2 - x1)
         points[i + 1].y *= batch_inversion_accumulator;
         batch_inversion_accumulator *= points[i + 1].x;
@@ -810,7 +875,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
         // x3 = lambda^2 - (x1 + x2)
         points[(i + num_points) >> 1].x = points[i + 1].x - scratch_space[i >> 1];
 
-        if (i >= 2) {
+        if (i >= k5_points + 2) {
             __builtin_prefetch(points + i - 2);
             __builtin_prefetch(points + i - 1);
             __builtin_prefetch(points + ((i + num_points - 2) >> 1));
@@ -821,6 +886,85 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
         points[i].x -= points[(i + num_points) >> 1].x;
         points[i].x *= points[i + 1].y;
         points[(i + num_points) >> 1].y = points[i].x - points[i].y;
+    }
+
+    // ---------------------------------------------------------------------
+    // K=5 backward pass. Split batch_inversion_accumulator into 5 per-lane
+    // inverses via the standard batch-inversion product tree, then walk
+    // groups in reverse order with 5-wide muls. Each group does 4 muls (vs
+    // the 4 muls/pair × 5 pairs = 20 scalar muls of K=1).
+    //
+    // `inv_state` stays packed across the reverse loop for the same reason
+    // the forward `acc_lanes_vec` does. Lambda is materialized to AoS each
+    // group because the subsequent x3 = lambda^2 − (x1+x2) and y3 = lambda·(…)
+    // − y1 steps mix scalar arithmetic with the packed multiplies.
+    // ---------------------------------------------------------------------
+    if constexpr (CAN_USE_K5) {
+        if (k5_pair_groups == 0) {
+            return;
+        }
+        using VFq = VectorField<Bn254FqParams>;
+
+        // One pack at loop entry; the helper returns AoS so we materialize once and then
+        // keep `inv_state` packed for the rest of the backward sweep.
+        std::array<Fq, 5> inv_lanes_init = k5_msm::compute_lane_inverses(acc_lanes, batch_inversion_accumulator);
+        VFq inv_state(inv_lanes_init);
+
+        for (size_t g_rev = k5_pair_groups; g_rev > 0; --g_rev) {
+            const size_t g = g_rev - 1;
+            const size_t i = g * 10;
+
+            // Snapshot ALL reads from `points` before any writes to upper-half output slots.
+            // Critical: the output slot (pi + num_points) >> 1 for one lane's pair may collide
+            // with the input slot pi or pi+1 of a LATER lane in the same group when k5_points
+            // exceeds num_points/2 (typical for large MSM bucket sizes). Without snapshotting,
+            // a write at lane k_write clobbers a read at lane k_read > k_write, corrupting y3.
+            std::array<Fq, 5> y_buf;          // (y2 - y1) * acc_old per lane (stored at points[pi+1].y)
+            std::array<Fq, 5> x_buf;          // x2 - x1 per lane (stored at points[pi+1].x)
+            std::array<Fq, 5> x1_buf;         // original lhs x1 (points[pi].x)
+            std::array<Fq, 5> y1_buf;         // original lhs y1 (points[pi].y)
+            std::array<Fq, 5> x1_plus_x2_buf; // x1 + x2 (saved in scratch by forward)
+            for (size_t k = 0; k < 5; ++k) {
+                const size_t pi = i + (2 * k);
+                y_buf[k] = points[pi + 1].y;
+                x_buf[k] = points[pi + 1].x;
+                x1_buf[k] = points[pi].x;
+                y1_buf[k] = points[pi].y;
+                x1_plus_x2_buf[k] = scratch_space[pi >> 1];
+            }
+
+            // lambda = y_buf * inv_state  (5-wide). Materialize lambda — needed for the
+            // scalar x3 / y3 prep that follows.
+            std::array<Fq, 5> lambda_buf = (VFq(y_buf) * inv_state).to_array();
+
+            // inv_state *= x_buf — unwinds inv for the previous group's lane k. Stays packed
+            // across iterations: no `.to_array()` here.
+            inv_state = inv_state * VFq(x_buf);
+
+            // lambda_sq = lambda * lambda  (5-wide)
+            VFq vec_lambda(lambda_buf);
+            std::array<Fq, 5> lambda_sq = (vec_lambda * vec_lambda).to_array();
+
+            // x3 = lambda^2 - (x1 + x2);  x1_minus_x3 = x1 - x3   (scalar prep)
+            std::array<Fq, 5> x3_buf;
+            std::array<Fq, 5> x1_minus_x3_buf;
+            for (size_t k = 0; k < 5; ++k) {
+                x3_buf[k] = lambda_sq[k] - x1_plus_x2_buf[k];
+                x1_minus_x3_buf[k] = x1_buf[k] - x3_buf[k];
+            }
+
+            // ly = lambda * (x1 - x3)  (5-wide)
+            std::array<Fq, 5> ly = (vec_lambda * VFq(x1_minus_x3_buf)).to_array();
+
+            // y3 = ly - y1 (scalar); write x3 / y3 to compressed output positions. All input
+            // reads are now from snapshot buffers — writes can safely clobber points[pi+1] and
+            // even points[pi] / scratch_space[pi >> 1] without affecting later lanes.
+            for (size_t k = 0; k < 5; ++k) {
+                const size_t pi = i + (2 * k);
+                points[(pi + num_points) >> 1].x = x3_buf[k];
+                points[(pi + num_points) >> 1].y = ly[k] - y1_buf[k];
+            }
+        }
     }
 }
 
@@ -837,16 +981,75 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
  *
  * @note This is the "unsafe" fast path. For general point doubling with edge case handling,
  *       use Jacobian arithmetic or check for edge cases before calling this function.
+ *
+ * Under WASM SIMD with the BN254 base field, runs a 5-wide q1s1 forward+backward pass (5 lane
+ * accumulators interleaving 5 independent batch-inversion chains via VectorField<Bn254FqParams>),
+ * plus a scalar K=1 tail for points not covered by a full 5-point group. Below K5_MIN_POINTS or
+ * on non-WASM targets, degenerates to the original single-accumulator path.
  */
 template <typename AffineElement, typename Fq, typename T>
 __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElement* points,
                                                                     const size_t num_points,
                                                                     Fq* scratch_space) noexcept
 {
-    Fq batch_inversion_accumulator = Fq::one();
+    constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
+    const size_t k5_groups =
+        (CAN_USE_K5 && num_points >= k5_msm::K5_MIN_POINTS_DOUBLE) ? (num_points / 5) : size_t{ 0 };
+    const size_t k5_points = k5_groups * 5;
 
-    // Forward pass: prepare batch inversion
-    for (size_t i = 0; i < num_points; ++i) {
+    // Populated by K=5 forward (from packed acc_lanes_vec at loop exit) and consumed by
+    // the K=5 backward prefix-product tree. Left uninitialized when CAN_USE_K5 is false.
+    std::array<Fq, 5> acc_lanes;
+
+    // ---------------------------------------------------------------------
+    // K=5 forward pass. Per group of 5 points, three 5-wide muls:
+    //   x_sq    = x * x         (5-wide sqr)
+    //   scratch = (3*x_sq) * acc (5-wide mul; 3*x_sq via scalar adds)
+    //   acc    *= 2y            (5-wide mul)
+    // Each lane k threads its own independent batch-inversion chain through the groups.
+    //
+    // `acc_lanes_vec` stays packed across iterations — same hoist as
+    // batch_affine_add_interleaved's forward pass; drops one AoS↔packed round-trip
+    // per group. Materialize to AoS once at loop exit.
+    // ---------------------------------------------------------------------
+    Fq batch_inversion_accumulator;
+    if constexpr (CAN_USE_K5) {
+        using VFq = VectorField<Bn254FqParams>;
+        VFq acc_lanes_vec = VFq::broadcast(Fq::one());
+        std::array<Fq, 5> x_buf;
+        std::array<Fq, 5> two_y_buf;
+        std::array<Fq, 5> scratch_buf;
+        for (size_t g = 0; g < k5_groups; ++g) {
+            const size_t i = g * 5;
+            for (size_t k = 0; k < 5; ++k) {
+                x_buf[k] = points[i + k].x;
+                two_y_buf[k] = points[i + k].y + points[i + k].y;
+            }
+            VFq vec_x(x_buf);
+            std::array<Fq, 5> x_sq = (vec_x * vec_x).to_array();
+            for (size_t k = 0; k < 5; ++k) {
+                scratch_buf[k] = x_sq[k] + x_sq[k] + x_sq[k];
+            }
+            std::array<Fq, 5> scratch_out = (VFq(scratch_buf) * acc_lanes_vec).to_array();
+            for (size_t k = 0; k < 5; ++k) {
+                scratch_space[i + k] = scratch_out[k];
+            }
+            acc_lanes_vec = acc_lanes_vec * VFq(two_y_buf);
+        }
+        acc_lanes = acc_lanes_vec.to_array();
+        batch_inversion_accumulator = acc_lanes[0] * acc_lanes[1] * acc_lanes[2] * acc_lanes[3] * acc_lanes[4];
+    } else {
+        // No K=5 path — acc_lanes stays unused, batch_inversion_accumulator starts at one
+        // so the K=1 forward tail below recovers the original single-accumulator path.
+        batch_inversion_accumulator = Fq::one();
+    }
+
+    // ---------------------------------------------------------------------
+    // K=1 forward tail. batch_inversion_accumulator already holds the product of the
+    // 5 lane accumulators (or Fq::one() when CAN_USE_K5 is false, recovering the
+    // original K=1 forward pass).
+    // ---------------------------------------------------------------------
+    for (size_t i = k5_points; i < num_points; ++i) {
         scratch_space[i] = points[i].x.sqr();
         if constexpr (T::has_a) {
             scratch_space[i] += T::a; // adjust slope in numerator
@@ -861,9 +1064,13 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
     }
     batch_inversion_accumulator = batch_inversion_accumulator.invert();
 
-    // Backward pass: compute doublings
+    // ---------------------------------------------------------------------
+    // K=1 backward tail. Walks down from num_points to k5_points, unwinding
+    // the tail's contribution to batch_inversion_accumulator. After this
+    // loop completes, batch_inversion_accumulator = 1 / (prod of acc_lanes).
+    // ---------------------------------------------------------------------
     Fq temp_x;
-    for (size_t i_plus_1 = num_points; i_plus_1 > 0; --i_plus_1) {
+    for (size_t i_plus_1 = num_points; i_plus_1 > k5_points; --i_plus_1) {
         size_t i = i_plus_1 - 1;
 
         scratch_space[i] *= batch_inversion_accumulator;
@@ -872,6 +1079,70 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
         temp_x = points[i].x;
         points[i].x = scratch_space[i].sqr() - (points[i].x + points[i].x);
         points[i].y = scratch_space[i] * (temp_x - points[i].x) - points[i].y;
+    }
+
+    // ---------------------------------------------------------------------
+    // K=5 backward pass. Split batch_inversion_accumulator into 5 per-lane
+    // inverses via the standard batch-inversion product tree, then walk
+    // groups in reverse order with 5-wide muls. Each group does 4 muls (vs
+    // the (3 muls + 1 sqr)/point × 5 points = 20 scalar mul-class ops of K=1).
+    //
+    // `inv_state` stays packed across the reverse loop; lambda materializes
+    // to AoS each group because the subsequent scalar new_x / x_minus_new_x
+    // prep mixes scalar arithmetic with the packed multiplies.
+    // ---------------------------------------------------------------------
+    if constexpr (CAN_USE_K5) {
+        if (k5_groups == 0) {
+            return;
+        }
+        using VFq = VectorField<Bn254FqParams>;
+
+        std::array<Fq, 5> inv_lanes_init = k5_msm::compute_lane_inverses(acc_lanes, batch_inversion_accumulator);
+        VFq inv_state(inv_lanes_init);
+
+        for (size_t g_rev = k5_groups; g_rev > 0; --g_rev) {
+            const size_t g = g_rev - 1;
+            const size_t i = g * 5;
+
+            // No aliasing concerns (each lane k has its own points[i + k]); single gather is fine.
+            std::array<Fq, 5> scratch_buf;
+            std::array<Fq, 5> x_buf;
+            std::array<Fq, 5> y_buf;
+            std::array<Fq, 5> two_y_buf;
+            for (size_t k = 0; k < 5; ++k) {
+                scratch_buf[k] = scratch_space[i + k];
+                x_buf[k] = points[i + k].x;
+                y_buf[k] = points[i + k].y;
+                two_y_buf[k] = y_buf[k] + y_buf[k];
+            }
+
+            // lambda = scratch * inv_state  (5-wide mul); materialize for the
+            // scalar prep that follows.
+            std::array<Fq, 5> lambda_buf = (VFq(scratch_buf) * inv_state).to_array();
+
+            // inv_state *= 2y_buf — unwinds inv for the previous group's lane k. Stays packed.
+            inv_state = inv_state * VFq(two_y_buf);
+
+            // lambda_sq = lambda * lambda  (5-wide sqr)
+            VFq vec_lambda(lambda_buf);
+            std::array<Fq, 5> lambda_sq = (vec_lambda * vec_lambda).to_array();
+
+            // new_x = lambda^2 - 2x; temp = x - new_x (scalar prep)
+            std::array<Fq, 5> new_x_buf;
+            std::array<Fq, 5> x_minus_new_x_buf;
+            for (size_t k = 0; k < 5; ++k) {
+                new_x_buf[k] = lambda_sq[k] - (x_buf[k] + x_buf[k]);
+                x_minus_new_x_buf[k] = x_buf[k] - new_x_buf[k];
+            }
+
+            // ly = lambda * (x - new_x)  (5-wide mul)
+            std::array<Fq, 5> ly = (vec_lambda * VFq(x_minus_new_x_buf)).to_array();
+
+            for (size_t k = 0; k < 5; ++k) {
+                points[i + k].x = new_x_buf[k];
+                points[i + k].y = ly[k] - y_buf[k];
+            }
+        }
     }
 }
 
@@ -1069,23 +1340,104 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     return work_elements;
 }
 
+/**
+ * @brief Convert N Jacobian points to affine form via Montgomery's batch-inversion trick.
+ *
+ * @details Forward pass: compute the prefix product of z-coordinates, storing the per-point
+ * prefix in `temporaries`. Invert the full product once. Backward pass: walk down recovering
+ * z_inv[i] = accumulator * temporaries[i], then update accumulator *= z[i]. Each non-infinity
+ * point pays 1 mul forward + (4 muls + 1 sqr) backward.
+ *
+ * Under WASM SIMD with the BN254 base field and no point at infinity present, runs a 5-wide
+ * q1s1 forward+backward pass (5 lane accumulators interleaving 5 independent batch-inversion
+ * chains via VectorField<Bn254FqParams>), plus a scalar K=1 tail for points not covered by a
+ * full 5-point group. Each group of 5 points collapses 30 scalar mul-class ops in backward to
+ * 6 width-5 vec muls (+12 amortized split-tree muls). If any point in `elements` is at
+ * infinity, falls through entirely to the K=1 path — masking lane k for an infinity slot in
+ * the middle of a chain would require per-lane filtering that is not worth the complexity at
+ * the hot caller (`scalar_multiplication.cpp` per-thread MSM output finalization, where
+ * infinity outputs are vanishingly rare).
+ */
 template <typename Fq, typename Fr, typename T>
 void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_elements) noexcept
 {
+    constexpr bool CAN_USE_K5 = k5_msm::simd_supported_v<Fq>;
+
     std::vector<Fq> temporaries;
-    temporaries.reserve(num_elements * 2);
+    temporaries.reserve(num_elements);
     Fq accumulator = Fq::one();
 
-    // Iterate over the points, computing the product of their z-coordinates.
-    // At each iteration, store the currently-accumulated z-coordinate in `temporaries`
-    for (size_t i = 0; i < num_elements; ++i) {
+    // Populated by K=5 forward (from packed acc_lanes_vec at loop exit) and consumed by
+    // the K=5 backward prefix-product tree.
+    std::array<Fq, 5> acc_lanes{};
+
+    // ---------------------------------------------------------------------
+    // K=5 forward pass. Per group of 5 points i = g*5 + k (k in [0,5)), lane k owns the
+    // batch-inversion chain that visits elements[g*5+k] across groups g = 0..k5_groups-1.
+    //
+    // Infinity check is interleaved per-group rather than as an upfront O(N) scan:
+    // checking is_point_at_infinity() touches the same elements we're about to read z
+    // from, so the cache lines for x (which the prescan would read) are NOT loaded for
+    // free — a separate prescan evicts x lines that the backward pass needs again later.
+    // If infinity is hit, we keep whatever K=5 groups completed and fall through to K=1
+    // for the rest of the batch (instead of bailing out entirely).
+    //
+    // Before updating, snapshot acc_lanes[k] into temporaries[g*5+k] — that is the prefix
+    // product seen by lane k's chain up to (but excluding) elements[g*5+k]. The backward
+    // pass uses this to recover 1/z[g*5+k] = inv_lane[k] * temporaries[g*5+k].
+    //
+    // `acc_lanes_vec` stays in packed VFq form across iterations (same hoist as
+    // batch_affine_add_interleaved); collapse to AoS once at loop exit.
+    // ---------------------------------------------------------------------
+    size_t k5_groups = 0;
+    if constexpr (CAN_USE_K5) {
+        if (num_elements >= k5_msm::K5_MIN_POINTS_NORMALIZE) {
+            using VFq = VectorField<Bn254FqParams>;
+            VFq acc_lanes_vec = VFq::broadcast(Fq::one());
+            const size_t k5_groups_max = num_elements / 5;
+            for (size_t g = 0; g < k5_groups_max; ++g) {
+                const size_t i = g * 5;
+                bool group_has_infinity = false;
+                for (size_t k = 0; k < 5; ++k) {
+                    if (elements[i + k].is_point_at_infinity()) {
+                        group_has_infinity = true;
+                        break;
+                    }
+                }
+                if (group_has_infinity) {
+                    break;
+                }
+                std::array<Fq, 5> acc_snapshot = acc_lanes_vec.to_array();
+                for (size_t k = 0; k < 5; ++k) {
+                    temporaries.emplace_back(acc_snapshot[k]);
+                }
+                std::array<Fq, 5> z_buf;
+                for (size_t k = 0; k < 5; ++k) {
+                    z_buf[k] = elements[i + k].z;
+                }
+                acc_lanes_vec = acc_lanes_vec * VFq(z_buf);
+                ++k5_groups;
+            }
+            acc_lanes = acc_lanes_vec.to_array();
+        }
+    }
+    const size_t k5_points = k5_groups * 5;
+
+    // ---------------------------------------------------------------------
+    // Combine 5 lane accumulators into one global accumulator and run the K=1 forward tail.
+    // When k5_points == 0 (no K=5 eligibility, or infinity at group 0) this is the full
+    // original forward pass — acc_lanes is all-ones (initialized via Fq{}/VFq::broadcast
+    // or never touched), so the product is one and `accumulator` starts at Fq::one().
+    // ---------------------------------------------------------------------
+    if (k5_groups > 0) {
+        accumulator = acc_lanes[0] * acc_lanes[1] * acc_lanes[2] * acc_lanes[3] * acc_lanes[4];
+    }
+    for (size_t i = k5_points; i < num_elements; ++i) {
         temporaries.emplace_back(accumulator);
         if (!elements[i].is_point_at_infinity()) {
             accumulator *= elements[i].z;
         }
     }
-    // For the rest of this method we refer to the product of all z-coordinates as the 'global' z-coordinate
-    // Invert the global z-coordinate and store in `accumulator`
     accumulator = accumulator.invert();
 
     /**
@@ -1110,7 +1462,15 @@ void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_ele
      *
      * We can then convert out of Jacobian form (x = X / Z^2, y = Y / Z^3) with 4 muls and 1 square.
      **/
-    for (size_t i = num_elements - 1; i < num_elements; --i) {
+
+    // ---------------------------------------------------------------------
+    // K=1 backward tail. Walks down from num_elements to k5_points, unwinding the tail's
+    // contribution to `accumulator`. After this loop completes,
+    // accumulator = 1 / (product of acc_lanes) = 1 / (product of z's in the K=5 region).
+    // When k5_points == 0 this is the full original backward pass.
+    // ---------------------------------------------------------------------
+    for (size_t i = num_elements; i > k5_points;) {
+        --i;
         if (!elements[i].is_point_at_infinity()) {
             Fq z_inv = accumulator * temporaries[i];
             Fq zz_inv = z_inv.sqr();
@@ -1119,6 +1479,65 @@ void element<Fq, Fr, T>::batch_normalize(element* elements, const size_t num_ele
             accumulator *= elements[i].z;
         }
         elements[i].z = Fq::one();
+    }
+
+    // ---------------------------------------------------------------------
+    // K=5 backward pass. Split `accumulator` into 5 per-lane inverses via the standard
+    // batch-inversion product tree, then walk groups in reverse with 5-wide muls. Each group
+    // does 6 muls (vs (4 muls + 1 sqr)/point × 5 points = 25 scalar mul-class ops of K=1).
+    //
+    // `inv_state` stays packed across the reverse loop; only z_inv materializes to AoS for
+    // the scalar zz_inv/zzz_inv prep.
+    // ---------------------------------------------------------------------
+    if constexpr (CAN_USE_K5) {
+        if (k5_groups == 0) {
+            return;
+        }
+        using VFq = VectorField<Bn254FqParams>;
+
+        std::array<Fq, 5> inv_lanes_init = k5_msm::compute_lane_inverses(acc_lanes, accumulator);
+        VFq inv_state(inv_lanes_init);
+
+        for (size_t g_rev = k5_groups; g_rev > 0; --g_rev) {
+            const size_t g = g_rev - 1;
+            const size_t i = g * 5;
+
+            // No aliasing: lane k touches only elements[i + k]. Single gather is fine.
+            std::array<Fq, 5> z_buf;
+            std::array<Fq, 5> tmp_buf;
+            std::array<Fq, 5> x_buf;
+            std::array<Fq, 5> y_buf;
+            for (size_t k = 0; k < 5; ++k) {
+                z_buf[k] = elements[i + k].z;
+                tmp_buf[k] = temporaries[i + k];
+                x_buf[k] = elements[i + k].x;
+                y_buf[k] = elements[i + k].y;
+            }
+
+            // z_inv = inv_state * tmp_buf  (5-wide mul)
+            VFq vec_z_inv = inv_state * VFq(tmp_buf);
+
+            // inv_state *= z_buf — unwinds inv for the previous group's lane k. Stays packed.
+            inv_state = inv_state * VFq(z_buf);
+
+            // zz_inv = z_inv * z_inv  (5-wide sqr)
+            VFq vec_zz_inv = vec_z_inv * vec_z_inv;
+
+            // zzz_inv = zz_inv * z_inv  (5-wide mul)
+            std::array<Fq, 5> zzz_inv_buf = (vec_zz_inv * vec_z_inv).to_array();
+
+            // x *= zz_inv  (5-wide mul)
+            std::array<Fq, 5> new_x = (VFq(x_buf) * vec_zz_inv).to_array();
+
+            // y *= zzz_inv  (5-wide mul)
+            std::array<Fq, 5> new_y = (VFq(y_buf) * VFq(zzz_inv_buf)).to_array();
+
+            for (size_t k = 0; k < 5; ++k) {
+                elements[i + k].x = new_x[k];
+                elements[i + k].y = new_y[k];
+                elements[i + k].z = Fq::one();
+            }
+        }
     }
 }
 
