@@ -51,6 +51,7 @@ import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { PublicChecksArtifact, getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
 import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
@@ -909,6 +910,23 @@ export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAdd
     await publishInstance(wallet, instance).send({ from });
   }
   await wallet.registerContract(instance, AuthRegistryArtifact);
+}
+
+/**
+ * Registers the public_checks contract class and publishes its standard instance if not already
+ * present, and registers the artifact with PXE. Required for any contract that calls
+ * `privately_check_timestamp` / `privately_check_block_number` (which dispatch into the
+ * deployed PublicChecks contract via an enqueued public call).
+ */
+export async function ensurePublicChecksPublished(wallet: Wallet, from: AztecAddress) {
+  const { instance, contractClass } = await getStandardPublicChecks();
+  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+    await (await publishContractClass(wallet, PublicChecksArtifact)).send({ from });
+  }
+  if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+    await publishInstance(wallet, instance).send({ from });
+  }
+  await wallet.registerContract(instance, PublicChecksArtifact);
 }
 
 /**
