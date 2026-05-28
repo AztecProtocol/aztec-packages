@@ -46,6 +46,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
@@ -98,6 +99,21 @@ template <class Params> inline constexpr std::array<uint64_t, 9> compute_tnm_was
     }
     return tnm;
 }
+
+// Marker trait: specialized to true for each Params whose VectorField has a
+// SIMD operator* body (an explicit specialization defined in
+// vector_field_wasm.cpp). vectorized_for / vectorized_for_if read this to
+// decide whether to take the bulk path. Add a new specialization (below)
+// when adding the corresponding operator* body so the gate and the body
+// stay in lockstep.
+template <class Params> struct has_simd_mont_mul : std::false_type {};
+template <class Params> inline constexpr bool has_simd_mont_mul_v = has_simd_mont_mul<Params>::value;
+
+// Per-Params specializations. Forward-declared rather than #include'd so
+// vector_field.hpp stays Params-agnostic at the type level; the trait body
+// has no member access, only `: std::true_type`.
+class Bn254FrParams;
+template <> struct has_simd_mont_mul<Bn254FrParams> : std::true_type {};
 
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
@@ -214,15 +230,25 @@ template <class Params> struct alignas(32) VectorField {
         base[idx[4]] = a[4];
     }
 
-    // Contiguous load: lane L = base[L] for L in 0..4. The canonical
-    // construction path used by the vectorised loop abstraction in place of
-    // gather — no random-access load, no scalar-pack staging, just a direct
-    // AoS→interleaved transpose driven by SIMD shuffles.
+    // Contiguous load: lane L = base[L] for L in 0..4.
+    // This is the fast path for vectorized_for<5>(...) bulk iterations where
+    // the 5 lanes are always consecutive addresses.
+    //
+    // Implementation (WASM SIMD, see out-of-class definition below): hand-
+    // fused 10 × wasm_v128_load on the raw Fr limb bytes, staged into an
+    // aligned 20 × u64 buffer, then pack_4u64_to_9x29 per lane. This beats
+    // gather's 20 × scalar random-access loads because V8 coalesces v128
+    // loads but not scalar loads at arbitrary addresses.
+    //
+    // Implementation (fallback): byte-for-byte copy into elts[5].
     static VectorField load_contiguous(const Field* base) noexcept;
 
-    // Contiguous store: writes base[L] = this->get(L) for L in 0..4. The
-    // matching write half of load_contiguous; called by the loop abstraction
-    // in place of scatter.
+    // Contiguous store: writes base[L] = this->get(L) for L in 0..4.
+    //
+    // Implementation (WASM SIMD, see out-of-class definition below): unpack
+    // into a 20 × u64 staging buffer, then emit 10 × wasm_v128_store. Same
+    // reasoning as load_contiguous — v128 stores coalesce, scalar stores at
+    // gather-scatter addresses don't.
     void store_contiguous(Field* base) const noexcept;
 
     // Broadcast a single Field to all 5 lanes. Much cheaper than the
@@ -231,35 +257,31 @@ template <class Params> struct alignas(32) VectorField {
     static VectorField broadcast(const Field& s) noexcept;
 
     // Mixed-type operators: broadcast scalar into a VectorField and delegate.
-    friend VectorField operator+(VectorField v, const Field& s) noexcept
+    // [[gnu::always_inline]] is load-bearing under -Oz so the broadcast(s)
+    // call hoists out of the caller loop when s is loop-invariant.
+    [[gnu::always_inline]] friend VectorField operator+(VectorField v, const Field& s) noexcept
     {
-        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
-        return v + bcast;
+        return v + broadcast(s);
     }
-    friend VectorField operator+(const Field& s, VectorField v) noexcept
+    [[gnu::always_inline]] friend VectorField operator+(const Field& s, VectorField v) noexcept
     {
-        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
-        return bcast + v;
+        return broadcast(s) + v;
     }
-    friend VectorField operator-(VectorField v, const Field& s) noexcept
+    [[gnu::always_inline]] friend VectorField operator-(VectorField v, const Field& s) noexcept
     {
-        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
-        return v - bcast;
+        return v - broadcast(s);
     }
-    friend VectorField operator-(const Field& s, VectorField v) noexcept
+    [[gnu::always_inline]] friend VectorField operator-(const Field& s, VectorField v) noexcept
     {
-        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
-        return bcast - v;
+        return broadcast(s) - v;
     }
-    friend VectorField operator*(VectorField v, const Field& s) noexcept
+    [[gnu::always_inline]] friend VectorField operator*(VectorField v, const Field& s) noexcept
     {
-        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
-        return v * bcast;
+        return v * broadcast(s);
     }
-    friend VectorField operator*(const Field& s, VectorField v) noexcept
+    [[gnu::always_inline]] friend VectorField operator*(const Field& s, VectorField v) noexcept
     {
-        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
-        return bcast * v;
+        return broadcast(s) * v;
     }
 
     // Returns a 5-bit mask: bit 0 = scalar, bits 1..4 = quad lanes 0..3.
@@ -307,7 +329,11 @@ namespace vector_field_detail {
 
 // Pack 4 × u64 (little-endian 256-bit value) into 9 × 29-bit limbs, each stored
 // in a u32 slot.
-inline void pack_4u64_to_9x29(const uint64_t in[4], uint32_t out[9]) noexcept
+//
+// [[gnu::always_inline]] is load-bearing under -Oz: without it, the compiler
+// leaves pack/unpack as standalone calls, and the add_scaled hot loop pays
+// ~11 call overheads per block.
+[[gnu::always_inline]] inline void pack_4u64_to_9x29(const uint64_t in[4], uint32_t out[9]) noexcept
 {
     out[0] = static_cast<uint32_t>(in[0] & 0x1fffffff);
     out[1] = static_cast<uint32_t>((in[0] >> 29) & 0x1fffffff);
@@ -321,8 +347,9 @@ inline void pack_4u64_to_9x29(const uint64_t in[4], uint32_t out[9]) noexcept
 }
 
 // Unpack 9 × 29-bit limbs (stored in u32 slots) back to 4 × u64. Each input
-// lane is zero-extended to u64 before shifting.
-inline void unpack_9x29_to_4u64(const uint32_t in[9], uint64_t out[4]) noexcept
+// lane is zero-extended to u64 before shifting. [[gnu::always_inline]]
+// rationale: same as pack_4u64_to_9x29.
+[[gnu::always_inline]] inline void unpack_9x29_to_4u64(const uint32_t in[9], uint64_t out[4]) noexcept
 {
     const uint64_t i0 = in[0], i1 = in[1], i2 = in[2], i3 = in[3], i4 = in[4];
     const uint64_t i5 = in[5], i6 = in[6], i7 = in[7], i8 = in[8];
