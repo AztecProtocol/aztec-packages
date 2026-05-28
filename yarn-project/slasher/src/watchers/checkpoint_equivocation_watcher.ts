@@ -7,7 +7,7 @@ import {
   L2BlockSourceEvents,
 } from '@aztec/stdlib/block';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
@@ -86,7 +86,7 @@ export class CheckpointEquivocationWatcher extends (EventEmitter as new () => Wa
       slotNumber: event.slotNumber,
       checkpointNumber: event.checkpointNumber,
       amount: slashArgs.amount,
-      offenseType: slashArgs.offenseType,
+      offenseType: getOffenseTypeName(slashArgs.offenseType),
       l1ArchiveRoot: event.l1ArchiveRoot.toString(),
       proposedArchiveRoot: event.proposedArchiveRoot.toString(),
       validator: proposer.toString(),

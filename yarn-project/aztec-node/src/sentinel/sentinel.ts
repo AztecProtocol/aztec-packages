@@ -18,6 +18,7 @@ import {
   type WantToSlashArgs,
   type Watcher,
   type WatcherEmitter,
+  getOffenseTypeName,
 } from '@aztec/slasher';
 import type { SlasherConfig } from '@aztec/slasher/config';
 import {
@@ -358,9 +359,17 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }));
 
     if (criminals.length > 0) {
-      this.logger.verbose(
+      this.logger.info(
         `Identified ${criminals.length} inactivity offenses in at least ${epochThreshold} consecutive epochs`,
-        { offenses: args, epochThreshold },
+        {
+          offenses: args.map(arg => ({
+            validator: arg.validator.toString(),
+            amount: arg.amount,
+            offenseType: getOffenseTypeName(arg.offenseType),
+            epochOrSlot: arg.epochOrSlot,
+          })),
+          epochThreshold,
+        },
       );
       this.emit(WANT_TO_SLASH_EVENT, args);
     }

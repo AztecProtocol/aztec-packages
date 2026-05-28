@@ -9,7 +9,7 @@ import { getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ITxProvider, P2PApi, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'node:events';
@@ -171,11 +171,11 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
       return;
     }
 
-    this.log.warn(`Detected data withholding offense at slot ${slot}`, {
+    this.log.info(`Detected data withholding offense at slot ${slot}`, {
       slot,
       checkpointNumber,
       amount: this.config.slashDataWithholdingPenalty,
-      offenseType: OffenseType.DATA_WITHHOLDING,
+      offenseType: getOffenseTypeName(OffenseType.DATA_WITHHOLDING),
       missingTxs: missingTxs.map(h => h.toString()),
       records: collectionRecords,
       attesters: attesters.map(a => a.toString()),

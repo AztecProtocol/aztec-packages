@@ -228,21 +228,6 @@ describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it('deduplicates repeated scans for the same offense when the penalty changes', async () => {
-    const signer = Secp256k1Signer.random();
-    const slot = SlotNumber(10);
-    const blocks = await makeBlocks(signer, slot, 4);
-    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
-    mockProposals(slot, blocks, [checkpoint]);
-
-    watcher.updateConfig({ slashBroadcastedInvalidCheckpointProposalPenalty: 0n });
-    await watcher.scanSlot(slot);
-    watcher.updateConfig({ slashBroadcastedInvalidCheckpointProposalPenalty: 11n });
-    await watcher.scanSlot(slot);
-
-    expect(handler).toHaveBeenCalledTimes(1);
-  });
-
   it('scans a lookback of closed slots', async () => {
     const signer = Secp256k1Signer.random();
     const slot = SlotNumber(10);

@@ -10,7 +10,7 @@ import {
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
@@ -134,9 +134,13 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       epochOrSlot: BigInt(slot),
     };
 
-    this.log.info(`Want to slash proposer of checkpoint ${checkpointNumber} due to ${reason}`, {
+    this.log.info(`Detected invalid attestations checkpoint proposer offense`, {
       ...checkpoint,
-      ...args,
+      reason,
+      validator: args.validator.toString(),
+      amount: args.amount,
+      offenseType: getOffenseTypeName(args.offenseType),
+      epochOrSlot: args.epochOrSlot,
     });
 
     this.emit(WANT_TO_SLASH_EVENT, [args]);
@@ -168,10 +172,15 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       epochOrSlot: BigInt(slot),
     };
 
-    this.log.info(
-      `Want to slash proposer of checkpoint ${checkpoint.checkpointNumber} built on invalid checkpoint ${ancestorCheckpointNumber}`,
-      { ...checkpoint, ancestorArchiveRoot: ancestorArchiveRoot.toString(), ...args },
-    );
+    this.log.info(`Detected invalid descendant checkpoint proposer offense`, {
+      ...checkpoint,
+      ancestorCheckpointNumber,
+      ancestorArchiveRoot: ancestorArchiveRoot.toString(),
+      validator: args.validator.toString(),
+      amount: args.amount,
+      offenseType: getOffenseTypeName(args.offenseType),
+      epochOrSlot: args.epochOrSlot,
+    });
 
     this.emit(WANT_TO_SLASH_EVENT, [args]);
   }

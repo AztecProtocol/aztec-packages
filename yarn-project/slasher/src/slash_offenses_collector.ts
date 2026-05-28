@@ -4,7 +4,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import type { Prettify } from '@aztec/foundation/types';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { type Offense, getSlotForOffense } from '@aztec/stdlib/slashing';
+import { type Offense, getOffenseTypeName, getSlotForOffense } from '@aztec/stdlib/slashing';
 
 import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import {
@@ -89,7 +89,7 @@ export class SlashOffensesCollector {
       };
 
       if (this.shouldSkipOffense(offense)) {
-        this.log.verbose('Skipping offense during grace period', offense);
+        this.log.verbose('Skipping offense during grace period', this.getOffenseLogData(offense));
         continue;
       }
 
@@ -98,13 +98,16 @@ export class SlashOffensesCollector {
         if (this.settings.slashingAmounts) {
           const minSlash = this.settings.slashingAmounts[0];
           if (arg.amount < minSlash) {
-            this.log.warn(`Offense amount ${arg.amount} is below minimum slashing amount ${minSlash}`);
+            this.log.warn(
+              `Offense amount ${arg.amount} is below minimum slashing amount ${minSlash}`,
+              this.getOffenseLogData(offense),
+            );
           }
         }
 
-        this.log.info(`Adding pending offense for validator ${arg.validator}`, offense);
+        this.log.info(`Adding pending offense for validator ${arg.validator}`, this.getOffenseLogData(offense));
       } else {
-        this.log.debug('Skipping repeated offense', offense);
+        this.log.debug('Skipping repeated offense', this.getOffenseLogData(offense));
       }
     }
   }
@@ -114,7 +117,7 @@ export class SlashOffensesCollector {
       const cleared = await this.offensesStore.clearOffenses(arg);
       if (cleared > 0) {
         this.log.info(`Cleared ${cleared} pending offenses`, {
-          offenseType: arg.offenseType,
+          offenseType: getOffenseTypeName(arg.offenseType),
           epochOrSlot: arg.epochOrSlot,
           validators: arg.validators?.map(validator => validator.toString()),
         });
@@ -137,6 +140,14 @@ export class SlashOffensesCollector {
   private shouldSkipOffense(offense: Offense): boolean {
     const offenseSlot = getSlotForOffense(offense, this.settings);
     return offenseSlot < this.settings.rollupRegisteredAtL2Slot + this.config.slashGracePeriodL2Slots;
+  }
+
+  private getOffenseLogData(offense: Offense) {
+    return {
+      ...offense,
+      validator: offense.validator.toString(),
+      offenseType: getOffenseTypeName(offense.offenseType),
+    };
   }
 
   private enqueueStoreMutation(label: string, callback: () => Promise<void>) {

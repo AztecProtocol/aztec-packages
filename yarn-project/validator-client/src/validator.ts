@@ -19,6 +19,7 @@ import {
   WANT_TO_SLASH_EVENT,
   type Watcher,
   type WatcherEmitter,
+  getOffenseTypeName,
 } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
@@ -511,10 +512,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         validationResult.reason &&
         SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(validationResult.reason)
       ) {
-        this.log.warn(`Detected invalid block proposal offense`, {
+        this.log.info(`Detected invalid block proposal offense`, {
           ...proposalInfo,
           amount: this.config.slashBroadcastedInvalidBlockPenalty,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          offenseType: getOffenseTypeName(OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL),
         });
         this.slashInvalidBlock(proposal);
         this.markInvalidProposalSlot(proposal.slotNumber);
@@ -759,11 +760,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.markInvalidProposalSlot(proposal.slotNumber);
 
     if (this.slashInvalidCheckpointProposal(proposal)) {
-      this.log.warn(`Detected invalid checkpoint proposal offense`, {
+      this.log.info(`Detected invalid checkpoint proposal offense`, {
         ...proposalInfo,
         reason: result.reason,
         amount: this.config.slashBroadcastedInvalidCheckpointProposalPenalty,
-        offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+        offenseType: getOffenseTypeName(OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL),
       });
     }
   }
@@ -823,11 +824,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
-    this.log.warn(`Detected attestation to invalid checkpoint proposal offense`, {
+    this.log.info(`Detected attestation to invalid checkpoint proposal offense`, {
       attester: attester.toString(),
       slotNumber,
       amount: this.config.slashAttestInvalidCheckpointProposalPenalty,
-      offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+      offenseType: getOffenseTypeName(OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL),
     });
 
     this.emit(WANT_TO_SLASH_EVENT, [
@@ -848,12 +849,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const { slot, proposer, type } = info;
     this.slotsWithProposalEquivocation.add(slot);
 
-    this.log.warn(`Detected duplicate ${type} proposal offense from ${proposer.toString()} at slot ${slot}`, {
+    this.log.info(`Detected duplicate ${type} proposal offense from ${proposer.toString()} at slot ${slot}`, {
       proposer: proposer.toString(),
       slot,
       type,
       amount: this.config.slashDuplicateProposalPenalty,
-      offenseType: OffenseType.DUPLICATE_PROPOSAL,
+      offenseType: getOffenseTypeName(OffenseType.DUPLICATE_PROPOSAL),
     });
 
     this.emit(WANT_TO_SLASH_EVENT, [
@@ -880,11 +881,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private handleDuplicateAttestation(info: DuplicateAttestationInfo): void {
     const { slot, attester } = info;
 
-    this.log.warn(`Detected duplicate attestation offense from ${attester.toString()} at slot ${slot}`, {
+    this.log.info(`Detected duplicate attestation offense from ${attester.toString()} at slot ${slot}`, {
       attester: attester.toString(),
       slot,
       amount: this.config.slashDuplicateAttestationPenalty,
-      offenseType: OffenseType.DUPLICATE_ATTESTATION,
+      offenseType: getOffenseTypeName(OffenseType.DUPLICATE_ATTESTATION),
     });
 
     this.emit(WANT_TO_SLASH_EVENT, [
