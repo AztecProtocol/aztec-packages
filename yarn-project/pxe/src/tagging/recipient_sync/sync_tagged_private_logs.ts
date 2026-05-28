@@ -1,4 +1,4 @@
-import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { isDefined } from '@aztec/foundation/types';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -157,8 +157,13 @@ async function fetchLogsForSecrets(
   const allTags = tagsPerSecret.flat();
 
   // getAllPrivateLogsByTags handles MAX_RPC_LEN chunking internally. Recipient sync builds `PendingTaggedLog` from
-  // each log's note hashes and first nullifier, so we opt into effects.
-  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchorBlockHash, { includeEffects: true });
+  // each log's note hashes and first nullifier, so we opt into effects. The `toBlock` cap (anchor block + 1,
+  // exclusive) tells the node to skip any logs in blocks past the anchor — the same guard previously enforced
+  // by an in-memory filter on the response.
+  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchorBlockHash, {
+    includeEffects: true,
+    toBlock: BlockNumber(anchorBlockNumber + 1),
+  });
 
   // Split flat results back per secret using the known lengths
   const logsPerSecret: LogWithIndex[][] = [];
@@ -167,9 +172,7 @@ async function fetchLogsForSecrets(
     const logsForSecret: LogWithIndex[] = [];
     for (let i = 0; i < indexes.length; i++) {
       for (const log of allResults[offset + i]) {
-        if (log.blockNumber <= anchorBlockNumber) {
-          logsForSecret.push({ log, taggingIndex: indexes[i] });
-        }
+        logsForSecret.push({ log, taggingIndex: indexes[i] });
       }
     }
     logsPerSecret.push(logsForSecret);

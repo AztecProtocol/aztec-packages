@@ -260,7 +260,7 @@ describe('syncTaggedPrivateLogs', () => {
     expect(logs).toHaveLength(2);
   });
 
-  it('filters out logs from blocks after the anchor block', async () => {
+  it('caps the node query at anchorBlockNumber + 1 (toBlock exclusive)', async () => {
     const [secret] = await makeSecrets(1);
     const anchorBlock = BlockNumber(10);
     const header = BlockHeader.random({ blockNumber: anchorBlock, timestamp: CURRENT_TIMESTAMP });
@@ -270,26 +270,29 @@ describe('syncTaggedPrivateLogs', () => {
     const logIndex = 3;
     const logTag = await computeSiloedTagForIndex(secret, logIndex);
 
-    // Three logs: one before anchor, one at anchor, one after anchor
+    // The mock simulates the node honoring `toBlock` (exclusive). Recipient sync now relies on the node
+    // for this filter rather than dropping post-anchor logs client-side.
     aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
       const tags = extractTags(query);
+      const toBlockExclusive = Number(query.toBlock ?? Infinity);
+      const allCandidates = [
+        makeLog(Number(anchorBlock) - 1, logBlockTimestamp, logTag.value),
+        makeLog(Number(anchorBlock), logBlockTimestamp, logTag.value),
+        makeLog(Number(anchorBlock) + 1, logBlockTimestamp, logTag.value),
+      ];
       return Promise.resolve(
         tags.map((t: SiloedTag) =>
-          t.equals(logTag)
-            ? [
-                makeLog(Number(anchorBlock) - 1, logBlockTimestamp, logTag.value),
-                makeLog(Number(anchorBlock), logBlockTimestamp, logTag.value),
-                makeLog(Number(anchorBlock) + 1, logBlockTimestamp, logTag.value),
-              ]
-            : [],
+          t.equals(logTag) ? allCandidates.filter(l => Number(l.blockNumber) < toBlockExclusive) : [],
         ),
       );
     });
 
     const logs = await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, header, finalizedBlockNumber, JOB_ID);
 
-    // Only logs at or before the anchor block should be included
+    // Only logs at or before the anchor block should be included — node-side filter drops the post-anchor log.
     expect(logs).toHaveLength(2);
+    // Verify the node was called with toBlock = anchorBlock + 1 (exclusive upper bound).
+    expect(aztecNode.getPrivateLogsByTags.mock.calls[0][0].toBlock).toBe(BlockNumber(Number(anchorBlock) + 1));
   });
 });
 
