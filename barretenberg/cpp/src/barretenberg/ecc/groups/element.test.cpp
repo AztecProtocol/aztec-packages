@@ -367,6 +367,54 @@ template <typename G_> class TestElement : public testing::Test {
         }
     }
 
+    // batch_normalize with mixed infinity density. The new per-group infinity check
+    // takes K=5 until it hits the first infinity, then falls through to K=1 for the rest;
+    // this verifies that partial-K=5 + K=1-tail produces correct output for both:
+    //   - 75% non-infinity (sparse infinities, dominant K=5 region)
+    //   - 25% non-infinity (dense infinities, K=5 region likely truncates early)
+    // Sizes are chosen above the K=5 threshold so the K=5 path is actually exercised.
+    // The infinity positions are deterministic but spread across the batch.
+    static void test_batch_normalize_density_mix()
+    {
+        auto run = [](size_t num_points, auto is_inf_predicate, const char* label) {
+            std::vector<element> points(num_points);
+            for (size_t i = 0; i < num_points; ++i) {
+                if (is_inf_predicate(i)) {
+                    points[i] = element::infinity();
+                } else {
+                    points[i] = element::random_element() + element::random_element();
+                }
+            }
+            std::vector<element> normalized = points;
+            element::batch_normalize(normalized.data(), num_points);
+
+            for (size_t i = 0; i < num_points; ++i) {
+                if (is_inf_predicate(i)) {
+                    EXPECT_TRUE(normalized[i].is_point_at_infinity()) << label << " i=" << i;
+                } else {
+                    Fq zz = points[i].z.sqr();
+                    Fq zzz = points[i].z * zz;
+                    EXPECT_EQ(normalized[i].x * zz, points[i].x) << label << " i=" << i;
+                    EXPECT_EQ(normalized[i].y * zzz, points[i].y) << label << " i=" << i;
+                }
+            }
+        };
+
+        for (size_t num_points : std::array<size_t, 3>{ 260, 333, 512 }) {
+            // 75% dense, 25% infinity (every 4th slot).
+            run(num_points, [](size_t i) { return (i % 4) == 0; }, "75%-dense");
+            // 25% dense, 75% infinity (slots NOT divisible by 4).
+            run(num_points, [](size_t i) { return (i % 4) != 0; }, "25%-dense");
+            // Edge: infinity only at the very first slot (truncates K=5 at group 0).
+            run(num_points, [](size_t i) { return i == 0; }, "head-only-inf");
+            // Edge: infinity only at the very last slot (K=5 region clean; tail handles it).
+            run(num_points, [num_points](size_t i) { return i == (num_points - 1); }, "tail-only-inf");
+            // Edge: infinity strictly inside the K=5 region (mid-batch fall-back).
+            const size_t mid = (num_points / 2) - ((num_points / 2) % 5); // group-aligned mid
+            run(num_points, [mid](size_t i) { return i == mid + 2; }, "mid-K5-inf");
+        }
+    }
+
     static void test_batch_normalize_boundary()
     {
         // batch_normalize's K=5 floor is also 256; cover K=1 small sizes plus K=5 sizes
@@ -576,6 +624,11 @@ TYPED_TEST(TestElement, BatchAffineAddInterleavedAliasing)
 TYPED_TEST(TestElement, BatchNormalizeBoundary)
 {
     TestFixture::test_batch_normalize_boundary();
+}
+
+TYPED_TEST(TestElement, BatchNormalizeDensityMix)
+{
+    TestFixture::test_batch_normalize_density_mix();
 }
 
 TYPED_TEST(TestElement, GroupExponentiationZeroAndOne)
