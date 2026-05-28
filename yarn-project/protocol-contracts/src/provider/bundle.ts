@@ -1,6 +1,5 @@
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 
-import { AuthRegistryArtifact } from '../auth-registry/index.js';
 import { ContractClassRegistryArtifact } from '../class-registry/index.js';
 import { FeeJuiceArtifact } from '../fee-juice/index.js';
 import { ContractInstanceRegistryArtifact } from '../instance-registry/index.js';
@@ -12,7 +11,6 @@ import { PublicChecksArtifact } from '../public-checks/index.js';
 import type { ProtocolContractsProvider } from './protocol_contracts_provider.js';
 
 export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArtifact> = {
-  AuthRegistry: AuthRegistryArtifact,
   ContractInstanceRegistry: ContractInstanceRegistryArtifact,
   ContractClassRegistry: ContractClassRegistryArtifact,
   MultiCallEntrypoint: MultiCallEntrypointArtifact,

@@ -22,14 +22,15 @@ pub contract AvmTest {
     use aztec::protocol::{address::{AztecAddress, EthAddress}, point::EmbeddedCurvePoint, scalar::Scalar};
     use aztec::protocol::{
         constants::{
-            CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, FEE_JUICE_ADDRESS,
-            GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, FEE_JUICE_ADDRESS, GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y,
+            MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
         },
         contract_class_id::ContractClassId,
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
     };
     use aztec::protocol::traits::Serialize;
+    use aztec::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
     use aztec::state_vars::Map;
     use aztec::state_vars::PublicMutable;
     use aztec::state_vars::StateVariable;
@@ -857,7 +858,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn call_auth_registry() {
-        let _ = AuthRegistry::at(CANONICAL_AUTH_REGISTRY_ADDRESS).is_reject_all(self.address).view(self.context);
+        let _ = AuthRegistry::at(STANDARD_AUTH_REGISTRY_ADDRESS).is_reject_all(self.address).view(self.context);
     }
 
     #[external("public")]

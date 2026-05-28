@@ -3,7 +3,6 @@
 // `protocol_contract_data.ts`. This avoids clients repeating the expensive hashing at runtime and
 // ensures a single source of truth for the protocol contracts hash enforced by circuits, P2P, and L1.
 import {
-  CANONICAL_AUTH_REGISTRY_ADDRESS,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
@@ -40,7 +39,6 @@ const outputFilePath = './src/protocol_contract_data.ts';
 const salt = new Fr(1);
 
 const contractAddressMapping: { [name: string]: number } = {
-  AuthRegistry: CANONICAL_AUTH_REGISTRY_ADDRESS,
   ContractInstanceRegistry: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
