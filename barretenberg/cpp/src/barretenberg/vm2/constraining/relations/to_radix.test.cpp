@@ -4,6 +4,7 @@
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
@@ -289,7 +290,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     ToRadixTraceBuilder to_radix_builder;
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
@@ -323,7 +324,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
@@ -593,7 +594,7 @@ TEST(ToRadixMemoryConstrainingTest, BasicTest)
     PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
-    precomputed_builder.process_misc(trace, 257); // Needed for precomputed safe limbs table
+    precomputed_builder.process_misc(trace, NUM_RADIXES); // Needed for precomputed safe limbs table
 
     check_relation<to_radix_mem>(trace);
     check_all_interactions<ToRadixTraceBuilder>(trace);
@@ -998,7 +999,7 @@ TEST(ToRadixMemoryConstrainingTest, ComplexTest)
     PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
-    precomputed_builder.process_misc(trace, 257); // Needed for precomputed safe limbs table
+    precomputed_builder.process_misc(trace, NUM_RADIXES); // Needed for precomputed safe limbs table
 
     check_relation<to_radix>(trace);
     check_relation<to_radix_mem>(trace);
