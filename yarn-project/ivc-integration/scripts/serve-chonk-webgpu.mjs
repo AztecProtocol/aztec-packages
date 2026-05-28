@@ -96,7 +96,9 @@ const server = createServer((req, res) => {
   });
 
   // GPU MSM phase-breakdown sink: the page POSTs the aggregated prepare-vs-GPU-
-  // compute breakdown (JSON) here. Written to /tmp/zac-webgpu/chonk-msm-phase.json.
+  // compute breakdown (JSON) here. Default sink is /tmp/zac-webgpu/chonk-msm-phase.json;
+  // an optional ?name=<file>.json picks the output basename so the solo and batch
+  // runs don't clobber each other.
   if (req.method === 'POST' && url.split('?')[0] === '/msm-phase') {
     let body = '';
     req.setEncoding('utf8');
@@ -108,11 +110,14 @@ const server = createServer((req, res) => {
         req.destroy();
       }
     });
+    const phaseNameParam = new URL(url, 'http://localhost').searchParams.get('name');
+    const phaseSafeName =
+      phaseNameParam && /^[\w.-]+\.json$/.test(phaseNameParam) ? phaseNameParam : 'chonk-msm-phase.json';
     req.on('end', () => {
       try {
         const outDir = '/tmp/zac-webgpu';
         mkdirSync(outDir, { recursive: true });
-        const outFile = join(outDir, 'chonk-msm-phase.json');
+        const outFile = join(outDir, phaseSafeName);
         writeFileSync(outFile, body);
         process.stdout.write(`  saved GPU phase breakdown: ${body.length} bytes → ${outFile}\n`);
         res.writeHead(200, { 'Content-Type': 'application/json' });

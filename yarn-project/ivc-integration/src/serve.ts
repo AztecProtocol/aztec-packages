@@ -1012,6 +1012,7 @@ function setupChonkWebGpuPage(): void {
   const log = $('log');
   const runWasm = $<HTMLButtonElement>('run-wasm');
   const runWebgpu = $<HTMLButtonElement>('run-webgpu');
+  const runWebgpuBatch = $<HTMLButtonElement>('run-webgpu-batch');
   const runMsmCsv = $<HTMLButtonElement>('run-msmcsv');
   const clearLog = $<HTMLButtonElement>('clear-log');
   const flowSel = $<HTMLSelectElement>('flow');
@@ -1020,7 +1021,18 @@ function setupChonkWebGpuPage(): void {
   // captures an aligned CPU+GPU Perfetto trace from the bridge and POSTs it.
   const traceWebgpu = $<HTMLInputElement>('trace-webgpu');
 
-  if (!status || !adapter || !sab || !log || !runWasm || !runWebgpu || !runMsmCsv || !clearLog || !flowSel) {
+  if (
+    !status ||
+    !adapter ||
+    !sab ||
+    !log ||
+    !runWasm ||
+    !runWebgpu ||
+    !runWebgpuBatch ||
+    !runMsmCsv ||
+    !clearLog ||
+    !flowSel
+  ) {
     /* Page is missing expected elements — bail; harness pages (e.g. the
      * Puppeteer test's minimal HTML) intentionally don't have them. */
     return;
@@ -1132,8 +1144,24 @@ function setupChonkWebGpuPage(): void {
   const setBusy = (busy: boolean): void => {
     runWasm.disabled = busy;
     runWebgpu.disabled = busy;
+    runWebgpuBatch.disabled = busy;
     runMsmCsv.disabled = busy;
     status.textContent = busy ? 'running…' : 'idle';
+  };
+  // Generic vs-baseline ratio printer (e.g. "1.12× vs WebGPU solo (faster)").
+  // Hidden when baseline is missing — the card just shows the WASM ratio.
+  const setRatio = (id: string, faster: number, baseline: number | undefined, label: string): void => {
+    const el = $(id);
+    if (!el) return;
+    if (!baseline) {
+      el.textContent = '';
+      el.className = 'speedup';
+      return;
+    }
+    const ratio = baseline / faster;
+    el.textContent =
+      ratio >= 1 ? `${ratio.toFixed(2)}× vs ${label} (faster)` : `${(1 / ratio).toFixed(2)}× vs ${label} (slower)`;
+    el.className = ratio >= 1 ? 'speedup up' : 'speedup down';
   };
 
   // POST a built Perfetto trace JSON to the server sink under `filename`
@@ -1165,6 +1193,12 @@ function setupChonkWebGpuPage(): void {
   let lastWasmVk: Uint8Array | undefined;
   let lastWasmProveMs: number | undefined;
   let lastWasmMsmPhaseMs: number | undefined;
+  // Tracked separately so the batch card can show a "vs solo" speedup —
+  // the actionable signal for the production routing decision (does
+  // shipping BatchMsmV2 for same-N batches in the chonk flow actually
+  // beat the existing serial-solo bridge fallback).
+  let lastWebgpuSoloProveMs: number | undefined;
+  let lastWebgpuSoloMsmPhaseMs: number | undefined;
 
   runWasm.addEventListener('click', async () => {
     setBusy(true);
@@ -1236,6 +1270,8 @@ function setupChonkWebGpuPage(): void {
       }
       const { result, vk, adapter: adp, gpuPhase } = runOut;
       append(`  GPU adapter: ${adp}`, 'info');
+      lastWebgpuSoloProveMs = result.proveMs;
+      lastWebgpuSoloMsmPhaseMs = result.msmPhaseMs;
       setText('webgpu-prove', fmtMs(result.proveMs));
       setText('webgpu-verify', fmtMs(result.verifyMs));
       setText('webgpu-prove-big', fmtMs(result.proveMs));
@@ -1316,6 +1352,131 @@ function setupChonkWebGpuPage(): void {
     }
   });
 
+  // WebGPU (batch) — same prove flow as the solo button, but the bridge's
+  // same-N collision path routes uniform B ≥ 4 batches at n ≤ 2^17 through
+  // BatchMsmV2 (the Tier 2 virtualised B·W-window dispatch — see
+  // barretenberg/ts/src/msm_webgpu/BATCH_MSM_DESIGN.md). The flag is set
+  // for the duration of the run only so it doesn't leak into any later
+  // solo run; if it's not set the bridge falls back to the existing
+  // per-MSM-submit fallback (byte-identical to the solo button).
+  runWebgpuBatch.addEventListener('click', async () => {
+    setBusy(true);
+    try {
+      const flow = flowSel.value;
+      append(
+        `▶ Run WebGPU (batch) on flow=${flow} — same-N B≥4 batches at n≤2^17 route through BatchMsmV2`,
+        'info',
+      );
+      setText('webgpu-batch-prove-big', '…');
+      const win = window as any;
+      win.__bridge_batch_enabled = true;
+      let runOut: any;
+      try {
+        runOut = await win.runChonkSingleMode('webgpu', flow);
+      } finally {
+        win.__bridge_batch_enabled = false;
+      }
+      const { result, vk, adapter: adp, gpuPhase } = runOut;
+      append(`  GPU adapter: ${adp}`, 'info');
+      setText('webgpu-batch-prove', fmtMs(result.proveMs));
+      setText('webgpu-batch-verify', fmtMs(result.verifyMs));
+      setText('webgpu-batch-prove-big', fmtMs(result.proveMs));
+      setPill('webgpu-batch-verified', result.verified ? 'ok' : 'fail', `verified: ${result.verified}`);
+      if (lastWasmProveMs) {
+        setSpeedup('webgpu-batch-speedup', result.proveMs, lastWasmProveMs);
+      }
+      setRatio('webgpu-batch-vs-solo', result.proveMs, lastWebgpuSoloProveMs, 'WebGPU solo');
+      if (lastWasmVk) {
+        const match = lastWasmVk.length === vk.length && lastWasmVk.every((b: number, i: number) => b === vk[i]);
+        setPill(
+          'webgpu-batch-vkmatch',
+          match ? 'ok' : 'fail',
+          match ? 'vk vs WASM: match' : 'vk vs WASM: MISMATCH',
+        );
+        if (!match) {
+          // VK mismatch is a correctness regression — log loudly. If the
+          // batch route produced byte-identical commitments to the solo
+          // path (which the existing WebGPU button verifies against WASM),
+          // this can only mean BatchMsmV2 diverged for some same-N batch.
+          append(
+            '[ERR] BatchMsmV2 produced a VK that does not match the WASM baseline — same-N batched result diverges from solo!',
+            'err',
+          );
+        }
+      } else {
+        setPill('webgpu-batch-vkmatch', 'skip', 'vk vs WASM: run WASM first');
+      }
+      append(
+        `✓ WebGPU (batch): prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} ` +
+          `MSM-phase=${fmtMs(result.msmPhaseMs)} verified=${result.verified}`,
+        result.verified ? 'ok' : 'err',
+      );
+      if (lastWebgpuSoloProveMs) {
+        const ratio = lastWebgpuSoloProveMs / result.proveMs;
+        const dir = ratio >= 1 ? 'faster' : 'slower';
+        append(
+          `  vs solo: prove ${ratio.toFixed(2)}× ${dir} (solo=${fmtMs(lastWebgpuSoloProveMs)} → batch=${fmtMs(result.proveMs)})`,
+          ratio >= 1 ? 'ok' : 'warn',
+        );
+        if (lastWebgpuSoloMsmPhaseMs) {
+          append(
+            `  MSM phase vs solo: solo=${fmtMs(lastWebgpuSoloMsmPhaseMs)} → batch=${fmtMs(result.msmPhaseMs)} ` +
+              `(${(lastWebgpuSoloMsmPhaseMs / result.msmPhaseMs).toFixed(2)}× faster)`,
+            'info',
+          );
+        }
+      }
+      if (lastWasmMsmPhaseMs) {
+        append(
+          `  MSM phase: WASM=${fmtMs(lastWasmMsmPhaseMs)} vs GPU(batch)=${fmtMs(result.msmPhaseMs)} ` +
+            `(GPU saves ${fmtMs(lastWasmMsmPhaseMs - result.msmPhaseMs)})`,
+          'ok',
+        );
+      }
+      if (gpuPhase) {
+        const g = gpuPhase;
+        append(
+          `  GPU phase breakdown — prepare: mixed=${g.mixedPrepareMs.toFixed(0)}ms + same-n=${g.sameNPrepareMs.toFixed(0)}ms | ` +
+            `GPU compute(mixed,timestamp)=${g.mixedGpuComputeMs.toFixed(0)}ms | ` +
+            `same-n gpu_wait=${g.sameNGpuWaitMs.toFixed(0)}ms (incl. BatchMsmV2 batches) | ` +
+            `encode=${(g.mixedEncodeMs + g.sameNEncodeMs).toFixed(0)}ms submit/map=${(g.mixedSubmitWaitMs + g.sameNMapAsyncMs).toFixed(0)}ms`,
+          'info',
+        );
+        try {
+          const r = await fetch('/msm-phase?name=chonk-msm-phase-batch.json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              flow,
+              adapter: adp,
+              proveMs: result.proveMs,
+              gpuPhase: g,
+              wasmMsmPhaseMs: lastWasmMsmPhaseMs ?? null,
+              soloProveMs: lastWebgpuSoloProveMs ?? null,
+              soloMsmPhaseMs: lastWebgpuSoloMsmPhaseMs ?? null,
+              route: 'webgpu-batch',
+            }),
+          });
+          const j = await r.json().catch(() => ({}));
+          append(
+            r.ok ? `✓ phase breakdown saved → ${j.path ?? '/msm-phase'}` : `[WARN] phase POST status ${r.status}`,
+            r.ok ? 'ok' : 'warn',
+          );
+        } catch (e) {
+          append(`[WARN] phase POST failed: ${e instanceof Error ? e.message : String(e)}`, 'warn');
+          console.log(JSON.stringify(g));
+        }
+      }
+    } catch (err) {
+      setText('webgpu-batch-prove-big', '✗');
+      setPill('webgpu-batch-verified', 'fail', 'verified: error');
+      append(`[ERR] WebGPU (batch) run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  });
+
   runMsmCsv.addEventListener('click', async () => {
     setBusy(true);
     try {
@@ -1356,7 +1517,7 @@ function setupChonkWebGpuPage(): void {
     log.innerHTML = '';
   });
 
-  status.textContent = 'ready — Run WASM / Run WebGPU / Per-MSM CPU vs GPU';
+  status.textContent = 'ready — Run WASM / Run WebGPU (solo) / Run WebGPU (batch) / Per-MSM CPU vs GPU';
 }
 
 (window as any).setupChonkWebGpuPage = setupChonkWebGpuPage;

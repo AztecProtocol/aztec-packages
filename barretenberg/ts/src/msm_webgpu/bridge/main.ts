@@ -1,3 +1,4 @@
+import { BatchMsmV2 } from '../batch_msm.js';
 import { MsmV2, MsmV2Pool } from '../msm_v2.js';
 import { buildPerfettoTrace, type TraceSpan } from '../perfetto_trace.js';
 import { get_device } from '../cuzk/gpu.js';
@@ -34,6 +35,24 @@ const MSM_LRU_CAP = 16;
 // range constraints) so 10 keeps every same-N batch on the single-encoder
 // path. Each extra slot ≈ 25 MB GPU memory at n=131k.
 const MAX_SAME_N_SLOTS = 10;
+
+// Production routing rule for the Tier 2 BatchMsmV2 path. See
+// BATCH_MSM_DESIGN.md (table "Production deployment recommendation"):
+//   - B=3 W_L/W_R/W_O at n=2^17 — solo wins (batch 0.82× of solo).
+//   - B≥4 at n ≤ 2^17 — batch wins 1.07×-1.17× over solo.
+//   - B≥4 at n=2^18 — known MEM_BUDGET regression (batch 0.74× of solo).
+// Activated only when the chonk page sets `__bridge_batch_enabled = true`
+// for the duration of one prove.
+const BATCH_MSM_V2_MIN_B = 4;
+const BATCH_MSM_V2_MAX_N = 1 << 17;
+// Distinct (n, B) BatchMsmV2 instances kept across the prove. Each instance
+// re-uploads the SRS to its own pool (BatchMsmV2 owns the upload — see
+// BATCH_MSM_DESIGN.md "API"), so the cost is one re-upload + Montgomery
+// convert per cache miss, then amortized across every same-N batch at that
+// (n, B). The chonk flow hits at most ~3 distinct (n, B) keys, so a small
+// LRU is enough. Each cached instance pins ~2 × (n × 32) bytes of GPU
+// memory for its dedicated poolX / poolY.
+const BATCH_MSM_LRU_CAP = 8;
 
 // Aligned CPU+GPU Perfetto trace accumulation across a whole proof. Off by
 // default. The chonk-webgpu page flips `globalThis.__bridge_trace_on = true`
@@ -106,6 +125,19 @@ export class WebGpuMsmHost {
   private srsMsm: MsmV2 | null = null;
   private lru = new Map<number, MsmV2>();
   private slotPools = new Map<number, MsmV2[]>();
+
+  // Raw canonical SRS bytes (`srsN × 64` LE non-Montgomery), kept across
+  // the proof so `runBatchMsm` can rebuild a `BatchMsmV2` instance for any
+  // (n, B) cache miss. Stored as a JS Uint8Array (no GPU memory cost on
+  // its own; just heap). Re-uploaded to a per-instance pool inside each
+  // cached `BatchMsmV2` — the SRS coords end up duplicated in GPU memory
+  // (~2 × 32 × srsN bytes per cache hit), capped by BATCH_MSM_LRU_CAP.
+  private srsBytes: Uint8Array | null = null;
+  // BatchMsmV2 instances keyed by `(n << 16) | B`. Each holds its own
+  // MsmV2Pool with a private SRS upload, plus a single MsmV2 configured
+  // with `batchSize = B`. Activated by `__bridge_batch_enabled === true`
+  // for the duration of one chonk page run; insertion order == LRU order.
+  private batchInstances = new Map<number, BatchMsmV2>();
 
   // If a request arrives before `setWasmMemory` is called, we can't service it.
   // Used by the test harness; production order is always memory-then-message.
@@ -180,6 +212,13 @@ export class WebGpuMsmHost {
         }
       }
     }
+    for (const b of this.batchInstances.values()) {
+      try {
+        b.destroy();
+      } catch {
+        /* idempotent */
+      }
+    }
     try {
       this.pool?.destroy();
     } catch {
@@ -188,6 +227,8 @@ export class WebGpuMsmHost {
     this.srsMsm = null;
     this.lru.clear();
     this.slotPools.clear();
+    this.batchInstances.clear();
+    this.srsBytes = null;
     this.pool = null;
     // GPUDevice.destroy() lets the driver reclaim every shader pipeline and
     // buffer immediately instead of waiting for GC. Idempotent per the spec.
@@ -262,10 +303,17 @@ export class WebGpuMsmHost {
     this.lru.clear();
     for (const pools of this.slotPools.values()) for (const m of pools) m.destroy();
     this.slotPools.clear();
+    for (const b of this.batchInstances.values()) b.destroy();
+    this.batchInstances.clear();
     this.pool?.destroy();
 
     this.pool = await MsmV2Pool.create(device, srsBytes);
     this.srsN = n;
+    // Keep the raw SRS so `runBatchMsm` can spin up BatchMsmV2 instances
+    // on demand. `BatchMsmV2.create` re-uploads + Montgomery-converts to a
+    // private pool per (n, B); the duplicate GPU-side coords are capped by
+    // BATCH_MSM_LRU_CAP.
+    this.srsBytes = srsBytes;
   }
 
   /**
@@ -702,6 +750,34 @@ export class WebGpuMsmHost {
       return;
     }
 
+    // Tier 2 BatchMsmV2 path — see BATCH_MSM_DESIGN.md. Uniform same-N
+    // batches at B ≥ 4 and n ≤ 2^17 win 1.07×-1.17× over the per-MSM
+    // submit fallback below. Activated only when the chonk page sets
+    // `__bridge_batch_enabled = true` around the run (the third button
+    // on the page); falls through to the existing same-N fallback when
+    // disabled or when the routing rule rejects the batch.
+    const batchEnabled = (globalThis as any).__bridge_batch_enabled === true;
+    const uniformN = nCounts.size === 1;
+    const n0 = descs[0];
+    let allZeroSrsOff = true;
+    for (let i = 0; i < batchCount; i++) {
+      if (descs[i * 5 + 1] !== 0) {
+        allZeroSrsOff = false;
+        break;
+      }
+    }
+    if (
+      batchEnabled &&
+      uniformN &&
+      batchCount >= BATCH_MSM_V2_MIN_B &&
+      n0 <= BATCH_MSM_V2_MAX_N &&
+      allZeroSrsOff &&
+      this.srsBytes !== null
+    ) {
+      await this.runBatchMsmV2Path(batchCount, n0, descs, labels, scalarsBase, resultsBase, metaBase, tBatch0);
+      return;
+    }
+
     // Same-N collision path — per-MSM submits + batched mapAsync. Per-MSM
     // gpu timing is collected via `onSubmittedWorkDone()` regardless of
     // phaseTrace (cheap — one promise round-trip per MSM, which already
@@ -854,6 +930,99 @@ export class WebGpuMsmHost {
       p.staging.destroy();
     }
     if (traceOn) traceCpu(`decode ×${batchCount}`, tDecode0, performance.now(), { count: batchCount });
+  }
+
+  /**
+   * Tier 2 `BatchMsmV2` route for a uniform same-N batch. Caches one
+   * `BatchMsmV2` instance per `(n, B)` so the SRS re-upload + Montgomery
+   * convert only happens on first encounter; subsequent batches at the
+   * same shape just call `prepareAll` + `runAll`.
+   *
+   * BatchMsmV2 returns B already-combined affine results, so each per-MSM
+   * result slot is written as `num_windows = 1` with the single affine
+   * point — the C++ `combine_windows` Horner fold returns it as-is
+   * (`num_windows == 1` ⇒ loop runs 0 iterations, no doublings).
+   */
+  private async runBatchMsmV2Path(
+    B: number,
+    n: number,
+    descs: Uint32Array,
+    labels: string[],
+    scalarsBase: number,
+    resultsBase: number,
+    metaBase: number,
+    tBatch0: number,
+  ): Promise<void> {
+    if (this.srsBytes === null) {
+      throw new Error('WebGPU bridge: SRS bytes missing for BatchMsmV2');
+    }
+    const SCALAR_BYTES = 32;
+    const key = (n << 16) | (B & 0xffff);
+    let batch = this.batchInstances.get(key);
+    const cacheHit = !!batch;
+    if (batch) {
+      this.batchInstances.delete(key);
+      this.batchInstances.set(key, batch);
+    } else {
+      const device = await this.getDevice();
+      const tCreate0 = performance.now();
+      batch = await BatchMsmV2.create(device, this.srsBytes, n, B);
+      console.log(`[batch-v2] create n=${n} B=${B} time=${(performance.now() - tCreate0).toFixed(1)}ms`);
+      while (this.batchInstances.size >= BATCH_MSM_LRU_CAP) {
+        const oldest = this.batchInstances.keys().next().value as number;
+        this.batchInstances.get(oldest)!.destroy();
+        this.batchInstances.delete(oldest);
+      }
+      this.batchInstances.set(key, batch);
+    }
+
+    const scalarsList: Uint8Array[] = new Array(B);
+    for (let i = 0; i < B; i++) {
+      const scalarsOff = descs[i * 5 + 2];
+      scalarsList[i] = new Uint8Array(this.wasmMemory!.buffer, scalarsBase + scalarsOff, n * SCALAR_BYTES);
+    }
+
+    const tPrep0 = performance.now();
+    await batch.prepareAll(scalarsList);
+    const tPrep1 = performance.now();
+    const { results, gpuMs, wallMs } = await batch.runAll();
+    const tRun1 = performance.now();
+
+    const metaOut = new Uint32Array(this.wasmMemory!.buffer, metaBase, B * 2);
+    const c = batch.instances[0].c;
+    for (let i = 0; i < B; i++) {
+      const resultOff = descs[i * 5 + 3];
+      const out = new Uint8Array(this.wasmMemory!.buffer, resultsBase + resultOff, 64);
+      writeBigIntLE(out, 0, results[i].x, 32);
+      writeBigIntLE(out, 32, results[i].y, 32);
+      metaOut[i * 2 + 0] = 1;
+      metaOut[i * 2 + 1] = c;
+    }
+
+    // Telemetry — emit the same `[msm] kind=same-n` + `[batch-Nenc]` shape
+    // serve.ts's aggregateGpuPhase regex expects so the GPU phase breakdown
+    // keeps working. gpu_wait carries the BatchMsmV2 GPU wall (queue.submit
+    // → mapAsync); gpu_avg = gpu_wait / B is the per-MSM amortized share.
+    const gpuAvg = gpuMs / B;
+    for (let i = 0; i < B; i++) {
+      console.log(
+        `[msm] name=${labels[i]} n=${n} kind=same-n ` +
+          `prepare=${(tPrep1 - tPrep0).toFixed(1)}ms gpu_wait=${gpuMs.toFixed(2)}ms ` +
+          `gpu_avg=${gpuAvg.toFixed(2)}ms (batch_size=${B})`,
+      );
+    }
+    console.log(
+      `[batch-Nenc] count=${B} maxSameN=${B} ` +
+        `encode=${(tRun1 - tBatch0).toFixed(1)}ms mapAsync=0.0ms ` +
+        `mem=${this.statsBytesSummary([batch.instances[0]])} ` +
+        `route=batch-v2 cache=${cacheHit ? 'hit' : 'miss'} batch_gpu=${gpuMs.toFixed(1)}ms batch_wall=${wallMs.toFixed(1)}ms`,
+    );
+
+    if (bridgeTraceOn()) {
+      traceCpu(`batch-v2 prepareAll B=${B} n=${n}`, tPrep0, tPrep1, { n, B });
+      traceCpu(`batch-v2 runAll B=${B} n=${n}`, tPrep1, tRun1, { n, B });
+      traceGpu(`batch-msm-v2 B=${B} n=${n}`, tPrep1, tPrep1 + gpuMs, { n, B, route: 'batch-v2' });
+    }
   }
 }
 
