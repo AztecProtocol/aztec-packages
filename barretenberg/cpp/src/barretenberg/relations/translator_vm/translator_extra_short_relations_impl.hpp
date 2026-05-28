@@ -43,9 +43,7 @@ void TranslatorOpcodeConstraintShortRelationImpl<FF>::accumulate(ContainerOverSu
     const auto op_minus_eight = op + minus_eight;
 
     // Contribution (1) op(op-3)(op-4)(op-8))
-    auto tmp_1 = Accumulator((op * scaling_factor) * op_minus_three);
-    tmp_1 *= Accumulator(op_minus_four);
-    tmp_1 *= Accumulator(op_minus_eight);
+    auto tmp_1 = Accumulator((op * scaling_factor) * op_minus_three) * Accumulator(op_minus_four * op_minus_eight);
     tmp_1 *= Accumulator(lagrange_mini_masking + minus_one);
     std::get<0>(accumulators) += tmp_1;
 
@@ -62,9 +60,8 @@ void TranslatorOpcodeConstraintShortRelationImpl<FF>::accumulate(ContainerOverSu
 
     // Contribution (2) (2-5 ensure that the accumulator stays the same at even indices within the no-op range if
     // one exists)
-    auto no_op_even_selector_scaled = Accumulator(op_minus_three * (op_minus_four * scaling_factor));
-    no_op_even_selector_scaled *= Accumulator(op_minus_eight);
-    no_op_even_selector_scaled *= Accumulator(lagrange_even_in_minicircuit);
+    auto no_op_even_selector_scaled = Accumulator(op_minus_three * (op_minus_four * scaling_factor)) *
+                                      Accumulator(op_minus_eight * lagrange_even_in_minicircuit);
 
     auto accumulate_no_op_transfer = [&](auto& accumulator, const auto& limb_delta) {
         accumulator += Accumulator(limb_delta) * no_op_even_selector_scaled;

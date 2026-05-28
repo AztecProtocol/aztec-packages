@@ -58,8 +58,8 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
 
         // Contribution (1)
         std::get<0>(accumulators) +=
-            ((Accumulator(z_perm_and_first_scaled) * compute_grand_product_numerator<Accumulator>(in, params)) -
-             (Accumulator(z_perm_shift_and_last_scaled) * compute_grand_product_denominator<Accumulator>(in, params)));
+            (compute_grand_product_numerator_with_factor<Accumulator>(in, params, z_perm_and_first_scaled) -
+             compute_grand_product_denominator_with_factor<Accumulator>(in, params, z_perm_shift_and_last_scaled));
     }();
 
     [&]() {

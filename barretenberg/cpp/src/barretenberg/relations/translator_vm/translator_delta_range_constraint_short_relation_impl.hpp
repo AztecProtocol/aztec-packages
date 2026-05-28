@@ -66,9 +66,8 @@ void TranslatorDeltaRangeConstraintShortRelationImpl<FF>::accumulate(ContainerOv
         auto delta_5 = ordered_range_constraints_4_shift - ordered_range_constraints_4;
 
         auto accumulate_delta_check = [&](auto& accumulator, const auto& delta) {
-            auto tmp = Accumulator(delta * (delta + minus_one));
-            tmp *= Accumulator(delta + minus_two);
-            tmp *= Accumulator(delta + minus_three);
+            auto tmp =
+                Accumulator(delta * (delta + minus_one)) * Accumulator((delta + minus_two) * (delta + minus_three));
             tmp *= not_last_or_masking_scaled;
             accumulator += tmp;
         };

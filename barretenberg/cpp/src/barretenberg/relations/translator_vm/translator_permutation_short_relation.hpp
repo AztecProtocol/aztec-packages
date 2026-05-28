@@ -59,10 +59,41 @@ template <typename FF_> class TranslatorPermutationShortRelationImpl {
         auto chosen_set = lagrange_masking * beta;
         auto chosen_set2 = lagrange_ordered_masking * beta;
         auto product = Accumulator((concatenated_range_constraints_0 + chosen_set + gamma) *
-                                   (concatenated_range_constraints_1 + chosen_set + gamma));
-        product *= Accumulator(concatenated_range_constraints_2 + chosen_set + gamma);
-        product *= Accumulator(concatenated_range_constraints_3 + chosen_set + gamma);
+                                   (concatenated_range_constraints_1 + chosen_set + gamma)) *
+                       Accumulator((concatenated_range_constraints_2 + chosen_set + gamma) *
+                                   (concatenated_range_constraints_3 + chosen_set + gamma));
         product *= Accumulator(ordered_extra_range_constraints_numerator + chosen_set2 + gamma);
+        return product;
+    }
+
+    template <typename Accumulator, typename AllEntities, typename Parameters, typename Factor>
+    inline static Accumulator compute_grand_product_numerator_with_factor(const AllEntities& in,
+                                                                          const Parameters& params,
+                                                                          const Factor& factor)
+    {
+        using View = TranslatorShortMonomialView<Accumulator>;
+        using ParameterView = Parameters::DataType;
+
+        auto concatenated_range_constraints_0 = View(in.concatenated_range_constraints_0);
+        auto concatenated_range_constraints_1 = View(in.concatenated_range_constraints_1);
+        auto concatenated_range_constraints_2 = View(in.concatenated_range_constraints_2);
+        auto concatenated_range_constraints_3 = View(in.concatenated_range_constraints_3);
+
+        auto ordered_extra_range_constraints_numerator = View(in.ordered_extra_range_constraints_numerator);
+
+        auto lagrange_masking = View(in.lagrange_masking);
+        auto lagrange_ordered_masking = View(in.lagrange_ordered_masking);
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& beta = ParameterView(params.beta);
+        // The sumcheck contribution multiplies this 5-factor grand product by an outer linear factor. Build the
+        // resulting 6-factor product as three quadratic coefficient-basis products before materializing.
+        auto chosen_set = lagrange_masking * beta;
+        auto chosen_set2 = lagrange_ordered_masking * beta;
+        auto product = Accumulator(factor * (concatenated_range_constraints_0 + chosen_set + gamma)) *
+                       Accumulator((concatenated_range_constraints_1 + chosen_set + gamma) *
+                                   (concatenated_range_constraints_2 + chosen_set + gamma));
+        product *= Accumulator((concatenated_range_constraints_3 + chosen_set + gamma) *
+                               (ordered_extra_range_constraints_numerator + chosen_set2 + gamma));
         return product;
     }
 
@@ -84,12 +115,40 @@ template <typename FF_> class TranslatorPermutationShortRelationImpl {
         const auto& beta = ParameterView(params.beta);
         // All 5 factors use contiguous masking at the end (lagrange_ordered_masking).
         auto chosen_set = lagrange_ordered_masking * beta;
-        auto product =
-            Accumulator((ordered_range_constraints_0 + chosen_set + gamma) *
-                        (ordered_range_constraints_1 + chosen_set + gamma));
-        product *= Accumulator(ordered_range_constraints_2 + chosen_set + gamma);
-        product *= Accumulator(ordered_range_constraints_3 + chosen_set + gamma);
+        auto product = Accumulator((ordered_range_constraints_0 + chosen_set + gamma) *
+                                   (ordered_range_constraints_1 + chosen_set + gamma)) *
+                       Accumulator((ordered_range_constraints_2 + chosen_set + gamma) *
+                                   (ordered_range_constraints_3 + chosen_set + gamma));
         product *= Accumulator(ordered_range_constraints_4 + chosen_set + gamma);
+        return product;
+    }
+
+    template <typename Accumulator, typename AllEntities, typename Parameters, typename Factor>
+    inline static Accumulator compute_grand_product_denominator_with_factor(const AllEntities& in,
+                                                                            const Parameters& params,
+                                                                            const Factor& factor)
+    {
+        using View = TranslatorShortMonomialView<Accumulator>;
+        using ParameterView = Parameters::DataType;
+
+        auto ordered_range_constraints_0 = View(in.ordered_range_constraints_0);
+        auto ordered_range_constraints_1 = View(in.ordered_range_constraints_1);
+        auto ordered_range_constraints_2 = View(in.ordered_range_constraints_2);
+        auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
+        auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
+
+        auto lagrange_ordered_masking = View(in.lagrange_ordered_masking);
+
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& beta = ParameterView(params.beta);
+        // The sumcheck contribution multiplies this 5-factor grand product by an outer linear factor. Build the
+        // resulting 6-factor product as three quadratic coefficient-basis products before materializing.
+        auto chosen_set = lagrange_ordered_masking * beta;
+        auto product = Accumulator(factor * (ordered_range_constraints_0 + chosen_set + gamma)) *
+                       Accumulator((ordered_range_constraints_1 + chosen_set + gamma) *
+                                   (ordered_range_constraints_2 + chosen_set + gamma));
+        product *= Accumulator((ordered_range_constraints_3 + chosen_set + gamma) *
+                               (ordered_range_constraints_4 + chosen_set + gamma));
         return product;
     }
     /**
