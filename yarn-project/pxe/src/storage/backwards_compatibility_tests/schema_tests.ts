@@ -193,10 +193,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           originalContractClassId: new Fr(89n),
           initializationHash: new Fr(97n),
           immutablesHash: new Fr(103n),
-          // Only `ivpk_m` is exposed as a curve point; the other three master keys
-          // are exposed as `hash_public_key` digests. Constructor signature is now
-          // `(npkMHash, ivpkM, ovpkMHash, tpkMHash)`.
-          publicKeys: new PublicKeys(new Fr(41n), new PublicKey(new Fr(47n), new Fr(53n)), new Fr(59n), new Fr(67n)),
+          // Only `ivpk_m` is exposed as a curve point; the other master keys
+          // are exposed as `hash_public_key` digests. Constructor signature is
+          // `(npkMHash, ivpkM, ovpkMHash, tpkMHash, mspkMHash, fbpkMHash)`.
+          publicKeys: new PublicKeys(
+            new Fr(41n),
+            new PublicKey(new Fr(47n), new Fr(53n)),
+            new Fr(59n),
+            new Fr(67n),
+            new Fr(71n),
+            new Fr(73n),
+          ),
         }).withAddress(AztecAddress.fromBigInt(101n)),
       );
     },

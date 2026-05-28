@@ -88,6 +88,12 @@ export async function createAccountLogs(accountManagers: AccountManager[], walle
         ` Master outgoing viewing public key hash: ${completeAddress.publicKeys.ovpkMHash.toString()}\n\n`,
       );
       accountLogStrings.push(` Master tagging public key hash: ${completeAddress.publicKeys.tpkMHash.toString()}\n\n`);
+      accountLogStrings.push(
+        ` Master message-signing public key hash: ${completeAddress.publicKeys.mspkMHash.toString()}\n\n`,
+      );
+      accountLogStrings.push(
+        ` Master fallback public key hash: ${completeAddress.publicKeys.fbpkMHash.toString()}\n\n`,
+      );
     }
   }
   return accountLogStrings;

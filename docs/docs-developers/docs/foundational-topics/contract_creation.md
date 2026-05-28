@@ -55,7 +55,8 @@ A contract instance includes:
 - `deployer`: Optional address of the contract deployer. Zero for universal deployment
 - `contract_class_id`: Identifier of the contract class for this instance
 - `initialization_hash`: Hash of the selector and arguments to the constructor
-- `public_keys`: Public keys used for encryption and nullifying (nullifier, incoming viewing, outgoing viewing, and tagging keys)
+- `immutables_hash`: Hash of the contract's compile-time immutable state
+- `public_keys`: Public keys participating in address derivation (nullifier, incoming viewing, outgoing viewing, tagging, message-signing, and fallback keys). Only the incoming viewing key is held as an elliptic curve point; the other five are held as their `hash_public_key` digests.
 
 ### Instance Address
 

@@ -35,6 +35,8 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
                 .incoming_viewing_key = { FF(0x200), FF(0x201) },
                 .outgoing_viewing_key_hash = FF(0x300),
                 .tagging_key_hash = FF(0x400),
+                .message_signing_key_hash = FF(0x500),
+                .fallback_key_hash = FF(0x600),
             },
     };
 }
@@ -107,6 +109,8 @@ TEST(ContractInstanceRetrievalTraceGenTest, SingleEvent)
                       ROW_FIELD_EQ(contract_instance_retrieval_incoming_viewing_key_y, 0x201),
                       ROW_FIELD_EQ(contract_instance_retrieval_outgoing_viewing_key_hash, 0x300),
                       ROW_FIELD_EQ(contract_instance_retrieval_tagging_key_hash, 0x400),
+                      ROW_FIELD_EQ(contract_instance_retrieval_message_signing_key_hash, 0x500),
+                      ROW_FIELD_EQ(contract_instance_retrieval_fallback_key_hash, 0x600),
 
                       // Tree context
                       ROW_FIELD_EQ(contract_instance_retrieval_public_data_tree_root, public_data_tree_root),

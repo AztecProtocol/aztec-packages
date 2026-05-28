@@ -112,9 +112,10 @@ impl AztecAddress {
         //                                               /                   \                         .
         //                                             /                       \                       .
         //                               partial_address                        public_keys_hash       .
-        //                           /                    \                     /       /      \      \  .
-        //                         /                        \          npk_m_hash  Ivpk_m  ovpk_m_hash  tpk_m_hash
-        //          contract_class_id                         \                     |...................
+        //                           /                    \                  /  /  |  |  |   \         .
+        //                         /                        \                /  /   |  |  |    \       .
+        //                                                              npk_m_hash Ivpk_m  ovpk_m_hash  tpk_m_hash  mspk_m_hash  fbpk_m_hash
+        //          contract_class_id                         \                     |.........................
         //             /   |    \                               \
         // artifact_hash   |    public_bytecode_commitment        salted_initialization_hash
         //                 |                                      /        /                  \                  \
@@ -213,6 +214,14 @@ fn compute_address_from_partial_and_pub_keys() {
         x: 0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a762,
         y: 0x2f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a,
     };
+    let mspk_m_point = EmbeddedCurvePoint {
+        x: 0x1bd6cb13e0bc8c6e0c1a8b2c5d7f9e0a4b6c8d0e2f4a6c8e0a2c4e6f8a0b2c4d,
+        y: 0x0a032ec7b21c2bdb35f8a13e594764e39ee786c4b275eef3f0435bf6ab2b9822,
+    };
+    let fbpk_m_point = EmbeddedCurvePoint {
+        x: 0x2c8e0a2c4e6f8b0d2f4a6c8e0a2c4e6f8b0d2f4a6c8e0a2c4e6f8b0d2f4a6c90,
+        y: 0x2ef338da3a77e65f90b6d48ac686fc9ff3a95de0c39e0426fc443377425e6634,
+    };
 
     let public_keys = PublicKeys {
         npk_m_hash: hash_public_key(npk_m_point),
@@ -224,6 +233,8 @@ fn compute_address_from_partial_and_pub_keys() {
         },
         ovpk_m_hash: hash_public_key(ovpk_m_point),
         tpk_m_hash: hash_public_key(tpk_m_point),
+        mspk_m_hash: hash_public_key(mspk_m_point),
+        fbpk_m_hash: hash_public_key(fbpk_m_point),
     };
 
     let partial_address = PartialAddress::from_field(
@@ -233,7 +244,7 @@ fn compute_address_from_partial_and_pub_keys() {
     let address = AztecAddress::compute(public_keys, partial_address).to_field();
 
     let expected_computed_address_from_partial_and_pubkeys =
-        0x05f9c48c02e4dbd18d7e165f999c3b8426abb1911476f48e68deef42475d6145;
+        0x303ffc8bd456d132463b1fc3a633aeb718a7883c268f3956c05e6fe09b5a5424;
     assert_eq(address, expected_computed_address_from_partial_and_pubkeys);
 }
 
