@@ -231,7 +231,8 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
 
     // (2) Orphan is pruned on every archiver. The wall-clock prune in pruneOrphanProposedBlocks fires once
     // `now >= getTimestampForSlot(blockSlot - pipeliningOffset + 1) + grace`, which lands well inside slot S1 (= the
-    // build slot for S2) given a 36s aztecSlotDuration and a 2s grace. We wait up to 2 slot durations as a margin.
+    // build slot for S2) given a 36s aztecSlotDuration and the default 8s grace. We wait up to 2 slot durations as a
+    // margin.
     logger.warn('Waiting for L2PruneUncheckpointed on every node');
     const pruneTimeoutMs = test.L2_SLOT_DURATION_IN_S * 2 * 1000;
     const pruneObservations = await Promise.all(
@@ -300,7 +301,12 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
       if (e.type === 'checkpoint-publish-failed' && e.sequencerIndex === p1Index + 2 && e.slot === S1) {
         return false;
       }
-      if (e.type === 'pipelined-checkpoint-discarded' && e.sequencerIndex === p2Index + 2) {
+      if (
+        e.type === 'pipelined-checkpoint-discarded' &&
+        e.sequencerIndex === p2Index + 2 &&
+        e.slot === S2 &&
+        e.checkpointNumber === CheckpointNumber(1)
+      ) {
         return false;
       }
       return true;
