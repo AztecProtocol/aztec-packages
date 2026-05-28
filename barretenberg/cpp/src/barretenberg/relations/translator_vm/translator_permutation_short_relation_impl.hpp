@@ -56,8 +56,9 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
 
         // Contribution (1)
         std::get<0>(accumulators) +=
-            (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
-             ((z_perm_shift + lagrange_last) * compute_grand_product_denominator<Accumulator>(in, params))) *
+            ((Accumulator(z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
+             (Accumulator(z_perm_shift + lagrange_last) *
+              compute_grand_product_denominator<Accumulator>(in, params))) *
             scaling_factor;
     }();
 
@@ -69,7 +70,7 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
         const auto lagrange_last = View(in.lagrange_last);
 
         // Contribution (2)
-        std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
+        std::get<1>(accumulators) += Accumulator(lagrange_last * z_perm_shift) * scaling_factor;
     }();
 
     [&]() {
@@ -81,7 +82,7 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
 
         // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
         // z_perm[0] = 0 so that (z_perm + lagrange_first) evaluates to 1 at the first row.
-        std::get<2>(accumulators) += (lagrange_first * z_perm) * scaling_factor;
+        std::get<2>(accumulators) += Accumulator(lagrange_first * z_perm) * scaling_factor;
     }();
 };
 } // namespace bb

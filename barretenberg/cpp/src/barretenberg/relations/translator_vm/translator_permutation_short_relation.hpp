@@ -53,14 +53,17 @@ template <typename FF_> class TranslatorPermutationShortRelationImpl {
         auto lagrange_ordered_masking = View(in.lagrange_ordered_masking);
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
-        // First 4 factors use scattered masking (lagrange_masking), last factor uses contiguous masking
+        // First 4 factors use scattered masking (lagrange_masking), last factor uses contiguous masking.
+        // Keep the first multiply in coefficient basis, then materialize once the degree exceeds the quadratic
+        // coefficient-basis helper.
         auto chosen_set = lagrange_masking * beta;
         auto chosen_set2 = lagrange_ordered_masking * beta;
-        return (concatenated_range_constraints_0 + chosen_set + gamma) *
-               (concatenated_range_constraints_1 + chosen_set + gamma) *
-               (concatenated_range_constraints_2 + chosen_set + gamma) *
-               (concatenated_range_constraints_3 + chosen_set + gamma) *
-               (ordered_extra_range_constraints_numerator + chosen_set2 + gamma);
+        auto product = Accumulator((concatenated_range_constraints_0 + chosen_set + gamma) *
+                                   (concatenated_range_constraints_1 + chosen_set + gamma));
+        product *= Accumulator(concatenated_range_constraints_2 + chosen_set + gamma);
+        product *= Accumulator(concatenated_range_constraints_3 + chosen_set + gamma);
+        product *= Accumulator(ordered_extra_range_constraints_numerator + chosen_set2 + gamma);
+        return product;
     }
 
     template <typename Accumulator, typename AllEntities, typename Parameters>
@@ -79,11 +82,15 @@ template <typename FF_> class TranslatorPermutationShortRelationImpl {
 
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
-        // All 5 factors use contiguous masking at the end (lagrange_ordered_masking)
+        // All 5 factors use contiguous masking at the end (lagrange_ordered_masking).
         auto chosen_set = lagrange_ordered_masking * beta;
-        return (ordered_range_constraints_0 + chosen_set + gamma) * (ordered_range_constraints_1 + chosen_set + gamma) *
-               (ordered_range_constraints_2 + chosen_set + gamma) * (ordered_range_constraints_3 + chosen_set + gamma) *
-               (ordered_range_constraints_4 + chosen_set + gamma);
+        auto product =
+            Accumulator((ordered_range_constraints_0 + chosen_set + gamma) *
+                        (ordered_range_constraints_1 + chosen_set + gamma));
+        product *= Accumulator(ordered_range_constraints_2 + chosen_set + gamma);
+        product *= Accumulator(ordered_range_constraints_3 + chosen_set + gamma);
+        product *= Accumulator(ordered_range_constraints_4 + chosen_set + gamma);
+        return product;
     }
     /**
      * @brief Compute contribution of the goblin translator permutation relation for a given edge (internal function)

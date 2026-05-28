@@ -98,8 +98,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               accumulator_limb_0_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               accumulator_limb_0_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              accumulators_binary_limbs_0);
-        tmp_1 *= not_even_or_no_op_scaled;
-        std::get<0>(accumulators) += tmp_1;
+        std::get<0>(accumulators) += Accumulator(tmp_1) * Accumulator(not_even_or_no_op_scaled);
 
         // Contribution 2, accumulator second limb decomposition
         auto tmp_2 =
@@ -109,8 +108,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               accumulator_limb_1_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               accumulator_limb_1_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              accumulators_binary_limbs_1);
-        tmp_2 *= not_even_or_no_op_scaled;
-        std::get<1>(accumulators) += tmp_2;
+        std::get<1>(accumulators) += Accumulator(tmp_2) * Accumulator(not_even_or_no_op_scaled);
 
         // Contribution 3, accumulator second highest limb decomposition
         auto tmp_3 =
@@ -120,8 +118,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               accumulator_limb_2_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               accumulator_limb_2_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              accumulators_binary_limbs_2);
-        tmp_3 *= not_even_or_no_op_scaled;
-        std::get<2>(accumulators) += tmp_3;
+        std::get<2>(accumulators) += Accumulator(tmp_3) * Accumulator(not_even_or_no_op_scaled);
 
         // Contribution 4, accumulator highest limb decomposition
         auto tmp_4 =
@@ -130,8 +127,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               accumulator_limb_3_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
               accumulator_limb_3_range_constraint_3 * MICRO_LIMB_SHIFTx3) -
              accumulators_binary_limbs_3);
-        tmp_4 *= not_even_or_no_op_scaled;
-        std::get<3>(accumulators) += tmp_4;
+        std::get<3>(accumulators) += Accumulator(tmp_4) * Accumulator(not_even_or_no_op_scaled);
         // clang-format on
     }();
 
@@ -400,9 +396,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_y_limb_0_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               p_y_limb_0_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              p_y_limb_0);
-        tmp_5 *= lagrange_even_in_minicircuit;
-        tmp_5 *= scaling_factor;
-        std::get<4>(accumulators) += tmp_5;
+        std::get<4>(accumulators) += Accumulator(tmp_5 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 6 , Pᵧ,₁ limb decomposition
         auto tmp_6 =
@@ -412,9 +406,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_y_limb_1_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               p_y_limb_1_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              p_y_limb_1);
-        tmp_6 *= lagrange_even_in_minicircuit;
-        tmp_6 *= scaling_factor;
-        std::get<5>(accumulators) += tmp_6;
+        std::get<5>(accumulators) += Accumulator(tmp_6 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 7 , Pᵧ,₂ limb decomposition
         auto tmp_7 =
@@ -424,9 +416,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_y_limb_2_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               p_y_limb_2_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              p_y_limb_2);
-        tmp_7 *= lagrange_even_in_minicircuit;
-        tmp_7 *= scaling_factor;
-        std::get<6>(accumulators) += tmp_7;
+        std::get<6>(accumulators) += Accumulator(tmp_7 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 8 , Pᵧ,₃ limb decomposition
         auto tmp_8 =
@@ -435,9 +425,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_y_limb_3_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
               p_y_limb_3_range_constraint_3 * MICRO_LIMB_SHIFTx3) -
              p_y_limb_3);
-        tmp_8 *= lagrange_even_in_minicircuit;
-        tmp_8 *= scaling_factor;
-        std::get<7>(accumulators) += tmp_8;
+        std::get<7>(accumulators) += Accumulator(tmp_8 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 9 , z₁,₀ limb decomposition
         auto tmp_9 =
@@ -447,9 +435,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               z_first_limb_0_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               z_first_limb_0_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              z_first_limb_0);
-        tmp_9 *= lagrange_even_in_minicircuit;
-        tmp_9 *= scaling_factor;
-        std::get<8>(accumulators) += tmp_9;
+        std::get<8>(accumulators) += Accumulator(tmp_9 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 10 , z₂,₀ limb decomposition
         auto tmp_10 =
@@ -459,9 +445,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               z_second_limb_0_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               z_second_limb_0_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              z_second_limb_0);
-        tmp_10 *= lagrange_even_in_minicircuit;
-        tmp_10 *= scaling_factor;
-        std::get<9>(accumulators) += tmp_10;
+        std::get<9>(accumulators) += Accumulator(tmp_10 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 11 , z₁,₁ limb decomposition
         auto tmp_11 =
@@ -471,9 +455,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               z_first_limb_1_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               z_first_limb_1_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              z_first_limb_1);
-        tmp_11 *= lagrange_even_in_minicircuit;
-        tmp_11 *= scaling_factor;
-        std::get<10>(accumulators) += tmp_11;
+        std::get<10>(accumulators) += Accumulator(tmp_11 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 12 , z₂,₁ limb decomposition
         auto tmp_12 =
@@ -483,9 +465,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               z_second_limb_1_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               z_second_limb_1_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              z_second_limb_1);
-        tmp_12 *= lagrange_even_in_minicircuit;
-        tmp_12 *= scaling_factor;
-        std::get<11>(accumulators) += tmp_12;
+        std::get<11>(accumulators) += Accumulator(tmp_12 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contributions that decompose 50, 52, 68 or 84 bit limbs used for computation into range-constrained chunks
         // Contribution 13, Pₓ,₀ limb decomposition
@@ -496,9 +476,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_x_limb_0_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               p_x_limb_0_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              p_x_limb_0);
-        tmp_13 *= lagrange_even_in_minicircuit;
-        tmp_13 *= scaling_factor;
-        std::get<12>(accumulators) += tmp_13;
+        std::get<12>(accumulators) += Accumulator(tmp_13 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 14 , Pₓ,₁ limb decomposition
         auto tmp_14 =
@@ -508,9 +486,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_x_limb_1_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               p_x_limb_1_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              p_x_limb_1);
-        tmp_14 *= lagrange_even_in_minicircuit;
-        tmp_14 *= scaling_factor;
-        std::get<13>(accumulators) += tmp_14;
+        std::get<13>(accumulators) += Accumulator(tmp_14 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 15 , Pₓ,₂ limb decomposition
         auto tmp_15 =
@@ -520,9 +496,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_x_limb_2_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               p_x_limb_2_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              p_x_limb_2);
-        tmp_15 *= lagrange_even_in_minicircuit;
-        tmp_15 *= scaling_factor;
-        std::get<14>(accumulators) += tmp_15;
+        std::get<14>(accumulators) += Accumulator(tmp_15 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 16 , Pₓ,₃ limb decomposition
         auto tmp_16 =
@@ -531,9 +505,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               p_x_limb_3_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
               p_x_limb_3_range_constraint_3 * MICRO_LIMB_SHIFTx3) -
              p_x_limb_3);
-        tmp_16 *= lagrange_even_in_minicircuit;
-        tmp_16 *= scaling_factor;
-        std::get<15>(accumulators) += tmp_16;
+        std::get<15>(accumulators) += Accumulator(tmp_16 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 17 , Q₀ limb decomposition
         auto tmp_17 =
@@ -543,9 +515,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               quotient_limb_0_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               quotient_limb_0_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              quotient_binary_limbs_0);
-        tmp_17 *= lagrange_even_in_minicircuit;
-        tmp_17 *= scaling_factor;
-        std::get<16>(accumulators) += tmp_17;
+        std::get<16>(accumulators) += Accumulator(tmp_17 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 18 , Q₁ limb decomposition
         auto tmp_18 =
@@ -555,9 +525,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               quotient_limb_1_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               quotient_limb_1_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              quotient_binary_limbs_1);
-        tmp_18 *= lagrange_even_in_minicircuit;
-        tmp_18 *= scaling_factor;
-        std::get<17>(accumulators) += tmp_18;
+        std::get<17>(accumulators) += Accumulator(tmp_18 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 19 , Q₂ limb decomposition
         auto tmp_19 =
@@ -567,9 +535,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               quotient_limb_2_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               quotient_limb_2_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              quotient_binary_limbs_2);
-        tmp_19 *= lagrange_even_in_minicircuit;
-        tmp_19 *= scaling_factor;
-        std::get<18>(accumulators) += tmp_19;
+        std::get<18>(accumulators) += Accumulator(tmp_19 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 20 , Q₃ limb decomposition
         auto tmp_20 =
@@ -578,9 +544,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               quotient_limb_3_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
               quotient_limb_3_range_constraint_3 * MICRO_LIMB_SHIFTx3) -
              quotient_binary_limbs_3);
-        tmp_20 *= lagrange_even_in_minicircuit;
-        tmp_20 *= scaling_factor;
-        std::get<19>(accumulators) += tmp_20;
+        std::get<19>(accumulators) += Accumulator(tmp_20 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 21 , decomposition of the low wide relation limb used for the bigfield relation.
         // N.B. top microlimbs of relation wide limbs are stored in microlimbs for range constraints of P_x, P_y,
@@ -594,9 +558,7 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               relation_wide_limbs_lo_range_constraint_4 * MICRO_LIMB_SHIFTx4 +
               relation_wide_limbs_lo_range_constraint_5 * MICRO_LIMB_SHIFTx5) -
              relation_wide_limbs_lo);
-        tmp_21 *= lagrange_even_in_minicircuit;
-        tmp_21 *= scaling_factor;
-        std::get<20>(accumulators) += tmp_21;
+        std::get<20>(accumulators) += Accumulator(tmp_21 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 22 , decomposition of high relation limb
         auto tmp_22 =
@@ -607,170 +569,116 @@ void TranslatorDecompositionShortRelationImpl<FF>::accumulate(ContainerOverSubre
               relation_wide_limbs_hi_range_constraint_4 * MICRO_LIMB_SHIFTx4 +
               relation_wide_limbs_hi_range_constraint_5 * MICRO_LIMB_SHIFTx5) -
              relation_wide_limbs_hi);
-        tmp_22 *= lagrange_even_in_minicircuit;
-        tmp_22 *= scaling_factor;
-        std::get<21>(accumulators) += tmp_22;
+        std::get<21>(accumulators) += Accumulator(tmp_22 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contributions enfocing a reduced range constraint on high limbs (these relation force the last microlimb in
         // each limb to be more severely range constrained)
 
         // Contribution 23, range constrain Pₓ,₀[4] to be 12 bits (68 % 14 = 12)
         auto tmp_23 = p_x_limb_0_range_constraint_4 * SHIFT_12_TO_14 - p_x_limb_0_range_constraint_tail;
-        tmp_23 *= lagrange_even_in_minicircuit;
-        tmp_23 *= scaling_factor;
-        std::get<22>(accumulators) += tmp_23;
+        std::get<22>(accumulators) += Accumulator(tmp_23 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 24, range constrain Pₓ,₁[4] to be 12 bits
         auto tmp_24 = p_x_limb_1_range_constraint_4 * SHIFT_12_TO_14 - p_x_limb_1_range_constraint_tail;
-        tmp_24 *= lagrange_even_in_minicircuit;
-        tmp_24 *= scaling_factor;
-        std::get<23>(accumulators) += tmp_24;
+        std::get<23>(accumulators) += Accumulator(tmp_24 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 25, range constrain Pₓ,₂[4] to be 12 bits
         auto tmp_25 = p_x_limb_2_range_constraint_4 * SHIFT_12_TO_14 - p_x_limb_2_range_constraint_tail;
-        tmp_25 *= lagrange_even_in_minicircuit;
-        tmp_25 *= scaling_factor;
-        std::get<24>(accumulators) += tmp_25;
+        std::get<24>(accumulators) += Accumulator(tmp_25 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 26, range constrain Pₓ,₃[3] (top limb of Pₓ,₃) to be 8 bits (50 % 14 = 8)
         auto tmp_26 = p_x_limb_3_range_constraint_3 * SHIFT_8_TO_14 - p_x_limb_3_range_constraint_tail;
-        tmp_26 *= lagrange_even_in_minicircuit;
-        tmp_26 *= scaling_factor;
-        std::get<25>(accumulators) += tmp_26;
+        std::get<25>(accumulators) += Accumulator(tmp_26 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 27, range constrain Pᵧ,₀[4] to be 12 bits (68 % 14 = 12)
         auto tmp_27 = p_y_limb_0_range_constraint_4 * SHIFT_12_TO_14 - p_y_limb_0_range_constraint_tail;
-        tmp_27 *= lagrange_even_in_minicircuit;
-        tmp_27 *= scaling_factor;
-        std::get<26>(accumulators) += tmp_27;
+        std::get<26>(accumulators) += Accumulator(tmp_27 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 28, range constrain Pᵧ,₁[4] to be 12 bits (68 % 14 = 12)
         auto tmp_28 = p_y_limb_1_range_constraint_4 * SHIFT_12_TO_14 - p_y_limb_1_range_constraint_tail;
-        tmp_28 *= lagrange_even_in_minicircuit;
-        tmp_28 *= scaling_factor;
-        std::get<27>(accumulators) += tmp_28;
+        std::get<27>(accumulators) += Accumulator(tmp_28 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 29, range constrain Pᵧ,₂[4] to be 12 bits (68 % 14 = 12)
         auto tmp_29 = p_y_limb_2_range_constraint_4 * SHIFT_12_TO_14 - p_y_limb_2_range_constraint_tail;
-        tmp_29 *= lagrange_even_in_minicircuit;
-        tmp_29 *= scaling_factor;
-        std::get<28>(accumulators) += tmp_29;
+        std::get<28>(accumulators) += Accumulator(tmp_29 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 30, range constrain Pᵧ,₃[3] (top limb of Pᵧ,₃) to be 8 bits (50 % 14 = 8)
         auto tmp_30 = p_y_limb_3_range_constraint_3 * SHIFT_8_TO_14 - p_y_limb_3_range_constraint_tail;
-        tmp_30 *= lagrange_even_in_minicircuit;
-        tmp_30 *= scaling_factor;
-        std::get<29>(accumulators) += tmp_30;
+        std::get<29>(accumulators) += Accumulator(tmp_30 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 31, range constrain z₁,₀[4] to be 12 bits (68 % 14 = 12)
         auto tmp_31 = (z_first_limb_0_range_constraint_4 * SHIFT_12_TO_14 - z_first_limb_0_range_constraint_tail);
-        tmp_31 *= lagrange_even_in_minicircuit;
-        tmp_31 *= scaling_factor;
-        std::get<30>(accumulators) += tmp_31;
+        std::get<30>(accumulators) += Accumulator(tmp_31 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 32, range constrain z₂,₀[4] to be 12 bits (68 % 14 = 12)
         auto tmp_32 = (z_second_limb_0_range_constraint_4 * SHIFT_12_TO_14 - z_second_limb_0_range_constraint_tail);
-        tmp_32 *= lagrange_even_in_minicircuit;
-        tmp_32 *= scaling_factor;
-        std::get<31>(accumulators) += tmp_32;
+        std::get<31>(accumulators) += Accumulator(tmp_32 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 33, range constrain z₁,₁[4] to be 4 bits (60 % 14 = 4)
         auto tmp_33 = (z_first_limb_1_range_constraint_4 * SHIFT_4_TO_14 - z_first_limb_1_range_constraint_tail);
-        tmp_33 *= lagrange_even_in_minicircuit;
-        tmp_33 *= scaling_factor;
-        std::get<32>(accumulators) += tmp_33;
+        std::get<32>(accumulators) += Accumulator(tmp_33 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 34, range constrain z₂,₁[4] to be 4 bits (60 % 14 = 4)
         auto tmp_34 = z_second_limb_1_range_constraint_4 * SHIFT_4_TO_14 - z_second_limb_1_range_constraint_tail;
-        tmp_34 *= lagrange_even_in_minicircuit;
-        tmp_34 *= scaling_factor;
-        std::get<33>(accumulators) += tmp_34;
+        std::get<33>(accumulators) += Accumulator(tmp_34 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 35, range constrain A₀,₄ to be 12 bits (68 % 14 = 12)
         auto tmp_35 = accumulator_limb_0_range_constraint_4 * SHIFT_12_TO_14 - accumulator_limb_0_range_constraint_tail;
-        tmp_35 *= lagrange_even_in_minicircuit;
-        tmp_35 *= scaling_factor;
-        std::get<34>(accumulators) += tmp_35;
+        std::get<34>(accumulators) += Accumulator(tmp_35 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 36, range constrain A₁,₄ to be 12 bits (68 % 14 = 12)
         auto tmp_36 = (accumulator_limb_1_range_constraint_4 * SHIFT_12_TO_14 - accumulator_limb_1_range_constraint_tail);
-        tmp_36 *= lagrange_even_in_minicircuit;
-        tmp_36 *= scaling_factor;
-        std::get<35>(accumulators) += tmp_36;
+        std::get<35>(accumulators) += Accumulator(tmp_36 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 37, range constrain A₂,₄ to be 12 bits (68 % 14 = 12)
         auto tmp_37 = (accumulator_limb_2_range_constraint_4 * SHIFT_12_TO_14 - accumulator_limb_2_range_constraint_tail);
-        tmp_37 *= lagrange_even_in_minicircuit;
-        tmp_37 *= scaling_factor;
-        std::get<36>(accumulators) += tmp_37;
+        std::get<36>(accumulators) += Accumulator(tmp_37 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 38, range constrain A₃,₃ to be 8 bits (50 % 14 = 8)
         auto tmp_38 = (accumulator_limb_3_range_constraint_3 * SHIFT_8_TO_14 - accumulator_limb_3_range_constraint_tail);
-        tmp_38 *= lagrange_even_in_minicircuit;
-        tmp_38 *= scaling_factor;
-        std::get<37>(accumulators) += tmp_38;
+        std::get<37>(accumulators) += Accumulator(tmp_38 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 39, range constrain Q₀[4] to be 12 bits (68 % 14 = 12)
         auto tmp_39 = (quotient_limb_0_range_constraint_4 * SHIFT_12_TO_14 - quotient_limb_0_range_constraint_tail);
-        tmp_39 *= lagrange_even_in_minicircuit;
-        tmp_39 *= scaling_factor;
-        std::get<38>(accumulators) += tmp_39;
+        std::get<38>(accumulators) += Accumulator(tmp_39 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 40, range constrain Q₁[4] to be 12 bits (68 % 14 = 12)
         auto tmp_40 = (quotient_limb_1_range_constraint_4 * SHIFT_12_TO_14 - quotient_limb_1_range_constraint_tail);
-        tmp_40 *= lagrange_even_in_minicircuit;
-        tmp_40 *= scaling_factor;
-        std::get<39>(accumulators) += tmp_40;
+        std::get<39>(accumulators) += Accumulator(tmp_40 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 41, range constrain Q₂[4] to be 12 bits (68 % 14 = 12)
         auto tmp_41 = (quotient_limb_2_range_constraint_4 * SHIFT_12_TO_14 - quotient_limb_2_range_constraint_tail);
-        tmp_41 *= lagrange_even_in_minicircuit;
-        tmp_41 *= scaling_factor;
-        std::get<40>(accumulators) += tmp_41;
+        std::get<40>(accumulators) += Accumulator(tmp_41 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 42, range constrain Q₃[3] (top limb of Q₃) to be 10 bits (52 % 14 = 10)
         auto tmp_42 = (quotient_limb_3_range_constraint_3 * SHIFT_10_TO_14 - quotient_limb_3_range_constraint_tail);
-        tmp_42 *= lagrange_even_in_minicircuit;
-        tmp_42 *= scaling_factor;
-        std::get<41>(accumulators) += tmp_42;
+        std::get<41>(accumulators) += Accumulator(tmp_42 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contributions where we decompose initial EccOpQueue values into 68-bit limbs
 
         // Contribution 43, decompose x_lo = Pₓ,₀ + Pₓ,₁ * 2⁶⁸
         auto tmp_43 = (p_x_limb_0 + p_x_limb_1 * LIMB_SHIFT) - x_lo;
-        tmp_43 *= lagrange_even_in_minicircuit;
-        tmp_43 *= scaling_factor;
-        std::get<42>(accumulators) += tmp_43;
+        std::get<42>(accumulators) += Accumulator(tmp_43 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 44, decompose x_hi = Pₓ,₂ + Pₓ,₃ * 2⁶⁸
         auto tmp_44 = (p_x_limb_2 + p_x_limb_3 * LIMB_SHIFT) - x_hi;
-        tmp_44 *= lagrange_even_in_minicircuit;
-        tmp_44 *= scaling_factor;
-        std::get<43>(accumulators) += tmp_44;
+        std::get<43>(accumulators) += Accumulator(tmp_44 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 45, decompose y_lo = Pᵧ,₀ + Pᵧ,₁ * 2⁶⁸
         auto tmp_45 = (p_y_limb_0 + p_y_limb_1 * LIMB_SHIFT) - y_lo;
-        tmp_45 *= lagrange_even_in_minicircuit;
-        tmp_45 *= scaling_factor;
-        std::get<44>(accumulators) += tmp_45;
+        std::get<44>(accumulators) += Accumulator(tmp_45 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 46, decompose y_hi = Pᵧ,₂ + Pᵧ,₃ * 2⁶⁸
         auto tmp_46 = (p_y_limb_2 + p_y_limb_3 * LIMB_SHIFT) - y_hi;
-        tmp_46 *= lagrange_even_in_minicircuit;
-        tmp_46 *= scaling_factor;
-        std::get<45>(accumulators) += tmp_46;
+        std::get<45>(accumulators) += Accumulator(tmp_46 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 47, decompose z1 = z₁,₀ + z₁,₁ * 2⁶⁸
         auto tmp_47 = (z_first_limb_0 + z_first_limb_1 * LIMB_SHIFT) - z_one;
-        tmp_47 *= lagrange_even_in_minicircuit;
-        tmp_47 *= scaling_factor;
-        std::get<46>(accumulators) += tmp_47;
+        std::get<46>(accumulators) += Accumulator(tmp_47 * lagrange_even_in_minicircuit) * scaling_factor;
 
         // Contribution 48, decompose z2 = z₂,₀ + z₂,₁ * 2⁶⁸
         auto tmp_48 = (z_second_limb_0 + z_second_limb_1 * LIMB_SHIFT) - z_two;
-        tmp_48 *= lagrange_even_in_minicircuit;
-        tmp_48 *= scaling_factor;
-        std::get<47>(accumulators) += tmp_48;
+        std::get<47>(accumulators) += Accumulator(tmp_48 * lagrange_even_in_minicircuit) * scaling_factor;
     }();
 };
 } // namespace bb

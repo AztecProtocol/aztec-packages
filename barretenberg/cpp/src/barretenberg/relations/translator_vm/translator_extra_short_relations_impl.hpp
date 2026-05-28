@@ -40,10 +40,10 @@ void TranslatorOpcodeConstraintShortRelationImpl<FF>::accumulate(ContainerOverSu
     static const FF minus_one = FF(-1);
 
     // Contribution (1) op(op-3)(op-4)(op-8))
-    auto tmp_1 = op * (op + minus_three);
-    tmp_1 *= (op + minus_four);
-    tmp_1 *= (op + minus_eight);
-    tmp_1 *= (lagrange_mini_masking + minus_one);
+    auto tmp_1 = Accumulator(op * (op + minus_three));
+    tmp_1 *= Accumulator(op + minus_four);
+    tmp_1 *= Accumulator(op + minus_eight);
+    tmp_1 *= Accumulator(lagrange_mini_masking + minus_one);
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
 
@@ -60,40 +60,23 @@ void TranslatorOpcodeConstraintShortRelationImpl<FF>::accumulate(ContainerOverSu
 
     // Contribution (2) (2-5 ensure that the accumulator stays the same at even indices within the no-op range if
     // one exists)
-    auto tmp_2 = (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
-    tmp_2 *= (op + minus_three);
-    tmp_2 *= (op + minus_four);
-    tmp_2 *= (op + minus_eight);
-    tmp_2 *= lagrange_even_in_minicircuit;
-    tmp_2 *= scaling_factor;
-    std::get<1>(accumulators) += tmp_2;
+    auto no_op_even_selector = Accumulator((op + minus_three) * (op + minus_four));
+    no_op_even_selector *= Accumulator(op + minus_eight);
+    no_op_even_selector *= Accumulator(lagrange_even_in_minicircuit);
 
-    // Contribution (3)
-    auto tmp_3 = (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
-    tmp_3 *= (op + minus_three);
-    tmp_3 *= (op + minus_four);
-    tmp_3 *= (op + minus_eight);
-    tmp_3 *= lagrange_even_in_minicircuit;
-    tmp_3 *= scaling_factor;
-    std::get<2>(accumulators) += tmp_3;
+    auto accumulate_no_op_transfer = [&](auto& accumulator, const auto& limb_delta) {
+        accumulator += Accumulator(limb_delta) * no_op_even_selector * scaling_factor;
+    };
 
-    // Contribution (4)
-    auto tmp_4 = (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
-    tmp_4 *= (op + minus_three);
-    tmp_4 *= (op + minus_four);
-    tmp_4 *= (op + minus_eight);
-    tmp_4 *= lagrange_even_in_minicircuit;
-    tmp_4 *= scaling_factor;
-    std::get<3>(accumulators) += tmp_4;
-
-    // Contribution (5)
-    auto tmp_5 = (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
-    tmp_5 *= (op + minus_three);
-    tmp_5 *= (op + minus_four);
-    tmp_5 *= (op + minus_eight);
-    tmp_5 *= lagrange_even_in_minicircuit;
-    tmp_5 *= scaling_factor;
-    std::get<4>(accumulators) += tmp_5;
+    // Contributions (2-5) ensure accumulator limbs stay the same at even no-op rows.
+    accumulate_no_op_transfer(std::get<1>(accumulators),
+                              accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+    accumulate_no_op_transfer(std::get<2>(accumulators),
+                              accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+    accumulate_no_op_transfer(std::get<3>(accumulators),
+                              accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+    accumulate_no_op_transfer(std::get<4>(accumulators),
+                              accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
 };
 
 /**
@@ -151,65 +134,58 @@ void TranslatorAccumulatorTransferShortRelationImpl<FF>::accumulate(ContainerOve
 
     // Contribution (1) (1-4 ensure transfer of accumulator limbs at odd indices of the minicircuit)
     const auto is_row_odd_except_last = lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit + minus_one);
-    auto tmp_1 = accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift;
-    tmp_1 *= is_row_odd_except_last;
-    tmp_1 *= scaling_factor;
-    std::get<0>(accumulators) += tmp_1;
+    auto accumulate_odd_transfer = [&](auto& accumulator, const auto& limb_delta) {
+        accumulator += Accumulator(limb_delta) * Accumulator(is_row_odd_except_last) * scaling_factor;
+    };
 
-    // Contribution (2)
-    auto tmp_2 = accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift;
-    tmp_2 *= is_row_odd_except_last;
-    tmp_2 *= scaling_factor;
-    std::get<1>(accumulators) += tmp_2;
-    // Contribution (3)
-    auto tmp_3 = accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift;
-    tmp_3 *= is_row_odd_except_last;
-    tmp_3 *= scaling_factor;
-    std::get<2>(accumulators) += tmp_3;
-    // Contribution (4)
-    auto tmp_4 = accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift;
-    tmp_4 *= is_row_odd_except_last;
-    tmp_4 *= scaling_factor;
-    std::get<3>(accumulators) += tmp_4;
+    // Contributions (1-4) ensure transfer of accumulator limbs at odd minicircuit rows.
+    accumulate_odd_transfer(std::get<0>(accumulators),
+                            accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+    accumulate_odd_transfer(std::get<1>(accumulators),
+                            accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+    accumulate_odd_transfer(std::get<2>(accumulators),
+                            accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+    accumulate_odd_transfer(std::get<3>(accumulators),
+                            accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
 
     // Contribution (5) (5-9 ensure that accumulator starts with zeroed-out limbs)
     const auto lagrange_last_in_minicircuit_by_scaling_factor = lagrange_last_in_minicircuit_shorter * scaling_factor;
     auto tmp_5 = accumulators_binary_limbs_0_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
-    std::get<4>(accumulators) += tmp_5;
+    std::get<4>(accumulators) += ShorterAccumulator(tmp_5);
 
     //    Contribution (6)
     auto tmp_6 = accumulators_binary_limbs_1_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
-    std::get<5>(accumulators) += tmp_6;
+    std::get<5>(accumulators) += ShorterAccumulator(tmp_6);
 
     // Contribution (7)
     auto tmp_7 = accumulators_binary_limbs_2_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
-    std::get<6>(accumulators) += tmp_7;
+    std::get<6>(accumulators) += ShorterAccumulator(tmp_7);
 
     // Contribution (8)
     auto tmp_8 = accumulators_binary_limbs_3_shorter * lagrange_last_in_minicircuit_by_scaling_factor;
-    std::get<7>(accumulators) += tmp_8;
+    std::get<7>(accumulators) += ShorterAccumulator(tmp_8);
 
     // Contribution (9) (9-12 ensure the output is as stated, we basically use this to get the result out of the
     // proof)
     const auto lagrange_result_row_by_scaling_factor = lagrange_result_row_shorter * scaling_factor;
     auto tmp_9 =
         (accumulators_binary_limbs_0_shorter - params.accumulated_result[0]) * lagrange_result_row_by_scaling_factor;
-    std::get<8>(accumulators) += tmp_9;
+    std::get<8>(accumulators) += ShorterAccumulator(tmp_9);
 
     // Contribution (10)
     auto tmp_10 =
         (accumulators_binary_limbs_1_shorter - params.accumulated_result[1]) * lagrange_result_row_by_scaling_factor;
-    std::get<9>(accumulators) += tmp_10;
+    std::get<9>(accumulators) += ShorterAccumulator(tmp_10);
 
     // Contribution (11)
     auto tmp_11 =
         (accumulators_binary_limbs_2_shorter - params.accumulated_result[2]) * lagrange_result_row_by_scaling_factor;
-    std::get<10>(accumulators) += tmp_11;
+    std::get<10>(accumulators) += ShorterAccumulator(tmp_11);
 
     // Contribution (12)
     auto tmp_12 =
         (accumulators_binary_limbs_3_shorter - params.accumulated_result[3]) * lagrange_result_row_by_scaling_factor;
-    std::get<11>(accumulators) += tmp_12;
+    std::get<11>(accumulators) += ShorterAccumulator(tmp_12);
 };
 
 /**
@@ -311,207 +287,207 @@ void TranslatorZeroConstraintsShortRelationImpl<FF>::accumulate(ContainerOverSub
         scaling_factor;
 
     // Contribution 0, ensure p_x_low_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<0>(accumulators) += p_x_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<0>(accumulators) += Accumulator(p_x_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 1, ensure p_x_low_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<1>(accumulators) += p_x_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<1>(accumulators) += Accumulator(p_x_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 2, ensure p_x_low_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<2>(accumulators) += p_x_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<2>(accumulators) += Accumulator(p_x_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 3, ensure p_x_low_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<3>(accumulators) += p_x_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<3>(accumulators) += Accumulator(p_x_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 4, ensure p_x_low_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<4>(accumulators) += p_x_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<4>(accumulators) += Accumulator(p_x_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 5, ensure p_x_high_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<5>(accumulators) += p_x_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<5>(accumulators) += Accumulator(p_x_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 6, ensure p_x_high_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<6>(accumulators) += p_x_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<6>(accumulators) += Accumulator(p_x_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 7, ensure p_x_high_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<7>(accumulators) += p_x_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<7>(accumulators) += Accumulator(p_x_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 8, ensure p_x_high_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<8>(accumulators) += p_x_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<8>(accumulators) += Accumulator(p_x_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 9, ensure p_x_high_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<9>(accumulators) += p_x_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<9>(accumulators) += Accumulator(p_x_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 10, ensure p_y_low_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<10>(accumulators) += p_y_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<10>(accumulators) += Accumulator(p_y_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 11, ensure p_y_low_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<11>(accumulators) += p_y_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<11>(accumulators) += Accumulator(p_y_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 12, ensure p_y_low_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<12>(accumulators) += p_y_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<12>(accumulators) += Accumulator(p_y_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 13, ensure p_y_low_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<13>(accumulators) += p_y_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<13>(accumulators) += Accumulator(p_y_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 14, ensure p_y_low_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<14>(accumulators) += p_y_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<14>(accumulators) += Accumulator(p_y_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 15, ensure p_y_high_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<15>(accumulators) += p_y_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<15>(accumulators) += Accumulator(p_y_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 16, ensure p_y_high_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<16>(accumulators) += p_y_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<16>(accumulators) += Accumulator(p_y_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 17, ensure p_y_high_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<17>(accumulators) += p_y_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<17>(accumulators) += Accumulator(p_y_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 18, ensure p_y_high_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<18>(accumulators) += p_y_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<18>(accumulators) += Accumulator(p_y_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 19, ensure p_y_high_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<19>(accumulators) += p_y_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<19>(accumulators) += Accumulator(p_y_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 20, ensure z_low_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<20>(accumulators) += z_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<20>(accumulators) += Accumulator(z_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 21, ensure z_low_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<21>(accumulators) += z_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<21>(accumulators) += Accumulator(z_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 22, ensure z_low_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<22>(accumulators) += z_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<22>(accumulators) += Accumulator(z_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 23, ensure z_low_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<23>(accumulators) += z_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<23>(accumulators) += Accumulator(z_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 24, ensure z_low_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<24>(accumulators) += z_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<24>(accumulators) += Accumulator(z_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 25, ensure z_high_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<25>(accumulators) += z_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<25>(accumulators) += Accumulator(z_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 26, ensure z_high_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<26>(accumulators) += z_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<26>(accumulators) += Accumulator(z_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 27, ensure z_high_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<27>(accumulators) += z_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<27>(accumulators) += Accumulator(z_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 28, ensure z_high_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<28>(accumulators) += z_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<28>(accumulators) += Accumulator(z_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 29, ensure z_high_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<29>(accumulators) += z_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<29>(accumulators) += Accumulator(z_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 30, ensure accumulator_low_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<30>(accumulators) += accumulator_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<30>(accumulators) += Accumulator(accumulator_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 31, ensure accumulator_low_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<31>(accumulators) += accumulator_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<31>(accumulators) += Accumulator(accumulator_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 32, ensure accumulator_low_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<32>(accumulators) += accumulator_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<32>(accumulators) += Accumulator(accumulator_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 33, ensure accumulator_low_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<33>(accumulators) += accumulator_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<33>(accumulators) += Accumulator(accumulator_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 34, ensure accumulator_low_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<34>(accumulators) += accumulator_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<34>(accumulators) += Accumulator(accumulator_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 35, ensure accumulator_high_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<35>(accumulators) += accumulator_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<35>(accumulators) += Accumulator(accumulator_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 36, ensure accumulator_high_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<36>(accumulators) += accumulator_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<36>(accumulators) += Accumulator(accumulator_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 37, ensure accumulator_high_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<37>(accumulators) += accumulator_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<37>(accumulators) += Accumulator(accumulator_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 38, ensure accumulator_high_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<38>(accumulators) += accumulator_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<38>(accumulators) += Accumulator(accumulator_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 39, ensure accumulator_high_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<39>(accumulators) += accumulator_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<39>(accumulators) += Accumulator(accumulator_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 40, ensure quotient_low_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<40>(accumulators) += quotient_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<40>(accumulators) += Accumulator(quotient_low_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 41, ensure quotient_low_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<41>(accumulators) += quotient_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<41>(accumulators) += Accumulator(quotient_low_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 42, ensure quotient_low_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<42>(accumulators) += quotient_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<42>(accumulators) += Accumulator(quotient_low_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 43, ensure quotient_low_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<43>(accumulators) += quotient_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<43>(accumulators) += Accumulator(quotient_low_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 44, ensure quotient_low_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<44>(accumulators) += quotient_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<44>(accumulators) += Accumulator(quotient_low_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 45, ensure quotient_high_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<45>(accumulators) += quotient_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<45>(accumulators) += Accumulator(quotient_high_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 46, ensure quotient_high_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<46>(accumulators) += quotient_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<46>(accumulators) += Accumulator(quotient_high_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 47, ensure quotient_high_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<47>(accumulators) += quotient_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<47>(accumulators) += Accumulator(quotient_high_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 48, ensure quotient_high_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<48>(accumulators) += quotient_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<48>(accumulators) += Accumulator(quotient_high_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 49, ensure quotient_high_limbs_range_constraint_4 is 0 outside of minicircuit
-    std::get<49>(accumulators) += quotient_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked;
+    std::get<49>(accumulators) += Accumulator(quotient_high_limbs_range_constraint_4 * not_in_mininicircuit_or_masked);
 
     // Contribution 50, ensure relation_wide_limbs_range_constraint_0 is 0 outside of minicircuit
-    std::get<50>(accumulators) += relation_wide_limbs_range_constraint_0 * not_in_mininicircuit_or_masked;
+    std::get<50>(accumulators) += Accumulator(relation_wide_limbs_range_constraint_0 * not_in_mininicircuit_or_masked);
 
     // Contribution 51, ensure relation_wide_limbs_range_constraint_1 is 0 outside of minicircuit
-    std::get<51>(accumulators) += relation_wide_limbs_range_constraint_1 * not_in_mininicircuit_or_masked;
+    std::get<51>(accumulators) += Accumulator(relation_wide_limbs_range_constraint_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 52, ensure relation_wide_limbs_range_constraint_2 is 0 outside of minicircuit
-    std::get<52>(accumulators) += relation_wide_limbs_range_constraint_2 * not_in_mininicircuit_or_masked;
+    std::get<52>(accumulators) += Accumulator(relation_wide_limbs_range_constraint_2 * not_in_mininicircuit_or_masked);
 
     // Contribution 53, ensure relation_wide_limbs_range_constraint_3 is 0 outside of minicircuit
-    std::get<53>(accumulators) += relation_wide_limbs_range_constraint_3 * not_in_mininicircuit_or_masked;
+    std::get<53>(accumulators) += Accumulator(relation_wide_limbs_range_constraint_3 * not_in_mininicircuit_or_masked);
 
     // Contribution 54, ensure p_x_low_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<54>(accumulators) += p_x_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<54>(accumulators) += Accumulator(p_x_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 55, ensure p_x_high_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<55>(accumulators) += p_x_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<55>(accumulators) += Accumulator(p_x_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 56, ensure p_y_low_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<56>(accumulators) += p_y_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<56>(accumulators) += Accumulator(p_y_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 57, ensure p_y_high_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<57>(accumulators) += p_y_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<57>(accumulators) += Accumulator(p_y_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 58, ensure z_low_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<58>(accumulators) += z_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<58>(accumulators) += Accumulator(z_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 59, ensure z_high_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<59>(accumulators) += z_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<59>(accumulators) += Accumulator(z_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 60, ensure accumulator_low_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<60>(accumulators) += accumulator_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<60>(accumulators) += Accumulator(accumulator_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 61, ensure accumulator_high_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<61>(accumulators) += accumulator_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<61>(accumulators) += Accumulator(accumulator_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 62, ensure quotient_low_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<62>(accumulators) += quotient_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<62>(accumulators) += Accumulator(quotient_low_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 63, ensure quotient_high_limbs_range_constraint_tail is 0 outside of minicircuit
-    std::get<63>(accumulators) += quotient_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+    std::get<63>(accumulators) += Accumulator(quotient_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked);
 
     // Contribution 64, ensure op is 0 outside of minicircuit
-    std::get<64>(accumulators) += op * not_in_mininicircuit_or_masked;
+    std::get<64>(accumulators) += Accumulator(op * not_in_mininicircuit_or_masked);
 
     // Contribution 65, ensure x_lo_y_hi is 0 outside of minicircuit
-    std::get<65>(accumulators) += x_lo_y_hi * not_in_mininicircuit_or_masked;
+    std::get<65>(accumulators) += Accumulator(x_lo_y_hi * not_in_mininicircuit_or_masked);
 
     // Contribution 66, ensure x_hi_z_1 is 0 outside of minicircuit
-    std::get<66>(accumulators) += x_hi_z_1 * not_in_mininicircuit_or_masked;
+    std::get<66>(accumulators) += Accumulator(x_hi_z_1 * not_in_mininicircuit_or_masked);
 
     // Contribution 67, ensure y_lo_z_2 is 0 outside of minicircuit
-    std::get<67>(accumulators) += y_lo_z_2 * not_in_mininicircuit_or_masked;
+    std::get<67>(accumulators) += Accumulator(y_lo_z_2 * not_in_mininicircuit_or_masked);
 };
 } // namespace bb

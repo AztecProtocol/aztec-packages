@@ -161,6 +161,7 @@ void TranslatorNonNativeFieldShortRelationImpl<FF>::accumulate(ContainerOverSubr
     const auto& relation_wide_limbs_lo = View(in.relation_wide_limbs);
     const auto& relation_wide_limbs_hi = View(in.relation_wide_limbs_shift);
     const auto& lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+    const auto even_op_selector = lagrange_even_in_minicircuit * op;
 
     /**
      * Contribution (1): Subrelation 1 - Lower Mod 2¹³⁶ Check
@@ -199,9 +200,7 @@ void TranslatorNonNativeFieldShortRelationImpl<FF>::accumulate(ContainerOverSubr
     // clang-format on
     // Subtract 2¹³⁶·c_lo: if the result is zero, lower 136 bits are correct
     tmp -= relation_wide_limbs_lo * shiftx2;
-    tmp *= lagrange_even_in_minicircuit * op;
-    tmp *= scaling_factor;
-    std::get<0>(accumulators) += tmp;
+    std::get<0>(accumulators) += Accumulator(tmp) * Accumulator(even_op_selector) * scaling_factor;
 
     /**
      * Contribution (2): Subrelation 2 - Higher Mod 2¹³⁶ Check
@@ -259,9 +258,7 @@ void TranslatorNonNativeFieldShortRelationImpl<FF>::accumulate(ContainerOverSubr
     // clang-format on
     // Subtract 2¹³⁶·c_hi: if the result is zero, higher 136 bits are correct
     tmp -= relation_wide_limbs_hi * shiftx2;
-    tmp *= lagrange_even_in_minicircuit * op;
-    tmp *= scaling_factor;
-    std::get<1>(accumulators) += tmp;
+    std::get<1>(accumulators) += Accumulator(tmp) * Accumulator(even_op_selector) * scaling_factor;
 
     // Helper functions to reconstruct field elements from limbs
     const auto reconstruct_from_two = [](const auto& l0, const auto& l1) { return l0 + l1 * shift; };
@@ -305,8 +302,6 @@ void TranslatorNonNativeFieldShortRelationImpl<FF>::accumulate(ContainerOverSubr
                      + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4]
                      - reconstructed_current_accumulator;
     // clang-format on
-    tmp *= lagrange_even_in_minicircuit * op;
-    tmp *= scaling_factor;
-    std::get<2>(accumulators) += tmp;
+    std::get<2>(accumulators) += Accumulator(tmp) * Accumulator(even_op_selector) * scaling_factor;
 };
 } // namespace bb

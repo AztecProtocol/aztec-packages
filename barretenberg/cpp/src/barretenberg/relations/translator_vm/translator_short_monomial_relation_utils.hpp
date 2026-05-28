@@ -8,16 +8,6 @@
 
 namespace bb {
 
-template <typename Accumulator> class TranslatorShortMonomialView : public Accumulator {
-  public:
-    using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-
-    TranslatorShortMonomialView() = default;
-
-    template <typename Edge>
-    explicit TranslatorShortMonomialView(const Edge& edge)
-        : Accumulator(CoefficientAccumulator(edge))
-    {}
-};
+template <typename Accumulator> using TranslatorShortMonomialView = typename Accumulator::CoefficientAccumulator;
 
 } // namespace bb
