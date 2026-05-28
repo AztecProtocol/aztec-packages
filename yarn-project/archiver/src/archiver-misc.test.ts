@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { L2Tips } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, type L2Tips } from '@aztec/stdlib/block';
 import type { CheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -62,7 +62,7 @@ describe('Archiver misc', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'));
+    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), GENESIS_BLOCK_HEADER_HASH);
     const events = new EventEmitter() as ArchiverEmitter;
     const initialHeader = BlockHeader.empty();
     const initialBlockHash = await initialHeader.hash();

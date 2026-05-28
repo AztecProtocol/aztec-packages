@@ -15,7 +15,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -102,7 +102,7 @@ describe('Archiver Sync', () => {
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'));
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), GENESIS_BLOCK_HEADER_HASH);
 
     const contractAddresses = {
       rollupAddress,

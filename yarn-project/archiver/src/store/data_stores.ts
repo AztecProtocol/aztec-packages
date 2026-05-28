@@ -1,5 +1,6 @@
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 
 import { join } from 'path';
@@ -51,13 +52,17 @@ export type ArchiverDataStores = {
 /**
  * Wires up the archiver substores against a shared KV store and returns the
  * {@link ArchiverDataStores} bundle.
+ *
+ * @param genesisBlockHash - Hash of the synthetic genesis block, forwarded to the {@link LogStore} so it
+ *   can resolve a genesis `referenceBlock` (used by the PXE during early sync) instead of treating it as a
+ *   reorg.
  */
-export function createArchiverDataStores(db: AztecAsyncKVStore): ArchiverDataStores {
+export function createArchiverDataStores(db: AztecAsyncKVStore, genesisBlockHash: BlockHash): ArchiverDataStores {
   const blocks = new BlockStore(db);
   return {
     db,
     blocks,
-    logs: new LogStore(db, blocks),
+    logs: new LogStore(db, blocks, genesisBlockHash),
     messages: new MessageStore(db),
     contractClasses: new ContractClassStore(db),
     contractInstances: new ContractInstanceStore(db),

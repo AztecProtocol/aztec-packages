@@ -4,7 +4,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import '@aztec/stdlib/testing/jest';
@@ -46,7 +46,7 @@ describe('ArchiverDataStoreUpdater', () => {
   let instanceAddress: AztecAddress;
 
   beforeEach(async () => {
-    store = createArchiverDataStores(await openTmpStore('data_store_updater_test'));
+    store = createArchiverDataStores(await openTmpStore('data_store_updater_test'), GENESIS_BLOCK_HEADER_HASH);
     updater = new ArchiverDataStoreUpdater(store);
 
     // Create contract class log from sample fixture data
@@ -286,7 +286,7 @@ describe('ArchiverDataStoreUpdater', () => {
      */
     async function countIndexedPublicLogs(block: L2Block): Promise<number> {
       const expectedTxHashes = new Set(block.body.txEffects.map(tx => tx.txHash.toString()));
-      const indexed = await store.logs.getAllPublicLogsForBlock(block.number);
+      const indexed = await store.logs.getPublicLogsForBlock(block.number);
       return indexed.filter(log => expectedTxHashes.has(log.txHash.toString())).length;
     }
 

@@ -2,7 +2,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import { LogCursor, SiloedTag, Tag, queryAllPrivateLogsByTags, queryAllPublicLogsByTags } from '@aztec/stdlib/logs';
@@ -50,7 +50,7 @@ describe('LogStore', () => {
   beforeEach(async () => {
     const db = await openTmpStore('log_store_test');
     blockStore = new BlockStore(db);
-    logStore = new LogStore(db, blockStore);
+    logStore = new LogStore(db, blockStore, GENESIS_BLOCK_HEADER_HASH);
 
     // Build 10 sequential single-block checkpoints, each with 2 txs and 2 logs/tx (private + public).
     publishedCheckpoints = [];
@@ -509,7 +509,31 @@ describe('LogStore', () => {
     });
   });
 
-  describe('getAllPrivateLogsForBlock / getAllPublicLogsForBlock', () => {
+  describe('genesis referenceBlock handling', () => {
+    // During early sync the PXE anchors to the genesis block and passes its hash as the query
+    // referenceBlock. The genesis block is synthetic and never indexed in the block store, so without the
+    // wired genesis hash the reorg check throws "not found" — the regression that broke e2e on this branch.
+    // The store is now always constructed with the genesis hash (see beforeEach), so it resolves a genesis
+    // anchor to the genesis block number instead.
+    it('resolves a genesis anchor to an empty result (no reorg) instead of treating it as a missing block', async () => {
+      // Genesis is a valid anchor with no logs at or before it, so both query kinds return empty without
+      // throwing — the upper bound collapses to the genesis block, which precedes the first indexable block.
+      const [privateResult] = await logStore.getPrivateLogsByTags({
+        tags: [SiloedTag.random()],
+        referenceBlock: GENESIS_BLOCK_HEADER_HASH,
+      });
+      expect(privateResult).toEqual([]);
+
+      const [publicResult] = await logStore.getPublicLogsByTags({
+        contractAddress: CONTRACT,
+        tags: [Tag.random()],
+        referenceBlock: GENESIS_BLOCK_HEADER_HASH,
+      });
+      expect(publicResult).toEqual([]);
+    });
+  });
+
+  describe('getPrivateLogsForBlock / getPublicLogsForBlock', () => {
     it('returns all private and public logs indexed for a block in the same order they were written', async () => {
       // 2 txs * (2 private + 2 public) per block; the secondary index records every write for this block.
       const ckpt = await makeCheckpointWithLogs(1, {
@@ -521,8 +545,8 @@ describe('LogStore', () => {
       await blockStore.addProposedBlock(block);
       await logStore.addLogs([block]);
 
-      const priv = await logStore.getAllPrivateLogsForBlock(block.number);
-      const pub = await logStore.getAllPublicLogsForBlock(block.number);
+      const priv = await logStore.getPrivateLogsForBlock(block.number);
+      const pub = await logStore.getPublicLogsForBlock(block.number);
       expect(priv.length).toBe(2 * 2);
       expect(pub.length).toBe(2 * 2);
       // Every returned log carries this block's number, with non-decreasing (txIndex, logIndex).
@@ -539,9 +563,36 @@ describe('LogStore', () => {
       }
     });
 
+    it('assigns logIndexWithinTx independently for private and public logs (each kind starts at 0)', async () => {
+      // A tx with 2 private + 2 public logs: private logs should be indexed 0,1 and public logs
+      // should also be indexed 0,1, not 2,3 (which would be the old combined-counter behavior).
+      const ckpt = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: 2 },
+        publicLogs: { numLogsPerTx: 2, contractAddress: CONTRACT },
+      });
+      const block = ckpt.checkpoint.blocks[0];
+      await blockStore.addProposedBlock(block);
+      await logStore.addLogs([block]);
+
+      const priv = await logStore.getPrivateLogsForBlock(block.number);
+      const pub = await logStore.getPublicLogsForBlock(block.number);
+
+      expect(priv.length).toBe(2);
+      expect(pub.length).toBe(2);
+
+      // Private log indices: 0, 1.
+      expect(priv[0].logIndexWithinTx).toBe(0);
+      expect(priv[1].logIndexWithinTx).toBe(1);
+
+      // Public log indices: 0, 1 (not 2, 3).
+      expect(pub[0].logIndexWithinTx).toBe(0);
+      expect(pub[1].logIndexWithinTx).toBe(1);
+    });
+
     it('returns empty arrays for blocks with no indexed logs', async () => {
-      expect(await logStore.getAllPrivateLogsForBlock(BlockNumber(99))).toEqual([]);
-      expect(await logStore.getAllPublicLogsForBlock(BlockNumber(99))).toEqual([]);
+      expect(await logStore.getPrivateLogsForBlock(BlockNumber(99))).toEqual([]);
+      expect(await logStore.getPublicLogsForBlock(BlockNumber(99))).toEqual([]);
     });
   });
 
