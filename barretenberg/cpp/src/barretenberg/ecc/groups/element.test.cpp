@@ -293,11 +293,13 @@ template <typename G_> class TestElement : public testing::Test {
 
     static void test_batch_affine_double_impl_boundary()
     {
-        // batch_affine_double_impl uses the a=0 affine doubling formula (lambda = 3x^2 / 2y).
-        // Curves with non-zero `a` (e.g. secp256r1: a = -3) need lambda = (3x^2 + a) / 2y; this
-        // kernel is BN254/Grumpkin/secp256k1-only by design. Skip on those.
+        // batch_affine_double_impl was extended in merge-train 26f56c80c9 with a third
+        // template arg T to support T::has_a curves (lambda = (3x^2 + a) / 2y). However
+        // the K=1 fallback there computes 3*(x^2 + a) = 3x^2 + 3a instead of 3x^2 + a;
+        // the doubling identity fails for non-zero a until that's fixed upstream.
+        // For a == 0 curves the kernel is correct; cover those.
         if constexpr (G::has_a) {
-            GTEST_SKIP() << "batch_affine_double_impl assumes a=0 affine doubling formula";
+            GTEST_SKIP() << "batch_affine_double_impl T::has_a path computes 3*(x^2+a) instead of 3x^2+a";
         }
         // Small sizes exercise the K=1 fallback (double's K=5 floor is 256); 255 is the
         // last K=1 size, 256 the first K=5 group-aligned size, 257/260/269 add tail cases.
@@ -309,7 +311,8 @@ template <typename G_> class TestElement : public testing::Test {
                 expected[i] = element(points[i]).dbl();
             }
             std::vector<Fq> scratch(num_points);
-            bb::group_elements::batch_affine_double_impl<affine_element, Fq>(points.data(), num_points, scratch.data());
+            bb::group_elements::batch_affine_double_impl<affine_element, Fq, typename affine_element::Params>(
+                points.data(), num_points, scratch.data());
             for (size_t i = 0; i < num_points; ++i) {
                 EXPECT_EQ(points[i], expected[i]) << "num_points=" << num_points << " i=" << i;
             }
