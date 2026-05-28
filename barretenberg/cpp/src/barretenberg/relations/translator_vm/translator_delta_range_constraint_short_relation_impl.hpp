@@ -55,7 +55,8 @@ void TranslatorDeltaRangeConstraintShortRelationImpl<FF>::accumulate(ContainerOv
 
         // 0 at real_last and ordered masking rows (where delta checks are skipped), nonzero elsewhere.
         // lagrange_real_last and lagrange_ordered_masking have disjoint support, so the sum is 0/1.
-        const auto not_last_or_masking = lagrange_real_last + lagrange_ordered_masking + minus_one;
+        const auto not_last_or_masking_scaled =
+            Accumulator((lagrange_real_last + lagrange_ordered_masking + minus_one) * scaling_factor);
 
         // Compute wire differences
         auto delta_1 = ordered_range_constraints_0_shift - ordered_range_constraints_0;
@@ -68,8 +69,8 @@ void TranslatorDeltaRangeConstraintShortRelationImpl<FF>::accumulate(ContainerOv
             auto tmp = Accumulator(delta * (delta + minus_one));
             tmp *= Accumulator(delta + minus_two);
             tmp *= Accumulator(delta + minus_three);
-            tmp *= Accumulator(not_last_or_masking);
-            accumulator += tmp * scaling_factor;
+            tmp *= not_last_or_masking_scaled;
+            accumulator += tmp;
         };
 
         // Contributions (1-5) ensure that sequential values have a difference of {0,1,2,3}.
@@ -89,23 +90,24 @@ void TranslatorDeltaRangeConstraintShortRelationImpl<FF>::accumulate(ContainerOv
         auto ordered_range_constraints_3 = View(in.ordered_range_constraints_3);
         auto ordered_range_constraints_4 = View(in.ordered_range_constraints_4);
         const auto lagrange_real_last = View(in.lagrange_real_last);
+        const auto lagrange_real_last_scaled = lagrange_real_last * scaling_factor;
 
         // Contribution (6) (Contributions 6-10 ensure that the last value is the designated maximum value. We don't
         // need to constrain the first value to be 0, because the shift mechanic does this for us)
         std::get<5>(accumulators) +=
-            Accumulator(lagrange_real_last * (ordered_range_constraints_0 + maximum_sort_value)) * scaling_factor;
+            Accumulator(lagrange_real_last_scaled * (ordered_range_constraints_0 + maximum_sort_value));
         // Contribution (7)
         std::get<6>(accumulators) +=
-            Accumulator(lagrange_real_last * (ordered_range_constraints_1 + maximum_sort_value)) * scaling_factor;
+            Accumulator(lagrange_real_last_scaled * (ordered_range_constraints_1 + maximum_sort_value));
         // Contribution (8)
         std::get<7>(accumulators) +=
-            Accumulator(lagrange_real_last * (ordered_range_constraints_2 + maximum_sort_value)) * scaling_factor;
+            Accumulator(lagrange_real_last_scaled * (ordered_range_constraints_2 + maximum_sort_value));
         // Contribution (9)
         std::get<8>(accumulators) +=
-            Accumulator(lagrange_real_last * (ordered_range_constraints_3 + maximum_sort_value)) * scaling_factor;
+            Accumulator(lagrange_real_last_scaled * (ordered_range_constraints_3 + maximum_sort_value));
         // Contribution (10)
         std::get<9>(accumulators) +=
-            Accumulator(lagrange_real_last * (ordered_range_constraints_4 + maximum_sort_value)) * scaling_factor;
+            Accumulator(lagrange_real_last_scaled * (ordered_range_constraints_4 + maximum_sort_value));
     }();
 };
 } // namespace bb

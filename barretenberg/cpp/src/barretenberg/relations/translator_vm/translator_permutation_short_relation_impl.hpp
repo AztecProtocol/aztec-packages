@@ -53,13 +53,13 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
         const auto z_perm_shift = View(in.z_perm_shift);
         const auto lagrange_first = View(in.lagrange_first);
         const auto lagrange_last = View(in.lagrange_last);
+        const auto z_perm_and_first_scaled = (z_perm + lagrange_first) * scaling_factor;
+        const auto z_perm_shift_and_last_scaled = (z_perm_shift + lagrange_last) * scaling_factor;
 
         // Contribution (1)
         std::get<0>(accumulators) +=
-            ((Accumulator(z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
-             (Accumulator(z_perm_shift + lagrange_last) *
-              compute_grand_product_denominator<Accumulator>(in, params))) *
-            scaling_factor;
+            ((Accumulator(z_perm_and_first_scaled) * compute_grand_product_numerator<Accumulator>(in, params)) -
+             (Accumulator(z_perm_shift_and_last_scaled) * compute_grand_product_denominator<Accumulator>(in, params)));
     }();
 
     [&]() {
@@ -68,9 +68,10 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
 
         const auto z_perm_shift = View(in.z_perm_shift);
         const auto lagrange_last = View(in.lagrange_last);
+        const auto lagrange_last_scaled = lagrange_last * scaling_factor;
 
         // Contribution (2)
-        std::get<1>(accumulators) += Accumulator(lagrange_last * z_perm_shift) * scaling_factor;
+        std::get<1>(accumulators) += Accumulator(lagrange_last_scaled * z_perm_shift);
     }();
 
     [&]() {
@@ -79,10 +80,11 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
 
         const auto z_perm = View(in.z_perm);
         const auto lagrange_first = View(in.lagrange_first);
+        const auto lagrange_first_scaled = lagrange_first * scaling_factor;
 
         // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
         // z_perm[0] = 0 so that (z_perm + lagrange_first) evaluates to 1 at the first row.
-        std::get<2>(accumulators) += Accumulator(lagrange_first * z_perm) * scaling_factor;
+        std::get<2>(accumulators) += Accumulator(lagrange_first_scaled * z_perm);
     }();
 };
 } // namespace bb
