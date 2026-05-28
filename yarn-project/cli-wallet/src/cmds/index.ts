@@ -297,7 +297,7 @@ export function injectCommands(
     const { wallet, node } = walletAndNodeWrapper;
     const artifactPath = await artifactPathPromise;
 
-    debugLogger.info(`Using wallet with address ${parsedFromAddress.toString()}`);
+    debugLogger.info(`Using wallet with address ${parsedFromAddress?.toString() ?? '<none>'}`);
 
     const address = await deploy(
       wallet,
