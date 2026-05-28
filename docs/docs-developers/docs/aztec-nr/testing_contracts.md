@@ -59,7 +59,7 @@ my_project/
     └── src/lib.nr             # #[test] functions go here
 ```
 
-The motivation for the split of contract and tests into itss own crates is **faster iteration**: editing a test does not invalidate the contract's compiled artifact, so `aztec test` skips contract recompilation when only test code changed.
+The motivation for the split of contract and tests into its own crates is **faster iteration**: editing a test does not invalidate the contract's compiled artifact, so `aztec test` skips contract recompilation when only test code changed.
 
 `aztec compile` warns if it finds `#[test]` functions inside a contract crate.
 
