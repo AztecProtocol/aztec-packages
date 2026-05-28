@@ -2,7 +2,7 @@ import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
 import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
-import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
+import { DUPLICATE_NULLIFIER_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract transfer private', () => {
@@ -10,10 +10,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    // TODO(kill-non-pipelined): re-enable pipelining once B1 (world-state fork lifecycle) is
-    // fixed — BlacklistTokenContractTest.applyBaseSetup runs two 86400s warps which time out
-    // mineBlock under pipelining. See PIPELINING_GOTCHAS.md.
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
     await t.applyMint();
     // Have to destructure again to ensure we have latest refs.
