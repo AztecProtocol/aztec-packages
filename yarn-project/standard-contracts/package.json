@@ -8,7 +8,7 @@
     ".": "./dest/index.js",
     "./*": "./dest/*/index.js",
     "./*/lazy": "./dest/*/lazy.js",
-    "./auth-registry/address": "./dest/auth-registry/address.js"
+    "./auth-registry/constants": "./dest/auth-registry/constants.js"
   },
   "typedocOptions": {
     "entryPoints": [
