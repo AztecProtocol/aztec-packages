@@ -13,7 +13,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
-import { LogCursor } from '@aztec/stdlib/logs';
+import { LogCursor, refineTxHashAndRange } from '@aztec/stdlib/logs';
 import {
   AbiDecodedSchema,
   type ApiSchemaFor,
@@ -375,6 +375,10 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
+// Event filters share `txHash ⊕ block-range` semantics with `LogsQueryBase` (see stdlib `logs_query.ts`)
+// but diverge structurally: wallet filters are scoped to a single ABI event so they carry one optional
+// `afterLog` cursor inline, whereas the stdlib query batches many tags and stores cursors per-tag inside
+// `TagQuery`. We share only the refinement helper from stdlib; the field schemas stay local.
 const eventFilterBaseShape = {
   txHash: optional(TxHash.schema),
   fromBlock: optional(BlockNumberPositiveSchema),
@@ -382,24 +386,7 @@ const eventFilterBaseShape = {
   afterLog: optional(LogCursor.schema),
 };
 
-/** Minimal shape needed to enforce `txHash` ⊕ block-range on event filter schemas. */
-type EventFilterMutexShape = {
-  /** Tx hash filter. */
-  txHash?: TxHash;
-  /** Lower block bound. */
-  fromBlock?: BlockNumber;
-  /** Upper block bound (exclusive). */
-  toBlock?: BlockNumber;
-};
-
-/** Reject queries that combine `txHash` with a `fromBlock`/`toBlock` range — a `txHash` already pins a block. */
-function refineEventFilter<T extends EventFilterMutexShape>(schema: z.ZodType<T>) {
-  return schema.refine(q => !(q.txHash !== undefined && (q.fromBlock !== undefined || q.toBlock !== undefined)), {
-    message: '`txHash` is mutually exclusive with `fromBlock`/`toBlock`',
-  });
-}
-
-export const PrivateEventFilterSchema = refineEventFilter(
+export const PrivateEventFilterSchema = refineTxHashAndRange(
   z.object({
     ...eventFilterBaseShape,
     contractAddress: schemas.AztecAddress,
@@ -407,7 +394,7 @@ export const PrivateEventFilterSchema = refineEventFilter(
   }),
 );
 
-export const PublicEventFilterSchema = refineEventFilter(
+export const PublicEventFilterSchema = refineTxHashAndRange(
   z.object({
     ...eventFilterBaseShape,
     contractAddress: schemas.AztecAddress,

@@ -91,11 +91,22 @@ const logsQueryBaseShape = {
     .optional(),
 };
 
+/** Minimal shape required by {@link refineTxHashAndRange}. */
+type TxHashAndRangeFields = {
+  /** Tx hash filter. */
+  txHash?: TxHash;
+  /** Lower block bound. */
+  fromBlock?: BlockNumber;
+  /** Upper block bound (exclusive). */
+  toBlock?: BlockNumber;
+};
+
 /**
  * Refinement: a `txHash` already pins a block, so combining it with a block range is contradictory.
- * (`txHash` + `afterLog` is still allowed and is enforced per-tag inside `TagQuery`.)
+ * (`txHash` + `afterLog` is still allowed and is enforced per-tag inside `TagQuery`.) Exported so
+ * `aztec.js`'s wallet event-filter schemas can reuse the same rule.
  */
-function refineTxHashAndRange<T extends LogsQueryBase>(schema: z.ZodType<T>) {
+export function refineTxHashAndRange<T extends TxHashAndRangeFields>(schema: z.ZodType<T>) {
   return schema.refine(q => !(q.txHash !== undefined && (q.fromBlock !== undefined || q.toBlock !== undefined)), {
     message: '`txHash` is mutually exclusive with `fromBlock`/`toBlock`',
   });

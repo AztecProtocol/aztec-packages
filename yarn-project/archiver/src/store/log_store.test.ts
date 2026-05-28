@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
-import { LogCursor, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import { LogCursor, SiloedTag, Tag, queryAllPrivateLogsByTags, queryAllPublicLogsByTags } from '@aztec/stdlib/logs';
 import '@aztec/stdlib/testing/jest';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
@@ -448,6 +448,136 @@ describe('LogStore', () => {
           toBlock: BlockNumber(5),
         }),
       ).toThrow(/mutually exclusive/i);
+    });
+  });
+
+  describe('getAllPrivateLogsForBlock / getAllPublicLogsForBlock', () => {
+    it('returns all private and public logs indexed for a block in the same order they were written', async () => {
+      // 2 txs * (2 private + 2 public) per block; the secondary index records every write for this block.
+      const ckpt = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx: 2 },
+        publicLogs: { numLogsPerTx: 2, contractAddress: CONTRACT },
+      });
+      const block = ckpt.checkpoint.blocks[0];
+      await blockStore.addProposedBlock(block);
+      await logStore.addLogs([block]);
+
+      const priv = await logStore.getAllPrivateLogsForBlock(block.number);
+      const pub = await logStore.getAllPublicLogsForBlock(block.number);
+      expect(priv.length).toBe(2 * 2);
+      expect(pub.length).toBe(2 * 2);
+      // Every returned log carries this block's number, with non-decreasing (txIndex, logIndex).
+      for (const arr of [priv, pub]) {
+        expect(arr.every(l => l.blockNumber === block.number)).toBe(true);
+        for (let i = 1; i < arr.length; i++) {
+          const prev = arr[i - 1];
+          const cur = arr[i];
+          expect(
+            cur.txIndexWithinBlock > prev.txIndexWithinBlock ||
+              (cur.txIndexWithinBlock === prev.txIndexWithinBlock && cur.logIndexWithinTx >= prev.logIndexWithinTx),
+          ).toBe(true);
+        }
+      }
+    });
+
+    it('returns empty arrays for blocks with no indexed logs', async () => {
+      expect(await logStore.getAllPrivateLogsForBlock(BlockNumber(99))).toEqual([]);
+      expect(await logStore.getAllPublicLogsForBlock(BlockNumber(99))).toEqual([]);
+    });
+  });
+
+  describe('queryAllPrivate/PublicLogsByTags helpers', () => {
+    /**
+     * Stamps a single shared `tag` on every private log across `count` chained checkpoints. Used as the
+     * fixture for the pagination drivers.
+     */
+    async function stampPrivateTagAcrossChain(count: number, numLogsPerTx: number, tag: SiloedTag) {
+      const ckpts = await buildChainedCheckpointsWithLogs(count, {
+        numTxsPerBlock: 2,
+        privateLogs: { numLogsPerTx },
+      });
+      for (const ckpt of ckpts) {
+        for (const tx of ckpt.checkpoint.blocks[0].body.txEffects) {
+          for (const log of tx.privateLogs) {
+            (log.fields as Fr[])[0] = tag.value;
+          }
+        }
+      }
+      const blocks = ckpts.map(c => c.checkpoint.blocks[0]);
+      await blockStore.addCheckpoints(ckpts);
+      await logStore.addLogs(blocks);
+      return blocks;
+    }
+
+    it('paginates per-tag using afterLog and drops exhausted tags between rounds (private)', async () => {
+      const tagA = new SiloedTag(new Fr(0xa1));
+      const tagB = new SiloedTag(new Fr(0xb2));
+      // 4 blocks * 2 txs * 1 log = 8 logs share tagA (over 3 rounds with limitPerTag=3).
+      // tagB matches nothing.
+      await stampPrivateTagAcrossChain(4, 1, tagA);
+
+      const calls: number[] = [];
+      const node = {
+        getPrivateLogsByTags: jest.fn((q: Parameters<LogStore['getPrivateLogsByTags']>[0]) => {
+          calls.push(q.tags.length);
+          return logStore.getPrivateLogsByTags(q);
+        }),
+      };
+      const result = await queryAllPrivateLogsByTags(node, {
+        tags: [tagA, tagB],
+        limitPerTag: 3,
+      });
+
+      expect(result[0].length).toBe(8);
+      expect(result[1].length).toBe(0);
+
+      // tagA needs 3 rounds (3 + 3 + 2). tagB returns 0 on round 1 and drops out. Round 1 queries both
+      // tags (length 2), rounds 2 and 3 only re-query tagA (length 1 each).
+      expect(calls).toEqual([2, 1, 1]);
+      expect(node.getPrivateLogsByTags).toHaveBeenCalledTimes(3);
+    });
+
+    it('preserves input tag order under pagination (public)', async () => {
+      // Three distinct public tags on the same contract, only the second one gets a full page so it
+      // forces an extra round; the helper must still return results indexed in input tag order.
+      const tagX = new Tag(new Fr(0x11));
+      const tagY = new Tag(new Fr(0x22));
+      const tagZ = new Tag(new Fr(0x33));
+
+      const ckpts = await buildChainedCheckpointsWithLogs(3, {
+        numTxsPerBlock: 2,
+        publicLogs: { numLogsPerTx: 1, contractAddress: CONTRACT },
+      });
+      // Round-robin tags: tagX in block 1, tagY in blocks 2-3 (6 logs total), tagZ on one tx of block 3.
+      for (const tx of ckpts[0].checkpoint.blocks[0].body.txEffects) {
+        tx.publicLogs[0].fields[0] = tagX.value;
+      }
+      for (const ckpt of ckpts.slice(1, 3)) {
+        for (const tx of ckpt.checkpoint.blocks[0].body.txEffects) {
+          tx.publicLogs[0].fields[0] = tagY.value;
+        }
+      }
+      // Overwrite one of block 3's tagY entries with tagZ.
+      ckpts[2].checkpoint.blocks[0].body.txEffects[0].publicLogs[0].fields[0] = tagZ.value;
+      const blocks = ckpts.map(c => c.checkpoint.blocks[0]);
+      await blockStore.addCheckpoints(ckpts);
+      await logStore.addLogs(blocks);
+
+      const result = await queryAllPublicLogsByTags(logStore, {
+        contractAddress: CONTRACT,
+        tags: [tagX, tagY, tagZ],
+        limitPerTag: 2,
+      });
+
+      // Input-order preserved: [tagX results, tagY results, tagZ results].
+      expect(result.length).toBe(3);
+      expect(result[0].every(l => l.logData[0].equals(tagX.value))).toBe(true);
+      expect(result[1].every(l => l.logData[0].equals(tagY.value))).toBe(true);
+      expect(result[2].every(l => l.logData[0].equals(tagZ.value))).toBe(true);
+      // tagY had 3 logs across blocks 2-3 (one block 3 tagY entry got rewritten to tagZ).
+      expect(result[1].length).toBe(3);
+      expect(result[2].length).toBe(1);
     });
   });
 });
