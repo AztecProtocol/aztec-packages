@@ -8,8 +8,8 @@ pub contract EcdsaRAccount {
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
-        oracle::{auth_witness::get_auth_witness_as_bytes, notes::set_sender_for_tags},
+        messages::{logs::sender_for_tags::SenderForTags, message_delivery::MessageDelivery},
+        oracle::auth_witness::get_auth_witness_as_bytes,
         state_vars::SinglePrivateImmutable,
     };
 
@@ -26,15 +26,9 @@ pub contract EcdsaRAccount {
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let pub_key_note = EcdsaPublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
-        // We set the sender for tags to this contract so the user can find the deployment note without having to
-        // register the account deployer as a sender in their PXE. The override is scoped to this constructor call
-        // and does not leak back into the deployer or sideways into sibling calls.
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs, so it
-        // is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(self.address) };
-        // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
-        // contract.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(
+            MessageDelivery::onchain_constrained_with_sender(SenderForTags::explicit(self.address)),
+        );
     }
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file

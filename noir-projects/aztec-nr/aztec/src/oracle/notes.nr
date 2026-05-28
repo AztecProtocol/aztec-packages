@@ -214,27 +214,10 @@ unconstrained fn get_next_constrained_tagging_index_oracle(_app_siloed_secret: F
 /// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
 /// sender, and hence about the shared secret.
 ///
-/// Returns the initial default unless the current contract call has overridden it via `set_sender_for_tags`.
-/// Overrides made by other contracts in the call stack are not visible here.
-pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
+/// Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
+pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
 
 #[oracle(aztec_prv_getSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
-
-/// Sets the sender for tags.
-///
-/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
-/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
-/// sender, and hence about the shared secret.
-///
-/// The override is scoped to the current contract call. It does not propagate to nested calls (which always start
-/// from the initial default), nor to siblings or parents. The default is typically set by the wallet (to the
-/// originating account), so most contracts do not need to call this setter.
-pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
-    set_sender_for_tags_oracle(sender_for_tags);
-}
-
-#[oracle(aztec_prv_setSenderForTags)]
-unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}

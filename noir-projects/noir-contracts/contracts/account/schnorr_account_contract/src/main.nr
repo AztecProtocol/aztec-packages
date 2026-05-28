@@ -15,10 +15,10 @@ pub contract SchnorrAccount {
         context::PrivateContext,
         hash::compute_siloed_nullifier,
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::{logs::sender_for_tags::SenderForTags, message_delivery::MessageDelivery},
         oracle::{
-            auth_witness::get_auth_witness, get_nullifier_membership_witness::get_low_nullifier_membership_witness,
-            notes::set_sender_for_tags,
+            auth_witness::get_auth_witness,
+            get_nullifier_membership_witness::get_low_nullifier_membership_witness,
         },
         protocol::address::AztecAddress,
         state_vars::SinglePrivateImmutable,
@@ -37,15 +37,9 @@ pub contract SchnorrAccount {
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let pub_key_note = PublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
-        // We set the sender for tags to this contract so the user can find the deployment note without having to
-        // register the account deployer as a sender in their PXE. The override is scoped to this constructor call
-        // and does not leak back into the deployer or sideways into sibling calls.
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs, so it
-        // is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(self.address) };
-        // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
-        // contract.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(
+            MessageDelivery::onchain_constrained_with_sender(SenderForTags::explicit(self.address)),
+        );
     }
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file

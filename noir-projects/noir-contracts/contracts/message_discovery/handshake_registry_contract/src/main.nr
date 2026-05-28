@@ -23,8 +23,7 @@ pub contract HandshakeRegistry {
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
-        oracle::notes::set_sender_for_tags,
+        messages::{logs::sender_for_tags::SenderForTags, message_delivery::MessageDelivery},
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
             traits::ToField,
@@ -66,15 +65,12 @@ pub contract HandshakeRegistry {
 
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
 
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs, so it
-        // is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(sender) };
         // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
         // discover the handshake via the recipient-keyed log emitted below, not via the sender's note.
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
         // discoverable via normal PXE sync.
         self.storage.handshakes.at(recipient).at(sender).initialize_or_replace(|_| note).deliver(
-            MessageDelivery::onchain_unconstrained(),
+            MessageDelivery::onchain_unconstrained_with_sender(SenderForTags::explicit(sender)),
         );
 
         let log_tag = compute_log_tag(
