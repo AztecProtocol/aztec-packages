@@ -1,4 +1,4 @@
-use crate::protocol::address::AztecAddress;
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Maximum number of `Field`s in a single fact payload.
 ///
@@ -6,13 +6,13 @@ use crate::protocol::address::AztecAddress;
 /// timestamp (1) = 18 fields. We round up to 20 to leave headroom for future fact shapes.
 pub global FACT_MAX_PAYLOAD: u32 = 20;
 
-/// Maximum number of facts that [`load_canonical_facts`] returns for a single entity.
+/// Maximum number of facts that [`get_entity_facts`] returns for a single entity.
 pub global FACT_MAX_FACTS: u32 = 8;
 
 /// Maximum number of active entity correlation keys that [`active_entities`] returns.
 pub global FACT_MAX_ACTIVE_ENTITIES: u32 = 64;
 
-/// A single canonical fact, as returned by [`load_canonical_facts`].
+/// A single canonical fact, as returned by [`get_entity_facts`].
 ///
 /// `payload` is zero-padded to [`FACT_MAX_PAYLOAD`]; the consumer is responsible for knowing how many fields are
 /// meaningful for a given `fact_type_id`.
@@ -21,18 +21,15 @@ pub struct PackedFact {
     pub payload: [Field; FACT_MAX_PAYLOAD],
 }
 
-/// Records a fact about an entity in the contract's per-scope fact store.
-///
-/// `anchor` is optional: when `has_anchor` is `false`, the fact is recorded without a block anchor and the
-/// `anchor_block_number` / `anchor_block_hash` arguments are ignored.
-pub unconstrained fn record_fact(
+/// Records a fact anchored to a specific L2 block. The fact is canonical only while that anchor block is canonical,
+/// so a reorg that orphans the anchor block will retract the fact from [`get_entity_facts`].
+pub unconstrained fn record_anchored_fact(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type: Field,
     fact_type: Field,
     correlation_key: Field,
     payload: [Field; FACT_MAX_PAYLOAD],
-    has_anchor: bool,
     anchor_block_number: Field,
     anchor_block_hash: Field,
 ) {
@@ -43,9 +40,32 @@ pub unconstrained fn record_fact(
         fact_type,
         correlation_key,
         payload,
-        has_anchor as Field,
+        1,
         anchor_block_number,
         anchor_block_hash,
+    );
+}
+
+/// Records a fact with no block anchor. The fact remains canonical for the lifetime of its entity, regardless of any
+/// subsequent reorgs.
+pub unconstrained fn record_unanchored_fact(
+    contract_address: AztecAddress,
+    scope: AztecAddress,
+    entity_type: Field,
+    fact_type: Field,
+    correlation_key: Field,
+    payload: [Field; FACT_MAX_PAYLOAD],
+) {
+    record_fact_oracle(
+        contract_address,
+        scope,
+        entity_type,
+        fact_type,
+        correlation_key,
+        payload,
+        0,
+        0,
+        0,
     );
 }
 
@@ -62,13 +82,13 @@ pub unconstrained fn active_entities(
 
 /// Returns the canonical set of facts recorded for a single entity, identified by its `entity_type` and
 /// `correlation_key`. Empty trailing slots are zeroed [`PackedFact`]s.
-pub unconstrained fn load_canonical_facts(
+pub unconstrained fn get_entity_facts(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type: Field,
     correlation_key: Field,
 ) -> [PackedFact; FACT_MAX_FACTS] {
-    load_canonical_facts_oracle(contract_address, scope, entity_type, correlation_key)
+    get_entity_facts_oracle(contract_address, scope, entity_type, correlation_key)
 }
 
 /// Terminates an entity, removing it from the active set returned by [`active_entities`].
@@ -79,6 +99,36 @@ pub unconstrained fn terminate_entity(
     correlation_key: Field,
 ) {
     terminate_entity_oracle(contract_address, scope, entity_type, correlation_key);
+}
+
+/// Packs a `Serialize` value into the fixed-size [`FACT_MAX_PAYLOAD`] field array used as a fact payload.
+///
+/// The value's serialized form is copied into the leading `N` slots; remaining slots are zero-padded. The
+/// `Serialize<N = N>` bound ties the generic `N` to the trait's associated length, so callers cannot under- or
+/// over-specify it. `N <= FACT_MAX_PAYLOAD` is enforced at compile time by the payload-write indexing.
+pub unconstrained fn pack_fact_payload<T, let N: u32>(value: T) -> [Field; FACT_MAX_PAYLOAD]
+where
+    T: Serialize<N = N>,
+{
+    let serialized = value.serialize();
+    let mut payload: [Field; FACT_MAX_PAYLOAD] = [0; FACT_MAX_PAYLOAD];
+    for i in 0..N {
+        payload[i] = serialized[i];
+    }
+    payload
+}
+
+/// Inverse of [`pack_fact_payload`]: decodes the leading `N` fields of a fact payload back into a `Deserialize`
+/// value. The `Deserialize<N = N>` bound ties the generic `N` to the trait's associated length.
+pub unconstrained fn unpack_fact_payload<T, let N: u32>(payload: [Field; FACT_MAX_PAYLOAD]) -> T
+where
+    T: Deserialize<N = N>,
+{
+    let mut serialized: [Field; N] = [0; N];
+    for i in 0..N {
+        serialized[i] = payload[i];
+    }
+    T::deserialize(serialized)
 }
 
 #[oracle(aztec_utl_recordFact)]
@@ -102,7 +152,7 @@ unconstrained fn active_entities_oracle(
 ) -> ([Field; FACT_MAX_ACTIVE_ENTITIES], u32) {}
 
 #[oracle(aztec_utl_loadCanonicalFacts)]
-unconstrained fn load_canonical_facts_oracle(
+unconstrained fn get_entity_facts_oracle(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type: Field,

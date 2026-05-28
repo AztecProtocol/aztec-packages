@@ -7,17 +7,17 @@ export const MAX_FACTS = 8;
 export const MAX_PAYLOAD = 8;
 
 export const OFFCHAIN_ENTITY_TYPE_ID = new Fr(1n);
-export const FACT_RECEIVED = new Fr(1n);
-export const FACT_PROCESSED = new Fr(2n);
+export const MESSAGE_RECEIVED = new Fr(1n);
+export const MESSAGE_PROCESSED = new Fr(2n);
 
-export type ReceptionState = 'RECEIVED' | 'PROCESSED';
+export type OffchainReceptionState = 'RECEIVED' | 'PROCESSED';
 
-const STATE_BY_CODE: Record<number, ReceptionState> = {
+const STATE_BY_CODE: Record<number, OffchainReceptionState> = {
   0: 'RECEIVED',
   1: 'PROCESSED',
 };
 
-export function receptionStateFromCode(code: number): ReceptionState {
+export function receptionStateFromCode(code: number): OffchainReceptionState {
   const state = STATE_BY_CODE[code];
   if (!state) {
     throw new Error(`Unknown reception state code: ${code}`);

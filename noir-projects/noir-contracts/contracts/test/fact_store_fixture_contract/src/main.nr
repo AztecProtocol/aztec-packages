@@ -13,7 +13,7 @@ pub contract FactStoreFixture {
     // RECEIVED_ID = 1 is the birth fact; this fold does not inspect it directly.
     global PROCESSED_ID: Field = 2;
 
-    // ReceptionState codes: RECEIVED=0, PROCESSED=1.
+    // OffchainReceptionState codes: RECEIVED=0, PROCESSED=1.
 
     #[derive(Deserialize, Serialize)]
     pub struct PackedFact {

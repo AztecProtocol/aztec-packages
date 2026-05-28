@@ -25,7 +25,7 @@ import type { SenderAddressBookStore } from '../tagging_store/sender_address_boo
 import type { SenderTaggingStore } from '../tagging_store/sender_tagging_store.js';
 import { FactStore } from './fact_store.js';
 import { foldOffchainReception } from './fold_execution.js';
-import { FACT_PROCESSED, FACT_RECEIVED, OFFCHAIN_ENTITY_TYPE_ID } from './offchain_reception_fixture.js';
+import { MESSAGE_PROCESSED, MESSAGE_RECEIVED, OFFCHAIN_ENTITY_TYPE_ID } from './offchain_reception_fixture.js';
 
 describe('offchain reception fold (real simulator, real reorg)', () => {
   const simulator = new WASMSimulator();
@@ -100,7 +100,7 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
     const B = '0xbb';
 
     // 1. Received only (unanchored birth fact): the message has arrived but is not yet processed.
-    await put(FACT_RECEIVED, null);
+    await put(MESSAGE_RECEIVED, null);
     expect(await fold()).toBe('RECEIVED');
 
     // 2. The tx is found at (105, A): sync_inbox hands the message off and records a canonical
@@ -110,7 +110,7 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
       { blockNumber: 104, blockHash: Fr.random().toString() },
       { blockNumber: 105, blockHash: A },
     ]);
-    await put(FACT_PROCESSED, { blockNumber: 105, blockHash: A });
+    await put(MESSAGE_PROCESSED, { blockNumber: 105, blockHash: A });
     expect(await fold()).toBe('PROCESSED');
     expect(await fold()).toBe('PROCESSED');
 
@@ -123,7 +123,7 @@ describe('offchain reception fold (real simulator, real reorg)', () => {
     // 4. The tx is re-mined at (107, B): a fresh Processed fact anchored there makes the entity
     //    PROCESSED again. The orphaned Processed@(105,A) row stays non-canonical and irrelevant.
     await chain.set(107, B);
-    await put(FACT_PROCESSED, { blockNumber: 107, blockHash: B });
+    await put(MESSAGE_PROCESSED, { blockNumber: 107, blockHash: B });
     expect(await fold()).toBe('PROCESSED');
   }, 60_000);
 });

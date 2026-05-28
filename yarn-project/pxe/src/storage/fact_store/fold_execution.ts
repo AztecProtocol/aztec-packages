@@ -10,7 +10,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { ContractFunctionSimulator } from '../../contract_function_simulator/contract_function_simulator.js';
 import type { EntityTypeId, FactStore } from './fact_store.js';
-import { type ReceptionState, packFacts, receptionStateFromCode } from './offchain_reception_fixture.js';
+import { type OffchainReceptionState, packFacts, receptionStateFromCode } from './offchain_reception_fixture.js';
 
 /**
  * Run the offchain-reception fold over one entity's currently-canonical fact set, in the real
@@ -27,7 +27,7 @@ export async function foldOffchainReception(
   entityType: EntityTypeId,
   correlationKey: Buffer,
   jobId: string,
-): Promise<ReceptionState> {
+): Promise<OffchainReceptionState> {
   const facts = await factStore.loadCanonicalFactSet(contract, scope, entityType, correlationKey);
   const packed = packFacts(facts);
 
