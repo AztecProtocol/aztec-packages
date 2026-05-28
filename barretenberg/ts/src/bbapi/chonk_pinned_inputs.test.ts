@@ -45,11 +45,8 @@ function selectFlows(flows: string[]): string[] {
   return Number.isInteger(limit) && limit > 0 ? filtered.slice(0, limit) : filtered;
 }
 
-function readPinnedFlow(flowDir: string): Buffer {
-  return readFileSync(join(flowDir, 'ivc-inputs.msgpack'));
-}
-
-function decodePinnedFlow(flowDir: string, buf: Buffer) {
+function loadPinnedFlow(flowDir: string) {
+  const buf = readFileSync(join(flowDir, 'ivc-inputs.msgpack'));
   const steps = new Decoder({ useRecords: false }).unpack(buf) as RawStep[];
   if (steps.length === 0) {
     throw new Error(`No execution steps in ${join(flowDir, 'ivc-inputs.msgpack')}`);
@@ -85,7 +82,6 @@ const backendCases = [
 
 describe('Chonk pinned IVC inputs through bb.js', () => {
   let flows: string[];
-  let flowBuffers: Map<string, Buffer>;
   let bbPath: string | undefined;
 
   beforeAll(() => {
@@ -106,11 +102,6 @@ describe('Chonk pinned IVC inputs through bb.js', () => {
     if (flows.length === 0) {
       throw new Error(`No pinned ivc-inputs.msgpack files found under ${pinnedRoot}`);
     }
-    // Read every flow's inputs into memory now, immediately after discovery. The pinned
-    // inputs live in a shared directory that a concurrent download/capture can wipe
-    // (both rm -rf it before re-extracting); reading lazily inside the multi-minute prove
-    // loop races with that deletion and fails with ENOENT partway through.
-    flowBuffers = new Map(flows.map(flowDir => [flowDir, readPinnedFlow(flowDir)]));
   }, TEST_TIMEOUT_MS);
 
   it.each(backendCases)(
@@ -124,7 +115,7 @@ describe('Chonk pinned IVC inputs through bb.js', () => {
 
       try {
         for (const flowDir of backendCase.selectFlows(flows)) {
-          const { bytecodes, witnesses, vks, names } = decodePinnedFlow(flowDir, flowBuffers.get(flowDir)!);
+          const { bytecodes, witnesses, vks, names } = loadPinnedFlow(flowDir);
           const backend = new AztecClientBackend(bytecodes, barretenberg, names);
           const { proof, vk } = await backend.prove(witnesses, vks);
           const verified = await backend.verify(proof, vk);
