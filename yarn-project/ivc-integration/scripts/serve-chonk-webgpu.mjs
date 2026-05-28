@@ -192,7 +192,10 @@ const server = createServer((req, res) => {
   }
 
   // Root → index.html.
-  if (url === '/' || url === '/index.html') {
+  // Strip any query string before matching; `/?foo=bar` should still serve
+  // index.html. The dist/-fallback below already does this for asset paths.
+  const urlPath = url.split('?')[0];
+  if (urlPath === '/' || urlPath === '/index.html') {
     serveFile(res, join(distPath, 'index.html'));
     return;
   }
