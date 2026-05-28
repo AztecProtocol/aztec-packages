@@ -88,6 +88,7 @@ declare -A SECRET_MAPPINGS=(
     ["FUNDING_PRIVATE_KEY"]="${L1_NETWORK}-funding-private-key"
     ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="${L1_NETWORK}-labs-rollup-private-key"
     ["OTEL_COLLECTOR_ENDPOINT"]="otel-collector-url"
+    ["PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS"]="prometheus-internal-read-url"
     ["ETHERSCAN_API_KEY"]="etherscan-api-key"
     ["LABS_INFRA_MNEMONIC"]="${MNEMONIC_SECRET}"
     ["STORE_SNAPSHOT_URL"]="r2-account-id"
