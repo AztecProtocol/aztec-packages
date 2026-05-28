@@ -9,7 +9,7 @@
     "./*": "./dest/*/index.js",
     "./*/lazy": "./dest/*/lazy.js",
     "./auth-registry/constants": "./dest/auth-registry/constants.js",
-    "./public-checks/address": "./dest/public-checks/address.js"
+    "./public-checks/constants": "./dest/public-checks/constants.js"
   },
   "typedocOptions": {
     "entryPoints": [
