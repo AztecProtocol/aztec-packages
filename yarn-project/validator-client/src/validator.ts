@@ -73,6 +73,7 @@ import {
 const MAX_PROPOSERS_OF_INVALID_BLOCKS = 1000;
 const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
 const MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS = 1000;
+const MAX_TRACKED_BAD_ATTESTATIONS = 10_000;
 
 // What errors from the block proposal handler result in slashing
 const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
@@ -129,6 +130,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private proposersOfInvalidBlocks = FifoSet.withLimit<string>(MAX_PROPOSERS_OF_INVALID_BLOCKS);
   private slotsWithInvalidProposals = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
   private invalidCheckpointProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
+  private badAttestationOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
   private slotsWithProposalEquivocation = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
 
   /** Tracks the last checkpoint proposal we attested to, to prevent equivocation. */
@@ -430,6 +432,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         this.handleDuplicateAttestation(info);
       });
 
+      this.p2pClient.registerCheckpointAttestationCallback((attestation: CheckpointAttestation) => {
+        this.handleCheckpointAttestation(attestation);
+      });
+
       const myAddresses = this.getValidatorAddresses();
       this.p2pClient.registerThisValidatorAddresses(myAddresses);
 
@@ -476,27 +482,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       fishermanMode: this.config.fishermanMode || false,
     });
 
-    // Reexecute txs if we are part of the committee, or if slashing is enabled, or if we are configured to always reexecute.
-    // In fisherman mode, we always reexecute to validate proposals.
-    const {
-      slashBroadcastedInvalidBlockPenalty,
-      slashAttestInvalidCheckpointProposalPenalty,
-      alwaysReexecuteBlockProposals,
-      fishermanMode,
-    } = this.config;
-    const shouldReexecute =
-      fishermanMode ||
-      slashBroadcastedInvalidBlockPenalty > 0n ||
-      slashAttestInvalidCheckpointProposalPenalty > 0n ||
-      partOfCommittee ||
-      alwaysReexecuteBlockProposals ||
-      this.blobClient.canUpload();
-
-    const validationResult = await this.proposalHandler.handleBlockProposal(
-      proposal,
-      proposalSender,
-      !!shouldReexecute && !escapeHatchOpen,
-    );
+    // Reexecute outside the escape hatch so slashing observers can detect invalid proposals even when penalties are 0.
+    const validationResult = await this.proposalHandler.handleBlockProposal(proposal, proposalSender, !escapeHatchOpen);
 
     if (!validationResult.isValid) {
       const reason = validationResult.reason || 'unknown';
@@ -524,13 +511,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         validationResult.reason &&
         SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(validationResult.reason)
       ) {
-        if (slashBroadcastedInvalidBlockPenalty > 0n) {
-          this.log.warn(`Slashing proposer for invalid block proposal`, proposalInfo);
-          this.slashInvalidBlock(proposal);
-        }
-        if (slashAttestInvalidCheckpointProposalPenalty > 0n) {
-          this.markInvalidProposalSlot(proposal.slotNumber);
-        }
+        this.log.warn(`Detected invalid block proposal offense`, {
+          ...proposalInfo,
+          amount: this.config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+        });
+        this.slashInvalidBlock(proposal);
+        this.markInvalidProposalSlot(proposal.slotNumber);
       }
       return false;
     }
@@ -769,23 +756,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
-    if (this.config.slashAttestInvalidCheckpointProposalPenalty > 0n) {
-      this.markInvalidProposalSlot(proposal.slotNumber);
-    }
+    this.markInvalidProposalSlot(proposal.slotNumber);
 
     if (this.slashInvalidCheckpointProposal(proposal)) {
-      this.log.warn(`Slashing proposer for invalid checkpoint proposal`, {
+      this.log.warn(`Detected invalid checkpoint proposal offense`, {
         ...proposalInfo,
         reason: result.reason,
+        amount: this.config.slashBroadcastedInvalidCheckpointProposalPenalty,
+        offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
       });
     }
   }
 
   private slashInvalidCheckpointProposal(proposal: CheckpointProposalCore): boolean {
-    if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
-      return false;
-    }
-
     const proposer = proposal.getSender();
     if (!proposer) {
       this.log.warn(`Cannot slash checkpoint proposal with invalid signature`, {
@@ -816,6 +799,47 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.slotsWithInvalidProposals.add(slotNumber);
   }
 
+  private handleCheckpointAttestation(attestation: CheckpointAttestation): void {
+    const slotNumber = attestation.slotNumber;
+    if (!this.slotsWithInvalidProposals.has(slotNumber) || this.slotsWithProposalEquivocation.has(slotNumber)) {
+      return;
+    }
+
+    const attester = attestation.getSender();
+    if (!attester) {
+      this.log.warn(`Cannot slash checkpoint attestation with invalid signature`, {
+        slotNumber,
+        archive: attestation.archive.toString(),
+      });
+      return;
+    }
+
+    this.slashAttestedToInvalidCheckpointProposal(slotNumber, attester);
+  }
+
+  private slashAttestedToInvalidCheckpointProposal(slotNumber: SlotNumber, attester: EthAddress): void {
+    const offenseKey = `${attester.toString()}:${OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL}:${slotNumber}`;
+    if (!this.badAttestationOffenseKeys.addIfAbsent(offenseKey)) {
+      return;
+    }
+
+    this.log.warn(`Detected attestation to invalid checkpoint proposal offense`, {
+      attester: attester.toString(),
+      slotNumber,
+      amount: this.config.slashAttestInvalidCheckpointProposalPenalty,
+      offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+    });
+
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: attester,
+        amount: this.config.slashAttestInvalidCheckpointProposalPenalty,
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: BigInt(slotNumber),
+      },
+    ]);
+  }
+
   /**
    * Handle detection of a duplicate proposal (equivocation).
    * Emits a slash event when a proposer sends multiple proposals for the same position.
@@ -824,13 +848,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const { slot, proposer, type } = info;
     this.slotsWithProposalEquivocation.add(slot);
 
-    this.log.warn(`Triggering slash event for duplicate ${type} proposal from ${proposer.toString()} at slot ${slot}`, {
+    this.log.warn(`Detected duplicate ${type} proposal offense from ${proposer.toString()} at slot ${slot}`, {
       proposer: proposer.toString(),
       slot,
       type,
+      amount: this.config.slashDuplicateProposalPenalty,
+      offenseType: OffenseType.DUPLICATE_PROPOSAL,
     });
 
-    // Emit slash event
     this.emit(WANT_TO_SLASH_EVENT, [
       {
         validator: proposer,
@@ -855,9 +880,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private handleDuplicateAttestation(info: DuplicateAttestationInfo): void {
     const { slot, attester } = info;
 
-    this.log.warn(`Triggering slash event for duplicate attestation from ${attester.toString()} at slot ${slot}`, {
+    this.log.warn(`Detected duplicate attestation offense from ${attester.toString()} at slot ${slot}`, {
       attester: attester.toString(),
       slot,
+      amount: this.config.slashDuplicateAttestationPenalty,
+      offenseType: OffenseType.DUPLICATE_ATTESTATION,
     });
 
     this.emit(WANT_TO_SLASH_EVENT, [

@@ -85,10 +85,6 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
       return;
     }
 
-    if (this.config.slashDataWithholdingPenalty === 0n) {
-      return; // disabled
-    }
-
     // tolerance is the number of full slots that must elapse after the checkpoint's slot
     // before we declare its data missing. For checkpoint slot S, we therefore process S
     // only once we are in slot `S + tolerance + 1` or later. Drive this off the archiver's
@@ -175,9 +171,11 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
       return;
     }
 
-    this.log.warn(`Detected data withholding at slot ${slot}. Slashing ${attesters.length} attesters.`, {
+    this.log.warn(`Detected data withholding offense at slot ${slot}`, {
       slot,
       checkpointNumber,
+      amount: this.config.slashDataWithholdingPenalty,
+      offenseType: OffenseType.DATA_WITHHOLDING,
       missingTxs: missingTxs.map(h => h.toString()),
       records: collectionRecords,
       attesters: attesters.map(a => a.toString()),

@@ -2,6 +2,7 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -17,6 +18,7 @@ const AttestedInvalidProposalWatcherConfigKeys = ['slashAttestInvalidCheckpointP
 
 const SCAN_SLOT_LAG = 1;
 const DEFAULT_SCAN_SLOT_LOOKBACK = 4;
+const MAX_TRACKED_BAD_ATTESTATIONS = 10_000;
 
 type AttestedInvalidProposalWatcherConfig = Pick<
   SlasherConfig,
@@ -38,6 +40,7 @@ export type InvalidProposalSlotSource = {
 export class AttestedInvalidProposalWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private readonly log: Logger;
   private readonly runningPromise: RunningPromise;
+  private readonly emittedOffenses = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
   private readonly scanSlotLookback: number;
   private config: AttestedInvalidProposalWatcherConfig;
   private lastScannedSlot: SlotNumber | undefined;
@@ -76,10 +79,6 @@ export class AttestedInvalidProposalWatcher extends (EventEmitter as new () => W
   }
 
   public async scan(): Promise<void> {
-    if (this.config.slashAttestInvalidCheckpointProposalPenalty <= 0n) {
-      return;
-    }
-
     const currentSlot = (await this.l2BlockSource.getSyncedL2SlotNumber()) ?? this.epochCache.getSlotNow();
     // genesis
     if (currentSlot <= SlotNumber(SCAN_SLOT_LAG)) {
@@ -105,7 +104,6 @@ export class AttestedInvalidProposalWatcher extends (EventEmitter as new () => W
   /** Scans a single invalid-proposal slot. */
   public async scanSlot(slot: SlotNumber): Promise<void> {
     if (
-      this.config.slashAttestInvalidCheckpointProposalPenalty <= 0n ||
       this.invalidProposalSlotSource.hasProposalEquivocation(slot) ||
       !this.invalidProposalSlotSource.hasInvalidProposals(slot)
     ) {
@@ -122,15 +120,21 @@ export class AttestedInvalidProposalWatcher extends (EventEmitter as new () => W
 
     const slashArgs = attestations
       .map(attestation => this.getSlashArgs(slot, attestation))
-      .filter((args): args is WantToSlashArgs => args !== undefined);
+      .filter((args): args is WantToSlashArgs => args !== undefined)
+      .filter(args => this.markAsNewOffense(args));
 
     if (slashArgs.length === 0) {
       return;
     }
 
-    this.log.warn('Slashing attesters for attesting to invalid checkpoint proposal', {
+    this.log.warn('Detected attestations to invalid checkpoint proposal', {
       slot,
-      attesters: slashArgs.map(args => args.validator.toString()),
+      offenses: slashArgs.map(args => ({
+        validator: args.validator.toString(),
+        amount: args.amount,
+        offenseType: args.offenseType,
+        epochOrSlot: args.epochOrSlot,
+      })),
     });
     this.emit(WANT_TO_SLASH_EVENT, slashArgs);
   }
@@ -155,5 +159,10 @@ export class AttestedInvalidProposalWatcher extends (EventEmitter as new () => W
       offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
       epochOrSlot: BigInt(slot),
     };
+  }
+
+  private markAsNewOffense(args: WantToSlashArgs): boolean {
+    const key = `${args.validator.toString()}-${args.offenseType}-${args.epochOrSlot}`;
+    return this.emittedOffenses.addIfAbsent(key);
   }
 }
