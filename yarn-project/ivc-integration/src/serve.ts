@@ -76,6 +76,13 @@ async function runChonkOnce(
     }
     baseLog(m);
   };
+  // `?staticPlan=1` on the page URL routes WebGPU MSMs through the M8 static
+  // plan (closed-form per-level bounds at create() time, no per-prepare
+  // histogram dispatch / mapAsync). EMPIRICAL bound — keep off for production
+  // proving. See `MsmConfig.useStaticPlan` and `BackendOptions
+  // .webgpuMsmStaticPlan` for the caveat.
+  const webgpuMsmStaticPlan =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('staticPlan') === '1';
   const bb = await Barretenberg.initSingleton({
     threads: 16,
     logger: capturingLog,
@@ -84,6 +91,7 @@ async function runChonkOnce(
     msmDistributionMode,
     msmTraceMode,
     webgpuMsmBlocklist,
+    webgpuMsmStaticPlan,
   });
   try {
     const backend = new AztecClientBackend(bytecodes, bb, functionNames);

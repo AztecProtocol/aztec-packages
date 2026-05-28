@@ -41,9 +41,10 @@ export interface WebGpuBridgeHandle {
  */
 export async function setupWebGpuMsmBridge(
   worker: Worker,
+  options: { useStaticPlan?: boolean } = {},
 ): Promise<WebGpuBridgeHandle> {
   const controlSab = createControlBuffer();
-  const host = new WebGpuMsmHost(controlSab);
+  const host = new WebGpuMsmHost(controlSab, options);
 
   // Hand the control SAB to the worker before its WASM module is
   // instantiated. The worker-side wiring listens for this message
@@ -55,11 +56,7 @@ export async function setupWebGpuMsmBridge(
     // worker_stub.ts:signalAndWait). Anything else is unrelated.
     if (e.data === 'msm_request') {
       void host.handleMessage(e.data);
-    } else if (
-      e.data &&
-      typeof e.data === 'object' &&
-      e.data.kind === 'webgpu-wasm-memory'
-    ) {
+    } else if (e.data && typeof e.data === 'object' && e.data.kind === 'webgpu-wasm-memory') {
       // The worker posts its WASM memory back to us once it's
       // instantiated. We need this to read out request payloads.
       host.setWasmMemory(e.data.memory);
@@ -81,9 +78,6 @@ export async function setupWebGpuMsmBridge(
  * `wasm.setExtraEnvImports(stub.getEnvImports())` before
  * `WebAssembly.instantiate` runs.
  */
-export function installWorkerStub(
-  controlSab: SharedArrayBuffer,
-  post: (msg: string) => void,
-): WebGpuMsmWorkerStub {
+export function installWorkerStub(controlSab: SharedArrayBuffer, post: (msg: string) => void): WebGpuMsmWorkerStub {
   return new WebGpuMsmWorkerStub(controlSab, post);
 }

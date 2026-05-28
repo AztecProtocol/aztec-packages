@@ -111,8 +111,14 @@ export class WebGpuMsmHost {
   // Used by the test harness; production order is always memory-then-message.
   private pendingErrorMessage: string | null = null;
 
-  constructor(ctrl_sab: SharedArrayBuffer) {
+  // M8 static plan toggle — forwarded to every MsmV2.create on this host.
+  // See `MsmConfig.useStaticPlan` in `msm_v2.ts` for the empirical-bound
+  // caveat (not safe for structured/adversarial scalars).
+  private readonly useStaticPlan: boolean;
+
+  constructor(ctrl_sab: SharedArrayBuffer, options: { useStaticPlan?: boolean } = {}) {
     this.ctrl = new Int32Array(ctrl_sab);
+    this.useStaticPlan = options.useStaticPlan ?? false;
   }
 
   public setWasmMemory(memory: WebAssembly.Memory): void {
@@ -297,7 +303,14 @@ export class WebGpuMsmHost {
     // slots exist to break same-N submit serialization, not for timestamp
     // readback; their GPU compute is fungible with slot 0's at the same n.
     while (pools.length <= slot - 1) {
-      pools.push(await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: false }));
+      pools.push(
+        await MsmV2.create(device, n, pool, {
+          warmupRuns: 0,
+          combineOnHost: false,
+          profile: false,
+          useStaticPlan: this.useStaticPlan,
+        }),
+      );
     }
     return pools[slot - 1];
   }
@@ -307,7 +320,12 @@ export class WebGpuMsmHost {
     const pool = this.pool!;
     if (n === this.srsN) {
       if (this.srsMsm === null) {
-        this.srsMsm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+        this.srsMsm = await MsmV2.create(device, n, pool, {
+          warmupRuns: 0,
+          combineOnHost: false,
+          profile: true,
+          useStaticPlan: this.useStaticPlan,
+        });
       }
       return this.srsMsm;
     }
@@ -319,7 +337,12 @@ export class WebGpuMsmHost {
       return hit;
     }
     // Build before inserting — a throw leaves the cache clean.
-    const fresh = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+    const fresh = await MsmV2.create(device, n, pool, {
+      warmupRuns: 0,
+      combineOnHost: false,
+      profile: true,
+      useStaticPlan: this.useStaticPlan,
+    });
     while (this.lru.size >= MSM_LRU_CAP) {
       const oldest = this.lru.keys().next().value as number;
       this.lru.get(oldest)!.destroy();
@@ -396,7 +419,12 @@ export class WebGpuMsmHost {
       const device = await this.getDevice();
       const pointBytes = this.wasmSliceCopy(pointsPtr, n * 64);
       const pool = await MsmV2Pool.create(device, pointBytes);
-      msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+      msm = await MsmV2.create(device, n, pool, {
+        warmupRuns: 0,
+        combineOnHost: false,
+        profile: true,
+        useStaticPlan: this.useStaticPlan,
+      });
       oneOff = { pool, msm };
     }
     const tGetEnd = performance.now();

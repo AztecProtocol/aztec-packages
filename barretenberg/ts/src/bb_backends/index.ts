@@ -120,4 +120,20 @@ export type BackendOptions = {
    * blocking. Ignored when `webgpuMsm` is false.
    */
   webgpuMsmBlocklist?: readonly string[];
+
+  /**
+   * @description When `webgpuMsm` is true, use the M8 static plan in the
+   * WebGPU MSM: bake per-level pair/carry/stride bounds at `MsmV2.create`
+   * time from a closed form on `(n, c, S)`, skipping the per-prepare GPU
+   * bucket-histogram dispatch + mapAsync readback + host level-walk. The
+   * actual per-bucket counts still flow through the existing `csr2v2_meta`
+   * → `countsBufs[0]` path at run time; only the *sizing* numbers are
+   * predicted. The bound is empirical (calibrated to ~uniform reduced-mod-r
+   * scalars), NOT a proof — structured/adversarial scalars can under-
+   * provision it silently with no runtime overflow check. Keep off for
+   * production proving; safe for validated random-scalar benchmarks. See
+   * `MsmConfig.useStaticPlan` in `msm_webgpu/msm_v2.ts`. Off by default.
+   * Ignored when `webgpuMsm` is false.
+   */
+  webgpuMsmStaticPlan?: boolean;
 };

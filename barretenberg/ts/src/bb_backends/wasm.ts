@@ -100,6 +100,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       msmDistributionMode?: boolean;
       msmTraceMode?: boolean;
       webgpuMsmBlocklist?: readonly string[];
+      webgpuMsmStaticPlan?: boolean;
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
     // Default to worker mode for browser safety
@@ -118,7 +119,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       let webgpuBridge: { destroy: () => Promise<void> } | undefined;
       if (options.webgpuMsm && typeof navigator !== 'undefined' && 'gpu' in navigator) {
         const { setupWebGpuMsmBridge } = await import('../msm_webgpu/setup.js');
-        webgpuBridge = await setupWebGpuMsmBridge(worker as unknown as Worker);
+        webgpuBridge = await setupWebGpuMsmBridge(worker as unknown as Worker, {
+          useStaticPlan: options.webgpuMsmStaticPlan,
+        });
       }
 
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
