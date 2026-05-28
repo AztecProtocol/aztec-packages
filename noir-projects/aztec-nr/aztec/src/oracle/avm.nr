@@ -224,7 +224,7 @@ unconstrained fn storage_read_opcode(storage_slot: Field, contract_address: Fiel
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
 mod test {
-    use crate::macros::oracle_test;
+    use crate::macros::oracle_testing::oracle_test;
     use super::storage_read_opcode;
 
     #[oracle_test]

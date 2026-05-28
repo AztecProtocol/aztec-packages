@@ -222,7 +222,7 @@ pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
 unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}
 
 mod test {
-    use crate::macros::oracle_test;
+    use crate::macros::oracle_testing::oracle_test;
     use crate::protocol::{address::AztecAddress, traits::FromField};
     use super::get_sender_for_tags_oracle;
 

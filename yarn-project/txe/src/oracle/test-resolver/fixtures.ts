@@ -33,7 +33,7 @@ export const ORACLE_TEST_FIXTURES: OracleTestFixtures = {
     makeScenario({
       scenario: 'none',
       inputs: {},
-      output: Option.empty(AztecAddress.ZERO),
+      output: Option.none(AztecAddress.ZERO),
     }),
   ],
 };

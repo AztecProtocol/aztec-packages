@@ -4,10 +4,10 @@
 /// TS resolver matches against hardcoded fixtures to verify both param deserialization and return serialization across
 /// the Noir-TS boundary.
 ///
-/// Oracle tests are NOT run by TXE, they are run by a special TS oracle resolver server. The macro generates a
+/// Oracle tests use a dedicated TS oracle resolver server (different from the one used by TXE). The macro generates a
 /// `#[test]` wrapper with a `__oracle_test__` prefix that calls the original function, so that:
-/// - We can filter them out of TXE runs
-/// - The TS test runner targets them directly
+/// - They run against the test resolver rather than the TXE oracle resolver
+/// - The CI test runner can target them separately
 ///
 /// For oracles with no inputs and multiple fixture scenarios, pass a scenario name to select which fixture to use:
 /// `#[oracle_test("some")]`. The resolver matches the name against the fixture's `name` field.
@@ -15,7 +15,7 @@
 /// ## Usage
 ///
 /// ```noir
-/// use crate::macros::oracle_test;
+/// use crate::macros::oracle_testing::oracle_test;
 ///
 /// #[oracle_test]
 /// unconstrained fn my_oracle() {

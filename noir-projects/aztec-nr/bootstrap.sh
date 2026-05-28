@@ -63,8 +63,8 @@ function test_oracles_cmds {
   done
 }
 
-# Runs oracle roundtrip tests: starts a lightweight TS resolver server that matches oracle calls
-# against hardcoded fixtures (no TXE), then runs all __oracle_test__-prefixed tests against it.
+# Runs oracle roundtrip tests: starts a dedicated TS oracle resolver server that matches oracle calls
+# against hardcoded fixtures, then runs all __oracle_test__-prefixed tests against it.
 function test_oracles {
   local resolver_port=14830
   trap 'kill $(jobs -p)' EXIT

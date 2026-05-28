@@ -6,7 +6,7 @@ import { createOracleTestRpcServer } from '../oracle/test-resolver/index.js';
 
 /**
  * Starts an HTTP RPC server that resolves oracle foreign calls using hardcoded fixture scenarios.
- * Used by `nargo test --oracle-resolver` to run `#[oracle_test]` roundtrip tests without a full TXE.
+ * Used by `nargo test --oracle-resolver` to run `#[oracle_test]` roundtrip tests with a dedicated oracle resolver.
  * Logs fixture coverage on shutdown.
  */
 async function main() {
