@@ -426,11 +426,11 @@ describe('PrivateKernelResetPrivateInputsBuilder', () => {
       expect(requested[dimensionName]).toBe(expectedValue);
       // Actual dimensions (from config) must be at least as large.
       expect(actualDimensions[dimensionName]).toBeGreaterThanOrEqual(expectedValue);
-      // All other dimensions should be 0 in both requested and actual.
+      // All other requested dimensions should be 0. Actual dimensions can be non-zero for other
+      // dimensions because the cheapest catalog entry may pad multiple dimensions (e.g. inner_sm).
       for (const name of privateKernelResetDimensionNames) {
         if (name !== dimensionName) {
           expect(requested[name]).toBe(0);
-          expect(actualDimensions[name]).toBe(0);
         }
       }
     };
