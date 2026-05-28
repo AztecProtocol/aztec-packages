@@ -27,7 +27,7 @@ pub global default_contract: ContractData = ContractData {
     public_bytecode_commitment: 0x256abef672381d551191d5bbecf2dec6ac9cc2a81189f886ac22e29e5c58c49c,
     private_functions_root: 0x2653ec1bf2be3a13fa9b645cec2557f2b543286fc39168ec42b705835a301bb6,
     address: AztecAddress {
-        inner: 0x1599beafce80b22c56446667e1627d865bb87ea94b8f1bdc757979f78a596042,
+        inner: 0x07680e2c2f956fafe2ee3a31150da694fd5792515b9349febc7fb738cfb24d7a,
     },
     partial_address: PartialAddress {
         inner: 0x13bf689e2b04d5a75694270c1872e74b0c998c3f7f2f3a0a95648f9f41600808,
@@ -52,7 +52,7 @@ pub global parent_contract: ContractData = ContractData {
     public_bytecode_commitment: 0x1cfb8e870870be1d102249b47923b63c2d54f33ca81e3028d74a06d8dd5944ca,
     private_functions_root: 0x03cca4d59a01776df283eb2c8915cb144ad3f40a0b0ba06e9c24c532c59e3c43,
     address: AztecAddress {
-        inner: 0x1ea25c8d3d0223005170fc2cc0a0e8e3593e322bfcdebc817cc2a02cc95fca9c,
+        inner: 0x0e8d8115be632405aa0b0540f28c2f6c7a8a1b99ee18ea975c31d14f52377cb1,
     },
     partial_address: PartialAddress {
         inner: 0x09dba9fffbfd68d6828334a178433b7bfae9d07c3c6f424ee4afa0304655c5d3,
@@ -77,7 +77,7 @@ pub global updated_contract: ContractData = ContractData {
     public_bytecode_commitment: 0x225d884cfeaddc5292dadbf921e7699632336876c65a33459d3b2ad9b5ec0da3,
     private_functions_root: 0x2b26caef823c6be4c41ef1980dace9b61825f8e6a16792c765a2cd8cb2121e75,
     address: AztecAddress {
-        inner: 0x144f3aaae816b99f40fbea5b9f80fe4683bf68a14876e7379c4171c871a1ef09,
+        inner: 0x1b1ac9bb4af44a4f2f4e6ecc488dc18b9b8b8b3bacfa99e6cec1b81fa9d10b1e,
     },
     partial_address: PartialAddress {
         inner: 0x12b89345d5d63f8bf9f73f5890d5caa0c5f023c61d313b1abeea40e300a83755,
