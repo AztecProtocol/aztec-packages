@@ -3,6 +3,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { NestedUtilityContract } from '@aztec/noir-test-contracts.js/NestedUtility';
 import type { UtilityCallAuthorizationRequest } from '@aztec/pxe/server';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
@@ -93,7 +94,7 @@ describe('authorizeUtilityCall hook', () => {
 
     ({ contract: contractA } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contractB } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
-    contractClassId = contractA.instance.currentContractClassId;
+    contractClassId = (await getContractClassFromArtifact(NestedUtilityContract.artifact)).id;
   });
 
   afterAll(() => teardown());
