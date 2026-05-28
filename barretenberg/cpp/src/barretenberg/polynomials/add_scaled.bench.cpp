@@ -162,7 +162,7 @@ static void bench_add_scaled_vectorized_inline(State& state)
     bb::Broadcast<fr> scaling_b(scaling);
     for (auto _ : state) {
         f.reset_self(state);
-        vectorized_for<bb::VECTOR_FIELD_WIDTH>(
+        vectorized_for<bb::VECTOR_FIELD_WIDTH, fr>(
             0, N, [&](auto ctx) { self[ctx] = self[ctx] + other[ctx] * scaling_b[ctx]; });
         DoNotOptimize(self.at(0));
     }
