@@ -13,9 +13,9 @@
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 namespace bb {
-class TranslatorProver {
+template <typename Flavor_ = TranslatorFlavor> class TranslatorProver_ {
   public:
-    using Flavor = TranslatorFlavor;
+    using Flavor = Flavor_;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -27,9 +27,10 @@ class TranslatorProver {
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
+    using TranslatorProvingKey = TranslatorProvingKey_<Flavor>;
 
-    explicit TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& key,
-                              const std::shared_ptr<Transcript>& transcript);
+    explicit TranslatorProver_(const std::shared_ptr<TranslatorProvingKey>& key,
+                               const std::shared_ptr<Transcript>& transcript);
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_and_sorted_constraints_commitments_round();
@@ -55,5 +56,8 @@ class TranslatorProver {
 
     SumcheckOutput<Flavor> sumcheck_output;
 };
+
+using TranslatorProver = TranslatorProver_<TranslatorFlavor>;
+using TranslatorShortMonomialProver = TranslatorProver_<TranslatorShortMonomialFlavor>;
 
 } // namespace bb

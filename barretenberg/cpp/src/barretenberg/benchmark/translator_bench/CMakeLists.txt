@@ -1,0 +1,1 @@
+barretenberg_module(translator_bench translator_vm)

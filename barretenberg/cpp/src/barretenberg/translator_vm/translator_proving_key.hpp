@@ -10,9 +10,9 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-class TranslatorProvingKey {
+template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
   public:
-    using Flavor = TranslatorFlavor;
+    using Flavor = Flavor_;
     using Circuit = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -37,9 +37,9 @@ class TranslatorProvingKey {
     BF batching_challenge_v = { 0 };
     BF evaluation_input_x = { 0 };
 
-    TranslatorProvingKey() = default;
+    TranslatorProvingKey_() = default;
 
-    TranslatorProvingKey(const Circuit& circuit)
+    TranslatorProvingKey_(const Circuit& circuit)
         : batching_challenge_v(circuit.batching_challenge_v)
         , evaluation_input_x(circuit.evaluation_input_x)
     {
@@ -130,4 +130,7 @@ class TranslatorProvingKey {
 
     void split_concatenated_random_coefficients_to_ordered();
 };
+
+using TranslatorProvingKey = TranslatorProvingKey_<TranslatorFlavor>;
+using TranslatorShortMonomialProvingKey = TranslatorProvingKey_<TranslatorShortMonomialFlavor>;
 } // namespace bb
