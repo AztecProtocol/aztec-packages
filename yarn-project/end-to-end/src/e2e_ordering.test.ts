@@ -27,14 +27,15 @@ describe('e2e_ordering', () => {
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
-  const expectLogsFromBlockToBe = async (logMessages: bigint[], fromBlock: number) => {
-    const logFilter = {
-      fromBlock,
-      toBlock: fromBlock + 1,
-    };
-    const publicLogs = (await aztecNode.getPublicLogs(logFilter)).logs;
-
-    const bigintLogs = publicLogs.map(extendedLog => toBigIntBE(serializeToBuffer(extendedLog.log.getEmittedFields())));
+  const expectLogsFromBlockToBe = async (logMessages: bigint[], blockNumber: number) => {
+    // The log RPC is tag-based and per-contract; fetch the block's tx effects directly to assert ordering across all
+    // public logs in the block in canonical (txIndex, logIndexWithinTx) order.
+    const block = await aztecNode.getBlock(blockNumber, { includeTransactions: true });
+    if (!block) {
+      throw new Error(`Block ${blockNumber} not found`);
+    }
+    const publicLogs = block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
+    const bigintLogs = publicLogs.map(publicLog => toBigIntBE(serializeToBuffer(publicLog.getEmittedFields())));
 
     expect(bigintLogs).toStrictEqual(logMessages);
   };

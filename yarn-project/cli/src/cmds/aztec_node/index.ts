@@ -7,10 +7,10 @@ import {
   nodeOption,
   parseAztecAddress,
   parseField,
-  parseOptionalAztecAddress,
   parseOptionalInteger,
-  parseOptionalLogId,
+  parseOptionalLogCursor,
   parseOptionalTxHash,
+  parseTag,
 } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
@@ -47,22 +47,29 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
 
   program
     .command('get-logs')
-    .description('Gets all the public logs from an intersection of all the filter params.')
-    .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
+    .description('Gets public logs for a contract and tag, optionally restricted by block range or tx hash.')
+    .requiredOption('-ca, --contract-address <address>', 'Contract address that emitted the logs.', parseAztecAddress)
+    .requiredOption('--tag <tag>', 'Tag (Fr value) to filter logs by.', parseTag)
+    .option('-tx, --tx-hash <txHash>', 'A transaction hash to restrict the search to.', parseOptionalTxHash)
     .option(
       '-fb, --from-block <blockNum>',
       'Initial block number for getting logs (defaults to 1).',
       parseOptionalInteger,
     )
     .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
-    .option('-al --after-log <logId>', 'ID of a log after which to fetch the logs.', parseOptionalLogId)
-    .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
+    .option(
+      '-al --after-log <cursor>',
+      'Log cursor of the form <blockNumber>-<txHash>-<logIndexWithinTx> to resume pagination after.',
+      parseOptionalLogCursor,
+    )
     .addOption(nodeOption)
     .option('--follow', 'If set, will keep polling for new logs until interrupted.')
-    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, aztecNodeRpcUrl: nodeUrl, follow }) => {
-      const { getLogs } = await import('./get_logs.js');
-      await getLogs(txHash, fromBlock, toBlock, afterLog, contractAddress, nodeUrl, follow, log);
-    });
+    .action(
+      async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, tag, aztecNodeRpcUrl: nodeUrl, follow }) => {
+        const { getLogs } = await import('./get_logs.js');
+        await getLogs({ txHash, fromBlock, toBlock, afterLog, contractAddress, tag, nodeUrl, follow, log });
+      },
+    );
 
   program
     .command('block-number')

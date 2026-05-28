@@ -1,3 +1,4 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
@@ -5,7 +6,7 @@ import type { PXE } from '@aztec/pxe/server';
 import { FunctionSelector } from '@aztec/stdlib/abi/function-selector';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { LogId } from '@aztec/stdlib/logs/log-id';
+import { LogCursor, Tag } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx/tx-hash';
 
 import { type Command, CommanderError, InvalidArgumentError, Option } from 'commander';
@@ -227,16 +228,46 @@ export function parseOptionalAztecAddress(address: string): AztecAddress | undef
 }
 
 /**
- * Parses an optional log ID string into a LogId object.
+ * Parses an optional `<blockNumber>-<txHash>-<logIndexWithinTx>` triple into a {@link LogCursor}, used as the
+ * `--after-log` argument of `get-logs` to resume pagination strictly after a previously-seen log.
  *
- * @param logId - The log ID string to parse.
- * @returns The parsed LogId object, or undefined if the log ID is missing or empty.
+ * @param value - The CLI string to parse, or empty/undefined to skip.
+ * @returns The parsed {@link LogCursor}, or undefined if `value` is missing or empty.
  */
-export function parseOptionalLogId(logId: string): LogId | undefined {
-  if (!logId) {
+export function parseOptionalLogCursor(value: string): LogCursor | undefined {
+  if (!value) {
     return undefined;
   }
-  return LogId.fromString(logId);
+  const parts = value.split('-');
+  if (parts.length !== 3) {
+    throw new InvalidArgumentError(
+      `Invalid log cursor "${value}". Expected <blockNumber>-<txHash>-<logIndexWithinTx>.`,
+    );
+  }
+  const [blockNumberStr, txHashStr, logIndexStr] = parts;
+  const blockNumber = Number(blockNumberStr);
+  const logIndexWithinTx = Number(logIndexStr);
+  if (!Number.isInteger(blockNumber) || blockNumber < 1) {
+    throw new InvalidArgumentError(`Invalid log cursor block number: ${blockNumberStr}`);
+  }
+  if (!Number.isInteger(logIndexWithinTx) || logIndexWithinTx < 0) {
+    throw new InvalidArgumentError(`Invalid log cursor log index: ${logIndexStr}`);
+  }
+  try {
+    return new LogCursor(BlockNumber(blockNumber), TxHash.fromString(txHashStr), logIndexWithinTx);
+  } catch {
+    throw new InvalidArgumentError(`Invalid log cursor tx hash: ${txHashStr}`);
+  }
+}
+
+/**
+ * Parses a log tag from a string. Tags are field-element values; we delegate to the {@link parseField} parser.
+ *
+ * @param tag - A hex string, integer, or boolean string representing the tag.
+ * @returns A {@link Tag} wrapping the parsed field.
+ */
+export function parseTag(tag: string): Tag {
+  return new Tag(parseField(tag));
 }
 
 /**

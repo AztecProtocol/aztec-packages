@@ -13,7 +13,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
-import { LogId } from '@aztec/stdlib/logs';
+import { LogCursor } from '@aztec/stdlib/logs';
 import {
   AbiDecodedSchema,
   type ApiSchemaFor,
@@ -164,8 +164,8 @@ export type EventFilterBase = {
    * Optional. If provided, it must be greater than fromBlock.
    */
   toBlock?: BlockNumber;
-  /** Log id after which to start fetching logs. Used for pagination. */
-  afterLog?: LogId;
+  /** Log cursor after which to start fetching logs. Used for pagination. */
+  afterLog?: LogCursor;
 };
 
 /**
@@ -179,11 +179,12 @@ export type PrivateEventFilter = EventFilterBase & {
 };
 
 /**
- * Filter options when querying public events.
+ * Filter options when querying public events. The contract address is required because the public log index is
+ * keyed on `(contract, tag)`; tag-only queries are not supported.
  */
 export type PublicEventFilter = EventFilterBase & {
-  /** The address of the contract that emitted the events. */
-  contractAddress?: AztecAddress;
+  /** The address of the contract that emitted the events. Required. */
+  contractAddress: AztecAddress;
 };
 
 /**
@@ -374,21 +375,36 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
-const EventFilterBaseSchema = z.object({
+const eventFilterBaseShape = {
   txHash: optional(TxHash.schema),
   fromBlock: optional(BlockNumberPositiveSchema),
   toBlock: optional(BlockNumberPositiveSchema),
-  afterLog: optional(LogId.schema),
-});
+  afterLog: optional(LogCursor.schema),
+};
 
-export const PrivateEventFilterSchema = EventFilterBaseSchema.extend({
-  contractAddress: schemas.AztecAddress,
-  scopes: z.array(schemas.AztecAddress),
-});
+/** Reject queries that combine `txHash` with a `fromBlock`/`toBlock` range — a `txHash` already pins a block. */
+function refineEventFilter<T extends { txHash?: TxHash; fromBlock?: BlockNumber; toBlock?: BlockNumber }>(
+  schema: z.ZodType<T>,
+) {
+  return schema.refine(q => !(q.txHash !== undefined && (q.fromBlock !== undefined || q.toBlock !== undefined)), {
+    message: '`txHash` is mutually exclusive with `fromBlock`/`toBlock`',
+  });
+}
 
-export const PublicEventFilterSchema = EventFilterBaseSchema.extend({
-  contractAddress: optional(schemas.AztecAddress),
-});
+export const PrivateEventFilterSchema = refineEventFilter(
+  z.object({
+    ...eventFilterBaseShape,
+    contractAddress: schemas.AztecAddress,
+    scopes: z.array(schemas.AztecAddress),
+  }),
+);
+
+export const PublicEventFilterSchema = refineEventFilter(
+  z.object({
+    ...eventFilterBaseShape,
+    contractAddress: schemas.AztecAddress,
+  }),
+);
 
 export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
   z.object({

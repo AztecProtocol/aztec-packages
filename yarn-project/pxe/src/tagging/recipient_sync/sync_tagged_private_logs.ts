@@ -2,7 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { isDefined } from '@aztec/foundation/types';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { AppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { AppTaggingSecret, LogResult } from '@aztec/stdlib/logs';
 import { SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -67,7 +67,7 @@ export async function syncTaggedPrivateLogs(
   anchorBlockHeader: BlockHeader,
   finalizedBlockNumber: BlockNumber,
   jobId: string,
-): Promise<TxScopedL2Log[]> {
+): Promise<LogResult[]> {
   if (secrets.length === 0) {
     return [];
   }
@@ -78,7 +78,7 @@ export async function syncTaggedPrivateLogs(
 
   // Read stored indexes from the db and compute the initial [start, end) range for each secret
   let pending = await getIndexRangesForSecrets(secrets, taggingStore, jobId);
-  const allLogs: TxScopedL2Log[] = [];
+  const allLogs: LogResult[] = [];
 
   while (pending.length > 0) {
     // Compute tags for all pending secrets and fetch logs in batched RPC calls
@@ -156,8 +156,9 @@ async function fetchLogsForSecrets(
 
   const allTags = tagsPerSecret.flat();
 
-  // getAllPrivateLogsByTags handles MAX_RPC_LEN chunking internally
-  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchorBlockHash);
+  // getAllPrivateLogsByTags handles MAX_RPC_LEN chunking internally. Recipient sync builds `PendingTaggedLog` from
+  // each log's note hashes and first nullifier, so we opt into effects.
+  const allResults = await getAllPrivateLogsByTags(aztecNode, allTags, anchorBlockHash, { includeEffects: true });
 
   // Split flat results back per secret using the known lengths
   const logsPerSecret: LogWithIndex[][] = [];
@@ -231,6 +232,6 @@ type PendingSecret = {
 };
 
 type LogWithIndex = {
-  log: TxScopedL2Log;
+  log: LogResult;
   taggingIndex: number;
 };

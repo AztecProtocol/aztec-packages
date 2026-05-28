@@ -1,8 +1,15 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
-import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import {
+  type AppTaggingSecret,
+  AppTaggingSecretKind,
+  LogResult,
+  type PrivateLogsQuery,
+  SiloedTag,
+  type TagQuery,
+} from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -21,8 +28,17 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
-  function makeLog(txHash: TxHash, tag: Fr) {
-    return randomTxScopedPrivateL2Log({ txHash, tag });
+  function makeLog(txHash: TxHash, _tag: Fr) {
+    const random = LogResult.random();
+    return LogResult.from({ ...random, txHash });
+  }
+
+  /**
+   * Extracts the bare-tag set from a query, defaulting `afterLog`-wrapped entries to their inner tag. Sender sync
+   * never paginates within a tag (one log per index), so the bare-tag path is the only one exercised here.
+   */
+  function extractTags(query: PrivateLogsQuery): SiloedTag[] {
+    return query.tags.map((entry: TagQuery<SiloedTag>) => (entry instanceof SiloedTag ? entry : entry.tag));
   }
 
   beforeAll(async () => {
@@ -35,7 +51,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
   });
 
   it('no logs found for the given window', async () => {
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(tags.map(() => []));
     });
 
@@ -49,7 +66,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const index = 5;
     const tag = await computeSiloedTagForIndex(index);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(tags.map((t: SiloedTag) => (t.equals(tag) ? [makeLog(txHash, tag.value)] : [])));
     });
 
@@ -70,7 +88,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tag1)) {
@@ -101,7 +120,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tag1 = await computeSiloedTagForIndex(index1);
     const tag2 = await computeSiloedTagForIndex(index2);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tag1)) {
@@ -136,7 +156,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const index = 4;
     const tag = await computeSiloedTagForIndex(index);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => (t.equals(tag) ? [makeLog(txHash1, tag.value), makeLog(txHash2, tag.value)] : [])),
       );
@@ -172,7 +193,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tag8 = await computeSiloedTagForIndex(8);
     const tag9 = await computeSiloedTagForIndex(9);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tag1)) {
@@ -223,7 +245,8 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     const tagAtStart = await computeSiloedTagForIndex(start);
     const tagAtEnd = await computeSiloedTagForIndex(end);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(tagAtStart)) {
