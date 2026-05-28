@@ -295,13 +295,13 @@ export class LogStore {
   // -----------------------------------------------------------------------------------------------
 
   /** Returns one inner array per element of `query.tags`, in input order. */
-  async getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
     return this.db.transactionAsync(() => this.#runQuery(query, /* contractBytes */ undefined));
   }
 
   /** Returns one inner array per element of `query.tags`, in input order. */
-  async getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
     return this.db.transactionAsync(() => this.#runQuery(query, query.contractAddress.toBuffer()));
   }

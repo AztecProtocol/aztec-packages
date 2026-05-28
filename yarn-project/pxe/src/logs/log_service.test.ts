@@ -67,8 +67,8 @@ describe('LogService', () => {
     });
 
     it('returns all logs when multiple public logs exist for a single tag', async () => {
-      const scopedLog1 = randomPrivateLogResult();
-      const scopedLog2 = randomPrivateLogResult();
+      const scopedLog1 = randomPrivateLogResult({ includeEffects: true });
+      const scopedLog2 = randomPrivateLogResult({ includeEffects: true });
 
       aztecNode.getPublicLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
@@ -82,8 +82,8 @@ describe('LogService', () => {
     });
 
     it('returns all logs when multiple private logs exist for a single tag', async () => {
-      const scopedLog1 = randomPrivateLogResult();
-      const scopedLog2 = randomPrivateLogResult();
+      const scopedLog1 = randomPrivateLogResult({ includeEffects: true });
+      const scopedLog2 = randomPrivateLogResult({ includeEffects: true });
 
       aztecNode.getPublicLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
@@ -97,8 +97,8 @@ describe('LogService', () => {
     });
 
     it('returns combined public and private logs for a single tag', async () => {
-      const publicLog = randomPrivateLogResult();
-      const privateLog = randomPrivateLogResult();
+      const publicLog = randomPrivateLogResult({ includeEffects: true });
+      const privateLog = randomPrivateLogResult({ includeEffects: true });
 
       aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
@@ -126,8 +126,8 @@ describe('LogService', () => {
       const tag2 = Tag.random();
       const tag3 = Tag.random();
 
-      const publicLog1 = randomPrivateLogResult();
-      const privateLog2 = randomPrivateLogResult();
+      const publicLog1 = randomPrivateLogResult({ includeEffects: true });
+      const privateLog2 = randomPrivateLogResult({ includeEffects: true });
 
       aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog1], [], []]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[], [privateLog2], []]);
@@ -159,25 +159,28 @@ describe('LogService', () => {
     });
 
     describe('block range filtering', () => {
-      it('fromBlock is inclusive', async () => {
-        const logBefore = randomPrivateLogResult({ blockNumber: 9 });
-        const logAtBoundary = randomPrivateLogResult({ blockNumber: 10 });
+      // Range filtering happens in the node (Phase 2 pushed it down). These tests just verify the
+      // service forwards `fromBlock`/`toBlock` and stitches whatever the node returns.
+      it('forwards fromBlock to the node', async () => {
+        const logAtBoundary = randomPrivateLogResult({ blockNumber: 10, includeEffects: true });
 
-        aztecNode.getPublicLogsByTags.mockResolvedValue([[logBefore, logAtBoundary]]);
+        aztecNode.getPublicLogsByTags.mockResolvedValue([[logAtBoundary]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
         const request = new LogRetrievalRequest(contractAddress, tag, LogSource.PUBLIC_AND_PRIVATE, BlockNumber(10));
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
+        expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledWith(
+          expect.objectContaining({ fromBlock: BlockNumber(10) }),
+        );
         expect(responses[0]).toHaveLength(1);
         expect(responses[0][0].txHash).toEqual(logAtBoundary.txHash);
       });
 
-      it('toBlock is exclusive', async () => {
-        const logBeforeBoundary = randomPrivateLogResult({ blockNumber: 9 });
-        const logAtBoundary = randomPrivateLogResult({ blockNumber: 10 });
+      it('forwards toBlock to the node', async () => {
+        const logBeforeBoundary = randomPrivateLogResult({ blockNumber: 9, includeEffects: true });
 
-        aztecNode.getPublicLogsByTags.mockResolvedValue([[logBeforeBoundary, logAtBoundary]]);
+        aztecNode.getPublicLogsByTags.mockResolvedValue([[logBeforeBoundary]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
         const request = new LogRetrievalRequest(
@@ -189,16 +192,17 @@ describe('LogService', () => {
         );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
+        expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledWith(
+          expect.objectContaining({ toBlock: BlockNumber(10) }),
+        );
         expect(responses[0]).toHaveLength(1);
         expect(responses[0][0].txHash).toEqual(logBeforeBoundary.txHash);
       });
 
-      it('filters with both fromBlock and toBlock', async () => {
-        const logBefore = randomPrivateLogResult({ blockNumber: 3 });
-        const logInRange = randomPrivateLogResult({ blockNumber: 15 });
-        const logAfter = randomPrivateLogResult({ blockNumber: 25 });
+      it('forwards both fromBlock and toBlock to the node', async () => {
+        const logInRange = randomPrivateLogResult({ blockNumber: 15, includeEffects: true });
 
-        aztecNode.getPublicLogsByTags.mockResolvedValue([[logBefore, logInRange, logAfter]]);
+        aztecNode.getPublicLogsByTags.mockResolvedValue([[logInRange]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
         const request = new LogRetrievalRequest(
@@ -210,6 +214,9 @@ describe('LogService', () => {
         );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
+        expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledWith(
+          expect.objectContaining({ fromBlock: BlockNumber(10), toBlock: BlockNumber(20) }),
+        );
         expect(responses[0]).toHaveLength(1);
         expect(responses[0][0].txHash).toEqual(logInRange.txHash);
       });
@@ -217,7 +224,7 @@ describe('LogService', () => {
 
     describe('source filtering', () => {
       it('returns only public logs and skips private RPC when source is PUBLIC', async () => {
-        const publicLog = randomPrivateLogResult();
+        const publicLog = randomPrivateLogResult({ includeEffects: true });
 
         aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
 
@@ -230,7 +237,7 @@ describe('LogService', () => {
       });
 
       it('returns only private logs and skips public RPC when source is PRIVATE', async () => {
-        const privateLog = randomPrivateLogResult();
+        const privateLog = randomPrivateLogResult({ includeEffects: true });
 
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
 
@@ -247,10 +254,10 @@ describe('LogService', () => {
         const tag2 = Tag.random();
         const tag3 = Tag.random();
 
-        const publicLog1 = randomPrivateLogResult();
-        const privateLog2 = randomPrivateLogResult();
-        const publicLog3 = randomPrivateLogResult();
-        const privateLog3 = randomPrivateLogResult();
+        const publicLog1 = randomPrivateLogResult({ includeEffects: true });
+        const privateLog2 = randomPrivateLogResult({ includeEffects: true });
+        const publicLog3 = randomPrivateLogResult({ includeEffects: true });
+        const privateLog3 = randomPrivateLogResult({ includeEffects: true });
 
         aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog1], [publicLog3]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog2], [privateLog3]]);

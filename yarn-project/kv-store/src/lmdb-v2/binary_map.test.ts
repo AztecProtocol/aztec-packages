@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AztecAsyncBinaryMap } from '../interfaces/binary_map.js';
 import { openTmpStore } from './factory.js';
@@ -84,7 +84,7 @@ describe('LMDBBinaryMap', () => {
     expect(got.map(([key]) => key.toString('hex'))).toEqual(['0000', '0001']);
   });
 
-  it('handles the 0xff carry boundary in inc()', async () => {
+  it('handles the 0xff carry boundary in inc()', () => {
     expect(incrementBuffer(Buffer.from([0x00, 0x00, 0x05])).equals(Buffer.from([0x00, 0x00, 0x06]))).toBe(true);
     expect(incrementBuffer(Buffer.from([0x00, 0xff, 0xff])).equals(Buffer.from([0x01]))).toBe(true);
     expect(incrementBuffer(Buffer.from([0xff, 0xff, 0xff])).equals(Buffer.from([0xff, 0xff, 0xff, 0x00]))).toBe(true);

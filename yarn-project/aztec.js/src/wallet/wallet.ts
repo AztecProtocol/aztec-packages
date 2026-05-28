@@ -382,10 +382,18 @@ const eventFilterBaseShape = {
   afterLog: optional(LogCursor.schema),
 };
 
+/** Minimal shape needed to enforce `txHash` ⊕ block-range on event filter schemas. */
+type EventFilterMutexShape = {
+  /** Tx hash filter. */
+  txHash?: TxHash;
+  /** Lower block bound. */
+  fromBlock?: BlockNumber;
+  /** Upper block bound (exclusive). */
+  toBlock?: BlockNumber;
+};
+
 /** Reject queries that combine `txHash` with a `fromBlock`/`toBlock` range — a `txHash` already pins a block. */
-function refineEventFilter<T extends { txHash?: TxHash; fromBlock?: BlockNumber; toBlock?: BlockNumber }>(
-  schema: z.ZodType<T>,
-) {
+function refineEventFilter<T extends EventFilterMutexShape>(schema: z.ZodType<T>) {
   return schema.refine(q => !(q.txHash !== undefined && (q.fromBlock !== undefined || q.toBlock !== undefined)), {
     message: '`txHash` is mutually exclusive with `fromBlock`/`toBlock`',
   });

@@ -1168,7 +1168,7 @@ export class BlockStore {
    * skip the header, then read the two vectors, and stop — the large tail (`l2ToL1Msgs`,
    * `publicDataWrites`, `privateLogs`, `publicLogs`, `contractClassLogs`) is never touched.
    */
-  public async getNoteHashesAndNullifiers(txHashes: TxHash[]): Promise<[Fr[], Fr[]][]> {
+  public getNoteHashesAndNullifiers(txHashes: TxHash[]): Promise<[Fr[], Fr[]][]> {
     return Promise.all(
       txHashes.map(async (txHash): Promise<[Fr[], Fr[]]> => {
         const buffer = await this.#txEffects.getAsync(txHash.toString());
