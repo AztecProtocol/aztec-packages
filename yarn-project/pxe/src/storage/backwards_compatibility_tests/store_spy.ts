@@ -1,6 +1,5 @@
 import type {
   AztecAsyncArray,
-  AztecAsyncBinaryMap,
   AztecAsyncCounter,
   AztecAsyncKVStore,
   AztecAsyncMap,
@@ -13,7 +12,7 @@ import type {
 type Value = NonNullable<any>;
 
 /** The kind of named sub-store opened on an `AztecAsyncKVStore`. */
-export type StoreKind = 'map' | 'binaryMap' | 'multimap' | 'array' | 'singleton' | 'set' | 'counter';
+export type StoreKind = 'map' | 'multimap' | 'array' | 'singleton' | 'set' | 'counter';
 
 /** A single recorded `open*()` call against a spied store. */
 export interface OpenedStoreEntry {
@@ -38,10 +37,6 @@ export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
     openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
       entries.push({ name, kind: 'map' });
       return inner.openMap<K, V>(name);
-    },
-    openBinaryMap(name: string): AztecAsyncBinaryMap {
-      entries.push({ name, kind: 'binaryMap' });
-      return inner.openBinaryMap(name);
     },
     openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
       entries.push({ name, kind: 'multimap' });

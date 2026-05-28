@@ -112,6 +112,64 @@ describe('LogStore', () => {
       expect(result).toEqual([[]]);
     });
 
+    it('preserves canonical key order across many shuffled inserts (key encoding regression)', async () => {
+      // Stamp a shared tag across 1000 (txIndex, logIndex) slots spread over sequential blocks. The
+      // hex-string key encoding must yield entries in canonical composite order even though
+      // higher block numbers produce lex-greater keys (where naive padding would break ordering).
+      const sharedTag = new SiloedTag(new Fr(0x5050n));
+      const NUM_BLOCKS = 10;
+      const TXS_PER_BLOCK = 10;
+      const LOGS_PER_TX = 10;
+
+      const ckpts = await buildChainedCheckpointsWithLogs(NUM_BLOCKS, {
+        numTxsPerBlock: TXS_PER_BLOCK,
+        privateLogs: { numLogsPerTx: LOGS_PER_TX },
+      });
+      for (const ckpt of ckpts) {
+        for (const tx of ckpt.checkpoint.blocks[0].body.txEffects) {
+          for (const log of tx.privateLogs) {
+            (log.fields as Fr[])[0] = sharedTag.value;
+          }
+        }
+      }
+      const blocks = ckpts.map(c => c.checkpoint.blocks[0]);
+      await blockStore.addCheckpoints(ckpts);
+      await logStore.addLogs(blocks);
+
+      // Drain via pagination.
+      const all: { block: number; txIdx: number; logIdx: number }[] = [];
+      let afterLog: LogCursor | undefined;
+      while (true) {
+        const [page] = await logStore.getPrivateLogsByTags({
+          tags: afterLog ? [{ tag: sharedTag, afterLog }] : [sharedTag],
+        });
+        for (const log of page) {
+          all.push({
+            block: Number(log.blockNumber),
+            txIdx: log.txIndexWithinBlock,
+            logIdx: log.logIndexWithinTx,
+          });
+        }
+        if (page.length < MAX_LOGS_PER_TAG) {
+          break;
+        }
+        afterLog = LogCursor.fromLog(page[page.length - 1]);
+      }
+
+      const total = NUM_BLOCKS * TXS_PER_BLOCK * LOGS_PER_TX;
+      expect(all.length).toBe(total);
+
+      // Verify canonical ordering: (block, txIdx, logIdx) strictly increasing tuple by tuple.
+      for (let i = 1; i < all.length; i++) {
+        const a = all[i - 1];
+        const b = all[i];
+        const greater =
+          b.block > a.block ||
+          (b.block === a.block && (b.txIdx > a.txIdx || (b.txIdx === a.txIdx && b.logIdx > a.logIdx)));
+        expect(greater).toBe(true);
+      }
+    });
+
     it('returns logs in canonical (block, txIndex, logIndex) order for a known tag', async () => {
       // 3 blocks, each with 2 txs, each with 2 private logs, all sharing a fixed tag.
       const sharedTag = new SiloedTag(new Fr(0xdeadbeefn));

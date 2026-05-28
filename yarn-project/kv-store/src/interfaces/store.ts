@@ -1,5 +1,4 @@
 import type { AztecArray, AztecAsyncArray } from './array.js';
-import type { AztecAsyncBinaryMap } from './binary_map.js';
 import type { Key, StoreSize, Value } from './common.js';
 import type { AztecAsyncCounter, AztecCounter } from './counter.js';
 import type { AztecAsyncMap, AztecMap } from './map.js';
@@ -85,14 +84,6 @@ export interface AztecAsyncKVStore {
    * @returns The map
    */
   openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V>;
-
-  /**
-   * Creates a new map keyed by raw bytes, with raw byte values, ordered by `memcmp` (bytewise) over
-   * the keys. Intended for composite keys encoded as fixed-width big-endian byte segments. Not all
-   * implementations need to support this — implementations that don't should throw.
-   * @param name - The name of the map
-   */
-  openBinaryMap(name: string): AztecAsyncBinaryMap;
 
   /**
    * Creates a new set.

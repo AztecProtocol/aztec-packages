@@ -7,7 +7,6 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
-import type { AztecAsyncBinaryMap } from '../interfaces/binary_map.js';
 import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter, AztecCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap, AztecMap } from '../interfaces/map.js';
@@ -87,10 +86,6 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    */
   openMap<K extends Key, V extends Value>(name: string): AztecMap<K, V> & AztecAsyncMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
-  }
-
-  openBinaryMap(_name: string): AztecAsyncBinaryMap {
-    throw new Error('openBinaryMap is not supported on LMDB v1');
   }
 
   /**

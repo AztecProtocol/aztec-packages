@@ -2,22 +2,23 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncBinaryMap, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { BlockHash, type L2Block } from '@aztec/stdlib/block';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
-import { LogCursor, LogResult } from '@aztec/stdlib/logs';
-import type { PrivateLogsQuery, PublicLogsQuery, SiloedTag, Tag, TagQuery } from '@aztec/stdlib/logs';
+import { LogResult } from '@aztec/stdlib/logs';
+import type { LogCursor, PrivateLogsQuery, PublicLogsQuery, SiloedTag, Tag, TagQuery } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { BlockStore } from './block_store.js';
 
-/** Width in bytes of each fixed-width segment of the composite log key's trailing triple. */
-const BLOCK_LEN = 4;
-const TXIDX_LEN = 4;
-const LOGIDX_LEN = 4;
-
-const TAIL_LEN = BLOCK_LEN + TXIDX_LEN + LOGIDX_LEN;
-const MAX_U32 = 0xffffffff;
+const NUMERIC_HEX_LEN = 8;
+const SEP = '-';
+/**
+ * Sentinel appended after a numeric hex segment to build an end bound strictly greater than any
+ * real key for that namespace. `'g'` sorts lexicographically after every hex digit (`0`-`9`, `a`-`f`),
+ * so `prefix + '-g'` is a clean exclusive upper bound.
+ */
+const HEX_SENTINEL = 'g';
 
 type ParsedKeyTail = {
   blockNumber: BlockNumber;
@@ -28,7 +29,7 @@ type ParsedKeyTail = {
 /**
  * Per-kind stored value layout (no msgpackr):
  *   txHash(32) ++ blockHash(32) ++ blockTimestamp(u64 BE = 8) ++ logDataLen(u32 BE = 4) ++ logData[i].toBuffer()...
- * `blockNumber` and `logIndexWithinTx` are decoded from the primary key, not duplicated here.
+ * `blockNumber`, `txIndexWithinBlock`, and `logIndexWithinTx` are decoded from the composite key.
  */
 type StoredLogValue = {
   txHash: TxHash;
@@ -38,27 +39,29 @@ type StoredLogValue = {
 };
 
 /**
- * Indexes every emitted private and public log under a composite key
- * `[contractAddress (public only)] ++ tag ++ blockNumber ++ txIndexWithinBlock ++ logIndexWithinTx`,
- * stored as raw fixed-width big-endian bytes so LMDB's `memcmp` ordering equals canonical block-execution
- * order. A single range scan with the right prefix answers every {@link PrivateLogsQuery} /
- * {@link PublicLogsQuery}.
+ * Indexes every emitted private and public log under a composite hex-string key
+ * `[contractAddress (public only)]-tag-blockNumber-txIndexWithinBlock-logIndexWithinTx`,
+ * where each numeric segment is zero-padded to 8 lowercase hex digits (4 bytes BE) and
+ * `contractAddress` / `tag` are the bare 64-hex-char field representations (no `0x` prefix). The
+ * fixed-width zero-padded hex segments sort lexicographically in the same order as the canonical
+ * `(contract, tag, blockNumber, txIndexWithinBlock, logIndexWithinTx)` tuple, so a single ordered
+ * range scan answers every {@link PrivateLogsQuery} / {@link PublicLogsQuery}.
  *
- * Per-block secondary indices (`#privateKeysByBlock`, `#publicKeysByBlock`) record the raw primary keys
- * written for each block, so {@link deleteLogs} can drop them on reorg without having to range-scan by
- * block (block isn't the key prefix).
+ * Per-block secondary indices (`#privateKeysByBlock`, `#publicKeysByBlock`) record the exact primary
+ * keys written for each block so {@link deleteLogs} can drop them on reorg without having to range
+ * scan by block (block isn't the leading key segment).
  *
  * Contract-class logs are no longer stored or served by the log store.
  */
 export class LogStore {
-  /** Primary map: composite private key (44 bytes) -> serialized {@link StoredLogValue}. */
-  #privateLogs: AztecAsyncBinaryMap;
-  /** Primary map: composite public key (76 bytes) -> serialized {@link StoredLogValue}. */
-  #publicLogs: AztecAsyncBinaryMap;
+  /** Primary map: composite private key (tag + tail = 96 hex chars + separators) -> serialized {@link StoredLogValue}. */
+  #privateLogs: AztecAsyncMap<string, Buffer>;
+  /** Primary map: composite public key (contract + tag + tail) -> serialized {@link StoredLogValue}. */
+  #publicLogs: AztecAsyncMap<string, Buffer>;
 
-  /** Secondary deletion index: blockNumber -> the raw primary keys written for that block. */
-  #privateKeysByBlock: AztecAsyncMap<number, Buffer[]>;
-  #publicKeysByBlock: AztecAsyncMap<number, Buffer[]>;
+  /** Secondary deletion index: blockNumber -> the exact primary keys written for that block. */
+  #privateKeysByBlock: AztecAsyncMap<number, string[]>;
+  #publicKeysByBlock: AztecAsyncMap<number, string[]>;
 
   #log = createLogger('archiver:log_store');
 
@@ -66,73 +69,78 @@ export class LogStore {
     private db: AztecAsyncKVStore,
     private blockStore: BlockStore,
   ) {
-    this.#privateLogs = db.openBinaryMap('archiver_private_logs');
-    this.#publicLogs = db.openBinaryMap('archiver_public_logs');
+    this.#privateLogs = db.openMap('archiver_private_logs');
+    this.#publicLogs = db.openMap('archiver_public_logs');
     this.#privateKeysByBlock = db.openMap('archiver_private_log_keys_by_block');
     this.#publicKeysByBlock = db.openMap('archiver_public_log_keys_by_block');
   }
 
-  /**
-   * Encodes a composite primary key as fixed-width big-endian raw bytes. `prefix` is the leading byte
-   * slice (`tag` for private; `contractAddress ++ tag` for public). All three trailing fields are u32
-   * big-endian, so `Buffer.compare` over the result mirrors `(prefix, blockNumber, txIndexWithinBlock,
-   * logIndexWithinTx)` order.
-   */
-  static #encodeKey(prefix: Buffer, blockNumber: number, txIndex: number, logIndex: number): Buffer {
-    const tail = Buffer.alloc(TAIL_LEN);
-    tail.writeUInt32BE(blockNumber, 0);
-    tail.writeUInt32BE(txIndex, BLOCK_LEN);
-    tail.writeUInt32BE(logIndex, BLOCK_LEN + TXIDX_LEN);
-    return Buffer.concat([prefix, tail]);
+  /** Returns the 64-char lowercase hex representation of a field, stripping the `0x` prefix. */
+  static #fieldHex(value: Fr | { toString: () => string }): string {
+    // Fr.toString() and AztecAddress.toString() both return `0x` + 64 lowercase hex chars.
+    return value.toString().slice(2);
   }
 
-  /** Decodes `(blockNumber, txIndexWithinBlock, logIndexWithinTx)` from the trailing 12 bytes of a key. */
-  static #decodeKeyTail(key: Buffer | Uint8Array): ParsedKeyTail {
-    const buf = Buffer.isBuffer(key) ? key : Buffer.from(key.buffer, key.byteOffset, key.byteLength);
-    const tailStart = buf.length - TAIL_LEN;
+  /** Encodes a number as 8-char zero-padded lowercase hex (matches a u32 big-endian byte buffer's lex order). */
+  static #u32Hex(n: number): string {
+    return n.toString(16).padStart(NUMERIC_HEX_LEN, '0');
+  }
+
+  /**
+   * Encodes the composite primary key as `prefix-block-txIdx-logIdx` where `prefix` is the leading
+   * segment (`tag` for private; `contract-tag` for public) and the trailing triple is fixed-width
+   * 8-char zero-padded hex so byte-order matches `(blockNumber, txIndexWithinBlock, logIndexWithinTx)`.
+   */
+  static #encodeKey(prefix: string, blockNumber: number, txIndex: number, logIndex: number): string {
+    return `${prefix}${SEP}${LogStore.#u32Hex(blockNumber)}${SEP}${LogStore.#u32Hex(txIndex)}${SEP}${LogStore.#u32Hex(
+      logIndex,
+    )}`;
+  }
+
+  /**
+   * Decodes the trailing `(blockNumber, txIndexWithinBlock, logIndexWithinTx)` triple from a composite
+   * key. The leading prefix segments are ignored — we only ever read them off the input query, never
+   * back off the key.
+   */
+  static #decodeKeyTail(key: string): ParsedKeyTail {
+    const parts = key.split(SEP);
+    const len = parts.length;
     return {
-      blockNumber: BlockNumber(buf.readUInt32BE(tailStart)),
-      txIndexWithinBlock: buf.readUInt32BE(tailStart + BLOCK_LEN),
-      logIndexWithinTx: buf.readUInt32BE(tailStart + BLOCK_LEN + TXIDX_LEN),
+      blockNumber: BlockNumber(parseInt(parts[len - 3], 16)),
+      txIndexWithinBlock: parseInt(parts[len - 2], 16),
+      logIndexWithinTx: parseInt(parts[len - 1], 16),
     };
   }
 
   /**
-   * Smallest buffer strictly greater than `buf` in `memcmp` order — `buf` with a `1` added to its last
-   * byte and carried up. If every byte is `0xff` we append a `0x00` so the result still sorts strictly
-   * after (no real key shares it). Used to convert an inclusive cursor into an exclusive start bound
-   * and to build end sentinels.
-   */
-  static #inc(buf: Buffer): Buffer {
-    const out = Buffer.from(buf);
-    for (let i = out.length - 1; i >= 0; i--) {
-      if (out[i] !== 0xff) {
-        out[i] = out[i] + 1;
-        return out.subarray(0, i + 1);
-      }
-    }
-    return Buffer.concat([buf, Buffer.from([0x00])]);
-  }
-
-  /**
    * Exclusive end bound for a `(contract, tag)`-prefix scan. With an `upperBlockExclusive` we cut at
-   * `(prefix, upper, 0, 0)`. With no bound the cleanest sentinel is `inc(prefix)` — the first byte
-   * sequence after the entire prefix namespace.
+   * `(prefix, upper, 0, 0)`. With no bound we use `prefix + '-' + HEX_SENTINEL`, which sorts strictly
+   * after every real key under `prefix` (`g` is greater than any hex digit).
    */
-  static #endOfTagRange(prefix: Buffer, upperBlockExclusive: number | undefined): Buffer {
+  static #endOfTagRange(prefix: string, upperBlockExclusive: number | undefined): string {
     if (upperBlockExclusive === undefined) {
-      return LogStore.#inc(prefix);
+      return `${prefix}${SEP}${HEX_SENTINEL}`;
     }
     return LogStore.#encodeKey(prefix, upperBlockExclusive, 0, 0);
   }
 
   /**
    * Exclusive end bound for a tx-strict scan: every key strictly inside `(prefix, txBlk, txIdx, *)`.
-   * `inc(key(prefix, txBlk, txIdx, MAX_U32))` is the first byte sequence past every real logIndex for
+   * `prefix-block-txIdx-` followed by the hex sentinel is the first key past every real logIndex for
    * this tx and strictly less than the next tx's first key.
    */
-  static #endOfTxRange(prefix: Buffer, txBlk: number, txIdx: number): Buffer {
-    return LogStore.#inc(LogStore.#encodeKey(prefix, txBlk, txIdx, MAX_U32));
+  static #endOfTxRange(prefix: string, txBlk: number, txIdx: number): string {
+    return `${prefix}${SEP}${LogStore.#u32Hex(txBlk)}${SEP}${LogStore.#u32Hex(txIdx)}${SEP}${HEX_SENTINEL}`;
+  }
+
+  /**
+   * Returns the smallest string strictly greater than a fully-encoded composite key. The encoded key
+   * ends in a hex digit, and `'g'` sorts strictly after any hex digit, so appending `'g'` is the
+   * smallest possible successor in our key alphabet. Used to turn an inclusive cursor into an
+   * exclusive `start`.
+   */
+  static #inc(key: string): string {
+    return key + HEX_SENTINEL;
   }
 
   static #encodeValue(value: StoredLogValue): Buffer {
@@ -178,9 +186,9 @@ export class LogStore {
         const blockNumber = block.number;
         const blockTimestamp = block.timestamp;
 
-        const privateKeys: Buffer[] = [];
+        const privateKeys: string[] = [];
         const privateValues: Buffer[] = [];
-        const publicKeys: Buffer[] = [];
+        const publicKeys: string[] = [];
         const publicValues: Buffer[] = [];
 
         for (let txIndexWithinBlock = 0; txIndexWithinBlock < block.body.txEffects.length; txIndexWithinBlock++) {
@@ -191,8 +199,8 @@ export class LogStore {
           let logIndexWithinTx = 0;
 
           for (const log of txEffect.privateLogs) {
-            const tagBytes = log.fields[0].toBuffer();
-            const key = LogStore.#encodeKey(tagBytes, blockNumber, txIndexWithinBlock, logIndexWithinTx);
+            const tagHex = LogStore.#fieldHex(log.fields[0]);
+            const key = LogStore.#encodeKey(tagHex, blockNumber, txIndexWithinBlock, logIndexWithinTx);
             const value = LogStore.#encodeValue({
               txHash,
               blockHash,
@@ -205,10 +213,10 @@ export class LogStore {
           }
 
           for (const log of txEffect.publicLogs) {
-            const contractBytes = log.contractAddress.toBuffer();
-            const tagBytes = log.fields[0].toBuffer();
+            const contractHex = LogStore.#fieldHex(log.contractAddress);
+            const tagHex = LogStore.#fieldHex(log.fields[0]);
             const key = LogStore.#encodeKey(
-              Buffer.concat([contractBytes, tagBytes]),
+              `${contractHex}${SEP}${tagHex}`,
               blockNumber,
               txIndexWithinBlock,
               logIndexWithinTx,
@@ -279,13 +287,13 @@ export class LogStore {
   /** Returns one inner array per element of `query.tags`, in input order. */
   getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
-    return this.db.transactionAsync(() => this.#runQuery(query, /* contractBytes */ undefined));
+    return this.db.transactionAsync(() => this.#runQuery(query, /* contractHex */ undefined));
   }
 
   /** Returns one inner array per element of `query.tags`, in input order. */
   getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
     LogStore.#validateQuery(query);
-    return this.db.transactionAsync(() => this.#runQuery(query, query.contractAddress.toBuffer()));
+    return this.db.transactionAsync(() => this.#runQuery(query, LogStore.#fieldHex(query.contractAddress)));
   }
 
   static #validateQuery(query: { txHash?: TxHash; fromBlock?: unknown; toBlock?: unknown }): void {
@@ -294,11 +302,8 @@ export class LogStore {
     }
   }
 
-  async #runQuery(
-    query: PrivateLogsQuery | PublicLogsQuery,
-    contractBytes: Buffer | undefined,
-  ): Promise<LogResult[][]> {
-    const isPublic = contractBytes !== undefined;
+  async #runQuery(query: PrivateLogsQuery | PublicLogsQuery, contractHex: string | undefined): Promise<LogResult[][]> {
+    const isPublic = contractHex !== undefined;
     const tags = (query.tags as ReadonlyArray<TagQuery<Tag | SiloedTag>>) ?? [];
     const primaryMap = isPublic ? this.#publicLogs : this.#privateLogs;
 
@@ -343,14 +348,14 @@ export class LogStore {
 
     const perTagResults: LogResult[][] = [];
     for (const tagEntry of tags) {
-      const { tagBytes, afterLog } = normalizeTagEntry(tagEntry);
-      const prefix = contractBytes !== undefined ? Buffer.concat([contractBytes, tagBytes]) : tagBytes;
+      const { tagHex, afterLog } = normalizeTagEntry(tagEntry);
+      const prefix = contractHex !== undefined ? `${contractHex}${SEP}${tagHex}` : tagHex;
 
       const end = txLocation
         ? LogStore.#endOfTxRange(prefix, txLocation[0], txLocation[1])
         : LogStore.#endOfTagRange(prefix, upperExclusive);
 
-      let start: Buffer;
+      let start: string;
       if (afterLog) {
         // Cursor wins as the start; `fromBlock` is ignored (fine if the cursor sits below it). The cursor
         // carries `(blockNumber, txIndexWithinBlock, logIndexWithinTx)`, which slot directly into the
@@ -437,8 +442,8 @@ export class LogStore {
   }
 
   async #readBlockLogs(
-    keysByBlock: AztecAsyncMap<number, Buffer[]>,
-    primaryMap: AztecAsyncBinaryMap,
+    keysByBlock: AztecAsyncMap<number, string[]>,
+    primaryMap: AztecAsyncMap<string, Buffer>,
     blockNumber: number,
   ): Promise<LogResult[]> {
     const keys = await keysByBlock.getAsync(blockNumber);
@@ -469,15 +474,15 @@ export class LogStore {
   }
 }
 
-/** Pulls `{ tagBytes, afterLog }` out of a {@link TagQuery}, normalizing the bare-tag form. */
+/** Pulls `{ tagHex, afterLog }` out of a {@link TagQuery}, normalizing the bare-tag form. */
 function normalizeTagEntry<T extends Tag | SiloedTag>(
   entry: TagQuery<T>,
 ): {
-  tagBytes: Buffer;
+  tagHex: string;
   afterLog: LogCursor | undefined;
 } {
   if (typeof entry === 'object' && entry !== null && 'tag' in entry) {
-    return { tagBytes: entry.tag.value.toBuffer(), afterLog: entry.afterLog };
+    return { tagHex: entry.tag.value.toString().slice(2), afterLog: entry.afterLog };
   }
-  return { tagBytes: (entry as T).value.toBuffer(), afterLog: undefined };
+  return { tagHex: (entry as T).value.toString().slice(2), afterLog: undefined };
 }
