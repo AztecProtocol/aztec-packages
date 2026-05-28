@@ -618,6 +618,11 @@ const ORACLE_REGISTRY = {
     returnType: TAG,
   }),
 
+  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
+    params: [{ name: 'appSiloedSecret', type: FIELD }],
+    returnType: U32,
+  }),
+
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
 
   aztec_prv_setSenderForTags: makeEntry({

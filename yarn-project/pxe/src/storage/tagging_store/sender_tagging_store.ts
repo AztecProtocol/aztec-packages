@@ -449,11 +449,11 @@ export class SenderTaggingStore implements StagedStore {
       const pendingEntry = matchingEntries[0];
 
       // Expand each matching entry's range and recompute siloed tags for each index.
-      const extendedSecret = AppTaggingSecret.fromString(secret);
+      const appTaggingSecret = AppTaggingSecret.fromString(secret);
       let highestSurvivingIndex: number | undefined;
 
       for (let index = pendingEntry.lowestIndex; index <= pendingEntry.highestIndex; index++) {
-        const siloedTag = await SiloedTag.compute({ extendedSecret, index });
+        const siloedTag = await SiloedTag.compute({ extendedSecret: appTaggingSecret, index });
         if (onChainTags.has(siloedTag.value.toString())) {
           highestSurvivingIndex = highestSurvivingIndex !== undefined ? Math.max(highestSurvivingIndex, index) : index;
         }
