@@ -1939,8 +1939,8 @@ $runBatch.addEventListener('click', async () => {
     // hot-reloads, but cached service-worker bundles have bitten us.)
     log(
       'info',
-      `[batch] rev 4: fresh scalars per pass + parallel prepares + TRUE-BATCH WASM baseline ` +
-        `(batch_multi_scalar_mul_native with B spans, not B serial single-MSM calls)`,
+      `[batch] rev 9: Tier 2 production path — GPU histogram (correctness now Node-tested), ` +
+        `planner NUM_WINDOWS=B·W, pool-owned carryOffBuf`,
     );
     const logN = readLogN();
     log('info', `[batch] log₂(n) = ${logN} (n = ${(1 << logN).toLocaleString()})`);

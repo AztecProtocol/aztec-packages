@@ -10,165 +10,237 @@ two recurring batches in the Chonk / translator flow are
 | witness column commits (W_L/W_R/W_O)| 3              | 2^17 typical       |
 | translator range-constraint polys   | 10             | 2^15…2^18          |
 
-The current WebGPU bridge handles same-N batches by either (a) one `MsmV2`
-instance run B times back-to-back, or (b) a "slot pool" of B `MsmV2` instances
-encoded into one command buffer. Telemetry shows both regress vs. the WASM
-MT Pippenger path. The user spec already named the suspects: "separate
-dispatches, prepare phase waiting for gpu compute, etc." The bridge's own
-slot-pool experiment note (in `bridge/main.ts`) is the most pointed evidence:
+The bridge's existing same-N path runs B MSMs serially through a single
+`MsmV2` instance — call this the **solo** path. Telemetry on the dev page
+shows solo is already 2-3× faster than the WASM-MT Pippenger at the chonk
+sizes, so any batch-mode replacement has to clear *that* bar to be worth
+landing. The bridge's own slot-pool experiment note (in `bridge/main.ts`)
+warned of the failure mode we then hit:
 
 > GPU still executes passes within one command buffer sequentially — the slot
 > pool removes per-MSM mapAsync but doesn't parallelize GPU compute itself.
 > Net: 0.78× → 0.58×. Reverted.
 
-So whatever we build has to be more than command-buffer-level batching.
+So whatever we built had to be more than command-buffer-level batching.
 
-## Bottlenecks (ranked)
+## Two-tier execution
 
-1. **Per-MSM prepare waits.** `MsmV2.prepare()` issues a bucket-histogram pass
-   + `mapAsync` readback inside its body. For B MSMs that is B sequential GPU
-   round-trips at ~5–10 ms each (Chrome event-loop polling) → 50–100 ms of host
-   idle for B=10.
-2. **GPU underutilisation at small n.** At n=2^15 a single MSM's planner /
-   fused / reduce dispatches do not saturate the GPU. Stacking B MSMs into one
-   dispatch would give B× more independent work per shader.
-3. **Per-MSM scratch contention.** `MsmV2Pool` holds one shared scratch
-   (bufA/bufB/scalarsRawBuf/…) so two same-N `MsmV2` instances bound to one
-   pool cannot prepare or run concurrently — the second clobbers the first's
-   plan. This is why the slot-pool path had to keep per-MSM submits.
-4. **B × Horner-combine on host.** Cheap compared to the above, but worth doing
-   in parallel once everything else is fast.
+### Tier 1 (the slot-pool retry): correctness scaffolding, NOT a perf win
 
-## Two-tier plan
+`BatchMsmV2` first version built `B` independent `MsmV2` instances, each
+bound to its own dedicated `MsmV2Pool` that shares the SRS poolX / poolY
+buffers but holds **disjoint scratch**. This unblocked the same-N
+`scalarsRawBuf` race that forced the original bridge slot-pool to keep
+per-MSM submits, so `prepareAll` could fire B parallel prepares under one
+`Promise.all` (overlapping their `mapAsync` waits into one host idle window)
+and `runAll` could encode every slot into one command buffer for a single
+submit + mapAsync.
 
-### Tier 1 (this PR): correctness scaffolding only — **not** a perf win
+A new factory `MsmV2Pool.fromSharedSrs(device, srsN, poolX, poolY,
+sharedCache?)` ships with this tier; it takes pre-built SRS GPU buffers
+from a master pool, skips the upload + Montgomery convert, and never frees
+those buffers on destroy. The master pool owns the pipeline cache, so slot
+N≥1 also skips shader compile.
 
-`BatchMsmV2.create(device, srs, n, B, opts)` builds B `MsmV2` instances, each
-bound to its own dedicated `MsmV2Pool` that **shares the SRS poolX / poolY
-buffers** with slot 0. Only slot 0 actually uploads + Montgomery-converts the
-SRS; slots 1..B-1 reuse those GPU buffers through a new
-`MsmV2Pool.fromSharedSrs(device, srsN, poolX, poolY)` constructor. Memory cost
-is the per-slot scratch (`bufA/bufB/scalarsRawBuf`, the dominant ones) — at
-n=2^17 that's ~25 MiB × (B-1) extra. Bounded and acceptable for B ≤ 10.
+**The dev-page sweep at log₂(n) ∈ {15..18} × B ∈ {3, 10} showed Tier 1
+loses to the simpler "B serial WebGPU solo MSMs" baseline at every B=3 row
+and at B=10 below n=2^17.** Concretely at the W_L/W_R/W_O case (B=3,
+n=2^17): batch = 0.81× of solo (124 ms vs 100 ms). The host-side mapAsync
+overlap was real (~50-100 ms saved at B=10) but it didn't recover what we
+lost to (a) per-slot scratch allocation on first prepare and (b) the GPU
+still executing the B pipelines serially within one command buffer.
 
-API:
+This matched the slot-pool experiment's prediction exactly: command-buffer
+batching alone is not the win.
+
+### Tier 2 (shipped): virtualised B·W-window MSM
+
+Tier 2 replaces `BatchMsmV2`'s internals (API unchanged — caller still does
+`create → prepareAll → runAll → destroy`) with **one** `MsmV2` instance
+configured with `batchSize = B`. The two leaf-data shaders learn the
+`(gid.y → b, w)` split:
+
+- `bucket_histogram.template.wgsl` and `decompose_scalars_booth.template.wgsl`
+  bake `WINDOWS_PER_MSM` (= per-MSM W = `ceil(254 / c)`) as a compile-time
+  WGSL constant. Each thread reads `scalars[(gid.y / WINDOWS_PER_MSM) * n
+  + p]` and uses `w = gid.y % WINDOWS_PER_MSM` for the Booth-window bit
+  index. For single-MSM (B=1), `WINDOWS_PER_MSM == num_windows`, the
+  formula collapses to `b ≡ 0`, and the math is byte-identical to
+  pre-Tier-2.
+- Everything downstream (planner, transpose, conv, fused affine-add,
+  reduce, finalize) operates on `numWindows = B · W` effective windows
+  obliviously — no per-MSM identity below the leaf data shaders. `MsmV2`'s
+  per-window indexing already scales with `numWindows`.
+
+`BatchMsmV2.prepareAll` concatenates the B caller-supplied scalar buffers
+into one `B × n × 32`-byte block and feeds it to `msm.prepare`. `runAll`
+decodes the resulting B·W window sums, splits into B groups of W, and
+runs the host Horner combine once per slot.
+
+#### What Tier 2 changed in MsmV2 / shader_manager.ts
+
+The original single-MSM path baked `NUM_WINDOWS = ceil(NUMBITS / c)` into
+the two planner shaders (`ba_planner_v2_offsets`, `ba_planner_v2_emit`)
+as a *workgroup-id bound* — `if (w >= NUM_WINDOWS) return`. For Tier 2
+we dispatch `batchWindows` workgroups where `batchWindows` can be up to
+`B · W`, so the planner gen functions now take `num_windows` as a direct
+parameter (not `num_bits`) and MsmV2 passes `m.numWindows`. Missing this
+was the rev 7 correctness bug — at B=3 with `numBatches=1` the planner
+silently skipped slots 1 and 2, producing slot 2 = identity in the output.
+
+The original code also aliased `valIdxBuf` (sized `batchWindows × n`) as
+the planner's per-bucket carry-prefix table of size `B_TOTAL = B · W ·
+BW`. The invariant `batchWindows × n >= B · W · BW` held trivially for
+single-MSM, but for Tier 2 at large n the MEM_BUDGET-driven `numBatches`
+search pushes `batchWindows` down and the invariant breaks. We now
+allocate `carryOffBuf` separately in `SharedScratch` (sized `B_TOTAL ×
+4`, ~3-11 MB across the production range) and drop the constraint.
+
+#### Sweep results — what Tier 2 actually buys
+
+dev page `Batch sweep 2^15…2^18` × `B ∈ {3, 10}` on the dev machine (Apple
+M-class GPU, 14-thread WASM-MT for the WASM baseline). All 8 sweep points
+PASS the per-slot correctness check against both `solo MsmV2` and `WASM
+batch_multi_scalar_mul_native` results.
+
+```
+  B  logN |   batch   solo    wasm-run    wasm-wall | batch/solo  batch/wasm-run  batch/wasm-wall
+   3  15  |     62      42       148         177    |    0.67×        2.39×            2.85×
+   3  16  |     83      63       140         171    |    0.76×        1.68×            2.06×
+   3  17  |    122     100       236         283    |    0.82×        1.94×            2.32×
+   3  18  |    193     215       712         799    |    1.11×        3.68×            4.13×
+  10  15  |    124     134       330         362    |    1.07×        2.65×            2.92×
+  10  16  |    201     217       689         739    |    1.08×        3.42×            3.67×
+  10  17  |    355     415      1142        1243    |    1.17×        3.22×            3.50×
+  10  18  |    895     660      1396        1592    |    0.74×        1.56×            1.78×
+```
+
+**vs WASM-batch (the production baseline being replaced)**: Tier 2 wins
+1.78×-4.13× wall at every point. This is the headline.
+
+**vs WebGPU solo (the existing bridge same-N fallback)**:
+- B=10 at translator sizes n ∈ [2^15, 2^17]: **1.07× — 1.17× faster**.
+  This is where the translator range-constraint commits live, so
+  shipping Tier 2 here is a clear production win.
+- B=3 at W_L/W_R/W_O size n=2^17: 0.82× — Tier 2 *loses* by ~22 ms.
+  Solo stays the production path for B=3 ≤ n=2^17.
+- B=3 n=2^18: 1.11× — Tier 2 wins; not the typical W_L/W_R/W_O size but
+  worth noting.
+- B=10 n=2^18: 0.74× — known regression. At this corner the MEM_BUDGET
+  heuristic forces `numBatches` very high (~57 dispatches per level
+  because `bufA` blows up with `batchWindows × wstride1 × 64`), and the
+  many-small-dispatches path leaves the GPU under-fed. Tunable via a
+  `MEM_BUDGET` refit for batch mode; not a blocker for translator
+  sizes.
+
+#### Why solo still wins at B=3 n ≤ 2^17
+
+The fundamental tradeoff Tier 2 makes is **B× wider working set in GPU
+memory** (`bufA`, `bufB`, `bucketResult`, `redBuf`, `carryOff` all scale
+with `numWindows = B · W`) in exchange for fewer host round-trips and
+better GPU saturation per dispatch. The Apple M-class SLC and the GPU L2
+caches are sized in the tens of MB; when the working set fits in cache,
+the wider dispatch gives a small GPU-saturation win (B=10 case). When it
+doesn't, cache evictions cost more than we save (B=3 n=2^17 case).
+
+We measured this directly in the rev-9 sweep: B=10 n=2^17 working set
+≈ 200 MB (within SLC reach for the dispatch's hot regions) → 1.17× win;
+B=10 n=2^18 working set ≈ 500 MB (well past cache) → 0.74× regression.
+
+### Production deployment recommendation
+
+The right bridge routing is size-and-batch-conditional:
+
+| same-N batch | Route through |
+|---|---|
+| B=3 W_L/W_R/W_O at n ≤ 2^17 | existing solo path (no change) |
+| B=10 translator at n ∈ [2^15, 2^17] | `BatchMsmV2.create/prepareAll/runAll` |
+| B ≥ 4 at n=2^18 | flag for re-bench after MEM_BUDGET refit |
+
+Concretely, `bridge/main.ts:runBatchMsm` should add a precondition check
+on the same-N collision path: if `B ≥ 4` and `n ≤ 2^17`, switch to
+`BatchMsmV2`; otherwise keep the existing serial-solo + per-MSM
+submit + batched mapAsync path. The exact threshold should be re-tuned
+against each target GPU's L2/SLC capacity using the dev page sweep
+button.
+
+## API
 
 ```ts
+import { BatchMsmV2 } from '@aztec/bb.js/msm_webgpu';
+
 const batch = await BatchMsmV2.create(device, srsBytes, n, B);
-await batch.prepareAll(scalarsList);     // B Uint8Array, each n×32 LE Fr
-const out = await batch.runAll();        // { results: {x, y}[B], gpuMs }
+await batch.prepareAll(scalarsList);    // B Uint8Array, each n × 32 LE Fr
+const out = await batch.runAll();        // { results, gpuMs, wallMs }
 batch.destroy();
 ```
 
-`prepareAll` fires `Promise.all(this.msms.map(m => m.prepare(scalars[i])))`;
-each MsmV2's histogram pass writes to a *distinct* scratch (different pool),
-so the B histogram dispatches queue up on the device queue and their
-`mapAsync` waits overlap rather than serialising. `runAll` encodes every
-MSM's run pipeline into ONE command encoder writing to ONE shared staging
-buffer at distinct offsets — one `submit`, one `mapAsync`, B parallel JS-side
-decodes + Horner combines.
+`scalarsList` is the caller's B per-slot scalar arrays; `runAll` returns
+the B affine results in slot order plus GPU and wall timings.
 
-**The dev-page sweep at log₂(n) ∈ {15..18} × B ∈ {3, 10} shows Tier 1 is
-slower than the simpler "B serial WebGPU solo MSMs" baseline at every B=3 row
-and at B=10 below n=2^17.** Concretely at the W_L/W_R/W_O case (B=3,
-n=2^17): batch = 0.81× of solo (124 ms vs 100 ms). The host-side mapAsync
-overlap is real but doesn't recover what we lose to (a) per-slot scratch
-allocation overhead on first prepare and (b) the GPU still executing the B
-pipelines serially within one command buffer.
+## Correctness coverage
 
-This matches exactly the prediction in `bridge/main.ts:573-585` ("slot-pool
-experiment: ... GPU still executes passes within one command buffer
-sequentially — the slot pool removes per-MSM mapAsync but doesn't parallelize
-GPU compute itself. Net: 0.78× → 0.58×. Reverted."). Tier 1's 0.7–1.13×
-range beats that experiment's 0.58× because per-pool scratch removes the
-same-N scalarsRawBuf race that forced the original slot-pool to keep per-MSM
-submits, but it doesn't change the conclusion: command-buffer batching alone
-is not the win.
-
-**So Tier 1 is scaffolding only**: the `BatchMsmV2` class, the
-`MsmV2Pool.fromSharedSrs` factory, the correctness tests, and the dev-page
-batch + sweep buttons. The buttons gave us the measurement that justifies
-*not* shipping Tier 1 into the bridge and *yes* pursuing Tier 2. The class
-itself is preserved because Tier 2 reuses the same API and the same unit-test
-contract — only `prepareAll`/`runAll`'s internals are replaced with a single
-B·W-virtualised dispatch.
-
-### Tier 2 (follow-up): virtualised B·W-window MSM
-
-The only way to get true GPU concurrency for B same-N MSMs is to fuse them
-into one dispatch. The clean way is to treat the batch as a single virtual MSM
-of size n with B·W effective windows, where window y ∈ [0, B·W) decodes its
-scalar digits from `scalars[(y / W) * n + i]`'s w-th Booth window
-(w = y mod W). The pair-tree machinery already handles `batchWindows ≥ 1`
-windows obliviously — only the two leaf-data shaders need to learn the
-`(y → b, w)` split:
-
-- `bucket_histogram.template.wgsl`: index the scalar buffer at
-  `(thread_y / W) * n + thread_x`, write counts at
-  `((thread_y / W) * W + thread_y % W) * BW + bucket` (i.e. preserve B·W ×
-  BW grid).
-- `decompose_scalars_booth.template.wgsl`: same scalar lookup, same indexing.
-
-Everything downstream (planner, transpose, fused affine-add, reduce, finalize)
-already iterates over `batchWindows × per_window_stride` slots without caring
-about MSM identity. Output is B·W window sums; the host splits into B groups
-of W and Horner-combines each.
-
-This is the *correct* algorithm. The follow-up scope:
-- two shader modifications (`bucket_histogram.template.wgsl` +
-  `decompose_scalars_booth.template.wgsl`) + their template-WGSL hot-reload
-  churn,
-- additional `wstride1` / `pairCap` re-validation under the wider window grid
-  (now B·W bucket grids of width BW each instead of W bucket grids),
-- the planner's `MEM_BUDGET` heuristic was tuned for ≤ 20 windows; with
-  B·W ≈ 200 windows the batch-windows-per-dispatch knob `numBatches` needs a
-  refit,
-- the redM allocation in `ensureScratch` is sized to `numWindows × stride` —
-  needs to grow to `B × numWindows × stride` so the per-(b, w) window sums
-  have somewhere to land,
-- host combine splits B·W window sums into B groups of W and Horner-combines
-  each independently (already implemented in `batch_msm.ts:hostHornerCombine`,
-  just called once per slot).
-
-Expected payoff at the W_L/W_R/W_O case (B=3, n=2^17), reading off the Tier 1
-sweep: GPU compute today is ≈54 ms/MSM × 3 = ~160 ms serialised. Tier 2 fuses
-into one dispatch with 3× the windows; GPU saturation is currently the
-bottleneck at this size, so the speedup is bounded by `B / (1 +
-GPU_saturation_overhead_factor)`. A ~1.5–2× over solo is the realistic
-target — bringing the WASM ratio at this size from 2.41× to **3.5–5×**.
-
-## Correctness check
-
-The unit test in `batch_msm.test.ts` does B = {3, 10} batches at n ∈
-{2^15, 2^16, 2^17} (we cap at 2^17 in tests so the suite stays under a
-minute) and asserts each per-MSM result matches a one-off `MsmV2.run()` on
-the same scalars. This is a strict cross-check — any divergence between the
-batched and solo paths fails the test.
-
-## Memory budget
-
-The user noted "2^20 scalars fit in modern GPU local memory" — that's
-0.5 GiB of bare Fr bytes (2^20 × 32). The Apple M-series shared memory
-budget is 8–18 GiB so the SRS pool (~64 MiB at n=2^20) + per-slot scratch
-(~25 MiB × B) at the largest sizes we hit (B=10, n=2^18) is ~370 MiB total —
-comfortably below the WebGPU per-buffer cap (1 GiB on Chrome). Memory is
-not the bottleneck; per-MSM mapAsync waits and per-pass GPU serialization
-are.
+- **Node-side unit tests** (`batch_msm.test.ts`, `batch_msm_shader.test.ts`,
+  15 tests total):
+  - `hostHornerCombine` Horner fold cross-checked against an in-process
+    noble BN254 reference at c ∈ {8, 10, 13, 15} (matches the production
+    `pickC` table).
+  - `gen_bucket_histogram_shader` / `gen_decompose_scalars_booth_shader`
+    render checks: `WINDOWS_PER_MSM` is correctly substituted; the
+    `(b, w)` split formula and the `scalar_idx = b × input_size + p`
+    lookup appear in the rendered WGSL source.
+  - `buildInitCounts` JS reference for the per-bucket histogram is cross-
+    checked against an independent BigInt Booth-digit oracle at
+    single-MSM and batch (B=3, B=10) shapes — guarantees the host
+    fallback (kept as an A/B diagnostic) is byte-equivalent to the GPU
+    shader's intended behaviour.
+- **Browser-side cross-check** (dev page `Batch MSM (B=3, 10)` button,
+  `Batch sweep` button): every per-slot batched result must equal
+  `solo MsmV2.run()` AND `WASM batch_multi_scalar_mul_native` on the
+  same scalars. All 8 sweep points pass.
 
 ## What this design does not solve
 
-- Same-N concurrency *on the GPU itself*. Tier 1 only fixes host-side waits;
-  the B compute pipelines still execute back-to-back. Tier 2 is the fix.
-- Off-SRS batches (where each MSM has a distinct point set). Not in scope —
-  the chonk + translator batches always share an SRS prefix.
-- Mixed-N batches. The dev-page button only exercises same-N batching. Mixed
-  batches would degrade to slot-0 per-MSM today.
+- **B ≥ 4 at n = 2^18.** Tier 2 regresses here due to `MEM_BUDGET` /
+  `numBatches` corner case. Follow-up: refit MEM_BUDGET for batch mode,
+  possibly with a larger budget cap or a different bufA shape.
+- **Off-SRS batches.** Each MSM must share the SRS prefix. The chonk /
+  translator batches all do, so not a current issue.
+- **Mixed-N batches.** `BatchMsmV2` only handles same-N. The bridge's
+  existing mixed-N path is unchanged.
 
-## Files added / changed
+## Files
 
-- `barretenberg/ts/src/msm_webgpu/batch_msm.ts` — `BatchMsmV2` class.
-- `barretenberg/ts/src/msm_webgpu/batch_msm.test.ts` — correctness suite.
-- `barretenberg/ts/src/msm_webgpu/msm_v2.ts` — add
-  `MsmV2Pool.fromSharedSrs(device, srsN, poolX, poolY)` factory.
-- `barretenberg/ts/dev/msm-webgpu/main.ts` + `index.html` — batch benchmark
-  button.
+- `barretenberg/ts/src/msm_webgpu/batch_msm.ts` — `BatchMsmV2` class
+  (single-`MsmV2`-with-`batchSize=B` Tier 2 implementation).
+- `barretenberg/ts/src/msm_webgpu/batch_msm.test.ts` — Horner-combine
+  noble cross-checks.
+- `barretenberg/ts/src/msm_webgpu/batch_msm_shader.test.ts` — Tier 2
+  shader rendering + JS reference cross-checks.
+- `barretenberg/ts/src/msm_webgpu/msm_v2.ts` — added `batchSize` /
+  `windowsPerMsm` knobs; `MsmV2Pool.fromSharedSrs` factory; pool-owned
+  `carryOffBuf`; planner shaders take `num_windows` directly.
+- `barretenberg/ts/src/msm_webgpu/wgsl/cuzk/bucket_histogram.template.wgsl`,
+  `decompose_scalars_booth.template.wgsl` — virtual-window split.
+- `barretenberg/ts/src/msm_webgpu/wgsl/cuzk/ba_planner_v2_offsets.template.wgsl`,
+  `ba_planner_v2_emit.template.wgsl` — `NUM_WINDOWS` is now the *total*
+  dispatch window count (B·W in batch mode), passed directly via gen
+  function instead of derived from `num_bits / c`.
+- `barretenberg/cpp/src/barretenberg/ecc/scalar_multiplication/webgpu_msm_hook.cpp`
+  — new dev-page exports `bb_native_pippenger_bn254_batch_load` /
+  `_batch_run` wrapping `MSM::batch_multi_scalar_mul_native` with a
+  vector of B spans (the true apples-to-apples WASM baseline for
+  `BatchMsmV2`).
+- `barretenberg/ts/dev/msm-webgpu/{index.html,main.ts,pippenger_wasm.ts}`
+  — `Batch MSM (B=3, 10)` and `Batch sweep 2^15…2^18` buttons with
+  per-slot correctness check, vs-solo and vs-WASM ratios.
+
+## Open follow-ups
+
+1. **Bridge integration** — wire the size-conditional routing rule above
+   into `bridge/main.ts:runBatchMsm`.
+2. **MEM_BUDGET refit** — pin down the B=10 n=2^18 regression and decide
+   whether to bump MEM_BUDGET for batch mode or restructure bufA.
+3. **MEM_BUDGET tuning per GPU** — the current 248 MB budget is a static
+   constant; on cards with bigger L2 / SLC the Tier 2 win likely extends
+   to larger n.

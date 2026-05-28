@@ -1,78 +1,87 @@
 /// <reference types="@webgpu/types" />
-// batch_msm.ts — Batched same-N MSM driver on top of MsmV2.
+// batch_msm.ts — Batched same-N MSM driver (Tier 2: virtualised B·W-window
+// single-shader fusion).
 //
-// See BATCH_MSM_DESIGN.md for the full algorithm + rationale. Brief:
+// See BATCH_MSM_DESIGN.md for the full algorithm + the Tier 1 → Tier 2
+// transition story. Brief:
 //
-//   * Build one "master" MsmV2Pool (uploads SRS + Montgomery-converts it +
-//     compiles every pipeline). Then build B-1 "slot" pools via
-//     `MsmV2Pool.fromSharedSrs`, each sharing the master's SRS GPU buffers
-//     and pipeline cache but allocating its own scratch (bufA / bufB /
-//     scalarsRawBuf / …).
-//   * Each slot gets its own MsmV2 instance bound to its own pool. The B
-//     instances can prepare in parallel (`Promise.all`) because their scratch
-//     buffers are disjoint — the histogram + mapAsync waits overlap on the
-//     device queue instead of serialising at the JS level.
-//   * `runAll()` encodes every slot's MsmV2 pipeline into one shared command
-//     encoder writing to one shared mappable staging buffer at distinct
-//     offsets. One submit, one mapAsync wait, B parallel Horner-combines.
+//   The batch driver wraps ONE `MsmV2` instance configured with
+//   `batchSize = B`. The bucket-histogram and decompose-scalars shaders
+//   take `WINDOWS_PER_MSM` as a compile-time constant and treat `gid.y` as
+//   a virtual window index spanning B·W effective windows; each thread
+//   splits y_eff into `(b = y_eff / W, w = y_eff mod W)` and reads scalar
+//   `b · n + p`. The rest of the pipeline (planner, transpose, fused
+//   affine-add, reduce) iterates over `numWindows = B · W` obliviously —
+//   no per-MSM identity downstream of the leaf data shaders.
 //
-// This is the **Tier 1** of the two-tier batch plan in BATCH_MSM_DESIGN.md.
-// Tier 2 (the virtualised B·W-window single-shader MSM that actually
-// parallelises GPU compute) is documented there; this file is the
-// correctness + scaffolding tier it will replace under the same API.
+//   Caller hands `prepareAll` an array of B `Uint8Array` scalar buffers
+//   (each `n × 32` LE Fr). `prepareAll` concatenates them into one
+//   `B × n × 32`-byte buffer and feeds it to `msm.prepare`. `runAll`
+//   triggers one full MSM dispatch over B·W windows and returns the
+//   B·W per-window sums; the host splits into B groups of W and
+//   Horner-combines each independently.
+//
+// Tier 1 (a B-pool slot design with per-pool scratch + per-slot MsmV2)
+// was committed earlier but turned out to be slower than the simpler
+// B-serial-solo baseline at most sizes — see BATCH_MSM_DESIGN.md and the
+// commit message for `feat(bb/msm): BatchMsmV2 scaffolding + ...`.
+// This rewrite drops the slot-pool design entirely; the public API
+// (`BatchMsmV2.create / prepareAll / runAll / destroy`) is unchanged so
+// the dev page and tests don't need updates.
 
 import { MsmV2, MsmV2Pool, type MsmConfig } from './msm_v2.js';
 
 /** One BatchMsmV2 run's per-slot result, in canonical affine `(x, y)`. */
 export interface BatchMsmResult {
   results: { x: bigint; y: bigint }[];
-  /** Wall time from queue.submit to mapAsync resolution (host-side window
-   *  over the whole batch's GPU compute). */
+  /** Wall time from queue.submit to mapAsync resolution. */
   gpuMs: number;
-  /** Wall time from runAll() entry to result return — includes encode +
-   *  submit + mapAsync + decode + B Horner combines. */
+  /** Wall time from runAll() entry to result return. */
   wallMs: number;
 }
 
-/** Tuning for {@link BatchMsmV2.create}. Forwarded to every slot's MsmV2
- *  with sensible batch-mode defaults (no warm-up, host-combine on so the
- *  caller gets {x, y} directly, profile off). */
+/** Tuning for {@link BatchMsmV2.create}. */
 export interface BatchMsmConfig extends MsmConfig {
-  /** Override the per-slot MsmConfig if you need to (e.g. for a profile run). */
+  /** Reserved for future profile-mode tunables; currently unused. */
   perSlot?: MsmConfig;
 }
 
 /**
- * Batched same-N MSM driver. Holds a master `MsmV2Pool` plus `B-1` borrowing
- * slots, and one `MsmV2` instance per slot. See file header for the algorithm.
- *
- * Lifecycle:
+ * Batched same-N MSM driver. Wraps one `MsmV2` configured for Tier 2 batch
+ * mode (`batchSize = B`) — see file header.
  *
  * ```ts
  * const batch = await BatchMsmV2.create(device, srsBytes, n, B);
- * await batch.prepareAll(scalarsList);   // B distinct Uint8Array (n × 32 LE Fr)
+ * await batch.prepareAll(scalarsList);   // B Uint8Array, each n × 32 LE Fr
  * const out = await batch.runAll();      // { results, gpuMs, wallMs }
  * batch.destroy();
  * ```
  */
 export class BatchMsmV2 {
+  // Holds the concatenated `B × n × 32`-byte scalar buffer across
+  // prepareAll → runAll. Reused (in-place writes) on every prepareAll
+  // call so the per-call allocation cost is amortized; reallocated only
+  // if `B × n` grows.
+  private concat: Uint8Array;
+
   private constructor(
     readonly n: number,
     readonly B: number,
     private readonly device: GPUDevice,
-    private readonly masterPool: MsmV2Pool,
-    private readonly slotPools: MsmV2Pool[],
-    private readonly slots: MsmV2[],
-  ) {}
+    readonly pool: MsmV2Pool,
+    private readonly msm: MsmV2,
+  ) {
+    this.concat = new Uint8Array(B * n * 32);
+  }
 
   /**
    * Build a batch driver for `B` same-`n` MSMs against the canonical SRS in
    * `srsCanonicalBytes` (`srsN × 64` LE bytes; `srsN ≥ n`).
    *
-   * One SRS upload + Montgomery-conversion regardless of B; one shader
-   * compile regardless of B (slot 0's pool owns the pipeline cache; slots
-   * 1..B-1 borrow it). Per-slot scratch is allocated on first
-   * `prepareAll()` call — same lazy growth pattern as `MsmV2Pool`.
+   * One SRS upload + Montgomery-conversion, one shader compile, one
+   * `MsmV2` configured for `batchSize = B`. The two leaf-data shaders bake
+   * `WINDOWS_PER_MSM = ceil(254 / pickC(n))` as a compile-time constant,
+   * so changing `B` does not require a recompile (only `n` and `c` do).
    */
   static async create(
     device: GPUDevice,
@@ -81,141 +90,113 @@ export class BatchMsmV2 {
     B: number,
     config?: BatchMsmConfig,
   ): Promise<BatchMsmV2> {
-    if (B < 1) throw new Error(`BatchMsmV2.create: B must be >= 1 (got ${B})`);
+    if (!Number.isInteger(B) || B < 1) throw new Error(`BatchMsmV2.create: B must be a positive integer (got ${B})`);
 
-    const slotConfig: MsmConfig = {
+    // batchSize is the load-bearing knob the shaders + scratch dimensions
+    // both depend on. combineOnHost must be false because MsmV2's built-in
+    // Horner combine assumes one MSM's worth of windows; we Horner-combine
+    // per slot in `runAll` below.
+    //
+    // The GPU bucket_histogram shader takes WINDOWS_PER_MSM as a compile-
+    // time constant and splits gid.y into (b, w) for batch mode; its
+    // output matches the JS `buildInitCounts` reference byte-for-byte
+    // (see batch_msm_shader.test.ts). Earlier revs forced
+    // `useHostHistogram: true` as a correctness-isolation measure while
+    // tracking down a planner bug (NUM_WINDOWS hardcoded to W instead of
+    // B·W); now that's fixed, the GPU histogram is the production path
+    // and the host fallback is back to being an A/B diagnostic.
+    const msmConfig: MsmConfig = {
       warmupRuns: 0,
-      combineOnHost: true,
       profile: false,
       ...(config ?? {}),
-      ...(config?.perSlot ?? {}),
+      batchSize: B,
+      combineOnHost: false,
     };
 
-    const masterPool = await MsmV2Pool.create(device, srsCanonicalBytes);
-    const slotPools: MsmV2Pool[] = [masterPool];
-    const slots: MsmV2[] = [];
+    const pool = await MsmV2Pool.create(device, srsCanonicalBytes);
+    let msm: MsmV2;
     try {
-      slots.push(await MsmV2.create(device, n, masterPool, slotConfig));
-      for (let b = 1; b < B; b++) {
-        const pool = MsmV2Pool.fromSharedSrs(
-          device,
-          masterPool.srsN,
-          masterPool.poolX,
-          masterPool.poolY,
-          masterPool.cache,
-        );
-        slotPools.push(pool);
-        slots.push(await MsmV2.create(device, n, pool, slotConfig));
-      }
+      msm = await MsmV2.create(device, n, pool, msmConfig);
     } catch (e) {
-      for (const m of slots) m.destroy();
-      for (let i = slotPools.length - 1; i >= 0; i--) slotPools[i].destroy();
+      pool.destroy();
       throw e;
     }
-    return new BatchMsmV2(n, B, device, masterPool, slotPools, slots);
+    return new BatchMsmV2(n, B, device, pool, msm);
   }
 
   /**
-   * Prepare every slot in parallel. `scalarsList[b]` is the `n × 32` LE Fr
-   * scalar buffer for slot `b`; must have length `B`. Each slot's prepare()
-   * issues its own histogram + mapAsync on its own scratch — the device
-   * queue serialises the GPU work but Chrome's mapAsync polling overlaps,
-   * collapsing B × ~10ms of host idle into the single longest one.
+   * Concatenate the B scalar buffers and prepare the underlying MsmV2 for
+   * a virtualised B·W-window dispatch. `scalarsList[b]` must be `n × 32`
+   * LE Fr bytes for slot `b`.
    */
   async prepareAll(scalarsList: Uint8Array[]): Promise<void> {
     if (scalarsList.length !== this.B) {
       throw new Error(`BatchMsmV2.prepareAll: expected ${this.B} scalar buffers, got ${scalarsList.length}`);
     }
+    const slotBytes = this.n * 32;
     for (let b = 0; b < this.B; b++) {
       const sb = scalarsList[b];
-      if (sb.byteLength !== this.n * 32) {
-        throw new Error(`BatchMsmV2.prepareAll: slot ${b} has ${sb.byteLength} bytes, expected ${this.n * 32}`);
+      if (sb.byteLength !== slotBytes) {
+        throw new Error(`BatchMsmV2.prepareAll: slot ${b} has ${sb.byteLength} bytes, expected ${slotBytes}`);
       }
+      this.concat.set(sb, b * slotBytes);
     }
-    // Parallel prepares (rev 3): each slot's MsmV2.prepare submits its own
-    // histogram + waits for mapAsync to read per-bucket counts back. The
-    // device queue is FIFO and each slot's scratch is disjoint (per-pool
-    // bufA/B/scalarsRawBuf/histogramBuf), so the GPU work is correctly
-    // ordered AND the Chrome mapAsync polling waits overlap into a single
-    // host idle window — this is the main Tier 1 host-side win.
-    //
-    // Rev 2 ran these sequentially as a defensive measure while we tracked
-    // down a correctness regression that turned out to be unrelated (the
-    // caller was passing the same Uint8Array identity across prepares,
-    // tripping MsmV2.prepare's identity cache so the second prepare
-    // no-op'd — see the dev page's `genScalars` for the fix).
-    await Promise.all(this.slots.map((m, b) => m.prepare(scalarsList[b])));
+    // Fresh `Uint8Array` view over the in-place buffer so MsmV2.prepare's
+    // identity cache (keyed on the Uint8Array reference) misses and the
+    // real prepare runs. The underlying ArrayBuffer is the same;
+    // `this.concat` reuses storage across calls.
+    const view = new Uint8Array(this.concat.buffer, this.concat.byteOffset, this.concat.byteLength);
+    await this.msm.prepare(view);
   }
 
   /**
-   * Encode every slot's pipeline into ONE command encoder writing to ONE
-   * shared mappable staging buffer, submit once, mapAsync once, decode +
-   * Horner-combine every slot in parallel JS. Caller is responsible for
-   * having called {@link prepareAll} first.
+   * Trigger one full MSM dispatch over B·W virtual windows. Returns B
+   * affine results — `runAll` Horner-combines each slot's W window sums
+   * independently. `gpuMs` is the queue.submit → mapAsync wall; `wallMs`
+   * includes the encode + the per-slot Horner combines.
    */
   async runAll(): Promise<BatchMsmResult> {
     const wallT0 = performance.now();
-    const offsets: number[] = new Array(this.B);
-    let totalBytes = 0;
-    for (let b = 0; b < this.B; b++) {
-      offsets[b] = totalBytes;
-      totalBytes += this.slots[b].windowSumsByteLength;
-    }
-    const staging = this.device.createBuffer({
-      size: Math.max(4, totalBytes),
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const enc = this.device.createCommandEncoder();
-    for (let b = 0; b < this.B; b++) this.slots[b].encodeIntoBatch(enc, staging, offsets[b]);
-
     const submitT0 = performance.now();
-    this.device.queue.submit([enc.finish()]);
-    await staging.mapAsync(GPUMapMode.READ);
+    // MsmV2.run() yields the per-window sums in encode order (slot 0's W
+    // sums first). With `combineOnHost: false` the `x`/`y` it returns are
+    // the all-zero sentinel — we ignore that and Horner-combine below.
+    const r = await this.msm.run();
     const gpuMs = performance.now() - submitT0;
 
-    const mapped = staging.getMappedRange();
-    const stagingBytes = new Uint8Array(mapped.slice(0));
-    staging.unmap();
-    staging.destroy();
+    const W = this.msm.windowsPerMsm;
+    const c = this.msm.c;
+    if (r.windowSums.length !== this.B * W) {
+      throw new Error(`BatchMsmV2.runAll: expected ${this.B * W} window sums (B·W), got ${r.windowSums.length}`);
+    }
 
     const results: { x: bigint; y: bigint }[] = new Array(this.B);
     for (let b = 0; b < this.B; b++) {
-      const L = this.slots[b].decodeWindowSumsFromBytes(stagingBytes, offsets[b]);
-      results[b] = hostHornerCombine(L, this.slots[b].c);
+      const slotSums = r.windowSums.slice(b * W, (b + 1) * W);
+      results[b] = hostHornerCombine(slotSums, c);
     }
 
     return { results, gpuMs, wallMs: performance.now() - wallT0 };
   }
 
-  /** Release every slot's MsmV2 and pool. The borrowed-SRS slots no-op on
-   *  poolX / poolY; only the master pool actually frees the SRS GPU memory. */
+  /** Release the underlying MsmV2 and the SRS pool. */
   destroy(): void {
-    for (const m of this.slots) {
-      try {
-        m.destroy();
-      } catch {
-        /* idempotent */
-      }
+    try {
+      this.msm.destroy();
+    } catch {
+      /* idempotent */
     }
-    for (let i = this.slotPools.length - 1; i >= 0; i--) {
-      try {
-        this.slotPools[i].destroy();
-      } catch {
-        /* idempotent */
-      }
+    try {
+      this.pool.destroy();
+    } catch {
+      /* idempotent */
     }
   }
 
-  /** Direct access to the master pool (e.g. for shared-SRS lookups). */
-  get pool(): MsmV2Pool {
-    return this.masterPool;
-  }
-
-  /** The B underlying MsmV2 instances. Exposed so callers can read per-slot
-   *  profile data, MsmConfig knobs, etc. Do NOT prepare them out of band —
-   *  use {@link prepareAll} so the cache invariants stay coherent. */
+  /** The single underlying MsmV2 — kept as a length-1 array so the dev
+   *  page's existing `batch.instances[0].c` etc. lookups still work. */
   get instances(): readonly MsmV2[] {
-    return this.slots;
+    return [this.msm];
   }
 }
 
@@ -247,12 +228,13 @@ const fsub = (a: bigint, b: bigint): bigint => (a - b + FP) % FP;
 const fmul = (a: bigint, b: bigint): bigint => (a * b) % FP;
 
 /**
- * Horner combine of W per-window sums into the final MSM point. Mirrors the
- * private `hostWindowCombine` in msm_v2.ts (which we cannot import because
- * it is not exported). Jacobian accumulator → one final inverse to affine.
+ * Horner combine of W per-window sums into the final MSM point. Mirrors
+ * the private `hostWindowCombine` in msm_v2.ts (which we cannot import
+ * because it is not exported). Jacobian accumulator → one final inverse
+ * to affine.
  *
- * Exported so the Node-side test suite can verify the combine math against
- * an in-process noble reference without spinning up a GPU.
+ * Exported so the Node-side test suite can verify the combine math
+ * against an in-process noble reference without spinning up a GPU.
  */
 export function hostHornerCombine(L: { x: bigint; y: bigint }[], c: number): { x: bigint; y: bigint } {
   let X = L[L.length - 1].x;

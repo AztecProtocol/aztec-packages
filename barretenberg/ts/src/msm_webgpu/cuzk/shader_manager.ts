@@ -329,24 +329,53 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_decompose_scalars_booth_shader(workgroup_size: number): string {
-    return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
+  /**
+   * `windows_per_msm` is the per-MSM W = ceil(NUMBITS / c). For single-MSM
+   * runs (B=1) the host passes `numWindows` here; the shader's virtual-
+   * window split (`gid.y → (b, w)`) then has `b == 0` always and the math
+   * is byte-identical to the pre-Tier-2 single-MSM path. For batch runs
+   * (B>1) the host passes the per-MSM W and dispatches with grid
+   * `(n, B*W)`; each gid.y splits into `(b, w)` and the thread reads
+   * scalar `b * input_size + p`.
+   */
+  public gen_decompose_scalars_booth_shader(workgroup_size: number, windows_per_msm: number): string {
+    if (!Number.isInteger(windows_per_msm) || windows_per_msm <= 0) {
+      throw new Error(
+        `gen_decompose_scalars_booth_shader: windows_per_msm (${windows_per_msm}) must be a positive integer`,
+      );
+    }
+    return mustache.render(
+      decompose_scalars_booth_shader,
+      { workgroup_size, windows_per_msm, recompile: this.recompile },
+      {},
+    );
   }
 
   /**
    * Per-bucket histogram of Booth-recoded scalars. Used at MsmV2.prepare
    * time to obtain the level-0 counts without paying the 250 ms host
    * Booth-decode walk at n=2^20. `buckets_per_window` is the host-side
-   * `m.BW` so the shader can index `counts[w * BW + bucket]` without an
-   * extra uniform slot.
+   * `m.BW` so the shader can index `counts[y_eff * BW + bucket]` without
+   * an extra uniform slot. `windows_per_msm` is the per-MSM W — see the
+   * `gen_decompose_scalars_booth_shader` note for the virtual-window
+   * split semantics.
    */
-  public gen_bucket_histogram_shader(workgroup_size: number, buckets_per_window: number): string {
+  public gen_bucket_histogram_shader(
+    workgroup_size: number,
+    buckets_per_window: number,
+    windows_per_msm: number,
+  ): string {
     if (!Number.isInteger(buckets_per_window) || buckets_per_window <= 0) {
-      throw new Error(`gen_bucket_histogram_shader: buckets_per_window (${buckets_per_window}) must be a positive integer`);
+      throw new Error(
+        `gen_bucket_histogram_shader: buckets_per_window (${buckets_per_window}) must be a positive integer`,
+      );
+    }
+    if (!Number.isInteger(windows_per_msm) || windows_per_msm <= 0) {
+      throw new Error(`gen_bucket_histogram_shader: windows_per_msm (${windows_per_msm}) must be a positive integer`);
     }
     return mustache.render(
       bucket_histogram_shader,
-      { workgroup_size, buckets_per_window, recompile: this.recompile },
+      { workgroup_size, buckets_per_window, windows_per_msm, recompile: this.recompile },
       {},
     );
   }
@@ -444,7 +473,9 @@ ${packLines.join('\n')}
     addsub: 'native' | 'unpack' = 'native',
   ): string {
     if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
-      throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+      throw new Error(
+        `gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`,
+      );
     }
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
@@ -453,20 +484,39 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_fused_super_bench_shader,
       {
-        workgroup_size, s, inv_fn, tiled, l0_index_mode,
+        workgroup_size,
+        s,
+        inv_fn,
+        tiled,
+        l0_index_mode,
         addsub_unpack: addsub === 'unpack',
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
       },
       {
-        structs, bigint_funcs,
+        structs,
+        bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs,
+        field8_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
       },
     );
   }
@@ -476,18 +526,35 @@ ${packLines.join('\n')}
    * window — O(BW), flat in n. Writes new_counts / new_offsets / carry_off
    * and the plan_meta totals; the emit pass writes the O(pairs) plans.
    */
+  /**
+   * `num_windows` is the TOTAL dispatch-grid window count baked into the
+   * planner's `NUM_WINDOWS` compile-time constant and consumed both as the
+   * workgroup-id bound (`if (w >= NUM_WINDOWS) return;`) and as the
+   * plan_meta stride (`d = 3 * NUM_WINDOWS`). For single-MSM (B=1) this
+   * equals `ceil(NUMBITS / c)`; for Tier 2 batch mode it equals
+   * `B * ceil(NUMBITS / c)` — the virtual-window total the dispatch is
+   * sized for. Pre-Tier-2 callers passed `num_bits` instead and the gen
+   * function derived num_windows; that overloaded the parameter and made
+   * batch mode silently cap at the per-MSM W. Take num_windows directly
+   * now.
+   */
   public gen_ba_planner_v2_offsets_shader(
     workgroup_size: number,
     c: number,
-    num_bits: number,
+    num_windows: number,
     buckets_per_window_override?: number,
   ): string {
-    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 ||
-        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits)) {
+    if (
+      workgroup_size <= 0 ||
+      c <= 0 ||
+      num_windows <= 0 ||
+      !Number.isInteger(workgroup_size) ||
+      !Number.isInteger(c) ||
+      !Number.isInteger(num_windows)
+    ) {
       throw new Error(`gen_ba_planner_v2_offsets_shader: positive integer args required`);
     }
     const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
-    const num_windows = Math.ceil(num_bits / c);
     if (buckets_per_window % workgroup_size !== 0) {
       throw new Error(
         `gen_ba_planner_v2_offsets_shader: buckets_per_window (${buckets_per_window}) ` +
@@ -495,10 +562,13 @@ ${packLines.join('\n')}
       );
     }
     const per_thread = buckets_per_window / workgroup_size;
-    return mustache.render(
-      ba_planner_v2_offsets_shader,
-      { workgroup_size, buckets_per_window, per_thread, num_windows, recompile: this.recompile },
-    );
+    return mustache.render(ba_planner_v2_offsets_shader, {
+      workgroup_size,
+      buckets_per_window,
+      per_thread,
+      num_windows,
+      recompile: this.recompile,
+    });
   }
 
   /**
@@ -506,21 +576,32 @@ ${packLines.join('\n')}
    * one workgroup per (bucket-group, window). Emits the chunk / scatter /
    * carry plans from pass A's offsets, then cooperatively self-pads.
    */
+  /** `num_windows` is the TOTAL dispatch-grid window count — see the doc
+   *  on `gen_ba_planner_v2_offsets_shader` for the single-MSM vs Tier 2
+   *  batch interpretation. */
   public gen_ba_planner_v2_emit_shader(
     workgroup_size: number,
     c: number,
-    num_bits: number,
+    num_windows: number,
     s: number,
     pair_cap: number,
     buckets_per_window_override?: number,
   ): string {
-    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
-        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
-        !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
+    if (
+      workgroup_size <= 0 ||
+      c <= 0 ||
+      num_windows <= 0 ||
+      s <= 0 ||
+      pair_cap <= 0 ||
+      !Number.isInteger(workgroup_size) ||
+      !Number.isInteger(c) ||
+      !Number.isInteger(num_windows) ||
+      !Number.isInteger(s) ||
+      !Number.isInteger(pair_cap)
+    ) {
       throw new Error(`gen_ba_planner_v2_emit_shader: positive integer args required`);
     }
     const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
-    const num_windows = Math.ceil(num_bits / c);
     if (buckets_per_window % workgroup_size !== 0) {
       throw new Error(
         `gen_ba_planner_v2_emit_shader: buckets_per_window (${buckets_per_window}) ` +
@@ -528,10 +609,15 @@ ${packLines.join('\n')}
       );
     }
     const num_groups = buckets_per_window / workgroup_size;
-    return mustache.render(
-      ba_planner_v2_emit_shader,
-      { workgroup_size, buckets_per_window, num_windows, num_groups, pair_cap, s, recompile: this.recompile },
-    );
+    return mustache.render(ba_planner_v2_emit_shader, {
+      workgroup_size,
+      buckets_per_window,
+      num_windows,
+      num_groups,
+      pair_cap,
+      s,
+      recompile: this.recompile,
+    });
   }
 
   /**
@@ -542,7 +628,9 @@ ${packLines.join('\n')}
    */
   public gen_csr_to_v2_active_sums_shader(workgroup_size: number, with_sign = false, index_mode = false): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
-      throw new Error(`gen_csr_to_v2_active_sums_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+      throw new Error(
+        `gen_csr_to_v2_active_sums_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
+      );
     }
     return mustache.render(
       csr_to_v2_active_sums_shader,
@@ -560,11 +648,7 @@ ${packLines.join('\n')}
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_csr_to_v2_meta_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
-    return mustache.render(
-      csr_to_v2_meta_shader,
-      { workgroup_size, recompile: this.recompile },
-      {},
-    );
+    return mustache.render(csr_to_v2_meta_shader, { workgroup_size, recompile: this.recompile }, {});
   }
 
   /**
@@ -582,11 +666,19 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_carry_copy_bench_shader,
       {
-        workgroup_size, l0_index_mode,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+        workgroup_size,
+        l0_index_mode,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
       },
       { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
     );
@@ -599,7 +691,9 @@ ${packLines.join('\n')}
    */
   public gen_ba_finalize_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
-      throw new Error(`gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+      throw new Error(
+        `gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
+      );
     }
     // l0_index_mode pulls in the field stack to negate y while
     // materializing a level-0 (point index | sign) element from the pool.
@@ -607,11 +701,19 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_finalize_copy_bench_shader,
       {
-        workgroup_size, l0_index_mode,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+        workgroup_size,
+        l0_index_mode,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
       },
       { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
     );
@@ -643,7 +745,9 @@ ${packLines.join('\n')}
     addsub: 'native' | 'unpack' = 'native',
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
-      throw new Error(`gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+      throw new Error(
+        `gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
+      );
     }
     if (kind !== 0 && kind !== 1 && kind !== 2) {
       throw new Error(`gen_ba_reduce_level_bench_shader: kind (${kind}) must be 0, 1 or 2`);
@@ -655,21 +759,40 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_reduce_level_bench_shader,
       {
-        workgroup_size, kind, inv_fn,
-        kind0: kind === 0, kind1: kind === 1, kind2: kind === 2,
+        workgroup_size,
+        kind,
+        inv_fn,
+        kind0: kind === 0,
+        kind1: kind === 1,
+        kind2: kind === 2,
         addsub_unpack: addsub === 'unpack',
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
       },
       {
-        structs, bigint_funcs,
+        structs,
+        bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs,
+        field8_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
       },
     );
   }
@@ -749,8 +872,26 @@ ${packLines.join('\n')}
       cB: number[];
       folds: Array<{ off: number; sign: string }>;
     }> = [
-      { tag: 'lo', llB: [0], hhB: [5], cB: [0, 5], folds: [{ off: 0, sign: '+' }, { off: 10, sign: '-' }] },
-      { tag: 'hi', llB: [10], hhB: [15], cB: [10, 15], folds: [{ off: 20, sign: '+' }, { off: 10, sign: '-' }] },
+      {
+        tag: 'lo',
+        llB: [0],
+        hhB: [5],
+        cB: [0, 5],
+        folds: [
+          { off: 0, sign: '+' },
+          { off: 10, sign: '-' },
+        ],
+      },
+      {
+        tag: 'hi',
+        llB: [10],
+        hhB: [15],
+        cB: [10, 15],
+        folds: [
+          { off: 20, sign: '+' },
+          { off: 10, sign: '-' },
+        ],
+      },
       { tag: 'cr', llB: [0, 10], hhB: [5, 15], cB: [0, 5, 10, 15], folds: [{ off: 10, sign: '+' }] },
     ];
     const mb: string[] = [];

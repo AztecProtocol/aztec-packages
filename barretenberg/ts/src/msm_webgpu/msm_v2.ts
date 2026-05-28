@@ -86,6 +86,20 @@ export interface MsmConfig {
    *  per-level walk, fits-check, fast/slow path) is identical. Default
    *  `false` (use GPU histogram). */
   useHostHistogram?: boolean;
+  /**
+   * Tier 2 same-N batch mode. When `B > 1`, this MsmV2 dispatches one
+   * pipeline that handles B MSMs as B·W virtual windows over the same n
+   * points. The caller passes a `B × n × 32`-byte scalar buffer to
+   * `prepare()` (slot 0 first), and `run()` returns B·W per-window sums in
+   * encode order (slot 0's W sums first); the caller does the per-MSM
+   * Horner combine over each contiguous group of W. Default 1 (single-
+   * MSM behaviour byte-identical to pre-Tier-2).
+   *
+   * `combineOnHost` is incompatible with `batchSize > 1` (the built-in
+   * combine assumes one MSM's worth of windows) — set it to false when
+   * using batch mode and run the combine in the caller.
+   */
+  batchSize?: number;
 }
 
 /** One timestamped GPU compute pass within a `run()`. `label` is the stage
@@ -259,32 +273,58 @@ function boothDigit(scalar: bigint, w: number, c: number): { bucket: number; sig
  * `counts[w * BW + bucket]`. Mirrors the GPU `bucket_histogram` kernel
  * exactly — preserved here as the bypass path for the `useHostHistogram`
  * config flag (A/B experiment for the GPU-dispatch cache-thrash hypothesis).
- * Single-threaded JS — ~250 ms at n=2^20.
+ *
+ * Tier 2 batch mode (`batchSize > 1`): scans the concatenated
+ * `B × n × 32`-byte scalar buffer as B contiguous slot regions and emits a
+ * `B × W × BW` count grid, indexed by `(b * W + w) * BW + bucket` — exactly
+ * what the GPU shader's virtual-window split `(gid.y → b, w)` produces.
+ * `numWindows` is the *total* B·W effective windows; `windowsPerMsm` is the
+ * per-MSM W. For single-MSM (`batchSize === 1`) the two are equal and the
+ * loops collapse to the pre-Tier-2 single-MSM behaviour.
+ *
+ * Single-threaded JS — ~250 ms at n=2^20 × B=1.
  */
-function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindows: number, BW: number): Uint32Array {
+export function buildInitCounts(
+  scalarsBuf: Uint8Array,
+  n: number,
+  c: number,
+  numWindows: number,
+  BW: number,
+  windowsPerMsm: number = numWindows,
+): Uint32Array {
   const initCounts = new Uint32Array(numWindows * BW);
   const cMask = (1 << c) - 1;
-  for (let i = 0; i < n; i++) {
-    const off = i * 32;
-    let lookback = 0;
-    for (let w = 0; w < numWindows; w++) {
-      const lo = w * c;
-      const inOff = lo >>> 3;
-      const byteOff = off + inOff;
-      const bitShift = lo & 7;
-      const b0 = scalarsBuf[byteOff];
-      const b1 = inOff + 1 < 32 ? scalarsBuf[byteOff + 1] : 0;
-      const b2 = inOff + 2 < 32 ? scalarsBuf[byteOff + 2] : 0;
-      const b3 = inOff + 3 < 32 ? scalarsBuf[byteOff + 3] : 0;
-      const v = (b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)) >>> 0;
-      const winBits = (v >>> bitShift) & cMask;
-      const raw = (winBits << 1) | lookback;
-      const neg = (raw >>> c) & 1;
-      const negMask = neg ? 0xffffffff : 0;
-      const encode = (raw + 1) >>> 1;
-      const bucket = (((encode - neg) >>> 0) ^ negMask) & cMask;
-      initCounts[w * BW + bucket]++;
-      lookback = (v >>> (bitShift + c - 1)) & 1;
+  const batchSize = numWindows / windowsPerMsm;
+  if (!Number.isInteger(batchSize) || batchSize < 1) {
+    throw new Error(
+      `buildInitCounts: numWindows (${numWindows}) is not a positive multiple of windowsPerMsm (${windowsPerMsm})`,
+    );
+  }
+  for (let b = 0; b < batchSize; b++) {
+    const slotByteBase = b * n * 32;
+    const windowGlobalBase = b * windowsPerMsm;
+    for (let i = 0; i < n; i++) {
+      const off = slotByteBase + i * 32;
+      let lookback = 0;
+      for (let w = 0; w < windowsPerMsm; w++) {
+        const lo = w * c;
+        const inOff = lo >>> 3;
+        const byteOff = off + inOff;
+        const bitShift = lo & 7;
+        const b0 = scalarsBuf[byteOff];
+        const b1 = inOff + 1 < 32 ? scalarsBuf[byteOff + 1] : 0;
+        const b2 = inOff + 2 < 32 ? scalarsBuf[byteOff + 2] : 0;
+        const b3 = inOff + 3 < 32 ? scalarsBuf[byteOff + 3] : 0;
+        const v = (b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)) >>> 0;
+        const winBits = (v >>> bitShift) & cMask;
+        const raw = (winBits << 1) | lookback;
+        const neg = (raw >>> c) & 1;
+        const negMask = neg ? 0xffffffff : 0;
+        const encode = (raw + 1) >>> 1;
+        const bucket = (((encode - neg) >>> 0) ^ negMask) & cMask;
+        initCounts[(windowGlobalBase + w) * BW + bucket]++;
+        lookback = (v >>> (bitShift + c - 1)) & 1;
+      }
     }
   }
   return initCounts;
@@ -569,6 +609,14 @@ interface SharedScratch {
   l0IdxBuf: GPUBuffer;
   bucketAndSignBuf: GPUBuffer;
   valIdxBuf: GPUBuffer;
+  /** Per-bucket carry-prefix array consumed by the planner. Sized `bTotal`
+   *  u32 (numWindows × BW). Previously aliased onto valIdxBuf when
+   *  `batchSlots >= bTotal`, but Tier 2 batch mode at large n violates that
+   *  invariant (memory budget forces numBatches up, batchWindows down, and
+   *  valIdxBuf is then too small for the B·W·BW carry-off table). Owning
+   *  it directly costs `bTotal × 4` bytes — ~3-11 MB across the production
+   *  size range — and removes a constraint from the numBatches search. */
+  carryOffBuf: GPUBuffer;
   rowPtrBuf: GPUBuffer;
   planMeta: GPUBuffer;
   pairBlockPlanRing: [GPUBuffer, GPUBuffer];
@@ -776,7 +824,7 @@ export class MsmV2Pool {
     if (this._scratch) {
       const s = this._scratch;
       total += s.bufA.size + s.bufB.size + s.bucketResultBuf.size;
-      total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size;
+      total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size + s.carryOffBuf.size;
       total += s.rowPtrBuf.size + s.planMeta.size;
       total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
       total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
@@ -826,6 +874,7 @@ export class MsmV2Pool {
     let l0IdxBuf = s?.l0IdxBuf;
     let bucketAndSignBuf = s?.bucketAndSignBuf;
     let valIdxBuf = s?.valIdxBuf;
+    let carryOffBuf = s?.carryOffBuf;
     let rowPtrBuf = s?.rowPtrBuf;
     let planMeta = s?.planMeta;
     let pairBlockPlanRing = s?.pairBlockPlanRing;
@@ -857,8 +906,14 @@ export class MsmV2Pool {
     }
     if (!bucketResultBuf || dims.bTotal > cur.bTotal) {
       bucketResultBuf?.destroy();
+      carryOffBuf?.destroy();
       grow(true, 'bTotal');
       bucketResultBuf = soaBuf(cur.bTotal);
+      // carryOffBuf is sized to bTotal u32 — see SharedScratch comment.
+      carryOffBuf = sbuf(cur.bTotal * 4);
+      grew = true;
+    } else if (!carryOffBuf) {
+      carryOffBuf = sbuf(cur.bTotal * 4);
       grew = true;
     }
     // l0IdxBuf must hold both the L0 input (l0Slots × 4) AND the transpose
@@ -956,6 +1011,7 @@ export class MsmV2Pool {
       l0IdxBuf: l0IdxBuf!,
       bucketAndSignBuf: bucketAndSignBuf!,
       valIdxBuf: valIdxBuf!,
+      carryOffBuf: carryOffBuf!,
       rowPtrBuf: rowPtrBuf!,
       planMeta: planMeta!,
       pairBlockPlanRing: pairBlockPlanRing!,
@@ -1161,6 +1217,7 @@ export class MsmV2Pool {
       s.l0IdxBuf.destroy();
       s.bucketAndSignBuf.destroy();
       s.valIdxBuf.destroy();
+      s.carryOffBuf.destroy();
       s.rowPtrBuf.destroy();
       s.planMeta.destroy();
       s.pairBlockPlanRing[0].destroy();
@@ -1200,9 +1257,22 @@ export class MsmV2 {
   /** Pippenger window bit width, picked by `pickC(n)`. Public so the
    *  bridge can ship it back to the C++ Horner combine. */
   c!: number;
-  /** Number of Pippenger windows = ceil(NUMBITS / c). Public — the bridge
-   *  reads it when packing per-MSM staging buffers. */
+  /** Number of Pippenger windows the pipeline sees. For single-MSM this is
+   *  ceil(NUMBITS / c) = `windowsPerMsm`. For Tier 2 batch mode it is
+   *  `batchSize × windowsPerMsm` — B copies of the per-MSM W virtual
+   *  windows. Public — the bridge / dev page reads it when packing
+   *  per-MSM staging buffers; the per-MSM W is exposed as
+   *  `windowsPerMsm` below. */
   numWindows!: number;
+  /** Per-MSM Pippenger window count = ceil(NUMBITS / c). Equal to
+   *  `numWindows` when `batchSize === 1`. Public — `BatchMsmV2` reads it
+   *  to slice the B·W window sums into B per-MSM groups for the host
+   *  Horner combine. */
+  windowsPerMsm!: number;
+  /** Same-N batch factor (Tier 2). 1 for single-MSM behaviour byte-
+   *  identical to pre-Tier-2; B for `batchSize × windowsPerMsm` virtual
+   *  windows over the same n base points. */
+  batchSize!: number;
   private BW!: number;
   private bTotal!: number;
   private R!: bigint;
@@ -1444,8 +1514,25 @@ export class MsmV2 {
     }
     // Pull the knobs into the local names the rest of create() uses.
     const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
-    m.numWindows = Math.ceil(NUMBITS / m.c);
+    // Per-MSM W, used both as the shader-side virtual-window split factor and
+    // as the caller's per-MSM window count for the Horner combine. For B=1
+    // it equals m.numWindows and the shaders' `(gid.y → b, w)` math
+    // collapses to single-MSM behaviour (b == 0 always).
+    m.batchSize = config?.batchSize ?? 1;
+    if (!Number.isInteger(m.batchSize) || m.batchSize < 1) {
+      throw new Error(`MsmV2.create: batchSize (${m.batchSize}) must be a positive integer`);
+    }
+    if (m.batchSize > 1 && m.combineOnHost) {
+      throw new Error(
+        'MsmV2.create: batchSize > 1 is incompatible with combineOnHost — set combineOnHost: false and run the Horner combine per-slot in the caller',
+      );
+    }
+    m.windowsPerMsm = Math.ceil(NUMBITS / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
+    // Virtual total: B copies of W effective windows. The whole pipeline
+    // (planner, transpose, fused, reduce) operates over numWindows
+    // obliviously — only the two leaf shaders know the (b, w) split.
+    m.numWindows = m.batchSize * m.windowsPerMsm;
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
@@ -1567,12 +1654,12 @@ export class MsmV2 {
     const compile = (code: string, label: string, layout: GPUBindGroupLayout) =>
       pool.cache.getPipeline(code, layout, label);
     m.plannerAPipe = await compile(
-      sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB, m.c, NUMBITS, m.BW),
+      sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB, m.c, m.numWindows, m.BW),
       `planner-a-c${m.c}`,
       m.plannerALayout,
     );
     m.plannerBPipe = await compile(
-      sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, m.c, NUMBITS, S, pool.pairCap, m.BW),
+      sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, m.c, m.numWindows, S, pool.pairCap, m.BW),
       `planner-b-c${m.c}`,
       m.plannerBLayout,
     );
@@ -1594,9 +1681,13 @@ export class MsmV2 {
       `finalize-l0`,
       m.finalizeLayoutL0,
     );
-    m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
+    m.decomposePipe = await compile(
+      sm.gen_decompose_scalars_booth_shader(WGI, m.windowsPerMsm),
+      `decompose`,
+      m.decomposeLayout,
+    );
     m.histogramPipe = await compile(
-      sm.gen_bucket_histogram_shader(WGI, m.BW),
+      sm.gen_bucket_histogram_shader(WGI, m.BW, m.windowsPerMsm),
       `bucket-histogram-c${m.c}`,
       m.histogramLayout,
     );
@@ -1683,7 +1774,11 @@ export class MsmV2 {
         // incomplete Jacobian addition hits a collision / the point at
         // infinity and throws "value is not invertible". A varied spread
         // keeps the combine generic, matching a real MSM's input.
-        const dummy = new Uint8Array(n * 32);
+        // For Tier 2 batch mode the dispatch reads B*n scalars; size the
+        // warm-up dummy accordingly. The top-byte mask below keeps every
+        // 32-byte chunk below the Fr modulus, so the entire `batchSize * n`
+        // dummy array is a valid concatenated batch.
+        const dummy = new Uint8Array(m.batchSize * n * 32);
         let rng = 0x9e3779b9 >>> 0;
         for (let i = 0; i < dummy.length; i += 4) {
           rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0;
@@ -1694,7 +1789,7 @@ export class MsmV2 {
         }
         // Keep each 32-byte scalar's top byte below the Fr modulus's leading
         // byte (0x30) so every warm-up scalar is a valid field element.
-        for (let k = 0; k < n; k++) {
+        for (let k = 0; k < m.batchSize * n; k++) {
           dummy[k * 32 + 31] &= 0x1f;
         }
         await m.prepare(dummy);
@@ -1744,11 +1839,24 @@ export class MsmV2 {
     // wasmSliceCopy/Booth buffers we ever pass here (Uint8Array.slice and
     // ArrayBuffer allocations land on 8-byte boundaries), but fall back to a
     // memcpy if some caller hands us a misaligned view.
+    // Total scalars across the (possibly batched) MSM: B copies of n scalars
+    // for Tier 2 batch mode, or just n for single-MSM. The shader's virtual-
+    // window split reads scalar `b * input_size + p` for thread (p, y_eff
+    // with b = y_eff / WINDOWS_PER_MSM), so the buffer layout must be
+    // `[slot0_scalars (n×32) ‖ slot1_scalars ‖ ...]`.
+    const totalScalars = this.batchSize * n;
+    const expectedScalarBytes = totalScalars * 32;
+    if (scalarsBuf.byteLength !== expectedScalarBytes) {
+      throw new Error(
+        `MsmV2.prepare: scalars buffer is ${scalarsBuf.byteLength} bytes, ` +
+          `expected ${expectedScalarBytes} (batchSize=${this.batchSize} × n=${n} × 32)`,
+      );
+    }
     let scalars: Uint32Array;
     if (scalarsBuf.byteOffset % 4 === 0) {
-      scalars = new Uint32Array(scalarsBuf.buffer, scalarsBuf.byteOffset, n * 8);
+      scalars = new Uint32Array(scalarsBuf.buffer, scalarsBuf.byteOffset, totalScalars * 8);
     } else {
-      scalars = new Uint32Array(n * 8);
+      scalars = new Uint32Array(totalScalars * 8);
       new Uint8Array(scalars.buffer).set(scalarsBuf);
     }
     // One writeBuffer for the whole prepare — both the histogram pass and the
@@ -1776,9 +1884,12 @@ export class MsmV2 {
     let initCounts: Uint32Array;
     if (this.useHostHistogram) {
       // No GPU work in this block — write `lastBucketHistogramGpuMs = 0`
-      // and let the rest of the pipeline run as normal.
+      // and let the rest of the pipeline run as normal. For Tier 2 batch
+      // mode the buildInitCounts overload knows about the per-MSM W and
+      // produces the same B·W × BW grid the GPU shader's `(gid.y → b, w)`
+      // split writes.
       this.lastBucketHistogramGpuMs = 0;
-      initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+      initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW, this.windowsPerMsm);
     } else {
       // Rebuild the histogram bind group when scalarsRawBuf's identity changes —
       // ensureScalarsRawBuf bumped scratchEpoch in that case, which is the
@@ -2231,13 +2342,15 @@ export class MsmV2 {
       finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, poolM1, bi * batchBuckets, B_TOTAL])));
     }
     this.numWgsFinalize = Math.ceil(batchBuckets / WGI);
-    // The two-pass planner borrows valIdxBuf as the per-bucket carry-prefix
-    // array. valIdxBuf (batchSlots) is dead once convActive has consumed it,
-    // strictly before the planner runs; B_TOTAL = numWindows*BW <= batchSlots.
-    if (batchSlots < B_TOTAL) {
-      throw new Error(`planner: valIdxBuf (${batchSlots}) too small for carry_off (${B_TOTAL})`);
-    }
-    const carryOffBuf = valIdxBuf;
+    // Pool-owned `carryOffBuf` (B_TOTAL u32 — the per-bucket carry-prefix
+    // table the two-pass planner needs). Previously this was aliased onto
+    // valIdxBuf (which is dead by the time the planner runs), saving
+    // ~bTotal × 4 bytes when batchSlots >= bTotal, but Tier 2 batch mode
+    // at large n violates that invariant: MEM_BUDGET forces numBatches up,
+    // batchWindows down, and batchSlots = batchWindows×n drops below
+    // B_TOTAL = B·W·BW. Owning the buffer directly costs a few MB and
+    // removes the constraint from the numBatches search.
+    const carryOffBuf = scratch.carryOffBuf;
     // Pre-size per-level state so fast-path rewrite has a stable index.
     this.levelTotalPairBlocks = new Array(levels).fill(0);
     this.levelTotalCarries = new Array(levels).fill(0);
