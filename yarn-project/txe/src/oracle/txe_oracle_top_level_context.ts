@@ -411,7 +411,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       messageContextService: this.stateMachine.messageContextService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       hooks: composeHooks({
-        authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('private', authorizedUtilityCallTargets),
+        authorizeUtilityCall: this.buildAuthorizeUtilityCallHook(
+          isStaticCall ? 'private view' : 'private',
+          authorizedUtilityCallTargets,
+        ),
       }),
     });
 
@@ -824,7 +827,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private buildAuthorizeUtilityCallHook(
-    callerContext: 'private' | 'utility',
+    callerContext: 'private' | 'private view' | 'utility',
     authorizedTargets: AztecAddress[],
   ): ExecutionHooks['authorizeUtilityCall'] | undefined {
     if (authorizedTargets.length === 0) {

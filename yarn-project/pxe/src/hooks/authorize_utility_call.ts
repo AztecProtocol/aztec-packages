@@ -6,16 +6,20 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 export type UtilityCallAuthorizationRequest = {
   /** The contract requesting the cross-contract call. */
   caller: AztecAddress;
+  /** The contract class ID of the calling contract. */
+  callerClassId: Fr;
   /** The target contract being called. */
   target: AztecAddress;
+  /** The contract class ID of the target contract. */
+  targetClassId: Fr;
   /** The function selector being invoked on the target. */
   functionSelector: FunctionSelector;
-  /** The name of the function being called, if known from the contract artifact. */
-  functionName?: string;
+  /** The name of the function being called, from the contract artifact. */
+  functionName: string;
   /** The serialized arguments passed to the function. */
   args: Fr[];
-  /** Whether the call originates from a private or utility execution context. */
-  callerContext: 'private' | 'utility';
+  /** The execution context from which the call originates. */
+  callerContext: 'private' | 'private view' | 'utility';
 };
 
 /** Authorization was granted. */
