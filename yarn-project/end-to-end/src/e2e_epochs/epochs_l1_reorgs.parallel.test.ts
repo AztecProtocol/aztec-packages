@@ -25,6 +25,7 @@ import { keccak256, parseTransaction } from 'viem';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
@@ -472,7 +473,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       });
       logger.warn(`Sent messages on L1 blocks ${msgs.map(m => m.txReceipt.blockNumber)}`);
 
-      await waitForL1ToL2MessageReady(node, msgs.at(-1)!.msgHash, {
+      await waitForL1ToL2MessageSeen(node, msgs.at(-1)!.msgHash, {
         timeoutSeconds: msgs.length * L1_BLOCK_TIME_IN_S * 2,
       });
 
@@ -485,7 +486,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Sent new message on L1 block ${newMsg.txReceipt.blockNumber}`);
 
       // New msg gets synced, and old one is out
-      await waitForL1ToL2MessageReady(node, newMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 6 });
+      await waitForL1ToL2MessageReady(node, newMsg.msgHash, { timeoutSeconds: L2_SLOT_DURATION_IN_S * 5 });
       expect(await isL1ToL2MessageReady(node, msgs[0].msgHash)).toBe(true);
       expect(await isL1ToL2MessageReady(node, msgs.at(-1)!.msgHash)).toBe(false);
 
