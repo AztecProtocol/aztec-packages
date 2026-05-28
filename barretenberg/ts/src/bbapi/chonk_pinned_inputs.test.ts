@@ -25,7 +25,7 @@ function ensurePinnedInputsRoot(): string {
   }
 
   const repoRoot = findRepoRoot();
-  return join(repoRoot, 'barretenberg/cpp/example-app-ivc-inputs-out');
+  return join(repoRoot, 'barretenberg/cpp/chonk-pinned-flows');
 }
 
 function discoverFlows(root: string): string[] {
