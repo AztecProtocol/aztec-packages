@@ -279,42 +279,22 @@ template <class Params> struct alignas(32) VectorField {
 
 namespace vector_field_detail {
 
-// Compiler scheduling barrier — prevents LLVM from reordering the scalar and
-// quad statements around this point.
+// Joint scalar+quad scheduling barriers. The gist's schedule requires
+// per-statement scalar/quad adjacency in the compiled WAT — V8 keeps v128
+// live-ranges short only when it sees scalar i64 ops interleaved with v128
+// ops on the issue queue. LLVM's WASM backend sees no dependency between
+// the two streams and will hoist one before the other absent a barrier.
 //
-// The gist's schedule (https://gist.github.com/AztecBot/b8e2e1d5c85d54e10fb34b48461361e0)
-// REQUIRES that scalar and quad ops stay textually adjacent in the compiled
-// WAT: V8's register allocator only keeps v128 live-ranges short if it sees
-// the scalar int ops interleaved with the SIMD ops on the issue queue. If the
-// WAT serializes all scalar muls first, then all SIMD muls, V8 sees a
-// long-lived fan-out of ~130 v128 partial products and spills most of them.
-//
-// Clang's WASM backend has no dependency between the two streams (i64 ops vs
-// v128 ops), so its instruction scheduler happily hoists all of one kind
-// before the other. An `asm volatile` barrier with BOTH a scalar output and a
-// quad output forces LLVM to keep the pair adjacent, which gets us back to
-// the gist's intended schedule.
-//
-// Verified experimentally: single-value barriers allow reordering; joint
-// (scalar+quad) barriers preserve per-statement adjacency.
-
-// Joint scalar+quad barriers. The "+r" inout form is critical here (not
-// input-only): the constraint forces LLVM to treat each value as used AND
-// re-defined at the barrier. This breaks two LLVM optimizations that hurt
-// the gist's op-by-op schedule:
-//
-// 1. Instruction scheduler reordering scalar and quad streams into separate
-//    clumps (all i64.mul first, then all i64x2.extmul). Without the barrier,
-//    LLVM sees no dependency between streams and hoists one over the other.
-//
-// 2. Common-subexpression elimination on `extend_low_u32x4(splat_const)` in
-//    the Yuval reductions, which lets LLVM pre-compute the extension once
-//    and emit 9× slow i64x2.mul instead of 9× fast extmul_low/high_u32x4.
-//
-// An input-only barrier (`asm volatile("" :: "r"(x) : "memory")`) creates a
-// use-point but doesn't force LLVM to treat the value as freshly defined,
-// so it doesn't reliably break either optimization. We measured the mul
-// kernel regressing to ~33 ns/f with input-only vs ~30 ns/f with "+r" inout.
+// The "+r" inout form (not input-only) is load-bearing: it makes LLVM treat
+// each value as used AND re-defined, which breaks two specific opts:
+//   1. Stream-clumping by the instruction scheduler (all i64.mul first,
+//      then all i64x2.extmul).
+//   2. CSE on `extend_low_u32x4(splat_const)` in the Yuval reductions,
+//      which would otherwise collapse 9× fast extmul_low/high_u32x4 to
+//      9× slow i64x2.mul.
+// Input-only barriers (`asm volatile("" :: "r"(x) : "memory")`) don't force
+// re-definition and don't reliably break either. Measured: "+r" → ~30 ns/f,
+// input-only → ~33 ns/f.
 [[gnu::always_inline]] inline void bb_vf_barrier_sq(uint64_t& s, v128_t& q) noexcept
 {
     asm volatile("" : "+r"(s), "+r"(q));
@@ -413,27 +393,15 @@ template <class Params>
 // using only SIMD ops — no scalar pack and no staging round-trip through
 // memory.
 //
-// AoS layout in memory for fields 1..4 (each Fr is 8 × u32 little-endian =
-// 32 B): base[1]: u32_1[0..7], base[2]: u32_2[0..7], base[3]: u32_3[0..7],
-// base[4]: u32_4[0..7].
+// AoS layout (each Fr is 8 × u32 LE = 32 B): load 8 v128 (4 fields × 2 v128
+// per Fr), run two 4×4 i32 transposes (one over the four `lo` halves, one
+// over the four `hi` halves) so lane L of IN[m] = field (L+1)'s u32 chunk
+// m. Each 29-bit limb is then assembled in pure i32x4 ops (limbs 1..7 cost
+// 4 ops each, limbs 0 and 8 one each). Field 0 → scalar slot via the
+// standard scalar pack.
 //
-// Strategy: load 8 v128 (4 fields × 2 v128 per Fr, lo holds u32[0..3], hi
-// holds u32[4..7]), then run two 4×4 i32 transposes — one over the four
-// `lo` halves to build IN[0..3] and one over the four `hi` halves to build
-// IN[4..7] — so lane L of IN[m] holds field (L+1)'s u32 chunk m. Each of
-// the 9 × 29-bit output limbs is then assembled in pure i32x4 ops:
-// limbs 1..7 each cost 4 ops (shr / shl / or / and), limbs 0 and 8 cost
-// just one op each. Field 0 → scalar slot via the standard scalar pack.
-//
-// Why i32x4 (variant 1) beats the older i64x2 pair-pack on V8/TurboFan:
-//   - One transpose covers all 4 quad fields in parallel; the i64x2 path
-//     ran two pair-packs (2 fields each) and then merged the i64x2 lo32s
-//     into one i32x4 with 9 extra cross-vector shuffles per pack.
-//   - Every output limb is computed entirely in i32x4 ops, so no
-//     i64x2-to-i32x4 lane-merging needed at the end.
-// Measured on V8 (node --no-liftoff):
-//   load_contiguous_only:  ~21 ns/VF -> ~12 ns/VF (compute overhead 12 -> 3)
-//   store_contiguous_only: ~15 ns/VF -> ~9 ns/VF  (compute overhead 6 -> ~0)
+// i32x4 (current) beats an i64x2 pair-pack: one transpose covers all 4
+// quad fields, and no i64x2→i32x4 lane-merging at the end.
 
 namespace vector_field_detail {
 
@@ -1205,20 +1173,11 @@ template <class Params> [[gnu::always_inline]] inline uint32_t VectorField<Param
 // Total muls in the product phase: 25 + 16 + 25 = 66 (NOT 81). This is the
 // whole point of Karatsuba — schoolbook 9x9 would need 81.
 
-// NOTE: The body of VectorField<Bn254FrParams>::operator* is defined
-// out-of-line in vector_field_wasm.cpp. Keeping it in a separate TU stops
-// LLVM's WASM backend from inlining the ~2400-op kernel into the call site
-// (e.g., the bench loop). V8 TurboFan's register allocator then scopes the
-// kernel independently and gets the same clean schedule the gist's
-// hand-written WAT `$mont_mul_mix_s1q1` function achieves. Inlining across
-// the boundary re-coalesces locals and defeats our scheduling work.
-//
-// If another Params instantiation needs operator* under WASM SIMD in the
-// future, add an explicit specialization for it in vector_field_wasm.cpp.
-// The primary template below intentionally has no body in the SIMD path.
-//
-// (On non-SIMD builds, the portable fallback below uses the generic
-// template.)
+// The body of VectorField<Bn254FrParams>::operator* lives out-of-line in
+// vector_field_wasm.cpp (see header there for the TU-boundary rationale).
+// The primary template below has no body in the SIMD path; new Params
+// specializations must be added there too. The non-SIMD fallback uses the
+// generic template below.
 
 #else // !BB_VECTOR_FIELD_SIMD
 

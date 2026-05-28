@@ -210,6 +210,94 @@ TEST(VectorFieldTest, DistributivityMulOverAdd)
     EXPECT_TRUE(field_array_eq(lhs, rhs));
 }
 
+TEST(VectorFieldTest, MultiplicationCommutative)
+{
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five();
+        auto b = random_five();
+        Vec va(a), vb(b);
+        auto ab = (va * vb).to_array();
+        auto ba = (vb * va).to_array();
+        EXPECT_TRUE(field_array_eq(ab, ba)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, MultiplicationAssociative)
+{
+    // (a * b) * c == a * (b * c). Guards against carry-chain asymmetry: the
+    // q1s1 kernel's left-vs-right operand paths cross the reduction at
+    // different points, so any reduction-induced skew would surface here.
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five();
+        auto b = random_five();
+        auto c = random_five();
+        Vec va(a), vb(b), vc(c);
+
+        Vec ab_vec(std::array<fr, 5>{ (va * vb).to_array() });
+        auto lhs = (ab_vec * vc).to_array();
+
+        Vec bc_vec(std::array<fr, 5>{ (vb * vc).to_array() });
+        auto rhs = (va * bc_vec).to_array();
+
+        EXPECT_TRUE(field_array_eq(lhs, rhs)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, SquaringMatchesScalarMul)
+{
+    // v * v parity. Exercises the kernel's same-operand path, which is the
+    // primary use in batch_affine_double / batch_normalize's lambda^2 and
+    // (3x)*acc steps. Distinct from operand-shuffled mul tests because both
+    // inputs share the same SoA buffer.
+    for (int trial = 0; trial < 64; ++trial) {
+        auto a = random_five();
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] * a[i];
+        }
+        Vec va(a);
+        auto got = (va * va).to_array();
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, MultiplicationEdgeValues)
+{
+    // Multiplications by 0, 1, p-1, and small constants. random_element()
+    // almost never hits these boundary lanes, so the bulk parity test does
+    // not cover them.
+    const fr zero = fr::zero();
+    const fr one = fr::one();
+    const fr neg_one = -fr::one();
+    const fr two(2);
+    const fr small(7);
+
+    auto rnd = random_five();
+    std::array<fr, 5> mixed = { zero, one, neg_one, two, small };
+    Vec vr(rnd), vm(mixed);
+
+    std::array<fr, 5> expected;
+    for (size_t i = 0; i < 5; ++i) {
+        expected[i] = rnd[i] * mixed[i];
+    }
+    auto got = (vr * vm).to_array();
+    EXPECT_TRUE(field_array_eq(expected, got));
+
+    // Zero-vector multiplied by anything is zero.
+    Vec vz(std::array<fr, 5>{ zero, zero, zero, zero, zero });
+    auto zr = (vz * vr).to_array();
+    for (const auto& x : zr) {
+        EXPECT_TRUE(x.is_zero());
+    }
+
+    // (p-1) * (p-1) == 1 — exercises near-modulus reduction in every lane.
+    Vec vn(std::array<fr, 5>{ neg_one, neg_one, neg_one, neg_one, neg_one });
+    auto nn = (vn * vn).to_array();
+    for (const auto& x : nn) {
+        EXPECT_EQ(x, one);
+    }
+}
+
 TEST(VectorFieldTest, GatherScatterRoundTrip)
 {
     std::array<fr, 16> src;
