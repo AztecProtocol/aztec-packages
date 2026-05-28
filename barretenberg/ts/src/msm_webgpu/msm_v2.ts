@@ -718,6 +718,12 @@ export class MsmV2Pool {
     return buf;
   }
 
+  // When false, `destroy()` does NOT release `poolX` / `poolY` — they are
+  // borrowed (e.g. set up by `BatchMsmV2` so several pools share one SRS
+  // upload). Defaults to true (this pool owns its SRS) for the public
+  // `MsmV2Pool.create` path.
+  private _ownsSrs: boolean = true;
+
   private constructor(
     /** Number of base points held by the pool. */
     readonly srsN: number,
@@ -726,10 +732,36 @@ export class MsmV2Pool {
     /** Montgomery-form y coordinates — `srsN` × 8×u32. */
     readonly poolY: GPUBuffer,
     device: GPUDevice,
+    sharedCache?: PipelineCache,
   ) {
-    this.cache = new PipelineCache(device);
+    this.cache = sharedCache ?? new PipelineCache(device);
     this.pairCap = Math.ceil(srsN / 2) + 16;
     this._device = device;
+  }
+
+  /**
+   * Build a pool that BORROWS its SRS GPU buffers from another pool. Used by
+   * {@link BatchMsmV2} so the B batch slots share one Montgomery-converted
+   * SRS upload but each gets its own scratch (bufA / bufB / scalarsRawBuf /
+   * histogramBuf / …), letting B same-N MSMs prepare and run without
+   * clobbering each other's state.
+   *
+   * `poolX` and `poolY` MUST be the Montgomery-form 8×u32 SRS coords from an
+   * already-created `MsmV2Pool` (`master.poolX` / `master.poolY`). Sharing
+   * the pipeline cache too means slot-N MsmV2 instances skip shader compile.
+   * `destroy()` on the borrowing pool will release its scratch and
+   * pipeline-cache-local state but leave the SRS buffers alone.
+   */
+  static fromSharedSrs(
+    device: GPUDevice,
+    srsN: number,
+    poolX: GPUBuffer,
+    poolY: GPUBuffer,
+    sharedCache?: PipelineCache,
+  ): MsmV2Pool {
+    const pool = new MsmV2Pool(srsN, poolX, poolY, device, sharedCache);
+    pool._ownsSrs = false;
+    return pool;
   }
 
   /**
@@ -1114,10 +1146,13 @@ export class MsmV2Pool {
   }
 
   /** Free the pool's GPU buffers — the SRS (poolX/Y) and the shared
-   * scratch (every buffer in `_scratch`, if allocated). */
+   * scratch (every buffer in `_scratch`, if allocated). A pool built via
+   * {@link fromSharedSrs} leaves poolX/Y alone (the master pool owns them). */
   destroy(): void {
-    this.poolX.destroy();
-    this.poolY.destroy();
+    if (this._ownsSrs) {
+      this.poolX.destroy();
+      this.poolY.destroy();
+    }
     if (this._scratch) {
       const s = this._scratch;
       s.bufA.destroy();
