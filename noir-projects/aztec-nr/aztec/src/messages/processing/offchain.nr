@@ -92,10 +92,9 @@ pub struct OffchainMessage {
     pub anchor_block_timestamp: u64,
 }
 
-/// A snapshot of one active reception entity, captured at the start of a [`sync_inbox`] round.
+/// A snapshot of one active reception entity.
 ///
-/// Bundles the entity's canonical facts with its decoded `Received` message so that the per-entity processing loop
-/// doesn't need to re-issue an oracle round-trip or re-decode the message.
+/// Ad-hoc struct for convenience in [`sync-inbox`].
 struct ActiveReception {
     msg: OffchainMessage,
     facts: [PackedFact; FACT_MAX_FACTS],
@@ -105,8 +104,7 @@ struct ActiveReception {
 /// plus one trailing length field (see the `BoundedVec` `Serialize` impl).
 ///
 /// Hand-defined rather than `<BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> as Serialize>::N` because Noir does not
-/// resolve trait-associated-const projections at `global` evaluation time. Drift is caught at use sites by the
-/// `[Field; N]` shape required by `Serialize::serialize` / `Deserialize::deserialize`.
+/// resolve trait-associated-const projections at `global` evaluation time.
 global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
 
 /// Number of fields produced by serializing an [`OffchainMessage`] via its derived `Serialize` impl.
