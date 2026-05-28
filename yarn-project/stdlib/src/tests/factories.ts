@@ -131,7 +131,6 @@ import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { LogResult } from '../logs/log_result.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
@@ -1642,49 +1641,6 @@ export async function makeAvmCircuitInputs(
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
-}
-
-/**
- * Creates a random TxScopedL2Log with private log data.
- */
-export function randomTxScopedPrivateL2Log(opts?: {
-  tag?: Fr;
-  txHash?: TxHash;
-  blockNumber?: number;
-  blockTimestamp?: bigint;
-  noteHashes?: Fr[];
-  firstNullifier?: Fr;
-}) {
-  const log = PrivateLog.random(opts?.tag);
-  return new TxScopedL2Log(
-    opts?.txHash ?? TxHash.random(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockTimestamp ?? 1n,
-    log.getEmittedFields(),
-    opts?.noteHashes ?? [Fr.random(), Fr.random()],
-    opts?.firstNullifier ?? Fr.random(),
-  );
-}
-
-/**
- * Creates a random TxScopedL2Log with public log data.
- */
-export async function randomTxScopedPublicL2Log(opts?: {
-  txHash?: TxHash;
-  blockNumber?: number;
-  blockTimestamp?: bigint;
-  noteHashes?: Fr[];
-  firstNullifier?: Fr;
-}) {
-  const log = await PublicLog.random();
-  return new TxScopedL2Log(
-    opts?.txHash ?? TxHash.random(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockTimestamp ?? 1n,
-    log.getEmittedFields(),
-    opts?.noteHashes ?? [Fr.random(), Fr.random()],
-    opts?.firstNullifier ?? Fr.random(),
-  );
 }
 
 /** Creates a random {@link LogResult} with private-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */

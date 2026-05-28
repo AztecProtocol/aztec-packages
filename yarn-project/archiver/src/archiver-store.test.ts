@@ -72,7 +72,7 @@ describe('Archiver Store', () => {
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), { logsMaxPageSize: 1000 });
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'));
 
     l1Constants = {
       l1GenesisTime: BigInt(now),

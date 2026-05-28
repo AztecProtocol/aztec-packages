@@ -34,14 +34,14 @@ export const ARCHIVER_STORE_NAME = 'archiver';
 
 /** Creates an archiver store. */
 export async function createArchiverStore(
-  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb'> & DataStoreConfig,
 ): Promise<ArchiverDataStores> {
   const config = {
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
   const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config);
-  return createArchiverDataStores(store, { logsMaxPageSize: config.maxLogs });
+  return createArchiverDataStores(store);
 }
 
 /**

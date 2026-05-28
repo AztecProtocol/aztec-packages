@@ -65,8 +65,6 @@ export class LogStore {
   constructor(
     private db: AztecAsyncKVStore,
     private blockStore: BlockStore,
-    // Reserved for future use; the new layout uses the global MAX_LOGS_PER_TAG cap directly.
-    _logsMaxPageSize: number = 1000,
   ) {
     this.#privateLogs = db.openBinaryMap('archiver_private_logs');
     this.#publicLogs = db.openBinaryMap('archiver_public_logs');

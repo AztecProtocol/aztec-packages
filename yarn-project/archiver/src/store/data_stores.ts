@@ -48,25 +48,16 @@ export type ArchiverDataStores = {
   functionNames: FunctionNamesCache;
 };
 
-/** Options used by {@link createArchiverDataStores}. */
-export type CreateArchiverDataStoresOptions = {
-  /** Maximum number of logs returned per page when paginating tagged log queries. */
-  logsMaxPageSize?: number;
-};
-
 /**
  * Wires up the archiver substores against a shared KV store and returns the
  * {@link ArchiverDataStores} bundle.
  */
-export function createArchiverDataStores(
-  db: AztecAsyncKVStore,
-  opts: CreateArchiverDataStoresOptions = {},
-): ArchiverDataStores {
+export function createArchiverDataStores(db: AztecAsyncKVStore): ArchiverDataStores {
   const blocks = new BlockStore(db);
   return {
     db,
     blocks,
-    logs: new LogStore(db, blocks, opts.logsMaxPageSize ?? 1000),
+    logs: new LogStore(db, blocks),
     messages: new MessageStore(db),
     contractClasses: new ContractClassStore(db),
     contractInstances: new ContractInstanceStore(db),

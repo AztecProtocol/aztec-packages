@@ -62,7 +62,7 @@ describe('Archiver misc', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), { logsMaxPageSize: 1000 });
+    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'));
     const events = new EventEmitter() as ArchiverEmitter;
     const initialHeader = BlockHeader.empty();
     const initialBlockHash = await initialHeader.hash();

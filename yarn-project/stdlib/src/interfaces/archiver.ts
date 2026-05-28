@@ -45,9 +45,6 @@ export type ArchiverSpecificConfig = {
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS?: number;
 
-  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
-  maxLogs?: number;
-
   /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb. */
   archiverStoreMapSizeKb?: number;
 
@@ -79,7 +76,6 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverPollingIntervalMS: schemas.Integer.optional(),
   archiverBatchSize: schemas.Integer.optional(),
   viemPollingIntervalMS: schemas.Integer.optional(),
-  maxLogs: schemas.Integer.optional(),
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
   ethereumAllowNoDebugHosts: z.boolean().optional(),

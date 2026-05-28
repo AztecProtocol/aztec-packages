@@ -36,7 +36,7 @@ const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<L1ContractsConfig, 'aztecEpochDuration'> &
-  Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
+  Pick<ArchiverConfig, 'archiverStoreMapSizeKb'> &
   DataStoreConfig &
   Required<Pick<DataStoreConfig, 'rollupAddress'>> &
   EthereumClientConfig & {

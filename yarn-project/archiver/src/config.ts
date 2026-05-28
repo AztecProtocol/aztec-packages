@@ -43,11 +43,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'The number of L2 blocks the archiver will attempt to download at a time.',
     ...numberConfigHelper(100),
   },
-  maxLogs: {
-    env: 'ARCHIVER_MAX_LOGS',
-    description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
-    ...numberConfigHelper(1_000),
-  },
   archiverStoreMapSizeKb: {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
     ...optionalNumberConfigHelper(),

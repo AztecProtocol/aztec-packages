@@ -102,7 +102,7 @@ describe('Archiver Sync', () => {
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), { logsMaxPageSize: 1000 });
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'));
 
     const contractAddresses = {
       rollupAddress,

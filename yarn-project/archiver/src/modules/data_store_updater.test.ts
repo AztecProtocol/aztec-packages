@@ -46,7 +46,7 @@ describe('ArchiverDataStoreUpdater', () => {
   let instanceAddress: AztecAddress;
 
   beforeEach(async () => {
-    store = createArchiverDataStores(await openTmpStore('data_store_updater_test'), { logsMaxPageSize: 1000 });
+    store = createArchiverDataStores(await openTmpStore('data_store_updater_test'));
     updater = new ArchiverDataStoreUpdater(store);
 
     // Create contract class log from sample fixture data

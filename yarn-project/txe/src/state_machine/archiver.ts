@@ -26,7 +26,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
 
   constructor(db: AztecAsyncKVStore) {
     super(
-      createArchiverDataStores(db, { logsMaxPageSize: 9999 }),
+      createArchiverDataStores(db),
       undefined,
       BlockHeader.empty(),
       GENESIS_BLOCK_HEADER_HASH,
