@@ -2587,61 +2587,58 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let M_buckets = params.x;
     let t = gid.x;
 
-    for (var i: u32 = t; i < num_dense; i = i + 256u) {
-        let bucket_idx = sorted_bucket_list[i];
-        let count = sorted_count_list[i];
-        let off = offsets[bucket_idx];
+    if (t >= num_dense) { return; }
 
-        // Load first two points, add them
-        var acc_x = ld_x(off);
-        var acc_y = ld_y(off);
-        var p_rx = ld_x(off + 1u);
-        var p_ry = ld_y(off + 1u);
+    let bucket_idx = sorted_bucket_list[t];
+    let count = sorted_count_list[t];
+    let off = offsets[bucket_idx];
 
-        var dx = fr_sub_f8(p_rx, acc_x);
-        var acc20 = unpack256_to_limbs(dx);
-        var inv20 = {{ inv_fn }}(acc20);
-        var inv_dx = pack_limbs_to_256(&inv20);
+    var acc_x = ld_x(off);
+    var acc_y = ld_y(off);
+    var p_rx = ld_x(off + 1u);
+    var p_ry = ld_y(off + 1u);
 
-        var lambda = fr_sub_f8(p_ry, acc_y);
+    var dx = fr_sub_f8(p_rx, acc_x);
+    var acc20 = unpack256_to_limbs(dx);
+    var inv20 = {{ inv_fn }}(acc20);
+    var inv_dx = pack_limbs_to_256(&inv20);
+
+    var lambda = fr_sub_f8(p_ry, acc_y);
+    lambda = montgomery_product_f8(lambda, inv_dx);
+    var r_x = montgomery_product_f8(lambda, lambda);
+    var x_sum = fr_add_f8(acc_x, p_rx);
+    r_x = fr_sub_f8(r_x, x_sum);
+    var r_y = fr_sub_f8(acc_x, r_x);
+    r_y = montgomery_product_f8(lambda, r_y);
+    r_y = fr_sub_f8(r_y, acc_y);
+    acc_x = r_x;
+    acc_y = r_y;
+
+    for (var j: u32 = 2u; j < count; j = j + 1u) {
+        p_rx = ld_x(off + j);
+        p_ry = ld_y(off + j);
+        dx = fr_sub_f8(p_rx, acc_x);
+        acc20 = unpack256_to_limbs(dx);
+        inv20 = {{ inv_fn }}(acc20);
+        inv_dx = pack_limbs_to_256(&inv20);
+        lambda = fr_sub_f8(p_ry, acc_y);
         lambda = montgomery_product_f8(lambda, inv_dx);
-        var r_x = montgomery_product_f8(lambda, lambda);
-        var x_sum = fr_add_f8(acc_x, p_rx);
+        r_x = montgomery_product_f8(lambda, lambda);
+        x_sum = fr_add_f8(acc_x, p_rx);
         r_x = fr_sub_f8(r_x, x_sum);
-        var r_y = fr_sub_f8(acc_x, r_x);
+        r_y = fr_sub_f8(acc_x, r_x);
         r_y = montgomery_product_f8(lambda, r_y);
         r_y = fr_sub_f8(r_y, acc_y);
         acc_x = r_x;
         acc_y = r_y;
-
-        // Add remaining points one at a time
-        for (var j: u32 = 2u; j < count; j = j + 1u) {
-            p_rx = ld_x(off + j);
-            p_ry = ld_y(off + j);
-            dx = fr_sub_f8(p_rx, acc_x);
-            acc20 = unpack256_to_limbs(dx);
-            inv20 = {{ inv_fn }}(acc20);
-            inv_dx = pack_limbs_to_256(&inv20);
-            lambda = fr_sub_f8(p_ry, acc_y);
-            lambda = montgomery_product_f8(lambda, inv_dx);
-            r_x = montgomery_product_f8(lambda, lambda);
-            x_sum = fr_add_f8(acc_x, p_rx);
-            r_x = fr_sub_f8(r_x, x_sum);
-            r_y = fr_sub_f8(acc_x, r_x);
-            r_y = montgomery_product_f8(lambda, r_y);
-            r_y = fr_sub_f8(r_y, acc_y);
-            acc_x = r_x;
-            acc_y = r_y;
-        }
-
-        // Write result to bucket_sums
-        let bx = PG * bucket_idx;
-        bucket_sums[bx + 0u] = vec4<u32>(acc_x[0], acc_x[1], acc_x[2], acc_x[3]);
-        bucket_sums[bx + 1u] = vec4<u32>(acc_x[4], acc_x[5], acc_x[6], acc_x[7]);
-        let by = PG * M_buckets + PG * bucket_idx;
-        bucket_sums[by + 0u] = vec4<u32>(acc_y[0], acc_y[1], acc_y[2], acc_y[3]);
-        bucket_sums[by + 1u] = vec4<u32>(acc_y[4], acc_y[5], acc_y[6], acc_y[7]);
     }
+
+    let bx = PG * bucket_idx;
+    bucket_sums[bx + 0u] = vec4<u32>(acc_x[0], acc_x[1], acc_x[2], acc_x[3]);
+    bucket_sums[bx + 1u] = vec4<u32>(acc_x[4], acc_x[5], acc_x[6], acc_x[7]);
+    let by = PG * M_buckets + PG * bucket_idx;
+    bucket_sums[by + 0u] = vec4<u32>(acc_y[0], acc_y[1], acc_y[2], acc_y[3]);
+    bucket_sums[by + 1u] = vec4<u32>(acc_y[4], acc_y[5], acc_y[6], acc_y[7]);
 
     {{{ recompile }}}
 }
