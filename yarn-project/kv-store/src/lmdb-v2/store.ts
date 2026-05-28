@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { mkdir, rm } from 'fs/promises';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { AztecAsyncBinaryMap } from '../interfaces/binary_map.js';
 import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
@@ -14,6 +15,7 @@ import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { LMDBArray } from './array.js';
+import { LMDBBinaryMap } from './binary_map.js';
 import { LMDBMap } from './map.js';
 import {
   Database,
@@ -105,6 +107,10 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
     return new LMDBMap(this, name);
+  }
+
+  openBinaryMap(name: string): AztecAsyncBinaryMap {
+    return new LMDBBinaryMap(this, name);
   }
 
   openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {

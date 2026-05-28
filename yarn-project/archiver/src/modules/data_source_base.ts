@@ -38,9 +38,8 @@ import {
   getProofSubmissionDeadlineEpoch,
   getSlotRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
@@ -299,29 +298,12 @@ export abstract class ArchiverDataSourceBase
     return (await this.stores.blocks.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
-  public getPrivateLogsByTags(
-    tags: SiloedTag[],
-    page?: number,
-    upToBlockNumber?: BlockNumber,
-  ): Promise<TxScopedL2Log[][]> {
-    return this.stores.logs.getPrivateLogsByTags(tags, page, upToBlockNumber);
+  public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    return this.stores.logs.getPrivateLogsByTags(query);
   }
 
-  public getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    upToBlockNumber?: BlockNumber,
-  ): Promise<TxScopedL2Log[][]> {
-    return this.stores.logs.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
-  }
-
-  public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    return this.stores.logs.getPublicLogs(filter);
-  }
-
-  public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    return this.stores.logs.getContractClassLogs(filter);
+  public getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    return this.stores.logs.getPublicLogsByTags(query);
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {

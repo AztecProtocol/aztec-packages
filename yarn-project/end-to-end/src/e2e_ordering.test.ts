@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
@@ -30,7 +31,7 @@ describe('e2e_ordering', () => {
   const expectLogsFromBlockToBe = async (logMessages: bigint[], blockNumber: number) => {
     // The log RPC is tag-based and per-contract; fetch the block's tx effects directly to assert ordering across all
     // public logs in the block in canonical (txIndex, logIndexWithinTx) order.
-    const block = await aztecNode.getBlock(blockNumber, { includeTransactions: true });
+    const block = await aztecNode.getBlock(BlockNumber(blockNumber), { includeTransactions: true });
     if (!block) {
       throw new Error(`Block ${blockNumber} not found`);
     }

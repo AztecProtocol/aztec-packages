@@ -84,6 +84,7 @@ import {
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { BlockHash } from '../block/block_hash.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
@@ -127,6 +128,7 @@ import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/in
 import { AppTaggingSecret } from '../logs/app_tagging_secret.js';
 import { AppTaggingSecretKind } from '../logs/app_tagging_secret_kind.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
+import { LogResult } from '../logs/log_result.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
@@ -1682,6 +1684,57 @@ export async function randomTxScopedPublicL2Log(opts?: {
     log.getEmittedFields(),
     opts?.noteHashes ?? [Fr.random(), Fr.random()],
     opts?.firstNullifier ?? Fr.random(),
+  );
+}
+
+/** Creates a random {@link LogResult} with private-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */
+export function randomPrivateLogResult(opts?: {
+  tag?: Fr;
+  txHash?: TxHash;
+  blockNumber?: number;
+  blockHash?: BlockHash;
+  blockTimestamp?: bigint;
+  logIndexWithinTx?: number;
+  noteHashes?: Fr[];
+  nullifiers?: Fr[];
+  includeEffects?: boolean;
+}): LogResult {
+  const log = PrivateLog.random(opts?.tag);
+  const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
+  return new LogResult(
+    log.getEmittedFields(),
+    BlockNumber(opts?.blockNumber ?? 1),
+    opts?.blockHash ?? BlockHash.random(),
+    opts?.blockTimestamp ?? 1n,
+    opts?.txHash ?? TxHash.random(),
+    opts?.logIndexWithinTx ?? 0,
+    includeEffects ? (opts?.noteHashes ?? [Fr.random(), Fr.random()]) : undefined,
+    includeEffects ? (opts?.nullifiers ?? [Fr.random()]) : undefined,
+  );
+}
+
+/** Creates a random {@link LogResult} with public-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */
+export async function randomPublicLogResult(opts?: {
+  txHash?: TxHash;
+  blockNumber?: number;
+  blockHash?: BlockHash;
+  blockTimestamp?: bigint;
+  logIndexWithinTx?: number;
+  noteHashes?: Fr[];
+  nullifiers?: Fr[];
+  includeEffects?: boolean;
+}): Promise<LogResult> {
+  const log = await PublicLog.random();
+  const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
+  return new LogResult(
+    log.getEmittedFields(),
+    BlockNumber(opts?.blockNumber ?? 1),
+    opts?.blockHash ?? BlockHash.random(),
+    opts?.blockTimestamp ?? 1n,
+    opts?.txHash ?? TxHash.random(),
+    opts?.logIndexWithinTx ?? 0,
+    includeEffects ? (opts?.noteHashes ?? [Fr.random(), Fr.random()]) : undefined,
+    includeEffects ? (opts?.nullifiers ?? [Fr.random()]) : undefined,
   );
 }
 

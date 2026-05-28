@@ -2,6 +2,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { AztecAsyncBinaryMap } from '../interfaces/binary_map.js';
 import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
@@ -122,6 +123,10 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
 
   openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
     return new SQLiteOPFSAztecMap<K, V>(this, name);
+  }
+
+  openBinaryMap(_name: string): AztecAsyncBinaryMap {
+    throw new Error('openBinaryMap is not supported on SQLite-OPFS');
   }
 
   openSet<K extends Key>(name: string): AztecAsyncSet<K> {

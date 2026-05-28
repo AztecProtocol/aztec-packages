@@ -229,24 +229,16 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toEqual(msgs3);
       await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
-      // Verify logs for each block in the checkpoints
+      // Verify private logs are surfaced through the block body. Public and contract-class logs are
+      // no longer queryable via the old getPublicLogs / getContractClassLogs RPCs (removed in v7).
       for (const checkpoint of [cp1, cp2, cp3]) {
         for (const block of checkpoint.blocks) {
           const blockNumber = block.number;
-          const expectedTotalNumLogs = (name: 'private' | 'public' | 'contractClass') =>
+          const expectedTotalNumLogs = (name: 'private') =>
             sum(block.body.txEffects.map(txEffect => txEffect[`${name}Logs`].length));
 
           const privateLogs = (await archiver.getBlock({ number: blockNumber }))!.getPrivateLogs();
           expect(privateLogs.length).toBe(expectedTotalNumLogs('private'));
-
-          const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
-          expect(publicLogs.length).toBe(expectedTotalNumLogs('public'));
-
-          const contractClassLogs = await archiver.getContractClassLogs({
-            fromBlock: blockNumber,
-            toBlock: blockNumber + 1,
-          });
-          expect(contractClassLogs.logs.length).toBe(expectedTotalNumLogs('contractClass'));
         }
       }
 
@@ -981,8 +973,8 @@ describe('Archiver Sync', () => {
       expect(await archiver.getTxEffect(txHash)).toBeUndefined();
       expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
 
-      expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
-      expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
+      // Note: getPublicLogs / getContractClassLogs were removed in v7. Block-level removal is verified
+      // above via getCheckpoints / getTxEffect.
     }, 10_000);
 
     it('handles updated messages due to L1 reorg', async () => {

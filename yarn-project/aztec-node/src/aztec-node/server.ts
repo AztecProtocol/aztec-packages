@@ -95,8 +95,6 @@ import type {
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
-  GetContractClassLogsResponse,
-  GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -108,7 +106,7 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { DebugLogStore, LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
@@ -1137,59 +1135,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.contractDataSource.getContract(address);
   }
 
-  public async getPrivateLogsByTags(
-    tags: SiloedTag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]> {
-    let upToBlockNumber: BlockNumber | undefined;
-    if (referenceBlock) {
-      const data = await this.blockSource.getBlockData({ hash: referenceBlock });
-      if (!data) {
-        throw new Error(
-          `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
-        );
-      }
-      upToBlockNumber = data.header.globalVariables.blockNumber;
-    }
-    return this.logsSource.getPrivateLogsByTags(tags, page, upToBlockNumber);
+  public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    return this.logsSource.getPrivateLogsByTags(query);
   }
 
-  public async getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]> {
-    let upToBlockNumber: BlockNumber | undefined;
-    if (referenceBlock) {
-      const data = await this.blockSource.getBlockData({ hash: referenceBlock });
-      if (!data) {
-        throw new Error(
-          `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
-        );
-      }
-      upToBlockNumber = data.header.globalVariables.blockNumber;
-    }
-    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
-  }
-
-  /**
-   * Gets public logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
-   */
-  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    return this.logsSource.getPublicLogs(filter);
-  }
-
-  /**
-   * Gets contract class logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
-   */
-  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    return this.logsSource.getContractClassLogs(filter);
+  public getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    return this.logsSource.getPublicLogsByTags(query);
   }
 
   /**

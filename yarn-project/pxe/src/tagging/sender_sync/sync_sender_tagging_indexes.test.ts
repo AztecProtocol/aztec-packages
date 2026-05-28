@@ -5,7 +5,7 @@ import { RevertCode } from '@aztec/stdlib/avm';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { AppTaggingSecretKind, PrivateLog } from '@aztec/stdlib/logs';
-import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { randomAppTaggingSecret, randomPrivateLogResult } from '@aztec/stdlib/testing';
 import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -28,7 +28,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   function makeLog(txHash: TxHash, tag: Fr) {
-    return randomTxScopedPrivateL2Log({ txHash, tag });
+    return randomPrivateLogResult({ txHash, tag });
   }
 
   async function setUp() {
@@ -41,7 +41,8 @@ describe('syncSenderTaggingIndexes', () => {
   it('no new logs found for a given secret', async () => {
     await setUp();
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       // No log found for any tag
       return Promise.resolve(tags.map((_tag: SiloedTag) => []));
     });
@@ -102,7 +103,8 @@ describe('syncSenderTaggingIndexes', () => {
       const index3Tag = await computeSiloedTagForIndex(finalizedIndexStep1);
       const finalizedTxHash = TxHash.random();
 
-      aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+        const tags = query.tags as SiloedTag[];
         // Return empty arrays for all tags except the one at index 3
         return Promise.resolve(
           tags.map((tag: SiloedTag) => (tag.equals(index3Tag) ? [makeLog(finalizedTxHash, index3Tag.value)] : [])),
@@ -134,7 +136,8 @@ describe('syncSenderTaggingIndexes', () => {
     it('step 2: pending log is synced', async () => {
       const pendingTag = await computeSiloedTagForIndex(pendingIndexStep2);
 
-      aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+        const tags = query.tags as SiloedTag[];
         // Return empty arrays for all tags except the one at the pending index
         return Promise.resolve(
           tags.map((tag: SiloedTag) => (tag.equals(pendingTag) ? [makeLog(pendingTxHashStep2, pendingTag.value)] : [])),
@@ -176,7 +179,8 @@ describe('syncSenderTaggingIndexes', () => {
       const newHighestUsedTag = await computeSiloedTagForIndex(newHighestUsedIndex); // New pending log
 
       // Mock getPrivateLogsByTags to return logs for multiple indices
-      aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+        const tags = query.tags as SiloedTag[];
         return Promise.resolve(
           tags.map((tag: SiloedTag) => {
             if (tag.equals(nowFinalizedTag)) {
@@ -258,7 +262,8 @@ describe('syncSenderTaggingIndexes', () => {
 
     const index3Tag = await computeSiloedTagForIndex(pendingAndFinalizedIndex);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       // Return both the pending and finalized logs for the tag at index 3
       return Promise.resolve(
         tags.map((tag: SiloedTag) =>
@@ -326,7 +331,8 @@ describe('syncSenderTaggingIndexes', () => {
     );
 
     // No new logs surfaced in this window.
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       return Promise.resolve(tags.map(() => []));
     });
 
@@ -361,7 +367,8 @@ describe('syncSenderTaggingIndexes', () => {
   it('does not call getTxReceipt when no pending entries exist and no new logs are found', async () => {
     await setUp();
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       return Promise.resolve(tags.map(() => []));
     });
 
@@ -391,7 +398,8 @@ describe('syncSenderTaggingIndexes', () => {
       'test',
     );
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       return Promise.resolve(
         tags.map((tag: SiloedTag) =>
           tag.equals(newlyDiscoveredTag) ? [makeLog(newlyDiscoveredTxHash, newlyDiscoveredTag.value)] : [],
@@ -446,7 +454,8 @@ describe('syncSenderTaggingIndexes', () => {
     );
 
     // Logs query returns the same tx for the same tag — `storePendingIndexes` will treat this as a no-op duplicate.
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       return Promise.resolve(
         tags.map((tag: SiloedTag) => (tag.equals(pendingTag) ? [makeLog(pendingTxHash, pendingTag.value)] : [])),
       );
@@ -483,7 +492,8 @@ describe('syncSenderTaggingIndexes', () => {
     const tag4 = await computeSiloedTagForIndex(4);
     const tag6 = await computeSiloedTagForIndex(6);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       return Promise.resolve(
         tags.map((tag: SiloedTag) => {
           if (tag.equals(tag4)) {

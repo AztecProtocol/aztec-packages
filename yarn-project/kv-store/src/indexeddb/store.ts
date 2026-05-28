@@ -4,6 +4,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { AztecAsyncBinaryMap } from '../interfaces/binary_map.js';
 import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
@@ -106,6 +107,10 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     const map = new IndexedDBAztecMap<K, V>(this.#rootDB, name);
     this.#containers.add(map);
     return map;
+  }
+
+  openBinaryMap(_name: string): AztecAsyncBinaryMap {
+    throw new Error('openBinaryMap is not supported on IndexedDB');
   }
 
   /**
