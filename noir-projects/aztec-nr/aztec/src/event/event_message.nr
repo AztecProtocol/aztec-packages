@@ -3,7 +3,7 @@ use crate::{
     event::{event_emission::NewEvent, event_interface::EventInterface},
     messages::{
         logs::event::encode_private_event_message,
-        message_delivery::{do_private_message_delivery, MessageDelivery},
+        message_delivery::{ConstrainedDelivery, do_private_message_delivery, MessageDelivery},
     },
 };
 use crate::protocol::{address::AztecAddress, traits::Serialize};
@@ -62,6 +62,27 @@ where
             recipient,
             delivery_mode,
             Option::none(),
+        );
+    }
+
+    /// Delivers the event message to a `recipient` using constrained onchain tagging.
+    ///
+    /// `registry` is the handshake registry used to resolve the shared secret and `sender` is the account the
+    /// message is sent on behalf of.
+    pub fn deliver_to_constrained(self, registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+        // Technical note: we're about to call a closure that needs access to `new_event`, but we can't pass `self` to
+        // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
+        // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is
+        // not allowed. As a workaround, we create a variable without the context and capture that instead.
+        let new_event = self.new_event;
+
+        do_private_message_delivery(
+            self.context,
+            || encode_private_event_message(new_event.event, new_event.randomness),
+            Option::none(),
+            recipient,
+            MessageDelivery::onchain_constrained(),
+            Option::some(ConstrainedDelivery { registry, sender }),
         );
     }
 }

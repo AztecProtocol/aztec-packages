@@ -125,9 +125,9 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
                 recipient,
             )
         } else {
-            // TODO(#14565): Thread constrained tagging through high-level note/event delivery APIs so that
-            // `ONCHAIN_CONSTRAINED` callers supply handshake info instead of taking this fallback.
-            // `ONCHAIN_UNCONSTRAINED` deliveries are expected to derive the wallet-driven tag here.
+            // High-level constrained delivery APIs supply handshake info instead of taking this fallback.
+            // `ONCHAIN_UNCONSTRAINED` deliveries and legacy `ONCHAIN_CONSTRAINED` calls derive the wallet-driven tag
+            // here.
             let discovery_tag = compute_discovery_tag(recipient);
             compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG)
         };

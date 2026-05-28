@@ -6,16 +6,26 @@ mod test;
 #[aztec]
 pub contract ConstrainedDeliveryTest {
     use aztec::{
-        macros::functions::external,
-        messages::delivery::{
-            constrained_delivery::{calculate_secret_and_index, compute_constrained_log_tag},
-            ConstrainedDelivery,
-            do_private_message_delivery,
-            MessageDelivery,
-        },
+        event::event_emission::emit_event_in_private,
+        macros::{events::event, functions::external, storage::storage},
+        messages::delivery::constrained_delivery::{calculate_secret_and_index, compute_constrained_log_tag},
         oracle::notes::get_next_constrained_tagging_index,
         protocol::address::AztecAddress,
+        state_vars::{Owned, PrivateSet},
     };
+    use balance_set::BalanceSet;
+    use field_note::FieldNote;
+
+    #[event]
+    struct ExampleEvent {
+        value: Field,
+    }
+
+    #[storage]
+    struct Storage<Context> {
+        notes: Owned<PrivateSet<FieldNote, Context>, Context>,
+        balances: Owned<BalanceSet<Context>, Context>,
+    }
 
     /// Calls the helper and returns the resolved `(app_siloed_secret, index)` tuple.
     #[external("private")]
@@ -40,19 +50,25 @@ pub contract ConstrainedDeliveryTest {
         (secret, first_index, second_index)
     }
 
-    /// Delivers a constrained message to `recipient`: resolves `(secret, index)`, emits the chain nullifier, and
-    /// emits the encrypted log under the constrained tag. Routes through `do_private_message_delivery` with
-    /// `MessageDelivery::onchain_constrained()` and the opt-in constrained-delivery info.
+    /// Delivers a constrained note message to `recipient` through the high-level note API.
     #[external("private")]
     fn emit(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
-        let payload: [Field; 3] = [1, 2, 3];
-        do_private_message_delivery(
-            self.context,
-            || payload,
-            Option::none(),
+        self.storage.notes.at(recipient).insert(FieldNote { value: 1 }).deliver_constrained(registry, sender);
+    }
+
+    /// Delivers a constrained maybe-note message through the high-level maybe-note API.
+    #[external("private")]
+    fn emit_maybe_note(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+        self.storage.balances.at(recipient).add(1).deliver_to_constrained(registry, sender, recipient);
+    }
+
+    /// Delivers a constrained event message through the high-level event API.
+    #[external("private")]
+    fn emit_event(registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+        emit_event_in_private(self.context, ExampleEvent { value: 1 }).deliver_to_constrained(
+            registry,
+            sender,
             recipient,
-            MessageDelivery::onchain_constrained(),
-            Option::some(ConstrainedDelivery { registry, sender }),
         );
     }
 

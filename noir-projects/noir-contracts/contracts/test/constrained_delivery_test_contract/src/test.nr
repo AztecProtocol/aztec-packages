@@ -1,9 +1,9 @@
 //! Tests for the constrained-delivery sender helpers.
 //!
-//! `calculate_and_return` exercises `calculate_secret_and_index` directly; `emit` exercises the full delivery path
-//! (`do_private_message_delivery` with `ONCHAIN_CONSTRAINED`), which emits the chain nullifier and a
-//! constrained-tagged log. The `index > 0` branch of `calculate_secret_and_index` is reachable only once a
-//! constrained log has advanced the PXE's per-secret index, so the two `index > 0` tests land such a log first.
+//! `calculate_and_return` exercises `calculate_secret_and_index` directly; `emit`, `emit_maybe_note`, and
+//! `emit_event` exercise the high-level constrained delivery APIs, which emit the chain nullifier and a
+//! constrained-tagged log. The `index > 0` branch of `calculate_secret_and_index` is reachable only once a constrained
+//! log has advanced the PXE's per-secret index, so the `index > 0` tests land such a log first.
 use crate::ConstrainedDeliveryTest;
 
 use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::{CallPrivateOptions, TestEnvironment}};
@@ -135,9 +135,9 @@ unconstrained fn distinct_pairs_have_independent_indexes() {
     assert(secret_a != secret_b, "different recipients should yield distinct siloed secrets");
 }
 
-// After a constrained `emit` lands a tagged log and the chain nullifier in a block, the per-secret index advances in
-// the PXE. The next resolution takes the `index > 0` branch, which proves the prior (now settled) nullifier exists
-// via `compute_nullifier_existence_request`, and returns index 1.
+// After high-level constrained note delivery lands a tagged log and the chain nullifier in a block, the per-secret
+// index advances in the PXE. The next resolution takes the `index > 0` branch, which proves the prior (now settled)
+// nullifier exists via `compute_nullifier_existence_request`, and returns index 1.
 #[test]
 unconstrained fn advances_index_above_zero_when_prior_message_was_emitted() {
     let (env, registry_address, test_address, sender, recipient) = setup();
@@ -152,6 +152,46 @@ unconstrained fn advances_index_above_zero_when_prior_message_was_emitted() {
 
     // tx2: the emitted log advanced the per-secret index, so resolution returns index 1 and proves the now-settled
     // predecessor nullifier.
+    let (_secret, index) = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.calculate_and_return(registry_address, sender, recipient),
+    );
+
+    assert_eq(index, 1);
+}
+
+#[test]
+unconstrained fn maybe_note_delivery_advances_index_above_zero() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.emit_maybe_note(registry_address, sender, recipient),
+    );
+
+    let (_secret, index) = env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.calculate_and_return(registry_address, sender, recipient),
+    );
+
+    assert_eq(index, 1);
+}
+
+#[test]
+unconstrained fn event_delivery_advances_index_above_zero() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+
+    env.call_private_opts(
+        sender,
+        helper_options(registry_address),
+        test_contract.emit_event(registry_address, sender, recipient),
+    );
+
     let (_secret, index) = env.call_private_opts(
         sender,
         helper_options(registry_address),

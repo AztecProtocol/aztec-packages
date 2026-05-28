@@ -2,7 +2,7 @@ use crate::{
     context::PrivateContext,
     messages::{
         logs::note::encode_private_note_message,
-        message_delivery::{do_private_message_delivery, MessageDelivery},
+        message_delivery::{ConstrainedDelivery, do_private_message_delivery, MessageDelivery},
     },
     note::{lifecycle::NewNote, note_interface::NoteType},
 };
@@ -52,6 +52,14 @@ where
         self.deliver_to(self.new_note.owner, delivery_mode);
     }
 
+    /// Delivers the note message to its owner using constrained on-chain tagging.
+    ///
+    /// `registry` is the handshake registry used to resolve the shared secret and `sender` is the account the
+    /// message is sent on behalf of.
+    pub fn deliver_constrained(self, registry: AztecAddress, sender: AztecAddress) {
+        self.deliver_to_constrained(registry, sender, self.new_note.owner);
+    }
+
     /// Same as [`deliver`](NoteMessage::deliver), except the message gets delivered to an arbitrary `recipient`
     /// instead
     /// of the note owner.
@@ -71,6 +79,7 @@ where
         // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
         // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is
         // not allowed. As a workaround, we create a variable without the context and capture that instead.
+        let note_hash_counter = self.new_note.note_hash_counter;
         let new_note = self.new_note;
 
         do_private_message_delivery(
@@ -81,10 +90,35 @@ where
                 new_note.storage_slot,
                 new_note.randomness,
             ),
-            Option::some(self.new_note.note_hash_counter),
+            Option::some(note_hash_counter),
             recipient,
             delivery_mode,
             Option::none(),
+        );
+    }
+
+    /// Same as [`deliver_constrained`](NoteMessage::deliver_constrained), except the message gets delivered to an
+    /// arbitrary `recipient` instead of the note owner.
+    pub fn deliver_to_constrained(self, registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+        // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to
+        // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
+        // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is
+        // not allowed. As a workaround, we create a variable without the context and capture that instead.
+        let note_hash_counter = self.new_note.note_hash_counter;
+        let new_note = self.new_note;
+
+        do_private_message_delivery(
+            self.context,
+            || encode_private_note_message(
+                new_note.note,
+                new_note.owner,
+                new_note.storage_slot,
+                new_note.randomness,
+            ),
+            Option::some(note_hash_counter),
+            recipient,
+            MessageDelivery::onchain_constrained(),
+            Option::some(ConstrainedDelivery { registry, sender }),
         );
     }
 
@@ -138,6 +172,14 @@ where
         }
     }
 
+    /// Same as [`NoteMessage::deliver_constrained`], except the message will only be delivered if it actually exists.
+    pub fn deliver_constrained(self, registry: AztecAddress, sender: AztecAddress) {
+        if self.maybe_new_note.is_some() {
+            let note_message = NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context);
+            note_message.deliver_constrained(registry, sender);
+        }
+    }
+
     /// Same as [`NoteMessage::deliver_to`], except the message will only be delivered if it actually exists.
     ///
     /// Messages delivered using [`crate::messages::message_delivery::MessageDelivery::onchain_constrained()`] will
@@ -145,6 +187,15 @@ where
     pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: MessageDelivery) {
         if self.maybe_new_note.is_some() {
             NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(recipient, delivery_mode);
+        }
+    }
+
+    /// Same as [`NoteMessage::deliver_to_constrained`], except the message will only be delivered if it actually
+    /// exists.
+    pub fn deliver_to_constrained(self, registry: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
+        if self.maybe_new_note.is_some() {
+            let note_message = NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context);
+            note_message.deliver_to_constrained(registry, sender, recipient);
         }
     }
 

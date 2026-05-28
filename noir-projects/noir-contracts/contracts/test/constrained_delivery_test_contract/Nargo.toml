@@ -6,4 +6,6 @@ type = "contract"
 
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }
+balance_set = { path = "../../../../aztec-nr/balance-set" }
+field_note = { path = "../../../../aztec-nr/field-note" }
 handshake_registry_contract = { path = "../../message_discovery/handshake_registry_contract" }
