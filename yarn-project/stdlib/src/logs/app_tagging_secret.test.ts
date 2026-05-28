@@ -10,7 +10,6 @@ import { SiloedTag } from './siloed_tag.js';
 import { TaggingIndexRangeSchema } from './tagging_index_range.js';
 
 describe('AppTaggingSecret', () => {
-
   describe('TaggingIndexRangeSchema', () => {
     it('preserves constrained secret kind when parsing a TaggingIndexRange', async () => {
       const original = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
