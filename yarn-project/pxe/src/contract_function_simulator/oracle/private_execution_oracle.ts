@@ -208,8 +208,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   /**
    * Returns the next app tag for a given sender and recipient pair (unconstrained delivery).
    *
-   * The simulator owns the directional tagging secret (derived via ECDH from `(sender, recipient, contract)`), so it
-   * computes the full siloed tag here and hands the opaque value back to the caller.
+   * The simulator computes the directional tagging secret (derived via ECDH from `(sender, recipient, contract)`),
+   * as well as the full siloed tag, and hands the opaque value back to the caller.
    *
    * @param sender - The address sending the log
    * @param recipient - The address receiving the log
@@ -239,7 +239,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   /**
    * Returns the next sender-side index for a constrained-delivery app-siloed shared secret.
    *
-   * Unlike the unconstrained variant, the simulator does not own the secret: it was supplied by the calling contract
+   * Unlike the unconstrained variant, the simulator does not compute the secret: it was supplied by the calling contract
    * (which retrieved it from an onchain handshake registry). The simulator only acts as a per-secret index counter.
    * The caller computes the onchain tag itself.
    *
