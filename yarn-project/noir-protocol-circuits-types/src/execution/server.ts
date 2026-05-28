@@ -1,6 +1,7 @@
 import { pushTestData } from '@aztec/foundation/testing';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
+import type { InputMap } from '@aztec/noir-types';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import type {
   BlockMergeRollupPrivateInputs,
@@ -468,7 +469,7 @@ function convertPrivateInputsToWitnessMap<InputsType>(
   const circuitName = mapProtocolArtifactNameToCircuitName(artifactName);
   pushTestData(circuitName, { inputs });
   const abi = (simulated ? SimulatedServerCircuitArtifacts : ServerCircuitArtifacts)[artifactName].abi;
-  return abiEncode(abi, { inputs });
+  return abiEncode(abi, { inputs } as unknown as InputMap);
 }
 
 function convertOutputsFromWitnessMap<ReturnType>(

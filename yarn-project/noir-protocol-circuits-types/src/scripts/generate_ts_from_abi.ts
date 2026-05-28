@@ -38,6 +38,16 @@ const circuits = [
   'ts_types',
 ];
 
+function patchCodegenTypes(code: string) {
+  return code
+    .replace(
+      'import { Noir, InputMap, type CompiledCircuit, type ForeignCallHandler } from "@aztec/noir-noir_js"',
+      'import { Noir, type InputMap, type CompiledCircuit, type ForeignCallHandler } from "@aztec/noir-noir_js"',
+    )
+    .replaceAll(/const args: InputMap = (\{[^;]+\});/g, 'const args = $1 as unknown as InputMap;')
+    .replaceAll('return returnValue as null;', 'return returnValue as unknown as null;');
+}
+
 const main = async () => {
   const dimensionsLists = JSON.parse(
     await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
@@ -60,10 +70,12 @@ const main = async () => {
     // (e.g. PrivateKernelInit3CircuitPrivateInputs) and pass the camelcase lint rule.
     programs.push([pascalCase(circuit).replace(/_(\d)/g, '$1'), abiObj]);
   }
-  const code = codegen(
-    programs,
-    false, // Don't embed artifacts
-    true, // Use fixed length arrays
+  const code = patchCodegenTypes(
+    codegen(
+      programs,
+      false, // Don't embed artifacts
+      true, // Use fixed length arrays
+    ),
   );
 
   await fs.writeFile('./src/types/index.ts', code);

@@ -21,6 +21,16 @@ const circuits = [
   'mock_rollup_root',
 ];
 
+function patchCodegenTypes(code: string) {
+  return code
+    .replace(
+      'import { Noir, InputMap, type CompiledCircuit, type ForeignCallHandler } from "@aztec/noir-noir_js"',
+      'import { Noir, type InputMap, type CompiledCircuit, type ForeignCallHandler } from "@aztec/noir-noir_js"',
+    )
+    .replaceAll(/const args: InputMap = (\{[^;]+\});/g, 'const args = $1 as unknown as InputMap;')
+    .replaceAll('return returnValue as null;', 'return returnValue as unknown as null;');
+}
+
 const main = async () => {
   try {
     await fs.access('./src/types/');
@@ -34,10 +44,12 @@ const main = async () => {
     const abiObj: CompiledCircuit = JSON.parse(rawData);
     programs.push([pascalCase(circuit), abiObj]);
   }
-  const code = codegen(
-    programs,
-    false, // Don't embed artifacts
-    true, // Use fixed length arrays
+  const code = patchCodegenTypes(
+    codegen(
+      programs,
+      false, // Don't embed artifacts
+      true, // Use fixed length arrays
+    ),
   );
   await fs.writeFile('./src/types/index.ts', code);
 };

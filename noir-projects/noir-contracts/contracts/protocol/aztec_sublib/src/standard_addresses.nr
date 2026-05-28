@@ -2,9 +2,9 @@
 use protocol_types::{address::AztecAddress, traits::FromField};
 
 pub global STANDARD_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x1c3bd1fbffc1a52385ed3e4bf6103bd94433b8045777902789da35bee35e4c75,
+    0x27ced680dd8c176230127b42131054bce7fcd00623650eb695b5588bac81430b,
 );
 
 pub global STANDARD_PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x23a16bc3874f7da47c13be4926eebc2a57dbba5d7cf02feb8525ed26dd0844cd,
+    0x05d900a6ed1b4ad3ff52cbe5f98d9b291b0f35c6dd5c41b1642659344d234bfe,
 );
