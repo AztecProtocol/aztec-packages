@@ -171,11 +171,12 @@ describe('LogStore', () => {
     });
 
     it('returns logs in canonical (block, txIndex, logIndex) order for a known tag', async () => {
-      // 3 blocks, each with 2 txs, each with 2 private logs, all sharing a fixed tag.
+      // 3 blocks, each with 2 txs, each with 4 private logs (24 total), all sharing a fixed tag — more than
+      // MAX_LOGS_PER_TAG so the first page fills and spans multiple blocks.
       const sharedTag = new SiloedTag(new Fr(0xdeadbeefn));
       const ckpts = await buildChainedCheckpointsWithLogs(3, {
         numTxsPerBlock: 2,
-        privateLogs: { numLogsPerTx: 2 },
+        privateLogs: { numLogsPerTx: 4 },
       });
       // Override the first field of every private log to the shared tag.
       for (const ckpt of ckpts) {
@@ -189,7 +190,7 @@ describe('LogStore', () => {
       await blockStore.addCheckpoints(ckpts);
       await logStore.addLogs(blocks);
 
-      // 3 blocks * 2 txs * 2 logs = 12, but we cap at MAX_LOGS_PER_TAG.
+      // 3 blocks * 2 txs * 4 logs = 24, but we cap at MAX_LOGS_PER_TAG.
       const [page1] = await logStore.getPrivateLogsByTags({ tags: [sharedTag] });
       expect(page1.length).toBe(MAX_LOGS_PER_TAG);
 
@@ -265,7 +266,7 @@ describe('LogStore', () => {
       const sharedTag = new SiloedTag(new Fr(0xcc33n));
       const ckpts = await buildChainedCheckpointsWithLogs(6, {
         numTxsPerBlock: 2,
-        privateLogs: { numLogsPerTx: 2 },
+        privateLogs: { numLogsPerTx: 4 },
       });
       for (const ckpt of ckpts) {
         for (const tx of ckpt.checkpoint.blocks[0].body.txEffects) {
@@ -278,7 +279,7 @@ describe('LogStore', () => {
       await blockStore.addCheckpoints(ckpts);
       await logStore.addLogs(blocks);
 
-      // 6 blocks * 2 txs * 2 logs = 24 total. First page returns 10.
+      // 6 blocks * 2 txs * 4 logs = 48 total — over two full pages. First page returns MAX_LOGS_PER_TAG.
       const [page1] = await logStore.getPrivateLogsByTags({ tags: [sharedTag] });
       expect(page1.length).toBe(MAX_LOGS_PER_TAG);
 
@@ -351,8 +352,12 @@ describe('LogStore', () => {
 
     it('paginates within a single tx via txHash + afterLog', async () => {
       const tag = new SiloedTag(new Fr(0x7777));
-      // One tx with 15 logs sharing the same tag; first page returns 10, resume returns 5.
-      const ckpt = await makeCheckpointWithLogs(1, { numTxsPerBlock: 1, privateLogs: { numLogsPerTx: 15 } });
+      // One tx with MAX_LOGS_PER_TAG + 5 logs sharing the same tag; first page returns MAX_LOGS_PER_TAG,
+      // resume returns the remaining 5.
+      const ckpt = await makeCheckpointWithLogs(1, {
+        numTxsPerBlock: 1,
+        privateLogs: { numLogsPerTx: MAX_LOGS_PER_TAG + 5 },
+      });
       const txEffect = ckpt.checkpoint.blocks[0].body.txEffects[0];
       for (const log of txEffect.privateLogs) {
         log.fields[0] = tag.value;
