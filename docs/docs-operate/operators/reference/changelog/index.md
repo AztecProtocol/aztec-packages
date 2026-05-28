@@ -11,6 +11,19 @@ This changelog documents all configuration changes, new features, and breaking c
 
 ## Version history
 
+### [v5.x](./v5.md)
+
+Breaking changes and migration guide for upgrading to v5.x.
+
+**Key changes:**
+- Archiver storage format changed (`ARCHIVER_DB_VERSION` 6 → 7) — one-time resync from L1 on first start
+
+**Migration difficulty**: Low
+
+[View full changelog →](./v5.md)
+
+---
+
 ### [v4.2.0](./v4.2.md)
 
 New features and configuration options for node operators.
