@@ -173,18 +173,40 @@ std::vector<std::vector<Fr>> build_batch_scalars(
 
 BENCHMARK_DEFINE_F(PippengerBench, BatchedChonk)(benchmark::State& state)
 {
-    // TODO: these are NOT representative benchmarks. For TranslatorWires_2_17, TranslatorWires_2_14, ECCVMSparse_half:
-    // k should be 100
     const size_t scenario_idx = static_cast<size_t>(state.range(0));
-    static const std::array<BatchScenario, 7> scenarios{ {
-        { "TranslatorWires_2_17", 4, 1U << 17, 0.0 },
-        { "TranslatorWires_2_14", 4, 1U << 14, 0.0 },
-        { "MegaOink_K11", 11, 1U << 17, 0.0 },
-        { "ECCVMSparse_half", 4, 1U << 17, 0.5 },
-        { "DatabusSparse_mostly0", 8, 1U << 14, 0.75 },
-        // K >= T scenarios — exercise the threadsplit fast path.
-        { "ECCVM_K100_2_14_half", 100, 1U << 14, 0.5 },
-        { "DatabusLikeMany_K20", 20, 1U << 12, 0.75 },
+    // Production K + N values, derived from the actual prover call sites that drive
+    // `commitment_key.batch_commit` -> `MSM::batch_multi_scalar_mul`:
+    //
+    //   Translator   K=10 N=2^17 — execute_wire_and_sorted_constraints_commitments_round:
+    //                              5 ConcatenatedPolynomials + 5 OrderedRangeConstraints,
+    //                              all at full circuit size (MINI_CIRCUIT * CONCAT = 2^13 * 16).
+    //                              Dense (no duplicates hint passed).
+    //   MegaOink     K=17 N=2^17 — OinkProver::commit_to_wires (Mega):
+    //                              3 base wires (w_l/w_r/w_o, duplicates hint=true)
+    //                              + 4 ecc_op_wires (sparse, mostly populated only when ecc ops fire)
+    //                              + 10 databus polys (5 buses * 2; mostly zero outside the active bus).
+    //                              Approximated here as a dense single density; the per-poly
+    //                              heterogeneity is left to a follow-up (would need build_batch_scalars
+    //                              to accept per-poly densities/hints).
+    //   DatabusOnly  K=10 N=2^14 — isolates the databus sub-batch from Mega oink (mostly-zero
+    //                              wires at a smaller size — what the datbus-inverse pattern looks like).
+    //
+    // K=4 sub-batches that existed previously were not representative of any prover; removed.
+    static const std::array<BatchScenario, 5> scenarios{ {
+        { "Translator_K10_2_17", 10, 1U << 17, 0.0 },
+        { "MegaOink_K17_2_17", 17, 1U << 17, 0.0 },
+        { "DatabusOnly_K10_2_14_mostly0", 10, 1U << 14, 0.75 },
+        // ECCVM 85-wire batch split into its dense and sparse halves. ~60 wires
+        // (precompute point-table + msm-region + accumulators + shifted entities)
+        // are dense; ~25 transcript wires are populated only up to op-queue size
+        // (CONST_OP_QUEUE_LOG_SIZE = 2^12) in a 2^15 dyadic allocation, so ~87.5%
+        // zero. Sum of the two scenarios approximates the production ECCVM commit
+        // batch. BN254 used as a proxy for Grumpkin: at N=2^15 both curves sit
+        // above their native GLV threshold (2^13), so the dispatcher's only
+        // cross-MSM amortisation (the shared GLV-doubled prefix) is OFF either
+        // way and the batched/per-MSM ratio transfers.
+        { "ECCVM_dense_K60_2_15", 60, 1U << 15, 0.0 },
+        { "ECCVM_transcript_K25_2_15", 25, 1U << 15, 0.875 },
     } };
     const auto& sc = scenarios[scenario_idx];
     state.SetLabel(sc.name);
@@ -205,15 +227,39 @@ BENCHMARK_DEFINE_F(PippengerBench, BatchedChonk)(benchmark::State& state)
 BENCHMARK_DEFINE_F(PippengerBench, PerMsmChonk)(benchmark::State& state)
 {
     const size_t scenario_idx = static_cast<size_t>(state.range(0));
-    static const std::array<BatchScenario, 7> scenarios{ {
-        { "TranslatorWires_2_17", 4, 1U << 17, 0.0 },
-        { "TranslatorWires_2_14", 4, 1U << 14, 0.0 },
-        { "MegaOink_K11", 11, 1U << 17, 0.0 },
-        { "ECCVMSparse_half", 4, 1U << 17, 0.5 },
-        { "DatabusSparse_mostly0", 8, 1U << 14, 0.75 },
-        // K >= T scenarios — exercise the threadsplit fast path.
-        { "ECCVM_K100_2_14_half", 100, 1U << 14, 0.5 },
-        { "DatabusLikeMany_K20", 20, 1U << 12, 0.75 },
+    // Production K + N values, derived from the actual prover call sites that drive
+    // `commitment_key.batch_commit` -> `MSM::batch_multi_scalar_mul`:
+    //
+    //   Translator   K=10 N=2^17 — execute_wire_and_sorted_constraints_commitments_round:
+    //                              5 ConcatenatedPolynomials + 5 OrderedRangeConstraints,
+    //                              all at full circuit size (MINI_CIRCUIT * CONCAT = 2^13 * 16).
+    //                              Dense (no duplicates hint passed).
+    //   MegaOink     K=17 N=2^17 — OinkProver::commit_to_wires (Mega):
+    //                              3 base wires (w_l/w_r/w_o, duplicates hint=true)
+    //                              + 4 ecc_op_wires (sparse, mostly populated only when ecc ops fire)
+    //                              + 10 databus polys (5 buses * 2; mostly zero outside the active bus).
+    //                              Approximated here as a dense single density; the per-poly
+    //                              heterogeneity is left to a follow-up (would need build_batch_scalars
+    //                              to accept per-poly densities/hints).
+    //   DatabusOnly  K=10 N=2^14 — isolates the databus sub-batch from Mega oink (mostly-zero
+    //                              wires at a smaller size — what the datbus-inverse pattern looks like).
+    //
+    // K=4 sub-batches that existed previously were not representative of any prover; removed.
+    static const std::array<BatchScenario, 5> scenarios{ {
+        { "Translator_K10_2_17", 10, 1U << 17, 0.0 },
+        { "MegaOink_K17_2_17", 17, 1U << 17, 0.0 },
+        { "DatabusOnly_K10_2_14_mostly0", 10, 1U << 14, 0.75 },
+        // ECCVM 85-wire batch split into its dense and sparse halves. ~60 wires
+        // (precompute point-table + msm-region + accumulators + shifted entities)
+        // are dense; ~25 transcript wires are populated only up to op-queue size
+        // (CONST_OP_QUEUE_LOG_SIZE = 2^12) in a 2^15 dyadic allocation, so ~87.5%
+        // zero. Sum of the two scenarios approximates the production ECCVM commit
+        // batch. BN254 used as a proxy for Grumpkin: at N=2^15 both curves sit
+        // above their native GLV threshold (2^13), so the dispatcher's only
+        // cross-MSM amortisation (the shared GLV-doubled prefix) is OFF either
+        // way and the batched/per-MSM ratio transfers.
+        { "ECCVM_dense_K60_2_15", 60, 1U << 15, 0.0 },
+        { "ECCVM_transcript_K25_2_15", 25, 1U << 15, 0.875 },
     } };
     const auto& sc = scenarios[scenario_idx];
     state.SetLabel(sc.name);
@@ -375,8 +421,8 @@ BENCHMARK_REGISTER_F(PippengerBench, BatchMSM_1656)
 
 // Chonk-representative batched MSM workloads. Scenario index 0..6 indexes into the
 // scenario table above. Run "Batched" and "PerMsm" with matching indices and compare.
-BENCHMARK_REGISTER_F(PippengerBench, BatchedChonk)->Unit(benchmark::kMillisecond)->DenseRange(0, 6, 1);
-BENCHMARK_REGISTER_F(PippengerBench, PerMsmChonk)->Unit(benchmark::kMillisecond)->DenseRange(0, 6, 1);
+BENCHMARK_REGISTER_F(PippengerBench, BatchedChonk)->Unit(benchmark::kMillisecond)->DenseRange(0, 4, 1);
+BENCHMARK_REGISTER_F(PippengerBench, PerMsmChonk)->Unit(benchmark::kMillisecond)->DenseRange(0, 4, 1);
 
 // Grid sweep for A vs B: {threads, size}. N covers 2^7..2^21 (with extra in-between
 // points around the GLV crossover).
