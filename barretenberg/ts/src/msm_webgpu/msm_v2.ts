@@ -1256,6 +1256,7 @@ export class MsmV2 {
   private tsResolveBuf: GPUBuffer | null = null;
   private tsStagingBuf: GPUBuffer | null = null;
   private passCount = 0;
+  private passPhases: string[] = [];
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
   private xposeReduceBind!: GPUBindGroup;
@@ -2054,8 +2055,7 @@ export class MsmV2 {
     if (this.profile) {
       let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
-        // decompose + xpose x4 + conv x2 + streaming planner (16) + accum kernels (3)
-        passes += 7 + 16 + 3;
+        passes += 7 + 16 + 4;
       }
       passes += 1 + this.reducePasses.length;
       this.passCount = passes;
@@ -2142,6 +2142,9 @@ export class MsmV2 {
     const { wgi: WGI } = this;
     let passIdx = 0;
     const profEnabled = this.profile && this.querySet;
+    if (profEnabled) this.passPhases = [];
+    let curPhase = 'misc';
+    const setPhase = (p: string) => { curPhase = p; };
     const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1): void => {
       const desc: GPUComputePassDescriptor = {};
       if (profEnabled) {
@@ -2150,6 +2153,7 @@ export class MsmV2 {
           beginningOfPassWriteIndex: 2 * passIdx,
           endOfPassWriteIndex: 2 * passIdx + 1,
         };
+        this.passPhases.push(curPhase);
         passIdx++;
       }
       const pass = enc.beginComputePass(desc);
@@ -2189,6 +2193,7 @@ export class MsmV2 {
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
+      setPhase('preprocess');
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
       enc.clearBuffer(this.rowPtrBuf);
       dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw);
@@ -2197,7 +2202,7 @@ export class MsmV2 {
       dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw);
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
       dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1);
-      // Streaming planner pipeline (replaces the multi-level pair-tree loop).
+      setPhase('planner');
       const spMeta = this.pool.scratch!.streamPlannerMeta;
       enc.clearBuffer(spMeta);
       dispatch(this.classifyPipe, this.classifyBind, Math.ceil(this.bTotal / 256), 1);
@@ -2212,6 +2217,7 @@ export class MsmV2 {
       dispatch(this.partitionThreadPipe, this.partitionThreadBind, 32, 1);
       dispatch(this.streamEmitPipe, this.streamEmitBind, 32, 1);
       dispatch(this.emitFixupPipe, this.emitFixupBind, 1, 1);
+      setPhase('accumulate');
       // Indirect-dispatched accumulation kernels.
       const indirectDispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, buf: GPUBuffer, off: number): void => {
         const desc: GPUComputePassDescriptor = {};
@@ -2221,6 +2227,7 @@ export class MsmV2 {
             beginningOfPassWriteIndex: 2 * passIdx,
             endOfPassWriteIndex: 2 * passIdx + 1,
           };
+          this.passPhases.push(curPhase);
           passIdx++;
         }
         const pass = enc.beginComputePass(desc);
@@ -2234,6 +2241,7 @@ export class MsmV2 {
       dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
       dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
     }
+    setPhase('reduce');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
       const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
@@ -2465,22 +2473,29 @@ export class MsmV2 {
     // — use the dev sweep page directly for that). Wall time still works.
     let profile: ProfileBreakdown | null = null;
     if (this.profile && this.tsStagingBuf) {
-      // Sum (end - begin) across every pass to get total GPU compute time,
-      // distinct from `wall` (which includes encode + submit + mapAsync poll).
-      // Categorized breakdown removed in the encodeIntoBatch refactor; the
-      // microbench-relevant number is total compute, which lands in `decompose`
-      // as the only non-zero field so the dev page's profile breakdown view
-      // still works as a "total GPU time" gauge.
+      const phaseNs: Record<string, bigint> = { preprocess: 0n, planner: 0n, accumulate: 0n, reduce: 0n, misc: 0n };
       let totalNs = 0n;
       try {
         await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
         const tsArr = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
         this.tsStagingBuf.unmap();
         for (let p = 0; p < this.passCount; p++) {
-          totalNs += tsArr[2 * p + 1] - tsArr[2 * p];
+          const dur = tsArr[2 * p + 1] - tsArr[2 * p];
+          totalNs += dur;
+          const phase = this.passPhases[p] ?? 'misc';
+          phaseNs[phase] = (phaseNs[phase] ?? 0n) + dur;
         }
       } catch {
         // mapAsync raced (already-mapped from a prior run); skip this sample.
+      }
+      const phaseMs = {
+        preprocess: Number(phaseNs.preprocess) / 1e6,
+        planner: Number(phaseNs.planner) / 1e6,
+        accumulate: Number(phaseNs.accumulate) / 1e6,
+        reduce: Number(phaseNs.reduce) / 1e6,
+      };
+      if (typeof window !== 'undefined') {
+        (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs = phaseMs;
       }
       const totalMs = Number(totalNs) / 1e6;
       profile = {

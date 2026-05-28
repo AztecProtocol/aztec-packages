@@ -89,6 +89,7 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
+    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
 
@@ -1404,7 +1405,90 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
-  if (autorun === 'msm-cross-check') {
+  if (autorun === 'msm-bench') {
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const client = makeResultsClient({ page: 'msm-bench' });
+    log('info', `[bench] logN=${autorunLogN} reps=${reps}`);
+    try {
+      // Wait for SRS + WASM ready (Run button enables)
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      // Use the existing globals path — click Run once for warmup
+      $run.click();
+      for (let i = 0; i < 60; i++) {
+        if ($run.disabled) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      // After warmup: msmV2 is built and ready. Run N timed iterations
+      // by clicking Run for each rep and collecting __lastPhaseMs.
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      const initLogLen = $log.children.length;
+      for (let r = 0; r < reps; r++) {
+        // Snapshot log length
+        const startLen = $log.children.length;
+        $run.click();
+        for (let i = 0; i < 60; i++) {
+          if ($run.disabled) break;
+          await new Promise(r => setTimeout(r, 100));
+        }
+        for (let i = 0; i < 1200; i++) {
+          if (!$run.disabled) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
+        // Parse the [gpu] returned in X ms line
+        const newLines: string[] = [];
+        for (let i = startLen; i < $log.children.length; i++) {
+          newLines.push($log.children[i].textContent ?? '');
+        }
+        const gpuLine = newLines.find(l => /\[gpu\] returned in/.test(l));
+        const wallMs = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
+        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs, gpuMs, phases });
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ` +
+          `pre=${(phases.preprocess ?? 0).toFixed(1)} plan=${(phases.planner ?? 0).toFixed(1)} ` +
+          `accum=${(phases.accumulate ?? 0).toFixed(1)} fin=${(phases.finalize ?? 0).toFixed(1)} red=${(phases.reduce ?? 0).toFixed(1)}`);
+      }
+      const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const avgWall = avg(samples.map(s => s.wallMs));
+      const avgGpu = avg(samples.map(s => s.gpuMs));
+      const avgPre = avg(samples.map(s => s.phases.preprocess ?? 0));
+      const avgPlan = avg(samples.map(s => s.phases.planner ?? 0));
+      const avgAccum = avg(samples.map(s => s.phases.accumulate ?? 0));
+      const avgFin = avg(samples.map(s => s.phases.finalize ?? 0));
+      const avgRed = avg(samples.map(s => s.phases.reduce ?? 0));
+      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+        `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ` +
+        `pre=${avgPre.toFixed(1)} plan=${avgPlan.toFixed(1)} accum=${avgAccum.toFixed(1)} fin=${avgFin.toFixed(1)} red=${avgRed.toFixed(1)}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, page: 'msm-bench' },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, preprocess: avgPre, planner: avgPlan, accumulate: avgAccum, finalize: avgFin, reduce: avgRed } },
+        error: null,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[bench] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bench] FATAL: ${msg}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench' }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    }
+  } else if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
     const tree = qp.get('use_tree_reduce') === '1';
     const debugSmvp = qp.get('debug_smvp') === '1';
