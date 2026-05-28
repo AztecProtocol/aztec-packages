@@ -1,6 +1,6 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { AppTaggingSecretKind, type AppTaggingSecret, PrivateLog, SiloedTag } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, AppTaggingSecretKind, PrivateLog, SiloedTag } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
