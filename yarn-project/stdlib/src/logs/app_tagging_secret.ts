@@ -10,19 +10,19 @@ import type { CompleteAddress } from '../contract/complete_address.js';
 import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
 
 /**
- * Extended directional application tagging secret used for log tagging.
+ * Application tagging secret used for log tagging.
  *
- * "Extended" because it bundles the directional app tagging secret with the app (contract) address. This bundling was
- * done because where this type is used we commonly need access to both the secret and the address.
+ * It bundles the directional app tagging secret with the app (contract) address. This bundling was done because where
+ * this type is used we commonly need access to both the secret and the address.
  *
- * "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same
- * participants and app.
+ * The derived secret is directional because it is bound to the recipient address: A→B differs from B→A even with the
+ * same participants and app.
  *
  * Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in
  * `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there
  * doesn't seem to be a good way around this.
  */
-export class ExtendedDirectionalAppTaggingSecret {
+export class AppTaggingSecret {
   constructor(
     public readonly secret: Fr,
     public readonly app: AztecAddress,
@@ -45,7 +45,7 @@ export class ExtendedDirectionalAppTaggingSecret {
     externalAddress: AztecAddress,
     app: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<ExtendedDirectionalAppTaggingSecret | undefined> {
+  ): Promise<AppTaggingSecret | undefined> {
     const taggingSecretPoint = await computeSharedTaggingSecret(localAddress, localIvsk, externalAddress);
     if (!taggingSecretPoint) {
       return undefined;
@@ -54,16 +54,16 @@ export class ExtendedDirectionalAppTaggingSecret {
     const appTaggingSecret = await poseidon2Hash([taggingSecretPoint.x, taggingSecretPoint.y, app]);
     const directionalAppTaggingSecret = await poseidon2Hash([appTaggingSecret, recipient]);
 
-    return new ExtendedDirectionalAppTaggingSecret(directionalAppTaggingSecret, app);
+    return new AppTaggingSecret(directionalAppTaggingSecret, app);
   }
 
   toString(): string {
     return `${this.secret.toString()}:${this.app.toString()}`;
   }
 
-  static fromString(str: string): ExtendedDirectionalAppTaggingSecret {
+  static fromString(str: string): AppTaggingSecret {
     const [secretStr, appStr] = str.split(':');
-    return new ExtendedDirectionalAppTaggingSecret(Fr.fromString(secretStr), AztecAddress.fromString(appStr));
+    return new AppTaggingSecret(Fr.fromString(secretStr), AztecAddress.fromString(appStr));
   }
 }
 
@@ -92,7 +92,7 @@ async function computeSharedTaggingSecret(
   return Grumpkin.mul(externalAddressPoint, await computeAddressSecret(knownPreaddress, localIvsk));
 }
 
-export const ExtendedDirectionalAppTaggingSecretSchema = z.object({
+export const AppTaggingSecretSchema = z.object({
   secret: Fr.schema,
   app: AztecAddress.schema,
 });
