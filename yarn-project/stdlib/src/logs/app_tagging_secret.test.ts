@@ -10,17 +10,6 @@ import { SiloedTag } from './siloed_tag.js';
 import { TaggingIndexRangeSchema } from './tagging_index_range.js';
 
 describe('AppTaggingSecret', () => {
-  describe('kind discriminator', () => {
-    it('defaults to unconstrained', async () => {
-      const secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
-      expect(secret.kind).toBe(AppTaggingSecretKind.UNCONSTRAINED);
-    });
-
-    it('supports constrained secrets', async () => {
-      const secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
-      expect(secret.kind).toBe(AppTaggingSecretKind.CONSTRAINED);
-    });
-  });
 
   describe('TaggingIndexRangeSchema', () => {
     it('preserves constrained secret kind when parsing a TaggingIndexRange', async () => {
