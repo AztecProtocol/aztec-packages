@@ -22,11 +22,7 @@ pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     event_validation_requests: EphemeralArray<EventValidationRequest>,
     scope: AztecAddress,
 ) {
-    validate_and_store_enqueued_notes_and_events_oracle(
-        note_validation_requests,
-        event_validation_requests,
-        scope,
-    );
+    validate_and_store_enqueued_notes_and_events_oracle(note_validation_requests, event_validation_requests, scope);
 }
 
 #[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents)]

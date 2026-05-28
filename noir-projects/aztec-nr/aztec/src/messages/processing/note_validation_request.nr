@@ -6,16 +6,16 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 /// `EphemeralArray`.
 #[derive(Serialize, Deserialize)]
 pub struct NoteValidationRequest {
-    pub contract_address: AztecAddress,
-    pub owner: AztecAddress,
-    pub storage_slot: Field,
-    pub randomness: Field,
-    pub note_nonce: Field,
-    pub max_note_packed_len: Field,
-    pub packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
-    pub note_hash: Field,
-    pub nullifier: Field,
-    pub tx_hash: Field,
+    contract_address: AztecAddress,
+    owner: AztecAddress,
+    storage_slot: Field,
+    randomness: Field,
+    note_nonce: Field,
+    max_note_packed_len: Field,
+    packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    note_hash: Field,
+    nullifier: Field,
+    tx_hash: Field,
 }
 
 impl NoteValidationRequest {

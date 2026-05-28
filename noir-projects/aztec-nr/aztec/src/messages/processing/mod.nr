@@ -83,19 +83,17 @@ pub unconstrained fn enqueue_note_for_validation(
     nullifier: Field,
     tx_hash: Field,
 ) {
-    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        NoteValidationRequest::new(
-            contract_address,
-            owner,
-            storage_slot,
-            randomness,
-            note_nonce,
-            packed_note,
-            note_hash,
-            nullifier,
-            tx_hash,
-        ),
-    )
+    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(NoteValidationRequest::new(
+        contract_address,
+        owner,
+        storage_slot,
+        randomness,
+        note_nonce,
+        packed_note,
+        note_hash,
+        nullifier,
+        tx_hash,
+    ))
 }
 
 /// Enqueues an event for validation and storage by PXE.
@@ -118,16 +116,14 @@ pub unconstrained fn enqueue_event_for_validation(
     event_commitment: Field,
     tx_hash: Field,
 ) {
-    EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        EventValidationRequest::new(
-            contract_address,
-            event_type_id,
-            randomness,
-            serialized_event,
-            event_commitment,
-            tx_hash,
-        ),
-    )
+    EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(EventValidationRequest::new(
+        contract_address,
+        event_type_id,
+        randomness,
+        serialized_event,
+        event_commitment,
+        tx_hash,
+    ))
 }
 
 /// Validates and stores all enqueued notes and events.
