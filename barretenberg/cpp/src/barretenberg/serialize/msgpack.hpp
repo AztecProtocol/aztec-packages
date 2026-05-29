@@ -1,4 +1,5 @@
 #pragma once
+
 /* Minimal header for declaring msgpack fields.
 This should be included as "barretenberg/serialize/msgpack.hpp" unless a translation wants
 to use msgpack for bindings, then "barretenberg/serialize/cbind.hpp" should be included.

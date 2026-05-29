@@ -14,6 +14,11 @@ list(APPEND VM2_SIM_SOURCE_FILES
 # Exclude test, bench, and fuzzer files
 list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
 
+# Exclude the WSDB IPC-backed DB shim from vm2_sim — it pulls in wsdb_ipc_client
+# and ipc, which pure-simulation consumers (e.g. nodejs_module, wasm) don't
+# need. It's compiled below as its own library, only when wsdb is available.
+list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*/simulation/dbs/wsdb_ipc_merkle_db\\.cpp$")
+
 # Build vm2_sim module (for nodejs bindings)
 barretenberg_module_with_sources(
   vm2_sim
@@ -23,6 +28,27 @@ barretenberg_module_with_sources(
 
 # vm2_sim needs -fPIC because it's linked into the nodejs_module shared library
 set_target_properties(vm2_sim_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# WSDB IPC-backed implementation of LowLevelMerkleDBInterface.
+# Lives alongside the other DB impls under simulation/dbs/ but is compiled
+# into its own library so vm2_sim (and therefore nodejs_module / wasm) don't
+# pull in the IPC stack.
+if(NOT(FUZZING) AND NOT(WASM))
+    add_library(
+        wsdb_ipc_merkle_db
+        STATIC
+        simulation/dbs/wsdb_ipc_merkle_db.cpp
+    )
+    target_link_libraries(
+        wsdb_ipc_merkle_db
+        PUBLIC
+        barretenberg
+        wsdb_ipc_client
+        ipc
+        vm2_sim
+    )
+    set_target_properties(wsdb_ipc_merkle_db PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # Build vm2 module with sources mutually exclusive from vm2_sim
 if(AVM)
@@ -35,6 +61,9 @@ if(AVM)
   # Start with all sources, then exclude test/bench/fuzzer files
   set(VM2_SOURCE_FILES ${ALL_SOURCE_FILES})
   list(FILTER VM2_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
+
+  # Same carve-out as vm2_sim: wsdb_ipc_merkle_db is its own library.
+  list(FILTER VM2_SOURCE_FILES EXCLUDE REGEX ".*/simulation/dbs/wsdb_ipc_merkle_db\\.cpp$")
 
   # Make vm2 and vm2_sim sources mutually exclusive
   foreach(SIM_FILE ${VM2_SIM_SOURCE_FILES})
