@@ -1528,6 +1528,16 @@ export class LibP2PService extends WithTracer implements P2PService {
     peerId: PeerId,
   ): Promise<boolean> {
     try {
+      // A response with archiveRoot=Fr.zero is the documented "I don't have the block" signal from
+      // reqRespBlockTxsHandler (block_txs_handler.ts:54-58): the peer lacked the block in its
+      // attestation pool and archiver, but matched the requested hashes against its tx pool and
+      // shipped what it found. This is legitimate behaviour, not misbehaviour — we just can't verify
+      // membership/order without the block, so we drop the response without penalising the peer.
+      if (response.archiveRoot.isZero()) {
+        this.logger.debug(`Peer ${peerId.toString()} signalled missing block with Fr.zero archive root`);
+        return false;
+      }
+
       if (!response.archiveRoot.equals(request.archiveRoot)) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         throw new ValidationError(
