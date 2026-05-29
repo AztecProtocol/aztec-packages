@@ -150,13 +150,45 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
         auto A_l_fold = fold_polynomials[l].data();
 
+        // Kernel shape per output j: A_l_fold[j] = A_l[2j] + u_l * (A_l[2j+1] - A_l[2j]).
+        // Same stride-2 lerp as Sumcheck::partially_evaluate; under WASM SIMD with Bn254Fr,
+        // each thread's slice runs the 5-output SIMD lerp via VectorField::gather + lerp +
+        // store_to, with a scalar tail. Output buffer A_l_fold is distinct from the source
+        // A_l (allocated fresh in fold_polynomials[l]), so no aliasing concerns.
         parallel_for_heuristic(
             num_pairs,
-            [&](size_t j) {
-                // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
-                //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]
-                //            = Aₗ₊₁[j]
-                A_l_fold[j] = A_l[j << 1] + u_l * (A_l[(j << 1) + 1] - A_l[j << 1]);
+            [&](const ThreadChunk& chunk) {
+                auto chunk_range = chunk.range(num_pairs);
+                if (chunk_range.empty()) {
+                    return;
+                }
+                const size_t lo = *chunk_range.begin();
+                const size_t hi = lo + chunk_range.size();
+                size_t j = lo;
+#if defined(__wasm_simd128__)
+                if constexpr (has_simd_mont_mul_v<typename Fr::Params>) {
+                    using Vec = VectorField<typename Fr::Params>;
+                    const Vec u_vec = Vec::broadcast(u_l);
+                    const size_t pair_groups = (hi - lo) / 5;
+                    for (size_t b = 0; b < pair_groups; ++b) {
+                        const size_t src_base = (lo + b * 5) << 1;
+                        const std::array<size_t, 5> even_idx{
+                            src_base + 0, src_base + 2, src_base + 4, src_base + 6, src_base + 8
+                        };
+                        const std::array<size_t, 5> odd_idx{
+                            src_base + 1, src_base + 3, src_base + 5, src_base + 7, src_base + 9
+                        };
+                        const Vec even = Vec::gather(A_l, even_idx);
+                        const Vec odd = Vec::gather(A_l, odd_idx);
+                        const Vec result = even + (odd - even) * u_vec;
+                        result.store_to(A_l_fold + lo + b * 5);
+                    }
+                    j = lo + pair_groups * 5;
+                }
+#endif
+                for (; j < hi; ++j) {
+                    A_l_fold[j] = A_l[j << 1] + u_l * (A_l[(j << 1) + 1] - A_l[j << 1]);
+                }
             },
             fold_iteration_cost);
         // If odd number of coefficients, the last one has no partner (implicitly 0)
