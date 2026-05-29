@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Miscellaneous
-
-* Lower the default bb.js CRS download size from `2 ** 20` to `2 ** 19` for non-iOS browsers. iOS remains at `2 ** 18`. Callers that need a larger CRS can still pass an explicit SRS size.
-
 ## [0.77.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.76.4...barretenberg.js-v0.77.0) (2025-02-14)
 
 

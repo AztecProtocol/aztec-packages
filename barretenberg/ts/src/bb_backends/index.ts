@@ -22,9 +22,6 @@ export type BackendOptions = {
   /** @description Path to download CRS files */
   crsPath?: string;
 
-  /** @description Number of G1 points to download when initializing the CRS/SRS for WASM backends */
-  srsSize?: number;
-
   /** @description Path to download WASM files */
   wasmPath?: string;
 

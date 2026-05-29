@@ -1,2 +1,11 @@
 ^barretenberg/ts/.*$
 ^barretenberg/ts/bootstrap.sh
+# bb.js consumes @aztec/ipc-runtime via a portal: link and bundles it at
+# deploy_npm time. Treat ipc-runtime/ts source changes as bb.js
+# cache-invalidating input so a stale aztec-up image can't survive an
+# ipc-runtime change. Exclude gitignored output (dest/, build/) — bb.js's
+# bootstrap populates those mid-run, which would otherwise trip ci3's
+# rebuild-pattern guard.
+^ipc-runtime/ts/src/.*$
+^ipc-runtime/ts/package\.json$
+^ipc-runtime/ts/tsconfig\.json$

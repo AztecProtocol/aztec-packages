@@ -68,9 +68,11 @@ export class TypeScriptCodegen {
           case "bytes":
             return "Uint8Array";
           case "fr":
-            return "Fr"; // 32-byte field element
+            return "Uint8Array"; // 32-byte field element (legacy path)
+          case "bin32_alias":
+            return "Uint8Array"; // bin32 aliases (Fr/Fq/Secp256k1Fr/...) all wire as 32 bytes
           case "field2":
-            return "[Fr, Fr]"; // Extension field (Fq2)
+            return "[Uint8Array, Uint8Array]"; // Extension field (Fq2)
           case "enum_u32":
             return "number"; // C++ enum as integer
           case "map_u32_pair":
@@ -79,6 +81,8 @@ export class TypeScriptCodegen {
         break;
 
       case "vector": {
+        // `vector<unsigned char>` → raw bytes (msgpack `bin`), use Uint8Array.
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapType(type.element!);
         // Wrap union types in parens to avoid precedence issues: (Foo | undefined)[]
         return type.element!.kind === "optional"
@@ -87,6 +91,10 @@ export class TypeScriptCodegen {
       }
 
       case "array": {
+        // `array<unsigned char, N>` → raw bytes (msgpack `bin`), use Uint8Array
+        // — matches the C++ `std::array<uint8_t, N>` adapter and the legacy
+        // bb/ts/cbind codegen shape that callers depend on.
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapType(type.element!);
         return type.element!.kind === "optional"
           ? `(${inner})[]`
@@ -101,6 +109,10 @@ export class TypeScriptCodegen {
     }
 
     return "unknown";
+  }
+
+  private isU8Primitive(type: Type): boolean {
+    return type.kind === "primitive" && type.primitive === "u8";
   }
 
   // Type mapping for msgpack interfaces (uses Msgpack* prefix for structs)
@@ -126,6 +138,8 @@ export class TypeScriptCodegen {
             return "Uint8Array";
           case "fr":
             return "Uint8Array"; // Fr on the wire is still 32 bytes
+          case "bin32_alias":
+            return "Uint8Array"; // bin32 aliases all wire as 32 bytes
           case "field2":
             return "[Uint8Array, Uint8Array]";
           case "enum_u32":
@@ -136,6 +150,7 @@ export class TypeScriptCodegen {
         break;
 
       case "vector": {
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapMsgpackType(type.element!);
         return type.element!.kind === "optional"
           ? `(${inner})[]`
@@ -143,6 +158,7 @@ export class TypeScriptCodegen {
       }
 
       case "array": {
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapMsgpackType(type.element!);
         return type.element!.kind === "optional"
           ? `(${inner})[]`

@@ -1,15 +1,10 @@
 #pragma once
 
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include <functional>
 #include <memory>
 #include <napi.h>
 #include <thread>
 #include <utility>
-
-#ifndef _WIN32
-#include <pthread.h>
-#endif
 
 namespace bb::nodejs {
 
@@ -83,19 +78,17 @@ class AsyncOperation : public Napi::AsyncWorker {
  * a Napi::ThreadSafeFunction, so the event loop returns immediately after launch
  * and is woken up only when the work is done.
  *
- * Prevent use-after-free: the TSFN callback runs asynchronously on the JS thread
- * (napi_tsfn_blocking only blocks on queue insertion, NOT on callback completion).
- * Both the worker thread lambda and the callback capture a shared_ptr to keep the
- * object alive until both are done.
- *
- * Usage: `ThreadedAsyncOperation::Run(env, deferred, fn);`
+ * Usage: `auto* op = new ThreadedAsyncOperation(env, deferred, fn); op->Queue();`
+ * The object self-destructs after resolving/rejecting the promise.
  */
-class ThreadedAsyncOperation : public std::enable_shared_from_this<ThreadedAsyncOperation> {
+class ThreadedAsyncOperation {
   public:
     ThreadedAsyncOperation(Napi::Env env, std::shared_ptr<Napi::Promise::Deferred> deferred, async_fn fn)
         : _fn(std::move(fn))
         , _deferred(std::move(deferred))
     {
+        // Create a no-op JS function as the TSFN target — we use the native callback form of BlockingCall
+        // to resolve/reject the promise, so the JS function is never actually called directly.
         auto dummy = Napi::Function::New(env, [](const Napi::CallbackInfo&) {});
         _completion_tsfn = Napi::ThreadSafeFunction::New(env, dummy, "ThreadedAsyncOpComplete", 0, 1);
     }
@@ -107,88 +100,38 @@ class ThreadedAsyncOperation : public std::enable_shared_from_this<ThreadedAsync
 
     ~ThreadedAsyncOperation() = default;
 
-    static void Run(Napi::Env env, std::shared_ptr<Napi::Promise::Deferred> deferred, async_fn fn)
+    void Queue()
     {
-        auto op = std::make_shared<ThreadedAsyncOperation>(env, std::move(deferred), std::move(fn));
-        op->Queue();
+        std::thread([this]() {
+            try {
+                _fn(_result);
+                _success = true;
+            } catch (const std::exception& e) {
+                _error = e.what();
+                _success = false;
+            } catch (...) {
+                _error = "Unknown exception occurred during threaded async operation";
+                _success = false;
+            }
+
+            // Post completion back to the JS main thread
+            _completion_tsfn.BlockingCall(
+                this, [](Napi::Env env, Napi::Function /*js_callback*/, ThreadedAsyncOperation* op) {
+                    if (op->_success) {
+                        auto buf = Napi::Buffer<char>::Copy(env, op->_result.data(), op->_result.size());
+                        op->_deferred->Resolve(buf);
+                    } else {
+                        auto error = Napi::Error::New(env, op->_error);
+                        op->_deferred->Reject(error.Value());
+                    }
+                    // Release the TSFN and self-destruct
+                    op->_completion_tsfn.Release();
+                    delete op;
+                });
+        }).detach();
     }
 
   private:
-    // AVM simulation call chains are deep. Non-main threads get a 512 KB default stack on
-    // macOS versus 8 MB on Linux, so a default std::thread overflows its stack-guard page and
-    // aborts with SIGBUS on macOS arm64. The libuv pool that AsyncOperation runs on sizes its
-    // threads from RLIMIT_STACK, which is why that path never hit this. Pin a generous stack so
-    // the worker has the same headroom on every platform.
-    static constexpr size_t WORKER_STACK_SIZE = 32UL * 1024 * 1024;
-
-    void Queue()
-    {
-        auto self = shared_from_this();
-        launch_detached_with_large_stack([self]() {
-            try {
-                self->_fn(self->_result);
-                self->_success = true;
-            } catch (const std::exception& e) {
-                self->_error = e.what();
-                self->_success = false;
-            } catch (...) {
-                self->_error = "Unknown exception occurred during threaded async operation";
-                self->_success = false;
-            }
-
-            // Post completion to the JS main thread. The callback captures `self`
-            // (shared_ptr) so the object stays alive until the callback runs.
-            // napi_tsfn_blocking only blocks on queue insertion, not on callback
-            // completion, so we cannot use raw pointers here.
-            self->_completion_tsfn.BlockingCall([self](Napi::Env env, Napi::Function /*js_callback*/) {
-                if (self->_success) {
-                    auto buf = Napi::Buffer<char>::Copy(env, self->_result.data(), self->_result.size());
-                    self->_deferred->Resolve(buf);
-                } else {
-                    auto error = Napi::Error::New(env, self->_error);
-                    self->_deferred->Reject(error.Value());
-                }
-                self->_completion_tsfn.Release();
-            });
-        });
-    }
-
-    // Launch `work` on a detached OS thread with an explicitly large stack (see WORKER_STACK_SIZE).
-    // std::thread cannot set a stack size, so use pthreads where available and fall back to a
-    // default-stack std::thread only if pthread creation is unavailable or fails.
-    static void launch_detached_with_large_stack(std::function<void()> work)
-    {
-#ifndef _WIN32
-        pthread_attr_t attr;
-        if (pthread_attr_init(&attr) == 0) {
-            pthread_attr_setstacksize(&attr, WORKER_STACK_SIZE);
-            pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-            auto* heap_work = new std::function<void()>(std::move(work));
-            pthread_t tid;
-            int rc = pthread_create(
-                &tid,
-                &attr,
-                [](void* arg) -> void* {
-                    std::unique_ptr<std::function<void()>> fn(static_cast<std::function<void()>*>(arg));
-                    (*fn)();
-                    return nullptr;
-                },
-                heap_work);
-            pthread_attr_destroy(&attr);
-
-            if (rc == 0) {
-                return;
-            }
-
-            // pthread_create failed; reclaim the work and fall back to a default std::thread.
-            std::unique_ptr<std::function<void()>> reclaimed(heap_work);
-            work = std::move(*reclaimed);
-        }
-#endif
-        std::thread(std::move(work)).detach();
-    }
-
     async_fn _fn;
     std::shared_ptr<Napi::Promise::Deferred> _deferred;
     Napi::ThreadSafeFunction _completion_tsfn;

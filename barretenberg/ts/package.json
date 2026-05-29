@@ -36,11 +36,10 @@
     "build:esm": "tsgo -b tsconfig.esm.json && chmod +x ./dest/node/bin/index.js",
     "build:cjs": "tsgo -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
     "build:browser": "tsgo -b tsconfig.browser.json && ./scripts/browser_postprocess.sh",
-    "generate": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/generate.ts && node --experimental-strip-types --experimental-transform-types --no-warnings ../../ipc-codegen/src/generate.ts --schema ../cpp/src/barretenberg/wsdb/wsdb_schema.json --lang ts --out src/aztec-wsdb/generated --client --prefix Wsdb",
+    "generate": "./scripts/generate.sh",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
-    "test:chonk-inputs": "yarn test chonk_pinned_inputs",
     "test:debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules ./node_modules/.bin/jest --no-cache --passWithNoTests --runInBand",
     "simple_test": "NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
     "deploy": "npm publish --access public"
@@ -73,6 +72,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts",
     "comlink": "^4.4.1",
     "commander": "^12.1.0",
     "idb-keyval": "^6.2.1",
