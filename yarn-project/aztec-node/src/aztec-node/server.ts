@@ -2033,21 +2033,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @returns An instance of a committed MerkleTreeOperations
    */
   protected async getWorldState(block: BlockParameter) {
+    const query = this.normalizeBlockParameter(block);
+
+    // When the request anchors on a specific block hash, resolve it against the archiver up front and
+    // drive the world-state sync to that exact block number and hash. Resolving against the archiver
+    // first fails fast with a clear reorg error if the hash is unknown, and passing the hash to the
+    // synchronizer makes the sync reorg-aware: it barriers until the archive-tree commit for that block
+    // has landed and verifies it matches the requested fork, instead of syncing to bare latest height
+    // and then racing the snapshot read below against an in-flight archive-tree write.
+    const requestedHash = 'hash' in query ? query.hash : undefined;
+    const anchorBlockNumber = requestedHash !== undefined ? await this.resolveBlockNumber(query) : undefined;
+
     let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
     try {
       // Attempt to sync the world state if necessary
-      blockSyncedTo = await this.#syncWorldState();
+      blockSyncedTo = await this.#syncWorldState(anchorBlockNumber, requestedHash);
     } catch (err) {
       this.log.error(`Error getting world state: ${err}`);
     }
 
-    const query = this.normalizeBlockParameter(block);
     if ('tag' in query && query.tag === 'proposed') {
       this.log.debug(`Using committed db for latest block, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    const blockNumber = await this.resolveBlockNumber(block);
+    const blockNumber = anchorBlockNumber ?? (await this.resolveBlockNumber(query));
 
     // Check it's within world state sync range
     if (blockNumber > blockSyncedTo) {
@@ -2064,7 +2074,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // (size 0), so leaf 0 is not yet inserted from that snapshot's view even though block 0's hash
     // does live at archive index 0 in the committed tree. The genesis hash is already validated by
     // the archiver when it resolves the hash query to block number 0.
-    const requestedHash = 'hash' in query ? query.hash : undefined;
     if (requestedHash !== undefined && blockNumber !== BlockNumber.ZERO) {
       const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       if (!blockHash || !requestedHash.equals(blockHash)) {
@@ -2096,11 +2105,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   /**
-   * Ensure we fully sync the world state
+   * Ensure the world state is synced.
+   * @param targetBlockNumber - Block to sync up to. Defaults to the latest block known to the archiver.
+   * @param blockHash - If provided, the synchronizer verifies the block at `targetBlockNumber` matches this
+   * hash, resyncing (and so detecting reorgs) if it does not yet match or has been reorged away.
    * @returns A promise that fulfils once the world state is synced
    */
-  async #syncWorldState(): Promise<BlockNumber> {
-    const blockSourceHeight = await this.blockSource.getBlockNumber();
-    return await this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
+  async #syncWorldState(targetBlockNumber?: BlockNumber, blockHash?: BlockHash): Promise<BlockNumber> {
+    const target = targetBlockNumber ?? (await this.blockSource.getBlockNumber());
+    return await this.worldStateSynchronizer.syncImmediate(target, blockHash);
   }
 }
