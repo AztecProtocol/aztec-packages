@@ -39,7 +39,7 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
-} from './util/encoding.js';
+} from './utils/encoding.js';
 
 const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;

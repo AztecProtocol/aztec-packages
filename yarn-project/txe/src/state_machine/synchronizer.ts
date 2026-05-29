@@ -18,7 +18,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
   static async create() {
-    const nativeWorldStateService = await NativeWorldStateService.tmp();
+    const nativeWorldStateService = await NativeWorldStateService.ephemeral();
 
     return new this(nativeWorldStateService);
   }

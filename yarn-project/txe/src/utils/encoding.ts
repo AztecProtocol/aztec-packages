@@ -147,9 +147,10 @@ export function arrayOfArraysToBoundedVecOfArrays(
 
   const numFieldsToPad = maxLen * nestedArrayLength - flattenedStorage.length;
 
-  const flattenedStorageWithPadding = flattenedStorage.concat(Array(numFieldsToPad).fill(new Fr(0)));
+  // Pad with hex-encoded zeros so the result is uniformly `ForeignCallSingle` (string); raw Fr
+  // instances would JSON-serialize as `{ asBigInt: "0" }` and nargo would reject the response.
+  const flattenedStorageWithPadding = flattenedStorage.concat(toArray(Array(numFieldsToPad).fill(new Fr(0))));
 
-  // At last we get the actual length of the BoundedVec and return the values.
   const len = toSingle(new Fr(bVecStorage.length));
   return [flattenedStorageWithPadding, len];
 }

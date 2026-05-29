@@ -2,7 +2,8 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
@@ -56,10 +57,10 @@ import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './txe_oracle_version.js';
-import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
-import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
+import type { ForeignCallArgs, ForeignCallResult } from './utils/encoding.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
+import { TXEAccountStore } from './utils/txe_account_store.js';
 
 /**
  * A TXE Session can be in one of four states, which change as the test progresses and different oracles are called.
@@ -198,8 +199,11 @@ export class TXESession implements TXESessionStateHandler {
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
+  private disposed = false;
+
   constructor(
     private logger: Logger,
+    private sessionStore: AztecAsyncKVStore,
     private stateMachine: TXEStateMachine,
     private oracleHandler:
       | IUtilityExecutionOracle
@@ -223,8 +227,33 @@ export class TXESession implements TXESessionStateHandler {
     private nextBlockTimestamp: bigint,
   ) {}
 
+  /**
+   * Closes the per-session `txe-session` LMDB and the `NativeWorldStateService` .
+   * Called via IPC when the dispatcher detects the end of a test. Idempotent.
+   */
+  async dispose(): Promise<void> {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    try {
+      await this.stateMachine.synchronizer.nativeWorldStateService.close();
+    } catch (err) {
+      this.logger.warn(`Error closing native world state during session dispose`, err);
+    }
+    try {
+      await this.sessionStore.close();
+    } catch (err) {
+      this.logger.warn(`Error closing session LMDB during dispose`, err);
+    }
+  }
+
   static async init(contractStore: ContractStore) {
-    const store = await openTmpStore('txe-session');
+    // Size LMDB's reader slots to the libuv pool (capped to 2 in bin/index.ts via
+    // HARDWARE_CONCURRENCY): each native LMDB read needs a libuv worker thread to run, so any
+    // slot beyond the pool size would sit idle while still consuming a semaphore + reader-table
+    // entry per session.
+    const store = await openEphemeralStore('txe-session', undefined, 2);
 
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
@@ -236,7 +265,6 @@ export class TXESession implements TXESessionStateHandler {
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
-    // Create job coordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       capsuleStore,
@@ -290,6 +318,7 @@ export class TXESession implements TXESessionStateHandler {
 
     return new TXESession(
       logger,
+      store,
       stateMachine,
       topLevelOracleHandler,
       contractStore,

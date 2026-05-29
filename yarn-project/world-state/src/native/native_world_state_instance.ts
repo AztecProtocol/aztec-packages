@@ -59,12 +59,13 @@ export class NativeWorldState implements NativeWorldStateInstance {
     private readonly instrumentation: WorldStateInstrumentation,
     bindings?: LoggerBindings,
     private readonly log: Logger = createLogger('world-state:database', bindings),
+    private readonly ephemeral: boolean = false,
   ) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
       `Creating world state data store at directory ${dataDir} with map sizes ${JSON.stringify(
         wsTreeMapSizes,
-      )} and ${threads} threads.`,
+      )} and ${threads} threads (ephemeral=${ephemeral}).`,
     );
     const prefilledPublicDataBufferArray = genesis.prefilledPublicData.map(d => [
       d.slot.toBuffer(),
@@ -94,6 +95,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.ARCHIVE]: wsTreeMapSizes.archiveTreeMapSizeKb,
       },
       threads,
+      ephemeral,
     );
     this.instance = new MsgpackChannel(ws);
     // Manually create the queue for the canonical fork
@@ -112,6 +114,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.instrumentation,
       this.log.getBindings(),
       this.log,
+      this.ephemeral,
     );
   }
 
