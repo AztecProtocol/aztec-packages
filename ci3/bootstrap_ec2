@@ -245,6 +245,11 @@ host_script=$(
   cat <<EOF
 set -euo pipefail
 
+# This runtime guard should be baked into the build image. Unattended upgrades
+# can restart SSM while CI is running, leaving SSM commands stuck InProgress.
+echo "HOST: disabling apt periodic upgrades..."
+sudo systemctl mask --now apt-daily.timer apt-daily-upgrade.timer apt-daily.service apt-daily-upgrade.service unattended-upgrades.service &>/dev/null || true
+
 sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
 sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
