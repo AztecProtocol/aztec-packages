@@ -29,8 +29,6 @@ import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.j
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
-import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from './get_logs_response.js';
 import type { L2LogsSource } from './l2_logs_source.js';
 
 /**

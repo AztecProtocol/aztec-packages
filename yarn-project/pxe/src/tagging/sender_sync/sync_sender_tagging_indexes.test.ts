@@ -6,7 +6,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { AppTaggingSecretKind, PrivateLog } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret, randomPrivateLogResult } from '@aztec/stdlib/testing';
-import { MinedTxReceipt, TxEffect as TxEffectClass, TxExecutionResult, TxHash, TxStatus } from '@aztec/stdlib/tx';
+import { MinedTxReceipt, type MinedTxStatus, TxEffect, TxExecutionResult, TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -90,17 +90,7 @@ describe('syncSenderTaggingIndexes', () => {
       );
     });
 
-    aztecNode.getTxReceipt.mockResolvedValue(
-      new TxReceipt(
-        finalizedTxHash,
-        TxStatus.FINALIZED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(14),
-      ),
-    );
+    aztecNode.getTxReceipt.mockResolvedValue(mined(finalizedTxHash, TxStatus.FINALIZED, 14));
 
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
@@ -429,7 +419,7 @@ describe('syncSenderTaggingIndexes', () => {
 
     // The TxEffect where only the tag at index 4 survived (non-revertible phase). The sync reads it off the receipt
     // via getTxReceipt(txHash, { includeTxEffect: true }).
-    const txEffect = new TxEffectClass(
+    const txEffect = new TxEffect(
       RevertCode.REVERTED,
       revertedTxHash,
       Fr.ZERO,
