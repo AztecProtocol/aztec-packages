@@ -52,7 +52,7 @@ async function getTxsContainingTags(
   anchorBlockHash: BlockHash,
 ): Promise<TxHash[][]> {
   // We use the utility function below to retrieve all logs for the tags across all pages, so we don't need to handle
-  // pagination here.
+  // pagination here. Sender sync only needs `txHash` from each log, so we leave `includeEffects` off.
   const allLogs = await getAllPrivateLogsByTags(aztecNode, tags, anchorBlockHash);
   return allLogs.map(logs => logs.map(log => log.txHash));
 }

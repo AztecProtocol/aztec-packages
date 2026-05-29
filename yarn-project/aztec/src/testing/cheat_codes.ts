@@ -118,8 +118,15 @@ export class CheatCodes {
       throw new Error(`warpL2TimeAtLeastBy: duration must be positive, got ${duration} seconds.`);
     }
 
-    const currentTimestamp = await this.eth.lastBlockTimestamp();
-    const targetTimestamp = BigInt(currentTimestamp) + BigInt(duration);
+    // Advance relative to whichever clock leads. A live sequencer mines L2 blocks at slot boundaries that can run
+    // ahead of anvil's L1 timestamp, so basing the target on L1 alone would advance the L2 timestamp by less than
+    // `duration`. Anchoring to the latest L2 block timestamp when it leads guarantees the post-warp L2 block is at
+    // least `duration` ahead of the current one.
+    const currentL1Timestamp = BigInt(await this.eth.lastBlockTimestamp());
+    const latestBlockData = await node.getBlockData('latest');
+    const latestL2Timestamp = latestBlockData ? BigInt(latestBlockData.header.globalVariables.timestamp) : 0n;
+    const baseTimestamp = latestL2Timestamp > currentL1Timestamp ? latestL2Timestamp : currentL1Timestamp;
+    const targetTimestamp = baseTimestamp + BigInt(duration);
     await this.warpL2TimeAtLeastTo(node, targetTimestamp);
   }
 }

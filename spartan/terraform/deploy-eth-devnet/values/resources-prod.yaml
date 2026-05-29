@@ -10,8 +10,11 @@ ethereum:
     storageSize: "10Gi"
     resources:
       requests:
-        memory: "12Gi"
-        cpu: "2.5"
+        memory: "2Gi"
+        cpu: "1"
+      limits:
+        memory: "8Gi"
+        cpu: "4"
 
   beacon:
     service:
@@ -23,8 +26,11 @@ ethereum:
     storageSize: "10Gi"
     resources:
       requests:
-        memory: "12Gi"
-        cpu: "2.5"
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "4Gi"
+        cpu: "2"
 
   validator:
     nodeSelector:
@@ -33,5 +39,8 @@ ethereum:
     storageSize: "10Gi"
     resources:
       requests:
-        memory: "12Gi"
-        cpu: "2.5"
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1"
