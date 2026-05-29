@@ -4,12 +4,7 @@ import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import {
-  ExtendedDirectionalAppTaggingSecret,
-  PendingTaggedLog,
-  SiloedTag,
-  type TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, PendingTaggedLog, SiloedTag, type TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import {
@@ -158,18 +153,15 @@ export class LogService {
     );
   }
 
-  async #getSecretsForSenders(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<ExtendedDirectionalAppTaggingSecret[]> {
+  async #getSecretsForSenders(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
     if (!recipientCompleteAddress) {
       return [];
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
-    // (recipient = us, sender = us)
+    // We implicitly add all PXE accounts as senders, this helps us find tagged logs with messages that are sent to a
+    // local account (recipient = us, sender = us)
     const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
 
     // We deduplicate the senders by adding them to a set and then converting the set back to an array
@@ -179,7 +171,7 @@ export class LogService {
 
     return Promise.all(
       deduplicatedSenders.map(async sender => {
-        const secret = await ExtendedDirectionalAppTaggingSecret.compute(
+        const secret = await AppTaggingSecret.computeUnconstrained(
           recipientCompleteAddress,
           recipientIvsk,
           sender,

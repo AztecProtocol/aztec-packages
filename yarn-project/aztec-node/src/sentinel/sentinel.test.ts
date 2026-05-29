@@ -986,6 +986,24 @@ describe('sentinel', () => {
         ]);
       });
 
+      it('emits zero-amount inactivity offenses when the penalty is zero', async () => {
+        sentinel.updateConfig({ slashInactivityPenalty: 0n, slashInactivityConsecutiveEpochThreshold: 1 });
+        const emitSpy = jest.spyOn(sentinel, 'emit');
+
+        await sentinel.handleEpochPerformance(EpochNumber(5), {
+          [validator1.toString()]: { missed: 8, total: 10 },
+        });
+
+        expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+          {
+            validator: validator1,
+            amount: 0n,
+            offenseType: OffenseType.INACTIVITY,
+            epochOrSlot: 5n,
+          },
+        ]);
+      });
+
       it('should not slash when no validators meet consecutive threshold', async () => {
         // Update config to require 3 consecutive epochs
         sentinel.updateConfig({ slashInactivityConsecutiveEpochThreshold: 3 });

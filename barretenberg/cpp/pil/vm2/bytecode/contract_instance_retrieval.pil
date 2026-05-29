@@ -118,14 +118,16 @@ namespace contract_instance_retrieval;
     // or is just assigned "address" (from input) for non-protocol contracts.
     pol commit derived_address;
 
-    // Public keys (all hinted). Per AZIP-8, only the incoming viewing key is exchanged with the
-    // address derivation circuit as a Grumpkin point; the other three are hashes computed
+    // Public keys (all hinted). Only the incoming viewing key is exchanged with the
+    // address derivation circuit as a Grumpkin point; the other five are hashes computed
     // off-circuit by the PXE.
     pol commit nullifier_key_hash;
     pol commit incoming_viewing_key_x;
     pol commit incoming_viewing_key_y;
     pol commit outgoing_viewing_key_hash;
     pol commit tagging_key_hash;
+    pol commit message_signing_key_hash;
+    pol commit fallback_key_hash;
 
     // ==== Determine if It Is a Protocol Contract (<= max) ====
 
@@ -262,7 +264,9 @@ namespace contract_instance_retrieval;
         incoming_viewing_key_x,
         incoming_viewing_key_y,
         outgoing_viewing_key_hash,
-        tagging_key_hash
+        tagging_key_hash,
+        message_signing_key_hash,
+        fallback_key_hash
     } in address_derivation.sel {
         address_derivation.address,
         address_derivation.salt,
@@ -274,7 +278,9 @@ namespace contract_instance_retrieval;
         address_derivation.incoming_viewing_key_x,
         address_derivation.incoming_viewing_key_y,
         address_derivation.outgoing_viewing_key_hash,
-        address_derivation.tagging_key_hash
+        address_derivation.tagging_key_hash,
+        address_derivation.message_signing_key_hash,
+        address_derivation.fallback_key_hash
     };
 
     // ==== Constrain "current" Class ID (Protocol Contracts) ====

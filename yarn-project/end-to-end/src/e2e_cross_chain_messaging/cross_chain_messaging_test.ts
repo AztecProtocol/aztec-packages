@@ -27,6 +27,7 @@ import {
   type EndToEndContext,
   type SetupOptions,
   deployAccounts,
+  ensureAuthRegistryPublished,
   publicDeployAccounts,
   setup,
   teardown,
@@ -171,6 +172,7 @@ export class CrossChainMessagingTest {
     // Set up cross chain messaging
     this.logger.info('Applying e2e_cross_chain_messaging setup');
 
+    await ensureAuthRegistryPublished(this.wallet, this.ownerAddress);
     // Create the token contract state.
     this.logger.verbose(`Public deploy accounts...`);
     await publicDeployAccounts(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);

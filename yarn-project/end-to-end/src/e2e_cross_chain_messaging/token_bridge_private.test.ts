@@ -113,6 +113,5 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
       .send({ from: user2Address });
 
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, initialPrivateBalance + bridgeAmount);
-  }),
-    90_000;
+  }, 90_000);
 });

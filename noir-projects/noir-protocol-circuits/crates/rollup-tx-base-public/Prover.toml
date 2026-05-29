@@ -1,10 +1,18 @@
 [inputs]
 anchor_block_archive_sibling_path = [
+<<<<<<< HEAD
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x18a26ba7385054169ef64d3f66054d5299a93151c93d1293ef216e038a450fa7",
   "0x14e4b977b2203b70e6ee1c2456eb7114d090fe4b907f631eecd0919fed432e7d",
   "0x30105bad22ddcc508b739b7c9ad87a561c569ff5cb0098a853c1c4ac21b7a037",
   "0x09bdb14b0d34e806cffb6898e86bb59ace4130c7dfd46f21e3c66761f7b06d01",
+=======
+  "0x2abd3cbae5093018d4a13582abc671ab03ea06b77441f5bf2ab354046c873c2b",
+  "0x21cb063a2c9282d85a9b58bd515f62422f1b9eefde85d06c2aa0938c81d83395",
+  "0x14e4b977b2203b70e6ee1c2456eb7114d090fe4b907f631eecd0919fed432e7d",
+  "0x30105bad22ddcc508b739b7c9ad87a561c569ff5cb0098a853c1c4ac21b7a037",
+  "0x2dcff3c9bcce1eaf9e9fc889c20627f9e125281111769a518a699ba2a9fedee4",
+>>>>>>> public-next
   "0x1434e6e2d5db1053ab8a3be58704509c799ee17e109c77f441f7bf1755400249",
   "0x119f56a2e8423a7feaab49b9b5dcbadec0648dfa4096b61b6774ea33ae29dc7f",
   "0x221cf368938c74e4fced9dfb2a8e37cd8a6c57d21385c249f0b5c2412341287f",
@@ -3547,6 +3555,7 @@ contract_class_log_fields = [
     prover_id = "0x0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
 
       [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail]
+<<<<<<< HEAD
       expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a181629"
 
         [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants]
@@ -3573,13 +3582,46 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.partial.nullifier_tree]
 root = "0x0a585ed1c88bcb0c676c3a959a4cfcd2f46bac56b65a46f5a3b847ecd6d66b90"
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000380"
+=======
+      expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a17593a"
+
+        [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants]
+        vk_tree_root = "0x26fc99382f808fb92f28ac0704a6f2694f4a86517781887b03c5ddbc66757c16"
+        protocol_contracts_hash = "0x2a4992871cb06d4d69d0dfe60cb66b14f9fa7d006ff80fb69fc0cd5851ff28eb"
+
+          [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header]
+          sponge_blob_hash = "0x1fc4fc93cc12365e3d41bcd0a5651109dfe3aaff26e6993234e4d479bc264d9f"
+          total_fees = "0x00000000000000000000000000000000000000000000000000008790cd55e980"
+          total_mana_used = "0x00000000000000000000000000000000000000000000000000000000000722f4"
+
+            [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.last_archive]
+            root = "0x163ad5849987af7f4582bd09c3710d96df003587f26c1cf5f0b33f3aaf78d144"
+            next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000011"
+
+[inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.l1_to_l2_message_tree]
+root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000004400"
+
+[inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.partial.note_hash_tree]
+root = "0x12901fe6fa2d1dbed7a6117a7ea92720f01253d8e36f1eeb922b43da619d9a31"
+next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000002c0"
+>>>>>>> public-next
+
+[inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.partial.nullifier_tree]
+root = "0x2ae0b4c6426597eff87adb578d59c639dca261c080b94d71116e051daf2b98ac"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000340"
 
 [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.state.partial.public_data_tree]
+<<<<<<< HEAD
 root = "0x08ee4fb6cf2b9c668d96b3398864fcb9478f7e0c8d534987e17c4b63dc14b486"
+=======
+root = "0x1c878a2009277c45d4a7e2168e564a3a2290e2086e7457688f02030d61df20f8"
+>>>>>>> public-next
 next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008b"
 
             [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables]
             chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
+<<<<<<< HEAD
             version = "0x00000000000000000000000000000000000000000000000000000000e41f7534"
             block_number = "0x0000000000000000000000000000000000000000000000000000000000000012"
             slot_number = "0x0000000000000000000000000000000000000000000000000000000000000046"
@@ -3587,17 +3629,34 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 
               [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables.coinbase]
               inner = "0x00000000000000000000000075ae2e89760359dc662e25158d2a9e129e2de0ca"
+=======
+            version = "0x00000000000000000000000000000000000000000000000000000000c43dbb7d"
+            block_number = "0x0000000000000000000000000000000000000000000000000000000000000011"
+            slot_number = "0x0000000000000000000000000000000000000000000000000000000000000045"
+            timestamp = "0x000000000000000000000000000000000000000000000000000000006a1615ca"
+
+              [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables.coinbase]
+              inner = "0x00000000000000000000000022b125f3f0b68cc48051ea3e18ef77745742b605"
+>>>>>>> public-next
 
               [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables.fee_recipient]
               inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
               [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.anchor_block_header.global_variables.gas_fees]
               fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
+<<<<<<< HEAD
               fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000cec1b00"
 
           [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.tx_context]
           chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
           version = "0x00000000000000000000000000000000000000000000000000000000e41f7534"
+=======
+              fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000012fef9e0"
+
+          [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.tx_context]
+          chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
+          version = "0x00000000000000000000000000000000000000000000000000000000c43dbb7d"
+>>>>>>> public-next
 
 [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.tx_context.gas_settings.gas_limits]
 da_gas = "0x0000000000000000000000000000000000000000000000000000000000030000"
@@ -3609,7 +3668,11 @@ l2_gas = "0x00000000000000000000000000000000000000000000000000000000000c795c"
 
 [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.tx_context.gas_settings.max_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
+<<<<<<< HEAD
 fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000005808c4ec"
+=======
+fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000816571aa"
+>>>>>>> public-next
 
 [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.constants.tx_context.gas_settings.max_priority_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3683,7 +3746,11 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
         nullifiers = [
+<<<<<<< HEAD
   "0x17961cb7f66d224ad7c4df30ef816b5d175250636f076f189d214203d58b0704",
+=======
+  "0x0f56fdd259750cd9195239df304d00a35a1e7a5f193b2c830f5543eb80fd8503",
+>>>>>>> public-next
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -7069,6 +7136,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
           [[inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
           is_static_call = false
+<<<<<<< HEAD
           calldata_hash = "0x0843082c669c7ab8f12d306383553b648bcb39b4926386197e03a8950f4c4433"
 
             [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
@@ -7076,6 +7144,15 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
             [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
             inner = "0x16f12aed745976676baa088386820039a24d5bb90ae49cbffd26994b01f8448c"
+=======
+          calldata_hash = "0x15c72719f27966cdaddc8fa4527bab0da5db9ef98937ab35c463337d32800685"
+
+            [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.msg_sender]
+            inner = "0x2f28d94f6394b5c2f07be232a797952d00157072b5a37d49d3259dd90fbdbe0c"
+
+            [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests.contract_address]
+            inner = "0x14cd213956c2575a41f283523ecb2b146c9d561e085dc24e16f979105747e575"
+>>>>>>> public-next
 
           [[inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.revertible_accumulated_data.public_call_requests]]
           is_static_call = false
@@ -7402,11 +7479,16 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
         l2_gas = "0x00000000000000000000000000000000000000000000000000000000000903d0"
 
         [inputs.public_chonk_verifier_proof_data.public_inputs.private_tail.fee_payer]
+<<<<<<< HEAD
         inner = "0x2a1499642d926d62b1b56ec169b0ba75ebafb5839844ea8335a3c85cd35012f3"
+=======
+        inner = "0x2f28d94f6394b5c2f07be232a797952d00157072b5a37d49d3259dd90fbdbe0c"
+>>>>>>> public-next
 
     [inputs.public_chonk_verifier_proof_data.vk_data]
     leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000006"
     sibling_path = [
+<<<<<<< HEAD
   "0x0cb26447b5f3ca1fc65d39790f61345ba9d31a33809e10fdaa13007e4ece1a3a",
   "0x2b14fdc5dd1fcfcd3b7aaf1cc59063317dd8109522eef8d33e8ee6f5cfefd4ec",
   "0x17ccc7b1bce7b66d016974cde787957ffc3de01cd2a9d1486e8cc82cd6167fac",
@@ -7414,6 +7496,15 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
   "0x06943774df677a509dd5530ea67929c721a56e562c354b735b235b8c522475d6",
   "0x18723cb5b67f3b3cedd1cd5cd9f814d324979986d776d1c21104a2fd11c1c290",
   "0x19f0f983741a4e75111f92380783d1c4e5666eddcad9dd960e32790791eabb5b"
+=======
+  "0x0a7fb889325f39bec13ee8f853c529ad8458c39c703cf4277c5b066d8d2eee15",
+  "0x0a2d5d1c88992fa153310bc96af4c750c81353526f8c7dfe2b069ed57136e696",
+  "0x14504afd38f5b621163f09ccf2f7b1e09bd735785a0e5601c72674b46e883003",
+  "0x1856bfbe0556337b95a1bfa91237d52ca74d1acfee63760a94eeb091972da9af",
+  "0x0b96ac97088e29b87f5cd854aa1ff5c1b518a7845a3404916b468d5730444fd0",
+  "0x187a7b8872d1297bc15f7171f32c36e5e60b53c4145ef62b1899c04fd7220fdf",
+  "0x2ccaede67145021b6b586f45936dfbdacb151c3e362621c3598ffd60e95b02a0"
+>>>>>>> public-next
 ]
 
       [inputs.public_chonk_verifier_proof_data.vk_data.vk]
@@ -22998,11 +23089,16 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.avm_proof_data.public_inputs]
     prover_id = "0x0000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc"
+<<<<<<< HEAD
     transaction_fee = "0x00000000000000000000000000000000000000000000000000007c43b13fc700"
+=======
+    transaction_fee = "0x0000000000000000000000000000000000000000000000000000c23982e6fae0"
+>>>>>>> public-next
     reverted = false
 
       [inputs.avm_proof_data.public_inputs.global_variables]
       chain_id = "0x0000000000000000000000000000000000000000000000000000000000007a69"
+<<<<<<< HEAD
       version = "0x00000000000000000000000000000000000000000000000000000000e41f7534"
       block_number = "0x0000000000000000000000000000000000000000000000000000000000000013"
       slot_number = "0x000000000000000000000000000000000000000000000000000000000000004b"
@@ -23010,12 +23106,22 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
         [inputs.avm_proof_data.public_inputs.global_variables.coinbase]
         inner = "0x00000000000000000000000075ae2e89760359dc662e25158d2a9e129e2de0ca"
+=======
+      version = "0x00000000000000000000000000000000000000000000000000000000c43dbb7d"
+      block_number = "0x0000000000000000000000000000000000000000000000000000000000000014"
+      slot_number = "0x0000000000000000000000000000000000000000000000000000000000000048"
+      timestamp = "0x000000000000000000000000000000000000000000000000000000006a1615ee"
+
+        [inputs.avm_proof_data.public_inputs.global_variables.coinbase]
+        inner = "0x00000000000000000000000022b125f3f0b68cc48051ea3e18ef77745742b605"
+>>>>>>> public-next
 
         [inputs.avm_proof_data.public_inputs.global_variables.fee_recipient]
         inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
         [inputs.avm_proof_data.public_inputs.global_variables.gas_fees]
         fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
+<<<<<<< HEAD
         fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000cec1b00"
 
 [[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
@@ -23035,6 +23141,27 @@ inner = "0x12e0c44e71adc7f674e0804c4cefa985c4922754d70dd62b0a38643e8e210059"
 
 [[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
 inner = "0x2c684fbe28396204416c1683c731cd0855874705f9ffbe52de453b218c74bc42"
+=======
+        fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000012fef9e0"
+
+[[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
+inner = "0x0199ad1d701a729933e8e2b14a118db67849b3c8d1403f2891f0bc6c3e980e87"
+
+[[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
+inner = "0x042beba925b4ef93aecacdc39cf48796a5788e8416a7db678a137c134c15851d"
+
+[[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
+inner = "0x19961e3dca83f4b1df6c578ceb468bcbf395f7952268d4c11f322df140b46227"
+
+[[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
+inner = "0x04bde23040cc7b426c028ead0af91935f4b27e57dee089270ba49d3bb34b6a5f"
+
+[[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
+inner = "0x1083d445b1c94543275b65ed3ca0d8039584285cb282a25fe8cdffe8d5d026ac"
+
+[[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
+inner = "0x0d9390f7581ba677b40d8c1a00421c57b520d9145b30b53496efb832968b6c48"
+>>>>>>> public-next
 
 [[inputs.avm_proof_data.public_inputs.protocol_contracts.derived_addresses]]
 inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -23053,6 +23180,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.l1_to_l2_message_tree]
 root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
+<<<<<<< HEAD
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000004c00"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.note_hash_tree]
@@ -23061,10 +23189,24 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.nullifier_tree]
 root = "0x156d6d1fd3918736b9e5231916c78c61168c4cad919ab35ba251127914b395b2"
+=======
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000005000"
+
+[inputs.avm_proof_data.public_inputs.start_tree_snapshots.note_hash_tree]
+root = "0x2c09e7ee5135b39ddd1cb4925cabd31eef4cf42d41ee9b5d89f9a7aa067b32d2"
+>>>>>>> public-next
 next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000003c0"
 
+[inputs.avm_proof_data.public_inputs.start_tree_snapshots.nullifier_tree]
+root = "0x04fab4f7098c3bb713cfba70ee729c45fb2df079018dc53903847e0ae7b4aa40"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000440"
+
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.public_data_tree]
+<<<<<<< HEAD
 root = "0x266fda3ec4c5a5d1a2e8e93ca7c55b0adbe267676fd715c9ee2b437401c371a3"
+=======
+root = "0x13f51b6eef89a2524d6de6dfbf4ece66cb440ff55d25fcae71fb5bac01eb3301"
+>>>>>>> public-next
 next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008b"
 
       [inputs.avm_proof_data.public_inputs.start_gas_used]
@@ -23081,7 +23223,11 @@ l2_gas = "0x00000000000000000000000000000000000000000000000000000000000c795c"
 
 [inputs.avm_proof_data.public_inputs.gas_settings.max_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
+<<<<<<< HEAD
 fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000005808c4ec"
+=======
+fee_per_l2_gas = "0x00000000000000000000000000000000000000000000000000000000816571aa"
+>>>>>>> public-next
 
 [inputs.avm_proof_data.public_inputs.gas_settings.max_priority_fees_per_gas]
 fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -23089,10 +23235,17 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
 
       [inputs.avm_proof_data.public_inputs.effective_gas_fees]
       fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
+<<<<<<< HEAD
       fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000cec1b00"
 
       [inputs.avm_proof_data.public_inputs.fee_payer]
       inner = "0x2a1499642d926d62b1b56ec169b0ba75ebafb5839844ea8335a3c85cd35012f3"
+=======
+      fee_per_l2_gas = "0x0000000000000000000000000000000000000000000000000000000012fef9e0"
+
+      [inputs.avm_proof_data.public_inputs.fee_payer]
+      inner = "0x2f28d94f6394b5c2f07be232a797952d00157072b5a37d49d3259dd90fbdbe0c"
+>>>>>>> public-next
 
       [inputs.avm_proof_data.public_inputs.public_call_request_array_lengths]
       setup_calls = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -23421,6 +23574,7 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
 
       [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
       is_static_call = false
+<<<<<<< HEAD
       calldata_hash = "0x0843082c669c7ab8f12d306383553b648bcb39b4926386197e03a8950f4c4433"
 
         [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
@@ -23428,6 +23582,15 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
 
         [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
         inner = "0x16f12aed745976676baa088386820039a24d5bb90ae49cbffd26994b01f8448c"
+=======
+      calldata_hash = "0x15c72719f27966cdaddc8fa4527bab0da5db9ef98937ab35c463337d32800685"
+
+        [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.msg_sender]
+        inner = "0x2f28d94f6394b5c2f07be232a797952d00157072b5a37d49d3259dd90fbdbe0c"
+
+        [inputs.avm_proof_data.public_inputs.public_app_logic_call_requests.contract_address]
+        inner = "0x14cd213956c2575a41f283523ecb2b146c9d561e085dc24e16f979105747e575"
+>>>>>>> public-next
 
       [[inputs.avm_proof_data.public_inputs.public_app_logic_call_requests]]
       is_static_call = false
@@ -23827,7 +23990,11 @@ fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000000000
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
       nullifiers = [
+<<<<<<< HEAD
   "0x17961cb7f66d224ad7c4df30ef816b5d175250636f076f189d214203d58b0704",
+=======
+  "0x0f56fdd259750cd9195239df304d00a35a1e7a5f193b2c830f5543eb80fd8503",
+>>>>>>> public-next
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -24189,6 +24356,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.l1_to_l2_message_tree]
 root = "0x0fef6d80d31109ddb56d6b3f607cbc9c0af0bff3ea0d43e8f278983c64c11f7a"
+<<<<<<< HEAD
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000004c00"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.note_hash_tree]
@@ -24197,10 +24365,24 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.nullifier_tree]
 root = "0x2570f2f6a56264f4ee89e85aa148e17c8f9076bdf778ab5f8b494020972a26f9"
+=======
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000005000"
+
+[inputs.avm_proof_data.public_inputs.end_tree_snapshots.note_hash_tree]
+root = "0x2c09e7ee5135b39ddd1cb4925cabd31eef4cf42d41ee9b5d89f9a7aa067b32d2"
+>>>>>>> public-next
 next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000400"
 
+[inputs.avm_proof_data.public_inputs.end_tree_snapshots.nullifier_tree]
+root = "0x2666149dabb578d559d1dd41b8787fe9fe648fc8df1559330e3d206724e6517f"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000480"
+
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.public_data_tree]
+<<<<<<< HEAD
 root = "0x2efc5a0ec645a4443f50fbea68465b07b78d346beab029f1fc9b9ab6cdcc27da"
+=======
+root = "0x13ef669727d3bf7cbd6db0a07cd3a3aae15fb13ed2d79dea28376a0d23c20634"
+>>>>>>> public-next
 next_available_leaf_index = "0x000000000000000000000000000000000000000000000000000000000000008b"
 
       [inputs.avm_proof_data.public_inputs.end_gas_used]
@@ -24281,7 +24463,11 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
       nullifiers = [
+<<<<<<< HEAD
   "0x17961cb7f66d224ad7c4df30ef816b5d175250636f076f189d214203d58b0704",
+=======
+  "0x0f56fdd259750cd9195239df304d00a35a1e7a5f193b2c830f5543eb80fd8503",
+>>>>>>> public-next
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -28529,6 +28715,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
 
         [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
+<<<<<<< HEAD
         leaf_slot = "0x01a5691f69825d72e8bd4366a71f6b556d70e4ba782cad5bea9b2ca739d59c9c"
         value = "0x2a1499642d926d62b1b56ec169b0ba75ebafb5839844ea8335a3c85cd35012f3"
 
@@ -28539,6 +28726,18 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
         [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
         leaf_slot = "0x0000000000000000000000000000000000000000000000000000000000000000"
         value = "0x0000000000000000000000000000000000000000000000000000000000000000"
+=======
+        leaf_slot = "0x088dd971fdd699378c3d3d7935c922a87a3d2fabacdf9ba6af1e0d7920226954"
+        value = "0x0000000000000000000000000000000000000000000000000000000000001c20"
+
+        [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
+        leaf_slot = "0x275132cce985eac93aca8fdcde56b28a86eb28c9a05316be3fdff9feea10ac42"
+        value = "0x0000000000000000000000000000000000000000000000000000000000000af0"
+
+        [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
+        leaf_slot = "0x1dbfb0eb7553969b364434a7642dea0b1daf1734832a6a115d15409b1455b664"
+        value = "0x00000000000000000000000000000000000000000000021e0ee179ae667245e0"
+>>>>>>> public-next
 
         [[inputs.avm_proof_data.public_inputs.accumulated_data.public_data_writes]]
         leaf_slot = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -28803,5 +29002,10 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
     squeeze_mode = false
 
   [inputs.last_archive]
+<<<<<<< HEAD
   root = "0x006f347cccb8c56062dfd0afd80e9adaac0d9bb27140d6b44c5b7ae8f66475c3"
   next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000013"
+=======
+  root = "0x03c8306a1c3aa6afb06f93b791317dccf742416c75f3e61d1a5cbfcbb707310a"
+  next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000014"
+>>>>>>> public-next

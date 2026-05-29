@@ -21,7 +21,7 @@ namespace bb::avm2::simulation {
  *   3. incoming_viewing_key_hash = Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, ivpk.x, ivpk.y)
  *   4. public_keys_hash          = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH,
  *                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash,
- *                                    tagging_key_hash)
+ *                                    tagging_key_hash, message_signing_key_hash, fallback_key_hash)
  *   5. preaddress                = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
  *   6. preaddress_public_key     = preaddress * G1  (Grumpkin scalar multiplication)
  *   7. address                   = (preaddress_public_key + incoming_viewing_key).x  (Grumpkin EC add)
@@ -62,12 +62,14 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
                                                     instance.public_keys.incoming_viewing_key.x,
                                                     instance.public_keys.incoming_viewing_key.y });
 
-    // public_keys_hash combines the four single-key hashes (see #[PUBLIC_KEYS_HASH_POSEIDON2_0..1]).
+    // public_keys_hash combines the six single-key hashes (see #[PUBLIC_KEYS_HASH_POSEIDON2_0..2]).
     FF public_keys_hash = poseidon2.hash({ DOM_SEP__PUBLIC_KEYS_HASH,
                                            instance.public_keys.nullifier_key_hash,
                                            incoming_viewing_key_hash,
                                            instance.public_keys.outgoing_viewing_key_hash,
-                                           instance.public_keys.tagging_key_hash });
+                                           instance.public_keys.tagging_key_hash,
+                                           instance.public_keys.message_signing_key_hash,
+                                           instance.public_keys.fallback_key_hash });
 
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PREADDRESS_POSEIDON2] in address_derivation.pil.
     FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });

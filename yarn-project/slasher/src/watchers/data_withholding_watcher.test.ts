@@ -291,16 +291,32 @@ describe('DataWithholdingWatcher', () => {
     expect(l2BlockSource.getCheckpoint).toHaveBeenCalledTimes(1);
   });
 
-  it('respects penalty=0 as a disable switch', async () => {
+  it('emits zero-amount offenses when the penalty is zero', async () => {
     watcher.updateConfig({ slashDataWithholdingPenalty: 0n });
     await startAtSlot(10);
-    setSyncedSlot(10 + TOLERANCE + 5);
+    setSyncedSlot(11 + TOLERANCE + 1);
+
+    const slot = 11;
+    const published = makePublished(slot, 1);
+    const missing = published.checkpoint.blocks[0].body.txEffects[0].txHash;
+    const attester = EthAddress.random();
+    l2BlockSource.getCheckpoint.mockResolvedValue(published);
+    mockMissing([missing]);
+    watcher.attestersBySlot.set(slot, [attester]);
 
     const captured = captureEmits();
     await watcher.work();
 
-    expect(l2BlockSource.getCheckpoint).not.toHaveBeenCalled();
-    expect(captured).toHaveLength(0);
+    expect(captured).toEqual([
+      [
+        {
+          validator: attester,
+          amount: 0n,
+          offenseType: OffenseType.DATA_WITHHOLDING,
+          epochOrSlot: BigInt(slot),
+        },
+      ],
+    ]);
   });
 
   it('does not slash a checkpoint with no recoverable attesters even if txs are missing', async () => {

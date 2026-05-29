@@ -1,7 +1,10 @@
 use crate::{
     context::PrivateContext,
     event::{event_emission::NewEvent, event_interface::EventInterface},
-    messages::{logs::event::encode_private_event_message, message_delivery::do_private_message_delivery},
+    messages::{
+        logs::event::encode_private_event_message,
+        message_delivery::{do_private_message_delivery, MessageDelivery},
+    },
 };
 use crate::protocol::{address::AztecAddress, traits::Serialize};
 
@@ -35,7 +38,7 @@ where
     ///
     /// The message is first encrypted to the recipient's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` must be one of [`crate::messages::message_delivery::MessageDeliveryEnum`], and will inform
+    /// The `delivery_mode` must be a [`crate::messages::message_delivery::MessageDelivery`] value, and will inform
     /// costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
     /// constant.
     ///
@@ -45,7 +48,7 @@ where
     /// normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a message
     /// to an invalid recipient) and forced privacy leaks (where an invalid recipient results in a unique transaction
     /// fingerprint, e.g. one lacking the private logs that would correspond to message delivery).
-    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
+    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: MessageDelivery) {
         // Technical note: we're about to call a closure that needs access to `new_event`, but we can't pass `self` to
         // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
         // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is

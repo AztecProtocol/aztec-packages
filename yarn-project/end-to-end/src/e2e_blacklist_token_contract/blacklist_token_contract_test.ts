@@ -18,6 +18,7 @@ import {
   type EndToEndContext,
   type SetupOptions,
   deployAccounts,
+  ensureAuthRegistryPublished,
   publicDeployAccounts,
   setup,
   teardown,
@@ -113,6 +114,7 @@ export class BlacklistTokenContractTest {
     this.blacklistedAddress = deployedAccounts[2].address;
 
     this.logger.info('Setting up blacklist token contract');
+    await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
     // Create the token contract state.
     this.logger.verbose(`Public deploy accounts...`);
     await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);

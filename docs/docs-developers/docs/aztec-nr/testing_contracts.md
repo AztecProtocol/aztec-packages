@@ -46,69 +46,59 @@ Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires 
 
 ## Basic test structure
 
-Tests live in the same crate as your contract. `aztec new` creates a single-crate project, and the convention is to place `#[test]` functions in a `mod tests` block alongside the contract (or in submodules of the crate):
+`aztec new my_project` scaffolds a workspace with two crates: a `contract` crate that holds the contract code, and a separate `test` crate that holds your `#[test]` functions:
+
+```text
+my_project/
+├── Nargo.toml                 # [workspace] members = ["my_project_contract", "my_project_test"]
+├── my_project_contract/
+│   ├── Nargo.toml             # type = "contract"
+│   └── src/main.nr
+└── my_project_test/
+    ├── Nargo.toml             # type = "lib", depends on my_project_contract
+    └── src/lib.nr             # #[test] functions go here
+```
+
+The motivation for the split of contract and tests into its own crates is **faster iteration**: editing a test does not invalidate the contract's compiled artifact, so `aztec test` skips contract recompilation when only test code changed.
+
+`aztec compile` warns if it finds `#[test]` functions inside a contract crate.
+
+The generated test crate template imports the contract by package name and then initializes it:
 
 ```rust
-use aztec::macros::aztec;
+// my_project_test/src/lib.nr
+use aztec::test::helpers::test_environment::TestEnvironment;
+use my_project_contract::Main;
 
-#[aztec]
-pub contract MyContract {
-    // ...contract functions...
-}
+#[test]
+unconstrained fn test_constructor() {
+    let mut env = TestEnvironment::new();
+    let deployer = env.create_light_account();
 
-mod tests {
-    use super::MyContract;
-    use aztec::test::helpers::test_environment::TestEnvironment;
-
-    #[test]
-    unconstrained fn test_basic_flow() {
-        // 1. Create test environment
-        let mut env = TestEnvironment::new();
-
-        // 2. Create accounts
-        let _owner = env.create_light_account();
-    }
+    let _contract_address = env.deploy("@my_project_contract/Main")
+        .with_private_initializer(deployer, Main::interface().constructor());
 }
 ```
+
+Because tests live in their own crate, we refer to the contract via its crate name using the `@crate_name/ContractName` syntax.
 
 :::info Test execution notes
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
 - See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
-
+- It is always necessary to deploy a contract in order to test it
 :::
 
-:::tip Organizing test files
-For larger test suites, split tests into submodules of your crate rather than keeping them all inside `main.nr`:
-
-- Create modules like `src/transfer_tests.nr`, `src/auth_tests.nr`
-- Declare them from `src/main.nr` with `mod transfer_tests;`, `mod auth_tests;`
-- Share setup functions in `src/test_utils.nr`
-
-See the [aztec-standards token contract](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract) for a worked example of this layout.
-:::
-
-## Deploying contracts
-
-In order to test you'll most likely want to deploy a contract in your testing environment. First, instantiate a deployer:
-
-```rust
-let deployer = env.deploy("ContractName");
-
-// If on a different crate:
-let deployer = env.deploy("../other_contract");
-```
-
-:::warning
-It is always necessary to deploy a contract in order to test it. `aztec test` automatically compiles contracts when changes are detected, but you can also manually compile with `aztec compile` to regenerate the bytecode and ABI.
-:::
-
-You can then choose whatever you need to initialize by interfacing with your initializer and calling it:
+If you'll add arguments to your contract's constructor you pass them directly to the constructor function in the test:
 
 ```rust
 let initializer = MyContract::interface().constructor(param1, param2);
+```
 
+Since Aztec contracts can be initialized both in private and public or they can be interacted with without any kind of initialization (see [Contract creation](../foundational-topics/contract_creation.md) for how Aztec's deployment model differs from Ethereum's) there are 3 options on the deployer:
+
+```rust
 let contract_address = deployer.with_private_initializer(owner, initializer);
 let contract_address = deployer.with_public_initializer(owner, initializer);
 let contract_address = deployer.without_initializer();
@@ -122,7 +112,7 @@ pub unconstrained fn setup(initial_value: Field) -> (TestEnvironment, AztecAddre
     let mut env = TestEnvironment::new();
     let owner = env.create_light_account();
     let initializer = MyContract::interface().constructor(initial_value, owner);
-    let contract_address = env.deploy("MyContract").with_private_initializer(owner, initializer);
+    let contract_address = env.deploy("@my_project_contract/MyContract").with_private_initializer(owner, initializer);
     (env, contract_address, owner)
 }
 

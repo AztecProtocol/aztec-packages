@@ -71,7 +71,7 @@ pub fn _share_escrow(
 ) {
     let event_struct = EscrowDetailsLogContent { escrow, master_secret_keys };
     emit_event_in_private(context, event_struct).deliver_to(
-        account, MessageDelivery.ONCHAIN_CONSTRAINED,
+        account, MessageDelivery::onchain_constrained(),
     );
 }
 ```
