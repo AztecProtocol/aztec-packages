@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -15,6 +16,10 @@
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "zk_sumcheck_data.hpp"
+
+#include <algorithm>
+#include <cstdlib>
+#include <iostream>
 
 namespace bb {
 
@@ -292,6 +297,78 @@ template <typename Flavor> class SumcheckProverRound {
         size_t size;
     };
 
+    static bool row_skip_diagnostics_enabled()
+    {
+        const char* value = std::getenv("BB_SUMCHECK_ROW_SKIP_DIAGNOSTICS");
+        return value != nullptr && value[0] != '\0' && !(value[0] == '0' && value[1] == '\0');
+    }
+
+    void maybe_print_eccvm_row_skip_diagnostics(const std::vector<BlockOfContiguousRows>& round_manifest,
+                                                const size_t effective_round_size) const
+    {
+        constexpr bool is_eccvm_flavor = IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor>;
+        if constexpr (is_eccvm_flavor) {
+            if (!row_skip_diagnostics_enabled()) {
+                return;
+            }
+
+            const size_t scan_start = excluded_head_size;
+            const size_t scanned_edges = effective_round_size > scan_start ? effective_round_size - scan_start : 0;
+
+            auto sorted_manifest = round_manifest;
+            std::sort(sorted_manifest.begin(),
+                      sorted_manifest.end(),
+                      [](const BlockOfContiguousRows& lhs, const BlockOfContiguousRows& rhs) {
+                          return lhs.starting_edge_idx < rhs.starting_edge_idx;
+                      });
+
+            size_t cursor = scan_start;
+            size_t active_edges = 0;
+            size_t merged_active_ranges = 0;
+            size_t skipped_ranges = 0;
+            size_t largest_active_range = 0;
+            size_t largest_skipped_range = 0;
+            bool has_active_range = false;
+
+            for (const auto& block : sorted_manifest) {
+                const size_t block_start = std::max(block.starting_edge_idx, scan_start);
+                const size_t block_end = std::min(block.starting_edge_idx + block.size, effective_round_size);
+                if (block_end <= block_start || block_end <= cursor) {
+                    continue;
+                }
+                if (block_start > cursor) {
+                    largest_skipped_range = std::max(largest_skipped_range, block_start - cursor);
+                    ++skipped_ranges;
+                    ++merged_active_ranges;
+                } else if (!has_active_range) {
+                    ++merged_active_ranges;
+                }
+
+                const size_t active_start = std::max(block_start, cursor);
+                const size_t active_size = block_end - active_start;
+                active_edges += active_size;
+                largest_active_range = std::max(largest_active_range, block_end - block_start);
+                has_active_range = true;
+                cursor = block_end;
+            }
+
+            if (cursor < effective_round_size) {
+                largest_skipped_range = std::max(largest_skipped_range, effective_round_size - cursor);
+                ++skipped_ranges;
+            }
+
+            const size_t skipped_edges =
+                active_edges < scanned_edges ? scanned_edges - active_edges : static_cast<size_t>(0);
+            std::cerr << "[eccvm-row-skip] round_size=" << round_size
+                      << " effective_round_size=" << effective_round_size << " excluded_head_edges=" << scan_start
+                      << " scanned_edge_pairs=" << scanned_edges / 2 << " active_edge_pairs=" << active_edges / 2
+                      << " skipped_edge_pairs=" << skipped_edges / 2 << " manifest_blocks=" << round_manifest.size()
+                      << " merged_active_ranges=" << merged_active_ranges << " skipped_ranges=" << skipped_ranges
+                      << " largest_skipped_range_pairs=" << largest_skipped_range / 2
+                      << " largest_active_range_pairs=" << largest_active_range / 2 << std::endl;
+        }
+    }
+
     /**
      * @brief Compute the number of unskippable rows we must iterate over
      * @details Some circuits have a circuit size much larger than the number of used rows (ECCVM, Translator).
@@ -373,6 +450,7 @@ template <typename Flavor> class SumcheckProverRound {
             result.push_back(BlockOfContiguousRows{ .starting_edge_idx = start_edge_idx,
                                                     .size = effective_round_size - start_edge_idx });
         }
+        maybe_print_eccvm_row_skip_diagnostics(result, effective_round_size);
         return result;
     }
 
