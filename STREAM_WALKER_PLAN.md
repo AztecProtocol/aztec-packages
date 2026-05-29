@@ -653,6 +653,30 @@ Strict sequencing — each step must verify before the next begins.
 
 ---
 
+## 15.1 Local implementation status (this session)
+
+Branch `stream-walker-impl` at `/tmp/aztec-pr23575` carries the work-in-progress. Heads as of this session:
+
+| Commit | Step | What landed |
+|---|---|---|
+| `0f45d295ca` | §14 step 1 | Constants + bucket_meta/splitRecords buffer sizes in `ba_stream_plan.ts`. TS compile clean. |
+| `89b62330a7` | §14 step 2 | Plan §5.2 / §14 step 2 dropped (walker emits all split_records — see edit above). |
+| `9f8d8acf33` | §14 steps 3+4 | New WGSL templates: `ba_bucket_meta_pack.template.wgsl`, `ba_stream_walker.template.wgsl`. `shader_manager.ts` gen functions wired. Mustache render succeeds. WGSL not yet sent through Tint at runtime. |
+
+### What's NOT done yet, in order of next-session priority
+
+1. **Wire walker into `msm_v2.ts`** — currently a phantom kernel: compiled by `shader_manager.ts` but not instantiated, bound, or dispatched. Pool allocation for `bucket_meta`, `partials_buf` (16/thread), `split_records` (16 entries/thread × 2 u32) needs adding. The walker uses 8 storage + 1 uniform bindings; on M2 desktop this fits.
+2. **Bucket-meta pack kernel dispatch** — runs after the planner's partition_thread, before the walker, populating `bucket_meta` from `sorted_bucket_list/sorted_count_list/offsets/cumulative_adds`.
+3. **Combined `points` buffer** — walker expects `point_x` and `point_y` concatenated with `point_y` at offset `params.z`. Easiest path is to allocate a new combined buffer at pool init (or stack `point_y` in the existing `point_x` allocation with a stride).
+4. **Host-side partials fixup** — §10 protocol; readback `split_records` + `partials_buf`, group by bucket_id, sequential affine-add on CPU, writeBuffer back to `bucket_sums`. Excluded from GPU timing.
+5. **Cross-check at logn=10** — `?autorun=msm-cross-check&logn=10` against WASM. This is the first real correctness gate.
+
+### Open issues / known bugs in current code
+
+- **No runtime WGSL validation done.** naga rejects existing `fr_inv_by_loop_pk` (`const JUMPY_K` in function scope) — that's a naga vs Tint gap, pre-existing. The walker hasn't been sent through Chrome's actual compiler. First dispatch may surface bugs (binding mismatches, fixed-size array out-of-bounds, etc.).
+- **Worktree node_modules is a symlink** to the main checkout's `~/aztec-packages/barretenberg/ts/node_modules`. If the operator's other agent on `tier-2-v2` regenerates anything in there, this worktree's builds may break unexpectedly.
+- **Bindings count = 9** is fine on M2 but exceeds the mobile-WebGPU default `maxStorageBuffersPerShaderStage=8`. Mobile fallback: fold `bucket_sums + partials_buf` into one `sums_and_partials` binding (the earlier-version layout the walker WGSL was first written against — easily restored).
+
 ## 16. Cross-references
 
 - Original PR #23575 plan gist: https://gist.github.com/AztecBot/439c9925837d13f010204b5c9d6400ad
