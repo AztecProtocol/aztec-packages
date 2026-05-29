@@ -11,9 +11,12 @@ export const MegaApp = flavor({
   name: "MegaAppFlavor",
   family: "mega_app",
   relations: [
-    R.ArithmeticRelation,
+    // Perm first (no gate block) keeps to-be-shifted witnesses contiguous; LogDerivLookup
+    // before Arithmetic keeps the lookup block early, matching mega.ts. See ultra.ts for the
+    // full rationale.
     R.UltraPermutationRelation,
     R.LogDerivLookupRelation,
+    R.ArithmeticRelation,
     R.DeltaRangeConstraintRelation,
     R.EllipticRelation,
     R.MemoryRelation,
