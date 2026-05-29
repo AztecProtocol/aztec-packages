@@ -5,7 +5,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
@@ -328,6 +328,13 @@ describe('LibP2PService', () => {
       return new BlockTxsResponse(archiveRoot, txs as TxArray, BitVector.init(length, indices));
     }
 
+    /** Builds a minimal archived block whose txEffects carry the given tx hashes, for archiver-fallback tests. */
+    function makeArchivedBlock(txHashes: string[]): L2Block {
+      return {
+        body: { txEffects: txHashes.map(h => ({ txHash: { toString: () => h } })) },
+      } as unknown as L2Block;
+    }
+
     /** Sets up the mempools with a mock attestation pool that returns a proposal with given tx hashes. */
     function setProposalTxHashes(svc: TestLibP2PService, txHashes: string[]): void {
       // Create a partial mock of the attestation pool that only implements getBlockProposalByArchive.
@@ -483,21 +490,44 @@ describe('LibP2PService', () => {
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
 
-    it('should reject without penalizing when proposal is missing', async () => {
+    it('should reject without penalizing when the block is unknown (no proposal and not in the archiver)', async () => {
       const hash = Fr.random();
       // Simple valid shape that should pass pre-checks
       const request = makeRequest(hash, 3, [0, 2]);
       const response = makeResponse(hash, 3, [0, 2], ['0xgood0']);
 
-      // No proposal available - mock attestationPool to return undefined
+      // Neither the attestation pool nor the archiver knows this block, so we cannot verify the
+      // membership/order of the returned txs. This is not a peer fault, so no penalty is applied.
       const mockAttestationPool: MockAttestationPoolForTests = {
         getBlockProposalByArchive: (_: string) => Promise.resolve(undefined),
       };
       service.setAttestationPool(mockAttestationPool);
+      mockArchiver.getBlock.mockResolvedValue(undefined);
 
       const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    // Regression test for the tx-collection ban-storm: a prover (or any node) collecting txs to
+    // prove an already-mined block has no block proposal in its attestation pool, but it does know
+    // the block via the archiver. The validator must fall back to the archiver (as the responder
+    // handler does) so it can accept valid responses instead of rejecting every one and storming peers.
+    it('should accept when the proposal is missing but the block is known via the archiver', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']);
+
+      // No proposal (the prover never received it), but the mined block is in the archiver.
+      service.setAttestationPool({ getBlockProposalByArchive: (_: string) => Promise.resolve(undefined) });
+      mockArchiver.getBlock.mockResolvedValue(
+        makeArchivedBlock(['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']),
+      );
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      expect(mockArchiver.getBlock).toHaveBeenCalledWith({ archive: hash });
     });
   });
 

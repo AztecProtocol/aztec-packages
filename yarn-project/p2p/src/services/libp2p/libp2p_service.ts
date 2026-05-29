@@ -1560,18 +1560,26 @@ export class LibP2PService extends WithTracer implements P2PService {
         );
       }
 
-      // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
+      // To verify membership/order of the returned txs we need the canonical tx hash list for the
+      // block. Prefer the block proposal (held while a block is in flight), but fall back to the
+      // archiver for blocks we only know as mined — e.g. a prover collecting txs to prove a block it
+      // never received a proposal for. This mirrors the responder side (reqRespBlockTxsHandler),
+      // which serves from proposal-or-archiver.
       const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
-      if (proposal) {
+      const blockTxHashes =
+        proposal?.txHashes ??
+        (await this.archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(e => e.txHash);
+
+      if (blockTxHashes) {
         // Build intersected indices
         const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
 
         // Enforce subset membership and preserve increasing order by index.
-        const hashToIndexInProposal = new Map<string, number>(
-          proposal.txHashes.map((h, i) => [h.toString(), i] as [string, number]),
+        const hashToIndexInBlock = new Map<string, number>(
+          blockTxHashes.map((h, i) => [h.toString(), i] as [string, number]),
         );
         const allowedIndexSet = new Set(intersectIdx);
-        const indices = returnedHashes.map(h => hashToIndexInProposal.get(h));
+        const indices = returnedHashes.map(h => hashToIndexInBlock.get(h));
         const allAllowed = indices.every(idx => idx !== undefined && allowedIndexSet.has(idx));
         const strictlyIncreasing = indices.every((idx, i) => (i === 0 ? idx !== undefined : idx! > indices[i - 1]!));
         if (!allAllowed || !strictlyIncreasing) {
@@ -1579,9 +1587,10 @@ export class LibP2PService extends WithTracer implements P2PService {
           throw new ValidationError('Returned txs do not match expected subset/order for requested indices');
         }
       } else {
-        // No local proposal, cannot check the membership/order of the returned txs
+        // Neither a local proposal nor an archived block: we cannot verify membership/order of the
+        // returned txs. This is a local-state gap, not a peer fault, so we do not penalize.
         this.logger.warn(
-          `Block proposal not found for archive root ${request.archiveRoot.toString()}; cannot validate membership/order of returned txs`,
+          `Block ${request.archiveRoot.toString()} not found in attestation pool or archiver; cannot validate membership/order of returned txs`,
         );
         return false;
       }
