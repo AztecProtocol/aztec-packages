@@ -1,10 +1,10 @@
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { Anchor } from '../foundation/anchor.js';
+import type { Origin } from '../foundation/origin.js';
 import type { EntityTypeId, FactStore, FactTypeId, StoredFact } from './fact_store.js';
 
 /** Scope-guarded façade over {@link FactStore}, mirroring `CapsuleService`. */
-export class FactStoreService {
+export class FactService {
   constructor(
     private readonly factStore: FactStore,
     private readonly allowedScopes: AztecAddress[],
@@ -17,10 +17,11 @@ export class FactStoreService {
     factType: FactTypeId,
     correlationKey: Buffer,
     payload: Buffer,
-    anchor: Anchor | null,
+    origin: Origin | null,
+    jobId: string,
   ): Promise<void> {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.factStore.put(contract, scope, entityType, factType, correlationKey, payload, anchor);
+    return this.factStore.put(contract, scope, entityType, factType, correlationKey, payload, origin, jobId);
   }
 
   loadCanonicalFactSet(
@@ -28,14 +29,20 @@ export class FactStoreService {
     scope: AztecAddress,
     entityType: EntityTypeId,
     correlationKey: Buffer,
+    jobId: string,
   ): Promise<StoredFact[]> {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.factStore.loadCanonicalFactSet(contract, scope, entityType, correlationKey);
+    return this.factStore.loadCanonicalFactSet(contract, scope, entityType, correlationKey, jobId);
   }
 
-  activeEntities(contract: AztecAddress, scope: AztecAddress, entityType: EntityTypeId): Promise<Buffer[]> {
+  activeEntities(
+    contract: AztecAddress,
+    scope: AztecAddress,
+    entityType: EntityTypeId,
+    jobId: string,
+  ): Promise<Buffer[]> {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.factStore.activeEntities(contract, scope, entityType);
+    return this.factStore.activeEntities(contract, scope, entityType, jobId);
   }
 
   terminateEntity(
@@ -43,9 +50,10 @@ export class FactStoreService {
     scope: AztecAddress,
     entityType: EntityTypeId,
     correlationKey: Buffer,
+    jobId: string,
   ): Promise<void> {
     assertAllowedScope(scope, this.allowedScopes);
-    return this.factStore.terminate(contract, scope, entityType, correlationKey);
+    return this.factStore.terminate(contract, scope, entityType, correlationKey, jobId);
   }
 }
 

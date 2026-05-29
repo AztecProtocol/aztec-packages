@@ -827,12 +827,12 @@ export class Oracle {
     [factType]: ACVMField[],
     [correlationKey]: ACVMField[],
     payload: ACVMField[],
-    [hasAnchor]: ACVMField[],
-    [anchorBlockNumber]: ACVMField[],
-    [anchorBlockHash]: ACVMField[],
+    [hasOrigin]: ACVMField[],
+    [originBlockNumber]: ACVMField[],
+    [originBlockHash]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const anchor = Fr.fromString(hasAnchor).toBigInt()
-      ? { blockNumber: Fr.fromString(anchorBlockNumber).toNumber(), blockHash: Fr.fromString(anchorBlockHash) }
+    const origin = Fr.fromString(hasOrigin).toBigInt()
+      ? { blockNumber: Fr.fromString(originBlockNumber).toNumber(), blockHash: Fr.fromString(originBlockHash) }
       : null;
     await this.handlerAsUtility().recordFact(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
@@ -841,7 +841,7 @@ export class Oracle {
       Fr.fromString(factType),
       Fr.fromString(correlationKey),
       payload.map(Fr.fromString),
-      anchor,
+      origin,
     );
     return [];
   }

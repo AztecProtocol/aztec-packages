@@ -224,7 +224,8 @@ describe('PXE', () => {
       const blockHeader = BlockHeader.empty({
         globalVariables,
       });
-      const blockHash = BlockHash.random();
+
+      const blockHash = new BlockHash(new Fr(1234567n));
       const archive = AppendOnlyTreeSnapshot.empty();
       const checkpointNumber = CheckpointNumber.fromBlockNumber(lastKnownBlockNumber);
       const blockResponse: BlockResponse = {
@@ -244,8 +245,15 @@ describe('PXE', () => {
       };
       node.getBlock.mockResolvedValue(blockResponse);
       node.getBlockData.mockResolvedValue(blockData);
+      node.getBlocks.mockImplementation(((from: BlockNumber, limit: number) =>
+        Promise.resolve(
+          Array.from({ length: limit }, (_, i) => ({
+            ...blockResponse,
+            number: BlockNumber(from + i),
+            hash: blockHash,
+          })),
+        )) as typeof node.getBlocks);
 
-      // Mock getChainTips which is needed for syncing tagged logs
       const tipId = {
         block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: {
@@ -253,11 +261,15 @@ describe('PXE', () => {
           hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
         },
       };
+      const finalizedTip = {
+        block: { number: BlockNumber(0), hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: tipId.checkpoint,
+      };
       node.getChainTips.mockResolvedValue({
         proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpointed: tipId,
         proven: tipId,
-        finalized: tipId,
+        finalized: finalizedTip,
       });
 
       // This is read when PXE tries to resolve the
@@ -279,11 +291,11 @@ describe('PXE', () => {
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();
-      l2BlockHash = BlockHash.random();
+      l2BlockHash = blockHash;
 
       scope = await AztecAddress.random();
 
-      privateEventStore = new PrivateEventStore(kvStore);
+      privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => Promise.resolve(true) });
     });
 
     let eventCounter = 0;

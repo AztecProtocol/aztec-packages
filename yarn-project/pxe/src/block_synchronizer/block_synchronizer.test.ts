@@ -21,6 +21,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { CanonicalChainStore } from '../storage/canonical_chain_store/canonical_chain_store.js';
+import { FactStore } from '../storage/fact_store/fact_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
@@ -32,6 +33,7 @@ describe('BlockSynchronizer', () => {
   let canonicalChainStore: CanonicalChainStore;
   let noteStore: NoteStore;
   let privateEventStore: PrivateEventStore;
+  let factStore: FactStore;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
   let contractSyncService: MockProxy<ContractSyncService>;
@@ -49,6 +51,7 @@ describe('BlockSynchronizer', () => {
       canonicalChainStore,
       noteStore,
       privateEventStore,
+      factStore,
       tipsStore,
       contractSyncService,
       config,
@@ -61,8 +64,9 @@ describe('BlockSynchronizer', () => {
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     canonicalChainStore = new CanonicalChainStore(store);
-    noteStore = new NoteStore(store);
-    privateEventStore = new PrivateEventStore(store);
+    noteStore = new NoteStore(store, canonicalChainStore);
+    privateEventStore = new PrivateEventStore(store, { isCanonical: () => Promise.resolve(true) });
+    factStore = new FactStore(store, canonicalChainStore);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -75,67 +79,13 @@ describe('BlockSynchronizer', () => {
     expect(obtainedHeader.equals(block.header)).toBe(true);
   });
 
-  it('removes notes from db on a reorg', async () => {
-    const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
-    const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlock.mockImplementation(async (block: any) => {
-      if (block instanceof BlockHash && block.equals(block3Hash)) {
-        const b = await L2Block.random(BlockNumber(3));
-        return {
-          header: b.header,
-          archive: b.archive,
-          hash: await b.hash(),
-          checkpointNumber: b.checkpointNumber,
-          indexWithinCheckpoint: b.indexWithinCheckpoint,
-          number: b.number,
-        } as any;
-      }
-      return undefined;
-    });
+  // The NoteStore no longer needs a destructive rollback on a reorg: notes carry their own L2 anchor and the read
+  // path filters by canonicality, so a chain-pruned event invalidates them transparently through the canonical chain
+  // store. The corresponding behavioral test would belong on NoteStore itself.
 
-    await synchronizer.handleBlockStreamEvent({
-      type: 'blocks-added',
-      blocks: await timesParallel(5, i => L2Block.random(BlockNumber(i))),
-    });
-    await synchronizer.handleBlockStreamEvent({
-      type: 'chain-pruned',
-      block: { number: BlockNumber(3), hash: block3Hash.toString() },
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-    });
-
-    expect(rollback).toHaveBeenCalledWith(3, 4);
-  });
-
-  it('removes private events from db on a reorg', async () => {
-    const rollback = jest.spyOn(privateEventStore, 'rollback').mockImplementation(() => Promise.resolve());
-    const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlock.mockImplementation(async (block: any) => {
-      if (block instanceof BlockHash && block.equals(block3Hash)) {
-        const b = await L2Block.random(BlockNumber(3));
-        return {
-          header: b.header,
-          archive: b.archive,
-          hash: await b.hash(),
-          checkpointNumber: b.checkpointNumber,
-          indexWithinCheckpoint: b.indexWithinCheckpoint,
-          number: b.number,
-        } as any;
-      }
-      return undefined;
-    });
-
-    await synchronizer.handleBlockStreamEvent({
-      type: 'blocks-added',
-      blocks: await timesParallel(5, i => L2Block.random(BlockNumber(i))),
-    });
-    await synchronizer.handleBlockStreamEvent({
-      type: 'chain-pruned',
-      block: { number: BlockNumber(3), hash: block3Hash.toString() },
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-    });
-
-    expect(rollback).toHaveBeenCalledWith(3, 4);
-  });
+  // Like the NoteStore, the PrivateEventStore no longer needs a destructive rollback on a reorg: events carry their
+  // own L2 anchor and `getPrivateEvents` filters by canonicality, so a chain-pruned event invalidates them
+  // transparently through the canonical chain store.
 
   describe('stop', () => {
     it('resolves immediately when no sync is in progress', async () => {
@@ -365,7 +315,7 @@ describe('BlockSynchronizer', () => {
       const anchorBlock = await L2Block.random(BlockNumber(2));
       await canonicalChainStore.setHeader(anchorBlock.header);
 
-      const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
+      const clearAbove = jest.spyOn(canonicalChainStore, 'clearAbove');
 
       // Prune to block 3 (above anchor) - should be ignored
       await synchronizer.handleBlockStreamEvent({
@@ -374,7 +324,7 @@ describe('BlockSynchronizer', () => {
         checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
       });
 
-      expect(rollback).not.toHaveBeenCalled();
+      expect(clearAbove).not.toHaveBeenCalled();
 
       // Anchor should be unchanged
       const obtainedHeader = await canonicalChainStore.getBlockHeader();

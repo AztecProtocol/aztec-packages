@@ -37,7 +37,7 @@ describe('NoteService', () => {
   beforeEach(async () => {
     const store = await openTmpStore('test');
     keyStore = new KeyStore(store);
-    noteStore = new NoteStore(store);
+    noteStore = new NoteStore(store, { isCanonical: () => Promise.resolve(true) });
     aztecNode = mock<AztecNode>();
 
     contractAddress = await AztecAddress.random();

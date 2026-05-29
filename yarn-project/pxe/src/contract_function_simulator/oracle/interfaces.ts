@@ -158,7 +158,7 @@ export interface IUtilityExecutionOracle {
     factType: Fr,
     correlationKey: Fr,
     payload: Fr[],
-    anchor: { blockNumber: number; blockHash: Fr } | null,
+    origin: { blockNumber: number; blockHash: Fr } | null,
   ): Promise<void>;
   activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityType: Fr): Promise<Fr[]>;
   loadCanonicalFacts(

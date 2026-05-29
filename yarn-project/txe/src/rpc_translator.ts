@@ -1077,14 +1077,14 @@ export class RPCTranslator {
     foreignFactType: ForeignCallSingle,
     foreignCorrelationKey: ForeignCallSingle,
     foreignPayload: ForeignCallArray,
-    foreignHasAnchor: ForeignCallSingle,
-    foreignAnchorBlockNumber: ForeignCallSingle,
-    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignHasOrigin: ForeignCallSingle,
+    foreignOriginBlockNumber: ForeignCallSingle,
+    foreignOriginBlockHash: ForeignCallSingle,
   ) {
-    const anchor = fromSingle(foreignHasAnchor).toBool()
+    const origin = fromSingle(foreignHasOrigin).toBool()
       ? {
-          blockNumber: fromSingle(foreignAnchorBlockNumber).toNumber(),
-          blockHash: fromSingle(foreignAnchorBlockHash),
+          blockNumber: fromSingle(foreignOriginBlockNumber).toNumber(),
+          blockHash: fromSingle(foreignOriginBlockHash),
         }
       : null;
 
@@ -1095,7 +1095,7 @@ export class RPCTranslator {
       fromSingle(foreignFactType),
       fromSingle(foreignCorrelationKey),
       fromArray(foreignPayload),
-      anchor,
+      origin,
     );
 
     return toForeignCallResult([]);

@@ -38,7 +38,7 @@ describe('validateAndStoreEvents', () => {
   // by minimally failing happy path conditions
   beforeEach(async () => {
     const store = await openTmpStore('test');
-    privateEventStore = new PrivateEventStore(store);
+    privateEventStore = new PrivateEventStore(store, { isCanonical: () => Promise.resolve(true) });
 
     aztecNode = mock<AztecNode>();
 

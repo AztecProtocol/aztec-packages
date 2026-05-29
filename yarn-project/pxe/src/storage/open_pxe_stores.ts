@@ -38,9 +38,9 @@ export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockH
   const canonicalChainStore = new CanonicalChainStore(store);
   return {
     addressStore: new AddressStore(store),
-    privateEventStore: new PrivateEventStore(store),
+    privateEventStore: new PrivateEventStore(store, canonicalChainStore),
     contractStore: new ContractStore(store),
-    noteStore: new NoteStore(store),
+    noteStore: new NoteStore(store, canonicalChainStore),
     canonicalChainStore,
     factStore: new FactStore(store, canonicalChainStore),
     senderTaggingStore: new SenderTaggingStore(store),

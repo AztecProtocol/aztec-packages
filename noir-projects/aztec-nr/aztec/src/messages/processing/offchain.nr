@@ -4,9 +4,9 @@ use crate::{
     messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
-        fact_store::{
+        fact_base::{
             active_entities, FACT_MAX_ACTIVE_ENTITIES, FACT_MAX_FACTS, FACT_MAX_PAYLOAD, get_entity_facts,
-            pack_fact_payload, PackedFact, record_anchored_fact, record_unanchored_fact, terminate_entity,
+            pack_fact_payload, PackedFact, record_non_retractable_fact, record_retractable_fact, terminate_entity,
             unpack_fact_payload,
         },
     },
@@ -199,7 +199,7 @@ pub unconstrained fn receive(
     while i < messages_len {
         let msg = messages.get(i);
         let correlation_key = correlation_key_of(msg.ciphertext, msg.tx_hash);
-        record_unanchored_fact(
+        record_non_retractable_fact(
             contract_address,
             msg.recipient,
             OFFCHAIN_RECEPTION_ENTITY_TYPE,
@@ -265,7 +265,7 @@ pub unconstrained fn sync_inbox(
         //
         // 3. The TX that emitted this message has been found by PXE. That gives us all the information needed to
         // process the message. We add the message to the `ready_to_process` EphemeralArray so that the `sync_state`
-        // loop processes it, and record a `Processed` fact anchored at the resolving block.
+        // loop processes it, and record a `Processed` fact with its origin at the resolving block.
         //
         // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL`), we terminate
         // the entity, which will make it invisible to these workflows thereafter.
@@ -286,7 +286,7 @@ pub unconstrained fn sync_inbox(
                 ready_to_process.push(
                     OffchainMessageWithContext { message_ciphertext: reception.msg.ciphertext, message_context: ctx },
                 );
-                record_anchored_fact(
+                record_retractable_fact(
                     contract_address,
                     scope,
                     OFFCHAIN_RECEPTION_ENTITY_TYPE,
@@ -318,7 +318,7 @@ pub unconstrained fn sync_inbox(
 mod test {
     use crate::{
         oracle::{
-            fact_store::{active_entities, FACT_MAX_FACTS, FACT_MAX_PAYLOAD, get_entity_facts, PackedFact},
+            fact_base::{active_entities, FACT_MAX_FACTS, FACT_MAX_PAYLOAD, get_entity_facts, PackedFact},
             random::random,
         },
         protocol::address::AztecAddress,
@@ -574,9 +574,9 @@ mod test {
             assert_eq(active_count(address, scope), 1);
         });
 
-        // Second sync: the entity now folds to PROCESSED (its `Processed` fact is anchored at a canonical block), so it
+        // Second sync: the entity now folds to PROCESSED (its `Processed` fact's origin is a canonical block), so it
         // is skipped rather than re-handed-off. The entity remains active (not expired), available for reprocessing
-        // only if a reorg rewinds its anchor.
+        // only if a reorg rewinds its origin.
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);

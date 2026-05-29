@@ -1,2 +1,2 @@
-export { type Anchor, type Anchored, anchored, unanchored } from './anchor.js';
-export { type CanonicalityCheck, filterCanonical } from './anchored_read.js';
+export { type Origin, type WithOrigin, withOrigin, withoutOrigin } from './origin.js';
+export { type CanonicalityCheck, filterCanonical } from './origin_read.js';

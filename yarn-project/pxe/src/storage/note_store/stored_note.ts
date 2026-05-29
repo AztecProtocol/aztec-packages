@@ -1,12 +1,20 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { NoteDao } from '@aztec/stdlib/note';
+
+import type { Origin } from '../foundation/origin.js';
 
 export class StoredNote {
   constructor(
     readonly noteDao: NoteDao,
     readonly scopes: Set<string>,
-    private _nullifiedAt: BlockNumber | undefined = undefined,
+    /**
+     * The L2 chain position at which this note was nullified, or `undefined` if it has not been nullified.
+     *
+     * Storing the full origin (number + hash) rather than just the block number lets the read path filter
+     * nullifications by canonicality: if a soft reorg orphans the nullification's block, the note re-appears as
+     * active without any destructive bookkeeping.
+     */
+    private _nullifiedAt: Origin | undefined = undefined,
   ) {}
 
   static fromBuffer(buffer: Buffer) {
@@ -15,23 +23,34 @@ export class StoredNote {
     const noteDao = NoteDao.fromBuffer(reader);
     const scopes = reader.readVector({ fromBuffer: (r: BufferReader) => r.readString() });
 
-    const nullifiedAtRaw = reader.readNumber();
-    const nullifiedAt = nullifiedAtRaw === 0 ? undefined : (nullifiedAtRaw as BlockNumber);
+    const hasNullification = reader.readNumber();
+    const nullifiedAt =
+      hasNullification === 0 ? undefined : { blockNumber: reader.readNumber(), blockHash: reader.readString() };
 
     return new StoredNote(noteDao, new Set(scopes), nullifiedAt);
   }
 
   toBuffer(): Buffer {
     const scopesArray = [...this.scopes];
-    return serializeToBuffer(this.noteDao, scopesArray.length, ...scopesArray, this._nullifiedAt ?? 0);
+    if (this._nullifiedAt) {
+      return serializeToBuffer(
+        this.noteDao,
+        scopesArray.length,
+        ...scopesArray,
+        1,
+        this._nullifiedAt.blockNumber,
+        this._nullifiedAt.blockHash,
+      );
+    }
+    return serializeToBuffer(this.noteDao, scopesArray.length, ...scopesArray, 0);
   }
 
   addScope(scope: string) {
     this.scopes.add(scope);
   }
 
-  markAsNullified(blockNumber: BlockNumber) {
-    this._nullifiedAt = blockNumber;
+  markAsNullified(origin: Origin) {
+    this._nullifiedAt = origin;
   }
 
   markAsActive() {
@@ -42,7 +61,7 @@ export class StoredNote {
     return this._nullifiedAt !== undefined;
   }
 
-  get nullifiedAt() {
+  get nullifiedAt(): Origin | undefined {
     return this._nullifiedAt;
   }
 }

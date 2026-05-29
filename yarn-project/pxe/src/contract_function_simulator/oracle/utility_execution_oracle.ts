@@ -42,7 +42,7 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import type { FactStoreService } from '../../storage/fact_store/fact_store_service.js';
+import type { FactService } from '../../storage/fact_store/fact_service.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -73,7 +73,7 @@ export type UtilityExecutionOracleArgs = {
   recipientTaggingStore: RecipientTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
   capsuleService: CapsuleService;
-  factStoreService: FactStoreService;
+  factService: FactService;
   privateEventStore: PrivateEventStore;
   messageContextService: MessageContextService;
   contractSyncService: ContractSyncService;
@@ -114,7 +114,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly recipientTaggingStore: RecipientTaggingStore;
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleService: CapsuleService;
-  protected readonly factStoreService: FactStoreService;
+  protected readonly factService: FactService;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly messageContextService: MessageContextService;
   protected readonly contractSyncService: ContractSyncService;
@@ -139,7 +139,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.recipientTaggingStore = args.recipientTaggingStore;
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleService = args.capsuleService;
-    this.factStoreService = args.factStoreService;
+    this.factService = args.factService;
     this.privateEventStore = args.privateEventStore;
     this.messageContextService = args.messageContextService;
     this.contractSyncService = args.contractSyncService;
@@ -859,23 +859,24 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factType: Fr,
     correlationKey: Fr,
     payload: Fr[],
-    anchor: { blockNumber: number; blockHash: Fr } | null,
+    origin: { blockNumber: number; blockHash: Fr } | null,
   ): Promise<void> {
     this.#assertOwnDb(contractAddress);
-    return this.factStoreService.recordFact(
+    return this.factService.recordFact(
       contractAddress,
       scope,
       entityType,
       factType,
       correlationKey.toBuffer(),
       Buffer.concat(payload.map(f => f.toBuffer())),
-      anchor ? { blockNumber: anchor.blockNumber, blockHash: anchor.blockHash.toString() } : null,
+      origin ? { blockNumber: origin.blockNumber, blockHash: origin.blockHash.toString() } : null,
+      this.jobId,
     );
   }
 
   public async activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityType: Fr): Promise<Fr[]> {
     this.#assertOwnDb(contractAddress);
-    const keys = await this.factStoreService.activeEntities(contractAddress, scope, entityType);
+    const keys = await this.factService.activeEntities(contractAddress, scope, entityType, this.jobId);
     return keys.map(k => Fr.fromBuffer(k));
   }
 
@@ -886,11 +887,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     correlationKey: Fr,
   ): Promise<{ factType: Fr; payload: Fr[] }[]> {
     this.#assertOwnDb(contractAddress);
-    const facts = await this.factStoreService.loadCanonicalFactSet(
+    const facts = await this.factService.loadCanonicalFactSet(
       contractAddress,
       scope,
       entityType,
       correlationKey.toBuffer(),
+      this.jobId,
     );
     return facts.map(f => ({ factType: f.factType, payload: bufferToFields(f.payload) }));
   }
@@ -902,7 +904,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     correlationKey: Fr,
   ): Promise<void> {
     this.#assertOwnDb(contractAddress);
-    return this.factStoreService.terminateEntity(contractAddress, scope, entityType, correlationKey.toBuffer());
+    return this.factService.terminateEntity(contractAddress, scope, entityType, correlationKey.toBuffer(), this.jobId);
   }
 
   /**
@@ -1037,7 +1039,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: this.capsuleService,
-      factStoreService: this.factStoreService,
+      factService: this.factService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,

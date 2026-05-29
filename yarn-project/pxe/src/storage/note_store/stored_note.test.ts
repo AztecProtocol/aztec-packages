@@ -1,7 +1,9 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { NoteDao } from '@aztec/stdlib/note';
 
+import type { Origin } from '../foundation/origin.js';
 import { StoredNote } from './stored_note.js';
+
+const originAt = (blockNumber: number, hash: string = '0x0123abcd'): Origin => ({ blockNumber, blockHash: hash });
 
 describe('StoredNote', () => {
   describe('construction', () => {
@@ -46,7 +48,7 @@ describe('StoredNote', () => {
 
     it('nullified note', async () => {
       const noteDao = await NoteDao.random();
-      const nullifiedAt = BlockNumber(123);
+      const nullifiedAt = originAt(123);
       const original = new StoredNote(noteDao, new Set(['scope1']), nullifiedAt);
 
       const buffer = original.toBuffer();
@@ -55,7 +57,7 @@ describe('StoredNote', () => {
       expect(restored.noteDao.equals(original.noteDao)).toBe(true);
       expect(restored.isNullified()).toBe(true);
       expect(restored.scopes).toEqual(new Set(['scope1']));
-      expect(restored.nullifiedAt).toBe(nullifiedAt);
+      expect(restored.nullifiedAt).toEqual(nullifiedAt);
     });
 
     it('note with multiple scopes', async () => {
@@ -103,37 +105,37 @@ describe('StoredNote', () => {
   describe('markAsNullified', () => {
     it('sets nullifiedAt', async () => {
       const storedNote = new StoredNote(await NoteDao.random(), new Set());
-      const blockNumber = BlockNumber(50);
+      const origin = originAt(50);
 
-      storedNote.markAsNullified(blockNumber);
+      storedNote.markAsNullified(origin);
 
       expect(storedNote.isNullified()).toBe(true);
-      expect(storedNote.nullifiedAt).toBe(blockNumber);
+      expect(storedNote.nullifiedAt).toEqual(origin);
     });
 
     it('updates nullifiedAt when called multiple times', async () => {
       const storedNote = new StoredNote(await NoteDao.random(), new Set());
 
-      storedNote.markAsNullified(BlockNumber(10));
-      storedNote.markAsNullified(BlockNumber(20));
+      storedNote.markAsNullified(originAt(10));
+      storedNote.markAsNullified(originAt(20));
 
-      expect(storedNote.nullifiedAt).toBe(BlockNumber(20));
+      expect(storedNote.nullifiedAt).toEqual(originAt(20));
     });
 
     it('persists nullifiedAt through serialization', async () => {
       const storedNote = new StoredNote(await NoteDao.random(), new Set());
-      storedNote.markAsNullified(BlockNumber(42));
+      storedNote.markAsNullified(originAt(42));
 
       const restored = StoredNote.fromBuffer(storedNote.toBuffer());
 
       expect(restored.isNullified()).toBe(true);
-      expect(restored.nullifiedAt).toBe(BlockNumber(42));
+      expect(restored.nullifiedAt).toEqual(originAt(42));
     });
   });
 
   describe('markAsActive', () => {
     it('clears nullifiedAt', async () => {
-      const storedNote = new StoredNote(await NoteDao.random(), new Set(), BlockNumber(100));
+      const storedNote = new StoredNote(await NoteDao.random(), new Set(), originAt(100));
 
       storedNote.markAsActive();
 
@@ -151,7 +153,7 @@ describe('StoredNote', () => {
     });
 
     it('persists active state through serialization', async () => {
-      const storedNote = new StoredNote(await NoteDao.random(), new Set(), BlockNumber(100));
+      const storedNote = new StoredNote(await NoteDao.random(), new Set(), originAt(100));
       storedNote.markAsActive();
 
       const restored = StoredNote.fromBuffer(storedNote.toBuffer());
@@ -168,9 +170,9 @@ describe('StoredNote', () => {
       expect(storedNote.isNullified()).toBe(false);
       expect(storedNote.nullifiedAt).toBeUndefined();
 
-      storedNote.markAsNullified(BlockNumber(10));
+      storedNote.markAsNullified(originAt(10));
       expect(storedNote.isNullified()).toBe(true);
-      expect(storedNote.nullifiedAt).toBe(BlockNumber(10));
+      expect(storedNote.nullifiedAt).toEqual(originAt(10));
 
       storedNote.markAsActive();
       expect(storedNote.isNullified()).toBe(false);
@@ -181,7 +183,7 @@ describe('StoredNote', () => {
       const scopes = new Set(['scope1', 'scope2']);
       const storedNote = new StoredNote(await NoteDao.random(), scopes);
 
-      storedNote.markAsNullified(BlockNumber(10));
+      storedNote.markAsNullified(originAt(10));
       expect(storedNote.scopes).toEqual(scopes);
 
       storedNote.markAsActive();
@@ -192,7 +194,7 @@ describe('StoredNote', () => {
       const noteDao = await NoteDao.random();
       const storedNote = new StoredNote(noteDao, new Set());
 
-      storedNote.markAsNullified(BlockNumber(10));
+      storedNote.markAsNullified(originAt(10));
       expect(storedNote.noteDao).toBe(noteDao);
 
       storedNote.markAsActive();

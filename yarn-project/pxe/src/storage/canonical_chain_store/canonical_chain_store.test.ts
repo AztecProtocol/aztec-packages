@@ -111,7 +111,7 @@ describe('canonical chain map', () => {
     await expect(chain.hashAt(105)).resolves.toEqual('0xc');
   });
 
-  it('isCanonical is true only when the anchor hash matches the map', async () => {
+  it('isCanonical is true only when the origin hash matches the map', async () => {
     await chain.set(105, '0xaaa');
     await expect(chain.isCanonical({ blockNumber: 105, blockHash: '0xaaa' })).resolves.toBe(true);
     await expect(chain.isCanonical({ blockNumber: 105, blockHash: '0xbbb' })).resolves.toBe(false);

@@ -35,7 +35,6 @@ members = [
     "contracts/protocol/public_checks_contract",
     "contracts/protocol_interface/contract_instance_registry_interface",
     "contracts/protocol_interface/fee_juice_interface",
-    "contracts/test/fact_store_fixture_contract",
     "contracts/test/gas_settings_reader_contract",
     "contracts/test/generic_proxy_contract",
     "contracts/test/abi_types_contract",

@@ -29,8 +29,8 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { FactService } from '../../storage/fact_store/fact_service.js';
 import type { FactStore } from '../../storage/fact_store/fact_store.js';
-import { FactStoreService } from '../../storage/fact_store/fact_store_service.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -77,6 +77,8 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     factStore = mock<FactStore>();
+    // `sync_state` iterates active entities via this method even when the test doesn't exercise the fact store.
+    factStore.activeEntities.mockResolvedValue([]);
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
@@ -446,11 +448,13 @@ describe('Utility Execution test suite', () => {
         const txHash = TxHash.random();
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
+        const txBlockNumber = syncedBlockNumber - 1;
+        const txBlockHash = BlockHash.random();
 
         capsuleStore.readCapsuleArray.mockResolvedValueOnce([[txHash.hash]]);
         aztecNode.getTxEffect.mockResolvedValueOnce({
-          l2BlockNumber: BlockNumber(syncedBlockNumber - 1),
-          l2BlockHash: BlockHash.random(),
+          l2BlockNumber: BlockNumber(txBlockNumber),
+          l2BlockHash: txBlockHash,
           txIndexInBlock: 0,
           data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
         } as any);
@@ -462,7 +466,9 @@ describe('Utility Execution test suite', () => {
         );
         expect(response).toBeDefined();
         const responseFields = response![2][0];
-        const expected = MessageContext.toSerializedOption(new MessageContext(txHash, [noteHash], firstNullifier));
+        const expected = MessageContext.toSerializedOption(
+          new MessageContext(txHash, [noteHash], firstNullifier, txBlockNumber, txBlockHash.toFr()),
+        );
         expect(responseFields).toEqual(expected);
       });
 
@@ -584,7 +590,7 @@ describe('Utility Execution test suite', () => {
         recipientTaggingStore,
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
-        factStoreService: new FactStoreService(factStore, scopes),
+        factService: new FactService(factStore, scopes),
         privateEventStore,
         messageContextService,
         contractSyncService,

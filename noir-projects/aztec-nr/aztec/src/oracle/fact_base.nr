@@ -21,17 +21,19 @@ pub struct PackedFact {
     pub payload: [Field; FACT_MAX_PAYLOAD],
 }
 
-/// Records a fact anchored to a specific L2 block. The fact is canonical only while that anchor block is canonical,
-/// so a reorg that orphans the anchor block will retract the fact from [`get_entity_facts`].
-pub unconstrained fn record_anchored_fact(
+/// Records a retractable fact: its existence is tied to the L2 block it originated from.
+///
+/// The fact exists only while that origin block stays canonical, so a reorg that orphans the origin block retracts
+/// the fact from [`get_entity_facts`].
+pub unconstrained fn record_retractable_fact(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type: Field,
     fact_type: Field,
     correlation_key: Field,
     payload: [Field; FACT_MAX_PAYLOAD],
-    anchor_block_number: Field,
-    anchor_block_hash: Field,
+    origin_block_number: Field,
+    origin_block_hash: Field,
 ) {
     record_fact_oracle(
         contract_address,
@@ -41,14 +43,14 @@ pub unconstrained fn record_anchored_fact(
         correlation_key,
         payload,
         1,
-        anchor_block_number,
-        anchor_block_hash,
+        origin_block_number,
+        origin_block_hash,
     );
 }
 
-/// Records a fact with no block anchor. The fact remains canonical for the lifetime of its entity, regardless of any
-/// subsequent reorgs.
-pub unconstrained fn record_unanchored_fact(
+/// Records a non-retractable fact: it has no origin block, so it exists for the lifetime of its entity,
+/// regardless of any subsequent reorgs.
+pub unconstrained fn record_non_retractable_fact(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type: Field,
@@ -139,9 +141,9 @@ unconstrained fn record_fact_oracle(
     fact_type: Field,
     correlation_key: Field,
     payload: [Field; FACT_MAX_PAYLOAD],
-    has_anchor: Field,
-    anchor_block_number: Field,
-    anchor_block_hash: Field,
+    has_origin: Field,
+    origin_block_number: Field,
+    origin_block_hash: Field,
 ) {}
 
 #[oracle(aztec_utl_activeEntities)]

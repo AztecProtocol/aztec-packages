@@ -97,8 +97,8 @@ import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import { FactService } from '../storage/fact_store/fact_service.js';
 import type { FactStore } from '../storage/fact_store/fact_store.js';
-import { FactStoreService } from '../storage/fact_store/fact_store_service.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -259,7 +259,7 @@ export class ContractFunctionSimulator {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
-      factStoreService: new FactStoreService(this.factStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
@@ -360,7 +360,7 @@ export class ContractFunctionSimulator {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
-      factStoreService: new FactStoreService(this.factStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,

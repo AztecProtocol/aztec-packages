@@ -5,7 +5,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
+import { CanonicalChainStore } from '../canonical_chain_store/canonical_chain_store.js';
+import type { CanonicalityCheck } from '../foundation/origin_read.js';
 import { NoteStore } from './note_store.js';
+
+// Most tests in this file don't care about reorg semantics; they just want the canonicality predicate to be a
+// transparent pass-through so notes are visible regardless of origin. Tests that exercise the lazy filter use their
+// own configurable chain mock instead.
+const ALWAYS_CANONICAL: CanonicalityCheck = { isCanonical: () => Promise.resolve(true) };
 
 // -----------------------------------------------------------------------------
 // Shared constants for deterministic fixtures
@@ -38,7 +45,7 @@ describe('NoteStore', () => {
   // Sets up a fresh NoteStore with two scopes and three notes.
   async function setupNoteStoreWithNotes(storeName: string) {
     const store = await openTmpStore(storeName);
-    const noteStore = new NoteStore(store);
+    const noteStore = new NoteStore(store, ALWAYS_CANONICAL);
 
     const note1 = await mkNote({
       contractAddress: CONTRACT_A,
@@ -96,7 +103,7 @@ describe('NoteStore', () => {
   describe('NoteStore.create', () => {
     it('creates a NoteStore on an empty store and confirms getNotes returns an empty array', async () => {
       const store = await openTmpStore('note_store_fresh_store');
-      const noteStore = new NoteStore(store);
+      const noteStore = new NoteStore(store, ALWAYS_CANONICAL);
 
       await verifyAndCommitForEachJob(['pre-commit', 'post-commit'], noteStore, async (jobId: string) => {
         const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] }, jobId);
@@ -112,7 +119,7 @@ describe('NoteStore', () => {
 
       // First note store populates the persistent store; second reopens it to verify persistence
       {
-        const noteStore1 = new NoteStore(store);
+        const noteStore1 = new NoteStore(store, ALWAYS_CANONICAL);
 
         const noteA = await mkNote({ contractAddress: CONTRACT_A, siloedNullifier: SILOED_NULLIFIER_1 });
         const noteB = await mkNote({ contractAddress: CONTRACT_B, siloedNullifier: SILOED_NULLIFIER_2 });
@@ -120,7 +127,7 @@ describe('NoteStore', () => {
         await noteStore1.commit('first-store');
       }
 
-      const noteStore2 = new NoteStore(store);
+      const noteStore2 = new NoteStore(store, ALWAYS_CANONICAL);
 
       await verifyAndCommitForEachJob(['second-store', 'fresh-job'], noteStore2, async (jobId: string) => {
         const notesA = await noteStore2.getNotes({ contractAddress: CONTRACT_A, scopes: [FAKE_ADDRESS] }, jobId);
@@ -645,249 +652,77 @@ describe('NoteStore', () => {
     });
   });
 
-  describe('NoteStore.rollback', () => {
-    let noteStore: NoteStore;
+  // These tests use a real CanonicalChainStore (not ALWAYS_CANONICAL) so the lazy reorg filter in getNotes is actually
+  // exercised: notes flicker out when their origin block leaves the canonical chain and reappear when the same hash is
+  // re-synced. This is the behavior that replaced the destructive rollback the BlockSynchronizer used to perform.
+  describe('NoteStore reorg canonicality filtering', () => {
     let store: AztecLMDBStoreV2;
+    let chain: CanonicalChainStore;
+    let noteStore: NoteStore;
 
     beforeEach(async () => {
-      store = await openTmpStore('note_store_rollback_test');
-      noteStore = new NoteStore(store);
+      store = await openTmpStore('note_store_reorg');
+      chain = new CanonicalChainStore(store);
+      noteStore = new NoteStore(store, chain);
     });
 
     afterEach(async () => {
       await store.close();
     });
 
-    describe('rewind nullifications happy path', () => {
-      let noteBlock1: NoteDao;
-      let noteBlock2: NoteDao;
-      let noteBlock3: NoteDao;
-      let noteBlock5: NoteDao;
+    it('hides a note whose creation block is not canonical, and shows it again when the block is re-synced', async () => {
+      const note = await mkNote({ contractAddress: CONTRACT_A, l2BlockNumber: BlockNumber(5) });
+      await chain.set(note.l2BlockNumber, note.l2BlockHash);
 
-      async function setupRollbackScenario() {
-        noteBlock1 = await mkNote({ siloedNullifier: SILOED_NULLIFIER_1, l2BlockNumber: BlockNumber(1) }); // Nullified at block 2
-        noteBlock2 = await mkNote({ siloedNullifier: SILOED_NULLIFIER_2, l2BlockNumber: BlockNumber(2) }); // Never nullified
-        noteBlock3 = await mkNote({ siloedNullifier: SILOED_NULLIFIER_3, l2BlockNumber: BlockNumber(3) }); // Nullified at block 4
-        const noteBlock5Nullifier = Fr.random();
-        noteBlock5 = await mkNote({ siloedNullifier: noteBlock5Nullifier, l2BlockNumber: BlockNumber(5) }); // Created after rollback block 3
+      await noteStore.addNotes([note], SCOPE_1, 'job');
+      await noteStore.commit('job');
 
-        await noteStore.addNotes([noteBlock1, noteBlock2, noteBlock3, noteBlock5], SCOPE_1, 'rollback-scenario-setup');
+      const filter = { contractAddress: CONTRACT_A, scopes: [SCOPE_1] };
 
-        const nullifiers = [
-          mkNullifier(noteBlock1, BlockNumber(2)),
-          mkNullifier(noteBlock3, BlockNumber(4)),
-          mkNullifier(noteBlock5, BlockNumber(6)),
-        ];
+      // Creation block canonical: the note is visible.
+      expect(nullifierSet(await noteStore.getNotes(filter, 'read'))).toEqual(nullifierSet([note]));
 
-        // Apply nullifiers and rollback to block 3
-        // - should restore noteBlock3 (nullified at block 4) and preserve noteBlock1 (nullified at block 2)
-        await noteStore.applyNullifiers(nullifiers, 'rollback-scenario-setup');
-        await noteStore.commit('rollback-scenario-setup');
+      // A reorg retracts block 5: the note's creation origin is no longer canonical, so it flickers out.
+      await chain.clearAbove(4);
+      expect(await noteStore.getNotes(filter, 'read')).toHaveLength(0);
 
-        await noteStore.rollback(3, 6);
-      }
-
-      beforeEach(async () => {
-        await setupRollbackScenario();
-      });
-
-      it('restores notes that were nullified after the rollback block', async () => {
-        // noteBlock2 remains active, noteBlock3 was nullified at block 4 should be restored
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([noteBlock2, noteBlock3]));
-      });
-
-      it('preserves nullification of notes nullified at or before the rollback block', async () => {
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-
-        // Should contain noteBlock1 (nullified), noteBlock2 (active), and noteBlock3 (restored)
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteBlock1, noteBlock2, noteBlock3]));
-
-        // Verify noteBlock1 is not in active notes
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).not.toContain(noteBlock1.siloedNullifier.toBigInt());
-      });
-
-      it('preserves active notes created before the rollback block that were never nullified', async () => {
-        // noteBlock2 was created at block 2 (before rollback block 3) and never nullified
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([noteBlock2, noteBlock3]));
-      });
-
-      it('deletes notes created after the rollback block', async () => {
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-
-        // noteBlock5 was created at block 5, which is after rollback block 3, should be deleted
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteBlock1, noteBlock2, noteBlock3]));
-        expect(nullifierSet(allNotes)).not.toContain(noteBlock5.siloedNullifier.toBigInt());
-      });
+      // The same block hash is re-synced: the note reappears, with no destructive bookkeeping in between.
+      await chain.set(note.l2BlockNumber, note.l2BlockHash);
+      expect(nullifierSet(await noteStore.getNotes(filter, 'read'))).toEqual(nullifierSet([note]));
     });
 
-    describe('rewind nullifications edge cases', () => {
-      it('handles rollback when blockNumber equals synchedBlockNumber', async () => {
-        const noteNullifier = Fr.random();
-        const note = await mkNote({ siloedNullifier: noteNullifier, l2BlockNumber: BlockNumber(5) });
-        await noteStore.addNotes([note], SCOPE_1, 'test');
+    it('un-nullifies a note when the nullification block is orphaned, and re-nullifies it when re-synced', async () => {
+      const note = await mkNote({ contractAddress: CONTRACT_A, l2BlockNumber: BlockNumber(5) });
+      await chain.set(note.l2BlockNumber, note.l2BlockHash);
 
-        const nullifiers = [
-          {
-            data: note.siloedNullifier,
-            l2BlockNumber: BlockNumber(5),
-            l2BlockHash: BlockHash.fromString(note.l2BlockHash),
-          },
-        ];
-        await noteStore.applyNullifiers(nullifiers, 'test');
+      await noteStore.addNotes([note], SCOPE_1, 'job');
+      await noteStore.commit('job');
 
-        // Since nullification happened at block 5 (not after), it should stay nullified
-        // The rewind loop processes blocks (blockNumber+1) to synchedBlockNumber = 6 to 5 = no iterations
-        await noteStore.commit('test');
-        await noteStore.rollback(5, 5);
+      // Nullify at a later block than the note's creation, and make that block canonical too.
+      const nullificationBlock = BlockNumber(10);
+      const nullificationHash = BlockHash.random();
+      await noteStore.applyNullifiers(
+        [{ data: note.siloedNullifier, l2BlockNumber: nullificationBlock, l2BlockHash: nullificationHash }],
+        'job',
+      );
+      await noteStore.commit('job');
+      await chain.set(nullificationBlock, nullificationHash.toString());
 
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(activeNotes).toHaveLength(0);
+      const activeFilter = { contractAddress: CONTRACT_A, scopes: [SCOPE_1] };
+      const allFilter = { ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED };
 
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteNullifier]));
-      });
+      // Both origins canonical: the note is nullified (absent from ACTIVE, present in ACTIVE_OR_NULLIFIED).
+      expect(await noteStore.getNotes(activeFilter, 'read')).toHaveLength(0);
+      expect(nullifierSet(await noteStore.getNotes(allFilter, 'read'))).toEqual(nullifierSet([note]));
 
-      it('handles rollback when synchedBlockNumber < blockNumber', async () => {
-        const noteNullifier = Fr.random();
-        const note = await mkNote({ siloedNullifier: noteNullifier, l2BlockNumber: BlockNumber(3) });
-        await noteStore.addNotes([note], SCOPE_1, 'test');
+      // A reorg orphans block 10 (the nullification) but keeps block 5 (the creation) canonical. The note's
+      // nullification origin is no longer canonical, so the note transparently "un-nullifies" back to ACTIVE.
+      await chain.clearAbove(5);
+      expect(nullifierSet(await noteStore.getNotes(activeFilter, 'read'))).toEqual(nullifierSet([note]));
 
-        const nullifiers = [
-          {
-            data: note.siloedNullifier,
-            l2BlockNumber: BlockNumber(4),
-            l2BlockHash: BlockHash.fromString(note.l2BlockHash),
-          },
-        ];
-        await noteStore.applyNullifiers(nullifiers, 'test');
-
-        // blockNumber=6, synchedBlockNumber=4 therefore no nullifications to rewind
-        await noteStore.commit('test');
-        await noteStore.rollback(6, 4);
-
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(activeNotes).toHaveLength(0);
-
-        const allNotes = await noteStore.getNotes(
-          {
-            contractAddress: CONTRACT_A,
-            status: NoteStatus.ACTIVE_OR_NULLIFIED,
-            scopes: [SCOPE_1, SCOPE_2],
-          },
-          'test',
-        );
-        expect(nullifierSet(allNotes)).toEqual(nullifierSet([noteNullifier]));
-      });
-
-      it('handles rollback with a large block gap', async () => {
-        const note1Nullifier = Fr.random();
-        const note2Nullifier = Fr.random();
-        const note1 = await mkNote({ siloedNullifier: note1Nullifier, l2BlockNumber: BlockNumber(5) });
-        const note2 = await mkNote({ siloedNullifier: note2Nullifier, l2BlockNumber: BlockNumber(10) });
-        await noteStore.addNotes([note1, note2], SCOPE_1, 'test');
-
-        const nullifiers = [
-          {
-            data: note1.siloedNullifier,
-            l2BlockNumber: BlockNumber(7),
-            l2BlockHash: BlockHash.fromString(note1.l2BlockHash),
-          },
-        ];
-        await noteStore.applyNullifiers(nullifiers, 'test');
-        await noteStore.commit('test');
-        await noteStore.rollback(5, 100);
-
-        // note1 should be restored (nullified at block 7 > rollback block 5)
-        // note2 should be deleted (created at block 10 > rollback block 5)
-        const activeNotes = await noteStore.getNotes(
-          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
-          'test',
-        );
-        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1Nullifier]));
-      });
-
-      it('handles rollback on empty PXE database gracefully', async () => {
-        await expect(noteStore.rollback(10, 20)).resolves.not.toThrow();
-        const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] }, 'test');
-        expect(notes).toHaveLength(0);
-      });
-
-      it('throws when rollback is called while jobs are running', async () => {
-        const note = await mkNote({ siloedNullifier: Fr.random(), l2BlockNumber: BlockNumber(1) });
-
-        // Add a note but don't commit, i.e., job running
-        await noteStore.addNotes([note], SCOPE_1, 'uncommitted-job');
-
-        await expect(noteStore.rollback(0, 10)).rejects.toThrow(
-          'PXE note store rollback is not allowed while jobs are running',
-        );
-
-        // After discarding the staged data, rollback should succeed
-        await noteStore.discardStaged('uncommitted-job');
-        await expect(noteStore.rollback(0, 10)).resolves.not.toThrow();
-      });
-
-      it('throws integrity error when nullification index references missing note', async () => {
-        const nullifier = Fr.random();
-        const note = await mkNote({ siloedNullifier: nullifier, l2BlockNumber: BlockNumber(1) });
-
-        {
-          await noteStore.addNotes([note], SCOPE_1, 'test');
-          await noteStore.applyNullifiers([mkNullifier(note, BlockNumber(5))], 'test');
-          await noteStore.commit('test');
-        }
-
-        // Corrupt the database by deleting the note but leaving the nullification index.
-        // Arguably overkill, but since we go to the trouble of detecting and throwing the error it's at least useful
-        // to show what case it is defending against.
-        // This condition is only reachable if we mess up the store logic (or data migration).
-        const notesMap = store.openMap<string, Buffer>('notes');
-        await notesMap.delete(nullifier.toString());
-
-        // Rollback should detect the missing note and throw
-        await expect(noteStore.rollback(3, 6)).rejects.toThrow(
-          `PXE DB integrity error: no note found with nullifier ${nullifier.toString()}`,
-        );
-      });
+      // Re-syncing the nullification block re-applies the nullification: the note leaves ACTIVE again.
+      await chain.set(nullificationBlock, nullificationHash.toString());
+      expect(await noteStore.getNotes(activeFilter, 'read')).toHaveLength(0);
     });
   });
 });

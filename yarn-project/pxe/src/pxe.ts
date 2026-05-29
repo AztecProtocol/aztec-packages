@@ -263,6 +263,7 @@ export class PXE {
       canonicalChainStore,
       noteStore,
       privateEventStore,
+      factStore,
       l2TipsStore,
       contractSyncService,
       config,
@@ -276,6 +277,7 @@ export class PXE {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      factStore,
       contractSyncService,
     ]);
 

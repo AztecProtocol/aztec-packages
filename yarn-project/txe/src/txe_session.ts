@@ -9,8 +9,8 @@ import {
   CapsuleService,
   CapsuleStore,
   ContractStore,
+  FactService,
   FactStore,
-  FactStoreService,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -228,8 +228,9 @@ export class TXESession implements TXESessionStateHandler {
     const store = await openTmpStore('txe-session');
 
     const addressStore = new AddressStore(store);
-    const privateEventStore = new PrivateEventStore(store);
-    const noteStore = new NoteStore(store);
+    const canonicalChainStore = new CanonicalChainStore(store);
+    const privateEventStore = new PrivateEventStore(store, canonicalChainStore);
+    const noteStore = new NoteStore(store, canonicalChainStore);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -248,7 +249,6 @@ export class TXESession implements TXESessionStateHandler {
     ]);
 
     const archiver = new TXEArchiver(store);
-    const canonicalChainStore = new CanonicalChainStore(store);
     const factStore = new FactStore(store, canonicalChainStore);
     const stateMachine = await TXEStateMachine.create(archiver, canonicalChainStore, contractStore, noteStore);
 
@@ -516,7 +516,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
-      factStoreService: new FactStoreService(this.factStore, await this.keyStore.getAccounts()),
+      factService: new FactService(this.factStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
@@ -600,7 +600,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
-      factStoreService: new FactStoreService(this.factStore, await this.keyStore.getAccounts()),
+      factService: new FactService(this.factStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
       contractSyncService: this.stateMachine.contractSyncService,
@@ -701,7 +701,7 @@ export class TXESession implements TXESessionStateHandler {
           recipientTaggingStore: this.recipientTaggingStore,
           senderAddressBookStore: this.senderAddressBookStore,
           capsuleService: new CapsuleService(this.capsuleStore, scopes),
-          factStoreService: new FactStoreService(this.factStore, scopes),
+          factService: new FactService(this.factStore, scopes),
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
           contractSyncService: this.stateMachine.contractSyncService,

@@ -1,7 +1,7 @@
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { Anchor } from '../foundation/anchor.js';
+import type { Origin } from '../foundation/origin.js';
 
 /** The slice of the node interface CanonicalChainStore needs to rebuild its map. */
 export type CanonicalChainSource = {
@@ -64,8 +64,8 @@ export class CanonicalChainStore {
    * Inherits the no-`transactionAsync` constraint documented on {@link setHeader}: this runs during
    * reorg handling alongside other stores, and `transactionAsync` is not reentrant on IndexedDB.
    */
-  async setMany(anchors: Anchor[]): Promise<void> {
-    for (const { blockNumber, blockHash } of anchors) {
+  async setMany(origins: Origin[]): Promise<void> {
+    for (const { blockNumber, blockHash } of origins) {
       await this.set(blockNumber, blockHash);
     }
   }
@@ -107,12 +107,12 @@ export class CanonicalChainStore {
   }
 
   /**
-   * The canonicality predicate: is the row at this anchor part of the current canonical chain?
-   * True iff the canonical hash recorded at `anchor.blockNumber` equals `anchor.blockHash`.
+   * The canonicality predicate: is the row at this origin part of the current canonical chain?
+   * True iff the canonical hash recorded at `origin.blockNumber` equals `origin.blockHash`.
    * False when the height is unset — e.g. retracted by a chain-pruned and not yet re-synced.
    */
-  isCanonical(anchor: Anchor): Promise<boolean> {
-    return Promise.resolve(this.#mem.get(anchor.blockNumber) === anchor.blockHash);
+  isCanonical(origin: Origin): Promise<boolean> {
+    return Promise.resolve(this.#mem.get(origin.blockNumber) === origin.blockHash);
   }
 
   /**

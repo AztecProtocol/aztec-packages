@@ -157,16 +157,25 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const scope = AztecAddress.fromBigInt(3n);
       const entityType = new Fr(5n);
       const corrKey = new Fr(7n).toBuffer();
+      const job = 'schema-fixture-job';
 
-      // Unanchored fact: no block position; always visible.
-      await factStore.put(contract, scope, entityType, new Fr(11n), corrKey, Buffer.from([13]), null);
-      // Anchored fact: tied to a specific block; filtered by canonicality.
-      await factStore.put(contract, scope, entityType, new Fr(17n), corrKey, Buffer.from([19]), {
-        blockNumber: 23,
-        blockHash: new Fr(29n).toString(),
-      });
+      // Non-retractable fact: no origin; always visible.
+      await factStore.put(contract, scope, entityType, new Fr(11n), corrKey, Buffer.from([13]), null, job);
+      // Retractable fact: tied to a specific block via its origin; filtered by canonicality.
+      await factStore.put(
+        contract,
+        scope,
+        entityType,
+        new Fr(17n),
+        corrKey,
+        Buffer.from([19]),
+        { blockNumber: 23, blockHash: new Fr(29n).toString() },
+        job,
+      );
       // Terminate a separate correlation key so `facts_terminated` has a distinct entry.
-      await factStore.terminate(contract, scope, entityType, new Fr(31n).toBuffer());
+      await factStore.terminate(contract, scope, entityType, new Fr(31n).toBuffer(), job);
+      // Promote the staged writes to KV so the snapshot picks them up.
+      await factStore.commit(job);
     },
     snapshotStore: async kvStore => ({
       facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
@@ -315,7 +324,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'NoteStore',
     writeToStore: async kvStore => {
-      const noteStore = new NoteStore(kvStore);
+      const noteStore = new NoteStore(kvStore, { isCanonical: () => Promise.resolve(true) });
 
       const jobId = 'fixture-job';
 
@@ -361,8 +370,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         137,
       );
 
-      // note3: different contract; will be nullified to populate `note_block_number_to_nullifier` and exercise the
-      // populated `_nullifiedAt` trailer of `StoredNote.toBuffer`.
+      // note3: different contract; will be nullified to exercise the populated `_nullifiedAt` origin trailer of
+      // `StoredNote.toBuffer`.
       const note3 = new NoteDao(
         new Note([new Fr(139n), new Fr(149n), new Fr(151n)]),
         contractB,
@@ -387,8 +396,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await noteStore.addNotes([note3], scopeX, jobId);
 
       // Nullify note3 within the same job. `applyNullifiers` reads the staged StoredNote, sets `_nullifiedAt`, and
-      // writes back to the staged map; `commit` then flushes it to disk with the populated trailer and adds the
-      // corresponding `note_block_number_to_nullifier` entry.
+      // writes back to the staged map; `commit` then flushes it to disk with the populated nullification trailer.
       await noteStore.applyNullifiers(
         [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: BlockHash.ZERO }],
         jobId,
@@ -401,16 +409,13 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       note_nullifiers_by_contract: await snapshotMap(
         kvStore.openMultiMap<string, string>('note_nullifiers_by_contract'),
       ),
-      note_block_number_to_nullifier: await snapshotMap(
-        kvStore.openMultiMap<number, string>('note_block_number_to_nullifier'),
-      ),
     }),
   },
 
   {
     name: 'PrivateEventStore',
     writeToStore: async kvStore => {
-      const privateEventStore = new PrivateEventStore(kvStore);
+      const privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => Promise.resolve(true) });
 
       const jobId = 'fixture-job';
 
@@ -506,7 +511,6 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       events_by_contract_selector: await snapshotMap(
         kvStore.openMultiMap<string, string>('events_by_contract_selector'),
       ),
-      events_by_block_number: await snapshotMap(kvStore.openMultiMap<number, string>('events_by_block_number')),
     }),
   },
 

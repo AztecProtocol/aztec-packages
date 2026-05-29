@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -10,6 +11,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { CanonicalChainStore } from '../storage/canonical_chain_store/canonical_chain_store.js';
+import type { FactStore } from '../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
@@ -31,6 +33,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private canonicalChainStore: CanonicalChainStore,
     private noteStore: NoteStore,
     private privateEventStore: PrivateEventStore,
+    private factStore: FactStore,
     private l2TipsStore: L2TipsKVStore,
     private contractSyncService: ContractSyncService,
     private config: Partial<BlockSynchronizerConfig> = {},
@@ -66,10 +69,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        const anchors = await Promise.all(
+        const origins = await Promise.all(
           event.blocks.map(async block => ({ blockNumber: block.number, blockHash: (await block.hash()).toString() })),
         );
-        await this.canonicalChainStore.setMany(anchors);
+        await this.canonicalChainStore.setMany(origins);
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
           const lastBlock = event.blocks.at(-1)!;
           await this.updateAnchorBlockHeader(lastBlock.header);
@@ -131,10 +134,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           );
         }
 
-        // Operations are wrapped in a single transaction to ensure atomicity.
         await this.store.transactionAsync(async () => {
-          await this.noteStore.rollback(event.block.number, currentAnchorBlockNumber);
-          await this.privateEventStore.rollback(event.block.number, currentAnchorBlockNumber);
           await this.canonicalChainStore.clearAbove(event.block.number);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
@@ -203,7 +203,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     const tips = await this.node.getChainTips();
     const tipHeight = await this.canonicalChainStore.tipHeight();
-    const fromHeight = Math.max(tips.finalized.block.number, tipHeight + 1);
+    // Genesis (block 0) is covered by `setHeader` above; hydration is for the open chain (blocks >= 1).
+    const fromHeight = Math.max(tips.finalized.block.number, tipHeight + 1, INITIAL_L2_BLOCK_NUM);
     await this.canonicalChainStore.hydrateFromNode(this.node, fromHeight, tips.proposed.number);
 
     await this.blockStream.sync();
