@@ -9,6 +9,8 @@ class TranslatorShortMonomialFlavor;
 
 // clang-format off
 
+class ECCVMShortMonomialFlavor;
+
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
 concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor>;
@@ -62,7 +64,7 @@ template <typename T>
 concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
 
 // Flavors whose Sumcheck round univariates are committed (sent as commitment + evals at 0,1)
 // rather than sent in the clear. The committed data is later verified via Shplemini.
