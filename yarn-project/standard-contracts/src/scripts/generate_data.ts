@@ -22,7 +22,7 @@ import {
   loadArtifact,
   standardContracts,
 } from '../contract_data.js';
-import { renderAllTargets, renderDriftDiff, writeIfChanged } from '../drift.js';
+import { renderAllTargets, writeIfChanged } from '../drift.js';
 
 const log = createConsoleLogger('autogenerate');
 
@@ -58,6 +58,79 @@ async function generateDeclarationFile(destName: string) {
   await fs.writeFile(path.join(STANDARD_ARTIFACTS_DEST_DIR, `${destName}.d.json.ts`), content);
 }
 
+/** The committed derived values for one contract, read back from the generated data module. */
+type CommittedValues = {
+  address: string;
+  classId: string;
+  artifactHash: string;
+  privateFunctionsRoot: string;
+  publicBytecodeCommitment: string;
+  initializationHash: string;
+  privateFunctionsCount: number;
+};
+
+/**
+ * Reads the currently-committed derived values out of the generated `standard_contract_data.ts`
+ * module so the drift report can show old → new. Returns `undefined` if the module doesn't exist
+ * yet (first-ever generation).
+ */
+async function loadCommittedValues(): Promise<Record<string, CommittedValues> | undefined> {
+  let mod: typeof import('../standard_contract_data.js');
+  try {
+    mod = await import('../standard_contract_data.js');
+  } catch {
+    return undefined;
+  }
+  const out: Record<string, CommittedValues> = {};
+  for (const name of Object.keys(mod.StandardContractAddress) as (keyof typeof mod.StandardContractAddress)[]) {
+    const preimage = mod.StandardContractClassIdPreimage[name];
+    out[name] = {
+      address: mod.StandardContractAddress[name].toString(),
+      classId: mod.StandardContractClassId[name].toString(),
+      artifactHash: preimage.artifactHash.toString(),
+      privateFunctionsRoot: preimage.privateFunctionsRoot.toString(),
+      publicBytecodeCommitment: preimage.publicBytecodeCommitment.toString(),
+      initializationHash: mod.StandardContractInitializationHash[name].toString(),
+      privateFunctionsCount: mod.StandardContractPrivateFunctions[name].length,
+    };
+  }
+  return out;
+}
+
+/**
+ * Lists which derived consts changed, comparing the freshly-derived values against the committed
+ * snapshot — one indented line per changed field.
+ */
+function describeChanges(
+  names: string[],
+  derived: ContractData[],
+  committed: Record<string, CommittedValues> | undefined,
+): string {
+  const lines: string[] = [];
+  names.forEach((name, i) => {
+    const d = derived[i];
+    const prev = committed?.[name];
+    if (!prev) {
+      lines.push(`  ${name}: newly added (no prior committed values)`);
+      return;
+    }
+    const cmp = (field: string, oldV: string, newV: string) => {
+      if (oldV !== newV) {
+        lines.push(`  ${name}.${field}: ${oldV} → ${newV}`);
+      }
+    };
+    cmp('address', prev.address, d.address.toString());
+    cmp('classId', prev.classId, d.classId.toString());
+    cmp('artifactHash', prev.artifactHash, d.artifactHash.toString());
+    cmp('privateFunctionsRoot', prev.privateFunctionsRoot, d.privateFunctionsRoot.toString());
+    cmp('publicBytecodeCommitment', prev.publicBytecodeCommitment, d.publicBytecodeCommitment.toString());
+    cmp('initializationHash', prev.initializationHash, d.initializationHash.toString());
+    cmp('privateFunctions count', String(prev.privateFunctionsCount), String(d.privateFunctions.length));
+  });
+  // Possible if only the generated-file formatting changed (e.g. a codegen tweak) with no value delta.
+  return lines.length > 0 ? lines.join('\n') : '  (no derived value changed — only generated-file formatting)';
+}
+
 async function main() {
   await clearDestDir();
 
@@ -69,21 +142,23 @@ async function main() {
     contractDataList.push(await computeContractData(artifact));
   }
 
+  // Snapshot the committed values before we overwrite the data file, so the drift report can show
+  // exactly which consts changed (old → new) rather than a raw text diff.
+  const committed = await loadCommittedValues();
+
   const targets = await renderAllTargets(names, contractDataList);
-  const driftedFiles: { path: string; diff: string }[] = [];
+  const driftedFiles: string[] = [];
   for (const { path: filePath, content } of targets) {
-    const { changed, previous } = await writeIfChanged(filePath, content);
-    if (changed) {
-      driftedFiles.push({ path: filePath, diff: renderDriftDiff(filePath, previous, content) });
+    if (await writeIfChanged(filePath, content)) {
+      driftedFiles.push(filePath);
     }
   }
 
   if (driftedFiles.length > 0) {
-    const list = driftedFiles.map(f => `  - ${f.path}`).join('\n');
-    const diffs = driftedFiles.map(f => f.diff).join('\n\n');
+    const list = driftedFiles.map(f => `  - ${f}`).join('\n');
     throw new Error(
       `Standard contract addresses have changed. The following generated files were out of date and have been rewritten in-place with the freshly-derived values:\n${list}\n\n` +
-        `What changed (− actual / committed, + expected / freshly derived):\n\n${diffs}\n\n` +
+        `Changed values (old → new):\n${describeChanges(names, contractDataList, committed)}\n\n` +
         `These are derived values — don't hand-edit them. Drift means an upstream change (a modified standard contract, its initialization parameters, or the bb/noir compiler) altered what they derive to.\n\n` +
         `Any noir-contract that imports the stale addresses (via aztec-nr or aztec_sublib) now has stale bytecode and must be rebuilt.\n\n` +
         `To recover, the simplest option is to re-run \`./bootstrap.sh\` from the repo root: the second pass picks up the now-correct values.\n\n` +
