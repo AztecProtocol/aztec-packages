@@ -62,12 +62,15 @@ export function computeStreamPlanSizes(cfg: StreamPlanConfig) {
   const maxPartials = 2 * numThreads;
   const numRadixTiles = Math.ceil(bTotal / RADIX_TILE_SIZE);
   // Stream-walker bounds (STREAM_WALKER_PLAN.md §3.1, §9).
-  //   bucketMeta: bTotal × vec4<u32> = bTotal × 16 B
-  //   walkerPartials: 8 slots × numThreads × 2 planes × 32 B = 8 × numThreads × 64 B
-  //   splitRecords: ≤ 9 × numThreads × 3 u32  (8 intra-thread + 1 inter-thread per thread)
+  //   bucketMeta:     bTotal × vec4<u32> = bTotal × 16 B
+  //   walkerPartials: each slot writes ≤2 partials (split-start + split-end),
+  //                   so 16 slots × numThreads × 2 planes × 32 B per point
+  //                 = 1024 × numThreads bytes
+  //   splitRecords:   ≤16 (bucket_id, partial_slot) pairs per thread
+  //                 = 16 × numThreads × 2 × 4 = 128 × numThreads bytes
   const bucketMetaBytes = bTotal * 4 * 4;
-  const walkerPartialsBytes = 8 * numThreads * PG * 2 * 4 * 4;
-  const splitRecordsBytes = 9 * numThreads * 3 * 4;
+  const walkerPartialsBytes = 16 * numThreads * PG * 2 * 4 * 4;
+  const splitRecordsBytes = 16 * numThreads * 2 * 4;
   return {
     plannerMetaBytes: Math.max((20 + numThreads) * 4, 256),
     size1BucketListBytes: bTotal * 2 * 4,

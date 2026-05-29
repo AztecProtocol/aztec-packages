@@ -18,6 +18,9 @@ import {
   ba_size1 as ba_size1_shader,
   ba_stream_accum as ba_stream_accum_shader,
   ba_partial_sum as ba_partial_sum_shader,
+  // Stream-walker (STREAM_WALKER_PLAN.md §6).
+  ba_bucket_meta_pack as ba_bucket_meta_pack_shader,
+  ba_stream_walker as ba_stream_walker_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -869,6 +872,52 @@ ${packLines.join('\n')}
       ba_recompute_split_shader,
       {
         inv_fn, p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // Stream-walker planner: pack sorted_bucket_list/sorted_count_list/offsets/
+  // cumulative_adds into a single vec4<u32>-per-bucket buffer so the walker
+  // stays within the 8 storage binding limit. See STREAM_WALKER_PLAN.md §6.1.
+  public gen_ba_bucket_meta_pack_shader(workgroup_size: number): string {
+    return mustache.render(
+      ba_bucket_meta_pack_shader,
+      { workgroup_size, recompile: this.recompile },
+    );
+  }
+
+  // Stream-walker accumulator (STREAM_WALKER_PLAN.md §6). Replaces
+  // ba_stream_accum + ba_planner_emit + ba_planner_emit_fixup +
+  // ba_recompute_split + ba_partial_sum.
+  public gen_ba_stream_walker_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    // pref_scratch length: TPB × S × 2 vec4 elements per slot (forward prefix
+    // + inverse). At TPB=128, S=8: 2048 vec4 = 32 KB — at M2's workgroup
+    // memory limit. Caller must ensure this fits the target adapter.
+    const pref_scratch_len = workgroup_size * s * 2;
+    return mustache.render(
+      ba_stream_walker_shader,
+      {
+        workgroup_size, s, inv_fn, pref_scratch_len,
+        p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
