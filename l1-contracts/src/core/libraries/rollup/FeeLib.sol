@@ -92,7 +92,7 @@ uint256 constant MIN_PROVING_COST_PER_MANA = 2;
 // Initial-only ceiling. Prevents a mistaken deployment from setting a value that will take a long
 // time to correct from. At the time of this writing, deployed value is 2.5e7, and it is expected
 // that proving costs will go down.
-uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 1e8;
+uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 2e8;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
