@@ -23,8 +23,8 @@ struct MegaTraceBlockData {
 
     MegaTraceBlock ecc_op{};
     MegaTraceBlock pub_inputs{};
-    MegaTraceBlock arithmetic{ GateKind::Arith };
     MegaTraceBlock lookup{ GateKind::Lookup };
+    MegaTraceBlock arithmetic{ GateKind::Arith };
     MegaTraceBlock delta_range{ GateKind::DeltaRange };
     MegaTraceBlock elliptic{ GateKind::Elliptic };
     MegaTraceBlock memory{ GateKind::Memory };
@@ -42,8 +42,8 @@ struct MegaTraceBlockData {
         return {
             "ecc_op",
             "pub_inputs",
-            "arithmetic",
             "lookup",
+            "arithmetic",
             "delta_range",
             "elliptic",
             "memory",
@@ -59,8 +59,8 @@ struct MegaTraceBlockData {
         return RefArray(std::array<MegaTraceBlock*, NUM_BLOCKS>{
             &ecc_op,
             &pub_inputs,
-            &arithmetic,
             &lookup,
+            &arithmetic,
             &delta_range,
             &elliptic,
             &memory,
@@ -76,8 +76,8 @@ struct MegaTraceBlockData {
         return RefArray(std::array<const MegaTraceBlock*, NUM_BLOCKS>{
             &ecc_op,
             &pub_inputs,
-            &arithmetic,
             &lookup,
+            &arithmetic,
             &delta_range,
             &elliptic,
             &memory,
@@ -93,8 +93,8 @@ struct MegaTraceBlockData {
         info("Gate blocks summary:");
         info("ecc_op                  : ", this->ecc_op.size());
         info("pub_inputs              : ", this->pub_inputs.size());
-        info("arithmetic              : ", this->arithmetic.size());
         info("lookup                  : ", this->lookup.size());
+        info("arithmetic              : ", this->arithmetic.size());
         info("delta_range             : ", this->delta_range.size());
         info("elliptic                : ", this->elliptic.size());
         info("memory                  : ", this->memory.size());
